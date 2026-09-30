@@ -22,6 +22,7 @@ import {
   type MediaSourceMonitor,
 } from "@/lib/media-source-monitor";
 import {
+  listCanonicalAutomationUpdateSuggestionEntityIds,
   listCanonicalAutomationUpdateSuggestionsForEntities,
   type AutomationUpdateOrigin,
 } from "@/lib/data-automation-update-review";
@@ -107,6 +108,15 @@ export const dataQualityPriorityOptions = [
 ] as const;
 
 export type DataQualityPriority = (typeof dataQualityPriorityOptions)[number]["value"];
+
+export const dataQualitySolutionOptions = [
+  { value: "all", label: "Všetky návrhy" },
+  { value: "actionable", label: "Dá sa prevziať" },
+  { value: "manual", label: "Vyžaduje kontrolu" },
+  { value: "none", label: "Bez nájdeného návrhu" },
+] as const;
+
+export type DataQualitySolutionFilter = (typeof dataQualitySolutionOptions)[number]["value"];
 
 export const dataQualityMediaStatusOptions = [
   { value: "all", label: "Všetky stavy obrázkov" },
@@ -279,6 +289,8 @@ export type DataQualityDashboard = {
   profileStatusOptions: typeof dataQualityProfileStatusOptions;
   priority: DataQualityPriority;
   priorityOptions: typeof dataQualityPriorityOptions;
+  solution: DataQualitySolutionFilter;
+  solutionOptions: typeof dataQualitySolutionOptions;
   query: string;
   region: string;
   district: string;
@@ -468,7 +480,11 @@ async function loadDirectoryLocationOptions(database: D1Database, filters: Profi
   return { regionOptions: values(regions), districtOptions: values(districts) };
 }
 
-async function loadProfileQualityPage(requestedPage: number, filters: ProfileQualityFilters): Promise<ProfileReadData> {
+async function loadProfileQualityPage(
+  requestedPage: number,
+  filters: ProfileQualityFilters,
+  loadAllMatches = false,
+): Promise<ProfileReadData> {
   const db = database();
   const locationOptions = await loadDirectoryLocationOptions(db, filters);
   if (filters.category === "podujatia") {
@@ -524,18 +540,26 @@ async function loadProfileQualityPage(requestedPage: number, filters: ProfileQua
   `).bind(...resultFilter.bindings).first<{ count: number }>();
   const resultCount = Number(countRow?.count ?? 0);
   const paging = pagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE, resultCount);
-  const offset = (paging.page - 1) * paging.pageSize;
-  const result = await db.prepare(`
-    SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
-           online, city, district, region, service_address_confirmation, source_data_json
-    FROM directory_profiles
-    WHERE status <> 'archived'${resultFilter.clause}
-      AND ${PROFILE_ISSUE_SQL}
-    ORDER BY name COLLATE NOCASE ASC, id ASC
-    LIMIT ? OFFSET ?
-  `).bind(...resultFilter.bindings, paging.pageSize, offset).all<DirectoryQualityRow>();
+  const rows: DirectoryQualityRow[] = [];
+  const pageSize = loadAllMatches ? 500 : paging.pageSize;
+  const firstOffset = loadAllMatches ? 0 : (paging.page - 1) * paging.pageSize;
+  const pageCount = loadAllMatches ? Math.max(1, Math.ceil(resultCount / pageSize)) : 1;
+  for (let index = 0; index < pageCount; index += 1) {
+    const offset = firstOffset + (index * pageSize);
+    const result = await db.prepare(`
+      SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
+             online, city, district, region, service_address_confirmation, source_data_json
+      FROM directory_profiles
+      WHERE status <> 'archived'${resultFilter.clause}
+        AND ${PROFILE_ISSUE_SQL}
+      ORDER BY name COLLATE NOCASE ASC, id ASC
+      LIMIT ? OFFSET ?
+    `).bind(...resultFilter.bindings, pageSize, offset).all<DirectoryQualityRow>();
+    rows.push(...(result.results ?? []));
+    if (!loadAllMatches || (result.results ?? []).length < pageSize) break;
+  }
 
-  const profiles = (result.results ?? []).map((row) => {
+  const profiles = rows.map((row) => {
     const issues = directoryIssues(row);
     return {
       id: Number(row.id),
@@ -552,6 +576,85 @@ async function loadProfileQualityPage(requestedPage: number, filters: ProfileQua
   });
 
   return { summary, profiles, pagination: paging, ...locationOptions };
+}
+
+const qualitySuggestionField = {
+  publicPhone: { issueKey: "phone", label: "Telefón", reviewMode: "accept" },
+  publicEmail: { issueKey: "email", label: "E-mail", reviewMode: "accept" },
+  websiteUrl: { issueKey: "website", label: "Web", reviewMode: "accept" },
+  description: { issueKey: "description", label: "Popis", reviewMode: "accept" },
+  address: { issueKey: "address", label: "Adresa", reviewMode: "manual" },
+  city: { issueKey: "address", label: "Mesto / obec", reviewMode: "manual" },
+  district: { issueKey: "address", label: "Okres", reviewMode: "manual" },
+  region: { issueKey: "address", label: "Kraj", reviewMode: "manual" },
+  postalCode: { issueKey: "address", label: "PSČ", reviewMode: "manual" },
+  street: { issueKey: "address", label: "Ulica", reviewMode: "manual" },
+  houseNumber: { issueKey: "address", label: "Číslo domu", reviewMode: "manual" },
+  addressFormat: { issueKey: "address", label: "Formát adresy", reviewMode: "manual" },
+  serviceAddressConfirmation: { issueKey: "address", label: "Potvrdenie adresy", reviewMode: "manual" },
+} as const;
+
+async function loadQualitySuggestionsForProfiles(
+  profiles: readonly DirectoryQualityItem[],
+  db: D1Database,
+) {
+  if (!profiles.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
+  const candidateIds = new Set(await listCanonicalAutomationUpdateSuggestionEntityIds({ entityType: "DIRECTORY" }, db));
+  const profileIdSet = new Set(profiles.map((profile) => profile.id));
+  const relevantIds = [...candidateIds].filter((id) => profileIdSet.has(id));
+  if (!relevantIds.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
+
+  const suggestions = [];
+  for (const batch of chunks(relevantIds, 40)) {
+    suggestions.push(...await listCanonicalAutomationUpdateSuggestionsForEntities({
+      entityType: "DIRECTORY",
+      canonicalEntityIds: batch,
+    }, db));
+  }
+
+  const profileIssues = new Map(
+    profiles.map((profile) => [profile.id, new Set(profile.issues.map((issue) => issue.key))]),
+  );
+  return suggestions.flatMap((suggestion) =>
+    suggestion.fields.flatMap((field) => {
+      if (!(field.field in qualitySuggestionField)) return [];
+      const typedField = field.field as keyof typeof qualitySuggestionField;
+      const meta = qualitySuggestionField[typedField];
+      const canAccept = meta.reviewMode === "accept" && field.reviewable && field.state === "OPEN";
+      const canReviewManually = meta.reviewMode === "manual" && field.state === "UNSUPPORTED";
+      if (!canAccept && !canReviewManually) return [];
+      if (!profileIssues.get(suggestion.canonicalEntityId)?.has(meta.issueKey)) return [];
+      const proposed = field.proposed === null || field.proposed === undefined ? "" : String(field.proposed).trim();
+      if (!proposed) return [];
+      return [{
+        profileId: suggestion.canonicalEntityId,
+        suggestion: {
+          origin: suggestion.origin,
+          suggestionId: suggestion.id,
+          field: typedField,
+          issueKey: meta.issueKey,
+          label: meta.label,
+          proposed,
+          reviewMode: meta.reviewMode,
+          note: meta.reviewMode === "manual"
+            ? "Adresu treba pred uložením skontrolovať v profile."
+            : field.note,
+          sourceUrl: suggestion.sourceUrl,
+          sourceLabel: suggestion.sourceLabel,
+          detectedAt: suggestion.detectedAt,
+          canonicalUpdatedAt: suggestion.canonicalUpdatedAt,
+          proposedValueHash: field.proposedValueHash,
+        } satisfies DataQualityFieldSuggestion,
+      }];
+    }),
+  );
+}
+
+function profileMatchesSolution(profile: DirectoryQualityItem, solution: DataQualitySolutionFilter) {
+  if (solution === "all") return true;
+  if (solution === "actionable") return profile.suggestions.some((suggestion) => suggestion.reviewMode === "accept");
+  if (solution === "manual") return profile.suggestions.some((suggestion) => suggestion.reviewMode === "manual");
+  return profile.suggestions.length === 0;
 }
 
 function mediaCategorySql(category: DataQualityCategory) {
@@ -720,6 +823,7 @@ export async function loadDataQualityDashboard(input: {
   issue?: string;
   profileStatus?: string;
   priority?: string;
+  solution?: string;
   query?: string;
   region?: string;
   district?: string;
@@ -739,6 +843,9 @@ export async function loadDataQualityDashboard(input: {
   const priority = dataQualityPriorityOptions.some((option) => option.value === input.priority)
     ? input.priority as DataQualityPriority
     : "all";
+  const solution = dataQualitySolutionOptions.some((option) => option.value === input.solution)
+    ? input.solution as DataQualitySolutionFilter
+    : "all";
   const mediaStatus = dataQualityMediaStatusOptions.some((option) => option.value === input.mediaStatus)
     ? input.mediaStatus as DataQualityMediaStatus
     : "all";
@@ -757,7 +864,7 @@ export async function loadDataQualityDashboard(input: {
 
   const profileRead = await readAdminAutomationData({
     key: "data-quality:profiles",
-    load: () => loadProfileQualityPage(requestedProfilePage, profileFilters),
+    load: () => loadProfileQualityPage(requestedProfilePage, profileFilters, solution !== "all"),
     fallback: {
       summary: {
         totalProfiles: 0,
@@ -779,65 +886,7 @@ export async function loadDataQualityDashboard(input: {
 
   const suggestionRead = await readAdminAutomationData({
     key: "data-quality:profile-suggestions",
-    load: async () => {
-      const profileIds = profileRead.data.profiles.map((profile) => profile.id);
-      if (!profileIds.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
-      const suggestions = await listCanonicalAutomationUpdateSuggestionsForEntities({
-        entityType: "DIRECTORY",
-        canonicalEntityIds: profileIds,
-      }, database());
-      const issueField = {
-        publicPhone: { issueKey: "phone", label: "Telefón", reviewMode: "accept" },
-        publicEmail: { issueKey: "email", label: "E-mail", reviewMode: "accept" },
-        websiteUrl: { issueKey: "website", label: "Web", reviewMode: "accept" },
-        description: { issueKey: "description", label: "Popis", reviewMode: "accept" },
-        address: { issueKey: "address", label: "Adresa", reviewMode: "manual" },
-        city: { issueKey: "address", label: "Mesto / obec", reviewMode: "manual" },
-        district: { issueKey: "address", label: "Okres", reviewMode: "manual" },
-        region: { issueKey: "address", label: "Kraj", reviewMode: "manual" },
-        postalCode: { issueKey: "address", label: "PSČ", reviewMode: "manual" },
-        street: { issueKey: "address", label: "Ulica", reviewMode: "manual" },
-        houseNumber: { issueKey: "address", label: "Číslo domu", reviewMode: "manual" },
-        addressFormat: { issueKey: "address", label: "Formát adresy", reviewMode: "manual" },
-        serviceAddressConfirmation: { issueKey: "address", label: "Potvrdenie adresy", reviewMode: "manual" },
-      } as const;
-      const profileIssues = new Map(
-        profileRead.data.profiles.map((profile) => [profile.id, new Set(profile.issues.map((issue) => issue.key))]),
-      );
-      return suggestions.flatMap((suggestion) =>
-        suggestion.fields.flatMap((field) => {
-          if (!(field.field in issueField)) return [];
-          const typedField = field.field as keyof typeof issueField;
-          const meta = issueField[typedField];
-          const canAccept = meta.reviewMode === "accept" && field.reviewable && field.state === "OPEN";
-          const canReviewManually = meta.reviewMode === "manual" && field.state === "UNSUPPORTED";
-          if (!canAccept && !canReviewManually) return [];
-          if (!profileIssues.get(suggestion.canonicalEntityId)?.has(meta.issueKey)) return [];
-          const proposed = field.proposed === null || field.proposed === undefined ? "" : String(field.proposed).trim();
-          if (!proposed) return [];
-          return [{
-            profileId: suggestion.canonicalEntityId,
-            suggestion: {
-              origin: suggestion.origin,
-              suggestionId: suggestion.id,
-              field: typedField,
-              issueKey: meta.issueKey,
-              label: meta.label,
-              proposed,
-              reviewMode: meta.reviewMode,
-              note: meta.reviewMode === "manual"
-                ? "Adresu treba pred uložením skontrolovať v profile."
-                : field.note,
-              sourceUrl: suggestion.sourceUrl,
-              sourceLabel: suggestion.sourceLabel,
-              detectedAt: suggestion.detectedAt,
-              canonicalUpdatedAt: suggestion.canonicalUpdatedAt,
-              proposedValueHash: field.proposedValueHash,
-            } satisfies DataQualityFieldSuggestion,
-          }];
-        }),
-      );
-    },
+    load: () => loadQualitySuggestionsForProfiles(profileRead.data.profiles, database()),
     fallback: [],
     empty: (value) => value.length === 0,
   });
@@ -869,16 +918,30 @@ export async function loadDataQualityDashboard(input: {
     empty: (value) => value.length === 0,
   });
 
-  const suggestionsByProfile = new Map<number, DataQualityContactSuggestion[]>();
+  const suggestionsByProfile = new Map<number, DataQualityFieldSuggestion[]>();
   for (const item of suggestionRead.data) {
     const current = suggestionsByProfile.get(item.profileId) ?? [];
     current.push(item.suggestion);
     suggestionsByProfile.set(item.profileId, current);
   }
-  const profiles = profileRead.data.profiles.map((profile) => ({
+  const profilesWithSuggestions = profileRead.data.profiles.map((profile) => ({
     ...profile,
     suggestions: suggestionsByProfile.get(profile.id) ?? [],
   }));
+  const solutionFilteredProfiles = solution === "all"
+    ? profilesWithSuggestions
+    : suggestionRead.status === "UNAVAILABLE"
+      ? []
+      : profilesWithSuggestions.filter((profile) => profileMatchesSolution(profile, solution));
+  const solutionPagination = solution === "all"
+    ? profileRead.data.pagination
+    : pagination(requestedProfilePage, DATA_QUALITY_PROFILE_PAGE_SIZE, solutionFilteredProfiles.length);
+  const profiles = solution === "all"
+    ? solutionFilteredProfiles
+    : solutionFilteredProfiles.slice(
+        (solutionPagination.page - 1) * solutionPagination.pageSize,
+        solutionPagination.page * solutionPagination.pageSize,
+      );
 
   const availability = summarizeAdminAutomationReads([profileRead, suggestionRead, mediaRead, lookupRead]);
   return {
@@ -889,7 +952,7 @@ export async function loadDataQualityDashboard(input: {
     profiles,
     media: lookupRead.data,
     monitorReady: mediaRead.data.monitorReady,
-    profilePagination: profileRead.data.pagination,
+    profilePagination: solutionPagination,
     mediaPagination: mediaRead.data.pagination,
     category,
     categoryOptions: dataQualityCategoryOptions,
@@ -899,6 +962,8 @@ export async function loadDataQualityDashboard(input: {
     profileStatusOptions: dataQualityProfileStatusOptions,
     priority,
     priorityOptions: dataQualityPriorityOptions,
+    solution,
+    solutionOptions: dataQualitySolutionOptions,
     query,
     region,
     district,
