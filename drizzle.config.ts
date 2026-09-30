@@ -2,6 +2,6 @@ import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   out: "./drizzle",
-  schema: ["./db/schema.ts", "./db/foundation-schema.ts", "./db/lost-found-dogs-schema.ts", "./db/adoption-schema.ts", "./db/help-organization-schema.ts"],
+  schema: ["./db/schema.ts", "./db/foundation-schema.ts", "./db/lost-found-dogs-schema.ts", "./db/adoption-schema.ts", "./db/help-organization-schema.ts", "./db/eshop-schema.ts"],
   dialect: "sqlite",
 });

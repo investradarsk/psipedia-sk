@@ -12,11 +12,13 @@ export function AdminReviewsHub({
   pendingReviews,
   totalReviews,
   categoryCount,
+  eshopCounts,
 }: {
   articleCounts: { total: Metric; published: Metric; draft: Metric; scheduled: Metric };
   pendingReviews: Metric;
   totalReviews: Metric;
   categoryCount: Metric;
+  eshopCounts: { total: Metric; published: Metric };
 }) {
   return (
     <div className={styles.workspace}>
@@ -116,20 +118,28 @@ export function AdminReviewsHub({
             </div>
           </article>
 
-          <article className={`${styles.card} ${styles.cardMuted}`}>
+          <article className={styles.card}>
             <div className={styles.cardTop}>
               <span className={styles.icon} aria-hidden="true">🛒</span>
-              <span className={styles.status} data-tone="planned">Ďalšia fáza</span>
+              <span className={styles.status} data-tone="live">Aktívne</span>
             </div>
             <h3>E-shopy</h3>
-            <p>Verejný hub už s e-shopmi počíta, ale samostatné profily a ich hodnotiaci model ešte nie sú implementované.</p>
+            <p>Samostatné profily e-shopov s jednoduchým hodnotením od overených používateľov bez registrácie účtu.</p>
+            <div className={styles.cardMetrics}>
+              <span>{eshopCounts.published === null ? "—" : eshopCounts.published} publikovaných</span>
+              <span>{eshopCounts.total === null ? "—" : eshopCounts.total} spolu</span>
+            </div>
             <div className={styles.eshopRules}>
               <span>Doručenie</span>
               <span>Komunikácia</span>
               <span>Sortiment</span>
+              <span>Ceny</span>
               <span>Celková skúsenosť</span>
             </div>
-            <div className={styles.notice}>Žiadne falošné profily ani hviezdičky sa nevytvárajú.</div>
+            <div className={styles.actions}>
+              <Link className={styles.primary} href="/admin/recenzie/eshopy">Spravovať e-shopy</Link>
+              <Link href="/recenzie?typ=eshopy" target="_blank" rel="noreferrer">Skontrolovať web ↗</Link>
+            </div>
           </article>
         </div>
       </section>
@@ -140,7 +150,7 @@ export function AdminReviewsHub({
           <h2 id="reviews-admin-rules">Čo zostáva oddelené</h2>
         </div>
         <div className={styles.ruleGrid}>
-          <article><strong>Psipedia používateľské skóre</strong><p>Vzniká iba z publikovaných recenzií používateľov na konkrétnom profile.</p></article>
+          <article><strong>Psipedia používateľské skóre</strong><p>Pri službách vzniká z publikovaných recenzií; pri e-shopoch z piatich známok od e-mailom overených používateľov.</p></article>
           <article><strong>Redakčný test</strong><p>Je samostatný obsah Psipedia s metodikou, kontextom a transparentným záverom.</p></article>
           <article><strong>Externé hodnotenia</strong><p>Google alebo iný externý zdroj sa nikdy nezmieša do priemeru Psipedia.</p></article>
         </div>

@@ -46,8 +46,24 @@ export function normalizeReviewSubmissionReturnTo(value: unknown): string | null
   return "/recenzia/napisat?" + allowed.toString();
 }
 
+export function normalizeEshopRatingReturnTo(value: unknown): string | null {
+  const parsed = parseInternalPath(value);
+  if (!parsed || parsed.search || parsed.hash) return null;
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  if (
+    segments.length !== 4
+    || segments[0] !== "recenzie"
+    || segments[1] !== "eshopy"
+    || !/^[a-z0-9-]{1,100}$/.test(segments[2] ?? "")
+    || segments[3] !== "hodnotit"
+  ) return null;
+  return parsed.pathname;
+}
+
 export function normalizeReviewAuthorReturnTo(value: unknown): string | null {
-  return normalizeReviewProfileReturnTo(value) ?? normalizeReviewSubmissionReturnTo(value);
+  return normalizeReviewProfileReturnTo(value)
+    ?? normalizeReviewSubmissionReturnTo(value)
+    ?? normalizeEshopRatingReturnTo(value);
 }
 
 export function reviewSubmissionHref(resourceId: string) {

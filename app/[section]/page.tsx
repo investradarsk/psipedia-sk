@@ -8,6 +8,7 @@ import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
 import { NewsHub } from "@/components/news-hub";
 import { getAllPublishedArticleSummaries, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
+import { listPublishedEshops } from "@/lib/eshop-ratings";
 import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { listLatestPublicProfileReviews, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
@@ -77,16 +78,24 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   });
   if (slug === "recenzie") {
     const database = publicReviewDatabase();
-    const profileReviews = database
-      ? await listLatestPublicProfileReviews(database, 8).catch((error) => {
-          console.error("Public reviews hub feed read failed", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return [];
-        })
-      : [];
+    const [profileReviews, eshops] = await Promise.all([
+      database
+        ? listLatestPublicProfileReviews(database, 8).catch((error) => {
+            console.error("Public reviews hub feed read failed", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return [];
+          })
+        : Promise.resolve([]),
+      listPublishedEshops().catch((error) => {
+        console.error("Public e-shop review hub read failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return [];
+      }),
+    ]);
     const raw = await searchParams;
-    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} view={normalizeReviewsHubView(scalar(raw.typ))} />;
+    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(raw.typ))} />;
   }
   if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
   if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;

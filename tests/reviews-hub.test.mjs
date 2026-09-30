@@ -8,13 +8,15 @@ test("reviews landing route uses the dedicated unified hub and keeps failures no
   const route = read("app/[section]/page.tsx");
   assert.match(route, /ReviewsHub, normalizeReviewsHubView/);
   assert.match(route, /listLatestPublicProfileReviews\(database, 8\)/);
+  assert.match(route, /listPublishedEshops\(\)/);
+  assert.match(route, /Public e-shop review hub read failed/);
   assert.match(route, /Public reviews hub feed read failed/);
   assert.match(route, /return \[\]/);
   assert.match(route, /slug === "recenzie"/);
   assert.match(route, /REVIEWS_DESCRIPTION/);
 });
 
-test("reviews hub separates editorial products, user service reviews and future e-shops", () => {
+test("reviews hub separates editorial products, user service reviews and verified e-shop ratings", () => {
   const hub = read("components/reviews-hub.tsx");
   assert.match(hub, /Všetko/);
   assert.match(hub, /Produkty/);
@@ -22,7 +24,9 @@ test("reviews hub separates editorial products, user service reviews and future 
   assert.match(hub, /E-shopy/);
   assert.match(hub, /Najnovšie testy Psipedia/);
   assert.match(hub, /Najnovšie recenzie služieb/);
-  assert.match(hub, /Profily e-shopov pripravujeme ako samostatný typ hodnotenia/);
+  assert.match(hub, /Hodnotenia nákupnej skúsenosti/);
+  assert.match(hub, /overený e-mail/);
+  assert.match(hub, /\/recenzie\/eshopy\/\$\{shop\.slug\}/);
   assert.match(hub, /Google ani iné externé skóre nikdy nemiešame do priemeru Psipedia/);
   assert.match(hub, /Affiliate a sponzorovaný obsah musí byť označený/);
 });
@@ -48,5 +52,6 @@ test("reviews hub styling stays isolated in a CSS module", () => {
   assert.match(css, /\.switcher/);
   assert.match(css, /\.reviewGrid/);
   assert.match(css, /\.categoryGrid/);
+  assert.match(css, /\.eshopGrid/);
   assert.match(css, /@media \(max-width: 620px\)/);
 });
