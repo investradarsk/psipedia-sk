@@ -133,6 +133,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? "");
   const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? "");
   const [addressProviderResultId, setAddressProviderResultId] = useState("");
+  const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
   const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
@@ -225,6 +226,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           services: listFromText(services), qualifications: listFromText(qualifications),
           city, district, region, postalCode, street, houseNumber, addressFormat,
           addressProviderResultId: addressProviderResultId || undefined,
+          numberlessLocalityConfirmed: numberlessLocalityConfirmed || undefined,
           confirmServiceAddress: false,
           online, priceNote,
           websiteUrl: websiteUrl || null,
@@ -392,6 +394,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                 setCity(location.city);
                 if (changed) {
                   setAddressProviderResultId("");
+                  setNumberlessLocalityConfirmed(false);
                   setPostalCode("");
                   setStreet("");
                   setHouseNumber("");
@@ -406,9 +409,18 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
               city={city}
               selectedProviderResultId={addressProviderResultId}
               selectedStreet={street}
+              selectedLocalityConfirmed={numberlessLocalityConfirmed}
               disabled={online && !region && !district && !city}
               onClearSelection={() => {
                 setAddressProviderResultId("");
+                setNumberlessLocalityConfirmed(false);
+              }}
+              onUseLocality={(locality) => {
+                setAddressProviderResultId("");
+                setNumberlessLocalityConfirmed(true);
+                setStreet(locality);
+                setHouseNumber("");
+                setAddressFormat("STREET");
               }}
               onSelect={(suggestion) => {
                 const next = applyDirectoryStreetSelection(
@@ -416,6 +428,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                   suggestion,
                 );
                 setAddressProviderResultId(next.addressProviderResultId);
+                setNumberlessLocalityConfirmed(false);
                 setPostalCode(next.postalCode);
                 setStreet(next.street);
                 setHouseNumber(next.houseNumber);
@@ -434,8 +447,12 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                     id="directory-house-number"
                     value={houseNumber}
                     onChange={(event) => {
-                      setHouseNumber(event.target.value);
-                      if (event.target.value.trim()) setPostalCode("");
+                      const value = event.target.value;
+                      setHouseNumber(value);
+                      if (value.trim()) {
+                        setPostalCode("");
+                        setNumberlessLocalityConfirmed(false);
+                      }
                     }}
                     placeholder="Napríklad 1892/74 alebo 74"
                   />
