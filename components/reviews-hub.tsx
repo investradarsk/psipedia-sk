@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, SearchIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
@@ -105,25 +106,26 @@ export function ReviewsHub({
 
   return (
     <main id="obsah">
+      <PublicFoundation className={styles.foundation}>
       <header className={styles.hero}>
         <PageContainer>
           <Breadcrumbs>
             <Link href="/">Domov</Link><span>/</span><span>Recenzie a testy</span>
           </Breadcrumbs>
-          <div className={styles.heroGrid}>
-            <div>
-              <span className={styles.eyebrow}>Rozhoduj sa podľa skúseností, nie reklamy</span>
-              <h1>Recenzie a testy</h1>
-              <p>Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste.</p>
-            </div>
-            <form className={styles.search} action="/hladat" method="get">
-              <SearchIcon size={21} />
-              <input type="hidden" name="sekcia" value="recenzie" />
-              <label className="sr-only" htmlFor="reviews-hub-query">Hľadať v recenziách a testoch</label>
-              <input id="reviews-hub-query" name="q" maxLength={120} placeholder="Krmivo, GPS, veterinár, tréner…" />
-              <button type="submit">Hľadať</button>
-            </form>
-          </div>
+          <PublicSectionHeader
+            className={styles.header}
+            variant="compact"
+            eyebrow="Rozhodovanie podľa skúseností"
+            title="Recenzie a testy"
+            intro="Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste."
+          />
+          <form className={styles.search} action="/hladat" method="get">
+            <SearchIcon size={21} />
+            <input type="hidden" name="sekcia" value="recenzie" />
+            <label className="sr-only" htmlFor="reviews-hub-query">Hľadať v recenziách a testoch</label>
+            <input id="reviews-hub-query" name="q" maxLength={120} placeholder="Krmivo, GPS, veterinár, tréner…" />
+            <button type="submit">Hľadať</button>
+          </form>
         </PageContainer>
       </header>
 
@@ -307,6 +309,7 @@ export function ReviewsHub({
           </div>
         </PageContainer>
       </section>
+      </PublicFoundation>
     </main>
   );
 }
