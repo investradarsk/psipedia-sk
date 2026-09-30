@@ -1,13 +1,16 @@
+import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StructuredData } from "@/components/structured-data";
 import { EventsPage as EventsListingPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
+import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
 import { NewsHub } from "@/components/news-hub";
 import { getAllPublishedArticleSummaries, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { listLatestPublicProfileReviews, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
 import { buildPageMetadata } from "@/lib/seo";
@@ -15,8 +18,19 @@ import { buildPageMetadata } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov.";
+const REVIEWS_DESCRIPTION = "Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste.";
 
-type Props = { params: Promise<{ section: string }>; searchParams: Promise<{ termin?: string | string[] }> };
+type Props = { params: Promise<{ section: string }>; searchParams: Promise<{ termin?: string | string[]; typ?: string | string[] }> };
+type ReviewBindings = { DB?: ProfileReviewReadDatabase };
+
+function publicReviewDatabase() {
+  const database = (env as unknown as ReviewBindings).DB;
+  return database && typeof database.prepare === "function" ? database : null;
+}
+
+function scalar(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 type EventsPageProps = Parameters<typeof EventsListingPage>[0] & { schema: ReturnType<typeof buildCollectionPageJsonLd> | null };
 
 function EventsPage({ schema, ...props }: EventsPageProps) {
@@ -31,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { section: slug } = await params;
   const section = await getManagedPortalSection(slug);
   if (!section?.visible) return {};
-  const description = slug === "novinky" ? NOVINKY_DESCRIPTION : section.description;
+  const description = slug === "novinky" ? NOVINKY_DESCRIPTION : slug === "recenzie" ? REVIEWS_DESCRIPTION : section.description;
   return buildPageMetadata({
     title: section.label,
     description,
@@ -61,6 +75,19 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ],
     items: eventList.map((event) => ({ name: event.title, path: eventHref(event) })),
   });
+  if (slug === "recenzie") {
+    const database = publicReviewDatabase();
+    const profileReviews = database
+      ? await listLatestPublicProfileReviews(database, 8).catch((error) => {
+          console.error("Public reviews hub feed read failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return [];
+        })
+      : [];
+    const raw = await searchParams;
+    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} view={normalizeReviewsHubView(scalar(raw.typ))} />;
+  }
   if (slug === "novinky") return <NewsHub articles={articles} section={section} />;
   if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
