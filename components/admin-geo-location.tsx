@@ -21,6 +21,7 @@ type LocationPreview = {
   providerResultId: string | null;
   sourceFingerprint: string;
   canonicalAddress: string;
+  mode: "EXACT_ADDRESS" | "NUMBERLESS_PLACE";
   google: GooglePreview;
 };
 
@@ -319,7 +320,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
                       latitude={snapshot.point.latitude}
                       longitude={snapshot.point.longitude}
                       label={snapshot.source.label}
-                      displayLocation={[snapshot.source.street && snapshot.source.houseNumber ? `${snapshot.source.street} ${snapshot.source.houseNumber}` : "", snapshot.source.city].filter(Boolean).join(", ")}
+                      displayLocation={[snapshot.source.street ? [snapshot.source.street, snapshot.source.houseNumber].filter(Boolean).join(" ") : "", snapshot.source.city].filter(Boolean).join(", ")}
                     />
                   ) : null}
                   <div className="admin-editor-actions">
@@ -342,7 +343,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
                 <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
                   {preview.google.status === "CONFIRMED" ? (
                     <div className="admin-message">
-                      <strong>✅ Nájdená adresa v Google Maps</strong>
+                      <strong>{preview.mode === "NUMBERLESS_PLACE" ? "✅ Nájdené miesto v Google Maps" : "✅ Nájdená adresa v Google Maps"}</strong>
                       <p className="admin-help">{preview.google.formattedAddress}</p>
                     </div>
                   ) : (
