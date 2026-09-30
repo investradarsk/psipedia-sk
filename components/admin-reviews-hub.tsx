@@ -150,7 +150,7 @@ export function AdminReviewsHub({
           <h2 id="reviews-admin-rules">Čo zostáva oddelené</h2>
         </div>
         <div className={styles.ruleGrid}>
-          <article><strong>Psipedia používateľské skóre</strong><p>Vzniká iba z publikovaných recenzií používateľov na konkrétnom profile.</p></article>
+          <article><strong>Psipedia používateľské skóre</strong><p>Pri službách vzniká z publikovaných recenzií; pri e-shopoch z piatich známok od e-mailom overených používateľov.</p></article>
           <article><strong>Redakčný test</strong><p>Je samostatný obsah Psipedia s metodikou, kontextom a transparentným záverom.</p></article>
           <article><strong>Externé hodnotenia</strong><p>Google alebo iný externý zdroj sa nikdy nezmieša do priemeru Psipedia.</p></article>
         </div>
