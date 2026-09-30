@@ -156,6 +156,9 @@ export type DirectoryClubSearchResult = {
 export type ManagedDirectoryProfile = PublicDirectoryProfile & {
   status: DirectoryProfileStatus;
   qualityMetadata: DirectoryQualityMetadata;
+  reviewed: boolean;
+  reviewedAt: string;
+  reviewedBy: string;
   internalEmail: string | null;
   imageKey: string | null;
   createdAt: string;
