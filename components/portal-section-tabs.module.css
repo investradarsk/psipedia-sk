@@ -35,6 +35,8 @@
   border-color: var(--forest);
   color: var(--white);
   background: var(--forest);
+  text-decoration: underline;
+  text-underline-offset: .22em;
 }
 
 .nav :global(.section-tab:focus-visible) {
