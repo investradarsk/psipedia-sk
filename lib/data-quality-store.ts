@@ -597,6 +597,7 @@ const qualitySuggestionField = {
 async function loadQualitySuggestionsForProfiles(
   profiles: readonly DirectoryQualityItem[],
   db: D1Database,
+  issue: DataQualityIssueFilter,
 ) {
   if (!profiles.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
   const candidateIds = new Set(await listCanonicalAutomationUpdateSuggestionEntityIds({ entityType: "DIRECTORY" }, db));
@@ -620,6 +621,7 @@ async function loadQualitySuggestionsForProfiles(
       if (!(field.field in qualitySuggestionField)) return [];
       const typedField = field.field as keyof typeof qualitySuggestionField;
       const meta = qualitySuggestionField[typedField];
+      if (issue !== "all" && meta.issueKey !== issue) return [];
       const canAccept = meta.reviewMode === "accept" && field.reviewable && field.state === "OPEN";
       const canReviewManually = meta.reviewMode === "manual" && field.state === "UNSUPPORTED";
       if (!canAccept && !canReviewManually) return [];
@@ -886,7 +888,7 @@ export async function loadDataQualityDashboard(input: {
 
   const suggestionRead = await readAdminAutomationData({
     key: "data-quality:profile-suggestions",
-    load: () => loadQualitySuggestionsForProfiles(profileRead.data.profiles, database()),
+    load: () => loadQualitySuggestionsForProfiles(profileRead.data.profiles, database(), issue),
     fallback: [],
     empty: (value) => value.length === 0,
   });
