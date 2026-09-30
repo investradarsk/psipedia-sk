@@ -630,11 +630,24 @@ export async function runMediaSourceMonitorSweep(input: {
   return summary;
 }
 
-export async function listMediaSourceIssues(database: D1Database, limit = 100, offset = 0) {
+export async function listMediaSourceIssues(
+  database: D1Database,
+  limit = 100,
+  offset = 0,
+  category = "all",
+) {
   if (!await mediaSourceMonitorSchemaReady(database)) return [];
+  let categoryClause = "";
+  const categoryBindings: string[] = [];
+  if (category === "podujatia") {
+    categoryClause = " AND entity_type='MANAGED_EVENT'";
+  } else if (category !== "all") {
+    categoryClause = " AND entity_type='DIRECTORY_PROFILE' AND entity_id IN (SELECT id FROM directory_profiles WHERE category=?)";
+    categoryBindings.push(category);
+  }
   const result = await database.prepare(`
     SELECT * FROM media_source_monitors
-    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')
+    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${categoryClause}
     ORDER BY CASE status
       WHEN 'CHANGED' THEN 0
       WHEN 'CANDIDATE' THEN 1
@@ -644,6 +657,7 @@ export async function listMediaSourceIssues(database: D1Database, limit = 100, o
     END, COALESCE(issue_started_at, updated_at) DESC, id DESC
     LIMIT ? OFFSET ?
   `).bind(
+    ...categoryBindings,
     Math.max(1, Math.min(250, limit)),
     Math.max(0, Math.floor(offset)),
   ).all<MonitorRow>();
