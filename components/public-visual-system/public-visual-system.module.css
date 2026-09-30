@@ -270,7 +270,7 @@
 }
 
 .contentList > .articleListItem:hover {
-  padding-inline: 10px;
+  background: rgba(237, 243, 233, .5);
 }
 
 .articleListItem:focus-visible {
