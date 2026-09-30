@@ -126,26 +126,36 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
         <div><span>Chyba zdroja</span><strong>{count(data.summary.missingMediaSource)}</strong></div>
       </section>
 
-      <nav className="admin-quality-tabs" aria-label="Typ kontroly kvality">
-        <Link
-          href={sectionHref("profiles")}
-          className={activeSection === "profiles" ? "is-active" : ""}
-          aria-current={activeSection === "profiles" ? "page" : undefined}
+      <div className="admin-quality-tabs-wrap">
+        <nav className="admin-quality-tabs" aria-label="Typ kontroly kvality">
+          <Link
+            href={sectionHref("profiles")}
+            className={activeSection === "profiles" ? "is-active" : ""}
+            aria-current={activeSection === "profiles" ? "page" : undefined}
+          >
+            <span>Profily</span>
+            <strong>{count(data.summary.profilesWithIssues)}</strong>
+            <small>chýbajúce alebo nepotvrdené údaje</small>
+          </Link>
+          <Link
+            href={sectionHref("media")}
+            className={activeSection === "media" ? "is-active" : ""}
+            aria-current={activeSection === "media" ? "page" : undefined}
+          >
+            <span>Obrázky</span>
+            <strong>{count(data.summary.changedMedia)}</strong>
+            <small>na schválenie · {count(data.summary.mediaIssues)} problémov spolu</small>
+          </Link>
+        </nav>
+        <button
+          className="admin-quality-quick-check"
+          type="button"
+          disabled={busy === "run" || mediaUnavailable || !data.monitorReady}
+          onClick={runMediaCheck}
         >
-          <span>Profily</span>
-          <strong>{count(data.summary.profilesWithIssues)}</strong>
-          <small>chýbajúce alebo nepotvrdené údaje</small>
-        </Link>
-        <Link
-          href={sectionHref("media")}
-          className={activeSection === "media" ? "is-active" : ""}
-          aria-current={activeSection === "media" ? "page" : undefined}
-        >
-          <span>Obrázky</span>
-          <strong>{count(data.summary.changedMedia)}</strong>
-          <small>na schválenie · {count(data.summary.mediaIssues)} problémov spolu</small>
-        </Link>
-      </nav>
+          {busy === "run" ? "Kontrolujem…" : "Skontrolovať teraz"}
+        </button>
+      </div>
 
       {activeSection === "profiles" ? (
         <section className="admin-panel admin-quality-panel">
@@ -230,14 +240,9 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                   Najprv schváľ nové alebo zmenené obrázky. Chyby zdroja zostanú v zozname bez rozbitia rozloženia.
                 </p>
               </div>
-              <button
-                className="admin-primary-action"
-                type="button"
-                disabled={busy === "run" || mediaUnavailable || !data.monitorReady}
-                onClick={runMediaCheck}
-              >
-                {busy === "run" ? "Kontrolujem…" : "Skontrolovať zdroje"}
-              </button>
+              <Link className="admin-quality-secondary-link" href={sectionHref("profiles")}>
+                Späť na profily
+              </Link>
             </div>
 
             {message && <p className="admin-flash" role="status">{message}</p>}
