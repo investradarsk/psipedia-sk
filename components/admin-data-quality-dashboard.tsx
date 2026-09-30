@@ -123,6 +123,9 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
 
       <section className="admin-panel">
         <h2>Chýbajúce údaje v profiloch</h2>
+        <p className="admin-help-results">
+          Zoznam obsahuje iba údaje, ktoré ešte treba riešiť. Ak profil údaj nemá, nezverejňuje ho, nevzťahuje sa naň alebo ho po kontrole nemožno dohľadať, označ tento stav priamo v profile. Po 12 mesiacoch sa takto uzavretý údaj automaticky znovu zaradí na kontrolu.
+        </p>
         {profilesUnavailable ? (
           <p className="admin-message admin-message--error">
             Profilové údaje sa momentálne nepodarilo načítať. Skús obnoviť údaje.
