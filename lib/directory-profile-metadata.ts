@@ -35,12 +35,10 @@ export type DirectoryProfileReviewMetadata = {
 export function readDirectoryProfileReviewMetadata(
   data: DirectoryImportData | null | undefined,
 ): DirectoryProfileReviewMetadata {
-  const reviewedAt = typeof data?.[profileReviewedAtKey] === "string"
-    ? String(data[profileReviewedAtKey]).trim()
-    : "";
-  const reviewedBy = typeof data?.[profileReviewedByKey] === "string"
-    ? String(data[profileReviewedByKey]).trim()
-    : "";
+  const reviewedAtValue = data?.[profileReviewedAtKey];
+  const reviewedByValue = data?.[profileReviewedByKey];
+  const reviewedAt = typeof reviewedAtValue === "string" ? reviewedAtValue.trim() : "";
+  const reviewedBy = typeof reviewedByValue === "string" ? reviewedByValue.trim() : "";
   return {
     reviewed: Boolean(reviewedAt),
     reviewedAt,
