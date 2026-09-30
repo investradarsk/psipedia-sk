@@ -1,27 +1,65 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { NewsHub } from "@/components/news-hub";
-import { getAllPublishedArticleSummaries } from "@/lib/article-store";
-import { getManagedPortalSection } from "@/lib/section-store";
+import { ArticleBrowser } from "@/components/article-browser";
+import { StructuredData } from "@/components/structured-data";
+import { getPublishedArticleSummaries } from "@/lib/article-store";
+import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { articleHref } from "@/lib/portal";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const NEWS_DESCRIPTION = "Kompletný archív publikovaných správ, príbehov, výskumu a užitočných tém zo sveta psov.";
-
 export const metadata: Metadata = buildPageMetadata({
   title: "Novinky zo sveta psov",
-  description: NEWS_DESCRIPTION,
+  description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
   path: "/clanky",
 });
 
-export default async function ArticlesPage() {
-  const [section, articles] = await Promise.all([
-    getManagedPortalSection("novinky"),
-    getAllPublishedArticleSummaries({ portalSection: "novinky" }),
-  ]);
+export default async function ArticlesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ hladat?: string; tema?: string }>;
+}) {
+  const params = await searchParams;
+  const articles = await getPublishedArticleSummaries({ limit: 200 });
+  const categories: Record<string, string> = {
+    vycvik: "Výcvik",
+    zdravie: "Zdravie",
+    vyziva: "Výživa",
+    "zivot-so-psom": "Život so psom",
+  };
+  const heroImage = articles.find((article) => article.image)?.image;
+  const hasQuery = Object.values(params).some(Boolean);
+  const schema = hasQuery ? null : buildCollectionPageJsonLd({
+    name: "Novinky zo sveta psov",
+    description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
+    path: "/clanky",
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Novinky zo sveta psov", path: "/clanky" },
+    ],
+    items: articles.map((article) => ({ name: article.title, path: articleHref(article) })),
+  });
 
-  if (!section?.visible) notFound();
-
-  return <NewsHub articles={articles} section={section} landingPath="/clanky" />;
+  return (
+    <>
+      {schema && <StructuredData value={schema} />}
+      <main id="obsah">
+        <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
+          {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
+          <div className="page-hero-inner">
+            <span className="eyebrow">Psipedia</span>
+            <h1>Novinky zo sveta psov</h1>
+            <p>Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov.</p>
+          </div>
+        </header>
+        <section className="page-body shell">
+          <ArticleBrowser
+            articles={articles}
+            initialQuery={params.hladat ?? ""}
+            initialCategory={categories[params.tema ?? ""] ?? "Všetky"}
+          />
+        </section>
+      </main>
+    </>
+  );
 }
