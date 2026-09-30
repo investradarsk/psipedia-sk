@@ -186,6 +186,14 @@ test("lost/found report route keeps shared header CSS and help overview exposes 
   assert.match(overview, /Nahlásiť psa/);
 });
 
+test("framework request body limit matches LOST/FOUND upload contract", () => {
+  const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/lost-found/submissions/route.ts", import.meta.url), "utf8");
+
+  assert.match(nextConfig, /bodySizeLimit:\s*"10mb"/);
+  assert.match(route, /MAX_REQUEST_BYTES = 10 \* 1024 \* 1024/);
+});
+
 test("public image upload stays private until moderation and 0100 is not created", () => {
   const media = readFileSync(new URL("../lib/lost-found-public-media.ts", import.meta.url), "utf8");
   assert.match(media, /SUBMISSION_UPLOADS/);
