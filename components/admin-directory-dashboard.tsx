@@ -37,6 +37,8 @@ export function AdminDirectoryDashboard({ data, filters }: {
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<ManagedDirectoryProfileSummary | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const [reviewedOverrides, setReviewedOverrides] = useState<Record<number, boolean>>({});
   const [message, setMessage] = useState("");
   const { profiles, counts, resultCount, pagination, options } = data;
   const membershipFilter = directoryAdminMembershipFilters(filters);
@@ -49,6 +51,25 @@ export function AdminDirectoryDashboard({ data, filters }: {
     resultCount,
     supportsAllMatching: false,
   });
+
+  async function changeReviewed(profile: ManagedDirectoryProfileSummary, reviewed: boolean) {
+    setReviewingId(profile.id); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/directory/${profile.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "set-reviewed", reviewed }),
+      });
+      const result = await response.json() as { profile?: ManagedDirectoryProfileSummary; error?: string };
+      if (!response.ok || !result.profile) throw new Error(result.error || "Stav kontroly sa nepodarilo uložiť.");
+      setReviewedOverrides((current) => ({ ...current, [profile.id]: Boolean(result.profile?.reviewed) }));
+      setMessage(result.profile.reviewed ? `Profil „${profile.name}“ je odkontrolovaný.` : `Kontrola profilu „${profile.name}“ bola zrušená.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Stav kontroly sa nepodarilo uložiť.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function removeProfile(profile: ManagedDirectoryProfileSummary) {
     setDeletingId(profile.id); setMessage("");
@@ -138,6 +159,7 @@ export function AdminDirectoryDashboard({ data, filters }: {
                         <span>{category?.label ?? profile.category}</span>
                         <span>{profile.verified ? "Overené" : "Neoverené"}</span>
                         <span>{profile.imageUrl ? "Obrázok ✓" : "Bez obrázka"}</span>
+                        <span>{(reviewedOverrides[profile.id] ?? profile.reviewed) ? "Odkontrolované ✓" : "Neodkontrolované"}</span>
                         {profile.featured && <span>Odporúčané</span>}
                       </div>
                       <h2><Link href={`/admin/adresar/${profile.id}`}>{profile.name}</Link></h2>
@@ -145,7 +167,16 @@ export function AdminDirectoryDashboard({ data, filters }: {
                       <p className={styles.meta}>Aktualizované {formatUpdatedAt(profile.updatedAt)} · {profile.services.slice(0, 2).join(" · ") || "Bez uvedených služieb"}</p>
                     </div>
                     <div className={`admin-row-actions ${styles.actions}`}>
-                      {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank">Pozrieť ↗</Link>}
+                      <label className={styles.reviewToggle}>
+                        <input
+                          type="checkbox"
+                          checked={reviewedOverrides[profile.id] ?? profile.reviewed}
+                          disabled={reviewingId === profile.id}
+                          onChange={(event) => void changeReviewed(profile, event.target.checked)}
+                        />
+                        <span>Odkontrolované</span>
+                      </label>
+                      {profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
                       <Link className="admin-row-edit" href={`/admin/adresar/${profile.id}`}>Upraviť</Link>
                       {profile.status !== "archived" && <button type="button" disabled={deletingId === profile.id} onClick={() => setDeleteTarget(profile)}>Archivovať</button>}
                     </div>
