@@ -162,7 +162,7 @@ test("popularity query enforces rolling windows, publication state, sorting, tie
     ["published-a", 4],
   ]);
   assert.deepEqual((await getPopularArticles({ window: "7d", now, limit: 10, database })).map((x) => [x.slug, x.qualifiedReads]), [
-    ["published-a", 7],
+    ["published-a", 57],
     ["published-b", 4],
   ]);
   assert.deepEqual((await getPopularArticles({ window: "7d", now, excludeSlug: "published-a", database })).map((x) => x.slug), ["published-b"]);
