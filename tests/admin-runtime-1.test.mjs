@@ -203,6 +203,37 @@ test("current profile quality resolutions suppress legitimate missing fields and
   fixture.close();
 });
 
+test("data quality filters narrow profiles and media without changing facet summaries", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+
+  const filtered = await quality.loadDataQualityDashboard({
+    category: "veterinari",
+    issue: "image",
+    profileStatus: "published",
+    priority: "important",
+    query: "Profil 0011",
+    region: "Nitriansky kraj",
+    district: "Nitra",
+    mediaStatus: "error",
+  });
+
+  assert.equal(filtered.summary.totalProfiles, 1);
+  assert.equal(filtered.summary.profilesWithIssues, 1);
+  assert.equal(filtered.profilePagination.totalItems, 1);
+  assert.equal(filtered.profiles.length, 1);
+  assert.equal(filtered.profiles[0].id, 11);
+  assert.equal(filtered.profiles[0].priority, "important");
+  assert.ok(filtered.profiles[0].issues.some((issue) => issue.key === "image"));
+  assert.deepEqual(filtered.regionOptions, ["Nitriansky kraj"]);
+  assert.deepEqual(filtered.districtOptions, ["Nitra"]);
+
+  assert.equal(filtered.summary.mediaIssues, 250);
+  assert.equal(filtered.mediaPagination.totalItems, 0);
+  assert.equal(filtered.media.length, 0);
+  fixture.close();
+});
+
 test("entity lookup deduplicates and chunks more than 100 IDs under the D1 binding ceiling", async () => {
   const fixture = d1Fixture();
   useDb(fixture.db);
