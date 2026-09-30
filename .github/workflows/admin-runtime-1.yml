@@ -1,0 +1,123 @@
+name: ADMIN-RUNTIME-1 admin runtime safety
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/admin/kvalita/**"
+      - "components/admin-data-quality-dashboard.tsx"
+      - "lib/data-quality-store.ts"
+      - "lib/media-source-monitor.ts"
+      - "lib/admin-automation-reliability.ts"
+      - "tests/admin-runtime-1.test.mjs"
+      - "tests/e2e/admin-runtime-1.spec.ts"
+      - ".github/workflows/admin-runtime-1.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: admin-runtime-1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  admin-runtime:
+    name: ADMIN-RUNTIME-1 — D1 regression, Lost/Found, build, lint and Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log revision evidence
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "base_sha=${{ github.event.pull_request.base.sha || 'n/a' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ADMIN-RUNTIME-1 D1-aware regression suite
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-runtime-1.test.mjs
+
+      - name: Existing Lost/Found regression suite
+        run: npm run test:lost-found
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build PR code
+        run: npm run build
+
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Configure isolated local runtime keys
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          TURNSTILE_SITE_KEY=1x00000000000000000000AA
+          EOF
+
+      - name: Apply schema to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+
+      - name: Seed representative directory detail into isolated local D1 only
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
+
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/admin-runtime-1
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-runtime-1/server.log 2>&1 &
+          echo $! > .e2e-artifacts/admin-runtime-1/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/admin >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/admin-runtime-1/server.log
+            exit 1
+          fi
+
+      - name: Admin runtime Playwright — desktop and mobile
+        run: npx playwright test tests/e2e/admin-runtime-1.spec.ts --workers=1 --retries=0
+
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/admin-runtime-1/server.pid ]; then
+            kill "$(cat .e2e-artifacts/admin-runtime-1/server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload admin runtime failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-runtime-1-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/admin-runtime-1/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
