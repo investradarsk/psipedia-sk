@@ -15,14 +15,14 @@ type Props = {
   initialRating: EshopRatingInput | null;
 };
 
-function RatingRow({ label, value, onChange }: { label: string; value: number | null; onChange(value: number): void }) {
+function RatingRow({ name, label, value, onChange }: { name: string; label: string; value: number | null; onChange(value: number): void }) {
   return (
     <fieldset className={styles.ratingRow}>
       <legend>{label}</legend>
       <div className={styles.options}>
         {[1,2,3,4,5].map((rating) => (
           <label key={rating} className={styles.option}>
-            <input type="radio" value={rating} checked={value === rating} onChange={() => onChange(rating)} required />
+            <input type="radio" name={name} value={rating} checked={value === rating} onChange={() => onChange(rating)} required />
             <span>{rating}<small>★</small></span>
           </label>
         ))}
@@ -80,6 +80,7 @@ export function EshopRatingForm({ eshopId, eshopName, eshopSlug, siteKey, initia
         {ESHOP_RATING_FIELDS.map((field) => (
           <RatingRow
             key={field.key}
+            name={"eshop-" + field.key}
             label={field.label}
             value={ratings[field.key] ?? null}
             onChange={(value) => setRatings((current) => ({ ...current, [field.key]: value }))}
