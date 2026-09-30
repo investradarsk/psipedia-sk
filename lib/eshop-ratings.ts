@@ -285,3 +285,45 @@ export async function updateManagedEshop(
   }
   return getManagedEshopById(id, db);
 }
+
+
+export async function createManagedEshop(
+  input: ManagedEshopUpdateInput,
+  actor: string,
+  database?: D1Database,
+): Promise<ManagedEshop> {
+  const db = getEshopDatabase(database);
+  const name = normalizedText(input.name, "Názov", 160);
+  const slug = safeSlug(input.slug);
+  const websiteUrl = normalizedUrl(input.websiteUrl, "Web e-shopu");
+  const description = normalizedText(input.description, "Popis", 3000);
+  const sourceUrl = normalizedUrl(input.sourceUrl, "Zdroj");
+  const logoUrl = normalizedOptionalUrl(input.logoUrl, "Logo");
+  const logoKey = typeof input.logoKey === "string" && input.logoKey.trim() ? input.logoKey.trim().slice(0, 500) : null;
+  const focusTags = normalizeEshopFocusTags(input.focusTags);
+  const status = input.status === "published" || input.status === "archived" ? input.status : "draft";
+  const now = new Date().toISOString();
+  const publishedAt = status === "published" ? now : null;
+
+  try {
+    const row = await db.prepare(`
+      INSERT INTO managed_eshops (
+        slug,name,website_url,description,source_url,logo_url,logo_key,focus_tags_json,
+        status,created_at,updated_at,published_at,created_by,updated_by
+      ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10,?11,?12,?12)
+      RETURNING id
+    `).bind(
+      slug,name,websiteUrl,description,sourceUrl,logoUrl,logoKey,JSON.stringify(focusTags),
+      status,now,publishedAt,actor,
+    ).first<{ id: number }>();
+    if (!row?.id) throw new EshopRatingError("E-shop sa nepodarilo vytvoriť.", 503, "CREATE_FAILED");
+    const created = await getManagedEshopById(Number(row.id), db);
+    if (!created) throw new EshopRatingError("E-shop sa po vytvorení nepodarilo načítať.", 503, "CREATE_FAILED");
+    return created;
+  } catch (error) {
+    if (String(error).toLowerCase().includes("unique")) {
+      throw new EshopRatingError("E-shop s rovnakou adresou profilu už existuje.", 409, "ESHOP_SLUG_CONFLICT");
+    }
+    throw error;
+  }
+}

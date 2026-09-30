@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
+import { AdminEshopNotionSyncButton } from "@/components/admin-eshop-notion-sync-button";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import { listManagedEshops } from "@/lib/eshop-ratings";
@@ -21,7 +22,7 @@ export default async function AdminEshopsPage() {
       eyebrow="Recenzie a testy"
       title="E-shopy"
       description="Samostatné profily e-shopov a ich overené používateľské hodnotenia. Externé skóre sa do priemeru Psipedia nezapočítava."
-      actions={<Link className="admin-primary-action" href="/recenzie?typ=eshopy" target="_blank">Verejné e-shopy ↗</Link>}
+      actions={<><AdminEshopNotionSyncButton /><Link className="admin-primary-action" href="/recenzie?typ=eshopy" target="_blank">Verejné e-shopy ↗</Link></>}
     >
       <div className={styles.list}>
         {shops.map((shop) => (
