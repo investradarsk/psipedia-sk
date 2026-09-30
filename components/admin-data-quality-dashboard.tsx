@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import type { DataQualityContactSuggestion, DataQualityDashboard } from "@/lib/data-quality-store";
+import type { DataQualityDashboard, DataQualityFieldSuggestion } from "@/lib/data-quality-store";
 
 function mediaStatusLabel(status: string) {
   if (status === "CHANGED") return "Obrázok sa zmenil";
@@ -163,13 +163,14 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     }
   }
 
-  async function reviewContactSuggestion(
+  async function reviewFieldSuggestion(
     profileId: number,
-    suggestion: DataQualityContactSuggestion,
+    suggestion: DataQualityFieldSuggestion,
     action: "accept" | "reject",
   ) {
     if (action === "reject" && !window.confirm(`Zamietnuť návrh pre ${suggestion.label.toLowerCase()}?`)) return;
-    const key = `contact-${action}-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
+    if (action === "accept" && suggestion.reviewMode !== "accept") return;
+    const key = `quality-${action}-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
     setBusy(key);
     setMessage("");
     try {
@@ -406,17 +407,22 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                               <span>{profile.suggestions.length}</span>
                             </div>
                             {profile.suggestions.map((suggestion) => {
-                              const acceptKey = `contact-accept-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
-                              const rejectKey = `contact-reject-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
+                              const acceptKey = `quality-accept-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
+                              const rejectKey = `quality-reject-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
                               const isBusy = busy === acceptKey || busy === rejectKey;
                               return (
                                 <div
-                                  className="admin-quality-contact-suggestion"
+                                  className={`admin-quality-contact-suggestion${suggestion.reviewMode === "manual" ? " is-manual" : ""}`}
                                   key={`${suggestion.origin}:${suggestion.suggestionId}:${suggestion.field}`}
                                 >
                                   <div>
-                                    <span>{suggestion.label}</span>
-                                    <strong>{suggestion.proposed}</strong>
+                                    <span>
+                                      {suggestion.label}
+                                      {suggestion.reviewMode === "manual" ? " · vyžaduje kontrolu" : ""}
+                                    </span>
+                                    <strong className={suggestion.field === "description" ? "is-long-value" : undefined}>
+                                      {suggestion.proposed}
+                                    </strong>
                                     <small>
                                       Zdroj:{" "}
                                       {suggestion.sourceUrl ? (
@@ -425,21 +431,28 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                                         </a>
                                       ) : (suggestion.sourceLabel || "Automatizácia")}
                                       {" · "}nájdené {checkedAt(suggestion.detectedAt)}
+                                      {suggestion.note ? <> · {suggestion.note}</> : null}
                                     </small>
                                   </div>
                                   <div className="admin-quality-contact-actions">
+                                    {suggestion.reviewMode === "accept" ? (
+                                      <button
+                                        type="button"
+                                        className="is-primary"
+                                        disabled={isBusy}
+                                        onClick={() => void reviewFieldSuggestion(profile.id, suggestion, "accept")}
+                                      >
+                                        {busy === acceptKey ? "Preberám…" : "Prevziať"}
+                                      </button>
+                                    ) : (
+                                      <Link className="is-primary" href={profile.href}>
+                                        Skontrolovať v profile
+                                      </Link>
+                                    )}
                                     <button
                                       type="button"
-                                      className="is-primary"
                                       disabled={isBusy}
-                                      onClick={() => void reviewContactSuggestion(profile.id, suggestion, "accept")}
-                                    >
-                                      {busy === acceptKey ? "Preberám…" : "Prevziať"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isBusy}
-                                      onClick={() => void reviewContactSuggestion(profile.id, suggestion, "reject")}
+                                      onClick={() => void reviewFieldSuggestion(profile.id, suggestion, "reject")}
                                     >
                                       {busy === rejectKey ? "Zamietam…" : "Zamietnuť"}
                                     </button>
