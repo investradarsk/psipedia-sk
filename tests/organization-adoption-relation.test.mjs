@@ -61,14 +61,17 @@ function relationDatabase(sourceRows = rows) {
             return statement;
           },
           async all() {
-            const [organizationId, ...publicStatuses] = bindings;
+            const [organizationId, ...rest] = bindings;
+            const limit = Number(rest.at(-1));
+            const publicStatuses = rest.slice(0, -1);
             const results = sourceRows
               .filter((row) => row.organization_id === organizationId && publicStatuses.includes(row.status))
               .toSorted((left, right) => {
                 const leftDate = left.published_at ?? left.updated_at;
                 const rightDate = right.published_at ?? right.updated_at;
                 return rightDate.localeCompare(leftDate) || right.id - left.id;
-              });
+              })
+              .slice(0, limit);
             return { results };
           },
           async first() { return null; },
@@ -86,7 +89,7 @@ test("organization relation uses only canonical organization_id and public lifec
 
   assert.deepEqual(result.map((dog) => [dog.id, dog.status]), [[101, "ACTIVE"], [102, "RESERVED"]]);
   assert.equal(fake.prepared.length, 1, "relation read must stay a single query, not N+1");
-  assert.deepEqual(fake.bound, [[10, "ACTIVE", "RESERVED"]]);
+  assert.deepEqual(fake.bound, [[10, "ACTIVE", "RESERVED", 6]]);
 
   const sql = fake.prepared[0];
   const relationPredicate = sql.split("WHERE")[1].split("ORDER BY")[0];
@@ -95,6 +98,7 @@ test("organization relation uses only canonical organization_id and public lifec
   assert.doesNotMatch(relationPredicate, /organization_name|organization_slug/i);
   assert.doesNotMatch(sql, /help_cases/i);
   assert.match(sql, new RegExp(ORGANIZATION_PUBLIC_ADOPTIONS_ORDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(sql, /LIMIT \\?/);
 });
 
 test("same snapshot identity on another organization and NULL organization_id never create a relation", async () => {

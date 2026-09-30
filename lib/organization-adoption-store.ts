@@ -30,25 +30,30 @@ type OrganizationPublicAdoptionRow = {
 };
 
 export const ORGANIZATION_PUBLIC_ADOPTIONS_ORDER = "COALESCE(d.published_at, d.updated_at) DESC, d.id DESC";
+export const ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT = 6;
 
-export function buildOrganizationPublicAdoptionsQuery(organizationId: number) {
+export function buildOrganizationPublicAdoptionsQuery(organizationId: number, limit = ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
   const statusPlaceholders = adoptionPublicStatuses.map(() => "?").join(", ");
+  const safeLimit = Math.max(1, Math.min(ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT, Math.trunc(limit) || ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT));
   return {
     sql: `SELECT d.id, d.name, d.slug, d.status, d.organization_id, d.organization_name, d.organization_slug,
       d.city, d.main_image, d.published_at, d.updated_at
       FROM adoption_dogs d
       WHERE d.organization_id = ? AND d.status IN (${statusPlaceholders})
-      ORDER BY ${ORGANIZATION_PUBLIC_ADOPTIONS_ORDER}`,
-    bindings: [organizationId, ...adoptionPublicStatuses] as const,
+      ORDER BY ${ORGANIZATION_PUBLIC_ADOPTIONS_ORDER}
+      LIMIT ?`,
+    bindings: [organizationId, ...adoptionPublicStatuses, safeLimit] as const,
+    limit: safeLimit,
   };
 }
 
 export async function listPublicAdoptionsByOrganizationId(
   organizationId: number,
   database: AdoptionD1Database,
+  limit = ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT,
 ): Promise<OrganizationPublicAdoption[]> {
-  const query = buildOrganizationPublicAdoptionsQuery(organizationId);
+  const query = buildOrganizationPublicAdoptionsQuery(organizationId, limit);
   if (!query) return [];
   const result = await database.prepare(query.sql).bind(...query.bindings).all<OrganizationPublicAdoptionRow>();
   return result.results.map((row) => ({
