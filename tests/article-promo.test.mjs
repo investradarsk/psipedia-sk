@@ -10,6 +10,7 @@ import {
   selectArticlePromoVariantIndex,
 } from "../lib/article-promo.ts";
 import { normalizeArticleBlocks } from "../lib/article-blocks.ts";
+import { assessArticleContentQa } from "../lib/article-content-qa.ts";
 
 test("ARTICLE-PROMO registry exposes only canonical internal targets and exactly three copy variants", () => {
   const expected = [
@@ -132,6 +133,32 @@ test("ARTICLE-PROMO Notion preservation uses the next anchor, then deterministic
   ]);
 });
 
+test("ARTICLE-PROMO Notion preservation appends promos in original order when both anchors disappear", () => {
+  const existing = [
+    { id: "notion-old-a", type: "text" },
+    { id: "promo-1", type: "psipedia-promo", promoKey: "mapa", variant: "auto" },
+    { id: "promo-2", type: "psipedia-promo", promoKey: "plemena", variant: "v1" },
+    { id: "notion-old-b", type: "h2" },
+  ];
+  const next = [
+    { id: "notion-new-only", type: "text" },
+  ];
+  assert.deepEqual(preserveArticlePromoBlocks(existing, next).map((block) => block.id), [
+    "notion-new-only", "promo-1", "promo-2",
+  ]);
+});
+
+test("ARTICLE-PROMO content QA accepts a valid promo block without treating it as an empty editorial block", () => {
+  const blocks = normalizeArticleBlocks([{
+    id: "promo-qa",
+    type: "psipedia-promo",
+    promoKey: "veterinari",
+    variant: "auto",
+  }]);
+  assert.doesNotThrow(() => assessArticleContentQa({ blocks }));
+  assert.equal(assessArticleContentQa({ blocks }).some((issue) => issue.code === "EMPTY_REQUIRED_BLOCK"), false);
+});
+
 test("ARTICLE-PROMO preserves multiple promo blocks in editorial order and leaves promo-free articles unchanged", () => {
   const existing = [
     { id: "notion-a", type: "text" },
@@ -151,12 +178,14 @@ test("ARTICLE-PROMO preserves multiple promo blocks in editorial order and leave
 
 test("ARTICLE-PROMO admin/public integration exposes add, target, variant, preview, reorder and remove contracts", () => {
   const editor = readFileSync("components/admin-article-block-editor.tsx", "utf8");
+  const blockModel = readFileSync("lib/article-blocks.ts", "utf8");
   const renderer = readFileSync("components/article-blocks.tsx", "utf8");
   const promoComponent = readFileSync("components/article-promo.tsx", "utf8");
   const promoCss = readFileSync("components/article-promo.module.css", "utf8");
   const store = readFileSync("lib/article-store.ts", "utf8");
 
-  assert.match(editor, /Promo Psipedie/);
+  assert.match(blockModel, /"psipedia-promo": "Promo Psipedie"/);
+  assert.match(editor, /articleBlockLabels/);
   assert.match(editor, /Promo cieľ/);
   assert.match(editor, /Variant/);
   assert.match(editor, /Automaticky/);
