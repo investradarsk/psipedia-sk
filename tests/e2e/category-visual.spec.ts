@@ -33,7 +33,13 @@ async function makePage(browser: Browser, baseURL: string, viewport: { width: nu
   return { context, page: await context.newPage() };
 }
 
-async function assertLanding(page: Page, path: string, label: string) {
+async function openProductionReference(page: Page, path: string, label: string) {
+  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+  expect(response?.status(), `${label}: ${path}`).toBe(200);
+  await expect(page.locator("main")).toBeVisible();
+}
+
+async function assertPreviewLanding(page: Page, path: string, label: string) {
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
   expect(response?.status(), `${label}: ${path}`).toBe(200);
   await expect(page.locator("main")).toBeVisible();
@@ -61,13 +67,13 @@ test("CATEGORY-VISUAL preview matches the landing-page contract and captures bef
     const production = await makePage(browser, PRODUCTION_URL, viewport);
     try {
       for (const landing of LANDINGS) {
-        await assertLanding(production.page, landing.path, `production ${viewport.label}`);
+        await openProductionReference(production.page, landing.path, `production ${viewport.label}`);
         await production.page.screenshot({
           path: join(ARTIFACT_DIR, `before-${viewport.label}-${landing.slug}.png`),
           fullPage: true,
         });
 
-        await assertLanding(preview.page, landing.path, `preview ${viewport.label}`);
+        await assertPreviewLanding(preview.page, landing.path, `preview ${viewport.label}`);
         await preview.page.screenshot({
           path: join(ARTIFACT_DIR, `after-${viewport.label}-${landing.slug}.png`),
           fullPage: true,
