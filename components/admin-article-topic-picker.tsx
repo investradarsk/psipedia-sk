@@ -61,7 +61,7 @@ export function AdminArticleTopicPicker({
       <label htmlFor="article-topic-search">Témy článku</label>
       <small>Interné redakčné témy. Môžeš vybrať viac tém alebo článok nechať bez témy.</small>
       {selected.length > 0 && (
-        <div className="admin-article-tags" aria-label="Vybrané témy">
+        <div className="admin-article-tags" role="group" aria-label="Vybrané témy">
           {selected.map((topic) => (
             <button type="button" key={topic.id} onClick={() => toggle(topic.id)}>
               {topic.label}{topic.isActive ? "" : " (neaktívna)"} ×
@@ -76,7 +76,7 @@ export function AdminArticleTopicPicker({
         placeholder="Hľadať alebo vytvoriť tému"
         autoComplete="off"
       />
-      <div className="admin-article-tags" aria-label="Dostupné témy">
+      <div className="admin-article-tags" role="group" aria-label="Dostupné témy">
         {visible.slice(0, 40).map((topic) => (
           <button
             type="button"
