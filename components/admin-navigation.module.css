@@ -3,6 +3,10 @@
   align-items: flex-end;
 }
 
+.desktopNavigation :global(.admin-nav-group > span) {
+  color: #5f7169;
+}
+
 .desktopNavigation :global(a[aria-current="page"]) {
   color: #fff;
   background: #174b38;
@@ -91,7 +95,7 @@
 }
 
 .drawerHeader span {
-  color: #7b8b84;
+  color: #5f7169;
   font-size: .68rem;
   font-weight: 850;
   letter-spacing: .09em;
@@ -146,7 +150,7 @@
 .mobileGroup > span {
   display: block;
   margin: 0 0 6px 4px;
-  color: #7a8d84;
+  color: #5f7169;
   font-size: .65rem;
   font-weight: 850;
   letter-spacing: .08em;
@@ -202,7 +206,7 @@
 .mobileEyebrow {
   display: block;
   margin-bottom: 2px;
-  color: #7f9188;
+  color: #5f7169;
   font-size: .62rem;
   font-weight: 850;
   letter-spacing: .08em;
