@@ -493,3 +493,95 @@ test("ARTICLE-PUBLIC unknown article remains a real 404", async ({ page }) => {
   const response = await page.goto("/clanky/article-public-neexistuje");
   expect(response?.status()).toBe(404);
 });
+
+
+test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visually stable", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix is captured once from the desktop Chromium project.");
+
+  const surfaces = [
+    { id: "magazine-cards", path: "/clanky", selector: "[data-article-card]" },
+    { id: "homepage-cards", path: "/", selector: "[data-home-latest] [data-article-card]" },
+  ] as const;
+  const viewports = [
+    { width: 360, height: 800, label: "mobile-360x800" },
+    { width: 390, height: 844, label: "mobile-390x844" },
+    { width: 768, height: 1024, label: "tablet-768x1024" },
+    { width: 1440, height: 900, label: "desktop-1440x900" },
+  ] as const;
+
+  for (const surface of surfaces) {
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+      if (viewport.width === 390 || viewport.width === 1440) {
+        await captureProductionBaseline(
+          page,
+          surface.path,
+          `.e2e-artifacts/article-ux-1/${surface.id}-before-production-${viewport.label}.png`,
+        );
+      }
+
+      await page.goto(surface.path);
+      const cards = page.locator(surface.selector);
+      expect(await cards.count(), `${surface.id} should expose at least one article card`).toBeGreaterThan(0);
+      await expect(cards.first()).toBeVisible();
+
+      const metrics = await page.evaluate((selector) => {
+        const card = document.querySelector<HTMLElement>(selector);
+        const media = card?.querySelector<HTMLElement>(".article-card-media");
+        const title = card?.querySelector<HTMLElement>(".article-card-title");
+        const mediaRect = media?.getBoundingClientRect();
+        return {
+          overflow: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
+          cardWidth: card?.getBoundingClientRect().width ?? 0,
+          mediaRatio: mediaRect && mediaRect.height ? mediaRect.width / mediaRect.height : 0,
+          titleClipping: title ? title.scrollHeight - title.clientHeight : 0,
+        };
+      }, surface.selector);
+
+      expect(metrics.overflow, `${surface.id} ${viewport.label}: horizontal overflow`).toBeLessThanOrEqual(1);
+      expect(metrics.cardWidth).toBeGreaterThan(0);
+      expect(metrics.mediaRatio).toBeGreaterThan(1.45);
+      expect(metrics.titleClipping, `${surface.id} ${viewport.label}: article title must not be line-clamped`).toBeLessThanOrEqual(1);
+      await expect(page.locator("main#obsah")).not.toContainText(/\b\d+\s*min\s+čítania\b/i);
+
+      const primaryLink = cards.first().locator(".article-card-title a");
+      await primaryLink.focus();
+      await expect(primaryLink).toBeFocused();
+
+      if (viewport.width === 390 || viewport.width === 1440) {
+        await page.screenshot({
+          path: `.e2e-artifacts/article-ux-1/${surface.id}-after-local-${viewport.label}.png`,
+        });
+        await expectNoSeriousAccessibilityViolations(page);
+      }
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/clanky");
+
+  const longTitle = page.getByRole("heading", {
+    level: 2,
+    name: "Bikejoring so psom: kompletný sprievodca od prvého tréningu až po preteky na Slovensku",
+  });
+  if (await longTitle.count()) {
+    const clipping = await longTitle.evaluate((node) => node.scrollHeight - node.clientHeight);
+    expect(clipping, "Long Slovak titles must remain fully readable").toBeLessThanOrEqual(1);
+  }
+
+  const noImageCard = page.locator("[data-article-card]").filter({ hasText: "E2E článok bez hero obrázka" });
+  if (await noImageCard.count()) {
+    await expect(noImageCard.locator(".article-placeholder")).toBeVisible();
+    const mediaRatio = await noImageCard.locator(".article-card-media").evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      return rect.width / rect.height;
+    });
+    expect(mediaRatio).toBeGreaterThan(1.45);
+  }
+
+  const magazineSearch = page.getByPlaceholder("Hľadať v magazíne");
+  await magazineSearch.fill("article-cards-empty-state-no-match");
+  await expect(page.getByRole("heading", { name: "Na túto stopu sme ešte nenarazili" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});
