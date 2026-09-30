@@ -52,10 +52,11 @@ test("explicit article, breed and directory relations use canonical links and hi
   expect(breedResponse?.status()).toBe(200);
   const breedMain = page.locator("main#obsah");
   await expect(breedMain.getByRole("heading", { name: "Články o tomto plemene" })).toBeVisible();
-  await expect(breedMain.getByRole("link", { name: /CONTENT-RELATIONS E2E článok/i })).toHaveAttribute(
-    "href",
-    "/clanky/content-relations-e2e-clanok",
+  const breedArticleLink = breedMain.locator(
+    'a[data-article-list-item][href="/clanky/content-relations-e2e-clanok"]',
   );
+  await expect(breedArticleLink).toHaveCount(1);
+  await expect(breedArticleLink).toContainText("CONTENT-RELATIONS E2E článok");
   await expect(breedMain.getByText("CONTENT-RELATIONS skrytý draft článok", { exact: false })).toHaveCount(0);
   await expect(breedMain.getByText("CONTENT-RELATIONS noncanonical článok", { exact: false })).toHaveCount(0);
   await expect(breedMain.getByRole("heading", { name: "Chovateľské kluby pre toto plemeno" })).toBeVisible();
