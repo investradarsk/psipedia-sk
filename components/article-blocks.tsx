@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { EditorialRichText } from "@/components/editorial-rich-text";
+import { ArticlePromo } from "@/components/article-promo";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
@@ -144,6 +145,9 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
         if (block.type === "related") {
           const href = safeHref(block.href, true);
           return block.title && href ? <aside className="article-block-related" key={block.id}><span>Súvisiaci článok</span><Link href={href}><strong>{block.title}</strong>{block.description && <small>{block.description}</small>}</Link></aside> : null;
+        }
+        if (block.type === "psipedia-promo") {
+          return <ArticlePromo key={block.id} promoKey={block.promoKey} variant={block.variant} seed={block.id} />;
         }
         if (block.type === "cta") {
           const href = safeHref(block.url, true);
