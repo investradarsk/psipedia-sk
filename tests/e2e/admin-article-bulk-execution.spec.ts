@@ -37,7 +37,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
     page.locator(".admin-article-row").filter({ hasText: title });
 
   async function findArticleRowAcrossPages(page: import("@playwright/test").Page, title: string) {
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     for (let pageNumber = 1; pageNumber <= 20; pageNumber += 1) {
       const row = rowFor(page, title);
       if ((await row.count()) > 0) return row;
@@ -51,12 +51,12 @@ test.describe("ADMIN-2E article bulk execution", () => {
   }
 
   test("scopes explicit selection to the current page and publishes only the current-view selection", async ({ page }) => {
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
     await expect(page.getByText("Vybrané: 1")).toBeVisible();
 
     await page.getByRole("link", { name: "Ďalšia →" }).click();
-    await expect(page).toHaveURL(/\/admin\?page=2$/);
+    await expect(page).toHaveURL(/\/admin\/clanky\?page=2$/);
     await expect(page.getByText("Vybrané: 1")).toHaveCount(0);
 
     await page.getByLabel("Vybrať článok ADMIN-2E Page 001").check();
@@ -77,7 +77,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
   });
 
   test("select-all visible exposes indeterminate state and clear resets the current view", async ({ page }) => {
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     const selectAll = page.getByLabel("Vybrať všetky články na tejto strane");
     await selectAll.check();
     await expect(selectAll).toBeChecked();
@@ -93,12 +93,14 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(page.locator("[data-admin-bulk-toolbar]")).toHaveCount(0);
 
     await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
-    await page.getByRole("button", { name: "Koncepty", exact: true }).click();
+    await page.locator('select[name="status"]').selectOption("draft");
+    await page.getByRole("button", { name: "Filtrovať", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/clanky\?[^#]*status=draft/);
     await expect(page.locator("[data-admin-bulk-toolbar]")).toHaveCount(0);
   });
 
   test("reports mixed publish result and then moves published and scheduled lifecycle records to draft", async ({ page }) => {
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     await page.getByLabel("Vybrať článok ADMIN-2E Scheduled B").check();
     await page.getByLabel("Vybrať článok ADMIN-2E Published C").check();
 
@@ -147,7 +149,7 @@ test.describe("ADMIN-2E article bulk execution", () => {
   });
 
   test("selection, confirmation dialog and result controls stay keyboard-operable, axe-clean and overflow-free", async ({ page }) => {
-    await page.goto("/admin", { waitUntil: "domcontentloaded" });
+    await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
     const checkbox = page.getByLabel("Vybrať článok ADMIN-2E Draft A");
     await expect(checkbox).toBeEnabled();
     await checkbox.focus();

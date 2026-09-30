@@ -145,17 +145,14 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
   }
 
   return <div className={styles.dashboard}>
-    <section className={styles.boundary} aria-label="Canonical hranice Pomoc psom">
+    <section className={styles.boundary} aria-label="Pomoc psom">
       <div>
-        <span className="admin-eyebrow">Help domain boundary</span>
-        <h2>Samostatné canonical moduly zostávajú oddelené</h2>
-        <p>Tento zoznam vlastní iba generic Help výzvy. Adopcie, stratené a nájdené psy a organizácie sa neupravujú cez Help CRUD.</p>
+        <span className="admin-eyebrow">Pomoc psom</span>
+        <h2>Agendy sú zoskupené podľa verejného webu</h2>
+        <p>Späť na prehľade Pomoc psom nájdeš adopcie, útulky, dočasnú opateru, zbierky, stratené a nájdené psy aj dobrovoľníctvo.</p>
       </div>
-      <nav className={styles.moduleLinks} aria-label="Samostatné admin moduly">
-        <Link href="/admin/adopcie">Adopcie</Link>
-        <Link href="/admin/stratene-najdene">Stratené / nájdené</Link>
-        <Link href="/admin/organizacie">Organizácie</Link>
-        <Link href="/admin/import">Import dát</Link>
+      <nav className={styles.moduleLinks} aria-label="Pomoc psom">
+        <Link href="/admin/pomoc-psom">Všetky kategórie</Link>
       </nav>
     </section>
 
@@ -171,11 +168,11 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
     <section className="admin-panel">
       <form className={styles.filters} action="/admin/pomoc" role="search" aria-label="Filtrovať Help záznamy">
         <label className={styles.searchField}><span>Hľadať</span><input name="q" defaultValue={filters.q} placeholder="Názov, pes, mesto alebo organizácia" maxLength={120} /></label>
-        <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
+        <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="all">Všetky kategórie ({totals.total})</option>{HELP_ADMIN_CATEGORIES.map((slug) => <option value={slug} key={slug}>{slug === "utulky" ? "Útulky" : getHelpCategory(slug)?.label ?? slug} ({categoryCounts[slug] ?? 0})</option>)}</select></label>
         <label><span>Publikácia</span><select name="status" defaultValue={filters.status}><option value="all">Všetky stavy</option><option value="published">Publikované</option><option value="draft">Koncepty</option></select></label>
         <label><span>Urgentnosť</span><select name="urgent" defaultValue={filters.urgent}><option value="all">Všetky</option><option value="urgent">Iba urgentné aktívne</option></select></label>
         <label><span>Stav prípadu</span><select name="state" defaultValue={filters.state}><option value="all">Všetky</option><option value="current">Aktívne</option><option value="resolved">Vybavené</option></select></label>
-        <label><span>Organizácia / osoba</span><input name="organization" defaultValue={filters.organization} placeholder="Napr. OZ Žltý pes" maxLength={120} /></label>
+        <label><span>Organizácia / osoba</span><input name="organization" defaultValue={filters.organization} placeholder="Napr. Žltý pes" maxLength={120} /></label>
         <label><span>Lokalita</span><input name="location" defaultValue={filters.location} placeholder="Mesto, kraj alebo poznámka" maxLength={120} /></label>
         <div className={styles.filterActions}><button type="submit">Použiť filtre</button><Link href="/admin/pomoc">Vymazať filtre</Link></div>
       </form>
@@ -198,7 +195,7 @@ export function AdminHelpDashboard({ data, filters }: { data: DashboardData; fil
         return <article className={`admin-article-row admin-help-row ${styles.row}`} key={item.id}>
           <label className={styles.rowCheckTarget}><span className="sr-only">Označiť {item.title}</span><input className={styles.rowCheck} aria-label={`Označiť ${item.title}`} type="checkbox" checked={selected.has(item.id)} disabled={bulkBusy} onChange={() => toggle(item.id)} /></label>
           <div className="admin-help-thumb">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : <span aria-hidden="true">{category?.icon ?? "🐾"}</span>}</div>
-          <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
+          <div className="admin-article-main"><div className="admin-article-tags"><span className={`admin-status admin-status--${item.status}`}>{item.status === "published" ? "Publikované" : "Koncept"}</span><span>{item.category === "utulky" ? "Útulok" : category?.label ?? item.category}</span>{item.verified && <span>Overené</span>}{item.urgent && !item.resolved && <span>Urgentné</span>}{item.resolved && <span>Vybavené</span>}</div><h2><Link href={`/admin/pomoc/${item.id}`}>{item.title}</Link></h2><p>{[item.organization, item.city, item.dogName ? `Pes: ${item.dogName}` : ""].filter(Boolean).join(" · ")}</p></div>
           <div className="admin-row-actions">{item.status === "published" && <Link href={helpCaseHref(item)} target="_blank">Pozrieť na webe ↗</Link>}<Link className="admin-row-edit" href={`/admin/pomoc/${item.id}`}>Upraviť</Link><button type="button" disabled={deletingId === item.id || bulkBusy} onClick={() => void removeItem(item)}>{deletingId === item.id ? "Odstraňujem…" : "Odstrániť"}</button></div>
         </article>;
       })}</div> : <div className="admin-empty"><span>🔎</span><h2>Žiadne Help záznamy pre tento výber</h2><p>Skús upraviť kategóriu, stav, organizáciu, lokalitu alebo hľadaný výraz.</p></div>}

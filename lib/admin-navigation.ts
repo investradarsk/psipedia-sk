@@ -30,15 +30,19 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
     ],
   },
   {
-    label: "Služby a pomoc",
+    label: "Portál",
     items: [
-      { label: "Adresár", href: "/admin/adresar" },
-      { label: "Organizácie", href: "/admin/organizacie" },
+      {
+        label: "Služby pre psov",
+        href: "/admin/sluzby-pre-psov",
+        matches: ["/admin/adresar"],
+      },
       { label: "Podujatia", href: "/admin/podujatia" },
-      { label: "Pomoc", href: "/admin/pomoc" },
-      { label: "Adopcie", href: "/admin/adopcie" },
-      { label: "Stratené / nájdené", href: "/admin/stratene-najdene" },
-      { label: "Mapy", href: "/admin/mapy", matches: ["/admin/operations/geo"] },
+      {
+        label: "Pomoc psom",
+        href: "/admin/pomoc-psom",
+        matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"],
+      },
     ],
   },
   {
@@ -61,6 +65,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
         matches: ["/admin/operations/automation"],
       },
       { label: "Kvalita údajov", href: "/admin/kvalita" },
+      { label: "Mapy", href: "/admin/mapy", matches: ["/admin/operations/geo"] },
       {
         label: "Nástroje",
         href: "/admin/nastroje",
