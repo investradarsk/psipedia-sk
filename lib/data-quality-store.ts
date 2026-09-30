@@ -21,6 +21,10 @@ import {
   mediaSourceMonitorSchemaReady,
   type MediaSourceMonitor,
 } from "@/lib/media-source-monitor";
+import {
+  listCanonicalAutomationUpdateSuggestionsForEntities,
+  type AutomationUpdateOrigin,
+} from "@/lib/data-automation-update-review";
 
 type RuntimeBindings = { DB?: D1Database };
 
@@ -179,6 +183,20 @@ export type DataQualityIssueKey =
   | "address"
   | "image-source";
 
+export type DataQualityContactSuggestion = {
+  origin: AutomationUpdateOrigin;
+  suggestionId: number;
+  field: "publicPhone" | "publicEmail" | "websiteUrl";
+  issueKey: "phone" | "email" | "website";
+  label: string;
+  proposed: string;
+  sourceUrl: string | null;
+  sourceLabel: string;
+  detectedAt: string;
+  canonicalUpdatedAt: string;
+  proposedValueHash: string;
+};
+
 export type DirectoryQualityItem = {
   id: number;
   name: string;
@@ -187,6 +205,7 @@ export type DirectoryQualityItem = {
   status: string;
   priority: Exclude<DataQualityPriority, "all">;
   issues: Array<{ key: DataQualityIssueKey; label: string }>;
+  suggestions: DataQualityContactSuggestion[];
   mediaMonitor: MediaSourceMonitor | null;
   href: string;
 };
@@ -254,6 +273,7 @@ export type DataQualityDashboard = {
   mediaStatusOptions: typeof dataQualityMediaStatusOptions;
   sections: {
     profiles: AvailabilitySection;
+    suggestions: AvailabilitySection;
     media: AvailabilitySection;
     lookups: AvailabilitySection;
   };
@@ -510,6 +530,7 @@ async function loadProfileQualityPage(requestedPage: number, filters: ProfileQua
       status: row.status ?? "",
       priority: profilePriority(issues),
       issues,
+      suggestions: [],
       mediaMonitor: null,
       href: `/admin/adresar/${row.id}`,
     };
@@ -741,6 +762,55 @@ export async function loadDataQualityDashboard(input: {
     empty: (value) => value.summary.totalProfiles === 0,
   });
 
+  const suggestionRead = await readAdminAutomationData({
+    key: "data-quality:profile-suggestions",
+    load: async () => {
+      const profileIds = profileRead.data.profiles.map((profile) => profile.id);
+      if (!profileIds.length) return [] as Array<{ profileId: number; suggestion: DataQualityContactSuggestion }>;
+      const suggestions = await listCanonicalAutomationUpdateSuggestionsForEntities({
+        entityType: "DIRECTORY",
+        canonicalEntityIds: profileIds,
+      }, database());
+      const issueField = {
+        publicPhone: { issueKey: "phone", label: "Telefón" },
+        publicEmail: { issueKey: "email", label: "E-mail" },
+        websiteUrl: { issueKey: "website", label: "Web" },
+      } as const;
+      const profileIssues = new Map(
+        profileRead.data.profiles.map((profile) => [profile.id, new Set(profile.issues.map((issue) => issue.key))]),
+      );
+      return suggestions.flatMap((suggestion) =>
+        suggestion.fields.flatMap((field) => {
+          if (!field.reviewable || field.state !== "OPEN") return [];
+          if (!(field.field in issueField)) return [];
+          const typedField = field.field as keyof typeof issueField;
+          const meta = issueField[typedField];
+          if (!profileIssues.get(suggestion.canonicalEntityId)?.has(meta.issueKey)) return [];
+          const proposed = field.proposed === null || field.proposed === undefined ? "" : String(field.proposed).trim();
+          if (!proposed) return [];
+          return [{
+            profileId: suggestion.canonicalEntityId,
+            suggestion: {
+              origin: suggestion.origin,
+              suggestionId: suggestion.id,
+              field: typedField,
+              issueKey: meta.issueKey,
+              label: meta.label,
+              proposed,
+              sourceUrl: suggestion.sourceUrl,
+              sourceLabel: suggestion.sourceLabel,
+              detectedAt: suggestion.detectedAt,
+              canonicalUpdatedAt: suggestion.canonicalUpdatedAt,
+              proposedValueHash: field.proposedValueHash,
+            } satisfies DataQualityContactSuggestion,
+          }];
+        }),
+      );
+    },
+    fallback: [],
+    empty: (value) => value.length === 0,
+  });
+
   const mediaRead = await readAdminAutomationData({
     key: "data-quality:media",
     load: () => loadMediaQualityPage(requestedMediaPage, category, mediaStatus),
@@ -768,13 +838,24 @@ export async function loadDataQualityDashboard(input: {
     empty: (value) => value.length === 0,
   });
 
-  const availability = summarizeAdminAutomationReads([profileRead, mediaRead, lookupRead]);
+  const suggestionsByProfile = new Map<number, DataQualityContactSuggestion[]>();
+  for (const item of suggestionRead.data) {
+    const current = suggestionsByProfile.get(item.profileId) ?? [];
+    current.push(item.suggestion);
+    suggestionsByProfile.set(item.profileId, current);
+  }
+  const profiles = profileRead.data.profiles.map((profile) => ({
+    ...profile,
+    suggestions: suggestionsByProfile.get(profile.id) ?? [],
+  }));
+
+  const availability = summarizeAdminAutomationReads([profileRead, suggestionRead, mediaRead, lookupRead]);
   return {
     summary: {
       ...(profileRead.status === "UNAVAILABLE" ? unavailableProfileSummary : profileRead.data.summary),
       ...(mediaRead.status === "UNAVAILABLE" ? unavailableMediaSummary : mediaRead.data.summary),
     },
-    profiles: profileRead.data.profiles,
+    profiles,
     media: lookupRead.data,
     monitorReady: mediaRead.data.monitorReady,
     profilePagination: profileRead.data.pagination,
@@ -797,6 +878,7 @@ export async function loadDataQualityDashboard(input: {
     availability,
     sections: {
       profiles: { status: profileRead.status, errorRef: profileRead.errorRef },
+      suggestions: { status: suggestionRead.status, errorRef: suggestionRead.errorRef },
       media: { status: mediaRead.status, errorRef: mediaRead.errorRef },
       lookups: { status: lookupRead.status, errorRef: lookupRead.errorRef },
     },
