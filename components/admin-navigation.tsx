@@ -104,8 +104,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       >
         <NavigationGroups />
         <div className="admin-nav-public">
-          <Link href="/adresar" target="_blank" rel="noreferrer">Adresár ↗</Link>
-          <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc ↗</Link>
+          <Link href="/adresar" target="_blank" rel="noreferrer">Služby pre psov ↗</Link>
+          <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc psom ↗</Link>
         </div>
       </nav>
 
@@ -151,8 +151,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
               <NavigationGroups mobile />
             </nav>
             <div className={styles.mobilePublic}>
-              <Link href="/adresar" target="_blank" rel="noreferrer">Adresár ↗</Link>
-              <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc ↗</Link>
+              <Link href="/adresar" target="_blank" rel="noreferrer">Služby pre psov ↗</Link>
+              <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc psom ↗</Link>
             </div>
           </div>
         </div>
