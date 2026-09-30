@@ -57,6 +57,16 @@ function rowToItem(row: NavigationRow): NavigationItem {
   };
 }
 
+export function canonicalizeLegacyNewsLanding(items: NavigationItem[]) {
+  return items.map((item) => item.href === "/novinky"
+    ? {
+        ...item,
+        href: "/clanky",
+        label: item.id === "novinky" && item.label === "Novinky" ? "Novinky zo sveta psov" : item.label,
+      }
+    : item);
+}
+
 export function applyPublicMapLaunchGate(items: NavigationItem[], enabled: boolean) {
   const withoutMap = items.filter((item) => item.id !== "mapa" && item.href !== "/mapa");
   if (!enabled) return withoutMap;
@@ -85,10 +95,10 @@ export async function getNavigationItems() {
     GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
   });
   const database = getD1Binding();
-  if (!database) return applyPublicMapLaunchGate(defaultNavigationItems, enabled);
+  if (!database) return applyPublicMapLaunchGate(canonicalizeLegacyNewsLanding(defaultNavigationItems), enabled);
   const result = await database.prepare("SELECT id, label, href, parent_id, position, visible FROM navigation_items ORDER BY position, label").all<NavigationRow>();
   const items = result.results.length ? result.results.map(rowToItem) : defaultNavigationItems;
-  return applyPublicMapLaunchGate(items, enabled);
+  return applyPublicMapLaunchGate(canonicalizeLegacyNewsLanding(items), enabled);
 }
 
 function normalizeInternalHref(value: string, label: string) {
