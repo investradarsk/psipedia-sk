@@ -223,11 +223,9 @@ export function AdminWorkspaceDashboard({
             <Link href="/admin/clanky">Články</Link>
             <Link href="/admin/recenzie">Recenzie a testy</Link>
             <Link href="/admin/plemena">Plemená</Link>
-            <Link href="/admin/adresar">Adresár</Link>
-            <Link href="/admin/organizacie">Organizácie</Link>
+            <Link href="/admin/sluzby-pre-psov">Služby pre psov</Link>
             <Link href="/admin/podujatia">Podujatia</Link>
-            <Link href="/admin/pomoc">Pomoc psom</Link>
-            <Link href="/admin/stratene-najdene">Stratené / nájdené</Link>
+            <Link href="/admin/pomoc-psom">Pomoc psom</Link>
             <Link href="/admin/partners">Partneri</Link>
           </div>
         </article>
