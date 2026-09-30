@@ -90,6 +90,9 @@ export function evaluateDirectoryGeoEligibility(input: {
   const address = evaluateDirectoryServiceAddress(addressInput(source));
   if (address.reason === "ONLINE_ONLY") return { action: "SKIP", reason: "ONLINE_ONLY" };
   if (address.reason === "LEGACY_UNCONFIRMED") return { action: "REVIEW", reason: "LEGACY_UNCONFIRMED" };
+  if (address.reason === "NUMBERLESS_PLACE") {
+    return { action: "BLOCK", reason: "NUMBERLESS_PLACE_REQUIRES_GOOGLE_PLACE" };
+  }
   if (address.state === "MISSING") return { action: "BLOCK", reason: "MISSING" };
   if (address.state === "INCOMPLETE") return { action: "BLOCK", reason: "INCOMPLETE" };
   if (address.state === "NEEDS_REVIEW") return { action: "REVIEW", reason: address.reason };
