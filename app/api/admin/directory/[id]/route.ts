@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
+import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection } from "@/lib/directory-address-provider";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import {
@@ -105,7 +105,14 @@ export async function PATCH(request: Request, { params }: Props) {
   const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
   try {
-    const body = await request.json() as { action?: unknown };
+    const body = await request.json() as { action?: unknown; reviewed?: unknown };
+    if (body.action === "set-reviewed") {
+      if (typeof body.reviewed !== "boolean") {
+        return Response.json({ error: "Stav kontroly musí byť true alebo false." }, { status: 400 });
+      }
+      const profile = await setManagedDirectoryProfileReviewed(id, body.reviewed, user.email);
+      return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+    }
     if (body.action !== "restore") return Response.json({ error: "Nepodporovaná lifecycle akcia." }, { status: 400 });
     const profile = await restoreManagedDirectoryProfile(id, user.email);
     return profile ? Response.json({ profile }) : Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
