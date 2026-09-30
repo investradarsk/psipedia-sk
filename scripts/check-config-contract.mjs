@@ -123,6 +123,11 @@ export async function auditConfigurationContract(root = defaultRoot) {
   assert.ok(r2.bucket_name, "canonical R2 config must include bucket_name");
   assert.equal(hosting.r2, r2.binding, ".openai/hosting.json must mirror the canonical R2 binding");
 
+  const submissionR2 = resources.submission_r2;
+  assert.equal(typeof submissionR2?.binding, "string", "canonical resource config must own private submission R2 binding");
+  assert.ok(submissionR2.bucket_name, "canonical private submission R2 config must include bucket_name");
+  assert.notEqual(submissionR2.binding, r2.binding, "private submission R2 binding must be distinct from the public bucket binding");
+
   assert.equal(wrangler.assets?.binding, "ASSETS", "wrangler.jsonc must own ASSETS binding");
   assert.equal(wrangler.images?.binding, "IMAGES", "wrangler.jsonc must own IMAGES binding");
   assert.equal(wrangler.version_metadata?.binding, "CF_VERSION_METADATA", "wrangler.jsonc must own version metadata binding");
@@ -138,6 +143,11 @@ export async function auditConfigurationContract(root = defaultRoot) {
     wrangler.vars?.PROFILE_REVIEW_SUBMISSIONS_ENABLED,
     "true",
     "production review submissions must stay enabled in canonical wrangler config",
+  );
+  assert.equal(
+    wrangler.vars?.LOST_FOUND_SUBMISSIONS_ENABLED,
+    undefined,
+    "LOST_FOUND_SUBMISSIONS_ENABLED stays dashboard-managed and must be preserved by --keep-vars",
   );
   assert.equal(wrangler.vars?.NOTION_ARTICLE_SYNC_ENABLED, "true", "production Notion article sync must stay enabled in wrangler.jsonc");
   assert.equal(
@@ -186,6 +196,8 @@ export async function auditConfigurationContract(root = defaultRoot) {
   assert.equal(viteText.includes(d1.database_id), false, "vite.config.ts must not duplicate the canonical D1 database_id");
   assert.equal(viteText.includes(d1.database_name), false, "vite.config.ts must not duplicate the canonical D1 database_name");
   assert.equal(viteText.includes(r2.bucket_name), false, "vite.config.ts must not duplicate the canonical R2 bucket_name");
+  assert.equal(viteText.includes(submissionR2.bucket_name), false, "vite.config.ts must not duplicate the private submission R2 bucket_name");
+  assert.ok(viteText.includes("resourceConfig.submission_r2"), "vite.config.ts must include the canonical private submission R2 binding");
   assert.equal(viteText.includes(wrangler.compatibility_date), false, "vite.config.ts must not hard-code the production compatibility date");
   assert.equal(viteText.includes(localTooling.compatibility_date), false, "vite.config.ts must not hard-code the local tooling compatibility date");
   assert.ok(viteText.includes("local-cloudflare-tooling.json"), "vite.config.ts must consume the explicit local tooling compatibility contract");
@@ -208,6 +220,7 @@ export async function auditConfigurationContract(root = defaultRoot) {
     cloudflareAccountId: resources.account_id,
     d1Binding: d1.binding,
     r2Binding: r2.binding,
+    submissionR2Binding: submissionR2.binding,
     secretEnvNames: [...SECRET_ENV_NAMES],
   });
 }
