@@ -973,6 +973,19 @@ export function targetSchemaObjects(schema, targetMigration) {
         || ADMIN_ENTITY_REVIEW_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0104_article_topics.sql") {
+    return {
+      partial: names.has("article_topics")
+        || names.has("article_topic_assignments")
+        || [
+          "article_topics_slug_unique",
+          "article_topics_normalized_key_unique",
+          "article_topics_active_label_idx",
+          "article_topic_assignments_article_idx",
+          "article_topic_assignments_topic_idx",
+        ].some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
