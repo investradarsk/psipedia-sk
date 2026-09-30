@@ -39,6 +39,15 @@ type PromoBanner = {
   tone: "care" | "rescue" | "volunteer";
 };
 
+const lostFoundSubmitPromo: PromoBanner = {
+  eyebrow: "Stratený alebo nájdený pes",
+  title: "Stratil sa vám pes alebo ste psa našli?",
+  text: "Pošlite hlásenie cez krátky formulár. Kontaktné údaje zostanú súkromné a záznam sa zobrazí až po kontrole.",
+  href: "/pomoc-psom/stratene-a-najdene/nahlasit",
+  action: "Nahlásiť psa",
+  tone: "rescue",
+};
+
 const promos: Record<number, PromoBanner> = {
   0: {
     eyebrow: "Praktické rady",
@@ -163,6 +172,8 @@ export function HelpOverview({
             ))}
           </nav>
         </section>
+
+        <Promo promo={lostFoundSubmitPromo} />
 
         <div className={styles.overviewFlow}>
           {sections.map((section, index) => {
