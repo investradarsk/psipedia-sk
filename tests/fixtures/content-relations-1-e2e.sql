@@ -5,6 +5,25 @@ DELETE FROM adoption_dogs WHERE id BETWEEN 991201 AND 991299;
 DELETE FROM help_organizations WHERE id BETWEEN 991201 AND 991299;
 DELETE FROM directory_profiles WHERE id BETWEEN 991101 AND 991199;
 DELETE FROM managed_articles WHERE id BETWEEN 991101 AND 991199;
+DELETE FROM managed_breeds WHERE id = 991001;
+
+INSERT INTO managed_breeds (
+  id, slug, name, status, fci_number, fci_group, fci_section, fci_section_number,
+  official_fci_name, import_key, origin, group_name, size, weight, lifespan, coat,
+  intro, character, needs, seo_json,
+  created_at, updated_at, published_at, created_by, updated_by
+) VALUES (
+  991001, 'content-relations-e2e-plemeno', 'CONTENT-RELATIONS E2E plemeno', 'published',
+  991001, 8, 'Retrievery', '1', 'CONTENT-RELATIONS E2E breed', 'ci-content-relations-991001',
+  'Slovensko', 'Retrievery, sliediče a vodné psy', 'stredný', '20–30 kg', '10–14 rokov', 'krátka',
+  'Izolované plemeno určené iba pre lokálne relation E2E.',
+  'Vyrovnaný testovací profil bez produkčných dát.',
+  'Bežná starostlivosť a primeraný pohyb.',
+  '{}',
+  '2026-09-30T00:05:00.000Z', '2026-09-30T00:05:00.000Z', '2026-09-30T00:05:00.000Z',
+  'ci:content-relations', 'ci:content-relations'
+);
+
 
 INSERT INTO managed_articles (
   id, slug, title, excerpt, category, portal_section, status, accent, author,
@@ -82,23 +101,23 @@ INSERT INTO directory_profiles (
 
 INSERT INTO breed_article_relations (breed_id, article_id, created_at, created_by)
 SELECT id, 991101, '2026-09-30T00:30:00.000Z', 'ci:content-relations'
-FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak'
+FROM managed_breeds WHERE slug = 'content-relations-e2e-plemeno'
 UNION ALL
 SELECT id, 991103, '2026-09-30T00:30:00.000Z', 'ci:content-relations'
-FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak'
+FROM managed_breeds WHERE slug = 'content-relations-e2e-plemeno'
 UNION ALL
 SELECT id, 991104, '2026-09-30T00:30:00.000Z', 'ci:content-relations'
-FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak';
+FROM managed_breeds WHERE slug = 'content-relations-e2e-plemeno';
 
 INSERT INTO breed_directory_relations (breed_id, profile_id, relation_type, source, created_at, created_by)
 SELECT id, 991101, 'breed-club', 'manual', '2026-09-30T00:31:00.000Z', 'ci:content-relations'
-FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak'
+FROM managed_breeds WHERE slug = 'content-relations-e2e-plemeno'
 UNION ALL
 SELECT id, 991103, 'breeding-station', 'manual', '2026-09-30T00:31:00.000Z', 'ci:content-relations'
-FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak'
+FROM managed_breeds WHERE slug = 'content-relations-e2e-plemeno'
 UNION ALL
 SELECT id, 991104, 'breed-club', 'manual', '2026-09-30T00:31:00.000Z', 'ci:content-relations'
-FROM managed_breeds WHERE slug = 'biely-svajciarsky-ovciak';
+FROM managed_breeds WHERE slug = 'content-relations-e2e-plemeno';
 
 INSERT INTO help_organizations (
   id, name, slug, type, status, short_description, description,
