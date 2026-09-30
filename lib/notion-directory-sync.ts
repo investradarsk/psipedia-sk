@@ -7,7 +7,14 @@ import {
   updateManagedDirectoryProfile,
   type ManagedDirectoryProfileInput,
 } from "@/lib/directory-store";
-import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import {
+  directoryQualityCheckedAtSummary,
+  directoryQualityFields,
+  readDirectoryPublicContacts,
+  type DirectoryQualityField,
+  type DirectoryQualityResolutionInput,
+  type DirectoryQualityResolutionStatus,
+} from "@/lib/directory-profile-metadata";
 import { verifyDirectoryCanonicalAddress } from "@/lib/directory-address-provider";
 import {
   applyVerifiedDirectoryAddressGeo,
@@ -95,6 +102,8 @@ type EditableDirectorySnapshot = {
   instagramUrl: string;
   internalEmail: string;
   imageUrl: string;
+  qualityResolutions: DirectoryQualityResolutionInput;
+  qualityCheckedAt: string;
   verified: boolean;
   featured: boolean;
   seo: {
@@ -171,6 +180,44 @@ function propertyText(page: NotionPage, name: string) {
 
 function propertyCheckbox(page: NotionPage, name: string) {
   return property(page, name)?.checkbox === true;
+}
+
+function propertyDateStart(page: NotionPage, name: string) {
+  const value = property(page, name)?.date;
+  if (!value || typeof value !== "object") return "";
+  const start = (value as Record<string, unknown>).start;
+  return typeof start === "string" ? start.trim() : "";
+}
+
+const notionQualityProperties: Record<DirectoryQualityField, string> = {
+  phone: "Kvalita · Telefón",
+  email: "Kvalita · E-mail",
+  website: "Kvalita · Web",
+  image: "Kvalita · Obrázok",
+  address: "Kvalita · Adresa",
+};
+
+const notionQualityStatusMap: Record<string, DirectoryQualityResolutionStatus> = {
+  "Nemá": "DOES_NOT_EXIST",
+  "Verejne nezverejnené": "NOT_PUBLIC",
+  "Nedohľadateľné": "NOT_FOUND",
+  "Nevzťahuje sa": "NOT_APPLICABLE",
+};
+
+function qualityStatusFromNotion(value: string): DirectoryQualityResolutionStatus | "" {
+  return notionQualityStatusMap[value] ?? "";
+}
+
+function qualityStatusToNotion(value: DirectoryQualityResolutionStatus | "" | undefined) {
+  if (!value) return "";
+  return Object.entries(notionQualityStatusMap).find(([, status]) => status === value)?.[0] ?? "";
+}
+
+function notionQualityResolutions(page: NotionPage): DirectoryQualityResolutionInput {
+  return Object.fromEntries(directoryQualityFields.map((field) => [
+    field,
+    qualityStatusFromNotion(propertyText(page, notionQualityProperties[field])),
+  ])) as DirectoryQualityResolutionInput;
 }
 
 function splitList(value: string) {
@@ -258,6 +305,11 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
     instagramUrl: clean(contacts.instagram),
     internalEmail: clean(profile.internalEmail),
     imageUrl: sourceImageUrl || externalSourceImageUrl(profile.imageUrl),
+    qualityResolutions: Object.fromEntries(directoryQualityFields.map((field) => [
+      field,
+      profile.qualityMetadata[field]?.status ?? "",
+    ])) as DirectoryQualityResolutionInput,
+    qualityCheckedAt: directoryQualityCheckedAtSummary(profile.qualityMetadata),
     verified: profile.verified,
     featured: profile.featured,
     seo: {
@@ -302,6 +354,8 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     instagramUrl: propertyText(page, "Instagram"),
     internalEmail: propertyText(page, "Interný e-mail"),
     imageUrl: propertyText(page, "Hlavný obrázok URL"),
+    qualityResolutions: notionQualityResolutions(page),
+    qualityCheckedAt: propertyDateStart(page, "Kvalita skontrolované"),
     verified: propertyCheckbox(page, "Overené"),
     featured: propertyCheckbox(page, "Odporúčané"),
     seo: {
@@ -417,6 +471,12 @@ function notionProfileProperties(
     "Instagram": url(snapshot.instagramUrl),
     "Interný e-mail": email(snapshot.internalEmail),
     "Hlavný obrázok URL": url(snapshot.imageUrl),
+    "Kvalita · Telefón": select(qualityStatusToNotion(snapshot.qualityResolutions.phone)),
+    "Kvalita · E-mail": select(qualityStatusToNotion(snapshot.qualityResolutions.email)),
+    "Kvalita · Web": select(qualityStatusToNotion(snapshot.qualityResolutions.website)),
+    "Kvalita · Obrázok": select(qualityStatusToNotion(snapshot.qualityResolutions.image)),
+    "Kvalita · Adresa": select(qualityStatusToNotion(snapshot.qualityResolutions.address)),
+    "Kvalita skontrolované": date(snapshot.qualityCheckedAt),
     "Overené": checkbox(snapshot.verified),
     "Odporúčané": checkbox(snapshot.featured),
     "SEO title": richText(snapshot.seo.title),
@@ -623,6 +683,8 @@ function fullProfileInput(
     internalEmail: desired.internalEmail || null,
     imageUrl,
     imageKey,
+    qualityResolutions: desired.qualityResolutions,
+    qualityCheckedAt: desired.qualityCheckedAt,
     verified: desired.verified,
     featured: desired.featured,
     seo: {
@@ -676,6 +738,8 @@ function newProfileInput(
     internalEmail: desired.internalEmail || null,
     imageUrl: preparedImage?.imageUrl ?? ownPsipediaImage(desired.imageUrl),
     imageKey: preparedImage?.imageKey ?? null,
+    qualityResolutions: desired.qualityResolutions,
+    qualityCheckedAt: desired.qualityCheckedAt,
     verified: desired.verified,
     featured: desired.featured,
     seo: {
