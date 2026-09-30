@@ -93,7 +93,9 @@ test.describe("ADMIN-2E article bulk execution", () => {
     await expect(page.locator("[data-admin-bulk-toolbar]")).toHaveCount(0);
 
     await page.getByLabel("Vybrať článok ADMIN-2E Draft A").check();
-    await page.getByRole("button", { name: "Koncepty", exact: true }).click();
+    await page.getByLabel("Stav").selectOption("draft");
+    await page.getByRole("button", { name: "Filtrovať", exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/clanky\?[^#]*status=draft/);
     await expect(page.locator("[data-admin-bulk-toolbar]")).toHaveCount(0);
   });
 
