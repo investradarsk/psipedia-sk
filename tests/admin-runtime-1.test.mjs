@@ -234,6 +234,75 @@ test("data quality filters narrow profiles and media without changing facet summ
   fixture.close();
 });
 
+test("data quality surfaces reviewable contact suggestions from existing automation sources", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+  await fixture.db.prepare(`CREATE TABLE automation_update_suggestions (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    suggestion_type TEXT NOT NULL,
+    before_json TEXT NOT NULL,
+    proposed_json TEXT NOT NULL,
+    diff_json TEXT NOT NULL,
+    external_source_url TEXT,
+    last_detected_at TEXT NOT NULL,
+    status TEXT NOT NULL
+  )`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_sources (
+    id INTEGER PRIMARY KEY,
+    label TEXT
+  )`).run();
+  await fixture.db.prepare(`CREATE TABLE automation_findings (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    finding_type TEXT NOT NULL,
+    before_json TEXT NOT NULL,
+    proposed_json TEXT NOT NULL,
+    diff_json TEXT NOT NULL,
+    source_url TEXT,
+    source_id INTEGER,
+    last_detected_at TEXT NOT NULL,
+    review_status TEXT NOT NULL
+  )`).run();
+  await fixture.db.prepare(`INSERT INTO automation_update_suggestions (
+    id, entity_type, canonical_entity_id, suggestion_type, before_json, proposed_json,
+    diff_json, external_source_url, last_detected_at, status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+    1,
+    "DIRECTORY",
+    1,
+    "POSSIBLE_UPDATE",
+    "{}",
+    JSON.stringify({ public_phone: "+421 900 123 456" }),
+    JSON.stringify({ public_phone: { before: "", after: "+421 900 123 456" } }),
+    "https://example.test/kontakt",
+    "2026-09-30T12:00:00.000Z",
+    "OPEN",
+  ).run();
+
+  const result = await quality.loadDataQualityDashboard({ query: "Profil 0001" });
+  assert.equal(result.sections.suggestions.status, "OK");
+  assert.equal(result.profiles.length, 1);
+  assert.equal(result.profiles[0].suggestions.length, 1);
+  assert.deepEqual(result.profiles[0].suggestions[0], {
+    origin: "DIRECT_ENTITY",
+    suggestionId: 1,
+    field: "publicPhone",
+    issueKey: "phone",
+    label: "Telefón",
+    proposed: "+421 900 123 456",
+    sourceUrl: "https://example.test/kontakt",
+    sourceLabel: "example.test",
+    detectedAt: "2026-09-30T12:00:00.000Z",
+    canonicalUpdatedAt: "",
+    proposedValueHash: result.profiles[0].suggestions[0].proposedValueHash,
+  });
+  assert.match(result.profiles[0].suggestions[0].proposedValueHash, /^[a-f0-9]{64}$/);
+  fixture.close();
+});
+
 test("entity lookup deduplicates and chunks more than 100 IDs under the D1 binding ceiling", async () => {
   const fixture = d1Fixture();
   useDb(fixture.db);
@@ -305,6 +374,9 @@ test("quality UI never renders raw monitor errors, SQL or stack traces", () => {
   const reliability = readFileSync(new URL("../lib/admin-automation-reliability.ts", import.meta.url), "utf8");
   assert.doesNotMatch(component, /monitor\.lastError/);
   assert.doesNotMatch(component, /stack/i);
+  assert.match(component, /Nájdené zo zdrojov/);
+  assert.match(component, /Prevziať/);
+  assert.match(component, /automation-update-suggestions/);
   assert.match(component, /Referencia:/);
   assert.match(reliability, /errorType:/);
   assert.doesNotMatch(reliability, /errorMessage|error\.message|String\(error\)/);

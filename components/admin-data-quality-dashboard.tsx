@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import type { DataQualityDashboard } from "@/lib/data-quality-store";
+import type { DataQualityContactSuggestion, DataQualityDashboard } from "@/lib/data-quality-store";
 
 function mediaStatusLabel(status: string) {
   if (status === "CHANGED") return "Obrázok sa zmenil";
@@ -163,7 +163,43 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     }
   }
 
+  async function reviewContactSuggestion(
+    profileId: number,
+    suggestion: DataQualityContactSuggestion,
+    action: "accept" | "reject",
+  ) {
+    if (action === "reject" && !window.confirm(`Zamietnuť návrh pre ${suggestion.label.toLowerCase()}?`)) return;
+    const key = `contact-${action}-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
+    setBusy(key);
+    setMessage("");
+    try {
+      const response = await fetch(
+        `/api/admin/automation-update-suggestions/${suggestion.origin}/${suggestion.suggestionId}/fields/${encodeURIComponent(suggestion.field)}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action,
+            expectedProposedValueHash: suggestion.proposedValueHash,
+            expectedUpdatedAt: suggestion.canonicalUpdatedAt,
+          }),
+        },
+      );
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || "Návrh sa nepodarilo spracovať.");
+      setMessage(action === "accept"
+        ? `${suggestion.label} bol prevzatý do profilu #${profileId}.`
+        : `Návrh pre ${suggestion.label.toLowerCase()} bol zamietnutý.`);
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Návrh sa nepodarilo spracovať.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const profilesUnavailable = data.sections.profiles.status === "UNAVAILABLE";
+  const suggestionsUnavailable = data.sections.suggestions.status === "UNAVAILABLE";
   const mediaUnavailable = data.sections.media.status === "UNAVAILABLE";
   const lookupsUnavailable = data.sections.lookups.status === "UNAVAILABLE";
 
@@ -320,6 +356,14 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
             </div>
           </div>
 
+          {message && <p className="admin-flash" role="status">{message}</p>}
+          {suggestionsUnavailable ? (
+            <p className="admin-message admin-message--error">
+              Návrhy doplnení zo zdrojov sa momentálne nepodarilo načítať. Zoznam profilov zostáva použiteľný.
+              {reference(data.sections.suggestions.errorRef)}
+            </p>
+          ) : null}
+
           {profilesUnavailable ? (
             <p className="admin-message admin-message--error">
               Profilové údaje sa momentálne nepodarilo načítať. Skús obnoviť údaje.
@@ -355,6 +399,56 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                         <div className="admin-quality-issue-chips">
                           {profile.issues.map((issue) => <span key={issue.key}>{issue.label}</span>)}
                         </div>
+                        {profile.suggestions.length ? (
+                          <div className="admin-quality-contact-suggestions" aria-label="Nájdené návrhy doplnení">
+                            <div className="admin-quality-contact-suggestions-heading">
+                              <strong>Nájdené zo zdrojov</strong>
+                              <span>{profile.suggestions.length}</span>
+                            </div>
+                            {profile.suggestions.map((suggestion) => {
+                              const acceptKey = `contact-accept-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
+                              const rejectKey = `contact-reject-${suggestion.origin}-${suggestion.suggestionId}-${suggestion.field}`;
+                              const isBusy = busy === acceptKey || busy === rejectKey;
+                              return (
+                                <div
+                                  className="admin-quality-contact-suggestion"
+                                  key={`${suggestion.origin}:${suggestion.suggestionId}:${suggestion.field}`}
+                                >
+                                  <div>
+                                    <span>{suggestion.label}</span>
+                                    <strong>{suggestion.proposed}</strong>
+                                    <small>
+                                      Zdroj:{" "}
+                                      {suggestion.sourceUrl ? (
+                                        <a href={suggestion.sourceUrl} target="_blank" rel="noreferrer">
+                                          {suggestion.sourceLabel || "Otvoriť zdroj"} ↗
+                                        </a>
+                                      ) : (suggestion.sourceLabel || "Automatizácia")}
+                                      {" · "}nájdené {checkedAt(suggestion.detectedAt)}
+                                    </small>
+                                  </div>
+                                  <div className="admin-quality-contact-actions">
+                                    <button
+                                      type="button"
+                                      className="is-primary"
+                                      disabled={isBusy}
+                                      onClick={() => void reviewContactSuggestion(profile.id, suggestion, "accept")}
+                                    >
+                                      {busy === acceptKey ? "Preberám…" : "Prevziať"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isBusy}
+                                      onClick={() => void reviewContactSuggestion(profile.id, suggestion, "reject")}
+                                    >
+                                      {busy === rejectKey ? "Zamietam…" : "Zamietnuť"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="admin-row-actions">
                         <Link className="admin-row-edit" href={profile.href}>Doplniť údaje</Link>
