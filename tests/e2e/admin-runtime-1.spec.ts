@@ -67,9 +67,12 @@ test("representative existing directory detail loads from isolated fixture", asy
 
   const detail = page.getByRole("link", { name: "Directory Admin Editor Fixture", exact: true }).first();
   await expect(detail).toBeVisible();
-  await detail.click();
-  await page.waitForLoadState("domcontentloaded");
+  const detailHref = await detail.getAttribute("href");
+  expect(detailHref).toMatch(/^\/admin\/adresar\/\d+$/);
 
+  const detailResponse = await page.goto(detailHref!, { waitUntil: "domcontentloaded" });
+  expect(detailResponse).not.toBeNull();
+  expect(detailResponse?.status()).toBeLessThan(500);
   expect(new URL(page.url()).pathname).toMatch(/^\/admin\/adresar\/\d+$/);
   await expect(page.getByRole("heading", { name: /Directory Admin Editor Fixture/i }).first()).toBeVisible();
   expect(await page.locator("body").innerText()).not.toMatch(/Error 1101|Worker threw exception/i);
