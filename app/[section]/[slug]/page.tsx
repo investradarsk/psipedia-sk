@@ -97,7 +97,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   if (portalTopic && section === "novinky") {
     const newsCategory = getNewsCategory(slug);
     if (newsCategory) {
-      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} />;
+      return <NewsHub articles={await getAllPublishedArticleSummaries({ portalSection: "novinky" })} section={portalTopic.section} activeCategory={newsCategory.slug} landingPath="/clanky" />;
     }
   }
   if (portalTopic && section === "recenzie") {
