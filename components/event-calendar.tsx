@@ -275,7 +275,7 @@ export function EventCalendar({
                     </div>
                     {pathname ? (
                       <a
-                        href={eventTimeFilterHref("upcoming", pathname)}
+                        href={pathname}
                         className={styles.categoryAll}
                         onClick={(event) => {
                           event.preventDefault();
