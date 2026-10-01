@@ -698,6 +698,9 @@ function normalizeQualityCheckedAt(value: string | undefined) {
 }
 
 function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData> | undefined, category: DirectoryCategorySlug) {
+  if (value && Object.prototype.hasOwnProperty.call(value as object, "online")) {
+    throw new Error("Pole online už nie je podporované pre profily služieb.");
+  }
   const name = cleanText(value?.name, 180);
   const region = normalizeDirectoryRegion(cleanText(value?.region, 80));
   const email = normalizeEmail(cleanText(value?.email, 180)) ?? "";
