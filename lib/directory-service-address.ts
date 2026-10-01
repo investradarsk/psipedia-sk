@@ -213,6 +213,56 @@ export function evaluateDirectoryServiceAddress(input: DirectoryServiceAddress):
   return { state: "COMPLETE", reason: "COMPLETE", normalizedPostalCode, formattedAddress };
 }
 
+export function directoryAddressQualityWarning(
+  input: DirectoryServiceAddress,
+  publicAddress = "",
+) {
+  const evaluation = evaluateDirectoryServiceAddress(input);
+  const hasEditorialAddress = Boolean(publicAddress.trim());
+
+  if (evaluation.reason === "COMPLETE") return null;
+  if (evaluation.reason === "NUMBERLESS_PLACE") {
+    return "Presná mapa zatiaľ nie je potvrdená.";
+  }
+  if (evaluation.reason === "LOCALITY_INVALID") {
+    return "Lokalita nie je v našom zozname.";
+  }
+  if (evaluation.reason === "LOCALITY_INCOMPLETE") {
+    return hasEditorialAddress ? "Adresa nie je technicky potvrdená." : "Lokalita nie je kompletná.";
+  }
+  if (evaluation.reason === "POSTAL_CODE_MISSING") {
+    return "PSČ nie je vyplnené.";
+  }
+  if (evaluation.reason === "POSTAL_CODE_INVALID") {
+    return "PSČ sa nepodarilo potvrdiť.";
+  }
+  if (evaluation.reason === "ADDRESS_FORMAT_MISSING") {
+    return "Formát adresy nie je technicky potvrdený.";
+  }
+  if (evaluation.reason === "STREET_MISSING") {
+    return "Ulica nie je technicky potvrdená.";
+  }
+  if (evaluation.reason === "HOUSE_NUMBER_MISSING") {
+    return "Číslo domu nie je technicky potvrdené.";
+  }
+  if (evaluation.reason === "STREET_NOT_ALLOWED") {
+    return "Ulica nebola potvrdená providerom.";
+  }
+  if (evaluation.reason === "LEGACY_UNCONFIRMED") {
+    return "Adresa nie je potvrdená.";
+  }
+  if (evaluation.reason === "ONLINE_SENTINEL_CONFLICT") {
+    return "Lokalita obsahuje konflikt s online označením.";
+  }
+  if (evaluation.reason === "ONLINE_ONLY") {
+    return hasEditorialAddress ? "Adresa nie je technicky potvrdená." : null;
+  }
+  if (evaluation.reason === "MISSING") {
+    return hasEditorialAddress ? "Adresa nie je technicky potvrdená." : "Chýbajú technické lokalizačné údaje.";
+  }
+  return "Adresa nie je technicky potvrdená.";
+}
+
 export function directoryCanonicalPublicAddress(input: DirectoryServiceAddress) {
   const evaluation = evaluateDirectoryServiceAddress(input);
   return evaluation.state === "COMPLETE" ? evaluation.formattedAddress : null;
