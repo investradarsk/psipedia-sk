@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   evaluateGooglePlaceCandidates,
+  googlePlaceNameScore,
   GOOGLE_PLACE_MATCH_DISTANCE_METERS,
 } from "../lib/google-place-matching.ts";
 
@@ -31,6 +32,55 @@ test("GOOGLE-PLACE-1B exact strong name+address+near coordinates => MATCH", () =
   }]);
   assert.equal(result.decision, "MATCH");
   assert.ok(result.candidate.distanceMeters <= GOOGLE_PLACE_MATCH_DISTANCE_METERS);
+});
+
+const abovZooTarget = {
+  targetId: 17,
+  name: "AbovZOOveterina",
+  city: "Košice - Staré Mesto",
+  postalCode: "040 01",
+  canonicalAddress: "Jesenského 1606/17\n040 01 Košice - Staré Mesto",
+  latitude: 48.7205,
+  longitude: 21.2574,
+};
+
+test("GOOGLE-PLACE-MATCHING-1 accepts reordered veterinary descriptor and municipality-only Google address", () => {
+  const result = evaluateGooglePlaceCandidates(abovZooTarget, [{
+    id: "places/abovzoo-vet",
+    displayName: "Veterinárna ambulancia AbovZoo",
+    formattedAddress: "Jesenského 1606/17, 040 01 Košice, Slovensko",
+    latitude: 48.72055,
+    longitude: 21.25745,
+  }]);
+
+  assert.equal(googlePlaceNameScore("AbovZOOveterina", "Veterinárna ambulancia AbovZoo"), 1);
+  assert.equal(result.candidate?.cityMatch, true);
+  assert.equal(result.decision, "MATCH");
+});
+
+test("GOOGLE-PLACE-MATCHING-1 does not confuse the same brand's pet shop with its veterinary place", () => {
+  const result = evaluateGooglePlaceCandidates(abovZooTarget, [{
+    id: "places/abovzoo-shop",
+    displayName: "AbovZoo - chovateľské potreby",
+    formattedAddress: "Jesenského 1606/17, 040 01 Košice, Slovensko",
+    latitude: 48.72055,
+    longitude: 21.25745,
+  }]);
+
+  assert.ok((result.candidate?.nameScore ?? 1) < 0.78);
+  assert.notEqual(result.decision, "MATCH");
+});
+
+test("GOOGLE-PLACE-MATCHING-1 still rejects a different veterinary business at the same address", () => {
+  const result = evaluateGooglePlaceCandidates(abovZooTarget, [{
+    id: "places/other-vet",
+    displayName: "Veterinárna ambulancia Novák",
+    formattedAddress: "Jesenského 1606/17, 040 01 Košice, Slovensko",
+    latitude: 48.72055,
+    longitude: 21.25745,
+  }]);
+
+  assert.notEqual(result.decision, "MATCH");
 });
 
 test("GOOGLE-PLACE-1B different city / large distance never auto-matches", () => {
