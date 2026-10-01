@@ -69,13 +69,17 @@ export function directoryAdminMembershipFilters(filters: DirectoryAdminFilters):
 export function normalizeDirectoryAdminMembershipFilters(
   filters: DirectoryAdminMembershipFilters,
 ): DirectoryAdminMembershipFilters {
+  const location = (value: string, max: number) => {
+    const clean = value.trim().slice(0, max);
+    return /^online$/i.test(clean) ? "" : clean;
+  };
   return {
     category: filters.category.trim(),
     status: filters.status === "published" || filters.status === "draft" || filters.status === "archived" ? filters.status : "all",
     q: filters.q.trim().slice(0, 100),
-    region: filters.region.trim().slice(0, 80),
-    district: filters.district.trim().slice(0, 100),
-    city: filters.city.trim().slice(0, 120),
+    region: location(filters.region, 80),
+    district: location(filters.district, 100),
+    city: location(filters.city, 120),
     verification: filters.verification === "verified" || filters.verification === "unverified" ? filters.verification : "all",
     media: filters.media === "with-image" || filters.media === "without-image" ? filters.media : "all",
   };
@@ -210,7 +214,9 @@ export async function queryDirectoryAdmin<T>(
     database.prepare("SELECT DISTINCT city AS value FROM directory_profiles WHERE trim(city) <> '' ORDER BY city").all<{ value: string }>(),
   ]);
   const values = (rows: { results: Array<{ value: string }> }) =>
-    rows.results.map((row) => row.value?.trim()).filter((value): value is string => Boolean(value));
+    rows.results
+      .map((row) => row.value?.trim())
+      .filter((value): value is string => Boolean(value) && !/^online$/i.test(value));
 
   return {
     counts: totals ?? { total: 0, published: 0, draft: 0, archived: 0 },
