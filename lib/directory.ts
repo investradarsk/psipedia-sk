@@ -72,7 +72,6 @@ export type DirectoryProfileEditableData = {
   services: string[];
   priceNote: string;
   coverage: string;
-  online: boolean;
   specialized: Record<string, string>;
 };
 
