@@ -35,6 +35,16 @@ export default async function AdminMapsPage({
     unavailable = error instanceof Error ? error.message : "Geo foundation zatiaľ nie je dostupný.";
   }
 
+  const dashboardKey = operatorData
+    ? [
+        operatorData.filters.group,
+        operatorData.filters.category,
+        operatorData.filters.operator,
+        operatorData.filters.google,
+        operatorData.filters.query,
+      ].join("|")
+    : "unavailable";
+
   return (
     <AdminShell
       user={user}
@@ -45,7 +55,7 @@ export default async function AdminMapsPage({
     >
       {unavailable || !operatorData
         ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>
-        : <AdminGeoOperatorDashboard data={operatorData} />}
+        : <AdminGeoOperatorDashboard key={dashboardKey} data={operatorData} />}
     </AdminShell>
   );
 }
