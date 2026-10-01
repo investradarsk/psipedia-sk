@@ -63,6 +63,13 @@ function countForGroup(data: GeoAdminOperatorData, group: GeoAdminOperatorGroupF
   return data.counts.groups[group];
 }
 
+function editorialAddressPolicyNote(item: GeoAdminOperatorRow) {
+  if (item.publicAddress) {
+    return `Verejná adresa zostáva uložená a publikovateľná: ${item.publicAddress}`;
+  }
+  return "";
+}
+
 function filterFingerprint(data: GeoAdminOperatorData) {
   return JSON.stringify({
     category: data.filters.category,
@@ -470,7 +477,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
                 <strong>Google Maps</strong>
                 <span>{googleStatus(item)}</span>
                 {item.formattedAddress ? <span>{item.formattedAddress}</span> : null}
-                {!item.formattedAddress && item.publicAddress ? <span>Verejná adresa: {item.publicAddress}</span> : null}
+                {editorialAddressPolicyNote(item) ? <span>{editorialAddressPolicyNote(item)}</span> : null}
               </div>
 
               {item.addressWarning ? (
