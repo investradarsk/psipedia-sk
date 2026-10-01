@@ -174,7 +174,6 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
       houseNumber: source.houseNumber ?? "",
       addressFormat: source.addressFormat ?? "",
       serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
-      online: source.online,
     };
     const evaluation = evaluateDirectoryServiceAddress(serviceAddress);
     const candidate = directoryExactGeoCandidate(serviceAddress);
@@ -200,7 +199,6 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
     if (
       source.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION"
       && source.address?.trim()
-      && !source.online
     ) {
       return {
         proposedVisibility: "EXACT_PUBLIC",
@@ -209,9 +207,6 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
         reasonCode: null,
         explanation: "Adresa a presný bod boli potvrdené konkrétnym Google Place.",
       };
-    }
-    if (evaluation.reason === "ONLINE_ONLY") {
-      return { proposedVisibility: "HIDDEN", proposedPrecision: null, requiresReview: false, reasonCode: "ONLINE_ONLY", explanation: "Online-only profil nemá fyzický marker." };
     }
     if (evaluation.reason === "LEGACY_UNCONFIRMED") {
       return { proposedVisibility: null, proposedPrecision: null, requiresReview: true, reasonCode: "PRIVACY_CLASSIFICATION_MISSING", explanation: "Legacy adresa nie je potvrdená ako adresa prevádzky." };
@@ -244,7 +239,6 @@ export function buildGeoQuery(
       houseNumber: source.houseNumber ?? "",
       addressFormat: source.addressFormat ?? "",
       serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
-      online: source.online,
     });
     const confirmedAddress = candidate?.formattedAddress
       ?? (source.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" ? source.address?.trim() || null : null);
@@ -330,7 +324,6 @@ export function geoFingerprintInput(
               houseNumber: source.houseNumber ?? "",
               addressFormat: source.addressFormat ?? "",
               serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
-              online: source.online,
             }) ?? (source.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" ? source.address || null : null)
           : (source.address || source.venue))
       : null,
