@@ -21,7 +21,6 @@ const source = {
   district: "Nitra",
   region: "Nitriansky kraj",
   countryCode: "SK",
-  online: false,
   published: true,
 };
 
@@ -130,8 +129,8 @@ test("GOOGLE-PLACE-BULK Admin Mapy supports combinable category and Google Maps 
 });
 
 test("GOOGLE-PLACE-BULK pagination advances past unresolved results instead of repeating the first batch", () => {
-  assert.match(dashboard, /bulkCursorId/);
-  assert.match(dashboard, /items\.findIndex\(\(item\) => item\.id === bulkCursorId\)/);
+  assert.match(dashboard, /bulkCursorKey/);
+  assert.match(dashboard, /items\.findIndex\(\(item\) => item\.id === bulkCursorKey\)/);
   assert.match(dashboard, /visible\.filter\(\(item\) =>[\s\S]*itemIndex > bulkCursorIndex[\s\S]*googleMapsTarget !== "PLACE"/);
   assert.match(dashboard, /setBulkCursorId\(targets\[targets\.length - 1\]\.id\)/);
   assert.match(dashboard, /Pokračovať ďalšou dávkou/);
@@ -144,7 +143,8 @@ test("GOOGLE-PLACE-BULK endpoint is explicit, bounded and processor protects pri
   assert.match(bulkRoute, /GOOGLE-PLACE-BULK/);
   assert.match(bulkRoute, /validateGooglePlaceBulkTargetIds/);
   assert.match(bulkStore, /GOOGLE_PLACE_BULK_MAX = 100/);
-  assert.match(bulkStore, /geoSensitiveDirectoryCategory/);
+  assert.doesNotMatch(bulkStore, /Citlivá kategória sa hromadne nezverejňuje/);
+  assert.match(bulkStore, /categoryWasLegacySensitive/);
   assert.match(bulkStore, /manual_override/);
   assert.match(bulkStore, /public_visibility/);
   assert.match(bulkStore, /updateManagedDirectoryProfileFromGooglePlace/);
