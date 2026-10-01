@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdoptionCatalog } from "@/components/adoption-catalog";
 import { StructuredData } from "@/components/structured-data";
-import { adoptionCatalogHasFacet, parseAdoptionCatalogFilters, type AdoptionCatalogSearchParams } from "@/lib/adoption-catalog";
+import { parseAdoptionCatalogFilters, type AdoptionCatalogSearchParams } from "@/lib/adoption-catalog";
 import { getPublicAdoptions, listPublishedAdoptionBreedOptions } from "@/lib/adoption-store";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import styles from "@/components/adoption.module.css";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +13,13 @@ type Props = { searchParams: Promise<AdoptionCatalogSearchParams> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams;
-  return buildPageMetadata({
+  return buildListingPageMetadata({
     title: "Psy na adopciu",
     description: "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
     path: "/pomoc-psom/adopcia",
-    robots: adoptionCatalogHasFacet(params) ? { index: false, follow: true } : undefined,
+    searchParams: params,
+    indexPagination: true,
+    paginationParam: "strana",
   });
 }
 
@@ -29,11 +30,11 @@ export default async function AdoptionPage({ searchParams }: Props) {
     getPublicAdoptions(filters),
     listPublishedAdoptionBreedOptions(),
   ]);
-  const hasQuery = Object.values(params).some((value) => Array.isArray(value) ? value.some(Boolean) : Boolean(value));
-  const schema = hasQuery ? null : buildCollectionPageJsonLd({
+  const policy = resolveListingIndexPolicy("/pomoc-psom/adopcia", params, { indexPagination: true, paginationParam: "strana" });
+  const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: "Psy na adopciu",
     description: "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
-    path: "/pomoc-psom/adopcia",
+    path: policy.canonicalPath,
     breadcrumbs: [
       { name: "Domov", path: "/" },
       { name: "Pomoc psom", path: "/pomoc-psom" },

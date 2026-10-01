@@ -193,6 +193,37 @@ export function eventTypePortalHref(eventType: EventType) {
   return slug ? `/podujatia/${slug}` : null;
 }
 
+const EVENT_TYPE_LISTING_SEO: Record<EventType, { title: string; description: string }> = {
+  Výstava: {
+    title: "Výstavy psov",
+    description: "Národné, medzinárodné a klubové výstavy psov na Slovensku s termínmi, miestom konania a praktickými informáciami pre vystavovateľov aj návštevníkov.",
+  },
+  Preteky: {
+    title: "Preteky a skúšky psov",
+    description: "Preteky, pracovné skúšky a športové súťaže so psami na Slovensku s termínmi, lokalitou, organizátorom a praktickými informáciami.",
+  },
+  Seminár: {
+    title: "Semináre a tréningy so psami",
+    description: "Semináre, workshopy a otvorené tréningy pre majiteľov, chovateľov a kynológov s termínmi, miestom a informáciami o organizátorovi.",
+  },
+  Tréning: {
+    title: "Tréningy so psami",
+    description: "Verejné tréningy a praktické kynologické aktivity so psami s termínmi, miestom konania, organizátorom a ďalšími informáciami.",
+  },
+  Stretnutie: {
+    title: "Stretnutia pre psí svet",
+    description: "Stretnutia majiteľov psov, klubové a komunitné akcie s termínmi, lokalitou, organizátorom a praktickými informáciami pre návštevníkov.",
+  },
+  Iné: {
+    title: "Ďalšie podujatia so psami",
+    description: "Ďalšie verejné podujatia zo sveta psov s termínmi, miestom konania, organizátorom a praktickými informáciami na jednom mieste.",
+  },
+};
+
+export function eventTypeListingSeo(eventType: EventType) {
+  return EVENT_TYPE_LISTING_SEO[eventType];
+}
+
 export function selectRelatedEvents(
   event: DogEvent,
   candidates: DogEvent[],

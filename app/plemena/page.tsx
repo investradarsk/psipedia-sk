@@ -14,29 +14,29 @@ import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
 import { portalSubpageHref } from "@/lib/portal";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import styles from "./breed-atlas.module.css";
 
-export async function generateMetadata(): Promise<Metadata> {
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const section = await getManagedPortalSection("plemena");
-  return buildPageMetadata({
+  return buildListingPageMetadata({
     title: section?.label ?? "Atlas plemien psov",
     description: section?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, starostlivosť a vhodnosť do rodiny.",
-    // FCI, sekcia, pôvod a vyhľadávanie sú používateľské filtre,
-    // nie samostatné SEO landing pages. Canonical preto zostáva bez query.
     path: "/plemena",
+    searchParams: await searchParams,
   });
 }
 
 export const dynamic = "force-dynamic";
 
-export default async function BreedsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function BreedsPage({ searchParams }: Props) {
   const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedCanonicalBreedIndex()]);
   const rawSearchParams = await searchParams;
   const initialFilters = parseBreedAtlasFilters(rawSearchParams);
-  const hasQuery = Object.entries(rawSearchParams).some(([key, value]) => key !== "energy" && (Array.isArray(value) ? value.some(Boolean) : Boolean(value)));
-  const schema = hasQuery ? null : buildCollectionPageJsonLd({
+  const policy = resolveListingIndexPolicy("/plemena", rawSearchParams);
+  const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: portalSection?.label ?? "Plemená",
     description: portalSection?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, starostlivosť a vhodnosť do rodiny.",
     path: "/plemena",
@@ -45,7 +45,7 @@ export default async function BreedsPage({ searchParams }: { searchParams: Promi
       { name: "Plemená", path: "/plemena" },
     ],
     items: breeds.map((breed) => ({ name: breed.name, path: `/plemena/${breed.slug}` })),
-  });
+  }) : null;
   return (
     <>
       {schema && <StructuredData value={schema} />}

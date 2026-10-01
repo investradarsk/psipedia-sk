@@ -52,7 +52,7 @@ test("event types link only to real calendar categories", () => {
   assert.equal(eventPortalCategory("Iné"), null);
 });
 
-test("event time filters have crawlable, shareable URLs", () => {
+test("event time filters keep shareable URLs without requiring crawlable filter anchors", () => {
   assert.equal(eventTimeFilterFromParam("prebiehajuce"), "current");
   assert.equal(eventTimeFilterFromParam("ukoncene"), "past");
   assert.equal(eventTimeFilterFromParam(["vsetky"]), "all");
@@ -62,10 +62,11 @@ test("event time filters have crawlable, shareable URLs", () => {
   assert.equal(eventTimeFilterHref("upcoming", "/podujatia/vystavy"), "/podujatia/vystavy");
 });
 
-test("event type filters expose crawlable links for real category landings", () => {
+test("event type filters expose only clean crawlable category links while time stays UI state", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   assert.match(calendar, /eventTypePortalHref\(option\.value\)/);
-  assert.match(calendar, /<a\s+href=\{href\}/);
+  assert.match(calendar, /<a[\s\S]*href=\{pathname\}/);
+  assert.doesNotMatch(calendar, /href=\{eventTimeFilterHref\(/);
   assert.match(calendar, /history\.pushState\(null, "", eventTimeFilterHref\(time, pathname\)\)/);
   assert.match(calendar, /history\.replaceState\(null, "", eventTimeFilterHref\(value, window\.location\.pathname\)\)/);
 });

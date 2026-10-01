@@ -173,10 +173,13 @@ test("readiness audit covers repeated venues and geo attention issues", async ()
   assert.match(script, /PRIVACY_CLASSIFICATION_MISSING/);
 });
 
-test("map route stays noindex until effective public launch", async () => {
+test("map route stays noindex until effective public launch while launched query states use listing SEO", async () => {
   const page = await readFile(path.join(root, "app/mapa/page.tsx"), "utf8");
   assert.match(page, /generateMetadata/);
-  assert.match(page, /launchEnabled\s*\?\s*undefined/);
+  assert.match(page, /buildListingPageMetadata/);
+  assert.match(page, /path:\s*"\/mapa"/);
+  assert.match(page, /searchParams:\s*await searchParams/);
+  assert.match(page, /return launchEnabled[\s\S]*\? metadata[\s\S]*robots:/);
   assert.match(page, /index:\s*false/);
   assert.match(page, /follow:\s*false/);
 });

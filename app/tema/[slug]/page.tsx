@@ -4,6 +4,7 @@ import { ArticleCard } from "@/components/article-card";
 import { categories, categoryBySlug } from "@/lib/content";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { formatSlovakCount } from "@/lib/slovak-count";
+import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +18,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const category = categoryBySlug[slug];
   if (!category) return {};
-  return {
+  return buildPageMetadata({
     title: category.label,
     description: category.description,
-    alternates: { canonical: `/tema/${category.slug}` },
-    openGraph: {
-      type: "website",
-      title: `${category.label} – články o psoch | Psipedia.sk`,
-      description: category.description,
-      url: `/tema/${category.slug}`,
-    },
-  };
+    path: `/tema/${category.slug}`,
+    socialTitle: `${category.label} – články o psoch | Psipedia.sk`,
+  });
 }
 
 export default async function TopicPage({ params }: Props) {
