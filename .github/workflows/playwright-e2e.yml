@@ -606,7 +606,7 @@ jobs:
 
   sitemap-production-diagnostic:
     name: Read-only production sitemap diagnostic collection
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/hotfix-seo-sitemap')
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'codex/hotfix-seo-sitemap') || github.head_ref == 'codex/seo-recovery-1')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
