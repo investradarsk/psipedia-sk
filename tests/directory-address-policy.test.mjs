@@ -111,6 +111,9 @@ test("store treats address quality as non-blocking while retaining hard identity
   assert.match(store, /if \(!category\) throw new Error\("Vyber kategóriu adresára\."\)/);
   assert.match(store, /Webová adresa nie je platná/);
   assert.match(store, /E-mailová adresa nie je platná/);
+  assert.match(store, /function safeDirectoryAddressText/);
+  assert.match(store, /typeof value !== "string"/);
+  assert.match(store, /\\u0000-\\u001F\\u007F<>/);
 });
 
 test("manual public address participates in search indexing", () => {
