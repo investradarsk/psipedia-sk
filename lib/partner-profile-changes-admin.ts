@@ -164,7 +164,7 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
   const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
   const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId));
-  const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values);
+  const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values,row.resourceType);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
   const labels=new Map(getPartnerEditableFields(row.resourceType).map(field=>[field.key,field.label]));
   const diff=Object.keys(proposed).map(key=>({
@@ -272,7 +272,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
   if(String(canonical.canonicalId)!==row.subjectId||canonical.entityType!==row.resourceType){
     throw new PartnerProfileChangeError("Canonical cieľ návrhu nie je konzistentný.",409);
   }
-  if(canonical.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values)){
+  if(canonical.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values,row.resourceType)){
     throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
   }
   const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
@@ -344,7 +344,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
   }catch(error){
     if(error instanceof ModerationStateConflictError){
       const latest=await loadPartnerCanonicalForResource(row.resourceId,database);
-      if(latest.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,latest.values)){
+      if(latest.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,latest.values,row.resourceType)){
         throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
       }
       throw new PartnerProfileChangeError("Stav žiadosti sa medzičasom zmenil. Obnovte stránku a skúste rozhodnutie znova.",409);
