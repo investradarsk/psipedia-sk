@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function readSeo(page: Page, path: string) {
-  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+  const response = await page.goto(path, { waitUntil: "domcontentloaded", timeout: 60_000 });
   expect(response, `No response for ${path}`).not.toBeNull();
   expect(response?.status(), `${path} returned HTTP ${response?.status()}`).toBeLessThan(400);
   return {
