@@ -49,23 +49,31 @@ export async function PUT(request: Request, { params }: Props) {
     if (numberlessLocalityConfirmed) {
       const houseNumber = (body.houseNumber ?? before.houseNumber).trim();
       const addressFormat = body.addressFormat ?? before.addressFormat;
+      const postalCode = (body.postalCode ?? before.postalCode).trim();
+      const hasLocality = Boolean((body.region ?? before.region).trim() && (body.district ?? before.district).trim() && (body.city ?? before.city).trim());
       if (houseNumber) {
         throw new Error("Zadanú lokalitu možno použiť iba bez čísla domu.");
       }
       if (addressFormat !== "STREET") {
         throw new Error("Zadanú lokalitu možno použiť iba ako ulicu / lokalitu.");
       }
-      const numberless = verifyDirectoryNumberlessLocality({
-        region: body.region ?? before.region,
-        district: body.district ?? before.district,
-        city: body.city ?? before.city,
-        postalCode: body.postalCode ?? before.postalCode,
-        street: body.street ?? before.street,
-      });
-      payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+      if (postalCode && hasLocality) {
+        const numberless = verifyDirectoryNumberlessLocality({
+          region: body.region ?? before.region,
+          district: body.district ?? before.district,
+          city: body.city ?? before.city,
+          postalCode,
+          street: body.street ?? before.street,
+        });
+        payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+      } else {
+        payload = { ...body, confirmServiceAddress: false, clearServiceAddressConfirmation: true };
+      }
     } else if (body.addressProviderResultId?.trim()) {
       const houseNumber = (body.houseNumber ?? before.houseNumber).trim();
-      if (houseNumber) {
+      const postalCode = (body.postalCode ?? before.postalCode).trim();
+      const hasLocality = Boolean((body.region ?? before.region).trim() && (body.district ?? before.district).trim() && (body.city ?? before.city).trim());
+      if (houseNumber && hasLocality) {
         await requireDirectoryAddressProviderSchema();
         verified = await verifyDirectoryAddressSelection({
           region: body.region ?? before.region,
@@ -76,37 +84,41 @@ export async function PUT(request: Request, { params }: Props) {
           houseNumber,
         });
         payload = withVerifiedDirectoryAddress(body, verified);
-      } else {
+      } else if (postalCode && hasLocality) {
         const numberless = await verifyDirectoryNumberlessAddressSelection({
           region: body.region ?? before.region,
           district: body.district ?? before.district,
           city: body.city ?? before.city,
-          postalCode: body.postalCode ?? before.postalCode,
+          postalCode,
           providerResultId: body.addressProviderResultId,
           street: body.street ?? before.street,
         });
         payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
+      } else {
+        payload = { ...body, confirmServiceAddress: false, clearServiceAddressConfirmation: true };
       }
     } else if (changed) {
       const clearingForOnlineOnly = body.online === true
         && !body.region?.trim()
         && !body.district?.trim()
-        && !body.city?.trim();
-      if (!clearingForOnlineOnly) {
-        throw new Error("Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov alebo explicitným použitím zadanej lokality.");
-      }
-      payload = {
-        ...body,
-        region: "",
-        district: "",
-        city: "",
-        postalCode: "",
-        street: "",
-        houseNumber: "",
-        addressFormat: "",
-        confirmServiceAddress: false,
-        clearServiceAddressConfirmation: true,
-      };
+        && !body.city?.trim()
+        && !body.street?.trim()
+        && !body.houseNumber?.trim()
+        && !body.postalCode?.trim();
+      payload = clearingForOnlineOnly
+        ? {
+            ...body,
+            region: "",
+            district: "",
+            city: "",
+            postalCode: "",
+            street: "",
+            houseNumber: "",
+            addressFormat: "",
+            confirmServiceAddress: false,
+            clearServiceAddressConfirmation: true,
+          }
+        : { ...body, confirmServiceAddress: false, clearServiceAddressConfirmation: true };
     } else {
       payload = preserveDirectoryPhysicalAddress(before, body);
     }
