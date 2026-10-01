@@ -133,24 +133,32 @@ test("online events are skipped and city-only events stay approximate", () => {
   assert.equal(cityOnly.proposedPrecision, "MUNICIPALITY");
 });
 
-test("directory online-only stays hidden and physical+online still requires a complete service address", () => {
-  const onlineOnly = {
+test("directory ignores legacy online flag and classifies only normal address/GEO inputs", () => {
+  const legacyFlagWithoutAddress = {
     targetType: "DIRECTORY_PROFILE", targetId: 582, label: "Klub", category: "chovatelske-kluby",
     address: "", city: "", district: "", region: "", countryCode: "SK", online: true,
   };
-  const hidden = classifyGeoSource(onlineOnly);
-  assert.equal(hidden.proposedVisibility, "HIDDEN");
-  assert.equal(hidden.proposedPrecision, null);
-  assert.equal(hidden.requiresReview, false);
-  assert.equal(hidden.reasonCode, "ONLINE_ONLY");
-  assert.equal(buildGeoQuery(onlineOnly, hidden.proposedVisibility, hidden.proposedPrecision), null);
+  const missing = classifyGeoSource(legacyFlagWithoutAddress);
+  assert.equal(missing.proposedVisibility, null);
+  assert.equal(missing.proposedPrecision, null);
+  assert.equal(missing.requiresReview, true);
+  assert.equal(missing.reasonCode, "SOURCE_INCOMPLETE");
 
-  const hybrid = classifyGeoSource({
-    ...onlineOnly, city: "Nitra", district: "Nitra", region: "Nitriansky kraj", online: true,
+  const physical = classifyGeoSource({
+    ...legacyFlagWithoutAddress,
+    address: "Hlavná 1",
+    city: "Nitra",
+    district: "Nitra",
+    region: "Nitriansky kraj",
+    postalCode: "949 01",
+    street: "Hlavná",
+    houseNumber: "1",
+    addressFormat: "STREET",
+    serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
   });
-  assert.equal(hybrid.proposedVisibility, null);
-  assert.equal(hybrid.proposedPrecision, null);
-  assert.equal(hybrid.requiresReview, true);
+  assert.equal(physical.proposedVisibility, "EXACT_PUBLIC");
+  assert.equal(physical.proposedPrecision, "EXACT");
+  assert.equal(physical.requiresReview, false);
 });
 
 test("safe rollout initialization excludes review-blocked, hidden and non-geocodable candidates", () => {
