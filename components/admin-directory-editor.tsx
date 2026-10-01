@@ -339,7 +339,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     serviceAddressConfirmation: addressMatchesPersistedConfirmed
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
-    online,
+    online: false,
   });
 
   const categoryInfo = getDirectoryCategory(category);
