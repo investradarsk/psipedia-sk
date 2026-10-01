@@ -145,9 +145,12 @@ for (const articleCase of cases) {
     await expect(page.locator(".article-intro")).toBeVisible();
     await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
-    await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
-    const mobileSidebar = page.locator('aside[aria-label="Najnovšie články"]');
+    const mobileSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(mobileSidebar).toBeHidden();
+    await expect(mobileSidebar.locator("[data-automatic-article-promo]")).toBeHidden();
+    if (articleCase.id === "no-image") {
+      await expect(page.locator('.article-prose [data-promo-key="veterinari"]')).toBeVisible();
+    }
 
     const saveButton = page.getByRole("button", { name: /Uložiť medzi obľúbené|Odstrániť z obľúbených/ });
     const compactShare = page.getByRole("group", { name: /Zdieľať/ }).first().getByRole("button").first();
@@ -312,10 +315,21 @@ for (const articleCase of cases) {
     }
     await expect(page.locator(".article-prose")).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
-    await expect(page.getByText("Najčítanejšie", { exact: true })).toHaveCount(0);
-    const desktopSidebar = page.getByRole("complementary", { name: "Najnovšie články" });
+    const desktopSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(desktopSidebar).toBeVisible();
-    await expect(desktopSidebar.locator("li")).toHaveCount(5);
+    await expect(desktopSidebar.getByRole("heading", { name: "Najčítanejšie" })).toBeVisible();
+    const tab24h = desktopSidebar.getByRole("tab", { name: "24 hodín" });
+    const tab7d = desktopSidebar.getByRole("tab", { name: "7 dní" });
+    await expect(tab24h).toHaveAttribute("aria-selected", "true");
+    await expect(desktopSidebar.locator('[data-popularity-window="24h"] li')).toHaveCount(5);
+    const popularityHrefs24h = await desktopSidebar.locator('[data-popularity-window="24h"] li a')
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    expect(popularityHrefs24h).not.toContain(articleCase.path);
+    await tab7d.click();
+    await expect(tab7d).toHaveAttribute("aria-selected", "true");
+    await expect(desktopSidebar.locator('[data-popularity-window="7d"] li')).toHaveCount(5);
+    await expect(desktopSidebar.locator("[data-automatic-article-promo] [data-promo-key]")).toHaveCount(1);
+    await expect(page.getByText("Najnovšie články", { exact: true })).toHaveCount(0);
 
     const metrics = await page.evaluate(() => {
       const heading = document.querySelector<HTMLElement>("h1")!;
@@ -422,11 +436,10 @@ test("ARTICLE-READING-UX-2 manual related stays editorial while automatic relate
   const endLinks = page.locator(".related-section [data-article-list-item]");
   expect(await endLinks.count()).toBeGreaterThan(0);
   expect(await endLinks.count()).toBeLessThanOrEqual(3);
-  const sidebar = page.getByRole("complementary", { name: "Najnovšie články" });
-  await expect(sidebar.locator("li")).toHaveCount(5);
+  await expect(page.locator("[data-article-discovery-sidebar] [data-popularity-window] li")).toHaveCount(5);
 
   const recommendationHrefs = await page
-    .locator('.article-block-related a, .related-section [data-article-list-item], aside[aria-label="Najnovšie články"] a')
+    .locator('.article-block-related a, .related-section [data-article-list-item]')
     .evaluateAll((links) => links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href)));
   expect(recommendationHrefs).not.toContain(bikePath);
   expect(new Set(recommendationHrefs).size, "Duplicate recommendation hrefs: " + JSON.stringify(recommendationHrefs)).toBe(recommendationHrefs.length);
@@ -440,7 +453,10 @@ test("ARTICLE-READING-UX-2 manual related stays editorial while automatic relate
   await page.goto("/starostlivost/e2e-clanok-bez-obrazka");
   await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
   await expect(page.locator('aside[aria-label="Súvisiaci článok"]')).toHaveCount(0);
-  await expect(page.getByRole("complementary", { name: "Najnovšie články" }).locator("li")).toHaveCount(5);
+  const discoverySidebar = page.locator("[data-article-discovery-sidebar]");
+  await expect(discoverySidebar.locator("[data-popularity-window] li")).toHaveCount(5);
+  await expect(page.locator('.article-prose [data-promo-key="veterinari"]')).toHaveCount(1);
+  await expect(discoverySidebar.locator('[data-automatic-article-promo] [data-promo-key="fyzioterapia"]')).toHaveCount(1);
 });
 test("ARTICLE-2 preserves canonical Article schema, dates, author and image metadata", async ({ page }) => {
   const path = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
