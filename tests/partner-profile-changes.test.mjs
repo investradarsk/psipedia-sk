@@ -153,6 +153,32 @@ test("submission is field-level, deduped, rate-limited and never writes canonica
   assert.doesNotMatch(submit, /UPDATE directory_profiles|UPDATE help_organizations/i);
 });
 
+test("legacy directory online is ignored without weakening stale-base protection", async () => {
+  const { partnerProfileChangeIsStale } = await importTs("lib/partner-profile-changes.ts");
+  const base = {
+    name: "Partner H5 Stale Profil",
+    description: "Pôvodný popis",
+    city: "Nitra",
+    online: false,
+  };
+  assert.equal(
+    partnerProfileChangeIsStale(
+      JSON.stringify(base),
+      { name: "Partner H5 Stale Profil", description: "Pôvodný popis", city: "Nitra" },
+      "DIRECTORY_PROFILE",
+    ),
+    false,
+  );
+  assert.equal(
+    partnerProfileChangeIsStale(
+      JSON.stringify(base),
+      { name: "Partner H5 Stale Profil", description: "Externá zmena", city: "Nitra" },
+      "DIRECTORY_PROFILE",
+    ),
+    true,
+  );
+});
+
 test("stale-base review and explicit patch apply are visible and atomic with moderation decision", () => {
   assert.match(admin, /baseSnapshot/);
   assert.match(admin, /currentValues/);
