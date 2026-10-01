@@ -138,7 +138,6 @@ function mapEligibleRow(row: Row): GooglePlaceCanaryTarget | null {
     serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
-    online: Boolean(row.online),
   });
   const latitude = num(row, "latitude");
   const longitude = num(row, "longitude");
@@ -150,7 +149,6 @@ function mapEligibleRow(row: Row): GooglePlaceCanaryTarget | null {
     evaluation.state !== "COMPLETE"
     || row.status !== "published"
     || row.archived_at !== null
-    || Boolean(row.online)
     || text(row, "geocode_status") !== "RESOLVED"
     || text(row, "public_visibility") !== "EXACT_PUBLIC"
     || text(row, "public_precision") !== "EXACT"
@@ -194,7 +192,7 @@ async function loadCandidateRows(input: { targetIds?: number[] | null; limit?: n
   const statement = databaseHandle.prepare(`
     SELECT
       d.id, d.name, d.category, d.status, d.archived_at, d.city, d.district, d.region,
-      d.postal_code, d.street, d.house_number, d.address_format, d.service_address_confirmation, d.online,
+      d.postal_code, d.street, d.house_number, d.address_format, d.service_address_confirmation,
       g.latitude, g.longitude, g.geocode_status, g.public_visibility, g.public_precision,
       g.source_fingerprint, g.resolved_source_fingerprint,
       g.google_place_id, g.google_place_source_fingerprint
@@ -202,7 +200,6 @@ async function loadCandidateRows(input: { targetIds?: number[] | null; limit?: n
     JOIN geo_points g ON g.directory_profile_id = d.id AND g.target_type = 'DIRECTORY_PROFILE'
     WHERE d.status = 'published'
       AND d.archived_at IS NULL
-      AND d.online = 0
       AND d.service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION'
       AND g.geocode_status = 'RESOLVED'
       AND g.public_visibility = 'EXACT_PUBLIC'
