@@ -93,7 +93,6 @@ type EditableDirectorySnapshot = {
   houseNumber: string;
   addressFormat: "" | "STREET" | "MUNICIPALITY_NUMBER";
   confirmedServiceLocation: boolean;
-  online: boolean;
   priceNote: string;
   websiteUrl: string;
   publicPhone: string;
@@ -296,7 +295,6 @@ function profileSnapshot(profile: ManagedDirectoryProfile, sourceImageUrl = ""):
       ? profile.addressFormat
       : "",
     confirmedServiceLocation: profile.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION",
-    online: profile.online,
     priceNote: clean(profile.priceNote),
     websiteUrl: clean(profile.websiteUrl),
     publicPhone: clean(contacts.phone),
@@ -345,7 +343,6 @@ function notionSnapshot(page: NotionPage): EditableDirectorySnapshot {
     houseNumber: propertyText(page, "Číslo domu"),
     addressFormat: format === "STREET" || format === "MUNICIPALITY_NUMBER" ? format : "",
     confirmedServiceLocation: propertyCheckbox(page, "Potvrdená prevádzka"),
-    online: propertyCheckbox(page, "Online"),
     priceNote: propertyText(page, "Cena / poznámka"),
     websiteUrl: propertyText(page, "Web"),
     publicPhone: propertyText(page, "Telefón"),
@@ -462,7 +459,6 @@ function notionProfileProperties(
     "Číslo domu": richText(snapshot.houseNumber),
     "Formát adresy": select(snapshot.addressFormat),
     "Potvrdená prevádzka": checkbox(snapshot.confirmedServiceLocation),
-    "Online": checkbox(snapshot.online),
     "Cena / poznámka": richText(snapshot.priceNote),
     "Web": url(snapshot.websiteUrl),
     "Telefón": phone(snapshot.publicPhone),
@@ -673,7 +669,6 @@ function fullProfileInput(
     street: desired.street,
     houseNumber: desired.houseNumber,
     addressFormat: desired.addressFormat,
-    online: desired.online,
     priceNote: desired.priceNote,
     websiteUrl: desired.websiteUrl || null,
     publicPhone: desired.publicPhone,
@@ -789,7 +784,7 @@ async function createProfileFromNotion(input: {
     );
     let verified = null;
 
-    if (!desired.online && desired.confirmedServiceLocation) {
+    if (desired.confirmedServiceLocation) {
       const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
       verified = await verifyDirectoryCanonicalAddress({
         region: desired.region,
@@ -801,18 +796,6 @@ async function createProfileFromNotion(input: {
         revalidateStreet: addressFormat === "STREET",
       });
       payload = withVerifiedDirectoryAddress(payload, verified);
-    } else if (desired.online && !desired.region && !desired.district && !desired.city) {
-      payload = {
-        ...payload,
-        region: "",
-        district: "",
-        city: "",
-        postalCode: "",
-        street: "",
-        houseNumber: "",
-        addressFormat: "",
-        clearServiceAddressConfirmation: true,
-      };
     } else {
       payload = { ...payload, clearServiceAddressConfirmation: true };
     }
@@ -875,10 +858,8 @@ async function applyNotionToProfile(input: {
     prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
   );
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
-  const needsFreshAddressVerification = !desired.online && (
-    addressChanged
-    || (desired.confirmedServiceLocation && current.serviceAddressConfirmation !== "CONFIRMED_SERVICE_LOCATION")
-  );
+  const needsFreshAddressVerification = addressChanged
+    || (desired.confirmedServiceLocation && current.serviceAddressConfirmation !== "CONFIRMED_SERVICE_LOCATION");
 
   let verified = null;
   if (needsFreshAddressVerification) {
@@ -893,18 +874,6 @@ async function applyNotionToProfile(input: {
       revalidateStreet: addressFormat === "STREET",
     });
     payload = withVerifiedDirectoryAddress(payload, verified);
-  } else if (desired.online && !desired.region && !desired.district && !desired.city) {
-    payload = {
-      ...payload,
-      region: "",
-      district: "",
-      city: "",
-      postalCode: "",
-      street: "",
-      houseNumber: "",
-      addressFormat: "",
-      clearServiceAddressConfirmation: true,
-    };
   } else if (desired.confirmedServiceLocation) {
     payload = { ...payload, confirmServiceAddress: true };
   } else {
