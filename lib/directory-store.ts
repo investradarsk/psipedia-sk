@@ -65,7 +65,6 @@ export type ManagedDirectoryProfileInput = {
   confirmServiceAddress?: boolean;
   clearServiceAddressConfirmation?: boolean;
   addressProviderResultId?: string;
-  online?: boolean;
   priceNote?: string;
   websiteUrl?: string | null;
   publicPhone?: string;
@@ -359,9 +358,13 @@ export function normalizeDirectorySearchText(value: string) {
 export function normalizeDirectoryRegion(value: string | null | undefined): SlovakRegion | null {
   const clean = value?.trim() ?? "";
   if (!clean) return null;
-  if (clean === "Online") return "Online";
   const withSuffix = clean.endsWith(" kraj") ? clean : `${clean} kraj`;
   return (slovakRegions as readonly string[]).includes(withSuffix) ? withSuffix as SlovakRegion : null;
+}
+
+function runtimeDirectoryLocationText(value: string | null | undefined) {
+  const clean = value?.trim() ?? "";
+  return /^online$/i.test(clean) ? "" : clean;
 }
 
 function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: GooglePlaceCandidate) {
@@ -384,8 +387,8 @@ function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: 
     existing.city,
   ].map((value) => value.trim()).filter(Boolean);
 
-  if (!region || region === "Online") {
-    return { region: region ?? "", district: "", city: candidates[0] ?? "" };
+  if (!region) {
+    return { region: "", district: "", city: candidates[0] ?? "" };
   }
 
   const needles = [...new Set(candidates.map(normalizeSlovakLocationSearch).filter(Boolean))];
@@ -489,16 +492,18 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
     ? "CONFIRMED_SERVICE_LOCATION"
     : "LEGACY_UNCONFIRMED";
+  const city = runtimeDirectoryLocationText(row.city);
+  const district = runtimeDirectoryLocationText(row.district);
+  const region = runtimeDirectoryLocationText(row.region);
   const serviceAddress = evaluateDirectoryServiceAddress({
-    region: row.region,
-    district: row.district,
-    city: row.city,
+    region,
+    district,
+    city,
     postalCode: row.postal_code ?? "",
-    street: row.street ?? "",
-    houseNumber: row.house_number ?? "",
+    street: runtimeDirectoryLocationText(row.street),
+    houseNumber: runtimeDirectoryLocationText(row.house_number),
     addressFormat,
     serviceAddressConfirmation,
-    online: Boolean(row.online),
   });
   return {
     id: row.id,
@@ -509,9 +514,9 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     description: row.description,
     services: safePublicList(row.services_json),
     qualifications: safePublicList(row.qualifications_json),
-    city: row.city,
-    district: row.district || String(safeImportData(row.source_data_json)?.["Okres"] ?? ""),
-    region: normalizeDirectoryRegion(row.region) ?? row.region,
+    city,
+    district: district || runtimeDirectoryLocationText(String(safeImportData(row.source_data_json)?.["Okres"] ?? "")),
+    region: normalizeDirectoryRegion(region) ?? region,
     address: row.address,
     postalCode: row.postal_code ?? "",
     street: row.street ?? "",
@@ -519,7 +524,6 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     addressFormat,
     serviceAddressConfirmation,
     formattedServiceAddress: serviceAddress.state === "COMPLETE" ? serviceAddress.formattedAddress : null,
-    online: Boolean(row.online),
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
@@ -543,9 +547,6 @@ function rowToManagedProfile(row: DirectoryProfileRow): ManagedDirectoryProfile 
     reviewed: reviewMetadata.reviewed,
     reviewedAt: reviewMetadata.reviewedAt,
     reviewedBy: reviewMetadata.reviewedBy,
-    city: row.city,
-    district: row.district,
-    region: row.region,
     services: safeList(row.services_json),
     qualifications: safeList(row.qualifications_json),
     status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
@@ -567,9 +568,9 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow, reviewedAt 
     category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
     status: row.status === "published" ? "published" : row.status === "archived" ? "archived" : "draft",
     services: safeList(row.services_json),
-    city: row.city,
-    district: row.district,
-    region: normalizeDirectoryRegion(row.region) ?? "Online",
+    city: runtimeDirectoryLocationText(row.city),
+    district: runtimeDirectoryLocationText(row.district),
+    region: normalizeDirectoryRegion(runtimeDirectoryLocationText(row.region)) ?? "",
     imageUrl: row.image_url,
     reviewed: Boolean(reviewedAt),
     reviewedAt,
@@ -601,11 +602,13 @@ function rowToInquiry(row: DirectoryInquiryRow): DirectoryInquiry {
 
 function parseProposedData(value: string): DirectoryProfileEditableData {
   try {
-    return JSON.parse(value) as DirectoryProfileEditableData;
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const { online: _legacyOnline, ...data } = parsed;
+    return data as DirectoryProfileEditableData;
   } catch {
     return {
       name: "", serviceType: "", city: "", district: "", region: "", address: "", phone: "", email: "",
-      website: "", facebook: "", instagram: "", description: "", services: [], priceNote: "", coverage: "", online: false, specialized: {},
+      website: "", facebook: "", instagram: "", description: "", services: [], priceNote: "", coverage: "", specialized: {},
     };
   }
 }
@@ -699,7 +702,7 @@ function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData>
   const region = normalizeDirectoryRegion(cleanText(value?.region, 80));
   const email = normalizeEmail(cleanText(value?.email, 180)) ?? "";
   if (name.length < 2) throw new Error("Doplň názov služby alebo firmy.");
-  if (!region) throw new Error("Vyber platný kraj alebo možnosť Online.");
+  if (!region) throw new Error("Vyber platný kraj.");
   const services = normalizeStringList(value?.services).map((item) => cleanText(item, 160)).filter(Boolean).slice(0, 30);
   const allowedSpecialized = new Set(specializedChangeRequestFields[category] ?? []);
   const rawSpecialized = value?.specialized && typeof value.specialized === "object" && !Array.isArray(value.specialized) ? value.specialized : {};
@@ -722,7 +725,6 @@ function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData>
     services,
     priceNote: cleanText(value?.priceNote, 1000),
     coverage: cleanText(value?.coverage, 1000),
-    online: value?.online === true,
     specialized,
   } satisfies DirectoryProfileEditableData;
 }
@@ -752,7 +754,6 @@ export function normalizeManagedDirectoryProfileInput(
   const rawRegion = safeDirectoryAddressText(payload.region, 80, "Kraj");
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
-  const online = Boolean(payload.online);
 
   if (!name) throw new Error("Doplň názov profilu.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
@@ -788,7 +789,6 @@ export function normalizeManagedDirectoryProfileInput(
     houseNumber,
     addressFormat,
     serviceAddressConfirmation,
-    online,
   });
   // Address-quality findings are review signals only. They must never veto
   // saving or publishing an otherwise safe directory payload.
@@ -818,7 +818,7 @@ export function normalizeManagedDirectoryProfileInput(
       email: Boolean(publicContacts.email),
       website: Boolean(publicContacts.website),
       image: Boolean(imageUrl),
-      address: online || serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(publicAddress)),
+      address: serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(publicAddress)),
     },
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
@@ -843,7 +843,6 @@ export function normalizeManagedDirectoryProfileInput(
     serviceAddressConfirmation,
     serviceAddressState: serviceAddress.state,
     formattedServiceAddress: serviceAddress.formattedAddress,
-    online,
     priceNote: payload.priceNote?.trim() ?? "",
     websiteUrl,
     publicPhone,
@@ -879,7 +878,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     input.slug, input.name, input.category, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-    input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
     JSON.stringify(input.seo), input.searchText,
   ];
@@ -888,7 +887,7 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.slug, input.name, input.category, input.status, input.excerpt, input.description,
       JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
       input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-      input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+      0, input.priceNote, input.websiteUrl, input.internalEmail,
       input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
       JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
     ];
@@ -1202,7 +1201,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-    input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
     ...(guard?.expectedUpdatedAt ? [guard.expectedUpdatedAt] : []),
@@ -1285,7 +1284,6 @@ export async function updateManagedDirectoryProfileFromGooglePlace(
     houseNumber,
     addressFormat,
     confirmServiceAddress: true,
-    online: existing.online,
     priceNote: existing.priceNote,
     websiteUrl: existing.websiteUrl,
     publicPhone: contacts.phone,
