@@ -30,6 +30,7 @@ type Snapshot = {
   point: GeoPointRecord | null;
   source: GeoSourceLocation;
   schemaReady: boolean;
+  explicitPrivate: boolean;
   provider: { name: string; configured: boolean };
   googlePlacesConfigured: boolean;
   googlePlaceAction: { available: boolean; reason: string };
@@ -148,7 +149,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
       const body = await response.json() as Snapshot & { error?: string };
       if (!response.ok) throw new Error(body.error || "Poloha sa nepodarila načítať.");
       setSnapshot(body);
-      setPublicLocation(body.point?.publicVisibility ? body.point.publicVisibility !== "HIDDEN" : !sensitive);
+      setPublicLocation(body.point?.publicVisibility ? (body.point.publicVisibility !== "HIDDEN" || (targetType === "DIRECTORY_PROFILE" && !body.explicitPrivate)) : !sensitive);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Poloha sa nepodarila načítať.");
     } finally {
@@ -173,7 +174,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
         if (!response.ok) throw new Error(body.error || "Poloha sa nepodarila načítať.");
         if (cancelled) return;
         setSnapshot(body);
-        setPublicLocation(body.point?.publicVisibility ? body.point.publicVisibility !== "HIDDEN" : !sensitive);
+        setPublicLocation(body.point?.publicVisibility ? (body.point.publicVisibility !== "HIDDEN" || (targetType === "DIRECTORY_PROFILE" && !body.explicitPrivate)) : !sensitive);
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "Poloha sa nepodarila načítať.");
       } finally {
@@ -182,7 +183,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     }
     void loadInitial();
     return () => { cancelled = true; };
-  }, [endpoint, sensitive]);
+  }, [endpoint, sensitive, targetType]);
 
   async function findLocation() {
     setBusy(true);
@@ -271,25 +272,27 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
       {loading ? <p className="admin-help">Načítavam polohu…</p> : null}
       {!loading && snapshot ? (
         <>
-          <div className="admin-field">
-            <label htmlFor={`geo-public-${targetType}-${targetId}`}>Verejná poloha</label>
-            <select
-              id={`geo-public-${targetType}-${targetId}`}
-              value={publicLocation ? "yes" : "no"}
-              disabled={busy}
-              onChange={(event) => {
-                const next = event.target.value === "yes";
-                setPublicLocation(next);
-                setPreview(null);
-                setMessage("");
-                setError("");
-              }}
-            >
-              <option value="yes">Áno</option>
-              <option value="no">Nie</option>
-            </select>
-            {sensitive ? <small>Pri tomto type profilu je bezpečný predvolený stav neverejný. Verejnú polohu zapni iba pri verejne navštevovanom mieste.</small> : <small>Bežné služby majú predvolene verejnú polohu.</small>}
-          </div>
+          {targetType === "DIRECTORY_PROFILE" ? (
+            <div className="admin-field">
+              <label htmlFor={`geo-public-${targetType}-${targetId}`}>Verejná poloha</label>
+              <select
+                id={`geo-public-${targetType}-${targetId}`}
+                value={publicLocation ? "yes" : "no"}
+                disabled={busy}
+                onChange={(event) => {
+                  const next = event.target.value === "yes";
+                  setPublicLocation(next);
+                  setPreview(null);
+                  setMessage("");
+                  setError("");
+                }}
+              >
+                <option value="yes">Áno</option>
+                <option value="no">Nie</option>
+              </select>
+              <small>Pri službe rozhoduje explicitné nastavenie súkromia, nie kategória profilu.</small>
+            </div>
+          ) : null}
 
           <div style={{ display: "grid", gap: ".75rem", marginBottom: "1rem" }}>
             <AdminGooglePlacePicker
@@ -304,7 +307,8 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
             />
           </div>
 
-          {!snapshot.schemaReady ? (
+          {targetType === "DIRECTORY_PROFILE" ? (
+            {!snapshot.schemaReady ? (
             <>
               <p className="admin-message admin-message--error">Mapová poloha v tomto prostredí nie je dostupná.</p>
               <details>
@@ -385,7 +389,8 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
                 </div>
               ) : null}
             </>
-          )}
+            )}
+          ) : null}
 
           <details style={{ marginTop: "1rem" }}>
             <summary>Technické informácie</summary>
