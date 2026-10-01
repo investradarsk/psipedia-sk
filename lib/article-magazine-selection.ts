@@ -45,13 +45,3 @@ export function selectEndRelated(article: Article, candidates: Article[], midRel
     return true;
   }).slice(0, Math.max(0, limit));
 }
-
-export function selectLatestSidebar(article: Article, candidates: Article[], midRelated: Article | null, endRelated: Article[], limit = 5) {
-  const excluded = new Set([article.slug, midRelated?.slug, ...endRelated.map((item) => item.slug)].filter((value): value is string => Boolean(value)));
-  const seen = new Set<string>();
-  return candidates.filter((candidate) => {
-    if (excluded.has(candidate.slug) || seen.has(candidate.slug)) return false;
-    seen.add(candidate.slug);
-    return true;
-  }).slice(0, Math.max(0, limit));
-}
