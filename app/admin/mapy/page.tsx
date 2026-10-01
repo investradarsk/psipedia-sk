@@ -21,7 +21,7 @@ export default async function AdminMapsPage() {
       user={user}
       eyebrow="Admin · Mapy"
       title="Mapy"
-      description="GEO a mapové dáta, stav verejných profilov a lokality, ktoré vyžadujú kontrolu. Technická údržba je oddelená v Nástrojoch."
+      description="Spoločný pracovný priestor pre mapy služieb, organizácií Pomoci psom a podujatí. Google Maps miesto môžeš nájsť a potvrdiť priamo v zozname."
       actions={<Link href="/admin/operations?source=GEO_LOCATION_ISSUE">Geo lokality na kontrolu</Link>}
     >
       {unavailable || !operatorData
