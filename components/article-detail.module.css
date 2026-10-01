@@ -140,7 +140,7 @@
 
 .heroFigure {
   width: 100%;
-  max-width: 680px;
+  max-width: var(--article-reading-width);
   min-width: 0;
   margin: 0;
 }
@@ -512,6 +512,31 @@
   margin-top: 0;
 }
 
+.readingProgress {
+  position: fixed;
+  z-index: 49;
+  top: var(--psipedia-sticky-header-height, 76px);
+  right: 0;
+  left: 0;
+  height: 3px;
+  pointer-events: none;
+}
+
+.readingProgress > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--brand-accent, var(--coral, #f47757));
+  transform: scaleX(var(--article-reading-progress, 0));
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.relatedInner {
+  max-width: calc(var(--article-reading-width) + var(--article-layout-gap) + var(--article-sidebar-width));
+  margin-inline: auto;
+}
+
 .relatedSection {
   padding-block: 54px 72px;
   border-top: 1px solid rgba(23, 75, 56, 0.09);
@@ -552,6 +577,10 @@
 }
 
 @media (max-width: 767px) {
+  .readingProgress {
+    height: 2px;
+  }
+
   .hero {
     padding-block: 8px 10px;
   }
