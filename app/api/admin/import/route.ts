@@ -185,7 +185,7 @@ export async function POST(request: Request) {
           published_at=COALESCE(excluded.published_at, directory_profiles.published_at), updated_by=excluded.updated_by
       `).bind(
         slug, name, category, status, excerpt, description, JSON.stringify(services), JSON.stringify(qualifications),
-        city, district, region, address, bool(row.online), importedText(row, ["priceNote", "Cena"]), websiteUrl,
+        city, district, region, address, 0, importedText(row, ["priceNote", "Cena"]), websiteUrl,
         internalEmail, migratedImage(row), importKey, rawSourceData, searchText,
         bool(valueFrom(row, "verified", "Overené")) || importedText(row, ["Stav"]) === "Overené",
         bool(row.featured), createdAt, updatedAt, publishedAt,
