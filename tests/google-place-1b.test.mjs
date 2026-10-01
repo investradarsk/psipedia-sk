@@ -164,7 +164,7 @@ test("GOOGLE-PLACE-1B eligibility is COMPLETE confirmed exact DIRECTORY and fail
   assert.match(source, /evaluation\.state !== "COMPLETE"/);
   assert.match(source, /d\.status = 'published'/);
   assert.match(source, /d\.archived_at IS NULL/);
-  assert.match(source, /d\.online = 0/);
+  assert.doesNotMatch(source, /d\.online\s*=\s*0|Boolean\(row\.online\)/);
   assert.match(source, /CONFIRMED_SERVICE_LOCATION/);
   assert.match(source, /g\.geocode_status = 'RESOLVED'/);
   assert.match(source, /g\.public_precision = 'EXACT'/);
