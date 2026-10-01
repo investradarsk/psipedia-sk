@@ -21,7 +21,6 @@ export type DirectoryServiceAddress = {
   houseNumber: string;
   addressFormat: DirectoryAddressFormat | "";
   serviceAddressConfirmation: DirectoryServiceAddressConfirmation;
-  online?: boolean;
 };
 
 export type DirectoryServiceAddressEvaluation = {
@@ -38,14 +37,11 @@ export type DirectoryServiceAddressEvaluation = {
     | "HOUSE_NUMBER_MISSING"
     | "NUMBERLESS_PLACE"
     | "STREET_NOT_ALLOWED"
-    | "LEGACY_UNCONFIRMED"
-    | "ONLINE_ONLY"
-    | "ONLINE_SENTINEL_CONFLICT";
+    | "LEGACY_UNCONFIRMED";
   normalizedPostalCode: string;
   formattedAddress: string | null;
 };
 
-const ONLINE_SENTINEL = /^online$/i;
 const SK_POSTAL_CODE = /^\d{3}\s?\d{2}$/;
 
 function clean(value: string | null | undefined) {
@@ -106,9 +102,6 @@ export function applyDirectoryStreetSelection(
   };
 }
 
-function isOnlineSentinel(value: string | null | undefined) {
-  return ONLINE_SENTINEL.test(clean(value));
-}
 
 export function normalizeSlovakPostalCode(value: string | null | undefined) {
   const compact = clean(value).replace(/\s+/g, "");
@@ -146,19 +139,9 @@ export function evaluateDirectoryServiceAddress(input: DirectoryServiceAddress):
 
   const locationValues = [region, district, city, postalCode, street, houseNumber];
   const hasPhysicalAddressData = locationValues.some(Boolean);
-  const hasOnlineSentinel = [region, district, city, street, houseNumber].some(isOnlineSentinel);
-  const nonOnlinePhysicalValues = locationValues.filter((value) => value && !isOnlineSentinel(value));
-
-  if (hasOnlineSentinel && nonOnlinePhysicalValues.length > 0) {
-    return { state: "NEEDS_REVIEW", reason: "ONLINE_SENTINEL_CONFLICT", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
-  }
-
-  if ((input.online || hasOnlineSentinel) && nonOnlinePhysicalValues.length === 0) {
-    return { state: "MISSING", reason: "ONLINE_ONLY", normalizedPostalCode: normalizeSlovakPostalCode(postalCode), formattedAddress: null };
-  }
 
   if (!hasPhysicalAddressData && !addressFormat) {
-    return { state: "MISSING", reason: input.online ? "ONLINE_ONLY" : "MISSING", normalizedPostalCode: "", formattedAddress: null };
+    return { state: "MISSING", reason: "MISSING", normalizedPostalCode: "", formattedAddress: null };
   }
 
   if (!region || !district || !city) {
@@ -250,12 +233,6 @@ export function directoryAddressQualityWarning(
   }
   if (evaluation.reason === "LEGACY_UNCONFIRMED") {
     return "Adresa nie je potvrdená.";
-  }
-  if (evaluation.reason === "ONLINE_SENTINEL_CONFLICT") {
-    return "Lokalita obsahuje konflikt s online označením.";
-  }
-  if (evaluation.reason === "ONLINE_ONLY") {
-    return hasEditorialAddress ? "Adresa nie je technicky potvrdená." : null;
   }
   if (evaluation.reason === "MISSING") {
     return hasEditorialAddress ? "Adresa nie je technicky potvrdená." : "Chýbajú technické lokalizačné údaje.";
