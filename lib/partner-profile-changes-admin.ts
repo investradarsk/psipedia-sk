@@ -100,7 +100,7 @@ const BASE_SELECT=`
 `;
 
 async function hydrate(row:AdminRow,key:string){
-  const patch=safePatch(row.proposedPatchJson);
+  const patch=safePatch(row.proposedPatchJson,row.resourceType);
   const risks=safeRiskFlags(row.riskFlagsJson);
   if(isActive(row.status)&&row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
   return {
@@ -162,7 +162,7 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   if(!row)return null;
   const item=await hydrate(row,encryptionKey(input.encryptionKey));
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
-  const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
+  const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
   const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId));
   const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
@@ -275,8 +275,8 @@ export async function approvePartnerProfileChangeAdmin(input:{
   if(canonical.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values)){
     throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
   }
-  const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
-  const stored=safePatch(row.proposedPatchJson);
+  const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
+  const stored=safePatch(row.proposedPatchJson,row.resourceType);
   const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId));
   const media=await publishPartnerSubmissionMedia({
     submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
