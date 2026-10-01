@@ -137,11 +137,11 @@ test("physiotherapy Health variant exposes only populated therapy and rehabilita
   });
 });
 
-test("description, URL fallback and navigation preserve the current detail behavior", () => {
+test("description and URL fallback preserve behavior while text-only address does not fabricate navigation", () => {
   const presentation = getDirectoryDetailPresentation(profile({ description: "", importData: { Web: "N/A" } }));
   assert.deepEqual(presentation.descriptionParagraphs, ["Krátky opis služby."]);
   assert.equal(presentation.websiteUrl, null);
-  assert.equal(presentation.navigationUrl, "https://www.google.com/maps/search/?api=1&query=Testovacia%201%2C%20Nitra%2C%20Nitra%2C%20Nitriansky%20kraj%2C%20Slovensko");
+  assert.equal(presentation.navigationUrl, null);
   assert.equal(usefulDirectoryDetailValue("Nie je uvedené"), null);
   assert.equal(publicDirectoryDetailUrl("example.sk/kontakt"), "https://example.sk/kontakt");
 });
@@ -162,9 +162,9 @@ test("existing breed and organization relations are exposed without synthetic va
   assert.equal(presentation.facts.some((fact) => fact.label === "Zastrešujúca organizácia"), false);
 });
 
-test("confirmed structured service address becomes authoritative while legacy address remains fallback only", () => {
-  const structured = getDirectoryDetailPresentation(profile({
-    address: "LEGACY sídlo 999",
+test("editorial public address wins independently of technical confirmation with structured fallback only when empty", () => {
+  const editorial = getDirectoryDetailPresentation(profile({
+    address: "Hlavná 123, 949 01 Nitra",
     city: "Zlaté Moravce",
     district: "Zlaté Moravce",
     region: "Nitriansky kraj",
@@ -175,11 +175,16 @@ test("confirmed structured service address becomes authoritative while legacy ad
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     formattedServiceAddress: "Hviezdoslavova 88\n953 01 Zlaté Moravce",
   }));
-  assert.equal(structured.address, "Hviezdoslavova 88, 953 01 Zlaté Moravce");
-  assert.match(structured.navigationUrl, /Hviezdoslavova%2088/);
-  assert.doesNotMatch(structured.navigationUrl, /LEGACY/);
+  assert.equal(editorial.address, "Hlavná 123, 949 01 Nitra");
+  assert.equal(editorial.navigationUrl, null);
 
-  const legacy = getDirectoryDetailPresentation(profile({
+  const structuredFallback = getDirectoryDetailPresentation(profile({
+    address: "",
+    formattedServiceAddress: "Hviezdoslavova 88\n953 01 Zlaté Moravce",
+  }));
+  assert.equal(structuredFallback.address, "Hviezdoslavova 88, 953 01 Zlaté Moravce");
+
+  const unconfirmed = getDirectoryDetailPresentation(profile({
     address: "Legacy 12",
     postalCode: "",
     street: "",
@@ -187,6 +192,6 @@ test("confirmed structured service address becomes authoritative while legacy ad
     addressFormat: "",
     serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
   }));
-  assert.equal(legacy.address, "Legacy 12");
-  assert.match(legacy.navigationUrl, /Legacy%2012/);
+  assert.equal(unconfirmed.address, "Legacy 12");
+  assert.equal(unconfirmed.navigationUrl, null);
 });
