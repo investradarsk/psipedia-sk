@@ -54,6 +54,7 @@ export function AdminArticleEditor({
   breedOptions = [],
   managedSections = defaultPortalSections,
   topicOptions = [],
+  promoUtcDay,
 }: {
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
@@ -61,6 +62,7 @@ export function AdminArticleEditor({
   breedOptions?: ManagedBreedSummary[];
   managedSections?: Array<PortalSection & { visible?: boolean }>;
   topicOptions?: ArticleTopic[];
+  promoUtcDay?: string;
 }) {
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
   const builtInSectionOptions = articlePortalSectionOptions.filter(
@@ -511,6 +513,7 @@ export function AdminArticleEditor({
             blocks={blocks}
             onChange={(nextBlocks) => { setBlocks(nextBlocks); setEditorDirty(true); }}
             currentArticleId={article?.id}
+            promoUtcDay={promoUtcDay}
             onUploadingChange={setUploading}
             onMessage={setMessage}
             onError={setError}
@@ -551,7 +554,7 @@ export function AdminArticleEditor({
             ) : null}
             <EditorialRichText className="admin-preview-intro" document={intro.trim() ? introRichText : legacyRichTextToDocument("Úvod článku sa zobrazí na tomto mieste.")} />
             {takeaway.trim() && <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayRichText} /></div>}
-            <ArticleBlocks blocks={blocks} preview />
+            <ArticleBlocks blocks={blocks} preview promoUtcDay={promoUtcDay} />
           </article>
         </aside>
       )}
