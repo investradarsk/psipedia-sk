@@ -14,7 +14,7 @@ function parts(...values: Array<string | null | undefined>) {
 
 export function googlePlaceActionForSource(source: GeoSourceLocation): GooglePlaceActionAvailability {
   if (source.targetType === "DIRECTORY_PROFILE") {
-    // DIRECTORY_PROFILE nemá samostatný online/offline režim.
+    // DIRECTORY_PROFILE používa jeden bežný model profilu služby.
     // Google Place môže administrátor vyhľadať podľa názvu a dostupných lokalizačných údajov.
     if (!source.label.trim()) {
       return { available: false, reason: "Najprv doplň názov profilu." };
