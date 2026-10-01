@@ -2,16 +2,9 @@ import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PublicActionLink, PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
-import { bratislavaDateKey, eventDateStatus, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
+import { bratislavaDateKey, eventDateStatus, eventTypeListingSeo, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import styles from "./events-public.module.css";
-
-const pageCopy: Record<string, { title: string; description: string }> = {
-  Všetky: { title: "Podujatia", description: "Výstavy, preteky, semináre, tréningy a stretnutia pre psí svet na jednom mieste." },
-  Výstava: { title: "Výstavy psov", description: "Národné, medzinárodné a klubové výstavy s termínmi, miestom a odkazom na prihlásenie." },
-  Preteky: { title: "Preteky a skúšky", description: "Športové súťaže, pracovné skúšky a preteky zoradené podľa dátumu a kraja." },
-  Seminár: { title: "Semináre a tréningy", description: "Vzdelávanie, workshopy a otvorené tréningy pre majiteľov, chovateľov aj kynológov." },
-};
 
 export function EventsPage({
   events,
@@ -24,8 +17,10 @@ export function EventsPage({
   initialTime?: EventTimeFilter;
   section?: PortalSection;
 }) {
-  const copy = pageCopy[initialType] ?? pageCopy.Všetky;
   const isMainListing = initialType === "Všetky";
+  const copy = isMainListing
+    ? { title: "Podujatia", description: "Výstavy, preteky, semináre, tréningy a stretnutia pre psí svet na jednom mieste." }
+    : eventTypeListingSeo(initialType);
   const title = isMainListing ? section?.label ?? copy.title : copy.title;
   const description = isMainListing ? section?.description ?? copy.description : copy.description;
   const today = bratislavaDateKey();
