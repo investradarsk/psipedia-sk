@@ -59,7 +59,7 @@ function addressInput(source: GeoSourceLocation) {
     houseNumber: source.houseNumber ?? "",
     addressFormat: source.addressFormat ?? "",
     serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
-    online: source.online,
+    online: false,
   };
 }
 
@@ -170,7 +170,6 @@ async function candidateWindow(database: GeoD1Database, nowIso: string) {
     FROM directory_profiles dp
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
     WHERE dp.status='published'
-      AND dp.online=0
       AND dp.service_address_confirmation='CONFIRMED_SERVICE_LOCATION'
       AND TRIM(dp.region)<>''
       AND TRIM(dp.district)<>''
