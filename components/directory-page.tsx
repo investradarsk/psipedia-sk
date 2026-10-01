@@ -22,8 +22,7 @@ function previewMeta(profile: PublicDirectoryProfile) {
   const location = [profile.city, profile.district && profile.district !== profile.city ? profile.district : "", profile.region]
     .filter(Boolean)
     .join(" · ");
-  const availability = profile.online ? (location ? "aj online" : "online") : "";
-  return [location, availability, profile.services[0] ?? ""].filter(Boolean).join(" · ");
+  return [location, profile.services[0] ?? ""].filter(Boolean).join(" · ");
 }
 
 function categoryIcon(slug: DirectoryCategorySlug) {
