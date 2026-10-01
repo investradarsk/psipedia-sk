@@ -35,23 +35,28 @@ export function geoAdminOperatorState(input: {
   resolvedSourceFingerprint: string | null;
   manualOverride: boolean;
 }): { state: GeoAdminOperatorState; reason: string } {
-  if (input.addressState === "MISSING") {
-    return { state: "MISSING_ADDRESS", reason: "Profil nemá kompletnú canonical adresu prevádzky." };
-  }
-  if (input.addressState === "INCOMPLETE") {
-    return { state: "INCOMPLETE_ADDRESS", reason: "Canonical adresa nie je kompletná." };
-  }
-  if (input.addressState === "NEEDS_REVIEW") {
-    const invalidReasons = new Set(["LOCALITY_INVALID", "POSTAL_CODE_INVALID", "STREET_NOT_ALLOWED", "ONLINE_SENTINEL_CONFLICT"]);
-    if (invalidReasons.has(input.addressReason)) {
-      return { state: "INVALID_ADDRESS", reason: "Canonical adresa obsahuje neplatnú alebo konfliktnú hodnotu." };
+  const directoryContract = !input.targetType || input.targetType === "DIRECTORY_PROFILE";
+  if (directoryContract) {
+    if (input.addressState === "MISSING") {
+      return { state: "MISSING_ADDRESS", reason: "Profil nemá kompletnú canonical adresu prevádzky." };
     }
-    return {
-      state: "NEEDS_REVIEW",
-      reason: input.addressReason === "LEGACY_UNCONFIRMED"
-        ? "Historická adresa nie je potvrdená ako miesto prevádzky."
-        : "Canonical adresa vyžaduje manuálnu kontrolu.",
-    };
+    if (input.addressState === "INCOMPLETE") {
+      return { state: "INCOMPLETE_ADDRESS", reason: "Canonical adresa nie je kompletná." };
+    }
+    if (input.addressState === "NEEDS_REVIEW") {
+      const invalidReasons = new Set(["LOCALITY_INVALID", "POSTAL_CODE_INVALID", "STREET_NOT_ALLOWED", "ONLINE_SENTINEL_CONFLICT"]);
+      if (invalidReasons.has(input.addressReason)) {
+        return { state: "INVALID_ADDRESS", reason: "Canonical adresa obsahuje neplatnú alebo konfliktnú hodnotu." };
+      }
+      return {
+        state: "NEEDS_REVIEW",
+        reason: input.addressReason === "LEGACY_UNCONFIRMED"
+          ? "Historická adresa nie je potvrdená ako miesto prevádzky."
+          : "Canonical adresa vyžaduje manuálnu kontrolu.",
+      };
+    }
+  } else if (input.addressState === "MISSING") {
+    return { state: "MISSING_ADDRESS", reason: "Lokalita nemá použiteľné miesto, adresu ani mesto." };
   }
 
   if (input.geocodeStatus === "FAILED") {
