@@ -35,7 +35,7 @@ type TopicPromoRule = {
   candidates: readonly ArticlePromoKey[];
 };
 
-const topicPromoRules: readonly TopicPromoRule[] = [
+export const articlePromoTopicRules: readonly TopicPromoRule[] = [
   {
     key: "lost-found",
     signals: ["straten", "najden", "lost found"],
@@ -147,6 +147,8 @@ export const articlePromoSectionFallbacks = {
   recenzie: ["mapa", "veterinari"],
 } as const satisfies Partial<Record<ArticlePortalSection, readonly ArticlePromoKey[]>>;
 
+export const articlePromoSubsectionSectionFallbacks = [] as const satisfies readonly string[];
+
 export const articlePromoGlobalFallback = ["mapa"] as const satisfies readonly ArticlePromoKey[];
 
 function uniquePromoKeys(keys: readonly ArticlePromoKey[]) {
@@ -187,7 +189,7 @@ function topicContext(article: ContextualArticlePromoInput) {
     const searchable = normalizeArticleTopicKey(
       [topic.normalizedKey, topic.slug, topic.label].filter(Boolean).join(" "),
     );
-    const rule = topicPromoRules.find((item) =>
+    const rule = articlePromoTopicRules.find((item) =>
       item.signals.some((signal) => searchable.includes(signal)),
     );
     if (!rule) continue;
