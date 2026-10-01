@@ -4,6 +4,7 @@ import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelect
 import {
   applyVerifiedDirectoryAddressGeo,
   requireDirectoryAddressProviderSchema,
+  withUnconfirmedDirectoryAddress,
   withVerifiedDirectoryAddress,
   withVerifiedDirectoryNumberlessAddress,
 } from "@/lib/directory-address-save";
@@ -44,17 +45,34 @@ export async function POST(request: Request) {
       || body.houseNumber?.trim()
     );
     const hasLocality = Boolean(body.region?.trim() && body.district?.trim() && body.city?.trim());
-    let payload: ManagedDirectoryProfileInput = body;
+    let payload: ManagedDirectoryProfileInput = physicalHints
+      ? withUnconfirmedDirectoryAddress(body)
+      : {
+          ...body,
+          region: "",
+          district: "",
+          city: "",
+          postalCode: "",
+          street: "",
+          houseNumber: "",
+          addressFormat: "",
+          confirmServiceAddress: false,
+          clearServiceAddressConfirmation: true,
+        };
     let verified = null;
+
     if (physicalHints) {
-      if (numberlessLocalityConfirmed) {
-        if (body.houseNumber?.trim()) {
-          throw new Error("Zadanú lokalitu možno použiť iba bez čísla domu.");
-        }
-        if (body.addressFormat !== "STREET") {
-          throw new Error("Zadanú lokalitu možno použiť iba ako ulicu / lokalitu.");
-        }
-        if (body.postalCode?.trim() && hasLocality) {
+      // Provider/locality validation is an enhancement only. Any mismatch,
+      // missing provider result or provider outage falls back to warning-only
+      // structured hints while preserving the editorial public address.
+      try {
+        if (
+          numberlessLocalityConfirmed
+          && !body.houseNumber?.trim()
+          && body.addressFormat === "STREET"
+          && body.postalCode?.trim()
+          && hasLocality
+        ) {
           const numberless = verifyDirectoryNumberlessLocality({
             region: body.region ?? "",
             district: body.district ?? "",
@@ -63,46 +81,32 @@ export async function POST(request: Request) {
             street: body.street ?? "",
           });
           payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
-        } else {
-          payload = { ...body, confirmServiceAddress: false, clearServiceAddressConfirmation: true };
+        } else if (body.addressProviderResultId?.trim() && body.houseNumber?.trim() && hasLocality) {
+          await requireDirectoryAddressProviderSchema();
+          verified = await verifyDirectoryAddressSelection({
+            region: body.region ?? "",
+            district: body.district ?? "",
+            city: body.city ?? "",
+            providerResultId: body.addressProviderResultId,
+            street: body.street ?? "",
+            houseNumber: body.houseNumber,
+          });
+          payload = withVerifiedDirectoryAddress(body, verified);
+        } else if (body.addressProviderResultId?.trim() && body.postalCode?.trim() && hasLocality) {
+          const numberless = await verifyDirectoryNumberlessAddressSelection({
+            region: body.region ?? "",
+            district: body.district ?? "",
+            city: body.city ?? "",
+            postalCode: body.postalCode,
+            providerResultId: body.addressProviderResultId,
+            street: body.street ?? "",
+          });
+          payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
         }
-      } else if (body.addressProviderResultId?.trim() && body.houseNumber?.trim() && hasLocality) {
-        await requireDirectoryAddressProviderSchema();
-        verified = await verifyDirectoryAddressSelection({
-          region: body.region ?? "",
-          district: body.district ?? "",
-          city: body.city ?? "",
-          providerResultId: body.addressProviderResultId,
-          street: body.street ?? "",
-          houseNumber: body.houseNumber,
-        });
-        payload = withVerifiedDirectoryAddress(body, verified);
-      } else if (body.addressProviderResultId?.trim() && body.postalCode?.trim() && hasLocality) {
-        const numberless = await verifyDirectoryNumberlessAddressSelection({
-          region: body.region ?? "",
-          district: body.district ?? "",
-          city: body.city ?? "",
-          postalCode: body.postalCode ?? "",
-          providerResultId: body.addressProviderResultId,
-          street: body.street ?? "",
-        });
-        payload = withVerifiedDirectoryNumberlessAddress(body, numberless);
-      } else {
-        payload = { ...body, confirmServiceAddress: false, clearServiceAddressConfirmation: true };
+      } catch {
+        verified = null;
+        payload = withUnconfirmedDirectoryAddress(body);
       }
-    } else {
-      payload = {
-        ...body,
-        region: "",
-        district: "",
-        city: "",
-        postalCode: "",
-        street: "",
-        houseNumber: "",
-        addressFormat: "",
-        confirmServiceAddress: false,
-        clearServiceAddressConfirmation: true,
-      };
     }
     const profile = await createManagedDirectoryProfile(payload, user.email);
     if (verified) {
