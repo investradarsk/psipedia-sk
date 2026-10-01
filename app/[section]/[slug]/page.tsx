@@ -98,18 +98,16 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const legacyRedirect = legacyArticleRedirectPath(slug);
   if (legacyRedirect) permanentRedirect(legacyRedirect);
   if (section === "recenzie" && slug === "vybava") redirect("/recenzie/postroje-a-vodidla");
-  const managedSection = await getManagedPortalSection(section);
-  if (!managedSection?.visible) notFound();
-  if (section === "podujatia" && slug === "kalendar") {
-    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
-  }
-  const portalTopic = await getManagedPortalSubpage(section, slug);
   const eventType = section === "podujatia" ? eventTypeFromPortalSlug(slug) : null;
   if (eventType) {
     const rawSearchParams = await searchParams;
+    const [managedSection, events] = await Promise.all([
+      getManagedPortalSection(section),
+      getPublishedEvents(),
+    ]);
+    if (!managedSection?.visible) notFound();
     const path = `/podujatia/${slug}`;
     const policy = resolveListingIndexPolicy(path, rawSearchParams);
-    const events = await getPublishedEvents();
     const copy = eventTypeListingSeo(eventType);
     const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
       name: copy.title,
@@ -126,6 +124,12 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     }) : null;
     return <>{schema && <StructuredData value={schema} />}<EventsPage events={events} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} /></>;
   }
+  const managedSection = await getManagedPortalSection(section);
+  if (!managedSection?.visible) notFound();
+  if (section === "podujatia" && slug === "kalendar") {
+    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
+  }
+  const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic && section === "novinky") {
     const newsCategory = getNewsCategory(slug);
     if (newsCategory) {
