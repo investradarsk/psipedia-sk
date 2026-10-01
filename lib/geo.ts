@@ -196,6 +196,19 @@ export function classifyGeoSource(source: GeoSourceLocation): GeoClassification 
         explanation: "Verejné miesto bez čísla domu je exact kandidát, ale súradnice smie potvrdiť iba konkrétny Google Place.",
       };
     }
+    if (
+      source.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION"
+      && source.address?.trim()
+      && !source.online
+    ) {
+      return {
+        proposedVisibility: "EXACT_PUBLIC",
+        proposedPrecision: "EXACT",
+        requiresReview: false,
+        reasonCode: null,
+        explanation: "Adresa a presný bod boli potvrdené konkrétnym Google Place.",
+      };
+    }
     if (evaluation.reason === "ONLINE_ONLY") {
       return { proposedVisibility: "HIDDEN", proposedPrecision: null, requiresReview: false, reasonCode: "ONLINE_ONLY", explanation: "Online-only profil nemá fyzický marker." };
     }
@@ -232,9 +245,11 @@ export function buildGeoQuery(
       serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
       online: source.online,
     });
-    if (!candidate) return null;
+    const confirmedAddress = candidate?.formattedAddress
+      ?? (source.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" ? source.address?.trim() || null : null);
+    if (!confirmedAddress) return null;
     return distinctGeoParts(
-      candidate.formattedAddress.replace(/\n/g, ", "),
+      confirmedAddress.replace(/\n/g, ", "),
       source.district,
       source.region,
       country,
@@ -315,7 +330,7 @@ export function geoFingerprintInput(
               addressFormat: source.addressFormat ?? "",
               serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
               online: source.online,
-            }) ?? null
+            }) ?? (source.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" ? source.address || null : null)
           : (source.address || source.venue))
       : null,
   };
