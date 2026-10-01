@@ -28,6 +28,7 @@ type Props = {
   blocks: ArticleBlock[];
   onChange: (blocks: ArticleBlock[]) => void;
   currentArticleId?: number;
+  promoUtcDay?: string;
   onUploadingChange: (uploading: boolean) => void;
   onMessage: (message: string) => void;
   onError: (message: string) => void;
@@ -117,7 +118,7 @@ export function RichTextInput({
   );
 }
 
-export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, onUploadingChange, onMessage, onError }: Props) {
+export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, promoUtcDay, onUploadingChange, onMessage, onError }: Props) {
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
@@ -305,7 +306,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
             {block.type === "related" && <div className="admin-field-grid"><div className="admin-field admin-field--full"><label>Vybrať existujúci článok</label><select value={articles.find((item) => articleHref(item) === block.href)?.id ?? ""} onChange={(event) => { const selected = articles.find((item) => item.id === Number(event.target.value)); if (selected) update(block.id, (item) => item.type === "related" ? { ...item, title: selected.title, href: articleHref(selected), description: selected.excerpt } : item); }}><option value="">Vyber článok…</option>{articles.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></div><div className="admin-field"><label>Názov</label><input value={block.title} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, title: event.target.value } : item)} /></div><div className="admin-field"><label>Odkaz</label><input value={block.href} onChange={(event) => update(block.id, (item) => item.type === "related" ? { ...item, href: event.target.value } : item)} placeholder="/sekcia/adresa" /></div></div>}
             {block.type === "psipedia-promo" && (() => {
               const target = articlePromoRegistry[block.promoKey];
-              const preview = resolveArticlePromo(block.promoKey, block.variant, block.id);
+              const preview = resolveArticlePromo(block.promoKey, block.variant, block.id, promoUtcDay);
               const previewCta = preview.copy.ctaLabel ?? preview.target.ctaLabel;
               return <div className="admin-cta-editor">
                 <div className="admin-field-grid">
@@ -338,7 +339,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, on
                 </div>
                 <div className="admin-field admin-field--full">
                   <label>Náhľad</label>
-                  <ArticlePromo promoKey={block.promoKey} variant={block.variant} seed={block.id} compact />
+                  <ArticlePromo promoKey={block.promoKey} variant={block.variant} seed={block.id} utcDay={promoUtcDay} compact />
                   <small>Výsledné CTA: <strong>{previewCta}</strong></small>
                 </div>
               </div>;
