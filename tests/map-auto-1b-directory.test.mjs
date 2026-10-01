@@ -57,48 +57,14 @@ test("verified exact admin flow reuses the existing safe provider apply without 
   assert.match(addressSave, /if \(!point\)/);
 });
 
-test("physical to online stays classifier-owned and becomes hidden", () => {
-  const classification = classifyGeoSource({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: 1,
-    label: "Online",
-    category: "veterinari",
-    region: "",
-    district: "",
-    city: "",
-    postalCode: "",
-    street: "",
-    houseNumber: "",
-    addressFormat: "",
-    serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
-    countryCode: "SK",
-    online: true,
-    published: true,
-  });
-  assert.equal(classification.proposedVisibility, "HIDDEN");
+test("directory runtime no longer exposes an online-only profile mode", () => {
+  assert.match(geoStore, /countryCode: "SK", online: false/);
+  assert.doesNotMatch(directoryStore, /payload\.online/);
+  assert.doesNotMatch(partnerChangesRaw, /key: "online"/);
+  assert.doesNotMatch(partnerNewRaw, /online: false/);
 });
 
-test("online to confirmed physical stays classifier-owned and re-enters exact lifecycle", () => {
-  const classification = classifyGeoSource({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: 1,
-    label: "Prevádzka",
-    category: "veterinari",
-    region: "Nitriansky kraj",
-    district: "Zlaté Moravce",
-    city: "Zlaté Moravce",
-    postalCode: "953 01",
-    street: "Hviezdoslavova",
-    houseNumber: "74",
-    addressFormat: "STREET",
-    serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
-    countryCode: "SK",
-    online: false,
-    published: true,
-  });
-  assert.equal(classification.proposedVisibility, "EXACT_PUBLIC");
-  assert.equal(classification.proposedPrecision, "EXACT");
-});
+
 
 test("archive retains GEO lifecycle instead of hard-deleting a point", () => {
   assert.match(archiveDirectory, /status='archived'/);
