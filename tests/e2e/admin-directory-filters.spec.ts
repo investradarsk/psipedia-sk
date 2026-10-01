@@ -224,7 +224,7 @@ test.describe("admin directory v2", () => {
     await page.getByLabel("Názov profilu").fill("Directory Admin Created Fixture");
     await page.getByLabel("Krátky popis").fill("Testovací profil vytvorený cez nový directory admin flow.");
     await page.getByLabel("Podrobný popis").fill("Toto je dostatočne dlhý deterministický popis používaný iba v lokálnom E2E teste administrácie.");
-    await page.getByLabel("Služby aj online").check();
+    await expect(page.getByLabel("Služby aj online")).toHaveCount(0);
     await page.getByLabel("Verejný telefón").fill("neplatny-telefon");
     await page.getByRole("button", { name: "Publikovať profil" }).click();
     await expect(page.getByRole("alert")).toContainText("Telefónne číslo nie je platné.");
