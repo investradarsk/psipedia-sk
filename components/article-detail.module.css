@@ -195,7 +195,7 @@
   color: var(--forest);
 }
 
-.readingShell {
+.modernArticle .readingShell {
   width: 100%;
   max-width: var(--ps-content-max, 1180px);
   margin-inline: auto;
@@ -683,7 +683,7 @@
     margin-top: 6px;
   }
 
-  .readingShell {
+  .modernArticle .readingShell {
     max-width: none;
     padding: 14px 16px 56px;
   }
