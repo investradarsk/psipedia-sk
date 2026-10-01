@@ -87,7 +87,6 @@ const DIRECTORY_DEFAULTS: PartnerProfilePatch = {
   district: "",
   region: "",
   address: "",
-  online: false,
   priceNote: "",
   websiteUrl: "",
   publicPhone: "",
