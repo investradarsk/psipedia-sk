@@ -84,3 +84,53 @@ export function geoAdminOperatorState(input: {
   }
   return { state: "NEEDS_REVIEW", reason: "Geo stav nie je možné bezpečne zaradiť bez kontroly." };
 }
+
+
+export function geoAdminGenericOperatorState(input: {
+  hasLocationSource: boolean;
+  missingReason?: string;
+  geocodeStatus: string | null;
+  publicVisibility: string | null;
+  publicPrecision: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  sourceFingerprint: string | null;
+  resolvedSourceFingerprint: string | null;
+  manualOverride: boolean;
+}): { state: GeoAdminOperatorState; reason: string } {
+  if (!input.hasLocationSource) {
+    return { state: "MISSING_ADDRESS", reason: input.missingReason || "Položka nemá použiteľnú lokalitu." };
+  }
+  if (input.geocodeStatus === "FAILED") {
+    return { state: "FAILED", reason: "Posledné geo spracovanie zlyhalo." };
+  }
+  if (input.manualOverride) {
+    return { state: "NEEDS_REVIEW", reason: "Položka používa manuálny geo override." };
+  }
+  if (input.publicVisibility === "HIDDEN" || input.geocodeStatus === "SKIPPED") {
+    return { state: "NOT_PUBLIC", reason: "Poloha je podľa aktuálnej privacy alebo produktovej politiky neverejná." };
+  }
+  if (input.geocodeStatus === "NEEDS_REVIEW" || input.geocodeStatus === "STALE") {
+    return {
+      state: "NEEDS_REVIEW",
+      reason: input.geocodeStatus === "STALE"
+        ? "Zdroj lokality sa zmenil a geo bod treba znovu overiť."
+        : "GEO stav vyžaduje manuálnu kontrolu.",
+    };
+  }
+  if (!input.geocodeStatus || input.geocodeStatus === "PENDING") {
+    return { state: "PENDING", reason: "Lokalita je pripravená, ale ešte čaká na geo spracovanie." };
+  }
+  if (input.geocodeStatus === "RESOLVED") {
+    const current = input.publicVisibility !== null
+      && input.publicVisibility !== "HIDDEN"
+      && Boolean(input.publicPrecision)
+      && input.latitude !== null
+      && input.longitude !== null
+      && Boolean(input.sourceFingerprint)
+      && input.sourceFingerprint === input.resolvedSourceFingerprint;
+    if (current) return { state: "ON_MAP", reason: "Položka má aktuálny verejný geo bod." };
+    return { state: "NEEDS_REVIEW", reason: "Uložený geo bod nezodpovedá aktuálnemu zdroju alebo verejnej klasifikácii." };
+  }
+  return { state: "NEEDS_REVIEW", reason: "Geo stav nie je možné bezpečne zaradiť bez kontroly." };
+}
