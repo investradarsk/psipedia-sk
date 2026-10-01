@@ -4,8 +4,7 @@ import { DirectoryPage } from "@/components/directory-page";
 import { StructuredData } from "@/components/structured-data";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { getDirectoryCategoryCounts, listPublishedDirectoryProfiles, parseDirectoryFilters } from "@/lib/directory-store";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -14,13 +13,16 @@ export function generateStaticParams() {
   return directoryCategories.map((category) => ({ category: category.slug }));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const category = getDirectoryCategory((await params).category);
-  return category ? buildPageMetadata({
+  if (!category) return {};
+  return buildListingPageMetadata({
     title: `${category.label} – adresár`,
     description: category.description,
-    path: `/adresar/${category.slug}`,
-  }) : {};
+    path: policy.canonicalPath,
+    searchParams: await searchParams,
+    indexPagination: true,
+  });
 }
 
 export default async function DirectoryCategoryPage({ params, searchParams }: Props) {
@@ -32,8 +34,8 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
     listPublishedDirectoryProfiles({ category: category.slug, filters }),
     getDirectoryCategoryCounts(),
   ]);
-  const hasQuery = Object.values(rawSearchParams).some((value) => Array.isArray(value) ? value.some(Boolean) : Boolean(value));
-  const schema = hasQuery ? null : buildCollectionPageJsonLd({
+  const policy = resolveListingIndexPolicy(`/adresar/${category.slug}`, rawSearchParams, { indexPagination: true });
+  const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: category.label,
     description: category.description,
     path: `/adresar/${category.slug}`,

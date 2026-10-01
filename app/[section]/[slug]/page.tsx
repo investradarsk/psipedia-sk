@@ -11,12 +11,12 @@ import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
-import { buildPublicEventPresentation, eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, selectRelatedEvents } from "@/lib/events";
+import { buildPublicEventPresentation, eventDateTimeIso, eventHref, eventPortalCategory, eventTimeFilterFromParam, eventTypeFromPortalSlug, eventTypeListingSeo, selectRelatedEvents } from "@/lib/events";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getNewsCategory } from "@/lib/news";
 import { getPublishedReviewSummaries, portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-store";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildListingPageMetadata, buildCollectionPageJsonLd, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, eventSeoFallback, resolvedCanonical } from "@/lib/content-seo";
 import { absoluteUrl, SITE_URL } from "@/lib/seo";
@@ -27,7 +27,7 @@ import { listRelatedBreedsForArticle } from "@/lib/content-relations";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ section: string; slug: string }>; searchParams: Promise<{ termin?: string | string[] }> };
+type Props = { params: Promise<{ section: string; slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export function generateStaticParams() {
   return portalSections.flatMap((section) => section.subpages
@@ -35,8 +35,9 @@ export function generateStaticParams() {
     .map((subpage) => ({ section: section.slug, slug: subpage.slug })));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { section, slug } = await params;
+  const rawSearchParams = await searchParams;
   if (section === "podujatia" && slug === "kalendar") {
     return {
       title: "Podujatia",
@@ -45,12 +46,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       robots: { index: false, follow: true },
     };
   }
+  const eventType = section === "podujatia" ? eventTypeFromPortalSlug(slug) : null;
+  if (eventType) {
+    const copy = eventTypeListingSeo(eventType);
+    return buildListingPageMetadata({
+      title: copy.title,
+      description: copy.description,
+      path: `/podujatia/${slug}`,
+      searchParams: rawSearchParams,
+    });
+  }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic) {
-    const metadata = buildPageMetadata({
+    const metadata = buildListingPageMetadata({
       title: portalTopic.subpage.seoTitle || `${portalTopic.subpage.label} – ${portalTopic.section.label}`,
       description: portalTopic.subpage.metaDescription || portalTopic.subpage.description,
       path: `/${portalTopic.section.slug}/${portalTopic.subpage.slug}`,
+      searchParams: rawSearchParams,
     });
     if (section === "recenzie" && !portalSubpageHasEditorialValue(portalTopic.subpage)) {
       const reviews = await getPublishedReviewSummaries(slug, 1);
@@ -92,8 +104,27 @@ export default async function PortalContentPage({ params, searchParams }: Props)
     return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
-  if (section === "podujatia" && eventTypeFromPortalSlug(slug)) {
-    return <EventsPage events={await getPublishedEvents()} initialType={eventTypeFromPortalSlug(slug) ?? "Všetky"} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
+  const eventType = section === "podujatia" ? eventTypeFromPortalSlug(slug) : null;
+  if (eventType) {
+    const rawSearchParams = await searchParams;
+    const path = `/podujatia/${slug}`;
+    const policy = resolveListingIndexPolicy(path, rawSearchParams);
+    const events = await getPublishedEvents();
+    const copy = eventTypeListingSeo(eventType);
+    const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
+      name: copy.title,
+      description: copy.description,
+      path,
+      breadcrumbs: [
+        { name: "Domov", path: "/" },
+        { name: "Podujatia", path: "/podujatia" },
+        { name: copy.title, path },
+      ],
+      items: events
+        .filter((event) => event.eventType === eventType)
+        .map((event) => ({ name: event.title, path: eventHref(event) })),
+    }) : null;
+    return <>{schema && <StructuredData value={schema} />}<EventsPage events={events} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} /></>;
   }
   if (portalTopic && section === "novinky") {
     const newsCategory = getNewsCategory(slug);
