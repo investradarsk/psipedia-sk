@@ -26,7 +26,6 @@ function source(patch = {}) {
     addressFormat: "STREET",
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     countryCode: "SK",
-    online: false,
     published: true,
     ...patch,
   };
@@ -80,26 +79,13 @@ test("A2 exact eligibility accepts only current canonical physical backlog state
   }).action, "PROCESS");
 });
 
-test("A2 exact eligibility blocks incomplete, legacy, online and manual override profiles", () => {
+test("A2 exact eligibility blocks incomplete, legacy and manual override profiles", () => {
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source({ houseNumber: "" }), point: null,
   }).action, "BLOCK");
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source({ serviceAddressConfirmation: "LEGACY_UNCONFIRMED" }), point: null,
   }).reason, "LEGACY_UNCONFIRMED");
-  assert.equal(evaluateDirectoryGeoEligibility({
-    source: source({
-      online: true,
-      region: "",
-      district: "",
-      city: "",
-      postalCode: "",
-      street: "",
-      houseNumber: "",
-      addressFormat: "",
-    }),
-    point: null,
-  }).reason, "ONLINE_ONLY");
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source(), point: point({ manualOverride: true }), expectedFingerprint: "fingerprint",
   }).reason, "MANUAL_OVERRIDE");
