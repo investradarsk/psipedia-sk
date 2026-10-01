@@ -21,7 +21,6 @@ const source = {
   district: "Nitra",
   region: "Nitriansky kraj",
   countryCode: "SK",
-  online: false,
   published: true,
 };
 
@@ -147,6 +146,7 @@ test("GOOGLE-PLACE-BULK endpoint is explicit, bounded and processor protects pri
   assert.match(bulkRoute, /validateGooglePlaceBulkTargetIds/);
   assert.match(bulkStore, /GOOGLE_PLACE_BULK_MAX = 100/);
   assert.doesNotMatch(bulkStore, /geoSensitiveDirectoryCategory/);
+  assert.doesNotMatch(bulkStore, /Online-only profil|flag\(row, "online"\)|d\.online/);
   assert.match(bulkStore, /hasExplicitPrivateGeoDecision/);
   assert.match(bulkStore, /manual_override/);
   assert.match(bulkStore, /public_visibility/);
