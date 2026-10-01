@@ -81,17 +81,17 @@ test("admin editor sends the confirmation only after the explicit locality actio
   assert.match(editorSource, /if \(event\.target\.value\.trim\(\)\) \{[\s\S]*setNumberlessLocalityConfirmed\(false\)/);
 });
 
-test("create and update routes keep explicit numberless confirmation but also allow sparse address hints", () => {
+test("create and update routes keep explicit numberless verification optional and allow sparse address hints", () => {
   for (const source of [createRouteSource, updateRouteSource]) {
     assert.match(source, /rawNumberlessLocalityConfirmed === true/);
     assert.match(source, /verifyDirectoryNumberlessLocality/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
-    assert.match(source, /Zadanú lokalitu možno použiť iba bez čísla domu/);
-    assert.match(source, /Zadanú lokalitu možno použiť iba ako ulicu \/ lokalitu/);
+    assert.match(source, /withUnconfirmedDirectoryAddress/);
     assert.match(source, /clearServiceAddressConfirmation: true/);
+    assert.match(source, /catch \{/);
+    assert.doesNotMatch(source, /Zadanú lokalitu možno použiť iba bez čísla domu/);
+    assert.doesNotMatch(source, /Zadanú lokalitu možno použiť iba ako ulicu \/ lokalitu/);
   }
-  assert.doesNotMatch(createRouteSource, /Vyber ulicu z Geoapify návrhov alebo explicitne použi zadanú lokalitu/);
-  assert.doesNotMatch(updateRouteSource, /výberom ulice z Geoapify návrhov alebo explicitným použitím zadanej lokality/);
 });
 
 test("numbered and Geoapify-selected numberless flows remain provider-verified", () => {
@@ -100,15 +100,16 @@ test("numbered and Geoapify-selected numberless flows remain provider-verified",
     assert.match(source, /verifyDirectoryNumberlessAddressSelection/);
     assert.match(source, /addressProviderResultId/);
   }
-  assert.match(createRouteSource, /if \(body\.houseNumber\?\.trim\(\)\)[\s\S]*verifyDirectoryAddressSelection/);
+  assert.match(createRouteSource, /body\.addressProviderResultId\?\.trim\(\) && body\.houseNumber\?\.trim\(\) && hasLocality[\s\S]*verifyDirectoryAddressSelection/);
   assert.match(updateRouteSource, /const houseNumber = \(body\.houseNumber \?\? before\.houseNumber\)\.trim\(\)/);
+  assert.match(updateRouteSource, /body\.addressProviderResultId\?\.trim\(\) && houseNumber && hasLocality[\s\S]*verifyDirectoryAddressSelection/);
 });
 
 test("free-text and sparse hint saves never fabricate an exact geo resolution", () => {
   for (const source of [createRouteSource, updateRouteSource]) {
     assert.match(source, /let verified = null/);
     assert.match(source, /if \(verified\) \{[\s\S]*applyVerifiedDirectoryAddressGeo/);
-    assert.match(source, /if \(numberlessLocalityConfirmed\)/);
+    assert.match(source, /numberlessLocalityConfirmed/);
     assert.match(source, /verifyDirectoryNumberlessLocality/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
     assert.match(source, /clearServiceAddressConfirmation: true/);

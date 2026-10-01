@@ -75,7 +75,7 @@ test("GOOGLE-PLACE-DISCOVERY uses saved profile fields only as hints and confirm
   assert.match(geoRouteSource, /action === "discover-google-place"/);
   assert.match(geoRouteSource, /discoverGoogleTargetPlaces\(source\)/);
   assert.match(targetDiscoverySource, /discoverGoogleDirectoryPlaces\(source, apiKey\)/);
-  assert.match(googleDiscoverySource, /source\.label, source\.street, source\.houseNumber, source\.postalCode, source\.city, source\.district, source\.region/);
+  assert.match(googleDiscoverySource, /source\.label, source\.address, source\.street, source\.houseNumber, source\.postalCode, source\.city, source\.district, source\.region/);
   assert.match(geoRouteSource, /action === "confirm-google-place"/);
   assert.match(geoRouteSource, /updateManagedDirectoryProfileFromGooglePlace/);
   assert.match(geoRouteSource, /applyGooglePlaceResolution/);

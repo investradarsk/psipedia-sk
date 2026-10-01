@@ -17,6 +17,7 @@ import { SlovakiaLocationSelector } from "@/components/slovakia-location-selecto
 import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
 import {
   applyDirectoryStreetSelection,
+  directoryAddressQualityWarning,
   directoryCanonicalAddressSemanticallyEqual,
   evaluateDirectoryServiceAddress,
   type DirectoryAddressFormat,
@@ -128,6 +129,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [city, setCity] = useState(profile?.city === "Online" ? "" : profile?.city ?? "");
   const [district, setDistrict] = useState(profile?.district === "Online" ? "" : profile?.district ?? "");
   const [region, setRegion] = useState(profile?.region === "Online" ? "" : profile?.region ?? "");
+  const [publicAddress, setPublicAddress] = useState(profile?.address ?? "");
   const [postalCode, setPostalCode] = useState(profile?.postalCode ?? "");
   const [street, setStreet] = useState(profile?.street ?? "");
   const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? "");
@@ -205,6 +207,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       else if (field === "description") setDescription(text);
       else if (field === "services" && Array.isArray(value)) setServices(value.map(String).join("\n"));
       else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
+      else if (field === "address") setPublicAddress(text);
       else if (field === "online") setOnline(Boolean(value));
       else if (field === "priceNote") setPriceNote(text);
       else if (field === "websiteUrl") { setWebsiteUrl(text); if (text.trim()) clearQualityResolution("website"); }
@@ -224,6 +227,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
         body: JSON.stringify({
           name, slug, category, status: nextStatus, excerpt, description,
           services: listFromText(services), qualifications: listFromText(qualifications),
+          address: publicAddress,
           city, district, region, postalCode, street, houseNumber, addressFormat,
           addressProviderResultId: addressProviderResultId || undefined,
           numberlessLocalityConfirmed: numberlessLocalityConfirmed || undefined,
@@ -344,6 +348,20 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     online,
   });
 
+  const addressQualityWarning = directoryAddressQualityWarning({
+    region,
+    district,
+    city,
+    postalCode,
+    street,
+    houseNumber,
+    addressFormat,
+    serviceAddressConfirmation: addressMatchesPersistedConfirmed
+      ? "CONFIRMED_SERVICE_LOCATION"
+      : "LEGACY_UNCONFIRMED",
+    online,
+  }, publicAddress);
+
   const categoryInfo = getDirectoryCategory(category);
   return (
     <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
@@ -377,12 +395,25 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-location" className="admin-form-card">
-            <div className="admin-card-heading"><div><span>02</span><div><h2>Adresa prevádzky / miesta služby</h2><p>Jedna canonical verejná adresa pre profil, filtre, vyhľadávanie, mapu a geocoding.</p></div></div></div>
-            {profile?.serviceAddressConfirmation === "LEGACY_UNCONFIRMED" && profile.address ? (
-              <p className="admin-message admin-message--error">
-                Historická adresa „{profile.address}“ zostáva iba migračný/auditný údaj. Nie je potvrdená ako adresa prevádzky a exact geo contract ju nepoužíva.
+            <div className="admin-card-heading"><div><span>02</span><div><h2>Adresa prevádzky / miesta služby</h2><p>Verejná adresa je redakčný obsah profilu. Technické lokalizačné údaje pod ňou slúžia pre filtre, Google Maps a GEO.</p></div></div></div>
+            <div className="admin-field">
+              <label htmlFor="directory-public-address">Verejná adresa</label>
+              <textarea
+                id="directory-public-address"
+                rows={2}
+                value={publicAddress}
+                onChange={(event) => setPublicAddress(event.target.value)}
+                placeholder="Napríklad: Hviezdoslavova 1892/74, 953 01 Zlaté Moravce"
+              />
+              <small>Toto je text, ktorý sa zobrazí návštevníkovi. Môžeš ho uložiť a publikovať aj bez potvrdenia Geoapify alebo Google Maps.</small>
+            </div>
+            {addressQualityWarning ? (
+              <p className="admin-message" role="status" data-directory-address-warning>
+                <strong>⚠️ {addressQualityWarning}</strong><br />
+                Adresu môžeš uložiť a publikovať. Upozornenie sa verejne nezobrazuje.
               </p>
             ) : null}
+            <p className="admin-help"><strong>Technické lokalizačné údaje — voliteľné.</strong> Pomáhajú pri filtroch a hľadaní mapového bodu, ale nie sú podmienkou uloženia verejnej adresy.</p>
             <SlovakiaLocationSelector
               value={{ region, district, city }}
               required={false}
