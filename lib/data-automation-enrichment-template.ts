@@ -55,7 +55,6 @@ const DIRECTORY = fields([
   f("excerpt","OPTIONAL","LONG_TEXT"),
   f("services","OPTIONAL","STRING_ARRAY",{enrichmentAllowed:true,group:"DETAIL"}),
   f("qualifications","OPTIONAL","STRING_ARRAY",{enrichmentAllowed:true,group:"DETAIL"}),
-  f("online","OPTIONAL","BOOLEAN"),
   f("priceNote","OPTIONAL","LONG_TEXT",{aliases:["price_note"]}),
   f("importKey","OPTIONAL","TEXT",{aliases:["import_key"]}),
   f("verified","OPTIONAL","BOOLEAN"),
