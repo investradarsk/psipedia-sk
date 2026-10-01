@@ -90,8 +90,11 @@ function localityVariants(value: string | null | undefined) {
   const raw = (value ?? "").trim();
   if (!raw) return [];
   const full = clean(raw);
-  const municipality = clean(raw.split(/[–—-]/, 1)[0] ?? "");
-  return [...new Set([full, municipality].filter(Boolean))];
+  const hierarchy = raw
+    .split(/\s+[–—-]\s+/)
+    .map((part) => clean(part))
+    .filter(Boolean);
+  return [...new Set([full, ...hierarchy])];
 }
 
 function localityMatches(formattedAddress: string, locality: string | null | undefined) {
