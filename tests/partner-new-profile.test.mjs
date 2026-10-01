@@ -76,7 +76,7 @@ test("Directory self-service categories use current public list and reject legac
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
     description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
     services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"Hlavná 1",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
+    priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
   assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).categoryOrType,"veterinari");
   for(const category of ["psie-skoly","utulky-a-zachrana"]){
@@ -115,7 +115,7 @@ test("server rejects inconsistent Slovak new-profile locations", async()=>{
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
     description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
     services:[],qualifications:[],city:"Zlaté Moravce",district:"Zlaté Moravce",region:"Nitriansky kraj",address:"Hlavná 1",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
+    priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
   assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).values.city,"Zlaté Moravce");
   assert.throws(
@@ -145,9 +145,9 @@ test("server field allowlist rejects system and unknown fields",async()=>{
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",
     description:"Toto je dostatočne dlhý verejný popis testovacieho profilu.",
     services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"Hlavná 1",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
+    priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
-  for(const key of ["slug","status","verified","featured","sourceDataJson","searchText","imageUrl","publishedAt","unknownField"]){
+  for(const key of ["slug","status","verified","featured","sourceDataJson","searchText","imageUrl","publishedAt","online","unknownField"]){
     assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,[key]:"x"}),/nie je možné/);
   }
 });
@@ -158,7 +158,7 @@ test("CREATE required contract enforces directory address, full Slovak location 
   const base={
     name:"Test Veterina",category:"veterinari",excerpt:"Krátky popis dostatočnej dĺžky.",description:"",
     services:[],qualifications:[],city:"Nitra",district:"Nitra",region:"Nitriansky kraj",address:"Hlavná 1",
-    online:false,priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
+    priceNote:"",websiteUrl:"",publicPhone:"",publicEmail:"info@example.sk",facebookUrl:"",instagramUrl:"",
   };
   assert.equal(normalizePartnerNewProfile("DIRECTORY_PROFILE",base).values.description,"");
   assert.throws(()=>normalizePartnerNewProfile("DIRECTORY_PROFILE",{...base,name:""}),/Názov/);
