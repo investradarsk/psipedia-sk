@@ -123,6 +123,27 @@ test("operator map summary distinguishes current Google place IDs from coordinat
   assert.match(operatorComponent, /Bez mapy \/ Google Place/);
 });
 
+test("operator hub loads services, help organization locations and events into one map workspace", () => {
+  assert.match(operatorStore, /loadDirectoryRows/);
+  assert.match(operatorStore, /loadOrganizationRows/);
+  assert.match(operatorStore, /loadEventRows/);
+  assert.match(operatorStore, /ORGANIZATION_LOCATION/);
+  assert.match(operatorStore, /MANAGED_EVENT/);
+  assert.match(operatorComponent, /Služby, Pomoc psom a Podujatia/);
+  assert.match(operatorComponent, /groupFilters/);
+  assert.match(operatorComponent, /Pomoc psom/);
+  assert.match(operatorComponent, /Podujatia/);
+});
+
+test("each eligible map item can reuse the inline Google Maps picker without opening its detail", () => {
+  assert.match(operatorComponent, /AdminGooglePlacePicker/);
+  assert.match(operatorComponent, /targetType=\{item\.targetType\}/);
+  assert.match(operatorComponent, /targetId=\{item\.id\}/);
+  assert.match(operatorComponent, /onConfirmed=\{\(\) => router\.refresh\(\)\}/);
+  assert.match(operatorStore, /googlePlaceActionAvailable/);
+  assert.match(operatorStore, /locationRole: role/);
+});
+
 test("mobile-safe layout avoids forced horizontal tables in the operator-first view", () => {
   assert.match(operatorComponent, /flexWrap: "wrap"/);
   assert.match(operatorComponent, /minWidth: 0/);
