@@ -60,6 +60,7 @@ function matchesFilter(item: GeoAdminOperatorRow, filter: GeoOperatorFilter) {
 }
 
 function addressLabel(item: GeoAdminOperatorRow) {
+  if (item.publicAddress) return item.publicAddress.split(/\n+/).map((line) => line.trim()).filter(Boolean);
   if (item.formattedAddress) return item.formattedAddress.split("\n");
   if (item.city) return [item.city];
   return ["—"];
@@ -147,6 +148,7 @@ export function AdminGeoOperatorDashboard({
         item.category,
         item.categoryLabel,
         item.groupLabel,
+        item.publicAddress,
         item.formattedAddress ?? "",
       ].join(" ").toLocaleLowerCase("sk").includes(needle);
     });
@@ -538,6 +540,12 @@ export function AdminGeoOperatorDashboard({
                       <strong>Lokalita / adresa:</strong><br />
                       {lines.map((line, index) => <span key={index}>{line}{index < lines.length - 1 ? <br /> : null}</span>)}
                     </p>
+                    {item.targetType === "DIRECTORY_PROFILE" && item.publicAddress && item.addressWarning ? (
+                      <p className="admin-message" style={{ margin: "8px 0 0" }} data-directory-address-warning>
+                        <strong>⚠️ {item.addressWarning}</strong><br />
+                        Verejná adresa zostáva uložená a publikovateľná; upozornenie je iba pre admina.
+                      </p>
+                    ) : null}
                     <p className="admin-help" style={{ margin: "6px 0 0" }}>
                       <strong>Stav adresy/lokality:</strong> {addressStateLabel(item)}
                       {" · "}
@@ -590,7 +598,7 @@ export function AdminGeoOperatorDashboard({
                     <span>manual override: {item.manualOverride ? "áno" : "nie"}</span>
                     <span>explicit private: {item.explicitPrivate ? "áno" : "nie"}</span>
                     <span>updated: {item.updatedAt ?? "—"}</span>
-                    {item.legacyAddress && !item.formattedAddress ? <span><strong>Historická adresa:</strong> {item.legacyAddress}</span> : null}
+                    {item.publicAddress ? <span><strong>Verejná adresa:</strong> {item.publicAddress}</span> : null}
                   </div>
                 </details>
               </article>
