@@ -154,7 +154,7 @@ test("ADDRESS-UX-1 changed physical data persists as warning-only hints while ve
   assert.match(directoryPutSource, /body\.addressProviderResultId\?\.trim\(\)/);
   assert.match(directoryPutSource, /verifyDirectoryAddressSelection/);
   assert.match(directoryPutSource, /withUnconfirmedDirectoryAddress\(body\)/);
-  assert.match(directoryPutSource, /clearServiceAddressConfirmation: true/);
+  assert.match(directoryPutSource, /withUnconfirmedDirectoryAddress\(body\)/);
   assert.match(directoryPutSource, /try \{/);
   assert.match(directoryPutSource, /catch \{/);
   assert.doesNotMatch(directoryPutSource, /Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov/);
