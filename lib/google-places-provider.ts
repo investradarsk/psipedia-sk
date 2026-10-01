@@ -6,17 +6,19 @@ type GooglePlacesBindings = { GOOGLE_PLACES_API_KEY?: string };
 export const GOOGLE_PLACES_TEXT_SEARCH_ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
 export const GOOGLE_PLACES_FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location,places.addressComponents";
 
+type GoogleAddressComponent = {
+  longText?: string;
+  shortText?: string;
+  types?: string[];
+};
+
 type GooglePlacesResponse = {
   places?: Array<{
     id?: string;
     displayName?: { text?: string };
     formattedAddress?: string;
     location?: { latitude?: number; longitude?: number };
-    addressComponents?: Array<{
-      longText?: string;
-      shortText?: string;
-      types?: string[];
-    }>;
+    addressComponents?: GoogleAddressComponent[];
   }>;
 };
 
@@ -45,9 +47,7 @@ function finite(value: unknown): value is number {
 }
 
 function addressComponent(
-  components: GooglePlacesResponse["places"] extends Array<infer Place>
-    ? Place extends { addressComponents?: infer Components } ? Components : never
-    : never,
+  components: GoogleAddressComponent[] | undefined,
   ...types: string[]
 ) {
   const items = Array.isArray(components) ? components : [];
