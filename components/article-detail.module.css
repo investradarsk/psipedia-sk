@@ -559,6 +559,10 @@
     max-width: var(--article-reading-width);
   }
 
+  .relatedInner {
+    max-width: var(--article-reading-width);
+  }
+
   .magazineLayout {
     grid-template-columns: minmax(0, var(--article-reading-width));
     gap: 48px;
