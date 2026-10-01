@@ -69,7 +69,7 @@ export async function processGooglePlaceBulkTarget(input: {
     const database = requireDb();
     const row = await database.prepare(`
       SELECT
-        d.id, d.name, d.category, d.status, d.archived_at, d.online,
+        d.id, d.name, d.category, d.status, d.archived_at,
         g.google_place_id, g.google_place_source_fingerprint, g.source_fingerprint,
         g.manual_override, g.public_visibility
       FROM directory_profiles d
@@ -87,9 +87,6 @@ export async function processGooglePlaceBulkTarget(input: {
     const name = text(row, "name");
     if (text(row, "status") !== "published" || row.archived_at !== null) {
       return { targetId, name, result: "SKIPPED", reason: "Bulk spracúva iba publikované nearchivované profily.", candidate: null };
-    }
-    if (flag(row, "online")) {
-      return { targetId, name, result: "SKIPPED", reason: "Online-only profil nepotrebuje presný Google Maps bod.", candidate: null };
     }
     if (flag(row, "manual_override")) {
       return { targetId, name, result: "REVIEW", reason: "Profil má ručný GEO override; bulk ho nesmie prepísať.", candidate: null };
