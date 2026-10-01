@@ -5,8 +5,8 @@
 }
 
 .label {
-  color: var(--muted);
-  font-size: .72rem;
+  color: var(--brand-accent-strong, var(--coral-dark));
+  font-size: .7rem;
   font-weight: 800;
   letter-spacing: .055em;
   text-transform: uppercase;
@@ -28,6 +28,13 @@
   align-items: center;
 }
 
+.sharePanel .actions > * {
+  min-height: 42px;
+  padding-inline: 12px;
+  border-color: color-mix(in srgb, var(--brand-accent) 28%, var(--line));
+  font-size: .76rem;
+}
+
 @media (max-width: 520px) {
   .actions {
     display: grid;
@@ -36,5 +43,11 @@
 
   .actions > * {
     width: 100%;
+  }
+
+  .sharePanel .actions > * {
+    min-height: 40px;
+    padding-inline: 10px;
+    font-size: .74rem;
   }
 }

@@ -72,7 +72,7 @@ export function ArticleDetail({
   const blocks = article.blocks?.length
     ? article.blocks
     : legacyArticleBlocks(article.sections, article.sources);
-  const contentBlocks = blocks.filter((block) => block.type !== "source" && block.type !== "related");
+  const contentBlocks = blocks.filter((block) => block.type !== "source");
   const sourceBlocks = blocks.filter((block) => block.type === "source");
   const introDocument = article.introRichText ?? legacyRichTextToDocument(article.intro);
   const takeawayDocument = article.takeawayRichText ?? legacyRichTextToDocument(article.takeaway);
@@ -87,14 +87,8 @@ export function ArticleDetail({
     .split(/\s+/)
     .filter(Boolean).length;
 
-  const structurallySafeMidRelated = contentBlocks.length >= 2 ? magazine.midRelated : null;
-  const relatedSplitIndex = structurallySafeMidRelated
-    ? Math.max(1, Math.min(contentBlocks.length - 1, Math.round(contentBlocks.length * 0.4)))
-    : -1;
-  const contentBeforeRelated = relatedSplitIndex > 0 ? contentBlocks.slice(0, relatedSplitIndex) : contentBlocks;
-  const contentAfterRelated = relatedSplitIndex > 0 ? contentBlocks.slice(relatedSplitIndex) : [];
   const endRecommendationPool = [
-    ...(structurallySafeMidRelated || !magazine.midRelated ? [] : [magazine.midRelated]),
+    ...(!magazine.manualRelatedResolved && magazine.midRelated ? [magazine.midRelated] : []),
     ...magazine.endRelated,
   ];
   const relatedItems = endRecommendationPool.filter((item, index, items) =>
@@ -224,25 +218,7 @@ export function ArticleDetail({
                 </nav>
               </details>
             ) : null}
-            <ArticleBlocks blocks={contentBeforeRelated} />
-            {structurallySafeMidRelated ? (
-              <aside className={styles.midRelated} aria-label="Súvisiaci článok">
-                <Link href={articleHref(structurallySafeMidRelated)}>
-                  {structurallySafeMidRelated.image ? (
-                    <span className={styles.midRelatedImage}>
-                      <img src={structurallySafeMidRelated.image} alt="" loading="lazy" decoding="async" />
-                    </span>
-                  ) : null}
-                  <span className={styles.midRelatedCopy}>
-                    <span className={styles.midRelatedLabel}>SÚVISIACI ČLÁNOK</span>
-                    <small>{recommendationTopicLabel(structurallySafeMidRelated)}</small>
-                    <strong>{structurallySafeMidRelated.title}</strong>
-                    <span className={styles.midRelatedArrow} aria-hidden="true">→</span>
-                  </span>
-                </Link>
-              </aside>
-            ) : null}
-            {contentAfterRelated.length > 0 ? <ArticleBlocks blocks={contentAfterRelated} /> : null}
+            <ArticleBlocks blocks={contentBlocks} />
             {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}
             <AdSlot placementId={AD_PLACEMENTS.ARTICLE_END.id} />
             <p className="article-disclaimer">{section === "novinky" ? (sourceBlocks.length > 0 ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Správu pri ďalšom vývoji udalosti priebežne aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku.") : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>

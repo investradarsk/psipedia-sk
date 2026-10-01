@@ -40,10 +40,15 @@
 
 @media (max-width: 760px) {
   .button {
-    right: max(14px, env(safe-area-inset-right));
-    bottom: max(14px, env(safe-area-inset-bottom));
-    min-width: 46px;
-    min-height: 46px;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .button svg {
+    width: 20px;
+    height: 20px;
   }
 }
 
