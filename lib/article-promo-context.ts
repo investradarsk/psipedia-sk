@@ -14,7 +14,7 @@ export type ContextualArticlePromoInput = Pick<
   "slug" | "portalSection" | "portalSubpage" | "newsCategory"
 > & {
   blocks?: readonly ArticleBlock[];
-  topics?: readonly Pick<ArticleTopic, "slug" | "label" | "normalizedKey">[];
+  topics?: readonly (Pick<ArticleTopic, "slug" | "label" | "normalizedKey"> & Partial<Pick<ArticleTopic, "isActive">>)[];
 };
 
 export type ContextualArticlePromoSource = "topic" | "subsection" | "section" | "global";
@@ -179,9 +179,11 @@ export function selectContextualArticlePromoIndex(
 }
 
 function topicContext(article: ContextualArticlePromoInput) {
-  const topics = [...(article.topics ?? [])].sort((a, b) =>
-    normalizeArticleTopicKey(a.label).localeCompare(normalizeArticleTopicKey(b.label), "sk"),
-  );
+  const topics = [...(article.topics ?? [])]
+    .filter((topic) => topic.isActive !== false)
+    .sort((a, b) =>
+      normalizeArticleTopicKey(a.label).localeCompare(normalizeArticleTopicKey(b.label), "sk"),
+    );
   const candidates: ArticlePromoKey[] = [];
   const matchedRules: string[] = [];
 
@@ -258,37 +260,45 @@ function manualPromoKeys(article: ContextualArticlePromoInput) {
 export function resolveContextualArticlePromo(
   article: ContextualArticlePromoInput,
   options: { utcDay?: string } = {},
-): ContextualArticlePromoDecision {
-  const context = topicContext(article)
-    ?? subsectionContext(article)
-    ?? sectionContext(article)
-    ?? {
+): ContextualArticlePromoDecision | null {
+  const manualKeys = manualPromoKeys(article);
+  const contexts = [
+    topicContext(article),
+    subsectionContext(article),
+    sectionContext(article),
+    {
       candidates: [...articlePromoGlobalFallback],
       source: "global" as const,
       contextKey: "global:mapa",
       reason: "global fallback",
+    },
+  ];
+
+  for (const context of contexts) {
+    if (!context) continue;
+    const candidates = uniquePromoKeys(context.candidates).filter((key) =>
+      articlePromoKeys.includes(key),
+    );
+    const candidatePool = candidates.filter((key) => !manualKeys.has(key));
+    if (!candidatePool.length) continue;
+
+    const utcDay = options.utcDay ?? articlePromoUtcDay();
+    const selectionSeed = `${article.slug}|${context.contextKey}`;
+    const promoKey = candidatePool[
+      selectContextualArticlePromoIndex(candidatePool.length, selectionSeed, utcDay)
+    ];
+    if (!promoKey) continue;
+
+    return {
+      promoKey,
+      candidates,
+      source: context.source,
+      contextKey: context.contextKey,
+      reason: context.reason,
+      seed: `${article.slug}|${context.contextKey}|${promoKey}`,
+      utcDay,
     };
+  }
 
-  const candidates = uniquePromoKeys(context.candidates).filter((key) =>
-    articlePromoKeys.includes(key),
-  );
-  const safeCandidates = candidates.length ? candidates : [...articlePromoGlobalFallback];
-  const manualKeys = manualPromoKeys(article);
-  const alternatives = safeCandidates.filter((key) => !manualKeys.has(key));
-  const candidatePool = alternatives.length ? alternatives : safeCandidates;
-  const utcDay = options.utcDay ?? articlePromoUtcDay();
-  const selectionSeed = `${article.slug}|${context.contextKey}`;
-  const promoKey = candidatePool[
-    selectContextualArticlePromoIndex(candidatePool.length, selectionSeed, utcDay)
-  ] ?? "mapa";
-
-  return {
-    promoKey,
-    candidates: safeCandidates,
-    source: context.source,
-    contextKey: context.contextKey,
-    reason: context.reason,
-    seed: `${article.slug}|${context.contextKey}|${promoKey}`,
-    utcDay,
-  };
+  return null;
 }
