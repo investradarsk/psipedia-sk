@@ -326,7 +326,6 @@ function isCompleteConfirmed(profile: ManagedDirectoryProfile) {
   return evaluateDirectoryServiceAddress({
     ...currentCanonicalAddress(profile),
     serviceAddressConfirmation: profile.serviceAddressConfirmation,
-    online: profile.online,
   }).state === "COMPLETE" && profile.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION";
 }
 
@@ -514,7 +513,6 @@ function managedProfilePayload(profile: ManagedDirectoryProfile): ManagedDirecto
     street: profile.street,
     houseNumber: profile.houseNumber,
     addressFormat: profile.addressFormat,
-    online: profile.online,
     priceNote: profile.priceNote,
     websiteUrl: profile.websiteUrl,
     internalEmail: profile.internalEmail,
