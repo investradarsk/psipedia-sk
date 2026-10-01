@@ -170,8 +170,8 @@ test.describe("public services search layout", () => {
     expect(response?.status()).toBe(200);
 
     const header = page.locator("[data-directory-public-header]");
-    await expect(header.getByRole("heading", { level: 1, name: "Služby pre psov na jednom mieste" })).toBeVisible();
-    await expect(header.locator('img[alt="Labrador ako sprievodný vizuál adresára služieb pre psov"]')).toHaveCount(1);
+    await expect(header.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
+    await expect(header.locator("[data-directory-landing-hero]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
 
     const categoryNav = header.getByRole("navigation", { name: "Kategórie služieb" });
     await expect(categoryNav.getByRole("link")).toHaveCount(10);
