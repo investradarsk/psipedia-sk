@@ -23,7 +23,6 @@ const streetAddress = {
   houseNumber: "88",
   addressFormat: "STREET",
   serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
-  online: false,
 };
 
 const directoryEditorSource = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
@@ -240,7 +239,7 @@ test("legacy unconfirmed structured address is not COMPLETE", () => {
   }), null);
 });
 
-test("online-only directory profile is not COMPLETE", () => {
+test("directory profile without address is simply MISSING", () => {
   const result = evaluateDirectoryServiceAddress({
     region: "",
     district: "",
@@ -250,10 +249,9 @@ test("online-only directory profile is not COMPLETE", () => {
     houseNumber: "",
     addressFormat: "",
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
-    online: true,
   });
   assert.equal(result.state, "MISSING");
-  assert.equal(result.reason, "ONLINE_ONLY");
+  assert.equal(result.reason, "MISSING");
 });
 
 test("directory exact geo candidate exists only for COMPLETE canonical service address", () => {
@@ -292,7 +290,6 @@ test("numberless directory address declares exact intent but cannot build the cl
     addressFormat: "STREET",
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     countryCode: "SK",
-    online: false,
   };
   const classification = classifyGeoSource(source);
   assert.equal(classification.proposedVisibility, "EXACT_PUBLIC");
