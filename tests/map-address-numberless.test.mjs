@@ -132,7 +132,7 @@ test("directory routes verify complete numberless data but keep missing fields a
   for (const source of [directoryCreateSource, directoryUpdateSource]) {
     assert.match(source, /verifyDirectoryNumberlessAddressSelection/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
-    assert.match(source, /clearServiceAddressConfirmation: true/);
+    assert.match(source, /withUnconfirmedDirectoryAddress/);
   }
   assert.match(directoryCreateSource, /body\.addressProviderResultId\?\.trim\(\) && body\.postalCode\?\.trim\(\) && hasLocality/);
   assert.match(directoryUpdateSource, /const houseNumber = \(body\.houseNumber \?\? before\.houseNumber\)\.trim\(\)/);

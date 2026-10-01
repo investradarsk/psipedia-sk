@@ -162,8 +162,8 @@ test("canonical editors always navigate back to canonical sections, never automa
   ];
   for (const [path, href] of expectations) {
     const page = await read(path);
-    assert.match(page, new RegExp(`actions=\\{<Link href="${href.replaceAll("/", "\\/")}"`));
-    assert.doesNotMatch(page, /actions=\{<Link href="\/admin\/automatizacie/);
+    assert.match(page, new RegExp(`<Link href="${href.replaceAll("/", "\\/")}"`));
+    assert.doesNotMatch(page, /<Link href="\/admin\/automatizacie/);
   }
 });
 

@@ -37,7 +37,7 @@ export function DirectoryProfileDetail({
   const category = getDirectoryCategory(presentation.category);
   const hasEmbeddedMap = Boolean(publicMap?.items.length);
   const hasHeroLocation = Boolean(
-    presentation.city || presentation.district || presentation.region || presentation.online,
+    presentation.city || presentation.district || presentation.region,
   );
 
   const contacts = [
@@ -74,7 +74,6 @@ export function DirectoryProfileDetail({
     presentation.district ? { label: "Okres", value: presentation.district } : null,
     presentation.region ? { label: "Kraj", value: presentation.region } : null,
     presentation.coverage ? { label: "Pokrytie", value: presentation.coverage } : null,
-    presentation.online ? { label: "Online", value: "Služba dostupná aj online" } : null,
     presentation.priceNote ? { label: "Cena", value: presentation.priceNote } : null,
   ];
 
@@ -114,7 +113,6 @@ export function DirectoryProfileDetail({
                       {presentation.region}
                     </Link>
                   )}
-                  {presentation.online && <span className={styles.onlineBadge}>aj online</span>}
                 </div>
               )}
 

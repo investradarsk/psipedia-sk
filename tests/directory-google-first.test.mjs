@@ -30,7 +30,7 @@ test("DIRECTORY-OPTIONAL-DATA keeps only identity fields mandatory in the editor
 test("DIRECTORY-OPTIONAL-DATA saves partial address hints instead of forcing Geoapify confirmation", () => {
   assert.doesNotMatch(updateRouteSource, /Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov/);
   assert.doesNotMatch(createRouteSource, /Vyber ulicu z Geoapify návrhov alebo explicitne použi zadanú lokalitu/);
-  assert.match(updateRouteSource, /clearServiceAddressConfirmation: true/);
+  assert.match(updateRouteSource, /withUnconfirmedDirectoryAddress\(body\)/);
   assert.match(createRouteSource, /const physicalHints = Boolean/);
 });
 

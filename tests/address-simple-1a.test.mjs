@@ -534,7 +534,7 @@ test("ADDRESS-SIMPLE-1A endpoint, editor and save flow preserve server authority
   assert.match(createRoute, /houseNumber: body\.houseNumber/);
   assert.match(createRoute, /requireDirectoryAddressProviderSchema/);
   assert.match(updateRoute, /directoryPhysicalAddressChanged/);
-  assert.match(updateRoute, /clearServiceAddressConfirmation: true/);
+  assert.match(updateRoute, /withUnconfirmedDirectoryAddress\(body\)/);
   assert.doesNotMatch(updateRoute, /Zmenu fyzickej adresy potvrď výberom/);
   assert.match(updateRoute, /applyVerifiedDirectoryAddressGeo/);
   assert.doesNotMatch(createRoute + updateRoute, /body\.(?:latitude|longitude)/);

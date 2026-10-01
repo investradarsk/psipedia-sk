@@ -80,6 +80,12 @@ async function assertNewProfileIndependentOwnershipApprover(input:Parameters<typ
   }
 }
 function safeJson<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T;}catch{return fallback;}}
+function withoutLegacyDirectoryOnline(value:unknown){
+  if(!value||typeof value!=="object"||Array.isArray(value))return value;
+  const rest={...(value as Record<string,unknown>)};
+  delete rest.online;
+  return rest;
+}
 function active(status:string){return status==="SUBMITTED"||status==="PENDING_REVIEW"||status==="QUARANTINED";}
 function statusLabel(status:string){
   if(status==="SUBMITTED")return "Nové";
@@ -125,7 +131,12 @@ async function hydrate(row:AdminRow,key:string){
     email:await decryptPii(row.emailCiphertext,key),
     duplicateCandidates:safeCandidates(row.duplicateCandidatesJson),
     riskFlags:safeJson<string[]>(row.riskFlagsJson,[]).filter((item)=>typeof item==="string"),
-    proposedProfile:normalizePartnerNewProfile(row.resourceType,safeJson(row.proposedPatchJson,{})),
+    proposedProfile:normalizePartnerNewProfile(
+      row.resourceType,
+      row.resourceType==="DIRECTORY_PROFILE"
+        ? withoutLegacyDirectoryOnline(safeJson(row.proposedPatchJson,{}))
+        : safeJson(row.proposedPatchJson,{}),
+    ),
     media:row.mediaAssetId?{
       id:row.mediaAssetId,originalMime:row.mediaMime,sizeBytes:row.mediaSizeBytes,width:row.mediaWidth,height:row.mediaHeight,
       previewUrl:`/api/admin/partners/media/${row.mediaAssetId}`,
@@ -388,7 +399,12 @@ export async function createPartnerNewProfileAdmin(input:{
 
   const account=await database.prepare("SELECT status FROM partner_accounts WHERE id=?1 LIMIT 1").bind(row.accountId).first<{status:string}>();
   if(!account||account.status!=="ACTIVE")throw new PartnerNewProfileError("Partner účet už nie je aktívny.",409);
-  const normalized=normalizePartnerNewProfile(row.resourceType,safeJson(row.proposedPatchJson,{}));
+  const normalized=normalizePartnerNewProfile(
+    row.resourceType,
+    row.resourceType==="DIRECTORY_PROFILE"
+      ? withoutLegacyDirectoryOnline(safeJson(row.proposedPatchJson,{}))
+      : safeJson(row.proposedPatchJson,{}),
+  );
   const media=await publishPartnerSubmissionMedia({
     submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
   });
@@ -407,7 +423,7 @@ export async function createPartnerNewProfileAdmin(input:{
       excerpt:String(values.excerpt),description:String(values.description),
       services:Array.isArray(values.services)?values.services:[],qualifications:Array.isArray(values.qualifications)?values.qualifications:[],
       city:String(values.city),district:String(values.district),region:String(values.region),address:String(values.address),
-      online:Boolean(values.online),priceNote:String(values.priceNote),websiteUrl:String(values.websiteUrl)||null,
+      priceNote:String(values.priceNote),websiteUrl:String(values.websiteUrl)||null,
       publicPhone:String(values.publicPhone),publicEmail:String(values.publicEmail),
       facebookUrl:String(values.facebookUrl),instagramUrl:String(values.instagramUrl),
       internalEmail:null,imageUrl:media?.imageUrl??null,imageKey:media?.imageKey??null,verified:false,featured:false,seo:{},

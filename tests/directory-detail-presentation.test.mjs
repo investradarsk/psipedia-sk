@@ -16,7 +16,6 @@ function profile(overrides = {}) {
     district: "Nitra",
     region: "Nitriansky kraj",
     address: "Testovacia 1",
-    online: true,
     priceNote: "Cena dohodou",
     websiteUrl: "https://canonical.example.org",
     imageUrl: null,

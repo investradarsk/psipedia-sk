@@ -183,7 +183,6 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
     serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
-    online: truthy(row, "online"),
   });
   const publicAddress = value(row, "address");
   const addressWarning = directoryAddressQualityWarning({
@@ -197,7 +196,6 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
     serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
-    online: truthy(row, "online"),
   }, publicAddress);
   const effectiveAddressState: DirectoryServiceAddressEvaluation["state"] =
     publicAddress && evaluation.state !== "COMPLETE" ? "NEEDS_REVIEW" : evaluation.state;
@@ -228,7 +226,6 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
     postalCode: value(row, "postal_code"),
     street: value(row, "street"),
     houseNumber: value(row, "house_number"),
-    online: truthy(row, "online"),
     published: true,
   };
   const picker = pickerAvailability(source, geo);
@@ -407,7 +404,7 @@ export async function loadGeoAdminOperatorProfiles() {
     db.prepare(`
       SELECT
         d.id, d.name, d.category, d.address, d.city, d.district, d.region, d.postal_code,
-        d.street, d.house_number, d.address_format, d.service_address_confirmation, d.online,
+        d.street, d.house_number, d.address_format, d.service_address_confirmation,
         ${GEO_FIELDS}
       FROM directory_profiles d
       LEFT JOIN geo_points g ON g.directory_profile_id = d.id AND g.target_type = 'DIRECTORY_PROFILE'

@@ -19,7 +19,6 @@ const DIRECTORY_ACTIONABLE_FIELDS = [
   "street",
   "houseNumber",
   "addressFormat",
-  "online",
   "priceNote",
   "websiteUrl",
   "importKey",

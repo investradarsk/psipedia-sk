@@ -72,7 +72,6 @@ export type DirectoryProfileEditableData = {
   services: string[];
   priceNote: string;
   coverage: string;
-  online: boolean;
   specialized: Record<string, string>;
 };
 
@@ -95,7 +94,6 @@ export type PublicDirectoryProfile = {
   addressFormat: DirectoryAddressFormat | "";
   serviceAddressConfirmation: DirectoryServiceAddressConfirmation;
   formattedServiceAddress?: string | null;
-  online: boolean;
   priceNote: string;
   websiteUrl: string | null;
   imageUrl: string | null;

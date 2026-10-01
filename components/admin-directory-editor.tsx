@@ -126,9 +126,9 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [description, setDescription] = useState(profile?.description ?? "");
   const [services, setServices] = useState(profile?.services.join("\n") ?? "");
   const [qualifications, setQualifications] = useState(profile?.qualifications.join("\n") ?? "");
-  const [city, setCity] = useState(profile?.city === "Online" ? "" : profile?.city ?? "");
-  const [district, setDistrict] = useState(profile?.district === "Online" ? "" : profile?.district ?? "");
-  const [region, setRegion] = useState(profile?.region === "Online" ? "" : profile?.region ?? "");
+  const [city, setCity] = useState(profile?.city ?? "");
+  const [district, setDistrict] = useState(profile?.district ?? "");
+  const [region, setRegion] = useState(profile?.region ?? "");
   const [publicAddress, setPublicAddress] = useState(profile?.address ?? "");
   const [postalCode, setPostalCode] = useState(profile?.postalCode ?? "");
   const [street, setStreet] = useState(profile?.street ?? "");
@@ -136,7 +136,6 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? "");
   const [addressProviderResultId, setAddressProviderResultId] = useState("");
   const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
-  const [online, setOnline] = useState(profile?.online ?? false);
   const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(contacts.website);
@@ -208,7 +207,6 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       else if (field === "services" && Array.isArray(value)) setServices(value.map(String).join("\n"));
       else if (field === "qualifications" && Array.isArray(value)) setQualifications(value.map(String).join("\n"));
       else if (field === "address") setPublicAddress(text);
-      else if (field === "online") setOnline(Boolean(value));
       else if (field === "priceNote") setPriceNote(text);
       else if (field === "websiteUrl") { setWebsiteUrl(text); if (text.trim()) clearQualityResolution("website"); }
       else if (field === "publicPhone") { setPublicPhone(text); if (text.trim()) clearQualityResolution("phone"); }
@@ -232,7 +230,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           addressProviderResultId: addressProviderResultId || undefined,
           numberlessLocalityConfirmed: numberlessLocalityConfirmed || undefined,
           confirmServiceAddress: false,
-          online, priceNote,
+          priceNote,
           websiteUrl: websiteUrl || null,
           publicPhone, publicEmail, facebookUrl, instagramUrl,
           internalEmail: internalEmail || null,
@@ -345,7 +343,6 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     serviceAddressConfirmation: addressMatchesPersistedConfirmed
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
-    online,
   });
 
   const addressQualityWarning = directoryAddressQualityWarning({
@@ -359,7 +356,6 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
     serviceAddressConfirmation: addressMatchesPersistedConfirmed
       ? "CONFIRMED_SERVICE_LOCATION"
       : "LEGACY_UNCONFIRMED",
-    online,
   }, publicAddress);
 
   const categoryInfo = getDirectoryCategory(category);
@@ -441,7 +437,6 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
               selectedProviderResultId={addressProviderResultId}
               selectedStreet={street}
               selectedLocalityConfirmed={numberlessLocalityConfirmed}
-              disabled={online && !region && !district && !city}
               onClearSelection={() => {
                 setAddressProviderResultId("");
                 setNumberlessLocalityConfirmed(false);
@@ -501,8 +496,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                 </div>
               </div>
             ) : null}
-            <label className="admin-event-cancelled"><input type="checkbox" checked={online} onChange={(event) => setOnline(event.target.checked)} /><span><strong>Služby aj online</strong><small>Ak má profil aj fyzickú prevádzku, vyplň adresu vyššie. Online-only profil môže zostať bez fyzickej adresy a nebude mapovým kandidátom.</small></span></label>
-            {!online && addressEvaluation.state !== "COMPLETE" ? (
+            {addressEvaluation.state !== "COMPLETE" ? (
               <QualityResolutionField
                 field="address"
                 value={qualityResolutions.address ?? ""}
@@ -558,7 +552,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
         <aside className="admin-event-preview admin-directory-preview">
           <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
           <span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overený" : ""}</span><h2>{name || "Názov profilu"}</h2><p>{excerpt || "Krátky popis profilu sa zobrazí tu."}</p>
-          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez fyzickej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (addressEvaluation.state === "COMPLETE" ? "Kompletná" : addressEvaluation.state)}</dd></div><div><dt>Dostupnosť</dt><dd>{online ? (city ? "Osobne aj online" : "Online") : "Osobne"}</dd></div></dl>
+          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (addressEvaluation.state === "COMPLETE" ? "Kompletná" : addressEvaluation.state)}</dd></div></dl>
         </aside>
       </div>
 

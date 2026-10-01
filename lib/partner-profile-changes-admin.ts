@@ -69,7 +69,16 @@ function encryptionKey(value?:string){
 }
 function safeJson<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T;}catch{return fallback;}}
 function safeRiskFlags(value:string){const parsed=safeJson<unknown>(value,[]);return Array.isArray(parsed)?parsed.filter((x):x is string=>typeof x==="string"):[];}
-function safePatch(value:string){const parsed=safeJson<unknown>(value,{});return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed as PartnerProfilePatch:{};}
+function safePatch(value:string,resourceType?:PartnerProfileChangeResourceType){
+  const parsed=safeJson<unknown>(value,{});
+  if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))return {};
+  const patch={...(parsed as Record<string,PartnerProfileEditableValue>)};
+  if(resourceType==="DIRECTORY_PROFILE")delete patch.online;
+  return patch as PartnerProfilePatch;
+}
+function safeBasePatch(value:string,resourceType:PartnerProfileChangeResourceType){
+  return safePatch(value,resourceType);
+}
 function isActive(status:string){return status==="SUBMITTED"||status==="PENDING_REVIEW"||status==="QUARANTINED";}
 function statusLabel(status:string){
   if(status==="SUBMITTED")return "Nové";
@@ -100,7 +109,7 @@ const BASE_SELECT=`
 `;
 
 async function hydrate(row:AdminRow,key:string){
-  const patch=safePatch(row.proposedPatchJson);
+  const patch=safePatch(row.proposedPatchJson,row.resourceType);
   const risks=safeRiskFlags(row.riskFlagsJson);
   if(isActive(row.status)&&row.currentUpdatedAt!==row.baseUpdatedAt&&!risks.includes("STALE_BASE"))risks.push("STALE_BASE");
   return {
@@ -162,9 +171,9 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   if(!row)return null;
   const item=await hydrate(row,encryptionKey(input.encryptionKey));
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
-  const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
+  const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
   const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId));
-  const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values);
+  const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values,row.resourceType);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
   const labels=new Map(getPartnerEditableFields(row.resourceType).map(field=>[field.key,field.label]));
   const diff=Object.keys(proposed).map(key=>({
@@ -272,11 +281,11 @@ export async function approvePartnerProfileChangeAdmin(input:{
   if(String(canonical.canonicalId)!==row.subjectId||canonical.entityType!==row.resourceType){
     throw new PartnerProfileChangeError("Canonical cieľ návrhu nie je konzistentný.",409);
   }
-  if(canonical.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values)){
+  if(canonical.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values,row.resourceType)){
     throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
   }
-  const base=safeJson<PartnerProfilePatch>(row.baseSnapshotJson,{});
-  const stored=safePatch(row.proposedPatchJson);
+  const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
+  const stored=safePatch(row.proposedPatchJson,row.resourceType);
   const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId));
   const media=await publishPartnerSubmissionMedia({
     submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
@@ -344,7 +353,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
   }catch(error){
     if(error instanceof ModerationStateConflictError){
       const latest=await loadPartnerCanonicalForResource(row.resourceId,database);
-      if(latest.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,latest.values)){
+      if(latest.updatedAt!==row.baseUpdatedAt||partnerProfileChangeIsStale(row.baseSnapshotJson,latest.values,row.resourceType)){
         throw new PartnerProfileChangeError("Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",409);
       }
       throw new PartnerProfileChangeError("Stav žiadosti sa medzičasom zmenil. Obnovte stránku a skúste rozhodnutie znova.",409);
@@ -384,7 +393,7 @@ export async function rejectPartnerProfileChangeAdmin(input:{
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
   row=await rawAdminRow(input.id,database);
   if(!row||row.status!=="PENDING_REVIEW")throw new PartnerProfileChangeError("Stav návrhu sa medzičasom zmenil.",409);
-  const patch=safePatch(row.proposedPatchJson);
+  const patch=safePatch(row.proposedPatchJson,row.resourceType);
   const changedFields=[...Object.keys(patch),...(row.mediaAssetId?["image"]:[])];
   const now=input.now??new Date();
   const nowIso=now.toISOString();

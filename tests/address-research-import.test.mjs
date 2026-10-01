@@ -33,7 +33,6 @@ const baseProfile = {
   addressFormat: "",
   serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
   formattedServiceAddress: null,
-  online: false,
   priceNote: "",
   websiteUrl: "https://example.sk",
   imageUrl: null,
@@ -384,7 +383,7 @@ test("successful apply changes canonical address and calls GEO lifecycle", async
   assert.equal(writtenPayload.description, baseProfile.description);
   assert.equal(writtenPayload.verified, baseProfile.verified);
   assert.equal(writtenPayload.featured, baseProfile.featured);
-  assert.equal(writtenPayload.online, baseProfile.online);
+  assert.equal("online" in writtenPayload, false);
   assert.equal(writtenPayload.confirmServiceAddress, true);
   assert.equal(geoCalls, 1);
 });

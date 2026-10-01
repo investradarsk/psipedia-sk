@@ -29,7 +29,6 @@ test("directory Notion mirror covers the complete managed profile contract", () 
     "Číslo domu",
     "Formát adresy",
     "Potvrdená prevádzka",
-    "Online",
     "Cena / poznámka",
     "Web",
     "Telefón",

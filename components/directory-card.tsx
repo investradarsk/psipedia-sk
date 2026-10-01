@@ -28,11 +28,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
             {profile.featured && <span className={styles.featured}>Odporúčame</span>}
           </span>
           <strong className={styles.cardTitle}>{profile.name}</strong>
-          {(location || profile.online) && (
-            <span className={styles.cardLocation}>
-              {[location, profile.online ? "aj online" : ""].filter(Boolean).join(" · ")}
-            </span>
-          )}
+          {location && <span className={styles.cardLocation}>{location}</span>}
           {(serviceMeta.length > 0 || profile.priceNote) && (
             <span className={styles.cardMeta}>
               {serviceMeta.map((service) => <span key={service}>{service}</span>)}

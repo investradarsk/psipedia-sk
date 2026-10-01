@@ -87,7 +87,6 @@ test("create and update routes keep explicit numberless verification optional an
     assert.match(source, /verifyDirectoryNumberlessLocality/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
     assert.match(source, /withUnconfirmedDirectoryAddress/);
-    assert.match(source, /clearServiceAddressConfirmation: true/);
     assert.match(source, /catch \{/);
     assert.doesNotMatch(source, /Zadanú lokalitu možno použiť iba bez čísla domu/);
     assert.doesNotMatch(source, /Zadanú lokalitu možno použiť iba ako ulicu \/ lokalitu/);
@@ -112,7 +111,7 @@ test("free-text and sparse hint saves never fabricate an exact geo resolution", 
     assert.match(source, /numberlessLocalityConfirmed/);
     assert.match(source, /verifyDirectoryNumberlessLocality/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
-    assert.match(source, /clearServiceAddressConfirmation: true/);
+    assert.match(source, /withUnconfirmedDirectoryAddress/);
   }
 });
 

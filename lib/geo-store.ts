@@ -253,7 +253,7 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
       serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
         ? "CONFIRMED_SERVICE_LOCATION"
         : "LEGACY_UNCONFIRMED",
-      countryCode: "SK", online: Boolean(row.online),
+      countryCode: "SK",
       published: row.status === "published",
     };
   }
@@ -896,7 +896,7 @@ export async function listGeoCandidateSources(options: {
     const categoryClause = options.directoryCategory ? "AND category = ?" : "";
     const bindings = options.directoryCategory ? [options.directoryCategory, perTargetLimit] : [perTargetLimit];
     const rows = await db.prepare(`
-      SELECT id, name, category, address, city, district, region, online, status
+      SELECT id, name, category, address, city, district, region, status
       FROM directory_profiles
       WHERE status='published' ${categoryClause}
       ORDER BY category ASC, id ASC LIMIT ?
@@ -905,7 +905,7 @@ export async function listGeoCandidateSources(options: {
       targetType: "DIRECTORY_PROFILE", targetId: Number(row.id), label: String(row.name ?? ""),
       category: String(row.category ?? ""), address: String(row.address ?? ""), city: String(row.city ?? ""),
       district: String(row.district ?? ""), region: String(row.region ?? ""), countryCode: "SK",
-      online: Boolean(row.online), published: true,
+      published: true,
     });
   }
 

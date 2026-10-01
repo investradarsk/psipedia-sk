@@ -45,31 +45,10 @@ export async function PUT(request: Request, { params }: Props) {
     const { numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed, ...body } = rawBody;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
     const changed = directoryPhysicalAddressChanged(before, body);
-    const clearingForOnlineOnly = changed
-      && body.online === true
-      && !body.region?.trim()
-      && !body.district?.trim()
-      && !body.city?.trim()
-      && !body.street?.trim()
-      && !body.houseNumber?.trim()
-      && !body.postalCode?.trim();
 
     let verified = null;
     let payload: ManagedDirectoryProfileInput = changed
-      ? clearingForOnlineOnly
-        ? {
-            ...body,
-            region: "",
-            district: "",
-            city: "",
-            postalCode: "",
-            street: "",
-            houseNumber: "",
-            addressFormat: "",
-            confirmServiceAddress: false,
-            clearServiceAddressConfirmation: true,
-          }
-        : withUnconfirmedDirectoryAddress(body)
+      ? withUnconfirmedDirectoryAddress(body)
       : preserveDirectoryPhysicalAddress(before, body);
 
     const houseNumber = (body.houseNumber ?? before.houseNumber).trim();

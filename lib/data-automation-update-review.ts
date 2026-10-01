@@ -176,7 +176,6 @@ const configs: Record<AutomationEntityType, EntityConfig> = {
       description: text("description", "Popis"),
       services: json("services_json", "Služby"),
       qualifications: json("qualifications_json", "Kvalifikácie"),
-      online: bool("online", "Online služby"),
       priceNote: text("price_note", "Poznámka k cene", 1000),
       websiteUrl: url("website_url", "Web"),
       publicPhone: { kind: "phone", directoryContact: "phone", label: "Verejný telefón", max: 80 },

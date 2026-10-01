@@ -30,7 +30,6 @@ const baseAddress = {
   houseNumber: "123",
   addressFormat: "STREET",
   serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
-  online: false,
 };
 
 function publicProfile(overrides = {}) {
@@ -53,7 +52,6 @@ function publicProfile(overrides = {}) {
     addressFormat: "",
     serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
     formattedServiceAddress: null,
-    online: false,
     priceNote: "",
     websiteUrl: null,
     imageUrl: null,

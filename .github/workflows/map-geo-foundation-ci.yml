@@ -23,6 +23,7 @@ on:
       - "scripts/validate-clean-d1.mjs"
       - "tests/geo-foundation.test.mjs"
       - "tests/directory-address-policy.test.mjs"
+      - "tests/directory-online-removal.test.mjs"
       - "tests/admin-attention-queue.test.mjs"
       - "tests/e2e/admin-geo-foundation.spec.ts"
       - "docs/geo-foundation.md"
@@ -60,7 +61,7 @@ jobs:
       - name: MAP-1B focused unit and Attention tests
         run: |
           npm run test:geo-foundation
-          node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-address-policy.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-address-policy.test.mjs tests/directory-online-removal.test.mjs
           node --experimental-strip-types --test tests/admin-attention-queue.test.mjs
       - name: Clean D1 migration/schema validation
         run: npm run db:validate-clean

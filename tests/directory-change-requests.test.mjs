@@ -106,7 +106,7 @@ function proposal(overrides = {}) {
       name: "Veterina Test", serviceType: "Veterinárne pracovisko", city: "Nitra", district: "Nitra", region: "Nitriansky kraj",
       address: "Hlavná 1", phone: "+421911222333", email: "verejny@vet.example", website: "https://vet.example/",
       facebook: "", instagram: "", description: "Podrobný verejný popis veterinárnej ambulancie.", services: ["Prevencia"],
-      priceNote: "od 20 €", coverage: "", online: false, specialized: {},
+      priceNote: "od 20 €", coverage: "", specialized: {},
     }, ...overrides,
   };
 }
@@ -161,6 +161,7 @@ test("server validation stores a separate request and never changes the profile"
     ["invalid requester email", proposal({ requesterEmail: "zly-email" })],
     ["invalid URL", proposal({ proposedData: { ...proposal().proposedData, website: "javascript:alert(1)" } })],
     ["missing profile", proposal({ profileId: 99999 })],
+    ["legacy online field", proposal({ proposedData: { ...proposal().proposedData, online: true } })],
   ]) {
     const response = await request(worker, d1, "/api/directory/profile-change-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     assert.equal(response.status, 400, label);

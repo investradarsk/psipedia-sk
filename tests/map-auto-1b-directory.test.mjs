@@ -57,11 +57,11 @@ test("verified exact admin flow reuses the existing safe provider apply without 
   assert.match(addressSave, /if \(!point\)/);
 });
 
-test("physical to online stays classifier-owned and becomes hidden", () => {
+test("directory without address is reviewable missing data even when a legacy online flag is present", () => {
   const classification = classifyGeoSource({
     targetType: "DIRECTORY_PROFILE",
     targetId: 1,
-    label: "Online",
+    label: "Profil",
     category: "veterinari",
     region: "",
     district: "",
@@ -75,10 +75,11 @@ test("physical to online stays classifier-owned and becomes hidden", () => {
     online: true,
     published: true,
   });
-  assert.equal(classification.proposedVisibility, "HIDDEN");
+  assert.equal(classification.proposedVisibility, null);
+  assert.equal(classification.reasonCode, "SOURCE_INCOMPLETE");
 });
 
-test("online to confirmed physical stays classifier-owned and re-enters exact lifecycle", () => {
+test("confirmed physical directory location enters exact lifecycle regardless of legacy online flag", () => {
   const classification = classifyGeoSource({
     targetType: "DIRECTORY_PROFILE",
     targetId: 1,
@@ -93,7 +94,7 @@ test("online to confirmed physical stays classifier-owned and re-enters exact li
     addressFormat: "STREET",
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     countryCode: "SK",
-    online: false,
+    online: true,
     published: true,
   });
   assert.equal(classification.proposedVisibility, "EXACT_PUBLIC");

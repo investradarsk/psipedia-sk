@@ -374,7 +374,7 @@ function directoryBefore(row: Record<string, unknown>) {
     region: row.region, address: row.address, postalCode: row.postal_code, street: row.street,
     houseNumber: row.house_number, addressFormat: row.address_format,
     serviceAddressConfirmation: row.service_address_confirmation,
-    online: bool(row.online), priceNote: row.price_note,
+    priceNote: row.price_note,
     websiteUrl: row.website_url, importKey: row.import_key, verified: bool(row.verified),
     publicPhone: contacts.phone, publicEmail: contacts.email,
     facebookUrl: contacts.facebook, instagramUrl: contacts.instagram,

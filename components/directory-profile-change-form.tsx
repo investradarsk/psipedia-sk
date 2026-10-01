@@ -71,7 +71,7 @@ export function DirectoryProfileChangeForm({ profile, initialData, specializedFi
           {textField("Mesto / obec", "city", { maxLength: 120 })}
           {textField("Okres", "district", { maxLength: 120 })}
           <label><span>Kraj</span><select value={data.region} onChange={(event) => update("region", event.target.value)} required>
-            {["Bratislavský kraj", "Trnavský kraj", "Trenčiansky kraj", "Nitriansky kraj", "Žilinský kraj", "Banskobystrický kraj", "Prešovský kraj", "Košický kraj", "Online"].map((region) => <option value={region} key={region}>{region}</option>)}
+            {["Bratislavský kraj", "Trnavský kraj", "Trenčiansky kraj", "Nitriansky kraj", "Žilinský kraj", "Banskobystrický kraj", "Prešovský kraj", "Košický kraj"].map((region) => <option value={region} key={region}>{region}</option>)}
           </select></label>
           {textField("Adresa", "address", { maxLength: 300, autoComplete: "street-address" })}
           {textField("Telefón", "phone", { type: "tel", maxLength: 50, autoComplete: "tel" })}
@@ -84,7 +84,6 @@ export function DirectoryProfileChangeForm({ profile, initialData, specializedFi
         </div>
         <label className="directory-change-wide"><span>Popis</span><textarea value={data.description} onChange={(event) => update("description", event.target.value)} rows={7} maxLength={10000} /></label>
         <label className="directory-change-wide"><span>Ponúkané služby <small>jedna služba na riadok</small></span><textarea value={servicesText} onChange={(event) => setServicesText(event.target.value)} rows={6} maxLength={4000} /></label>
-        <label className="directory-change-check"><input type="checkbox" checked={data.online} onChange={(event) => update("online", event.target.checked)} /><span>Služba je dostupná aj online</span></label>
       </section>
 
       {specializedFields.length > 0 && <section className="directory-change-section"><div className="directory-change-section-heading"><span>2</span><div><h2>Špecializované údaje</h2><p>Doplň relevantné odborné alebo prevádzkové informácie.</p></div></div><div className="directory-change-grid">
