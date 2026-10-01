@@ -91,13 +91,11 @@ export async function processGooglePlaceBulkTarget(input: {
     if (flag(row, "online")) {
       return { targetId, name, result: "SKIPPED", reason: "Online-only profil nepotrebuje presný Google Maps bod.", candidate: null };
     }
-    if (geoSensitiveDirectoryCategory(text(row, "category"))) {
-      return { targetId, name, result: "REVIEW", reason: "Citlivá kategória sa hromadne nezverejňuje ako exact poloha.", candidate: null };
-    }
     if (flag(row, "manual_override")) {
       return { targetId, name, result: "REVIEW", reason: "Profil má ručný GEO override; bulk ho nesmie prepísať.", candidate: null };
     }
-    if (text(row, "public_visibility") === "HIDDEN") {
+    const categoryWasLegacySensitive = geoSensitiveDirectoryCategory(text(row, "category"));
+    if (text(row, "public_visibility") === "HIDDEN" && !categoryWasLegacySensitive) {
       return { targetId, name, result: "REVIEW", reason: "Profil má explicitne neverejnú polohu; bulk súkromie nemení.", candidate: null };
     }
 
@@ -135,7 +133,7 @@ export async function processGooglePlaceBulkTarget(input: {
     if (pointBeforeWrite?.manualOverride) {
       return { targetId, name, result: "REVIEW", reason: "GEO sa počas spracovania zmenilo na manual override.", candidate };
     }
-    if (pointBeforeWrite?.publicVisibility === "HIDDEN") {
+    if (pointBeforeWrite?.publicVisibility === "HIDDEN" && !categoryWasLegacySensitive) {
       return { targetId, name, result: "REVIEW", reason: "Poloha bola počas spracovania nastavená ako neverejná.", candidate };
     }
 
