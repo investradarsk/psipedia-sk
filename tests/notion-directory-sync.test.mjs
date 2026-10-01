@@ -29,7 +29,6 @@ test("directory Notion mirror covers the complete managed profile contract", () 
     "Číslo domu",
     "Formát adresy",
     "Potvrdená prevádzka",
-    "Online",
     "Cena / poznámka",
     "Web",
     "Telefón",
@@ -57,6 +56,20 @@ test("directory Notion mirror covers the complete managed profile contract", () 
   ]) {
     assert.ok(syncSource.includes(`"${field}"`), `missing Notion directory field ${field}`);
   }
+});
+
+test("directory Notion sync no longer exposes or consumes an online-profile field", () => {
+  const snapshotBody = syncSource.slice(
+    syncSource.indexOf("function notionSnapshot"),
+    syncSource.indexOf("async function snapshotHash"),
+  );
+  const propertiesBody = syncSource.slice(
+    syncSource.indexOf("function notionProfileProperties"),
+    syncSource.indexOf("async function schemaReady"),
+  );
+  assert.doesNotMatch(snapshotBody, /propertyCheckbox\(page, "Online"\)/);
+  assert.doesNotMatch(propertiesBody, /"Online":/);
+  assert.doesNotMatch(syncSource, /desired\.online|profile\.online/);
 });
 
 test("Notion quality resolution fields map to Psipedia quality metadata and carry an explicit review date", () => {
