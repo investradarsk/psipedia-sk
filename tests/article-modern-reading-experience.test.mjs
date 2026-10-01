@@ -5,7 +5,6 @@ import {
   firstManualRelatedPath,
   selectAutomaticMidRelated,
   selectEndRelated,
-  selectLatestSidebar,
 } from "../lib/article-magazine-selection.ts";
 
 const detail = readFileSync("components/article-detail.tsx", "utf8");
@@ -71,9 +70,6 @@ test("ARTICLE-2 recommendation selectors reject self-links and keep recommendati
 
   const end = selectEndRelated(current, [current, sameTopic, newest[2], newest[2], newest[3], newest[4]], sameTopic, 3);
   assert.deepEqual(end.map((item) => item.slug), ["end-a", "end-b", "end-c"]);
-
-  const sidebar = selectLatestSidebar(current, newest, sameTopic, end, 5);
-  assert.deepEqual(sidebar.map((item) => item.slug), ["latest-a", "latest-b"]);
 });
 
 test("ARTICLE-2 manual related selector accepts one clean internal article path only", () => {
@@ -95,17 +91,15 @@ test("ARTICLE-2 canonical article routes share one magazine data contract", () =
   assert.match(detail, /magazine:\s*ArticleMagazineData/);
 });
 
-test("article sidebar prefers existing topic-related candidates and truthfully falls back to latest", () => {
+test("ARTICLE-DISCOVERY-2 removes the legacy related/latest sidebar contract without changing analytics", () => {
   assert.match(cookieConsent, /MEASUREMENT_ID = "G-Z6KV64S2CK"/);
   assert.match(cookieConsent, /gtag\?\.\("event", "page_view"/);
   assert.match(cookieConsent, /savedChoice === "analytics"/);
-  assert.match(magazine, /type ArticleSidebarMode = "related" \| "latest"/);
-  assert.match(magazine, /topicCandidates\.filter\(\(candidate\) => sameArticleTopic\(article, candidate\)\)/);
-  assert.match(magazine, /relatedSidebarItems\.length > 0 \? "related" : "latest"/);
-  assert.match(magazine, /selectLatestSidebar\(article, latestCandidates, midRelated, endRelated, 5\)/);
-  assert.match(detail, /sidebarLabel = magazine\.sidebarMode === "related" \? "Súvisiace články" : "Najnovšie články"/);
-  assert.doesNotMatch(detail, /Najčítanejšie/i);
-  assert.doesNotMatch(magazine, /Najčítanejšie/i);
+  assert.doesNotMatch(magazine, /ArticleSidebarMode|sidebarMode|sidebarItems|latestCandidates|selectLatestSidebar/);
+  assert.doesNotMatch(selection, /selectLatestSidebar/);
+  assert.match(detail, /ArticlePopularitySidebar/);
+  assert.match(detail, /data-automatic-article-promo/);
+  assert.doesNotMatch(detail, /Najnovšie články|Súvisiace články/);
   assert.doesNotMatch(articleStore, /\bview_count\b|\bpage_views\b|\bpopularity_score\b/i);
 });
 
@@ -127,9 +121,7 @@ test("automatic related placement is deterministic, topic-scoped and duplicate-s
   assert.match(selection, /candidate\.category === article\.category/);
   assert.match(magazine, /selectAutomaticMidRelated\(article, topicCandidates\)/);
   assert.match(selection, /selectEndRelated/);
-  assert.match(selection, /selectLatestSidebar/);
   assert.match(selection, /seen\.has\(candidate\.slug\)/);
-  assert.match(selection, /endRelated\.map\(\(item\) => item\.slug\)/);
 });
 
 test("automatic related candidates are no longer injected into the article body", () => {
