@@ -26,7 +26,6 @@ function source(patch = {}) {
     addressFormat: "STREET",
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     countryCode: "SK",
-    online: false,
     published: true,
     ...patch,
   };
@@ -80,13 +79,21 @@ test("A2 exact eligibility accepts only current canonical physical backlog state
   }).action, "PROCESS");
 });
 
-test("A2 exact eligibility blocks incomplete, legacy, online and manual override profiles", () => {
+test("A2 exact eligibility blocks incomplete and legacy profiles while ignoring a legacy online flag", () => {
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source({ houseNumber: "" }), point: null,
   }).action, "BLOCK");
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source({ serviceAddressConfirmation: "LEGACY_UNCONFIRMED" }), point: null,
   }).reason, "LEGACY_UNCONFIRMED");
+  assert.deepEqual(
+    evaluateDirectoryGeoEligibility({
+      source: source({ online: true }),
+      point: null,
+      expectedFingerprint: "fingerprint",
+    }),
+    { action: "PROCESS", reason: "MISSING_GEO_POINT" },
+  );
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source({
       online: true,
@@ -99,7 +106,7 @@ test("A2 exact eligibility blocks incomplete, legacy, online and manual override
       addressFormat: "",
     }),
     point: null,
-  }).reason, "ONLINE_ONLY");
+  }).reason, "MISSING");
   assert.equal(evaluateDirectoryGeoEligibility({
     source: source(), point: point({ manualOverride: true }), expectedFingerprint: "fingerprint",
   }).reason, "MANUAL_OVERRIDE");
@@ -194,6 +201,11 @@ test("A2 runner reuses shared ADDRESS-SIMPLE verifier and never embeds a second 
   assert.doesNotMatch(runnerSource, /chooseGeocoderResult/);
   assert.doesNotMatch(runnerSource, /houseNumberMatchesUserInput|parseSlovakHouseNumber/);
   assert.doesNotMatch(runnerSource, /\.geocodeExact\(|\.geocodeApproximate\(/);
+});
+
+test("A2 selector never filters directory candidates by legacy online column", () => {
+  assert.doesNotMatch(runnerSource, /dp\.online\s*=\s*0/);
+  assert.doesNotMatch(runnerSource, /ONLINE_ONLY/);
 });
 
 test("A2 selector excludes historical approximate cohort and is deterministic and bounded", () => {
