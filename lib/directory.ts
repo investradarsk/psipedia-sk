@@ -94,7 +94,6 @@ export type PublicDirectoryProfile = {
   addressFormat: DirectoryAddressFormat | "";
   serviceAddressConfirmation: DirectoryServiceAddressConfirmation;
   formattedServiceAddress?: string | null;
-  online: boolean;
   priceNote: string;
   websiteUrl: string | null;
   imageUrl: string | null;
