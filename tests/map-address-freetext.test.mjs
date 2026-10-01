@@ -81,16 +81,17 @@ test("admin editor sends the confirmation only after the explicit locality actio
   assert.match(editorSource, /if \(event\.target\.value\.trim\(\)\) \{[\s\S]*setNumberlessLocalityConfirmed\(false\)/);
 });
 
-test("create and update routes accept free-text only with an explicit true request flag", () => {
+test("create and update routes keep explicit numberless confirmation but also allow sparse address hints", () => {
   for (const source of [createRouteSource, updateRouteSource]) {
     assert.match(source, /rawNumberlessLocalityConfirmed === true/);
     assert.match(source, /verifyDirectoryNumberlessLocality/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
     assert.match(source, /Zadanú lokalitu možno použiť iba bez čísla domu/);
     assert.match(source, /Zadanú lokalitu možno použiť iba ako ulicu \/ lokalitu/);
+    assert.match(source, /clearServiceAddressConfirmation: true/);
   }
-  assert.match(createRouteSource, /Vyber ulicu z Geoapify návrhov alebo explicitne použi zadanú lokalitu/);
-  assert.match(updateRouteSource, /výberom ulice z Geoapify návrhov alebo explicitným použitím zadanej lokality/);
+  assert.doesNotMatch(createRouteSource, /Vyber ulicu z Geoapify návrhov alebo explicitne použi zadanú lokalitu/);
+  assert.doesNotMatch(updateRouteSource, /výberom ulice z Geoapify návrhov alebo explicitným použitím zadanej lokality/);
 });
 
 test("numbered and Geoapify-selected numberless flows remain provider-verified", () => {
@@ -103,19 +104,14 @@ test("numbered and Geoapify-selected numberless flows remain provider-verified",
   assert.match(updateRouteSource, /const houseNumber = \(body\.houseNumber \?\? before\.houseNumber\)\.trim\(\)/);
 });
 
-test("free-text canonical save does not resolve exact geo automatically", () => {
+test("free-text and sparse hint saves never fabricate an exact geo resolution", () => {
   for (const source of [createRouteSource, updateRouteSource]) {
     assert.match(source, /let verified = null/);
     assert.match(source, /if \(verified\) \{[\s\S]*applyVerifiedDirectoryAddressGeo/);
-    const freeTextStart = source.indexOf("if (numberlessLocalityConfirmed)");
-    const updateProviderStart = source.indexOf("else if (body.addressProviderResultId?.trim())", freeTextStart);
-    const createProviderStart = source.indexOf("} else {\n        if (!body.addressProviderResultId?.trim())", freeTextStart);
-    const providerStart = updateProviderStart >= 0 ? updateProviderStart : createProviderStart;
-    assert.ok(freeTextStart >= 0 && providerStart > freeTextStart);
-    const freeTextBlock = source.slice(freeTextStart, providerStart);
-    assert.match(freeTextBlock, /verifyDirectoryNumberlessLocality/);
-    assert.match(freeTextBlock, /withVerifiedDirectoryNumberlessAddress/);
-    assert.doesNotMatch(freeTextBlock, /applyVerifiedDirectoryAddressGeo|verified\s*=/);
+    assert.match(source, /if \(numberlessLocalityConfirmed\)/);
+    assert.match(source, /verifyDirectoryNumberlessLocality/);
+    assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
+    assert.match(source, /clearServiceAddressConfirmation: true/);
   }
 });
 
