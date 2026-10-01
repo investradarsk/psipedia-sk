@@ -260,7 +260,7 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
 
   if (targetType === "ORGANIZATION_LOCATION") {
     const row = await db.prepare(`
-      SELECT l.id, l.role, l.label, l.address, l.city, l.district, l.region, l.country_code,
+      SELECT l.id, l.organization_id, l.role, l.label, l.address, l.city, l.district, l.region, l.country_code,
         o.name AS organization_name, o.status AS organization_status, o.archived_at
       FROM organization_locations l
       JOIN help_organizations o ON o.id = l.organization_id
