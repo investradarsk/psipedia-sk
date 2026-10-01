@@ -69,7 +69,16 @@ function encryptionKey(value?:string){
 }
 function safeJson<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T;}catch{return fallback;}}
 function safeRiskFlags(value:string){const parsed=safeJson<unknown>(value,[]);return Array.isArray(parsed)?parsed.filter((x):x is string=>typeof x==="string"):[];}
-function safePatch(value:string){const parsed=safeJson<unknown>(value,{});return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed as PartnerProfilePatch:{};}
+function safePatch(value:string,resourceType?:PartnerProfileChangeResourceType){
+  const parsed=safeJson<unknown>(value,{});
+  if(!parsed||typeof parsed!=="object"||Array.isArray(parsed))return {};
+  const patch={...(parsed as Record<string,PartnerProfileEditableValue>)};
+  if(resourceType==="DIRECTORY_PROFILE")delete patch.online;
+  return patch as PartnerProfilePatch;
+}
+function safeBasePatch(value:string,resourceType:PartnerProfileChangeResourceType){
+  return safePatch(value,resourceType);
+}
 function isActive(status:string){return status==="SUBMITTED"||status==="PENDING_REVIEW"||status==="QUARANTINED";}
 function statusLabel(status:string){
   if(status==="SUBMITTED")return "Nové";
@@ -384,7 +393,7 @@ export async function rejectPartnerProfileChangeAdmin(input:{
   await ensurePendingReview(input.id,row.status,actorRef,database,input.requestId);
   row=await rawAdminRow(input.id,database);
   if(!row||row.status!=="PENDING_REVIEW")throw new PartnerProfileChangeError("Stav návrhu sa medzičasom zmenil.",409);
-  const patch=safePatch(row.proposedPatchJson);
+  const patch=safePatch(row.proposedPatchJson,row.resourceType);
   const changedFields=[...Object.keys(patch),...(row.mediaAssetId?["image"]:[])];
   const now=input.now??new Date();
   const nowIso=now.toISOString();
