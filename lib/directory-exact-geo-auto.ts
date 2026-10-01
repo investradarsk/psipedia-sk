@@ -59,7 +59,6 @@ function addressInput(source: GeoSourceLocation) {
     houseNumber: source.houseNumber ?? "",
     addressFormat: source.addressFormat ?? "",
     serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
-    online: source.online,
   };
 }
 
@@ -88,7 +87,6 @@ export function evaluateDirectoryGeoEligibility(input: {
   if (source.published !== true) return { action: "SKIP", reason: "NOT_PUBLISHED" };
 
   const address = evaluateDirectoryServiceAddress(addressInput(source));
-  if (address.reason === "ONLINE_ONLY") return { action: "SKIP", reason: "ONLINE_ONLY" };
   if (address.reason === "LEGACY_UNCONFIRMED") return { action: "REVIEW", reason: "LEGACY_UNCONFIRMED" };
   if (address.reason === "NUMBERLESS_PLACE") {
     return { action: "BLOCK", reason: "NUMBERLESS_PLACE_REQUIRES_GOOGLE_PLACE" };
@@ -170,7 +168,6 @@ async function candidateWindow(database: GeoD1Database, nowIso: string) {
     FROM directory_profiles dp
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
     WHERE dp.status='published'
-      AND dp.online=0
       AND dp.service_address_confirmation='CONFIRMED_SERVICE_LOCATION'
       AND TRIM(dp.region)<>''
       AND TRIM(dp.district)<>''
