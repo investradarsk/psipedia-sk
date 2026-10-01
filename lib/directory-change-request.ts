@@ -66,7 +66,6 @@ export function editableDirectoryProfileData(profile: PublicDirectoryProfile): D
     services: profile.services,
     priceNote: profile.priceNote,
     coverage: importedValue(profile, "Pokrytie", "Oblasť pôsobenia", "Lokalita / pokrytie"),
-    online: profile.online,
     specialized,
   };
 }
