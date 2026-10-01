@@ -8,6 +8,8 @@ import {
 } from "../lib/article-magazine-selection.ts";
 
 const detail = readFileSync("components/article-detail.tsx", "utf8");
+const popularitySidebar = readFileSync("components/article-popularity-sidebar.tsx", "utf8");
+const popularityStyles = readFileSync("components/article-popularity-sidebar.module.css", "utf8");
 const blocks = readFileSync("components/article-blocks.tsx", "utf8");
 const styles = readFileSync("components/article-detail.module.css", "utf8");
 const shareComponent = readFileSync("components/share-button.tsx", "utf8");
@@ -162,9 +164,9 @@ test("desktop magazine layout keeps a readable 70/30 composition and truthful st
   assert.match(styles, /--article-reading-width:\s*760px/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*300px\)/);
   assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*96px/);
-  assert.match(detail, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
-  assert.match(styles, /\.sidebarRank[\s\S]*color:\s*var\(--brand-accent-strong/);
-  assert.match(detail, /<time dateTime=\{item\.dateIso\}>\{item\.date\}<\/time>/);
+  assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
+  assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
+  assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
 });
 
 test("mobile article composition hides sidebar and keeps compact readable controls", () => {
