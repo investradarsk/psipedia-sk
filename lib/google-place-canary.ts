@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { evaluateDirectoryServiceAddress } from "@/lib/directory-service-address";
-import { geoSensitiveDirectoryCategory, sha256Hex } from "@/lib/geo";
+import { sha256Hex } from "@/lib/geo";
 import {
   evaluateGooglePlaceCandidates,
   type GooglePlaceMatchResult,
@@ -151,7 +151,6 @@ function mapEligibleRow(row: Row): GooglePlaceCanaryTarget | null {
     || row.status !== "published"
     || row.archived_at !== null
     || Boolean(row.online)
-    || geoSensitiveDirectoryCategory(category)
     || text(row, "geocode_status") !== "RESOLVED"
     || text(row, "public_visibility") !== "EXACT_PUBLIC"
     || text(row, "public_precision") !== "EXACT"

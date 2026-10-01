@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const component = readFileSync(new URL("../components/admin-geo-location.tsx", import.meta.url), "utf8");
+const picker = readFileSync(new URL("../components/admin-google-place-picker.tsx", import.meta.url), "utf8");
+const directoryPage = readFileSync(new URL("../app/admin/adresar/[id]/page.tsx", import.meta.url), "utf8");
 const route = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
 const service = readFileSync(new URL("../lib/geo-service.ts", import.meta.url), "utf8");
 
@@ -13,9 +15,10 @@ test("MAP-ADMIN-UX-2 keeps directory geo inside the address section", () => {
 });
 
 test("primary admin flow is Google-first and keeps address fallback without coordinate editing", () => {
+  const ui = component + "\n" + picker;
   assert.match(component, /Verejná poloha/);
-  assert.match(component, /Nájsť profil v Google Maps/);
-  assert.match(component, /Použiť toto miesto/);
+  assert.match(ui, /Nájsť profil v Google Maps/);
+  assert.match(ui, /Použiť toto miesto/);
   assert.match(component, /Fallback: nájsť podľa adresy/);
   assert.match(component, /Potvrdiť polohu/);
   assert.match(component, /Hľadať znova/);
@@ -28,9 +31,10 @@ test("primary admin flow is Google-first and keeps address fallback without coor
   assert.doesNotMatch(component, /Verejná mapa ešte nie je zapnutá/);
 });
 
-test("privacy-sensitive directory categories default to private without removing explicit control", () => {
-  assert.match(component, /useState\(!sensitive\)/);
-  assert.match(component, /bezpečný predvolený stav neverejný/);
+test("directory category no longer decides privacy while explicit private control remains", () => {
+  assert.doesNotMatch(directoryPage, /geoSensitiveDirectoryCategory/);
+  assert.match(component, /explicitné nastavenie súkromia, nie kategória profilu/);
+  assert.match(component, /explicitPrivate/);
   assert.match(component, /<option value="yes">Áno<\/option>/);
   assert.match(component, /<option value="no">Nie<\/option>/);
 });

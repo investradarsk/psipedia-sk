@@ -1,9 +1,9 @@
 import { env } from "cloudflare:workers";
-import { geoSensitiveDirectoryCategory } from "@/lib/geo";
 import {
   applyGooglePlaceResolution,
   getGeoPointForTarget,
   getGeoSourceLocation,
+  hasExplicitPrivateGeoDecision,
 } from "@/lib/geo-store";
 import {
   discoverGoogleDirectoryPlaces,
@@ -91,13 +91,13 @@ export async function processGooglePlaceBulkTarget(input: {
     if (flag(row, "online")) {
       return { targetId, name, result: "SKIPPED", reason: "Online-only profil nepotrebuje presný Google Maps bod.", candidate: null };
     }
-    if (geoSensitiveDirectoryCategory(text(row, "category"))) {
-      return { targetId, name, result: "REVIEW", reason: "Citlivá kategória sa hromadne nezverejňuje ako exact poloha.", candidate: null };
-    }
     if (flag(row, "manual_override")) {
       return { targetId, name, result: "REVIEW", reason: "Profil má ručný GEO override; bulk ho nesmie prepísať.", candidate: null };
     }
-    if (text(row, "public_visibility") === "HIDDEN") {
+    if (
+      text(row, "public_visibility") === "HIDDEN"
+      && await hasExplicitPrivateGeoDecision("DIRECTORY_PROFILE", targetId, database)
+    ) {
       return { targetId, name, result: "REVIEW", reason: "Profil má explicitne neverejnú polohu; bulk súkromie nemení.", candidate: null };
     }
 
@@ -135,8 +135,11 @@ export async function processGooglePlaceBulkTarget(input: {
     if (pointBeforeWrite?.manualOverride) {
       return { targetId, name, result: "REVIEW", reason: "GEO sa počas spracovania zmenilo na manual override.", candidate };
     }
-    if (pointBeforeWrite?.publicVisibility === "HIDDEN") {
-      return { targetId, name, result: "REVIEW", reason: "Poloha bola počas spracovania nastavená ako neverejná.", candidate };
+    if (
+      pointBeforeWrite?.publicVisibility === "HIDDEN"
+      && await hasExplicitPrivateGeoDecision("DIRECTORY_PROFILE", targetId, database)
+    ) {
+      return { targetId, name, result: "REVIEW", reason: "Poloha bola počas spracovania explicitne nastavená ako neverejná.", candidate };
     }
 
     const profile = await updateManagedDirectoryProfileFromGooglePlace(

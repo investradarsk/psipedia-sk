@@ -212,6 +212,28 @@ export async function getGeoPointForTarget(targetType: GeoTargetType, id: number
   return row ? mapGeoPoint(row) : null;
 }
 
+export async function hasExplicitPrivateGeoDecision(
+  targetType: GeoTargetType,
+  id: number,
+  database?: GeoD1Database,
+) {
+  const db = requireGeoD1(database);
+  const point = await getGeoPointForTarget(targetType, id, db);
+  if (!point || point.publicVisibility !== "HIDDEN") return false;
+  const row = await db.prepare(`
+    SELECT id
+    FROM moderation_events
+    WHERE resource_type = 'GEO_POINT'
+      AND subject_id = ?
+      AND action = 'GEO_VISIBILITY_CHANGED'
+      AND actor_type = 'ADMIN'
+      AND to_status = 'SKIPPED'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(String(point.id)).first<{ id: string }>();
+  return Boolean(row?.id);
+}
+
 export async function getGeoSourceLocation(targetType: GeoTargetType, id: number, database?: GeoD1Database): Promise<GeoSourceLocation | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   const db = requireGeoD1(database);
@@ -248,6 +270,7 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
     return {
       targetType, targetId: Number(row.id),
       label: String(row.label || row.organization_name || ""),
+      organizationName: String(row.organization_name ?? ""),
       locationRole: String(row.role ?? "UNSPECIFIED"),
       address: String(row.address ?? ""), city: String(row.city ?? ""), district: String(row.district ?? ""),
       region: String(row.region ?? ""), countryCode: String(row.country_code ?? "SK"),

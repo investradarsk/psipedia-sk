@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { geoAdminOperatorState } from "../lib/geo-admin-operator-state.ts";
+import { geoAdminGenericOperatorState, geoAdminOperatorState } from "../lib/geo-admin-operator-state.ts";
 
 const operatorStore = readFileSync(new URL("../lib/geo-admin-operator.ts", import.meta.url), "utf8");
 const operatorComponent = readFileSync(new URL("../components/admin-geo-operator-dashboard.tsx", import.meta.url), "utf8");
-const geoPage = readFileSync(new URL("../app/admin/operations/geo/page.tsx", import.meta.url), "utf8");
+const geoPage = readFileSync(new URL("../app/admin/mapy/page.tsx", import.meta.url), "utf8");
 const advancedComponent = readFileSync(new URL("../components/admin-geo-operations.tsx", import.meta.url), "utf8");
 
 const base = {
@@ -70,6 +70,32 @@ test("operator state: review, failed and stale exact-only mismatches are human s
   }).state, "NEEDS_REVIEW");
 });
 
+
+test("generic operator state supports non-directory public points without street/house-number rules", () => {
+  assert.equal(geoAdminGenericOperatorState({
+    hasLocationSource: true,
+    geocodeStatus: "RESOLVED",
+    publicVisibility: "APPROXIMATE_PUBLIC",
+    publicPrecision: "MUNICIPALITY",
+    latitude: 48.1,
+    longitude: 18.2,
+    sourceFingerprint: "same",
+    resolvedSourceFingerprint: "same",
+    manualOverride: false,
+  }).state, "ON_MAP");
+  assert.equal(geoAdminGenericOperatorState({
+    hasLocationSource: false,
+    geocodeStatus: null,
+    publicVisibility: null,
+    publicPrecision: null,
+    latitude: null,
+    longitude: null,
+    sourceFingerprint: null,
+    resolvedSourceFingerprint: null,
+    manualOverride: false,
+  }).state, "MISSING_ADDRESS");
+});
+
 test("operator loader reads canonical DIRECTORY_PROFILE address and not legacy address as canonical", () => {
   assert.match(operatorStore, /evaluateDirectoryServiceAddress/);
   assert.match(operatorStore, /d\.postal_code/);
@@ -83,27 +109,26 @@ test("operator loader reads canonical DIRECTORY_PROFILE address and not legacy a
 test("operator CTA links directly to the directory editor and review reuses Attention Center", () => {
   assert.match(operatorStore, /\/admin\/adresar\/\$\{id\}#service-address/);
   assert.match(operatorStore, /source=GEO_LOCATION_ISSUE/);
-  assert.match(operatorComponent, /Otvoriť profil a doplniť adresu/);
-  assert.match(operatorComponent, /Opraviť adresu/);
+  assert.match(operatorComponent, /Otvoriť editor lokality/);
+  assert.match(operatorComponent, /Otvoriť editor/);
   assert.match(operatorComponent, /Skontrolovať problém/);
 });
 
 test("technical details are collapsed and advanced tooling remains available but secondary", () => {
   assert.match(operatorComponent, /<details/);
   assert.match(operatorComponent, /Technické detaily/);
-  assert.match(geoPage, /<details className="admin-form-card"/);
-  assert.match(geoPage, /Pokročilé nástroje/);
-  assert.match(geoPage, /<AdminGeoOperations/);
+  assert.match(geoPage, /<AdminGeoOperatorDashboard/);
+  assert.match(advancedComponent, /AdminGeoOperations/);
 });
 
 test("operator view exposes human search and combinable category/map filters instead of canonical IDs", () => {
-  assert.match(operatorComponent, /Hľadať názov, obec, okres alebo kategóriu/);
+  assert.match(operatorComponent, /Hľadať názov, mesto, okres, kraj alebo kategóriu/);
   assert.match(operatorComponent, /Na mape/);
   assert.match(operatorComponent, /Čaká na spracovanie/);
   assert.match(operatorComponent, /Treba skontrolovať/);
   assert.match(operatorComponent, /Chýba adresa/);
   assert.match(operatorComponent, /Chyby/);
-  assert.match(operatorComponent, /Kategória profilu/);
+  assert.match(operatorComponent, /Kategórie/);
   assert.match(operatorComponent, /categoryOptions/);
   assert.match(operatorComponent, /type="checkbox"/);
   assert.match(operatorComponent, /Google Maps \/ mapa/);
@@ -114,8 +139,8 @@ test("operator view exposes human search and combinable category/map filters ins
 test("operator map summary distinguishes current Google place IDs from coordinate-only links", () => {
   assert.match(operatorStore, /g\.google_place_id/);
   assert.match(operatorStore, /g\.google_place_source_fingerprint/);
-  assert.match(operatorStore, /googlePlaceSourceFingerprint === sourceFingerprint/);
-  assert.match(operatorStore, /googleMapsTarget: state\.state === "ON_MAP"/);
+  assert.match(operatorStore, /geo\.googlePlaceSourceFingerprint === geo\.sourceFingerprint/);
+  assert.match(operatorStore, /function googleMapsTarget/);
   assert.match(operatorComponent, /Konkrétne miesto/);
   assert.match(operatorComponent, /Iba súradnice/);
   assert.match(operatorComponent, /selectedMapTargets/);
