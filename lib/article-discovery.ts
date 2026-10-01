@@ -22,7 +22,8 @@ export type ArticleDiscoveryPopularItem = {
 export type ArticleDiscoveryData = {
   popularity: Record<ArticlePopularityWindow, ArticleDiscoveryPopularItem[]>;
   initialWindow: ArticlePopularityWindow;
-  promo: ContextualArticlePromoDecision;
+  promo: ContextualArticlePromoDecision | null;
+  utcDay: string;
 };
 
 function popularityLabel(article: PopularArticleSummary) {
@@ -90,9 +91,11 @@ export async function getArticleDiscoveryData(
     "7d": popular7d.slice(0, 5).map(toPopularItem),
   };
 
+  const utcDay = articlePromoUtcDay(now);
   return {
     popularity,
     initialWindow: selectInitialPopularityWindow(popularity["24h"], popularity["7d"]),
-    promo: resolveContextualArticlePromo(article, { utcDay: articlePromoUtcDay(now) }),
+    promo: resolveContextualArticlePromo(article, { utcDay }),
+    utcDay,
   };
 }
