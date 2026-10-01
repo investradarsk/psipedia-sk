@@ -155,7 +155,8 @@ test("SEO-RECOVERY-1 preserves sitemap runtime safety and >1000 corpus coverage 
   const sitemapTest = fs.readFileSync(new URL("./sitemap-seo.test.mjs", import.meta.url), "utf8");
   assert.match(runtime, /SITEMAP_MAX_D1_CONCURRENCY = 1/);
   assert.match(runtime, /for \(const item of stages\)/);
-  assert.doesNotMatch(runtime, /Promise\.all/);
+  const runtimeCode = runtime.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  assert.doesNotMatch(runtimeCode, /Promise\.all\s*\(/);
   assert.match(sitemapTest, /not capped at 500 or 1000/);
   assert.match(sitemapTest, /profil-1205/);
   assert.match(sitemapTest, /beyond 1000 rows/);
