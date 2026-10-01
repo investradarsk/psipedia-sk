@@ -8,23 +8,27 @@ import {
   listPublishedDirectoryProfiles,
   parseDirectoryFilters,
 } from "@/lib/directory-store";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
 
 const directoryDescription = "Veterinári, tréneri, psie školy, kluby a ďalšie služby pre psov na Slovensku.";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Služby pre psov",
-  description: directoryDescription,
-  path: "/adresar",
-});
-
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  return buildListingPageMetadata({
+    title: "Služby pre psov",
+    description: directoryDescription,
+    path: "/adresar",
+    searchParams: await searchParams,
+  });
+}
+
 export default async function DirectoryHomePage({ searchParams }: Props) {
-  const filters = parseDirectoryFilters(await searchParams);
+  const rawSearchParams = await searchParams;
+  const filters = parseDirectoryFilters(rawSearchParams);
+  const policy = resolveListingIndexPolicy("/adresar", rawSearchParams);
   const hasSearch = Boolean(
     filters.query || filters.category || filters.region || filters.district || filters.city ||
     filters.service || filters.breed || filters.fciGroup || filters.organization || filters.profileType,
@@ -37,7 +41,7 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
     getDirectoryCategoryCounts(),
     hasSearch ? Promise.resolve({}) : getDirectoryCategoryPreviews(3),
   ]);
-  const schema = hasSearch ? null : buildCollectionPageJsonLd({
+  const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Služby pre psov",
     description: directoryDescription,
     path: "/adresar",
@@ -49,7 +53,7 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
       name: category.label,
       path: directoryCategoryHref(category),
     })),
-  });
+  }) : null;
 
   return (
     <>

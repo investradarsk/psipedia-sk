@@ -99,6 +99,6 @@ test("legacy calendar URL stays a noindex canonical alias excluded from sitemap"
 });
 
 test("event category routes restore the shared time filter from the URL", () => {
-  assert.match(portalPage, /initialTime=\{eventTimeFilterFromParam\(\(await searchParams\)\.termin\)\}/);
-  assert.match(contentPage, /eventTypeFromPortalSlug\(slug\)[\s\S]*initialTime=\{eventTimeFilterFromParam\(\(await searchParams\)\.termin\)\}/);
+  assert.match(portalPage, /const rawSearchParams = await searchParams[\s\S]*initialTime=\{eventTimeFilterFromParam\(rawSearchParams\.termin\)\}/);
+  assert.match(contentPage, /const rawSearchParams = await searchParams[\s\S]*eventTypeFromPortalSlug\(slug\)[\s\S]*initialTime=\{eventTimeFilterFromParam\(rawSearchParams\.termin\)\}/);
 });

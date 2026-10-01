@@ -9,18 +9,17 @@ import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
 import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { listLatestPublicProfileReviews, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
-import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov.";
 const REVIEWS_DESCRIPTION = "Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste.";
 
-type Props = { params: Promise<{ section: string }>; searchParams: Promise<{ termin?: string | string[]; typ?: string | string[] }> };
+type Props = { params: Promise<{ section: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 type ReviewBindings = { DB?: ProfileReviewReadDatabase };
 
 function publicReviewDatabase() {
@@ -41,22 +40,25 @@ export function generateStaticParams() {
   return portalSections.map((section) => ({ section: section.slug }));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { section: slug } = await params;
   const section = await getManagedPortalSection(slug);
   if (!section?.visible) return {};
+  const rawSearchParams = await searchParams;
   if (slug === "novinky") {
-    return buildPageMetadata({
+    return buildListingPageMetadata({
       title: "Novinky zo sveta psov",
       description: NOVINKY_DESCRIPTION,
       path: "/clanky",
+      searchParams: rawSearchParams,
     });
   }
   const description = slug === "recenzie" ? REVIEWS_DESCRIPTION : section.description;
-  return buildPageMetadata({
+  return buildListingPageMetadata({
     title: section.label,
     description,
     path: `/${section.slug}`,
+    searchParams: rawSearchParams,
   });
 }
 
@@ -71,9 +73,9 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   ]);
   if (!section?.visible) notFound();
   const eventList = events ?? [];
-  const rawSearchParams = slug === "podujatia" ? await searchParams : {};
-  const hasQuery = Object.values(rawSearchParams).some((value) => Array.isArray(value) ? value.some(Boolean) : Boolean(value));
-  const eventSchema = slug !== "podujatia" ? null : hasQuery ? null : buildCollectionPageJsonLd({
+  const rawSearchParams = await searchParams;
+  const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams);
+  const eventSchema = slug !== "podujatia" || listingPolicy.kind !== "clean" ? null : buildCollectionPageJsonLd({
     name: section.label,
     description: section.description,
     path: "/podujatia",
@@ -101,9 +103,8 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
         return [];
       }),
     ]);
-    const raw = await searchParams;
-    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(raw.typ))} />;
+    return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} />;
   }
-  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
+  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }

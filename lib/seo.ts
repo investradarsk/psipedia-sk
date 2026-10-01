@@ -76,6 +76,18 @@ export const INDEXABLE_ROBOTS: Metadata["robots"] = {
   },
 };
 
+export const NOINDEX_FOLLOW_ROBOTS: Metadata["robots"] = {
+  index: false,
+  follow: true,
+  googleBot: {
+    index: false,
+    follow: true,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+    "max-video-preview": -1,
+  },
+};
+
 export function absoluteUrl(path: string) {
   if (/^https?:\/\//i.test(path)) return path;
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;

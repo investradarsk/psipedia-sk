@@ -87,16 +87,18 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
 
   for (const source of [articlePage, breedPage, sectionPage, directoryPage, adoptionPage]) {
     assert.match(source, /buildCollectionPageJsonLd/);
-    assert.match(source, /hasQuery \? null : buildCollectionPageJsonLd/);
     assert.doesNotMatch(source, /status:\s*["']draft["']/i);
+  }
+  for (const source of [articlePage, breedPage, sectionPage, directoryPage, adoptionPage]) {
+    assert.match(source, /resolveListingIndexPolicy|policy\.kind|listingPolicy\.kind/);
   }
 });
 
 test("SEO-3 section listing metadata delegates to shared social metadata contract and preserves Novinky copy", () => {
   const sectionPage = fs.readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
   assert.match(sectionPage, /const NOVINKY_DESCRIPTION = "Výber príbehov, zaujímavostí, výskumu a užitočných tém zo sveta psov\.";/);
-  assert.match(sectionPage, /const description = slug === "novinky" \? NOVINKY_DESCRIPTION : section\.description;/);
-  assert.match(sectionPage, /buildPageMetadata\(\{/);
+  assert.match(sectionPage, /const description = slug === "recenzie" \? REVIEWS_DESCRIPTION : section\.description;/);
+  assert.match(sectionPage, /buildListingPageMetadata\(\{/);
   assert.doesNotMatch(sectionPage, /openGraph:\s*\{/);
   assert.doesNotMatch(sectionPage, /twitter:\s*\{/);
 });

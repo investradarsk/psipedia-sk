@@ -30,9 +30,9 @@ test("Events 2.0 listing is compact, filterable and has no giant random hero", a
     }
   }
 
-  await page.getByRole("link", { name: "Ukončené", exact: true }).click();
+  await page.getByRole("button", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL(/termin=ukoncene/);
-  await page.getByRole("link", { name: "Najbližšie", exact: true }).click();
+  await page.getByRole("button", { name: "Najbližšie", exact: true }).click();
   await expect(page).not.toHaveURL(/termin=/);
 });
 
@@ -44,7 +44,7 @@ test("Events 2.0 mobile layout has usable controls, no horizontal overflow and n
     page.getByPlaceholder("Názov, mesto, miesto alebo organizátor"),
     page.getByLabel("Kraj"),
     page.getByLabel("Mesiac"),
-    page.getByRole("link", { name: "Najbližšie", exact: true }),
+    page.getByRole("button", { name: "Najbližšie", exact: true }),
   ];
 
   for (const control of controls) {

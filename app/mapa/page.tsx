@@ -2,27 +2,32 @@ import type { Metadata } from "next";
 import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildListingPageMetadata } from "@/lib/listing-seo";
 import { googleMapsRendererConfigured, publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
 
 export const dynamic = "force-dynamic";
 
-export function generateMetadata(): Metadata {
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const launchEnabled = publicMapLaunchEnabled(mapLaunchEnvironment());
-  return buildPageMetadata({
+  const metadata = buildListingPageMetadata({
     title: "Mapa Psipedie",
     description: "Preskúmaj služby pre psov, organizácie a podujatia na jednej spoločnej mape Psipedie.",
     path: "/mapa",
-    canonical: "/mapa",
-    robots: launchEnabled
-      ? undefined
-      : {
+    searchParams: await searchParams,
+  });
+  return launchEnabled
+    ? metadata
+    : {
+        ...metadata,
+        robots: {
           index: false,
           follow: false,
           googleBot: { index: false, follow: false },
         },
-  });
+      };
 }
 
 type MapRuntimeBindings = {

@@ -145,6 +145,8 @@ export function ReviewsHub({
               <Link
                 key={key}
                 href={viewHref(key)}
+                prefetch={false}
+                rel={key === "all" ? undefined : "nofollow"}
                 className={`${styles.modeCard} ${view === key ? styles.activeMode : ""}`}
                 aria-current={view === key ? "page" : undefined}
               >

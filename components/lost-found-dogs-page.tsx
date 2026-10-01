@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
 import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
 import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
+import { buildCollectionPageJsonLd, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { dogReportBasePath, dogReportHref, dogReportTypeLabel, dogReportTypeShortLabel, dogSexLabel, dogSizeLabel, formatDogReportDate, type DogReportType, type DogSex, type DogSize } from "@/lib/lost-found-dogs";
 import styles from "./lost-found-dogs.module.css";
 
@@ -29,6 +31,8 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   const breedIdValue = Number(scalar(raw.breed));
   const page = Math.max(1, Number.parseInt(scalar(raw.page) || "1", 10) || 1);
   const breedId = Number.isInteger(breedIdValue) && breedIdValue > 0 ? breedIdValue : null;
+  const basePath = dogReportBasePath(type);
+  const policy = resolveListingIndexPolicy(basePath, raw, { indexPagination: true });
 
   const submissionsEnabled = lostFoundSubmissionEnabled();
   const [result, breeds] = await Promise.all([
@@ -42,8 +46,22 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   const intro = type === "LOST"
     ? "Aktívne hlásenia o stratených psoch. Lokalita je zámerne iba približná a súkromné kontaktné údaje automaticky nezverejňujeme."
     : "Aktívne hlásenia o nájdených psoch. Pomôžte spojiť psa s oprávneným majiteľom bez zverejňovania zbytočne presných osobných údajov.";
+  const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
+    name: title,
+    description: intro,
+    path: policy.canonicalPath,
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Pomoc psom", path: "/pomoc-psom" },
+      { name: title, path: basePath },
+    ],
+    items: result.items.map((report) => ({
+      name: report.dogName || report.breed || dogReportTypeLabel(type),
+      path: dogReportHref(report),
+    })),
+  });
 
-  return <main id="obsah" tabIndex={-1} className={styles.shell}>
+  return <>{schema && <StructuredData value={schema} />}<main id="obsah" tabIndex={-1} className={styles.shell}>
     <PublicFoundation className={styles.foundation}>
       <div className={styles.headerWrap}>
         <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
@@ -88,5 +106,5 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
         return item === result.page ? <span key={item} aria-current="page">{item}</span> : <Link key={item} href={pageHref(type, params, item)}>{item}</Link>;
       })}{result.page < result.pages && <Link aria-label="Ďalšia strana" href={pageHref(type, params, result.page + 1)}>→</Link>}</nav>}
     </PublicFoundation>
-  </main>;
+  </main></>;
 }

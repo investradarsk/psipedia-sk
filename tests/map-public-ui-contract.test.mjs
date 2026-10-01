@@ -14,9 +14,11 @@ const env = readFileSync(new URL("../config/runtime-env.ts", import.meta.url), "
 const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
 const liveAudit = readFileSync(new URL("./e2e/map-production-live.spec.ts", import.meta.url), "utf8");
 
-test("canonical /mapa route exists with SSR copy, canonical metadata and no public-nav launch", () => {
+test("canonical /mapa route exists with SSR copy, shared listing metadata and no public-nav launch", () => {
   assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), true);
-  assert.match(page, /canonical: "\/mapa"/);
+  assert.match(page, /buildListingPageMetadata/);
+  assert.match(page, /path:\s*"\/mapa"/);
+  assert.match(page, /searchParams:\s*await searchParams/);
   assert.match(page, /<h1>Mapa Psipedie<\/h1>/);
   assert.match(page, /<MapExperience/);
   assert.doesNotMatch(navigation, /href:\s*"\/mapa"/);
@@ -42,7 +44,8 @@ test("one map instance survives filters and the renderer reconciles markers", ()
   assert.match(renderer, /nextKeys = new Set/);
   assert.match(experience, /useSearchParams/);
   assert.match(experience, /mapFiltersFromSearchParams/);
-  assert.doesNotMatch(page, /searchParams:/);
+  assert.match(page, /generateMetadata\(\{ searchParams \}/);
+  assert.match(page, /searchParams:\s*await searchParams/);
   assert.doesNotMatch(experience, /key=\{.*filters/i);
 });
 

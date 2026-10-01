@@ -70,6 +70,8 @@ export async function getAdminEntityReview(
   }
 }
 
+const ADMIN_REVIEW_ID_BATCH_SIZE = 90;
+
 export async function listReviewedAdminEntityIds(
   entityType: AdminReviewEntityType,
   entityIds: number[],
@@ -77,14 +79,23 @@ export async function listReviewedAdminEntityIds(
 ): Promise<number[]> {
   const ids = [...new Set(entityIds.filter((id) => Number.isSafeInteger(id) && id > 0))];
   if (!ids.length) return [];
+  const db = getDatabase(database);
+  const reviewedIds: number[] = [];
   try {
-    const placeholders = ids.map(() => "?").join(",");
-    const result = await getDatabase(database).prepare(`
-      SELECT entity_id, reviewed_at, reviewed_by
-      FROM admin_entity_reviews
-      WHERE entity_type = ? AND entity_id IN (${placeholders})
-    `).bind(entityType, ...ids).all<ReviewRow>();
-    return result.results.map((row) => Number(row.entity_id)).filter((id) => Number.isSafeInteger(id) && id > 0);
+    for (let offset = 0; offset < ids.length; offset += ADMIN_REVIEW_ID_BATCH_SIZE) {
+      const batch = ids.slice(offset, offset + ADMIN_REVIEW_ID_BATCH_SIZE);
+      const placeholders = batch.map(() => "?").join(",");
+      const result = await db.prepare(`
+        SELECT entity_id, reviewed_at, reviewed_by
+        FROM admin_entity_reviews
+        WHERE entity_type = ? AND entity_id IN (${placeholders})
+      `).bind(entityType, ...batch).all<ReviewRow>();
+      for (const row of result.results) {
+        const id = Number(row.entity_id);
+        if (Number.isSafeInteger(id) && id > 0) reviewedIds.push(id);
+      }
+    }
+    return reviewedIds;
   } catch (error) {
     if (isMissingReviewTable(error)) return [];
     throw error;

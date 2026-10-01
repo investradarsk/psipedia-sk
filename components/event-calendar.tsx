@@ -97,7 +97,6 @@ export function EventCalendar({
   const [region, setRegion] = useState(ALL_REGIONS);
   const [month, setMonth] = useState(ALL_MONTHS);
   const [time, setTime] = useState<EventTimeFilter>(initialTime);
-  const listingPath = type === "Všetky" ? "/podujatia" : eventTypePortalHref(type) ?? "/podujatia";
 
   const months = useMemo(() => {
     const values = new Set<string>();
@@ -176,10 +175,9 @@ export function EventCalendar({
       <div className={styles.typeBar} role="group" aria-label="Typ podujatia">
         {eventTypeFilters.map((option) => {
           const pathname = option.value === "Všetky" ? "/podujatia" : eventTypePortalHref(option.value);
-          const href = pathname ? eventTimeFilterHref(time, pathname) : null;
-          return href ? (
+          return pathname ? (
             <a
-              href={href}
+              href={pathname}
               className={type === option.value ? styles.activeChip : styles.chip}
               aria-current={type === option.value ? "page" : undefined}
               onClick={(event) => {
@@ -242,18 +240,15 @@ export function EventCalendar({
             ["past", "Ukončené"],
             ["all", "Všetky"],
           ] as const).map(([value, label]) => (
-            <a
-              href={eventTimeFilterHref(value, listingPath)}
+            <button
+              type="button"
               className={time === value ? styles.activeTimeChip : styles.timeChip}
-              aria-current={time === value ? "page" : undefined}
-              onClick={(event) => {
-                event.preventDefault();
-                selectTime(value);
-              }}
+              aria-pressed={time === value}
+              onClick={() => selectTime(value)}
               key={value}
             >
               {label}
-            </a>
+            </button>
           ))}
         </div>
         <div className={styles.resultCount} aria-live="polite">
@@ -280,7 +275,7 @@ export function EventCalendar({
                     </div>
                     {pathname ? (
                       <a
-                        href={eventTimeFilterHref("upcoming", pathname)}
+                        href={pathname}
                         className={styles.categoryAll}
                         onClick={(event) => {
                           event.preventDefault();

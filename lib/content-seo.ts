@@ -31,7 +31,7 @@ export function normalizeCanonical(value: string | undefined | null) {
   if (url.protocol !== "https:" || url.hostname !== "psipedia.sk") {
     throw new Error("Canonical URL musí používať doménu https://psipedia.sk.");
   }
-  return `${SITE_URL}${url.pathname}${url.search}`;
+  return `${SITE_URL}${url.pathname}`;
 }
 
 export function resolvedCanonical(seo: EditableSeo | undefined, path: string) {
