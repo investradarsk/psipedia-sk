@@ -23,12 +23,17 @@ type GooglePlacesResponse = {
 };
 
 export class GooglePlacesProviderError extends Error {
+  readonly code: "DISABLED" | "RATE_LIMITED" | "PROVIDER_ERROR" | "AUTH" | "INVALID_RESPONSE";
+  readonly httpStatus?: number;
+
   constructor(
-    readonly code: "DISABLED" | "RATE_LIMITED" | "PROVIDER_ERROR" | "AUTH" | "INVALID_RESPONSE",
+    code: "DISABLED" | "RATE_LIMITED" | "PROVIDER_ERROR" | "AUTH" | "INVALID_RESPONSE",
     message: string,
-    readonly httpStatus?: number,
+    httpStatus?: number,
   ) {
     super(message);
+    this.code = code;
+    this.httpStatus = httpStatus;
   }
 }
 
