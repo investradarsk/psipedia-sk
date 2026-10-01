@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
 import { GoogleMapRenderer, type MapRendererCommand, type MapRendererStatus } from "@/components/map/google-map-renderer";
 import type { MapItem } from "@/lib/map-contract";
 import { MAP_DEFAULT_BBOX, type MapViewport } from "@/lib/map-public-ui";
@@ -25,23 +26,6 @@ type LocationPreview = {
   google: GooglePreview;
 };
 
-type GoogleDiscoveryCandidate = {
-  id: string;
-  displayName: string;
-  formattedAddress: string;
-  latitude: number;
-  longitude: number;
-  address?: {
-    street: string;
-    houseNumber: string;
-    postalCode: string;
-    locality: string;
-    sublocality: string;
-    district: string;
-    region: string;
-    countryCode: string;
-  };
-};
 
 type Snapshot = {
   point: GeoPointRecord | null;
@@ -150,7 +134,6 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [preview, setPreview] = useState<LocationPreview | null>(null);
-  const [googleCandidates, setGoogleCandidates] = useState<GoogleDiscoveryCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -201,59 +184,11 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     return () => { cancelled = true; };
   }, [endpoint, sensitive]);
 
-  async function discoverGooglePlace() {
-    setBusy(true);
-    setError("");
-    setMessage("");
-    setPreview(null);
-    setGoogleCandidates([]);
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "discover-google-place" }),
-      });
-      const body = await response.json() as { candidates?: GoogleDiscoveryCandidate[]; error?: string };
-      if (!response.ok) throw new Error(body.error || "Google profil sa nepodarilo vyhľadať.");
-      const candidates = body.candidates ?? [];
-      setGoogleCandidates(candidates);
-      if (!candidates.length) setMessage("Google Maps nenašiel vhodný profil. Môžeš použiť vyhľadanie podľa adresy.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Google profil sa nepodarilo vyhľadať.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirmGooglePlace(placeId: string) {
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm-google-place",
-          placeId,
-          publicLocation,
-        }),
-      });
-      const body = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(body.error || "Google profil sa nepodarilo potvrdiť.");
-      window.location.reload();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Google profil sa nepodarilo potvrdiť.");
-      setBusy(false);
-    }
-  }
-
   async function findLocation() {
     setBusy(true);
     setError("");
     setMessage("");
     setPreview(null);
-    setGoogleCandidates([]);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -302,7 +237,6 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     setError("");
     setMessage("");
     setPreview(null);
-    setGoogleCandidates([]);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -358,29 +292,14 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
           </div>
 
           {targetType === "DIRECTORY_PROFILE" ? (
-            <div style={{ display: "grid", gap: ".75rem", marginBottom: "1rem" }}>
-              <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
-                <button type="button" disabled={busy || !snapshot.googlePlacesConfigured} onClick={() => void discoverGooglePlace()}>
-                  {busy ? "Hľadám…" : "Nájsť profil v Google Maps"}
-                </button>
-              </div>
-              {!snapshot.googlePlacesConfigured ? <p className="admin-help">Google Places momentálne nie je dostupné. Stále môžeš použiť adresný fallback.</p> : null}
-              {googleCandidates.length ? (
-                <div style={{ display: "grid", gap: ".75rem" }}>
-                  <p className="admin-help">Vyber správny Google profil. Po potvrdení Psipedia prevezme adresu, Google Place ID a presný bod. Nebude to manuálny marker.</p>
-                  {googleCandidates.map((candidate) => (
-                    <div className="admin-message" key={candidate.id}>
-                      <strong>{candidate.displayName || "Google Maps miesto"}</strong>
-                      <p className="admin-help">{candidate.formattedAddress || "Adresa nie je uvedená"}</p>
-                      <div className="admin-editor-actions">
-                        <button type="button" disabled={busy} onClick={() => void confirmGooglePlace(candidate.id)}>
-                          Použiť toto miesto
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
+            <div style={{ marginBottom: "1rem" }}>
+              <AdminGooglePlacePicker
+                targetType={targetType}
+                targetId={targetId}
+                publicLocation={publicLocation}
+                configured={snapshot.googlePlacesConfigured}
+                onConfirmed={() => window.location.reload()}
+              />
             </div>
           ) : null}
 
