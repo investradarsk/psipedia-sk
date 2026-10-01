@@ -74,7 +74,7 @@ export function resolveListingIndexPolicy(
           kind: "pagination",
           index: true,
           follow: true,
-          canonicalPath: `${path}?page=${page}`,
+          canonicalPath: `${path}?${encodeURIComponent(paginationParam)}=${page}`,
           page,
         };
       }
