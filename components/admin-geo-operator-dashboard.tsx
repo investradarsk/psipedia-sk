@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
 import type {
   GeoAdminGoogleFilter,
@@ -70,15 +70,6 @@ function editorialAddressPolicyNote(item: GeoAdminOperatorRow) {
   return "";
 }
 
-function filterFingerprint(data: GeoAdminOperatorData) {
-  return JSON.stringify({
-    category: data.filters.category,
-    operator: data.filters.operator,
-    google: data.filters.google,
-    query: data.filters.query,
-  });
-}
-
 export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -91,22 +82,6 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMessage, setBulkMessage] = useState("");
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
-  const bulkContext = useMemo(() => filterFingerprint(data), [
-    data.filters.category,
-    data.filters.operator,
-    data.filters.google,
-    data.filters.query,
-  ]);
-
-  useEffect(() => {
-    setSearchDraft(data.filters.query);
-  }, [data.filters.query]);
-
-  useEffect(() => {
-    setBulkCursor(null);
-    setBulkResults([]);
-    setBulkMessage("");
-  }, [bulkContext]);
 
   function navigate(mutator: (params: URLSearchParams) => void, replace = false) {
     const params = new URLSearchParams(searchParams.toString());
