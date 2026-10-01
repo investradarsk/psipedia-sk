@@ -126,11 +126,15 @@ test("public store query applies breed/status/search filters and pagination with
   assert.equal(query.offset, 24);
 });
 
-test("facet URLs are noindex candidates and route uses only the adoption store", () => {
+test("facet URLs delegate noindex handling to the shared listing SEO policy and route uses only the adoption store", () => {
   assert.equal(adoptionCatalogHasFacet({}), false);
   assert.equal(adoptionCatalogHasFacet({ kraj: "Nitriansky kraj" }), true);
   const route = read("../app/pomoc-psom/adopcia/page.tsx");
-  assert.match(route, /index: false, follow: true/);
+  assert.match(route, /buildListingPageMetadata/);
+  assert.match(route, /resolveListingIndexPolicy/);
+  assert.match(route, /searchParams: params/);
+  assert.match(route, /indexPagination: true/);
+  assert.match(route, /paginationParam: "strana"/);
   assert.match(route, /path: "\/pomoc-psom\/adopcia"/);
   assert.match(route, /getPublicAdoptions/);
   assert.match(route, /listPublishedAdoptionBreedOptions/);
