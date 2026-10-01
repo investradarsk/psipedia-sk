@@ -3,7 +3,6 @@ import { articleHref, articlePortalSection } from "@/lib/portal";
 import { getPublishedArticle, getPublishedArticleSummaries, getRelatedPublishedArticles } from "@/lib/article-store";
 import {
   firstManualRelatedPath,
-  sameArticleTopic,
   selectAutomaticMidRelated,
   selectEndRelated,
 } from "@/lib/article-magazine-selection";
@@ -30,9 +29,29 @@ export async function getArticleMagazineData(article: Article): Promise<ArticleM
   const manualPath = firstManualRelatedPath(article);
 
   const [manualRelated, topicCandidates, endCandidates] = await Promise.all([
-    manualPath ? resolveManualRelatedArticle(article) : Promise.resolve(null),
-    getPublishedArticleSummaries({ portalSection: section, limit: 120 }),
-    getRelatedPublishedArticles(article, 6),
+    manualPath
+      ? resolveManualRelatedArticle(article).catch((error) => {
+          console.error("Article magazine manual related read failed", {
+            articleSlug: article.slug,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null),
+    getPublishedArticleSummaries({ portalSection: section, limit: 120 }).catch((error) => {
+      console.error("Article magazine topic candidates read failed", {
+        articleSlug: article.slug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }),
+    getRelatedPublishedArticles(article, 6).catch((error) => {
+      console.error("Article magazine end recommendations read failed", {
+        articleSlug: article.slug,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }),
   ]);
 
   const automaticRelated = manualRelated ? null : selectAutomaticMidRelated(article, topicCandidates);
