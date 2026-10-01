@@ -161,7 +161,7 @@ test("PUBLIC-POLISH-2 keeps public photography square without flattening UI cont
   assert.match(styles, /\.articleListMedia\s*\{[^}]*border-radius:\s*0/s);
   assert.match(styles, /\.contentMedia\s*\{[^}]*border-radius:\s*0/s);
   assert.match(homeStyles, /\.homeV2 :global\(\.hero-card\)[\s\S]*?border-radius:\s*0/);
-  assert.match(articleDetailStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.midRelatedImage[\s\S]*?border-radius:\s*0/);
+  assert.match(articleDetailStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.modernArticle \.heroMedia,[\s\S]*?border-radius:\s*0/);
   assert.match(adoptionStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.card\s*\{\s*border-radius:\s*0/);
   assert.match(helpStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.card\s*\{\s*border-radius:\s*0/);
   assert.match(lostFoundStyles, /PUBLIC-POLISH-2 photo contract[\s\S]*?\.detailImage[\s\S]*?border-radius:\s*0/);
