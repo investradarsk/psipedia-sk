@@ -655,6 +655,17 @@ function cleanText(value: unknown, maxLength: number) {
   return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
 }
 
+function safeDirectoryAddressText(value: unknown, maxLength: number, label: string) {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string") throw new Error(`${label} musí byť text.`);
+  if (/[\u0000-\u001F\u007F<>]/u.test(value)) {
+    throw new Error(`${label} obsahuje nepovolené znaky.`);
+  }
+  const clean = value.replace(/\r\n?/g, "\n").trim();
+  if (clean.length > maxLength) throw new Error(`${label} je príliš dlhá hodnota.`);
+  return clean;
+}
+
 function normalizeOptionalUrl(value: unknown, label: string) {
   const clean = cleanText(value, 500);
   if (!clean) return "";
@@ -736,9 +747,9 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const city = cleanText(payload.city, 120);
-  const district = cleanText(payload.district, 120);
-  const rawRegion = cleanText(payload.region, 80);
+  const city = safeDirectoryAddressText(payload.city, 120, "Mesto / obec");
+  const district = safeDirectoryAddressText(payload.district, 120, "Okres");
+  const rawRegion = safeDirectoryAddressText(payload.region, 80, "Kraj");
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
   const online = Boolean(payload.online);
@@ -754,15 +765,19 @@ export function normalizeManagedDirectoryProfileInput(
     : "";
   if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
 
-  const postalCode = normalizeSlovakPostalCode(cleanText(payload.postalCode, 20));
-  const street = cleanText(payload.street, 180);
-  const houseNumber = cleanText(payload.houseNumber, 40);
+  const postalCode = normalizeSlovakPostalCode(safeDirectoryAddressText(payload.postalCode, 20, "PSČ"));
+  const street = safeDirectoryAddressText(payload.street, 180, "Ulica");
+  const houseNumber = safeDirectoryAddressText(payload.houseNumber, 40, "Číslo domu");
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = payload.confirmServiceAddress === true
     ? "CONFIRMED_SERVICE_LOCATION"
     : payload.clearServiceAddressConfirmation === true
       ? "LEGACY_UNCONFIRMED"
       : options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED";
-  const publicAddress = cleanText(payload.address === undefined ? options.legacyAddress ?? "" : payload.address, 500);
+  const publicAddress = safeDirectoryAddressText(
+    payload.address === undefined ? options.legacyAddress ?? "" : payload.address,
+    500,
+    "Verejná adresa",
+  );
 
   const serviceAddress = evaluateDirectoryServiceAddress({
     region: region ?? rawRegion,
