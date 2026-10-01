@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type GeoAdminOperatorRow, type GeoAdminOperatorSummary } from "@/lib/geo-admin-operator";
 import { geoAdminOperatorStateLabels, type GeoAdminOperatorState } from "@/lib/geo-admin-operator-state";
 
@@ -71,6 +71,7 @@ export function AdminGeoOperatorDashboard({
   const [bulkProgress, setBulkProgress] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [bulkResults, setBulkResults] = useState<GoogleBulkResult[]>([]);
+  const [bulkCursorId, setBulkCursorId] = useState<number | null>(null);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
@@ -88,6 +89,26 @@ export function AdminGeoOperatorDashboard({
     [visible],
   );
 
+  const bulkCursorIndex = useMemo(
+    () => bulkCursorId === null ? -1 : visible.findIndex((item) => item.id === bulkCursorId),
+    [bulkCursorId, visible],
+  );
+
+  const bulkRemaining = useMemo(() => {
+    const startIndex = bulkCursorIndex >= 0 ? bulkCursorIndex + 1 : 0;
+    return visible
+      .slice(startIndex)
+      .filter((item) => item.googleMapsTarget !== "PLACE");
+  }, [bulkCursorIndex, visible]);
+
+  useEffect(() => {
+    if (bulkCursorId !== null && bulkCursorIndex < 0) {
+      setBulkCursorId(null);
+      setBulkResults([]);
+      setBulkError("");
+    }
+  }, [bulkCursorId, bulkCursorIndex]);
+
   function normalizedBulkCount() {
     const value = Math.trunc(Number(bulkCount) || 1);
     return Math.max(1, Math.min(100, value));
@@ -99,9 +120,11 @@ export function AdminGeoOperatorDashboard({
     setBulkError("");
     setBulkResults([]);
 
-    const targets = bulkEligible.slice(0, requested);
+    const targets = bulkRemaining.slice(0, requested);
     if (!targets.length) {
-      setBulkError("V aktuálnom filtri nie je žiadny profil bez aktuálneho Google Place.");
+      setBulkError(bulkCursorId === null
+        ? "V aktuálnom filtri nie je žiadny profil bez aktuálneho Google Place."
+        : "Za poslednou dávkou už nie je ďalší profil bez aktuálneho Google Place.");
       return;
     }
 
@@ -147,6 +170,7 @@ export function AdminGeoOperatorDashboard({
         setBulkResults([...results]);
       }
 
+      if (targets.length) setBulkCursorId(targets[targets.length - 1].id);
       router.refresh();
     } catch (caught) {
       setBulkError(caught instanceof Error ? caught.message : "Google bulk kontrola zlyhala.");
@@ -220,18 +244,36 @@ export function AdminGeoOperatorDashboard({
               }}
               onBlur={() => setBulkCount(normalizedBulkCount())}
             />
-            <small>Ľubovoľný počet od 1 do 100. Použijú sa prvé profily z aktuálneho filtra a vyhľadávania, ktoré ešte nemajú aktuálny Google Place.</small>
+            <small>Ľubovoľný počet od 1 do 100. Po dokončení sa kurzor posunie za posledný spracovaný profil, takže ďalšie kliknutie pokračuje ďalšou dávkou aj vtedy, keď predchádzajúce výsledky ostali na ručnú kontrolu.</small>
           </div>
           <div className="admin-field">
             <label>Aktuálne dostupné</label>
-            <p className="admin-help"><strong>{bulkEligible.length}</strong> profilov v aktuálnom zobrazení bez aktuálneho Google Place.</p>
+            <p className="admin-help"><strong>{bulkEligible.length}</strong> profilov v aktuálnom zobrazení bez aktuálneho Google Place.<br />Za poslednou dávkou zostáva <strong>{bulkRemaining.length}</strong>.</p>
           </div>
         </div>
 
-        <div className="admin-editor-actions">
-          <button type="button" disabled={bulkBusy || bulkEligible.length === 0} onClick={() => void runGoogleBulk()}>
-            {bulkBusy ? "Spracúvam…" : `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`}
+        <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+          <button type="button" disabled={bulkBusy || bulkRemaining.length === 0} onClick={() => void runGoogleBulk()}>
+            {bulkBusy
+              ? "Spracúvam…"
+              : bulkCursorId === null
+                ? `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`
+                : `Pokračovať ďalšou dávkou (max. ${normalizedBulkCount()})`}
           </button>
+          {bulkCursorId !== null ? (
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => {
+                setBulkCursorId(null);
+                setBulkResults([]);
+                setBulkError("");
+                setBulkProgress("");
+              }}
+            >
+              Začať od začiatku
+            </button>
+          ) : null}
         </div>
 
         {bulkProgress ? <p className="admin-message" role="status">{bulkProgress}</p> : null}
