@@ -767,4 +767,6 @@
 /* PUBLIC-POLISH-2 photo contract */
 .modernArticle .heroMedia,
 .heroMedia :global(.article-hero-image),
-.heroMedia :global(.article-hero-placeholder),
+.heroMedia :global(.article-hero-placeholder) {
+  border-radius: 0;
+}
