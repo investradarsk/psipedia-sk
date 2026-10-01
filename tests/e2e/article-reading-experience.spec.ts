@@ -386,7 +386,12 @@ for (const articleCase of cases) {
     await expect(readingProgress).toHaveCount(1);
     await expect(readingProgress).toHaveAttribute("aria-hidden", "true");
     const progressFill = readingProgress.locator("span");
-    const progressAtTop = await progressFill.evaluate((node) => Number.parseFloat(getComputedStyle(node).getPropertyValue("--article-reading-progress")) || 0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForFunction(() => {
+      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
+      return (Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") || 0) <= 0.05;
+    });
+    const progressAtTop = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
     expect(progressAtTop).toBeGreaterThanOrEqual(0);
     expect(progressAtTop).toBeLessThanOrEqual(0.05);
     const articleEnd = page.locator("[data-article-reading-end]");
@@ -399,6 +404,7 @@ for (const articleCase of cases) {
     expect(progressAtEnd).toBeGreaterThanOrEqual(0.99);
     await page.locator(".related-section").first().scrollIntoViewIfNeeded();
     const progressInRelated = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressInRelated).toBeGreaterThanOrEqual(0.99);
     expect(progressInRelated).toBeLessThanOrEqual(1);
 
     const [desktopProseBox, desktopSidebarBox] = await Promise.all([
