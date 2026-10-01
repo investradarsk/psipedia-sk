@@ -516,7 +516,6 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     addressFormat,
     serviceAddressConfirmation,
     formattedServiceAddress: serviceAddress.state === "COMPLETE" ? serviceAddress.formattedAddress : null,
-    online: Boolean(row.online),
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
@@ -737,7 +736,6 @@ export function normalizeManagedDirectoryProfileInput(
   const rawRegion = payload.region?.trim() ?? "";
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
-  const online = false;
 
   if (!name) throw new Error("Doplň názov profilu.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
@@ -770,7 +768,7 @@ export function normalizeManagedDirectoryProfileInput(
     houseNumber,
     addressFormat,
     serviceAddressConfirmation,
-    online,
+    online: false,
   });
   if (serviceAddress.reason === "LOCALITY_INVALID" || serviceAddress.reason === "ONLINE_SENTINEL_CONFLICT") {
     throw new Error("Kraj, okres a obec / mesto netvoria platnú slovenskú lokalitu.");
