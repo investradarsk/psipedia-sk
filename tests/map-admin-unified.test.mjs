@@ -154,7 +154,7 @@ test("operator UI stays card-based and mobile-safe", () => {
   assert.doesNotMatch(dashboard, /<table/);
   assert.match(dashboard, /flexWrap: "wrap"/);
   assert.match(dashboard, /overflow: "hidden"/);
-  assert.match(dashboard, /maxWidth: "100%"/);
+  assert.match(picker, /maxWidth: "100%"/);
 });
 
 test("MAP-ADMIN-UNIFIED adds no schema migration or manual-marker default", () => {
