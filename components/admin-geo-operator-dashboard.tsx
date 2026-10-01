@@ -247,23 +247,31 @@ export function AdminGeoOperatorDashboard({
               {" · "}preskočené <strong>{bulkResults.filter((item) => item.result === "SKIPPED").length}</strong>
               {" · "}chyby <strong>{bulkResults.filter((item) => item.result === "ERROR").length}</strong>
             </p>
-            <div style={{ overflowX: "auto" }}>
-              <table className="admin-table">
-                <thead>
-                  <tr><th>Profil</th><th>Výsledok</th><th>Google kandidát</th><th>Dôvod</th><th /></tr>
-                </thead>
-                <tbody>
-                  {bulkResults.map((result) => (
-                    <tr key={result.targetId}>
-                      <td>{result.name || `#${result.targetId}`}</td>
-                      <td>{result.result === "UPDATED" ? "✅ Potvrdené" : result.result === "REVIEW" ? "🟡 Kontrola" : result.result === "NO_MATCH" ? "⚪ Nenájdené" : result.result === "SKIPPED" ? "⏭️ Preskočené" : "🔴 Chyba"}</td>
-                      <td>{result.candidate ? <><strong>{result.candidate.displayName}</strong><br /><small>{result.candidate.formattedAddress}</small></> : "—"}</td>
-                      <td>{result.reason}</td>
-                      <td><Link href={`/admin/adresar/${result.targetId}#service-address`}>Otvoriť</Link></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: "grid", gap: 10 }}>
+              {bulkResults.map((result) => (
+                <article
+                  key={result.targetId}
+                  className="admin-form-card"
+                  style={{ margin: 0, overflow: "hidden" }}
+                >
+                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <strong>{result.name || `#${result.targetId}`}</strong>
+                      <p className="admin-help" style={{ margin: "6px 0 0" }}>
+                        {result.result === "UPDATED" ? "✅ Potvrdené" : result.result === "REVIEW" ? "🟡 Kontrola" : result.result === "NO_MATCH" ? "⚪ Nenájdené" : result.result === "SKIPPED" ? "⏭️ Preskočené" : "🔴 Chyba"}
+                      </p>
+                      {result.candidate ? (
+                        <p className="admin-help" style={{ margin: "6px 0 0", overflowWrap: "anywhere" }}>
+                          <strong>{result.candidate.displayName}</strong><br />
+                          {result.candidate.formattedAddress}
+                        </p>
+                      ) : null}
+                      <p className="admin-help" style={{ margin: "6px 0 0" }}>{result.reason}</p>
+                    </div>
+                    <Link href={`/admin/adresar/${result.targetId}#service-address`}>Otvoriť</Link>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         ) : null}
