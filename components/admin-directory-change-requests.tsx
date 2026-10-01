@@ -9,7 +9,7 @@ const commonLabels: Array<[keyof Omit<DirectoryProfileEditableData, "specialized
   ["name", "Názov"], ["serviceType", "Typ služby"], ["city", "Mesto / obec"], ["district", "Okres"], ["region", "Kraj"],
   ["address", "Adresa"], ["phone", "Telefón"], ["email", "E-mail"], ["website", "Web"], ["facebook", "Facebook"],
   ["instagram", "Instagram"], ["description", "Popis"], ["services", "Ponúkané služby"], ["priceNote", "Orientačná cena"],
-  ["coverage", "Lokalita / pokrytie"], ["online", "Dostupnosť online"],
+  ["coverage", "Lokalita / pokrytie"],
 ];
 
 function valueText(value: unknown) {
