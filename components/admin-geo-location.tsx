@@ -25,6 +25,24 @@ type LocationPreview = {
   google: GooglePreview;
 };
 
+type GoogleDiscoveryCandidate = {
+  id: string;
+  displayName: string;
+  formattedAddress: string;
+  latitude: number;
+  longitude: number;
+  address?: {
+    street: string;
+    houseNumber: string;
+    postalCode: string;
+    locality: string;
+    sublocality: string;
+    district: string;
+    region: string;
+    countryCode: string;
+  };
+};
+
 type Snapshot = {
   point: GeoPointRecord | null;
   source: GeoSourceLocation;
@@ -132,6 +150,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [preview, setPreview] = useState<LocationPreview | null>(null);
+  const [googleCandidates, setGoogleCandidates] = useState<GoogleDiscoveryCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -182,11 +201,59 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     return () => { cancelled = true; };
   }, [endpoint, sensitive]);
 
+  async function discoverGooglePlace() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setPreview(null);
+    setGoogleCandidates([]);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "discover-google-place" }),
+      });
+      const body = await response.json() as { candidates?: GoogleDiscoveryCandidate[]; error?: string };
+      if (!response.ok) throw new Error(body.error || "Google profil sa nepodarilo vyhľadať.");
+      const candidates = body.candidates ?? [];
+      setGoogleCandidates(candidates);
+      if (!candidates.length) setMessage("Google Maps nenašiel vhodný profil. Môžeš použiť vyhľadanie podľa adresy.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Google profil sa nepodarilo vyhľadať.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmGooglePlace(placeId: string) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm-google-place",
+          placeId,
+          publicLocation,
+        }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error || "Google profil sa nepodarilo potvrdiť.");
+      window.location.reload();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Google profil sa nepodarilo potvrdiť.");
+      setBusy(false);
+    }
+  }
+
   async function findLocation() {
     setBusy(true);
     setError("");
     setMessage("");
     setPreview(null);
+    setGoogleCandidates([]);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -235,6 +302,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
     setError("");
     setMessage("");
     setPreview(null);
+    setGoogleCandidates([]);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -261,7 +329,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
           <span>MAPA</span>
           <div>
             <h3>Poloha na mape</h3>
-            <p>Nájdi polohu podľa uloženej adresy, skontroluj ju na mape a potvrď.</p>
+            <p>Najprv skús nájsť konkrétny profil v Google Maps. Vyplnené údaje slúžia ako pomôcka; potvrdený Google profil doplní adresu aj mapu.</p>
           </div>
         </div>
       </div>
@@ -288,6 +356,33 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
             </select>
             {sensitive ? <small>Pri tomto type profilu je bezpečný predvolený stav neverejný. Verejnú polohu zapni iba pri verejne navštevovanom mieste.</small> : <small>Bežné služby majú predvolene verejnú polohu.</small>}
           </div>
+
+          {targetType === "DIRECTORY_PROFILE" ? (
+            <div style={{ display: "grid", gap: ".75rem", marginBottom: "1rem" }}>
+              <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+                <button type="button" disabled={busy || !snapshot.googlePlacesConfigured} onClick={() => void discoverGooglePlace()}>
+                  {busy ? "Hľadám…" : "Nájsť profil v Google Maps"}
+                </button>
+              </div>
+              {!snapshot.googlePlacesConfigured ? <p className="admin-help">Google Places momentálne nie je dostupné. Stále môžeš použiť adresný fallback.</p> : null}
+              {googleCandidates.length ? (
+                <div style={{ display: "grid", gap: ".75rem" }}>
+                  <p className="admin-help">Vyber správny Google profil. Po potvrdení Psipedia prevezme adresu, Google Place ID a presný bod. Nebude to manuálny marker.</p>
+                  {googleCandidates.map((candidate) => (
+                    <div className="admin-message" key={candidate.id}>
+                      <strong>{candidate.displayName || "Google Maps miesto"}</strong>
+                      <p className="admin-help">{candidate.formattedAddress || "Adresa nie je uvedená"}</p>
+                      <div className="admin-editor-actions">
+                        <button type="button" disabled={busy} onClick={() => void confirmGooglePlace(candidate.id)}>
+                          Použiť toto miesto
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {!snapshot.schemaReady ? (
             <>
@@ -325,14 +420,14 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
                   ) : null}
                   <div className="admin-editor-actions">
                     <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
-                      {busy ? "Hľadám…" : "Overiť znova"}
+                      {busy ? "Hľadám…" : "Fallback: overiť podľa adresy"}
                     </button>
                   </div>
                 </>
               ) : (
                 <div className="admin-editor-actions">
                   <button type="button" disabled={busy || !snapshot.provider.configured} onClick={() => void findLocation()}>
-                    {busy ? "Hľadám…" : snapshot.point?.geocodeStatus === "STALE" ? "Nájsť polohu znova" : "Nájsť polohu podľa adresy"}
+                    {busy ? "Hľadám…" : snapshot.point?.geocodeStatus === "STALE" ? "Nájsť podľa adresy znova" : "Fallback: nájsť podľa adresy"}
                   </button>
                 </div>
               )}
@@ -376,7 +471,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
             <summary>Technické informácie</summary>
             <div className="admin-field-grid" style={{ marginTop: ".75rem" }}>
               <div className="admin-field"><label>Stav</label><p className="admin-help">{slovakStatus(snapshot.point)}</p></div>
-              <div className="admin-field"><label>Zdroj polohy</label><p className="admin-help">{snapshot.point?.resolutionMethod === "MANUAL" ? "Ručne potvrdená poloha" : snapshot.point?.resolutionMethod ? "Automaticky nájdená poloha" : "—"}</p></div>
+              <div className="admin-field"><label>Zdroj polohy</label><p className="admin-help">{snapshot.point?.provider === "google_places" ? "Google Maps / Google Place" : snapshot.point?.resolutionMethod === "MANUAL" ? "Ručne potvrdená poloha" : snapshot.point?.resolutionMethod ? "Automaticky nájdená poloha" : "—"}</p></div>
               <div className="admin-field"><label>Geoapify</label><p className="admin-help">{snapshot.provider.configured ? "Dostupné" : "Nedostupné"}</p></div>
               <div className="admin-field"><label>Google Maps overenie</label><p className="admin-help">{snapshot.googlePlacesConfigured ? "Dostupné" : "Nedostupné"}</p></div>
               <div className="admin-field"><label>Verejná mapa</label><p className="admin-help">{snapshot.publicMapEnabled ? "Zapnutá" : "Vypnutá"}</p></div>
