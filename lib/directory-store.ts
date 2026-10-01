@@ -17,6 +17,13 @@ import {
 } from "@/lib/directory";
 import { editableDirectoryProfileData, specializedChangeRequestFields } from "@/lib/directory-change-request";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
+import {
+  getSlovakDistricts,
+  getSlovakMunicipalities,
+  normalizeSlovakLocationSearch,
+  resolveSlovakLocation,
+} from "@/lib/slovakia-locations";
+import type { GooglePlaceCandidate } from "@/lib/google-place-matching";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import {
   isDirectoryInternalMetadataKey,
@@ -355,6 +362,57 @@ export function normalizeDirectoryRegion(value: string | null | undefined): Slov
   if (clean === "Online") return "Online";
   const withSuffix = clean.endsWith(" kraj") ? clean : `${clean} kraj`;
   return (slovakRegions as readonly string[]).includes(withSuffix) ? withSuffix as SlovakRegion : null;
+}
+
+function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: GooglePlaceCandidate) {
+  const current = resolveSlovakLocation({
+    region: existing.region,
+    district: existing.district,
+    city: existing.city,
+  });
+  if (current) return current;
+
+  const region = normalizeDirectoryRegion(place.address?.region)
+    ?? normalizeDirectoryRegion(existing.region)
+    ?? null;
+  const locality = place.address?.locality?.trim() ?? "";
+  const sublocality = place.address?.sublocality?.trim() ?? "";
+  const candidates = [
+    locality && sublocality ? `${locality} - ${sublocality}` : "",
+    sublocality,
+    locality,
+    existing.city,
+  ].map((value) => value.trim()).filter(Boolean);
+
+  if (!region || region === "Online") {
+    return { region: region ?? "", district: "", city: candidates[0] ?? "" };
+  }
+
+  const needles = [...new Set(candidates.map(normalizeSlovakLocationSearch).filter(Boolean))];
+  const matches: Array<{ region: string; district: string; city: string }> = [];
+  for (const district of getSlovakDistricts(region)) {
+    for (const municipality of getSlovakMunicipalities(district)) {
+      const normalized = normalizeSlovakLocationSearch(municipality);
+      if (needles.some((needle) => (
+        normalized === needle
+        || normalized.endsWith(` ${needle}`)
+        || normalized.endsWith(`-${needle}`)
+      ))) {
+        matches.push({ region, district, city: municipality });
+      }
+    }
+  }
+
+  const unique = matches.filter((item, index, list) =>
+    list.findIndex((other) => other.district === item.district && other.city === item.city) === index,
+  );
+  if (unique.length === 1) return unique[0];
+
+  return {
+    region,
+    district: "",
+    city: candidates[0] ?? "",
+  };
 }
 
 function directorySearchText(input: {
@@ -1174,6 +1232,60 @@ export async function updateManagedDirectoryProfile(
     targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
   }, database);
   return rowToManagedProfile(row);
+}
+
+export async function updateManagedDirectoryProfileFromGooglePlace(
+  id: number,
+  place: GooglePlaceCandidate,
+  editorEmail: string,
+  databaseInput?: D1Database,
+) {
+  const database = databaseInput ?? requireD1Binding();
+  const existing = await getManagedDirectoryProfileById(id, database);
+  if (!existing) return null;
+  const contacts = readDirectoryPublicContacts(existing.importData, existing.websiteUrl ?? "");
+  const location = googlePlaceDirectoryLocation(existing, place);
+  const street = place.address?.street?.trim() ?? "";
+  const houseNumber = place.address?.houseNumber?.trim() ?? "";
+  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode ?? "");
+  const addressFormat: DirectoryAddressFormat | "" = street
+    ? "STREET"
+    : houseNumber
+      ? "MUNICIPALITY_NUMBER"
+      : "";
+
+  return updateManagedDirectoryProfile(id, {
+    slug: existing.slug,
+    name: existing.name,
+    category: existing.category,
+    status: existing.status,
+    excerpt: existing.excerpt,
+    description: existing.description,
+    services: existing.services,
+    qualifications: existing.qualifications,
+    region: location.region,
+    district: location.district,
+    city: location.city,
+    address: place.formattedAddress,
+    postalCode,
+    street,
+    houseNumber,
+    addressFormat,
+    confirmServiceAddress: true,
+    online: existing.online,
+    priceNote: existing.priceNote,
+    websiteUrl: existing.websiteUrl,
+    publicPhone: contacts.phone,
+    publicEmail: contacts.email,
+    facebookUrl: contacts.facebook,
+    instagramUrl: contacts.instagram,
+    internalEmail: existing.internalEmail,
+    imageUrl: existing.imageUrl,
+    imageKey: existing.imageKey,
+    verified: existing.verified,
+    featured: existing.featured,
+    seo: existing.seo,
+  }, editorEmail, existing, database);
 }
 
 export async function setManagedDirectoryProfileReviewed(
