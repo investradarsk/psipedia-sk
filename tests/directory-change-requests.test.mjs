@@ -106,7 +106,7 @@ function proposal(overrides = {}) {
       name: "Veterina Test", serviceType: "Veterinárne pracovisko", city: "Nitra", district: "Nitra", region: "Nitriansky kraj",
       address: "Hlavná 1", phone: "+421911222333", email: "verejny@vet.example", website: "https://vet.example/",
       facebook: "", instagram: "", description: "Podrobný verejný popis veterinárnej ambulancie.", services: ["Prevencia"],
-      priceNote: "od 20 €", coverage: "", online: false, specialized: {},
+      priceNote: "od 20 €", coverage: "", specialized: {},
     }, ...overrides,
   };
 }
