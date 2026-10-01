@@ -5,8 +5,11 @@
   min-width: 0;
 }
 
-.hero {
-  padding-block: 26px 18px;
+.modernArticle .hero {
+  width: 100%;
+  max-width: var(--ps-content-max, 1180px);
+  margin-inline: auto;
+  padding: 26px 16px 18px;
 }
 
 .hero :global(.article-breadcrumbs) {
@@ -140,7 +143,7 @@
 
 .heroFigure {
   width: 100%;
-  max-width: 680px;
+  max-width: var(--article-reading-width);
   min-width: 0;
   margin: 0;
 }
@@ -512,6 +515,30 @@
   margin-top: 0;
 }
 
+.readingProgress {
+  position: sticky;
+  z-index: 49;
+  top: var(--psipedia-sticky-header-height, 76px);
+  width: 100%;
+  height: 3px;
+  pointer-events: none;
+}
+
+.readingProgress > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--brand-accent, var(--coral, #f47757));
+  transform: scaleX(var(--article-reading-progress, 0));
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.relatedInner {
+  max-width: calc(var(--article-reading-width) + var(--article-layout-gap) + var(--article-sidebar-width));
+  margin-inline: auto;
+}
+
 .relatedSection {
   padding-block: 54px 72px;
   border-top: 1px solid rgba(23, 75, 56, 0.09);
@@ -534,6 +561,10 @@
     max-width: var(--article-reading-width);
   }
 
+  .relatedInner {
+    max-width: var(--article-reading-width);
+  }
+
   .magazineLayout {
     grid-template-columns: minmax(0, var(--article-reading-width));
     gap: 48px;
@@ -552,8 +583,12 @@
 }
 
 @media (max-width: 767px) {
-  .hero {
-    padding-block: 8px 10px;
+  .readingProgress {
+    height: 2px;
+  }
+
+  .modernArticle .hero {
+    padding: 8px 16px 10px;
   }
 
   .hero :global(.article-breadcrumbs) {

@@ -148,6 +148,9 @@ for (const articleCase of cases) {
     const mobileSidebar = page.locator("[data-article-discovery-sidebar]");
     await expect(mobileSidebar).toBeHidden();
     await expect(mobileSidebar.locator("[data-automatic-article-promo]")).toBeHidden();
+    const mobileProgress = page.locator("[data-article-reading-progress]");
+    await expect(mobileProgress).toHaveCount(1);
+    await expect(mobileProgress).toHaveAttribute("aria-hidden", "true");
     if (articleCase.id === "no-image") {
       await expect(page.locator('.article-prose [data-promo-key="veterinari"]')).toBeVisible();
     }
@@ -358,10 +361,10 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
       expect(metrics.imageHeight).not.toBeNull();
-      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(380);
-      expect(metrics.imageHeight!).toBeLessThanOrEqual(385);
-      expect(metrics.imageWidth).toBeGreaterThanOrEqual(675);
-      expect(metrics.imageWidth).toBeLessThanOrEqual(681);
+      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(425);
+      expect(metrics.imageHeight!).toBeLessThanOrEqual(430);
+      expect(metrics.imageWidth).toBeGreaterThanOrEqual(758);
+      expect(metrics.imageWidth).toBeLessThanOrEqual(762);
       expect(metrics.imageRatio).not.toBeNull();
       expect(metrics.imageRatio!).toBeGreaterThan(1.74);
       expect(metrics.imageRatio!).toBeLessThan(1.81);
@@ -377,6 +380,32 @@ for (const articleCase of cases) {
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.67);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.73);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
+    if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(2);
+
+    const readingProgress = page.locator("[data-article-reading-progress]");
+    await expect(readingProgress).toHaveCount(1);
+    await expect(readingProgress).toHaveAttribute("aria-hidden", "true");
+    const progressFill = readingProgress.locator("span");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForFunction(() => {
+      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
+      return (Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") || 0) <= 0.05;
+    });
+    const progressAtTop = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressAtTop).toBeGreaterThanOrEqual(0);
+    expect(progressAtTop).toBeLessThanOrEqual(0.05);
+    const articleEnd = page.locator("[data-article-reading-end]");
+    await articleEnd.evaluate((node) => window.scrollTo(0, Math.max(0, node.getBoundingClientRect().bottom + window.scrollY - window.innerHeight)));
+    await page.waitForFunction(() => {
+      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
+      return Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") >= 0.99;
+    });
+    const progressAtEnd = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressAtEnd).toBeGreaterThanOrEqual(0.99);
+    await page.locator(".related-section").first().scrollIntoViewIfNeeded();
+    const progressInRelated = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressInRelated).toBeGreaterThanOrEqual(0.99);
+    expect(progressInRelated).toBeLessThanOrEqual(1);
 
     const [desktopProseBox, desktopSidebarBox] = await Promise.all([
       page.locator(".article-prose").boundingBox(),
@@ -419,6 +448,54 @@ for (const articleCase of cases) {
 }
 
 
+
+test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stable without horizontal overflow", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium", "Viewport matrix runs once in desktop Chromium.");
+  const path = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
+  const viewports = [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1280, height: 800 },
+    { width: 1024, height: 768 },
+    { width: 768, height: 1024 },
+    { width: 430, height: 932 },
+    { width: 390, height: 844 },
+    { width: 375, height: 812 },
+  ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.goto(path);
+    const metrics = await page.evaluate(() => {
+      const hero = document.querySelector<HTMLElement>(".article-hero-image")!;
+      const prose = document.querySelector<HTMLElement>(".article-prose")!;
+      const h1 = document.querySelector<HTMLElement>("h1")!;
+      const progress = document.querySelector<HTMLElement>("[data-article-reading-progress]")!;
+      const heroRect = hero.getBoundingClientRect();
+      const proseRect = prose.getBoundingClientRect();
+      const h1Rect = h1.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        heroLeft: heroRect.left,
+        heroWidth: heroRect.width,
+        proseLeft: proseRect.left,
+        proseWidth: proseRect.width,
+        h1Left: h1Rect.left,
+        progressHeight: progress.getBoundingClientRect().height,
+      };
+    });
+    expect(metrics.overflow, `overflow at ${viewport.width}px`).toBeLessThanOrEqual(1);
+    expect(Math.abs(metrics.h1Left - metrics.proseLeft), `title axis at ${viewport.width}px`).toBeLessThanOrEqual(2);
+    expect(Math.abs(metrics.heroLeft - metrics.proseLeft), `hero axis at ${viewport.width}px`).toBeLessThanOrEqual(2);
+    if (viewport.width >= 768) {
+      expect(Math.abs(metrics.heroWidth - metrics.proseWidth), `hero width at ${viewport.width}px`).toBeLessThanOrEqual(2);
+    } else {
+      expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - 32 + 1);
+    }
+    expect(metrics.progressHeight).toBeGreaterThanOrEqual(2);
+    expect(metrics.progressHeight).toBeLessThanOrEqual(3);
+  }
+});
 
 test("ARTICLE-READING-UX-2 manual related stays editorial while automatic related moves to end recommendations", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
