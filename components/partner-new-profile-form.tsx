@@ -24,7 +24,7 @@ type FieldErrors = Record<string, string>;
 
 const emptyDirectory = {
   name: "", category: "", excerpt: "", description: "", services: "", qualifications: "",
-  city: "", district: "", region: "", address: "", online: false, priceNote: "",
+  city: "", district: "", region: "", address: "", priceNote: "",
   websiteUrl: "", publicPhone: "", publicEmail: "", facebookUrl: "", instagramUrl: "",
 };
 const emptyOrganization = {
@@ -318,7 +318,6 @@ export function PartnerNewProfileForm({ categories }: { categories: readonly Dir
             errors={{region:fieldErrors.region,district:fieldErrors.district,city:fieldErrors.city}}
             idPrefix="partner-new-directory-location" />
           {(() => { const p = errorProps("address"); return <label className="partner-field"><span>Adresa<RequiredMark /></span><input {...p.input} required maxLength={300} placeholder="Bernolákova 12" value={directory.address} onChange={(e)=>setDirectory({...directory,address:e.target.value})}/>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
-          <label className="partner-profile-check"><input type="checkbox" checked={directory.online} onChange={(e)=>setDirectory({...directory,online:e.target.checked})}/><span>Ponúkam aj online služby</span></label>
           {(() => { const p = errorProps("priceNote"); return <label className="partner-field"><span>Poznámka k cene</span><input {...p.input} maxLength={1000} value={directory.priceNote} onChange={(e)=>setDirectory({...directory,priceNote:e.target.value})}/>{p.error ? <small className="partner-field-error" id={p.errorId}>{p.error}</small> : null}</label>; })()}
           <fieldset className="partner-contact-group partner-field--wide" aria-describedby="partner-directory-contact-help">
             <legend>Kontakt<RequiredMark /></legend>
