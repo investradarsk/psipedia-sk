@@ -116,10 +116,23 @@ test("GOOGLE-PLACE-BULK Admin Mapy exposes 1-100 count, current-filter batching 
   assert.doesNotMatch(dashboard, /<table/);
 });
 
+test("GOOGLE-PLACE-BULK Admin Mapy supports combinable category and Google Maps checkbox filters", () => {
+  assert.match(dashboard, /Kategória profilu/);
+  assert.match(dashboard, /selectedCategories/);
+  assert.match(dashboard, /selectedCategories\.includes\(item\.category\)/);
+  assert.match(dashboard, /Google Maps \/ mapa/);
+  assert.match(dashboard, /Google Maps — konkrétne miesto/);
+  assert.match(dashboard, /Iba súradnice/);
+  assert.match(dashboard, /Bez mapy \/ Google Place/);
+  assert.match(dashboard, /selectedMapTargets/);
+  assert.match(dashboard, /item\.googleMapsTarget \?\? "NONE"/);
+  assert.match(dashboard, /Zrušiť všetky filtre/);
+});
+
 test("GOOGLE-PLACE-BULK pagination advances past unresolved results instead of repeating the first batch", () => {
   assert.match(dashboard, /bulkCursorId/);
-  assert.match(dashboard, /visible\.findIndex\(\(item\) => item\.id === bulkCursorId\)/);
-  assert.match(dashboard, /visible[\s\S]*\.slice\(startIndex\)[\s\S]*googleMapsTarget !== "PLACE"/);
+  assert.match(dashboard, /items\.findIndex\(\(item\) => item\.id === bulkCursorId\)/);
+  assert.match(dashboard, /visible\.filter\(\(item\) =>[\s\S]*itemIndex > bulkCursorIndex[\s\S]*googleMapsTarget !== "PLACE"/);
   assert.match(dashboard, /setBulkCursorId\(targets\[targets\.length - 1\]\.id\)/);
   assert.match(dashboard, /Pokračovať ďalšou dávkou/);
   assert.match(dashboard, /Začať od začiatku/);
