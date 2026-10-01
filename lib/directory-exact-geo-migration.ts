@@ -39,7 +39,7 @@ function addressInput(source: GeoSourceLocation) {
     houseNumber: source.houseNumber ?? "",
     addressFormat: source.addressFormat ?? "",
     serviceAddressConfirmation: source.serviceAddressConfirmation ?? "LEGACY_UNCONFIRMED",
-    online: source.online,
+    online: false,
   };
 }
 
@@ -62,7 +62,6 @@ export function evaluateDirectoryGeoMigrationEligibility(input: {
   if (source.targetType !== "DIRECTORY_PROFILE") return { action: "OUT_OF_COHORT", reason: "WRONG_TARGET_TYPE" };
   if (point.manualOverride) return { action: "SKIP", reason: "MANUAL_OVERRIDE" };
   if (source.published !== true) return { action: "SKIP", reason: "NOT_PUBLISHED" };
-  if (source.online) return { action: "SKIP", reason: "ONLINE_ONLY" };
 
   const address = evaluateDirectoryServiceAddress(addressInput(source));
   if (address.reason === "LEGACY_UNCONFIRMED") return { action: "REVIEW", reason: "LEGACY_UNCONFIRMED" };
