@@ -33,6 +33,7 @@ test("SEO-RECOVERY-1 filter, search and sort URLs are noindex/follow with a clea
     ["/pomoc-psom/adopcia", { kraj: "Nitriansky kraj" }],
     ["/pomoc-psom/stratene-psy", { region: "Nitriansky kraj" }],
     ["/pomoc-psom/najdene-psy", { q: "labrador" }],
+    ["/mapa", { category: "services", region: "Nitriansky kraj" }],
     ["/adresar/veterinari", { sort: "name-asc" }],
   ];
   for (const [path, searchParams] of cases) {
@@ -121,6 +122,7 @@ test("SEO-RECOVERY-1 listing routes delegate query indexability to the shared po
     "../app/pomoc-psom/adopcia/page.tsx",
     "../app/pomoc-psom/stratene-psy/page.tsx",
     "../app/pomoc-psom/najdene-psy/page.tsx",
+    "../app/mapa/page.tsx",
   ].map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"));
   for (const source of sources) {
     assert.match(source, /buildListingPageMetadata|resolveListingIndexPolicy/);

@@ -46,6 +46,7 @@ test("filter, search and sort state is noindex/follow with a clean canonical", a
   await expectQueryNoindex(page, "/pomoc-psom/adopcia?kraj=Nitriansky+kraj", "/pomoc-psom/adopcia");
   await expectQueryNoindex(page, "/pomoc-psom/stratene-psy?region=Nitriansky+kraj", "/pomoc-psom/stratene-psy");
   await expectQueryNoindex(page, "/pomoc-psom/najdene-psy?q=labrador", "/pomoc-psom/najdene-psy");
+  await expectQueryNoindex(page, "/mapa?category=services&region=Nitriansky+kraj", "/mapa");
 });
 
 test("event type landing has canonical listing schema and filtered variant does not", async ({ page }) => {
