@@ -1,6 +1,7 @@
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   processGooglePlaceBulkTarget,
+  selectGooglePlaceBulkTargets,
   validateGooglePlaceBulkTargetIds,
 } from "@/lib/google-place-bulk";
 
@@ -30,6 +31,15 @@ export async function POST(request: Request) {
   const action = typeof body.action === "string" ? body.action : "";
 
   try {
+    if (action === "select-targets") {
+      const selection = await selectGooglePlaceBulkTargets({
+        count: body.count,
+        filters: body.filters,
+        cursor: body.cursor,
+      });
+      return Response.json(selection);
+    }
+
     if (action === "validate-targets") {
       const targetIds = validateGooglePlaceBulkTargetIds(body.targetIds);
       return Response.json({ targetIds, count: targetIds.length });
