@@ -29,6 +29,7 @@ import {
 import { evaluateGooglePlaceCandidates, evaluateNumberlessGooglePlaceCandidates } from "@/lib/google-place-matching";
 import { googlePlacesApiKey, searchGooglePlacesText } from "@/lib/google-places-provider";
 import { discoverGoogleDirectoryPlaces } from "@/lib/google-place-directory-discovery";
+import { discoverGooglePlacesForGeoSource } from "@/lib/google-place-geo-discovery";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
 
@@ -243,32 +244,50 @@ export async function POST(request: Request, { params }: Props) {
 
   try {
     if (action === "discover-google-place") {
-      if (target.targetType !== "DIRECTORY_PROFILE") {
-        return Response.json({ error: "Google profil možno hľadať iba pre profil adresára." }, { status: 400 });
-      }
       const source = await getGeoSourceLocation(target.targetType, target.id);
-      if (!source) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-      if (!source.label.trim()) return Response.json({ error: "Najprv doplň názov profilu." }, { status: 409 });
-      const candidates = await discoverGoogleDirectoryPlaces(source);
+      if (!source) return Response.json({ error: "Mapový objekt sa nenašiel." }, { status: 404 });
+      if (!source.label.trim()) return Response.json({ error: "Najprv doplň názov." }, { status: 409 });
+      if (target.targetType === "MANAGED_EVENT" && source.online) {
+        return Response.json({ error: "Online podujatie nemá fyzické Google Maps miesto." }, { status: 409 });
+      }
+      if (target.targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE") {
+        return Response.json({
+          error: "Google Maps miesto možno priamo potvrdiť iba pre verejne navštevovanú lokalitu typu SITE. Právne sídlo, neurčenú lokalitu ani service area týmto nezverejňujeme.",
+        }, { status: 409 });
+      }
+      const candidates = target.targetType === "DIRECTORY_PROFILE"
+        ? await discoverGoogleDirectoryPlaces(source)
+        : await discoverGooglePlacesForGeoSource(source);
       return Response.json({ candidates });
     }
 
     if (action === "confirm-google-place") {
-      if (target.targetType !== "DIRECTORY_PROFILE") {
-        return Response.json({ error: "Google profil možno potvrdiť iba pre profil adresára." }, { status: 400 });
-      }
       const placeId = typeof body.placeId === "string" ? body.placeId.trim() : "";
       if (!placeId) return Response.json({ error: "Vyber konkrétne miesto z Google Maps." }, { status: 400 });
       const source = await getGeoSourceLocation(target.targetType, target.id);
-      if (!source) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
-      const candidates = await discoverGoogleDirectoryPlaces(source);
+      if (!source) return Response.json({ error: "Mapový objekt sa nenašiel." }, { status: 404 });
+      if (target.targetType === "MANAGED_EVENT" && source.online) {
+        return Response.json({ error: "Online podujatie nemá fyzické Google Maps miesto." }, { status: 409 });
+      }
+      if (target.targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE") {
+        return Response.json({
+          error: "Google Maps miesto možno priamo potvrdiť iba pre verejne navštevovanú lokalitu typu SITE.",
+        }, { status: 409 });
+      }
+
+      const candidates = target.targetType === "DIRECTORY_PROFILE"
+        ? await discoverGoogleDirectoryPlaces(source)
+        : await discoverGooglePlacesForGeoSource(source);
       const selected = candidates.find((candidate) => candidate.id === placeId);
       if (!selected) {
         return Response.json({ error: "Vybraný Google Place sa už vo výsledkoch nenachádza. Vyhľadaj ho znova." }, { status: 409 });
       }
 
-      const profile = await updateManagedDirectoryProfileFromGooglePlace(target.id, selected, user.email);
-      if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      let profile = null;
+      if (target.targetType === "DIRECTORY_PROFILE") {
+        profile = await updateManagedDirectoryProfileFromGooglePlace(target.id, selected, user.email);
+        if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      }
 
       let point = await getGeoPointForTarget(target.targetType, target.id);
       if (!point) point = (await initializeGeoPointForTarget(target.targetType, target.id, user.email)).point;
@@ -306,7 +325,12 @@ export async function POST(request: Request, { params }: Props) {
           longitude: selected.longitude,
         },
       });
-      return Response.json({ profile, point, googlePlaceId: selected.id });
+      return Response.json({
+        profile,
+        point,
+        googlePlaceId: selected.id,
+        canonicalUpdated: target.targetType === "DIRECTORY_PROFILE",
+      });
     }
 
     if (action === "preview") {
