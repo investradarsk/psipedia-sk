@@ -30,6 +30,9 @@ test("SEO-RECOVERY-1 filter, search and sort URLs are noindex/follow with a clea
     ["/podujatia", { termin: "vsetky" }],
     ["/plemena", { fciGroup: "8" }],
     ["/recenzie", { typ: "produkty" }],
+    ["/pomoc-psom/adopcia", { kraj: "Nitriansky kraj" }],
+    ["/pomoc-psom/stratene-psy", { region: "Nitriansky kraj" }],
+    ["/pomoc-psom/najdene-psy", { q: "labrador" }],
     ["/adresar/veterinari", { sort: "name-asc" }],
   ];
   for (const [path, searchParams] of cases) {
@@ -79,6 +82,23 @@ test("SEO-RECOVERY-1 directory page-only pagination keeps stable indexable disco
   assert.equal(mixed.canonicalPath, "/adresar/veterinari");
 });
 
+test("SEO-RECOVERY-1 alternate pagination parameter supports adoption catalog discovery", () => {
+  const pageTwo = resolveListingIndexPolicy(
+    "/pomoc-psom/adopcia",
+    { strana: "2" },
+    { indexPagination: true, paginationParam: "strana" },
+  );
+  assert.equal(pageTwo.kind, "pagination");
+  assert.equal(pageTwo.canonicalPath, "/pomoc-psom/adopcia?strana=2");
+  const filteredPage = resolveListingIndexPolicy(
+    "/pomoc-psom/adopcia",
+    { strana: "2", kraj: "Nitriansky kraj" },
+    { indexPagination: true, paginationParam: "strana" },
+  );
+  assert.equal(filteredPage.kind, "query");
+  assert.equal(filteredPage.canonicalPath, "/pomoc-psom/adopcia");
+});
+
 test("SEO-RECOVERY-1 manual content canonical strips query and fragment", () => {
   assert.equal(
     normalizeCanonical("https://psipedia.sk/clanky/test?utm_source=spam#fragment"),
@@ -98,6 +118,9 @@ test("SEO-RECOVERY-1 listing routes delegate query indexability to the shared po
     "../app/clanky/page.tsx",
     "../app/[section]/page.tsx",
     "../app/[section]/[slug]/page.tsx",
+    "../app/pomoc-psom/adopcia/page.tsx",
+    "../app/pomoc-psom/stratene-psy/page.tsx",
+    "../app/pomoc-psom/najdene-psy/page.tsx",
   ].map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"));
   for (const source of sources) {
     assert.match(source, /buildListingPageMetadata|resolveListingIndexPolicy/);

@@ -87,8 +87,10 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
 
   for (const source of [articlePage, breedPage, sectionPage, directoryPage, adoptionPage]) {
     assert.match(source, /buildCollectionPageJsonLd/);
-    assert.match(source, /hasQuery \? null : buildCollectionPageJsonLd/);
     assert.doesNotMatch(source, /status:\s*["']draft["']/i);
+  }
+  for (const source of [articlePage, breedPage, sectionPage, directoryPage, adoptionPage]) {
+    assert.match(source, /resolveListingIndexPolicy|policy\.kind|listingPolicy\.kind/);
   }
 });
 

@@ -32,6 +32,7 @@ type ListingMetadataInput = {
   path: string;
   searchParams?: ListingSearchParams;
   indexPagination?: boolean;
+  paginationParam?: string;
 };
 
 function nonEmptyParamValues(value: string | string[] | undefined) {
@@ -49,7 +50,7 @@ function nonEmptyParamValues(value: string | string[] | undefined) {
 export function resolveListingIndexPolicy(
   path: string,
   searchParams: ListingSearchParams = {},
-  options: { indexPagination?: boolean } = {},
+  options: { indexPagination?: boolean; paginationParam?: string } = {},
 ): ListingIndexPolicy {
   const active = Object.entries(searchParams)
     .map(([key, value]) => [key, nonEmptyParamValues(value)] as const)
@@ -59,7 +60,8 @@ export function resolveListingIndexPolicy(
     return { kind: "clean", index: true, follow: true, canonicalPath: path, page: null };
   }
 
-  if (options.indexPagination && active.length === 1 && active[0][0] === "page") {
+  const paginationParam = options.paginationParam ?? "page";
+  if (options.indexPagination && active.length === 1 && active[0][0] === paginationParam) {
     const values = active[0][1];
     const rawPage = values.length === 1 ? values[0] : "";
     if (/^[1-9]\d*$/.test(rawPage)) {
@@ -88,8 +90,9 @@ export function buildListingPageMetadata({
   path,
   searchParams = {},
   indexPagination = false,
+  paginationParam = "page",
 }: ListingMetadataInput): Metadata {
-  const policy = resolveListingIndexPolicy(path, searchParams, { indexPagination });
+  const policy = resolveListingIndexPolicy(path, searchParams, { indexPagination, paginationParam });
   return buildPageMetadata({
     title,
     description,
