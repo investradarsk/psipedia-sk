@@ -27,7 +27,6 @@ function source(patch = {}) {
     addressFormat: "STREET",
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION",
     countryCode: "SK",
-    online: false,
     published: true,
     ...patch,
   };
