@@ -76,9 +76,32 @@ function tokens(value: string) {
   return new Set(clean(value).split(" ").filter((token) => token.length > 1));
 }
 
+function normalizeGooglePlaceName(value: string) {
+  return clean(value)
+    // Slovak/English veterinary naming often moves the service descriptor
+    // before/after the brand or joins it directly to the brand name.
+    .replace(/veterin[a-z]*/g, " vet ")
+    .replace(/\b(?:ambulancia|ambulancie|klinika|clinic)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function localityVariants(value: string | null | undefined) {
+  const raw = (value ?? "").trim();
+  if (!raw) return [];
+  const full = clean(raw);
+  const municipality = clean(raw.split(/[–—-]/, 1)[0] ?? "");
+  return [...new Set([full, municipality].filter(Boolean))];
+}
+
+function localityMatches(formattedAddress: string, locality: string | null | undefined) {
+  const formatted = clean(formattedAddress);
+  return localityVariants(locality).some((variant) => formatted.includes(variant));
+}
+
 export function googlePlaceNameScore(left: string, right: string) {
-  const a = clean(left);
-  const b = clean(right);
+  const a = normalizeGooglePlaceName(left);
+  const b = normalizeGooglePlaceName(right);
   if (!a || !b) return 0;
   if (a === b) return 1;
   if (a.includes(b) || b.includes(a)) return 0.92;
@@ -115,7 +138,7 @@ function diagnostics(target: GooglePlaceMatchTarget, candidate: GooglePlaceCandi
     : 0;
   const distanceMeters = googlePlaceDistanceMeters(target.latitude, target.longitude, candidate.latitude, candidate.longitude);
   const nameScore = googlePlaceNameScore(target.name, candidate.displayName);
-  const cityMatch = Boolean(city) && formatted.includes(city);
+  const cityMatch = localityMatches(candidate.formattedAddress, target.city);
   const postalCodeMatch = Boolean(postal) && compact(candidate.formattedAddress).includes(postal);
   const addressMatch = addressHits >= 0.55;
   const distanceScore = distanceMeters <= 75 ? 1 : distanceMeters <= 250 ? 0.9 : distanceMeters <= 750 ? 0.55 : distanceMeters <= 1_500 ? 0.25 : 0;
@@ -139,7 +162,7 @@ function numberlessDiagnostics(
     ? canonicalParts.filter((part) => formatted.includes(part)).length / canonicalParts.length
     : 0;
   const nameScore = googlePlaceNameScore(target.name, candidate.displayName);
-  const cityMatch = Boolean(city) && formatted.includes(city);
+  const cityMatch = localityMatches(candidate.formattedAddress, target.city);
   const postalCodeMatch = Boolean(postal) && compact(candidate.formattedAddress).includes(postal);
   const streetMatch = Boolean(street) && formatted.includes(street);
   const geographicConsistency = Number.isFinite(candidate.latitude)
