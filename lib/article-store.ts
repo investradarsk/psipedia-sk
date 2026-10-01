@@ -789,9 +789,14 @@ export async function getHomepageArticles(): Promise<Article[]> {
   return result.results.map(rowToHomepageArticle);
 }
 
-const getPublishedArticleUncached = async (slug: string): Promise<Article | null> => {
+export type PublishedArticle = Article & { topics: ArticleTopic[] };
+
+const getPublishedArticleUncached = async (slug: string): Promise<PublishedArticle | null> => {
   const database = getD1Binding();
-  if (!database) return seedArticles.find((article) => article.slug === slug) ?? null;
+  if (!database) {
+    const seedArticle = seedArticles.find((article) => article.slug === slug);
+    return seedArticle ? { ...seedArticle, topics: [] } : null;
+  }
   await ensureArticleStore(database);
   const row = await database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
@@ -804,7 +809,18 @@ const getPublishedArticleUncached = async (slug: string): Promise<Article | null
       LIMIT 1`)
     .bind(slug, new Date().toISOString())
     .first<ArticleRow>();
-  return row ? rowToManagedArticle(row) : null;
+  if (!row) return null;
+
+  let topics: ArticleTopic[] = [];
+  try {
+    topics = await getArticleTopicsByArticleId(database, row.id);
+  } catch (error) {
+    console.error("Published article topics read failed", {
+      articleSlug: slug,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return rowToManagedArticle(row, [], topics);
 };
 
 /** React request memoization shares the detail query between metadata and page render. */

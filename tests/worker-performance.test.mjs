@@ -7,6 +7,7 @@ const sectionListing = readFileSync(new URL("../app/[section]/page.tsx", import.
 const sectionDetail = readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
 const legacyDetail = readFileSync(new URL("../app/clanky/[slug]/page.tsx", import.meta.url), "utf8");
 const articleMagazine = readFileSync(new URL("../lib/article-magazine.ts", import.meta.url), "utf8");
+const articleDiscovery = readFileSync(new URL("../lib/article-discovery.ts", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const breedStore = readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
@@ -42,7 +43,11 @@ test("article detail loads one body and related summaries with a database limit"
   assert.match(legacyDetail, /getArticleMagazineData\(article\)/);
   assert.match(articleMagazine, /getRelatedPublishedArticles\(article, 6\)/);
   assert.match(articleMagazine, /getPublishedArticleSummaries\(\{ portalSection: section, limit: 120 \}\)/);
-  assert.match(articleMagazine, /getPublishedArticleSummaries\(\{ limit: 40 \}\)/);
+  assert.doesNotMatch(articleMagazine, /getPublishedArticleSummaries\(\{ limit: 40 \}\)|latestCandidates/);
+  assert.match(articleDiscovery, /Promise\.all\(\[/);
+  assert.match(articleDiscovery, /readPopularityWindow\(article\.slug, "24h", now\)/);
+  assert.match(articleDiscovery, /readPopularityWindow\(article\.slug, "7d", now\)/);
+  assert.match(articleDiscovery, /limit:\s*5/);
   assert.doesNotMatch(sectionDetail, /getPublishedArticles/);
   assert.doesNotMatch(legacyDetail, /getPublishedArticles/);
   assert.doesNotMatch(articleMagazine, /getPublishedArticles/);

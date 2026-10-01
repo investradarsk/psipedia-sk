@@ -1,0 +1,112 @@
+.popularity {
+  min-width: 0;
+  font-family: "Avenir Next", Avenir, sans-serif;
+}
+
+.header {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(23, 75, 56, 0.18);
+}
+
+.header h2 {
+  margin: 0;
+  color: var(--forest);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tabs button {
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.69rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tabs button:hover {
+  color: var(--forest);
+}
+
+.tabs button:focus-visible,
+.list a:focus-visible {
+  outline: 3px solid rgba(244, 119, 87, 0.42);
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+
+.tabs .activeTab {
+  border-bottom-color: var(--brand-accent-strong, var(--coral-dark, #b94732));
+  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(23, 75, 56, 0.12);
+}
+
+.rank {
+  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.list a {
+  display: grid;
+  min-height: 44px;
+  gap: 4px;
+  align-content: start;
+  color: inherit;
+  text-decoration: none;
+}
+
+.list strong {
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.28;
+}
+
+.list small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.list a:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.empty {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}

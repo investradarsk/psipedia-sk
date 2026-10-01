@@ -7,6 +7,7 @@ import { EventsPage } from "@/components/events-page";
 import { PortalTopic } from "@/components/portal-topic";
 import { getAllPublishedArticleSummaries, getPublishedArticle, getPublishedArticleAuthorProfile, getPublishedArticleSummaries } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
+import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
@@ -136,8 +137,9 @@ export default async function PortalContentPage({ params, searchParams }: Props)
   const canonical = articleHref(article);
   if (canonical !== `/${section}/${slug}`) redirect(canonical);
 
-  const [magazine, authorProfile, relatedBreeds] = await Promise.all([
+  const [magazine, discovery, authorProfile, relatedBreeds] = await Promise.all([
     getArticleMagazineData(article),
+    getArticleDiscoveryData(storedArticle),
     getPublishedArticleAuthorProfile(article),
     listRelatedBreedsForArticle(article.slug).catch((error) => {
       console.error("Public article breed relations read failed", {
@@ -147,5 +149,5 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       return [];
     }),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={section === "recenzie" ? managedSection : undefined} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} portalSection={section === "recenzie" ? managedSection : undefined} />;
 }
