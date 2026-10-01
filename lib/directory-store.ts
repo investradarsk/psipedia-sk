@@ -602,8 +602,8 @@ function rowToInquiry(row: DirectoryInquiryRow): DirectoryInquiry {
 
 function parseProposedData(value: string): DirectoryProfileEditableData {
   try {
-    const parsed = JSON.parse(value) as Record<string, unknown>;
-    const { online: _legacyOnline, ...data } = parsed;
+    const data = { ...(JSON.parse(value) as Record<string, unknown>) };
+    delete data.online;
     return data as DirectoryProfileEditableData;
   } catch {
     return {
