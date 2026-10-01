@@ -103,15 +103,14 @@ test("operator loader reads canonical DIRECTORY_PROFILE address and not legacy a
   assert.match(operatorStore, /d\.house_number/);
   assert.match(operatorStore, /d\.address_format/);
   assert.match(operatorStore, /d\.service_address_confirmation/);
-  assert.match(operatorStore, /legacyAddress: value\(row, "address"\)/);
+  assert.match(operatorStore, /legacyAddress: publicAddress/);
 });
 
-test("operator CTA links directly to the directory editor and review reuses Attention Center", () => {
+test("operator CTA links directly to the canonical editors", () => {
   assert.match(operatorStore, /\/admin\/adresar\/\$\{id\}#service-address/);
-  assert.match(operatorStore, /source=GEO_LOCATION_ISSUE/);
-  assert.match(operatorComponent, /Otvoriť editor lokality/);
-  assert.match(operatorComponent, /Otvoriť editor/);
-  assert.match(operatorComponent, /Skontrolovať problém/);
+  assert.match(operatorStore, /\/admin\/organizacie\/\$\{organizationId\}#locations/);
+  assert.match(operatorStore, /\/admin\/podujatia\/\$\{id\}/);
+  assert.match(operatorComponent, /Otvoriť profil/);
 });
 
 test("technical details are collapsed and advanced tooling remains available but secondary", () => {
@@ -121,31 +120,32 @@ test("technical details are collapsed and advanced tooling remains available but
   assert.match(advancedComponent, /AdminGeoOperations/);
 });
 
-test("operator view exposes human search and combinable category/map filters instead of canonical IDs", () => {
-  assert.match(operatorComponent, /Hľadať názov, mesto, okres, kraj alebo kategóriu/);
-  assert.match(operatorComponent, /Na mape/);
-  assert.match(operatorComponent, /Čaká na spracovanie/);
-  assert.match(operatorComponent, /Treba skontrolovať/);
-  assert.match(operatorComponent, /Chýba adresa/);
-  assert.match(operatorComponent, /Chyby/);
-  assert.match(operatorComponent, /Kategórie/);
-  assert.match(operatorComponent, /categoryOptions/);
-  assert.match(operatorComponent, /type="checkbox"/);
-  assert.match(operatorComponent, /Google Maps \/ mapa/);
+test("operator view uses server-side URL filters instead of client-side whole-dataset filtering", () => {
+  assert.match(operatorComponent, /Kategória \/ typ/);
+  assert.match(operatorComponent, /Operator stav/);
+  assert.match(operatorComponent, /Google Maps/);
+  assert.match(operatorComponent, /type="search"/);
   assert.match(operatorComponent, /Zrušiť všetky filtre/);
+  assert.match(operatorComponent, /setParam\("category"/);
+  assert.match(operatorComponent, /setParam\("operator"/);
+  assert.match(operatorComponent, /setParam\("google"/);
+  assert.doesNotMatch(operatorComponent, /selectedCategories|selectedMapTargets|scopedItems/);
+  assert.match(operatorStore, /search_text LIKE \? COLLATE NOCASE/);
+  assert.match(operatorStore, /LIMIT \? OFFSET \?/);
 });
 
-
-test("operator map summary distinguishes current Google place IDs from coordinate-only links", () => {
+test("operator map summary distinguishes current Google place, coordinates, not-required and unresolved", () => {
   assert.match(operatorStore, /g\.google_place_id/);
   assert.match(operatorStore, /g\.google_place_source_fingerprint/);
-  assert.match(operatorStore, /geo\.googlePlaceSourceFingerprint === geo\.sourceFingerprint/);
-  assert.match(operatorStore, /function googleMapsTarget/);
+  assert.match(operatorStore, /google_place_source_fingerprint = source_fingerprint/);
+  assert.match(operatorStore, /THEN 'PLACE'/);
+  assert.match(operatorStore, /THEN 'COORDINATES'/);
+  assert.match(operatorStore, /THEN 'NOT_REQUIRED'/);
+  assert.match(operatorStore, /ELSE 'UNRESOLVED'/);
   assert.match(operatorComponent, /Konkrétne miesto/);
   assert.match(operatorComponent, /Iba súradnice/);
-  assert.match(operatorComponent, /selectedMapTargets/);
-  assert.match(operatorComponent, /Google Maps — konkrétne miesto/);
-  assert.match(operatorComponent, /Bez mapy \/ Google Place/);
+  assert.match(operatorComponent, /Google Maps netreba/);
+  assert.match(operatorComponent, /Treba vyriešiť/);
 });
 
 test("mobile-safe layout avoids forced horizontal tables in the operator-first view", () => {
