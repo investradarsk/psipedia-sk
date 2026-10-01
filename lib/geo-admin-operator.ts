@@ -199,9 +199,11 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
       : "LEGACY_UNCONFIRMED",
     online: truthy(row, "online"),
   }, publicAddress);
+  const effectiveAddressState: DirectoryServiceAddressEvaluation["state"] =
+    publicAddress && evaluation.state !== "COMPLETE" ? "NEEDS_REVIEW" : evaluation.state;
   const geo = commonGeo(row);
   const state = geoAdminOperatorState({
-    addressState: evaluation.state,
+    addressState: effectiveAddressState,
     addressReason: evaluation.reason,
     geocodeStatus: geo.geocodeStatus,
     publicVisibility: geo.publicVisibility,
@@ -248,7 +250,7 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
     publicAddress,
     legacyAddress: publicAddress,
     addressWarning,
-    addressState: evaluation.state,
+    addressState: effectiveAddressState,
     addressReason: evaluation.reason,
     operatorState: state.state,
     operatorReason: state.reason,
