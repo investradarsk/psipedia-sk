@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
 import { useMemo, useState } from "react";
-import { type GeoAdminOperatorRow, type GeoAdminOperatorSummary } from "@/lib/geo-admin-operator";
+import { type GeoAdminOperatorGroup, type GeoAdminOperatorRow, type GeoAdminOperatorSummary } from "@/lib/geo-admin-operator";
 import { geoAdminOperatorStateLabels, type GeoAdminOperatorState } from "@/lib/geo-admin-operator-state";
 
 type GeoOperatorFilter = "ALL" | "ERRORS" | GeoAdminOperatorState;
 type GoogleMapFilter = "PLACE" | "COORDINATES" | "NONE";
+type GeoGroupFilter = "ALL" | GeoAdminOperatorGroup;
 
 type GoogleBulkResult = {
   targetId: number;
@@ -29,6 +31,14 @@ const filters: Array<{ value: GeoOperatorFilter; label: string }> = [
   { value: "MISSING_ADDRESS", label: "Chýba adresa" },
   { value: "ERRORS", label: "Chyby" },
 ];
+
+const groupFilters: Array<{ value: GeoGroupFilter; label: string }> = [
+  { value: "ALL", label: "Všetko" },
+  { value: "DIRECTORY", label: "Služby" },
+  { value: "HELP", label: "Pomoc psom" },
+  { value: "EVENT", label: "Podujatia" },
+];
+
 
 const stateIcon: Record<GeoAdminOperatorState, string> = {
   ON_MAP: "🟢",
@@ -61,6 +71,7 @@ export function AdminGeoOperatorDashboard({
   summary: GeoAdminOperatorSummary;
 }) {
   const router = useRouter();
+  const [groupFilter, setGroupFilter] = useState<GeoGroupFilter>("ALL");
   const [filter, setFilter] = useState<GeoOperatorFilter>("ALL");
   const [query, setQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -70,21 +81,30 @@ export function AdminGeoOperatorDashboard({
   const [bulkProgress, setBulkProgress] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [bulkResults, setBulkResults] = useState<GoogleBulkResult[]>([]);
-  const [bulkCursorId, setBulkCursorId] = useState<number | null>(null);
+  const [bulkCursorKey, setBulkCursorKey] = useState<string | null>(null);
+
+  const groupCounts = useMemo(() => ({
+    ALL: items.length,
+    DIRECTORY: items.filter((item) => item.group === "DIRECTORY").length,
+    HELP: items.filter((item) => item.group === "HELP").length,
+    EVENT: items.filter((item) => item.group === "EVENT").length,
+  }), [items]);
 
   const categoryOptions = useMemo(() => {
     const byCategory = new Map<string, { value: string; label: string; count: number }>();
     for (const item of items) {
+      if (groupFilter !== "ALL" && item.group !== groupFilter) continue;
       const current = byCategory.get(item.category);
       if (current) current.count += 1;
       else byCategory.set(item.category, { value: item.category, label: item.categoryLabel || item.category, count: 1 });
     }
     return [...byCategory.values()].sort((left, right) => left.label.localeCompare(right.label, "sk"));
-  }, [items]);
+  }, [groupFilter, items]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk");
     return items.filter((item) => {
+      if (groupFilter !== "ALL" && item.group !== groupFilter) return false;
       if (!matchesFilter(item, filter)) return false;
       if (selectedCategories.length && !selectedCategories.includes(item.category)) return false;
       const mapTarget: GoogleMapFilter = item.googleMapsTarget ?? "NONE";
@@ -94,28 +114,30 @@ export function AdminGeoOperatorDashboard({
         .toLocaleLowerCase("sk")
         .includes(needle);
     });
-  }, [filter, items, query, selectedCategories, selectedMapTargets]);
+  }, [filter, groupFilter, items, query, selectedCategories, selectedMapTargets]);
 
   const bulkEligible = useMemo(
-    () => visible.filter((item) => item.googleMapsTarget !== "PLACE"),
+    () => visible.filter((item) => item.targetType === "DIRECTORY_PROFILE" && item.googleMapsTarget !== "PLACE"),
     [visible],
   );
 
   const bulkCursorIndex = useMemo(
-    () => bulkCursorId === null ? -1 : items.findIndex((item) => item.id === bulkCursorId),
-    [bulkCursorId, items],
+    () => bulkCursorKey === null ? -1 : items.findIndex((item) => item.key === bulkCursorKey),
+    [bulkCursorKey, items],
   );
 
   const bulkRemaining = useMemo(
     () => visible.filter((item) => {
-      const itemIndex = items.findIndex((candidate) => candidate.id === item.id);
-      return itemIndex > bulkCursorIndex && item.googleMapsTarget !== "PLACE";
+      const itemIndex = items.findIndex((candidate) => candidate.key === item.key);
+      return item.targetType === "DIRECTORY_PROFILE"
+        && itemIndex > bulkCursorIndex
+        && item.googleMapsTarget !== "PLACE";
     }),
     [bulkCursorIndex, items, visible],
   );
 
   function resetBulkSession() {
-    setBulkCursorId(null);
+    setBulkCursorKey(null);
     setBulkResults([]);
     setBulkError("");
     setBulkProgress("");
@@ -152,7 +174,7 @@ export function AdminGeoOperatorDashboard({
 
     const targets = bulkRemaining.slice(0, requested);
     if (!targets.length) {
-      setBulkError(bulkCursorId === null
+      setBulkError(bulkCursorKey === null
         ? "V aktuálnom filtri nie je žiadny profil bez aktuálneho Google Place."
         : "Za poslednou dávkou už nie je ďalší profil bez aktuálneho Google Place.");
       return;
@@ -286,11 +308,11 @@ export function AdminGeoOperatorDashboard({
           <button type="button" disabled={bulkBusy || bulkRemaining.length === 0} onClick={() => void runGoogleBulk()}>
             {bulkBusy
               ? "Spracúvam…"
-              : bulkCursorId === null
+              : bulkCursorKey === null
                 ? `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`
                 : `Pokračovať ďalšou dávkou (max. ${normalizedBulkCount()})`}
           </button>
-          {bulkCursorId !== null ? (
+          {bulkCursorKey !== null ? (
             <button
               type="button"
               disabled={bulkBusy}
