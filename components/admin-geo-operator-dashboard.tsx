@@ -222,7 +222,7 @@ export function AdminGeoOperatorDashboard({
         setBulkResults([...results]);
       }
 
-      if (targets.length) setBulkCursorId(targets[targets.length - 1].id);
+      if (targets.length) setBulkCursorKey(targets[targets.length - 1].key);
       router.refresh();
     } catch (caught) {
       setBulkError(caught instanceof Error ? caught.message : "Google bulk kontrola zlyhala.");
@@ -250,9 +250,9 @@ export function AdminGeoOperatorDashboard({
         <div className="admin-overview-heading">
           <div>
             <span>MAPA — PROFILY</span>
-            <h2 id="geo-operator-summary">Stav verejných profilov</h2>
+            <h2 id="geo-operator-summary">Stav verejných mapových objektov</h2>
           </div>
-          <p>Canonical adresa sa číta priamo z profilu. GEO admin ju nikdy neprepisuje druhýkrát.</p>
+          <p>Spoločný pohľad pre Služby, Pomoc psom a Podujatia. Každý objekt používa vlastný canonical zdroj lokality.</p>
         </div>
         <div className="admin-stats" aria-label="Súhrn geo stavov">
           {cards.map(({ state, label }) => (
@@ -276,7 +276,7 @@ export function AdminGeoOperatorDashboard({
             <span>GOOGLE MAPS — HROMADNE</span>
             <h2>Automaticky doplniť Google profily</h2>
           </div>
-          <p>Jednoznačné zhody sa potvrdia cez Google Places. Nejasné, citlivé alebo súkromné profily zostanú na ručnú kontrolu.</p>
+          <p>Automatický bulk zatiaľ bezpečne zapisuje iba Služby. Pomoc psom a Podujatia môžeš potvrdiť cez Google Maps priamo pri každej položke nižšie.</p>
         </div>
 
         <div className="admin-field-grid">
@@ -300,7 +300,7 @@ export function AdminGeoOperatorDashboard({
           </div>
           <div className="admin-field">
             <label>Aktuálne dostupné</label>
-            <p className="admin-help"><strong>{bulkEligible.length}</strong> profilov v aktuálnom zobrazení bez aktuálneho Google Place.<br />Za poslednou dávkou zostáva <strong>{bulkRemaining.length}</strong>.</p>
+            <p className="admin-help"><strong>{bulkEligible.length}</strong> služieb v aktuálnom zobrazení bez aktuálneho Google Place.<br />Za poslednou dávkou zostáva <strong>{bulkRemaining.length}</strong>.</p>
           </div>
         </div>
 
@@ -317,7 +317,7 @@ export function AdminGeoOperatorDashboard({
               type="button"
               disabled={bulkBusy}
               onClick={() => {
-                setBulkCursorId(null);
+                setBulkCursorKey(null);
                 setBulkResults([]);
                 setBulkError("");
                 setBulkProgress("");
@@ -372,6 +372,33 @@ export function AdminGeoOperatorDashboard({
       </section>
 
       <section className="admin-form-card" data-admin-map-filters>
+        <div className="admin-overview-heading">
+          <div>
+            <span>OBSAH NA MAPE</span>
+            <h2>Služby, Pomoc psom a Podujatia</h2>
+          </div>
+          <p>Najprv vyber sekciu a potom ju kombinuj s kategóriou, stavom mapy alebo vyhľadávaním.</p>
+        </div>
+
+        <div className="admin-status-filter" aria-label="Filtrovať podľa sekcie" style={{ flexWrap: "wrap", marginBottom: 14 }}>
+          {groupFilters.map((item) => (
+            <button
+              type="button"
+              key={item.value}
+              disabled={bulkBusy}
+              className={groupFilter === item.value ? "is-active" : ""}
+              aria-pressed={groupFilter === item.value}
+              onClick={() => {
+                resetBulkSession();
+                setSelectedCategories([]);
+                setGroupFilter(item.value);
+              }}
+            >
+              {item.label} ({groupCounts[item.value]})
+            </button>
+          ))}
+        </div>
+
         <div className="admin-toolbar" style={{ alignItems: "stretch", gap: 12, flexWrap: "wrap" }}>
           <label className="admin-search" style={{ flex: "1 1 280px", minWidth: 0 }}>
             <span className="sr-only">Hľadať profil</span>
@@ -463,9 +490,10 @@ export function AdminGeoOperatorDashboard({
           <div className="admin-editor-actions" style={{ marginTop: 12, flexWrap: "wrap" }}>
             <button
               type="button"
-              disabled={bulkBusy || (!selectedCategories.length && !selectedMapTargets.length && filter === "ALL" && !query)}
+              disabled={bulkBusy || (groupFilter === "ALL" && !selectedCategories.length && !selectedMapTargets.length && filter === "ALL" && !query)}
               onClick={() => {
                 resetBulkSession();
+                setGroupFilter("ALL");
                 setSelectedCategories([]);
                 setSelectedMapTargets([]);
                 setFilter("ALL");
@@ -478,7 +506,7 @@ export function AdminGeoOperatorDashboard({
         </details>
 
         <p className="admin-help" aria-live="polite">
-          Zobrazené: <strong>{visible.length}</strong> z {items.length} publikovaných profilov.
+          Zobrazené: <strong>{visible.length}</strong> z {items.length} verejných mapových objektov.
           {selectedCategories.length ? <> · kategórie: <strong>{selectedCategories.length}</strong></> : null}
           {selectedMapTargets.length ? <> · mapové filtre: <strong>{selectedMapTargets.length}</strong></> : null}
         </p>
@@ -490,7 +518,7 @@ export function AdminGeoOperatorDashboard({
             const review = item.operatorState === "NEEDS_REVIEW";
             return (
               <article
-                key={item.id}
+                key={item.key}
                 className="admin-form-card"
                 data-operator-state={item.operatorState}
                 style={{ margin: 0, overflow: "hidden" }}
@@ -498,12 +526,14 @@ export function AdminGeoOperatorDashboard({
                 <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" }}>
                   <div style={{ minWidth: 0 }}>
                     <div className="admin-article-tags" style={{ marginBottom: 6 }}>
+                      <span>{item.groupLabel}</span>
                       <span>{item.categoryLabel}</span>
+                      {item.locationRole ? <span>{item.locationRole}</span> : null}
                       <span>{stateIcon[item.operatorState]} {geoAdminOperatorStateLabels[item.operatorState]}</span>
                     </div>
                     <h3 style={{ margin: 0 }}>{item.name}</h3>
                     <p className="admin-help" style={{ margin: "8px 0 0", whiteSpace: "pre-line" }}>
-                      <strong>Adresa prevádzky:</strong><br />
+                      <strong>Lokalita / adresa:</strong><br />
                       {lines.map((line, index) => <span key={index}>{line}{index < lines.length - 1 ? <br /> : null}</span>)}
                     </p>
                     <p className="admin-help" style={{ margin: "6px 0 0" }}>
@@ -531,15 +561,35 @@ export function AdminGeoOperatorDashboard({
                         <Link href={item.attentionHref}>Centrum pozornosti</Link>
                       </>
                     ) : (
-                      <Link href={`/admin/adresar/${item.id}`}>Otvoriť profil</Link>
+                      <Link href={item.editorHref}>Otvoriť</Link>
                     )}
                   </div>
+                </div>
+
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--admin-border, #d7d7cf)" }}>
+                  {item.googlePlaceActionAvailable ? (
+                    <>
+                      <p className="admin-help" style={{ margin: "0 0 8px" }}>
+                        <strong>Google Maps:</strong> nájdi konkrétne verejné miesto a potvrď ho bez otvárania detailu.
+                      </p>
+                      <AdminGooglePlacePicker
+                        targetType={item.targetType}
+                        targetId={item.id}
+                        compact
+                        onConfirmed={() => router.refresh()}
+                      />
+                    </>
+                  ) : (
+                    <p className="admin-help" style={{ margin: 0 }}>
+                      <strong>Google Maps:</strong> {item.googlePlaceActionReason ?? "Pre túto lokalitu nie je priame potvrdenie dostupné."}
+                    </p>
+                  )}
                 </div>
 
                 <details style={{ marginTop: 12 }}>
                   <summary style={{ cursor: "pointer", fontWeight: 700 }}>Technické detaily</summary>
                   <div className="admin-help" style={{ marginTop: 10, display: "grid", gap: 4, overflowWrap: "anywhere" }}>
-                    <span>target type: DIRECTORY_PROFILE</span>
+                    <span>target type: {item.targetType}</span>
                     <span>canonical ID: {item.id}</span>
                     <span>geo_point ID: {item.geoPointId ?? "—"}</span>
                     <span>geocode_status: {item.geocodeStatus ?? "—"}</span>
