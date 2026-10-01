@@ -100,8 +100,9 @@ test("numbered and Geoapify-selected numberless flows remain provider-verified",
     assert.match(source, /verifyDirectoryNumberlessAddressSelection/);
     assert.match(source, /addressProviderResultId/);
   }
-  assert.match(createRouteSource, /if \(body\.houseNumber\?\.trim\(\)\)[\s\S]*verifyDirectoryAddressSelection/);
+  assert.match(createRouteSource, /body\.addressProviderResultId\?\.trim\(\) && body\.houseNumber\?\.trim\(\) && hasLocality[\s\S]*verifyDirectoryAddressSelection/);
   assert.match(updateRouteSource, /const houseNumber = \(body\.houseNumber \?\? before\.houseNumber\)\.trim\(\)/);
+  assert.match(updateRouteSource, /body\.addressProviderResultId\?\.trim\(\) && houseNumber && hasLocality[\s\S]*verifyDirectoryAddressSelection/);
 });
 
 test("free-text and sparse hint saves never fabricate an exact geo resolution", () => {
