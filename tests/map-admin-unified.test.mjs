@@ -84,6 +84,15 @@ test("directory sensitive category is not a Google blocker but explicit private 
   assert.match(loader, /explicit_private/);
 });
 
+test("directory Google Maps action stays available for hybrid services that also offer online service", () => {
+  const directoryPolicy = discovery.slice(
+    discovery.indexOf('if (source.targetType === "DIRECTORY_PROFILE")'),
+    discovery.indexOf('if (source.targetType === "ORGANIZATION_LOCATION")'),
+  );
+  assert.doesNotMatch(directoryPolicy, /source\.online/);
+  assert.match(directoryPolicy, /!source\.label\.trim\(\)/);
+});
+
 test("bulk remains DIRECTORY_PROFILE-only, bounded 1-100 and cursor-based", () => {
   assert.match(dashboard, /targetType === "DIRECTORY_PROFILE"/);
   assert.match(dashboard, /min=\{1\}/);
