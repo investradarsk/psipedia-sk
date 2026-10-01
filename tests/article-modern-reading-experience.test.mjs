@@ -18,6 +18,8 @@ const feedbackComponent = readFileSync("components/article-feedback.tsx", "utf8"
 const siteHeader = readFileSync("components/site-header.tsx", "utf8");
 const siteHeaderStyles = readFileSync("components/site-header.module.css", "utf8");
 const backToTopStyles = readFileSync("components/back-to-top.module.css", "utf8");
+const readingProgress = readFileSync("components/article-reading-progress.tsx", "utf8");
+const readingProgressMath = readFileSync("lib/article-reading-progress.ts", "utf8");
 const magazine = readFileSync("lib/article-magazine.ts", "utf8");
 const selection = readFileSync("lib/article-magazine-selection.ts", "utf8");
 const articleStore = readFileSync("lib/article-store.ts", "utf8");
@@ -157,7 +159,7 @@ test("article header follows compact editorial hierarchy and aligns with the rea
   assert.match(styles, /--article-layout-gap:\s*clamp\(42px,\s*5vw,\s*72px\)/);
   assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/);
   assert.match(styles, /\.title[\s\S]*max-width:\s*var\(--article-reading-width\)/);
-  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*680px/);
+  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
 });
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
@@ -167,6 +169,27 @@ test("desktop magazine layout keeps a readable 70/30 composition and truthful st
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
+});
+
+test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isolated reading progress contract", () => {
+  assert.match(detail, /data-article-reading-start/);
+  assert.match(detail, /data-article-reading-end/);
+  assert.match(detail, /<ArticleReadingProgress \/>/);
+  assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
+  assert.match(styles, /\.relatedInner[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/);
+  assert.match(styles, /\.readingProgress[\s\S]*top:\s*var\(--psipedia-sticky-header-height/);
+  assert.match(styles, /\.readingProgress > span[\s\S]*transform:\s*scaleX\(var\(--article-reading-progress, 0\)\)/);
+  assert.match(styles, /background:\s*var\(--brand-accent/);
+  assert.match(readingProgress, /aria-hidden="true"/);
+  assert.match(readingProgress, /requestAnimationFrame/);
+  assert.match(readingProgress, /addEventListener\("scroll", onScroll, \{ passive: true \}\)/);
+  assert.match(readingProgress, /addEventListener\("resize", onResize\)/);
+  assert.match(readingProgress, /removeEventListener\("scroll", onScroll\)/);
+  assert.match(readingProgress, /removeEventListener\("resize", onResize\)/);
+  assert.match(readingProgress, /cancelAnimationFrame/);
+  assert.doesNotMatch(readingProgress, /fetch\(|analytics|localStorage/);
+  assert.match(readingProgressMath, /Math\.min\(1, Math\.max\(0/);
+  assert.equal((detail.match(/<ArticleReadTracker\b/g) ?? []).length, 1);
 });
 
 test("mobile article composition hides sidebar and keeps compact readable controls", () => {
