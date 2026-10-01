@@ -215,10 +215,12 @@ export async function GET(_request: Request, { params }: Props) {
   if (!source) return Response.json({ error: "Canonical target neexistuje." }, { status: 404 });
   const schemaReady = await isGeoSchemaAvailable();
   const point = schemaReady ? await getGeoPointForTarget(target.targetType, target.id) : null;
+  const explicitPrivate = schemaReady ? await hasExplicitPrivateGeoDecision(target.targetType, target.id) : false;
   return Response.json({
     point,
     source,
     schemaReady,
+    explicitPrivate,
     provider: { name: "geoapify", configured: Boolean(geoapifyApiKey()) },
     googlePlacesConfigured: Boolean(googlePlacesApiKey()),
     googlePlaceAction: googlePlaceActionForSource(source),
