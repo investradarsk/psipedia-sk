@@ -5,8 +5,11 @@
   min-width: 0;
 }
 
-.hero {
-  padding-block: 26px 18px;
+.modernArticle .hero {
+  width: 100%;
+  max-width: var(--ps-content-max, 1180px);
+  margin-inline: auto;
+  padding: 26px 16px 18px;
 }
 
 .hero :global(.article-breadcrumbs) {
@@ -584,8 +587,8 @@
     height: 2px;
   }
 
-  .hero {
-    padding-block: 8px 10px;
+  .modernArticle .hero {
+    padding: 8px 16px 10px;
   }
 
   .hero :global(.article-breadcrumbs) {
