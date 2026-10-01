@@ -17,7 +17,7 @@ function value(value: unknown){
 const labels:Record<string,string>={
   name:"Názov",category:"Kategória",type:"Typ organizácie",legalName:"Právny názov",registrationNumber:"Registračné číslo",
   excerpt:"Krátky popis",shortDescription:"Krátky popis",description:"Popis",services:"Služby",qualifications:"Kvalifikácie",
-  city:"Mesto",district:"Okres",region:"Kraj",address:"Adresa",countryCode:"Krajina",online:"Online služby",priceNote:"Poznámka k cene",
+  city:"Mesto",district:"Okres",region:"Kraj",address:"Adresa",countryCode:"Krajina",priceNote:"Poznámka k cene",
   websiteUrl:"Web",publicPhone:"Verejný telefón",publicEmail:"Verejný e-mail",facebookUrl:"Facebook",instagramUrl:"Instagram",
 };
 
