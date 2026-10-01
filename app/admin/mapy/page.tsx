@@ -6,12 +6,31 @@ import { loadGeoAdminOperatorProfiles } from "@/lib/geo-admin-operator";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminMapsPage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
+
+export default async function AdminMapsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const user = await requireAdminPageUser("/admin/mapy");
+  const params = await searchParams;
   let operatorData = null;
   let unavailable = "";
   try {
-    operatorData = await loadGeoAdminOperatorProfiles();
+    operatorData = await loadGeoAdminOperatorProfiles({
+      group: firstParam(params.group),
+      category: firstParam(params.category),
+      operator: firstParam(params.operator),
+      google: firstParam(params.google),
+      query: firstParam(params.q),
+      page: firstParam(params.page),
+      pageSize: firstParam(params.pageSize),
+    });
   } catch (error) {
     unavailable = error instanceof Error ? error.message : "Geo foundation zatiaľ nie je dostupný.";
   }
@@ -21,12 +40,12 @@ export default async function AdminMapsPage() {
       user={user}
       eyebrow="Admin · Mapy"
       title="Mapy"
-      description="Spoločný pracovný priestor pre mapy služieb, organizácií Pomoci psom a podujatí. Google Maps miesto môžeš nájsť a potvrdiť priamo v zozname."
+      description="Rýchly pracovný priestor pre mapy služieb, organizácií Pomoci psom a podujatí. Filtre, počty a stránkovanie sa vyhodnocujú na serveri; Google Maps sa načíta až po explicitnom kliknutí."
       actions={<Link href="/admin/operations?source=GEO_LOCATION_ISSUE">Geo lokality na kontrolu</Link>}
     >
       {unavailable || !operatorData
         ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>
-        : <AdminGeoOperatorDashboard items={operatorData.items} summary={operatorData.summary} />}
+        : <AdminGeoOperatorDashboard data={operatorData} />}
     </AdminShell>
   );
 }
