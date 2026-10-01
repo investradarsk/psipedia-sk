@@ -65,7 +65,6 @@ export type ManagedDirectoryProfileInput = {
   confirmServiceAddress?: boolean;
   clearServiceAddressConfirmation?: boolean;
   addressProviderResultId?: string;
-  online?: boolean;
   priceNote?: string;
   websiteUrl?: string | null;
   publicPhone?: string;
@@ -359,7 +358,6 @@ export function normalizeDirectorySearchText(value: string) {
 export function normalizeDirectoryRegion(value: string | null | undefined): SlovakRegion | null {
   const clean = value?.trim() ?? "";
   if (!clean) return null;
-  if (clean === "Online") return "Online";
   const withSuffix = clean.endsWith(" kraj") ? clean : `${clean} kraj`;
   return (slovakRegions as readonly string[]).includes(withSuffix) ? withSuffix as SlovakRegion : null;
 }
@@ -384,7 +382,7 @@ function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: 
     existing.city,
   ].map((value) => value.trim()).filter(Boolean);
 
-  if (!region || region === "Online") {
+  if (!region) {
     return { region: region ?? "", district: "", city: candidates[0] ?? "" };
   }
 
@@ -498,7 +496,6 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     houseNumber: row.house_number ?? "",
     addressFormat,
     serviceAddressConfirmation,
-    online: Boolean(row.online),
   });
   return {
     id: row.id,
@@ -511,7 +508,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     qualifications: safePublicList(row.qualifications_json),
     city: row.city,
     district: row.district || String(safeImportData(row.source_data_json)?.["Okres"] ?? ""),
-    region: normalizeDirectoryRegion(row.region) ?? "Online",
+    region: normalizeDirectoryRegion(row.region) ?? "",
     address: row.address,
     postalCode: row.postal_code ?? "",
     street: row.street ?? "",
@@ -569,7 +566,7 @@ function rowToManagedProfileSummary(row: DirectoryProfileSummaryRow, reviewedAt 
     services: safeList(row.services_json),
     city: row.city,
     district: row.district,
-    region: normalizeDirectoryRegion(row.region) ?? "Online",
+    region: normalizeDirectoryRegion(row.region) ?? "",
     imageUrl: row.image_url,
     reviewed: Boolean(reviewedAt),
     reviewedAt,
@@ -605,7 +602,7 @@ function parseProposedData(value: string): DirectoryProfileEditableData {
   } catch {
     return {
       name: "", serviceType: "", city: "", district: "", region: "", address: "", phone: "", email: "",
-      website: "", facebook: "", instagram: "", description: "", services: [], priceNote: "", coverage: "", online: false, specialized: {},
+      website: "", facebook: "", instagram: "", description: "", services: [], priceNote: "", coverage: "", specialized: {},
     };
   }
 }
@@ -688,7 +685,7 @@ function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData>
   const region = normalizeDirectoryRegion(cleanText(value?.region, 80));
   const email = normalizeEmail(cleanText(value?.email, 180)) ?? "";
   if (name.length < 2) throw new Error("Doplň názov služby alebo firmy.");
-  if (!region) throw new Error("Vyber platný kraj alebo možnosť Online.");
+  if (!region) throw new Error("Vyber platný kraj.");
   const services = normalizeStringList(value?.services).map((item) => cleanText(item, 160)).filter(Boolean).slice(0, 30);
   const allowedSpecialized = new Set(specializedChangeRequestFields[category] ?? []);
   const rawSpecialized = value?.specialized && typeof value.specialized === "object" && !Array.isArray(value.specialized) ? value.specialized : {};
@@ -711,7 +708,6 @@ function normalizeChangeRequestData(value: Partial<DirectoryProfileEditableData>
     services,
     priceNote: cleanText(value?.priceNote, 1000),
     coverage: cleanText(value?.coverage, 1000),
-    online: value?.online === true,
     specialized,
   } satisfies DirectoryProfileEditableData;
 }
@@ -741,7 +737,7 @@ export function normalizeManagedDirectoryProfileInput(
   const rawRegion = payload.region?.trim() ?? "";
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
-  const online = Boolean(payload.online);
+  const online = false;
 
   if (!name) throw new Error("Doplň názov profilu.");
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
@@ -805,7 +801,7 @@ export function normalizeManagedDirectoryProfileInput(
       email: Boolean(publicContacts.email),
       website: Boolean(publicContacts.website),
       image: Boolean(imageUrl),
-      address: online || serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(legacyAddress)),
+      address: serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(legacyAddress)),
     },
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
@@ -830,7 +826,6 @@ export function normalizeManagedDirectoryProfileInput(
     serviceAddressConfirmation,
     serviceAddressState: serviceAddress.state,
     formattedServiceAddress: serviceAddress.formattedAddress,
-    online,
     priceNote: payload.priceNote?.trim() ?? "",
     websiteUrl,
     publicPhone,
@@ -866,7 +861,7 @@ export function buildManagedDirectoryProfileCreateStatement(
     input.slug, input.name, input.category, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-    input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
     JSON.stringify(input.seo), input.searchText,
   ];
@@ -875,7 +870,7 @@ export function buildManagedDirectoryProfileCreateStatement(
       input.slug, input.name, input.category, input.status, input.excerpt, input.description,
       JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
       input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-      input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+      0, input.priceNote, input.websiteUrl, input.internalEmail,
       input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
       JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
     ];
@@ -1189,7 +1184,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
     input.slug, input.name, input.category, input.status, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
-    input.online ? 1 : 0, input.priceNote, input.websiteUrl, input.internalEmail,
+    0, input.priceNote, input.websiteUrl, input.internalEmail,
     input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
     ...(guard?.expectedUpdatedAt ? [guard.expectedUpdatedAt] : []),
@@ -1272,7 +1267,6 @@ export async function updateManagedDirectoryProfileFromGooglePlace(
     houseNumber,
     addressFormat,
     confirmServiceAddress: true,
-    online: existing.online,
     priceNote: existing.priceNote,
     websiteUrl: existing.websiteUrl,
     publicPhone: contacts.phone,
