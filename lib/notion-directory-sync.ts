@@ -723,7 +723,6 @@ function newProfileInput(
     street: desired.street,
     houseNumber: desired.houseNumber,
     addressFormat: desired.addressFormat,
-    online: desired.online,
     priceNote: desired.priceNote,
     websiteUrl: desired.websiteUrl || null,
     publicPhone: desired.publicPhone,
