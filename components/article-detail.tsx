@@ -4,6 +4,7 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { ArticleReadTracker } from "@/components/article-read-tracker";
+import { ArticleReadingProgress } from "@/components/article-reading-progress";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { ArticlePromo } from "@/components/article-promo";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -149,7 +150,8 @@ export function ArticleDetail({
     <main id="obsah" className={styles.modernArticle}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
       <ArticleReadTracker articleSlug={article.slug} />
-      <header className={`${styles.hero} shell`}>
+      <ArticleReadingProgress />
+      <header className={`${styles.hero} shell`} data-article-reading-start>
         <Breadcrumbs label="Navigácia v článku">
           <Link href="/">Domov</Link><span>/</span>
           <Link href={sectionHref}>{portalSectionLabel(section)}</Link><span>/</span>
@@ -207,7 +209,7 @@ export function ArticleDetail({
 
       <div className={`${styles.readingShell} shell`}>
         <div className={styles.magazineLayout}>
-          <article className="article-prose">
+          <article className="article-prose" data-article-reading-end>
             <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
             {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
             {showTableOfContents ? (
@@ -264,7 +266,7 @@ export function ArticleDetail({
 
       {relatedBreeds.length > 0 ? (
         <section className={styles.relatedSection} aria-labelledby="article-related-breeds-title" data-explicit-content-relation="article-breed">
-          <div className="shell">
+          <div className={`${styles.relatedInner} shell`}>
             <span className="eyebrow">Súvisiace plemená</span>
             <h2 id="article-related-breeds-title">Plemená prepojené s týmto článkom</h2>
             <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto článkom" />
@@ -274,7 +276,7 @@ export function ArticleDetail({
 
       {relatedItems.length > 0 ? (
         <section className={`${styles.relatedSection} related-section`}>
-          <div className="shell">
+          <div className={`${styles.relatedInner} shell`}>
             <span className="eyebrow">Pokračovať v čítaní</span>
             <h2>Ďalšie články k téme</h2>
             <PublicContentList label="Ďalšie články k téme" className={styles.relatedList}>
