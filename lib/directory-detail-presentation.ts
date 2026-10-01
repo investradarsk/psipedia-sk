@@ -22,7 +22,6 @@ export type DirectoryDetailPresentation = {
   district: string;
   region: string;
   address: string;
-  online: boolean;
   priceNote: string;
   imageUrl: string | null;
   verified: boolean;
@@ -132,7 +131,6 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     district: profile.district,
     region: profile.region,
     address: publicAddress,
-    online: profile.online,
     priceNote: profile.priceNote,
     imageUrl: profile.imageUrl,
     verified: profile.verified,
