@@ -39,12 +39,14 @@ type DirectoryQualityRow = {
   website_url: string | null;
   image_url: string | null;
   image_key: string | null;
+  address: string | null;
   online: number | null;
   city: string | null;
   district: string | null;
   region: string | null;
   service_address_confirmation: string | null;
   source_data_json: string | null;
+  google_maps_not_required: number | null;
 };
 
 type ProfileSummaryRow = {
@@ -151,9 +153,27 @@ const RAW_MISSING_WEBSITE_SQL = `trim(COALESCE(
   ''
 )) = ''`;
 const RAW_MISSING_IMAGE_SQL = "trim(COALESCE(image_url, '')) = ''";
+const GOOGLE_MAPS_NOT_REQUIRED_SQL = `EXISTS (
+  SELECT 1
+  FROM geo_points map_geo
+  WHERE map_geo.directory_profile_id = directory_profiles.id
+    AND map_geo.target_type = 'DIRECTORY_PROFILE'
+    AND COALESCE((
+      SELECT map_event.action
+      FROM moderation_events map_event
+      WHERE map_event.resource_type = 'GEO_POINT'
+        AND map_event.subject_id = CAST(map_geo.id AS TEXT)
+        AND map_event.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+      ORDER BY map_event.created_at DESC, map_event.id DESC
+      LIMIT 1
+    ), '') = 'GOOGLE_MAPS_NOT_REQUIRED'
+)`;
 const RAW_INCOMPLETE_ADDRESS_SQL = `COALESCE(online, 0) = 0 AND (
   trim(COALESCE(city, '')) = ''
   OR COALESCE(service_address_confirmation, '') <> 'CONFIRMED_SERVICE_LOCATION'
+) AND NOT (
+  trim(COALESCE(address, '')) <> ''
+  AND ${GOOGLE_MAPS_NOT_REQUIRED_SQL}
 )`;
 
 function qualityResolutionCurrentSql(field: DirectoryQualityField) {
@@ -374,9 +394,11 @@ function directoryIssues(row: DirectoryQualityRow) {
   if (!row.image_url?.trim() && !isDirectoryQualityResolutionCurrent(quality, "image")) {
     issues.push({ key: "image", label: "Chýba hlavný obrázok" });
   }
+  const mapReviewClosedWithoutGoogle = Boolean(row.google_maps_not_required) && Boolean(row.address?.trim());
   if (
     !Boolean(row.online)
     && (!row.city?.trim() || row.service_address_confirmation !== "CONFIRMED_SERVICE_LOCATION")
+    && !mapReviewClosedWithoutGoogle
     && !isDirectoryQualityResolutionCurrent(quality, "address")
   ) {
     issues.push({ key: "address", label: "Adresa nie je úplne potvrdená" });
@@ -548,7 +570,8 @@ async function loadProfileQualityPage(
     const offset = firstOffset + (index * pageSize);
     const result = await db.prepare(`
       SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
-             online, city, district, region, service_address_confirmation, source_data_json
+             address, online, city, district, region, service_address_confirmation, source_data_json,
+             CASE WHEN ${GOOGLE_MAPS_NOT_REQUIRED_SQL} THEN 1 ELSE 0 END AS google_maps_not_required
       FROM directory_profiles
       WHERE status <> 'archived'${resultFilter.clause}
         AND ${PROFILE_ISSUE_SQL}
