@@ -108,12 +108,35 @@ test("GOOGLE-PLACE-BULK Admin Mapy exposes 1-100 count, current-filter batching 
   assert.match(dashboard, /Počet profilov na kontrolu/);
   assert.match(dashboard, /min=\{1\}/);
   assert.match(dashboard, /max=\{100\}/);
-  assert.match(dashboard, /bulkEligible\.slice\(0, requested\)/);
+  assert.match(dashboard, /bulkRemaining\.slice\(0, requested\)/);
   assert.match(dashboard, /aktuálneho filtra a vyhľadávania/);
   assert.match(dashboard, /Google Maps kontrola:/);
   assert.match(dashboard, /automaticky potvrdené/);
   assert.match(dashboard, /na kontrolu/);
   assert.doesNotMatch(dashboard, /<table/);
+});
+
+test("GOOGLE-PLACE-BULK Admin Mapy supports combinable category and Google Maps checkbox filters", () => {
+  assert.match(dashboard, /Kategória profilu/);
+  assert.match(dashboard, /selectedCategories/);
+  assert.match(dashboard, /selectedCategories\.includes\(item\.category\)/);
+  assert.match(dashboard, /Google Maps \/ mapa/);
+  assert.match(dashboard, /Google Maps — konkrétne miesto/);
+  assert.match(dashboard, /Iba súradnice/);
+  assert.match(dashboard, /Bez mapy \/ Google Place/);
+  assert.match(dashboard, /selectedMapTargets/);
+  assert.match(dashboard, /item\.googleMapsTarget \?\? "NONE"/);
+  assert.match(dashboard, /Zrušiť všetky filtre/);
+});
+
+test("GOOGLE-PLACE-BULK pagination advances past unresolved results instead of repeating the first batch", () => {
+  assert.match(dashboard, /bulkCursorId/);
+  assert.match(dashboard, /items\.findIndex\(\(item\) => item\.id === bulkCursorId\)/);
+  assert.match(dashboard, /visible\.filter\(\(item\) =>[\s\S]*itemIndex > bulkCursorIndex[\s\S]*googleMapsTarget !== "PLACE"/);
+  assert.match(dashboard, /setBulkCursorId\(targets\[targets\.length - 1\]\.id\)/);
+  assert.match(dashboard, /Pokračovať ďalšou dávkou/);
+  assert.match(dashboard, /Začať od začiatku/);
+  assert.match(dashboard, /Za poslednou dávkou zostáva/);
 });
 
 test("GOOGLE-PLACE-BULK endpoint is explicit, bounded and processor protects privacy/manual overrides", () => {

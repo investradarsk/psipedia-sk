@@ -96,13 +96,18 @@ test("technical details are collapsed and advanced tooling remains available but
   assert.match(geoPage, /<AdminGeoOperations/);
 });
 
-test("operator view exposes human search and filters instead of canonical IDs", () => {
+test("operator view exposes human search and combinable category/map filters instead of canonical IDs", () => {
   assert.match(operatorComponent, /Hľadať názov, obec, okres alebo kategóriu/);
   assert.match(operatorComponent, /Na mape/);
   assert.match(operatorComponent, /Čaká na spracovanie/);
   assert.match(operatorComponent, /Treba skontrolovať/);
   assert.match(operatorComponent, /Chýba adresa/);
   assert.match(operatorComponent, /Chyby/);
+  assert.match(operatorComponent, /Kategória profilu/);
+  assert.match(operatorComponent, /categoryOptions/);
+  assert.match(operatorComponent, /type="checkbox"/);
+  assert.match(operatorComponent, /Google Maps \/ mapa/);
+  assert.match(operatorComponent, /Zrušiť všetky filtre/);
 });
 
 
@@ -113,8 +118,9 @@ test("operator map summary distinguishes current Google place IDs from coordinat
   assert.match(operatorStore, /googleMapsTarget: state\.state === "ON_MAP"/);
   assert.match(operatorComponent, /Konkrétne miesto/);
   assert.match(operatorComponent, /Iba súradnice/);
-  assert.match(operatorComponent, /ON_MAP_PLACE/);
-  assert.match(operatorComponent, /ON_MAP_COORDINATES/);
+  assert.match(operatorComponent, /selectedMapTargets/);
+  assert.match(operatorComponent, /Google Maps — konkrétne miesto/);
+  assert.match(operatorComponent, /Bez mapy \/ Google Place/);
 });
 
 test("mobile-safe layout avoids forced horizontal tables in the operator-first view", () => {
