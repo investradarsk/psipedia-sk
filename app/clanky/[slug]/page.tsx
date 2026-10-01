@@ -3,6 +3,7 @@ import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { ArticleDetail } from "@/components/article-detail";
 import { getPublishedArticle, getPublishedArticleAuthorProfile } from "@/lib/article-store";
 import { getArticleMagazineData } from "@/lib/article-magazine";
+import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { articles as seedArticles } from "@/lib/content";
@@ -37,8 +38,9 @@ export default async function LegacyArticlePage({ params }: Props) {
   const canonical = articleHref(article);
   if (canonical !== `/clanky/${slug}`) redirect(canonical);
 
-  const [magazine, authorProfile, relatedBreeds] = await Promise.all([
+  const [magazine, discovery, authorProfile, relatedBreeds] = await Promise.all([
     getArticleMagazineData(article),
+    getArticleDiscoveryData(storedArticle),
     getPublishedArticleAuthorProfile(article),
     listRelatedBreedsForArticle(article.slug).catch((error) => {
       console.error("Public article breed relations read failed", {
@@ -48,5 +50,5 @@ export default async function LegacyArticlePage({ params }: Props) {
       return [];
     }),
   ]);
-  return <ArticleDetail article={article} magazine={magazine} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
+  return <ArticleDetail article={article} magazine={magazine} discovery={discovery} authorProfile={authorProfile} relatedBreeds={relatedBreeds} />;
 }
