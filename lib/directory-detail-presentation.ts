@@ -86,17 +86,18 @@ function splitDescription(value: string | null) {
 }
 
 export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile): DirectoryDetailPresentation {
-  const publicAddress = profile.formattedServiceAddress
-    ? profile.formattedServiceAddress.replace(/\n/g, ", ")
-    : profile.address;
+  const publicAddress = profile.address.trim()
+    || (profile.formattedServiceAddress ? profile.formattedServiceAddress.replace(/\n/g, ", ") : "");
   const phoneValue = usefulDirectoryDetailValue(importedValue(profile, "Telefón", "Telefon", "phone"));
   const rawEmail = usefulDirectoryDetailValue(importedValue(profile, "E-mail", "Email", "email"));
   const emails = rawEmail?.split(/[;,]/).map((item) => item.trim()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
   const websiteUrl = publicDirectoryDetailUrl(importedValue(profile, "Web", "Webstránka") ?? profile.websiteUrl);
   const facebookUrl = publicDirectoryDetailUrl(importedValue(profile, "Facebook"));
   const instagramUrl = publicDirectoryDetailUrl(importedValue(profile, "Instagram"));
-  const navigationQuery = [publicAddress, profile.city, profile.district, profile.region, "Slovensko"].filter(Boolean).join(", ");
-  const navigationUrl = publicAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(navigationQuery)}` : null;
+  // Textová/redakčná adresa sama osebe nie je dôkazom exact GEO polohy.
+  // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
+  // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
+  const navigationUrl = null;
   const factLabels = [...new Set([...(detailFields[profile.category] ?? []), ...relationFields])];
   const facts = factLabels.flatMap((label) => {
     const value = usefulDirectoryDetailValue(importedValue(profile, label));
