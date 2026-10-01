@@ -253,7 +253,7 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
       serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
         ? "CONFIRMED_SERVICE_LOCATION"
         : "LEGACY_UNCONFIRMED",
-      countryCode: "SK", online: Boolean(row.online),
+      countryCode: "SK",
       published: row.status === "published",
     };
   }
