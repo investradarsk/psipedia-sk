@@ -256,7 +256,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
       <section className="admin-form-card" data-admin-map-summary>
         <div className="admin-section-heading">
           <div>
-            <h2>Mapový workflow</h2>
+            <h2>Stav mapových položiek</h2>
             <p>
               Počty sú za celý aktuálny serverový filter, nie iba za zobrazenú stránku.
               Browser dostáva najviac {data.pagination.pageSize} kariet.
@@ -274,6 +274,25 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
               onClick={() => changeGroup(option.value)}
             >
               {option.label} ({countForGroup(data, option.value)})
+            </button>
+          ))}
+        </div>
+
+        <div className="admin-status-filter" aria-label="Rýchly filter podľa operator stavu" style={{ flexWrap: "wrap" }}>
+          {[
+            ["ON_MAP", "Na mape"],
+            ["PENDING", "Čaká na spracovanie"],
+            ["NEEDS_REVIEW", "Treba skontrolovať"],
+            ["MISSING_ADDRESS", "Chýba adresa"],
+          ].map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className={data.filters.operator === value ? "is-active" : ""}
+              aria-pressed={data.filters.operator === value}
+              onClick={() => setParam("operator", data.filters.operator === value ? "ALL" : value)}
+            >
+              {label}
             </button>
           ))}
         </div>
@@ -348,7 +367,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
               type="search"
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Názov, mesto, okres, kraj, adresa, venue…"
+              placeholder="Hľadať názov, mesto, okres, kraj alebo kategóriu"
             />
           </label>
         </div>
