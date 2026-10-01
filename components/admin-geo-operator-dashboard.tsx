@@ -102,16 +102,17 @@ export function AdminGeoOperatorDashboard({
   );
 
   const bulkCursorIndex = useMemo(
-    () => bulkCursorId === null ? -1 : visible.findIndex((item) => item.id === bulkCursorId),
-    [bulkCursorId, visible],
+    () => bulkCursorId === null ? -1 : items.findIndex((item) => item.id === bulkCursorId),
+    [bulkCursorId, items],
   );
 
-  const bulkRemaining = useMemo(() => {
-    const startIndex = bulkCursorIndex >= 0 ? bulkCursorIndex + 1 : 0;
-    return visible
-      .slice(startIndex)
-      .filter((item) => item.googleMapsTarget !== "PLACE");
-  }, [bulkCursorIndex, visible]);
+  const bulkRemaining = useMemo(
+    () => visible.filter((item) => {
+      const itemIndex = items.findIndex((candidate) => candidate.id === item.id);
+      return itemIndex > bulkCursorIndex && item.googleMapsTarget !== "PLACE";
+    }),
+    [bulkCursorIndex, items, visible],
+  );
 
   function resetBulkSession() {
     setBulkCursorId(null);
@@ -273,7 +274,7 @@ export function AdminGeoOperatorDashboard({
               }}
               onBlur={() => setBulkCount(normalizedBulkCount())}
             />
-            <small>Ľubovoľný počet od 1 do 100. Po dokončení sa kurzor posunie za posledný spracovaný profil, takže ďalšie kliknutie pokračuje ďalšou dávkou aj vtedy, keď predchádzajúce výsledky ostali na ručnú kontrolu.</small>
+            <small>Ľubovoľný počet od 1 do 100 z aktuálneho filtra a vyhľadávania. Po dokončení sa kurzor posunie za posledný spracovaný profil, takže ďalšie kliknutie pokračuje ďalšou dávkou aj vtedy, keď predchádzajúce výsledky ostali na ručnú kontrolu.</small>
           </div>
           <div className="admin-field">
             <label>Aktuálne dostupné</label>
