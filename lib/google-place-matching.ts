@@ -130,7 +130,6 @@ export function googlePlaceDistanceMeters(
 
 function diagnostics(target: GooglePlaceMatchTarget, candidate: GooglePlaceCandidate): GooglePlaceCandidateDiagnostic {
   const formatted = clean(candidate.formattedAddress);
-  const city = clean(target.city);
   const postal = compact(target.postalCode);
   const canonicalParts = clean(target.canonicalAddress).split(" ").filter((part) => part.length > 2);
   const addressHits = canonicalParts.length
@@ -154,7 +153,6 @@ function numberlessDiagnostics(
   candidate: GooglePlaceCandidate,
 ): GoogleNumberlessPlaceCandidateDiagnostic {
   const formatted = clean(candidate.formattedAddress);
-  const city = clean(target.city);
   const postal = compact(target.postalCode);
   const street = clean(target.street);
   const canonicalParts = clean(target.canonicalAddress).split(" ").filter((part) => part.length > 2);
