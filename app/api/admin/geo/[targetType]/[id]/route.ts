@@ -26,8 +26,9 @@ import {
   setManualGeoCoordinates,
   writeGeoModerationEvent,
 } from "@/lib/geo-store";
-import { evaluateGooglePlaceCandidates, evaluateNumberlessGooglePlaceCandidates, googlePlaceNameScore, type GooglePlaceCandidate } from "@/lib/google-place-matching";
+import { evaluateGooglePlaceCandidates, evaluateNumberlessGooglePlaceCandidates } from "@/lib/google-place-matching";
 import { googlePlacesApiKey, searchGooglePlacesText } from "@/lib/google-places-provider";
+import { discoverGoogleDirectoryPlaces } from "@/lib/google-place-directory-discovery";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
 
@@ -203,41 +204,6 @@ async function googleMapsNumberlessPlacePreview(source: GeoSourceLocation) {
   }
 }
 
-function googleDirectoryDiscoveryScore(source: GeoSourceLocation, candidate: GooglePlaceCandidate) {
-  const formatted = candidate.formattedAddress.toLocaleLowerCase("sk-SK");
-  const hints = [
-    source.street,
-    source.houseNumber,
-    source.postalCode,
-    source.city,
-    source.district,
-    source.region,
-  ].map((value) => value?.trim().toLocaleLowerCase("sk-SK") ?? "").filter(Boolean);
-  const hintHits = hints.filter((hint) => formatted.includes(hint)).length;
-  const hintScore = hints.length ? hintHits / hints.length : 0;
-  return (googlePlaceNameScore(source.label, candidate.displayName) * 0.75) + (hintScore * 0.25);
-}
-
-async function discoverGoogleDirectoryPlaces(source: GeoSourceLocation) {
-  const key = googlePlacesApiKey();
-  if (!key) throw new Error("Google Places serverový kľúč nie je dostupný.");
-  const queries = [
-    [source.label, source.street, source.houseNumber, source.postalCode, source.city, source.district, source.region, "Slovensko"],
-    [source.label, source.city, source.region, "Slovensko"],
-    [source.label, "Slovensko"],
-  ].map((parts) => parts.map((value) => value?.trim() ?? "").filter(Boolean).join(" "))
-    .filter((query, index, list) => query && list.indexOf(query) === index);
-
-  const unique = new Map<string, GooglePlaceCandidate>();
-  for (const query of queries) {
-    const candidates = await searchGooglePlacesText({ query, apiKey: key });
-    for (const candidate of candidates) unique.set(candidate.id, candidate);
-    if (unique.size >= 5) break;
-  }
-  return [...unique.values()]
-    .sort((left, right) => googleDirectoryDiscoveryScore(source, right) - googleDirectoryDiscoveryScore(source, left))
-    .slice(0, 5);
-}
 
 export async function GET(_request: Request, { params }: Props) {
   const user = await getAdminApiUser();

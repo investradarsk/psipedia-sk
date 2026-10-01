@@ -11,6 +11,7 @@ const updateRouteSource = readFileSync(new URL("../app/api/admin/directory/[id]/
 const createRouteSource = readFileSync(new URL("../app/api/admin/directory/route.ts", import.meta.url), "utf8");
 const storeSource = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
 const geoSource = readFileSync(new URL("../lib/geo.ts", import.meta.url), "utf8");
+const googleDiscoverySource = readFileSync(new URL("../lib/google-place-directory-discovery.ts", import.meta.url), "utf8");
 
 test("DIRECTORY-OPTIONAL-DATA keeps only identity fields mandatory in the editor/store", () => {
   assert.doesNotMatch(editorSource, /id="directory-excerpt"[\s\S]{0,250}\brequired\b/);
@@ -70,7 +71,8 @@ test("GOOGLE-PLACE-DISCOVERY asks Google for structured address components", asy
 
 test("GOOGLE-PLACE-DISCOVERY uses saved profile fields only as hints and confirms Google as provider", () => {
   assert.match(geoRouteSource, /action === "discover-google-place"/);
-  assert.match(geoRouteSource, /source\.label, source\.street, source\.houseNumber, source\.postalCode, source\.city, source\.district, source\.region/);
+  assert.match(geoRouteSource, /discoverGoogleDirectoryPlaces\(source\)/);
+  assert.match(googleDiscoverySource, /source\.label, source\.street, source\.houseNumber, source\.postalCode, source\.city, source\.district, source\.region/);
   assert.match(geoRouteSource, /action === "confirm-google-place"/);
   assert.match(geoRouteSource, /updateManagedDirectoryProfileFromGooglePlace/);
   assert.match(geoRouteSource, /applyGooglePlaceResolution/);
