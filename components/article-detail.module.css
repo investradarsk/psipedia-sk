@@ -568,65 +568,12 @@
   padding-top: 2px;
 }
 
-.sidebarHeading {
-  display: block;
-  margin-bottom: 8px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(23, 75, 56, 0.18);
-  color: var(--forest);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+.sidebarPromo {
+  margin-top: 26px;
 }
 
-.sidebar ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.sidebar li {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(23, 75, 56, 0.12);
-}
-
-.sidebarRank {
-  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.15rem;
-  line-height: 1.2;
-}
-
-.sidebar a {
-  display: grid;
-  min-height: 44px;
-  gap: 5px;
-  align-content: start;
-  color: inherit;
-  text-decoration: none;
-}
-
-.sidebar strong {
-  color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.28;
-}
-
-.sidebar small {
-  color: var(--muted);
-  font-size: 0.67rem;
-  line-height: 1.4;
-}
-
-.sidebar a:hover strong {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.sidebarPromo:first-child {
+  margin-top: 0;
 }
 
 .relatedSection {
