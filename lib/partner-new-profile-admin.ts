@@ -422,7 +422,7 @@ export async function createPartnerNewProfileAdmin(input:{
       excerpt:String(values.excerpt),description:String(values.description),
       services:Array.isArray(values.services)?values.services:[],qualifications:Array.isArray(values.qualifications)?values.qualifications:[],
       city:String(values.city),district:String(values.district),region:String(values.region),address:String(values.address),
-      online:Boolean(values.online),priceNote:String(values.priceNote),websiteUrl:String(values.websiteUrl)||null,
+      priceNote:String(values.priceNote),websiteUrl:String(values.websiteUrl)||null,
       publicPhone:String(values.publicPhone),publicEmail:String(values.publicEmail),
       facebookUrl:String(values.facebookUrl),instagramUrl:String(values.instagramUrl),
       internalEmail:null,imageUrl:media?.imageUrl??null,imageKey:media?.imageKey??null,verified:false,featured:false,seo:{},
