@@ -156,7 +156,7 @@ async function loadDirectoryRows(db: D1Database): Promise<GeoAdminOperatorRow[]>
   const result = await db.prepare(`
     SELECT
       d.id, d.name, d.category, d.address, d.city, d.district, d.region, d.postal_code,
-      d.street, d.house_number, d.address_format, d.service_address_confirmation, d.online,
+      d.street, d.house_number, d.address_format, d.service_address_confirmation,
       g.id AS geo_point_id, g.geocode_status, g.public_visibility, g.public_precision,
       g.provider, g.normalized_query, g.source_fingerprint, g.resolved_source_fingerprint,
       g.google_place_id, g.google_place_source_fingerprint,
@@ -182,12 +182,11 @@ async function loadDirectoryRows(db: D1Database): Promise<GeoAdminOperatorRow[]>
       serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
         ? "CONFIRMED_SERVICE_LOCATION"
         : "LEGACY_UNCONFIRMED",
-      online: bool(row, "online"),
+      online: false,
     });
     const state = operatorStateFor("DIRECTORY_PROFILE", row, evaluation.state, evaluation.reason);
     const id = Number(row.id);
     const category = value(row, "category");
-    const online = bool(row, "online");
     return {
       key: `DIRECTORY_PROFILE:${id}`,
       targetType: "DIRECTORY_PROFILE",
@@ -210,8 +209,8 @@ async function loadDirectoryRows(db: D1Database): Promise<GeoAdminOperatorRow[]>
       operatorReason: state.reason,
       editorHref: `/admin/adresar/${id}#service-address`,
       attentionHref: "/admin/operations?source=GEO_LOCATION_ISSUE&view=active#centrum-pozornosti",
-      googlePlaceActionAvailable: !online,
-      googlePlaceActionReason: online ? "Online-only profil nemá fyzické Google Maps miesto." : null,
+      googlePlaceActionAvailable: true,
+      googlePlaceActionReason: null,
       ...geoFields(row, state.state),
     };
   });
