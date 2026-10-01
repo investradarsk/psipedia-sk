@@ -58,6 +58,34 @@ test("GOOGLE-PLACE-MATCHING-1 accepts reordered veterinary descriptor and munici
   assert.equal(result.decision, "MATCH");
 });
 
+test("GOOGLE-PLACE-LOCALITY-2 accepts district-only Google address for a city-district canonical locality", () => {
+  const result = evaluateGooglePlaceCandidates(abovZooTarget, [{
+    id: "places/abovzoo-vet-stare-mesto",
+    displayName: "Veterinárna ambulancia AbovZoo",
+    formattedAddress: "Jesenského 17, 040 01 Staré Mesto, Slovensko",
+    latitude: 48.72055,
+    longitude: 21.25745,
+  }]);
+
+  assert.equal(result.candidate?.cityMatch, true);
+  assert.equal(result.candidate?.postalCodeMatch, true);
+  assert.equal(result.candidate?.addressMatch, true);
+  assert.equal(result.decision, "MATCH");
+});
+
+test("GOOGLE-PLACE-LOCALITY-2 keeps suffix-only locality behind the existing name, postcode, address and distance guards", () => {
+  const result = evaluateGooglePlaceCandidates(abovZooTarget, [{
+    id: "places/unrelated-stare-mesto",
+    displayName: "Veterinárna ambulancia Novák",
+    formattedAddress: "Jesenského 17, 040 01 Staré Mesto, Slovensko",
+    latitude: 48.72055,
+    longitude: 21.25745,
+  }]);
+
+  assert.equal(result.candidate?.cityMatch, true);
+  assert.notEqual(result.decision, "MATCH");
+});
+
 test("GOOGLE-PLACE-MATCHING-1 does not confuse the same brand's pet shop with its veterinary place", () => {
   const result = evaluateGooglePlaceCandidates(abovZooTarget, [{
     id: "places/abovzoo-shop",
