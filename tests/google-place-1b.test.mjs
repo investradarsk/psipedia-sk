@@ -169,7 +169,7 @@ test("GOOGLE-PLACE-1B eligibility is COMPLETE confirmed exact DIRECTORY and fail
   assert.match(source, /g\.geocode_status = 'RESOLVED'/);
   assert.match(source, /g\.public_precision = 'EXACT'/);
   assert.match(source, /g\.source_fingerprint = g\.resolved_source_fingerprint/);
-  assert.match(source, /geoSensitiveDirectoryCategory/);
+  assert.doesNotMatch(source, /geoSensitiveDirectoryCategory/);
 });
 
 test("GOOGLE-PLACE-1B query is canonical and deterministic", async () => {
