@@ -6,12 +6,14 @@ import { searchGooglePlacesText, GOOGLE_PLACES_FIELD_MASK } from "../lib/google-
 
 const editorSource = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
 const geoUiSource = readFileSync(new URL("../components/admin-geo-location.tsx", import.meta.url), "utf8");
+const googlePickerSource = readFileSync(new URL("../components/admin-google-place-picker.tsx", import.meta.url), "utf8");
 const geoRouteSource = readFileSync(new URL("../app/api/admin/geo/[targetType]/[id]/route.ts", import.meta.url), "utf8");
 const updateRouteSource = readFileSync(new URL("../app/api/admin/directory/[id]/route.ts", import.meta.url), "utf8");
 const createRouteSource = readFileSync(new URL("../app/api/admin/directory/route.ts", import.meta.url), "utf8");
 const storeSource = readFileSync(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
 const geoSource = readFileSync(new URL("../lib/geo.ts", import.meta.url), "utf8");
 const googleDiscoverySource = readFileSync(new URL("../lib/google-place-directory-discovery.ts", import.meta.url), "utf8");
+const targetDiscoverySource = readFileSync(new URL("../lib/google-place-target-discovery.ts", import.meta.url), "utf8");
 
 test("DIRECTORY-OPTIONAL-DATA keeps only identity fields mandatory in the editor/store", () => {
   assert.doesNotMatch(editorSource, /id="directory-excerpt"[\s\S]{0,250}\brequired\b/);
@@ -71,7 +73,8 @@ test("GOOGLE-PLACE-DISCOVERY asks Google for structured address components", asy
 
 test("GOOGLE-PLACE-DISCOVERY uses saved profile fields only as hints and confirms Google as provider", () => {
   assert.match(geoRouteSource, /action === "discover-google-place"/);
-  assert.match(geoRouteSource, /discoverGoogleDirectoryPlaces\(source\)/);
+  assert.match(geoRouteSource, /discoverGoogleTargetPlaces\(source\)/);
+  assert.match(targetDiscoverySource, /discoverGoogleDirectoryPlaces\(source, apiKey\)/);
   assert.match(googleDiscoverySource, /source\.label, source\.street, source\.houseNumber, source\.postalCode, source\.city, source\.district, source\.region/);
   assert.match(geoRouteSource, /action === "confirm-google-place"/);
   assert.match(geoRouteSource, /updateManagedDirectoryProfileFromGooglePlace/);
@@ -86,9 +89,10 @@ test("GOOGLE-PLACE-DISCOVERY uses saved profile fields only as hints and confirm
 });
 
 test("GOOGLE-PLACE-DISCOVERY admin is Google-first with address fallback", () => {
-  assert.match(geoUiSource, /Nájsť profil v Google Maps/);
-  assert.match(geoUiSource, /Použiť toto miesto/);
-  assert.match(geoUiSource, /Nebude to manuálny marker/);
+  const ui = geoUiSource + "\n" + googlePickerSource;
+  assert.match(ui, /Nájsť profil v Google Maps/);
+  assert.match(ui, /Použiť toto miesto/);
   assert.match(geoUiSource, /Fallback: nájsť podľa adresy/);
   assert.match(geoUiSource, /Google Maps \/ Google Place/);
+  assert.doesNotMatch(googlePickerSource, /setManualGeoCoordinates|manual marker/i);
 });
