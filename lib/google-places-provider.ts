@@ -4,7 +4,7 @@ import type { GooglePlaceCandidate } from "@/lib/google-place-matching";
 type GooglePlacesBindings = { GOOGLE_PLACES_API_KEY?: string };
 
 export const GOOGLE_PLACES_TEXT_SEARCH_ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
-export const GOOGLE_PLACES_FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location";
+export const GOOGLE_PLACES_FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.location,places.addressComponents";
 
 type GooglePlacesResponse = {
   places?: Array<{
@@ -12,6 +12,11 @@ type GooglePlacesResponse = {
     displayName?: { text?: string };
     formattedAddress?: string;
     location?: { latitude?: number; longitude?: number };
+    addressComponents?: Array<{
+      longText?: string;
+      shortText?: string;
+      types?: string[];
+    }>;
   }>;
 };
 
@@ -37,6 +42,35 @@ export function validGooglePlaceId(value: unknown): value is string {
 
 function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function addressComponent(
+  components: GooglePlacesResponse["places"] extends Array<infer Place>
+    ? Place extends { addressComponents?: infer Components } ? Components : never
+    : never,
+  ...types: string[]
+) {
+  const items = Array.isArray(components) ? components : [];
+  for (const type of types) {
+    const match = items.find((item) => Array.isArray(item?.types) && item.types.includes(type));
+    if (match?.longText?.trim() || match?.shortText?.trim()) return match;
+  }
+  return undefined;
+}
+
+function structuredAddress(place: NonNullable<GooglePlacesResponse["places"]>[number]) {
+  const components = place.addressComponents;
+  const country = addressComponent(components, "country");
+  return {
+    street: addressComponent(components, "route")?.longText?.trim() ?? "",
+    houseNumber: addressComponent(components, "street_number")?.longText?.trim() ?? "",
+    postalCode: addressComponent(components, "postal_code")?.longText?.trim() ?? "",
+    locality: addressComponent(components, "locality", "postal_town")?.longText?.trim() ?? "",
+    sublocality: addressComponent(components, "sublocality_level_1", "sublocality")?.longText?.trim() ?? "",
+    district: addressComponent(components, "administrative_area_level_2")?.longText?.trim() ?? "",
+    region: addressComponent(components, "administrative_area_level_1")?.longText?.trim() ?? "",
+    countryCode: country?.shortText?.trim().toUpperCase() ?? "",
+  };
 }
 
 export async function searchGooglePlacesText(input: {
@@ -85,6 +119,7 @@ export async function searchGooglePlacesText(input: {
         formattedAddress: place.formattedAddress?.trim() ?? "",
         latitude: place.location.latitude,
         longitude: place.location.longitude,
+        address: structuredAddress(place),
       });
     }
     return candidates.slice(0, 5);
