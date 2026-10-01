@@ -16,7 +16,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return buildListingPageMetadata({
     title: "Psy na adopciu",
     description: "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
-    path: policy.canonicalPath,
+    path: "/pomoc-psom/adopcia",
     searchParams: params,
     indexPagination: true,
     paginationParam: "strana",
@@ -34,7 +34,7 @@ export default async function AdoptionPage({ searchParams }: Props) {
   const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: "Psy na adopciu",
     description: "Aktuálny katalóg psov na adopciu na Slovensku s vyhľadávaním podľa plemena, veku, pohlavia, veľkosti a lokality.",
-    path: "/pomoc-psom/adopcia",
+    path: policy.canonicalPath,
     breadcrumbs: [
       { name: "Domov", path: "/" },
       { name: "Pomoc psom", path: "/pomoc-psom" },
