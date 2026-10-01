@@ -178,7 +178,6 @@ const entityConfigs: Record<AutomationEntityType, EntityConfig> = {
       house_number: field("house_number", "houseNumber"),
       addressFormat: field("address_format"),
       address_format: field("address_format", "addressFormat"),
-      online: bool("online"),
       priceNote: field("price_note"),
       price_note: field("price_note", "priceNote"),
       websiteUrl: field("website_url"),
