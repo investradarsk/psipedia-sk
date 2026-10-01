@@ -689,10 +689,7 @@ export function normalizeManagedDirectoryProfileInput(
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu adresára.");
   if (allDirectoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
-  if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (!options.descriptionOptional && description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
   if (rawRegion && !region) throw new Error("Vyber platný kraj.");
-  if (!online && (!city || !district || !region)) throw new Error("Pre osobnú službu vyber kraj, okres a obec / mesto.");
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
 
   const addressFormat = directoryAddressFormats.includes(payload.addressFormat as DirectoryAddressFormat)
@@ -750,7 +747,7 @@ export function normalizeManagedDirectoryProfileInput(
       email: Boolean(publicContacts.email),
       website: Boolean(publicContacts.website),
       image: Boolean(imageUrl),
-      address: online || serviceAddress.state === "COMPLETE",
+      address: online || serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(legacyAddress)),
     },
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
