@@ -19,7 +19,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return buildListingPageMetadata({
     title: `${category.label} – adresár`,
     description: category.description,
-    path: policy.canonicalPath,
+    path: `/adresar/${category.slug}`,
     searchParams: await searchParams,
     indexPagination: true,
   });
@@ -38,7 +38,7 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: category.label,
     description: category.description,
-    path: `/adresar/${category.slug}`,
+    path: policy.canonicalPath,
     breadcrumbs: [
       { name: "Domov", path: "/" },
       { name: "Služby pre psov", path: "/adresar" },
