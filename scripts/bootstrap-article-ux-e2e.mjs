@@ -185,6 +185,7 @@ const articleFixtures = [
       { id: "no-image-text-1", type: "text", content: "Prvý blok testovacieho obsahu." },
       { id: "no-image-h2-2", type: "h2", text: "Druhá časť článku" },
       { id: "no-image-text-2", type: "text", content: "Druhý blok testovacieho obsahu." },
+      { id: "no-image-promo-1", type: "psipedia-promo", promoKey: "veterinari", variant: "auto" },
       { id: "no-image-source-1", type: "source", label: "AVMA Pet Health", url: "https://www.avma.org/resources-tools/pet-owners/petcare" },
     ],
     sections: [],
@@ -337,6 +338,26 @@ async function upsertArticle(baseUrl, fixture) {
   }
 }
 
+async function seedPopularity(baseUrl) {
+  const rankedFixtures = [
+    ["e2e-sidebar-article-1", 7],
+    ["e2e-sidebar-article-2", 6],
+    ["e2e-sidebar-article-3", 5],
+    ["ako-vybrat-granule-bez-marketingovych-mytov", 4],
+    ["e2e-vyskum-psov-2026", 3],
+    ["e2e-zaujimavost-psov-2026", 2],
+  ];
+
+  for (const [articleSlug, reads] of rankedFixtures) {
+    for (let index = 0; index < reads; index += 1) {
+      await request(baseUrl, "/api/articles/read", {
+        method: "POST",
+        body: JSON.stringify({ articleSlug }),
+      });
+    }
+  }
+}
+
 async function verifyPublicRoutes(baseUrl) {
   for (const fixture of articleFixtures.filter((item) => item.status === "published")) {
     const route = `/${fixture.portalSection}/${fixture.slug}`;
@@ -349,5 +370,6 @@ async function verifyPublicRoutes(baseUrl) {
 const baseUrl = requireLocalBaseUrl();
 await materializeSections(baseUrl);
 for (const fixture of articleFixtures) await upsertArticle(baseUrl, fixture);
+await seedPopularity(baseUrl);
 await verifyPublicRoutes(baseUrl);
 console.log(`[article-ux-e2e-bootstrap] PASS: ${articleFixtures.length} isolated local article fixtures are ready at ${baseUrl}.`);
