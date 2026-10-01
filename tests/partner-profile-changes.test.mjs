@@ -91,7 +91,7 @@ test("central field registry excludes system, ranking, media and source fields",
     for (const key of forbidden) assert.equal(keys.includes(key), false, `${type} must not expose ${key}`);
   }
   assert.deepEqual(getPartnerEditableFields("DIRECTORY_PROFILE").map((field) => field.key), [
-    "name","excerpt","description","services","qualifications","city","district","region","address","online",
+    "name","excerpt","description","services","qualifications","city","district","region","address",
     "priceNote","websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl",
   ]);
   assert.deepEqual(getPartnerEditableFields("HELP_ORGANIZATION").map((field) => field.key), [
@@ -107,11 +107,11 @@ test("mass assignment, malformed URL, XSS and oversized arrays are rejected serv
     excerpt: "Dostatočne dlhý krátky popis profilu.",
     description: "Toto je dostatočne dlhý bezpečný popis testovacieho profilu.",
     services: ["Vyšetrenie"], qualifications: [], city: "Nitra", district: "Nitra",
-    region: "Nitriansky kraj", address: "Test 1", online: false, priceNote: "",
+    region: "Nitriansky kraj", address: "Test 1", priceNote: "",
     websiteUrl: "https://example.sk/", publicPhone: "+421900000000", publicEmail: "test@example.sk",
     facebookUrl: "", instagramUrl: "",
   };
-  for (const key of ["status","featured","verified","sourceDataJson","unknownField"]) {
+  for (const key of ["status","featured","verified","sourceDataJson","online","unknownField"]) {
     await assert.rejects(
       async () => normalizePartnerProfilePatch("DIRECTORY_PROFILE", { [key]: "x" }, current),
       /nie je možné upravovať/,
