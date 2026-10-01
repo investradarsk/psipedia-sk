@@ -15,6 +15,16 @@ export async function requireDirectoryAddressProviderSchema() {
   }
 }
 
+export function withUnconfirmedDirectoryAddress(
+  payload: ManagedDirectoryProfileInput,
+): ManagedDirectoryProfileInput {
+  return {
+    ...payload,
+    confirmServiceAddress: false,
+    clearServiceAddressConfirmation: true,
+  };
+}
+
 export function withVerifiedDirectoryAddress(
   payload: ManagedDirectoryProfileInput,
   verified: VerifiedDirectoryAddress,

@@ -7,6 +7,7 @@ import {
 } from "@/lib/geo-admin-operator-state";
 import { getDirectoryCategory } from "@/lib/directory";
 import {
+  directoryAddressQualityWarning,
   evaluateDirectoryServiceAddress,
   type DirectoryServiceAddressEvaluation,
 } from "@/lib/directory-service-address";
@@ -31,7 +32,9 @@ export type GeoAdminOperatorRow = {
   district: string;
   region: string;
   formattedAddress: string | null;
+  publicAddress: string;
   legacyAddress: string;
+  addressWarning: string | null;
   addressState: GeoAdminOperatorAddressState;
   addressReason: string;
   operatorState: GeoAdminOperatorState;
@@ -182,9 +185,25 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
       : "LEGACY_UNCONFIRMED",
     online: truthy(row, "online"),
   });
+  const publicAddress = value(row, "address");
+  const addressWarning = directoryAddressQualityWarning({
+    region: value(row, "region"),
+    district: value(row, "district"),
+    city: value(row, "city"),
+    postalCode: value(row, "postal_code"),
+    street: value(row, "street"),
+    houseNumber: value(row, "house_number"),
+    addressFormat: (row.address_format === "STREET" || row.address_format === "MUNICIPALITY_NUMBER") ? row.address_format : "",
+    serviceAddressConfirmation: row.service_address_confirmation === "CONFIRMED_SERVICE_LOCATION"
+      ? "CONFIRMED_SERVICE_LOCATION"
+      : "LEGACY_UNCONFIRMED",
+    online: truthy(row, "online"),
+  }, publicAddress);
+  const effectiveAddressState: DirectoryServiceAddressEvaluation["state"] =
+    publicAddress && evaluation.state !== "COMPLETE" ? "NEEDS_REVIEW" : evaluation.state;
   const geo = commonGeo(row);
   const state = geoAdminOperatorState({
-    addressState: evaluation.state,
+    addressState: effectiveAddressState,
     addressReason: evaluation.reason,
     geocodeStatus: geo.geocodeStatus,
     publicVisibility: geo.publicVisibility,
@@ -228,8 +247,10 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
     district: value(row, "district"),
     region: value(row, "region"),
     formattedAddress: evaluation.formattedAddress,
-    legacyAddress: value(row, "address"),
-    addressState: evaluation.state,
+    publicAddress,
+    legacyAddress: publicAddress,
+    addressWarning,
+    addressState: effectiveAddressState,
     addressReason: evaluation.reason,
     operatorState: state.state,
     operatorReason: state.reason,
@@ -296,7 +317,9 @@ function organizationRow(row: DbRow): GeoAdminOperatorRow {
     district: value(row, "district"),
     region: value(row, "region"),
     formattedAddress: displayAddress(value(row, "address"), value(row, "city"), value(row, "district"), value(row, "region")),
+    publicAddress: "",
     legacyAddress: "",
+    addressWarning: null,
     addressState: hasLocationSource ? "AVAILABLE" : "MISSING",
     addressReason: hasLocationSource ? role : "MISSING",
     operatorState: state.state,
@@ -362,7 +385,9 @@ function eventRow(row: DbRow): GeoAdminOperatorRow {
     district: "",
     region,
     formattedAddress: displayAddress(venue, value(row, "address"), city, region),
+    publicAddress: "",
     legacyAddress: "",
+    addressWarning: null,
     addressState: hasLocationSource ? "AVAILABLE" : "MISSING",
     addressReason: online ? "ONLINE_ONLY" : hasLocationSource ? "AVAILABLE" : "MISSING",
     operatorState: state.state,

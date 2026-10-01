@@ -960,7 +960,8 @@ test("filters a directory category on the server and keeps verification data pri
     assert.match(detailHtml, /Bratislava I/);
     assert.match(detailHtml, /tel:\+421900111222/);
     assert.match(detailHtml, /mailto:klub@example.com/);
-    assert.match(detailHtml, /Navigovať/);
+    // Textová verejná adresa sama o sebe nesmie vytvoriť exact navigáciu.
+    assert.doesNotMatch(detailHtml, />Navigovať<\/a>/);
     assert.match(detailHtml, /href="\/adresar\/kynologicke-kluby\?region=Bratislavsk%C3%BD%20kraj"/);
     assert.match(detailHtml, /Spravujete tento profil\?/);
     assert.match(detailHtml, /Navrhnúť opravu údajov/);

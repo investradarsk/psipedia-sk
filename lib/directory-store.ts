@@ -511,7 +511,7 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     qualifications: safePublicList(row.qualifications_json),
     city: row.city,
     district: row.district || String(safeImportData(row.source_data_json)?.["Okres"] ?? ""),
-    region: normalizeDirectoryRegion(row.region) ?? "Online",
+    region: normalizeDirectoryRegion(row.region) ?? row.region,
     address: row.address,
     postalCode: row.postal_code ?? "",
     street: row.street ?? "",
@@ -655,6 +655,17 @@ function cleanText(value: unknown, maxLength: number) {
   return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
 }
 
+function safeDirectoryAddressText(value: unknown, maxLength: number, label: string) {
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string") throw new Error(`${label} musí byť text.`);
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F<>]/u.test(value)) {
+    throw new Error(`${label} obsahuje nepovolené znaky.`);
+  }
+  const clean = value.replace(/\r\n?/g, "\n").trim();
+  if (clean.length > maxLength) throw new Error(`${label} je príliš dlhá hodnota.`);
+  return clean;
+}
+
 function normalizeOptionalUrl(value: unknown, label: string) {
   const clean = cleanText(value, 500);
   if (!clean) return "";
@@ -736,9 +747,9 @@ export function normalizeManagedDirectoryProfileInput(
   const status: DirectoryProfileStatus = payload.status === "published" ? "published" : "draft";
   const excerpt = payload.excerpt?.trim() ?? "";
   const description = payload.description?.trim() ?? "";
-  const city = payload.city?.trim() ?? "";
-  const district = payload.district?.trim() ?? "";
-  const rawRegion = payload.region?.trim() ?? "";
+  const city = safeDirectoryAddressText(payload.city, 120, "Mesto / obec");
+  const district = safeDirectoryAddressText(payload.district, 120, "Okres");
+  const rawRegion = safeDirectoryAddressText(payload.region, 80, "Kraj");
   const region = rawRegion ? normalizeDirectoryRegion(rawRegion) : null;
   const imageUrl = payload.imageUrl?.trim() || null;
   const online = Boolean(payload.online);
@@ -747,23 +758,26 @@ export function normalizeManagedDirectoryProfileInput(
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa profilu nie je platná.");
   if (!category) throw new Error("Vyber kategóriu adresára.");
   if (allDirectoryCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu profilu.");
-  if (rawRegion && !region) throw new Error("Vyber platný kraj.");
-  if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
+   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka nie je platná.");
 
   const addressFormat = directoryAddressFormats.includes(payload.addressFormat as DirectoryAddressFormat)
     ? payload.addressFormat as DirectoryAddressFormat
     : "";
   if (payload.addressFormat && !addressFormat) throw new Error("Neplatný formát adresy prevádzky.");
 
-  const postalCode = normalizeSlovakPostalCode(payload.postalCode);
-  const street = payload.street?.trim() ?? "";
-  const houseNumber = payload.houseNumber?.trim() ?? "";
+  const postalCode = normalizeSlovakPostalCode(safeDirectoryAddressText(payload.postalCode, 20, "PSČ"));
+  const street = safeDirectoryAddressText(payload.street, 180, "Ulica");
+  const houseNumber = safeDirectoryAddressText(payload.houseNumber, 40, "Číslo domu");
   const serviceAddressConfirmation: DirectoryServiceAddressConfirmation = payload.confirmServiceAddress === true
     ? "CONFIRMED_SERVICE_LOCATION"
     : payload.clearServiceAddressConfirmation === true
       ? "LEGACY_UNCONFIRMED"
       : options.currentServiceAddressConfirmation ?? "LEGACY_UNCONFIRMED";
-  const legacyAddress = payload.address === undefined ? options.legacyAddress ?? "" : payload.address.trim();
+  const publicAddress = safeDirectoryAddressText(
+    payload.address === undefined ? options.legacyAddress ?? "" : payload.address,
+    500,
+    "Verejná adresa",
+  );
 
   const serviceAddress = evaluateDirectoryServiceAddress({
     region: region ?? rawRegion,
@@ -776,10 +790,9 @@ export function normalizeManagedDirectoryProfileInput(
     serviceAddressConfirmation,
     online,
   });
-  if (serviceAddress.reason === "LOCALITY_INVALID" || serviceAddress.reason === "ONLINE_SENTINEL_CONFLICT") {
-    throw new Error("Kraj, okres a obec / mesto netvoria platnú slovenskú lokalitu.");
-  }
-  const authoritativeAddressText = serviceAddress.formattedAddress ?? legacyAddress;
+  // Address-quality findings are review signals only. They must never veto
+  // saving or publishing an otherwise safe directory payload.
+  const authoritativeAddressText = publicAddress || serviceAddress.formattedAddress || "";
 
   const services = normalizeStringList(payload.services);
   const qualifications = normalizeStringList(payload.qualifications);
@@ -805,7 +818,7 @@ export function normalizeManagedDirectoryProfileInput(
       email: Boolean(publicContacts.email),
       website: Boolean(publicContacts.website),
       image: Boolean(imageUrl),
-      address: online || serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(legacyAddress)),
+      address: online || serviceAddress.state === "COMPLETE" || (serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION" && Boolean(publicAddress)),
     },
     qualityCheckedAt ?? undefined,
     { refreshCheckedAt: Boolean(qualityCheckedAt) },
@@ -822,7 +835,7 @@ export function normalizeManagedDirectoryProfileInput(
     city,
     district,
     region: region ?? rawRegion,
-    address: legacyAddress,
+    address: publicAddress,
     postalCode,
     street,
     houseNumber,

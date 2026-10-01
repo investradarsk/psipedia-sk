@@ -67,7 +67,8 @@ export async function discoverGoogleDirectoryPlaces(source: GeoSourceLocation, a
   const key = apiKey ?? googlePlacesApiKey();
   if (!key) throw new Error("Google Places serverový kľúč nie je dostupný.");
   const queries = [
-    [source.label, source.street, source.houseNumber, source.postalCode, source.city, source.district, source.region, "Slovensko"],
+    [source.label, source.address, source.street, source.houseNumber, source.postalCode, source.city, source.district, source.region, "Slovensko"],
+    [source.label, source.address, source.city, source.region, "Slovensko"],
     [source.label, source.city, source.region, "Slovensko"],
     [source.label, "Slovensko"],
   ].map((parts) => parts.map((value) => value?.trim() ?? "").filter(Boolean).join(" "))
