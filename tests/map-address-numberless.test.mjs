@@ -124,15 +124,17 @@ test("numberless admin address UX never requires a fake house number", () => {
   assert.match(editorSource, /Ak miesto nemá verejne dohľadateľné číslo domu, nechaj pole prázdne/);
   assert.doesNotMatch(editorSource, /id="directory-house-number"[\s\S]{0,400}required=\{!online\}/);
   assert.match(editorSource, /id="directory-postal-code"/);
-  assert.match(editorSource, /required=\{!online && !houseNumber\.trim\(\)\}/);
+  assert.doesNotMatch(editorSource, /id="directory-postal-code"[\s\S]{0,300}required=/);
+  assert.match(editorSource, /PSČ je nepovinné/);
 });
 
-test("directory create and update routes save numberless canonical STREET data without fabricating houseNumber", () => {
+test("directory routes verify complete numberless data but keep missing fields as unconfirmed hints", () => {
   for (const source of [directoryCreateSource, directoryUpdateSource]) {
     assert.match(source, /verifyDirectoryNumberlessAddressSelection/);
     assert.match(source, /withVerifiedDirectoryNumberlessAddress/);
+    assert.match(source, /clearServiceAddressConfirmation: true/);
   }
-  assert.match(directoryCreateSource, /if \(body\.houseNumber\?\.trim\(\)\)[\s\S]*verifyDirectoryAddressSelection[\s\S]*else \{[\s\S]*verifyDirectoryNumberlessAddressSelection/);
+  assert.match(directoryCreateSource, /body\.addressProviderResultId\?\.trim\(\) && body\.postalCode\?\.trim\(\) && hasLocality/);
   assert.match(directoryUpdateSource, /const houseNumber = \(body\.houseNumber \?\? before\.houseNumber\)\.trim\(\)/);
 });
 

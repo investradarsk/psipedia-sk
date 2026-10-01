@@ -373,7 +373,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
             <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>
             <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => setCategory(event.target.value as DirectoryCategorySlug)}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
-            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><textarea id="directory-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čím je profil zaujímavý a komu pomáha?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
+            <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><textarea id="directory-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čím je profil zaujímavý a komu pomáha?" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-location" className="admin-form-card">
@@ -385,7 +385,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
             ) : null}
             <SlovakiaLocationSelector
               value={{ region, district, city }}
-              required={!online}
+              required={false}
               idPrefix="directory-service-location"
               onChange={(location) => {
                 const changed = location.region !== region || location.district !== district || location.city !== city;
@@ -465,9 +465,8 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
                     onChange={(event) => setPostalCode(event.target.value)}
                     placeholder="Napríklad 031 01"
                     inputMode="numeric"
-                    required={!online && !houseNumber.trim()}
                   />
-                  <small>{houseNumber.trim() ? "Pri klasickej adrese PSČ po uložení overí Geoapify." : "Pri mieste bez čísla domu zadaj verejne používané PSČ."}</small>
+                  <small>{houseNumber.trim() ? "Ak PSČ nepoznáš, môže zostať prázdne; provider ho môže doplniť." : "PSČ je nepovinné. Ak ho nepoznáš, nechaj ho prázdne."}</small>
                 </div>
               </div>
             ) : null}
@@ -484,7 +483,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
 
           <AdminEditorSection id="directory-content" className="admin-form-card">
             <div className="admin-card-heading"><div><span>03</span><div><h2>Obsah profilu</h2><p>Čo ponúka, skúsenosti a praktické informácie.</p></div></div></div>
-            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} required /></div>
+            <div className="admin-field"><label htmlFor="directory-description">Podrobný popis</label><textarea id="directory-description" rows={9} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={"Predstav profil, spôsob práce a pre koho sú služby vhodné.\n\nNový odsek začni po prázdnom riadku."} /></div>
             <AdminHelpText term="Formát">Adresár dnes ukladá popis ako plain text. Editor preto zachováva aktuálny dátový contract; rich-text patrí do samostatnej migrácie.</AdminHelpText>
             <div className="admin-field-grid">
               <div className="admin-field"><label htmlFor="directory-services">Služby a zameranie</label><textarea id="directory-services" rows={7} value={services} onChange={(event) => setServices(event.target.value)} placeholder={"Individuálny tréning\nSkupinové kurzy\nPráca so šteniatkami"} /><small>Jedna položka na riadok.</small></div>

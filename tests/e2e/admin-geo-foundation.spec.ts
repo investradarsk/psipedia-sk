@@ -28,7 +28,8 @@ test.describe("MAP-1B admin geo foundation", () => {
     await expect(geoPanel.getByRole("button", { name: "Diagnostika Geoapify (bez zápisu)" })).toHaveCount(0);
 
     await geoPanel.getByLabel("Verejná poloha").selectOption("yes");
-    await expect(geoPanel.getByRole("button", { name: /Nájsť polohu podľa adresy|Overiť znova|Nájsť polohu znova/ })).toBeVisible();
+    await expect(geoPanel.getByRole("button", { name: "Nájsť profil v Google Maps" })).toBeVisible();
+    await expect(geoPanel.getByRole("button", { name: /Fallback: nájsť podľa adresy|Fallback: overiť podľa adresy|Nájsť podľa adresy znova/ })).toBeVisible();
 
     await geoPanel.getByText("Technické informácie").click();
     await expect(geoPanel.getByText("Verejná mapa")).toBeVisible();

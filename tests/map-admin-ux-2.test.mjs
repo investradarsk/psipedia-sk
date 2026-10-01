@@ -12,9 +12,11 @@ test("MAP-ADMIN-UX-2 keeps directory geo inside the address section", () => {
   assert.match(component, /Poloha na mape/);
 });
 
-test("primary admin flow exposes simple Slovak controls and hides coordinate editing", () => {
+test("primary admin flow is Google-first and keeps address fallback without coordinate editing", () => {
   assert.match(component, /Verejná poloha/);
-  assert.match(component, /Nájsť polohu podľa adresy/);
+  assert.match(component, /Nájsť profil v Google Maps/);
+  assert.match(component, /Použiť toto miesto/);
+  assert.match(component, /Fallback: nájsť podľa adresy/);
   assert.match(component, /Potvrdiť polohu/);
   assert.match(component, /Hľadať znova/);
   assert.match(component, /Nájdená adresa v Google Maps/);
@@ -35,7 +37,7 @@ test("privacy-sensitive directory categories default to private without removing
 
 test("stale source is explained without technical enum copy", () => {
   assert.match(component, /Adresa sa zmenila\.<\/strong> Poloha na mape potrebuje nové overenie/);
-  assert.match(component, /Nájsť polohu znova/);
+  assert.match(component, /Nájsť podľa adresy znova/);
 });
 
 test("location search is a no-write preview until explicit confirmation", () => {

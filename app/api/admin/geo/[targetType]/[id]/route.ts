@@ -26,9 +26,10 @@ import {
   setManualGeoCoordinates,
   writeGeoModerationEvent,
 } from "@/lib/geo-store";
-import { evaluateGooglePlaceCandidates, evaluateNumberlessGooglePlaceCandidates } from "@/lib/google-place-matching";
+import { evaluateGooglePlaceCandidates, evaluateNumberlessGooglePlaceCandidates, googlePlaceNameScore, type GooglePlaceCandidate } from "@/lib/google-place-matching";
 import { googlePlacesApiKey, searchGooglePlacesText } from "@/lib/google-places-provider";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
+import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ targetType: string; id: string }> };
@@ -202,6 +203,42 @@ async function googleMapsNumberlessPlacePreview(source: GeoSourceLocation) {
   }
 }
 
+function googleDirectoryDiscoveryScore(source: GeoSourceLocation, candidate: GooglePlaceCandidate) {
+  const formatted = candidate.formattedAddress.toLocaleLowerCase("sk-SK");
+  const hints = [
+    source.street,
+    source.houseNumber,
+    source.postalCode,
+    source.city,
+    source.district,
+    source.region,
+  ].map((value) => value?.trim().toLocaleLowerCase("sk-SK") ?? "").filter(Boolean);
+  const hintHits = hints.filter((hint) => formatted.includes(hint)).length;
+  const hintScore = hints.length ? hintHits / hints.length : 0;
+  return (googlePlaceNameScore(source.label, candidate.displayName) * 0.75) + (hintScore * 0.25);
+}
+
+async function discoverGoogleDirectoryPlaces(source: GeoSourceLocation) {
+  const key = googlePlacesApiKey();
+  if (!key) throw new Error("Google Places serverový kľúč nie je dostupný.");
+  const queries = [
+    [source.label, source.street, source.houseNumber, source.postalCode, source.city, source.district, source.region, "Slovensko"],
+    [source.label, source.city, source.region, "Slovensko"],
+    [source.label, "Slovensko"],
+  ].map((parts) => parts.map((value) => value?.trim() ?? "").filter(Boolean).join(" "))
+    .filter((query, index, list) => query && list.indexOf(query) === index);
+
+  const unique = new Map<string, GooglePlaceCandidate>();
+  for (const query of queries) {
+    const candidates = await searchGooglePlacesText({ query, apiKey: key });
+    for (const candidate of candidates) unique.set(candidate.id, candidate);
+    if (unique.size >= 5) break;
+  }
+  return [...unique.values()]
+    .sort((left, right) => googleDirectoryDiscoveryScore(source, right) - googleDirectoryDiscoveryScore(source, left))
+    .slice(0, 5);
+}
+
 export async function GET(_request: Request, { params }: Props) {
   const user = await getAdminApiUser();
   if (!user) return unauthorizedAdminResponse();
@@ -239,6 +276,73 @@ export async function POST(request: Request, { params }: Props) {
   }
 
   try {
+    if (action === "discover-google-place") {
+      if (target.targetType !== "DIRECTORY_PROFILE") {
+        return Response.json({ error: "Google profil možno hľadať iba pre profil adresára." }, { status: 400 });
+      }
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      if (!source.label.trim()) return Response.json({ error: "Najprv doplň názov profilu." }, { status: 409 });
+      const candidates = await discoverGoogleDirectoryPlaces(source);
+      return Response.json({ candidates });
+    }
+
+    if (action === "confirm-google-place") {
+      if (target.targetType !== "DIRECTORY_PROFILE") {
+        return Response.json({ error: "Google profil možno potvrdiť iba pre profil adresára." }, { status: 400 });
+      }
+      const placeId = typeof body.placeId === "string" ? body.placeId.trim() : "";
+      if (!placeId) return Response.json({ error: "Vyber konkrétne miesto z Google Maps." }, { status: 400 });
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      const candidates = await discoverGoogleDirectoryPlaces(source);
+      const selected = candidates.find((candidate) => candidate.id === placeId);
+      if (!selected) {
+        return Response.json({ error: "Vybraný Google Place sa už vo výsledkoch nenachádza. Vyhľadaj ho znova." }, { status: 409 });
+      }
+
+      const profile = await updateManagedDirectoryProfileFromGooglePlace(target.id, selected, user.email);
+      if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+
+      let point = await getGeoPointForTarget(target.targetType, target.id);
+      if (!point) point = (await initializeGeoPointForTarget(target.targetType, target.id, user.email)).point;
+      if (point.manualOverride) point = await resetManualGeoOverride(target.targetType, target.id, user.email);
+
+      const publicLocation = body.publicLocation !== false;
+      if (!publicLocation) {
+        point = await setGeoVisibility({
+          targetType: target.targetType,
+          targetId: target.id,
+          visibility: "HIDDEN",
+          precision: null,
+          actorRef: user.email,
+          reason: "GOOGLE_PLACE_CONFIRMED_PRIVATE",
+        });
+        return Response.json({ profile, point, googlePlaceId: selected.id });
+      }
+
+      if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
+        point = await setGeoVisibility({
+          targetType: target.targetType,
+          targetId: target.id,
+          visibility: "EXACT_PUBLIC",
+          precision: "EXACT",
+          actorRef: user.email,
+          reason: "GOOGLE_PLACE_CONFIRMED",
+        });
+      }
+      point = await applyGooglePlaceResolution({
+        targetType: target.targetType,
+        targetId: target.id,
+        place: {
+          id: selected.id,
+          latitude: selected.latitude,
+          longitude: selected.longitude,
+        },
+      });
+      return Response.json({ profile, point, googlePlaceId: selected.id });
+    }
+
     if (action === "preview") {
       if (target.targetType !== "DIRECTORY_PROFILE") {
         return Response.json({ error: "Jednoduché overenie podľa adresy je dostupné iba pre profil adresára." }, { status: 400 });

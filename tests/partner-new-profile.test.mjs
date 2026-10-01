@@ -235,19 +235,19 @@ test("directory long description is optional for CREATE and remains bounded at 2
   assert.doesNotMatch(profileChanges,/textValue\(value, "Popis", 20_000, true, 40\)/);
 });
 
-test("Partner admin canonical draft preserves optional directory description without weakening default canonical validation", async()=>{
+test("Partner admin canonical draft and regular canonical editor both preserve optional directory description", async()=>{
   const {normalizeManagedDirectoryProfileInput}=await importTs("lib/directory-store.ts");
   const payload={
     slug:"partner-optional-description",
     name:"Partner Optional Description",
     category:"veterinari",
     status:"draft",
-    excerpt:"Krátky popis má určite aspoň dvadsať znakov.",
+    excerpt:"",
     description:"",
-    city:"Nitra",
-    district:"Nitra",
-    region:"Nitriansky kraj",
-    address:"Hlavná 1",
+    city:"",
+    district:"",
+    region:"",
+    address:"",
     services:[],
     qualifications:[],
     websiteUrl:"https://example.sk",
@@ -256,9 +256,13 @@ test("Partner admin canonical draft preserves optional directory description wit
     facebookUrl:"",
     instagramUrl:"",
   };
-  assert.throws(()=>normalizeManagedDirectoryProfileInput(payload),/Podrobný popis/);
-  const normalized=normalizeManagedDirectoryProfileInput(payload,null,{descriptionOptional:true});
+  const normalized=normalizeManagedDirectoryProfileInput(payload);
   assert.equal(normalized.description,"");
+  assert.equal(normalized.excerpt,"");
+  assert.equal(normalized.city,"");
+  assert.equal(normalized.region,"");
+  const partnerNormalized=normalizeManagedDirectoryProfileInput(payload,null,{descriptionOptional:true});
+  assert.equal(partnerNormalized.description,"");
   assert.match(admin,/descriptionOptional: true/);
 });
 

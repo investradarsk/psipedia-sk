@@ -151,11 +151,12 @@ test("ADDRESS-UX-1 autocomplete waits for intentional editing and preserves comb
   assert.match(directoryAutocompleteSource, /role="listbox"/);
 });
 
-test("ADDRESS-UX-1 server safety still requires verification for changed physical addresses", () => {
+test("ADDRESS-UX-1 changed physical data may persist as unconfirmed hints while verified paths stay provider-backed", () => {
   assert.match(directoryPutSource, /if \(body\.addressProviderResultId\?\.trim\(\)\)/);
   assert.match(directoryPutSource, /verifyDirectoryAddressSelection/);
   assert.match(directoryPutSource, /else if \(changed\)/);
-  assert.match(directoryPutSource, /Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov/);
+  assert.match(directoryPutSource, /clearServiceAddressConfirmation: true/);
+  assert.doesNotMatch(directoryPutSource, /Zmenu fyzickej adresy potvrď výberom ulice z Geoapify návrhov/);
   assert.match(directoryPutSource, /preserveDirectoryPhysicalAddress\(before, body\)/);
 });
 
