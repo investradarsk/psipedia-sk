@@ -123,7 +123,7 @@ test("GOOGLE-PLACE-BULK Admin Mapy supports combinable category and Google Maps 
   assert.match(dashboard, /Google Maps \/ mapa/);
   assert.match(dashboard, /Google Maps — konkrétne miesto/);
   assert.match(dashboard, /Iba súradnice/);
-  assert.match(dashboard, /Bez mapy \/ Google Place/);
+  assert.match(dashboard, /Bez Google Place \/ bez mapového cieľa/);
   assert.match(dashboard, /selectedMapTargets/);
   assert.match(dashboard, /item\.googleMapsTarget/);
   assert.match(dashboard, /Zrušiť všetky filtre/);
