@@ -1,12 +1,24 @@
 export const GOOGLE_PLACE_MATCH_DISTANCE_METERS = 250;
 export const GOOGLE_PLACE_REVIEW_DISTANCE_METERS = 1_500;
 
+export type GooglePlaceStructuredAddress = {
+  street: string;
+  houseNumber: string;
+  postalCode: string;
+  locality: string;
+  sublocality: string;
+  district: string;
+  region: string;
+  countryCode: string;
+};
+
 export type GooglePlaceCandidate = {
   id: string;
   displayName: string;
   formattedAddress: string;
   latitude: number;
   longitude: number;
+  address?: GooglePlaceStructuredAddress;
 };
 
 export type GooglePlaceMatchTarget = {
