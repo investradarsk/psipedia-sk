@@ -82,7 +82,8 @@ async function assertNewProfileIndependentOwnershipApprover(input:Parameters<typ
 function safeJson<T>(value:string,fallback:T):T{try{return JSON.parse(value) as T;}catch{return fallback;}}
 function withoutLegacyDirectoryOnline(value:unknown){
   if(!value||typeof value!=="object"||Array.isArray(value))return value;
-  const {online:_legacyOnline,...rest}=value as Record<string,unknown>;
+  const rest={...(value as Record<string,unknown>)};
+  delete rest.online;
   return rest;
 }
 function active(status:string){return status==="SUBMITTED"||status==="PENDING_REVIEW"||status==="QUARANTINED";}
