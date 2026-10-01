@@ -5,7 +5,7 @@ import { geoAdminGenericOperatorState, geoAdminOperatorState } from "../lib/geo-
 
 const operatorStore = readFileSync(new URL("../lib/geo-admin-operator.ts", import.meta.url), "utf8");
 const operatorComponent = readFileSync(new URL("../components/admin-geo-operator-dashboard.tsx", import.meta.url), "utf8");
-const geoPage = readFileSync(new URL("../app/admin/operations/geo/page.tsx", import.meta.url), "utf8");
+const geoPage = readFileSync(new URL("../app/admin/mapy/page.tsx", import.meta.url), "utf8");
 const advancedComponent = readFileSync(new URL("../components/admin-geo-operations.tsx", import.meta.url), "utf8");
 
 const base = {
@@ -117,9 +117,8 @@ test("operator CTA links directly to the directory editor and review reuses Atte
 test("technical details are collapsed and advanced tooling remains available but secondary", () => {
   assert.match(operatorComponent, /<details/);
   assert.match(operatorComponent, /Technické detaily/);
-  assert.match(geoPage, /<details className="admin-form-card"/);
-  assert.match(geoPage, /Pokročilé nástroje/);
-  assert.match(geoPage, /<AdminGeoOperations/);
+  assert.match(geoPage, /<AdminGeoOperatorDashboard/);
+  assert.match(advancedComponent, /AdminGeoOperations/);
 });
 
 test("operator view exposes human search and combinable category/map filters instead of canonical IDs", () => {
