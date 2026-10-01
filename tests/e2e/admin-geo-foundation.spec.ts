@@ -15,9 +15,9 @@ test.describe("MAP-1B admin geo foundation", () => {
     await expect(geoPanel.getByRole("heading", { name: "Poloha na mape" })).toBeVisible();
     await expect(geoPanel.getByLabel("Verejná poloha")).toBeVisible();
 
-    // Tréner je privacy-sensitive category: bezpečný default zostáva neverejný.
-    await expect(geoPanel.getByLabel("Verejná poloha")).toHaveValue("no");
-    await expect(geoPanel.getByText(/bezpečný predvolený stav neverejný/i)).toBeVisible();
+    // Kategória profilu už sama o sebe neurčuje súkromie. Bez explicitného HIDDEN je služba verejná.
+    await expect(geoPanel.getByLabel("Verejná poloha")).toHaveValue("yes");
+    await expect(geoPanel.getByText(/explicitné nastavenie súkromia, nie kategória profilu/i)).toBeVisible();
 
     // Staré technické ovládanie už nesmie dominovať bežnému editoru.
     await expect(geoPanel.getByLabel("Latitude")).toHaveCount(0);
@@ -27,7 +27,6 @@ test.describe("MAP-1B admin geo foundation", () => {
     await expect(geoPanel.getByRole("button", { name: "Uložiť manual marker" })).toHaveCount(0);
     await expect(geoPanel.getByRole("button", { name: "Diagnostika Geoapify (bez zápisu)" })).toHaveCount(0);
 
-    await geoPanel.getByLabel("Verejná poloha").selectOption("yes");
     await expect(geoPanel.getByRole("button", { name: "Nájsť profil v Google Maps" })).toBeVisible();
     await expect(geoPanel.getByRole("button", { name: /Fallback: nájsť podľa adresy|Fallback: overiť podľa adresy|Nájsť podľa adresy znova/ })).toBeVisible();
 
@@ -43,12 +42,15 @@ test.describe("MAP-1B admin geo foundation", () => {
   test("maps are operator-first and advanced safety gates remain available under tools", async ({ page }) => {
     await page.goto("/admin/mapy", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Mapy" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Stav verejných profilov" })).toBeVisible();
-    await expect(page.getByPlaceholder("Hľadať názov, obec, okres alebo kategóriu")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stav mapových položiek" })).toBeVisible();
+    await expect(page.getByPlaceholder("Hľadať názov, mesto, okres, kraj alebo kategóriu")).toBeVisible();
     await expect(page.getByRole("button", { name: "Na mape" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Čaká na spracovanie" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Treba skontrolovať" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Chýba adresa" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Služby \(/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pomoc psom \(/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Podujatia \(/ })).toBeVisible();
 
     await page.goto("/admin/nastroje/geo", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "GEO nástroje" })).toBeVisible();
