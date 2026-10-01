@@ -358,10 +358,10 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
       expect(metrics.imageHeight).not.toBeNull();
-      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(380);
-      expect(metrics.imageHeight!).toBeLessThanOrEqual(385);
-      expect(metrics.imageWidth).toBeGreaterThanOrEqual(675);
-      expect(metrics.imageWidth).toBeLessThanOrEqual(681);
+      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(425);
+      expect(metrics.imageHeight!).toBeLessThanOrEqual(430);
+      expect(metrics.imageWidth).toBeGreaterThanOrEqual(758);
+      expect(metrics.imageWidth).toBeLessThanOrEqual(762);
       expect(metrics.imageRatio).not.toBeNull();
       expect(metrics.imageRatio!).toBeGreaterThan(1.74);
       expect(metrics.imageRatio!).toBeLessThan(1.81);
@@ -377,6 +377,26 @@ for (const articleCase of cases) {
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.67);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.73);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
+    if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(2);
+
+    const readingProgress = page.locator("[data-article-reading-progress]");
+    await expect(readingProgress).toHaveCount(1);
+    await expect(readingProgress).toHaveAttribute("aria-hidden", "true");
+    const progressFill = readingProgress.locator("span");
+    const progressAtTop = await progressFill.evaluate((node) => Number.parseFloat(getComputedStyle(node).getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressAtTop).toBeGreaterThanOrEqual(0);
+    expect(progressAtTop).toBeLessThanOrEqual(0.05);
+    const articleEnd = page.locator("[data-article-reading-end]");
+    await articleEnd.evaluate((node) => window.scrollTo(0, Math.max(0, node.getBoundingClientRect().bottom + window.scrollY - window.innerHeight)));
+    await page.waitForFunction(() => {
+      const fill = document.querySelector<HTMLElement>("[data-article-reading-progress] span");
+      return Number.parseFloat(fill?.style.getPropertyValue("--article-reading-progress") || "0") >= 0.99;
+    });
+    const progressAtEnd = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressAtEnd).toBeGreaterThanOrEqual(0.99);
+    await page.locator(".related-section").first().scrollIntoViewIfNeeded();
+    const progressInRelated = await progressFill.evaluate((node) => Number.parseFloat(node.style.getPropertyValue("--article-reading-progress")) || 0);
+    expect(progressInRelated).toBeLessThanOrEqual(1);
 
     const [desktopProseBox, desktopSidebarBox] = await Promise.all([
       page.locator(".article-prose").boundingBox(),
