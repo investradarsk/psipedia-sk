@@ -78,6 +78,7 @@
 
 .list a {
   display: grid;
+  min-width: 0;
   min-height: 44px;
   gap: 4px;
   align-content: start;
@@ -91,12 +92,14 @@
   font-size: 0.98rem;
   font-weight: 500;
   line-height: 1.28;
+  overflow-wrap: anywhere;
 }
 
 .list small {
   color: var(--muted);
   font-size: 0.66rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .list a:hover strong {
