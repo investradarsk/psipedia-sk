@@ -308,7 +308,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
           </div>
 
           {targetType === "DIRECTORY_PROFILE" ? (
-            {!snapshot.schemaReady ? (
+            !snapshot.schemaReady ? (
             <>
               <p className="admin-message admin-message--error">Mapová poloha v tomto prostredí nie je dostupná.</p>
               <details>
@@ -389,7 +389,7 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
                 </div>
               ) : null}
             </>
-            )}
+            )
           ) : null}
 
           <details style={{ marginTop: "1rem" }}>
