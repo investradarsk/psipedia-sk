@@ -915,11 +915,20 @@ export async function loadGeoAdminOperatorProfiles(
     },
     operators,
   };
-  const categories = (categoryRows.results ?? []).map((row) => ({
-    value: value(row, "category"),
-    label: categoryLabel(value(row, "group_key"), value(row, "category")),
-    count: Number(row.count ?? 0),
-  })).filter((item) => item.value);
+  const categoryMap = new Map<string, GeoAdminOperatorCategory>();
+  for (const row of categoryRows.results ?? []) {
+    const categoryValue = value(row, "category");
+    if (!categoryValue) continue;
+    const existing = categoryMap.get(categoryValue);
+    categoryMap.set(categoryValue, {
+      value: categoryValue,
+      label: existing?.label ?? categoryLabel(value(row, "group_key"), categoryValue),
+      count: (existing?.count ?? 0) + Number(row.count ?? 0),
+    });
+  }
+  const categories = [...categoryMap.values()].sort((left, right) =>
+    left.label.localeCompare(right.label, "sk", { sensitivity: "base" }),
+  );
 
   return {
     items: (pageRows.results ?? []).map(mapRow),
