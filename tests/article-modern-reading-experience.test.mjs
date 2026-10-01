@@ -130,7 +130,7 @@ test("automatic related candidates are no longer injected into the article body"
   assert.doesNotMatch(detail, /structurallySafeMidRelated|relatedSplitIndex|contentBeforeRelated|contentAfterRelated/);
   assert.doesNotMatch(detail, /SÚVISIACI ČLÁNOK|className=\{styles\.midRelated\}/);
   assert.match(detail, /const contentBlocks = blocks\.filter\(\(block\) => block\.type !== "source"\)/);
-  assert.match(detail, /<ArticleBlocks blocks=\{contentBlocks\} \/>/);
+  assert.match(detail, /<ArticleBlocks blocks=\{contentBlocks\} promoUtcDay=\{discovery\.utcDay\} \/>/);
   assert.match(detail, /!magazine\.manualRelatedResolved && magazine\.midRelated/);
   assert.match(blocks, /block\.type === "related"/);
 });
@@ -138,8 +138,8 @@ test("editor-authored related blocks stay in body flow while sources remain at t
   assert.match(detail, /block\.type !== "source"\)/);
   assert.doesNotMatch(detail, /block\.type !== "source" && block\.type !== "related"/);
   assert.match(detail, /const sourceBlocks = blocks\.filter\(\(block\) => block\.type === "source"\)/);
-  const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} />", "article body blocks are missing");
-  const sources = indexOfOrFail(detail, "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}", "sources are missing");
+  const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />", "article body blocks are missing");
+  const sources = indexOfOrFail(detail, "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}", "sources are missing");
   assert.ok(body < sources);
   assert.match(blocks, /article-block-related/);
 });

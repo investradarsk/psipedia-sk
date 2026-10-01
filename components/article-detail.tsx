@@ -99,6 +99,8 @@ export function ArticleDetail({
   const relatedItems = endRecommendationPool.filter((item, index, items) =>
     item.slug !== article.slug && items.findIndex((candidate) => candidate.slug === item.slug) === index
   ).slice(0, 3);
+  const hasPopularity = discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
+  const showDiscoverySidebar = hasPopularity || Boolean(discovery.promo);
 
   const schema = {
     "@context": "https://schema.org",
@@ -222,8 +224,8 @@ export function ArticleDetail({
                 </nav>
               </details>
             ) : null}
-            <ArticleBlocks blocks={contentBlocks} />
-            {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} /> : null}
+            <ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />
+            {sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}
             <AdSlot placementId={AD_PLACEMENTS.ARTICLE_END.id} />
             <p className="article-disclaimer">{section === "novinky" ? (sourceBlocks.length > 0 ? "Správa vychádza z uvedených zdrojov a pri ďalšom vývoji udalosti ju aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku." : "Správu pri ďalšom vývoji udalosti priebežne aktualizujeme. Dátum poslednej úpravy je uvedený pri titulku.") : section === "recenzie" ? "Ak obsah obsahuje partnerský alebo affiliate odkaz, je označený priamo pri príslušnom odkaze." : "Obsah je informačný a nenahrádza individuálne vyšetrenie veterinárom ani prácu s kvalifikovaným trénerom, ak ju situácia vyžaduje."} <Link href="/opravy-a-podnety">Nahlásiť chybu alebo požiadať o opravu.</Link></p>
             <div className={styles.endActions} id="zdielat-clanok">
@@ -232,27 +234,31 @@ export function ArticleDetail({
             <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
           </article>
 
-          <aside
-            className={styles.sidebar}
-            aria-label="Objavte ďalší obsah"
-            data-article-discovery-sidebar
-          >
-            <div className={styles.sidebarSticky}>
-              <ArticlePopularitySidebar
-                popularity={discovery.popularity}
-                initialWindow={discovery.initialWindow}
-              />
-              <div className={styles.sidebarPromo} data-automatic-article-promo>
-                <ArticlePromo
-                  promoKey={discovery.promo.promoKey}
-                  variant="auto"
-                  seed={discovery.promo.seed}
-                  utcDay={discovery.promo.utcDay}
-                  compact
+          {showDiscoverySidebar ? (
+            <aside
+              className={styles.sidebar}
+              aria-label="Objavte ďalší obsah"
+              data-article-discovery-sidebar
+            >
+              <div className={styles.sidebarSticky}>
+                <ArticlePopularitySidebar
+                  popularity={discovery.popularity}
+                  initialWindow={discovery.initialWindow}
                 />
+                {discovery.promo ? (
+                  <div className={styles.sidebarPromo} data-automatic-article-promo>
+                    <ArticlePromo
+                      promoKey={discovery.promo.promoKey}
+                      variant="auto"
+                      seed={discovery.promo.seed}
+                      utcDay={discovery.utcDay}
+                      compact
+                    />
+                  </div>
+                ) : null}
               </div>
-            </div>
-          </aside>
+            </aside>
+          ) : null}
         </div>
       </div>
 

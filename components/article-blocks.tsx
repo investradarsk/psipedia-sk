@@ -95,7 +95,7 @@ export function ArticleRichText({ value, className }: { value: string; className
   return <EditorialRichText className={className} document={legacyRichTextToDocument(value)} />;
 }
 
-export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBlock[]; preview?: boolean }) {
+export function ArticleBlocks({ blocks, preview = false, promoUtcDay }: { blocks: ArticleBlock[]; preview?: boolean; promoUtcDay?: string }) {
   const headingIds = new Map(articleBlockHeadings(blocks).map((heading) => [heading.blockId, heading.id]));
   const sources = blocks.filter((block): block is Extract<ArticleBlock, { type: "source" }> =>
     block.type === "source" && Boolean(block.label && (safeHref(block.url) || block.note)),
@@ -147,7 +147,7 @@ export function ArticleBlocks({ blocks, preview = false }: { blocks: ArticleBloc
           return block.title && href ? <aside className="article-block-related" key={block.id}><span>Súvisiaci článok</span><Link href={href}><strong>{block.title}</strong>{block.description && <small>{block.description}</small>}</Link></aside> : null;
         }
         if (block.type === "psipedia-promo") {
-          return <ArticlePromo key={block.id} promoKey={block.promoKey} variant={block.variant} seed={block.id} />;
+          return <ArticlePromo key={block.id} promoKey={block.promoKey} variant={block.variant} seed={block.id} utcDay={promoUtcDay} />;
         }
         if (block.type === "cta") {
           const href = safeHref(block.url, true);

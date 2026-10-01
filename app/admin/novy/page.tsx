@@ -3,6 +3,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { listManagedBreedSummaries } from "@/lib/breed-store";
 import { listArticleTopics } from "@/lib/article-topics";
+import { articlePromoUtcDay } from "@/lib/article-promo";
 import { isArticlePortalSection } from "@/lib/portal";
 import { listManagedPortalSections } from "@/lib/section-store";
 
@@ -31,6 +32,7 @@ export default async function NewArticlePage({ searchParams }: { searchParams: P
         breedOptions={breedOptions}
         managedSections={managedSections}
         topicOptions={topicOptions}
+        promoUtcDay={articlePromoUtcDay()}
       />
     </AdminShell>
   );

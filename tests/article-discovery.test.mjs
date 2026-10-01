@@ -209,5 +209,5 @@ test("ARTICLE-DISCOVERY-2 keeps automatic discovery sidebar hidden on mobile whi
   assert.match(detailStyles, /@media \(max-width: 767px\)[\s\S]*?\.sidebar\s*\{\s*display:\s*none;/);
   assert.match(detailSource, /Pokračovať v čítaní/);
   assert.match(detailSource, /Ďalšie články k téme/);
-  assert.match(detailSource, /<ArticleBlocks blocks=\{contentBlocks\} \/>/);
+  assert.match(detailSource, /<ArticleBlocks blocks=\{contentBlocks\} promoUtcDay=\{discovery\.utcDay\} \/>/);
 });

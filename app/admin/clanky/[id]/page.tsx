@@ -5,6 +5,7 @@ import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getManagedArticleById } from "@/lib/article-store";
 import { listManagedBreedSummaries } from "@/lib/breed-store";
 import { listArticleTopics } from "@/lib/article-topics";
+import { articlePromoUtcDay } from "@/lib/article-promo";
 import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function EditArticlePage({ params }: Props) {
       title={`Upraviť ${isNews ? "novinku" : "článok"}`}
       description="Zmeny ulož ako koncept alebo ich rovno publikuj na verejnom webe."
     >
-      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} />
+      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} />
     </AdminShell>
   );
 }

@@ -44,6 +44,7 @@
   font-size: clamp(2rem, 3.2vw, 2.7rem);
   font-weight: 500;
   line-height: 1.06;
+  overflow-wrap: anywhere;
   text-wrap: balance;
 }
 
@@ -53,6 +54,7 @@
   color: var(--muted);
   font-size: 1.02rem;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .metaActions {
@@ -177,6 +179,7 @@
   font-family: "Avenir Next", Avenir, sans-serif;
   font-size: 0.7rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .heroImageMeta a {
@@ -265,7 +268,6 @@
 }
 
 .toc summary:focus-visible,
-.midRelated a:focus-visible,
 .sidebar a:focus-visible {
   outline: 3px solid rgba(244, 119, 87, 0.42);
   outline-offset: 4px;
@@ -343,6 +345,7 @@
 .readingShell :global(.article-blocks a),
 .readingShell :global(.article-disclaimer a) {
   color: var(--forest);
+  overflow-wrap: anywhere;
   text-decoration: underline;
   text-decoration-color: rgba(23, 75, 56, 0.5);
   text-decoration-thickness: 0.08em;
@@ -422,75 +425,8 @@
   padding: 22px 0 0;
 }
 
-.midRelated {
-  margin: 34px 0;
-  padding: 18px 0;
-  border-block: 1px solid rgba(23, 75, 56, 0.14);
-  font-family: "Avenir Next", Avenir, sans-serif;
-}
-
-.midRelated > a {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  min-height: 96px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.midRelatedImage {
-  display: block;
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-  border-radius: 10px;
-  background: var(--sage-light);
-}
-
-.midRelatedImage img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.midRelatedCopy {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.midRelatedLabel {
-  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
-  font-size: 0.67rem;
-  font-weight: 900;
-  letter-spacing: 0.09em;
-}
-
-.midRelatedCopy small {
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.midRelatedCopy strong {
-  max-width: 35ch;
-  color: var(--ink);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.15rem;
-  font-weight: 500;
-  line-height: 1.25;
-}
-
-.midRelatedArrow {
-  color: var(--brand-accent-strong, var(--coral-dark, #b94732));
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.midRelated a:hover strong {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.readingShell :global(.article-block-sources li) {
+  overflow-wrap: anywhere;
 }
 
 .readingShell :global(.article-disclaimer) {
@@ -795,21 +731,6 @@
     width: 100%;
   }
 
-  .midRelated {
-    margin-block: 28px;
-    padding-block: 15px;
-  }
-
-  .midRelated > a {
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 12px;
-    min-height: 82px;
-  }
-
-  .midRelatedCopy strong {
-    font-size: 1.03rem;
-  }
-
   .sidebar {
     display: none;
   }
@@ -841,24 +762,11 @@
   .utilityActions {
     align-items: stretch;
   }
-
-  .midRelated > a {
-    grid-template-columns: 82px minmax(0, 1fr);
-  }
-
-  .midRelatedLabel {
-    font-size: 0.62rem;
-  }
-
-  .midRelatedCopy small {
-    font-size: 0.66rem;
-  }
 }
 
 /* PUBLIC-POLISH-2 photo contract */
 .modernArticle .heroMedia,
 .heroMedia :global(.article-hero-image),
-.heroMedia :global(.article-hero-placeholder),
-.midRelatedImage {
+.heroMedia :global(.article-hero-placeholder) {
   border-radius: 0;
 }
