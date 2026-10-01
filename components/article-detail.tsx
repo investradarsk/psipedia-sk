@@ -4,6 +4,8 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticleFeedback } from "@/components/article-feedback";
 import { ArticleReadTracker } from "@/components/article-read-tracker";
+import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
+import { ArticlePromo } from "@/components/article-promo";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
@@ -13,6 +15,7 @@ import { RelatedBreedList } from "@/components/related-entity-list";
 import { AdSlot } from "@/components/ad-slot";
 import type { Article } from "@/lib/content";
 import type { ArticleMagazineData } from "@/lib/article-magazine";
+import type { ArticleDiscoveryData } from "@/lib/article-discovery";
 import type { EditorialAuthorProfile } from "@/lib/editorial-authors";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
@@ -42,12 +45,14 @@ function recommendationTopicLabel(article: Article) {
 export function ArticleDetail({
   article,
   magazine,
+  discovery,
   portalSection,
   authorProfile,
   relatedBreeds = [],
 }: {
   article: Article;
   magazine: ArticleMagazineData;
+  discovery: ArticleDiscoveryData;
   portalSection?: PortalSection;
   authorProfile?: EditorialAuthorProfile | null;
   relatedBreeds?: PublicRelatedBreed[];
@@ -137,7 +142,6 @@ export function ArticleDetail({
   };
   const shareLabel = section === "novinky" ? "Zdieľať novinku" : section === "recenzie" ? "Zdieľať recenziu" : "Zdieľať článok";
   const favoriteHint = "Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr.";
-  const sidebarLabel = magazine.sidebarMode === "related" ? "Súvisiace články" : "Najnovšie články";
 
   return (
     <main id="obsah" className={styles.modernArticle}>
@@ -228,24 +232,27 @@ export function ArticleDetail({
             <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
           </article>
 
-          {magazine.sidebarItems.length > 0 ? (
-            <aside className={styles.sidebar} aria-label={sidebarLabel}>
-              <div className={styles.sidebarSticky}>
-                <span className={styles.sidebarHeading}>{sidebarLabel}</span>
-                <ol>
-                  {magazine.sidebarItems.map((item, index) => (
-                    <li key={item.slug}>
-                      <span className={styles.sidebarRank} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                      <Link href={articleHref(item)}>
-                        <strong>{item.title}</strong>
-                        <small>{recommendationTopicLabel(item)} · <time dateTime={item.dateIso}>{item.date}</time></small>
-                      </Link>
-                    </li>
-                  ))}
-                </ol>
+          <aside
+            className={styles.sidebar}
+            aria-label="Objavte ďalší obsah"
+            data-article-discovery-sidebar
+          >
+            <div className={styles.sidebarSticky}>
+              <ArticlePopularitySidebar
+                popularity={discovery.popularity}
+                initialWindow={discovery.initialWindow}
+              />
+              <div className={styles.sidebarPromo} data-automatic-article-promo>
+                <ArticlePromo
+                  promoKey={discovery.promo.promoKey}
+                  variant="auto"
+                  seed={discovery.promo.seed}
+                  utcDay={discovery.promo.utcDay}
+                  compact
+                />
               </div>
-            </aside>
-          ) : null}
+            </div>
+          </aside>
         </div>
       </div>
 
