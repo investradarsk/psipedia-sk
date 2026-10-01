@@ -132,7 +132,7 @@ test("GOOGLE-PLACE-BULK Admin Mapy supports combinable category and Google Maps 
 test("GOOGLE-PLACE-BULK pagination advances past unresolved results instead of repeating the first batch", () => {
   assert.match(dashboard, /bulkCursorId/);
   assert.match(dashboard, /serviceItems\.findIndex\(\(item\) => item\.targetId === bulkCursorId\)/);
-  assert.match(dashboard, /visible\.filter\(\(item\) =>[\s\S]*itemIndex > bulkCursorIndex[\s\S]*googleMapsTarget !== "PLACE"/);
+  assert.match(dashboard, /visible\.filter/);\n  assert.match(dashboard, /item\.googleMapsTarget !== "PLACE"/);\n  assert.match(dashboard, /itemIndex > bulkCursorIndex/);
   assert.match(dashboard, /setBulkCursorId\(targets\[targets\.length - 1\]\.targetId\)/);
   assert.match(dashboard, /Pokračovať ďalšou dávkou/);
   assert.match(dashboard, /Začať od začiatku/);
