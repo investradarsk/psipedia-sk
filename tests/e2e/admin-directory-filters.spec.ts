@@ -121,7 +121,7 @@ test.describe("admin directory v2", () => {
     expect(rejectedCrossOrigin.status()).toBe(403);
 
     const firstRow = page.locator(".admin-directory-row").filter({ hasText: "Bulk Fixture" }).first();
-    await firstRow.locator('input[type="checkbox"]').check();
+    await firstRow.getByRole("checkbox", { name: /^Vybrať profil / }).check();
     const editHref = await firstRow.locator("a.admin-row-edit").getAttribute("href");
     const selectedId = Number(editHref?.match(/\/admin\/adresar\/(\d+)/)?.[1]);
     expect(Number.isSafeInteger(selectedId)).toBeTruthy();
