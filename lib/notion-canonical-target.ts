@@ -256,7 +256,9 @@ export async function resolveNotionCanonicalTarget(args: {
   bindings: NotionSyncBindings & Record<string, unknown>;
   definition: NotionCanonicalTargetDefinition;
   allowCreate: boolean;
+  persist?: boolean;
 }): Promise<NotionCanonicalTarget> {
+  const persist = args.persist !== false;
   const configuredId = args.definition.configuredId?.(args.bindings) ?? "";
   const persisted = await loadPersistedTarget(args.database, args.definition.key);
   const persistedId = clean(persisted?.data_source_id);
@@ -266,7 +268,7 @@ export async function resolveNotionCanonicalTarget(args: {
     if (!notionDataSourceMatchesCanonicalSchema(configured, args.definition)) {
       throw new Error(`${args.definition.label}: nakonfigurovaný Notion data source nemá canonical Psipedia schému.`);
     }
-    await savePersistedTarget(args.database, args.definition, configured);
+    if (persist) await savePersistedTarget(args.database, args.definition, configured);
     return {
       dataSourceId: configured.id,
       databaseId: clean(configured.parent?.database_id) || null,
@@ -300,7 +302,7 @@ export async function resolveNotionCanonicalTarget(args: {
   const candidates = await inspectExactCanonicalCandidates(args.bindings, args.definition);
   const selected = await chooseCanonicalCandidate(args.bindings, candidates, persistedId);
   if (selected.canonical) {
-    await savePersistedTarget(args.database, args.definition, selected.canonical);
+    if (persist) await savePersistedTarget(args.database, args.definition, selected.canonical);
     return {
       dataSourceId: selected.canonical.id,
       databaseId: clean(selected.canonical.parent?.database_id) || null,
@@ -356,7 +358,7 @@ export async function resolveNotionCanonicalTarget(args: {
   if (!notionDataSourceMatchesCanonicalSchema(created, args.definition)) {
     throw new Error(`${args.definition.label}: vytvorený data source nemá canonical Psipedia schému.`);
   }
-  await savePersistedTarget(args.database, args.definition, created);
+  if (persist) await savePersistedTarget(args.database, args.definition, created);
 
   return {
     dataSourceId: created.id,
