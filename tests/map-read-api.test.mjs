@@ -520,8 +520,8 @@ test("PUBLIC-MAPS-1 scoped ORGANIZATION read exposes one safe role-free canonica
     NOW,
   );
   assert.equal(result.items.length, 1);
-  assert.equal(result.items[0].id, "organization:600");
-  assert.equal(result.items[0].locationRole, null);
+  assert.equal(result.items[0].id, "organization:600:location:601");
+  assert.equal("locationRole" in result.items[0], false);
   assert.doesNotMatch(result.items[0].displayLocation ?? "", /Neverejná/);
 
   const unsafeCases = [
