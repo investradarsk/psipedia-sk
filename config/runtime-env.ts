@@ -20,6 +20,7 @@ export const OPTIONAL_ENV_NAMES = [
   "NOTION_BREED_SYNC_ENABLED",
   "NOTION_BREEDS_DATA_SOURCE_ID",
   "NOTION_EVENT_SYNC_ENABLED",
+  "NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED",
   "NOTION_EVENTS_DATA_SOURCE_ID",
   "NOTION_DIRECTORY_SYNC_ENABLED",
   "NOTION_DIRECTORY_DATA_SOURCE_ID",
@@ -106,6 +107,7 @@ export function validateRuntimeEnvironment(
   const notionArticleSyncEnabled = configFlagEnabled(env.NOTION_ARTICLE_SYNC_ENABLED);
   const notionBreedSyncEnabled = configFlagEnabled(env.NOTION_BREED_SYNC_ENABLED);
   const notionEventSyncEnabled = configFlagEnabled(env.NOTION_EVENT_SYNC_ENABLED);
+  const notionEventsHelpBidirectionalSyncEnabled = configFlagEnabled(env.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED);
   const notionDirectorySyncEnabled = configFlagEnabled(env.NOTION_DIRECTORY_SYNC_ENABLED);
   const publicMapRequested = configFlagEnabled(env.PUBLIC_MAP_ENABLED);
 
@@ -119,7 +121,7 @@ export function validateRuntimeEnvironment(
 
   // Notion sync is also opt-in. When enabled, both the secret token and the
   // exact data-source ID are required so the sweep cannot drift to another DB.
-  if (notionArticleSyncEnabled || notionBreedSyncEnabled || notionEventSyncEnabled || notionDirectorySyncEnabled) {
+  if (notionArticleSyncEnabled || notionBreedSyncEnabled || notionEventSyncEnabled || notionEventsHelpBidirectionalSyncEnabled || notionDirectorySyncEnabled) {
     requireValue("NOTION_API_TOKEN");
   }
   if (notionArticleSyncEnabled) {
@@ -128,7 +130,7 @@ export function validateRuntimeEnvironment(
   if (notionBreedSyncEnabled) {
     requireValue("NOTION_BREEDS_DATA_SOURCE_ID");
   }
-  if (notionEventSyncEnabled) {
+  if (notionEventSyncEnabled || notionEventsHelpBidirectionalSyncEnabled) {
     requireValue("NOTION_EVENTS_DATA_SOURCE_ID");
   }
   if (notionDirectorySyncEnabled) {

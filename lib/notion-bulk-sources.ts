@@ -185,9 +185,13 @@ export async function loadNotionBulkEvents(database: D1Database) {
 }
 
 export async function loadNotionBulkOrganizations(database: D1Database) {
-  const sourceRows = await rows(database, `SELECT id,name,slug,legal_name,registration_number,type,status,short_description,description,
-    website_url,facebook_url,instagram_url,city,district,region,image_url,source_url
-    FROM help_organizations ORDER BY id ASC`);
+  const sourceRows = await rows(database, `SELECT o.id,o.name,o.slug,o.legal_name,o.registration_number,o.type,o.status,o.short_description,o.description,
+    o.website_url,o.facebook_url,o.instagram_url,
+    COALESCE(NULLIF((SELECT l.city FROM organization_locations l WHERE l.organization_id=o.id ORDER BY l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1),''),o.city) AS city,
+    COALESCE(NULLIF((SELECT l.district FROM organization_locations l WHERE l.organization_id=o.id ORDER BY l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1),''),o.district) AS district,
+    COALESCE(NULLIF((SELECT l.region FROM organization_locations l WHERE l.organization_id=o.id ORDER BY l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1),''),o.region) AS region,
+    o.image_url,o.source_url
+    FROM help_organizations o ORDER BY o.id ASC`);
 
   return sourceRows.map((row) => {
     const url = `${SITE_URL}/organizacie/${s(row.slug)}`;

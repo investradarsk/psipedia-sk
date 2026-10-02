@@ -100,6 +100,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0105_article_popularity.sql",
   "0106_section_visuals.sql",
   "0107_section_hero_config.sql",
+  "0108_notion_events_help_bidirectional_sync.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -1008,6 +1009,17 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: (schema.portalSectionSettingsColumns ?? []).some((column) => String(column.name) === "hero_config_json"),
     };
   }
+  if (targetMigration === "0108_notion_events_help_bidirectional_sync.sql") {
+    const eventColumns = new Set((schema.eventNotionSyncColumns ?? []).map((column) => String(column.name)));
+    return {
+      partial: eventColumns.has("psipedia_updated_at")
+        || names.has("notion_agenda_sync")
+        || names.has("notion_agenda_sync_last_synced_idx")
+        || names.has("notion_agenda_sync_psipedia_updated_idx")
+        || names.has("notion_agenda_targets")
+        || names.has("event_notion_sync_psipedia_updated_idx"),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1626,6 +1638,25 @@ function assertSectionHeroConfigSchema(schema) {
   invariant(columns.some((column) => String(column.name) === "hero_config_json"), "portal_section_settings.hero_config_json is missing");
 }
 
+function assertNotionEventsHelpBidirectionalSchema(schema) {
+  const names = objectMap(schema.objects);
+  const eventColumns = new Set((schema.eventNotionSyncColumns ?? []).map((column) => String(column.name)));
+  invariant(eventColumns.has("psipedia_updated_at"), "event_notion_sync.psipedia_updated_at is missing");
+  invariant(names.get("event_notion_sync_psipedia_updated_idx")?.type === "index", "Missing event notion psipedia-updated index");
+  invariant(names.get("notion_agenda_sync")?.type === "table", "Missing notion_agenda_sync table");
+  invariant(names.get("notion_agenda_sync_last_synced_idx")?.type === "index", "Missing notion agenda last-synced index");
+  invariant(names.get("notion_agenda_sync_psipedia_updated_idx")?.type === "index", "Missing notion agenda psipedia-updated index");
+  invariant(names.get("notion_agenda_targets")?.type === "table", "Missing notion_agenda_targets table");
+
+  const syncSql = String(names.get("notion_agenda_sync")?.sql ?? "");
+  invariant(syncSql.includes("PRIMARY KEY (agenda, notion_page_id)"), "Notion agenda page identity constraint is missing");
+  invariant(syncSql.includes("UNIQUE (agenda, entity_id)"), "Notion agenda entity identity constraint is missing");
+
+  const targetSql = String(names.get("notion_agenda_targets")?.sql ?? "");
+  invariant(targetSql.includes("agenda TEXT PRIMARY KEY"), "Notion agenda target primary key is missing");
+  invariant(targetSql.includes("data_source_id TEXT NOT NULL UNIQUE"), "Notion agenda target data-source uniqueness is missing");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1664,6 +1695,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 105) assertArticlePopularitySchema(schema);
   if (migrationIndex(targetMigration) >= 106) assertSectionVisualSchema(schema);
   if (migrationIndex(targetMigration) >= 107) assertSectionHeroConfigSchema(schema);
+  if (migrationIndex(targetMigration) >= 108) assertNotionEventsHelpBidirectionalSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1876,6 +1908,8 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 103) assertAdminEntityReviewSchema(schema);
     if (targetIndex > 104) assertArticleTopicSchema(schema);
     if (targetIndex > 105) assertArticlePopularitySchema(schema);
+    if (targetIndex > 106) assertSectionVisualSchema(schema);
+    if (targetIndex > 107) assertSectionHeroConfigSchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
