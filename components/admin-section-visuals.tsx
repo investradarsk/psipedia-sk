@@ -359,7 +359,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
                 <div className={styles.previewTitle}>
                   <div>
                     <strong>{mode === "desktop" ? "Desktop výrez" : "Mobilný výrez"}</strong>
-                    <small>16 : 6 · potiahni obrázok do správnej polohy</small>
+                    <small>{mode === "desktop" ? "16 : 7" : "16 : 6"} · potiahni obrázok do správnej polohy</small>
                   </div>
                 </div>
                 <div
