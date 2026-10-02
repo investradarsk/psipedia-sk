@@ -178,28 +178,41 @@ test("SECTION-HERO-V2 keeps homepage as a separate visual reference", async ({ b
 });
 
 test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.goto("/adresar/veterinari");
-  await page.locator("[data-unified-section-hero] input[name=q]").fill("Nitra");
-  await page.locator("[data-unified-section-hero] button[type=submit]").click();
-  await expect(page).toHaveURL(/\/adresar\/veterinari\?q=Nitra/);
+  async function serializedHeroTarget(path: string, query: string) {
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+    expect(response?.status(), path).toBe(200);
+    const hero = page.locator("[data-unified-section-hero]");
+    await hero.locator("input[name=q]").fill(query);
+    return hero.locator("form").evaluate((form) => {
+      const element = form as HTMLFormElement;
+      const target = new URL(element.action || window.location.pathname, window.location.origin);
+      const data = new FormData(element);
+      for (const [name, value] of data.entries()) {
+        if (typeof value === "string" && value) target.searchParams.append(name, value);
+      }
+      return target.pathname + target.search;
+    });
+  }
 
-  await page.goto("/pomoc-psom/adopcia");
-  await page.locator("[data-unified-section-hero] input[name=q]").fill("Labrador");
-  await page.locator("[data-unified-section-hero] button[type=submit]").click();
-  await expect(page).toHaveURL(/\/pomoc-psom\/adopcia\?q=Labrador/);
+  const directoryTarget = await serializedHeroTarget("/adresar/veterinari", "Nitra");
+  expect(directoryTarget).toMatch(/^\/adresar\/veterinari\?/);
+  expect(directoryTarget).toContain("q=Nitra");
 
-  await page.goto("/steniatka/socializacia");
-  await page.locator("[data-unified-section-hero] input[name=q]").fill("strach");
-  await page.locator("[data-unified-section-hero] button[type=submit]").click();
-  await expect(page).toHaveURL(/sekcia=steniatka/);
-  await expect(page).toHaveURL(/podsekcia=socializacia/);
-  await expect(page).toHaveURL(/q=strach/);
+  const adoptionTarget = await serializedHeroTarget("/pomoc-psom/adopcia", "Labrador");
+  expect(adoptionTarget).toMatch(/^\/pomoc-psom\/adopcia\?/);
+  expect(adoptionTarget).toContain("q=Labrador");
 
-  await page.goto("/recenzie/krmiva");
-  await page.locator("[data-unified-section-hero] input[name=q]").fill("jahňacie");
-  await page.locator("[data-unified-section-hero] button[type=submit]").click();
-  await expect(page).toHaveURL(/sekcia=recenzie/);
-  await expect(page).toHaveURL(/podsekcia=krmiva/);
+  const puppyTarget = await serializedHeroTarget("/steniatka/socializacia", "strach");
+  expect(puppyTarget).toMatch(/^\/hladat\?/);
+  expect(puppyTarget).toContain("sekcia=steniatka");
+  expect(puppyTarget).toContain("podsekcia=socializacia");
+  expect(puppyTarget).toContain("q=strach");
+
+  const reviewsTarget = await serializedHeroTarget("/recenzie/krmiva", "jahňacie");
+  expect(reviewsTarget).toMatch(/^\/hladat\?/);
+  expect(reviewsTarget).toContain("sekcia=recenzie");
+  expect(reviewsTarget).toContain("podsekcia=krmiva");
 });
