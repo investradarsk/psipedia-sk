@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
-import { PublicCategoryTiles, PublicFoundation, PublicLandingHero, PublicSectionHeader } from "@/components/public-visual-system";
-import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
+import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
+import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import {
   directoryCategories,
   directoryCategoryHref,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import { DirectoryResults } from "@/components/directory-results";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./directory-public.module.css";
 
 function profileCountLabel(count: number) {
@@ -87,7 +89,7 @@ function CategoryPreviewList({
   );
 }
 
-export function DirectoryPage({
+export async function DirectoryPage({
   result,
   filters,
   categoryCounts,
@@ -103,6 +105,7 @@ export function DirectoryPage({
   showResults?: boolean;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
+  const heroVisual = await getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
   const knownCounts = directoryCategories
     .map((category) => categoryCounts[category.slug])
     .filter((count): count is number => typeof count === "number");
@@ -167,72 +170,64 @@ export function DirectoryPage({
     <main id="obsah" className={styles.page}>
       <PublicFoundation className={styles.foundation}>
         <section className={`shell ${styles.headerShell}`} data-directory-public-header>
-          <Breadcrumbs>
-            <Link href="/">Domov</Link>
-            <span>/</span>
-            {active ? (
-              <>
-                <Link href="/adresar">Služby pre psov</Link>
-                <span>/</span>
-                <span>{active.label}</span>
-              </>
-            ) : (
-              <span>Služby pre psov</span>
-            )}
-          </Breadcrumbs>
-
-          {active ? (
-            <>
-              <PublicSectionHeader
-                className={styles.header}
-                variant="compact"
-                eyebrow={active.singular}
-                title={active.label}
-                intro={active.description}
-                meta={typeof activeCount === "number" ? `${activeCount} ${profileCountLabel(activeCount)}` : undefined}
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs>
+              <Link href="/">Domov</Link>
+              <span>/</span>
+              {active ? (
+                <>
+                  <Link href="/adresar">Služby pre psov</Link>
+                  <span>/</span>
+                  <span>{active.label}</span>
+                </>
+              ) : (
+                <span>Služby pre psov</span>
+              )}
+            </Breadcrumbs>}
+            eyebrow={active ? active.singular : "Adresár služieb"}
+            title={active?.label ?? "Služby pre psov"}
+            intro={active?.description ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
+            visual={heroVisual}
+            metaSlot={active && typeof activeCount === "number"
+              ? `${activeCount} ${profileCountLabel(activeCount)}`
+              : !active && totalPublished !== null
+                ? `${totalPublished.toLocaleString("sk-SK")} publikovaných profilov v adresári`
+                : undefined}
+            searchSlot={
+              <SectionHeroSearch
+                action={active ? `/adresar/${active.slug}` : "/adresar"}
+                id={active ? `directory-hero-${active.slug}` : "directory-hero-all"}
+                label={active ? `Hľadať v kategórii ${active.label}` : "Názov, služba alebo lokalita"}
+                placeholder={active?.slug === "veterinari"
+                  ? "Veterinár, mesto alebo okres…"
+                  : active
+                    ? "Názov, mesto alebo služba…"
+                    : "Nitra, fyzioterapia, labrador…"}
+                defaultValue={filters.query}
+                beforeInput={!active ? (
+                  <label>
+                    <span className="sr-only">Kategória služby</span>
+                    <select name="category" defaultValue={filters.category} aria-label="Kategória služby">
+                      <option value="">Všetky služby</option>
+                      {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
+                    </select>
+                  </label>
+                ) : undefined}
               />
-              {categoryNavigation}
-            </>
-          ) : (
-            <>
-              <div className={styles.hero} data-directory-landing-hero>
-                <PublicLandingHero
-                  tone="services"
-                  eyebrow="Adresár služieb"
-                  title="Služby pre psov"
-                  intro="Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."
-                  meta={totalPublished !== null ? `${totalPublished.toLocaleString("sk-SK")} publikovaných profilov v adresári` : undefined}
-                  ornament={<SearchIcon size={96} />}
-                >
-                  <form className={`directory-main-search ${styles.mainSearch}`} action="/adresar" method="get" role="search" aria-label="Vyhľadať službu pre psa">
-                    <label>
-                      <span>Kategória</span>
-                      <select name="category" defaultValue={filters.category}>
-                        <option value="">Všetky služby</option>
-                        {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
-                      </select>
-                    </label>
-                    <label className={styles.searchLabel}>
-                      <span>Názov, služba alebo lokalita</span>
-                      <SearchIcon size={19} />
-                      <input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" />
-                    </label>
-                    <button type="submit"><span>Hľadať</span><ArrowIcon size={17} /></button>
-                  </form>
-                </PublicLandingHero>
-              </div>
+            }
+          />
 
-              <div className={styles.discovery} aria-labelledby="directory-discovery-title">
-                <div className={styles.discoveryHeading}>
-                  <div>
-                    <span className={styles.sectionEyebrow}>Rýchly výber</span>
-                    <h2 id="directory-discovery-title">Vyber si kategóriu služby</h2>
-                  </div>
-                  <p>Prejdi rovno do existujúcej kategórie alebo použi vyhľadávanie vyššie.</p>
+          {active ? categoryNavigation : (
+            <div className={styles.discovery} aria-labelledby="directory-discovery-title">
+              <div className={styles.discoveryHeading}>
+                <div>
+                  <span className={styles.sectionEyebrow}>Rýchly výber</span>
+                  <h2 id="directory-discovery-title">Vyber si kategóriu služby</h2>
                 </div>
-                <PublicCategoryTiles items={landingCategoryTiles} label="Kategórie služieb" />
+                <p>Prejdi rovno do existujúcej kategórie alebo použi vyhľadávanie vyššie.</p>
               </div>
-            </>
+              <PublicCategoryTiles items={landingCategoryTiles} label="Kategórie služieb" />
+            </div>
           )}
         </section>
 

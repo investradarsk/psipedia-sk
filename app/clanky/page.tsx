@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ArticleBrowser } from "@/components/article-browser";
+import { Breadcrumbs } from "@/components/page-system";
+import { UnifiedSectionHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import { StructuredData } from "@/components/structured-data";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { articleHref } from "@/lib/portal";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +30,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function ArticlesPage({ searchParams }: Props) {
   const params = await searchParams;
   const policy = resolveListingIndexPolicy("/clanky", params);
-  const articles = await getPublishedArticleSummaries({ limit: 200 });
+  const [articles, heroVisual] = await Promise.all([
+    getPublishedArticleSummaries({ limit: 200 }),
+    getSectionHeroVisual("section.novinky"),
+  ]);
   const categories: Record<string, string> = {
     vycvik: "Výcvik",
     zdravie: "Zdravie",
     vyziva: "Výživa",
     "zivot-so-psom": "Život so psom",
   };
-  const heroImage = articles.find((article) => article.image)?.image;
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Novinky zo sveta psov",
     description: "Články, novinky, praktické návody a ďalší redakčný obsah zo sveta psov na jednom mieste.",
@@ -48,14 +55,25 @@ export default async function ArticlesPage({ searchParams }: Props) {
     <>
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
-        <header className={`page-hero page-hero--editorial shell${heroImage ? " page-hero--photo" : ""}`}>
-          {heroImage && <img className="page-hero-photo" src={heroImage} alt="" aria-hidden="true" decoding="async" />}
-          <div className="page-hero-inner">
-            <span className="eyebrow">Psipedia</span>
-            <h1>Novinky zo sveta psov</h1>
-            <p>Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov.</p>
-          </div>
-        </header>
+        <div className="shell page-hero">
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Novinky</span></Breadcrumbs>}
+            eyebrow="Psipedia"
+            title="Novinky zo sveta psov"
+            intro="Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov."
+            visual={heroVisual}
+            searchSlot={
+              <SectionHeroSearch
+                action="/clanky"
+                id="news-hero-query"
+                label="Hľadať v Novinkách"
+                placeholder="Hľadať článok alebo tému…"
+                defaultValue={scalar(params.hladat) ?? ""}
+                inputName="hladat"
+              />
+            }
+          />
+        </div>
         <section className="page-body shell">
           <ArticleBrowser
             articles={articles}

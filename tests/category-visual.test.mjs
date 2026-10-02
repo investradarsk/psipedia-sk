@@ -21,14 +21,18 @@ test("CATEGORY-BANNERS reuses one shared hero and category-tile system", () => {
   assert.match(sharedCss, /\.landingHero_reviews/);
   assert.match(sharedCss, /\.categoryTiles\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/);
 
-  assert.match(events, /<PublicLandingHero[\s\S]*?tone="events"/);
+  assert.match(events, /<UnifiedSectionHero/);
+  assert.match(events, /"section\.podujatia"/);
   assert.match(events, /<PublicCategoryTiles/);
-  assert.match(directory, /<PublicLandingHero[\s\S]*?tone="services"/);
+  assert.match(directory, /<UnifiedSectionHero/);
+  assert.match(directory, /"section\.adresar"/);
   assert.match(directory, /<PublicCategoryTiles/);
-  assert.match(reviews, /<PublicLandingHero[\s\S]*?tone="reviews"/);
+  assert.match(reviews, /<UnifiedSectionHero/);
+  assert.match(reviews, /"section\.recenzie"/);
   assert.match(reviews, /<PublicCategoryTiles/);
 
-  assert.match(help, /<PublicSectionHeader/);
+  assert.match(help, /<UnifiedSectionHero/);
+  assert.match(help, /"section\.pomoc-psom"/);
   assert.match(help, /data-help-category-nav/);
 });
 

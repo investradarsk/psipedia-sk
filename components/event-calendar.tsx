@@ -86,13 +86,15 @@ export function EventCalendar({
   today,
   initialType = "Všetky",
   initialTime = "upcoming",
+  initialQuery = "",
 }: {
   events: DogEvent[];
   today: string;
   initialType?: EventType | "Všetky";
   initialTime?: EventTimeFilter;
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [type, setType] = useState<EventType | "Všetky">(initialType);
   const [region, setRegion] = useState(ALL_REGIONS);
   const [month, setMonth] = useState(ALL_MONTHS);

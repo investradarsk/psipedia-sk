@@ -92,6 +92,22 @@ export async function getResolvedSectionVisual(visualKey: string): Promise<Resol
   return resolveSectionVisual(definition, await getStoredSectionVisual(visualKey));
 }
 
+export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedSectionVisual> {
+  const resolved = await getResolvedSectionVisual(visualKey);
+  if (resolved) return resolved;
+  return {
+    visualKey,
+    sectionSlug: null,
+    subsectionSlug: null,
+    imageUrl: "/images/hero-labrador.webp",
+    imageKey: null,
+    altText: "Pes – vizuál Psipedia",
+    desktopCrop: { x: 0.5, y: 0.5, zoom: 1 },
+    mobileCrop: { x: 0.5, y: 0.5, zoom: 1 },
+    source: "default",
+  };
+}
+
 export function resolveSectionVisualList(
   definitions: SectionVisualDefinition[],
   stored: StoredSectionVisual[],

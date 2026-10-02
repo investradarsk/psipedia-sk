@@ -2,10 +2,12 @@ import Link from "next/link";
 import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
-import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
+import { PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
 import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { buildCollectionPageJsonLd, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { dogReportBasePath, dogReportHref, dogReportTypeLabel, dogReportTypeShortLabel, dogSexLabel, dogSizeLabel, formatDogReportDate, type DogReportType, type DogSex, type DogSize } from "@/lib/lost-found-dogs";
 import styles from "./lost-found-dogs.module.css";
@@ -35,9 +37,10 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   const policy = resolveListingIndexPolicy(basePath, raw, { indexPagination: true });
 
   const submissionsEnabled = lostFoundSubmissionEnabled();
-  const [result, breeds] = await Promise.all([
+  const [result, breeds, heroVisual] = await Promise.all([
     listPublicDogReports(type, { q, region, locality, date, sex, size, breedId, page, pageSize: 24 }),
     listPublishedBreedOptions(),
+    getSectionHeroVisual("help.stratene-a-najdene"),
   ]);
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries({ q, region, locality, date, sex, size, breed: breedId ? String(breedId) : "" })) if (value) params.set(key, value);
@@ -64,16 +67,25 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   return <>{schema && <StructuredData value={schema} />}<main id="obsah" tabIndex={-1} className={styles.shell}>
     <PublicFoundation className={styles.foundation}>
       <div className={styles.headerWrap}>
-        <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
-          <Link href="/">Domov</Link><span aria-hidden="true">/</span><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">{title}</span>
-        </nav>
-        <PublicSectionHeader
-          variant="compact"
+        <UnifiedSectionHero
+          breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
+            <Link href="/">Domov</Link><span aria-hidden="true">/</span><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">{title}</span>
+          </nav>}
           eyebrow="Pomoc psom · aktuálne hlásenia"
           title={title}
           intro={intro}
-          meta={<span><strong>{result.total}</strong> aktívnych hlásení</span>}
-          actions={<div className={styles.headerActions}><nav className={styles.switcher} aria-label="Typ hlásenia"><Link href="/pomoc-psom/stratene-psy" aria-current={type === "LOST" ? "page" : undefined}>Stratené psy</Link><Link href="/pomoc-psom/najdene-psy" aria-current={type === "FOUND" ? "page" : undefined}>Nájdené psy</Link></nav>{submissionsEnabled ? <Link className="button button--dark" href="/pomoc-psom/stratene-a-najdene/nahlasit">Nahlásiť psa</Link> : null}</div>}
+          visual={heroVisual}
+          searchSlot={
+            <SectionHeroSearch
+              action={basePath}
+              id={`lost-found-hero-${type.toLowerCase()}`}
+              label={`Hľadať medzi ${label} psami`}
+              placeholder="Hľadať psa, plemeno alebo mesto…"
+              defaultValue={q}
+            />
+          }
+          ctaSlot={<div className={styles.headerActions}><nav className={styles.switcher} aria-label="Typ hlásenia"><Link href="/pomoc-psom/stratene-psy" aria-current={type === "LOST" ? "page" : undefined}>Stratené psy</Link><Link href="/pomoc-psom/najdene-psy" aria-current={type === "FOUND" ? "page" : undefined}>Nájdené psy</Link></nav>{submissionsEnabled ? <Link className="button button--dark" href="/pomoc-psom/stratene-a-najdene/nahlasit">Nahlásiť psa</Link> : null}</div>}
+          metaSlot={<span><strong>{result.total}</strong> aktívnych hlásení</span>}
         />
       </div>
 

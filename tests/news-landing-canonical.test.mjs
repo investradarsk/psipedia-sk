@@ -13,7 +13,9 @@ test("NEWS-LANDING-1 keeps /clanky as the single public news landing", () => {
   const footer = read("components/site-footer.tsx");
 
   assert.match(landing, /title: "Novinky zo sveta psov"/);
-  assert.match(landing, /<h1>Novinky zo sveta psov<\/h1>/);
+  assert.match(landing, /<UnifiedSectionHero/);
+  assert.match(landing, /title="Novinky zo sveta psov"/);
+  assert.match(landing, /getSectionHeroVisual\("section\.novinky"\)/);
   assert.match(sectionRoot, /if \(slug === "novinky"\) permanentRedirect\("\/clanky"\)/);
   assert.match(navigation, /id: "novinky", label: "Novinky", href: "\/clanky"/);
   assert.match(navigationStore, /item\.href === "\/novinky"/);

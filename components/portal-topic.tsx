@@ -3,10 +3,13 @@ import { ArticleCard } from "@/components/article-card";
 import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
+import { UnifiedSectionHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory, getNewsCategoryGuidance } from "@/lib/news";
-import { articlePortalSection, portalSectionHeroImage, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
+import { articlePortalSection, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 
 const specialNotes: Record<string, { title: string; text: string; items: string[] }> = {
@@ -52,7 +55,7 @@ const specialNotes: Record<string, { title: string; text: string; items: string[
   },
 };
 
-export function PortalTopic({
+export async function PortalTopic({
   section,
   subpage,
   articles,
@@ -68,7 +71,7 @@ export function PortalTopic({
   const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
   if (isStructuredTopic) return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} />;
-  const heroImage = isStructuredTopic ? (subpage.imageUrl || portalSectionHeroImage(section.slug)) : null;
+  const reviewHeroVisual = isReviews ? await getSectionHeroVisual(`reviews.${subpage.slug}`) : null;
   const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
   const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const legacyActivityArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
@@ -92,19 +95,43 @@ export function PortalTopic({
 
   return (
     <main id="obsah">
-      <SectionHero
-        image={heroImage}
-        className={`portal-topic-hero portal-section-hero portal-topic-hero--${section.accent}${heroImage ? " portal-section-hero--photo" : ""}`}
-        imageClassName="portal-hero-photo"
-        containerClassName="portal-topic-hero-inner"
-      >
-        <Breadcrumbs>
-          <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
-        </Breadcrumbs>
-        <span className="eyebrow">{section.eyebrow}</span>
-        <div className="portal-topic-title">{subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}<h1>{subpage.label}</h1></div>
-        <p>{subpage.description}</p>
-      </SectionHero>
+      {isReviews && reviewHeroVisual ? (
+        <div className="shell public-shell portal-unified-hero">
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs>
+              <Link href="/">Domov</Link><span>/</span><Link href="/recenzie">Recenzie a testy</Link><span>/</span><span>{subpage.label}</span>
+            </Breadcrumbs>}
+            eyebrow={section.eyebrow}
+            title={subpage.label}
+            intro={subpage.description}
+            visual={reviewHeroVisual}
+            searchSlot={
+              <SectionHeroSearch
+                action="/hladat"
+                id={`review-topic-search-${subpage.slug}`}
+                label={`Hľadať v kategórii ${subpage.label}`}
+                placeholder="Hľadať produkt alebo tému…"
+                hidden={[
+                  { name: "sekcia", value: "recenzie" },
+                  { name: "podsekcia", value: subpage.slug },
+                ]}
+              />
+            }
+          />
+        </div>
+      ) : (
+        <SectionHero
+          className={`portal-topic-hero portal-section-hero portal-topic-hero--${section.accent}`}
+          containerClassName="portal-topic-hero-inner"
+        >
+          <Breadcrumbs>
+            <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
+          </Breadcrumbs>
+          <span className="eyebrow">{section.eyebrow}</span>
+          <div className="portal-topic-title">{subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}<h1>{subpage.label}</h1></div>
+          <p>{subpage.description}</p>
+        </SectionHero>
+      )}
 
       {isStructuredTopic && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 

@@ -105,6 +105,6 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ]);
     return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} />;
   }
-  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} />;
+  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={scalar(rawSearchParams.q) ?? ""} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }

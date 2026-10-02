@@ -59,7 +59,9 @@ test("public route contracts cover help, legacy shelters, lost/found hub and can
   assert.match(lostFound, /\/pomoc-psom\/stratene-psy/);
   assert.match(lostFound, /\/pomoc-psom\/najdene-psy/);
   assert.match(magazine, /title: "Novinky zo sveta psov"/);
-  assert.match(magazine, /<h1>Novinky zo sveta psov<\/h1>/);
+  assert.match(magazine, /<UnifiedSectionHero/);
+  assert.match(magazine, /title="Novinky zo sveta psov"/);
+  assert.match(magazine, /getSectionHeroVisual\("section\.novinky"\)/);
 });
 
 test("article slug generator no longer hard-cuts the final word", async () => {

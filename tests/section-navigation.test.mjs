@@ -97,13 +97,14 @@ test("section tabs remain compact and horizontally scrollable on small screens",
 test("SECTION-PUBLIC uses the shared visual foundation without global CSS ownership", () => {
   const section = read("components/editorial-section.tsx");
   const css = read("components/editorial-section.module.css");
-  assert.match(section, /PublicSectionHeader/);
+  assert.match(section, /UnifiedSectionHero/);
+  assert.match(section, /getSectionHeroVisual/);
   assert.match(section, /PublicContentList/);
   assert.match(section, /data-section-topic-card/);
   assert.match(section, /HorizontalCarouselControls/);
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
-  assert.doesNotMatch(section, /SectionHero/);
+  assert.doesNotMatch(section, /<SectionHero\b/);
   assert.doesNotMatch(section, /ArticleCard/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);

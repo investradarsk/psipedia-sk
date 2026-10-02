@@ -270,10 +270,12 @@ export function AdminSectionVisuals({ initialVisuals }: { initialVisuals: Sectio
                   onPointerCancel={endDrag}
                 >
                   <img src={visual.imageUrl} alt="" draggable={false} style={imageStyle(crop)} />
-                  <div className={mode === "desktop" ? styles.desktopSafeZone : styles.mobileSafeZone}>
-                    <span>SAFE ZONE</span>
-                    <small>text · vyhľadávanie · CTA</small>
-                  </div>
+                  {mode === "desktop" ? (
+                    <div className={styles.desktopSafeZone}>
+                      <span>SAFE ZONE</span>
+                      <small>text · vyhľadávanie · CTA</small>
+                    </div>
+                  ) : null}
                   <div className={styles.dragHint}>↔ potiahnuť</div>
                 </div>
                 <div className={styles.cropControls}>

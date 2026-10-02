@@ -8,7 +8,14 @@ import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-type Props = { params: Promise<{ category: string }> };
+type Props = {
+  params: Promise<{ category: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function scalar(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category: slug } = await params;
@@ -20,13 +27,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }) : {};
 }
 
-export default async function HelpCategoryPage({ params }: Props) {
+export default async function HelpCategoryPage({ params, searchParams }: Props) {
   const { category } = await params;
   if (!isHelpCategory(category)) notFound();
   if (category === "stratene-a-najdene") redirect("/pomoc-psom/stratene-psy");
   const definition = getHelpCategory(category);
   if (!definition) notFound();
-  const items = await getPublishedHelpCases(category);
+  const [items, rawSearchParams] = await Promise.all([getPublishedHelpCases(category), searchParams]);
+  const initialQuery = scalar(rawSearchParams.q).trim().slice(0, 120);
   const schema = buildCollectionPageJsonLd({
     name: definition.label,
     description: definition.description,
@@ -38,5 +46,5 @@ export default async function HelpCategoryPage({ params }: Props) {
     ],
     items: items.slice(0, 50).map((item) => ({ name: item.title, path: helpCaseHref(item) })),
   });
-  return <><StructuredData value={schema} /><HelpPage items={items} initialCategory={category} /></>;
+  return <><StructuredData value={schema} /><HelpPage items={items} initialCategory={category} initialQuery={initialQuery} /></>;
 }

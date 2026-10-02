@@ -26,11 +26,11 @@ const adminStyles = read("components/admin-help-bulk.module.css");
 
 const emojiUi = /[🐾🔎📍📅🚨❤️🛡️🐕🤝🏠🛟💛]/u;
 
-test("Help landing uses the compact public foundation and curated category previews", () => {
+test("Help landing uses the canonical unified hero and curated category previews", () => {
   assert.match(overview, /<PublicFoundation/);
-  assert.match(overview, /<PublicSectionHeader/);
-  assert.match(overview, /variant="compact"/);
-  assert.doesNotMatch(overview, /SectionHero|heroImage|help-hero--photo/);
+  assert.match(overview, /<UnifiedSectionHero/);
+  assert.match(overview, /getSectionHeroVisual\("section\.pomoc-psom"\)/);
+  assert.doesNotMatch(overview, /<PublicSectionHeader|heroImage|help-hero--photo/);
   assert.match(overview, /data-help-category-nav/);
   assert.match(overview, /data-help-overview-section/);
   assert.match(overview, /section\.items\.slice\(0, 6\)/);

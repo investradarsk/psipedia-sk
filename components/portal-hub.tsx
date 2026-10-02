@@ -2,21 +2,22 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { EventCard } from "@/components/event-card";
 import { EditorialSectionHub } from "@/components/editorial-section";
-import { ArrowIcon, SearchIcon } from "@/components/icons";
-import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
+import { ArrowIcon } from "@/components/icons";
+import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { UnifiedSectionHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import type { DogEvent } from "@/lib/events";
 import {
   articlePortalSection,
-  portalSectionHeroImage,
   portalSubpageHref,
   type PortalSection,
 } from "@/lib/portal";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 
-export function PortalHub({ section, articles, events, allSections = [] }: { section: PortalSection; articles: Article[]; events?: DogEvent[]; allSections?: PortalSection[] }) {
+export async function PortalHub({ section, articles, events, allSections = [] }: { section: PortalSection; articles: Article[]; events?: DogEvent[]; allSections?: PortalSection[] }) {
   const sectionArticles = articles.filter((article) => articlePortalSection(article) === section.slug);
-  const heroImage = sectionArticles.find((article) => article.image)?.image || portalSectionHeroImage(section.slug);
   const hasEventCalendar = events !== undefined;
   const isCare = section.slug === "starostlivost";
   const isActivities = section.slug === "aktivity";
@@ -26,6 +27,7 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
   const showSectionTabs = isEditorialHub || isReviews;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
   if (isEditorialHub) return <EditorialSectionHub section={section} articles={articles} />;
+  const heroVisual = await getSectionHeroVisual(`section.${section.slug}`);
   const careArticleArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
   const activityArticleArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
   const articleArea = (article: Article) => isCare ? careArticleArea(article) : activityArticleArea(article);
@@ -107,53 +109,24 @@ export function PortalHub({ section, articles, events, allSections = [] }: { sec
 
   return (
     <main id="obsah">
-      <SectionHero
-        image={heroImage}
-        className={`portal-hero portal-section-hero portal-hero--${section.accent}${heroImage ? " portal-hero--photo portal-section-hero--photo" : ""}`}
-        imageClassName="portal-hero-photo"
-        containerClassName="portal-hero-inner"
-      >
-        <Breadcrumbs>
-          <Link href="/">Domov</Link><span>/</span><span>{section.label}</span>
-        </Breadcrumbs>
-        <div className="portal-hero-copy">
-          <span className="portal-hero-icon" aria-hidden="true">{section.icon}</span>
-          <div>
-            <span className="eyebrow">{section.eyebrow}</span>
-            <h1>{section.label}</h1>
-            <p>{section.description}</p>
-          </div>
-        </div>
-        <p className="portal-hero-intro">{section.intro}</p>
-        {isCare && <form className="care-search" action="/hladat" method="get">
-          <SearchIcon size={22} />
-          <input type="hidden" name="sekcia" value="starostlivost" />
-          <label className="sr-only" htmlFor="care-search-query">Čo riešiš so svojím psom?</label>
-          <input id="care-search-query" name="q" maxLength={120} placeholder="Čo riešiš? Napríklad hnačka, svrbenie alebo samota…" />
-          <button type="submit">Nájsť odpoveď</button>
-        </form>}
-        {isActivities && <form className="care-search activity-search" action="/hladat" method="get">
-          <SearchIcon size={22} />
-          <input type="hidden" name="sekcia" value="aktivity" />
-          <label className="sr-only" htmlFor="activity-search-query">Akú aktivitu alebo šport hľadáš?</label>
-          <input id="activity-search-query" name="q" maxLength={120} placeholder="Hľadaj šport, výlet, výbavu alebo cestovanie…" />
-          <button type="submit">Hľadať v aktivitách</button>
-        </form>}
-        {isPuppies && <form className="care-search puppy-search" action="/hladat" method="get">
-          <SearchIcon size={22} />
-          <input type="hidden" name="sekcia" value="steniatka" />
-          <label className="sr-only" htmlFor="puppy-search-query">Čo potrebuješ vedieť o šteniatku?</label>
-          <input id="puppy-search-query" name="q" maxLength={120} placeholder="Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…" />
-          <button type="submit">Hľadať v sprievodcovi</button>
-        </form>}
-        {isReviews && <form className="care-search review-search" action="/hladat" method="get">
-          <SearchIcon size={22} />
-          <input type="hidden" name="sekcia" value="recenzie" />
-          <label className="sr-only" htmlFor="review-search-query">Čo chceš porovnať alebo overiť?</label>
-          <input id="review-search-query" name="q" maxLength={120} placeholder="Hľadaj produkt, výbavu alebo typ testu…" />
-          <button type="submit">Hľadať v recenziách</button>
-        </form>}
-      </SectionHero>
+      <div className="shell public-shell portal-unified-hero">
+        <UnifiedSectionHero
+          breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>}
+          eyebrow={section.eyebrow}
+          title={section.label}
+          intro={<><p>{section.description}</p><p>{section.intro}</p></>}
+          visual={heroVisual}
+          searchSlot={isReviews ? (
+            <SectionHeroSearch
+              action="/hladat"
+              id="portal-review-search-query"
+              label="Hľadať v recenziách"
+              placeholder="Hľadať produkt alebo tému…"
+              hidden={[{ name: "sekcia", value: "recenzie" }]}
+            />
+          ) : undefined}
+        />
+      </div>
 
       {showSectionTabs && <PortalSectionTabs section={section} />}
 

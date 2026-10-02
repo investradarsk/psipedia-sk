@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PawMark } from "@/components/icons";
-import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
+import { PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   adoptionCatalogAgeLabels,
   adoptionCatalogHref,
@@ -15,6 +16,7 @@ import {
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { AdoptionBreedOptionsResult, AdoptionPagination } from "@/lib/adoption-store";
 import type { AdoptionDog } from "@/lib/adoption";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./adoption.module.css";
 
 type CatalogResult = {
@@ -83,20 +85,30 @@ function hiddenFilterInputs(filters: AdoptionCatalogFilters, omit: string) {
   ));
 }
 
-export function AdoptionCatalog({ result, filters, breeds }: Props) {
+export async function AdoptionCatalog({ result, filters, breeds }: Props) {
   const view = buildAdoptionCatalogView(result.items);
   const pagination = result.pagination;
+  const heroVisual = await getSectionHeroVisual("help.adopcia");
   return <PublicFoundation className={styles.foundation}>
     <div className={styles.headerWrap}>
-      <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
-        <Link href="/">Domov</Link><span aria-hidden="true">/</span><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">Psy na adopciu</span>
-      </nav>
-      <PublicSectionHeader
-        variant="compact"
+      <UnifiedSectionHero
+        breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
+          <Link href="/">Domov</Link><span aria-hidden="true">/</span><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">Psy na adopciu</span>
+        </nav>}
         eyebrow="Pomoc psom · adopcie"
         title="Psy na adopciu"
         intro="Vyhľadajte psa podľa plemena, veku, pohlavia, veľkosti alebo lokality. Zobrazené sú iba aktuálne adopčné a rezervované profily."
-        meta={<span><strong>{pagination.total}</strong> {pagination.total === 1 ? "publikovaný profil" : "publikovaných profilov"}</span>}
+        visual={heroVisual}
+        searchSlot={
+          <SectionHeroSearch
+            action="/pomoc-psom/adopcia"
+            id="adoption-hero-query"
+            label="Hľadať psa na adopciu"
+            placeholder="Hľadať psa, plemeno alebo mesto…"
+            defaultValue={filters.q}
+          />
+        }
+        metaSlot={<span><strong>{pagination.total}</strong> {pagination.total === 1 ? "publikovaný profil" : "publikovaných profilov"}</span>}
       />
     </div>
 

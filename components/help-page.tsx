@@ -5,8 +5,9 @@ import { ArrowIcon } from "@/components/icons";
 import {
   PublicActionLink,
   PublicFoundation,
-  PublicSectionHeader,
+  UnifiedSectionHero,
 } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   getHelpCategory,
   helpCategories,
@@ -14,6 +15,7 @@ import {
   type HelpCase,
   type HelpCategorySlug,
 } from "@/lib/help";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./help-public.module.css";
 
 export type HelpCategoryCounts = Partial<Record<HelpCategorySlug, number>>;
@@ -26,19 +28,22 @@ function categoryDestination(category: PublicHelpCategorySlug) {
   return helpCategoryHref({ slug: category });
 }
 
-export function HelpPage({
+export async function HelpPage({
   items,
   initialCategory = "all",
   categoryCounts = {},
+  initialQuery = "",
 }: {
   items: HelpCase[];
   initialCategory?: "all" | HelpCategorySlug;
   categoryCounts?: HelpCategoryCounts;
+  initialQuery?: string;
 }) {
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
   const activeCount = active
     ? categoryCounts[active.slug] ?? items.filter((item) => item.category === active.slug && !item.resolved).length
     : null;
+  const heroVisual = await getSectionHeroVisual(active ? `help.${active.slug}` : "section.pomoc-psom");
   const countValues = Object.values(categoryCounts).filter((value): value is number => typeof value === "number");
   const totalActive = countValues.length ? countValues.reduce((sum, value) => sum + value, 0) : null;
   const browserItems = items.filter((item) => item.category !== "stratene-a-najdene");
@@ -47,18 +52,25 @@ export function HelpPage({
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
         <section className={[styles.shell, styles.headerWrap].join(" ")} data-help-public-header>
-          <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
-            <Link href="/">Domov</Link><span aria-hidden="true">/</span>
-            {active ? <><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">{active.label}</span></> : <span aria-current="page">Pomoc psom</span>}
-          </nav>
-
-          <PublicSectionHeader
-            className={styles.heroHeader}
-            variant="compact"
+          <UnifiedSectionHero
+            breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
+              <Link href="/">Domov</Link><span aria-hidden="true">/</span>
+              {active ? <><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">{active.label}</span></> : <span aria-current="page">Pomoc psom</span>}
+            </nav>}
             eyebrow={active ? "Pomoc psom · aktuálny prehľad" : "Pomoc psom · tam, kde ju treba"}
             title={active?.label ?? "Pomoc psom"}
             intro={active?.description ?? "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Nájdite konkrétnu pomoc alebo spôsob, ako sa zapojiť."}
-            meta={
+            visual={heroVisual}
+            searchSlot={active ? (
+              <SectionHeroSearch
+                action={categoryDestination(active.slug as PublicHelpCategorySlug)}
+                id={`help-hero-${active.slug}`}
+                label={`Hľadať v kategórii ${active.label}`}
+                placeholder="Meno, mesto alebo organizácia…"
+                defaultValue={initialQuery}
+              />
+            ) : undefined}
+            metaSlot={
               <div className={styles.headerMeta}>
                 {activeCount !== null ? <span><strong>{activeCount}</strong> aktívnych záznamov</span> : null}
                 {!active && totalActive !== null ? <span><strong>{totalActive}</strong> aktívnych záznamov</span> : null}
@@ -68,7 +80,7 @@ export function HelpPage({
           />
         </section>
 
-        <HelpBrowser items={browserItems} initialCategory={initialCategory}>
+        <HelpBrowser items={browserItems} initialCategory={initialCategory} initialQuery={initialQuery}>
           {!active && (
             <section className={styles.categoryBlock} aria-labelledby="help-categories-heading">
               <div className={styles.categoryHeading}>
