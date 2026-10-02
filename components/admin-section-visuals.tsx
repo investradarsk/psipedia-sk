@@ -261,7 +261,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
     <div className={styles.workspace} data-testid="admin-section-visuals">
       <aside className={styles.sidebar}>
         <label className={styles.search}>
-          <span>Hľadať vizuál</span>
+          <span>Hľadať hlavičku</span>
           <input value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder="Plemená, veterinári, adopcia…" />
         </label>
         <div className={styles.visualList}>
@@ -278,7 +278,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
             >
               <span>{item.definition.name}</span>
               <small>{item.definition.route}</small>
-              <i>{item.visual.source === "custom" ? "Vlastný" : "Default"}</i>
+              <i>{item.visual.source === "custom" ? "Vlastný obrázok" : "Default obrázok"}</i>
             </button>
           ))}
         </div>
@@ -295,6 +295,33 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
             {visual.source === "custom" ? "Uložené nastavenie" : "Stabilný default"}
           </span>
         </header>
+
+        {activeSection ? (
+          <section className={styles.configGroup} aria-labelledby="hero-content-heading">
+            <div className={styles.groupHeading}>
+              <div><span>Obsah</span><h3 id="hero-content-heading">Text hlavičky</h3></div>
+              <small>H1 a texty sa ukladajú do existujúceho section/subpage modelu.</small>
+            </div>
+            <div className={styles.fieldGrid}>
+              <label>
+                <span>Eyebrow</span>
+                <input value={contentEyebrow} maxLength={160} onChange={(event) => activeSubpage ? patchSubpage({ eyebrow: event.currentTarget.value }) : patchSection({ eyebrow: event.currentTarget.value })} />
+              </label>
+              <label>
+                <span>H1 / názov</span>
+                <input value={contentTitle} maxLength={100} onChange={(event) => activeSubpage ? patchSubpage({ label: event.currentTarget.value }) : patchSection({ label: event.currentTarget.value })} />
+                {longTitle ? <small className={styles.warning}>Text je dlhý a môže zväčšiť hero.</small> : null}
+              </label>
+            </div>
+            <label className={styles.fullField}>
+              <span>Krátky popis</span>
+              <textarea rows={3} value={contentIntro} maxLength={1200} onChange={(event) => activeSubpage ? patchSubpage({ intro: event.currentTarget.value }) : patchSection({ intro: event.currentTarget.value })} />
+              {longIntro ? <small className={styles.warning}>Text je dlhý a môže zväčšiť hero.</small> : null}
+            </label>
+          </section>
+        ) : (
+          <div className={styles.homeNotice}><strong>Homepage je obsahová výnimka.</strong><span>Tu sa mení iba obrázok a crop; text a homepage layout ostávajú samostatné.</span></div>
+        )}
 
         <div className={styles.recommendation}>
           <strong>Odporúčanie</strong>
@@ -332,7 +359,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
                 <div className={styles.previewTitle}>
                   <div>
                     <strong>{mode === "desktop" ? "Desktop výrez" : "Mobilný výrez"}</strong>
-                    <small>{mode === "desktop" ? "16 : 7" : "4 : 3"} · potiahni obrázok do správnej polohy</small>
+                    <small>16 : 6 · potiahni obrázok do správnej polohy</small>
                   </div>
                 </div>
                 <div
@@ -346,7 +373,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
                   {mode === "desktop" ? (
                     <div className={styles.desktopSafeZone}>
                       <span>SAFE ZONE</span>
-                      <small>text · vyhľadávanie · CTA</small>
+                      <small>breadcrumb · eyebrow · H1 · intro</small>
                     </div>
                   ) : null}
                   <div className={styles.dragHint}>↔ potiahnuť</div>
@@ -385,15 +412,57 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
           <small>Popíš fotografiu vecne. Text nadpisu sekcie sem neopakuj.</small>
         </label>
 
+        {activeSection ? (
+          <>
+            <section className={styles.configGroup} aria-labelledby="hero-search-heading">
+              <div className={styles.groupHeading}><div><span>Vyhľadávanie</span><h3 id="hero-search-heading">Text searchu</h3></div><small>Backend, route a scope zostávajú zamknuté v kóde.</small></div>
+              <div className={styles.fieldGrid}>
+                <label><span>Placeholder</span><input value={heroConfig.searchPlaceholder ?? ""} maxLength={180} placeholder="Prázdne = verejný default" onChange={(event) => patchHeroConfig({ searchPlaceholder: event.currentTarget.value })} /></label>
+                <label><span>Text tlačidla</span><input value={heroConfig.searchButtonLabel ?? ""} maxLength={60} placeholder="Prázdne = verejný default" onChange={(event) => patchHeroConfig({ searchButtonLabel: event.currentTarget.value })} /></label>
+              </div>
+            </section>
+
+            <section className={styles.configGroup} aria-labelledby="hero-cta-heading">
+              <div className={styles.groupHeading}><div><span>CTA</span><h3 id="hero-cta-heading">Akčné tlačidlo</h3></div><small>Zelená = primary, korálová = accent, secondary = obrys.</small></div>
+              <label className={styles.toggleRow}><input type="checkbox" checked={heroConfig.ctaEnabled === true} onChange={(event) => patchHeroConfig({ ctaEnabled: event.currentTarget.checked })} /><span>CTA zapnuté</span></label>
+              <div className={styles.fieldGrid}>
+                <label><span>Text CTA</span><input value={heroConfig.ctaLabel ?? ""} maxLength={90} disabled={heroConfig.ctaEnabled !== true} onChange={(event) => patchHeroConfig({ ctaLabel: event.currentTarget.value })} /></label>
+                <label><span>URL CTA</span><input value={heroConfig.ctaHref ?? ""} maxLength={300} disabled={heroConfig.ctaEnabled !== true} placeholder="/..." onChange={(event) => patchHeroConfig({ ctaHref: event.currentTarget.value })} /></label>
+                <label><span>CTA variant</span><select value={heroConfig.ctaVariant ?? "primary"} disabled={heroConfig.ctaEnabled !== true} onChange={(event) => patchHeroConfig({ ctaVariant: event.currentTarget.value as "primary" | "accent" | "secondary" })}><option value="primary">Primary green</option><option value="accent">Accent coral</option><option value="secondary">Secondary</option></select></label>
+              </div>
+            </section>
+
+            <section className={styles.configGroup} aria-labelledby="hero-meta-heading">
+              <div className={styles.groupHeading}><div><span>Meta</span><h3 id="hero-meta-heading">Meta prefix</h3></div><small>Dynamické počty z databázy sa týmto poľom neprepisujú.</small></div>
+              <label className={styles.fullField}><span>Krátky meta text</span><input value={heroConfig.metaLabel ?? ""} maxLength={120} placeholder="Napr. Aktuálne" onChange={(event) => patchHeroConfig({ metaLabel: event.currentTarget.value })} /></label>
+            </section>
+
+            <section className={styles.configGroup} aria-labelledby="hero-links-heading">
+              <div className={styles.groupHeading}><div><span>Quick links</span><h3 id="hero-links-heading">Rýchle odkazy</h3></div><button type="button" className={styles.smallButton} disabled={(heroConfig.quickLinks?.length ?? 0) >= 6} onClick={addQuickLink}>+ Pridať odkaz</button></div>
+              <div className={styles.quickLinkEditor}>
+                {(heroConfig.quickLinks ?? []).map((link, index) => (
+                  <div className={styles.quickLinkRow} key={index}>
+                    <label><span>Názov</span><input value={link.label} maxLength={80} onChange={(event) => patchQuickLink(index, { label: event.currentTarget.value })} /></label>
+                    <label><span>URL</span><input value={link.href} maxLength={300} placeholder="/..." onChange={(event) => patchQuickLink(index, { href: event.currentTarget.value })} /></label>
+                    <label className={styles.visibleToggle}><input type="checkbox" checked={link.visible !== false} onChange={(event) => patchQuickLink(index, { visible: event.currentTarget.checked })} /><span>ON</span></label>
+                    <button type="button" className={styles.removeButton} onClick={() => removeQuickLink(index)}>Odstrániť</button>
+                  </div>
+                ))}
+                {!(heroConfig.quickLinks?.length) ? <p className={styles.emptyLinks}>Bez quick links. Pridaj len existujúce legitímne navigačné ciele.</p> : null}
+              </div>
+            </section>
+          </>
+        ) : null}
+
         {message ? <p className={styles.success} role="status">{message}</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
         <footer className={styles.actions}>
           <button type="button" className={styles.resetButton} disabled={saving || uploading} onClick={() => void resetToDefault()}>
-            Použiť stabilný default
+            Použiť stabilný default obrázka
           </button>
           <button type="button" className={styles.saveButton} disabled={saving || uploading} onClick={() => void save()}>
-            {saving ? "Ukladám…" : "Uložiť"}
+            {saving ? "Ukladám…" : "Uložiť hlavičku"}
           </button>
         </footer>
       </section>
