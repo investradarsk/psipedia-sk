@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
-import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicFoundation, PublicLandingHero, PublicSectionHeader } from "@/components/public-visual-system";
 import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
 import {
   directoryCategories,
@@ -108,6 +108,16 @@ export function DirectoryPage({
     .filter((count): count is number => typeof count === "number");
   const totalPublished = knownCounts.length > 0 ? knownCounts.reduce((sum, count) => sum + count, 0) : null;
   const activeCount = active ? categoryCounts[active.slug] : undefined;
+  const landingCategoryTiles = directoryCategories.map((category) => {
+    const count = categoryCounts[category.slug];
+    return {
+      href: directoryCategoryHref(category),
+      title: category.label,
+      description: category.description,
+      meta: typeof count === "number" ? `${count} ${profileCountLabel(count)}` : undefined,
+      icon: categoryIcon(category.slug),
+    };
+  });
 
   const rankedCategories = directoryCategories
     .map((category, index) => ({
@@ -186,30 +196,30 @@ export function DirectoryPage({
           ) : (
             <>
               <div className={styles.hero} data-directory-landing-hero>
-                <PublicSectionHeader
-                  className={styles.rootHeader}
-                  variant="compact"
+                <PublicLandingHero
+                  tone="services"
                   eyebrow="Adresár služieb"
                   title="Služby pre psov"
                   intro="Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."
                   meta={totalPublished !== null ? `${totalPublished.toLocaleString("sk-SK")} publikovaných profilov v adresári` : undefined}
-                />
-
-                <form className={`directory-main-search ${styles.mainSearch}`} action="/adresar" method="get" role="search" aria-label="Vyhľadať službu pre psa">
-                  <label>
-                    <span>Kategória</span>
-                    <select name="category" defaultValue={filters.category}>
-                      <option value="">Všetky služby</option>
-                      {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
-                    </select>
-                  </label>
-                  <label className={styles.searchLabel}>
-                    <span>Názov, služba alebo lokalita</span>
-                    <SearchIcon size={19} />
-                    <input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" />
-                  </label>
-                  <button type="submit"><span>Hľadať</span><ArrowIcon size={17} /></button>
-                </form>
+                  ornament={<SearchIcon size={96} />}
+                >
+                  <form className={`directory-main-search ${styles.mainSearch}`} action="/adresar" method="get" role="search" aria-label="Vyhľadať službu pre psa">
+                    <label>
+                      <span>Kategória</span>
+                      <select name="category" defaultValue={filters.category}>
+                        <option value="">Všetky služby</option>
+                        {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
+                      </select>
+                    </label>
+                    <label className={styles.searchLabel}>
+                      <span>Názov, služba alebo lokalita</span>
+                      <SearchIcon size={19} />
+                      <input name="q" defaultValue={filters.query} placeholder="Nitra, fyzioterapia, labrador…" />
+                    </label>
+                    <button type="submit"><span>Hľadať</span><ArrowIcon size={17} /></button>
+                  </form>
+                </PublicLandingHero>
               </div>
 
               <div className={styles.discovery} aria-labelledby="directory-discovery-title">
@@ -218,9 +228,9 @@ export function DirectoryPage({
                     <span className={styles.sectionEyebrow}>Rýchly výber</span>
                     <h2 id="directory-discovery-title">Vyber si kategóriu služby</h2>
                   </div>
-                  <p>Prejdi rovno do kategórie alebo použi vyhľadávanie vyššie.</p>
+                  <p>Prejdi rovno do existujúcej kategórie alebo použi vyhľadávanie vyššie.</p>
                 </div>
-                {categoryNavigation}
+                <PublicCategoryTiles items={landingCategoryTiles} label="Kategórie služieb" />
               </div>
             </>
           )}
