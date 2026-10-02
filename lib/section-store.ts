@@ -22,6 +22,14 @@ const legacyActivityDescriptions: Record<string, string> = {
 };
 const adminFieldLabels = new Set(["adresa", "adresa url", "názov", "názov sekcie", "slug", "url"]);
 
+function defaultManagedSections(): ManagedPortalSection[] {
+  return portalSections.map((section, position) => ({ ...section, position, visible: true }));
+}
+
+function isMissingSectionSettings(error: unknown) {
+  return error instanceof Error && /no such table:\s*portal_section_settings/i.test(error.message);
+}
+
 function database() {
   const db = (env as unknown as RuntimeBindings).DB;
   return db && typeof db.prepare === "function" ? db : null;
@@ -246,20 +254,30 @@ function merge(row: Row): ManagedPortalSection | null {
 
 export const listManagedPortalSections = cache(async function listManagedPortalSections(): Promise<ManagedPortalSection[]> {
   const db = database();
-  if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
-  await repairCorruptManagedSubpages(db);
-  const rows = await selectSectionRows(db);
-  return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
+  if (!db) return defaultManagedSections();
+  try {
+    await repairCorruptManagedSubpages(db);
+    const rows = await selectSectionRows(db);
+    return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
+  } catch (error) {
+    if (isMissingSectionSettings(error)) return defaultManagedSections();
+    throw error;
+  }
 });
 
 export const listManagedPortalSectionsForSitemap = cache(async function listManagedPortalSectionsForSitemap(): Promise<ManagedPortalSection[]> {
   const db = database();
-  if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
+  if (!db) return defaultManagedSections();
   // Sitemap generation is a read-only public request. Do not invoke the legacy
   // repair path here: parseSubpages/merge already normalize legacy values for
   // rendering without mutating production state.
-  const rows = await selectSectionRows(db);
-  return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
+  try {
+    const rows = await selectSectionRows(db);
+    return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
+  } catch (error) {
+    if (isMissingSectionSettings(error)) return defaultManagedSections();
+    throw error;
+  }
 });
 
 export const getManagedPortalSection = cache(async function getManagedPortalSection(slug: string) {
