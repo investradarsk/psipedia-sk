@@ -15,6 +15,10 @@ import {
   loadNotionBulkServices,
 } from "./notion-bulk-sources.ts";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "./notion-sync-shared.ts";
+import {
+  resolveNotionCanonicalTarget,
+  type NotionCanonicalTargetDefinition,
+} from "./notion-canonical-target.ts";
 
 export type NotionBulkMode = "dry-run" | "execute";
 export type NotionBulkScope =
@@ -31,15 +35,6 @@ export type NotionBulkBindings = NotionSyncBindings & {
 type DataSourceProperty = { type?: string; [key: string]: unknown };
 type DataSourceResponse = { id: string; properties?: Record<string, DataSourceProperty> };
 type QueryResponse = { results?: NotionPage[]; has_more?: boolean; next_cursor?: string | null };
-type SearchItem = {
-  id: string;
-  object?: string;
-  title?: Array<{ plain_text?: string }>;
-  properties?: { title?: { title?: Array<{ plain_text?: string }> } };
-};
-type SearchResponse = { results?: SearchItem[]; has_more?: boolean; next_cursor?: string | null };
-type DatabaseResponse = { id: string };
-
 type AgendaDefinition = {
   key: NotionBulkAgendaKey;
   label: string;
@@ -57,6 +52,7 @@ export type NotionBulkAgendaResult = {
   dataSourceId: string | null;
   provisioned: boolean;
   targetMissing: boolean;
+  duplicateTargetDataSourceIds: string[];
   sourceTotal: number;
   notionTotal: number;
   matched: number;
@@ -282,74 +278,18 @@ function plainText(value: unknown) {
   )).join("").trim();
 }
 
-function searchItemTitle(item: SearchItem) {
-  const direct = plainText(item.title);
-  if (direct) return direct;
-  return plainText(item.properties?.title?.title);
-}
-
-async function searchExact(
-  bindings: NotionBulkBindings,
-  title: string,
-  object: "data_source" | "page",
-) {
-  const matches: SearchItem[] = [];
-  let cursor: string | null = null;
-  do {
-    const response = await notionRequest<SearchResponse>(bindings, "/search", {
-      method: "POST",
-      body: JSON.stringify({
-        query: title,
-        page_size: 100,
-        filter: { property: "object", value: object },
-        ...(cursor ? { start_cursor: cursor } : {}),
-      }),
-    });
-    matches.push(...(response.results ?? []).filter((item) => searchItemTitle(item) === title));
-    cursor = response.has_more && response.next_cursor ? response.next_cursor : null;
-  } while (cursor);
-
-  if (matches.length > 1) throw new Error(`Notion obsahuje viac položiek „${title}“ typu ${object}.`);
-  return matches[0] ?? null;
-}
-
-async function resolveTarget(
-  bindings: NotionBulkBindings,
-  definition: AgendaDefinition,
-  mode: NotionBulkMode,
-) {
-  const configuredId = definition.configuredId?.(bindings) ?? "";
-  if (configuredId) return { dataSourceId: configuredId, provisioned: false, targetMissing: false };
-
-  const found = await searchExact(bindings, definition.targetTitle, "data_source");
-  if (found) return { dataSourceId: found.id, provisioned: false, targetMissing: false };
-
-  if (!definition.createIfMissing || !definition.createSchema || mode === "dry-run") {
-    return { dataSourceId: null, provisioned: false, targetMissing: true };
-  }
-
-  const hub = await searchExact(bindings, "Psipedia — Editorial Hub", "page");
-  if (!hub) throw new Error("Notion stránka „Psipedia — Editorial Hub“ sa nenašla.");
-
-  const database = await notionRequest<DatabaseResponse>(bindings, "/databases", {
-    method: "POST",
-    body: JSON.stringify({
-      parent: { type: "page_id", page_id: hub.id },
-      title: [{ type: "text", text: { content: definition.targetTitle } }],
-    }),
-  });
-  if (!database.id) throw new Error(`${definition.label}: Notion nevytvoril databázu.`);
-
-  const dataSource = await notionRequest<DataSourceResponse>(bindings, "/data_sources", {
-    method: "POST",
-    body: JSON.stringify({
-      parent: { type: "database_id", database_id: database.id },
-      title: [{ type: "text", text: { content: definition.targetTitle } }],
-      properties: definition.createSchema,
-    }),
-  });
-  if (!dataSource.id) throw new Error(`${definition.label}: vytvorený data source nemá ID.`);
-  return { dataSourceId: dataSource.id, provisioned: true, targetMissing: false };
+function canonicalTargetDefinition(definition: AgendaDefinition): NotionCanonicalTargetDefinition {
+  return {
+    key: definition.key,
+    label: definition.label,
+    targetTitle: definition.targetTitle,
+    titleProperty: definition.titleProperty,
+    configuredId: definition.configuredId
+      ? (bindings) => definition.configuredId!(bindings as NotionBulkBindings)
+      : undefined,
+    createIfMissing: definition.createIfMissing,
+    createSchema: definition.createSchema,
+  };
 }
 
 async function listAllPages(bindings: NotionBulkBindings, dataSourceId: string) {
@@ -457,6 +397,7 @@ function emptyAgenda(
     dataSourceId: null,
     provisioned: false,
     targetMissing: false,
+    duplicateTargetDataSourceIds: [],
     sourceTotal,
     notionTotal: 0,
     matched: 0,
@@ -485,7 +426,12 @@ async function reconcileAgenda(
   writeBudget: { remaining: number },
 ): Promise<NotionBulkAgendaResult> {
   const source = await definition.load(database);
-  const target = await resolveTarget(bindings, definition, mode);
+  const target = await resolveNotionCanonicalTarget({
+    database,
+    bindings: bindings as NotionBulkBindings & Record<string, unknown>,
+    definition: canonicalTargetDefinition(definition),
+    allowCreate: mode === "execute",
+  });
 
   if (!target.dataSourceId) {
     if (definition.createIfMissing && mode === "dry-run") {
@@ -516,6 +462,7 @@ async function reconcileAgenda(
     return emptyAgenda(definition, source.length, {
       dataSourceId: target.dataSourceId,
       provisioned: target.provisioned,
+      duplicateTargetDataSourceIds: target.duplicateDataSourceIds,
       skipped: source.length,
       error: 1,
       missingRequiredProperties: schemaCheck.missingRequired,
@@ -620,6 +567,7 @@ async function reconcileAgenda(
     dataSourceId: target.dataSourceId,
     provisioned: target.provisioned,
     targetMissing: false,
+    duplicateTargetDataSourceIds: target.duplicateDataSourceIds,
     sourceTotal: plan.sourceTotal,
     notionTotal: plan.notionTotal,
     matched: plan.matched,
