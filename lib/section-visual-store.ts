@@ -8,6 +8,7 @@ import {
   type SectionVisualDefinition,
   type StoredSectionVisual,
 } from "@/lib/section-visual-contract";
+import { getManagedPortalSection } from "@/lib/section-store";
 
 type RuntimeBindings = { DB?: D1Database };
 type SectionVisualRow = {
@@ -93,9 +94,7 @@ export async function getResolvedSectionVisual(visualKey: string): Promise<Resol
 }
 
 export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedSectionVisual> {
-  const resolved = await getResolvedSectionVisual(visualKey);
-  if (resolved) return resolved;
-  return {
+  const resolved = await getResolvedSectionVisual(visualKey) ?? {
     visualKey,
     sectionSlug: null,
     subsectionSlug: null,
@@ -104,7 +103,33 @@ export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedS
     altText: "Pes – vizuál Psipedia",
     desktopCrop: { x: 0.5, y: 0.5, zoom: 1 },
     mobileCrop: { x: 0.5, y: 0.5, zoom: 1 },
-    source: "default",
+    source: "default" as const,
+  };
+
+  if (!resolved.sectionSlug) return resolved;
+  const section = await getManagedPortalSection(resolved.sectionSlug);
+  if (!section?.visible) return resolved;
+  const subpage = resolved.subsectionSlug
+    ? section.subpages.find((item) => item.slug === resolved.subsectionSlug && item.visible !== false)
+    : null;
+
+  return {
+    ...resolved,
+    heroContent: subpage
+      ? {
+          title: subpage.label,
+          eyebrow: subpage.eyebrow || section.eyebrow,
+          intro: subpage.intro || subpage.description,
+          config: subpage.heroConfig ?? {},
+        }
+      : !resolved.subsectionSlug
+        ? {
+            title: section.label,
+            eyebrow: section.eyebrow,
+            intro: section.intro || section.description,
+            config: section.heroConfig ?? {},
+          }
+        : undefined,
   };
 }
 
