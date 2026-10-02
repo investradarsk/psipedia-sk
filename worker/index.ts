@@ -14,6 +14,7 @@ import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
+import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import {
   runNotionDirectoryBootstrapSweep,
   runNotionDirectorySyncSweep,
@@ -50,6 +51,7 @@ interface Env {
   NOTION_ARTICLE_SYNC_ENABLED?: string;
   NOTION_BREED_SYNC_ENABLED?: string;
   NOTION_EVENT_SYNC_ENABLED?: string;
+  NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_ESHOP_SYNC_ENABLED?: string;
   NOTION_API_TOKEN?: string;
@@ -294,7 +296,10 @@ const worker = {
       console.info(JSON.stringify({ event: "notion_eshop_backfill_sweep", cadence: "five_minute", ...notionEshopBackfill }));
       return;
     }
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionDirectory, notionEshops, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
+    const notionEventsHelpEnabled = ["1", "true"].includes(
+      (env.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED ?? "").trim().toLowerCase(),
+    );
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionArticles, notionBreeds, notionEvents, notionEventsHelp, notionDirectory, notionEshops, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -315,7 +320,33 @@ const worker = {
       }),
       runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
       runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
-      runNotionEventSyncSweep({ database: env.DB, bindings: env }),
+      notionEventsHelpEnabled
+        ? Promise.resolve({ enabled: false, scanned: 0, created: 0, updated: 0, unchanged: 0, failed: 0, replacedByBidirectionalSync: true })
+        : runNotionEventSyncSweep({ database: env.DB, bindings: env }),
+      runNotionEventsHelpSyncSweep({ database: env.DB, bindings: env }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "notion_events_help_sync_sweep",
+          result: "failed",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return {
+          enabled: true,
+          mode: "sync" as const,
+          schemaReady: false,
+          agendas: [],
+          totals: {
+            scanned: 0,
+            bootstrapped: 0,
+            createdFromNotion: 0,
+            createdInNotion: 0,
+            pulledFromNotion: 0,
+            pushedToNotion: 0,
+            unchanged: 0,
+            conflicts: 0,
+            failed: 1,
+          },
+        };
+      }),
       runNotionDirectorySyncSweep({ database: env.DB, bindings: env }).catch((error) => {
         console.error(JSON.stringify({
           event: "notion_directory_sync_sweep",
@@ -398,6 +429,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
+    console.info(JSON.stringify({ event: "notion_events_help_sync_sweep", ...notionEventsHelp }));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
     console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));
     console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
