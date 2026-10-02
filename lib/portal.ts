@@ -15,11 +15,32 @@ export const articlePortalSectionSlugs = [
 
 export type ArticlePortalSection = (typeof articlePortalSectionSlugs)[number];
 
+export type SectionHeroCtaVariant = "primary" | "accent" | "secondary";
+
+export type SectionHeroQuickLink = {
+  label: string;
+  href: string;
+  visible?: boolean;
+};
+
+export type SectionHeroConfig = {
+  searchPlaceholder?: string;
+  searchButtonLabel?: string;
+  ctaEnabled?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
+  ctaVariant?: SectionHeroCtaVariant;
+  metaLabel?: string;
+  quickLinks?: SectionHeroQuickLink[];
+};
+
 export type PortalSubpage = {
   slug: string;
   label: string;
   description: string;
   intro?: string;
+  eyebrow?: string;
+  heroConfig?: SectionHeroConfig;
   icon?: string;
   imageUrl?: string;
   imageAlt?: string;
@@ -45,6 +66,7 @@ export type PortalSection = {
   eyebrow: string;
   description: string;
   intro: string;
+  heroConfig?: SectionHeroConfig;
   subpages: PortalSubpage[];
   articleEnabled: boolean;
 };
