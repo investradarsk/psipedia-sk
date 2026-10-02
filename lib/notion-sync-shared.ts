@@ -83,6 +83,38 @@ export function notionTextValue(value: string) {
   return { rich_text: value ? [{ type: "text", text: { content: value.slice(0, 1900) } }] : [] };
 }
 
+const NOTION_MAX_RETRIES = 4;
+const NOTION_RETRY_BASE_MS = 250;
+const NOTION_RETRY_MAX_MS = 8_000;
+
+export function notionRetryDelayMs(
+  attempt: number,
+  retryAfter: string | null = null,
+  now = Date.now(),
+) {
+  const clean = retryAfter?.trim() ?? "";
+  if (clean) {
+    const seconds = Number(clean);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(NOTION_RETRY_MAX_MS, Math.max(0, Math.round(seconds * 1_000)));
+    }
+    const timestamp = Date.parse(clean);
+    if (Number.isFinite(timestamp)) {
+      return Math.min(NOTION_RETRY_MAX_MS, Math.max(0, timestamp - now));
+    }
+  }
+  const exponent = Math.max(0, Math.trunc(attempt));
+  return Math.min(NOTION_RETRY_MAX_MS, NOTION_RETRY_BASE_MS * (2 ** exponent));
+}
+
+export function notionRetryableStatus(status: number) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504 || status === 529;
+}
+
+function wait(ms: number) {
+  return ms > 0 ? new Promise<void>((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
+}
+
 export async function notionRequest<T>(
   bindings: NotionSyncBindings,
   path: string,
@@ -96,9 +128,11 @@ export async function notionRequest<T>(
   headers.set("Notion-Version", NOTION_VERSION);
   headers.set("Content-Type", "application/json");
 
-  const response = await fetch(`${NOTION_API_BASE}${path}`, { ...init, headers });
-  const text = await response.text();
-  if (!response.ok) {
+  for (let attempt = 0; attempt <= NOTION_MAX_RETRIES; attempt += 1) {
+    const response = await fetch(`${NOTION_API_BASE}${path}`, { ...init, headers });
+    const text = await response.text();
+    if (response.ok) return text ? JSON.parse(text) as T : {} as T;
+
     let message = text.slice(0, 500);
     try {
       const parsed = JSON.parse(text) as { message?: string };
@@ -106,9 +140,16 @@ export async function notionRequest<T>(
     } catch {
       // Keep the plain response body.
     }
+
+    if (attempt < NOTION_MAX_RETRIES && notionRetryableStatus(response.status)) {
+      await wait(notionRetryDelayMs(attempt, response.headers.get("retry-after")));
+      continue;
+    }
+
     throw new Error(`Notion API ${response.status}: ${message}`);
   }
-  return text ? JSON.parse(text) as T : {} as T;
+
+  throw new Error("Notion API retry limit bol vyčerpaný.");
 }
 
 export async function listReadyNotionPages(
