@@ -110,20 +110,26 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         }
 
         if (viewport.width <= 430) {
-          const mediaBox = await media.boundingBox();
-          const copyBox = await copy.boundingBox();
-          expect(mediaBox, label + ": media box").not.toBeNull();
-          expect(copyBox, label + ": copy box").not.toBeNull();
-          expect(copyBox!.y + copyBox!.height, label + ": copy must end before image").toBeLessThanOrEqual(mediaBox!.y + 1);
+          await expect.poll(async () => {
+            const mediaBox = await media.boundingBox();
+            const copyBox = await copy.boundingBox();
+            if (!mediaBox || !copyBox) return -999;
+            return mediaBox.y - (copyBox.y + copyBox.height);
+          }, { message: label + ": copy must end before image", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
 
+          const mediaBox = await media.boundingBox();
+          expect(mediaBox, label + ": media box").not.toBeNull();
           const ratio = mediaBox!.width / mediaBox!.height;
           expect(ratio, label + ": mobile media should be low 16:6").toBeGreaterThan(2.62);
           expect(ratio, label + ": mobile media should be low 16:6").toBeLessThan(2.72);
 
           if (await tools.count()) {
-            const toolsBox = await tools.boundingBox();
-            expect(toolsBox, label + ": tools box").not.toBeNull();
-            expect(mediaBox!.y + mediaBox!.height, label + ": image must end before tools").toBeLessThanOrEqual(toolsBox!.y + 1);
+            await expect.poll(async () => {
+              const currentMediaBox = await media.boundingBox();
+              const toolsBox = await tools.boundingBox();
+              if (!currentMediaBox || !toolsBox) return -999;
+              return toolsBox.y - (currentMediaBox.y + currentMediaBox.height);
+            }, { message: label + ": image must end before tools", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
           }
         } else {
           const mediaBox = await media.boundingBox();
