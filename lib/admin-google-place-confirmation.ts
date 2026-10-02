@@ -7,15 +7,13 @@ import {
   initializeGeoPointForTarget,
   resetGoogleMapsNotRequired,
   setGeoVisibility,
-  setGoogleMapsNotRequired,
 } from "@/lib/geo-store";
 import {
   discoverGoogleTargetPlaces,
   googlePlaceActionForSource,
   googlePlaceConfirmationForSource,
 } from "@/lib/google-place-target-discovery";
-import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
-import { createOrganizationLocationFromAdmin } from "@/lib/organization-location-admin-write";
+import { updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
 
 export type AdminGooglePlaceConfirmationInput = {
   targetType: GeoTargetType;
@@ -24,7 +22,6 @@ export type AdminGooglePlaceConfirmationInput = {
   actorRef: string;
   publicLocation?: boolean;
   allowPrivateOverride?: boolean;
-  confirmOrganizationSite?: boolean;
 };
 
 export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmationInput) {
@@ -45,39 +42,9 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     throw new Error("Vybraný Google Place sa už vo výsledkoch nenachádza. Vyhľadaj ho znova.");
   }
 
-  let effectiveTargetType: GeoTargetType = input.targetType;
-  let effectiveTargetId = input.targetId;
-  let effectiveSource = source;
-  let createdSiteId: number | null = null;
-
-  if (source.targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE") {
-    if (input.confirmOrganizationSite !== true) {
-      throw new Error("Použitie Google kandidáta ako verejne navštevovaného SITE musí admin explicitne potvrdiť.");
-    }
-    if (!source.organizationId) {
-      throw new Error("Organizáciu pre novú SITE lokalitu sa nepodarilo určiť.");
-    }
-
-    const created = await createOrganizationLocationFromAdmin(source.organizationId, {
-      role: "SITE",
-      label: selected.displayName || source.organizationName || source.label,
-      address: selected.formattedAddress,
-      city: selected.address?.locality || selected.address?.sublocality || source.city || "",
-      district: selected.address?.district || source.district || "",
-      region: selected.address?.region || source.region || "",
-      countryCode: selected.address?.countryCode || source.countryCode || "SK",
-      isPrimary: false,
-      sortOrder: 0,
-    });
-    if (!created) throw new Error("Verejne navštevované SITE sa nepodarilo vytvoriť.");
-
-    createdSiteId = created.id;
-    effectiveTargetType = "ORGANIZATION_LOCATION";
-    effectiveTargetId = created.id;
-    const createdSource = await getGeoSourceLocation(effectiveTargetType, effectiveTargetId);
-    if (!createdSource) throw new Error("Nové SITE sa po vytvorení nepodarilo načítať.");
-    effectiveSource = createdSource;
-  }
+  const effectiveTargetType: GeoTargetType = input.targetType;
+  const effectiveTargetId = input.targetId;
+  const effectiveSource = source;
 
   const confirmationPolicy = googlePlaceConfirmationForSource(effectiveSource);
   if (!confirmationPolicy.available) throw new Error(confirmationPolicy.reason);
@@ -96,7 +63,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   let profile = null;
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
-    profile = await updateManagedDirectoryProfileFromGooglePlace(effectiveTargetId, selected, input.actorRef);
+    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef);
     if (!profile) throw new Error("Profil sa nenašiel.");
   }
 
@@ -146,16 +113,6 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     actorRef: input.actorRef,
   });
 
-  // Legacy/non-SITE target remains unchanged. Its own Google workflow is closed
-  // so Admin → Mapy does not keep offering the same non-SITE row after SITE creation.
-  if (createdSiteId !== null) {
-    await setGoogleMapsNotRequired({
-      targetType: input.targetType,
-      targetId: input.targetId,
-      actorRef: input.actorRef,
-      reason: "ADMIN_SITE_CREATED_FROM_GOOGLE_PLACE",
-    });
-  }
+  return { profile, point, googlePlaceId: selected.id, createdSiteId: null };
 
-  return { profile, point, googlePlaceId: selected.id, createdSiteId };
 }
