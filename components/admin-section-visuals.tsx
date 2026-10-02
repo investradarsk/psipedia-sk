@@ -11,6 +11,8 @@ import {
   type SectionVisualCrop,
 } from "@/lib/section-visual-contract";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import type { ManagedPortalSection } from "@/lib/section-store";
+import type { PortalSubpage, SectionHeroConfig, SectionHeroQuickLink } from "@/lib/portal";
 import styles from "./admin-section-visuals.module.css";
 
 type PreviewMode = "desktop" | "mobile";
@@ -33,8 +35,9 @@ function updatedItem(
   return items.map((item) => item.definition.visualKey === visualKey ? updater(item) : item);
 }
 
-export function AdminSectionVisuals({ initialVisuals }: { initialVisuals: SectionVisualAdminItem[] }) {
+export function AdminSectionVisuals({ initialVisuals, initialSections }: { initialVisuals: SectionVisualAdminItem[]; initialSections: ManagedPortalSection[] }) {
   const [items, setItems] = useState(initialVisuals);
+  const [sections, setSections] = useState(initialSections);
   const [activeKey, setActiveKey] = useState(initialVisuals[0]?.definition.visualKey ?? "");
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
@@ -50,6 +53,9 @@ export function AdminSectionVisuals({ initialVisuals }: { initialVisuals: Sectio
   } | null>(null);
 
   const active = items.find((item) => item.definition.visualKey === activeKey) ?? items[0];
+  const activeSection = active?.definition.sectionSlug ? sections.find((section) => section.slug === active.definition.sectionSlug) ?? null : null;
+  const activeSubpage = activeSection && active?.definition.subsectionSlug ? activeSection.subpages.find((subpage) => subpage.slug === active.definition.subsectionSlug) ?? null : null;
+  const heroConfig: SectionHeroConfig = activeSubpage?.heroConfig ?? activeSection?.heroConfig ?? {};
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("sk-SK");
     if (!needle) return items;
@@ -70,6 +76,48 @@ export function AdminSectionVisuals({ initialVisuals }: { initialVisuals: Sectio
     setMessage("");
     setError("");
   }
+
+  function clearFeedback() { setMessage(""); setError(""); }
+
+  function patchSection(patch: Partial<ManagedPortalSection>) {
+    if (!activeSection) return;
+    setSections((current) => current.map((section) => section.slug === activeSection.slug ? { ...section, ...patch } : section));
+    clearFeedback();
+  }
+
+  function patchSubpage(patch: Partial<PortalSubpage>) {
+    if (!activeSection || !activeSubpage) return;
+    setSections((current) => current.map((section) => section.slug !== activeSection.slug ? section : ({
+      ...section,
+      subpages: section.subpages.map((subpage) => subpage.slug === activeSubpage.slug ? { ...subpage, ...patch } : subpage),
+    })));
+    clearFeedback();
+  }
+
+  function patchHeroConfig(patch: Partial<SectionHeroConfig>) {
+    const next = { ...heroConfig, ...patch };
+    if (activeSubpage) patchSubpage({ heroConfig: next });
+    else if (activeSection) patchSection({ heroConfig: next });
+  }
+
+  function patchQuickLink(index: number, patch: Partial<SectionHeroQuickLink>) {
+    const quickLinks = [...(heroConfig.quickLinks ?? [])];
+    while (quickLinks.length <= index) quickLinks.push({ label: "", href: "", visible: true });
+    quickLinks[index] = { ...quickLinks[index], ...patch };
+    patchHeroConfig({ quickLinks });
+  }
+
+  function addQuickLink() {
+    const quickLinks = [...(heroConfig.quickLinks ?? [])];
+    if (quickLinks.length >= 6) return;
+    patchHeroConfig({ quickLinks: [...quickLinks, { label: "", href: "", visible: true }] });
+  }
+
+  function removeQuickLink(index: number) {
+    patchHeroConfig({ quickLinks: (heroConfig.quickLinks ?? []).filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  function safeHref(value: string) { return value.startsWith("/") || /^https:\/\//i.test(value); }
 
   function patchCrop(mode: PreviewMode, crop: Partial<SectionVisualCrop>) {
     if (!active) return;
