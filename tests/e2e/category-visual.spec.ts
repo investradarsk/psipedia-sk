@@ -86,9 +86,11 @@ test("CATEGORY-VISUAL preview matches the landing-page contract and captures bef
 test("CATEGORY-BANNERS preview keeps hero, category navigation and functional state contracts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
-  for (const [path, tone] of [["/podujatia", "events"], ["/adresar", "services"], ["/recenzie", "reviews"]] as const) {
+  for (const [path, visualKey] of [["/podujatia", "section.podujatia"], ["/adresar", "section.adresar"], ["/recenzie", "section.recenzie"]] as const) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
-    await expect(page.locator(`[data-public-landing-hero="${tone}"]`)).toBeVisible();
+    const hero = page.locator("[data-unified-section-hero]").first();
+    await expect(hero).toBeVisible();
+    await expect(hero).toHaveAttribute("data-section-visual-key", visualKey);
     await expect(page.locator("[data-public-category-tiles]")).toBeVisible();
     const tiles = page.locator("[data-public-category-tiles] a");
     expect(await tiles.count(), `${path} category tiles`).toBeGreaterThan(0);
@@ -111,8 +113,7 @@ test("CATEGORY-BANNERS preview keeps hero, category navigation and functional st
   await page.goto("/adresar");
   const directoryNav = page.getByRole("navigation", { name: "Kategórie služieb" });
   await expect(directoryNav).toBeVisible();
-  await expect(page.locator('form[action="/adresar"] input[name="q"]')).toBeVisible();
-  await expect(page.locator('form[action="/adresar"] select[name="category"]')).toBeVisible();
+  await expect(page.locator('[data-unified-section-hero] form[action="/adresar"] input[name="q"]')).toBeVisible();
 
   await page.goto("/adresar?q=Nitra&category=veterinari");
   await expect(page).toHaveURL(/q=Nitra/);
