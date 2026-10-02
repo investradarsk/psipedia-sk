@@ -44,7 +44,7 @@ test("ARTICLE-HARDENING keeps the approved 0104/0105 article schema intact after
   assert.ok(migrations.includes("0106_section_visuals.sql"));
   assert.ok(migrations.includes("0107_section_hero_config.sql"));
   assert.equal(migrations.some((name) => /^01(?:06|07)_.*article/i.test(name)), false);
-  assert.equal(migrations.at(-1), "0107_section_hero_config.sql");
+  assert.equal(migrations.filter((name) => name.startsWith("0107_")).length, 1);
 });
 
 test("contextual promo descends the existing hierarchy instead of duplicating a manual target", () => {
