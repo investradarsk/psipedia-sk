@@ -11,7 +11,7 @@ on:
       - "lib/notion-bulk-sources.ts"
       - "app/api/admin/notion-events-help-sync/**"
       - "worker/index.ts"
-      - "drizzle/0107_notion_events_help_bidirectional_sync.sql"
+      - "drizzle/0108_notion_events_help_bidirectional_sync.sql"
       - "tests/notion-events-help-bidirectional.test.mjs"
       - "package.json"
       - ".github/workflows/notion-events-help-sync-ci.yml"
