@@ -4,64 +4,89 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("CATEGORY-VISUAL landings reuse the public visual foundation", () => {
-  const breeds = read("app/plemena/page.tsx");
-  const directory = read("components/directory-page.tsx");
+test("CATEGORY-BANNERS reuses one shared hero and category-tile system", () => {
+  const shared = read("components/public-visual-system/public-visual-system.tsx");
+  const sharedCss = read("components/public-visual-system/public-visual-system.module.css");
   const events = read("components/events-page.tsx");
-  const help = read("components/help-overview.tsx");
+  const directory = read("components/directory-page.tsx");
   const reviews = read("components/reviews-hub.tsx");
-  const news = read("components/news-hub.tsx");
+  const help = read("components/help-overview.tsx");
 
-  assert.match(breeds, /<Breadcrumbs>/);
-  assert.match(breeds, /<PublicSectionHeader/);
-  assert.match(directory, /title="Služby pre psov"/);
-  assert.match(directory, /<PublicSectionHeader/);
-  assert.doesNotMatch(directory, /hero-labrador\.webp/);
-  assert.match(events, /<PublicSectionHeader/);
-  assert.match(help, /<Breadcrumbs label="Drobečková navigácia">/);
-  assert.match(help, /eyebrow="Praktická pomoc"/);
-  assert.match(reviews, /<PublicFoundation className=\{styles\.foundation\}>/);
-  assert.match(reviews, /<PublicSectionHeader/);
-  assert.match(news, /<PublicSectionHeader/);
+  assert.match(shared, /export function PublicLandingHero/);
+  assert.match(shared, /export function PublicCategoryTiles/);
+  assert.match(shared, /data-public-landing-hero/);
+  assert.match(shared, /data-public-category-tiles/);
+  assert.match(sharedCss, /\.landingHero_events/);
+  assert.match(sharedCss, /\.landingHero_services/);
+  assert.match(sharedCss, /\.landingHero_reviews/);
+  assert.match(sharedCss, /\.categoryTiles\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/);
+
+  assert.match(events, /<PublicLandingHero[\s\S]*?tone="events"/);
+  assert.match(events, /<PublicCategoryTiles/);
+  assert.match(directory, /<PublicLandingHero[\s\S]*?tone="services"/);
+  assert.match(directory, /<PublicCategoryTiles/);
+  assert.match(reviews, /<PublicLandingHero[\s\S]*?tone="reviews"/);
+  assert.match(reviews, /<PublicCategoryTiles/);
+
+  assert.match(help, /<PublicSectionHeader/);
+  assert.match(help, /data-help-category-nav/);
 });
 
-test("CATEGORY-VISUAL keeps reviews at four main entry points in a two-column desktop grid", () => {
+test("CATEGORY-BANNERS uses existing project taxonomies and canonical links", () => {
+  const events = read("components/events-page.tsx");
+  const eventDomain = read("lib/events.ts");
+  const directory = read("components/directory-page.tsx");
   const reviews = read("components/reviews-hub.tsx");
-  const css = read("components/reviews-hub.module.css");
+
+  assert.match(events, /eventTypes\.flatMap/);
+  assert.match(events, /eventTypePortalHref\(eventType\)/);
+  assert.match(eventDomain, /"Výstava", "Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"/);
+
+  assert.match(directory, /directoryCategories\.map/);
+  assert.match(directory, /directoryCategoryHref\(category\)/);
 
   for (const label of ["Všetko", "Produkty", "Služby", "E-shopy"]) {
-    assert.match(reviews, new RegExp(`"${label.replace("-", "\\-")}"`));
+    assert.match(reviews, new RegExp(`title: "${label}"`));
   }
-  assert.equal((reviews.match(/\["(?:all|products|services|eshops)",/g) ?? []).length, 4);
-  assert.match(css, /\.modeGrid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,1fr\)\)/);
-  assert.match(css, /\.modeCard:focus-visible/);
+  assert.match(reviews, /viewHref\("products"\)/);
+  assert.match(reviews, /viewHref\("services"\)/);
+  assert.match(reviews, /viewHref\("eshops"\)/);
+  assert.match(reviews, /rel: "nofollow"/);
 });
 
-test("CATEGORY-VISUAL category discovery is not horizontal-scroll-only", () => {
-  const directory = read("components/directory-public.module.css");
-  const news = read("components/news-hub.module.css");
-  const help = read("components/help-public.module.css");
-
-  assert.match(directory, /\.categoryNav:not\(\.categoryNavCompact\)\s*\{[\s\S]*?display:\s*grid/);
-  assert.match(directory, /\.categoryNavCompact\s*\{[\s\S]*?display:\s*grid/);
-  assert.match(news, /\.filters\s*\{[\s\S]*?display:\s*grid/);
-  assert.doesNotMatch(news, /\.filters\s*\{[^}]*overflow-x:\s*auto/);
-  assert.match(help, /\.overviewCategoryGrid\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
-});
-
-test("CATEGORY-VISUAL preserves functional contracts and removes adjacent intro duplication", () => {
+test("CATEGORY-BANNERS preserves functional search, filter and content contracts", () => {
   const events = read("components/events-page.tsx");
   const directory = read("components/directory-page.tsx");
-  const help = read("components/help-overview.tsx");
   const reviews = read("components/reviews-hub.tsx");
+  const help = read("components/help-overview.tsx");
 
-  assert.doesNotMatch(events, /section\?\.intro/);
   assert.match(events, /<EventCalendar events=\{events\}/);
+  assert.match(events, /href="\/podujatia\/pridat-podujatie"/);
+
   assert.match(directory, /action="\/adresar"/);
+  assert.match(directory, /method="get"/);
   assert.match(directory, /name="category"/);
   assert.match(directory, /name="q"/);
-  assert.match(help, /\/pomoc-psom\/stratene-a-najdene\/nahlasit/);
-  assert.match(reviews, /viewHref\(key\)/);
+  assert.match(directory, /<DirectoryResults/);
+
+  assert.match(reviews, /action="\/hladat"/);
+  assert.match(reviews, /name="sekcia" value="recenzie"/);
   assert.match(reviews, /<ArticleCard/);
-  assert.doesNotMatch(reviews, /min čítania|čas čítania/i);
+  assert.match(reviews, /profileReviews\.map/);
+  assert.match(reviews, /eshops\.map/);
+
+  assert.match(help, /\/pomoc-psom\/stratene-a-najdene\/nahlasit/);
+});
+
+test("CATEGORY-BANNERS keeps semantic and responsive shared contracts", () => {
+  const shared = read("components/public-visual-system/public-visual-system.tsx");
+  const css = read("components/public-visual-system/public-visual-system.module.css");
+
+  assert.match(shared, /<h1>\{title\}<\/h1>/);
+  assert.match(shared, /<nav className=\{cx\(styles\.categoryTiles/);
+  assert.match(shared, /aria-current=\{item\.current \? "page"/);
+  assert.match(css, /\.categoryTile:focus-visible/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.categoryTiles[\s\S]*?repeat\(2/);
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.categoryTiles[\s\S]*?minmax\(0, 1fr\)/);
+  assert.match(css, /\.landingHero\s*\{[\s\S]*?overflow:\s*hidden/);
 });
