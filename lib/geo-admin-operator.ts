@@ -878,8 +878,15 @@ export async function loadGeoAdminOperatorProfiles(
   const filters = normalizeGeoAdminOperatorQuery(input);
   const filtered = filterSql(filters);
   const categoryFilter = filterSql(filters, { includeCategory: false });
+  const unresolvedSummary = filterSql(normalizeGeoAdminOperatorQuery({
+    group: "ALL",
+    category: "",
+    query: "",
+    page: 1,
+    pageSize: filters.pageSize,
+  }));
 
-  const [countRow, categoryRows] = await Promise.all([
+  const [summaryRow, pageCountRow, categoryRows] = await Promise.all([
     db.prepare(`
       ${GEO_BASE_CTE}
       SELECT
@@ -900,6 +907,12 @@ export async function loadGeoAdminOperatorProfiles(
         SUM(CASE WHEN operator_state = 'FAILED' THEN 1 ELSE 0 END) AS op_failed,
         SUM(CASE WHEN operator_state = 'NOT_PUBLIC' THEN 1 ELSE 0 END) AS op_not_public
       FROM base
+      ${unresolvedSummary.clause}
+    `).bind(...unresolvedSummary.bindings).first<DbRow>(),
+    db.prepare(`
+      ${GEO_BASE_CTE}
+      SELECT COUNT(*) AS total
+      FROM base
       ${filtered.clause}
     `).bind(...filtered.bindings).first<DbRow>(),
     db.prepare(`
@@ -912,7 +925,7 @@ export async function loadGeoAdminOperatorProfiles(
     `).bind(...categoryFilter.bindings).all<DbRow>(),
   ]);
 
-  const total = integer(countRow, "total");
+  const total = integer(pageCountRow, "total");
   const paging = pagination(filters.page, filters.pageSize, total);
   const offset = (paging.page - 1) * paging.pageSize;
   const pageRows = await db.prepare(`
@@ -925,27 +938,27 @@ export async function loadGeoAdminOperatorProfiles(
   `).bind(...filtered.bindings, paging.pageSize, offset).all<DbRow>();
 
   const operators: GeoAdminOperatorSummary = {
-    ON_MAP: integer(countRow, "op_on_map"),
-    PENDING: integer(countRow, "op_pending"),
-    NEEDS_REVIEW: integer(countRow, "op_needs_review"),
-    MISSING_ADDRESS: integer(countRow, "op_missing_address"),
-    INCOMPLETE_ADDRESS: integer(countRow, "op_incomplete_address"),
-    INVALID_ADDRESS: integer(countRow, "op_invalid_address"),
-    FAILED: integer(countRow, "op_failed"),
-    NOT_PUBLIC: integer(countRow, "op_not_public"),
+    ON_MAP: integer(summaryRow, "op_on_map"),
+    PENDING: integer(summaryRow, "op_pending"),
+    NEEDS_REVIEW: integer(summaryRow, "op_needs_review"),
+    MISSING_ADDRESS: integer(summaryRow, "op_missing_address"),
+    INCOMPLETE_ADDRESS: integer(summaryRow, "op_incomplete_address"),
+    INVALID_ADDRESS: integer(summaryRow, "op_invalid_address"),
+    FAILED: integer(summaryRow, "op_failed"),
+    NOT_PUBLIC: integer(summaryRow, "op_not_public"),
   };
   const counts: GeoAdminOperatorCounts = {
     total,
     groups: {
-      SERVICES: integer(countRow, "services"),
-      HELP: integer(countRow, "help"),
-      EVENTS: integer(countRow, "events"),
+      SERVICES: integer(summaryRow, "services"),
+      HELP: integer(summaryRow, "help"),
+      EVENTS: integer(summaryRow, "events"),
     },
     google: {
-      PLACE: integer(countRow, "google_place"),
-      COORDINATES: integer(countRow, "google_coordinates"),
-      NOT_REQUIRED: integer(countRow, "google_not_required"),
-      UNRESOLVED: integer(countRow, "google_unresolved"),
+      PLACE: integer(summaryRow, "google_place"),
+      COORDINATES: integer(summaryRow, "google_coordinates"),
+      NOT_REQUIRED: integer(summaryRow, "google_not_required"),
+      UNRESOLVED: integer(summaryRow, "google_unresolved"),
     },
     operators,
   };
