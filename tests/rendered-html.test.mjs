@@ -777,7 +777,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const calendar = await worker.fetch(new Request("http://localhost/podujatia/kalendar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(calendar.status, 200);
   const calendarAliasHtml = await calendar.text();
-  assert.match(calendarAliasHtml, /Kalendár a databáza/);
+  assert.match(calendarAliasHtml, /Čo sa deje|Kalendár podujatí/);
   assert.doesNotMatch(calendarAliasHtml, /event-calendar-hero--photo|section-hero-photo/);
 
   const trainers = await worker.fetch(new Request("http://localhost/adresar/treneri", { headers: { accept: "text/html" } }), bindings, context);
@@ -1015,7 +1015,7 @@ test("renders the help portal, stable category URL and emergency guide", async (
   const help = await worker.fetch(new Request("http://localhost/pomoc-psom", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(help.status, 200);
   const helpHtml = await help.text();
-  assert.match(helpHtml, /Praktická pomoc/);
+  assert.match(helpHtml, /Pomoc, ktorá má cieľ/);
   assert.doesNotMatch(helpHtml, /Pomoc psom · tam, kde ju treba/);
   assert.match(helpHtml, /Kategórie pomoci/);
   assert.match(helpHtml, /Pomáhajme spolu/);
@@ -1095,7 +1095,7 @@ test("renders the atlas in all ten FCI groups with breed photos", async () => {
   const html = await response.text();
   assert.match(html, /rel="canonical" href="https:\/\/psipedia\.sk\/plemena"/);
   assert.doesNotMatch(html, /rel="canonical"[^>]+fci(?:Group|Section)=/);
-  assert.match(html, /FCI skupiny alebo sekcie/);
+  assert.match(html, /Atlas FCI/);
   assert.match(html, /FCI skupina 1/);
   assert.match(html, /FCI skupina 10/);
   assert.match(html, /Austrálsky ovčiak/);
