@@ -46,29 +46,29 @@ class TargetDb {
     this.target = null;
   }
   prepare(sql) {
-    const db = this;
-    return {
+    const statement = {
       args: [],
       bind(...args) {
-        this.args = args;
-        return this;
+        statement.args = args;
+        return statement;
       },
-      async first() {
+      first: async () => {
         if (sql.includes("sqlite_master")) return { ok: 1 };
-        if (sql.includes("FROM notion_agenda_targets")) return db.target;
+        if (sql.includes("FROM notion_agenda_targets")) return this.target;
         return null;
       },
-      async run() {
+      run: async () => {
         if (sql.includes("INSERT INTO notion_agenda_targets")) {
-          db.target = {
-            agenda: this.args[0],
-            database_id: this.args[1],
-            data_source_id: this.args[2],
+          this.target = {
+            agenda: statement.args[0],
+            database_id: statement.args[1],
+            data_source_id: statement.args[2],
           };
         }
         return { meta: { changes: 1 } };
       },
     };
+    return statement;
   }
 }
 
