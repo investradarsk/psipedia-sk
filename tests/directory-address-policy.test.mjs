@@ -20,6 +20,7 @@ const mapLoader = read("lib/geo-admin-operator.ts");
 const mapDashboard = read("components/admin-geo-operator-dashboard.tsx");
 const googleDiscovery = read("lib/google-place-directory-discovery.ts");
 const geoRoute = read("app/api/admin/geo/[targetType]/[id]/route.ts");
+const googleConfirmation = read("lib/admin-google-place-confirmation.ts");
 
 const baseAddress = {
   region: "Nitriansky kraj",
@@ -142,8 +143,9 @@ test("manual text alone never fabricates an exact GEO point", () => {
 test("Google-first flow uses editorial address as a discovery hint and confirmation can upgrade canonical address and GEO", () => {
   assert.match(googleDiscovery, /source\.label, source\.address, source\.street/);
   assert.match(geoRoute, /discoverGoogleTargetPlaces\(source\)/);
-  assert.match(geoRoute, /updateManagedDirectoryProfileFromGooglePlace/);
-  assert.match(geoRoute, /applyGooglePlaceResolution/);
+  assert.match(geoRoute, /confirmAdminGooglePlace/);
+  assert.match(googleConfirmation, /updateManagedDirectoryProfileFromGooglePlace/);
+  assert.match(googleConfirmation, /applyGooglePlaceResolution/);
   assert.match(store, /address: place\.formattedAddress/);
   assert.match(store, /confirmServiceAddress: true/);
 });
