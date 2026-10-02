@@ -99,7 +99,8 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0104_article_topics.sql",
   "0105_article_popularity.sql",
   "0106_section_visuals.sql",
-  "0107_notion_events_help_bidirectional_sync.sql",
+  "0107_section_hero_config.sql",
+  "0108_notion_events_help_bidirectional_sync.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -656,6 +657,7 @@ function schemaState(databaseName, configPath) {
   const moderationSubmissionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('moderation_submissions')");
   const geoPointColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('geo_points')");
   const managedEshopColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_eshops')");
+  const portalSectionSettingsColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('portal_section_settings')");
   const automationDiscoveryRootColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_roots')");
   const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
@@ -679,6 +681,7 @@ function schemaState(databaseName, configPath) {
     moderationSubmissionColumns,
     geoPointColumns,
     managedEshopColumns,
+    portalSectionSettingsColumns,
     automationDiscoveryRootColumns,
     automationDiscoveryRunColumns,
     automationSourceColumns,
@@ -1001,7 +1004,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || names.has("section_visuals_section_idx"),
     };
   }
-  if (targetMigration === "0107_notion_events_help_bidirectional_sync.sql") {
+  if (targetMigration === "0107_section_hero_config.sql") {
+    return {
+      partial: (schema.portalSectionSettingsColumns ?? []).some((column) => String(column.name) === "hero_config_json"),
+    };
+  }
+  if (targetMigration === "0108_notion_events_help_bidirectional_sync.sql") {
     const eventColumns = new Set((schema.eventNotionSyncColumns ?? []).map((column) => String(column.name)));
     return {
       partial: eventColumns.has("psipedia_updated_at")
@@ -1625,6 +1633,11 @@ function assertSectionVisualSchema(schema) {
   invariant(tableSql.includes("mobile_zoom >= 1 AND mobile_zoom <= 3"), "Section visual mobile zoom bounds are missing");
 }
 
+function assertSectionHeroConfigSchema(schema) {
+  const columns = schema.portalSectionSettingsColumns ?? [];
+  invariant(columns.some((column) => String(column.name) === "hero_config_json"), "portal_section_settings.hero_config_json is missing");
+}
+
 function assertNotionEventsHelpBidirectionalSchema(schema) {
   const names = objectMap(schema.objects);
   const eventColumns = new Set((schema.eventNotionSyncColumns ?? []).map((column) => String(column.name)));
@@ -1681,7 +1694,8 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 104) assertArticleTopicSchema(schema);
   if (migrationIndex(targetMigration) >= 105) assertArticlePopularitySchema(schema);
   if (migrationIndex(targetMigration) >= 106) assertSectionVisualSchema(schema);
-  if (migrationIndex(targetMigration) >= 107) assertNotionEventsHelpBidirectionalSchema(schema);
+  if (migrationIndex(targetMigration) >= 107) assertSectionHeroConfigSchema(schema);
+  if (migrationIndex(targetMigration) >= 108) assertNotionEventsHelpBidirectionalSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1895,6 +1909,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 104) assertArticleTopicSchema(schema);
     if (targetIndex > 105) assertArticlePopularitySchema(schema);
     if (targetIndex > 106) assertSectionVisualSchema(schema);
+    if (targetIndex > 107) assertSectionHeroConfigSchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
