@@ -1,7 +1,7 @@
 import { directoryCategories, directoryCategoryHref } from "@/lib/directory";
 import { eventTypeListingSeo, eventTypePortalHref, eventTypes } from "@/lib/events";
 import { helpCategories, helpCategoryHref } from "@/lib/help";
-import { portalSections, type PortalSection } from "@/lib/portal";
+import { portalSections, type PortalSection, type SectionHeroConfig } from "@/lib/portal";
 
 export const SECTION_VISUAL_DESKTOP_ASPECT = [16, 6] as const;
 export const SECTION_VISUAL_MOBILE_ASPECT = [16, 6] as const;
@@ -52,6 +52,12 @@ export type StoredSectionVisual = {
 
 export type ResolvedSectionVisual = StoredSectionVisual & {
   source: "custom" | "default";
+  heroContent?: {
+    title?: string;
+    eyebrow?: string;
+    intro?: string;
+    config?: SectionHeroConfig;
+  };
 };
 
 export type SectionVisualAdminItem = {
