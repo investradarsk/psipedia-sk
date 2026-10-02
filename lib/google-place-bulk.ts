@@ -252,6 +252,21 @@ async function resultMeta(targetType: GeoTargetType, targetId: number) {
   };
 }
 
+async function currentGooglePlaceState(targetType: GeoTargetType, targetId: number) {
+  const database = requireDb();
+  const column = targetType === "DIRECTORY_PROFILE"
+    ? "directory_profile_id"
+    : targetType === "ORGANIZATION_LOCATION"
+      ? "organization_location_id"
+      : "managed_event_id";
+  return database.prepare(`
+    SELECT google_place_id, google_place_source_fingerprint, source_fingerprint
+    FROM geo_points
+    WHERE target_type = ? AND ${column} = ?
+    LIMIT 1
+  `).bind(targetType, targetId).first<Row>();
+}
+
 function withMeta(
   meta: Awaited<ReturnType<typeof resultMeta>>,
   status: GooglePlaceBulkResultStatus,
@@ -292,12 +307,11 @@ export async function processGooglePlaceBulkTarget(input: {
     if (await getGoogleMapsWorkflowDecision(targetType, targetId, database) === "NOT_REQUIRED") {
       return withMeta(meta, "NOT_REQUIRED", "Google Maps bolo pre target explicitne označené ako nepotrebné.");
     }
-    if (
-      point?.googlePlaceId
-      && point.googlePlaceSourceFingerprint
-      && point.sourceFingerprint
-      && point.googlePlaceSourceFingerprint === point.sourceFingerprint
-    ) {
+    const googleState = await currentGooglePlaceState(targetType, targetId);
+    const googlePlaceId = String(googleState?.google_place_id ?? "").trim();
+    const googlePlaceFingerprint = String(googleState?.google_place_source_fingerprint ?? "").trim();
+    const sourceFingerprint = String(googleState?.source_fingerprint ?? "").trim();
+    if (googlePlaceId && googlePlaceFingerprint && sourceFingerprint && googlePlaceFingerprint === sourceFingerprint) {
       return withMeta(meta, "SKIPPED", "Target už má aktuálny Google Place.");
     }
 
