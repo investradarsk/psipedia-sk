@@ -147,7 +147,7 @@ test("Google-first flow uses editorial address as a discovery hint and confirmat
   assert.match(googleConfirmation, /updateManagedDirectoryProfileLocationFromGooglePlace/);
   assert.match(googleConfirmation, /applyGooglePlaceResolution/);
   assert.match(store, /address: place\.formattedAddress/);
-  assert.match(store, /confirmServiceAddress: true/);
+  assert.match(store, /service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION'/);
 });
 
 test("Admin Mapy keeps the unresolved inbox simple and shows one formatted address plus Google picker", () => {
