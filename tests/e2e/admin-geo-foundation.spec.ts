@@ -42,15 +42,18 @@ test.describe("MAP-1B admin geo foundation", () => {
   test("maps are operator-first and advanced safety gates remain available under tools", async ({ page }) => {
     await page.goto("/admin/mapy", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Mapy" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Stav mapových položiek" })).toBeVisible();
-    await expect(page.getByPlaceholder("Hľadať názov, mesto, okres, kraj alebo kategóriu")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Na mape" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Čaká na spracovanie" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Treba skontrolovať" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Chýba adresa" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nevyriešené položky" })).toBeVisible();
+    await expect(page.getByText(/Treba vyriešiť:/)).toBeVisible();
+    await expect(page.getByPlaceholder("Názov, mesto alebo adresa")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Všetko \(/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Služby \(/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Pomoc psom \(/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Podujatia \(/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Google Maps — hromadná kontrola" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Na mape" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Čaká na spracovanie" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Treba skontrolovať" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Chýba adresa" })).toHaveCount(0);
 
     await page.goto("/admin/nastroje/geo", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "GEO nástroje" })).toBeVisible();

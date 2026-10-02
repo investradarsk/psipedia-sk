@@ -25,8 +25,6 @@ export default async function AdminMapsPage({
     operatorData = await loadGeoAdminOperatorProfiles({
       group: firstParam(params.group),
       category: firstParam(params.category),
-      operator: firstParam(params.operator),
-      google: firstParam(params.google),
       query: firstParam(params.q),
       page: firstParam(params.page),
       pageSize: firstParam(params.pageSize),
@@ -39,8 +37,6 @@ export default async function AdminMapsPage({
     ? [
         operatorData.filters.group,
         operatorData.filters.category,
-        operatorData.filters.operator,
-        operatorData.filters.google,
         operatorData.filters.query,
       ].join("|")
     : "unavailable";
@@ -50,8 +46,8 @@ export default async function AdminMapsPage({
       user={user}
       eyebrow="Admin · Mapy"
       title="Mapy"
-      description="Rýchly pracovný priestor pre mapy služieb, organizácií Pomoci psom a podujatí. Filtre, počty a stránkovanie sa vyhodnocujú na serveri; Google Maps sa načíta až po explicitnom kliknutí."
-      actions={<Link href="/admin/operations?source=GEO_LOCATION_ISSUE">Geo lokality na kontrolu</Link>}
+      description="Pracovný inbox položiek, ktoré ešte treba vyriešiť cez Google Maps. Hotové položky sa tu nezobrazujú."
+      actions={<Link href="/admin/operations?source=GEO_LOCATION_ISSUE">Technické GEO detaily</Link>}
     >
       {unavailable || !operatorData
         ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>

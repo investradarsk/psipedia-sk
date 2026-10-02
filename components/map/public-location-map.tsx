@@ -35,14 +35,6 @@ type Props = {
   testRendererEnvironment?: boolean;
 };
 
-function locationRoleLabel(item: MapItem) {
-  if (item.entityType !== "organization") return null;
-  if (item.locationRole === "SITE") return "Prevádzka";
-  if (item.locationRole === "SERVICE_AREA") return "Oblasť pôsobenia";
-  if (item.locationRole === "LEGAL_SEAT") return "Sídlo";
-  return null;
-}
-
 export function PublicLocationMap({
   title,
   eyebrow = "Poloha",
@@ -173,27 +165,7 @@ export function PublicLocationMap({
           ) : null}
         </div>
 
-        {items.length > 1 ? (
-          <div className={styles.locations} aria-label="Verejné lokality organizácie">
-            {items.map((item) => {
-              const approximate = isApproximateMapItem(item);
-              const role = locationRoleLabel(item);
-              return (
-                <button
-                  type="button"
-                  className={styles.locationButton}
-                  key={item.id}
-                  aria-pressed={selected?.id === item.id}
-                  onClick={() => focusItem(item)}
-                >
-                  <span className={styles.locationTitle}>{role ?? item.name}</span>
-                  {item.displayLocation ? <span className={styles.locationMeta}>{item.displayLocation}</span> : null}
-                  {approximate ? <span className={styles.approximate}>Približná poloha</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        ) : selected && (selected.displayLocation || isApproximateMapItem(selected)) ? (
+        {selected && (selected.displayLocation || isApproximateMapItem(selected)) ? (
           <div className={styles.locations}>
             {isApproximateMapItem(selected) ? <span className={styles.approximate}>Približná poloha</span> : null}
             {selected.displayLocation ? <span className={styles.locationMeta}>{selected.displayLocation}</span> : null}

@@ -35,17 +35,19 @@ test("public map API exposes only approved current canonical geo items", async (
 
   // ADDRESS-1 is exact-only for DIRECTORY_PROFILE. The synthetic breeder fixture
   // intentionally remains APPROXIMATE_PUBLIC / MUNICIPALITY and must be excluded.
-  const serviceArea = body.items.find(
-    (item: { name: string; locationRole?: string }) =>
-      item.name === "MAP E2E Multi Site Org" && item.locationRole === "SERVICE_AREA",
+  const organization = body.items.find(
+    (item: { name: string }) => item.name === "MAP E2E Multi Site Org",
   );
-  expect(serviceArea).toBeTruthy();
-  expect(serviceArea.displayLocation).not.toContain("Neverejná service-area 8");
+  expect(organization).toBeTruthy();
+  expect(organization.displayLocation).toContain("Nitra");
+  expect(organization.displayLocation).not.toContain("Neverejná service-area 8");
+  expect("locationRole" in organization).toBe(false);
 
   const linked = body.items.find((item: { name: string }) => item.name === "MAP E2E Linked Organization");
   expect(linked.href).toBe("/organizacie/map-e2e-linked-organization");
 
-  expect(body.items.filter((item: { name: string }) => item.name === "MAP E2E Multi Site Org")).toHaveLength(2);
+  expect(body.items.filter((item: { name: string }) => item.name === "MAP E2E Multi Site Org")).toHaveLength(1);
+  expect(body.items.filter((item: { latitude: number; longitude: number }) => item.latitude === 48.33 && item.longitude === 18.12)).toHaveLength(1);
   expect(body.items.filter((item: { latitude: number; longitude: number }) => item.latitude === 48.306 && item.longitude === 18.086)).toHaveLength(2);
 
   expect(body.meta.attribution).toContainEqual({ label: "Powered by Geoapify", url: "https://www.geoapify.com/" });

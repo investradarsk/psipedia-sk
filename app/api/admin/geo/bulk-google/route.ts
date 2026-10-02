@@ -49,10 +49,12 @@ export async function POST(request: Request) {
       if (!isGeoTargetType(targetType) || !Number.isSafeInteger(targetId) || targetId <= 0) {
         return Response.json({ error: "Neplatný canonical Google bulk target." }, { status: 400 });
       }
+      const organizationId = Number(body.organizationId);
       const result = await processGooglePlaceBulkTarget({
         targetType,
         targetId,
         actorRef: user.email,
+        organizationId: Number.isSafeInteger(organizationId) && organizationId > 0 ? organizationId : null,
       });
       return Response.json({ result });
     }

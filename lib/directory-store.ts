@@ -1249,7 +1249,7 @@ export async function updateManagedDirectoryProfile(
   return rowToManagedProfile(row);
 }
 
-export async function updateManagedDirectoryProfileFromGooglePlace(
+export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   id: number,
   place: GooglePlaceCandidate,
   editorEmail: string,
@@ -1258,7 +1258,7 @@ export async function updateManagedDirectoryProfileFromGooglePlace(
   const database = databaseInput ?? requireD1Binding();
   const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
-  const contacts = readDirectoryPublicContacts(existing.importData, existing.websiteUrl ?? "");
+
   const location = googlePlaceDirectoryLocation(existing, place);
   const street = place.address?.street?.trim() ?? "";
   const houseNumber = place.address?.houseNumber?.trim() ?? "";
@@ -1268,12 +1268,8 @@ export async function updateManagedDirectoryProfileFromGooglePlace(
     : houseNumber
       ? "MUNICIPALITY_NUMBER"
       : "";
-
-  return updateManagedDirectoryProfile(id, {
-    slug: existing.slug,
+  const searchText = directorySearchText({
     name: existing.name,
-    category: existing.category,
-    status: existing.status,
     excerpt: existing.excerpt,
     description: existing.description,
     services: existing.services,
@@ -1285,21 +1281,41 @@ export async function updateManagedDirectoryProfileFromGooglePlace(
     postalCode,
     street,
     houseNumber,
+  });
+  const now = new Date().toISOString();
+
+  // Location-only Google write contract. Contact, website, social, content,
+  // pricing, media and SEO fields are intentionally absent from this UPDATE.
+  const row = await database.prepare(`
+    UPDATE directory_profiles
+    SET region = ?, district = ?, city = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
+      address_format = ?, service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION',
+      search_text = ?, updated_at = ?, updated_by = ?
+    WHERE id = ?
+    RETURNING *
+  `).bind(
+    location.region,
+    location.district,
+    location.city,
+    place.formattedAddress,
+    postalCode,
+    street,
+    houseNumber,
     addressFormat,
-    confirmServiceAddress: true,
-    priceNote: existing.priceNote,
-    websiteUrl: existing.websiteUrl,
-    publicPhone: contacts.phone,
-    publicEmail: contacts.email,
-    facebookUrl: contacts.facebook,
-    instagramUrl: contacts.instagram,
-    internalEmail: existing.internalEmail,
-    imageUrl: existing.imageUrl,
-    imageKey: existing.imageKey,
-    verified: existing.verified,
-    featured: existing.featured,
-    seo: existing.seo,
-  }, editorEmail, existing, database);
+    searchText,
+    now,
+    editorEmail,
+    id,
+  ).first<DirectoryProfileRow>();
+  if (!row) return null;
+
+  await reconcileGeoAfterSourceMutation({
+    targetType: "DIRECTORY_PROFILE",
+    targetId: row.id,
+    actorRef: editorEmail,
+    actorType: "ADMIN",
+  }, database);
+  return rowToManagedProfile(row);
 }
 
 export async function setManagedDirectoryProfileReviewed(

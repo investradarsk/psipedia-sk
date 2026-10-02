@@ -147,29 +147,9 @@ export function OrganizationProfileDetail({
 
       <PageContainer className={styles.content}>
         <DetailContentLayout aside={aside}>
-          {presentation.locations.length > 1 ? (
-            <DetailSection eyebrow="Lokality" title="Kde organizácia pôsobí">
-              <ul className={styles.locationList}>
-                {presentation.locations.map((location, index) => (
-                  <li
-                    className={styles.locationItem}
-                    data-organization-location={location.id ?? `legacy-${index}`}
-                    key={location.id ?? `legacy-${index}`}
-                  >
-                    <div className={styles.locationHeading}>
-                      <h3>{location.label ?? `Lokalita ${index + 1}`}</h3>
-                      {location.isPrimary ? <span className={styles.primaryBadge}>Hlavná lokalita</span> : null}
-                    </div>
-                    {location.value ? <p>{location.value}</p> : null}
-                  </li>
-                ))}
-              </ul>
-            </DetailSection>
-          ) : null}
-
           {publicMap?.items.length ? (
             <PublicLocationMap
-              title="Verejné lokality organizácie"
+              title="Poloha organizácie"
               items={publicMap.items}
               attribution={publicMap.attribution}
               googleApiKey={publicMap.googleApiKey}

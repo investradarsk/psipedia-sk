@@ -1,4 +1,4 @@
-import type { AdoptionD1Database, AdoptionD1Statement } from "./adoption-store.ts";
+import type { AdoptionD1Database } from "./adoption-store.ts";
 import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import {
   normalizeOrganizationLocationAdminInput,
@@ -16,10 +16,6 @@ type RunResult = {
   lastRowId?: number | bigint;
 };
 
-type BatchCapableDatabase = AdoptionD1Database & {
-  batch(statements: AdoptionD1Statement[]): Promise<RunResult[]>;
-};
-
 export class OrganizationLocationMutationConflictError extends Error {
   constructor(message: string) {
     super(message);
@@ -29,10 +25,6 @@ export class OrganizationLocationMutationConflictError extends Error {
 
 export function isOrganizationLocationMutationConflict(error: unknown) {
   return error instanceof OrganizationLocationMutationConflictError;
-}
-
-function isBatchCapable(database: AdoptionD1Database): database is BatchCapableDatabase {
-  return typeof (database as Partial<BatchCapableDatabase>).batch === "function";
 }
 
 function resultChanges(result: RunResult) {
@@ -56,7 +48,11 @@ function insertStatement(database: AdoptionD1Database, organizationId: number, i
   return database.prepare(`
     INSERT INTO organization_locations (
       organization_id, role, label, address, city, district, region, country_code, is_primary, sort_order
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, 1, 0
+    WHERE NOT EXISTS (
+      SELECT 1 FROM organization_locations WHERE organization_id = ?
+    )
   `).bind(
     organizationId,
     input.role,
@@ -66,8 +62,7 @@ function insertStatement(database: AdoptionD1Database, organizationId: number, i
     input.district,
     input.region,
     input.countryCode,
-    input.isPrimary ? 1 : 0,
-    input.sortOrder,
+    organizationId,
   );
 }
 
@@ -82,18 +77,11 @@ export async function createOrganizationLocationFromAdmin(
   if (!organization) return null;
   const input = normalizeOrganizationLocationAdminInput(payload);
 
-  let insertResult: RunResult;
-  if (input.isPrimary) {
-    if (!isBatchCapable(db)) {
-      throw new OrganizationLocationMutationConflictError("Databáza nepodporuje bezpečnú atomickú zmenu primary lokality.");
-    }
-    const results = await db.batch([
-      db.prepare("UPDATE organization_locations SET is_primary = 0 WHERE organization_id = ?").bind(organizationId),
-      insertStatement(db, organizationId, input),
-    ]);
-    insertResult = results[1] ?? {};
-  } else {
-    insertResult = await insertStatement(db, organizationId, input).run() as RunResult;
+  const insertResult = await insertStatement(db, organizationId, input).run() as RunResult;
+  if (resultChanges(insertResult) < 1) {
+    throw new OrganizationLocationMutationConflictError(
+      "Organizácia už má adresu. Uprav existujúcu adresu namiesto pridania ďalšej.",
+    );
   }
 
   const insertedId = resultInsertedId(insertResult);
@@ -186,6 +174,57 @@ export async function updateOrganizationLocationFromAdmin(
     targetId: locationId,
     actorRef: "organization-location-admin",
     actorType: "SYSTEM",
+  }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
+  return getOrganizationLocationAdmin(organizationId, locationId, db);
+}
+
+export async function updateOrganizationLocationFromGooglePlace(
+  organizationId: number,
+  locationId: number,
+  place: {
+    formattedAddress: string;
+    address?: {
+      locality?: string;
+      sublocality?: string;
+      district?: string;
+      region?: string;
+      countryCode?: string;
+    };
+  },
+  actorRef: string,
+  database?: AdoptionD1Database,
+) {
+  if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
+  if (!Number.isSafeInteger(locationId) || locationId <= 0) return null;
+  const db = requireOrganizationLocationD1(database);
+  const organization = await requireMutableOrganization(organizationId, db);
+  if (!organization) return null;
+  const existing = await getOrganizationLocationAdmin(organizationId, locationId, db);
+  if (!existing) return null;
+
+  // Google owns location only. Organization identity, contacts, website,
+  // social links, descriptions and fundraising data live in other fields/tables
+  // and are deliberately absent from this UPDATE.
+  const result = await db.prepare(`
+    UPDATE organization_locations
+    SET address = ?, city = ?, district = ?, region = ?, country_code = ?
+    WHERE id = ? AND organization_id = ?
+  `).bind(
+    place.formattedAddress.trim(),
+    place.address?.locality?.trim() || place.address?.sublocality?.trim() || existing.city,
+    place.address?.district?.trim() || existing.district,
+    place.address?.region?.trim() || existing.region,
+    place.address?.countryCode?.trim().toUpperCase() || existing.countryCode || "SK",
+    locationId,
+    organizationId,
+  ).run() as RunResult;
+  if (resultChanges(result) < 1) return null;
+
+  await reconcileGeoAfterSourceMutation({
+    targetType: "ORGANIZATION_LOCATION",
+    targetId: locationId,
+    actorRef,
+    actorType: "ADMIN",
   }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
   return getOrganizationLocationAdmin(organizationId, locationId, db);
 }

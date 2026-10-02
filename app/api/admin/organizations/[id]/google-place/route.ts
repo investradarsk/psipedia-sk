@@ -43,10 +43,10 @@ export async function GET(_request: Request, { params }: Props) {
     googlePlaceAction: state.googlePlaceAction,
     googleMapsNotRequired: state.workflowDecision === "NOT_REQUIRED",
     googleMapsNotRequiredSystemDerived: false,
-    representedLocationLabel: state.preferredSite?.label || state.preferredSite?.address || state.preferredSite?.city || null,
-    representedLocationRole: state.preferredSite?.role ?? null,
-    representedTargetId: state.preferredSite?.id ?? null,
-    siteCount: state.siteCount,
+    representedLocationLabel: state.canonicalLocation?.label || state.canonicalLocation?.address || state.canonicalLocation?.city || null,
+    representedLocationRole: null,
+    representedTargetId: state.canonicalLocation?.id ?? null,
+    locationCount: state.locations.length,
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
@@ -81,7 +81,6 @@ export async function POST(request: Request, { params }: Props) {
         organizationId,
         placeId,
         actorRef: user.email,
-        confirmOrganizationSite: body.confirmOrganizationSite === true,
       });
       return Response.json(result);
     }

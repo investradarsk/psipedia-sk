@@ -195,6 +195,35 @@ function mdTable(object) {
   return Object.entries(object).map(([key, value]) => `| ${key} | ${value} |`).join("\n");
 }
 
+function workflowState(row, { organizationNotRequired = false, online = false } = {}) {
+  if (online || organizationNotRequired || text(row.map_action) === "GOOGLE_MAPS_NOT_REQUIRED") {
+    return "NOT_REQUIRED";
+  }
+  const sourceFingerprint = text(row.source_fingerprint);
+  const placeFingerprint = text(row.google_place_source_fingerprint);
+  if (
+    text(row.google_place_id)
+    && sourceFingerprint
+    && placeFingerprint === sourceFingerprint
+  ) {
+    return "PLACE";
+  }
+  if (
+    row.latitude !== null && row.latitude !== undefined
+    && row.longitude !== null && row.longitude !== undefined
+    && text(row.public_visibility) !== "HIDDEN"
+    && sourceFingerprint
+    && text(row.resolved_source_fingerprint) === sourceFingerprint
+  ) {
+    return "COORDINATES";
+  }
+  return "UNRESOLVED";
+}
+
+function isAdminOnlineEvent(row) {
+  return [row.city, row.region, row.venue].some((value) => lower(value) === "online");
+}
+
 export {
   addressCompleteness,
   assertReadOnlySql,
@@ -203,6 +232,8 @@ export {
   markPotentialDuplicates,
   onlineSemantics,
   toCsv,
+  workflowState,
+  isAdminOnlineEvent,
 };
 
 async function main() {
@@ -370,6 +401,104 @@ async function main() {
     };
   });
 
+  const workflowServicesRaw = readPaged(db, configPath, `
+    SELECT d.id,d.name,
+      g.id geo_point_id,g.google_place_id,g.google_place_source_fingerprint,
+      g.source_fingerprint,g.resolved_source_fingerprint,g.latitude,g.longitude,g.public_visibility,
+      (
+        SELECT m.action
+        FROM moderation_events m
+        WHERE m.resource_type='GEO_POINT'
+          AND m.subject_id=CAST(g.id AS TEXT)
+          AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY m.created_at DESC,m.id DESC
+        LIMIT 1
+      ) map_action
+    FROM directory_profiles d
+    LEFT JOIN geo_points g
+      ON g.directory_profile_id=d.id AND g.target_type='DIRECTORY_PROFILE'
+    WHERE d.status='published' AND d.archived_at IS NULL
+    ORDER BY d.id
+  `);
+  const workflowServices = workflowServicesRaw.map((row) => ({
+    ...row,
+    workflow_state: workflowState(row),
+  }));
+
+  const workflowHelpRaw = readPaged(db, configPath, `
+    SELECT o.id organization_id,o.slug,o.name,o.address organization_address,o.city organization_city,
+      o.district organization_district,o.region organization_region,
+      (SELECT COUNT(*) FROM organization_locations all_l WHERE all_l.organization_id=o.id) location_count,
+      l.id location_id,l.role,l.address,l.city,l.district,l.region,
+      g.id geo_point_id,g.google_place_id,g.google_place_source_fingerprint,
+      g.source_fingerprint,g.resolved_source_fingerprint,g.latitude,g.longitude,g.public_visibility,
+      (
+        SELECT m.action
+        FROM moderation_events m
+        WHERE m.resource_type='GEO_POINT'
+          AND m.subject_id=CAST(g.id AS TEXT)
+          AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY m.created_at DESC,m.id DESC
+        LIMIT 1
+      ) map_action,
+      (
+        SELECT m.action
+        FROM moderation_events m
+        WHERE m.resource_type='HELP_ORGANIZATION'
+          AND m.subject_id=CAST(o.id AS TEXT)
+          AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY m.created_at DESC,m.id DESC
+        LIMIT 1
+      ) organization_map_action
+    FROM help_organizations o
+    LEFT JOIN organization_locations l
+      ON l.id=(
+        SELECT cl.id
+        FROM organization_locations cl
+        WHERE cl.organization_id=o.id
+        ORDER BY
+          CASE WHEN cl.role='SITE' THEN 0 ELSE 1 END,
+          cl.is_primary DESC,
+          cl.sort_order ASC,
+          cl.id ASC
+        LIMIT 1
+      )
+    LEFT JOIN geo_points g
+      ON g.organization_location_id=l.id AND g.target_type='ORGANIZATION_LOCATION'
+    WHERE o.status='PUBLISHED' AND o.archived_at IS NULL
+    ORDER BY o.id
+  `);
+  const workflowHelp = workflowHelpRaw.map((row) => ({
+    ...row,
+    workflow_state: workflowState(row, {
+      organizationNotRequired: text(row.organization_map_action) === "GOOGLE_MAPS_NOT_REQUIRED",
+    }),
+  }));
+
+  const workflowEventsRaw = readPaged(db, configPath, `
+    SELECT e.id,e.title,e.status,e.cancelled,e.city,e.region,e.venue,
+      g.id geo_point_id,g.google_place_id,g.google_place_source_fingerprint,
+      g.source_fingerprint,g.resolved_source_fingerprint,g.latitude,g.longitude,g.public_visibility,
+      (
+        SELECT m.action
+        FROM moderation_events m
+        WHERE m.resource_type='GEO_POINT'
+          AND m.subject_id=CAST(g.id AS TEXT)
+          AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY m.created_at DESC,m.id DESC
+        LIMIT 1
+      ) map_action
+    FROM managed_events e
+    LEFT JOIN geo_points g
+      ON g.managed_event_id=e.id AND g.target_type='MANAGED_EVENT'
+    ORDER BY e.id
+  `);
+  const workflowEvents = workflowEventsRaw.map((row) => ({
+    ...row,
+    online: isAdminOnlineEvent(row) ? 1 : 0,
+    workflow_state: workflowState(row, { online: isAdminOnlineEvent(row) }),
+  }));
+
   const onlineAudit = directory.filter((row) => row.online === 1).map((row) => ({
     id: row.id,name: row.name,slug: row.slug,category: row.category,address: row.address,street: row.street,house_number: row.house_number,postal_code: row.postal_code,city: row.city,district: row.district,region: row.region,website: row.website,online: row.online,
     physical_evidence: row.physical_evidence,proposed_semantic_bucket: row.online_semantic_bucket,reason: row.online_semantic_reason,address_completeness: row.address_completeness,resolved_public_geo: row.resolved_public_geo,
@@ -452,6 +581,108 @@ async function main() {
     conflicting_fields: countWhere(locations,(r)=>r.address_completeness==="CONFLICTING_FIELDS"),
   };
 
+  const multiLocationOrganizations = organizations
+    .filter((row) => row.location_count > 1)
+    .map((row) => ({
+      organization_id: row.organization_id,
+      slug: row.slug,
+      name: row.name,
+      location_count: row.location_count,
+    }));
+
+  const locationsByOrganization = new Map();
+  for (const row of locations) {
+    const list = locationsByOrganization.get(row.organization_id) ?? [];
+    list.push(row);
+    locationsByOrganization.set(row.organization_id, list);
+  }
+  const duplicateOrganizationLocations = [];
+  for (const [organizationId, rowsForOrganization] of locationsByOrganization) {
+    const grouped = new Map();
+    for (const row of rowsForOrganization) {
+      const key = [row.address,row.city,row.district,row.region].map(normalizeKey).join("|");
+      if (!key.replaceAll("|", "")) continue;
+      const list = grouped.get(key) ?? [];
+      list.push(row);
+      grouped.set(key, list);
+    }
+    for (const [location_key, duplicateRows] of grouped) {
+      if (duplicateRows.length < 2) continue;
+      duplicateOrganizationLocations.push({
+        organization_id: organizationId,
+        organization_name: duplicateRows[0]?.organization_name ?? "",
+        location_key,
+        duplicate_rows: duplicateRows.length,
+        location_ids: duplicateRows.map((row) => row.location_id).join("|"),
+      });
+    }
+  }
+
+  const serviceWorkflowCounts = {
+    relevant_published_profiles: workflowServices.length,
+    google_place_done: countWhere(workflowServices, (row) => row.workflow_state === "PLACE"),
+    google_maps_not_required: countWhere(workflowServices, (row) => row.workflow_state === "NOT_REQUIRED"),
+    coordinates_only: countWhere(workflowServices, (row) => row.workflow_state === "COORDINATES"),
+    unresolved: countWhere(workflowServices, (row) => row.workflow_state === "UNRESOLVED"),
+    admin_mapy_before: workflowServices.length,
+    admin_mapy_after: countWhere(workflowServices, (row) => ["COORDINATES","UNRESOLVED"].includes(row.workflow_state)),
+  };
+
+  const helpWorkflowCounts = {
+    published_nonarchived_organizations: workflowHelp.length,
+    without_location: countWhere(workflowHelp, (row) => number(row.location_count) === 0),
+    with_one_location: countWhere(workflowHelp, (row) => number(row.location_count) === 1),
+    with_more_than_one_location: countWhere(workflowHelp, (row) => number(row.location_count) > 1),
+    max_location_rows_per_organization: workflowHelp.reduce((max, row) => Math.max(max, number(row.location_count)), 0),
+    without_usable_address: countWhere(workflowHelp, (row) =>
+      !text(row.address || row.organization_address)
+      && !text(row.city || row.organization_city)
+      && !text(row.district || row.organization_district)
+      && !text(row.region || row.organization_region)),
+    duplicate_location_organizations: new Set(duplicateOrganizationLocations.map((row) => row.organization_id)).size,
+    duplicate_location_groups: duplicateOrganizationLocations.length,
+    google_place_done: countWhere(workflowHelp, (row) => row.workflow_state === "PLACE"),
+    google_maps_not_required: countWhere(workflowHelp, (row) => row.workflow_state === "NOT_REQUIRED"),
+    coordinates_only: countWhere(workflowHelp, (row) => row.workflow_state === "COORDINATES"),
+    unresolved: countWhere(workflowHelp, (row) => row.workflow_state === "UNRESOLVED"),
+    admin_mapy_before_location_rows: workflowHelp.reduce((sum, row) => sum + number(row.location_count), 0),
+    admin_mapy_after_organizations: countWhere(workflowHelp, (row) => ["COORDINATES","UNRESOLVED"].includes(row.workflow_state)),
+  };
+
+  const activePublishedEvents = workflowEvents.filter((row) => text(row.status) === "published" && !bool(row.cancelled));
+  const eventWorkflowCounts = {
+    all_managed_events: workflowEvents.length,
+    published: countWhere(workflowEvents, (row) => text(row.status) === "published"),
+    draft: countWhere(workflowEvents, (row) => text(row.status) === "draft"),
+    cancelled: countWhere(workflowEvents, (row) => bool(row.cancelled)),
+    online: countWhere(workflowEvents, (row) => row.online === 1),
+    published_not_cancelled: activePublishedEvents.length,
+    published_not_cancelled_online: countWhere(activePublishedEvents, (row) => row.online === 1),
+    google_place_done: countWhere(activePublishedEvents, (row) => row.workflow_state === "PLACE"),
+    google_maps_not_required: countWhere(activePublishedEvents, (row) => row.workflow_state === "NOT_REQUIRED"),
+    coordinates_only: countWhere(activePublishedEvents, (row) => row.workflow_state === "COORDINATES"),
+    unresolved: countWhere(activePublishedEvents, (row) => row.workflow_state === "UNRESOLVED"),
+    admin_mapy_before: activePublishedEvents.length,
+    admin_mapy_after: countWhere(activePublishedEvents, (row) => ["COORDINATES","UNRESOLVED"].includes(row.workflow_state)),
+  };
+
+  const mapsWorkflowReconciliation = {
+    audit_mode: "READ_ONLY",
+    generated_at: generatedAt,
+    services: serviceWorkflowCounts,
+    help: helpWorkflowCounts,
+    events: eventWorkflowCounts,
+    before_after: {
+      services: { before: serviceWorkflowCounts.admin_mapy_before, after: serviceWorkflowCounts.admin_mapy_after },
+      help: { before: helpWorkflowCounts.admin_mapy_before_location_rows, after: helpWorkflowCounts.admin_mapy_after_organizations },
+      events: { before: eventWorkflowCounts.admin_mapy_before, after: eventWorkflowCounts.admin_mapy_after },
+      total: {
+        before: serviceWorkflowCounts.admin_mapy_before + helpWorkflowCounts.admin_mapy_before_location_rows + eventWorkflowCounts.admin_mapy_before,
+        after: serviceWorkflowCounts.admin_mapy_after + helpWorkflowCounts.admin_mapy_after_organizations + eventWorkflowCounts.admin_mapy_after,
+      },
+    },
+  };
+
   const completenessChecks = {
     directory: directory.length === directoryExpected,
     events: events.length === eventsExpected,
@@ -471,6 +702,8 @@ async function main() {
     ["organization_locations_row_level_export.csv", locations],
     ["directory_online_semantics_audit.csv", onlineAudit],
     ["map_source_filter_risk_report.csv", riskRows],
+    ["multi_location_organizations.csv", multiLocationOrganizations],
+    ["duplicate_organization_locations.csv", duplicateOrganizationLocations],
   ];
   for (const [name, records] of files) {
     const columns = records.length ? Object.keys(records[0]) : [];
@@ -500,6 +733,23 @@ async function main() {
     complete,
   };
   await fs.writeFile(path.join(outDir, "map_data_export_manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+
+  await fs.writeFile(
+    path.join(outDir, "maps_workflow_reconciliation.json"),
+    JSON.stringify(mapsWorkflowReconciliation, null, 2) + "\n",
+  );
+  const reconciliationSummary = `# MAPS-WORKFLOW-SIMPLIFY-1 — production reconciliation\n\n`+
+    `Generated: ${generatedAt}\n\n`+
+    `Mode: **READ_ONLY**. No production data is mutated.\n\n`+
+    `## Služby pre psov\n\n| metric | count |\n|---|---:|\n${mdTable(serviceWorkflowCounts)}\n\n`+
+    `## Pomoc psom\n\n| metric | count |\n|---|---:|\n${mdTable(helpWorkflowCounts)}\n\n`+
+    `## Podujatia\n\n| metric | count |\n|---|---:|\n${mdTable(eventWorkflowCounts)}\n\n`+
+    `## Admin → Mapy before / after\n\n| scope | before | after |\n|---|---:|---:|\n`+
+    `| Služby | ${mapsWorkflowReconciliation.before_after.services.before} | ${mapsWorkflowReconciliation.before_after.services.after} |\n`+
+    `| Pomoc psom | ${mapsWorkflowReconciliation.before_after.help.before} | ${mapsWorkflowReconciliation.before_after.help.after} |\n`+
+    `| Podujatia | ${mapsWorkflowReconciliation.before_after.events.before} | ${mapsWorkflowReconciliation.before_after.events.after} |\n`+
+    `| TOTAL | ${mapsWorkflowReconciliation.before_after.total.before} | ${mapsWorkflowReconciliation.before_after.total.after} |\n`;
+  await fs.writeFile(path.join(outDir, "maps_workflow_reconciliation.md"), reconciliationSummary);
 
   const summary = `# Psipedia MAP-DATA-EXPORT — row-level audit\n\n`+
     `Generated: ${generatedAt}\n\n`+
@@ -538,6 +788,7 @@ async function main() {
   await fs.writeFile(path.join(outDir, "map_data_export_summary.md"), summary);
 
   console.log(`[map-data-export] READ_ONLY ${complete ? "COMPLETE" : "BLOCKED"} — directory=${directory.length}/${directoryExpected}; events=${events.length}/${eventsExpected}; organizations=${organizations.length}/${organizationsExpected}; locations=${locations.length}/${locationsExpected}; online=${directoryCounts.online_true}; falseNegativeRisk=${riskRows.at(-1).false_negative_risk}`);
+  console.log(`[maps-workflow-reconciliation] before=${mapsWorkflowReconciliation.before_after.total.before}; after=${mapsWorkflowReconciliation.before_after.total.after}; helpMulti=${helpWorkflowCounts.with_more_than_one_location}; helpNoLocation=${helpWorkflowCounts.without_location}`);
   if (!complete) process.exitCode = 2;
 }
 

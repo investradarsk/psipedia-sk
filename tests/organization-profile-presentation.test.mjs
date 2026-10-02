@@ -110,7 +110,7 @@ test("relative public media path is preserved while external links stay http(s)-
 });
 
 
-test("multiple canonical locations keep ORG-2A order, labels and primary semantics without a duplicate hero location", () => {
+test("legacy extra locations collapse to one deterministic role-free public address", () => {
   const presentation = buildOrganizationProfilePresentation(organization({
     city: "Legacy mesto",
     district: "Legacy okres",
@@ -132,7 +132,7 @@ test("multiple canonical locations keep ORG-2A order, labels and primary semanti
         id: 61,
         organizationId: 7,
         role: "SERVICE_AREA",
-        label: "",
+        label: "Pôsobnosť",
         city: "Šaľa",
         district: "Šaľa",
         region: "Nitriansky kraj",
@@ -143,12 +143,12 @@ test("multiple canonical locations keep ORG-2A order, labels and primary semanti
     ],
   }));
 
-  assert.equal(presentation.location, null);
+  assert.equal(presentation.location, "Nitra · Nitriansky kraj");
   assert.deepEqual(presentation.locations, [
-    { id: 61, label: "Pôsobnosť", value: "Šaľa · Nitriansky kraj", isPrimary: true },
-    { id: 62, label: "Výdajné miesto", value: "Nitra · Nitriansky kraj", isPrimary: false },
+    { id: 62, label: null, value: "Nitra · Nitriansky kraj", isPrimary: true },
   ]);
-  assert.equal(presentation.facts.some((fact) => ["Mesto", "Okres", "Kraj"].includes(fact.label)), false);
+  assert.equal(JSON.stringify(presentation).includes("Pôsobnosť"), false);
+  assert.equal(JSON.stringify(presentation).includes("Výdajné miesto"), false);
   assert.equal(JSON.stringify(presentation).includes("Legacy mesto"), false);
 });
 

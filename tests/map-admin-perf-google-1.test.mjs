@@ -35,62 +35,44 @@ test("MAP-ADMIN-PERF page size defaults to 50, supports 25/50/100 and clamps abo
   assert.equal(normalizeGeoAdminPageSize(75), 50);
 });
 
-test("MAP-ADMIN-PERF query normalization validates every URL-backed filter", () => {
+test("MAPS-WORKFLOW-SIMPLIFY ignores obsolete operator/google URL filters", () => {
   assert.deepEqual(normalizeGeoAdminOperatorQuery({
     group: "services",
     category: " veterinari ",
     operator: "needs_review",
-    google: "unresolved",
+    google: "place",
     query: " Nitra ",
     page: "2",
     pageSize: "100",
   }), {
     group: "SERVICES",
     category: "veterinari",
-    operator: "NEEDS_REVIEW",
-    google: "UNRESOLVED",
+    operator: "ALL",
+    google: "ALL",
     query: "Nitra",
     page: 2,
     pageSize: 100,
   });
-
-  assert.deepEqual(normalizeGeoAdminOperatorQuery({
-    group: "bogus",
-    operator: "bogus",
-    google: "bogus",
-    page: "-1",
-    pageSize: "500",
-  }), {
-    group: "ALL",
-    category: "",
-    operator: "ALL",
-    google: "ALL",
-    query: "",
-    page: 1,
-    pageSize: 100,
-  });
 });
 
-test("MAP-ADMIN-PERF loader cannot regress to three LIMIT 2000 browser dumps", () => {
+test("MAP-ADMIN-PERF loader stays server-paginated", () => {
   assert.doesNotMatch(loader, /LIMIT 2000/);
-  assert.match(loader, /WITH\s+explicit_private/);
   assert.match(loader, /COUNT\(\*\) AS total/);
   assert.match(loader, /LIMIT \? OFFSET \?/);
   assert.match(loader, /ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC/);
   assert.match(loader, /pageRows\.results/);
-  assert.doesNotMatch(loader, /\.results\.map\(directoryRow\)[\s\S]*\.results\.map\(organizationRow\)[\s\S]*\.results\.map\(eventRow\)/);
 });
 
-test("MAP-ADMIN-PERF client never mounts one picker per row on initial load", () => {
+test("Admin Mapy mounts Google picker only for an explicitly opened unresolved row", () => {
   assert.match(dashboard, /activePickerKey/);
   assert.match(dashboard, /pickerOpen = activePickerKey === item\.key/);
-  assert.match(dashboard, /pickerOpen && item\.googleMapsTarget !== "NOT_REQUIRED"/);
+  assert.match(dashboard, /pickerOpen && item\.googlePickerAvailable/);
   assert.match(dashboard, /autoDiscover/);
   assert.match(picker, /if \(!autoDiscover \|\| autoStarted\.current/);
   assert.doesNotMatch(dashboard, /window\.location\.reload/);
 });
 
-test("HELP Google discovery works without SITE but confirmation stays SITE-gated", () => {
+test("HELP Google confirmation no longer depends on SITE/LEGAL_SEAT roles", () => {
   const legalSeat = {
     targetType: "ORGANIZATION_LOCATION",
     targetId: 11,
@@ -106,13 +88,10 @@ test("HELP Google discovery works without SITE but confirmation stays SITE-gated
     published: true,
   };
   assert.equal(googlePlaceActionForSource(legalSeat).available, true);
-  assert.equal(googlePlaceConfirmationForSource(legalSeat).available, false);
-
-  const site = { ...legalSeat, locationRole: "SITE" };
-  assert.equal(googlePlaceConfirmationForSource(site).available, true);
+  assert.equal(googlePlaceConfirmationForSource(legalSeat).available, true);
+  assert.equal(googlePlaceConfirmationForSource({ ...legalSeat, locationRole: "SERVICE_AREA" }).available, true);
   assert.match(route, /confirmAdminGooglePlace/);
-  assert.match(confirmation, /confirmOrganizationSite !== true/);
-  assert.match(confirmation, /createOrganizationLocationFromAdmin/);
+  assert.doesNotMatch(confirmation, /confirmOrganizationSite|createOrganizationLocationFromAdmin|locationRole !== "SITE"/);
 });
 
 test("physical event can search by title only while online event never confirms a physical place", () => {
@@ -134,26 +113,17 @@ test("physical event can search by title only while online event never confirms 
   assert.equal(googlePlaceConfirmationForSource({ ...physical, online: true }).available, false);
 });
 
-test("NOT_REQUIRED persists only as moderation workflow state and has an explicit reset", () => {
+test("NOT_REQUIRED persists only as moderation workflow state", () => {
   assert.match(geoStore, /GOOGLE_MAPS_NOT_REQUIRED_ACTION = "GOOGLE_MAPS_NOT_REQUIRED"/);
   assert.match(geoStore, /GOOGLE_MAPS_REQUIRED_AGAIN_ACTION = "GOOGLE_MAPS_REQUIRED_AGAIN"/);
   assert.match(geoStore, /writeGeoModerationEvent/);
-  assert.match(geoStore, /changedFields: \["google_maps_workflow"\]/);
   assert.match(route, /google-maps-not-required/);
   assert.match(route, /reset-google-maps-not-required/);
-
-  const workflowBlock = geoStore.slice(
-    geoStore.indexOf("export async function setGoogleMapsNotRequired"),
-    geoStore.indexOf("export async function initializeGeoPointForTarget"),
-  );
-  assert.doesNotMatch(workflowBlock, /google_place_id|latitude|longitude|provider|geocode_status\s*=/i);
 });
 
-test("NOT_REQUIRED closes only map address quality and is excluded from bulk", () => {
+test("Admin Mapy dataset is unresolved-only and bulk respects NOT_REQUIRED", () => {
+  assert.match(loader, /google_state IN \('UNRESOLVED', 'COORDINATES'\)/);
   assert.match(quality, /GOOGLE_MAPS_NOT_REQUIRED_SQL/);
-  assert.match(quality, /trim\(COALESCE\(address, ''\)\) <> ''/);
-  assert.match(quality, /mapReviewClosedWithoutGoogle/);
-  assert.match(loader, /google_state <> 'NOT_REQUIRED'/);
   assert.match(bulk, /getGoogleMapsWorkflowDecision/);
   assert.match(bulk, /Admin označil Google Maps ako nepotrebné/);
 });

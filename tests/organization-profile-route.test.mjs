@@ -52,12 +52,12 @@ test("organization cards reuse the catalog public image, fallback and status pri
 });
 
 
-test("profile renders canonical multi-location presentation once and exposes primary semantics", () => {
-  assert.match(componentSource, /presentation\.locations\.length > 1/);
-  assert.match(componentSource, /data-organization-location=/);
-  assert.match(componentSource, /Hlavná lokalita/);
-  assert.match(componentSource, /Kde organizácia pôsobí/);
-  assert.equal((componentSource.match(/presentation\.location/g) ?? []).length >= 1, true);
+test("profile exposes one canonical location summary and no public multi-location role UI", () => {
+  assert.match(componentSource, /presentation\.location/);
+  assert.match(componentSource, /data-organization-location-summary/);
+  assert.match(componentSource, /title="Poloha organizácie"/);
+  assert.doesNotMatch(componentSource, /presentation\.locations\.length > 1/);
+  assert.doesNotMatch(componentSource, /data-organization-location=|Hlavná lokalita|Kde organizácia pôsobí/);
   assert.doesNotMatch(componentSource, /organization\.city|organization\.district|organization\.region/);
 });
 

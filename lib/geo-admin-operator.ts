@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import {
   geoAdminGenericOperatorState,
   geoAdminOperatorState,
-  geoAdminOperatorStateLabels,
   type GeoAdminOperatorState,
 } from "@/lib/geo-admin-operator-state";
 import { getDirectoryCategory } from "@/lib/directory";
@@ -129,13 +128,6 @@ const organizationTypeLabels: Record<string, string> = {
 };
 
 const validGroups = new Set<GeoAdminOperatorGroupFilter>(["ALL", "SERVICES", "HELP", "EVENTS"]);
-const validOperators = new Set<GeoAdminOperatorFilter>([
-  "ALL",
-  "ERRORS",
-  ...Object.keys(geoAdminOperatorStateLabels) as GeoAdminOperatorState[],
-]);
-const validGoogle = new Set<GeoAdminGoogleFilter>(["ALL", "PLACE", "COORDINATES", "NOT_REQUIRED", "UNRESOLVED"]);
-
 function value(row: DbRow, key: string) {
   return String(row[key] ?? "").trim();
 }
@@ -186,13 +178,11 @@ export function normalizeGeoAdminOperatorQuery(
   input: Partial<Record<keyof GeoAdminOperatorQuery, unknown>> = {},
 ): GeoAdminOperatorQuery {
   const groupRaw = boundedText(input.group, 20).toUpperCase() as GeoAdminOperatorGroupFilter;
-  const operatorRaw = boundedText(input.operator, 30).toUpperCase() as GeoAdminOperatorFilter;
-  const googleRaw = boundedText(input.google, 30).toUpperCase() as GeoAdminGoogleFilter;
   return {
     group: validGroups.has(groupRaw) ? groupRaw : "ALL",
     category: boundedText(input.category, 100),
-    operator: validOperators.has(operatorRaw) ? operatorRaw : "ALL",
-    google: validGoogle.has(googleRaw) ? googleRaw : "ALL",
+    operator: "ALL",
+    google: "ALL",
     query: boundedText(input.query, 160),
     page: safePage(input.page),
     pageSize: normalizeGeoAdminPageSize(input.pageSize),
@@ -243,6 +233,24 @@ organization_map_review AS (
   FROM organization_map_review_ranked
   WHERE row_number = 1
 ),
+organization_locations_ranked AS (
+  SELECT
+    l.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY l.organization_id
+      ORDER BY
+        CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END,
+        l.is_primary DESC,
+        l.sort_order ASC,
+        l.id ASC
+    ) AS row_number
+  FROM organization_locations l
+),
+organization_location_canonical AS (
+  SELECT *
+  FROM organization_locations_ranked
+  WHERE row_number = 1
+),
 raw AS (
   SELECT
     'SERVICES' AS group_key,
@@ -252,6 +260,7 @@ raw AS (
     d.slug AS public_slug,
     d.category AS public_category,
     NULL AS organization_id,
+    NULL AS canonical_location_id,
     d.name AS name,
     d.category AS category,
     '' AS location_role,
@@ -300,31 +309,28 @@ raw AS (
   SELECT
     'HELP' AS group_key,
     'ORGANIZATION_LOCATION' AS target_type,
-    l.id AS target_id,
-    l.id AS id,
+    o.id AS target_id,
+    o.id AS id,
     o.slug AS public_slug,
     '' AS public_category,
-    l.organization_id AS organization_id,
-    CASE
-      WHEN trim(COALESCE(l.label, '')) <> '' AND trim(COALESCE(l.label, '')) <> trim(COALESCE(o.name, ''))
-        THEN trim(COALESCE(o.name, '')) || ' — ' || trim(COALESCE(l.label, ''))
-      ELSE COALESCE(NULLIF(trim(COALESCE(o.name, '')), ''), trim(COALESCE(l.label, '')))
-    END AS name,
+    o.id AS organization_id,
+    l.id AS canonical_location_id,
+    COALESCE(NULLIF(trim(COALESCE(o.name, '')), ''), 'Organizácia') AS name,
     COALESCE(o.type, 'OTHER') AS category,
     COALESCE(l.role, 'UNSPECIFIED') AS location_role,
     COALESCE(l.label, '') AS location_label,
     '' AS venue,
-    COALESCE(l.address, '') AS address,
+    COALESCE(NULLIF(l.address, ''), o.address, '') AS address,
     '' AS public_address,
-    COALESCE(l.city, '') AS city,
-    COALESCE(l.district, '') AS district,
-    COALESCE(l.region, '') AS region,
+    COALESCE(NULLIF(l.city, ''), o.city, '') AS city,
+    COALESCE(NULLIF(l.district, ''), o.district, '') AS district,
+    COALESCE(NULLIF(l.region, ''), o.region, '') AS region,
     '' AS postal_code,
     '' AS street,
     '' AS house_number,
     '' AS address_format,
     '' AS service_address_confirmation,
-    COALESCE(l.country_code, 'SK') AS country_code,
+    COALESCE(NULLIF(l.country_code, ''), o.country_code, 'SK') AS country_code,
     0 AS online,
     g.id AS geo_point_id,
     g.geocode_status,
@@ -344,8 +350,8 @@ raw AS (
     CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
     mr.action AS map_review_action,
     omr.action AS organization_map_review_action
-  FROM organization_locations l
-  JOIN help_organizations o ON o.id = l.organization_id
+  FROM help_organizations o
+  LEFT JOIN organization_location_canonical l ON l.organization_id = o.id
   LEFT JOIN geo_points g
     ON g.organization_location_id = l.id
     AND g.target_type = 'ORGANIZATION_LOCATION'
@@ -364,6 +370,7 @@ raw AS (
     NULL AS public_slug,
     '' AS public_category,
     NULL AS organization_id,
+    NULL AS canonical_location_id,
     e.title AS name,
     COALESCE(e.event_type, 'Iné') AS category,
     '' AS location_role,
@@ -540,7 +547,7 @@ base AS (
 `;
 
 function filterSql(filters: GeoAdminOperatorQuery, options: { includeCategory?: boolean } = {}) {
-  const clauses: string[] = [];
+  const clauses: string[] = ["google_state IN ('UNRESOLVED', 'COORDINATES')"];
   const bindings: Array<string | number> = [];
   if (filters.group !== "ALL") {
     clauses.push("group_key = ?");
@@ -550,22 +557,12 @@ function filterSql(filters: GeoAdminOperatorQuery, options: { includeCategory?: 
     clauses.push("category = ?");
     bindings.push(filters.category);
   }
-  if (filters.operator === "ERRORS") {
-    clauses.push("operator_state IN ('INCOMPLETE_ADDRESS', 'INVALID_ADDRESS', 'FAILED')");
-  } else if (filters.operator !== "ALL") {
-    clauses.push("operator_state = ?");
-    bindings.push(filters.operator);
-  }
-  if (filters.google !== "ALL") {
-    clauses.push("google_state = ?");
-    bindings.push(filters.google);
-  }
   if (filters.query) {
     clauses.push("search_text LIKE ? COLLATE NOCASE");
     bindings.push(`%${filters.query}%`);
   }
   return {
-    clause: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+    clause: `WHERE ${clauses.join(" AND ")}`,
     bindings,
   };
 }
@@ -700,17 +697,17 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
 }
 
 function organizationRow(row: DbRow): GeoAdminOperatorRow {
-  const id = Number(row.id);
   const organizationId = Number(row.organization_id);
+  const canonicalLocationId = numberOrNull(row, "canonical_location_id");
   const role = value(row, "location_role") || "UNSPECIFIED";
-  const organizationName = value(row, "organization_name") || value(row, "name").split(" — ")[0];
+  const organizationName = value(row, "name");
   const locationLabel = value(row, "location_label");
   const category = value(row, "category") || "OTHER";
   const geo = commonGeo(row);
   const hasLocationSource = Boolean(value(row, "address") || value(row, "city") || value(row, "district") || value(row, "region"));
   const state = geoAdminGenericOperatorState({
     hasLocationSource,
-    missingReason: "Lokalita organizácie nemá použiteľnú adresu ani mesto.",
+    missingReason: "Organizácii chýba použiteľná adresa.",
     geocodeStatus: geo.geocodeStatus,
     publicVisibility: geo.publicVisibility,
     publicPrecision: geo.publicPrecision,
@@ -722,7 +719,7 @@ function organizationRow(row: DbRow): GeoAdminOperatorRow {
   });
   const source: GeoSourceLocation = {
     targetType: "ORGANIZATION_LOCATION",
-    targetId: id,
+    targetId: canonicalLocationId ?? organizationId,
     organizationId,
     label: locationLabel || organizationName,
     organizationName,
@@ -739,13 +736,13 @@ function organizationRow(row: DbRow): GeoAdminOperatorRow {
   const operatorState = value(row, "operator_state") as GeoAdminOperatorState;
 
   return {
-    key: `ORGANIZATION_LOCATION:${id}`,
-    id,
+    key: `HELP_ORGANIZATION:${organizationId}`,
+    id: organizationId,
     targetType: "ORGANIZATION_LOCATION",
-    targetId: id,
+    targetId: organizationId,
     group: "HELP",
     groupLabel: "Pomoc psom",
-    name: value(row, "name"),
+    name: organizationName,
     category,
     categoryLabel: organizationTypeLabels[category] ?? category,
     city: value(row, "city"),
@@ -756,10 +753,10 @@ function organizationRow(row: DbRow): GeoAdminOperatorRow {
     legacyAddress: "",
     addressWarning: null,
     addressState: hasLocationSource ? "AVAILABLE" : "MISSING",
-    addressReason: hasLocationSource ? role : "MISSING",
+    addressReason: hasLocationSource ? "AVAILABLE" : "MISSING",
     operatorState,
-    operatorReason: operatorState === state.state ? state.reason : "Položka zodpovedá zvolenému serverovému operator filtru.",
-    editorHref: `/admin/organizacie/${organizationId}#locations`,
+    operatorReason: operatorState === state.state ? state.reason : "Položka vyžaduje mapové doriešenie.",
+    editorHref: `/admin/organizacie/${organizationId}`,
     attentionHref: "/admin/operations?source=GEO_LOCATION_ISSUE&view=active#centrum-pozornosti",
     ...geo,
     googleMapsTarget: value(row, "google_state") as GeoAdminGoogleState,
@@ -881,8 +878,15 @@ export async function loadGeoAdminOperatorProfiles(
   const filters = normalizeGeoAdminOperatorQuery(input);
   const filtered = filterSql(filters);
   const categoryFilter = filterSql(filters, { includeCategory: false });
+  const unresolvedSummary = filterSql(normalizeGeoAdminOperatorQuery({
+    group: "ALL",
+    category: "",
+    query: "",
+    page: 1,
+    pageSize: filters.pageSize,
+  }));
 
-  const [countRow, categoryRows] = await Promise.all([
+  const [summaryRow, pageCountRow, categoryRows] = await Promise.all([
     db.prepare(`
       ${GEO_BASE_CTE}
       SELECT
@@ -903,6 +907,12 @@ export async function loadGeoAdminOperatorProfiles(
         SUM(CASE WHEN operator_state = 'FAILED' THEN 1 ELSE 0 END) AS op_failed,
         SUM(CASE WHEN operator_state = 'NOT_PUBLIC' THEN 1 ELSE 0 END) AS op_not_public
       FROM base
+      ${unresolvedSummary.clause}
+    `).bind(...unresolvedSummary.bindings).first<DbRow>(),
+    db.prepare(`
+      ${GEO_BASE_CTE}
+      SELECT COUNT(*) AS total
+      FROM base
       ${filtered.clause}
     `).bind(...filtered.bindings).first<DbRow>(),
     db.prepare(`
@@ -915,7 +925,7 @@ export async function loadGeoAdminOperatorProfiles(
     `).bind(...categoryFilter.bindings).all<DbRow>(),
   ]);
 
-  const total = integer(countRow, "total");
+  const total = integer(pageCountRow, "total");
   const paging = pagination(filters.page, filters.pageSize, total);
   const offset = (paging.page - 1) * paging.pageSize;
   const pageRows = await db.prepare(`
@@ -928,27 +938,27 @@ export async function loadGeoAdminOperatorProfiles(
   `).bind(...filtered.bindings, paging.pageSize, offset).all<DbRow>();
 
   const operators: GeoAdminOperatorSummary = {
-    ON_MAP: integer(countRow, "op_on_map"),
-    PENDING: integer(countRow, "op_pending"),
-    NEEDS_REVIEW: integer(countRow, "op_needs_review"),
-    MISSING_ADDRESS: integer(countRow, "op_missing_address"),
-    INCOMPLETE_ADDRESS: integer(countRow, "op_incomplete_address"),
-    INVALID_ADDRESS: integer(countRow, "op_invalid_address"),
-    FAILED: integer(countRow, "op_failed"),
-    NOT_PUBLIC: integer(countRow, "op_not_public"),
+    ON_MAP: integer(summaryRow, "op_on_map"),
+    PENDING: integer(summaryRow, "op_pending"),
+    NEEDS_REVIEW: integer(summaryRow, "op_needs_review"),
+    MISSING_ADDRESS: integer(summaryRow, "op_missing_address"),
+    INCOMPLETE_ADDRESS: integer(summaryRow, "op_incomplete_address"),
+    INVALID_ADDRESS: integer(summaryRow, "op_invalid_address"),
+    FAILED: integer(summaryRow, "op_failed"),
+    NOT_PUBLIC: integer(summaryRow, "op_not_public"),
   };
   const counts: GeoAdminOperatorCounts = {
-    total,
+    total: integer(summaryRow, "total"),
     groups: {
-      SERVICES: integer(countRow, "services"),
-      HELP: integer(countRow, "help"),
-      EVENTS: integer(countRow, "events"),
+      SERVICES: integer(summaryRow, "services"),
+      HELP: integer(summaryRow, "help"),
+      EVENTS: integer(summaryRow, "events"),
     },
     google: {
-      PLACE: integer(countRow, "google_place"),
-      COORDINATES: integer(countRow, "google_coordinates"),
-      NOT_REQUIRED: integer(countRow, "google_not_required"),
-      UNRESOLVED: integer(countRow, "google_unresolved"),
+      PLACE: integer(summaryRow, "google_place"),
+      COORDINATES: integer(summaryRow, "google_coordinates"),
+      NOT_REQUIRED: integer(summaryRow, "google_not_required"),
+      UNRESOLVED: integer(summaryRow, "google_unresolved"),
     },
     operators,
   };
@@ -989,6 +999,7 @@ export type GeoAdminBulkTarget = {
   categoryLabel: string;
   editorHref: string;
   publicHref: string | null;
+  organizationId: number | null;
 };
 
 export type GeoAdminBulkAfter = {
@@ -1011,8 +1022,6 @@ export async function selectGeoAdminBulkTargets(input: {
   const limit = Math.max(1, Math.min(GEO_ADMIN_MAX_PAGE_SIZE + 1, Math.trunc(input.limit)));
   const filtered = filterSql(filters);
   const clauses = [
-    "google_state <> 'PLACE'",
-    "google_state <> 'NOT_REQUIRED'",
     "COALESCE(manual_override, 0) = 0",
     "NOT (COALESCE(explicit_private, 0) = 1 AND public_visibility = 'HIDDEN')",
   ];
@@ -1065,6 +1074,7 @@ export async function selectGeoAdminBulkTargets(input: {
       categoryLabel: mapped.categoryLabel,
       editorHref: mapped.editorHref,
       publicHref,
+      organizationId: mapped.organizationId,
     };
   });
 }

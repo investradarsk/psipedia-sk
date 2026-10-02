@@ -79,14 +79,19 @@ test("GOOGLE-PLACE-DISCOVERY uses saved profile fields only as hints and confirm
   assert.match(googleDiscoverySource, /source\.label, source\.address, source\.street, source\.houseNumber, source\.postalCode, source\.city, source\.district, source\.region/);
   assert.match(geoRouteSource, /action === "confirm-google-place"/);
   assert.match(geoRouteSource, /confirmAdminGooglePlace/);
-  assert.match(confirmationSource, /updateManagedDirectoryProfileFromGooglePlace/);
+  assert.match(confirmationSource, /updateManagedDirectoryProfileLocationFromGooglePlace/);
   assert.match(confirmationSource, /applyGooglePlaceResolution/);
   assert.doesNotMatch(geoRouteSource.slice(
     geoRouteSource.indexOf('action === "confirm-google-place"'),
     geoRouteSource.indexOf('action === "preview"'),
   ), /setManualGeoCoordinates/);
-  assert.match(storeSource, /address: place\.formattedAddress/);
-  assert.match(storeSource, /confirmServiceAddress: true/);
+  assert.match(storeSource, /place\.formattedAddress/);
+  assert.match(storeSource, /service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION'/);
+  const locationOnlyBlock = storeSource.slice(
+    storeSource.indexOf("export async function updateManagedDirectoryProfileLocationFromGooglePlace"),
+    storeSource.indexOf("export async function setManagedDirectoryProfileReviewed"),
+  );
+  assert.doesNotMatch(locationOnlyBlock, /public_phone|public_email|website_url|facebook_url|instagram_url|source_data_json/i);
   assert.match(geoSource, /Adresa a presný bod boli potvrdené konkrétnym Google Place/);
 });
 

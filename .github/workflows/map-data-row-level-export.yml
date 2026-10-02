@@ -90,5 +90,9 @@ jobs:
             .map-data-export/map_source_filter_risk_report.csv
             .map-data-export/map_data_export_manifest.json
             .map-data-export/map_data_export_summary.md
+            .map-data-export/maps_workflow_reconciliation.json
+            .map-data-export/maps_workflow_reconciliation.md
+            .map-data-export/multi_location_organizations.csv
+            .map-data-export/duplicate_organization_locations.csv
           if-no-files-found: error
           retention-days: 30

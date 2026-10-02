@@ -15,9 +15,8 @@ type ProfileGoogleMapsSnapshot = {
   googleMapsNotRequired?: boolean;
   googleMapsNotRequiredSystemDerived?: boolean;
   representedLocationLabel?: string | null;
-  representedLocationRole?: string | null;
   representedTargetId?: number | null;
-  siteCount?: number;
+  locationCount?: number;
 };
 
 function currentResolution(point: GeoPointRecord | null) {
@@ -153,9 +152,7 @@ export function AdminProfileGoogleMaps({
 
       {snapshot.representedLocationLabel ? (
         <p className="admin-help">
-          Tento blok reprezentuje lokalitu: <strong>{snapshot.representedLocationLabel}</strong>
-          {snapshot.representedLocationRole ? ` · ${snapshot.representedLocationRole}` : ""}
-          {snapshot.siteCount && snapshot.siteCount > 1 ? ` · z ${snapshot.siteCount} SITE` : ""}
+          Adresa: <strong>{snapshot.representedLocationLabel}</strong>
         </p>
       ) : null}
 

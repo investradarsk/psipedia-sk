@@ -101,24 +101,14 @@ test.describe("organization public profile", () => {
     expect(fundraisingCtaBox).not.toBeNull();
     expect(fundraisingCtaBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
-    await expect(main.locator("[data-organization-location-summary]")).toHaveCount(0);
-    const locations = main.locator("[data-organization-location]");
-    await expect(locations).toHaveCount(2);
-    await expect(locations.nth(0)).toHaveAttribute("data-organization-location", "990101");
-    await expect(locations.nth(0)).toContainText("Pôsobnosť");
-    await expect(locations.nth(0)).toContainText("Šaľa · Nitriansky kraj");
-    await expect(locations.nth(0)).toContainText("Hlavná lokalita");
-    await expect(locations.nth(1)).toHaveAttribute("data-organization-location", "990102");
-    await expect(locations.nth(1)).toContainText("Výdajné miesto");
-    await expect(locations.nth(1)).toContainText("Nitra · Nitriansky kraj");
+    const locationSummary = main.locator("[data-organization-location-summary]");
+    await expect(locationSummary).toHaveCount(1);
+    await expect(locationSummary).toContainText("Nitra · Nitriansky kraj");
+    await expect(locationSummary).not.toContainText("Pôsobnosť");
+    await expect(locationSummary).not.toContainText("Hlavná lokalita");
+    await expect(main.locator("[data-organization-location]")).toHaveCount(0);
+    await expect(main.getByText("Výdajné miesto", { exact: true })).toHaveCount(0);
     await expect(main.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
-    for (const location of await locations.all()) {
-      const box = await location.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box?.height ?? 0).toBeLessThan(180);
-      const overflow = await location.evaluate((element) => Math.max(0, element.scrollWidth - element.clientWidth));
-      expect(overflow).toBeLessThanOrEqual(1);
-    }
 
     await expect(main.getByRole("heading", { name: "Psy na adopciu" })).toBeVisible();
     const cards = main.locator("[data-adoption-card]");
@@ -197,7 +187,8 @@ test.describe("organization public profile", () => {
     const singleMain = page.locator("main#obsah");
     await expect(singleMain.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
     const locationSummary = singleMain.locator("[data-organization-location-summary]");
-    await expect(locationSummary).toContainText("Prevádzka · Trnava · Trnavský kraj");
+    await expect(locationSummary).toContainText("Trnava · Trnavský kraj");
+    await expect(locationSummary).not.toContainText("Prevádzka");
     await expect(locationSummary.locator("svg")).toHaveCount(1);
     await expect(singleMain.locator("[data-organization-location]")).toHaveCount(0);
     await expect(singleMain.getByText("Legacy mesto", { exact: true })).toHaveCount(0);
@@ -253,77 +244,51 @@ test.describe("organization public profile", () => {
 });
 
 test.describe("organization location admin CRUD", () => {
-  test("admin create/edit/primary/delete updates the canonical ORG-2B read without overflow", async ({ page }, testInfo) => {
+  test("admin edits the one canonical address and public read stays single-address", async ({ page }, testInfo) => {
     const configuredBase = process.env.E2E_BASE_URL;
     if (configuredBase) {
       const hostname = new URL(configuredBase).hostname;
-      test.skip(!["localhost", "127.0.0.1", "::1"].includes(hostname), "Mutating ORG-2C E2E runs only against isolated local D1.");
+      test.skip(!["localhost", "127.0.0.1", "::1"].includes(hostname), "Mutating organization E2E runs only against isolated local D1.");
     }
 
     await setOrganizationProfileViewport(page, testInfo.project.name);
     const response = await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBeLessThan(400);
     await expect(page.getByRole("heading", { level: 1, name: "E2E Jedna lokalita" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Lokality", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Uložiť organizáciu" })).toBeEnabled();
 
-    const stalePrefix = `ORG-2C ${testInfo.project.name}`;
-    for (;;) {
-      const stale = page.locator("[data-location-id]").filter({ hasText: stalePrefix });
-      if (await stale.count() === 0) break;
-      page.once("dialog", (dialog) => dialog.accept());
-      await stale.first().getByRole("button", { name: "Odstrániť lokalitu" }).click();
-      await expect(page.getByRole("status")).toContainText("Lokalita bola odstránená");
-    }
+    const addressAdmin = page.locator("[data-organization-address-admin]");
+    await expect(addressAdmin.getByRole("heading", { name: "Adresa", exact: true })).toBeVisible();
+    await expect(addressAdmin.getByRole("button", { name: "Uložiť adresu" })).toBeEnabled();
+    await expect(addressAdmin.getByLabel("Typ lokality")).toHaveCount(0);
+    await expect(addressAdmin.getByLabel("Hlavná lokalita")).toHaveCount(0);
+    await expect(addressAdmin.getByRole("button", { name: "Pridať lokalitu" })).toHaveCount(0);
+    await expect(addressAdmin.getByRole("button", { name: "Odstrániť lokalitu" })).toHaveCount(0);
 
-    const create = page.locator("[data-location-create]");
-    const suffix = `${stalePrefix} r${testInfo.retry}`;
-    await create.getByLabel("Typ lokality").selectOption("SERVICE_AREA");
-    await create.getByLabel("Názov / štítok").fill(suffix);
-    await create.getByLabel("Adresa").fill("Neverejná ORG-2C 1");
-    await create.getByLabel("Mesto").fill("Bratislava");
-    await create.getByLabel("Okres").fill("Bratislava");
-    await create.getByLabel("Kraj", { exact: true }).fill("Bratislavský kraj");
-    await create.getByLabel("Kód krajiny").fill("SK");
-    await create.getByLabel("Poradie").fill("-10");
-    await create.getByLabel("Hlavná lokalita").check();
-    await create.getByRole("button", { name: "Pridať lokalitu" }).click();
-    await expect(page.getByRole("status")).toContainText("Lokalita bola pridaná");
+    await addressAdmin.getByLabel("Adresa").fill("Neverejná ORG-2C 1");
+    await addressAdmin.getByLabel("Mesto").fill("Košice");
+    await addressAdmin.getByLabel("Okres").fill("Košice");
+    await addressAdmin.getByLabel("Kraj", { exact: true }).fill("Košický kraj");
+    await addressAdmin.getByLabel("Krajina").fill("SK");
+    await addressAdmin.getByRole("button", { name: "Uložiť adresu" }).click();
+    await expect(addressAdmin.getByRole("status")).toContainText("Adresa bola uložená");
 
-    let created = page.locator("[data-location-id]").filter({ hasText: suffix });
-    await expect(created).toBeVisible();
-    await expect(created.getByLabel("Hlavná lokalita")).toBeChecked();
-    const original = page.locator('[data-location-id="990107"]');
-    await expect(original.getByLabel("Hlavná lokalita")).not.toBeChecked();
-
-    await created.getByLabel("Názov / štítok").fill(`${suffix} upravená`);
-    await created.getByLabel("Mesto").fill("Košice");
-    await created.getByLabel("Okres").fill("Košice");
-    await created.getByLabel("Kraj", { exact: true }).fill("Košický kraj");
-    await created.getByLabel("Poradie").fill("-20");
-    await created.getByRole("button", { name: "Uložiť lokalitu" }).click();
-    await expect(page.getByRole("status")).toContainText("Lokalita bola uložená");
-
-    await page.goto(`/organizacie/org-2b-e2e-jedna-lokalita?org2c=${testInfo.project.name}-${testInfo.retry}`, { waitUntil: "domcontentloaded" });
-    const publicLocations = page.locator("[data-organization-location]");
-    await expect(publicLocations).toHaveCount(2);
-    await expect(publicLocations.nth(0)).toContainText(`${suffix} upravená`);
-    await expect(publicLocations.nth(0)).toContainText("Košice");
-    await expect(publicLocations.nth(0)).toContainText("Hlavná lokalita");
+    await page.goto(`/organizacie/org-2b-e2e-jedna-lokalita?single-address=${testInfo.project.name}-${testInfo.retry}`, { waitUntil: "domcontentloaded" });
+    const publicSummary = page.locator("[data-organization-location-summary]");
+    await expect(publicSummary).toHaveCount(1);
+    await expect(publicSummary).toContainText("Košice · Košický kraj");
+    await expect(publicSummary).not.toContainText("SITE");
+    await expect(page.locator("[data-organization-location]")).toHaveCount(0);
     await expect(page.getByText("Neverejná ORG-2C 1", { exact: true })).toHaveCount(0);
 
     await page.goto("/admin/organizacie/990007", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("button", { name: "Uložiť organizáciu" })).toBeEnabled();
-    created = page.locator("[data-location-id]").filter({ hasText: `${suffix} upravená` });
-    page.once("dialog", (dialog) => dialog.accept());
-    await created.getByRole("button", { name: "Odstrániť lokalitu" }).click();
-    await expect(created).toHaveCount(0);
-    await expect(page.locator('[data-location-id="990107"]').getByLabel("Hlavná lokalita")).not.toBeChecked();
-
-    const restored = page.locator('[data-location-id="990107"]');
-    await restored.getByLabel("Hlavná lokalita").check();
-    await restored.getByRole("button", { name: "Uložiť lokalitu" }).click();
-    await expect(page.getByRole("status")).toContainText("Lokalita bola uložená");
+    const restore = page.locator("[data-organization-address-admin]");
+    await restore.getByLabel("Adresa").fill("Neverejná 30");
+    await restore.getByLabel("Mesto").fill("Trnava");
+    await restore.getByLabel("Okres").fill("Trnava");
+    await restore.getByLabel("Kraj", { exact: true }).fill("Trnavský kraj");
+    await restore.getByLabel("Krajina").fill("SK");
+    await restore.getByRole("button", { name: "Uložiť adresu" }).click();
+    await expect(restore.getByRole("status")).toContainText("Adresa bola uložená");
 
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAccessibilityViolations(page);

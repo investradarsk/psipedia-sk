@@ -84,7 +84,7 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test("Organization renders multiple public locations and approximate location has no Navigate", async ({ page }, testInfo) => {
+  test("Organization renders one canonical public map point without legacy extra locations", async ({ page }, testInfo) => {
     await setViewport(page, testInfo.project.name);
     await page.addInitScript((key) => localStorage.setItem(key, "granted"), GOOGLE_CONSENT);
     await page.goto("/organizacie/map-e2e-multi-site-org", { waitUntil: "domcontentloaded" });
@@ -94,16 +94,10 @@ test.describe("PUBLIC-MAPS-1 canonical detail maps", () => {
     await expect(map).toBeVisible();
     await expect(page.getByTestId("map-test-renderer")).toBeVisible();
     await expect(page.getByTestId("marker-organization:991101:location:991111")).toBeVisible();
-    await expect(page.getByTestId("marker-organization:991101:location:991112")).toBeVisible();
-    await expect(map.getByText("Približná poloha")).toBeVisible();
+    await expect(page.getByTestId("marker-organization:991101:location:991112")).toHaveCount(0);
+    await expect(map.getByText("Približná poloha")).toHaveCount(0);
     await expect(map).not.toContainText("Neverejná service-area 8");
-
-    const serviceArea = map.getByRole("button", { name: /Oblasť pôsobenia.*Šaľa.*Približná poloha/ });
-    await serviceArea.click();
-    await expect(serviceArea).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("marker-organization:991101:location:991112")).toHaveAttribute("aria-pressed", "true");
-    await expect(map.getByRole("link", { name: "Otvoriť približnú polohu v Google Maps" })).toBeVisible();
-    await expect(map.getByRole("link", { name: "Navigovať" })).toHaveCount(0);
+    await expect(map).not.toContainText("Šaľa");
     await expect(page.getByTestId("map-test-renderer")).toHaveAttribute("data-map-init-count", "1");
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxe(page);

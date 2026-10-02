@@ -25,9 +25,6 @@ export function googlePlaceActionForSource(source: GeoSourceLocation): GooglePla
     if (!organizationName) {
       return { available: false, reason: "Najprv doplň názov organizácie." };
     }
-    // Discovery je zámerne voľnejší než publish/confirmation policy.
-    // LEGAL_SEAT, SERVICE_AREA a UNSPECIFIED môžu dodať hinty pre Google search,
-    // ale konkrétny Place sa na nich nesmie potichu publikovať.
     return { available: true, reason: "" };
   }
 
@@ -46,13 +43,7 @@ export function googlePlaceConfirmationForSource(source: GeoSourceLocation): Goo
   }
 
   if (source.targetType === "ORGANIZATION_LOCATION") {
-    if (source.locationRole !== "SITE") {
-      return {
-        available: false,
-        reason: "Vybrané Google miesto treba najprv explicitne potvrdiť ako verejne navštevované SITE.",
-      };
-    }
-    return { available: true, reason: "" };
+    return googlePlaceActionForSource(source);
   }
 
   if (source.online) {

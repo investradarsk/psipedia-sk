@@ -191,7 +191,12 @@ export function buildPublicOrganizationLocationsQuery(organizationId: number) {
       l.country_code, l.is_primary, l.sort_order
       FROM organization_locations l
       WHERE l.organization_id = ?
-      ORDER BY l.sort_order ASC, l.id ASC`,
+      ORDER BY
+        CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END,
+        l.is_primary DESC,
+        l.sort_order ASC,
+        l.id ASC
+      LIMIT 1`,
     bindings: [organizationId] as const,
   };
 }
@@ -210,13 +215,13 @@ export function buildPublishedOrganizationIndexQuery(limit = 250) {
       COALESCE((
         SELECT l.city FROM organization_locations l
         WHERE l.organization_id = o.id
-        ORDER BY l.is_primary DESC, l.sort_order ASC, l.id ASC
+        ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
         LIMIT 1
       ), o.city) AS city,
       COALESCE((
         SELECT l.region FROM organization_locations l
         WHERE l.organization_id = o.id
-        ORDER BY l.is_primary DESC, l.sort_order ASC, l.id ASC
+        ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
         LIMIT 1
       ), o.region) AS region,
       o.image_url, o.website_url, o.public_email, o.public_phone,
@@ -289,7 +294,7 @@ async function listPublicOrganizationLocations(
     .bind(...query.bindings)
     .all<PublicOrganizationLocationRow>();
   if (!result.results.length) return [legacyPublicOrganizationLocation(row)];
-  return result.results.map(toPublicOrganizationLocation);
+  return result.results.slice(0, 1).map(toPublicOrganizationLocation);
 }
 
 async function findPublishedDirectoryRelation(
