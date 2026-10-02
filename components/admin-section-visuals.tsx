@@ -178,9 +178,29 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
   async function save() {
     if (!active) return;
     setSaving(true);
-    setMessage("");
-    setError("");
+    clearFeedback();
     try {
+      if (heroConfig.ctaEnabled) {
+        if (!heroConfig.ctaLabel?.trim()) throw new Error("Zapnuté CTA musí mať text.");
+        if (!heroConfig.ctaHref?.trim() || !safeHref(heroConfig.ctaHref.trim())) throw new Error("CTA URL musí byť interná /adresa alebo bezpečná https:// URL.");
+      }
+      for (const link of heroConfig.quickLinks ?? []) {
+        if (!link.label.trim() && !link.href.trim()) continue;
+        if (!link.label.trim()) throw new Error("Každý quick link musí mať názov.");
+        if (!safeHref(link.href.trim())) throw new Error("Quick link URL musí byť interná /adresa alebo bezpečná https:// URL.");
+      }
+
+      if (active.definition.sectionSlug) {
+        const sectionResponse = await fetch("/api/admin/sections", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sections }),
+        });
+        const sectionData = await sectionResponse.json() as { sections?: ManagedPortalSection[]; error?: string };
+        if (!sectionResponse.ok || !sectionData.sections) throw new Error(sectionData.error || "Texty a hero nastavenia sa nepodarilo uložiť.");
+        setSections(sectionData.sections);
+      }
+
       const response = await fetch("/api/admin/section-visuals", {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -196,9 +216,9 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
       const data = await response.json() as { visual?: ResolvedSectionVisual; error?: string };
       if (!response.ok || !data.visual) throw new Error(data.error || "Vizuál sa nepodarilo uložiť.");
       setItems((current) => updatedItem(current, active.definition.visualKey, (item) => ({ ...item, visual: data.visual! })));
-      setMessage("Vizuál je uložený.");
+      setMessage(active.definition.sectionSlug ? "Hlavička sekcie je uložená." : "Vizuál je uložený.");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Vizuál sa nepodarilo uložiť.");
+      setError(saveError instanceof Error ? saveError.message : "Hlavičku sa nepodarilo uložiť.");
     } finally {
       setSaving(false);
     }
