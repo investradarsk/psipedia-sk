@@ -1,21 +1,22 @@
 import Link from "next/link";
 import { ArticleListItem } from "@/components/article-list-item";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
-import type { ReactElement } from "react";
-import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SearchIcon, SparkIcon, WhistleIcon } from "@/components/icons";
+import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   PublicActionLink,
   PublicContentList,
   PublicFoundation,
   PublicIcon,
-  PublicSectionHeader,
+  UnifiedSectionHero,
 } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
 import { formatSlovakCount } from "@/lib/slovak-count";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import {
   articleHref,
   articlePortalSection,
@@ -29,12 +30,6 @@ type EditorialSectionSlug = "steniatka" | "starostlivost" | "aktivity";
 
 function isEditorialSectionSlug(slug: string): slug is EditorialSectionSlug {
   return slug === "steniatka" || slug === "starostlivost" || slug === "aktivity";
-}
-
-function sectionIcon(slug: EditorialSectionSlug): ReactElement {
-  if (slug === "starostlivost") return <HeartIcon size={30} />;
-  if (slug === "aktivity") return <WhistleIcon size={30} />;
-  return <PawMark size={30} />;
 }
 
 function sectionToneClass(slug: EditorialSectionSlug) {
@@ -134,33 +129,46 @@ function HealthUrgent() {
   );
 }
 
-function SearchBox({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
-  const config = {
+function SearchBox({
+  sectionSlug,
+  subpage,
+}: {
+  sectionSlug: EditorialSectionSlug;
+  subpage?: PortalSubpage;
+}) {
+  const sectionConfig = {
     steniatka: {
-      label: "Čo potrebuješ vedieť o šteniatku?",
-      placeholder: "Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…",
-      button: "Hľadať v sprievodcovi",
+      label: "Hľadať v Šteniatkach",
+      placeholder: "Hľadať v Šteniatkach…",
+      button: "Hľadať",
     },
     starostlivost: {
-      label: "Čo riešiš so svojím psom?",
-      placeholder: "Čo riešiš? Napríklad hnačka, svrbenie alebo samota…",
-      button: "Nájsť odpoveď",
+      label: "Hľadať v Zdraví a starostlivosti",
+      placeholder: "Hľadať v Zdraví a starostlivosti…",
+      button: "Hľadať",
     },
     aktivity: {
-      label: "Akú aktivitu alebo tréning hľadáš?",
-      placeholder: "Hľadaj tréning, šport, výlet alebo cestovanie…",
-      button: "Hľadať v sekcii",
+      label: "Hľadať vo Výcviku a aktivitách",
+      placeholder: "Hľadať vo Výcviku a aktivitách…",
+      button: "Hľadať",
     },
   }[sectionSlug];
+  const label = subpage ? `Hľadať v téme ${subpage.label}` : sectionConfig.label;
+  const placeholder = subpage ? `Hľadať v téme ${subpage.label}…` : sectionConfig.placeholder;
+  const hidden = [
+    { name: "sekcia", value: sectionSlug },
+    ...(subpage ? [{ name: "podsekcia", value: subpage.slug }] : []),
+  ];
 
   return (
-    <form className={styles.search} action="/hladat" method="get" role="search">
-      <SearchIcon size={20} />
-      <input type="hidden" name="sekcia" value={sectionSlug} />
-      <label className="sr-only" htmlFor={`section-search-${sectionSlug}`}>{config.label}</label>
-      <input id={`section-search-${sectionSlug}`} name="q" maxLength={120} placeholder={config.placeholder} />
-      <button type="submit">{config.button}</button>
-    </form>
+    <SectionHeroSearch
+      action="/hladat"
+      id={`section-search-${sectionSlug}-${subpage?.slug ?? "all"}`}
+      label={label}
+      placeholder={placeholder}
+      buttonLabel={sectionConfig.button}
+      hidden={hidden}
+    />
   );
 }
 
@@ -254,7 +262,7 @@ function safetyNote(sectionSlug: EditorialSectionSlug) {
   return <><strong>Dôležité pre rast:</strong> Očkovanie, zdravotné ťažkosti, výživu a primeranú záťaž rieš podľa konkrétneho šteniatka s veterinárom.</>;
 }
 
-export function EditorialSectionHub({
+export async function EditorialSectionHub({
   section,
   articles,
 }: {
@@ -265,6 +273,7 @@ export function EditorialSectionHub({
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const subpages = section.subpages.filter((subpage) => subpage.visible !== false);
   const visibleArticles = orderedArticles(section, articles);
+  const heroVisual = await getSectionHeroVisual(`section.${sectionSlug}`);
   const schema = buildCollectionPageJsonLd({
     name: section.label,
     description: section.description,
@@ -281,16 +290,15 @@ export function EditorialSectionHub({
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell} data-section-public-header>
-          <Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>
-          <PublicSectionHeader
-            variant="data"
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>}
             eyebrow={section.eyebrow}
             title={section.label}
             intro={<><p>{section.description}</p><p className={styles.headerIntro}>{section.intro}</p></>}
-            visual={<div className={styles.headerMark}>{sectionIcon(sectionSlug)}</div>}
+            visual={heroVisual}
+            searchSlot={<SearchBox sectionSlug={sectionSlug} />}
             className={styles.header}
           />
-          <SearchBox sectionSlug={sectionSlug} />
         </PageContainer>
 
         <PortalSectionTabs section={section} />
@@ -396,7 +404,7 @@ function guidanceLabels(sectionSlug: EditorialSectionSlug) {
   return { eyebrow: "Praktická orientácia", first: "Praktické kroky", second: "Na čo si dať pozor", expert: "Dôležité pre túto fázu" };
 }
 
-export function EditorialSectionTopic({
+export async function EditorialSectionTopic({
   section,
   subpage,
   articles,
@@ -408,6 +416,7 @@ export function EditorialSectionTopic({
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const topicArticles = orderedArticles(section, articles, subpage);
+  const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
@@ -427,14 +436,15 @@ export function EditorialSectionTopic({
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
         <PageContainer className={styles.headerShell} data-section-public-header>
-          <Breadcrumbs>
-            <Link href="/">Domov</Link><span>/</span><Link href={`/${sectionSlug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
-          </Breadcrumbs>
-          <PublicSectionHeader
-            variant="compact"
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs>
+              <Link href="/">Domov</Link><span>/</span><Link href={`/${sectionSlug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
+            </Breadcrumbs>}
             eyebrow={section.eyebrow}
             title={subpage.label}
             intro={subpage.description}
+            visual={heroVisual}
+            searchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage} />}
             className={styles.topicHeader}
           />
         </PageContainer>
