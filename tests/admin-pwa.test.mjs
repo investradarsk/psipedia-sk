@@ -64,7 +64,7 @@ test("admin settings can exclude the current browser from Cloudflare Web Analyti
   assert.match(settings, /window\.location\.reload\(\)/);
   assert.match(route, /getAdminApiUser/);
   assert.match(route, /requireAdminMutation/);
-  assert.match(route, /INTERNAL_TRAFFIC_COOKIE_NAME/);
+  assert.match(route, /COOKIE_NAME = "psipedia_internal"/);
   assert.match(route, /Max-Age=\$\{COOKIE_MAX_AGE\}/);
   assert.match(route, /HttpOnly/);
   assert.match(route, /SameSite=Lax/);

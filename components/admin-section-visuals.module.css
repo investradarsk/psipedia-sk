@@ -149,6 +149,170 @@
   background: #f5edda;
 }
 
+.configGroup {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid rgba(23, 53, 43, .11);
+  border-radius: 16px;
+  background: #fbfcfa;
+}
+
+.groupHeading {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.groupHeading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.groupHeading > div > span {
+  color: #174b38;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.groupHeading h3 {
+  margin: 0;
+  color: #17352b;
+  font-size: 1.02rem;
+}
+
+.groupHeading > small {
+  max-width: 420px;
+  color: #66756e;
+  text-align: right;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fieldGrid label,
+.fullField,
+.quickLinkRow label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.fieldGrid label > span,
+.fullField > span,
+.quickLinkRow label > span,
+.toggleRow > span {
+  color: #31493f;
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+.fieldGrid input,
+.fieldGrid select,
+.fullField input,
+.fullField textarea,
+.quickLinkRow input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 11px;
+  border: 1px solid rgba(23, 53, 43, .18);
+  border-radius: 10px;
+  color: #17352b;
+  background: #fff;
+  font: inherit;
+}
+
+.fullField textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.warning {
+  color: #9a5b22;
+  font-size: .7rem;
+  font-weight: 750;
+}
+
+.homeNotice {
+  display: grid;
+  gap: 3px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid rgba(23, 75, 56, .12);
+  border-radius: 13px;
+  color: #30463c;
+  background: #f6f8f4;
+}
+
+.homeNotice span {
+  color: #66756e;
+  font-size: .78rem;
+}
+
+.toggleRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: fit-content;
+}
+
+.toggleRow input,
+.visibleToggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.smallButton,
+.removeButton {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid rgba(23, 53, 43, .18);
+  border-radius: 9px;
+  background: #fff;
+  font: inherit;
+  font-size: .73rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.quickLinkEditor {
+  display: grid;
+  gap: 10px;
+}
+
+.quickLinkRow {
+  display: grid;
+  grid-template-columns: minmax(0, .7fr) minmax(0, 1.1fr) auto auto;
+  gap: 9px;
+  align-items: end;
+}
+
+.visibleToggle {
+  display: flex;
+  min-height: 44px;
+  gap: 6px;
+  align-items: center;
+}
+
+.removeButton {
+  min-height: 44px;
+  color: #923f35;
+}
+
+.emptyLinks {
+  margin: 0;
+  color: #66756e;
+  font-size: .76rem;
+}
+
 .recommendation {
   display: grid;
   gap: 4px;
@@ -274,7 +438,7 @@
 }
 
 .mobilePreview {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 6;
 }
 
 .desktopPreview > img,
@@ -313,7 +477,7 @@
 }
 
 .desktopSafeZone {
-  inset: 8% 46% 8% 4%;
+  inset: 10% 47% 10% 4%;
 }
 
 
@@ -452,24 +616,41 @@
     max-height: 260px;
   }
 
-  .previewGrid {
+  .previewGrid,
+  .fieldGrid {
     grid-template-columns: 1fr;
   }
 
-  .mobilePreview {
-    max-width: 430px;
+  .quickLinkRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .visibleToggle,
+  .removeButton {
+    justify-self: start;
   }
 }
 
 @media (max-width: 620px) {
   .heading,
-  .actions {
+  .actions,
+  .groupHeading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .heading {
+  .heading,
+  .groupHeading {
     display: flex;
+  }
+
+  .groupHeading > small {
+    max-width: none;
+    text-align: left;
+  }
+
+  .quickLinkRow {
+    grid-template-columns: 1fr;
   }
 
   .customBadge,

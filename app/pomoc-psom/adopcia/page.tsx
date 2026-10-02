@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdoptionCatalog } from "@/components/adoption-catalog";
 import { StructuredData } from "@/components/structured-data";
+import { PageContainer } from "@/components/page-system";
 import { parseAdoptionCatalogFilters, type AdoptionCatalogSearchParams } from "@/lib/adoption-catalog";
 import { getPublicAdoptions, listPublishedAdoptionBreedOptions } from "@/lib/adoption-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
@@ -45,9 +46,11 @@ export default async function AdoptionPage({ searchParams }: Props) {
 
   return <>
     {schema && <StructuredData value={schema} />}
-    <main id="obsah" tabIndex={-1} className={styles.shell}>
-      <AdoptionCatalog result={result} filters={filters} breeds={breeds} />
-      <p><Link href="/pomoc-psom">← Späť na Pomoc psom</Link></p>
+    <main id="obsah" tabIndex={-1}>
+      <PageContainer className={styles.listingShell}>
+        <AdoptionCatalog result={result} filters={filters} breeds={breeds} />
+        <p><Link href="/pomoc-psom">← Späť na Pomoc psom</Link></p>
+      </PageContainer>
     </main>
   </>;
 }

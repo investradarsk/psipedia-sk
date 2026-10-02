@@ -1,12 +1,12 @@
 import { directoryCategories, directoryCategoryHref } from "@/lib/directory";
 import { eventTypeListingSeo, eventTypePortalHref, eventTypes } from "@/lib/events";
 import { helpCategories, helpCategoryHref } from "@/lib/help";
-import { portalSections, type PortalSection } from "@/lib/portal";
+import { portalSections, type PortalSection, type SectionHeroConfig } from "@/lib/portal";
 
 export const SECTION_VISUAL_DESKTOP_ASPECT = [16, 7] as const;
-export const SECTION_VISUAL_MOBILE_ASPECT = [4, 3] as const;
-export const SECTION_VISUAL_RECOMMENDED_SIZE = { width: 2000, height: 1500 } as const;
-export const SECTION_VISUAL_MINIMUM_SIZE = { width: 1600, height: 1200 } as const;
+export const SECTION_VISUAL_MOBILE_ASPECT = [16, 6] as const;
+export const SECTION_VISUAL_RECOMMENDED_SIZE = { width: 2000, height: 900 } as const;
+export const SECTION_VISUAL_MINIMUM_SIZE = { width: 1600, height: 720 } as const;
 export const SECTION_VISUAL_ZOOM_MIN = 1;
 export const SECTION_VISUAL_ZOOM_MAX = 3;
 
@@ -52,6 +52,12 @@ export type StoredSectionVisual = {
 
 export type ResolvedSectionVisual = StoredSectionVisual & {
   source: "custom" | "default";
+  heroContent?: {
+    title?: string;
+    eyebrow?: string;
+    intro?: string;
+    config?: SectionHeroConfig;
+  };
 };
 
 export type SectionVisualAdminItem = {
