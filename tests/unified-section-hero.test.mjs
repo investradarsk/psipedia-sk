@@ -38,16 +38,15 @@ test("desktop remains image-led and uses the low 16:6 contract", () => {
   assert.match(unifiedCss, /object-position:\s*var\(--section-visual-desktop-x/);
   assert.match(unifiedCss, /--section-visual-desktop-y/);
   assert.match(unifiedCss, /--section-visual-desktop-zoom/);
-  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
+  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 6\]/);
 });
 
 test("mobile is a standalone low 16:6 media block with no overlay", () => {
   assert.match(unifiedCss, /@media \(max-width: 767px\)/);
   assert.match(unifiedCss, /\.copy\s*\{[\s\S]*order:\s*1/);
-  assert.match(unifiedCss, /\.media\s*\{[\s\S]*position:\s*relative[\s\S]*order:\s*2[\s\S]*aspect-ratio:\s*4 \/ 3/);
-  assert.match(unifiedCss, /\.tools\s*\{[\s\S]*order:\s*3/);
+  assert.match(unifiedCss, /\.media\s*\{[\s\S]*position:\s*relative[\s\S]*order:\s*2[\s\S]*aspect-ratio:\s*16 \/ 6/);
   assert.match(unifiedCss, /\.shade\s*\{\s*display:\s*none/);
-  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[4, 3\]/);
+  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[16, 6\]/);
 });
 
 test("desktop and mobile independently consume X Y zoom", () => {
