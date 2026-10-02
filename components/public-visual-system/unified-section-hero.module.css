@@ -125,6 +125,10 @@
   box-shadow: 0 12px 32px rgba(8,34,25,.18);
 }
 
+.hero :global([data-section-hero-search]:has(select)) {
+  grid-template-columns: minmax(150px, .55fr) minmax(0, 1fr) auto;
+}
+
 .hero :global([data-section-hero-search] label) {
   min-width: 0;
 }
@@ -244,7 +248,8 @@
     color: #52645b;
   }
 
-  .hero :global([data-section-hero-search]) {
+  .hero :global([data-section-hero-search]),
+  .hero :global([data-section-hero-search]:has(select)) {
     grid-template-columns: minmax(0, 1fr) auto;
     width: 100%;
     border-color: rgba(23,53,43,.16);
@@ -263,7 +268,8 @@
 }
 
 @media (max-width: 430px) {
-  .hero :global([data-section-hero-search]) {
+  .hero :global([data-section-hero-search]),
+  .hero :global([data-section-hero-search]:has(select)) {
     grid-template-columns: 1fr;
   }
 
