@@ -251,6 +251,11 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
   const { definition, visual } = active;
   const recommended = `${definition.recommendedSize.width} × ${definition.recommendedSize.height} px`;
   const minimum = `${definition.minimumSize.width} × ${definition.minimumSize.height} px`;
+  const contentTitle = activeSubpage?.label ?? activeSection?.label ?? "";
+  const contentEyebrow = activeSubpage?.eyebrow ?? activeSection?.eyebrow ?? "";
+  const contentIntro = activeSubpage?.intro ?? activeSubpage?.description ?? activeSection?.intro ?? "";
+  const longTitle = contentTitle.length > 72;
+  const longIntro = contentIntro.length > 220;
 
   return (
     <div className={styles.workspace} data-testid="admin-section-visuals">
