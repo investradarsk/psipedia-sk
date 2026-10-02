@@ -6,14 +6,16 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
-  PublicSectionHeader,
+  UnifiedSectionHero,
 } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import { StructuredData } from "@/components/structured-data";
 import { fciGroups } from "@/lib/content";
 import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
 import { portalSubpageHref } from "@/lib/portal";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import styles from "./breed-atlas.module.css";
 
@@ -32,7 +34,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export const dynamic = "force-dynamic";
 
 export default async function BreedsPage({ searchParams }: Props) {
-  const [portalSection, breeds] = await Promise.all([getManagedPortalSection("plemena"), listPublishedCanonicalBreedIndex()]);
+  const [portalSection, breeds, heroVisual] = await Promise.all([
+    getManagedPortalSection("plemena"),
+    listPublishedCanonicalBreedIndex(),
+    getSectionHeroVisual("section.plemena"),
+  ]);
   const rawSearchParams = await searchParams;
   const initialFilters = parseBreedAtlasFilters(rawSearchParams);
   const policy = resolveListingIndexPolicy("/plemena", rawSearchParams);
@@ -52,16 +58,22 @@ export default async function BreedsPage({ searchParams }: Props) {
       <main id="obsah">
         <PublicFoundation className={styles.foundation}>
           <div className={`shell ${styles.headerShell}`}>
-            <Breadcrumbs>
-              <Link href="/">Domov</Link><span>/</span><span>Plemená</span>
-            </Breadcrumbs>
-            <PublicSectionHeader
-              className={styles.header}
-              variant="compact"
+            <UnifiedSectionHero
+              breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Plemená</span></Breadcrumbs>}
               eyebrow={portalSection?.eyebrow ?? "Atlas plemien"}
               title={portalSection?.label ?? "Plemená"}
               intro="Nájdite plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie."
-              actions={
+              visual={heroVisual}
+              searchSlot={
+                <SectionHeroSearch
+                  action="/plemena"
+                  id="breed-hero-query"
+                  label="Hľadať plemeno"
+                  placeholder="Hľadať plemeno…"
+                  defaultValue={initialFilters.query}
+                />
+              }
+              ctaSlot={
                 <PublicActionLink href="/porovnat-plemena" icon={<ArrowIcon size={16} />}>
                   Porovnať plemená
                 </PublicActionLink>
