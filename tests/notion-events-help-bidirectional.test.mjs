@@ -350,7 +350,7 @@ test("create-from-Notion gate keeps event/org/adoption Ready and validates help/
 });
 
 test("migration is additive and persists agenda mapping plus target identity", async () => {
-  const sql = await readFile(new URL("../drizzle/0107_notion_events_help_bidirectional_sync.sql", import.meta.url), "utf8");
+  const sql = await readFile(new URL("../drizzle/0108_notion_events_help_bidirectional_sync.sql", import.meta.url), "utf8");
   assert.match(sql, /ALTER TABLE event_notion_sync ADD COLUMN psipedia_updated_at TEXT/);
   assert.match(sql, /CREATE TABLE IF NOT EXISTS notion_agenda_sync/);
   assert.match(sql, /UNIQUE \(agenda, entity_id\)/);
