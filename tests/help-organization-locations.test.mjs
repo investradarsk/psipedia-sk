@@ -49,7 +49,8 @@ test("public location query is deterministic and excludes street address/provena
   assert.deepEqual(query.bindings, [7]);
   assert.match(query.sql, /FROM organization_locations l/);
   assert.match(query.sql, /WHERE l\.organization_id = \?/);
-  assert.match(query.sql, /ORDER BY l\.sort_order ASC, l\.id ASC/);
+  assert.match(query.sql, /ORDER BY[\s\S]*CASE WHEN l\.role = 'SITE' THEN 0 ELSE 1 END[\s\S]*l\.is_primary DESC[\s\S]*l\.sort_order ASC[\s\S]*l\.id ASC/);
+  assert.match(query.sql, /LIMIT 1/);
   assert.doesNotMatch(query.sql, /\baddress\b|source_data_json|import_key|created_by|updated_by/i);
   assert.equal(buildPublicOrganizationLocationsQuery(0), null);
 });
