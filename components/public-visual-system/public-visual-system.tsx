@@ -10,6 +10,18 @@ function cx(...values: Array<string | false | null | undefined>) {
 export type PublicHeaderVariant = "editorial" | "compact" | "image" | "data";
 export type PublicActionVariant = "primary" | "secondary" | "tertiary";
 export type PublicIconSize = "sm" | "md" | "lg";
+export type PublicLandingTone = "events" | "services" | "reviews";
+
+export type PublicCategoryTileItem = {
+  href: string;
+  title: ReactNode;
+  description?: ReactNode;
+  meta?: ReactNode;
+  icon?: ReactElement;
+  current?: boolean;
+  rel?: string;
+  prefetch?: boolean;
+};
 
 const headerVariantClass: Record<PublicHeaderVariant, string> = {
   editorial: styles.headerEditorial,
@@ -94,6 +106,79 @@ export function PublicSectionHeader({
       </div>
       {sideVisual}
     </header>
+  );
+}
+
+
+export function PublicLandingHero({
+  tone,
+  eyebrow,
+  title,
+  intro,
+  meta,
+  actions,
+  ornament,
+  children,
+  className,
+}: {
+  tone: PublicLandingTone;
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  intro?: ReactNode;
+  meta?: ReactNode;
+  actions?: ReactNode;
+  ornament?: ReactElement;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cx(styles.landingHero, styles[`landingHero_${tone}`], className)} data-public-landing-hero={tone}>
+      <div className={styles.landingHeroBody}>
+        {eyebrow ? <div className={styles.landingHeroEyebrow}>{eyebrow}</div> : null}
+        <h1>{title}</h1>
+        {intro ? <div className={styles.landingHeroIntro}>{intro}</div> : null}
+        {meta ? <div className={styles.landingHeroMeta}>{meta}</div> : null}
+        {actions ? <div className={styles.landingHeroActions}>{actions}</div> : null}
+        {children ? <div className={styles.landingHeroContent}>{children}</div> : null}
+      </div>
+      <div className={styles.landingHeroVisual} aria-hidden="true">
+        <span className={styles.landingHeroOrb} />
+        {ornament ? <span className={styles.landingHeroOrnament}>{ornament}</span> : null}
+      </div>
+    </section>
+  );
+}
+
+export function PublicCategoryTiles({
+  items,
+  label,
+  className,
+}: {
+  items: PublicCategoryTileItem[];
+  label: string;
+  className?: string;
+}) {
+  return (
+    <nav className={cx(styles.categoryTiles, className)} aria-label={label} data-public-category-tiles>
+      {items.map((item, index) => (
+        <Link
+          className={cx(styles.categoryTile, item.current && styles.categoryTileCurrent)}
+          href={item.href}
+          key={`${item.href}-${index}`}
+          aria-current={item.current ? "page" : undefined}
+          rel={item.rel}
+          prefetch={item.prefetch}
+        >
+          {item.icon ? <PublicIcon icon={item.icon} size="lg" className={styles.categoryTileIcon} /> : null}
+          <span className={styles.categoryTileCopy}>
+            <strong>{item.title}</strong>
+            {item.description ? <span>{item.description}</span> : null}
+            {item.meta ? <small>{item.meta}</small> : null}
+          </span>
+          <span className={styles.categoryTileArrow} aria-hidden="true"><ArrowIcon size={18} /></span>
+        </Link>
+      ))}
+    </nav>
   );
 }
 
