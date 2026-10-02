@@ -6,6 +6,8 @@ import { ChangeEvent, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
+import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { eventSeoFallback } from "@/lib/content-seo";
@@ -131,6 +133,14 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
               <div className="admin-field"><label htmlFor="event-address">Adresa</label><input id="event-address" value={address} onChange={(input) => setAddress(input.target.value)} placeholder="Výstavná 4" /></div>
               <div className="admin-field"><label htmlFor="event-organizer">Organizátor</label><input id="event-organizer" value={organizer} onChange={(input) => setOrganizer(input.target.value)} required /></div>
             </div>
+            {event ? (
+              <div id="event-google-maps">
+                <AdminProfileGoogleMaps targetType="MANAGED_EVENT" targetId={event.id} />
+                <AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} showGoogleWorkflow={false} />
+              </div>
+            ) : (
+              <p className="admin-help">Google Maps bude dostupné po prvom uložení podujatia.</p>
+            )}
           </section>
 
           <section className="admin-form-card">

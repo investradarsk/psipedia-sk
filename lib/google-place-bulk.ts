@@ -18,6 +18,7 @@ import {
 } from "@/lib/google-place-directory-discovery";
 import { discoverGoogleTargetPlaces } from "@/lib/google-place-target-discovery";
 import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
+import { getOrganizationGoogleMapsWorkflowDecision } from "@/lib/organization-google-maps-workflow";
 
 type Bindings = { DB?: D1Database };
 type Row = Record<string, unknown>;
@@ -301,6 +302,13 @@ export async function processGooglePlaceBulkTarget(input: {
     }
     if (await getGoogleMapsWorkflowDecision(targetType, targetId, database) === "NOT_REQUIRED") {
       return withMeta(meta, "NOT_REQUIRED", "Admin označil Google Maps ako nepotrebné.");
+    }
+    if (
+      targetType === "ORGANIZATION_LOCATION"
+      && source.organizationId
+      && await getOrganizationGoogleMapsWorkflowDecision(source.organizationId) === "NOT_REQUIRED"
+    ) {
+      return withMeta(meta, "NOT_REQUIRED", "Google Maps boli vybavené na úrovni organizácie.");
     }
     const googleState = await currentGooglePlaceState(targetType, targetId);
     const googlePlaceId = String(googleState?.google_place_id ?? "").trim();

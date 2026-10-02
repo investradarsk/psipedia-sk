@@ -4,7 +4,6 @@ import { AdminEventEditor } from "@/components/admin-event-editor";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
-import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
@@ -32,5 +31,5 @@ export default async function EditEventPage({ params }: Props) {
     <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />
     {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Otvoriť verejné podujatie ↗</Link>}
     <Link href="/admin/podujatia">← Späť na podujatia</Link>
-  </>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminEventEditor event={event} automationSuggestions={automationSuggestions} /><AdminGeoLocation targetType="MANAGED_EVENT" targetId={event.id} />{event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}</AdminShell>;
+  </>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminEventEditor event={event} automationSuggestions={automationSuggestions} />{event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}</AdminShell>;
 }

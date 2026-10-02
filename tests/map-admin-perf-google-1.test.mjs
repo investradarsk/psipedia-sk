@@ -18,6 +18,7 @@ const loader = read("lib/geo-admin-operator.ts");
 const dashboard = read("components/admin-geo-operator-dashboard.tsx");
 const picker = read("components/admin-google-place-picker.tsx");
 const route = read("app/api/admin/geo/[targetType]/[id]/route.ts");
+const confirmation = read("lib/admin-google-place-confirmation.ts");
 const geoStore = read("lib/geo-store.ts");
 const quality = read("lib/data-quality-store.ts");
 const bulk = read("lib/google-place-bulk.ts");
@@ -109,8 +110,9 @@ test("HELP Google discovery works without SITE but confirmation stays SITE-gated
 
   const site = { ...legalSeat, locationRole: "SITE" };
   assert.equal(googlePlaceConfirmationForSource(site).available, true);
-  assert.match(route, /confirmOrganizationSite !== true/);
-  assert.match(route, /createOrganizationLocationFromAdmin/);
+  assert.match(route, /confirmAdminGooglePlace/);
+  assert.match(confirmation, /confirmOrganizationSite !== true/);
+  assert.match(confirmation, /createOrganizationLocationFromAdmin/);
 });
 
 test("physical event can search by title only while online event never confirms a physical place", () => {

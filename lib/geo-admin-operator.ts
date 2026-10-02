@@ -71,6 +71,8 @@ export type GeoAdminOperatorRow = {
   googlePlaceSourceFingerprint: string | null;
   googleMapsTarget: GeoAdminGoogleState;
   googleMapsNotRequiredSystemDerived: boolean;
+  organizationId: number | null;
+  googleMapsNotRequiredOrganizationLevel: boolean;
   latitude: number | null;
   longitude: number | null;
   errorCode: string | null;
@@ -224,6 +226,23 @@ map_review AS (
   FROM map_review_ranked
   WHERE row_number = 1
 ),
+organization_map_review_ranked AS (
+  SELECT
+    subject_id,
+    action,
+    ROW_NUMBER() OVER (
+      PARTITION BY subject_id
+      ORDER BY created_at DESC, id DESC
+    ) AS row_number
+  FROM moderation_events
+  WHERE resource_type = 'HELP_ORGANIZATION'
+    AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+),
+organization_map_review AS (
+  SELECT subject_id, action
+  FROM organization_map_review_ranked
+  WHERE row_number = 1
+),
 raw AS (
   SELECT
     'SERVICES' AS group_key,
@@ -266,7 +285,8 @@ raw AS (
     g.manual_override,
     g.updated_at AS geo_updated_at,
     CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
-    mr.action AS map_review_action
+    mr.action AS map_review_action,
+    NULL AS organization_map_review_action
   FROM directory_profiles d
   LEFT JOIN geo_points g
     ON g.directory_profile_id = d.id
@@ -322,7 +342,8 @@ raw AS (
     g.manual_override,
     g.updated_at AS geo_updated_at,
     CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
-    mr.action AS map_review_action
+    mr.action AS map_review_action,
+    omr.action AS organization_map_review_action
   FROM organization_locations l
   JOIN help_organizations o ON o.id = l.organization_id
   LEFT JOIN geo_points g
@@ -330,6 +351,7 @@ raw AS (
     AND g.target_type = 'ORGANIZATION_LOCATION'
   LEFT JOIN explicit_private ep ON ep.subject_id = CAST(g.id AS TEXT)
   LEFT JOIN map_review mr ON mr.subject_id = CAST(g.id AS TEXT)
+  LEFT JOIN organization_map_review omr ON omr.subject_id = CAST(o.id AS TEXT)
   WHERE o.status = 'PUBLISHED' AND o.archived_at IS NULL
 
   UNION ALL
@@ -380,7 +402,8 @@ raw AS (
     g.manual_override,
     g.updated_at AS geo_updated_at,
     CASE WHEN ep.subject_id IS NULL THEN 0 ELSE 1 END AS explicit_private,
-    mr.action AS map_review_action
+    mr.action AS map_review_action,
+    NULL AS organization_map_review_action
   FROM managed_events e
   LEFT JOIN geo_points g
     ON g.managed_event_id = e.id
@@ -394,6 +417,7 @@ base AS (
     raw.*,
     CASE
       WHEN online = 1 THEN 'NOT_REQUIRED'
+      WHEN organization_map_review_action = 'GOOGLE_MAPS_NOT_REQUIRED' THEN 'NOT_REQUIRED'
       WHEN map_review_action = 'GOOGLE_MAPS_NOT_REQUIRED' THEN 'NOT_REQUIRED'
       WHEN trim(COALESCE(google_place_id, '')) <> ''
         AND trim(COALESCE(google_place_source_fingerprint, '')) <> ''
@@ -668,6 +692,8 @@ function directoryRow(row: DbRow): GeoAdminOperatorRow {
     ...geo,
     googleMapsTarget: value(row, "google_state") as GeoAdminGoogleState,
     googleMapsNotRequiredSystemDerived: false,
+    organizationId: null,
+    googleMapsNotRequiredOrganizationLevel: false,
     googlePickerAvailable: picker.available,
     googlePickerUnavailableReason: picker.reason || null,
   };
@@ -738,6 +764,9 @@ function organizationRow(row: DbRow): GeoAdminOperatorRow {
     ...geo,
     googleMapsTarget: value(row, "google_state") as GeoAdminGoogleState,
     googleMapsNotRequiredSystemDerived: false,
+    organizationId,
+    googleMapsNotRequiredOrganizationLevel:
+      value(row, "organization_map_review_action") === "GOOGLE_MAPS_NOT_REQUIRED",
     googlePickerAvailable: picker.available,
     googlePickerUnavailableReason: picker.reason || null,
   };
@@ -808,6 +837,8 @@ function eventRow(row: DbRow): GeoAdminOperatorRow {
     ...geo,
     googleMapsTarget: value(row, "google_state") as GeoAdminGoogleState,
     googleMapsNotRequiredSystemDerived: online,
+    organizationId: null,
+    googleMapsNotRequiredOrganizationLevel: false,
     googlePickerAvailable: picker.available,
     googlePickerUnavailableReason: picker.reason || null,
   };

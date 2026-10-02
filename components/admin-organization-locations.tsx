@@ -173,7 +173,7 @@ export function AdminOrganizationLocations({ organization, initialLocations }: {
             <div className="admin-card-heading"><div><span>#{item.id}</span><div><h3>{item.label || roleLabels[item.role]}</h3><p>{item.city || "Bez mesta"} · poradie {item.sortOrder}{item.isPrimary ? " · Hlavná lokalita" : ""}</p></div></div></div>
             <LocationFields draft={draft} disabled={disabled} onChange={(next) => setDrafts((current) => ({ ...current, [item.id]: next }))} prefix={`location-${item.id}`} />
             {!parentArchived && <div className="admin-editor-actions"><button type="button" disabled={!hydrated || busyId !== null} onClick={() => saveLocation(item)}>{busyId === item.id ? "Pracujem…" : "Uložiť lokalitu"}</button><button type="button" disabled={!hydrated || busyId !== null} onClick={() => deleteLocation(item)}>Odstrániť lokalitu</button></div>}
-            <AdminGeoLocation targetType="ORGANIZATION_LOCATION" targetId={item.id} sensitive={item.role !== "SITE"} />
+            <AdminGeoLocation targetType="ORGANIZATION_LOCATION" targetId={item.id} sensitive={item.role !== "SITE"} showGoogleWorkflow={false} />
           </article>;
         })}
       </section>
