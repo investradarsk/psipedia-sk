@@ -40,7 +40,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     user={user}
     eyebrow="Organizácie · Detail"
     title={organization.name}
-    description="Canonical údaje, lokality a fundraising na jednom admin detaile. Publication lifecycle zostáva explicitná samostatná akcia."
+    description="Canonical údaje, jedna adresa, Google Maps a fundraising na jednom admin detaile."
    actions={<>
     <AdminReviewCheckbox entityType="ORGANIZATION" entityId={organization.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />
     {organization.status === "PUBLISHED" && organization.slug && <Link href={"/organizacie/" + organization.slug} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
@@ -48,6 +48,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
    </>}>
     <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminOrganizationEditor organization={organization} automationSuggestions={automationSuggestions} />
+    <div id="address"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="google-maps">
       <AdminProfileGoogleMaps
         targetType="ORGANIZATION_LOCATION"
@@ -55,7 +56,6 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
         endpoint={`/api/admin/organizations/${organization.id}/google-place`}
       />
     </div>
-    <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>
     {organization.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ORGANIZATION" canonicalEntityId={organization.id} returnHref="/admin/organizacie" />}
   </AdminShell>;
