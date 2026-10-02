@@ -13,6 +13,7 @@ const admin = read("components/admin-section-visuals.tsx");
 const adminCss = read("components/admin-section-visuals.module.css");
 const events = read("components/events-page.tsx");
 const home = read("app/page.tsx");
+const directoryPage = read("components/directory-page.tsx");
 
 test("SECTION-HERO-V2 keeps one canonical hero and a homepage-style separate tools panel", () => {
   assert.match(hero, /export async function UnifiedSectionHero/);
@@ -110,6 +111,11 @@ test("missing hero config falls back to route copy and static canonical defaults
   assert.match(sectionStore, /heroConfig: \{ \.\.\.\(base\.heroConfig \?\? \{\}\), \.\.\.cleanHeroConfig/);
   assert.match(sectionStore, /if \(!db\) return defaultManagedSections\(\)/);
 });
+test("directory hero uses the canonical public PageContainer gutter", () => {
+  assert.match(directoryPage, /<PageContainer className=\{styles\.headerShell\} data-directory-public-header>/);
+  assert.equal(directoryPage.includes("className={`shell ${styles.headerShell}`} data-directory-public-header"), false);
+});
+
 test("homepage remains its own design and only keeps the existing home.hero visual source", () => {
   assert.match(home, /getResolvedSectionVisual\("home\.hero"\)/);
   assert.doesNotMatch(home, /UnifiedSectionHero/);
