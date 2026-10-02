@@ -80,10 +80,11 @@ test("Google picker is single-active and mounts only after explicit Admin Mapy c
 });
 
 test("Google confirmation reruns server discovery and never trusts client coordinates", () => {
-  assert.match(route, /const candidates = await discoverGoogleTargetPlaces\(source\)/);
-  assert.match(route, /candidates\.find\(\(candidate\) => candidate\.id === placeId\)/);
-  assert.match(route, /latitude: selected\.latitude/);
-  assert.match(route, /longitude: selected\.longitude/);
+  assert.match(route, /confirmAdminGooglePlace/);
+  assert.match(confirmation, /const candidates = await discoverGoogleTargetPlaces\(source\)/);
+  assert.match(confirmation, /candidates\.find\(\(candidate\) => candidate\.id === placeId\)/);
+  assert.match(confirmation, /latitude: selected\.latitude/);
+  assert.match(confirmation, /longitude: selected\.longitude/);
   assert.doesNotMatch(picker, /latitude:/);
   assert.doesNotMatch(picker, /longitude:/);
 });
