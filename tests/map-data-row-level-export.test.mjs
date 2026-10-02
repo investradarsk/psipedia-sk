@@ -7,6 +7,8 @@ import {
   markPotentialDuplicates,
   onlineSemantics,
   toCsv,
+  workflowState,
+  isAdminOnlineEvent,
 } from "../scripts/map-data-row-level-export.mjs";
 
 test("read-only SQL guard accepts SELECT/PRAGMA and rejects mutations", () => {
@@ -42,4 +44,30 @@ test("duplicate flags are review-only and CSV escaping is stable", () => {
   const rows = markPotentialDuplicates([{ name: "A", city: "Nitra" }, { name: "A", city: "Nitra" }, { name: "B", city: "Trnava" }], (row) => `${row.name}|${row.city}`);
   assert.deepEqual(rows.map((row) => row.potential_duplicate_review), [1, 1, 0]);
   assert.equal(toCsv([{ a: 'x,"y"', b: "z" }], ["a", "b"]), 'a,b\n"x,""y""",z\n');
+});
+
+
+test("maps workflow reconciliation mirrors PLACE / NOT_REQUIRED / coordinates / unresolved semantics", () => {
+  const base = {
+    source_fingerprint: "fp",
+    resolved_source_fingerprint: "fp",
+    google_place_source_fingerprint: "",
+    google_place_id: "",
+    latitude: null,
+    longitude: null,
+    public_visibility: "EXACT_PUBLIC",
+    map_action: "",
+  };
+  assert.equal(workflowState({ ...base, google_place_id: "place-1", google_place_source_fingerprint: "fp" }), "PLACE");
+  assert.equal(workflowState({ ...base, map_action: "GOOGLE_MAPS_NOT_REQUIRED" }), "NOT_REQUIRED");
+  assert.equal(workflowState({ ...base, latitude: 48.3, longitude: 18.1 }), "COORDINATES");
+  assert.equal(workflowState(base), "UNRESOLVED");
+  assert.equal(workflowState(base, { organizationNotRequired: true }), "NOT_REQUIRED");
+  assert.equal(workflowState(base, { online: true }), "NOT_REQUIRED");
+});
+
+test("admin online event reconciliation uses the same explicit online marker contract", () => {
+  assert.equal(isAdminOnlineEvent({ city: "Online", region: "", venue: "" }), true);
+  assert.equal(isAdminOnlineEvent({ city: "Nitra", region: "Nitriansky kraj", venue: "Online" }), true);
+  assert.equal(isAdminOnlineEvent({ city: "Nitra", region: "Nitriansky kraj", venue: "Expo" }), false);
 });
