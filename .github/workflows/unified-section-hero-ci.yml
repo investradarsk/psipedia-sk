@@ -17,7 +17,7 @@ permissions:
   checks: read
 
 concurrency:
-  group: unified-section-hero-1-\${{ github.event.pull_request.number || github.ref }}
+  group: unified-section-hero-1-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -61,31 +61,31 @@ jobs:
       - name: Resolve exact Cloudflare preview for PR head
         id: preview
         env:
-          GH_TOKEN: \${{ github.token }}
-          PR_HEAD_SHA: \${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          api="https://api.github.com/repos/\${GITHUB_REPOSITORY}/commits/\${PR_HEAD_SHA}/check-runs"
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs"
           preview_url=""
           for attempt in $(seq 1 90); do
             payload="$(curl --silent --show-error --fail \
-              -H "Authorization: Bearer \${GH_TOKEN}" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
-              "\${api}")"
-            state="$(printf '%s' "\${payload}" | node -e '
+              "${api}")"
+            state="$(printf '%s' "${payload}" | node -e '
               let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
                 const runs=JSON.parse(x).check_runs||[];
                 const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
                 process.stdout.write(run ? String(run.status)+"|"+String(run.conclusion||"") : "missing|");
               });
             ')"
-            if [ "\${state}" = "completed|failure" ]; then
-              echo "::error::Cloudflare Workers Build failed for \${PR_HEAD_SHA}."
+            if [ "${state}" = "completed|failure" ]; then
+              echo "::error::Cloudflare Workers Build failed for ${PR_HEAD_SHA}."
               exit 1
             fi
-            if [ "\${state}" = "completed|success" ]; then
-              preview_url="$(printf '%s' "\${payload}" | node -e '
+            if [ "${state}" = "completed|success" ]; then
+              preview_url="$(printf '%s' "${payload}" | node -e '
                 let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
                   const runs=JSON.parse(x).check_runs||[];
                   const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
@@ -94,16 +94,16 @@ jobs:
                   process.stdout.write(match?.[1]||"");
                 });
               ')"
-              if [ -n "\${preview_url}" ]; then break; fi
+              if [ -n "${preview_url}" ]; then break; fi
             fi
             sleep 5
           done
-          test -n "\${preview_url}"
-          echo "url=\${preview_url}" >> "$GITHUB_OUTPUT"
+          test -n "${preview_url}"
+          echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
 
       - name: 390 430 768 1280 1440 visual audit
         env:
-          E2E_BASE_URL: \${{ steps.preview.outputs.url }}
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
           UNIFIED_SECTION_HERO_ARTIFACT_DIR: .e2e-artifacts/unified-section-hero
         run: npx playwright test tests/e2e/unified-section-hero.spec.ts --project=desktop-chromium --workers=1 --retries=0
 
@@ -111,7 +111,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unified-section-hero-1-screenshots-\${{ github.run_attempt }}
+          name: unified-section-hero-1-screenshots-${{ github.run_attempt }}
           path: .e2e-artifacts/unified-section-hero/
           if-no-files-found: warn
           retention-days: 14
@@ -120,7 +120,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: unified-section-hero-1-playwright-failure-\${{ github.run_attempt }}
+          name: unified-section-hero-1-playwright-failure-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/playwright/
