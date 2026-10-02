@@ -19,18 +19,18 @@ test("SECTION-HERO-V2 keeps one canonical hero and a homepage-style separate too
   assert.match(hero, /data-unified-section-hero-visual/);
   assert.match(hero, /data-unified-section-hero-tools/);
   assert.match(hero, /<div className=\{styles\.visual\}[\s\S]*<\/div>[\s\S]*hasTools \? \(/);
-  assert.match(heroCss, /\.visual[\s\S]*min-height:\s*clamp\(260px,\s*24vw,\s*330px\)/);
+  assert.match(heroCss, /\.visual[\s\S]*height:\s*clamp\(260px,\s*24vw,\s*330px\)/);
   assert.match(heroCss, /\.tools[\s\S]*background:\s*#fff/);
   assert.match(heroCss, /\.tools[\s\S]*margin:\s*-25px auto 0/);
 });
 
-test("SECTION-HERO-V2 uses one low 16:6 crop contract and never returns to public 4:3", () => {
-  assert.match(visualContract, /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 6\]/);
+test("SECTION-HERO-V2 keeps desktop 16:7 crop and uses low 16:6 mobile crop", () => {
+  assert.match(visualContract, /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
   assert.match(visualContract, /SECTION_VISUAL_MOBILE_ASPECT = \[16, 6\]/);
   assert.match(heroCss, /aspect-ratio:\s*16 \/ 6/);
   assert.doesNotMatch(heroCss, /aspect-ratio:\s*4 \/ 3/);
-  assert.match(admin, /16 : 6 · potiahni obrázok/);
-  assert.match(adminCss, /\.desktopPreview[\s\S]*aspect-ratio:\s*16 \/ 6/);
+  assert.match(admin, /mode === "desktop" \? "16 : 7" : "16 : 6"/);
+  assert.match(adminCss, /\.desktopPreview[\s\S]*aspect-ratio:\s*16 \/ 7/);
   assert.match(adminCss, /\.mobilePreview[\s\S]*aspect-ratio:\s*16 \/ 6/);
 });
 
@@ -71,7 +71,10 @@ test("admin edits content, search copy, CTA, meta and quick links without exposi
 });
 
 test("admin search text cannot alter the route, hidden filters or category scope", () => {
-  assert.match(hero, /const overrides: SearchElementProps = \{\}/);\n  assert.match(hero, /config\.searchPlaceholder[\s\S]*overrides\.placeholder/);\n  assert.match(hero, /config\.searchButtonLabel[\s\S]*overrides\.buttonLabel/);\n  assert.match(hero, /cloneElement\(searchSlot as ReactElement<SearchElementProps>, overrides\)/);
+  assert.match(hero, /const overrides: SearchElementProps = \{\}/);
+  assert.match(hero, /config\.searchPlaceholder[\s\S]*overrides\.placeholder/);
+  assert.match(hero, /config\.searchButtonLabel[\s\S]*overrides\.buttonLabel/);
+  assert.match(hero, /cloneElement\(searchSlot as ReactElement<SearchElementProps>, overrides\)/);
   assert.doesNotMatch(hero, /cloneElement\(searchSlot[\s\S]*action\s*:/);
   assert.doesNotMatch(hero, /cloneElement\(searchSlot[\s\S]*hidden\s*:/);
   assert.doesNotMatch(hero, /cloneElement\(searchSlot[\s\S]*inputName\s*:/);
@@ -80,7 +83,8 @@ test("admin search text cannot alter the route, hidden filters or category scope
 test("hero config uses existing canonical stores and section_visuals stays image-only", () => {
   assert.match(sectionStore, /hero_config_json/);
   assert.match(sectionStore, /subpages_json/);
-  assert.match(sectionStore, /stored\.heroConfig/);\n  assert.match(read("lib/section-visual-store.ts"), /getManagedPortalSection/);
+  assert.match(sectionStore, /stored\.heroConfig/);
+  assert.match(read("lib/section-visual-store.ts"), /getManagedPortalSection/);
   assert.match(read("drizzle/0107_section_hero_config.sql"), /ALTER TABLE portal_section_settings[\s\S]*ADD COLUMN hero_config_json/);
   assert.doesNotMatch(read("drizzle/0106_section_visuals.sql"), /searchPlaceholder|ctaLabel|quickLinks|hero_config_json/);
 });
