@@ -60,40 +60,42 @@ test("profile Google discovery stays lazy and candidates remain server-authorita
   assert.match(discovery, /slice\(0, 5\)/);
 });
 
-test("HELP profile has organization-level Google workflow before detailed locations", () => {
+test("HELP profile exposes one Address section followed by organization-level Google Maps", () => {
+  const addressIndex = organizationPage.indexOf("<AdminOrganizationLocations");
   const googleIndex = organizationPage.indexOf("<AdminProfileGoogleMaps");
-  const locationsIndex = organizationPage.indexOf("<AdminOrganizationLocations");
-  assert.ok(googleIndex >= 0 && locationsIndex > googleIndex);
+  assert.ok(addressIndex >= 0 && googleIndex > addressIndex);
   assert.ok(organizationPage.includes("/api/admin/organizations/"));
   assert.ok(organizationPage.includes("/google-place"));
-  assert.match(organizationLocations, /showGoogleWorkflow=\{false\}/);
+  assert.match(organizationLocations, /<h2>Adresa<\/h2>/);
+  assert.doesNotMatch(organizationLocations, /ORGANIZATION_LOCATION_ROLES|Typ lokality|Pridať lokalitu|Hlavná lokalita/);
 });
 
-test("HELP discovery works without SITE and uses organization name plus location hints", () => {
-  assert.ok(organizationWorkflow.includes("targetId: preferredSite?.id ?? hint?.id ?? organization.id"));
+test("HELP discovery uses one deterministic canonical address or organization address fallback", () => {
+  assert.match(organizationWorkflow, /canonicalOrganizationLocation/);
+  assert.ok(organizationWorkflow.includes("targetId: canonicalLocation?.id ?? organization.id"));
   assert.ok(organizationWorkflow.includes("organizationName: organization.name"));
-  assert.ok(organizationWorkflow.includes('address: hint?.address ?? ""'));
-  assert.ok(organizationWorkflow.includes("city: hint?.city || organization.city"));
+  assert.ok(organizationWorkflow.includes("address: canonicalLocation?.address || organization.address ||"));
+  assert.ok(organizationWorkflow.includes("city: canonicalLocation?.city || organization.city"));
   assert.match(discovery, /organizationName, source\.label, source\.address, source\.city, source\.district, source\.region/);
   assert.match(organizationRoute, /discoverOrganizationProfileGooglePlaces/);
 });
 
-test("HELP creates a SITE only after explicit confirmation and never silently rewrites other roles", () => {
-  assert.match(organizationWorkflow, /if \(!site\)/);
-  assert.match(organizationWorkflow, /confirmOrganizationSite !== true/);
+test("HELP confirmation reuses the canonical row and creates only the first address when none exists", () => {
+  assert.match(organizationWorkflow, /let location = state\.canonicalLocation/);
+  assert.match(organizationWorkflow, /if \(!location\)/);
   assert.match(organizationWorkflow, /createOrganizationLocationFromAdmin/);
-  assert.match(organizationWorkflow, /role: "SITE"/);
-  assert.doesNotMatch(organizationWorkflow, /updateOrganizationLocationFromAdmin/);
-  assert.doesNotMatch(confirmation, /updateOrganizationLocationFromAdmin/);
-  assert.ok(picker.includes("Použiť toto Google miesto ako verejne navštevované miesto organizácie?"));
+  assert.match(organizationWorkflow, /isOrganizationLocationMutationConflict/);
+  assert.doesNotMatch(confirmation, /createOrganizationLocationFromAdmin|confirmOrganizationSite/);
+  assert.doesNotMatch(picker, /SITE|LEGAL_SEAT|SERVICE_AREA|verejne navštevované miesto organizácie/);
 });
 
-test("HELP existing SITE selection is deterministic and repeated confirmation avoids duplicate SITE", () => {
-  assert.match(organizationWorkflow, /Number\(right\.isPrimary\) - Number\(left\.isPrimary\)/);
+test("HELP canonical address selection is deterministic and repeated confirmation cannot create a second address", () => {
+  assert.match(organizationWorkflow, /CASE|SITE|Number\(right\.isPrimary\) - Number\(left\.isPrimary\)/);
   assert.match(organizationWorkflow, /left\.sortOrder - right\.sortOrder/);
   assert.match(organizationWorkflow, /left\.id - right\.id/);
   assert.match(organizationWorkflow, /state = await loadOrganizationGoogleMapsProfile\(input\.organizationId\)/);
-  assert.match(organizationWorkflow, /let site = state\.preferredSite/);
+  assert.match(organizationWorkflow, /let location = state\.canonicalLocation/);
+  assert.match(organizationLocations, /method: location \? "PUT" : "POST"/);
 });
 
 test("HELP organization NOT_REQUIRED reuses moderation audit model and Admin Mapy plus bulk honor it", () => {
@@ -115,7 +117,7 @@ test("DIRECTORY NOT_REQUIRED stays canonical and keeps Kvalita údajov plus bulk
   assert.match(geoStore, /changedFields: \["google_maps_workflow"\]/);
   assert.match(quality, /GOOGLE_MAPS_NOT_REQUIRED_SQL/);
   assert.match(quality, /mapReviewClosedWithoutGoogle/);
-  assert.match(operator, /google_state <> 'NOT_REQUIRED'/);
+  assert.match(operator, /google_state IN \('UNRESOLVED', 'COORDINATES'\)/);
   assert.match(bulk, /getGoogleMapsWorkflowDecision/);
 });
 
