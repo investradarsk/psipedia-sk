@@ -266,7 +266,8 @@ test("MAP-AUTO-1C integration has one canonical lifecycle entrypoint and no prov
   const bulk = read("../app/api/admin/organizations/bulk/route.ts");
 
   assert.match(write, /reconcileGeoAfterSourceMutation/);
-  assert.equal((write.match(/reconcileGeoAfterSourceMutation\(/g) ?? []).length, 2);
+  assert.equal((write.match(/reconcileGeoAfterSourceMutation\(/g) ?? []).length, 3);
+  assert.match(write, /export async function updateOrganizationLocationFromGooglePlace/);
   assert.doesNotMatch(route, /syncGeoPointAfterSourceChange|reconcileGeoAfterSourceMutation/);
   assert.doesNotMatch(write, /Geoapify|applyGeocoderResolution|geocodeOrganization|geo-provider/);
   assert.match(geo, /locationRole: String\(row\.role \?\? "UNSPECIFIED"\)/);
