@@ -78,7 +78,7 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
 
   for (const viewport of VIEWPORTS) {
     const opened = await makePage(browser, viewport);
-    let referenceWidth: number | null = null;
+    let referenceSideInset: number | null = null;
     let referenceVisualHeight: number | null = null;
     try {
       for (const route of ROUTES) {
@@ -100,8 +100,9 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         expect(heroBox, label + ": hero box").not.toBeNull();
         expect(visualBox, label + ": visual box").not.toBeNull();
 
-        if (referenceWidth === null) referenceWidth = heroBox!.width;
-        expect(Math.abs(heroBox!.width - referenceWidth), label + ": canonical hero width").toBeLessThanOrEqual(2);
+        const sideInset = (overflow.clientWidth - heroBox!.width) / 2;
+        if (referenceSideInset === null) referenceSideInset = sideInset;
+        expect(Math.abs(sideInset - referenceSideInset), label + ": canonical hero side inset").toBeLessThanOrEqual(1);
 
         if (viewport.width >= 768) {
           if (referenceVisualHeight === null) referenceVisualHeight = visualBox!.height;
