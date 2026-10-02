@@ -123,8 +123,8 @@ export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedS
     heroContent: subpage
       ? {
           title: subpage.label,
-          eyebrow: subpage.eyebrow || section.eyebrow,
-          intro: subpage.intro || subpage.description,
+          eyebrow: subpage.eyebrow,
+          intro: subpage.intro,
           config: subpage.heroConfig ?? {},
         }
       : !resolved.subsectionSlug
