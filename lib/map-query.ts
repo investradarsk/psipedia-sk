@@ -261,6 +261,17 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       AND ${GEO_PUBLIC_WHERE}
       AND o.status = 'PUBLISHED'
       AND o.archived_at IS NULL
+      AND l.id = (
+        SELECT cl.id
+        FROM organization_locations cl
+        WHERE cl.organization_id = o.id
+        ORDER BY
+          CASE WHEN cl.role = 'SITE' THEN 0 ELSE 1 END,
+          cl.is_primary DESC,
+          cl.sort_order ASC,
+          cl.id ASC
+        LIMIT 1
+      )
       AND ${bbox.sql}
       ${search.sql}
     ORDER BY g.id ASC
@@ -380,8 +391,19 @@ function scopedOrganizationStatement(entityId: number, db: MapD1Database) {
       AND ${GEO_PUBLIC_WHERE}
       AND o.status = 'PUBLISHED'
       AND o.archived_at IS NULL
+      AND l.id = (
+        SELECT cl.id
+        FROM organization_locations cl
+        WHERE cl.organization_id = o.id
+        ORDER BY
+          CASE WHEN cl.role = 'SITE' THEN 0 ELSE 1 END,
+          cl.is_primary DESC,
+          cl.sort_order ASC,
+          cl.id ASC
+        LIMIT 1
+      )
     ORDER BY g.id ASC
-    LIMIT 100
+    LIMIT 1
   `).bind(entityId);
 }
 
