@@ -61,37 +61,44 @@ function makeDatabase() {
   sqlite.exec(`INSERT INTO help_organizations (id, name, slug, status, address, city, district, region, country_code, published_at, archived_at) VALUES
     (1, 'Prvá organizácia', 'prva', 'PUBLISHED', 'Legacy 1', 'Legacy mesto', 'Legacy okres', 'Legacy kraj', 'SK', '2026-09-01T00:00:00.000Z', NULL),
     (2, 'Druhá organizácia', 'druha', 'DRAFT', '', '', '', '', 'SK', NULL, NULL),
-    (3, 'Archivovaná organizácia', 'archivovana', 'ARCHIVED', '', '', '', '', 'SK', NULL, '2026-09-01T00:00:00.000Z');`);
+    (3, 'Archivovaná organizácia', 'archivovana', 'ARCHIVED', '', '', '', '', 'SK', NULL, '2026-09-01T00:00:00.000Z'),
+    (4, 'Štvrtá organizácia', 'stvrtá', 'PUBLISHED', '', 'Nitra', 'Nitra', 'Nitriansky kraj', 'SK', '2026-09-01T00:00:00.000Z', NULL),
+    (5, 'Piata organizácia', 'piata', 'PUBLISHED', '', 'Nitra', 'Nitra', 'Nitriansky kraj', 'SK', '2026-09-01T00:00:00.000Z', NULL);`);
   return { sqlite, db: new SqliteD1Database(sqlite) };
 }
 
 const locationPayload = (overrides = {}) => ({ role: "SITE", label: "Prevádzka", address: "Testovacia 1", city: "Nitra", district: "Nitra", region: "Nitriansky kraj", countryCode: "SK", isPrimary: false, sortOrder: 0, ...overrides });
 
-test("create uses canonical fields, supports zero/one primary and orders deterministically", async () => {
+test("create establishes the single canonical address and rejects a second row", async () => {
   const { sqlite, db } = makeDatabase();
   try {
-    const later = await createOrganizationLocationFromAdmin(1, locationPayload({ label: "Neskôr", sortOrder: 20 }), db);
-    const primary = await createOrganizationLocationFromAdmin(1, locationPayload({ label: "Hlavná", role: "SERVICE_AREA", sortOrder: 10, isPrimary: true }), db);
-    assert.ok(later && primary);
-    assert.deepEqual((await listOrganizationLocationsAdmin(1, db)).map((item) => item.id), [primary.id, later.id]);
-    assert.equal((await listOrganizationLocationsAdmin(1, db)).filter((item) => item.isPrimary).length, 1);
-    assert.equal(primary.role, "SERVICE_AREA"); assert.equal(primary.address, "Testovacia 1");
+    const first = await createOrganizationLocationFromAdmin(1, locationPayload({ label: "Adresa", sortOrder: 20, isPrimary: false }), db);
+    assert.ok(first);
+    assert.equal(first.isPrimary, true);
+    assert.equal(first.sortOrder, 0);
+    await assert.rejects(
+      () => createOrganizationLocationFromAdmin(1, locationPayload({ label: "Druhá adresa" }), db),
+      OrganizationLocationMutationConflictError,
+    );
+    const items = await listOrganizationLocationsAdmin(1, db);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, first.id);
   } finally { sqlite.close(); }
 });
 
-test("editing primary switches the invariant in one statement and clearing primary is valid", async () => {
+test("the one canonical address can still be edited without creating another row", async () => {
   const { sqlite, db } = makeDatabase();
   try {
-    const first = await createOrganizationLocationFromAdmin(1, locationPayload({ label: "Prvá", isPrimary: true }), db);
-    const second = await createOrganizationLocationFromAdmin(1, locationPayload({ label: "Druhá", city: "Šaľa", sortOrder: 1 }), db);
-    assert.ok(first && second);
-    const switched = await updateOrganizationLocationFromAdmin(1, second.id, locationPayload({ label: "Druhá upravená", city: "Levice", isPrimary: true, sortOrder: -5 }), db);
-    assert.ok(switched?.isPrimary);
-    let items = await listOrganizationLocationsAdmin(1, db);
-    assert.deepEqual(items.map((item) => [item.id, item.isPrimary]), [[second.id, true], [first.id, false]]);
-    const cleared = await updateOrganizationLocationFromAdmin(1, second.id, locationPayload({ label: "Druhá upravená", city: "Levice", sortOrder: -5, isPrimary: false }), db);
-    assert.equal(cleared?.isPrimary, false); items = await listOrganizationLocationsAdmin(1, db);
-    assert.equal(items.filter((item) => item.isPrimary).length, 0, "ORG-2A permits zero primary rows");
+    const first = await createOrganizationLocationFromAdmin(1, locationPayload({ label: "Adresa", isPrimary: true }), db);
+    assert.ok(first);
+    const edited = await updateOrganizationLocationFromAdmin(
+      1,
+      first.id,
+      locationPayload({ label: "Adresa upravená", city: "Levice", isPrimary: true, sortOrder: 0 }),
+      db,
+    );
+    assert.equal(edited?.city, "Levice");
+    assert.equal((await listOrganizationLocationsAdmin(1, db)).length, 1);
   } finally { sqlite.close(); }
 });
 
@@ -108,16 +115,17 @@ test("organization/location isolation and invalid identifiers fail closed", asyn
   } finally { sqlite.close(); }
 });
 
-test("deleting a primary is a hard delete without invented auto-promotion; public read stays deterministic", async () => {
+test("deleting the single canonical address leaves legacy public fallback intact", async () => {
   const { sqlite, db } = makeDatabase();
   try {
-    const primary = await createOrganizationLocationFromAdmin(1, locationPayload({ city: "Primárne", isPrimary: true, sortOrder: 0 }), db);
-    const remaining = await createOrganizationLocationFromAdmin(1, locationPayload({ city: "Zostáva", isPrimary: false, sortOrder: 5 }), db);
-    assert.ok(primary && remaining); assert.equal(await deleteOrganizationLocationFromAdmin(1, primary.id, db), true);
+    const primary = await createOrganizationLocationFromAdmin(1, locationPayload({ city: "Canonical", isPrimary: true }), db);
+    assert.ok(primary);
+    assert.equal(await deleteOrganizationLocationFromAdmin(1, primary.id, db), true);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM geo_points WHERE organization_location_id = ?").get(primary.id).count, 0);
-    const items = await listOrganizationLocationsAdmin(1, db); assert.deepEqual(items.map((item) => [item.id, item.isPrimary]), [[remaining.id, false]]);
+    assert.equal((await listOrganizationLocationsAdmin(1, db)).length, 0);
     const publicOrganization = await getPublicOrganizationBySlug("prva", db);
-    assert.equal(publicOrganization?.city, "Zostáva"); assert.equal(publicOrganization?.locations[0].id, remaining.id);
+    assert.equal(publicOrganization?.city, "Legacy mesto");
+    assert.equal(publicOrganization?.locations[0].id, null);
   } finally { sqlite.close(); }
 });
 
@@ -167,14 +175,13 @@ test("admin routes enforce auth-before-body, JSON content type and organization-
 });
 
 
-test("organization location admin gates editable controls until hydration", () => {
+test("organization address admin gates the single-address form until hydration", () => {
   const editor = read("../components/admin-organization-locations.tsx");
   assert.match(editor, /useSyncExternalStore/);
-  assert.match(editor, /const editingDisabled = !hydrated \|\| parentArchived/);
-  assert.match(editor, /LocationFields draft=\{createDraft\} disabled=\{editingDisabled \|\| busyId !== null\}/);
-  assert.match(editor, /disabled=\{!hydrated \|\| busyId !== null\}/);
+  assert.match(editor, /const disabled = !hydrated \|\| archived \|\| busy/);
+  assert.match(editor, /<h2>Adresa<\/h2>/);
+  assert.doesNotMatch(editor, /Typ lokality|Pridať lokalitu|Hlavná lokalita|ORGANIZATION_LOCATION_ROLES/);
 });
-
 
 test("MAP-AUTO-1C create initializes GEO with classifier-owned SITE review semantics", async () => {
   const { sqlite, db } = makeDatabase();
@@ -190,12 +197,12 @@ test("MAP-AUTO-1C create initializes GEO with classifier-owned SITE review seman
   } finally { sqlite.close(); }
 });
 
-test("MAP-AUTO-1C SERVICE_AREA remains approximate while LEGAL_SEAT and UNSPECIFIED require review", async () => {
+test("MAP-AUTO-1C technical roles still classify safely when each belongs to a different organization", async () => {
   const { sqlite, db } = makeDatabase();
   try {
     const service = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "SERVICE_AREA", city: "Nitra" }), db);
-    const legal = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "LEGAL_SEAT", city: "Nitra" }), db);
-    const unspecified = await createOrganizationLocationFromAdmin(1, locationPayload({ role: "UNSPECIFIED", city: "Nitra" }), db);
+    const legal = await createOrganizationLocationFromAdmin(4, locationPayload({ role: "LEGAL_SEAT", city: "Nitra" }), db);
+    const unspecified = await createOrganizationLocationFromAdmin(5, locationPayload({ role: "UNSPECIFIED", city: "Nitra" }), db);
     for (const item of [service, legal, unspecified]) assert.ok(item);
     const serviceGeo = sqlite.prepare("SELECT public_visibility, public_precision, geocode_status FROM geo_points WHERE organization_location_id = ?").get(service.id);
     assert.equal(serviceGeo.public_visibility, "APPROXIMATE_PUBLIC");
