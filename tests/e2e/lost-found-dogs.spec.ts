@@ -424,6 +424,7 @@ test("admin can reject a public submission and it never becomes public", async (
 
   const adminHref = await adminReportHref(page, name);
   await page.goto(adminHref, { waitUntil: "domcontentloaded" });
+  await expect(page.locator('form[data-hydrated="true"]')).toBeVisible();
   const rejectResponse = page.waitForResponse((response) =>
     response.url().includes("/api/admin/lost-found/") && response.request().method() === "PUT"
   );
