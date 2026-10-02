@@ -171,7 +171,12 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
     setBusyKey(busy);
     setMessage("");
     try {
-      const response = await fetch(`/api/admin/geo/${item.targetType}/${item.targetId}`, {
+      const workflowEndpoint = action === "reset-google-maps-not-required"
+        && item.googleMapsNotRequiredOrganizationLevel
+        && item.organizationId
+        ? `/api/admin/organizations/${item.organizationId}/google-place`
+        : `/api/admin/geo/${item.targetType}/${item.targetId}`;
+      const response = await fetch(workflowEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action }),
