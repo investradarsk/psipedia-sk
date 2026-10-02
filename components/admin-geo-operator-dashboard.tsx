@@ -307,7 +307,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
       <section className="admin-form-card" data-admin-map-summary>
         <div className="admin-section-heading">
           <div>
-            <h2>Mapy</h2>
+            <h2>Nevyriešené položky</h2>
             <p><strong>Treba vyriešiť: {data.counts.total}</strong></p>
             <p className="admin-help">Zobrazené sú iba profily, organizácie a podujatia, ktoré ešte potrebujú Google Maps doriešenie.</p>
           </div>
