@@ -197,13 +197,22 @@ export async function DirectoryPage({
               <SectionHeroSearch
                 action={active ? `/adresar/${active.slug}` : "/adresar"}
                 id={active ? `directory-hero-${active.slug}` : "directory-hero-all"}
-                label={active ? `Hľadať v kategórii ${active.label}` : "Hľadať v službách pre psov"}
+                label={active ? `Hľadať v kategórii ${active.label}` : "Názov, služba alebo lokalita"}
                 placeholder={active?.slug === "veterinari"
                   ? "Veterinár, mesto alebo okres…"
                   : active
                     ? "Názov, mesto alebo služba…"
-                    : "Hľadať službu, mesto alebo názov…"}
+                    : "Nitra, fyzioterapia, labrador…"}
                 defaultValue={filters.query}
+                beforeInput={!active ? (
+                  <label>
+                    <span className="sr-only">Kategória služby</span>
+                    <select name="category" defaultValue={filters.category} aria-label="Kategória služby">
+                      <option value="">Všetky služby</option>
+                      {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
+                    </select>
+                  </label>
+                ) : undefined}
               />
             }
           />
