@@ -24,7 +24,8 @@ test("Events 2.0 removes the random photo hero and keeps data above the fold", (
   assert.match(eventsPage, /Kalendár a databáza/);
   assert.match(eventsPage, /activeCount/);
   assert.match(eventsPage, /eventDateStatus\(event, today\)/);
-  assert.doesNotMatch(eventsPage, /SectionHero|heroImage|event-calendar-hero--photo|trening-pri-nohe/);
+  assert.match(eventsPage, /<UnifiedSectionHero/);
+  assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo|trening-pri-nohe/);
   assert.match(eventsCss, /\.pageHeader[\s\S]*padding:\s*24px 0 22px/);
 });
 
