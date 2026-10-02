@@ -230,6 +230,8 @@ raw AS (
     'DIRECTORY_PROFILE' AS target_type,
     d.id AS target_id,
     d.id AS id,
+    d.slug AS public_slug,
+    d.category AS public_category,
     NULL AS organization_id,
     d.name AS name,
     d.category AS category,
@@ -280,6 +282,8 @@ raw AS (
     'ORGANIZATION_LOCATION' AS target_type,
     l.id AS target_id,
     l.id AS id,
+    o.slug AS public_slug,
+    '' AS public_category,
     l.organization_id AS organization_id,
     CASE
       WHEN trim(COALESCE(l.label, '')) <> '' AND trim(COALESCE(l.label, '')) <> trim(COALESCE(o.name, ''))
@@ -335,6 +339,8 @@ raw AS (
     'MANAGED_EVENT' AS target_type,
     e.id AS target_id,
     e.id AS id,
+    NULL AS public_slug,
+    '' AS public_category,
     NULL AS organization_id,
     e.title AS name,
     COALESCE(e.event_type, 'Iné') AS category,
@@ -939,4 +945,95 @@ export async function loadGeoAdminOperatorProfiles(
     filters: { ...filters, page: paging.page },
     total,
   };
+}
+
+
+export type GeoAdminBulkTarget = {
+  targetType: GeoTargetType;
+  targetId: number;
+  key: string;
+  name: string;
+  group: GeoAdminOperatorGroup;
+  groupLabel: string;
+  categoryLabel: string;
+  editorHref: string;
+  publicHref: string | null;
+};
+
+export type GeoAdminBulkAfter = {
+  lastName: string;
+  lastTargetType: GeoTargetType;
+  lastTargetId: number;
+};
+
+export async function selectGeoAdminBulkTargets(input: {
+  filters?: Partial<Record<keyof GeoAdminOperatorQuery, unknown>>;
+  after?: GeoAdminBulkAfter | null;
+  limit: number;
+}): Promise<GeoAdminBulkTarget[]> {
+  const db = requireDb();
+  const filters = normalizeGeoAdminOperatorQuery({
+    ...(input.filters ?? {}),
+    page: 1,
+    pageSize: GEO_ADMIN_MAX_PAGE_SIZE,
+  });
+  const limit = Math.max(1, Math.min(GEO_ADMIN_MAX_PAGE_SIZE + 1, Math.trunc(input.limit)));
+  const filtered = filterSql(filters);
+  const clauses = [
+    "google_state <> 'PLACE'",
+    "google_state <> 'NOT_REQUIRED'",
+    "COALESCE(manual_override, 0) = 0",
+    "NOT (COALESCE(explicit_private, 0) = 1 AND public_visibility = 'HIDDEN')",
+  ];
+  const bindings = [...filtered.bindings];
+  if (input.after) {
+    clauses.push(`(
+      name COLLATE NOCASE > ?
+      OR (name COLLATE NOCASE = ? AND target_type > ?)
+      OR (name COLLATE NOCASE = ? AND target_type = ? AND target_id > ?)
+    )`);
+    bindings.push(
+      input.after.lastName,
+      input.after.lastName,
+      input.after.lastTargetType,
+      input.after.lastName,
+      input.after.lastTargetType,
+      input.after.lastTargetId,
+    );
+  }
+  const eligibility = clauses.join(" AND ");
+  const where = filtered.clause
+    ? `${filtered.clause} AND ${eligibility}`
+    : `WHERE ${eligibility}`;
+
+  const rows = await db.prepare(`
+    ${GEO_BASE_CTE}
+    SELECT *
+    FROM base
+    ${where}
+    ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC
+    LIMIT ?
+  `).bind(...bindings, limit).all<DbRow>();
+
+  return (rows.results ?? []).map((row) => {
+    const mapped = mapRow(row);
+    const slug = value(row, "public_slug");
+    const publicCategory = value(row, "public_category");
+    const publicHref = mapped.targetType === "DIRECTORY_PROFILE" && slug && publicCategory
+      ? `/adresar/${encodeURIComponent(publicCategory)}/${encodeURIComponent(slug)}`
+      : mapped.targetType === "ORGANIZATION_LOCATION" && slug
+        ? `/organizacie/${encodeURIComponent(slug)}`
+        : null;
+    return {
+      targetType: mapped.targetType,
+      targetId: mapped.targetId,
+      key: mapped.key,
+      name: mapped.name,
+      group: mapped.group,
+      groupLabel: mapped.groupLabel,
+      categoryLabel: mapped.categoryLabel,
+      editorHref: mapped.editorHref,
+      publicHref,
+    };
+  });
 }

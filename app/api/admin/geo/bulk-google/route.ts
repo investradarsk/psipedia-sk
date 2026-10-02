@@ -2,8 +2,8 @@ import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   processGooglePlaceBulkTarget,
   selectGooglePlaceBulkTargets,
-  validateGooglePlaceBulkTargetIds,
 } from "@/lib/google-place-bulk";
+import { isGeoTargetType } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
@@ -40,20 +40,17 @@ export async function POST(request: Request) {
       return Response.json(selection);
     }
 
-    if (action === "validate-targets") {
-      const targetIds = validateGooglePlaceBulkTargetIds(body.targetIds);
-      return Response.json({ targetIds, count: targetIds.length });
-    }
-
     if (action === "process-target") {
       if (body.confirm !== "GOOGLE-PLACE-BULK") {
         return Response.json({ error: "Chýba explicitné GOOGLE-PLACE-BULK potvrdenie." }, { status: 400 });
       }
+      const targetType = typeof body.targetType === "string" ? body.targetType : "";
       const targetId = Number(body.targetId);
-      if (!Number.isSafeInteger(targetId) || targetId <= 0) {
-        return Response.json({ error: "Neplatné profile ID." }, { status: 400 });
+      if (!isGeoTargetType(targetType) || !Number.isSafeInteger(targetId) || targetId <= 0) {
+        return Response.json({ error: "Neplatný canonical Google bulk target." }, { status: 400 });
       }
       const result = await processGooglePlaceBulkTarget({
+        targetType,
         targetId,
         actorRef: user.email,
       });
