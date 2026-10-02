@@ -14,6 +14,7 @@ import {
   googlePlaceConfirmationForSource,
 } from "@/lib/google-place-target-discovery";
 import { updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
+import { updateOrganizationLocationFromGooglePlace } from "@/lib/organization-location-admin-write";
 
 export type AdminGooglePlaceConfirmationInput = {
   targetType: GeoTargetType;
@@ -65,6 +66,19 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
     profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef);
     if (!profile) throw new Error("Profil sa nenašiel.");
+  }
+
+  if (effectiveTargetType === "ORGANIZATION_LOCATION") {
+    const organizationId = Number(effectiveSource.organizationId ?? 0);
+    if (!Number.isSafeInteger(organizationId) || organizationId <= 0) {
+      throw new Error("Organizácia pre Google Maps lokalitu sa nenašla.");
+    }
+    const location = await updateOrganizationLocationFromGooglePlace(
+      organizationId,
+      effectiveTargetId,
+      selected,
+    );
+    if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
   }
 
   point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
