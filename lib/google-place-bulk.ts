@@ -212,13 +212,6 @@ function candidate(candidate: Awaited<ReturnType<typeof discoverGoogleTargetPlac
 }
 
 async function resultMeta(targetType: GeoTargetType, targetId: number) {
-  const rows = await selectGeoAdminBulkTargets({
-    filters: {},
-    limit: GOOGLE_PLACE_BULK_MAX + 1,
-  });
-  const found = rows.find((row) => row.targetType === targetType && row.targetId === targetId);
-  if (found) return found;
-
   const database = requireDb();
   if (targetType === "DIRECTORY_PROFILE") {
     const row = await database.prepare("SELECT name, category, slug FROM directory_profiles WHERE id=? LIMIT 1")
@@ -227,7 +220,9 @@ async function resultMeta(targetType: GeoTargetType, targetId: number) {
       targetType, targetId, key: `${targetType}:${targetId}`, name: String(row?.name ?? ""),
       group: "SERVICES" as const, groupLabel: "Služby", categoryLabel: String(row?.category ?? ""),
       editorHref: `/admin/adresar/${targetId}#service-address`,
-      publicHref: row?.slug && row?.category ? `/adresar/${encodeURIComponent(String(row.category))}/${encodeURIComponent(String(row.slug))}` : null,
+      publicHref: row?.slug && row?.category
+        ? `/adresar/${encodeURIComponent(String(row.category))}/${encodeURIComponent(String(row.slug))}`
+        : null,
     };
   }
   if (targetType === "ORGANIZATION_LOCATION") {
