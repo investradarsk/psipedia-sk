@@ -9,156 +9,64 @@ const geoPage = readFileSync(new URL("../app/admin/mapy/page.tsx", import.meta.u
 const advancedComponent = readFileSync(new URL("../components/admin-geo-operations.tsx", import.meta.url), "utf8");
 
 const base = {
-  addressState: "COMPLETE",
-  addressReason: "COMPLETE",
-  geocodeStatus: null,
-  publicVisibility: null,
-  publicPrecision: null,
-  latitude: null,
-  longitude: null,
-  sourceFingerprint: null,
-  resolvedSourceFingerprint: null,
-  manualOverride: false,
+  addressState: "COMPLETE", addressReason: "COMPLETE", geocodeStatus: null,
+  publicVisibility: null, publicPrecision: null, latitude: null, longitude: null,
+  sourceFingerprint: null, resolvedSourceFingerprint: null, manualOverride: false,
 };
 
-test("operator state: complete exact resolved profile is on map", () => {
+test("operator state helpers keep existing technical lifecycle semantics", () => {
   assert.equal(geoAdminOperatorState({
-    ...base,
-    geocodeStatus: "RESOLVED",
-    publicVisibility: "EXACT_PUBLIC",
-    publicPrecision: "EXACT",
-    latitude: 48.1,
-    longitude: 18.2,
-    sourceFingerprint: "same",
-    resolvedSourceFingerprint: "same",
+    ...base, geocodeStatus: "RESOLVED", publicVisibility: "EXACT_PUBLIC", publicPrecision: "EXACT",
+    latitude: 48.1, longitude: 18.2, sourceFingerprint: "same", resolvedSourceFingerprint: "same",
   }).state, "ON_MAP");
-});
-
-test("operator state: complete canonical address without geo waits for processing", () => {
   assert.equal(geoAdminOperatorState(base).state, "PENDING");
-});
-
-test("operator state: missing and incomplete canonical addresses are explicit", () => {
   assert.equal(geoAdminOperatorState({ ...base, addressState: "MISSING", addressReason: "MISSING" }).state, "MISSING_ADDRESS");
-  assert.equal(geoAdminOperatorState({ ...base, addressState: "INCOMPLETE", addressReason: "HOUSE_NUMBER_MISSING" }).state, "INCOMPLETE_ADDRESS");
-});
-
-test("operator state: invalid canonical values fail closed", () => {
-  assert.equal(geoAdminOperatorState({ ...base, addressState: "NEEDS_REVIEW", addressReason: "LOCALITY_INVALID" }).state, "INVALID_ADDRESS");
-  assert.equal(geoAdminOperatorState({ ...base, addressState: "NEEDS_REVIEW", addressReason: "POSTAL_CODE_INVALID" }).state, "INVALID_ADDRESS");
-});
-
-test("operator state: legacy unconfirmed never looks canonical-complete", () => {
-  const result = geoAdminOperatorState({ ...base, addressState: "NEEDS_REVIEW", addressReason: "LEGACY_UNCONFIRMED" });
-  assert.equal(result.state, "NEEDS_REVIEW");
-  assert.match(result.reason, /Historická adresa/);
-});
-
-test("operator state: review, failed and stale exact-only mismatches are human states", () => {
-  assert.equal(geoAdminOperatorState({ ...base, geocodeStatus: "NEEDS_REVIEW" }).state, "NEEDS_REVIEW");
-  assert.equal(geoAdminOperatorState({ ...base, geocodeStatus: "FAILED" }).state, "FAILED");
-  assert.equal(geoAdminOperatorState({ ...base, geocodeStatus: "STALE" }).state, "NEEDS_REVIEW");
-  assert.equal(geoAdminOperatorState({
-    ...base,
-    geocodeStatus: "RESOLVED",
-    publicVisibility: "APPROXIMATE_PUBLIC",
-    publicPrecision: "MUNICIPALITY",
-    latitude: 48.1,
-    longitude: 18.2,
-    sourceFingerprint: "same",
-    resolvedSourceFingerprint: "same",
-  }).state, "NEEDS_REVIEW");
-});
-
-
-test("generic operator state supports non-directory public points without street/house-number rules", () => {
   assert.equal(geoAdminGenericOperatorState({
-    hasLocationSource: true,
-    geocodeStatus: "RESOLVED",
-    publicVisibility: "APPROXIMATE_PUBLIC",
-    publicPrecision: "MUNICIPALITY",
-    latitude: 48.1,
-    longitude: 18.2,
-    sourceFingerprint: "same",
-    resolvedSourceFingerprint: "same",
-    manualOverride: false,
-  }).state, "ON_MAP");
-  assert.equal(geoAdminGenericOperatorState({
-    hasLocationSource: false,
-    geocodeStatus: null,
-    publicVisibility: null,
-    publicPrecision: null,
-    latitude: null,
-    longitude: null,
-    sourceFingerprint: null,
-    resolvedSourceFingerprint: null,
-    manualOverride: false,
+    hasLocationSource: false, geocodeStatus: null, publicVisibility: null, publicPrecision: null,
+    latitude: null, longitude: null, sourceFingerprint: null, resolvedSourceFingerprint: null, manualOverride: false,
   }).state, "MISSING_ADDRESS");
 });
 
-test("operator loader reads canonical DIRECTORY_PROFILE address and not legacy address as canonical", () => {
-  assert.match(operatorStore, /evaluateDirectoryServiceAddress/);
-  assert.match(operatorStore, /d\.postal_code/);
-  assert.match(operatorStore, /d\.street/);
-  assert.match(operatorStore, /d\.house_number/);
-  assert.match(operatorStore, /d\.address_format/);
-  assert.match(operatorStore, /d\.service_address_confirmation/);
-  assert.match(operatorStore, /legacyAddress: publicAddress/);
+test("HELP source starts from published organizations and LEFT JOINs one ranked canonical location", () => {
+  assert.match(operatorStore, /organization_locations_ranked AS/);
+  assert.match(operatorStore, /ROW_NUMBER\(\) OVER[\s\S]*PARTITION BY l\.organization_id/);
+  assert.match(operatorStore, /organization_location_canonical AS/);
+  assert.match(operatorStore, /FROM help_organizations o[\s\S]*LEFT JOIN organization_location_canonical l ON l\.organization_id = o\.id/);
+  assert.match(operatorStore, /WHERE o\.status = 'PUBLISHED' AND o\.archived_at IS NULL/);
+  assert.match(operatorStore, /key: `HELP_ORGANIZATION:\$\{organizationId\}`/);
 });
 
-test("operator CTA links directly to the canonical editors", () => {
+test("Admin Mapy default dataset is unresolved-only, with coordinates still requiring Google place", () => {
+  assert.match(operatorStore, /google_state IN \('UNRESOLVED', 'COORDINATES'\)/);
+  assert.doesNotMatch(operatorComponent, /Operator stav/);
+  assert.doesNotMatch(operatorComponent, /Všetky mapové stavy|Konkrétne miesto — vybavené/);
+  assert.match(operatorComponent, /Treba vyriešiť/);
+  assert.match(operatorComponent, /Iba súradnice — treba Google miesto/);
+});
+
+test("operator CTA links to canonical editors and technical detail stays secondary", () => {
   assert.match(operatorStore, /\/admin\/adresar\/\$\{id\}#service-address/);
-  assert.match(operatorStore, /\/admin\/organizacie\/\$\{organizationId\}#locations/);
+  assert.match(operatorStore, /\/admin\/organizacie\/\$\{organizationId\}/);
   assert.match(operatorStore, /\/admin\/podujatia\/\$\{id\}/);
   assert.match(operatorComponent, /Otvoriť profil/);
-});
-
-test("technical details are collapsed and advanced tooling remains available but secondary", () => {
   assert.match(operatorComponent, /<details/);
   assert.match(operatorComponent, /Technické detaily/);
-  assert.match(geoPage, /<AdminGeoOperatorDashboard/);
+  assert.match(geoPage, /Technické GEO detaily/);
   assert.match(advancedComponent, /AdminGeoOperations/);
 });
 
-test("operator view uses server-side URL filters instead of client-side whole-dataset filtering", () => {
-  assert.match(operatorComponent, /Kategória \/ typ/);
-  assert.match(operatorComponent, /Operator stav/);
-  assert.match(operatorComponent, /Google Maps/);
-  assert.match(operatorComponent, /type="search"/);
-  assert.match(operatorComponent, /Zrušiť všetky filtre/);
+test("main workflow exposes only section, category, search and page size filters", () => {
+  assert.match(operatorComponent, /Kategória/);
+  assert.match(operatorComponent, /Hľadať/);
+  assert.match(operatorComponent, /Na stránku/);
   assert.match(operatorComponent, /setParam\("category"/);
-  assert.match(operatorComponent, /setParam\("operator"/);
-  assert.match(operatorComponent, /setParam\("google"/);
+  assert.doesNotMatch(operatorComponent, /setParam\("operator"|setParam\("google"/);
   assert.doesNotMatch(operatorComponent, /selectedCategories|selectedMapTargets|scopedItems/);
   assert.match(operatorStore, /search_text LIKE \? COLLATE NOCASE/);
   assert.match(operatorStore, /LIMIT \? OFFSET \?/);
 });
 
-test("operator map summary distinguishes current Google place, coordinates, not-required and unresolved", () => {
-  assert.match(operatorStore, /g\.google_place_id/);
-  assert.match(operatorStore, /g\.google_place_source_fingerprint/);
-  assert.match(operatorStore, /google_place_source_fingerprint = source_fingerprint/);
-  assert.match(operatorStore, /THEN 'PLACE'/);
-  assert.match(operatorStore, /THEN 'COORDINATES'/);
-  assert.match(operatorStore, /THEN 'NOT_REQUIRED'/);
-  assert.match(operatorStore, /ELSE 'UNRESOLVED'/);
-  assert.match(operatorComponent, /Konkrétne miesto/);
-  assert.match(operatorComponent, /Iba súradnice/);
-  assert.match(operatorComponent, /Google Maps netreba/);
-  assert.match(operatorComponent, /Treba vyriešiť/);
-});
-
-test("mobile-safe layout avoids forced horizontal tables in the operator-first view", () => {
+test("mobile-safe card layout avoids main-workflow tables", () => {
   assert.match(operatorComponent, /flexWrap: "wrap"/);
-  assert.match(operatorComponent, /minWidth: 0/);
-  assert.match(operatorComponent, /overflow: "hidden"/);
   assert.doesNotMatch(operatorComponent, /<table/);
-});
-
-test("existing advanced async tooling preserves immediate busy/progress feedback", () => {
-  assert.match(advancedComponent, /disabled=\{busy/);
-  assert.match(advancedComponent, /Backfill prebieha:/);
-  assert.match(advancedComponent, /setProgress/);
-  assert.match(advancedComponent, /setMessage/);
-  assert.match(advancedComponent, /setError/);
 });

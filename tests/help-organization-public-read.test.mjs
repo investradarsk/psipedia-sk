@@ -250,7 +250,7 @@ test("public model is an explicit allowlist and omits internal/provenance and st
   assert.doesNotMatch(storeSource, /source_data_json|import_key|created_by|updated_by|image_key/);
 });
 
-test("child locations are deterministic and primary child drives legacy public location fields", async () => {
+test("public organization exposes exactly one deterministic canonical child location", async () => {
   const database = createDatabase({
     organizations: [organization({ city: "Legacy mesto", district: "Legacy okres", region: "Legacy kraj" })],
     locations: [
@@ -259,11 +259,11 @@ test("child locations are deterministic and primary child drives legacy public l
     ],
   });
   const result = await getPublicOrganizationBySlug("psia-nadej", database);
-  assert.deepEqual(result?.locations.map((item) => item.id), [61, 62]);
-  assert.equal(result?.locations[0].role, "SERVICE_AREA");
-  assert.equal(result?.city, "Primárne mesto");
-  assert.equal(result?.district, "Nový okres");
-  assert.equal(result?.region, "Nový kraj");
+  assert.deepEqual(result?.locations.map((item) => item.id), [62]);
+  assert.equal(result?.locations[0].role, "SITE");
+  assert.equal(result?.city, "Druhé mesto");
+  assert.equal(result?.district, "Nitra");
+  assert.equal(result?.region, "Nitriansky kraj");
 });
 
 test("legacy parent location is synthesized only when child rows do not exist", async () => {
@@ -392,7 +392,7 @@ test("composition has fixed query count and no N+1", async () => {
   });
   const first = await getPublicOrganizationCompositionBySlug("psia-nadej", withoutDirectory);
   assert.equal(first?.adoptions.length, 20);
-  assert.equal(first?.organization.locations.length, 20);
+  assert.equal(first?.organization.locations.length, 1);
   assert.equal(withoutDirectory.queries.length, 4, "organization + location + adoption + fundraising queries");
 
   const withDirectory = createDatabase({
@@ -403,7 +403,7 @@ test("composition has fixed query count and no N+1", async () => {
   });
   const second = await getPublicOrganizationCompositionBySlug("psia-nadej", withDirectory);
   assert.equal(second?.adoptions.length, 20);
-  assert.equal(second?.organization.locations.length, 20);
+  assert.equal(second?.organization.locations.length, 1);
   assert.equal(withDirectory.queries.length, 5, "organization + location + adoption + Directory + fundraising queries");
 });
 

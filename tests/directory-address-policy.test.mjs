@@ -144,20 +144,20 @@ test("Google-first flow uses editorial address as a discovery hint and confirmat
   assert.match(googleDiscovery, /source\.label, source\.address, source\.street/);
   assert.match(geoRoute, /discoverGoogleTargetPlaces\(source\)/);
   assert.match(geoRoute, /confirmAdminGooglePlace/);
-  assert.match(googleConfirmation, /updateManagedDirectoryProfileFromGooglePlace/);
+  assert.match(googleConfirmation, /updateManagedDirectoryProfileLocationFromGooglePlace/);
   assert.match(googleConfirmation, /applyGooglePlaceResolution/);
   assert.match(store, /address: place\.formattedAddress/);
-  assert.match(store, /confirmServiceAddress: true/);
+  assert.match(store, /service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION'/);
 });
 
-test("Admin Mapy shows editorial address plus review warning and keeps Google picker", () => {
+test("Admin Mapy keeps the unresolved inbox simple and shows one formatted address plus Google picker", () => {
   assert.match(mapLoader, /publicAddress/);
   assert.match(mapLoader, /addressWarning/);
   assert.match(mapLoader, /publicAddress && evaluation\.state !== "COMPLETE" \? "NEEDS_REVIEW"/);
-  assert.match(mapDashboard, /if \(item\.publicAddress\)/);
-  assert.match(mapDashboard, /Verejná adresa zostáva uložená a publikovateľná/);
+  assert.match(mapDashboard, /item\.formattedAddress \|\| "Chýba adresa"/);
   assert.match(mapDashboard, /<AdminGooglePlacePicker/);
-  assert.match(mapDashboard, /item\.publicAddress/);
+  assert.match(mapDashboard, /Nájsť v Google Maps/);
+  assert.doesNotMatch(mapDashboard, /Verejná adresa zostáva uložená a publikovateľná|item\.publicAddress|item\.addressWarning/);
 });
 
 test("public text address does not create text-only navigation or coordinate schema claims", () => {

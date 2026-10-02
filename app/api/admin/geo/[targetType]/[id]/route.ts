@@ -296,11 +296,7 @@ export async function POST(request: Request, { params }: Props) {
       const policy = googlePlaceActionForSource(source);
       if (!policy.available) return Response.json({ error: policy.reason }, { status: 409 });
       const candidates = await discoverGoogleTargetPlaces(source);
-      return Response.json({
-        candidates,
-        requiresSiteConfirmation:
-          source.targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE",
-      });
+      return Response.json({ candidates });
     }
 
     if (action === "confirm-google-place") {
@@ -313,7 +309,6 @@ export async function POST(request: Request, { params }: Props) {
         actorRef: user.email,
         publicLocation: body.publicLocation !== false,
         allowPrivateOverride: body.allowPrivateOverride === true,
-        confirmOrganizationSite: body.confirmOrganizationSite === true,
       });
       return Response.json(result);
     }

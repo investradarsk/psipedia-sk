@@ -261,6 +261,17 @@ function organizationStatement(query: MapQueryInput, db: MapD1Database) {
       AND ${GEO_PUBLIC_WHERE}
       AND o.status = 'PUBLISHED'
       AND o.archived_at IS NULL
+      AND l.id = (
+        SELECT cl.id
+        FROM organization_locations cl
+        WHERE cl.organization_id = o.id
+        ORDER BY
+          CASE WHEN cl.role = 'SITE' THEN 0 ELSE 1 END,
+          cl.is_primary DESC,
+          cl.sort_order ASC,
+          cl.id ASC
+        LIMIT 1
+      )
       AND ${bbox.sql}
       ${search.sql}
     ORDER BY g.id ASC
@@ -380,8 +391,19 @@ function scopedOrganizationStatement(entityId: number, db: MapD1Database) {
       AND ${GEO_PUBLIC_WHERE}
       AND o.status = 'PUBLISHED'
       AND o.archived_at IS NULL
+      AND l.id = (
+        SELECT cl.id
+        FROM organization_locations cl
+        WHERE cl.organization_id = o.id
+        ORDER BY
+          CASE WHEN cl.role = 'SITE' THEN 0 ELSE 1 END,
+          cl.is_primary DESC,
+          cl.sort_order ASC,
+          cl.id ASC
+        LIMIT 1
+      )
     ORDER BY g.id ASC
-    LIMIT 100
+    LIMIT 1
   `).bind(entityId);
 }
 
@@ -452,10 +474,11 @@ export async function getPublicMapItemsForEntity(
   const eligible = result.results
     .map(rowToCandidate)
     .filter((candidate) => isPublicMapCandidate(candidate, today));
+  const canonical = deduplicateOrganizationEntities(eligible);
 
   return {
-    items: eligible.map(mapCandidateToItem),
-    attribution: publicMapAttribution(eligible),
+    items: canonical.map(mapCandidateToItem),
+    attribution: publicMapAttribution(canonical),
   };
 }
 
@@ -519,6 +542,16 @@ function candidateMatchesQuery(candidate: MapCandidate, query: MapQueryInput, to
 
 function sameCoordinate(left: MapCandidate, right: MapCandidate) {
   return Math.abs(left.latitude - right.latitude) < 1e-8 && Math.abs(left.longitude - right.longitude) < 1e-8;
+}
+
+export function deduplicateOrganizationEntities(candidates: MapCandidate[]) {
+  const seen = new Set<number>();
+  return candidates.filter((candidate) => {
+    if (candidate.entityType !== "organization") return true;
+    if (seen.has(candidate.entityId)) return false;
+    seen.add(candidate.entityId);
+    return true;
+  });
 }
 
 export function deduplicateLinkedOrganizationDirectory(candidates: MapCandidate[], preferOrganizations = true) {
@@ -591,9 +624,6 @@ export function mapCandidateToItem(candidate: MapCandidate): MapItem {
   if (candidate.entityType === "service") {
     item.verified = candidate.verified;
     item.featured = candidate.featured;
-  }
-  if (candidate.entityType === "organization" && candidate.locationRole) {
-    item.locationRole = candidate.locationRole;
   }
   if (candidate.entityType === "event" && candidate.eventStartDate) {
     item.eventStart = eventDateTimeIso(candidate.eventStartDate, candidate.eventStartTime);
@@ -687,7 +717,8 @@ export async function queryPublicMap(
   const today = bratislavaDateKey(now);
   const loaded = await loadCandidates(query, db, today);
   const eligible = loaded.candidates.filter((candidate) => isPublicMapCandidate(candidate, today));
-  const deduped = deduplicateLinkedOrganizationDirectory(eligible, query.category !== "services");
+  const singleAddressOrganizations = deduplicateOrganizationEntities(eligible);
+  const deduped = deduplicateLinkedOrganizationDirectory(singleAddressOrganizations, query.category !== "services");
   const filtered = deduped.filter((candidate) => candidateMatchesQuery(candidate, query, today));
   const matched = filtered.length;
   const items = filtered.map(mapCandidateToItem);

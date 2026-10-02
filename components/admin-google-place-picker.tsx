@@ -41,7 +41,6 @@ export function AdminGooglePlacePicker({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [requiresSiteConfirmation, setRequiresSiteConfirmation] = useState(false);
   const autoStarted = useRef(false);
 
   async function discover() {
@@ -49,7 +48,6 @@ export function AdminGooglePlacePicker({
     setError("");
     setMessage("");
     setCandidates([]);
-    setRequiresSiteConfirmation(false);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -58,13 +56,11 @@ export function AdminGooglePlacePicker({
       });
       const body = await response.json() as {
         candidates?: AdminGooglePlaceCandidate[];
-        requiresSiteConfirmation?: boolean;
         error?: string;
       };
       if (!response.ok) throw new Error(body.error || "Google Maps miesto sa nepodarilo vyhľadať.");
       const next = body.candidates ?? [];
       setCandidates(next);
-      setRequiresSiteConfirmation(Boolean(body.requiresSiteConfirmation));
       if (!next.length) setMessage("Google Maps nenašiel vhodné miesto.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo vyhľadať.");
@@ -83,14 +79,6 @@ export function AdminGooglePlacePicker({
   }, [autoDiscover, available, configured, endpoint]);
 
   async function confirm(placeId: string) {
-    const confirmOrganizationSite = requiresSiteConfirmation;
-    if (
-      confirmOrganizationSite
-      && !window.confirm("Použiť toto Google miesto ako verejne navštevované miesto organizácie?")
-    ) {
-      return;
-    }
-
     setBusy(true);
     setError("");
     setMessage("");
@@ -103,15 +91,12 @@ export function AdminGooglePlacePicker({
           placeId,
           publicLocation,
           allowPrivateOverride: Boolean(allowExplicitPrivateOverride && publicLocation),
-          confirmOrganizationSite,
         }),
       });
-      const body = await response.json() as { error?: string; createdSiteId?: number | null };
+      const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error || "Google Maps miesto sa nepodarilo potvrdiť.");
       setCandidates([]);
-      setMessage(body.createdSiteId
-        ? "Google Maps miesto bolo potvrdené ako nové verejne navštevované SITE."
-        : "Google Maps miesto bolo potvrdené.");
+      setMessage("Google Maps miesto bolo potvrdené.");
       await onConfirmed?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo potvrdiť.");
@@ -136,11 +121,6 @@ export function AdminGooglePlacePicker({
         </button>
       </div>
       {!configured ? <p className="admin-help">Google Places momentálne nie je dostupné.</p> : null}
-      {requiresSiteConfirmation && candidates.length ? (
-        <p className="admin-help">
-          Vyhľadávanie použilo názov a existujúce údaje iba ako hinty. Vybrané miesto sa zverejní ako nové SITE až po tvojom výslovnom potvrdení; LEGAL_SEAT ani SERVICE_AREA sa neprepíšu.
-        </p>
-      ) : null}
       {candidates.length ? (
         <div style={{ display: "grid", gap: 8 }}>
           {candidates.map((candidate) => (

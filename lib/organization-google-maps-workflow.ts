@@ -12,7 +12,10 @@ import {
   requireOrganizationLocationD1,
   type OrganizationLocationAdminRecord,
 } from "@/lib/organization-location-admin-store";
-import { createOrganizationLocationFromAdmin } from "@/lib/organization-location-admin-write";
+import {
+  createOrganizationLocationFromAdmin,
+  isOrganizationLocationMutationConflict,
+} from "@/lib/organization-location-admin-write";
 import {
   discoverGoogleTargetPlaces,
   googlePlaceActionForSource,
@@ -23,18 +26,19 @@ export const ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE = "HELP_ORGANIZATION";
 
 function orderedLocations(items: OrganizationLocationAdminRecord[]) {
   return [...items].sort((left, right) =>
-    Number(right.isPrimary) - Number(left.isPrimary)
+    (left.role === "SITE" ? 0 : 1) - (right.role === "SITE" ? 0 : 1)
+    || Number(right.isPrimary) - Number(left.isPrimary)
     || left.sortOrder - right.sortOrder
     || left.id - right.id,
   );
 }
 
-export function preferredOrganizationSite(items: OrganizationLocationAdminRecord[]) {
-  return orderedLocations(items.filter((item) => item.role === "SITE"))[0] ?? null;
+export function canonicalOrganizationLocation(items: OrganizationLocationAdminRecord[]) {
+  return orderedLocations(items)[0] ?? null;
 }
 
-function organizationHintLocation(items: OrganizationLocationAdminRecord[]) {
-  return preferredOrganizationSite(items) ?? orderedLocations(items)[0] ?? null;
+export function preferredOrganizationSite(items: OrganizationLocationAdminRecord[]) {
+  return orderedLocations(items.filter((item) => item.role === "SITE"))[0] ?? null;
 }
 
 async function latestOrganizationWorkflowAction(organizationId: number) {
@@ -113,42 +117,39 @@ export async function loadOrganizationGoogleMapsProfile(organizationId: number) 
   ]);
   if (!organization) return null;
 
-  const preferredSite = preferredOrganizationSite(locations);
-  const hint = preferredSite ?? organizationHintLocation(locations);
+  const canonicalLocation = canonicalOrganizationLocation(locations);
   const source: GeoSourceLocation = {
     targetType: "ORGANIZATION_LOCATION",
-    // Without a SITE this synthetic ID is discovery-only. No GEO write uses it.
-    targetId: preferredSite?.id ?? hint?.id ?? organization.id,
+    targetId: canonicalLocation?.id ?? organization.id,
     organizationId: organization.id,
     organizationName: organization.name,
-    label: hint?.label || organization.name,
+    label: canonicalLocation?.label || organization.name,
     category: organization.type,
-    locationRole: preferredSite?.role ?? hint?.role ?? "UNSPECIFIED",
-    address: hint?.address ?? "",
-    city: hint?.city || organization.city || "",
-    district: hint?.district || organization.district || "",
-    region: hint?.region || organization.region || "",
-    countryCode: hint?.countryCode || organization.countryCode || "SK",
+    locationRole: canonicalLocation?.role ?? "UNSPECIFIED",
+    address: canonicalLocation?.address || organization.address || "",
+    city: canonicalLocation?.city || organization.city || "",
+    district: canonicalLocation?.district || organization.district || "",
+    region: canonicalLocation?.region || organization.region || "",
+    countryCode: canonicalLocation?.countryCode || organization.countryCode || "SK",
     published: organization.status === "PUBLISHED" && !organization.archivedAt,
   };
 
-  const point = preferredSite
-    ? await getGeoPointForTarget("ORGANIZATION_LOCATION", preferredSite.id)
+  const point = canonicalLocation
+    ? await getGeoPointForTarget("ORGANIZATION_LOCATION", canonicalLocation.id)
     : null;
-  const explicitPrivate = preferredSite
-    ? await hasExplicitPrivateGeoDecision("ORGANIZATION_LOCATION", preferredSite.id)
+  const explicitPrivate = canonicalLocation
+    ? await hasExplicitPrivateGeoDecision("ORGANIZATION_LOCATION", canonicalLocation.id)
     : false;
 
   return {
     organization,
     locations,
-    preferredSite,
+    canonicalLocation,
     source,
     point,
     explicitPrivate,
     workflowDecision: await getOrganizationGoogleMapsWorkflowDecision(organization.id),
     googlePlaceAction: googlePlaceActionForSource(source),
-    siteCount: locations.filter((item) => item.role === "SITE").length,
   };
 }
 
@@ -159,9 +160,8 @@ export async function discoverOrganizationProfileGooglePlaces(organizationId: nu
   if (!policy.available) throw new Error(policy.reason);
   return {
     candidates: await discoverGoogleTargetPlaces(state.source),
-    requiresSiteConfirmation: !state.preferredSite,
-    representedSite: state.preferredSite,
-    siteCount: state.siteCount,
+    representedLocation: state.canonicalLocation,
+    locationCount: state.locations.length,
   };
 }
 
@@ -169,13 +169,10 @@ export async function confirmOrganizationProfileGooglePlace(input: {
   organizationId: number;
   placeId: string;
   actorRef: string;
-  confirmOrganizationSite?: boolean;
 }) {
   const placeId = input.placeId.trim();
   if (!placeId) throw new Error("Vyber konkrétne miesto z Google Maps.");
 
-  // First server re-discovery uses organization-level hints, including the
-  // no-location case. The client never supplies coordinates or address data.
   let state = await loadOrganizationGoogleMapsProfile(input.organizationId);
   if (!state) throw new Error("Organizácia sa nenašla.");
   const candidates = await discoverGoogleTargetPlaces(state.source);
@@ -184,54 +181,54 @@ export async function confirmOrganizationProfileGooglePlace(input: {
     throw new Error("Vybraný Google Place sa už vo výsledkoch nenachádza. Vyhľadaj ho znova.");
   }
 
-  // Re-read before creation. A SITE added by another action wins and prevents
-  // duplicate rows on repeated/concurrent confirmation.
   state = await loadOrganizationGoogleMapsProfile(input.organizationId);
   if (!state) throw new Error("Organizácia sa nenašla.");
 
-  let site = state.preferredSite;
-  let createdSiteId: number | null = null;
-  if (!site) {
-    if (input.confirmOrganizationSite !== true) {
-      throw new Error("Použitie Google kandidáta ako verejne navštevovaného SITE musí admin explicitne potvrdiť.");
+  let location = state.canonicalLocation;
+  let createdLocationId: number | null = null;
+  if (!location) {
+    try {
+      const created = await createOrganizationLocationFromAdmin(input.organizationId, {
+        role: "SITE",
+        label: "",
+        address: selected.formattedAddress,
+        city: selected.address?.locality || selected.address?.sublocality || state.organization.city || "",
+        district: selected.address?.district || state.organization.district || "",
+        region: selected.address?.region || state.organization.region || "",
+        countryCode: selected.address?.countryCode || state.organization.countryCode || "SK",
+        isPrimary: true,
+        sortOrder: 0,
+      });
+      if (!created) throw new Error("Adresu organizácie sa nepodarilo vytvoriť.");
+      location = created;
+      createdLocationId = created.id;
+    } catch (error) {
+      if (!isOrganizationLocationMutationConflict(error)) throw error;
+      state = await loadOrganizationGoogleMapsProfile(input.organizationId);
+      location = state?.canonicalLocation ?? null;
+      if (!location) throw error;
     }
-    const created = await createOrganizationLocationFromAdmin(input.organizationId, {
-      role: "SITE",
-      label: selected.displayName || state.organization.name,
-      address: selected.formattedAddress,
-      city: selected.address?.locality || selected.address?.sublocality || state.organization.city || "",
-      district: selected.address?.district || state.organization.district || "",
-      region: selected.address?.region || state.organization.region || "",
-      countryCode: selected.address?.countryCode || state.organization.countryCode || "SK",
-      isPrimary: state.locations.length === 0,
-      sortOrder: 0,
-    });
-    if (!created) throw new Error("Verejne navštevované SITE sa nepodarilo vytvoriť.");
-    site = created;
-    createdSiteId = created.id;
   }
 
   const result = await confirmAdminGooglePlace({
     targetType: "ORGANIZATION_LOCATION",
-    targetId: site.id,
+    targetId: location.id,
     placeId,
     actorRef: input.actorRef,
     publicLocation: true,
     allowPrivateOverride: false,
   });
 
-  // A confirmed concrete SITE re-opens any organization-level NOT_REQUIRED
-  // decision. Target-level NOT_REQUIRED is also cleared by shared confirmation.
   await resetOrganizationGoogleMapsNotRequired(input.organizationId, input.actorRef);
   await resetGoogleMapsNotRequired({
     targetType: "ORGANIZATION_LOCATION",
-    targetId: site.id,
+    targetId: location.id,
     actorRef: input.actorRef,
   });
 
   return {
     ...result,
-    createdSiteId: createdSiteId ?? result.createdSiteId,
-    representedSiteId: site.id,
+    createdLocationId,
+    representedLocationId: location.id,
   };
 }
