@@ -232,7 +232,7 @@ function directoryQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
   };
 }
 
-function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: string): QuerySpec | null {
+function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: string, subsection = ""): QuerySpec | null {
   const tokens = parsed.contentTokens;
   if (!tokens.length) return null;
   const bindings: unknown[] = [new Date().toISOString()];
@@ -240,6 +240,10 @@ function articleQuery(parsed: ParsedPortalSearchQuery, limit: number, section: s
   if (section) {
     clauses.push("a.portal_section = ?");
     bindings.push(section);
+  }
+  if (subsection) {
+    clauses.push("a.portal_subpage = ?");
+    bindings.push(subsection);
   }
   clauses.push(...tokenClauses(
     `a.title || ' ' || a.excerpt || ' ' || a.intro || ' ' || a.focus_keyword || ' ' || a.category`,
@@ -397,21 +401,21 @@ function lostFoundQuery(parsed: ParsedPortalSearchQuery, limit: number): QuerySp
   return { sql: selectWithWindow(columns, "lost_found_dog_reports r", clauses, `${exactOrder}, ${prefixOrder}, ${title} COLLATE NOCASE ASC, r.type ASC, r.slug ASC`, limit), bindings };
 }
 
-function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string): PortalSearchItem[] {
+function staticSectionItems(parsed: ParsedPortalSearchQuery, section: string, subsection = ""): PortalSearchItem[] {
   const rank = (item: Omit<PortalSearchItem, "score">) => ({ ...item, score: scorePortalSearchItem(item, parsed) });
   return portalSections
     .filter((portalSection) => !section || portalSection.slug === section)
     .flatMap((portalSection) => [
-      rank({
+      ...(subsection ? [] : [rank({
         href: `/${portalSection.slug}`,
         title: portalSection.label,
         type: "Sekcia",
         description: portalSection.description,
         keywords: `${portalSection.eyebrow} ${portalSection.intro}`,
         kind: "section",
-      }),
+      })]),
       ...portalSection.subpages
-        .filter((subpage) => subpage.visible !== false)
+        .filter((subpage) => subpage.visible !== false && (!subsection || subpage.slug === subsection))
         .map((subpage) => rank({
           href: portalSubpageHref(portalSection, subpage),
           title: subpage.label,
@@ -450,8 +454,18 @@ function rowToItem(row: SearchRow, parsed: ParsedPortalSearchQuery): PortalSearc
   return item.score < 999 ? item : null;
 }
 
-function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: string) {
-  if (section) return [articleQuery(parsed, limit, section)].filter((item): item is QuerySpec => Boolean(item));
+function allowedSpecs(parsed: ParsedPortalSearchQuery, limit: number, section: string, subsection = "") {
+  if (section === "pomoc-psom") {
+    const helpScoped = parsed.entityIntent === "adoption"
+      ? [adoptionQuery(parsed, limit)]
+      : parsed.entityIntent === "organization"
+        ? [organizationQuery(parsed, limit)]
+        : parsed.entityIntent === "lost-found"
+          ? [lostFoundQuery(parsed, limit)]
+          : [organizationQuery(parsed, limit), adoptionQuery(parsed, limit), helpQuery(parsed, limit), lostFoundQuery(parsed, limit)];
+    return helpScoped.filter((item): item is QuerySpec => Boolean(item));
+  }
+  if (section) return [articleQuery(parsed, limit, section, subsection)].filter((item): item is QuerySpec => Boolean(item));
 
   const scoped = parsed.entityIntent === "directory"
     ? [directoryQuery(parsed, limit)]
@@ -484,7 +498,7 @@ export function buildPortalSearchQuerySpecsForTest(
 ) {
   const parsed = applyPortalSearchFilterOverrides(parsePortalSearchQuery(query), filters);
   const safeLimit = Math.max(1, Math.min(SEARCH_MAX_VISIBLE_RESULTS, Math.trunc(limit)));
-  return allowedSpecs(parsed, safeLimit, "").map((spec) => ({
+  return allowedSpecs(parsed, safeLimit, "", "").map((spec) => ({
     sql: spec.sql,
     bindingCount: spec.bindings.length,
   }));
@@ -496,23 +510,30 @@ export async function searchPortal(
     page?: number;
     pageSize?: number;
     section?: string;
+    subsection?: string;
     filters?: PortalSearchFilterOverrides;
   } = {},
 ): Promise<PortalSearchResultPage> {
   const parsed = applyPortalSearchFilterOverrides(parsePortalSearchQuery(query), options.filters);
   const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? SEARCH_PAGE_SIZE)));
   const page = Math.max(1, Math.min(SEARCH_MAX_PAGE, Math.trunc(options.page ?? 1)));
-  const section = ["starostlivost", "aktivity", "steniatka"].includes(options.section ?? "") ? options.section! : "";
+  const supportedSections = ["starostlivost", "aktivity", "steniatka", "novinky", "recenzie", "pomoc-psom"];
+  const section = supportedSections.includes(options.section ?? "") ? options.section! : "";
+  const sectionDefinition = portalSections.find((item) => item.slug === section);
+  const requestedSubsection = options.subsection?.trim() ?? "";
+  const subsection = sectionDefinition?.subpages.some((item) => item.visible !== false && item.slug === requestedSubsection)
+    ? requestedSubsection
+    : "";
   if (parsed.normalized.length < 2) return { items: [], total: 0, page: 1, pageSize, totalPages: 0, capped: false, parsed };
 
   const need = Math.min(SEARCH_MAX_VISIBLE_RESULTS, page * pageSize);
-  const staticItems = staticSectionItems(parsed, section);
+  const staticItems = staticSectionItems(parsed, section, subsection);
   const db = database();
   const databaseItems: PortalSearchItem[] = [];
   let databaseTotal = 0;
 
   if (db) {
-    const specs = allowedSpecs(parsed, need, section);
+    const specs = allowedSpecs(parsed, need, section, subsection);
     if (specs.length) {
       const results = await db.batch(specs.map((spec) => db.prepare(spec.sql).bind(...spec.bindings)));
       for (const result of results) {
