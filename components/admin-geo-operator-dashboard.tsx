@@ -191,17 +191,20 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
   }
 
   useEffect(() => {
-    try {
-      const saved = window.sessionStorage.getItem(bulkSessionKey);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as { cursor?: string | null };
-      if (parsed.cursor) {
-        setBulkCursor(parsed.cursor);
-        setBulkMessage("Predchádzajúca Google dávka bola prerušená. Môžeš pokračovať od poslednej dokončenej položky.");
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = window.sessionStorage.getItem(bulkSessionKey);
+        if (!saved) return;
+        const parsed = JSON.parse(saved) as { cursor?: string | null };
+        if (parsed.cursor) {
+          setBulkCursor(parsed.cursor);
+          setBulkMessage("Predchádzajúca Google dávka bola prerušená. Môžeš pokračovať od poslednej dokončenej položky.");
+        }
+      } catch {
+        window.sessionStorage.removeItem(bulkSessionKey);
       }
-    } catch {
-      window.sessionStorage.removeItem(bulkSessionKey);
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [bulkSessionKey]);
 
   function persistBulkCursor(cursor: string | null) {
