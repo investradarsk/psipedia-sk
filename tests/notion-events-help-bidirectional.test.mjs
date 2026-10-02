@@ -272,11 +272,12 @@ test("two canonical databases with same title select one and report the other, n
   }
 });
 
-test("create uses returned data-source ID during search indexing lag and repeated execute is idempotent", async () => {
+test("create provisions exactly one initial data source and repeated execute is idempotent during search lag", async () => {
   const db = new TargetDb();
   const originalFetch = globalThis.fetch;
   let databaseCreates = 0;
   let dataSourceCreates = 0;
+  let databaseCreateBody = null;
   globalThis.fetch = async (url, init) => {
     const pathname = new URL(String(url)).pathname;
     const method = init?.method ?? "GET";
@@ -292,14 +293,28 @@ test("create uses returned data-source ID during search indexing lag and repeate
     }
     if (pathname.endsWith("/databases") && method === "POST") {
       databaseCreates += 1;
-      return response({ id: "new-db" });
+      databaseCreateBody = JSON.parse(String(init?.body ?? "{}"));
+      return response({
+        id: "new-db",
+        data_sources: [{ id: "new-canonical-ds", name: "Stratené a nájdené" }],
+      });
+    }
+    if (pathname.endsWith("/databases/new-db") && method === "GET") {
+      return response({
+        id: "new-db",
+        data_sources: [{ id: "new-canonical-ds", name: "Stratené a nájdené" }],
+      });
     }
     if (pathname.endsWith("/data_sources") && method === "POST") {
       dataSourceCreates += 1;
-      return response({ id: "new-canonical-ds", parent: { database_id: "new-db" } });
+      throw new Error("resolver must not create a second data source");
     }
     if (pathname.endsWith("/data_sources/new-canonical-ds") && method === "GET") {
-      return response({ id: "new-canonical-ds", parent: { database_id: "new-db" }, properties: schema() });
+      return response({
+        id: "new-canonical-ds",
+        parent: { database_id: "new-db" },
+        properties: schema(),
+      });
     }
     throw new Error(`unexpected fetch ${pathname} ${method}`);
   };
@@ -322,7 +337,8 @@ test("create uses returned data-source ID during search indexing lag and repeate
     assert.equal(first.dataSourceId, "new-canonical-ds");
     assert.equal(second.dataSourceId, "new-canonical-ds");
     assert.equal(databaseCreates, 1);
-    assert.equal(dataSourceCreates, 1);
+    assert.equal(dataSourceCreates, 0);
+    assert.deepEqual(databaseCreateBody?.initial_data_source?.properties, definition.createSchema);
   } finally {
     globalThis.fetch = originalFetch;
   }
