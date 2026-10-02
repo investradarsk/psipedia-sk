@@ -57,14 +57,6 @@ const organizationTypeLabels: Record<PublicHelpOrganization["type"], string> = {
   OTHER: "Iná organizácia",
 };
 
-const organizationLocationRoleLabels: Record<PublicHelpOrganization["locations"][number]["role"], string | null> = {
-  UNSPECIFIED: null,
-  SITE: "Prevádzka",
-  LEGAL_SEAT: "Sídlo",
-  SERVICE_AREA: "Pôsobnosť",
-};
-
-
 const fundraisingTypeLabels: Record<PublicOrganizationFundraisingMethod["type"], string> = {
   MATERIAL_DONATION: "Materiálna pomoc",
   DONATION_PAGE: "Online podpora",
@@ -139,36 +131,34 @@ function locationValue(location: PublicHelpOrganization["locations"][number]) {
 }
 
 function presentationLocations(organization: PublicHelpOrganization): OrganizationProfileLocation[] {
-  const canonical = Array.isArray(organization.locations) ? organization.locations : [];
-  const fallback = canonical.length > 0
-    ? canonical
-    : [{
-        id: null,
-        organizationId: organization.id,
-        role: "UNSPECIFIED" as const,
-        label: "",
-        city: organization.city,
-        district: organization.district,
-        region: organization.region,
-        countryCode: organization.countryCode,
-        isPrimary: true,
-        sortOrder: 0,
-      }];
-
-  return [...fallback]
-    .sort((left, right) => left.sortOrder - right.sortOrder || (left.id ?? Number.MAX_SAFE_INTEGER) - (right.id ?? Number.MAX_SAFE_INTEGER))
-    .map((location) => {
-      const value = locationValue(location);
-      const explicitLabel = text(location.label);
-      const roleLabel = organizationLocationRoleLabels[location.role];
-      return {
-        id: location.id,
-        label: explicitLabel ?? roleLabel,
-        value,
-        isPrimary: location.isPrimary,
-      };
-    })
-    .filter((location) => Boolean(location.value || location.label));
+  const canonical = Array.isArray(organization.locations)
+    ? [...organization.locations].sort((left, right) =>
+        (left.role === "SITE" ? 0 : 1) - (right.role === "SITE" ? 0 : 1)
+        || Number(right.isPrimary) - Number(left.isPrimary)
+        || left.sortOrder - right.sortOrder
+        || (left.id ?? Number.MAX_SAFE_INTEGER) - (right.id ?? Number.MAX_SAFE_INTEGER),
+      )[0] ?? null
+    : null;
+  const location = canonical ?? {
+    id: null,
+    organizationId: organization.id,
+    role: "UNSPECIFIED" as const,
+    label: "",
+    city: organization.city,
+    district: organization.district,
+    region: organization.region,
+    countryCode: organization.countryCode,
+    isPrimary: true,
+    sortOrder: 0,
+  };
+  const value = locationValue(location);
+  if (!value) return [];
+  return [{
+    id: location.id,
+    label: null,
+    value,
+    isPrimary: true,
+  }];
 }
 
 export function buildOrganizationFundraisingPresentation(
