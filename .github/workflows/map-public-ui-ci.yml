@@ -7,17 +7,18 @@ on:
       - "app/mapa/**"
       - "components/map/**"
       - "lib/map-public-ui.ts"
-      - "worker/index.ts"
-      - "config/runtime-env.ts"
-      - ".env.example"
       - "docs/map-public-ui.md"
       - "scripts/map-ui-bundle-report.mjs"
       - "tests/map-public-ui*.test.mjs"
       - "tests/e2e/map-public-ui.spec.ts"
       - "tests/e2e/map-production-launch.spec.ts"
-      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/map-public-ui-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: map-1d-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

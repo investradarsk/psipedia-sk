@@ -12,11 +12,14 @@ on:
       - "scripts/production-d1-migrate.mjs"
       - "tests/production-d1-migration.test.mjs"
       - ".github/workflows/production-d1-migrate.yml"
-      - "package.json"
       - "package-lock.json"
       - "migration-safety.baseline.json"
       - ".github/workflows/clean-d1-migration-validation.yml"
   workflow_dispatch:
+
+concurrency:
+  group: clean-d1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

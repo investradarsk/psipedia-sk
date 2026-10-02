@@ -14,7 +14,6 @@ on:
       - "components/event-detail.tsx"
       - "lib/map-*.ts"
       - "lib/public-map-runtime.ts"
-      - "worker/index.ts"
       - "lib/directory-store.ts"
       - "tests/map-read-api*.test.mjs"
       - "tests/e2e/map-read-api.spec.ts"
@@ -22,9 +21,13 @@ on:
       - "tests/fixtures/map-read-api-e2e.sql"
       - "tests/public-location-map-contract.test.mjs"
       - "docs/map-read-api.md"
-      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/map-read-api-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: map-1c-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

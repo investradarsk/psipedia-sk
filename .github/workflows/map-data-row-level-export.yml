@@ -8,8 +8,8 @@ on:
       - .github/workflows/map-data-row-level-export.yml
 
 concurrency:
-  group: map-data-row-level-export-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  group: map-data-row-level-export-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

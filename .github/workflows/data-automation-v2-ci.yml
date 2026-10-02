@@ -13,7 +13,6 @@ on:
       - "components/admin-automation-lifecycle-*.tsx"
       - "lib/admin-automation-api.ts"
       - "lib/data-automation*.ts"
-      - "worker/index.ts"
       - "drizzle/0052_data_automation_sources_discovery.sql"
       - "drizzle/0056_scheduled_source_discovery.sql"
       - "drizzle/0057_automation_background_run_lock.sql"
