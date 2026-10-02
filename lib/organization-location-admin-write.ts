@@ -178,6 +178,56 @@ export async function updateOrganizationLocationFromAdmin(
   return getOrganizationLocationAdmin(organizationId, locationId, db);
 }
 
+export async function updateOrganizationLocationFromGooglePlace(
+  organizationId: number,
+  locationId: number,
+  place: {
+    formattedAddress: string;
+    address?: {
+      locality?: string;
+      sublocality?: string;
+      district?: string;
+      region?: string;
+      countryCode?: string;
+    };
+  },
+  database?: AdoptionD1Database,
+) {
+  if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
+  if (!Number.isSafeInteger(locationId) || locationId <= 0) return null;
+  const db = requireOrganizationLocationD1(database);
+  const organization = await requireMutableOrganization(organizationId, db);
+  if (!organization) return null;
+  const existing = await getOrganizationLocationAdmin(organizationId, locationId, db);
+  if (!existing) return null;
+
+  // Google owns location only. Organization identity, contacts, website,
+  // social links, descriptions and fundraising data live in other fields/tables
+  // and are deliberately absent from this UPDATE.
+  const result = await db.prepare(`
+    UPDATE organization_locations
+    SET address = ?, city = ?, district = ?, region = ?, country_code = ?
+    WHERE id = ? AND organization_id = ?
+  `).bind(
+    place.formattedAddress.trim(),
+    place.address?.locality?.trim() || place.address?.sublocality?.trim() || existing.city,
+    place.address?.district?.trim() || existing.district,
+    place.address?.region?.trim() || existing.region,
+    place.address?.countryCode?.trim().toUpperCase() || existing.countryCode || "SK",
+    locationId,
+    organizationId,
+  ).run() as RunResult;
+  if (resultChanges(result) < 1) return null;
+
+  await reconcileGeoAfterSourceMutation({
+    targetType: "ORGANIZATION_LOCATION",
+    targetId: locationId,
+    actorRef: "google-place-location-only",
+    actorType: "SYSTEM",
+  }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
+  return getOrganizationLocationAdmin(organizationId, locationId, db);
+}
+
 export async function deleteOrganizationLocationFromAdmin(
   organizationId: number,
   locationId: number,
