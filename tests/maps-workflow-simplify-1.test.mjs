@@ -33,8 +33,10 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
   const start = directory.indexOf("export async function updateManagedDirectoryProfileLocationFromGooglePlace");
   const end = directory.indexOf("export async function setManagedDirectoryProfileReviewed", start);
   const block = directory.slice(start, end);
-  const sqlMatch = block.match(/database\.prepare\(`([\s\S]*?UPDATE directory_profiles[\s\S]*?RETURNING \*)`\)\.bind\(/);
-  assert.ok(sqlMatch?.[1], "location-only UPDATE SQL must be extractable from the runtime helper");
+  const sqlStart = block.indexOf("UPDATE directory_profiles");
+  const sqlEnd = block.indexOf("`).bind(", sqlStart);
+  assert.ok(sqlStart >= 0 && sqlEnd > sqlStart, "location-only UPDATE SQL must be extractable from the runtime helper");
+  const locationOnlySql = block.slice(sqlStart, sqlEnd).trim();
 
   const db = new DatabaseSync(":memory:");
   db.exec(`
@@ -74,7 +76,7 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
     before.website, "internal@example.sk", sourceData,
   );
 
-  db.prepare(sqlMatch[0]).get(
+  db.prepare(locationOnlySql).get(
     "Nitriansky kraj", "Nitra", "Nitra", "Hlavná 22", "94901", "Hlavná", "22",
     "STREET", "new search", "2026-10-02T20:00:00.000Z", "admin@example.sk", 7,
   );
