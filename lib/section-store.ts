@@ -190,12 +190,58 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
   catch { return fallback; }
 }
 
+const legacySectionHeroCopy: Record<string, Partial<Pick<Row, "label" | "eyebrow" | "intro">>> = {
+  novinky: {
+    label: "Novinky",
+    eyebrow: "Psí svet práve teraz",
+    intro: "Sledujeme záchranu psov, hrdinské zásahy, vedu, nové lieky, zákony aj udalosti, ktoré majú skutočný dosah. Každú správu zasadíme do súvislostí a uvedieme jej zdroj.",
+  },
+  plemena: {
+    intro: "Porovnaj si povahu, aktivitu, veľkosť aj nároky a vyberaj podľa svojho života, nie iba podľa vzhľadu.",
+  },
+  podujatia: {
+    eyebrow: "Čo sa deje",
+  },
+  adresar: {
+    eyebrow: "Nájdi pomoc nablízku",
+    intro: "Profily môžeš filtrovať podľa kraja, okresu, mesta, zamerania a typu služby.",
+  },
+  "pomoc-psom": {
+    eyebrow: "Pomoc, ktorá má cieľ",
+    intro: "Na jednom mieste spojíme ľudí, ktorí chcú pomôcť, s overenými útulkami, organizáciami a konkrétnymi prípadmi.",
+  },
+  recenzie: {
+    eyebrow: "Testy bez marketingovej hmly",
+    intro: "Pri každej recenzii bude jasné, čo sme hodnotili, pre akého psa je produkt určený a či bol obsah podporený partnerom.",
+  },
+};
+
+function canonicalSectionHeroField<K extends "label" | "eyebrow" | "intro">(
+  row: Row,
+  base: PortalSection,
+  field: K,
+) {
+  const legacy = legacySectionHeroCopy[row.slug]?.[field];
+  return legacy !== undefined && row[field] === legacy ? base[field] : row[field];
+}
+
 function merge(row: Row): ManagedPortalSection | null {
   const base = portalSections.find((section) => section.slug === row.slug);
   if (!base) return null;
-  const label = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : row.label;
+  const legacyLabel = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : canonicalSectionHeroField(row, base, "label");
   const hasLegacyActivityCopy = row.slug === "aktivity" && row.eyebrow === "Spoločné zážitky" && row.description === "Psie športy, výlety a miesta, kde si môžete deň užiť spolu." && row.intro === "Nájdi aktivitu podľa kondície psa, svojich skúseností a času, ktorý máte k dispozícii.";
-  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, heroConfig: { ...(base.heroConfig ?? {}), ...cleanHeroConfig(row.hero_config_json) }, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible), ...(row.updated_at ? { updatedAt: row.updated_at } : {}) };
+  return {
+    ...base,
+    label: legacyLabel,
+    eyebrow: hasLegacyActivityCopy ? base.eyebrow : canonicalSectionHeroField(row, base, "eyebrow"),
+    description: hasLegacyActivityCopy ? base.description : row.description,
+    intro: hasLegacyActivityCopy ? base.intro : canonicalSectionHeroField(row, base, "intro"),
+    heroConfig: { ...(base.heroConfig ?? {}), ...cleanHeroConfig(row.hero_config_json) },
+    subpages: parseSubpages(row.subpages_json, base.subpages),
+    position: row.position,
+    visible: Boolean(row.visible),
+    ...(row.updated_at ? { updatedAt: row.updated_at } : {}),
+  };
 }
 
 export const listManagedPortalSections = cache(async function listManagedPortalSections(): Promise<ManagedPortalSection[]> {
