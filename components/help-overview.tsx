@@ -79,7 +79,6 @@ const promos: Record<number, PromoBanner> = {
 };
 
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
-  const heroVisual = await getSectionHeroVisual("section.pomoc-psom");
   return (
     <article className={styles.overviewCard} data-help-overview-card>
       <Link className={styles.overviewMedia} href={item.href} aria-label={`Otvoriť: ${item.title}`}>
@@ -131,6 +130,7 @@ export async function HelpOverview({
   sections: HelpOverviewSection[];
   totalActive: number;
 }) {
+  const heroVisual = await getSectionHeroVisual("section.pomoc-psom");
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
