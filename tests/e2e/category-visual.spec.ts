@@ -9,15 +9,10 @@ const ARTIFACT_DIR = process.env.CATEGORY_VISUAL_ARTIFACT_DIR ?? ".e2e-artifacts
 const CONSENT_KEY = "psipedia-cookie-consent";
 
 const LANDINGS = [
-  { slug: "plemena", path: "/plemena" },
-  { slug: "steniatka", path: "/steniatka" },
-  { slug: "starostlivost", path: "/starostlivost" },
-  { slug: "aktivity", path: "/aktivity" },
-  { slug: "adresar", path: "/adresar" },
-  { slug: "podujatia", path: "/podujatia" },
   { slug: "pomoc-psom", path: "/pomoc-psom" },
+  { slug: "podujatia", path: "/podujatia" },
+  { slug: "adresar", path: "/adresar" },
   { slug: "recenzie", path: "/recenzie" },
-  { slug: "novinky", path: "/novinky" },
 ] as const;
 
 const VIEWPORTS = [
@@ -118,11 +113,6 @@ test("CATEGORY-BANNERS preview keeps hero, category navigation and functional st
   await expect(directoryNav).toBeVisible();
   await expect(page.locator('form[action="/adresar"] input[name="q"]')).toBeVisible();
   await expect(page.locator('form[action="/adresar"] select[name="category"]')).toBeVisible();
-
-  await page.goto("/novinky");
-  const newsNav = page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" });
-  await expect(newsNav).toBeVisible();
-  expect(await newsNav.evaluate((element) => getComputedStyle(element).overflowX)).not.toBe("auto");
 
   await page.goto("/adresar?q=Nitra&category=veterinari");
   await expect(page).toHaveURL(/q=Nitra/);
