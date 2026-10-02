@@ -32,21 +32,19 @@ export function EventsPage({
   const description = isMainListing ? section?.description ?? copy.description : copy.description;
   const today = bratislavaDateKey();
   const activeCount = events.filter((event) => !event.cancelled && eventDateStatus(event, today) !== "past").length;
-  const landingCategories = eventTypes
-    .map((eventType) => {
-      const href = eventTypePortalHref(eventType);
-      if (!href) return null;
-      const seo = eventTypeListingSeo(eventType);
-      const count = events.filter((event) => !event.cancelled && event.eventType === eventType && eventDateStatus(event, today) !== "past").length;
-      return {
-        href,
-        title: seo.title,
-        description: seo.description,
-        meta: `${count} aktívnych`,
-        icon: eventLandingIcon(eventType),
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
+  const landingCategories = eventTypes.flatMap((eventType) => {
+    const href = eventTypePortalHref(eventType);
+    if (!href) return [];
+    const seo = eventTypeListingSeo(eventType);
+    const count = events.filter((event) => !event.cancelled && event.eventType === eventType && eventDateStatus(event, today) !== "past").length;
+    return [{
+      href,
+      title: seo.title,
+      description: seo.description,
+      meta: `${count} aktívnych`,
+      icon: eventLandingIcon(eventType),
+    }];
+  });
 
   return (
     <main id="obsah">
