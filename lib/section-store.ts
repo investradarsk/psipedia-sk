@@ -171,7 +171,7 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
       const stored = item as PortalSubpage;
       const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
       if (!defaults) return stored;
-      const merged = { ...defaults, ...stored, heroConfig: cleanHeroConfig(stored.heroConfig) };
+      const merged = { ...defaults, ...stored, heroConfig: { ...(defaults.heroConfig ?? {}), ...cleanHeroConfig(stored.heroConfig) } };
       if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
       if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
       return merged;
@@ -195,7 +195,7 @@ function merge(row: Row): ManagedPortalSection | null {
   if (!base) return null;
   const label = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : row.label;
   const hasLegacyActivityCopy = row.slug === "aktivity" && row.eyebrow === "Spoločné zážitky" && row.description === "Psie športy, výlety a miesta, kde si môžete deň užiť spolu." && row.intro === "Nájdi aktivitu podľa kondície psa, svojich skúseností a času, ktorý máte k dispozícii.";
-  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, heroConfig: cleanHeroConfig(row.hero_config_json), subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible), ...(row.updated_at ? { updatedAt: row.updated_at } : {}) };
+  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, heroConfig: { ...(base.heroConfig ?? {}), ...cleanHeroConfig(row.hero_config_json) }, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible), ...(row.updated_at ? { updatedAt: row.updated_at } : {}) };
 }
 
 export const listManagedPortalSections = cache(async function listManagedPortalSections(): Promise<ManagedPortalSection[]> {
