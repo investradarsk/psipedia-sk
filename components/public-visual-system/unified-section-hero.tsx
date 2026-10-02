@@ -52,19 +52,28 @@ export function UnifiedSectionHero({
       className={[styles.hero, className].filter(Boolean).join(" ")}
       style={visualStyle(visual)}
       data-unified-section-hero
+      data-section-visual-key={visual.visualKey}
       data-section-visual-source={visual.source}
     >
-      <img className={styles.image} src={visual.imageUrl} alt={visual.altText} decoding="async" />
-      <div className={styles.shade} />
-      <div className={styles.content}>
+      <div className={styles.media} data-unified-section-hero-media>
+        <img className={styles.image} src={visual.imageUrl} alt={visual.altText} decoding="async" />
+        <div className={styles.shade} aria-hidden="true" />
+      </div>
+
+      <div className={styles.copy} data-unified-section-hero-copy>
         {breadcrumbs ? <div className={styles.breadcrumbs}>{breadcrumbs}</div> : null}
         {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
         <h1>{title}</h1>
         {intro ? <div className={styles.intro}>{intro}</div> : null}
-        {metaSlot ? <div className={styles.meta}>{metaSlot}</div> : null}
-        {ctaSlot ? <div className={styles.cta}>{ctaSlot}</div> : null}
-        {searchSlot ? <div className={styles.search}>{searchSlot}</div> : null}
       </div>
+
+      {(searchSlot || ctaSlot || metaSlot) ? (
+        <div className={styles.tools} data-unified-section-hero-tools>
+          {searchSlot ? <div className={styles.search}>{searchSlot}</div> : null}
+          {ctaSlot ? <div className={styles.cta}>{ctaSlot}</div> : null}
+          {metaSlot ? <div className={styles.meta}>{metaSlot}</div> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
