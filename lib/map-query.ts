@@ -625,9 +625,6 @@ export function mapCandidateToItem(candidate: MapCandidate): MapItem {
     item.verified = candidate.verified;
     item.featured = candidate.featured;
   }
-  if (candidate.entityType === "organization" && candidate.locationRole) {
-    item.locationRole = candidate.locationRole;
-  }
   if (candidate.entityType === "event" && candidate.eventStartDate) {
     item.eventStart = eventDateTimeIso(candidate.eventStartDate, candidate.eventStartTime);
     if (candidate.eventEndDate) item.eventEnd = eventDateTimeIso(candidate.eventEndDate, candidate.eventEndTime);
