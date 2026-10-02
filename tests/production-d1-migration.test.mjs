@@ -114,6 +114,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0103_admin_entity_reviews.sql",
     "0104_article_topics.sql",
     "0105_article_popularity.sql",
+    "0106_section_visuals.sql",
   ]);
 });
 
@@ -331,6 +332,32 @@ test("ARTICLE-POPULARITY-1 0105 detects partial popularity schema drift", () => 
   );
 });
 
+test("SECTION-VISUALS-1 0106 detects partial visual schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "section_visuals", type: "table", sql: "" }] }, "0106_section_visuals.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "section_visuals_section_idx", type: "index", sql: "" }] }, "0106_section_visuals.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0106_section_visuals.sql"),
+    { partial: false },
+  );
+});
+
+test("SECTION-VISUALS-1 0106 migration persists normalized desktop/mobile crop fields", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0106_section_visuals.sql"), "utf8");
+  assert.match(migration, /CREATE TABLE section_visuals/);
+  assert.match(migration, /visual_key TEXT PRIMARY KEY NOT NULL/);
+  for (const field of ["desktop_x", "desktop_y", "desktop_zoom", "mobile_x", "mobile_y", "mobile_zoom"]) {
+    assert.match(migration, new RegExp(`\\b${field}\\b`));
+  }
+  assert.match(migration, /section_visuals_section_idx/);
+  assert.doesNotMatch(migration, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -390,7 +417,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0106_future_migration.sql",
+    "0107_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -418,14 +445,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0106_future_migration.sql",
+    "0107_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0106_future_migration.sql",
+    "0107_future_migration.sql",
   ]);
 });
 

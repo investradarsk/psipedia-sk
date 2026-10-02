@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminSectionEditor } from "@/components/admin-section-editor";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -25,6 +26,7 @@ export default async function AdminSectionsPage({
       title="Sekcie a podsekcie"
       description="Spravuj verejné názvy, úvody, poradie, viditeľnosť a podsekcie bez zásahu do kódu."
     >
+      <p><Link href="/admin/sekcie/vizualy">Spravovať vizuály sekcií a podsekcií →</Link></p>
       <AdminSectionEditor initialSections={sections} articleCounts={articleCounts} initialOpenSlug={initialOpenSlug} />
     </AdminShell>
   );

@@ -14,10 +14,13 @@ import { eventHref, formatEventDate } from "@/lib/events";
 import { getHighlightedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
+import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
+import { getResolvedSectionVisual } from "@/lib/section-visual-store";
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata, buildSiteIdentityJsonLd, serializeJsonLd, SITE_DESCRIPTION } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import styles from "./home-v2.module.css";
 
 export const metadata: Metadata = {
@@ -33,13 +36,28 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const dayOfYear = dayOfYearInBratislava();
-  const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians] = await Promise.all([
+  const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians, homeHeroVisual] = await Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
     getUpcomingEvents(3),
     getHighlightedHelpCases(3),
     getBreedOfTheDay(dayOfYear),
     getPublishedDirectoryProfiles("veterinari", 3),
+    getResolvedSectionVisual("home.hero"),
   ]);
+  const homeHero = homeHeroVisual ?? {
+    imageUrl: "/images/hero-labrador.webp",
+    altText: "Čierny labrador beží po rannej lúke",
+    desktopCrop: { x: 0.5, y: 0.5, zoom: 1 },
+    mobileCrop: { x: 0.64, y: 0.5, zoom: 1 },
+  };
+  const homeHeroStyle = {
+    "--section-visual-desktop-x": sectionVisualPositionPercent(homeHero.desktopCrop.x),
+    "--section-visual-desktop-y": sectionVisualPositionPercent(homeHero.desktopCrop.y),
+    "--section-visual-desktop-zoom": homeHero.desktopCrop.zoom,
+    "--section-visual-mobile-x": sectionVisualPositionPercent(homeHero.mobileCrop.x),
+    "--section-visual-mobile-y": sectionVisualPositionPercent(homeHero.mobileCrop.y),
+    "--section-visual-mobile-zoom": homeHero.mobileCrop.zoom,
+  } as CSSProperties & Record<string, string | number>;
   const articleSelection = selectHomepageArticles(publishedArticles, { latestLimit: 5, sectionLimit: 5, backfillSectionsFromLatest: true });
   const homepageServiceSlugs: string[] = [
     "treneri",
@@ -67,7 +85,7 @@ export default async function Home() {
 
       <section className="hero-section shell" data-home-hero>
         <div className="hero-card">
-          <img className="hero-image" src="/images/hero-labrador.webp" alt="Čierny labrador beží po rannej lúke" fetchPriority="high" decoding="async" />
+          <img className="hero-image" src={homeHero.imageUrl} alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />
           <div className="hero-shade" />
           <div className="hero-copy">
             <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>

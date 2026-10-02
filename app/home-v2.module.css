@@ -752,7 +752,9 @@
   }
 
   .homeV2 :global(.hero-image) {
-    object-position: 64% center;
+    object-position: var(--section-visual-mobile-x, 64%) var(--section-visual-mobile-y, 50%);
+    transform: scale(var(--section-visual-mobile-zoom, 1));
+    transform-origin: var(--section-visual-mobile-x, 64%) var(--section-visual-mobile-y, 50%);
   }
 
   .homeV2 :global(.hero-shade) {
