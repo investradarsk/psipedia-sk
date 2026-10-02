@@ -70,7 +70,7 @@ test("Admin Help keeps bulk selection page-scoped and publishes only the current
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
 
-  const rowChecks = page.locator('.admin-help-row input[type="checkbox"]');
+  const rowChecks = page.locator(".admin-help-row [data-help-row-select]");
   await rowChecks.nth(0).check();
   await expect(page.getByText("Označené: 1", { exact: true })).toBeVisible();
   await rowChecks.nth(1).check();
