@@ -294,7 +294,7 @@ async function listPublicOrganizationLocations(
     .bind(...query.bindings)
     .all<PublicOrganizationLocationRow>();
   if (!result.results.length) return [legacyPublicOrganizationLocation(row)];
-  return result.results.map(toPublicOrganizationLocation);
+  return result.results.slice(0, 1).map(toPublicOrganizationLocation);
 }
 
 async function findPublishedDirectoryRelation(
