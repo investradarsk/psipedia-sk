@@ -521,7 +521,7 @@ test("PUBLIC-MAPS-1 scoped ORGANIZATION read returns at most one canonical marke
   );
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0].id, "organization:600:location:601");
-  assert.equal(result.items[0].locationRole, "SITE");
+  assert.equal(result.items[0].locationRole, undefined);
   assert.doesNotMatch(JSON.stringify(result), /Legacy extra 8|SERVICE_AREA/);
 
   const unsafeCases = [
