@@ -84,7 +84,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       actorRef: input.actorRef,
       reason: "GOOGLE_PLACE_CONFIRMED_PRIVATE",
     });
-    return { profile, point, googlePlaceId: selected.id, createdSiteId };
+    return { profile, point, googlePlaceId: selected.id, createdSiteId: null };
   }
 
   if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
