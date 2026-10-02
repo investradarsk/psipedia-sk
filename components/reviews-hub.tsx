@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, BowlIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicCategoryTiles, PublicFoundation, PublicLandingHero } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
+import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
@@ -10,6 +11,7 @@ import type { Article } from "@/lib/content";
 import type { PortalSection } from "@/lib/portal";
 import { articlePortalSection, portalSubpageHref } from "@/lib/portal";
 import type { PublicProfileReviewFeedItem } from "@/lib/profile-review-read";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./reviews-hub.module.css";
 
 export type ReviewsHubView = "all" | "products" | "services" | "eshops";
@@ -84,7 +86,7 @@ const serviceCategorySlugs = new Set([
   "fyzioterapia",
 ]);
 
-export function ReviewsHub({
+export async function ReviewsHub({
   section,
   articles,
   profileReviews,
@@ -103,30 +105,29 @@ export function ReviewsHub({
   const showProducts = view === "all" || view === "products";
   const showServices = view === "all" || view === "services";
   const showEshops = view === "all" || view === "eshops";
+  const heroVisual = await getSectionHeroVisual("section.recenzie");
 
   return (
     <main id="obsah">
       <PublicFoundation className={styles.foundation}>
       <header className={styles.hero}>
         <PageContainer>
-          <Breadcrumbs>
-            <Link href="/">Domov</Link><span>/</span><span>Recenzie a testy</span>
-          </Breadcrumbs>
-          <PublicLandingHero
-            tone="reviews"
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Recenzie a testy</span></Breadcrumbs>}
             eyebrow="Rozhodovanie podľa skúseností"
             title="Recenzie a testy"
             intro="Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste."
-            ornament={<SparkIcon size={96} />}
-          >
-            <form className={styles.search} action="/hladat" method="get">
-              <SearchIcon size={21} />
-              <input type="hidden" name="sekcia" value="recenzie" />
-              <label className="sr-only" htmlFor="reviews-hub-query">Hľadať v recenziách a testoch</label>
-              <input id="reviews-hub-query" name="q" maxLength={120} placeholder="Krmivo, GPS, veterinár, tréner…" />
-              <button type="submit">Hľadať</button>
-            </form>
-          </PublicLandingHero>
+            visual={heroVisual}
+            searchSlot={
+              <SectionHeroSearch
+                action="/hladat"
+                id="reviews-hub-query"
+                label="Hľadať v recenziách a testoch"
+                placeholder="Hľadať produkt alebo tému…"
+                hidden={[{ name: "sekcia", value: "recenzie" }]}
+              />
+            }
+          />
         </PageContainer>
       </header>
 
