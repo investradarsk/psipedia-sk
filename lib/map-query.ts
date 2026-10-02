@@ -474,10 +474,11 @@ export async function getPublicMapItemsForEntity(
   const eligible = result.results
     .map(rowToCandidate)
     .filter((candidate) => isPublicMapCandidate(candidate, today));
+  const canonical = deduplicateOrganizationEntities(eligible);
 
   return {
-    items: eligible.map(mapCandidateToItem),
-    attribution: publicMapAttribution(eligible),
+    items: canonical.map(mapCandidateToItem),
+    attribution: publicMapAttribution(canonical),
   };
 }
 
@@ -541,6 +542,16 @@ function candidateMatchesQuery(candidate: MapCandidate, query: MapQueryInput, to
 
 function sameCoordinate(left: MapCandidate, right: MapCandidate) {
   return Math.abs(left.latitude - right.latitude) < 1e-8 && Math.abs(left.longitude - right.longitude) < 1e-8;
+}
+
+export function deduplicateOrganizationEntities(candidates: MapCandidate[]) {
+  const seen = new Set<number>();
+  return candidates.filter((candidate) => {
+    if (candidate.entityType !== "organization") return true;
+    if (seen.has(candidate.entityId)) return false;
+    seen.add(candidate.entityId);
+    return true;
+  });
 }
 
 export function deduplicateLinkedOrganizationDirectory(candidates: MapCandidate[], preferOrganizations = true) {
@@ -709,7 +720,8 @@ export async function queryPublicMap(
   const today = bratislavaDateKey(now);
   const loaded = await loadCandidates(query, db, today);
   const eligible = loaded.candidates.filter((candidate) => isPublicMapCandidate(candidate, today));
-  const deduped = deduplicateLinkedOrganizationDirectory(eligible, query.category !== "services");
+  const singleAddressOrganizations = deduplicateOrganizationEntities(eligible);
+  const deduped = deduplicateLinkedOrganizationDirectory(singleAddressOrganizations, query.category !== "services");
   const filtered = deduped.filter((candidate) => candidateMatchesQuery(candidate, query, today));
   const matched = filtered.length;
   const items = filtered.map(mapCandidateToItem);
