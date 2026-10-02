@@ -137,8 +137,9 @@ test("GOOGLE-PLACE-BULK filter normalization and fingerprint bind cursor to data
     JSON.stringify(filters),
   );
   assert.match(bulkStore, /Google bulk cursor nepatrí k aktuálnemu filtru/);
-  assert.match(bulkStore, /ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC/);
-  assert.match(bulkStore, /LIMIT \?/);
+  const operatorStore = readFileSync(new URL("../lib/geo-admin-operator.ts", import.meta.url), "utf8");
+  assert.match(operatorStore, /ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC/);
+  assert.match(operatorStore, /LIMIT \?/);
 });
 
 test("GOOGLE-PLACE-BULK server selection excludes resolved and protected workflow rows", () => {
