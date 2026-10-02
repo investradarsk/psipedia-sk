@@ -112,7 +112,7 @@ test("GOOGLE-PLACE-BULK Admin Mapy requests server-side batches instead of slici
   assert.match(dashboard, /cursor: bulkCursor/);
   assert.match(dashboard, /targets = selection.targets/);
   assert.doesNotMatch(dashboard, /bulkRemaining\.slice|serviceItems\.findIndex|visible\.filter/);
-  assert.match(dashboard, /celého filtrovaného datasetu/);
+  assert.match(dashboard, /celého aktuálne filtrovaného datasetu/);
   assert.match(dashboard, /Google Maps kontrola/);
   assert.doesNotMatch(dashboard, /<table/);
 });
