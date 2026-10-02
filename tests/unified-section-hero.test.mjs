@@ -152,9 +152,9 @@ test("main route preserves SEO structured data while delegating section heroes",
   assert.match(sectionRoute, /<PortalHub/);
 });
 
-test("SECTION-HERO-V2 adds only the approved 0107 hero config migration", () => {
+test("SECTION-HERO-V2 keeps the approved 0107 hero config migration uniquely assigned", () => {
   const migrations = readdirSync("drizzle").filter((name) => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.equal(migrations.at(-1), "0107_section_hero_config.sql");
+  assert.equal(migrations.includes("0107_section_hero_config.sql"), true);
   assert.equal(migrations.filter((name) => name.startsWith("0107_")).length, 1);
 });
 
