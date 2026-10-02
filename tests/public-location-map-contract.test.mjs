@@ -106,16 +106,14 @@ test("PUBLIC-MAPS-1 directory map suppresses legacy text navigation only when ap
   assert.match(detail, /title="Kde nás nájdete"/);
 });
 
-test("PUBLIC-MAPS-1 organization supports multi-location exact/approximate semantics", async () => {
+test("PUBLIC-MAPS-1 organization detail exposes one role-free canonical point", async () => {
   const [component, query] = await Promise.all([
     read("components/map/public-location-map.tsx"),
     read("lib/map-query.ts"),
   ]);
-  assert.match(component, /items\.length > 1/);
-  assert.match(component, /Verejné lokality organizácie/);
-  assert.match(component, /SERVICE_AREA/);
-  assert.match(component, /aria-pressed=\{selected\?\.id === item\.id\}/);
-  assert.match(query, /l\.role AS location_role/);
+  assert.doesNotMatch(component, /Verejné lokality organizácie|SERVICE_AREA|LEGAL_SEAT|Prevádzka|Oblasť pôsobenia|Sídlo/);
+  assert.match(query, /SELECT cl\.id[\s\S]*WHERE cl\.organization_id = o\.id[\s\S]*LIMIT 1/);
+  assert.match(query, /deduplicateOrganizationEntities/);
   assert.match(query, /publicDisplayLocation/);
 });
 
