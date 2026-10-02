@@ -948,7 +948,7 @@ export async function loadGeoAdminOperatorProfiles(
     NOT_PUBLIC: integer(summaryRow, "op_not_public"),
   };
   const counts: GeoAdminOperatorCounts = {
-    total,
+    total: integer(summaryRow, "total"),
     groups: {
       SERVICES: integer(summaryRow, "services"),
       HELP: integer(summaryRow, "help"),
