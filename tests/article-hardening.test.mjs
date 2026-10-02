@@ -35,14 +35,15 @@ function topic(label, overrides = {}) {
   };
 }
 
-test("ARTICLE-HARDENING keeps the migration chain capped at the approved 0105 article migration", () => {
+test("ARTICLE-HARDENING keeps the approved 0104/0105 article schema intact after unrelated migrations", () => {
   const migrations = readdirSync("drizzle")
     .filter((name) => /^\d{4}_.+\.sql$/.test(name))
     .sort();
   assert.ok(migrations.includes("0104_article_topics.sql"));
   assert.ok(migrations.includes("0105_article_popularity.sql"));
-  assert.equal(migrations.some((name) => name.startsWith("0106_")), false);
-  assert.equal(migrations.at(-1), "0105_article_popularity.sql");
+  assert.ok(migrations.includes("0106_section_visuals.sql"));
+  assert.equal(migrations.some((name) => /^0106_.*article/i.test(name)), false);
+  assert.equal(migrations.at(-1), "0106_section_visuals.sql");
 });
 
 test("contextual promo descends the existing hierarchy instead of duplicating a manual target", () => {
