@@ -57,6 +57,8 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
 
   for (const viewport of VIEWPORTS) {
     const opened = await makePage(browser, viewport);
+    let referenceWidth: number | null = null;
+    let referenceVisualHeight: number | null = null;
     try {
       for (const route of ROUTES) {
         const label = viewport.label + " " + route.path;
@@ -69,8 +71,21 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         expect(overflow.scrollWidth, label + ": horizontal overflow").toBeLessThanOrEqual(overflow.clientWidth + 1);
 
         const media = hero.locator("[data-unified-section-hero-media]");
+        const visual = hero.locator("[data-unified-section-hero-visual]");
         const copy = hero.locator("[data-unified-section-hero-copy]");
         const tools = hero.locator("[data-unified-section-hero-tools]");
+        const heroBox = await hero.boundingBox();
+        const visualBox = await visual.boundingBox();
+        expect(heroBox, label + ": hero box").not.toBeNull();
+        expect(visualBox, label + ": visual box").not.toBeNull();
+
+        if (referenceWidth === null) referenceWidth = heroBox!.width;
+        expect(Math.abs(heroBox!.width - referenceWidth), label + ": canonical hero width").toBeLessThanOrEqual(2);
+
+        if (viewport.width >= 768) {
+          if (referenceVisualHeight === null) referenceVisualHeight = visualBox!.height;
+          expect(Math.abs(visualBox!.height - referenceVisualHeight), label + ": canonical desktop visual height").toBeLessThanOrEqual(2);
+        }
 
         if (viewport.width <= 430) {
           const mediaBox = await media.boundingBox();
