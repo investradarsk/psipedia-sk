@@ -305,7 +305,7 @@ export async function processGooglePlaceBulkTarget(input: {
       return withMeta(meta, "SKIPPED", "Poloha je explicitne neverejná; bulk súkromie nemení.");
     }
     if (await getGoogleMapsWorkflowDecision(targetType, targetId, database) === "NOT_REQUIRED") {
-      return withMeta(meta, "NOT_REQUIRED", "Google Maps bolo pre target explicitne označené ako nepotrebné.");
+      return withMeta(meta, "NOT_REQUIRED", "Admin označil Google Maps ako nepotrebné.");
     }
     const googleState = await currentGooglePlaceState(targetType, targetId);
     const googlePlaceId = String(googleState?.google_place_id ?? "").trim();
