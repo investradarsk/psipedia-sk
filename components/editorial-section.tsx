@@ -138,19 +138,19 @@ function SearchBox({
 }) {
   const sectionConfig = {
     steniatka: {
-      label: "Hľadať v Šteniatkach",
-      placeholder: "Hľadať v Šteniatkach…",
-      button: "Hľadať",
+      label: "Čo potrebuješ vedieť o šteniatku?",
+      placeholder: "Hľadaj prvú noc, socializáciu, kŕmenie alebo očkovanie…",
+      button: "Hľadať v sprievodcovi",
     },
     starostlivost: {
-      label: "Hľadať v Zdraví a starostlivosti",
-      placeholder: "Hľadať v Zdraví a starostlivosti…",
-      button: "Hľadať",
+      label: "Čo riešiš so svojím psom?",
+      placeholder: "Čo riešiš? Napríklad hnačka, svrbenie alebo samota…",
+      button: "Nájsť odpoveď",
     },
     aktivity: {
-      label: "Hľadať vo Výcviku a aktivitách",
-      placeholder: "Hľadať vo Výcviku a aktivitách…",
-      button: "Hľadať",
+      label: "Akú aktivitu alebo tréning hľadáš?",
+      placeholder: "Hľadaj tréning, šport, výlet alebo cestovanie…",
+      button: "Hľadať v sekcii",
     },
   }[sectionSlug];
   const label = subpage ? `Hľadať v téme ${subpage.label}` : sectionConfig.label;
