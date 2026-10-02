@@ -3,12 +3,12 @@ import test from "node:test";
 import {
   addressCompleteness,
   assertReadOnlySql,
+  isAdminOnlineEvent,
   locationPrivacyFlag,
   markPotentialDuplicates,
   onlineSemantics,
   toCsv,
   workflowState,
-  isAdminOnlineEvent,
 } from "../scripts/map-data-row-level-export.mjs";
 
 test("read-only SQL guard accepts SELECT/PRAGMA and rejects mutations", () => {
@@ -33,7 +33,7 @@ test("online semantics is conservative", () => {
   assert.equal(onlineSemantics({ address: "", city: "", district: "", region: "" }).bucket, "INSUFFICIENT_DATA");
 });
 
-test("organization location privacy flags honor explicit roles", () => {
+test("organization location privacy flags remain available for legacy/internal rows", () => {
   assert.equal(locationPrivacyFlag({ role: "SITE", address: "", city: "Nitra" }), "LIKELY_PUBLIC_PREMISE");
   assert.equal(locationPrivacyFlag({ role: "LEGAL_SEAT", address: "Hlavná 1", city: "Nitra" }), "LEGAL_SEAT_ONLY");
   assert.equal(locationPrivacyFlag({ role: "SERVICE_AREA", address: "", city: "Nitra" }), "LIKELY_SERVICE_AREA");
@@ -45,7 +45,6 @@ test("duplicate flags are review-only and CSV escaping is stable", () => {
   assert.deepEqual(rows.map((row) => row.potential_duplicate_review), [1, 1, 0]);
   assert.equal(toCsv([{ a: 'x,"y"', b: "z" }], ["a", "b"]), 'a,b\n"x,""y""",z\n');
 });
-
 
 test("maps workflow reconciliation mirrors PLACE / NOT_REQUIRED / coordinates / unresolved semantics", () => {
   const base = {
