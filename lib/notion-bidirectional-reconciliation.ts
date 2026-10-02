@@ -96,3 +96,41 @@ export function stableSnapshotJson(values: Record<string, unknown>) {
   );
   return JSON.stringify(normalized);
 }
+
+function normalizeComparableInstant(value: unknown) {
+  if (typeof value !== "string") return value;
+  const clean = value.replace(/\r\n?/g, "\n").trim();
+  if (!clean || /^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  // Only normalize timezone-aware instants. Naive local datetimes are left
+  // untouched because assuming a timezone could hide a real content change.
+  if (!/T.*(?:Z|[+-]\d{2}:\d{2})$/i.test(clean)) return clean;
+  const timestamp = Date.parse(clean);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : clean;
+}
+
+export function stableAgendaSnapshotJson(
+  agenda: string,
+  values: Record<string, unknown>,
+) {
+  if (agenda !== "lost-found") return stableSnapshotJson(values);
+  return stableSnapshotJson({
+    ...values,
+    // Notion normalizes timezone-aware date properties to an equivalent UTC
+    // representation. Treat equal instants as equal without changing any
+    // other agenda's established hash semantics.
+    "Naposledy videný": normalizeComparableInstant(values["Naposledy videný"]),
+  });
+}
+
+export function differingAgendaSnapshotFields(
+  agenda: string,
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+) {
+  const keys = [...new Set([...Object.keys(left), ...Object.keys(right)])]
+    .sort((a, b) => a.localeCompare(b, "sk-SK"));
+  return keys.filter((key) => (
+    stableAgendaSnapshotJson(agenda, { [key]: left[key] })
+    !== stableAgendaSnapshotJson(agenda, { [key]: right[key] })
+  ));
+}
