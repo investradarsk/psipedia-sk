@@ -103,7 +103,7 @@ test.describe("organization public profile", () => {
 
     const locationSummary = main.locator("[data-organization-location-summary]");
     await expect(locationSummary).toHaveCount(1);
-    await expect(locationSummary).toContainText("Šaľa · Nitriansky kraj");
+    await expect(locationSummary).toContainText("Nitra · Nitriansky kraj");
     await expect(locationSummary).not.toContainText("Pôsobnosť");
     await expect(locationSummary).not.toContainText("Hlavná lokalita");
     await expect(main.locator("[data-organization-location]")).toHaveCount(0);
