@@ -77,6 +77,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       organizationId,
       effectiveTargetId,
       selected,
+      input.actorRef,
     );
     if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
   }
