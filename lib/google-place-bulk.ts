@@ -17,8 +17,11 @@ import {
   evaluateGoogleDirectoryAutoMatch,
 } from "@/lib/google-place-directory-discovery";
 import { discoverGoogleTargetPlaces } from "@/lib/google-place-target-discovery";
-import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
-import { getOrganizationGoogleMapsWorkflowDecision } from "@/lib/organization-google-maps-workflow";
+import { updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
+import {
+  getOrganizationGoogleMapsWorkflowDecision,
+  loadOrganizationGoogleMapsProfile,
+} from "@/lib/organization-google-maps-workflow";
 
 type Bindings = { DB?: D1Database };
 type Row = Record<string, unknown>;
@@ -80,12 +83,6 @@ export type GooglePlaceBulkResult = {
 };
 
 const BULK_GROUPS = new Set(["ALL", "SERVICES", "HELP", "EVENTS"]);
-const BULK_OPERATORS = new Set([
-  "ALL", "ERRORS", "ON_MAP", "PENDING", "NEEDS_REVIEW", "MISSING_ADDRESS",
-  "INCOMPLETE_ADDRESS", "INVALID_ADDRESS", "FAILED", "NOT_PUBLIC",
-]);
-const BULK_GOOGLE = new Set(["ALL", "PLACE", "COORDINATES", "NOT_REQUIRED", "UNRESOLVED"]);
-
 function requireDb() {
   const database = (env as unknown as Bindings).DB;
   if (!database || typeof database.prepare !== "function") {
@@ -103,13 +100,11 @@ export function normalizeGooglePlaceBulkFilters(value: unknown): NormalizedFilte
     ? value as Record<string, unknown>
     : {};
   const group = clean(record.group, 20).toUpperCase();
-  const operator = clean(record.operator, 30).toUpperCase();
-  const google = clean(record.google, 30).toUpperCase();
   return {
     group: BULK_GROUPS.has(group) ? group : "ALL",
     category: clean(record.category, 100),
-    operator: BULK_OPERATORS.has(operator) ? operator : "ALL",
-    google: BULK_GOOGLE.has(google) ? google : "ALL",
+    operator: "ALL",
+    google: "ALL",
     query: clean(record.query, 160),
   };
 }
@@ -166,10 +161,6 @@ export async function selectGooglePlaceBulkTargets(input: {
   const filterFingerprint = googlePlaceBulkFilterFingerprint(filters);
   const cursor = parseCursor(input.cursor, filterFingerprint);
 
-  if (filters.google === "PLACE" || filters.google === "NOT_REQUIRED") {
-    return { targets: [], nextCursor: cursor ? encodeCursor(cursor) : null, hasMore: false, filterFingerprint };
-  }
-
   const rows = await selectGeoAdminBulkTargets({
     filters: {
       group: filters.group as GeoAdminOperatorGroupFilter,
@@ -212,7 +203,7 @@ function candidate(candidate: Awaited<ReturnType<typeof discoverGoogleTargetPlac
   } : null;
 }
 
-async function resultMeta(targetType: GeoTargetType, targetId: number) {
+async function resultMeta(targetType: GeoTargetType, targetId: number, organizationId?: number | null) {
   const database = requireDb();
   if (targetType === "DIRECTORY_PROFILE") {
     const row = await database.prepare("SELECT name, category, slug FROM directory_profiles WHERE id=? LIMIT 1")
@@ -227,6 +218,17 @@ async function resultMeta(targetType: GeoTargetType, targetId: number) {
     };
   }
   if (targetType === "ORGANIZATION_LOCATION") {
+    const resolvedOrganizationId = Number(organizationId ?? 0);
+    if (Number.isSafeInteger(resolvedOrganizationId) && resolvedOrganizationId > 0) {
+      const row = await database.prepare("SELECT name, type, slug FROM help_organizations WHERE id=? LIMIT 1")
+        .bind(resolvedOrganizationId).first<Row>();
+      return {
+        targetType, targetId, key: `HELP_ORGANIZATION:${resolvedOrganizationId}`,
+        name: String(row?.name ?? ""), group: "HELP" as const, groupLabel: "Pomoc psom",
+        categoryLabel: String(row?.type ?? ""), editorHref: `/admin/organizacie/${resolvedOrganizationId}`,
+        publicHref: row?.slug ? `/organizacie/${encodeURIComponent(String(row.slug))}` : null,
+      };
+    }
     const row = await database.prepare(`
       SELECT l.label, l.organization_id, o.name, o.type, o.slug
       FROM organization_locations l JOIN help_organizations o ON o.id=l.organization_id
@@ -235,7 +237,7 @@ async function resultMeta(targetType: GeoTargetType, targetId: number) {
     return {
       targetType, targetId, key: `${targetType}:${targetId}`,
       name: String(row?.label || row?.name || ""), group: "HELP" as const, groupLabel: "Pomoc psom",
-      categoryLabel: String(row?.type ?? ""), editorHref: `/admin/organizacie/${Number(row?.organization_id ?? 0)}#locations`,
+      categoryLabel: String(row?.type ?? ""), editorHref: `/admin/organizacie/${Number(row?.organization_id ?? 0)}`,
       publicHref: row?.slug ? `/organizacie/${encodeURIComponent(String(row.slug))}` : null,
     };
   }
@@ -276,31 +278,47 @@ export async function processGooglePlaceBulkTarget(input: {
   targetType: GeoTargetType;
   targetId: number;
   actorRef: string;
+  organizationId?: number | null;
 }): Promise<GooglePlaceBulkResult> {
   const targetId = Number(input.targetId);
   const targetType = input.targetType;
-  const meta = await resultMeta(targetType, targetId);
+  const organizationId = Number(input.organizationId ?? 0) || null;
+  const meta = await resultMeta(targetType, targetId, organizationId);
   if (!Number.isSafeInteger(targetId) || targetId <= 0 || !isGeoTargetType(targetType)) {
     return withMeta(meta, "ERROR", "Neplatný canonical Google bulk target.");
   }
 
   try {
     const database = requireDb();
-    const source = await getGeoSourceLocation(targetType, targetId, database);
+    const organizationState = targetType === "ORGANIZATION_LOCATION" && organizationId
+      ? await loadOrganizationGoogleMapsProfile(organizationId)
+      : null;
+    const effectiveTargetId = organizationState?.canonicalLocation?.id ?? targetId;
+    const source = organizationState?.source
+      ?? await getGeoSourceLocation(targetType, effectiveTargetId, database);
     if (!source) return withMeta(meta, "SKIPPED", "Canonical target sa nenašiel.");
     if (source.published === false) return withMeta(meta, "SKIPPED", "Target už nie je publikovaný.");
 
-    const point = await getGeoPointForTarget(targetType, targetId, database);
+    if (organizationState && !organizationState.canonicalLocation) {
+      if (organizationState.workflowDecision === "NOT_REQUIRED") {
+        return withMeta(meta, "NOT_REQUIRED", "Google Maps boli vybavené na úrovni organizácie.");
+      }
+      const candidates = await discoverGoogleTargetPlaces(source);
+      if (!candidates.length) return withMeta(meta, "NO_MATCH", "Google Maps nenašiel použiteľného kandidáta.");
+      return withMeta(meta, "REVIEW", "Organizácia ešte nemá adresu. Vyber správne Google miesto ručne.", candidate(candidates[0]));
+    }
+
+    const point = await getGeoPointForTarget(targetType, effectiveTargetId, database);
     if (point?.manualOverride) {
       return withMeta(meta, "SKIPPED", "Poloha má manuálny GEO override; bulk ju nesmie prepísať.");
     }
     if (
       point?.publicVisibility === "HIDDEN"
-      && await hasExplicitPrivateGeoDecision(targetType, targetId, database)
+      && await hasExplicitPrivateGeoDecision(targetType, effectiveTargetId, database)
     ) {
       return withMeta(meta, "SKIPPED", "Poloha je explicitne neverejná; bulk súkromie nemení.");
     }
-    if (await getGoogleMapsWorkflowDecision(targetType, targetId, database) === "NOT_REQUIRED") {
+    if (await getGoogleMapsWorkflowDecision(targetType, effectiveTargetId, database) === "NOT_REQUIRED") {
       return withMeta(meta, "NOT_REQUIRED", "Admin označil Google Maps ako nepotrebné.");
     }
     if (
@@ -310,7 +328,7 @@ export async function processGooglePlaceBulkTarget(input: {
     ) {
       return withMeta(meta, "NOT_REQUIRED", "Google Maps boli vybavené na úrovni organizácie.");
     }
-    const googleState = await currentGooglePlaceState(targetType, targetId);
+    const googleState = await currentGooglePlaceState(targetType, effectiveTargetId);
     const googlePlaceId = String(googleState?.google_place_id ?? "").trim();
     const googlePlaceFingerprint = String(googleState?.google_place_source_fingerprint ?? "").trim();
     const sourceFingerprint = String(googleState?.source_fingerprint ?? "").trim();
@@ -325,8 +343,8 @@ export async function processGooglePlaceBulkTarget(input: {
     if (targetType !== "DIRECTORY_PROFILE") {
       const candidates = await discoverGoogleTargetPlaces(source);
       if (!candidates.length) return withMeta(meta, "NO_MATCH", "Google Maps nenašiel použiteľného kandidáta.");
-      const reason = targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE"
-        ? "Google kandidát sa našiel, ale bulk nesmie LEGAL_SEAT, SERVICE_AREA ani UNSPECIFIED potichu zmeniť na SITE."
+      const reason = targetType === "ORGANIZATION_LOCATION"
+        ? "Google kandidát sa našiel. Organizácia zostáva na ručné potvrdenie správneho miesta."
         : "Google kandidát sa našiel, ale pre tento typ zatiaľ neexistuje bezpečný generický auto-confirm kontrakt.";
       return withMeta(meta, "REVIEW", reason, candidate(candidates[0]));
     }
@@ -338,7 +356,7 @@ export async function processGooglePlaceBulkTarget(input: {
       return withMeta(meta, match.decision, match.reason, best);
     }
 
-    const freshPoint = await getGeoPointForTarget(targetType, targetId, database);
+    const freshPoint = await getGeoPointForTarget(targetType, effectiveTargetId, database);
     if (freshPoint?.manualOverride) return withMeta(meta, "SKIPPED", "GEO sa počas spracovania zmenilo na manual override.", best);
     if (
       freshPoint?.publicVisibility === "HIDDEN"
@@ -347,10 +365,10 @@ export async function processGooglePlaceBulkTarget(input: {
       return withMeta(meta, "SKIPPED", "Poloha bola počas spracovania explicitne nastavená ako neverejná.", best);
     }
 
-    const profile = await updateManagedDirectoryProfileFromGooglePlace(targetId, match.candidate, input.actorRef, database);
+    const profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, match.candidate, input.actorRef, database);
     if (!profile) return withMeta(meta, "ERROR", "Profil sa pri zápise nenašiel.", best);
 
-    const resolvedPoint = await getGeoPointForTarget(targetType, targetId, database);
+    const resolvedPoint = await getGeoPointForTarget(targetType, effectiveTargetId, database);
     if (!resolvedPoint || resolvedPoint.manualOverride) {
       return withMeta(meta, "REVIEW", "Google adresu sa podarilo uložiť, ale GEO bod nie je bezpečne automatizovateľný.", best);
     }
@@ -360,7 +378,7 @@ export async function processGooglePlaceBulkTarget(input: {
 
     await applyGooglePlaceResolution({
       targetType,
-      targetId,
+      targetId: effectiveTargetId,
       place: {
         id: match.candidate.id,
         latitude: match.candidate.latitude,
