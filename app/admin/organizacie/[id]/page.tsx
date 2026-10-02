@@ -6,6 +6,7 @@ import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-w
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
+import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { getAdminEntityReview } from "@/lib/admin-entity-review-store";
@@ -47,6 +48,13 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
    </>}>
     <AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminOrganizationEditor organization={organization} automationSuggestions={automationSuggestions} />
+    <div id="google-maps">
+      <AdminProfileGoogleMaps
+        targetType="ORGANIZATION_LOCATION"
+        targetId={organization.id}
+        endpoint={`/api/admin/organizations/${organization.id}/google-place`}
+      />
+    </div>
     <div id="locations"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="fundraising"><AdminOrganizationFundraising organization={organization} initialMethods={methods} /></div>
     {organization.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ORGANIZATION" canonicalEntityId={organization.id} returnHref="/admin/organizacie" />}
