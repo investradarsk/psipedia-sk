@@ -151,7 +151,7 @@ test("NOT_REQUIRED closes only map address quality and is excluded from bulk", (
   assert.match(quality, /GOOGLE_MAPS_NOT_REQUIRED_SQL/);
   assert.match(quality, /trim\(COALESCE\(address, ''\)\) <> ''/);
   assert.match(quality, /mapReviewClosedWithoutGoogle/);
-  assert.match(bulk, /google_state <> 'NOT_REQUIRED'/);
+  assert.match(loader, /google_state <> 'NOT_REQUIRED'/);
   assert.match(bulk, /getGoogleMapsWorkflowDecision/);
   assert.match(bulk, /Admin označil Google Maps ako nepotrebné/);
 });
