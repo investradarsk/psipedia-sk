@@ -16,12 +16,14 @@ export function HelpBrowser({
   items,
   initialCategory = "all",
   children,
+  initialQuery = "",
 }: {
   items: HelpCase[];
   initialCategory?: CategoryFilter;
   children?: ReactNode;
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState<CategoryFilter>(initialCategory);
   const [region, setRegion] = useState<RegionFilter>("all");
   const [activeOnly, setActiveOnly] = useState(true);
