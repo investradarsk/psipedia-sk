@@ -9,7 +9,6 @@ import {
   sectionVisualPositionPercent,
   type ResolvedSectionVisual,
 } from "@/lib/section-visual-contract";
-import { getManagedPortalSection } from "@/lib/section-store";
 import type { SectionHeroConfig } from "@/lib/portal";
 import styles from "./unified-section-hero.module.css";
 
@@ -87,31 +86,10 @@ export async function UnifiedSectionHero({
   metaSlot?: ReactNode;
   className?: string;
 }) {
-  let managedTitle = title;
-  let managedEyebrow = eyebrow;
-  let managedIntro = intro;
-  let config: SectionHeroConfig = {};
-
-  if (visual.sectionSlug) {
-    const section = await getManagedPortalSection(visual.sectionSlug);
-    if (section?.visible) {
-      const subpage = visual.subsectionSlug
-        ? section.subpages.find((item) => item.slug === visual.subsectionSlug && item.visible !== false)
-        : null;
-
-      if (subpage) {
-        managedTitle = subpage.label || managedTitle;
-        managedEyebrow = subpage.eyebrow || managedEyebrow || section.eyebrow;
-        managedIntro = subpage.intro || subpage.description || managedIntro;
-        config = subpage.heroConfig ?? {};
-      } else if (!visual.subsectionSlug) {
-        managedTitle = section.label || managedTitle;
-        managedEyebrow = section.eyebrow || managedEyebrow;
-        managedIntro = section.intro || section.description || managedIntro;
-        config = section.heroConfig ?? {};
-      }
-    }
-  }
+  const managedTitle = visual.heroContent?.title || title;
+  const managedEyebrow = visual.heroContent?.eyebrow || eyebrow;
+  const managedIntro = visual.heroContent?.intro || intro;
+  const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
   const resolvedSearch = managedSearch(searchSlot, config);
   const resolvedCta = managedCta(config, ctaSlot);
