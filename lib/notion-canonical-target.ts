@@ -345,9 +345,13 @@ export async function resolveNotionCanonicalTarget(args: {
   // Critical: keep using the ID returned by create. Do not re-discover through
   // Search here; Notion indexing is eventually consistent and that race caused
   // duplicate Lost/Found databases in #577.
+  // A direct GET by the returned ID is safe during Notion indexing lag and
+  // gives us the authoritative schema. Only full-text search is eventually
+  // consistent here.
+  const createdFetched = await fetchDataSource(args.bindings, dataSource.id);
   const created = {
-    ...dataSource,
-    parent: dataSource.parent ?? { database_id: database.id },
+    ...createdFetched,
+    parent: createdFetched.parent ?? dataSource.parent ?? { database_id: database.id },
   };
   if (!notionDataSourceMatchesCanonicalSchema(created, args.definition)) {
     throw new Error(`${args.definition.label}: vytvorený data source nemá canonical Psipedia schému.`);
