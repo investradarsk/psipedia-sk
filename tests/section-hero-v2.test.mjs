@@ -80,7 +80,7 @@ test("admin search text cannot alter the route, hidden filters or category scope
 test("hero config uses existing canonical stores and section_visuals stays image-only", () => {
   assert.match(sectionStore, /hero_config_json/);
   assert.match(sectionStore, /subpages_json/);
-  assert.match(sectionStore, /stored\.heroConfig/);
+  assert.match(sectionStore, /stored\.heroConfig/);\n  assert.match(read("lib/section-visual-store.ts"), /getManagedPortalSection/);
   assert.match(read("drizzle/0107_section_hero_config.sql"), /ALTER TABLE portal_section_settings[\s\S]*ADD COLUMN hero_config_json/);
   assert.doesNotMatch(read("drizzle/0106_section_visuals.sql"), /searchPlaceholder|ctaLabel|quickLinks|hero_config_json/);
 });
