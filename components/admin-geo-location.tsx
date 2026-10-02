@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { GoogleMapRenderer, type MapRendererCommand, type MapRendererStatus } from "@/components/map/google-map-renderer";
-import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
+import { AdminProfileGoogleMaps } from "@/components/admin-profile-google-maps";
 import type { MapItem } from "@/lib/map-contract";
 import { MAP_DEFAULT_BBOX, type MapViewport } from "@/lib/map-public-ui";
 import type { GeoPointRecord } from "@/lib/geo-store";
@@ -126,10 +126,11 @@ function AdminLocationMap({
   );
 }
 
-export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
+export function AdminGeoLocation({ targetType, targetId, sensitive = false, showGoogleWorkflow = true }: {
   targetType: GeoTargetType;
   targetId: number;
   sensitive?: boolean;
+  showGoogleWorkflow?: boolean;
 }) {
   const endpoint = `/api/admin/geo/${targetType}/${targetId}`;
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
@@ -294,18 +295,14 @@ export function AdminGeoLocation({ targetType, targetId, sensitive = false }: {
             </div>
           ) : null}
 
-          <div style={{ display: "grid", gap: ".75rem", marginBottom: "1rem" }}>
-            <AdminGooglePlacePicker
+          {showGoogleWorkflow ? (
+            <AdminProfileGoogleMaps
               targetType={targetType}
               targetId={targetId}
               publicLocation={publicLocation}
-              configured={snapshot.googlePlacesConfigured}
-              available={snapshot.googlePlaceAction.available}
-              unavailableReason={snapshot.googlePlaceAction.reason}
               allowExplicitPrivateOverride={targetType === "DIRECTORY_PROFILE"}
-              onConfirmed={() => window.location.reload()}
             />
-          </div>
+          ) : null}
 
           {targetType === "DIRECTORY_PROFILE" ? (
             !snapshot.schemaReady ? (
