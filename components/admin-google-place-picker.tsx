@@ -12,6 +12,8 @@ export type AdminGooglePlaceCandidate = {
 export function AdminGooglePlacePicker({
   targetType,
   targetId,
+  endpoint: endpointOverride,
+  buttonLabel,
   publicLocation = true,
   configured = true,
   available = true,
@@ -23,6 +25,8 @@ export function AdminGooglePlacePicker({
 }: {
   targetType: GeoTargetType;
   targetId: number;
+  endpoint?: string;
+  buttonLabel?: string;
   publicLocation?: boolean;
   configured?: boolean;
   available?: boolean;
@@ -32,7 +36,7 @@ export function AdminGooglePlacePicker({
   allowExplicitPrivateOverride?: boolean;
   onConfirmed?: () => void | Promise<void>;
 }) {
-  const endpoint = `/api/admin/geo/${targetType}/${targetId}`;
+  const endpoint = endpointOverride ?? `/api/admin/geo/${targetType}/${targetId}`;
   const [candidates, setCandidates] = useState<AdminGooglePlaceCandidate[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -128,7 +132,7 @@ export function AdminGooglePlacePicker({
     <div data-admin-google-place-picker data-target-type={targetType} style={{ display: "grid", gap: compact ? 8 : 12 }}>
       <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
         <button type="button" disabled={busy || !configured} onClick={() => void discover()}>
-          {busy ? "Hľadám…" : compact ? "Nájsť v Google Maps" : "Nájsť profil v Google Maps"}
+          {busy ? "Hľadám…" : buttonLabel ?? (compact ? "Nájsť v Google Maps" : "Nájsť profil v Google Maps")}
         </button>
       </div>
       {!configured ? <p className="admin-help">Google Places momentálne nie je dostupné.</p> : null}
