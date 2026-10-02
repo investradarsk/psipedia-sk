@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
 import type {
   GeoAdminGoogleFilter,
@@ -40,11 +40,29 @@ const googleOptions: Array<{ value: GeoAdminGoogleFilter; label: string }> = [
   { value: "UNRESOLVED", label: "⚪ Treba vyriešiť" },
 ];
 
-type BulkResult = {
+type BulkTarget = {
+  targetType: GeoAdminOperatorRow["targetType"];
   targetId: number;
+  key: string;
   name: string;
-  result: "UPDATED" | "REVIEW" | "NO_MATCH" | "SKIPPED" | "ERROR";
+  group: "SERVICES" | "HELP" | "EVENTS";
+  groupLabel: string;
+  categoryLabel: string;
+  editorHref: string;
+  publicHref: string | null;
+  cursorAfter: string;
+};
+
+type BulkResult = Omit<BulkTarget, "cursorAfter"> & {
+  result: "UPDATED" | "REVIEW" | "NO_MATCH" | "NOT_REQUIRED" | "SKIPPED" | "ERROR";
   reason: string;
+  candidate: { id: string; displayName: string; formattedAddress: string } | null;
+};
+
+type BulkProgress = {
+  processed: number;
+  total: number;
+  currentName: string;
 };
 
 function googleStatus(item: GeoAdminOperatorRow) {
@@ -82,6 +100,16 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMessage, setBulkMessage] = useState("");
   const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
+  const [bulkProgress, setBulkProgress] = useState<BulkProgress>({ processed: 0, total: 0, currentName: "" });
+  const stopAfterCurrentRef = useRef(false);
+  const [stopRequested, setStopRequested] = useState(false);
+  const bulkSessionKey = `psipedia:google-bulk:${JSON.stringify({
+    group: data.filters.group,
+    category: data.filters.category,
+    operator: data.filters.operator,
+    google: data.filters.google,
+    query: data.filters.query,
+  })}`;
 
   function navigate(mutator: (params: URLSearchParams) => void, replace = false) {
     const params = new URLSearchParams(searchParams.toString());
@@ -162,6 +190,29 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
     }
   }
 
+  useEffect(() => {
+    try {
+      const saved = window.sessionStorage.getItem(bulkSessionKey);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as { cursor?: string | null };
+      if (parsed.cursor) {
+        setBulkCursor(parsed.cursor);
+        setBulkMessage("Predchádzajúca Google dávka bola prerušená. Môžeš pokračovať od poslednej dokončenej položky.");
+      }
+    } catch {
+      window.sessionStorage.removeItem(bulkSessionKey);
+    }
+  }, [bulkSessionKey]);
+
+  function persistBulkCursor(cursor: string | null) {
+    try {
+      if (cursor) window.sessionStorage.setItem(bulkSessionKey, JSON.stringify({ cursor }));
+      else window.sessionStorage.removeItem(bulkSessionKey);
+    } catch {
+      // Resume UX je best-effort; serverový cursor zostáva autorita.
+    }
+  }
+
   function normalizedBulkCount() {
     const value = Math.trunc(Number(bulkCount) || 1);
     return Math.max(1, Math.min(100, value));
@@ -172,7 +223,9 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
     setBulkCount(count);
     setBulkBusy(true);
     setBulkMessage("");
-    setBulkResults([]);
+    setBulkProgress({ processed: 0, total: 0, currentName: "" });
+    stopAfterCurrentRef.current = false;
+    setStopRequested(false);
     try {
       const selectResponse = await fetch("/api/admin/geo/bulk-google", {
         method: "POST",
@@ -182,6 +235,7 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
           count,
           cursor: bulkCursor,
           filters: {
+            group: data.filters.group,
             category: data.filters.category,
             operator: data.filters.operator,
             google: data.filters.google,
@@ -191,57 +245,79 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
       });
       const selection = await selectResponse.json() as {
         error?: string;
-        targetIds?: number[];
+        targets?: BulkTarget[];
         nextCursor?: string | null;
         hasMore?: boolean;
       };
       if (!selectResponse.ok) throw new Error(selection.error || "Ďalšiu Google dávku sa nepodarilo vybrať.");
-      const targetIds = selection.targetIds ?? [];
-      if (!targetIds.length) {
-        setBulkCursor(selection.nextCursor ?? null);
-        setBulkMessage("Pre aktuálny filter už nie sú ďalšie eligible profily.");
+      const targets = selection.targets ?? [];
+      if (!targets.length) {
+        setBulkMessage("Pre aktuálny filter už nie sú ďalšie eligible položky.");
         return;
       }
 
-      const results: BulkResult[] = [];
-      for (const targetId of targetIds) {
+      setBulkProgress({ processed: 0, total: targets.length, currentName: targets[0]?.name ?? "" });
+      let processed = 0;
+      let lastCursor = bulkCursor;
+      for (const target of targets) {
+        if (stopAfterCurrentRef.current) break;
+        setBulkProgress({ processed, total: targets.length, currentName: target.name });
         const response = await fetch("/api/admin/geo/bulk-google", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             action: "process-target",
             confirm: "GOOGLE-PLACE-BULK",
-            targetId,
+            targetType: target.targetType,
+            targetId: target.targetId,
           }),
         });
         const body = await response.json() as { error?: string; result?: BulkResult };
-        if (!response.ok || !body.result) {
-          results.push({
-            targetId,
-            name: "",
-            result: "ERROR",
-            reason: body.error || "Google profil sa nepodarilo spracovať.",
-          });
-        } else {
-          results.push(body.result);
-        }
+        const result: BulkResult = !response.ok || !body.result
+          ? {
+              targetType: target.targetType,
+              targetId: target.targetId,
+              key: target.key,
+              name: target.name,
+              group: target.group,
+              groupLabel: target.groupLabel,
+              categoryLabel: target.categoryLabel,
+              editorHref: target.editorHref,
+              publicHref: target.publicHref,
+              result: "ERROR",
+              reason: body.error || "Google target sa nepodarilo spracovať.",
+              candidate: null,
+            }
+          : body.result;
+        processed += 1;
+        lastCursor = target.cursorAfter;
+        setBulkResults((previous) => [...previous, result]);
+        setBulkCursor(lastCursor);
+        persistBulkCursor(lastCursor);
+        setBulkProgress({ processed, total: targets.length, currentName: target.name });
+        if (stopAfterCurrentRef.current) break;
       }
-      setBulkResults(results);
-      setBulkCursor(selection.nextCursor ?? null);
+
+      const stopped = stopAfterCurrentRef.current && processed < targets.length;
+      const hasMore = stopped || Boolean(selection.hasMore);
       setBulkMessage(
-        `Google Maps kontrola: spracované ${results.length}. ` +
-        `Potvrdené ${results.filter((item) => item.result === "UPDATED").length}, ` +
-        `na kontrolu ${results.filter((item) => item.result === "REVIEW").length}, ` +
-        `nenájdené ${results.filter((item) => item.result === "NO_MATCH").length}, ` +
-        `preskočené ${results.filter((item) => item.result === "SKIPPED").length}, ` +
-        `chyby ${results.filter((item) => item.result === "ERROR").length}.` +
-        (selection.hasMore ? " Môžeš pokračovať ďalšou dávkou." : " Toto bola posledná dostupná dávka."),
+        stopped
+          ? `Zastavené po ${processed} / ${targets.length}. Môžeš pokračovať od ďalšej položky.`
+          : hasMore
+            ? `Google Maps kontrola dokončená: ${processed} položiek. Môžeš pokračovať ďalšou dávkou.`
+            : "Google Maps kontrola dokončená. Pre aktuálny filter už nie sú ďalšie eligible položky.",
       );
+      if (!hasMore) {
+        setBulkCursor(null);
+        persistBulkCursor(null);
+      }
       router.refresh();
     } catch (error) {
       setBulkMessage(error instanceof Error ? error.message : "Google bulk operácia zlyhala.");
     } finally {
       setBulkBusy(false);
+      stopAfterCurrentRef.current = false;
+      setStopRequested(false);
     }
   }
 
@@ -391,63 +467,102 @@ export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData
         </div>
       </section>
 
-      {data.filters.group === "SERVICES" ? (
-        <section className="admin-form-card" data-google-bulk>
-          <div className="admin-section-heading">
-            <div>
-              <h2>Google bulk — Služby</h2>
-              <p>
-                Server vyberie ďalších eligible profilov z celého filtrovaného datasetu, nie iba z aktuálnej stránky.
-                Google Maps netreba, aktuálny Place, manual override a explicit private sa neberú.
-              </p>
-            </div>
+      <section className="admin-form-card" data-google-bulk>
+        <div className="admin-section-heading">
+          <div>
+            <h2>Google bulk — {groupOptions.find((option) => option.value === data.filters.group)?.label ?? "Všetko"}</h2>
+            <p>
+              Server vyberá 1–100 eligible položiek z celého aktuálne filtrovaného datasetu, nie iba z tejto stránky.
+              Spracovanie je sekvenčné a výsledok sa zobrazí po každej položke.
+            </p>
           </div>
-          <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
-            <label>
-              Počet profilov na kontrolu
-              <input
-                id="google-bulk-count"
-                type="number"
-                min={1}
-                max={100}
-                value={bulkCount}
-                onChange={(event) => setBulkCount(Number(event.target.value))}
-                onBlur={() => setBulkCount(normalizedBulkCount())}
-                style={{ width: 100, marginLeft: 8 }}
-              />
-            </label>
-            <button type="button" disabled={bulkBusy} onClick={() => void runBulk()}>
-              {bulkBusy
-                ? "Spracúvam…"
-                : bulkCursor
-                  ? `Pokračovať ďalšou dávkou (max. ${normalizedBulkCount()})`
-                  : `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`}
+        </div>
+
+        <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+          <label>
+            Počet položiek
+            <input
+              id="google-bulk-count"
+              type="number"
+              min={1}
+              max={100}
+              value={bulkCount}
+              onChange={(event) => setBulkCount(Number(event.target.value))}
+              onBlur={() => setBulkCount(normalizedBulkCount())}
+              style={{ width: 100, marginLeft: 8 }}
+            />
+          </label>
+          <button type="button" disabled={bulkBusy} onClick={() => void runBulk()}>
+            {bulkBusy
+              ? `Spracúvam ${bulkProgress.processed} / ${bulkProgress.total || normalizedBulkCount()}`
+              : bulkCursor
+                ? `Pokračovať ďalšou dávkou (max. ${normalizedBulkCount()})`
+                : `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`}
+          </button>
+          {bulkBusy ? (
+            <button type="button" disabled={stopRequested} onClick={() => {
+              stopAfterCurrentRef.current = true;
+              setStopRequested(true);
+            }}>
+              {stopRequested ? "Zastavím po aktuálnej položke…" : "Zastaviť po aktuálnej položke"}
             </button>
-            {bulkCursor ? (
-              <button type="button" disabled={bulkBusy} onClick={() => {
-                setBulkCursor(null);
-                setBulkResults([]);
-                setBulkMessage("Bulk cursor bol resetnutý pre aktuálny filter.");
-              }}>
-                Začať od začiatku
-              </button>
-            ) : null}
-          </div>
-          {bulkMessage ? <p className="admin-message" role="status">{bulkMessage}</p> : null}
-          {bulkResults.length ? (
-            <details>
-              <summary style={{ cursor: "pointer", fontWeight: 700 }}>Výsledky poslednej dávky ({bulkResults.length})</summary>
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {bulkResults.map((result) => (
-                  <p className="admin-help" key={result.targetId}>
-                    #{result.targetId} {result.name || "Profil"} — <strong>{result.result}</strong>: {result.reason}
-                  </p>
-                ))}
-              </div>
-            </details>
           ) : null}
-        </section>
-      ) : null}
+          {bulkCursor && !bulkBusy ? (
+            <button type="button" onClick={() => {
+              setBulkCursor(null);
+              persistBulkCursor(null);
+              setBulkResults([]);
+              setBulkProgress({ processed: 0, total: 0, currentName: "" });
+              setBulkMessage("Bulk cursor bol resetnutý pre aktuálny filter.");
+            }}>
+              Začať od začiatku
+            </button>
+          ) : null}
+        </div>
+
+        {bulkProgress.total ? (
+          <div className="admin-message" role="status" style={{ display: "grid", gap: 8 }}>
+            <strong>Google Maps kontrola — {bulkProgress.processed} / {bulkProgress.total}</strong>
+            <progress value={bulkProgress.processed} max={bulkProgress.total} style={{ width: "100%" }} />
+            <span>{Math.round((bulkProgress.processed / bulkProgress.total) * 100)} %</span>
+            {bulkBusy && bulkProgress.currentName ? <span>Aktuálne: <strong>{bulkProgress.currentName}</strong></span> : null}
+            <span>
+              ✓ Potvrdené: {bulkResults.filter((item) => item.result === "UPDATED").length}
+              {" · "}⚠ Na kontrolu: {bulkResults.filter((item) => item.result === "REVIEW").length}
+              {" · "}○ Nenájdené: {bulkResults.filter((item) => item.result === "NO_MATCH").length}
+              {" · "}✓ Netreba: {bulkResults.filter((item) => item.result === "NOT_REQUIRED").length}
+              {" · "}↷ Preskočené: {bulkResults.filter((item) => item.result === "SKIPPED").length}
+              {" · "}✕ Chyby: {bulkResults.filter((item) => item.result === "ERROR").length}
+            </span>
+          </div>
+        ) : null}
+
+        {bulkMessage ? <p className="admin-message" role="status">{bulkMessage}</p> : null}
+
+        {bulkResults.length ? (
+          <div style={{ display: "grid", gap: 10 }} data-google-bulk-results>
+            {bulkResults.map((result, index) => (
+              <article className="admin-message" key={`${result.key}:${index}`} style={{ display: "grid", gap: 6 }}>
+                <strong>{index + 1}. {result.name || result.key}</strong>
+                <span>{result.groupLabel}{result.categoryLabel ? ` · ${result.categoryLabel}` : ""}</span>
+                <span><strong>{result.result}</strong> — {result.reason}</span>
+                {result.candidate ? (
+                  <span>Google kandidát: {result.candidate.displayName} · {result.candidate.formattedAddress}</span>
+                ) : null}
+                <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+                  <Link href={result.editorHref}>Otvoriť profil v admine</Link>
+                  {result.publicHref ? (
+                    <a href={result.publicHref} target="_blank" rel="noopener noreferrer">Otvoriť verejný profil ↗</a>
+                  ) : null}
+                  {(result.result === "REVIEW" || result.result === "NO_MATCH") ? (
+                    <Link href={result.editorHref}>Ručne doriešiť Google Maps</Link>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       {message ? <p className="admin-message" role="status">{message}</p> : null}
 
