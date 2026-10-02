@@ -34,6 +34,7 @@ type SearchParams = {
   page?: string | string[];
   typ?: string | string[];
   lokalita?: string | string[];
+  podsekcia?: string | string[];
 };
 
 type Props = { searchParams: Promise<SearchParams> };
@@ -72,9 +73,11 @@ function searchHref(
   page: number,
   typeFilter: string | undefined,
   locationFilter: string | undefined,
+  subsection = "",
 ) {
   const params = new URLSearchParams({ q: query });
   if (section) params.set("sekcia", section);
+  if (section && subsection) params.set("podsekcia", subsection);
   if (typeFilter !== undefined) params.set("typ", typeFilter);
   if (locationFilter !== undefined) params.set("lokalita", locationFilter);
   if (page > 1) params.set("page", String(page));
@@ -132,30 +135,31 @@ function broadenSearchLinks(
   parsed: ParsedPortalSearchQuery,
   typeFilter: string | undefined,
   locationFilter: string | undefined,
+  subsection = "",
 ) {
   const links: Array<{ href: string; label: string }> = [];
   const location = parsed.location;
   if (location?.level === "city" && location.district) {
     links.push({
-      href: searchHref(query, section, 1, typeFilter, `okres:${location.district}`),
+      href: searchHref(query, section, 1, typeFilter, `okres:${location.district}`, subsection),
       label: `Rozšíriť na okres ${location.district}`,
     });
   }
   if (location && location.level !== "region" && location.region) {
     links.push({
-      href: searchHref(query, section, 1, typeFilter, `kraj:${location.region}`),
+      href: searchHref(query, section, 1, typeFilter, `kraj:${location.region}`, subsection),
       label: `Rozšíriť na ${location.region}`,
     });
   }
   if (location) {
     links.push({
-      href: searchHref(query, section, 1, typeFilter, ""),
+      href: searchHref(query, section, 1, typeFilter, "", subsection),
       label: "Hľadať bez obmedzenia lokality",
     });
   }
   if (portalSearchTypeFilterFromParsed(parsed)) {
     links.push({
-      href: searchHref(query, section, 1, "", locationFilter),
+      href: searchHref(query, section, 1, "", locationFilter, subsection),
       label: "Hľadať vo všetkých typoch výsledkov",
     });
   }
@@ -166,7 +170,9 @@ export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams;
   const query = (first(params.q) ?? "").trim().slice(0, SEARCH_MAX_QUERY_LENGTH);
   const rawSection = first(params.sekcia);
-  const section = rawSection === "starostlivost" || rawSection === "aktivity" || rawSection === "steniatka" ? rawSection : "";
+  const supportedSections = new Set(["starostlivost", "aktivity", "steniatka", "novinky", "recenzie", "pomoc-psom"]);
+  const section = rawSection && supportedSections.has(rawSection) ? rawSection : "";
+  const subsection = section ? (first(params.podsekcia) ?? "").trim().slice(0, 80) : "";
   const requestedPage = Math.max(1, Number.parseInt(first(params.page) ?? "1", 10) || 1);
   const typeProvided = params.typ !== undefined;
   const locationProvided = params.lokalita !== undefined;
@@ -177,6 +183,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const result = await searchPortal(query, {
     page: requestedPage,
     section,
+    subsection,
     filters: {
       type: rawTypeFilter,
       typeProvided,
@@ -186,7 +193,7 @@ export default async function SearchPage({ searchParams }: Props) {
   });
   const fallbacks = portalSearchFallbacks(result.parsed);
   const knownFallbacks = knownContentFallbacks(query, section);
-  const broadenings = broadenSearchLinks(query, section, result.parsed, typeFilterParam, locationFilterParam);
+  const broadenings = broadenSearchLinks(query, section, result.parsed, typeFilterParam, locationFilterParam, subsection);
   const activeTypeFilter = portalSearchTypeFilterFromParsed(result.parsed);
   const activeTypeLabel = typeFilterLabel(activeTypeFilter);
   const activeLocationLabel = locationLabel(result.parsed);
@@ -211,10 +218,11 @@ export default async function SearchPage({ searchParams }: Props) {
         <div className="shell">
           <span className="eyebrow">Celá Psipedia na jednom mieste</span>
           <h1>Čo hľadáš?</h1>
-          <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}</p>
+          <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : section === "novinky" ? "Vyhľadávame iba medzi Novinkami." : section === "recenzie" ? "Vyhľadávame iba medzi redakčnými recenziami a testami." : section === "pomoc-psom" ? "Vyhľadávame iba v sekcii Pomoc psom." : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}</p>
           <form action="/hladat" method="get" className="portal-search-form" role="search">
             <SearchIcon size={24} />
             {section && <input type="hidden" name="sekcia" value={section} />}
+            {section && subsection && <input type="hidden" name="podsekcia" value={subsection} />}
             <label className="sr-only" htmlFor="portal-query">Hľadaný výraz</label>
             <input
               id="portal-query"
@@ -243,7 +251,7 @@ export default async function SearchPage({ searchParams }: Props) {
             <div className={styles.discoveryActions}>
               {mapHref ? <Link className={styles.mapLink} href={mapHref}>Zobraziť na mape</Link> : null}
               {typeProvided || locationProvided ? (
-                <Link href={searchHref(query, section, 1, undefined, undefined)}>Obnoviť rozpoznanie z dotazu</Link>
+                <Link href={searchHref(query, section, 1, undefined, undefined, subsection)}>Obnoviť rozpoznanie z dotazu</Link>
               ) : null}
             </div>
           </div>
@@ -252,7 +260,7 @@ export default async function SearchPage({ searchParams }: Props) {
             <div className={styles.chips} aria-label="Aktívna interpretácia dotazu">
               {activeTypeLabel ? (
                 <Link
-                  href={searchHref(query, section, 1, "", locationFilterParam)}
+                  href={searchHref(query, section, 1, "", locationFilterParam, subsection)}
                   className={styles.chip}
                   aria-label={`Zrušiť filter typu ${activeTypeLabel}`}
                 >
@@ -261,7 +269,7 @@ export default async function SearchPage({ searchParams }: Props) {
               ) : null}
               {activeLocationLabel ? (
                 <Link
-                  href={searchHref(query, section, 1, typeFilterParam, "")}
+                  href={searchHref(query, section, 1, typeFilterParam, "", subsection)}
                   className={styles.chip}
                   aria-label={`Zrušiť filter lokality ${activeLocationLabel}`}
                 >
@@ -381,9 +389,9 @@ export default async function SearchPage({ searchParams }: Props) {
 
             {result.totalPages > 1 ? (
               <nav className={styles.pagination} aria-label="Stránkovanie výsledkov">
-                {result.page > 1 ? <Link href={searchHref(query, section, result.page - 1, typeFilterParam, locationFilterParam)} rel="prev">← Predchádzajúca</Link> : <span />}
+                {result.page > 1 ? <Link href={searchHref(query, section, result.page - 1, typeFilterParam, locationFilterParam, subsection)} rel="prev">← Predchádzajúca</Link> : <span />}
                 <span>Strana {result.page} z {result.totalPages}</span>
-                {result.page < result.totalPages ? <Link href={searchHref(query, section, result.page + 1, typeFilterParam, locationFilterParam)} rel="next">Ďalšia →</Link> : <span />}
+                {result.page < result.totalPages ? <Link href={searchHref(query, section, result.page + 1, typeFilterParam, locationFilterParam, subsection)} rel="next">Ďalšia →</Link> : <span />}
               </nav>
             ) : null}
           </>
