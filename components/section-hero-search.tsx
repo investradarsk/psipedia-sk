@@ -9,6 +9,7 @@ export function SectionHeroSearch({
   buttonLabel = "Hľadať",
   hidden = [],
   beforeInput,
+  inputName = "q",
 }: {
   action: string;
   id: string;
@@ -18,6 +19,7 @@ export function SectionHeroSearch({
   buttonLabel?: string;
   hidden?: Array<{ name: string; value: string }>;
   beforeInput?: ReactNode;
+  inputName?: string;
 }) {
   return (
     <form action={action} method="get" role="search" aria-label={label} data-section-hero-search>
@@ -25,7 +27,7 @@ export function SectionHeroSearch({
       {beforeInput}
       <label htmlFor={id}>
         <span className="sr-only">{label}</span>
-        <input id={id} name="q" defaultValue={defaultValue} maxLength={120} placeholder={placeholder} autoComplete="off" />
+        <input id={id} name={inputName} defaultValue={defaultValue} maxLength={120} placeholder={placeholder} autoComplete="off" />
       </label>
       <button type="submit">{buttonLabel}</button>
     </form>
