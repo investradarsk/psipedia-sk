@@ -128,7 +128,7 @@ export function helpStatusFromNotion(value: string) {
   throw new Error(`Nepodporovaný stav prípadu Pomoc psom v Notione: ${value}`);
 }
 
-const LOST_FOUND_STATUSES = new Set(["DRAFT", "ACTIVE", "RESOLVED", "EXPIRED", "ARCHIVED"]);
+const LOST_FOUND_STATUSES = new Set(["DRAFT", "PENDING", "ACTIVE", "RESOLVED", "EXPIRED", "REJECTED", "ARCHIVED"]);
 export function lostFoundStatusFromNotion(value: string) {
   const normalized = value.toUpperCase() || "DRAFT";
   if (!LOST_FOUND_STATUSES.has(normalized)) {
@@ -415,14 +415,14 @@ function lostFoundPayload(
     publicLatitude: n(values["Latitude"]),
     publicLongitude: n(values["Longitude"]),
     publicLocationPrecision: s(values["Presnosť lokality"]),
-    contactName: existing?.privateContactName ?? null,
-    contactPhone: existing?.privateContactPhone ?? null,
-    contactEmail: existing?.privateContactEmail ?? null,
+    contactName: existing?.contactName ?? null,
+    contactPhone: existing?.contactPhone ?? null,
+    contactEmail: existing?.contactEmail ?? null,
     publicContactNote: s(values["Verejný kontakt"]),
     source: s(values["Zdroj"]),
     sourceUrl: s(values["Zdroj URL"]) || null,
     expiresAt: existing?.expiresAt ?? null,
-    internalNote: existing?.privateNote ?? "",
+    internalNote: existing?.internalNote ?? "",
   };
 }
 
