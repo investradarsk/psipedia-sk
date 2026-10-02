@@ -104,8 +104,9 @@ export function resolveSectionVisualList(
 }
 
 function validateMediaPath(imageUrl: string, imageKey: string | null) {
+  if (imageUrl.startsWith("/images/") && !imageKey) return;
   if (!imageUrl.startsWith("/media/section-visuals/")) {
-    throw new Error("Vizuál musí byť nahratý cez správcu obrázkov sekcií.");
+    throw new Error("Vizuál musí používať stabilný Psipedia asset alebo obrázok nahratý cez správcu vizuálov.");
   }
   if (imageKey && !imageKey.startsWith("section-visuals/")) {
     throw new Error("Kľúč obrázka nepatrí do priečinka vizuálov sekcií.");
