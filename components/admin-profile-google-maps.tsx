@@ -149,7 +149,7 @@ export function AdminProfileGoogleMaps({
         </div>
       </div>
 
-      <p className="admin-message" role="status"><strong>{status}</strong></p>
+      <p className="admin-message" data-google-maps-status><strong>{status}</strong></p>
 
       {snapshot.representedLocationLabel ? (
         <p className="admin-help">
