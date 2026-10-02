@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -26,6 +27,81 @@ test("A: Google directory write contract physically owns location fields only", 
   }
   assert.match(confirmation, /updateManagedDirectoryProfileLocationFromGooglePlace/);
   assert.doesNotMatch(confirmation, /updateManagedDirectoryProfileFromGooglePlace/);
+});
+
+test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagram BYTE-FOR-BYTE", () => {
+  const start = directory.indexOf("export async function updateManagedDirectoryProfileLocationFromGooglePlace");
+  const end = directory.indexOf("export async function setManagedDirectoryProfileReviewed", start);
+  const block = directory.slice(start, end);
+  const sqlMatch = block.match(/database\.prepare\(`([\s\S]*?UPDATE directory_profiles[\s\S]*?RETURNING \*)`\)\.bind\(/);
+  assert.ok(sqlMatch?.[1], "location-only UPDATE SQL must be extractable from the runtime helper");
+
+  const db = new DatabaseSync(":memory:");
+  db.exec(`
+    CREATE TABLE directory_profiles (
+      id INTEGER PRIMARY KEY,
+      region TEXT, district TEXT, city TEXT, address TEXT, postal_code TEXT,
+      street TEXT, house_number TEXT, address_format TEXT, service_address_confirmation TEXT,
+      search_text TEXT, updated_at TEXT, updated_by TEXT,
+      website_url TEXT, internal_email TEXT, source_data_json TEXT
+    )
+  `);
+
+  const before = {
+    phone: "+421 905 123 456  ",
+    email: "kontakt+maps@example.sk",
+    website: "https://example.sk/path?x=1&y=2",
+    facebook: "https://www.facebook.com/example.sk/",
+    instagram: "https://www.instagram.com/example.sk/",
+  };
+  const sourceData = JSON.stringify({
+    "Telefón": before.phone,
+    "E-mail": before.email,
+    "Facebook": before.facebook,
+    "Instagram": before.instagram,
+    "Poznámka": "Žiadna normalizácia kontaktov pri Google Maps",
+  });
+
+  db.prepare(`
+    INSERT INTO directory_profiles (
+      id, region, district, city, address, postal_code, street, house_number,
+      address_format, service_address_confirmation, search_text, updated_at, updated_by,
+      website_url, internal_email, source_data_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    7, "Starý kraj", "Starý okres", "Staré mesto", "Stará 1", "00000", "Stará", "1",
+    "STREET", "LEGACY_UNCONFIRMED", "old", "2026-01-01T00:00:00.000Z", "old@example.sk",
+    before.website, "internal@example.sk", sourceData,
+  );
+
+  db.prepare(sqlMatch[1]).get(
+    "Nitriansky kraj", "Nitra", "Nitra", "Hlavná 22", "94901", "Hlavná", "22",
+    "STREET", "new search", "2026-10-02T20:00:00.000Z", "admin@example.sk", 7,
+  );
+
+  const after = db.prepare(`
+    SELECT address, region, district, city, website_url, source_data_json
+    FROM directory_profiles WHERE id = 7
+  `).get();
+  assert.equal(after.address, "Hlavná 22");
+  assert.equal(after.region, "Nitriansky kraj");
+  assert.equal(after.district, "Nitra");
+  assert.equal(after.city, "Nitra");
+
+  const afterSource = JSON.parse(String(after.source_data_json));
+  const exact = (left, right, label) => {
+    assert.equal(
+      Buffer.compare(Buffer.from(String(left), "utf8"), Buffer.from(String(right), "utf8")),
+      0,
+      `${label} changed at byte level`,
+    );
+  };
+  exact(afterSource["Telefón"], before.phone, "phone");
+  exact(afterSource["E-mail"], before.email, "email");
+  exact(after.website_url, before.website, "website");
+  exact(afterSource.Facebook, before.facebook, "Facebook");
+  exact(afterSource.Instagram, before.instagram, "Instagram");
+  assert.match(confirmation, /applyGooglePlaceResolution/);
 });
 
 test("A: Google Places provider requests no phone or website business fields", () => {
