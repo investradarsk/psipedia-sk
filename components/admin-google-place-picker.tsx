@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GeoTargetType } from "@/lib/geo";
 
 export type AdminGooglePlaceCandidate = {
@@ -17,6 +17,7 @@ export function AdminGooglePlacePicker({
   available = true,
   unavailableReason = "",
   compact = false,
+  autoDiscover = false,
   allowExplicitPrivateOverride = false,
   onConfirmed,
 }: {
@@ -27,6 +28,7 @@ export function AdminGooglePlacePicker({
   available?: boolean;
   unavailableReason?: string;
   compact?: boolean;
+  autoDiscover?: boolean;
   allowExplicitPrivateOverride?: boolean;
   onConfirmed?: () => void | Promise<void>;
 }) {
@@ -35,22 +37,30 @@ export function AdminGooglePlacePicker({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [requiresSiteConfirmation, setRequiresSiteConfirmation] = useState(false);
+  const autoStarted = useRef(false);
 
   async function discover() {
     setBusy(true);
     setError("");
     setMessage("");
     setCandidates([]);
+    setRequiresSiteConfirmation(false);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "discover-google-place" }),
       });
-      const body = await response.json() as { candidates?: AdminGooglePlaceCandidate[]; error?: string };
+      const body = await response.json() as {
+        candidates?: AdminGooglePlaceCandidate[];
+        requiresSiteConfirmation?: boolean;
+        error?: string;
+      };
       if (!response.ok) throw new Error(body.error || "Google Maps miesto sa nepodarilo vyhľadať.");
       const next = body.candidates ?? [];
       setCandidates(next);
+      setRequiresSiteConfirmation(Boolean(body.requiresSiteConfirmation));
       if (!next.length) setMessage("Google Maps nenašiel vhodné miesto.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo vyhľadať.");
@@ -59,7 +69,24 @@ export function AdminGooglePlacePicker({
     }
   }
 
+  useEffect(() => {
+    if (!autoDiscover || autoStarted.current || !available || !configured) return;
+    autoStarted.current = true;
+    void discover();
+    // Discovery je naviazané na mount pickera. V Admin → Mapy sa picker mountuje
+    // až po explicitnom kliknutí, takže Google request nikdy nevzniká pri page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDiscover, available, configured, endpoint]);
+
   async function confirm(placeId: string) {
+    const confirmOrganizationSite = requiresSiteConfirmation;
+    if (
+      confirmOrganizationSite
+      && !window.confirm("Použiť toto Google miesto ako verejne navštevované miesto organizácie?")
+    ) {
+      return;
+    }
+
     setBusy(true);
     setError("");
     setMessage("");
@@ -72,12 +99,15 @@ export function AdminGooglePlacePicker({
           placeId,
           publicLocation,
           allowPrivateOverride: Boolean(allowExplicitPrivateOverride && publicLocation),
+          confirmOrganizationSite,
         }),
       });
-      const body = await response.json() as { error?: string };
+      const body = await response.json() as { error?: string; createdSiteId?: number | null };
       if (!response.ok) throw new Error(body.error || "Google Maps miesto sa nepodarilo potvrdiť.");
       setCandidates([]);
-      setMessage("Google Maps miesto bolo potvrdené.");
+      setMessage(body.createdSiteId
+        ? "Google Maps miesto bolo potvrdené ako nové verejne navštevované SITE."
+        : "Google Maps miesto bolo potvrdené.");
       await onConfirmed?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo potvrdiť.");
@@ -102,13 +132,18 @@ export function AdminGooglePlacePicker({
         </button>
       </div>
       {!configured ? <p className="admin-help">Google Places momentálne nie je dostupné.</p> : null}
+      {requiresSiteConfirmation && candidates.length ? (
+        <p className="admin-help">
+          Vyhľadávanie použilo názov a existujúce údaje iba ako hinty. Vybrané miesto sa zverejní ako nové SITE až po tvojom výslovnom potvrdení; LEGAL_SEAT ani SERVICE_AREA sa neprepíšu.
+        </p>
+      ) : null}
       {candidates.length ? (
         <div style={{ display: "grid", gap: 8 }}>
           {candidates.map((candidate) => (
-            <div className="admin-message" key={candidate.id} style={{ overflowWrap: "anywhere" }}>
+            <div className="admin-message" key={candidate.id} style={{ overflowWrap: "anywhere", maxWidth: "100%" }}>
               <strong>{candidate.displayName || "Google Maps miesto"}</strong>
               <p className="admin-help" style={{ margin: "6px 0" }}>{candidate.formattedAddress || "Adresa nie je uvedená"}</p>
-              <div className="admin-editor-actions">
+              <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
                 <button type="button" disabled={busy} onClick={() => void confirm(candidate.id)}>
                   Použiť toto miesto
                 </button>

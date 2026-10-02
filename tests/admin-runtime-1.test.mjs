@@ -20,6 +20,7 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       website_url TEXT,
       image_url TEXT,
       image_key TEXT,
+      address TEXT,
       online INTEGER,
       city TEXT,
       district TEXT,
@@ -32,13 +33,29 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       title TEXT NOT NULL,
       slug TEXT NOT NULL
     );
+    CREATE TABLE geo_points (
+      id INTEGER PRIMARY KEY,
+      target_type TEXT NOT NULL,
+      directory_profile_id INTEGER
+    );
+    CREATE TABLE moderation_events (
+      id TEXT PRIMARY KEY,
+      resource_type TEXT NOT NULL,
+      subject_id TEXT,
+      action TEXT NOT NULL,
+      actor_type TEXT NOT NULL,
+      to_status TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX moderation_events_subject_created_idx
+      ON moderation_events (resource_type, subject_id, created_at);
   `);
 
   const insertProfile = sqlite.prepare(`
     INSERT INTO directory_profiles (
       id, slug, name, category, status, description, website_url, image_url, image_key,
-      online, city, district, region, service_address_confirmation, source_data_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      address, online, city, district, region, service_address_confirmation, source_data_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (let id = 1; id <= 1200; id += 1) {
     insertProfile.run(
@@ -51,6 +68,7 @@ function d1Fixture({ withMedia = true, failLookups = false } = {}) {
       "https://example.test",
       id % 11 === 0 ? null : "https://example.test/image.jpg",
       null,
+      "Hlavná 1, Nitra",
       0,
       "Nitra",
       "Nitra",
@@ -200,6 +218,71 @@ test("current profile quality resolutions suppress legitimate missing fields and
   assert.equal(stale.summary.profilesWithIssues, 1200);
   assert.equal(stale.summary.missingPhone, 1200);
   assert.equal(stale.summary.missingEmail, 1200);
+  fixture.close();
+});
+
+
+test("Google Maps not required closes only the map/address review and reset reopens it", async () => {
+  const fixture = d1Fixture();
+  useDb(fixture.db);
+
+  await fixture.db.prepare(`
+    UPDATE directory_profiles
+    SET service_address_confirmation='LEGACY_UNCONFIRMED', address='Hlavná 1, Nitra'
+    WHERE id=1
+  `).run();
+  await fixture.db.prepare(`
+    INSERT INTO geo_points (id, target_type, directory_profile_id)
+    VALUES (101, 'DIRECTORY_PROFILE', 1)
+  `).run();
+  await fixture.db.prepare(`
+    INSERT INTO moderation_events (
+      id, resource_type, subject_id, action, actor_type, to_status, created_at
+    ) VALUES (
+      'map-not-required-1', 'GEO_POINT', '101', 'GOOGLE_MAPS_NOT_REQUIRED',
+      'ADMIN', NULL, '2026-10-02T00:00:00.000Z'
+    )
+  `).run();
+
+  const closed = await quality.loadDataQualityDashboard({ query: "Profil 0001" });
+  assert.equal(closed.profiles.length, 1);
+  assert.equal(closed.summary.incompleteAddress, 0);
+  assert.equal(closed.profiles[0].issues.some((issue) => issue.key === "address"), false);
+  assert.equal(closed.profiles[0].issues.some((issue) => issue.key === "email"), true);
+
+  await fixture.db.prepare(`
+    INSERT INTO moderation_events (
+      id, resource_type, subject_id, action, actor_type, to_status, created_at
+    ) VALUES (
+      'map-required-again-1', 'GEO_POINT', '101', 'GOOGLE_MAPS_REQUIRED_AGAIN',
+      'ADMIN', NULL, '2026-10-02T00:01:00.000Z'
+    )
+  `).run();
+
+  const reopened = await quality.loadDataQualityDashboard({ query: "Profil 0001" });
+  assert.equal(reopened.summary.incompleteAddress, 1);
+  assert.equal(reopened.profiles[0].issues.some((issue) => issue.key === "address"), true);
+
+  await fixture.db.prepare(`
+    UPDATE directory_profiles
+    SET address='', city='', service_address_confirmation='LEGACY_UNCONFIRMED'
+    WHERE id=2
+  `).run();
+  await fixture.db.prepare(`
+    INSERT INTO geo_points (id, target_type, directory_profile_id)
+    VALUES (102, 'DIRECTORY_PROFILE', 2)
+  `).run();
+  await fixture.db.prepare(`
+    INSERT INTO moderation_events (
+      id, resource_type, subject_id, action, actor_type, to_status, created_at
+    ) VALUES (
+      'map-not-required-2', 'GEO_POINT', '102', 'GOOGLE_MAPS_NOT_REQUIRED',
+      'ADMIN', NULL, '2026-10-02T00:00:00.000Z'
+    )
+  `).run();
+
+  const missingTextAddress = await quality.loadDataQualityDashboard({ query: "Profil 0002" });
+  assert.equal(missingTextAddress.profiles[0].issues.some((issue) => issue.key === "address"), true);
   fixture.close();
 });
 

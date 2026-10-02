@@ -1,212 +1,165 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { AdminGooglePlacePicker } from "@/components/admin-google-place-picker";
-import {
-  type GeoAdminOperatorGroup,
-  type GeoAdminOperatorRow,
-  type GeoAdminOperatorSummary,
+import type {
+  GeoAdminGoogleFilter,
+  GeoAdminOperatorData,
+  GeoAdminOperatorFilter,
+  GeoAdminOperatorGroupFilter,
+  GeoAdminOperatorRow,
 } from "@/lib/geo-admin-operator";
-import { geoAdminOperatorStateLabels, type GeoAdminOperatorState } from "@/lib/geo-admin-operator-state";
 
-type GeoOperatorFilter = "ALL" | "ERRORS" | GeoAdminOperatorState;
-type GeoGroupFilter = "ALL" | GeoAdminOperatorGroup;
-type GoogleMapFilter = "PLACE" | "COORDINATES" | "NONE";
+const groupOptions: Array<{ value: GeoAdminOperatorGroupFilter; label: string }> = [
+  { value: "ALL", label: "Všetko" },
+  { value: "SERVICES", label: "Služby" },
+  { value: "HELP", label: "Pomoc psom" },
+  { value: "EVENTS", label: "Podujatia" },
+];
 
-type GoogleBulkResult = {
-  targetId: number;
-  name: string;
-  result: "UPDATED" | "REVIEW" | "NO_MATCH" | "SKIPPED" | "ERROR";
-  reason: string;
-  candidate: {
-    id: string;
-    displayName: string;
-    formattedAddress: string;
-  } | null;
-};
-
-const filters: Array<{ value: GeoOperatorFilter; label: string }> = [
-  { value: "ALL", label: "Všetky" },
+const operatorOptions: Array<{ value: GeoAdminOperatorFilter; label: string }> = [
+  { value: "ALL", label: "Všetky stavy" },
   { value: "ON_MAP", label: "Na mape" },
   { value: "PENDING", label: "Čaká na spracovanie" },
   { value: "NEEDS_REVIEW", label: "Treba skontrolovať" },
   { value: "MISSING_ADDRESS", label: "Chýba adresa" },
-  { value: "ERRORS", label: "Chyby" },
+  { value: "INCOMPLETE_ADDRESS", label: "Neúplná adresa" },
+  { value: "INVALID_ADDRESS", label: "Neplatná adresa" },
+  { value: "FAILED", label: "Chyby" },
+  { value: "NOT_PUBLIC", label: "Nezobrazuje sa verejne" },
+  { value: "ERRORS", label: "Všetky chyby" },
 ];
 
-const groupLabels: Record<GeoAdminOperatorGroup, string> = {
-  SERVICES: "Služby",
-  HELP: "Pomoc psom",
-  EVENTS: "Podujatia",
+const googleOptions: Array<{ value: GeoAdminGoogleFilter; label: string }> = [
+  { value: "ALL", label: "Všetky mapové stavy" },
+  { value: "PLACE", label: "🏷️ Google Maps — konkrétne miesto" },
+  { value: "COORDINATES", label: "📍 Iba súradnice" },
+  { value: "NOT_REQUIRED", label: "✓ Google Maps netreba" },
+  { value: "UNRESOLVED", label: "⚪ Treba vyriešiť" },
+];
+
+type BulkResult = {
+  targetId: number;
+  name: string;
+  result: "UPDATED" | "REVIEW" | "NO_MATCH" | "SKIPPED" | "ERROR";
+  reason: string;
 };
 
-const stateIcon: Record<GeoAdminOperatorState, string> = {
-  ON_MAP: "🟢",
-  PENDING: "🔵",
-  NEEDS_REVIEW: "🟡",
-  MISSING_ADDRESS: "🔴",
-  INCOMPLETE_ADDRESS: "🔴",
-  INVALID_ADDRESS: "🔴",
-  FAILED: "🔴",
-  NOT_PUBLIC: "⚪",
-};
-
-function matchesFilter(item: GeoAdminOperatorRow, filter: GeoOperatorFilter) {
-  if (filter === "ALL") return true;
-  if (filter === "ERRORS") return ["INCOMPLETE_ADDRESS", "INVALID_ADDRESS", "FAILED"].includes(item.operatorState);
-  return item.operatorState === filter;
+function googleStatus(item: GeoAdminOperatorRow) {
+  if (item.googleMapsTarget === "PLACE") return "🏷️ Konkrétne miesto — vybavené";
+  if (item.googleMapsTarget === "COORDINATES") return "📍 Iba súradnice";
+  if (item.googleMapsTarget === "NOT_REQUIRED") {
+    return item.googleMapsNotRequiredSystemDerived
+      ? "✓ Google Maps netreba — online podujatie"
+      : "✓ Google Maps netreba — vybavené";
+  }
+  return "⚪ Treba vyriešiť";
 }
 
-function addressLabel(item: GeoAdminOperatorRow) {
-  if (item.publicAddress) return item.publicAddress.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  if (item.formattedAddress) return item.formattedAddress.split("\n");
-  if (item.city) return [item.city];
-  return ["—"];
+function countForGroup(data: GeoAdminOperatorData, group: GeoAdminOperatorGroupFilter) {
+  if (group === "ALL") return data.counts.total;
+  return data.counts.groups[group];
 }
 
-function addressStateLabel(item: GeoAdminOperatorRow) {
-  if (item.addressState === "COMPLETE") return "🟢 Kompletná";
-  if (item.addressState === "AVAILABLE") return "🟢 Dostupná";
-  if (item.addressState === "MISSING") return "🔴 Chýba";
-  if (item.addressState === "INCOMPLETE") return "🔴 Neúplná";
-  return "🟡 Treba skontrolovať";
+function editorialAddressPolicyNote(item: GeoAdminOperatorRow) {
+  if (item.publicAddress) {
+    return `Verejná adresa zostáva uložená a publikovateľná: ${item.publicAddress}`;
+  }
+  return "";
 }
 
-export function AdminGeoOperatorDashboard({
-  items,
-  summary,
-}: {
-  items: GeoAdminOperatorRow[];
-  summary: GeoAdminOperatorSummary;
-}) {
+export function AdminGeoOperatorDashboard({ data }: { data: GeoAdminOperatorData }) {
   const router = useRouter();
-  const [group, setGroup] = useState<GeoGroupFilter>("ALL");
-  const [filter, setFilter] = useState<GeoOperatorFilter>("ALL");
-  const [query, setQuery] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedMapTargets, setSelectedMapTargets] = useState<GoogleMapFilter[]>([]);
+  const searchParams = useSearchParams();
+  const [searchDraft, setSearchDraft] = useState(data.filters.query);
+  const [activePickerKey, setActivePickerKey] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
   const [bulkCount, setBulkCount] = useState(20);
+  const [bulkCursor, setBulkCursor] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState("");
-  const [bulkError, setBulkError] = useState("");
-  const [bulkResults, setBulkResults] = useState<GoogleBulkResult[]>([]);
-  const [bulkCursorId, setBulkCursorId] = useState<number | null>(null);
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [bulkResults, setBulkResults] = useState<BulkResult[]>([]);
 
-  const groupOptions = useMemo(() => {
-    const counts = {
-      SERVICES: items.filter((item) => item.group === "SERVICES").length,
-      HELP: items.filter((item) => item.group === "HELP").length,
-      EVENTS: items.filter((item) => item.group === "EVENTS").length,
-    };
-    return [
-      { value: "ALL" as const, label: "Všetko", count: items.length },
-      { value: "SERVICES" as const, label: groupLabels.SERVICES, count: counts.SERVICES },
-      { value: "HELP" as const, label: groupLabels.HELP, count: counts.HELP },
-      { value: "EVENTS" as const, label: groupLabels.EVENTS, count: counts.EVENTS },
-    ];
-  }, [items]);
+  function navigate(mutator: (params: URLSearchParams) => void, replace = false) {
+    const params = new URLSearchParams(searchParams.toString());
+    mutator(params);
+    const suffix = params.toString();
+    const href = suffix ? `/admin/mapy?${suffix}` : "/admin/mapy";
+    if (replace) router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
+  }
 
-  const scopedItems = useMemo(
-    () => group === "ALL" ? items : items.filter((item) => item.group === group),
-    [group, items],
-  );
+  function setParam(key: string, value: string, options: { resetPage?: boolean; replace?: boolean } = {}) {
+    navigate((params) => {
+      if (!value || value === "ALL") params.delete(key);
+      else params.set(key, value);
+      if (options.resetPage !== false) params.delete("page");
+    }, options.replace);
+  }
 
-  const scopedSummary = useMemo(() => {
-    if (group === "ALL") return summary;
-    return Object.fromEntries(
-      (Object.keys(geoAdminOperatorStateLabels) as GeoAdminOperatorState[]).map((state) => [
-        state,
-        scopedItems.filter((item) => item.operatorState === state).length,
-      ]),
-    ) as GeoAdminOperatorSummary;
-  }, [group, scopedItems, summary]);
+  useEffect(() => {
+    if (searchDraft === data.filters.query) return;
+    const timer = window.setTimeout(() => {
+      setParam("q", searchDraft.trim(), { resetPage: true, replace: true });
+    }, 350);
+    return () => window.clearTimeout(timer);
+    // searchParams is intentionally resolved only when the debounce fires.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchDraft, data.filters.query]);
 
-  const categoryOptions = useMemo(() => {
-    const byCategory = new Map<string, { value: string; label: string; count: number }>();
-    for (const item of scopedItems) {
-      const current = byCategory.get(item.category);
-      if (current) current.count += 1;
-      else byCategory.set(item.category, { value: item.category, label: item.categoryLabel || item.category, count: 1 });
-    }
-    return [...byCategory.values()].sort((left, right) => left.label.localeCompare(right.label, "sk"));
-  }, [scopedItems]);
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase("sk");
-    return scopedItems.filter((item) => {
-      if (!matchesFilter(item, filter)) return false;
-      if (selectedCategories.length && !selectedCategories.includes(item.category)) return false;
-      if (selectedMapTargets.length && !selectedMapTargets.includes(item.googleMapsTarget)) return false;
-      if (!needle) return true;
-      return [
-        item.name,
-        item.city,
-        item.district,
-        item.region,
-        item.category,
-        item.categoryLabel,
-        item.groupLabel,
-        item.publicAddress,
-        item.formattedAddress ?? "",
-      ].join(" ").toLocaleLowerCase("sk").includes(needle);
+  function resetFilters() {
+    navigate((params) => {
+      const pageSize = params.get("pageSize");
+      for (const key of ["group", "category", "operator", "google", "q", "page"]) params.delete(key);
+      if (pageSize) params.set("pageSize", pageSize);
     });
-  }, [filter, query, scopedItems, selectedCategories, selectedMapTargets]);
-
-  const serviceItems = useMemo(
-    () => items.filter((item) => item.targetType === "DIRECTORY_PROFILE"),
-    [items],
-  );
-
-  const bulkEligible = useMemo(
-    () => visible.filter((item) => item.targetType === "DIRECTORY_PROFILE" && item.googleMapsTarget !== "PLACE"),
-    [visible],
-  );
-
-  const bulkCursorIndex = useMemo(
-    () => bulkCursorId === null ? -1 : serviceItems.findIndex((item) => item.targetId === bulkCursorId),
-    [bulkCursorId, serviceItems],
-  );
-
-  const bulkRemaining = useMemo(
-    () => visible.filter((item) => {
-      if (item.targetType !== "DIRECTORY_PROFILE" || item.googleMapsTarget === "PLACE") return false;
-      const itemIndex = serviceItems.findIndex((candidate) => candidate.targetId === item.targetId);
-      return itemIndex > bulkCursorIndex;
-    }),
-    [bulkCursorIndex, serviceItems, visible],
-  );
-
-  function resetBulkSession() {
-    setBulkCursorId(null);
-    setBulkResults([]);
-    setBulkError("");
-    setBulkProgress("");
+    setSearchDraft("");
+    setActivePickerKey(null);
   }
 
-  function changeGroup(next: GeoGroupFilter) {
-    resetBulkSession();
-    setGroup(next);
-    setSelectedCategories([]);
+  function changeGroup(group: GeoAdminOperatorGroupFilter) {
+    navigate((params) => {
+      if (group === "ALL") params.delete("group");
+      else params.set("group", group);
+      params.delete("category");
+      params.delete("page");
+    });
+    setActivePickerKey(null);
   }
 
-  function toggleCategory(category: string) {
-    resetBulkSession();
-    setSelectedCategories((current) =>
-      current.includes(category)
-        ? current.filter((value) => value !== category)
-        : [...current, category],
-    );
+  function pageHref(page: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (page <= 1) params.delete("page");
+    else params.set("page", String(page));
+    const suffix = params.toString();
+    return suffix ? `/admin/mapy?${suffix}` : "/admin/mapy";
   }
 
-  function toggleMapTarget(target: GoogleMapFilter) {
-    resetBulkSession();
-    setSelectedMapTargets((current) =>
-      current.includes(target)
-        ? current.filter((value) => value !== target)
-        : [...current, target],
-    );
+  async function mapWorkflowAction(item: GeoAdminOperatorRow, action: "google-maps-not-required" | "reset-google-maps-not-required") {
+    const busy = `${action}:${item.key}`;
+    setBusyKey(busy);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/geo/${item.targetType}/${item.targetId}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error || "Mapový stav sa nepodarilo uložiť.");
+      setMessage(action === "google-maps-not-required"
+        ? `${item.name}: Google Maps netreba — mapová kontrola je vybavená.`
+        : `${item.name}: Google Maps je znovu vyžadované.`);
+      setActivePickerKey(null);
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Mapový stav sa nepodarilo uložiť.");
+    } finally {
+      setBusyKey(null);
+    }
   }
 
   function normalizedBulkCount() {
@@ -214,406 +167,420 @@ export function AdminGeoOperatorDashboard({
     return Math.max(1, Math.min(100, value));
   }
 
-  async function runGoogleBulk() {
-    const requested = normalizedBulkCount();
-    setBulkCount(requested);
-    setBulkError("");
-    setBulkResults([]);
-
-    const targets = bulkRemaining.slice(0, requested);
-    if (!targets.length) {
-      setBulkError(bulkCursorId === null
-        ? "V aktuálnom filtri nie je žiadna služba bez aktuálneho Google Place."
-        : "Za poslednou dávkou už nie je ďalšia služba bez aktuálneho Google Place.");
-      return;
-    }
-
-    if (!window.confirm(
-      `Skontrolovať ${targets.length} profilov služieb cez Google Maps? Jednoznačné zhody sa automaticky uložia; nejasné výsledky zostanú na ručnú kontrolu.`,
-    )) return;
-
+  async function runBulk() {
+    const count = normalizedBulkCount();
+    setBulkCount(count);
     setBulkBusy(true);
-    const results: GoogleBulkResult[] = [];
-
+    setBulkMessage("");
+    setBulkResults([]);
     try {
-      const validationResponse = await fetch("/api/admin/geo/bulk-google", {
+      const selectResponse = await fetch("/api/admin/geo/bulk-google", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          action: "validate-targets",
-          targetIds: targets.map((item) => item.targetId),
+          action: "select-targets",
+          count,
+          cursor: bulkCursor,
+          filters: {
+            category: data.filters.category,
+            operator: data.filters.operator,
+            google: data.filters.google,
+            query: data.filters.query,
+          },
         }),
       });
-      const validation = await validationResponse.json() as { error?: string };
-      if (!validationResponse.ok) throw new Error(validation.error || "Target set sa nepodarilo overiť.");
+      const selection = await selectResponse.json() as {
+        error?: string;
+        targetIds?: number[];
+        nextCursor?: string | null;
+        hasMore?: boolean;
+      };
+      if (!selectResponse.ok) throw new Error(selection.error || "Ďalšiu Google dávku sa nepodarilo vybrať.");
+      const targetIds = selection.targetIds ?? [];
+      if (!targetIds.length) {
+        setBulkCursor(selection.nextCursor ?? null);
+        setBulkMessage("Pre aktuálny filter už nie sú ďalšie eligible profily.");
+        return;
+      }
 
-      for (let index = 0; index < targets.length; index += 1) {
-        const target = targets[index];
-        setBulkProgress(`Google Maps kontrola: ${index + 1}/${targets.length} — ${target.name}`);
+      const results: BulkResult[] = [];
+      for (const targetId of targetIds) {
         const response = await fetch("/api/admin/geo/bulk-google", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             action: "process-target",
-            targetId: target.targetId,
             confirm: "GOOGLE-PLACE-BULK",
+            targetId,
           }),
         });
-        const body = await response.json() as { result?: GoogleBulkResult; error?: string };
-        if (!response.ok || !body.result) throw new Error(body.error || `Profil #${target.targetId} sa nepodarilo spracovať.`);
-        results.push(body.result);
-        setBulkResults([...results]);
+        const body = await response.json() as { error?: string; result?: BulkResult };
+        if (!response.ok || !body.result) {
+          results.push({
+            targetId,
+            name: "",
+            result: "ERROR",
+            reason: body.error || "Google profil sa nepodarilo spracovať.",
+          });
+        } else {
+          results.push(body.result);
+        }
       }
-
-      setBulkCursorId(targets[targets.length - 1].targetId);
+      setBulkResults(results);
+      setBulkCursor(selection.nextCursor ?? null);
+      setBulkMessage(
+        `Google Maps kontrola: spracované ${results.length}. ` +
+        `Potvrdené ${results.filter((item) => item.result === "UPDATED").length}, ` +
+        `na kontrolu ${results.filter((item) => item.result === "REVIEW").length}, ` +
+        `nenájdené ${results.filter((item) => item.result === "NO_MATCH").length}, ` +
+        `preskočené ${results.filter((item) => item.result === "SKIPPED").length}, ` +
+        `chyby ${results.filter((item) => item.result === "ERROR").length}.` +
+        (selection.hasMore ? " Môžeš pokračovať ďalšou dávkou." : " Toto bola posledná dostupná dávka."),
+      );
       router.refresh();
-    } catch (caught) {
-      setBulkError(caught instanceof Error ? caught.message : "Google bulk kontrola zlyhala.");
+    } catch (error) {
+      setBulkMessage(error instanceof Error ? error.message : "Google bulk operácia zlyhala.");
     } finally {
       setBulkBusy(false);
-      setBulkProgress("");
     }
   }
 
-  const onMapGooglePlaceCount = scopedItems.filter((item) => item.operatorState === "ON_MAP" && item.googleMapsTarget === "PLACE").length;
-  const onMapCoordinatesCount = scopedItems.filter((item) => item.operatorState === "ON_MAP" && item.googleMapsTarget === "COORDINATES").length;
-
-  const cards: Array<{ state: GeoAdminOperatorState; label: string }> = [
-    { state: "ON_MAP", label: "Na mape" },
-    { state: "PENDING", label: "Čaká na spracovanie" },
-    { state: "NEEDS_REVIEW", label: "Treba skontrolovať" },
-    { state: "MISSING_ADDRESS", label: "Chýba adresa" },
-    { state: "INCOMPLETE_ADDRESS", label: "Neúplná / neplatná adresa" },
-    { state: "FAILED", label: "Spracovanie zlyhalo" },
-  ];
+  const hasFilters = data.filters.group !== "ALL"
+    || Boolean(data.filters.category)
+    || data.filters.operator !== "ALL"
+    || data.filters.google !== "ALL"
+    || Boolean(data.filters.query);
 
   return (
-    <div data-admin-geo-operator>
-      <section className="admin-form-card" data-admin-map-groups aria-labelledby="geo-operator-groups">
-        <div className="admin-overview-heading">
+    <div style={{ display: "grid", gap: 16 }}>
+      <section className="admin-form-card" data-admin-map-summary>
+        <div className="admin-section-heading">
           <div>
-            <span>MAPY — SPOLOČNÝ HUB</span>
-            <h2 id="geo-operator-groups">Služby, Pomoc psom a Podujatia</h2>
+            <h2>Stav mapových položiek</h2>
+            <p>
+              Počty sú za celý aktuálny serverový filter, nie iba za zobrazenú stránku.
+              Browser dostáva najviac {data.pagination.pageSize} kariet.
+            </p>
           </div>
-          <p>Vyber agendu. Kategórie, zoznam, počty, mapa aj vyhľadávanie sa prispôsobia výberu.</p>
         </div>
-        <div className="admin-status-filter" aria-label="Filtrovať podľa sekcie" style={{ flexWrap: "wrap" }}>
-          {groupOptions.map((item) => (
+
+        <div className="admin-status-filter" aria-label="Počty podľa sekcie" style={{ flexWrap: "wrap" }}>
+          {groupOptions.map((option) => (
             <button
               type="button"
-              key={item.value}
-              disabled={bulkBusy}
-              className={group === item.value ? "is-active" : ""}
-              aria-pressed={group === item.value}
-              onClick={() => changeGroup(item.value)}
+              key={option.value}
+              className={data.filters.group === option.value ? "is-active" : ""}
+              aria-pressed={data.filters.group === option.value}
+              onClick={() => changeGroup(option.value)}
             >
-              {item.label} ({item.count})
+              {option.label} ({countForGroup(data, option.value)})
             </button>
           ))}
         </div>
-      </section>
 
-      <section className="admin-form-card" aria-labelledby="geo-operator-summary">
-        <div className="admin-overview-heading">
-          <div>
-            <span>MAPA — STAV</span>
-            <h2 id="geo-operator-summary">Stav mapových položiek</h2>
-          </div>
-          <p>DIRECTORY_PROFILE používa svoj exact-address contract; organizácie a podujatia používajú vlastný location contract.</p>
-        </div>
-        <div className="admin-stats" aria-label="Súhrn geo stavov">
-          {cards.map(({ state, label }) => (
-            <div key={state}>
-              <span>{stateIcon[state]} {label}</span>
-              <strong>{state === "INCOMPLETE_ADDRESS" ? scopedSummary.INCOMPLETE_ADDRESS + scopedSummary.INVALID_ADDRESS : scopedSummary[state]}</strong>
-              {state === "ON_MAP" ? (
-                <small aria-label="Spôsob otvorenia v Google Maps" style={{ display: "grid", gap: 2, marginTop: 8 }}>
-                  <span>🏷️ Konkrétne miesto: {onMapGooglePlaceCount}</span>
-                  <span>📍 Iba súradnice: {onMapCoordinatesCount}</span>
-                </small>
-              ) : null}
-            </div>
+        <div className="admin-status-filter" aria-label="Rýchly filter podľa operator stavu" style={{ flexWrap: "wrap" }}>
+          {[
+            ["ON_MAP", "Na mape"],
+            ["PENDING", "Čaká na spracovanie"],
+            ["NEEDS_REVIEW", "Treba skontrolovať"],
+            ["MISSING_ADDRESS", "Chýba adresa"],
+          ].map(([value, label]) => (
+            <button
+              type="button"
+              key={value}
+              className={data.filters.operator === value ? "is-active" : ""}
+              aria-pressed={data.filters.operator === value}
+              onClick={() => setParam("operator", data.filters.operator === value ? "ALL" : value)}
+            >
+              {label}
+            </button>
           ))}
         </div>
+
+        <div className="admin-message" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span>Celkom <strong>{data.counts.total}</strong></span>
+          <span>🏷️ Google Place <strong>{data.counts.google.PLACE}</strong></span>
+          <span>📍 Iba súradnice <strong>{data.counts.google.COORDINATES}</strong></span>
+          <span>✓ Google Maps netreba <strong>{data.counts.google.NOT_REQUIRED}</strong></span>
+          <span>⚪ Treba vyriešiť <strong>{data.counts.google.UNRESOLVED}</strong></span>
+        </div>
+
+        <details>
+          <summary style={{ cursor: "pointer", fontWeight: 700 }}>Operator stavy</summary>
+          <div className="admin-message" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10 }}>
+            <span>Na mape <strong>{data.counts.operators.ON_MAP}</strong></span>
+            <span>Čaká <strong>{data.counts.operators.PENDING}</strong></span>
+            <span>Kontrola <strong>{data.counts.operators.NEEDS_REVIEW}</strong></span>
+            <span>Chýba adresa <strong>{data.counts.operators.MISSING_ADDRESS}</strong></span>
+            <span>Neúplná <strong>{data.counts.operators.INCOMPLETE_ADDRESS}</strong></span>
+            <span>Neplatná <strong>{data.counts.operators.INVALID_ADDRESS}</strong></span>
+            <span>Chyby <strong>{data.counts.operators.FAILED}</strong></span>
+            <span>Neverejná <strong>{data.counts.operators.NOT_PUBLIC}</strong></span>
+          </div>
+        </details>
       </section>
 
-      {(group === "ALL" || group === "SERVICES") ? (
-        <section className="admin-form-card" data-admin-google-place-bulk>
-          <div className="admin-overview-heading">
-            <div>
-              <span>GOOGLE MAPS — HROMADNE · IBA SLUŽBY</span>
-              <h2>Automaticky doplniť Google profily</h2>
-            </div>
-            <p>Bulk zostáva výhradne pre DIRECTORY_PROFILE. Jednoznačné zhody sa potvrdia; nejasné a explicitne neverejné polohy zostanú na kontrolu.</p>
-          </div>
+      <section className="admin-form-card" data-admin-map-filters>
+        <div className="admin-grid admin-grid--2">
+          <label>
+            Kategória / typ
+            <select
+              value={data.filters.category}
+              onChange={(event) => setParam("category", event.target.value)}
+            >
+              <option value="">Všetky kategórie</option>
+              {data.categories.map((category) => (
+                <option key={category.value} value={category.value}>
+                  {category.label} ({category.count})
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <div className="admin-field-grid">
-            <div className="admin-field">
-              <label htmlFor="google-bulk-count">Počet profilov na kontrolu</label>
+          <label>
+            Operator stav
+            <select
+              value={data.filters.operator}
+              onChange={(event) => setParam("operator", event.target.value)}
+            >
+              {operatorOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Google Maps
+            <select
+              value={data.filters.google}
+              onChange={(event) => setParam("google", event.target.value)}
+            >
+              {googleOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Hľadať
+            <input
+              type="search"
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder="Hľadať názov, mesto, okres, kraj alebo kategóriu"
+            />
+          </label>
+        </div>
+
+        <div className="admin-editor-actions" style={{ flexWrap: "wrap", marginTop: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            Na stránku
+            <select
+              value={String(data.pagination.pageSize)}
+              onChange={(event) => navigate((params) => {
+                params.set("pageSize", event.target.value);
+                params.delete("page");
+              })}
+            >
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+          <button type="button" disabled={!hasFilters} onClick={resetFilters}>Zrušiť všetky filtre</button>
+        </div>
+      </section>
+
+      {data.filters.group === "SERVICES" ? (
+        <section className="admin-form-card" data-google-bulk>
+          <div className="admin-section-heading">
+            <div>
+              <h2>Google bulk — Služby</h2>
+              <p>
+                Server vyberie ďalších eligible profilov z celého filtrovaného datasetu, nie iba z aktuálnej stránky.
+                Google Maps netreba, aktuálny Place, manual override a explicit private sa neberú.
+              </p>
+            </div>
+          </div>
+          <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+            <label>
+              Počet profilov na kontrolu
               <input
                 id="google-bulk-count"
                 type="number"
                 min={1}
                 max={100}
-                step={1}
                 value={bulkCount}
-                disabled={bulkBusy}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  setBulkCount(Number.isFinite(next) ? next : 1);
-                }}
+                onChange={(event) => setBulkCount(Number(event.target.value))}
                 onBlur={() => setBulkCount(normalizedBulkCount())}
+                style={{ width: 100, marginLeft: 8 }}
               />
-              <small>1 až 100 služieb z aktuálneho filtra. Kurzor po dávke pokračuje za posledným spracovaným profilom.</small>
-            </div>
-            <div className="admin-field">
-              <label>Aktuálne dostupné</label>
-              <p className="admin-help"><strong>{bulkEligible.length}</strong> služieb bez aktuálneho Google Place.<br />Za poslednou dávkou zostáva <strong>{bulkRemaining.length}</strong>.</p>
-            </div>
-          </div>
-
-          <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
-            <button type="button" disabled={bulkBusy || bulkRemaining.length === 0} onClick={() => void runGoogleBulk()}>
+            </label>
+            <button type="button" disabled={bulkBusy} onClick={() => void runBulk()}>
               {bulkBusy
                 ? "Spracúvam…"
-                : bulkCursorId === null
-                  ? `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`
-                  : `Pokračovať ďalšou dávkou (max. ${normalizedBulkCount()})`}
+                : bulkCursor
+                  ? `Pokračovať ďalšou dávkou (max. ${normalizedBulkCount()})`
+                  : `Skontrolovať cez Google Maps (max. ${normalizedBulkCount()})`}
             </button>
-            {bulkCursorId !== null ? (
-              <button type="button" disabled={bulkBusy} onClick={resetBulkSession}>
+            {bulkCursor ? (
+              <button type="button" disabled={bulkBusy} onClick={() => {
+                setBulkCursor(null);
+                setBulkResults([]);
+                setBulkMessage("Bulk cursor bol resetnutý pre aktuálny filter.");
+              }}>
                 Začať od začiatku
               </button>
             ) : null}
           </div>
-
-          {bulkProgress ? <p className="admin-message" role="status">{bulkProgress}</p> : null}
-          {bulkError ? <p className="admin-message admin-message--error" role="alert">{bulkError}</p> : null}
-
+          {bulkMessage ? <p className="admin-message" role="status">{bulkMessage}</p> : null}
           {bulkResults.length ? (
-            <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-              <p className="admin-help">
-                Spracované <strong>{bulkResults.length}</strong>
-                {" · "}potvrdené <strong>{bulkResults.filter((item) => item.result === "UPDATED").length}</strong>
-                {" · "}na kontrolu <strong>{bulkResults.filter((item) => item.result === "REVIEW").length}</strong>
-                {" · "}nenájdené <strong>{bulkResults.filter((item) => item.result === "NO_MATCH").length}</strong>
-                {" · "}preskočené <strong>{bulkResults.filter((item) => item.result === "SKIPPED").length}</strong>
-                {" · "}chyby <strong>{bulkResults.filter((item) => item.result === "ERROR").length}</strong>
-              </p>
-              {bulkResults.map((result) => (
-                <article key={result.targetId} className="admin-form-card" style={{ margin: 0, overflow: "hidden" }}>
-                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <strong>{result.name || `#${result.targetId}`}</strong>
-                      <p className="admin-help" style={{ margin: "6px 0 0" }}>
-                        {result.result === "UPDATED" ? "✅ Potvrdené" : result.result === "REVIEW" ? "🟡 Kontrola" : result.result === "NO_MATCH" ? "⚪ Nenájdené" : result.result === "SKIPPED" ? "⏭️ Preskočené" : "🔴 Chyba"}
-                      </p>
-                      {result.candidate ? <p className="admin-help" style={{ margin: "6px 0 0", overflowWrap: "anywhere" }}><strong>{result.candidate.displayName}</strong><br />{result.candidate.formattedAddress}</p> : null}
-                      <p className="admin-help" style={{ margin: "6px 0 0" }}>{result.reason}</p>
-                    </div>
-                    <Link href={`/admin/adresar/${result.targetId}#service-address`}>Otvoriť</Link>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <details>
+              <summary style={{ cursor: "pointer", fontWeight: 700 }}>Výsledky poslednej dávky ({bulkResults.length})</summary>
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                {bulkResults.map((result) => (
+                  <p className="admin-help" key={result.targetId}>
+                    #{result.targetId} {result.name || "Profil"} — <strong>{result.result}</strong>: {result.reason}
+                  </p>
+                ))}
+              </div>
+            </details>
           ) : null}
         </section>
       ) : null}
 
-      <section className="admin-form-card" data-admin-map-filters>
-        <div className="admin-toolbar" style={{ alignItems: "stretch", gap: 12, flexWrap: "wrap" }}>
-          <label className="admin-search" style={{ flex: "1 1 280px", minWidth: 0 }}>
-            <span className="sr-only">Hľadať mapovú položku</span>
-            <input
-              value={query}
-              disabled={bulkBusy}
-              onChange={(event) => {
-                resetBulkSession();
-                setQuery(event.target.value);
-              }}
-              placeholder="Hľadať názov, mesto, okres, kraj alebo kategóriu"
-            />
-          </label>
-          <div className="admin-status-filter" aria-label="Filtrovať podľa geo stavu" style={{ flexWrap: "wrap" }}>
-            {filters.map((item) => (
-              <button
-                type="button"
-                key={item.value}
-                disabled={bulkBusy}
-                className={filter === item.value ? "is-active" : ""}
-                aria-pressed={filter === item.value}
-                onClick={() => {
-                  resetBulkSession();
-                  setFilter(item.value);
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {message ? <p className="admin-message" role="status">{message}</p> : null}
 
-        <details open style={{ marginTop: 14 }}>
-          <summary style={{ cursor: "pointer", fontWeight: 700 }}>Ďalšie filtre</summary>
-          <div className="admin-field-grid" style={{ marginTop: 12 }}>
-            <fieldset className="admin-field">
-              <legend><strong>Kategórie</strong></legend>
-              <p className="admin-help">Možnosti sa menia podľa sekcie. Checkboxy sa dajú kombinovať.</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {categoryOptions.map((category) => (
-                  <label key={category.value} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      disabled={bulkBusy}
-                      checked={selectedCategories.includes(category.value)}
-                      onChange={() => toggleCategory(category.value)}
-                    />
-                    <span>{category.label} ({category.count})</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="admin-field">
-              <legend><strong>Google Maps / mapa</strong></legend>
-              <p className="admin-help">Bez označenia sa zobrazujú všetky mapové stavy. Možnosti sa dajú kombinovať.</p>
-              <div style={{ display: "grid", gap: 8 }}>
-                {([
-                  ["PLACE", "🏷️ Google Maps — konkrétne miesto"],
-                  ["COORDINATES", "📍 Iba súradnice"],
-                  ["NONE", "⚪ Bez Google Place / bez mapového cieľa"],
-                ] as const).map(([value, label]) => (
-                  <label key={value} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      disabled={bulkBusy}
-                      checked={selectedMapTargets.includes(value)}
-                      onChange={() => toggleMapTarget(value)}
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </div>
-
-          <div className="admin-editor-actions" style={{ marginTop: 12, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              disabled={bulkBusy || (group === "ALL" && !selectedCategories.length && !selectedMapTargets.length && filter === "ALL" && !query)}
-              onClick={() => {
-                resetBulkSession();
-                setGroup("ALL");
-                setSelectedCategories([]);
-                setSelectedMapTargets([]);
-                setFilter("ALL");
-                setQuery("");
-              }}
-            >
-              Zrušiť všetky filtre
-            </button>
-          </div>
-        </details>
-
-        <p className="admin-help" aria-live="polite">
-          Zobrazené: <strong>{visible.length}</strong> z {scopedItems.length} položiek sekcie.
-          {selectedCategories.length ? <> · kategórie: <strong>{selectedCategories.length}</strong></> : null}
-          {selectedMapTargets.length ? <> · mapové filtre: <strong>{selectedMapTargets.length}</strong></> : null}
-        </p>
-
-        <div style={{ display: "grid", gap: 12 }}>
-          {visible.map((item) => {
-            const lines = addressLabel(item);
-            const addressProblem = ["MISSING_ADDRESS", "INCOMPLETE_ADDRESS", "INVALID_ADDRESS"].includes(item.operatorState);
-            const review = item.operatorState === "NEEDS_REVIEW";
-            return (
-              <article key={item.key} className="admin-form-card" data-operator-state={item.operatorState} data-target-type={item.targetType} style={{ margin: 0, overflow: "hidden" }}>
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="admin-article-tags" style={{ marginBottom: 6 }}>
-                      <span>{item.groupLabel}</span>
-                      <span>{item.categoryLabel}</span>
-                      <span>{stateIcon[item.operatorState]} {geoAdminOperatorStateLabels[item.operatorState]}</span>
-                    </div>
-                    <h3 style={{ margin: 0 }}>{item.name}</h3>
-                    <p className="admin-help" style={{ margin: "8px 0 0", whiteSpace: "pre-line" }}>
-                      <strong>Lokalita / adresa:</strong><br />
-                      {lines.map((line, index) => <span key={index}>{line}{index < lines.length - 1 ? <br /> : null}</span>)}
-                    </p>
-                    {item.targetType === "DIRECTORY_PROFILE" && item.publicAddress && item.addressWarning ? (
-                      <p className="admin-message" style={{ margin: "8px 0 0" }} data-directory-address-warning>
-                        <strong>⚠️ {item.addressWarning}</strong><br />
-                        Verejná adresa zostáva uložená a publikovateľná; upozornenie je iba pre admina.
-                      </p>
-                    ) : null}
-                    <p className="admin-help" style={{ margin: "6px 0 0" }}>
-                      <strong>Stav adresy/lokality:</strong> {addressStateLabel(item)}
-                      {" · "}
-                      <strong>Stav mapy:</strong> {stateIcon[item.operatorState]} {geoAdminOperatorStateLabels[item.operatorState]}
-                      {" · "}
-                      <strong>Google Maps:</strong> {item.googleMapsTarget === "PLACE" ? "🏷️ Konkrétne miesto" : item.googleMapsTarget === "COORDINATES" ? "📍 Iba súradnice" : "⚪ Bez Google Place"}
-                    </p>
-                    <p className="admin-help" style={{ margin: "6px 0 0" }}>{item.operatorReason}</p>
-                  </div>
-
-                  <div className="admin-row-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <Link className={addressProblem || review ? "admin-primary-action" : undefined} href={item.editorHref}>
-                      {addressProblem ? "Otvoriť editor lokality" : review ? "Skontrolovať problém" : "Otvoriť editor"}
-                    </Link>
-                    {review ? <Link href={item.attentionHref}>Centrum pozornosti</Link> : null}
-                  </div>
+      <section style={{ display: "grid", gap: 12 }} data-admin-map-items>
+        {data.items.map((item) => {
+          const pickerOpen = activePickerKey === item.key;
+          const notRequiredBusy = busyKey === `google-maps-not-required:${item.key}`;
+          const resetBusy = busyKey === `reset-google-maps-not-required:${item.key}`;
+          return (
+            <article className="admin-form-card" key={item.key} style={{ overflow: "hidden" }}>
+              <div className="admin-section-heading">
+                <div style={{ minWidth: 0 }}>
+                  <p className="admin-kicker">{item.groupLabel} · {item.categoryLabel}</p>
+                  <h2 style={{ overflowWrap: "anywhere" }}>{item.name}</h2>
+                  <p>{[item.city, item.district, item.region].filter(Boolean).join(" · ") || "Bez lokalizačného popisu"}</p>
                 </div>
+                <Link href={item.editorHref}>Otvoriť profil</Link>
+              </div>
 
-                <div style={{ marginTop: 12 }}>
+              <div className="admin-message" style={{ display: "grid", gap: 6 }}>
+                <strong>Google Maps</strong>
+                <span>{googleStatus(item)}</span>
+                {item.formattedAddress ? <span>{item.formattedAddress}</span> : null}
+                {editorialAddressPolicyNote(item) ? <span>{editorialAddressPolicyNote(item)}</span> : null}
+              </div>
+
+              {item.addressWarning ? (
+                <p className="admin-message admin-message--warning">
+                  ⚠️ {item.addressWarning}
+                </p>
+              ) : null}
+
+              {item.googleMapsTarget === "NOT_REQUIRED" ? (
+                item.googleMapsNotRequiredSystemDerived ? (
+                  <p className="admin-help">Online podujatie fyzický Google Place nepotrebuje.</p>
+                ) : (
+                  <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      disabled={resetBusy}
+                      onClick={() => void mapWorkflowAction(item, "reset-google-maps-not-required")}
+                    >
+                      {resetBusy ? "Ukladám…" : "Znovu vyžadovať Google Maps"}
+                    </button>
+                  </div>
+                )
+              ) : (
+                <>
+                  <div className="admin-editor-actions" style={{ flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      disabled={!item.googlePickerAvailable}
+                      onClick={() => setActivePickerKey(pickerOpen ? null : item.key)}
+                    >
+                      {item.googleMapsTarget === "PLACE" ? "Zmeniť Google miesto" : "Nájsť v Google Maps"}
+                    </button>
+                    {item.googleMapsTarget !== "PLACE" ? (
+                      <button
+                        type="button"
+                        disabled={notRequiredBusy}
+                        onClick={() => void mapWorkflowAction(item, "google-maps-not-required")}
+                      >
+                        {notRequiredBusy ? "Ukladám…" : "✓ Google Maps netreba"}
+                      </button>
+                    ) : null}
+                  </div>
+                  {!item.googlePickerAvailable && item.googlePickerUnavailableReason ? (
+                    <p className="admin-help">{item.googlePickerUnavailableReason}</p>
+                  ) : null}
+                </>
+              )}
+
+              {pickerOpen && item.googleMapsTarget !== "NOT_REQUIRED" ? (
+                <div className="admin-message" style={{ marginTop: 10 }} data-active-google-picker={item.key}>
+                  <div className="admin-editor-actions" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                    <strong>Google Maps kandidáti</strong>
+                    <button type="button" onClick={() => setActivePickerKey(null)}>Zavrieť</button>
+                  </div>
                   <AdminGooglePlacePicker
                     targetType={item.targetType}
                     targetId={item.targetId}
                     compact
+                    autoDiscover
                     available={item.googlePickerAvailable}
                     unavailableReason={item.googlePickerUnavailableReason ?? ""}
-                    onConfirmed={() => router.refresh()}
+                    allowExplicitPrivateOverride={false}
+                    onConfirmed={() => {
+                      setActivePickerKey(null);
+                      router.refresh();
+                    }}
                   />
                 </div>
+              ) : null}
 
-                <details style={{ marginTop: 12 }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 700 }}>Technické detaily</summary>
-                  <div className="admin-help" style={{ marginTop: 10, display: "grid", gap: 4, overflowWrap: "anywhere" }}>
-                    <span>target type: {item.targetType}</span>
-                    <span>canonical ID: {item.targetId}</span>
-                    <span>unique key: {item.key}</span>
-                    <span>geo_point ID: {item.geoPointId ?? "—"}</span>
-                    <span>geocode_status: {item.geocodeStatus ?? "—"}</span>
-                    <span>public_visibility: {item.publicVisibility ?? "—"}</span>
-                    <span>precision: {item.publicPrecision ?? "—"}</span>
-                    <span>provider: {item.provider ?? "—"}</span>
-                    <span>normalized query: {item.normalizedQuery ?? "—"}</span>
-                    <span>source_fingerprint: {item.sourceFingerprint ?? "—"}</span>
-                    <span>resolved_source_fingerprint: {item.resolvedSourceFingerprint ?? "—"}</span>
-                    <span>google_place_id: {item.googlePlaceId ?? "—"}</span>
-                    <span>google_place_source_fingerprint: {item.googlePlaceSourceFingerprint ?? "—"}</span>
-                    <span>google_maps_target: {item.googleMapsTarget}</span>
-                    <span>latitude: {item.latitude ?? "—"}</span>
-                    <span>longitude: {item.longitude ?? "—"}</span>
-                    <span>error/reason code: {item.errorCode ?? item.addressReason}</span>
-                    <span>manual override: {item.manualOverride ? "áno" : "nie"}</span>
-                    <span>explicit private: {item.explicitPrivate ? "áno" : "nie"}</span>
-                    <span>updated: {item.updatedAt ?? "—"}</span>
-                    {item.publicAddress ? <span><strong>Verejná adresa:</strong> {item.publicAddress}</span> : null}
-                  </div>
-                </details>
-              </article>
-            );
-          })}
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 700 }}>Technické detaily</summary>
+                <div className="admin-help" style={{ display: "grid", gap: 4, marginTop: 8, overflowWrap: "anywhere" }}>
+                  <span>Operator: {item.operatorState} — {item.operatorReason}</span>
+                  <span>geocode_status: {item.geocodeStatus ?? "—"}</span>
+                  <span>google_place_id: {item.googlePlaceId ?? "—"}</span>
+                  <span>google_place_source_fingerprint: {item.googlePlaceSourceFingerprint ?? "—"}</span>
+                  <span>source_fingerprint: {item.sourceFingerprint ?? "—"}</span>
+                  <span>provider: {item.provider ?? "—"}</span>
+                  <span>manual_override: {item.manualOverride ? "áno" : "nie"}</span>
+                  <span>explicit_private: {item.explicitPrivate ? "áno" : "nie"}</span>
+                </div>
+              </details>
+            </article>
+          );
+        })}
 
-          {!visible.length ? (
-            <div className="admin-empty">
-              <span>🗺️</span>
-              <h2>Žiadne položky pre zvolený filter</h2>
-              <p>Skús zmeniť sekciu, stav alebo vyhľadávanie.</p>
-            </div>
-          ) : null}
-        </div>
+        {!data.items.length ? (
+          <article className="admin-form-card">
+            <h2>Žiadne položky pre zvolený filter</h2>
+            <p>Skús zrušiť niektorý filter alebo prejsť na inú sekciu.</p>
+          </article>
+        ) : null}
       </section>
+
+      <nav className="admin-form-card" aria-label="Stránkovanie máp">
+        <div className="admin-editor-actions" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+          {data.pagination.page > 1
+            ? <Link href={pageHref(data.pagination.page - 1)}>Predchádzajúca</Link>
+            : <span className="admin-help">Predchádzajúca</span>}
+          <span>
+            Strana <strong>{data.pagination.page}</strong> z <strong>{data.pagination.totalPages}</strong>
+            {" · "}{data.pagination.from}–{data.pagination.to} z {data.pagination.totalItems}
+          </span>
+          {data.pagination.page < data.pagination.totalPages
+            ? <Link href={pageHref(data.pagination.page + 1)}>Ďalšia</Link>
+            : <span className="admin-help">Ďalšia</span>}
+        </div>
+      </nav>
     </div>
   );
 }

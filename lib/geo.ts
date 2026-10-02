@@ -44,6 +44,7 @@ export type GeoSourceLocation = {
   targetId: number;
   label: string;
   organizationName?: string;
+  organizationId?: number;
   category?: string;
   locationRole?: string;
   address?: string;

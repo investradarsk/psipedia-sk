@@ -260,7 +260,7 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
 
   if (targetType === "ORGANIZATION_LOCATION") {
     const row = await db.prepare(`
-      SELECT l.id, l.role, l.label, l.address, l.city, l.district, l.region, l.country_code,
+      SELECT l.id, l.organization_id, l.role, l.label, l.address, l.city, l.district, l.region, l.country_code,
         o.name AS organization_name, o.status AS organization_status, o.archived_at
       FROM organization_locations l
       JOIN help_organizations o ON o.id = l.organization_id
@@ -271,6 +271,7 @@ export async function getGeoSourceLocation(targetType: GeoTargetType, id: number
       targetType, targetId: Number(row.id),
       label: String(row.label || row.organization_name || ""),
       organizationName: String(row.organization_name ?? ""),
+      organizationId: Number(row.organization_id),
       locationRole: String(row.role ?? "UNSPECIFIED"),
       address: String(row.address ?? ""), city: String(row.city ?? ""), district: String(row.district ?? ""),
       region: String(row.region ?? ""), countryCode: String(row.country_code ?? "SK"),
@@ -329,6 +330,86 @@ export async function writeGeoModerationEvent(input: {
     JSON.stringify(input.changedFields ?? []), input.requestId ?? null, new Date().toISOString(),
   ).run();
   return id;
+}
+
+export const GOOGLE_MAPS_NOT_REQUIRED_ACTION = "GOOGLE_MAPS_NOT_REQUIRED";
+export const GOOGLE_MAPS_REQUIRED_AGAIN_ACTION = "GOOGLE_MAPS_REQUIRED_AGAIN";
+
+export async function getGoogleMapsWorkflowDecision(
+  targetType: GeoTargetType,
+  targetId: number,
+  database?: GeoD1Database,
+): Promise<"NOT_REQUIRED" | "UNRESOLVED"> {
+  const db = requireGeoD1(database);
+  const point = await getGeoPointForTarget(targetType, targetId, db);
+  if (!point) return "UNRESOLVED";
+  const row = await db.prepare(`
+    SELECT action
+    FROM moderation_events
+    WHERE resource_type = 'GEO_POINT'
+      AND subject_id = ?
+      AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  `).bind(String(point.id)).first<{ action: string }>();
+  return row?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED";
+}
+
+export async function setGoogleMapsNotRequired(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  actorRef: string;
+  reason?: string;
+}, database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  let point = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (!point) {
+    point = (await initializeGeoPointForTarget(
+      input.targetType,
+      input.targetId,
+      input.actorRef,
+      db,
+      "ADMIN",
+    )).point;
+  }
+  if (await getGoogleMapsWorkflowDecision(input.targetType, input.targetId, db) === "NOT_REQUIRED") {
+    return point;
+  }
+  await writeGeoModerationEvent({
+    geoPointId: point.id,
+    action: GOOGLE_MAPS_NOT_REQUIRED_ACTION,
+    actorType: "ADMIN",
+    actorRef: input.actorRef,
+    fromStatus: point.geocodeStatus,
+    toStatus: point.geocodeStatus,
+    reasonCode: input.reason ?? "ADMIN_MAP_REVIEW_COMPLETED_WITHOUT_GOOGLE_PLACE",
+    changedFields: ["google_maps_workflow"],
+  }, db);
+  return point;
+}
+
+export async function resetGoogleMapsNotRequired(input: {
+  targetType: GeoTargetType;
+  targetId: number;
+  actorRef: string;
+}, database?: GeoD1Database) {
+  const db = requireGeoD1(database);
+  const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (!point) return null;
+  if (await getGoogleMapsWorkflowDecision(input.targetType, input.targetId, db) !== "NOT_REQUIRED") {
+    return point;
+  }
+  await writeGeoModerationEvent({
+    geoPointId: point.id,
+    action: GOOGLE_MAPS_REQUIRED_AGAIN_ACTION,
+    actorType: "ADMIN",
+    actorRef: input.actorRef,
+    fromStatus: point.geocodeStatus,
+    toStatus: point.geocodeStatus,
+    reasonCode: "ADMIN_MAP_REVIEW_REOPENED",
+    changedFields: ["google_maps_workflow"],
+  }, db);
+  return point;
 }
 
 export async function initializeGeoPointForTarget(

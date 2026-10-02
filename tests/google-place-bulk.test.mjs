@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { evaluateGoogleDirectoryAutoMatch } from "../lib/google-place-directory-discovery.ts";
-import { validateGooglePlaceBulkTargetIds } from "../lib/google-place-bulk.ts";
+import {
+  googlePlaceBulkFilterFingerprint,
+  normalizeGooglePlaceBulkFilters,
+  validateGooglePlaceBulkTargetIds,
+} from "../lib/google-place-bulk.ts";
 
 const dashboard = readFileSync(new URL("../components/admin-geo-operator-dashboard.tsx", import.meta.url), "utf8");
 const bulkRoute = readFileSync(new URL("../app/api/admin/geo/bulk-google/route.ts", import.meta.url), "utf8");
@@ -103,46 +107,58 @@ test("GOOGLE-PLACE-BULK accepts any explicit batch size from 1 to 100 and reject
   assert.throws(() => validateGooglePlaceBulkTargetIds([...hundred, 101]), /1 až 100/);
 });
 
-test("GOOGLE-PLACE-BULK Admin Mapy exposes 1-100 count, current-filter batching and progress", () => {
+test("GOOGLE-PLACE-BULK Admin Mapy requests server-side batches instead of slicing current page", () => {
   assert.match(dashboard, /Počet profilov na kontrolu/);
   assert.match(dashboard, /min=\{1\}/);
   assert.match(dashboard, /max=\{100\}/);
-  assert.match(dashboard, /bulkRemaining\.slice\(0, requested\)/);
-  assert.match(dashboard, /aktuálneho filtra/);
+  assert.match(dashboard, /action: "select-targets"/);
+  assert.match(dashboard, /filters: \{/);
+  assert.match(dashboard, /cursor: bulkCursor/);
+  assert.match(dashboard, /targetIds = selection\.targetIds/);
+  assert.doesNotMatch(dashboard, /bulkRemaining\.slice|serviceItems\.findIndex|visible\.filter/);
+  assert.match(dashboard, /celého filtrovaného datasetu/);
   assert.match(dashboard, /Google Maps kontrola:/);
-  assert.match(dashboard, /automaticky uložia/);
-  assert.match(dashboard, /na kontrolu/);
   assert.doesNotMatch(dashboard, /<table/);
 });
 
-test("GOOGLE-PLACE-BULK Admin Mapy supports combinable category and Google Maps checkbox filters", () => {
-  assert.match(dashboard, /Kategórie/);
-  assert.match(dashboard, /selectedCategories/);
-  assert.match(dashboard, /selectedCategories\.includes\(item\.category\)/);
-  assert.match(dashboard, /Google Maps \/ mapa/);
-  assert.match(dashboard, /Google Maps — konkrétne miesto/);
-  assert.match(dashboard, /Iba súradnice/);
-  assert.match(dashboard, /Bez Google Place \/ bez mapového cieľa/);
-  assert.match(dashboard, /selectedMapTargets/);
-  assert.match(dashboard, /item\.googleMapsTarget/);
-  assert.match(dashboard, /Zrušiť všetky filtre/);
+test("GOOGLE-PLACE-BULK filter normalization and fingerprint bind cursor to dataset", () => {
+  const filters = normalizeGooglePlaceBulkFilters({
+    category: " veterinari ",
+    operator: "needs_review",
+    google: "unresolved",
+    query: " Nitra ",
+  });
+  assert.deepEqual(filters, {
+    category: "veterinari",
+    operator: "NEEDS_REVIEW",
+    google: "UNRESOLVED",
+    query: "Nitra",
+  });
+  assert.equal(
+    googlePlaceBulkFilterFingerprint(filters),
+    JSON.stringify(filters),
+  );
+  assert.match(bulkStore, /Google bulk cursor nepatrí k aktuálnemu filtru/);
+  assert.match(bulkStore, /ORDER BY name COLLATE NOCASE ASC, id ASC/);
+  assert.match(bulkStore, /LIMIT \?/);
 });
 
-test("GOOGLE-PLACE-BULK pagination advances past unresolved results instead of repeating the first batch", () => {
-  assert.match(dashboard, /bulkCursorId/);
-  assert.match(dashboard, /serviceItems\.findIndex\(\(item\) => item\.targetId === bulkCursorId\)/);
-  assert.match(dashboard, /visible\.filter/);
-  assert.match(dashboard, /item\.googleMapsTarget !== "PLACE"/);
-  assert.match(dashboard, /itemIndex > bulkCursorIndex/);
-  assert.match(dashboard, /setBulkCursorId\(targets\[targets\.length - 1\]\.targetId\)/);
+test("GOOGLE-PLACE-BULK server selection excludes resolved and protected workflow rows", () => {
+  assert.match(bulkStore, /google_state <> 'PLACE'/);
+  assert.match(bulkStore, /google_state <> 'NOT_REQUIRED'/);
+  assert.match(bulkStore, /COALESCE\(manual_override, 0\) = 0/);
+  assert.match(bulkStore, /explicit_private/);
+  assert.match(bulkStore, /map_review_action = 'GOOGLE_MAPS_NOT_REQUIRED'/);
+  assert.match(bulkStore, /getGoogleMapsWorkflowDecision/);
+  assert.match(bulkStore, /Admin označil Google Maps ako nepotrebné/);
   assert.match(dashboard, /Pokračovať ďalšou dávkou/);
   assert.match(dashboard, /Začať od začiatku/);
-  assert.match(dashboard, /Za poslednou dávkou zostáva/);
 });
 
 test("GOOGLE-PLACE-BULK endpoint is explicit, bounded and processor protects privacy/manual overrides", () => {
   assert.match(bulkRoute, /sameOriginJson/);
   assert.match(bulkRoute, /GOOGLE-PLACE-BULK/);
+  assert.match(bulkRoute, /selectGooglePlaceBulkTargets/);
   assert.match(bulkRoute, /validateGooglePlaceBulkTargetIds/);
   assert.match(bulkStore, /GOOGLE_PLACE_BULK_MAX = 100/);
   assert.doesNotMatch(bulkStore, /geoSensitiveDirectoryCategory/);

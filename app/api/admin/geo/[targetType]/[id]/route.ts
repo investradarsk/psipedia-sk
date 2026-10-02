@@ -22,16 +22,23 @@ import {
   hasExplicitPrivateGeoDecision,
   isGeoSchemaAvailable,
   initializeGeoPointForTarget,
+  resetGoogleMapsNotRequired,
   resetManualGeoOverride,
   setGeoVisibility,
+  setGoogleMapsNotRequired,
   setManualGeoCoordinates,
   writeGeoModerationEvent,
 } from "@/lib/geo-store";
 import { evaluateGooglePlaceCandidates, evaluateNumberlessGooglePlaceCandidates } from "@/lib/google-place-matching";
 import { googlePlacesApiKey, searchGooglePlacesText } from "@/lib/google-places-provider";
-import { discoverGoogleTargetPlaces, googlePlaceActionForSource } from "@/lib/google-place-target-discovery";
+import {
+  discoverGoogleTargetPlaces,
+  googlePlaceActionForSource,
+  googlePlaceConfirmationForSource,
+} from "@/lib/google-place-target-discovery";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { updateManagedDirectoryProfileFromGooglePlace } from "@/lib/directory-store";
+import { createOrganizationLocationFromAdmin } from "@/lib/organization-location-admin-write";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ targetType: string; id: string }> };
@@ -246,13 +253,45 @@ export async function POST(request: Request, { params }: Props) {
   }
 
   try {
+    if (action === "google-maps-not-required") {
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Canonical target sa nenašiel." }, { status: 404 });
+      if (source.targetType === "MANAGED_EVENT" && source.online) {
+        return Response.json({ point: await getGeoPointForTarget(target.targetType, target.id), systemDerived: true });
+      }
+      const point = await setGoogleMapsNotRequired({
+        targetType: target.targetType,
+        targetId: target.id,
+        actorRef: user.email,
+      });
+      return Response.json({ point, googleMapsNotRequired: true });
+    }
+
+    if (action === "reset-google-maps-not-required") {
+      const source = await getGeoSourceLocation(target.targetType, target.id);
+      if (!source) return Response.json({ error: "Canonical target sa nenašiel." }, { status: 404 });
+      if (source.targetType === "MANAGED_EVENT" && source.online) {
+        return Response.json({ error: "Online podujatie fyzický Google Place nepotrebuje." }, { status: 409 });
+      }
+      const point = await resetGoogleMapsNotRequired({
+        targetType: target.targetType,
+        targetId: target.id,
+        actorRef: user.email,
+      });
+      return Response.json({ point, googleMapsNotRequired: false });
+    }
+
     if (action === "discover-google-place") {
       const source = await getGeoSourceLocation(target.targetType, target.id);
       if (!source) return Response.json({ error: "Canonical target sa nenašiel." }, { status: 404 });
       const policy = googlePlaceActionForSource(source);
       if (!policy.available) return Response.json({ error: policy.reason }, { status: 409 });
       const candidates = await discoverGoogleTargetPlaces(source);
-      return Response.json({ candidates });
+      return Response.json({
+        candidates,
+        requiresSiteConfirmation:
+          source.targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE",
+      });
     }
 
     if (action === "confirm-google-place") {
@@ -261,21 +300,63 @@ export async function POST(request: Request, { params }: Props) {
 
       const source = await getGeoSourceLocation(target.targetType, target.id);
       if (!source) return Response.json({ error: "Canonical target sa nenašiel." }, { status: 404 });
-      const policy = googlePlaceActionForSource(source);
-      if (!policy.available) return Response.json({ error: policy.reason }, { status: 409 });
+      const discoveryPolicy = googlePlaceActionForSource(source);
+      if (!discoveryPolicy.available) return Response.json({ error: discoveryPolicy.reason }, { status: 409 });
 
+      // Server je authority: pri potvrdení sa discovery vždy zopakuje a client Place ID
+      // sa akceptuje iba ak je stále medzi aktuálnymi kandidátmi.
       const candidates = await discoverGoogleTargetPlaces(source);
       const selected = candidates.find((candidate) => candidate.id === placeId);
       if (!selected) {
         return Response.json({ error: "Vybraný Google Place sa už vo výsledkoch nenachádza. Vyhľadaj ho znova." }, { status: 409 });
       }
 
-      let point = await getGeoPointForTarget(target.targetType, target.id);
+      let effectiveTargetType: GeoTargetType = target.targetType;
+      let effectiveTargetId = target.id;
+      let effectiveSource = source;
+      let createdSiteId: number | null = null;
+
+      if (source.targetType === "ORGANIZATION_LOCATION" && source.locationRole !== "SITE") {
+        if (body.confirmOrganizationSite !== true) {
+          return Response.json({
+            error: "Použitie Google kandidáta ako verejne navštevovaného SITE musí admin explicitne potvrdiť.",
+            requiresSiteConfirmation: true,
+          }, { status: 409 });
+        }
+        if (!source.organizationId) {
+          return Response.json({ error: "Organizáciu pre novú SITE lokalitu sa nepodarilo určiť." }, { status: 409 });
+        }
+        const created = await createOrganizationLocationFromAdmin(source.organizationId, {
+          role: "SITE",
+          label: selected.displayName || source.organizationName || source.label,
+          address: selected.formattedAddress,
+          city: selected.address?.locality || selected.address?.sublocality || source.city || "",
+          district: selected.address?.district || source.district || "",
+          region: selected.address?.region || source.region || "",
+          countryCode: selected.address?.countryCode || source.countryCode || "SK",
+          isPrimary: false,
+          sortOrder: 0,
+        });
+        if (!created) return Response.json({ error: "Verejne navštevované SITE sa nepodarilo vytvoriť." }, { status: 409 });
+        createdSiteId = created.id;
+        effectiveTargetType = "ORGANIZATION_LOCATION";
+        effectiveTargetId = created.id;
+        const createdSource = await getGeoSourceLocation(effectiveTargetType, effectiveTargetId);
+        if (!createdSource) return Response.json({ error: "Nové SITE sa po vytvorení nepodarilo načítať." }, { status: 409 });
+        effectiveSource = createdSource;
+      }
+
+      const confirmationPolicy = googlePlaceConfirmationForSource(effectiveSource);
+      if (!confirmationPolicy.available) {
+        return Response.json({ error: confirmationPolicy.reason }, { status: 409 });
+      }
+
+      let point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
       if (point?.manualOverride) {
         return Response.json({ error: "Poloha má manuálny GEO override. Google Place ho nesmie potichu prepísať." }, { status: 409 });
       }
 
-      const explicitPrivate = await hasExplicitPrivateGeoDecision(target.targetType, target.id);
+      const explicitPrivate = await hasExplicitPrivateGeoDecision(effectiveTargetType, effectiveTargetId);
       const publicLocation = body.publicLocation !== false;
       const allowPrivateOverride = body.allowPrivateOverride === true;
       if (publicLocation && explicitPrivate && !allowPrivateOverride) {
@@ -285,33 +366,33 @@ export async function POST(request: Request, { params }: Props) {
       }
 
       let profile = null;
-      if (target.targetType === "DIRECTORY_PROFILE") {
-        profile = await updateManagedDirectoryProfileFromGooglePlace(target.id, selected, user.email);
+      if (effectiveTargetType === "DIRECTORY_PROFILE") {
+        profile = await updateManagedDirectoryProfileFromGooglePlace(effectiveTargetId, selected, user.email);
         if (!profile) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
       }
 
-      point = await getGeoPointForTarget(target.targetType, target.id);
-      if (!point) point = (await initializeGeoPointForTarget(target.targetType, target.id, user.email)).point;
+      point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
+      if (!point) point = (await initializeGeoPointForTarget(effectiveTargetType, effectiveTargetId, user.email)).point;
       if (point.manualOverride) {
         return Response.json({ error: "Poloha má manuálny GEO override. Google Place ho nesmie prepísať." }, { status: 409 });
       }
 
       if (!publicLocation) {
         point = await setGeoVisibility({
-          targetType: target.targetType,
-          targetId: target.id,
+          targetType: effectiveTargetType,
+          targetId: effectiveTargetId,
           visibility: "HIDDEN",
           precision: null,
           actorRef: user.email,
           reason: "GOOGLE_PLACE_CONFIRMED_PRIVATE",
         });
-        return Response.json({ profile, point, googlePlaceId: selected.id });
+        return Response.json({ profile, point, googlePlaceId: selected.id, createdSiteId });
       }
 
       if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
         point = await setGeoVisibility({
-          targetType: target.targetType,
-          targetId: target.id,
+          targetType: effectiveTargetType,
+          targetId: effectiveTargetId,
           visibility: "EXACT_PUBLIC",
           precision: "EXACT",
           actorRef: user.email,
@@ -319,15 +400,28 @@ export async function POST(request: Request, { params }: Props) {
         });
       }
       point = await applyGooglePlaceResolution({
-        targetType: target.targetType,
-        targetId: target.id,
+        targetType: effectiveTargetType,
+        targetId: effectiveTargetId,
         place: {
           id: selected.id,
           latitude: selected.latitude,
           longitude: selected.longitude,
         },
       });
-      return Response.json({ profile, point, googlePlaceId: selected.id });
+      await resetGoogleMapsNotRequired({
+        targetType: effectiveTargetType,
+        targetId: effectiveTargetId,
+        actorRef: user.email,
+      });
+      if (createdSiteId !== null) {
+        await setGoogleMapsNotRequired({
+          targetType: target.targetType,
+          targetId: target.id,
+          actorRef: user.email,
+          reason: "ADMIN_SITE_CREATED_FROM_GOOGLE_PLACE",
+        });
+      }
+      return Response.json({ profile, point, googlePlaceId: selected.id, createdSiteId });
     }
 
     if (action === "preview") {

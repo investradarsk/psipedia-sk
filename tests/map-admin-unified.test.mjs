@@ -5,6 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const loader = read("lib/geo-admin-operator.ts");
 const state = read("lib/geo-admin-operator-state.ts");
+const page = read("app/admin/mapy/page.tsx");
 const dashboard = read("components/admin-geo-operator-dashboard.tsx");
 const geoEditor = read("components/admin-geo-location.tsx");
 const picker = read("components/admin-google-place-picker.tsx");
@@ -25,33 +26,58 @@ test("MAP-ADMIN-UNIFIED operator loader includes all three canonical target type
   assert.match(loader, /key: `MANAGED_EVENT:\$\{id\}`/);
 });
 
-test("MAP-ADMIN-UNIFIED exposes section, dynamic category and combinable map filters", () => {
-  assert.match(dashboard, /Všetko/);
-  assert.match(dashboard, /Služby/);
-  assert.match(dashboard, /Pomoc psom/);
-  assert.match(dashboard, /Podujatia/);
-  assert.match(dashboard, /scopedItems/);
-  assert.match(dashboard, /categoryOptions/);
-  assert.match(dashboard, /selectedCategories/);
-  assert.match(dashboard, /selectedMapTargets/);
-  assert.match(dashboard, /Google Maps — konkrétne miesto/);
-  assert.match(dashboard, /Iba súradnice/);
-  assert.match(dashboard, /Bez Google Place \/ bez mapového cieľa/);
+test("Admin Mapy filters and pagination are URL-backed and server-side", () => {
+  for (const param of ["group", "category", "operator", "google", "q", "page", "pageSize"]) {
+    assert.match(page, new RegExp(`params\\.${param}|params\\[${JSON.stringify(param)}\\]`));
+  }
+  assert.match(page, /loadGeoAdminOperatorProfiles/);
+  assert.match(loader, /function filterSql/);
+  assert.match(loader, /group_key = \?/);
+  assert.match(loader, /category = \?/);
+  assert.match(loader, /operator_state = \?/);
+  assert.match(loader, /google_state = \?/);
+  assert.match(loader, /search_text LIKE \? COLLATE NOCASE/);
+  assert.match(loader, /LIMIT \? OFFSET \?/);
+  assert.match(dashboard, /new URLSearchParams\(searchParams\.toString\(\)\)/);
   assert.match(dashboard, /Zrušiť všetky filtre/);
 });
 
-test("MAP-ADMIN-UNIFIED uses one reusable inline Google Place picker", () => {
+test("MAP-ADMIN-PERF pagination is bounded and stable", () => {
+  assert.match(loader, /GEO_ADMIN_DEFAULT_PAGE_SIZE = 50/);
+  assert.match(loader, /GEO_ADMIN_PAGE_SIZES = \[25, 50, 100\]/);
+  assert.match(loader, /GEO_ADMIN_MAX_PAGE_SIZE = 100/);
+  assert.match(loader, /parsed > GEO_ADMIN_MAX_PAGE_SIZE/);
+  assert.match(loader, /ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC/);
+  assert.doesNotMatch(loader, /LIMIT 2000/);
+  assert.doesNotMatch(loader, /\.filter\(\(item\).*findIndex/s);
+  assert.match(dashboard, /Strana <strong>\{data\.pagination\.page\}<\/strong> z/);
+});
+
+test("counts are server-side and cover the full filtered dataset", () => {
+  assert.match(loader, /COUNT\(\*\) AS total/);
+  assert.match(loader, /google_not_required/);
+  assert.match(loader, /google_unresolved/);
+  assert.match(loader, /op_on_map/);
+  assert.match(loader, /op_needs_review/);
+  assert.match(dashboard, /Počty sú za celý aktuálny serverový filter/);
+});
+
+test("Google picker is single-active and mounts only after explicit Admin Mapy click", () => {
   assert.match(picker, /export function AdminGooglePlacePicker/);
-  assert.match(picker, /Nájsť v Google Maps/);
-  assert.match(picker, /Použiť toto miesto/);
-  assert.match(geoEditor, /<AdminGooglePlacePicker/);
+  assert.match(dashboard, /activePickerKey/);
+  assert.match(dashboard, /pickerOpen = activePickerKey === item\.key/);
+  assert.match(dashboard, /\{pickerOpen && item\.googleMapsTarget !== "NOT_REQUIRED" \?/);
   assert.match(dashboard, /<AdminGooglePlacePicker/);
+  assert.match(dashboard, /autoDiscover/);
+  assert.match(picker, /if \(!autoDiscover/);
+  assert.match(picker, /void discover\(\)/);
   assert.match(picker, /action: "discover-google-place"/);
   assert.match(picker, /action: "confirm-google-place"/);
+  assert.match(geoEditor, /<AdminGooglePlacePicker/);
 });
 
 test("Google confirmation reruns server discovery and never trusts client coordinates", () => {
-  assert.match(route, /discoverGoogleTargetPlaces\(source\)/);
+  assert.match(route, /const candidates = await discoverGoogleTargetPlaces\(source\)/);
   assert.match(route, /candidates\.find\(\(candidate\) => candidate\.id === placeId\)/);
   assert.match(route, /latitude: selected\.latitude/);
   assert.match(route, /longitude: selected\.longitude/);
@@ -59,56 +85,76 @@ test("Google confirmation reruns server discovery and never trusts client coordi
   assert.doesNotMatch(picker, /longitude:/);
 });
 
-test("organization privacy allows SITE but blocks legal seat, service area and unclear role", () => {
-  assert.match(discovery, /source\.locationRole === "LEGAL_SEAT"/);
-  assert.match(discovery, /Právne sídlo sa nezverejňuje ako navštevované miesto/);
-  assert.match(discovery, /source\.locationRole === "SERVICE_AREA"/);
-  assert.match(discovery, /Pôsobnosť organizácie nie je konkrétne verejne navštevované miesto/);
+test("organization search is name-first while publication still requires explicit SITE", () => {
+  const discoveryPolicy = discovery.slice(
+    discovery.indexOf('if (source.targetType === "ORGANIZATION_LOCATION")'),
+    discovery.indexOf('if (source.online)'),
+  );
+  assert.match(discoveryPolicy, /organizationName/);
+  assert.doesNotMatch(discoveryPolicy, /locationRole !== "SITE"/);
+  assert.match(discovery, /googlePlaceConfirmationForSource/);
   assert.match(discovery, /source\.locationRole !== "SITE"/);
-  assert.match(discovery, /Najprv označ lokalitu ako verejne navštevované SITE/);
+  assert.match(route, /confirmOrganizationSite !== true/);
+  assert.match(route, /createOrganizationLocationFromAdmin/);
+  assert.match(route, /role: "SITE"/);
+  assert.match(picker, /LEGAL_SEAT ani SERVICE_AREA sa neprepíšu/);
 });
 
-test("physical events can use Google Place while online events remain non-physical", () => {
+test("physical events can search by title while online events are system-derived NOT_REQUIRED", () => {
+  assert.match(discovery, /parts\(source\.label, source\.city, source\.region, "Slovensko"\)/);
   assert.match(discovery, /if \(source\.online\)/);
-  assert.match(discovery, /Online podujatie nemá fyzický Google Maps bod/);
-  assert.match(loader, /online[\s\S]*NOT_PUBLIC/);
-  assert.match(route, /googlePlaceActionForSource\(source\)/);
+  assert.match(loader, /WHEN online = 1 THEN 'NOT_REQUIRED'/);
+  assert.match(dashboard, /Google Maps netreba — online podujatie/);
+  assert.match(route, /Online podujatie fyzický Google Place nepotrebuje/);
 });
 
-test("directory sensitive category is not a Google blocker but explicit private state is", () => {
+test("map not-required is workflow-only, reversible and does not fake geo verification", () => {
+  assert.match(route, /action === "google-maps-not-required"/);
+  assert.match(route, /setGoogleMapsNotRequired/);
+  assert.match(route, /action === "reset-google-maps-not-required"/);
+  assert.match(route, /resetGoogleMapsNotRequired/);
+  assert.match(dashboard, /✓ Google Maps netreba/);
+  assert.match(dashboard, /Znovu vyžadovať Google Maps/);
+  const notRequiredBlock = route.slice(
+    route.indexOf('action === "google-maps-not-required"'),
+    route.indexOf('action === "reset-google-maps-not-required"'),
+  );
+  assert.doesNotMatch(notRequiredBlock, /googlePlaceId|latitude|longitude|applyGooglePlaceResolution|setGeoVisibility/);
+});
+
+test("directory privacy/manual-override protections remain intact and online directory behavior stays removed", () => {
   assert.doesNotMatch(directoryPage, /geoSensitiveDirectoryCategory/);
   assert.doesNotMatch(bulk, /geoSensitiveDirectoryCategory/);
   assert.match(bulk, /hasExplicitPrivateGeoDecision/);
   assert.match(route, /hasExplicitPrivateGeoDecision/);
   assert.match(route, /allowPrivateOverride/);
   assert.match(loader, /explicit_private/);
-});
-
-test("directory Google Maps action stays available for hybrid services that also offer online service", () => {
   const directoryPolicy = discovery.slice(
     discovery.indexOf('if (source.targetType === "DIRECTORY_PROFILE")'),
     discovery.indexOf('if (source.targetType === "ORGANIZATION_LOCATION")'),
   );
   assert.doesNotMatch(directoryPolicy, /source\.online/);
-  assert.match(directoryPolicy, /!source\.label\.trim\(\)/);
 });
 
-test("bulk remains DIRECTORY_PROFILE-only, bounded 1-100 and cursor-based", () => {
-  assert.match(dashboard, /targetType === "DIRECTORY_PROFILE"/);
+test("bulk remains DIRECTORY_PROFILE-only, bounded 1-100 and server cursor-based", () => {
   assert.match(dashboard, /min=\{1\}/);
   assert.match(dashboard, /max=\{100\}/);
-  assert.match(dashboard, /bulkCursorId/);
+  assert.match(dashboard, /action: "select-targets"/);
+  assert.match(dashboard, /bulkCursor/);
   assert.match(dashboard, /Pokračovať ďalšou dávkou/);
   assert.match(dashboard, /Začať od začiatku/);
+  assert.match(bulk, /selectGooglePlaceBulkTargets/);
+  assert.match(bulk, /filterFingerprint/);
   assert.doesNotMatch(bulk, /ORGANIZATION_LOCATION|MANAGED_EVENT/);
 });
 
-test("operator UI stays card-based and non-directory state is independent of directory address rules", () => {
+test("operator UI stays card-based and mobile-safe", () => {
   assert.match(state, /geoAdminGenericOperatorState/);
   assert.match(loader, /geoAdminGenericOperatorState/);
   assert.doesNotMatch(dashboard, /<table/);
   assert.match(dashboard, /flexWrap: "wrap"/);
   assert.match(dashboard, /overflow: "hidden"/);
+  assert.match(picker, /maxWidth: "100%"/);
 });
 
 test("MAP-ADMIN-UNIFIED adds no schema migration or manual-marker default", () => {

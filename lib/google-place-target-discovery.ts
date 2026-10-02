@@ -14,8 +14,6 @@ function parts(...values: Array<string | null | undefined>) {
 
 export function googlePlaceActionForSource(source: GeoSourceLocation): GooglePlaceActionAvailability {
   if (source.targetType === "DIRECTORY_PROFILE") {
-    // DIRECTORY_PROFILE používa jeden bežný model profilu služby.
-    // Google Place môže administrátor vyhľadať podľa názvu a dostupných lokalizačných údajov.
     if (!source.label.trim()) {
       return { available: false, reason: "Najprv doplň názov profilu." };
     }
@@ -23,17 +21,36 @@ export function googlePlaceActionForSource(source: GeoSourceLocation): GooglePla
   }
 
   if (source.targetType === "ORGANIZATION_LOCATION") {
-    if (source.locationRole === "LEGAL_SEAT") {
-      return { available: false, reason: "Právne sídlo sa nezverejňuje ako navštevované miesto." };
+    const organizationName = (source.organizationName || source.label).trim();
+    if (!organizationName) {
+      return { available: false, reason: "Najprv doplň názov organizácie." };
     }
-    if (source.locationRole === "SERVICE_AREA") {
-      return { available: false, reason: "Pôsobnosť organizácie nie je konkrétne verejne navštevované miesto." };
-    }
+    // Discovery je zámerne voľnejší než publish/confirmation policy.
+    // LEGAL_SEAT, SERVICE_AREA a UNSPECIFIED môžu dodať hinty pre Google search,
+    // ale konkrétny Place sa na nich nesmie potichu publikovať.
+    return { available: true, reason: "" };
+  }
+
+  if (source.online) {
+    return { available: false, reason: "Online podujatie nemá fyzický Google Maps bod." };
+  }
+  if (!source.label.trim()) {
+    return { available: false, reason: "Najprv doplň názov podujatia." };
+  }
+  return { available: true, reason: "" };
+}
+
+export function googlePlaceConfirmationForSource(source: GeoSourceLocation): GooglePlaceActionAvailability {
+  if (source.targetType === "DIRECTORY_PROFILE") {
+    return googlePlaceActionForSource(source);
+  }
+
+  if (source.targetType === "ORGANIZATION_LOCATION") {
     if (source.locationRole !== "SITE") {
-      return { available: false, reason: "Najprv označ lokalitu ako verejne navštevované SITE." };
-    }
-    if (!parts(source.address, source.city, source.district, source.region).length) {
-      return { available: false, reason: "Verejne navštevované miesto nemá použiteľnú lokalitu." };
+      return {
+        available: false,
+        reason: "Vybrané Google miesto treba najprv explicitne potvrdiť ako verejne navštevované SITE.",
+      };
     }
     return { available: true, reason: "" };
   }
@@ -41,25 +58,24 @@ export function googlePlaceActionForSource(source: GeoSourceLocation): GooglePla
   if (source.online) {
     return { available: false, reason: "Online podujatie nemá fyzický Google Maps bod." };
   }
-  if (!parts(source.venue, source.address, source.city, source.region).length) {
-    return { available: false, reason: "Podujatie nemá použiteľné fyzické miesto." };
-  }
-  return { available: true, reason: "" };
+  return googlePlaceActionForSource(source);
 }
 
 function targetQueries(source: GeoSourceLocation) {
   if (source.targetType === "ORGANIZATION_LOCATION") {
+    const organizationName = source.organizationName || source.label;
     return [
-      parts(source.organizationName, source.label, source.address, source.city, source.district, source.region, "Slovensko"),
-      parts(source.organizationName, source.label, source.city, source.region, "Slovensko"),
-      parts(source.organizationName || source.label, source.city, "Slovensko"),
+      parts(organizationName, source.label, source.address, source.city, source.district, source.region, "Slovensko"),
+      parts(organizationName, source.city, source.region, "Slovensko"),
+      parts(organizationName, "Slovensko"),
     ];
   }
 
   return [
     parts(source.label, source.venue, source.address, source.city, source.region, "Slovensko"),
-    parts(source.label, source.venue, source.city, "Slovensko"),
-    parts(source.label, source.city, "Slovensko"),
+    parts(source.venue, source.city, source.region, "Slovensko"),
+    parts(source.label, source.city, source.region, "Slovensko"),
+    parts(source.label, "Slovensko"),
   ];
 }
 
