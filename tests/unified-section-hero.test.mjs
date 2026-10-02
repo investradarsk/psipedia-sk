@@ -155,8 +155,8 @@ test("main route preserves SEO structured data while delegating section heroes",
 
 test("SECTION-HERO-V2 adds only the approved 0107 hero config migration", () => {
   const migrations = readdirSync("drizzle").filter((name) => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.equal(migrations.at(-1), "0106_section_visuals.sql");
-  assert.equal(migrations.some((name) => name.startsWith("0107_")), false);
+  assert.equal(migrations.at(-1), "0107_section_hero_config.sql");
+  assert.equal(migrations.filter((name) => name.startsWith("0107_")).length, 1);
 });
 
 test("cards retain dynamic images while hero sources are stable", () => {
