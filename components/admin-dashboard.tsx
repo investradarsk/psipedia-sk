@@ -90,8 +90,9 @@ export function AdminDashboard({
     portalSection: fixedPortalSection ?? (filters.portalSection === "all" ? "" : filters.portalSection),
     status: filters.status,
     q: filters.query,
-  }), [fixedPortalSection, filters.portalSection, filters.query, filters.status]);
-  const membershipFingerprint = `${articleAdminBulkFingerprint(membershipFilter)}|topic:${filters.topicId ?? ""}`;
+    topicId: filters.topicId ?? null,
+  }), [fixedPortalSection, filters.portalSection, filters.query, filters.status, filters.topicId]);
+  const membershipFingerprint = articleAdminBulkFingerprint(membershipFilter);
   const pageIds = articles.map((article) => article.id);
   const bulkSelection = useAdminBulkSelection({
     module: "articles",
