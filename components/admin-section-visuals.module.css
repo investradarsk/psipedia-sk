@@ -299,8 +299,7 @@
   background: linear-gradient(90deg, rgba(8, 34, 25, .12), transparent 70%);
 }
 
-.desktopSafeZone,
-.mobileSafeZone {
+.desktopSafeZone {
   position: absolute;
   z-index: 2;
   display: grid;
@@ -317,19 +316,14 @@
   inset: 8% 46% 8% 4%;
 }
 
-.mobileSafeZone {
-  inset: 48% 5% 5%;
-}
 
-.desktopSafeZone span,
-.mobileSafeZone span {
+.desktopSafeZone span {
   font-size: .66rem;
   font-weight: 900;
   letter-spacing: .08em;
 }
 
-.desktopSafeZone small,
-.mobileSafeZone small {
+.desktopSafeZone small {
   font-size: .65rem;
 }
 
