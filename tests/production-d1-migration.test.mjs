@@ -114,6 +114,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0103_admin_entity_reviews.sql",
     "0104_article_topics.sql",
     "0105_article_popularity.sql",
+    "0106_section_visuals.sql",
   ]);
 });
 
@@ -329,6 +330,32 @@ test("ARTICLE-POPULARITY-1 0105 detects partial popularity schema drift", () => 
     targetSchemaObjects({ objects: [] }, "0105_article_popularity.sql"),
     { partial: false },
   );
+});
+
+test("SECTION-VISUALS-1 0106 detects partial visual schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "section_visuals", type: "table", sql: "" }] }, "0106_section_visuals.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [{ name: "section_visuals_section_idx", type: "index", sql: "" }] }, "0106_section_visuals.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0106_section_visuals.sql"),
+    { partial: false },
+  );
+});
+
+test("SECTION-VISUALS-1 0106 migration persists normalized desktop/mobile crop fields", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0106_section_visuals.sql"), "utf8");
+  assert.match(migration, /CREATE TABLE section_visuals/);
+  assert.match(migration, /visual_key TEXT PRIMARY KEY NOT NULL/);
+  for (const field of ["desktop_x", "desktop_y", "desktop_zoom", "mobile_x", "mobile_y", "mobile_zoom"]) {
+    assert.match(migration, new RegExp(`\\b${field}\\b`));
+  }
+  assert.match(migration, /section_visuals_section_idx/);
+  assert.doesNotMatch(migration, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
 });
 
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
