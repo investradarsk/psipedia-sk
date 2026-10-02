@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   source-contracts:
-    if: github.head_ref == 'codex/category-visual-1'
+    if: github.head_ref == 'codex/category-visual-1' || github.head_ref == 'codex/category-banners-1'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -42,11 +42,19 @@ jobs:
       - run: npm ci
       - name: CATEGORY-VISUAL source regressions
         run: node --experimental-strip-types --test tests/category-visual.test.mjs
+      - name: Reviews public-read regression
+        run: npm run test:reviews-public-read
+      - name: Event regression
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/events-phase4.test.mjs
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npx tsc --noEmit
       - name: Build branch
         run: npm run build
 
   preview-visual:
-    if: github.head_ref == 'codex/category-visual-1'
+    if: github.head_ref == 'codex/category-visual-1' || github.head_ref == 'codex/category-banners-1'
     needs: source-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 35
