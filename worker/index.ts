@@ -429,7 +429,7 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_article_sync_sweep", ...notionArticles }));
     console.info(JSON.stringify({ event: "notion_breed_sync_sweep", ...notionBreeds }));
     console.info(JSON.stringify({ event: "notion_event_sync_sweep", ...notionEvents }));
-    console.info(JSON.stringify({ event: "notion_events_help_sync_sweep", ...notionEventsHelp }));
+    console.info(JSON.stringify({ ...notionEventsHelp, event: "notion_events_help_sync_sweep" }));
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
     console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));
     console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
