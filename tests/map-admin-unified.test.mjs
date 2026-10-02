@@ -9,8 +9,10 @@ const page = read("app/admin/mapy/page.tsx");
 const dashboard = read("components/admin-geo-operator-dashboard.tsx");
 const geoEditor = read("components/admin-geo-location.tsx");
 const picker = read("components/admin-google-place-picker.tsx");
+const profileGoogle = read("components/admin-profile-google-maps.tsx");
 const discovery = read("lib/google-place-target-discovery.ts");
 const route = read("app/api/admin/geo/[targetType]/[id]/route.ts");
+const confirmation = read("lib/admin-google-place-confirmation.ts");
 const bulk = read("lib/google-place-bulk.ts");
 const directoryPage = read("app/admin/adresar/[id]/page.tsx");
 
@@ -73,7 +75,8 @@ test("Google picker is single-active and mounts only after explicit Admin Mapy c
   assert.match(picker, /void discover\(\)/);
   assert.match(picker, /action: "discover-google-place"/);
   assert.match(picker, /action: "confirm-google-place"/);
-  assert.match(geoEditor, /<AdminGooglePlacePicker/);
+  assert.match(geoEditor, /<AdminProfileGoogleMaps/);
+  assert.match(profileGoogle, /<AdminGooglePlacePicker/);
 });
 
 test("Google confirmation reruns server discovery and never trusts client coordinates", () => {
@@ -94,9 +97,9 @@ test("organization search is name-first while publication still requires explici
   assert.doesNotMatch(discoveryPolicy, /locationRole !== "SITE"/);
   assert.match(discovery, /googlePlaceConfirmationForSource/);
   assert.match(discovery, /source\.locationRole !== "SITE"/);
-  assert.match(route, /confirmOrganizationSite !== true/);
-  assert.match(route, /createOrganizationLocationFromAdmin/);
-  assert.match(route, /role: "SITE"/);
+  assert.match(confirmation, /confirmOrganizationSite !== true/);
+  assert.match(confirmation, /createOrganizationLocationFromAdmin/);
+  assert.match(confirmation, /role: "SITE"/);
   assert.match(picker, /LEGAL_SEAT ani SERVICE_AREA sa neprepíšu/);
 });
 
@@ -161,7 +164,7 @@ test("operator UI stays card-based and mobile-safe", () => {
 });
 
 test("MAP-ADMIN-UNIFIED adds no schema migration or manual-marker default", () => {
-  const changedRuntime = [loader, state, dashboard, geoEditor, picker, discovery, route, bulk].join("\n");
+  const changedRuntime = [loader, state, dashboard, geoEditor, profileGoogle, picker, discovery, route, confirmation, bulk].join("\n");
   assert.doesNotMatch(changedRuntime, /CREATE TABLE|ALTER TABLE/);
   assert.doesNotMatch(picker, /manual marker|setManualGeoCoordinates/i);
 });
