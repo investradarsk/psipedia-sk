@@ -108,7 +108,7 @@ test("missing hero config falls back to route copy and static canonical defaults
   assert.match(hero, /const config: SectionHeroConfig = visual\.heroContent\?\.config \?\? \{\}/);
   assert.match(read("lib/section-visual-store.ts"), /heroContent: subpage/);
   assert.match(sectionStore, /heroConfig: \{ \.\.\.\(base\.heroConfig \?\? \{\}\), \.\.\.cleanHeroConfig/);
-  assert.match(sectionStore, /if \(!db\) return portalSections/);
+  assert.match(sectionStore, /if \(!db\) return defaultManagedSections\(\)/);
 });
 test("homepage remains its own design and only keeps the existing home.hero visual source", () => {
   assert.match(home, /getResolvedSectionVisual\("home\.hero"\)/);
