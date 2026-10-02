@@ -104,12 +104,12 @@ test("events have a safe default coral CTA and no implementation copy", () => {
 });
 
 test("missing hero config falls back to route copy and static canonical defaults", () => {
-  assert.match(hero, /let config: SectionHeroConfig = \{\}/);
-  assert.match(hero, /return fallback/);
+  assert.match(hero, /const managedTitle = visual\.heroContent\?\.title \|\| title/);
+  assert.match(hero, /const config: SectionHeroConfig = visual\.heroContent\?\.config \?\? \{\}/);
+  assert.match(read("lib/section-visual-store.ts"), /heroContent: subpage/);
   assert.match(sectionStore, /heroConfig: \{ \.\.\.\(base\.heroConfig \?\? \{\}\), \.\.\.cleanHeroConfig/);
   assert.match(sectionStore, /if \(!db\) return portalSections/);
 });
-
 test("homepage remains its own design and only keeps the existing home.hero visual source", () => {
   assert.match(home, /getResolvedSectionVisual\("home\.hero"\)/);
   assert.doesNotMatch(home, /UnifiedSectionHero/);
