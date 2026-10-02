@@ -98,6 +98,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0103_admin_entity_reviews.sql",
   "0104_article_topics.sql",
   "0105_article_popularity.sql",
+  "0106_section_visuals.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
@@ -993,6 +994,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || names.has("article_read_hourly_bucket_idx"),
     };
   }
+  if (targetMigration === "0106_section_visuals.sql") {
+    return {
+      partial: names.has("section_visuals")
+        || names.has("section_visuals_section_idx"),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1592,6 +1599,20 @@ function assertArticlePopularitySchema(schema) {
   invariant(tableSql.includes("CHECK (qualified_reads >= 0)"), "Article popularity non-negative read constraint is missing");
 }
 
+function assertSectionVisualSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(names.get("section_visuals")?.type === "table", "Missing section_visuals table");
+  invariant(names.get("section_visuals_section_idx")?.type === "index", "Missing section visuals section index");
+  const tableSql = String(names.get("section_visuals")?.sql ?? "");
+  invariant(tableSql.includes("visual_key TEXT PRIMARY KEY NOT NULL"), "Section visual primary key is missing");
+  invariant(tableSql.includes("desktop_x >= 0 AND desktop_x <= 1"), "Section visual desktop X bounds are missing");
+  invariant(tableSql.includes("desktop_y >= 0 AND desktop_y <= 1"), "Section visual desktop Y bounds are missing");
+  invariant(tableSql.includes("desktop_zoom >= 1 AND desktop_zoom <= 3"), "Section visual desktop zoom bounds are missing");
+  invariant(tableSql.includes("mobile_x >= 0 AND mobile_x <= 1"), "Section visual mobile X bounds are missing");
+  invariant(tableSql.includes("mobile_y >= 0 AND mobile_y <= 1"), "Section visual mobile Y bounds are missing");
+  invariant(tableSql.includes("mobile_zoom >= 1 AND mobile_zoom <= 3"), "Section visual mobile zoom bounds are missing");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1628,6 +1649,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 103) assertAdminEntityReviewSchema(schema);
   if (migrationIndex(targetMigration) >= 104) assertArticleTopicSchema(schema);
   if (migrationIndex(targetMigration) >= 105) assertArticlePopularitySchema(schema);
+  if (migrationIndex(targetMigration) >= 106) assertSectionVisualSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1837,6 +1859,9 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 100) assertEshopRatingSchema(schema);
     if (targetIndex > 101) assertEshopProfilePresentationSchema(schema);
     if (targetIndex > 102) assertEshopNotionSyncSchema(schema);
+    if (targetIndex > 103) assertAdminEntityReviewSchema(schema);
+    if (targetIndex > 104) assertArticleTopicSchema(schema);
+    if (targetIndex > 105) assertArticlePopularitySchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
