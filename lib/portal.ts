@@ -392,7 +392,13 @@ export const portalSections: PortalSection[] = [
     accent: "coral",
     eyebrow: "Čo sa deje",
     description: "Kalendár výstav, pretekov, seminárov, tréningov a stretnutí.",
-    intro: "Podujatia budú zoradené podľa dátumu, kraja a typu, aby si rýchlo našiel program vo svojom okolí.",
+    intro: "Kalendár výstav, pretekov, seminárov, tréningov a stretnutí.",
+    heroConfig: {
+      ctaEnabled: true,
+      ctaLabel: "+ Pridať podujatie",
+      ctaHref: "/podujatia/pridat-podujatie",
+      ctaVariant: "accent",
+    },
     articleEnabled: false,
     subpages: [
       { slug: "kalendar", label: "Kalendár podujatí", description: "Všetky termíny na jednom mieste s praktickými filtrami." },
