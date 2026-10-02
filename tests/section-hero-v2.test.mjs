@@ -71,7 +71,7 @@ test("admin edits content, search copy, CTA, meta and quick links without exposi
 });
 
 test("admin search text cannot alter the route, hidden filters or category scope", () => {
-  assert.match(hero, /cloneElement\(searchSlot[\s\S]*placeholder[\s\S]*buttonLabel/);
+  assert.match(hero, /const overrides: SearchElementProps = \{\}/);\n  assert.match(hero, /config\.searchPlaceholder[\s\S]*overrides\.placeholder/);\n  assert.match(hero, /config\.searchButtonLabel[\s\S]*overrides\.buttonLabel/);\n  assert.match(hero, /cloneElement\(searchSlot as ReactElement<SearchElementProps>, overrides\)/);
   assert.doesNotMatch(hero, /cloneElement\(searchSlot[\s\S]*action\s*:/);
   assert.doesNotMatch(hero, /cloneElement\(searchSlot[\s\S]*hidden\s*:/);
   assert.doesNotMatch(hero, /cloneElement\(searchSlot[\s\S]*inputName\s*:/);
