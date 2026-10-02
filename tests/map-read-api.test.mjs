@@ -487,7 +487,7 @@ test("PUBLIC-MAPS-1 scoped DIRECTORY read preserves exact-only public eligibilit
   }
 });
 
-test("PUBLIC-MAPS-1 scoped ORGANIZATION read supports safe exact and approximate multi-location markers", async () => {
+test("PUBLIC-MAPS-1 scoped ORGANIZATION read exposes one safe role-free canonical marker", async () => {
   const site = row({
     geo_point_id: 601,
     entity_type: "organization",
@@ -501,7 +501,7 @@ test("PUBLIC-MAPS-1 scoped ORGANIZATION read supports safe exact and approximate
     verified: 0,
     featured: 0,
   });
-  const area = row({
+  const legacyExtra = row({
     ...site,
     geo_point_id: 602,
     organization_location_id: 602,
@@ -516,17 +516,16 @@ test("PUBLIC-MAPS-1 scoped ORGANIZATION read supports safe exact and approximate
   });
   const result = await getPublicMapItemsForEntity(
     { entityType: "ORGANIZATION", entityId: 600 },
-    fakeDb({ organizations: [site, area] }),
+    fakeDb({ organizations: [site, legacyExtra] }),
     NOW,
   );
-  assert.equal(result.items.length, 2);
-  assert.equal(result.items[0].locationRole, "SITE");
-  assert.equal(result.items[1].locationRole, "SERVICE_AREA");
-  assert.equal(result.items[1].precision, "SERVICE_AREA");
-  assert.doesNotMatch(result.items[1].displayLocation ?? "", /Neverejná/);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].id, "organization:600");
+  assert.equal(result.items[0].locationRole, null);
+  assert.doesNotMatch(result.items[0].displayLocation ?? "", /Neverejná/);
 
   const unsafeCases = [
-    ["LEGAL_SEAT unsafe", { ...site, location_role: "LEGAL_SEAT", public_visibility: "HIDDEN", geocode_status: "SKIPPED" }],
+    ["hidden canonical", { ...site, public_visibility: "HIDDEN", geocode_status: "SKIPPED" }],
     ["stale/review", { ...site, geocode_status: "NEEDS_REVIEW", resolved_source_fingerprint: null }],
     ["unpublished organization", { ...site, canonical_status: "DRAFT" }],
     ["archived organization", { ...site, archived_at: "2026-09-20T00:00:00Z" }],
