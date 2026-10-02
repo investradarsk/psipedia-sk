@@ -15,32 +15,11 @@ export const articlePortalSectionSlugs = [
 
 export type ArticlePortalSection = (typeof articlePortalSectionSlugs)[number];
 
-export type SectionHeroCtaVariant = "primary" | "accent" | "secondary";
-
-export type SectionHeroQuickLink = {
-  label: string;
-  href: string;
-  visible?: boolean;
-};
-
-export type SectionHeroConfig = {
-  searchPlaceholder?: string;
-  searchButtonLabel?: string;
-  ctaEnabled?: boolean;
-  ctaLabel?: string;
-  ctaHref?: string;
-  ctaVariant?: SectionHeroCtaVariant;
-  metaLabel?: string;
-  quickLinks?: SectionHeroQuickLink[];
-};
-
 export type PortalSubpage = {
   slug: string;
   label: string;
   description: string;
   intro?: string;
-  eyebrow?: string;
-  heroConfig?: SectionHeroConfig;
   icon?: string;
   imageUrl?: string;
   imageAlt?: string;
@@ -66,7 +45,6 @@ export type PortalSection = {
   eyebrow: string;
   description: string;
   intro: string;
-  heroConfig?: SectionHeroConfig;
   subpages: PortalSubpage[];
   articleEnabled: boolean;
 };
@@ -84,13 +62,13 @@ export function portalSectionHeroImage(sectionSlug: string) {
 export const portalSections: PortalSection[] = [
   {
     slug: "novinky",
-    label: "Novinky zo sveta psov",
+    label: "Novinky",
     navLabel: "Novinky",
     icon: "🗞️",
     accent: "blue",
-    eyebrow: "Psipedia",
+    eyebrow: "Psí svet práve teraz",
     description: "Silné príbehy, dôležité zmeny a overené správy zo sveta psov na jednom mieste.",
-    intro: "Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov.",
+    intro: "Sledujeme záchranu psov, hrdinské zásahy, vedu, nové lieky, zákony aj udalosti, ktoré majú skutočný dosah. Každú správu zasadíme do súvislostí a uvedieme jej zdroj.",
     articleEnabled: true,
     subpages: [
       ...newsCategories.map((category) => ({
@@ -234,7 +212,7 @@ export const portalSections: PortalSection[] = [
     accent: "forest",
     eyebrow: "Atlas FCI",
     description: "Charakter, potreby a reálny život s plemenami zo všetkých desiatich skupín FCI.",
-    intro: "Nájdite plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie.",
+    intro: "Porovnaj si povahu, aktivitu, veľkosť aj nároky a vyberaj podľa svojho života, nie iba podľa vzhľadu.",
     articleEnabled: false,
     subpages: [
       { slug: "atlas", label: "Atlas plemien", description: "Prehľad plemien podľa medzinárodného členenia FCI.", href: "/plemena" },
@@ -390,15 +368,9 @@ export const portalSections: PortalSection[] = [
     label: "Podujatia",
     icon: "📅",
     accent: "coral",
-    eyebrow: "Kalendár a databáza",
+    eyebrow: "Čo sa deje",
     description: "Kalendár výstav, pretekov, seminárov, tréningov a stretnutí.",
-    intro: "Kalendár výstav, pretekov, seminárov, tréningov a stretnutí.",
-    heroConfig: {
-      ctaEnabled: true,
-      ctaLabel: "+ Pridať podujatie",
-      ctaHref: "/podujatia/pridat-podujatie",
-      ctaVariant: "accent",
-    },
+    intro: "Podujatia budú zoradené podľa dátumu, kraja a typu, aby si rýchlo našiel program vo svojom okolí.",
     articleEnabled: false,
     subpages: [
       { slug: "kalendar", label: "Kalendár podujatí", description: "Všetky termíny na jednom mieste s praktickými filtrami." },
@@ -413,9 +385,9 @@ export const portalSections: PortalSection[] = [
     label: "Služby pre psov",
     icon: "📍",
     accent: "forest",
-    eyebrow: "Adresár služieb",
+    eyebrow: "Nájdi pomoc nablízku",
     description: "Veterinári, tréneri, školy, kluby a praktické služby na jednom mieste.",
-    intro: "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality.",
+    intro: "Profily môžeš filtrovať podľa kraja, okresu, mesta, zamerania a typu služby.",
     articleEnabled: false,
     subpages: [
       { slug: "veterinari", label: "Veterinári", description: "Ambulancie, kliniky, pohotovosti a ich zameranie." },
@@ -435,9 +407,9 @@ export const portalSections: PortalSection[] = [
     label: "Pomoc psom",
     icon: "❤️",
     accent: "coral",
-    eyebrow: "Praktická pomoc",
+    eyebrow: "Pomoc, ktorá má cieľ",
     description: "Adopcia, útulky, záchrana, dočasná opatera a overené možnosti pomoci.",
-    intro: "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Hlavný prehľad ukazuje len výber aktuálnych možností; celý zoznam nájdete v každej kategórii.",
+    intro: "Na jednom mieste spojíme ľudí, ktorí chcú pomôcť, s overenými útulkami, organizáciami a konkrétnymi prípadmi.",
     articleEnabled: false,
     subpages: [
       { slug: "adopcia", label: "Psy na adopciu", description: "Psy hľadajúce bezpečný a zodpovedný domov." },
@@ -453,9 +425,9 @@ export const portalSections: PortalSection[] = [
     label: "Recenzie a testy",
     icon: "⭐",
     accent: "gold",
-    eyebrow: "Rozhodovanie podľa skúseností",
+    eyebrow: "Testy bez marketingovej hmly",
     description: "Praktické skúsenosti s krmivami, výbavou, hračkami a cestovateľskými produktmi.",
-    intro: "Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste.",
+    intro: "Pri každej recenzii bude jasné, čo sme hodnotili, pre akého psa je produkt určený a či bol obsah podporený partnerom.",
     articleEnabled: true,
     subpages: [
       { slug: "krmiva", label: "Krmivá", description: "Zloženie, použitie, energia a praktické hodnotenie." },

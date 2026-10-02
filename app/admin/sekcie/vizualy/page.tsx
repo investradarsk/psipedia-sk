@@ -17,10 +17,10 @@ export default async function AdminSectionVisualsPage() {
     <AdminShell
       user={user}
       eyebrow="Štruktúra portálu"
-      title="Hlavičky sekcií a podsekcií"
-      description="Na jednom mieste upravíš texty, hero obrázok, desktop/mobile crop, text vyhľadávania, CTA, meta a quick links. Technický search scope a visual key zostávajú zamknuté."
+      title="Vizuály sekcií"
+      description="Nahraj jeden kvalitný originál a nastav samostatný výrez pre desktop a mobil bez práce s URL alebo CSS."
     >
-      <AdminSectionVisuals initialVisuals={visuals} initialSections={sections} />
+      <AdminSectionVisuals initialVisuals={visuals} />
     </AdminShell>
   );
 }

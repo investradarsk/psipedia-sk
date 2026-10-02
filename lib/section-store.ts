@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { cache } from "react";
-import { portalSections, type PortalSection, type PortalSubpage, type SectionHeroConfig } from "@/lib/portal";
+import { portalSections, type PortalSection, type PortalSubpage } from "@/lib/portal";
 
 export type ManagedPortalSection = PortalSection & { position: number; visible: boolean; updatedAt?: string };
 export type ManagedPortalSectionArticleCounts = { total: number; published: number; scheduled: number; draft: number };
@@ -9,7 +9,7 @@ export type ManagedPortalSectionArticleCountResult = {
   counts: Record<string, ManagedPortalSectionArticleCounts>;
 };
 type ArticleCountRow = { slug: string; total: number; published: number; scheduled: number; draft: number };
-type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; hero_config_json?: string; subpages_json: string; position: number; visible: number; updated_at?: string };
+type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; subpages_json: string; position: number; visible: number; updated_at?: string };
 type ManagedSubpagesRow = { slug: string; subpages_json: string };
 type RuntimeBindings = { DB?: D1Database };
 let ready: Promise<void> | null = null;
@@ -21,14 +21,6 @@ const legacyActivityDescriptions: Record<string, string> = {
   "dovolenka-so-psom": "Ubytovanie, cestovanie, doklady a bezpečný režim.",
 };
 const adminFieldLabels = new Set(["adresa", "adresa url", "názov", "názov sekcie", "slug", "url"]);
-
-function defaultManagedSections(): ManagedPortalSection[] {
-  return portalSections.map((section, position) => ({ ...section, position, visible: true }));
-}
-
-function isMissingSectionSettings(error: unknown) {
-  return error instanceof Error && /no such table:\s*portal_section_settings/i.test(error.message);
-}
 
 function database() {
   const db = (env as unknown as RuntimeBindings).DB;
@@ -116,61 +108,6 @@ async function repairCorruptManagedSubpages(db: D1Database) {
   return dataRepairReady;
 }
 
-function safeHeroHref(value: string) {
-  return value.startsWith("/") || /^https:\/\//i.test(value);
-}
-
-function cleanHeroConfig(value: unknown, strict = false): SectionHeroConfig {
-  let raw = value;
-  if (typeof raw === "string") {
-    try { raw = JSON.parse(raw); }
-    catch { return {}; }
-  }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const item = raw as Partial<SectionHeroConfig>;
-  const text = (input: unknown, max: number) => typeof input === "string" ? input.trim().slice(0, max) : "";
-  const searchPlaceholder = text(item.searchPlaceholder, 180);
-  const searchButtonLabel = text(item.searchButtonLabel, 60);
-  const ctaLabel = text(item.ctaLabel, 90);
-  const ctaHref = text(item.ctaHref, 300);
-  const metaLabel = text(item.metaLabel, 120);
-  if (strict && ctaHref && !safeHeroHref(ctaHref)) throw new Error("CTA URL musí byť interná /adresa alebo bezpečná https:// URL.");
-  const ctaVariant = item.ctaVariant === "primary" || item.ctaVariant === "accent" || item.ctaVariant === "secondary"
-    ? item.ctaVariant
-    : undefined;
-  const quickLinks = Array.isArray(item.quickLinks) ? item.quickLinks.slice(0, 6).flatMap((entry) => {
-    const link = entry as { label?: unknown; href?: unknown; visible?: unknown };
-    const label = text(link.label, 80);
-    const href = text(link.href, 300);
-    if (!label || !href) return [];
-    if (!safeHeroHref(href)) {
-      if (strict) throw new Error("Quick link URL musí byť interná /adresa alebo bezpečná https:// URL.");
-      return [];
-    }
-    return [{ label, href, visible: link.visible !== false }];
-  }) : [];
-  return {
-    ...(searchPlaceholder ? { searchPlaceholder } : {}),
-    ...(searchButtonLabel ? { searchButtonLabel } : {}),
-    ...(typeof item.ctaEnabled === "boolean" ? { ctaEnabled: item.ctaEnabled } : {}),
-    ...(ctaLabel ? { ctaLabel } : {}),
-    ...(ctaHref && safeHeroHref(ctaHref) ? { ctaHref } : {}),
-    ...(ctaVariant ? { ctaVariant } : {}),
-    ...(metaLabel ? { metaLabel } : {}),
-    ...(quickLinks.length ? { quickLinks } : {}),
-  };
-}
-
-async function selectSectionRows(db: D1Database) {
-  try {
-    return (await db.prepare("SELECT slug,label,eyebrow,description,intro,hero_config_json,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>()).results;
-  } catch (error) {
-    if (!(error instanceof Error) || !/hero_config_json|no such column/i.test(error.message)) throw error;
-    const legacy = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>();
-    return legacy.results.map((row) => ({ ...row, hero_config_json: "{}" }));
-  }
-}
-
 function parseSubpages(value: string, fallback: PortalSubpage[]) {
   try {
     const parsed = JSON.parse(value);
@@ -179,7 +116,7 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
       const stored = item as PortalSubpage;
       const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
       if (!defaults) return stored;
-      const merged = { ...defaults, ...stored, heroConfig: { ...(defaults.heroConfig ?? {}), ...cleanHeroConfig(stored.heroConfig) } };
+      const merged = { ...defaults, ...stored };
       if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
       if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
       return merged;
@@ -198,86 +135,30 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
   catch { return fallback; }
 }
 
-const legacySectionHeroCopy: Record<string, Partial<Pick<Row, "label" | "eyebrow" | "intro">>> = {
-  novinky: {
-    label: "Novinky",
-    eyebrow: "Psí svet práve teraz",
-    intro: "Sledujeme záchranu psov, hrdinské zásahy, vedu, nové lieky, zákony aj udalosti, ktoré majú skutočný dosah. Každú správu zasadíme do súvislostí a uvedieme jej zdroj.",
-  },
-  plemena: {
-    intro: "Porovnaj si povahu, aktivitu, veľkosť aj nároky a vyberaj podľa svojho života, nie iba podľa vzhľadu.",
-  },
-  podujatia: {
-    eyebrow: "Čo sa deje",
-  },
-  adresar: {
-    eyebrow: "Nájdi pomoc nablízku",
-    intro: "Profily môžeš filtrovať podľa kraja, okresu, mesta, zamerania a typu služby.",
-  },
-  "pomoc-psom": {
-    eyebrow: "Pomoc, ktorá má cieľ",
-    intro: "Na jednom mieste spojíme ľudí, ktorí chcú pomôcť, s overenými útulkami, organizáciami a konkrétnymi prípadmi.",
-  },
-  recenzie: {
-    eyebrow: "Testy bez marketingovej hmly",
-    intro: "Pri každej recenzii bude jasné, čo sme hodnotili, pre akého psa je produkt určený a či bol obsah podporený partnerom.",
-  },
-};
-
-function canonicalSectionHeroField<K extends "label" | "eyebrow" | "intro">(
-  row: Row,
-  base: PortalSection,
-  field: K,
-) {
-  const legacy = legacySectionHeroCopy[row.slug]?.[field];
-  return legacy !== undefined && row[field] === legacy ? base[field] : row[field];
-}
-
 function merge(row: Row): ManagedPortalSection | null {
   const base = portalSections.find((section) => section.slug === row.slug);
   if (!base) return null;
-  const legacyLabel = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : canonicalSectionHeroField(row, base, "label");
+  const label = (row.slug === "starostlivost" && row.label === "Starostlivosť") || (row.slug === "aktivity" && row.label === "Aktivity") ? base.label : row.label;
   const hasLegacyActivityCopy = row.slug === "aktivity" && row.eyebrow === "Spoločné zážitky" && row.description === "Psie športy, výlety a miesta, kde si môžete deň užiť spolu." && row.intro === "Nájdi aktivitu podľa kondície psa, svojich skúseností a času, ktorý máte k dispozícii.";
-  return {
-    ...base,
-    label: legacyLabel,
-    eyebrow: hasLegacyActivityCopy ? base.eyebrow : canonicalSectionHeroField(row, base, "eyebrow"),
-    description: hasLegacyActivityCopy ? base.description : row.description,
-    intro: hasLegacyActivityCopy ? base.intro : canonicalSectionHeroField(row, base, "intro"),
-    heroConfig: { ...(base.heroConfig ?? {}), ...cleanHeroConfig(row.hero_config_json) },
-    subpages: parseSubpages(row.subpages_json, base.subpages),
-    position: row.position,
-    visible: Boolean(row.visible),
-    ...(row.updated_at ? { updatedAt: row.updated_at } : {}),
-  };
+  return { ...base, label, eyebrow: hasLegacyActivityCopy ? base.eyebrow : row.eyebrow, description: hasLegacyActivityCopy ? base.description : row.description, intro: hasLegacyActivityCopy ? base.intro : row.intro, subpages: parseSubpages(row.subpages_json, base.subpages), position: row.position, visible: Boolean(row.visible), ...(row.updated_at ? { updatedAt: row.updated_at } : {}) };
 }
 
 export const listManagedPortalSections = cache(async function listManagedPortalSections(): Promise<ManagedPortalSection[]> {
   const db = database();
-  if (!db) return defaultManagedSections();
-  try {
-    await repairCorruptManagedSubpages(db);
-    const rows = await selectSectionRows(db);
-    return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
-  } catch (error) {
-    if (isMissingSectionSettings(error)) return defaultManagedSections();
-    throw error;
-  }
+  if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
+  await repairCorruptManagedSubpages(db);
+  const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>();
+  return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
 });
 
 export const listManagedPortalSectionsForSitemap = cache(async function listManagedPortalSectionsForSitemap(): Promise<ManagedPortalSection[]> {
   const db = database();
-  if (!db) return defaultManagedSections();
+  if (!db) return portalSections.map((section, position) => ({ ...section, position, visible: true }));
   // Sitemap generation is a read-only public request. Do not invoke the legacy
   // repair path here: parseSubpages/merge already normalize legacy values for
   // rendering without mutating production state.
-  try {
-    const rows = await selectSectionRows(db);
-    return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
-  } catch (error) {
-    if (isMissingSectionSettings(error)) return defaultManagedSections();
-    throw error;
-  }
+  const result = await db.prepare("SELECT slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at FROM portal_section_settings ORDER BY position,label").all<Row>();
+  return result.results.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
 });
 
 export const getManagedPortalSection = cache(async function getManagedPortalSection(slug: string) {
@@ -331,8 +212,6 @@ function cleanSubpages(value: unknown): PortalSubpage[] {
     const normalizedLabel = label.toLocaleLowerCase("sk-SK").replace(/\s+/g, " ");
     const description = String(item.description ?? "").trim().slice(0, 400);
     const intro = item.intro ? String(item.intro).trim().slice(0, 3000) : undefined;
-    const eyebrow = item.eyebrow ? String(item.eyebrow).trim().slice(0, 160) : undefined;
-    const heroConfig = cleanHeroConfig(item.heroConfig, true);
     const icon = item.icon ? String(item.icon).trim().slice(0, 12) : undefined;
     const imageUrl = item.imageUrl ? String(item.imageUrl).trim().slice(0, 500) : undefined;
     const imageAlt = item.imageAlt ? String(item.imageAlt).trim().slice(0, 220) : undefined;
@@ -353,7 +232,7 @@ function cleanSubpages(value: unknown): PortalSubpage[] {
     if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) throw new Error("Adresa obrázka oblasti nie je platná.");
     return {
       slug, label, description, visible: item.visible !== false,
-      ...(icon ? { icon } : {}), ...(intro ? { intro } : {}), ...(eyebrow ? { eyebrow } : {}), ...(Object.keys(heroConfig).length ? { heroConfig } : {}), ...(imageUrl ? { imageUrl } : {}),
+      ...(icon ? { icon } : {}), ...(intro ? { intro } : {}), ...(imageUrl ? { imageUrl } : {}),
       ...(imageAlt ? { imageAlt } : {}), ...(href ? { href } : {}),
       popularTopics: cleanList(item.popularTopics, 8, 100),
       commonQuestions: cleanList(item.commonQuestions, 10, 220),
@@ -378,17 +257,9 @@ export async function saveManagedPortalSections(payload: unknown, user: string) 
     if (!item.slug || !allowed.has(item.slug)) throw new Error("Neznáma sekcia.");
     const label = String(item.label ?? "").trim().slice(0, 100);
     if (!label) throw new Error("Názov sekcie nemôže byť prázdny.");
-    const heroConfig = cleanHeroConfig(item.heroConfig, true);
-    return db.prepare(`UPDATE portal_section_settings SET label=?,eyebrow=?,description=?,intro=?,hero_config_json=?,subpages_json=?,position=?,visible=?,updated_at=?,updated_by=? WHERE slug=?`)
-      .bind(label, String(item.eyebrow ?? "").trim().slice(0, 160), String(item.description ?? "").trim().slice(0, 500), String(item.intro ?? "").trim().slice(0, 1200), JSON.stringify(heroConfig), JSON.stringify(cleanSubpages(item.subpages)), position, item.visible === false ? 0 : 1, now, user, item.slug);
+    return db.prepare(`UPDATE portal_section_settings SET label=?,eyebrow=?,description=?,intro=?,subpages_json=?,position=?,visible=?,updated_at=?,updated_by=? WHERE slug=?`)
+      .bind(label, String(item.eyebrow ?? "").trim().slice(0, 160), String(item.description ?? "").trim().slice(0, 500), String(item.intro ?? "").trim().slice(0, 1200), JSON.stringify(cleanSubpages(item.subpages)), position, item.visible === false ? 0 : 1, now, user, item.slug);
   });
-  try {
-    await db.batch(statements);
-  } catch (error) {
-    if (error instanceof Error && /hero_config_json|no such column/i.test(error.message)) {
-      throw new Error("Section hero konfigurácia vyžaduje produkčnú migráciu 0107_section_hero_config.sql.");
-    }
-    throw error;
-  }
+  await db.batch(statements);
   return listManagedPortalSections();
 }

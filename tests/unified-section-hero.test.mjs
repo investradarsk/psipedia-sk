@@ -34,19 +34,20 @@ test("one canonical UnifiedSectionHero contract owns the section header", () => 
   assert.match(unified, /<h1>/);
 });
 
-test("desktop keeps the persisted 16:7 crop while using a lower public height", () => {
+test("desktop remains image-led and uses the persisted 16:7 contract", () => {
   assert.match(unifiedCss, /object-position:\s*var\(--section-visual-desktop-x/);
   assert.match(unifiedCss, /--section-visual-desktop-y/);
   assert.match(unifiedCss, /--section-visual-desktop-zoom/);
   assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
 });
 
-test("mobile is a standalone low 16:6 media block with no overlay", () => {
+test("mobile is a standalone 4:3 media block after copy and before tools", () => {
   assert.match(unifiedCss, /@media \(max-width: 767px\)/);
   assert.match(unifiedCss, /\.copy\s*\{[\s\S]*order:\s*1/);
-  assert.match(unifiedCss, /\.media\s*\{[\s\S]*position:\s*relative[\s\S]*order:\s*2[\s\S]*aspect-ratio:\s*16 \/ 6/);
+  assert.match(unifiedCss, /\.media\s*\{[\s\S]*position:\s*relative[\s\S]*order:\s*2[\s\S]*aspect-ratio:\s*4 \/ 3/);
+  assert.match(unifiedCss, /\.tools\s*\{[\s\S]*order:\s*3/);
   assert.match(unifiedCss, /\.shade\s*\{\s*display:\s*none/);
-  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[16, 6\]/);
+  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[4, 3\]/);
 });
 
 test("desktop and mobile independently consume X Y zoom", () => {
@@ -59,7 +60,7 @@ test("desktop and mobile independently consume X Y zoom", () => {
 test("mobile admin preview has no text search CTA safe zone", () => {
   assert.doesNotMatch(adminVisuals, /styles\.mobileSafeZone/);
   assert.match(adminVisuals, /mode === "desktop"[\s\S]*styles\.desktopSafeZone/);
-  assert.match(adminVisuals, /mode === "desktop"[\s\S]*"16 : 7"[\s\S]*"16 : 6"/);
+  assert.match(adminVisuals, /4 : 3.*potiahni obrázok do správnej polohy/);
 });
 
 test("main editorial sections use canonical hero and section visual keys", () => {
@@ -152,10 +153,10 @@ test("main route preserves SEO structured data while delegating section heroes",
   assert.match(sectionRoute, /<PortalHub/);
 });
 
-test("SECTION-HERO-V2 adds only the approved 0107 hero config migration", () => {
+test("no migration exists after approved 0106 section visuals", () => {
   const migrations = readdirSync("drizzle").filter((name) => /^\d{4}_.+\.sql$/.test(name)).sort();
-  assert.equal(migrations.at(-1), "0107_section_hero_config.sql");
-  assert.equal(migrations.filter((name) => name.startsWith("0107_")).length, 1);
+  assert.equal(migrations.at(-1), "0106_section_visuals.sql");
+  assert.equal(migrations.some((name) => name.startsWith("0107_")), false);
 });
 
 test("cards retain dynamic images while hero sources are stable", () => {

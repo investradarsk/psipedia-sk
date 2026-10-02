@@ -115,7 +115,6 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0104_article_topics.sql",
     "0105_article_popularity.sql",
     "0106_section_visuals.sql",
-    "0107_section_hero_config.sql",
   ]);
 });
 
@@ -359,21 +358,6 @@ test("SECTION-VISUALS-1 0106 migration persists normalized desktop/mobile crop f
   assert.doesNotMatch(migration, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
 });
 
-test("SECTION-HERO-V2 0107 detects and persists the canonical hero config column", async () => {
-  assert.deepEqual(
-    targetSchemaObjects({ objects: [], portalSectionSettingsColumns: [{ name: "hero_config_json" }] }, "0107_section_hero_config.sql"),
-    { partial: true },
-  );
-  assert.deepEqual(
-    targetSchemaObjects({ objects: [], portalSectionSettingsColumns: [] }, "0107_section_hero_config.sql"),
-    { partial: false },
-  );
-  const migration = await readFile(path.join(repoRoot, "drizzle/0107_section_hero_config.sql"), "utf8");
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS portal_section_settings/);
-  assert.match(migration, /ADD COLUMN hero_config_json TEXT NOT NULL DEFAULT '\{\}'/);
-  assert.doesNotMatch(migration, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
-});
-
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -433,7 +417,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0108_future_migration.sql",
+    "0107_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -461,14 +445,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0108_future_migration.sql",
+    "0107_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0108_future_migration.sql",
+    "0107_future_migration.sql",
   ]);
 });
 

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
-import { PageContainer } from "@/components/page-system";
 import { PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { slovakRegions } from "@/lib/events";
@@ -65,8 +64,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
     })),
   });
 
-  return <>{schema && <StructuredData value={schema} />}<main id="obsah" tabIndex={-1}>
-    <PageContainer className={styles.listingShell}>
+  return <>{schema && <StructuredData value={schema} />}<main id="obsah" tabIndex={-1} className={styles.shell}>
     <PublicFoundation className={styles.foundation}>
       <div className={styles.headerWrap}>
         <UnifiedSectionHero
@@ -120,6 +118,5 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
         return item === result.page ? <span key={item} aria-current="page">{item}</span> : <Link key={item} href={pageHref(type, params, item)}>{item}</Link>;
       })}{result.page < result.pages && <Link aria-label="Ďalšia strana" href={pageHref(type, params, result.page + 1)}>→</Link>}</nav>}
     </PublicFoundation>
-    </PageContainer>
   </main></>;
 }

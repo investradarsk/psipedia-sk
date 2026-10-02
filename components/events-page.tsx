@@ -87,7 +87,7 @@ export async function EventsPage({
                   <span>Typy podujatí</span>
                   <h2 id="events-category-heading">Vyberte si, čo vás zaujíma</h2>
                 </div>
-                <p>Vyberte si typ podujatia a zobrazte aktuálne termíny, miesto a ďalšie detaily.</p>
+                <p>Rýchle vstupy používajú existujúce verejné kategórie. Kalendár, filtre a vyhľadávanie zostávajú nižšie bez zmeny.</p>
               </div>
               <PublicCategoryTiles items={landingCategories} label="Hlavné typy podujatí" />
             </section>

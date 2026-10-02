@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { Breadcrumbs } from "@/components/page-system";
 import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
@@ -169,7 +169,7 @@ export async function DirectoryPage({
   return (
     <main id="obsah" className={styles.page}>
       <PublicFoundation className={styles.foundation}>
-        <PageContainer className={styles.headerShell} data-directory-public-header>
+        <section className={`shell ${styles.headerShell}`} data-directory-public-header>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs>
               <Link href="/">Domov</Link>
@@ -229,7 +229,7 @@ export async function DirectoryPage({
               <PublicCategoryTiles items={landingCategoryTiles} label="Kategórie služieb" />
             </div>
           )}
-        </PageContainer>
+        </section>
 
         {!active && !showResults && (
           <>
