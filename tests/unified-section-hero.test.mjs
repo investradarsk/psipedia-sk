@@ -34,11 +34,11 @@ test("one canonical UnifiedSectionHero contract owns the section header", () => 
   assert.match(unified, /<h1>/);
 });
 
-test("desktop remains image-led and uses the low 16:6 contract", () => {
+test("desktop keeps the persisted 16:7 crop while using a lower public height", () => {
   assert.match(unifiedCss, /object-position:\s*var\(--section-visual-desktop-x/);
   assert.match(unifiedCss, /--section-visual-desktop-y/);
   assert.match(unifiedCss, /--section-visual-desktop-zoom/);
-  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 6\]/);
+  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
 });
 
 test("mobile is a standalone low 16:6 media block with no overlay", () => {
@@ -59,7 +59,7 @@ test("desktop and mobile independently consume X Y zoom", () => {
 test("mobile admin preview has no text search CTA safe zone", () => {
   assert.doesNotMatch(adminVisuals, /styles\.mobileSafeZone/);
   assert.match(adminVisuals, /mode === "desktop"[\s\S]*styles\.desktopSafeZone/);
-  assert.match(adminVisuals, /16 : 6.*potiahni obrázok do správnej polohy/);
+  assert.match(adminVisuals, /mode === "desktop"[\s\S]*"16 : 7"[\s\S]*"16 : 6"/);
 });
 
 test("main editorial sections use canonical hero and section visual keys", () => {
