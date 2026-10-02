@@ -31,6 +31,7 @@ const VIEWPORTS = [
   { label: "tablet-768", width: 768, height: 1024 },
   { label: "desktop-1280", width: 1280, height: 800 },
   { label: "desktop-1440", width: 1440, height: 900 },
+  { label: "desktop-1920", width: 1920, height: 1080 },
 ] as const;
 
 async function makePage(browser: Browser, viewport: { width: number; height: number }) {
@@ -79,8 +80,8 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
           expect(copyBox!.y + copyBox!.height, label + ": copy must end before image").toBeLessThanOrEqual(mediaBox!.y + 1);
 
           const ratio = mediaBox!.width / mediaBox!.height;
-          expect(ratio, label + ": mobile media should be 4:3").toBeGreaterThan(1.31);
-          expect(ratio, label + ": mobile media should be 4:3").toBeLessThan(1.36);
+          expect(ratio, label + ": mobile media should be low 16:6").toBeGreaterThan(2.62);
+          expect(ratio, label + ": mobile media should be low 16:6").toBeLessThan(2.72);
 
           if (await tools.count()) {
             const toolsBox = await tools.boundingBox();
@@ -106,6 +107,27 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
           path: join(ARTIFACT_DIR, viewport.label + "-" + route.slug + ".png"),
         });
       }
+    } finally {
+      await opened.context.close();
+    }
+  }
+});
+
+test("SECTION-HERO-V2 keeps homepage as a separate visual reference", async ({ browser }) => {
+  mkdirSync(ARTIFACT_DIR, { recursive: true });
+  for (const viewport of [
+    { label: "home-mobile-390", width: 390, height: 844 },
+    { label: "home-desktop-1440", width: 1440, height: 900 },
+    { label: "home-desktop-1920", width: 1920, height: 1080 },
+  ]) {
+    const opened = await makePage(browser, viewport);
+    try {
+      const response = await opened.page.goto("/", { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+      const homeHero = opened.page.locator("[data-home-hero]");
+      await expect(homeHero).toBeVisible();
+      await expect(opened.page.locator("[data-unified-section-hero]")).toHaveCount(0);
+      await homeHero.screenshot({ path: join(ARTIFACT_DIR, viewport.label + ".png") });
     } finally {
       await opened.context.close();
     }
