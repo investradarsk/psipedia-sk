@@ -32,7 +32,7 @@ type SearchItem = {
   properties?: { title?: { title?: Array<{ plain_text?: string }> } };
 };
 type SearchResponse = { results?: SearchItem[]; has_more?: boolean; next_cursor?: string | null };
-type DatabaseResponse = { id: string };
+type DatabaseResponse = { id: string; data_sources?: Array<{ id?: string; name?: string }> };
 type QueryResponse = {
   results?: Array<{ properties?: Record<string, unknown> }>;
   has_more?: boolean;
@@ -330,34 +330,52 @@ export async function resolveNotionCanonicalTarget(args: {
     body: JSON.stringify({
       parent: { type: "page_id", page_id: hub.id },
       title: [{ type: "text", text: { content: args.definition.targetTitle } }],
+      initial_data_source: {
+        properties: args.definition.createSchema,
+      },
     }),
   });
   if (!database.id) throw new Error(`${args.definition.label}: Notion nevytvoril databázu.`);
 
-  const dataSource = await notionRequest<DataSourceResponse>(args.bindings, "/data_sources", {
-    method: "POST",
-    body: JSON.stringify({
-      parent: { type: "database_id", database_id: database.id },
-      title: [{ type: "text", text: { content: args.definition.targetTitle } }],
-      properties: args.definition.createSchema,
-    }),
-  });
-  if (!dataSource.id) throw new Error(`${args.definition.label}: vytvorený data source nemá ID.`);
+  // Since Notion-Version 2025-09-03 a database is a container for data sources.
+  // Provision the canonical schema as the database's *initial* data source.
+  // Creating a second data source here caused the Name + Psipedia duplicate
+  // pair seen in #577.
+  const databaseFetched = await notionRequest<DatabaseResponse>(
+    args.bindings,
+    `/databases/${encodeURIComponent(database.id)}`,
+  );
+  const dataSourceIds = [...new Set(
+    (databaseFetched.data_sources ?? database.data_sources ?? [])
+      .map((item) => clean(item?.id))
+      .filter(Boolean),
+  )];
 
-  // Critical: keep using the ID returned by create. Do not re-discover through
-  // Search here; Notion indexing is eventually consistent and that race caused
-  // duplicate Lost/Found databases in #577.
-  // A direct GET by the returned ID is safe during Notion indexing lag and
-  // gives us the authoritative schema. Only full-text search is eventually
-  // consistent here.
-  const createdFetched = await fetchDataSource(args.bindings, dataSource.id);
-  const created = {
-    ...createdFetched,
-    parent: createdFetched.parent ?? dataSource.parent ?? { database_id: database.id },
-  };
-  if (!notionDataSourceMatchesCanonicalSchema(created, args.definition)) {
-    throw new Error(`${args.definition.label}: vytvorený data source nemá canonical Psipedia schému.`);
+  if (dataSourceIds.length === 0) {
+    throw new Error(`${args.definition.label}: vytvorená Notion databáza nevrátila initial data source.`);
   }
+
+  const inspected = await Promise.all(dataSourceIds.map(async (dataSourceId) => {
+    try {
+      return await fetchDataSource(args.bindings, dataSourceId);
+    } catch {
+      return null;
+    }
+  }));
+  const canonical = inspected.filter((item): item is DataSourceResponse => (
+    Boolean(item) && notionDataSourceMatchesCanonicalSchema(item!, args.definition)
+  ));
+
+  if (canonical.length !== 1) {
+    throw new Error(
+      `${args.definition.label}: po create sa nenašiel presne jeden canonical Psipedia data source (nájdené: ${canonical.length}).`,
+    );
+  }
+
+  const created = {
+    ...canonical[0],
+    parent: canonical[0].parent ?? { database_id: database.id },
+  };
   if (persist) await savePersistedTarget(args.database, args.definition, created);
 
   return {
