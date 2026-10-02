@@ -191,6 +191,7 @@ export async function updateOrganizationLocationFromGooglePlace(
       countryCode?: string;
     };
   },
+  actorRef: string,
   database?: AdoptionD1Database,
 ) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
@@ -222,8 +223,8 @@ export async function updateOrganizationLocationFromGooglePlace(
   await reconcileGeoAfterSourceMutation({
     targetType: "ORGANIZATION_LOCATION",
     targetId: locationId,
-    actorRef: "google-place-location-only",
-    actorType: "SYSTEM",
+    actorRef,
+    actorType: "ADMIN",
   }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
   return getOrganizationLocationAdmin(organizationId, locationId, db);
 }
