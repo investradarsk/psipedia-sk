@@ -95,7 +95,7 @@ test("CTA and quick link URLs fail closed and CTA variants are constrained", () 
   assert.match(sectionStore, /CTA URL musí byť interná/);
   assert.match(sectionStore, /Quick link URL musí byť interná/);
   assert.match(sectionStore, /item\.ctaVariant === "primary" \|\| item\.ctaVariant === "accent" \|\| item\.ctaVariant === "secondary"/);
-  assert.match(heroCss, /\.managedCta\[data-variant="accent"\][\s\S]*#d95f45/);
+  assert.match(heroCss, /\.managedCta\[data-variant="accent"\][\s\S]*#b94732/);
 });
 
 test("events have a safe default coral CTA and no implementation copy", () => {
