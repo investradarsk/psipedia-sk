@@ -5,9 +5,11 @@ import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
-  PublicSectionHeader,
+  UnifiedSectionHero,
 } from "@/components/public-visual-system";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import type { HelpCategorySlug } from "@/lib/help";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./help-public.module.css";
 
 export type HelpOverviewItem = {
@@ -77,6 +79,7 @@ const promos: Record<number, PromoBanner> = {
 };
 
 function OverviewCard({ item }: { item: HelpOverviewItem }) {
+  const heroVisual = await getSectionHeroVisual("section.pomoc-psom");
   return (
     <article className={styles.overviewCard} data-help-overview-card>
       <Link className={styles.overviewMedia} href={item.href} aria-label={`Otvoriť: ${item.title}`}>
@@ -121,7 +124,7 @@ function Promo({ promo }: { promo: PromoBanner }) {
   );
 }
 
-export function HelpOverview({
+export async function HelpOverview({
   sections,
   totalActive,
 }: {
@@ -132,16 +135,24 @@ export function HelpOverview({
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
         <section className={[styles.shell, styles.headerWrap].join(" ")}>
-          <Breadcrumbs label="Drobečková navigácia">
-            <Link href="/">Domov</Link><span>/</span><span>Pomoc psom</span>
-          </Breadcrumbs>
-          <PublicSectionHeader
-            className={styles.heroHeader}
-            variant="compact"
+          <UnifiedSectionHero
+            breadcrumbs={<Breadcrumbs label="Drobečková navigácia">
+              <Link href="/">Domov</Link><span>/</span><span>Pomoc psom</span>
+            </Breadcrumbs>}
             eyebrow="Praktická pomoc"
             title="Pomoc psom"
             intro="Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Hlavný prehľad ukazuje len výber aktuálnych možností; celý zoznam nájdete v každej kategórii."
-            meta={
+            visual={heroVisual}
+            searchSlot={
+              <SectionHeroSearch
+                action="/hladat"
+                id="help-root-hero-query"
+                label="Hľadať v Pomoci psom"
+                placeholder="Hľadať psa, organizáciu alebo mesto…"
+                hidden={[{ name: "sekcia", value: "pomoc-psom" }]}
+              />
+            }
+            metaSlot={
               <div className={styles.headerMeta}>
                 <span><strong>{totalActive}</strong> aktívnych záznamov</span>
                 <span><ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje</span>
