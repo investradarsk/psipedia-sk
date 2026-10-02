@@ -431,6 +431,7 @@ async function reconcileAgenda(
     bindings: bindings as NotionBulkBindings & Record<string, unknown>,
     definition: canonicalTargetDefinition(definition),
     allowCreate: mode === "execute",
+    persist: mode === "execute",
   });
 
   if (!target.dataSourceId) {
