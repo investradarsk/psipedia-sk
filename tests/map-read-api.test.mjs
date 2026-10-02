@@ -487,7 +487,7 @@ test("PUBLIC-MAPS-1 scoped DIRECTORY read preserves exact-only public eligibilit
   }
 });
 
-test("PUBLIC-MAPS-1 scoped ORGANIZATION read returns at most one canonical marker", async () => {
+test("PUBLIC-MAPS-1 scoped ORGANIZATION read supports safe exact and approximate multi-location markers", async () => {
   const site = row({
     geo_point_id: 601,
     entity_type: "organization",
@@ -501,7 +501,7 @@ test("PUBLIC-MAPS-1 scoped ORGANIZATION read returns at most one canonical marke
     verified: 0,
     featured: 0,
   });
-  const legacyExtra = row({
+  const area = row({
     ...site,
     geo_point_id: 602,
     organization_location_id: 602,
@@ -510,19 +510,20 @@ test("PUBLIC-MAPS-1 scoped ORGANIZATION read returns at most one canonical marke
     precision: "SERVICE_AREA",
     public_visibility: "APPROXIMATE_PUBLIC",
     location_role: "SERVICE_AREA",
-    address: "Legacy extra 8",
+    address: "Neverejná service area 8",
     city: "Šaľa",
     district: "Šaľa",
   });
   const result = await getPublicMapItemsForEntity(
     { entityType: "ORGANIZATION", entityId: 600 },
-    fakeDb({ organizations: [site, legacyExtra] }),
+    fakeDb({ organizations: [site, area] }),
     NOW,
   );
-  assert.equal(result.items.length, 1);
-  assert.equal(result.items[0].id, "organization:600:location:601");
-  assert.equal(result.items[0].locationRole, undefined);
-  assert.doesNotMatch(JSON.stringify(result), /Legacy extra 8|SERVICE_AREA/);
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0].locationRole, "SITE");
+  assert.equal(result.items[1].locationRole, "SERVICE_AREA");
+  assert.equal(result.items[1].precision, "SERVICE_AREA");
+  assert.doesNotMatch(result.items[1].displayLocation ?? "", /Neverejná/);
 
   const unsafeCases = [
     ["LEGAL_SEAT unsafe", { ...site, location_role: "LEGAL_SEAT", public_visibility: "HIDDEN", geocode_status: "SKIPPED" }],
