@@ -47,6 +47,27 @@ async function openHero(page: Page, path: string, visualKey: string, label: stri
   await expect(hero, label + ": " + path + " unified hero").toBeVisible();
   await expect(hero).toHaveAttribute("data-section-visual-key", visualKey);
   await expect(hero.locator("h1")).toHaveCount(1);
+
+  await page.evaluate(async () => {
+    if (document.fonts) await document.fonts.ready;
+  });
+  const heroImage = hero.locator("[data-unified-section-hero-media] img");
+  if (await heroImage.count()) {
+    await heroImage.evaluate(async (image) => {
+      const element = image as HTMLImageElement;
+      if (!element.complete) {
+        await new Promise<void>((resolve) => {
+          element.addEventListener("load", () => resolve(), { once: true });
+          element.addEventListener("error", () => resolve(), { once: true });
+        });
+      }
+      try { await element.decode(); } catch {}
+    });
+  }
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
   return hero;
 }
 
