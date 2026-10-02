@@ -115,6 +115,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0104_article_topics.sql",
     "0105_article_popularity.sql",
     "0106_section_visuals.sql",
+    "0107_notion_events_help_bidirectional_sync.sql",
   ]);
 });
 
@@ -358,6 +359,38 @@ test("SECTION-VISUALS-1 0106 migration persists normalized desktop/mobile crop f
   assert.doesNotMatch(migration, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
 });
 
+test("NOTION-BIDIRECTIONAL-EVENTS-HELP-1 0107 detects partial sync schema drift", () => {
+  const base = { objects: [], eventNotionSyncColumns: [] };
+  assert.deepEqual(
+    targetSchemaObjects({
+      ...base,
+      eventNotionSyncColumns: [{ name: "psipedia_updated_at" }],
+    }, "0107_notion_events_help_bidirectional_sync.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({
+      ...base,
+      objects: [{ name: "notion_agenda_sync", type: "table", sql: "" }],
+    }, "0107_notion_events_help_bidirectional_sync.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects(base, "0107_notion_events_help_bidirectional_sync.sql"),
+    { partial: false },
+  );
+});
+
+test("NOTION-BIDIRECTIONAL-EVENTS-HELP-1 0107 migration is additive and identity-safe", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0107_notion_events_help_bidirectional_sync.sql"), "utf8");
+  assert.match(migration, /ALTER TABLE event_notion_sync ADD COLUMN psipedia_updated_at TEXT/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS notion_agenda_sync/);
+  assert.match(migration, /PRIMARY KEY \(agenda, notion_page_id\)/);
+  assert.match(migration, /UNIQUE \(agenda, entity_id\)/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS notion_agenda_targets/);
+  assert.doesNotMatch(migration, /\bDROP\b|\bDELETE\b/i);
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -417,7 +450,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0107_future_migration.sql",
+    "0108_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -445,14 +478,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0107_future_migration.sql",
+    "0108_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0107_future_migration.sql",
+    "0108_future_migration.sql",
   ]);
 });
 
