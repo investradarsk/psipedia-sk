@@ -150,11 +150,12 @@ test("article adapter owns explicit membership SQL against canonical managed_art
   assert.doesNotMatch(source, /INSERT\s+INTO\s+managed_articles/i);
 });
 
-test("article membership fingerprint excludes pagination and includes q/status/portal section", () => {
+test("article membership fingerprint excludes pagination and includes q/status/portal section/topic", () => {
   const source = readFileSync(new URL("../lib/article-admin-bulk-filter.ts", import.meta.url), "utf8");
   assert.match(source, /portalSection: normalized\.portalSection/);
   assert.match(source, /status: normalized\.status/);
   assert.match(source, /q: normalized\.q/);
+  assert.match(source, /topicId: normalized\.topicId/);
   assert.doesNotMatch(source, /\bpage\b/);
   assert.doesNotMatch(source, /\boffset\b/);
 });
@@ -175,6 +176,8 @@ test("article dashboard scopes explicit IDs to the current view and disables all
   const source = readFileSync(new URL("../components/admin-dashboard.tsx", import.meta.url), "utf8");
   assert.match(source, /module: "articles"/);
   assert.match(source, /membershipFingerprint/);
+  assert.match(source, /topicId: filters\.topicId \?\? null/);
+  assert.doesNotMatch(source, /\|topic:/);
   assert.match(source, /supportsAllMatching: false/);
   assert.match(source, /supportsAllMatching=\{false\}/);
   assert.doesNotMatch(source, /supportsAllMatching: true/);

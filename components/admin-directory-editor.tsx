@@ -404,7 +404,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
               <small>Toto je text, ktorý sa zobrazí návštevníkovi. Môžeš ho uložiť a publikovať aj bez potvrdenia Geoapify alebo Google Maps.</small>
             </div>
             {addressQualityWarning ? (
-              <p className="admin-message" role="status" data-directory-address-warning>
+              <p className="admin-message" data-directory-address-warning>
                 <strong>⚠️ {addressQualityWarning}</strong><br />
                 Adresu môžeš uložiť a publikovať. Upozornenie sa verejne nezobrazuje.
               </p>
