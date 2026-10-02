@@ -4,7 +4,9 @@ import test from "node:test";
 
 import {
   decideBidirectionalChange,
+  differingAgendaSnapshotFields,
   matchCanonicalIdentity,
+  stableAgendaSnapshotJson,
   stableSnapshotJson,
 } from "../lib/notion-bidirectional-reconciliation.ts";
 import {
@@ -171,6 +173,37 @@ test("stable snapshot normalizes key order and line endings", () => {
   assert.equal(
     stableSnapshotJson({ z: "a\r\nb", a: " x " }),
     stableSnapshotJson({ a: "x", z: "a\nb" }),
+  );
+});
+
+test("Lost/Found baseline treats equivalent timezone-aware instants as equal", () => {
+  assert.equal(
+    stableAgendaSnapshotJson("lost-found", {
+      "Naposledy videný": "2026-09-25T17:27:00+02:00",
+      "Meno psa": "sdfsdf",
+    }),
+    stableAgendaSnapshotJson("lost-found", {
+      "Naposledy videný": "2026-09-25T15:27:00.000Z",
+      "Meno psa": "sdfsdf",
+    }),
+  );
+});
+
+test("Lost/Found baseline still detects a genuinely different instant", () => {
+  const fields = differingAgendaSnapshotFields(
+    "lost-found",
+    { "Naposledy videný": "2026-09-25T17:27:00+02:00", "Mesto": "trnava" },
+    { "Naposledy videný": "2026-09-25T15:28:00.000Z", "Mesto": "trnava" },
+  );
+  assert.deepEqual(fields, ["Naposledy videný"]);
+});
+
+test("existing agenda hash semantics are unchanged outside Lost/Found", () => {
+  const local = { "Naposledy videný": "2026-09-25T17:27:00+02:00" };
+  const utc = { "Naposledy videný": "2026-09-25T15:27:00.000Z" };
+  assert.notEqual(
+    stableAgendaSnapshotJson("events", local),
+    stableAgendaSnapshotJson("events", utc),
   );
 });
 

@@ -11,8 +11,9 @@ import type {
 } from "./notion-bulk-reconciliation.ts";
 import {
   decideBidirectionalChange,
+  differingAgendaSnapshotFields,
   matchCanonicalIdentity,
-  stableSnapshotJson,
+  stableAgendaSnapshotJson,
   type IdentityPage,
 } from "./notion-bidirectional-reconciliation.ts";
 import {
@@ -85,6 +86,12 @@ export type NotionAgendaSyncSummary = {
     notionPageId: string | null;
     operation: string;
     message: string;
+  }>;
+  conflictDetails: Array<{
+    entityId: number | null;
+    notionPageId: string | null;
+    reason: string;
+    fields: string[];
   }>;
 };
 
@@ -299,8 +306,11 @@ function pageSnapshot(
   ) as Record<string, ReconciliationValue>;
 }
 
-async function snapshotHash(values: Record<string, ReconciliationValue>) {
-  return sha256Text(stableSnapshotJson(values));
+async function snapshotHash(
+  agenda: BidirectionalAgendaKey,
+  values: Record<string, ReconciliationValue>,
+) {
+  return sha256Text(stableAgendaSnapshotJson(agenda, values));
 }
 
 function identityPage(page: NotionPage): IdentityPage {
@@ -510,6 +520,7 @@ function emptyAgenda(definition: AgendaDefinition, isEnabled: boolean, ready: bo
     conflicts: 0,
     failed: 0,
     errors: [],
+    conflictDetails: [],
   };
 }
 
@@ -590,7 +601,7 @@ async function syncAgenda(input: {
     if (entityId === null) continue;
     let mapping = mappingByEntity.get(entityId) ?? null;
     const sourceSnapshot = editableSnapshot(input.definition.key, source.properties, schema);
-    const canonicalHash = await snapshotHash(sourceSnapshot);
+    const canonicalHash = await snapshotHash(input.definition.key, sourceSnapshot);
 
     if (!mapping) {
       const identity = matchCanonicalIdentity(source.id, source.url, identities);
@@ -626,15 +637,27 @@ async function syncAgenda(input: {
 
         const page = pagesById.get(identity.page.id);
         if (!page) continue;
-        const notionHash = await snapshotHash(pageSnapshot(input.definition.key, page, schema));
+        const notionSnapshot = pageSnapshot(input.definition.key, page, schema);
+        const notionHash = await snapshotHash(input.definition.key, notionSnapshot);
         if (notionHash !== canonicalHash) {
+          const fields = differingAgendaSnapshotFields(
+            input.definition.key,
+            sourceSnapshot,
+            notionSnapshot,
+          );
           summary.conflicts += 1;
+          summary.conflictDetails.push({
+            entityId,
+            notionPageId: page.id,
+            reason: "BACKFILL_BASELINE_MISMATCH",
+            fields,
+          });
           if (input.mode === "sync") {
             await markConflict({
               bindings: input.bindings,
               pageId: page.id,
               schema,
-              message: "Existujúci backfill záznam sa obsahovo líši od canonical Psipedia a nemá bezpečný baseline.",
+              message: `Existujúci backfill záznam sa obsahovo líši od canonical Psipedia a nemá bezpečný baseline. Rozdielne polia: ${fields.join(", ") || "neznáme"}.`,
             }).catch(() => undefined);
           }
           continue;
@@ -731,7 +754,7 @@ async function syncAgenda(input: {
         continue;
       }
 
-      const notionHash = await snapshotHash(pageSnapshot(input.definition.key, page, schema));
+      const notionHash = await snapshotHash(input.definition.key, pageSnapshot(input.definition.key, page, schema));
 
       // Legacy event mappings predate psipedia_updated_at and are not a safe
       // bidirectional baseline. Adopt them only when both snapshots agree.
@@ -828,7 +851,7 @@ async function syncAgenda(input: {
         sourcesById = sourceById(sources);
         const updatedSource = sourcesById.get(entityId);
         if (!updatedSource) throw new Error("Canonical záznam po Notion update zmizol.");
-        const updatedHash = await snapshotHash(editableSnapshot(input.definition.key, updatedSource.properties, schema));
+        const updatedHash = await snapshotHash(input.definition.key, editableSnapshot(input.definition.key, updatedSource.properties, schema));
         const written = await writeSourceToNotion({
           bindings: input.bindings,
           dataSourceId: target.dataSourceId,
@@ -926,7 +949,7 @@ async function syncAgenda(input: {
       sourcesById = sourceById(sources);
       const source = sourcesById.get(entityId);
       if (!source) throw new Error("Nový canonical záznam sa po create nenašiel.");
-      const hash = await snapshotHash(editableSnapshot(input.definition.key, source.properties, schema));
+      const hash = await snapshotHash(input.definition.key, editableSnapshot(input.definition.key, source.properties, schema));
       const written = await writeSourceToNotion({
         bindings: input.bindings,
         dataSourceId: target.dataSourceId,
