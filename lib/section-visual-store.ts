@@ -107,7 +107,12 @@ export async function getSectionHeroVisual(visualKey: string): Promise<ResolvedS
   };
 
   if (!resolved.sectionSlug) return resolved;
-  const section = await getManagedPortalSection(resolved.sectionSlug);
+  let section;
+  try {
+    section = await getManagedPortalSection(resolved.sectionSlug);
+  } catch {
+    return resolved;
+  }
   if (!section?.visible) return resolved;
   const subpage = resolved.subsectionSlug
     ? section.subpages.find((item) => item.slug === resolved.subsectionSlug && item.visible !== false)
