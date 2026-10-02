@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicActionLink, PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
-import { bratislavaDateKey, eventDateStatus, eventTypeListingSeo, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
+import { PublicActionLink, PublicCategoryTiles, PublicFoundation, PublicLandingHero, PublicSectionHeader } from "@/components/public-visual-system";
+import { PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
+import { bratislavaDateKey, eventDateStatus, eventTypeListingSeo, eventTypePortalHref, eventTypes, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import styles from "./events-public.module.css";
+
+function eventLandingIcon(eventType: EventType) {
+  if (eventType === "Preteky") return <WhistleIcon size={22} />;
+  if (eventType === "Výstava") return <SparkIcon size={22} />;
+  return <PawMark size={22} />;
+}
 
 export function EventsPage({
   events,
@@ -25,6 +32,19 @@ export function EventsPage({
   const description = isMainListing ? section?.description ?? copy.description : copy.description;
   const today = bratislavaDateKey();
   const activeCount = events.filter((event) => !event.cancelled && eventDateStatus(event, today) !== "past").length;
+  const landingCategories = eventTypes.flatMap((eventType) => {
+    const href = eventTypePortalHref(eventType);
+    if (!href) return [];
+    const seo = eventTypeListingSeo(eventType);
+    const count = events.filter((event) => !event.cancelled && event.eventType === eventType && eventDateStatus(event, today) !== "past").length;
+    return [{
+      href,
+      title: seo.title,
+      description: seo.description,
+      meta: `${count} aktívnych`,
+      icon: eventLandingIcon(eventType),
+    }];
+  });
 
   return (
     <main id="obsah">
@@ -34,17 +54,41 @@ export function EventsPage({
           <Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span>{isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
           </Breadcrumbs>
-          <PublicSectionHeader
-            variant="data"
-            eyebrow="Kalendár a databáza"
-            title={title}
-            intro={<span className={styles.headerDescription}>{description}</span>}
-            meta={activeCount > 0 ? (
-              <span className={styles.headerMeta} aria-label={activeCount + " aktívnych podujatí"}>
-                <strong>{activeCount}</strong> aktívnych termínov
-              </span>
-            ) : undefined}
-          />
+          {isMainListing ? (
+            <>
+              <PublicLandingHero
+                tone="events"
+                eyebrow="Kalendár a databáza"
+                title={title}
+                intro={description}
+                meta={activeCount > 0 ? <span><strong>{activeCount}</strong> aktívnych termínov</span> : undefined}
+                ornament={<SparkIcon size={96} />}
+                actions={<PublicActionLink href="/podujatia/pridat-podujatie" variant="secondary">Pridať podujatie</PublicActionLink>}
+              />
+              <section className={styles.landingCategories} aria-labelledby="events-category-heading">
+                <div className={styles.landingCategoryHeading}>
+                  <div>
+                    <span>Typy podujatí</span>
+                    <h2 id="events-category-heading">Vyberte si, čo vás zaujíma</h2>
+                  </div>
+                  <p>Rýchle vstupy používajú existujúce verejné kategórie. Kalendár, filtre a vyhľadávanie zostávajú nižšie bez zmeny.</p>
+                </div>
+                <PublicCategoryTiles items={landingCategories} label="Hlavné typy podujatí" />
+              </section>
+            </>
+          ) : (
+            <PublicSectionHeader
+              variant="data"
+              eyebrow="Kalendár a databáza"
+              title={title}
+              intro={<span className={styles.headerDescription}>{description}</span>}
+              meta={activeCount > 0 ? (
+                <span className={styles.headerMeta} aria-label={activeCount + " aktívnych podujatí"}>
+                  <strong>{activeCount}</strong> aktívnych termínov
+                </span>
+              ) : undefined}
+            />
+          )}
         </PageContainer>
       </header>
 

@@ -7,6 +7,8 @@ export {
   PublicDataCard,
   PublicFoundation,
   PublicIcon,
+  PublicLandingHero,
+  PublicCategoryTiles,
   PublicSectionHeader,
 } from "./public-visual-system";
 
@@ -14,4 +16,6 @@ export type {
   PublicActionVariant,
   PublicHeaderVariant,
   PublicIconSize,
+  PublicLandingTone,
+  PublicCategoryTileItem,
 } from "./public-visual-system";

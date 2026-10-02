@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
-import { ArrowIcon, SearchIcon } from "@/components/icons";
+import { ArrowIcon, BowlIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicFoundation, PublicSectionHeader } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicFoundation, PublicLandingHero } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
@@ -112,20 +112,21 @@ export function ReviewsHub({
           <Breadcrumbs>
             <Link href="/">Domov</Link><span>/</span><span>Recenzie a testy</span>
           </Breadcrumbs>
-          <PublicSectionHeader
-            className={styles.header}
-            variant="compact"
+          <PublicLandingHero
+            tone="reviews"
             eyebrow="Rozhodovanie podľa skúseností"
             title="Recenzie a testy"
             intro="Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste."
-          />
-          <form className={styles.search} action="/hladat" method="get">
-            <SearchIcon size={21} />
-            <input type="hidden" name="sekcia" value="recenzie" />
-            <label className="sr-only" htmlFor="reviews-hub-query">Hľadať v recenziách a testoch</label>
-            <input id="reviews-hub-query" name="q" maxLength={120} placeholder="Krmivo, GPS, veterinár, tréner…" />
-            <button type="submit">Hľadať</button>
-          </form>
+            ornament={<SparkIcon size={96} />}
+          >
+            <form className={styles.search} action="/hladat" method="get">
+              <SearchIcon size={21} />
+              <input type="hidden" name="sekcia" value="recenzie" />
+              <label className="sr-only" htmlFor="reviews-hub-query">Hľadať v recenziách a testoch</label>
+              <input id="reviews-hub-query" name="q" maxLength={120} placeholder="Krmivo, GPS, veterinár, tréner…" />
+              <button type="submit">Hľadať</button>
+            </form>
+          </PublicLandingHero>
         </PageContainer>
       </header>
 
@@ -135,30 +136,50 @@ export function ReviewsHub({
             <span className={styles.eyebrow}>Vyber si, čo chceš pozrieť</span>
             <h2 id="reviews-mode-heading">Štyri jednoduché vstupy do recenzií</h2>
           </div>
-          <nav className={styles.modeGrid} aria-label="Typ recenzií">
-            {([
-              ["all", "Všetko", "★", "Testy produktov, skúsenosti so službami aj hodnotenia e-shopov na jednom mieste."],
-              ["products", "Produkty", "🦴", "Redakčné testy krmív, výbavy a produktov pre psy."],
-              ["services", "Služby", "🐾", "Skúsenosti používateľov s veterinármi, trénermi a ďalšími službami."],
-              ["eshops", "E-shopy", "🛒", "Jednoduché hodnotenia nákupnej skúsenosti od e-mailom overených používateľov."],
-            ] as const).map(([key, label, icon, description]) => (
-              <Link
-                key={key}
-                href={viewHref(key)}
-                prefetch={false}
-                rel={key === "all" ? undefined : "nofollow"}
-                className={`${styles.modeCard} ${view === key ? styles.activeMode : ""}`}
-                aria-current={view === key ? "page" : undefined}
-              >
-                <span className={styles.modeIcon} aria-hidden="true">{icon}</span>
-                <div>
-                  <h3>{label}</h3>
-                  <p>{description}</p>
-                </div>
-                <b>{view === key ? "Zobrazené" : "Otvoriť"} <ArrowIcon size={18} /></b>
-              </Link>
-            ))}
-          </nav>
+          <PublicCategoryTiles
+            label="Typ recenzií"
+            items={[
+              {
+                href: viewHref("all"),
+                title: "Všetko",
+                description: "Testy produktov, skúsenosti so službami aj hodnotenia e-shopov na jednom mieste.",
+                meta: view === "all" ? "Zobrazené" : "Otvoriť",
+                icon: <SparkIcon size={22} />,
+                current: view === "all",
+                prefetch: false,
+              },
+              {
+                href: viewHref("products"),
+                title: "Produkty",
+                description: "Redakčné testy krmív, výbavy a produktov pre psy.",
+                meta: view === "products" ? "Zobrazené" : "Otvoriť",
+                icon: <BowlIcon size={22} />,
+                current: view === "products",
+                rel: "nofollow",
+                prefetch: false,
+              },
+              {
+                href: viewHref("services"),
+                title: "Služby",
+                description: "Skúsenosti používateľov s veterinármi, trénermi a ďalšími službami.",
+                meta: view === "services" ? "Zobrazené" : "Otvoriť",
+                icon: <PawMark size={22} />,
+                current: view === "services",
+                rel: "nofollow",
+                prefetch: false,
+              },
+              {
+                href: viewHref("eshops"),
+                title: "E-shopy",
+                description: "Jednoduché hodnotenia nákupnej skúsenosti od e-mailom overených používateľov.",
+                meta: view === "eshops" ? "Zobrazené" : "Otvoriť",
+                icon: <SearchIcon size={22} />,
+                current: view === "eshops",
+                rel: "nofollow",
+                prefetch: false,
+              },
+            ]}
+          />
         </PageContainer>
       </section>
 

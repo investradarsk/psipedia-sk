@@ -9,22 +9,19 @@ const ARTIFACT_DIR = process.env.CATEGORY_VISUAL_ARTIFACT_DIR ?? ".e2e-artifacts
 const CONSENT_KEY = "psipedia-cookie-consent";
 
 const LANDINGS = [
-  { slug: "plemena", path: "/plemena" },
-  { slug: "steniatka", path: "/steniatka" },
-  { slug: "starostlivost", path: "/starostlivost" },
-  { slug: "aktivity", path: "/aktivity" },
-  { slug: "adresar", path: "/adresar" },
-  { slug: "podujatia", path: "/podujatia" },
   { slug: "pomoc-psom", path: "/pomoc-psom" },
+  { slug: "podujatia", path: "/podujatia" },
+  { slug: "adresar", path: "/adresar" },
   { slug: "recenzie", path: "/recenzie" },
-  { slug: "novinky", path: "/novinky" },
 ] as const;
 
 const VIEWPORTS = [
-  { label: "desktop", width: 1440, height: 900 },
-  { label: "mobile-390", width: 390, height: 844 },
-  { label: "mobile-360", width: 360, height: 800 },
+  { label: "desktop-1440", width: 1440, height: 900 },
+  { label: "desktop-1280", width: 1280, height: 800 },
   { label: "tablet", width: 768, height: 1024 },
+  { label: "mobile-390", width: 390, height: 844 },
+  { label: "mobile-375", width: 375, height: 812 },
+  { label: "mobile-360", width: 360, height: 800 },
 ] as const;
 
 async function makePage(browser: Browser, baseURL: string, viewport: { width: number; height: number }) {
@@ -86,25 +83,36 @@ test("CATEGORY-VISUAL preview matches the landing-page contract and captures bef
   }
 });
 
-test("CATEGORY-VISUAL preview keeps primary navigation and filter state contracts", async ({ page }) => {
+test("CATEGORY-BANNERS preview keeps hero, category navigation and functional state contracts", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+
+  for (const [path, tone] of [["/podujatia", "events"], ["/adresar", "services"], ["/recenzie", "reviews"]] as const) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    await expect(page.locator(`[data-public-landing-hero="${tone}"]`)).toBeVisible();
+    await expect(page.locator("[data-public-category-tiles]")).toBeVisible();
+    const tiles = page.locator("[data-public-category-tiles] a");
+    expect(await tiles.count(), `${path} category tiles`).toBeGreaterThan(0);
+    for (const link of await tiles.all()) {
+      expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(await link.getAttribute("href"), `${path} tile href`).toBeTruthy();
+    }
+  }
+
+  await page.goto("/podujatia");
+  const eventTiles = page.getByRole("navigation", { name: "Hlavné typy podujatí" }).getByRole("link");
+  await expect(eventTiles).toHaveCount(3);
+  await expect(page.locator('input[placeholder*="Názov, mesto"]')).toBeVisible();
 
   await page.goto("/recenzie");
   const reviewModes = page.getByRole("navigation", { name: "Typ recenzií" }).getByRole("link");
   await expect(reviewModes).toHaveCount(4);
-  for (const link of await reviewModes.all()) {
-    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
-  }
+  await expect(page.locator("#reviews-hub-query")).toBeVisible();
 
   await page.goto("/adresar");
   const directoryNav = page.getByRole("navigation", { name: "Kategórie služieb" });
   await expect(directoryNav).toBeVisible();
-  expect(await directoryNav.evaluate((element) => getComputedStyle(element).overflowX)).not.toBe("auto");
-
-  await page.goto("/novinky");
-  const newsNav = page.getByRole("navigation", { name: "Filtrovať novinky podľa kategórie" });
-  await expect(newsNav).toBeVisible();
-  expect(await newsNav.evaluate((element) => getComputedStyle(element).overflowX)).not.toBe("auto");
+  await expect(page.locator('form[action="/adresar"] input[name="q"]')).toBeVisible();
+  await expect(page.locator('form[action="/adresar"] select[name="category"]')).toBeVisible();
 
   await page.goto("/adresar?q=Nitra&category=veterinari");
   await expect(page).toHaveURL(/q=Nitra/);

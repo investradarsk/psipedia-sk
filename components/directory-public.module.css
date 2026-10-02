@@ -1793,3 +1793,59 @@
   text-decoration: underline;
   text-underline-offset: .2em;
 }
+
+
+/* CATEGORY-BANNERS-1 */
+.hero {
+  min-width: 0;
+}
+
+.hero .mainSearch {
+  margin-top: 0;
+  border-color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 12px 34px rgba(9,37,27,.18);
+}
+
+.discovery {
+  display: grid;
+  gap: 16px;
+  padding-top: clamp(26px, 4vw, 42px);
+}
+
+.discoveryHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 26px;
+}
+
+.discoveryHeading > div {
+  min-width: 0;
+}
+
+.discoveryHeading h2 {
+  margin: 4px 0 0;
+  color: var(--forest-dark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.55rem, 2.8vw, 2.35rem);
+  font-weight: 600;
+  letter-spacing: -.025em;
+  line-height: 1.08;
+}
+
+.discoveryHeading p {
+  max-width: 480px;
+  margin: 0;
+  color: var(--muted);
+  font-size: .82rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 700px) {
+  .discoveryHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

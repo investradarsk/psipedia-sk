@@ -23,7 +23,8 @@ test("reviews hub separates editorial products, user service reviews and verifie
   assert.match(hub, /Služby/);
   assert.match(hub, /E-shopy/);
   assert.match(hub, /Štyri jednoduché vstupy do recenzií/);
-  assert.match(hub, /styles\.modeCard/);
+  assert.match(hub, /<PublicLandingHero/);
+  assert.match(hub, /<PublicCategoryTiles/);
   assert.match(hub, /Najnovšie testy Psipedia/);
   assert.match(hub, /Najnovšie recenzie služieb/);
   assert.match(hub, /Hodnotenia nákupnej skúsenosti/);
@@ -49,12 +50,13 @@ test("latest public review feed exposes only visible reviews of public canonical
   assert.doesNotMatch(source, /email_ciphertext|email_hash/);
 });
 
-test("reviews hub styling stays isolated in a CSS module", () => {
+test("reviews hub styling stays isolated and shared landing tiles live in the public visual system", () => {
   const hub = read("components/reviews-hub.tsx");
   const css = read("components/reviews-hub.module.css");
+  const sharedCss = read("components/public-visual-system/public-visual-system.module.css");
   assert.match(hub, /reviews-hub\.module\.css/);
-  assert.match(css, /\.modeGrid/);
-  assert.match(css, /\.modeCard/);
+  assert.match(sharedCss, /\.categoryTiles/);
+  assert.match(sharedCss, /\.categoryTile/);
   assert.match(css, /\.reviewGrid/);
   assert.match(css, /\.categoryGrid/);
   assert.match(css, /\.eshopGrid/);
