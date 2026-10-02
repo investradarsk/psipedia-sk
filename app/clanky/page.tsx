@@ -64,11 +64,12 @@ export default async function ArticlesPage({ searchParams }: Props) {
             visual={heroVisual}
             searchSlot={
               <SectionHeroSearch
-                action="/hladat"
+                action="/clanky"
                 id="news-hero-query"
                 label="Hľadať v Novinkách"
                 placeholder="Hľadať článok alebo tému…"
-                hidden={[{ name: "sekcia", value: "novinky" }]}
+                defaultValue={scalar(params.hladat) ?? ""}
+                inputName="hladat"
               />
             }
           />
