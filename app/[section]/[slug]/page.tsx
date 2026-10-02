@@ -29,6 +29,10 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ section: string; slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
+function scalar(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export function generateStaticParams() {
   return portalSections.flatMap((section) => section.subpages
     .filter((subpage) => !subpage.href)
@@ -122,12 +126,13 @@ export default async function PortalContentPage({ params, searchParams }: Props)
         .filter((event) => event.eventType === eventType)
         .map((event) => ({ name: event.title, path: eventHref(event) })),
     }) : null;
-    return <>{schema && <StructuredData value={schema} />}<EventsPage events={events} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} /></>;
+    return <>{schema && <StructuredData value={schema} />}<EventsPage events={events} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={scalar(rawSearchParams.q) ?? ""} /></>;
   }
   const managedSection = await getManagedPortalSection(section);
   if (!managedSection?.visible) notFound();
   if (section === "podujatia" && slug === "kalendar") {
-    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam((await searchParams).termin)} />;
+    const rawSearchParams = await searchParams;
+    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={scalar(rawSearchParams.q) ?? ""} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic && section === "novinky") {
