@@ -136,7 +136,7 @@ test("directory privacy/manual-override protections remain intact and online dir
   assert.doesNotMatch(directoryPolicy, /source\.online/);
 });
 
-test("bulk remains DIRECTORY_PROFILE-only, bounded 1-100 and server cursor-based", () => {
+test("bulk is unified across canonical target types, bounded 1-100 and server cursor-based", () => {
   assert.match(dashboard, /min=\{1\}/);
   assert.match(dashboard, /max=\{100\}/);
   assert.match(dashboard, /action: "select-targets"/);
@@ -145,7 +145,10 @@ test("bulk remains DIRECTORY_PROFILE-only, bounded 1-100 and server cursor-based
   assert.match(dashboard, /Začať od začiatku/);
   assert.match(bulk, /selectGooglePlaceBulkTargets/);
   assert.match(bulk, /filterFingerprint/);
-  assert.doesNotMatch(bulk, /ORGANIZATION_LOCATION|MANAGED_EVENT/);
+  assert.match(bulk, /ORGANIZATION_LOCATION/);
+  assert.match(bulk, /MANAGED_EVENT/);
+  assert.match(bulk, /targetType/);
+  assert.match(bulk, /lastTargetType/);
 });
 
 test("operator UI stays card-based and mobile-safe", () => {
