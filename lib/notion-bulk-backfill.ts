@@ -345,6 +345,9 @@ function pageRecord(
     psipediaId: clean(pageProperty(page, "Psipedia ID")),
     url: clean(pageProperty(page, "URL Psipedia")),
     properties: Object.fromEntries(Object.keys(schema).map((name) => [name, pageProperty(page, name)])),
+    propertyTypes: Object.fromEntries(
+      Object.entries(schema).map(([name, propertySchema]) => [name, propertyType(propertySchema)]),
+    ),
   };
 }
 

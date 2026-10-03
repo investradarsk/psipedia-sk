@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   chunkItems,
   executeReconciliationPlan,
+  normalizeCanonicalUrl,
   planNotionReconciliation,
   validateNotionSchema,
 } from "../lib/notion-bulk-reconciliation.ts";
@@ -21,7 +22,14 @@ function source(id, title = "Profil", url = `https://psipedia.sk/x/${id}`, prope
   return { id: String(id), title, url, properties, ownership };
 }
 
-function page(pageId, id, title = "Profil", url = `https://psipedia.sk/x/${id}`, properties = {}) {
+function page(
+  pageId,
+  id,
+  title = "Profil",
+  url = `https://psipedia.sk/x/${id}`,
+  properties = {},
+  propertyTypes = {},
+) {
   return {
     pageId,
     title,
@@ -32,6 +40,7 @@ function page(pageId, id, title = "Profil", url = `https://psipedia.sk/x/${id}`,
       "URL Psipedia": url,
       ...properties,
     },
+    propertyTypes,
   };
 }
 
@@ -57,6 +66,82 @@ test("same canonical data plans UNCHANGED", () => {
     [page("p1", 1, "A", "https://psipedia.sk/x/1", { Web: "https://example.sk" })],
   );
   assert.equal(plan.unchanged, 1);
+});
+
+test("date round-trip with equivalent ISO datetime plans UNCHANGED", () => {
+  const plan = planNotionReconciliation(
+    [source(1, "A", "https://psipedia.sk/x/1", { "Aktualizované": "2026-08-17T09:01:00.000Z" }, { "Aktualizované": "system" })],
+    [page("p1", 1, "A", "https://psipedia.sk/x/1", { "Aktualizované": "2026-08-17T09:01:00Z" }, { "Aktualizované": "date" })],
+  );
+  assert.equal(plan.update, 0);
+  assert.equal(plan.unchanged, 1);
+});
+
+test("date-only round-trip plans UNCHANGED", () => {
+  const plan = planNotionReconciliation(
+    [source(1, "A", "https://psipedia.sk/x/1", { "Dátum hlásenia": "2026-08-17" })],
+    [page("p1", 1, "A", "https://psipedia.sk/x/1", { "Dátum hlásenia": "2026-08-17" }, { "Dátum hlásenia": "date" })],
+  );
+  assert.equal(plan.unchanged, 1);
+});
+
+test("real system-owned date difference still plans UPDATE", () => {
+  const plan = planNotionReconciliation(
+    [source(1, "A", "https://psipedia.sk/x/1", { "Aktualizované": "2026-08-18" }, { "Aktualizované": "system" })],
+    [page("p1", 1, "A", "https://psipedia.sk/x/1", { "Aktualizované": "2026-08-17" }, { "Aktualizované": "date" })],
+  );
+  assert.equal(plan.update, 1);
+  assert.deepEqual(plan.actions[0].changes, { "Aktualizované": "2026-08-18" });
+});
+
+test("repeated execute is idempotent after Notion date round-trip formatting", async () => {
+  const desired = source(
+    1,
+    "A",
+    "https://psipedia.sk/x/1",
+    { "Aktualizované": "2026-08-17T09:01:00.000Z" },
+    { "Aktualizované": "system" },
+  );
+  const firstPlan = planNotionReconciliation(
+    [desired],
+    [page("p1", 1, "A", "https://psipedia.sk/x/1", { "Aktualizované": "2026-08-16T09:01:00Z" }, { "Aktualizované": "date" })],
+  );
+  assert.equal(firstPlan.update, 1);
+
+  let writtenChanges = null;
+  const execution = await executeReconciliationPlan(firstPlan, {
+    dryRun: false,
+    maxWrites: 100,
+    writeDelayMs: 0,
+    create: async () => {},
+    update: async (_pageId, changes) => { writtenChanges = changes; },
+  });
+  assert.equal(execution.updated, 1);
+  assert.deepEqual(writtenChanges, { "Aktualizované": "2026-08-17T09:01:00.000Z" });
+
+  const secondPlan = planNotionReconciliation(
+    [desired],
+    [page("p1", 1, "A", "https://psipedia.sk/x/1", { "Aktualizované": "2026-08-17T09:01:00Z" }, { "Aktualizované": "date" })],
+  );
+  assert.equal(secondPlan.update, 0);
+  assert.equal(secondPlan.unchanged, 1);
+});
+
+test("manual non-empty SEO title difference remains a conflict", () => {
+  const plan = planNotionReconciliation(
+    [source(1, "A", "https://psipedia.sk/x/1", { "SEO title": "Psipedia source title" })],
+    [page("p1", 1, "A", "https://psipedia.sk/x/1", { "SEO title": "Manuálny Notion title" }, { "SEO title": "rich_text" })],
+  );
+  assert.equal(plan.conflict, 1);
+  assert.equal(plan.actions[0].reason, "NON_EMPTY_NOTION_VALUE_DIFFERS");
+  assert.deepEqual(plan.actions[0].conflictFields, ["SEO title"]);
+});
+
+test("canonical URL normalization keeps query semantics while removing hash and trailing slash", () => {
+  assert.equal(
+    normalizeCanonicalUrl("https://EXAMPLE.sk/path/?a=1&b=2#sekcia"),
+    "https://example.sk/path?a=1&b=2",
+  );
 });
 
 test("repeat run after create is idempotent and does not plan duplicate create", () => {
