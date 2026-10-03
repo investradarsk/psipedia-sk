@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { HelpCard } from "@/components/help-card";
+import { PageContainer } from "@/components/page-system";
+import { PublicContentShell } from "@/components/public-visual-system";
 import { SearchIcon } from "@/components/icons";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import { helpCategories, type HelpCase, type HelpCategorySlug } from "@/lib/help";
@@ -53,7 +55,7 @@ export function HelpBrowser({
 
   return (
     <section className={styles.browserShell} aria-labelledby="help-results-heading">
-      <div className={[styles.shell, styles.browserTop].join(" ")}>
+      <PublicContentShell variant="listing" className={styles.browserTop}>
         <form className={styles.toolbar} onSubmit={(event) => event.preventDefault()} aria-label="Filtrovať pomoc">
           <label>
             <span className={styles.label}>Hľadať</span>
@@ -77,10 +79,10 @@ export function HelpBrowser({
         </form>
 
         {children}
-      </div>
+      </PublicContentShell>
 
       <div className={styles.resultsBand}>
-        <div className={[styles.shell, styles.results].join(" ")}>
+        <PageContainer className={styles.results}>
           <div className={styles.resultHeading}>
             <div><h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2><p>{initialCategory === "all" ? "Tento prehľad zahŕňa prípady a organizácie. Psy na adopciu nájdete v samostatnom prehľade adopcií." : "Výsledky zodpovedajú aktuálne zvoleným filtrom."}</p></div>
             <strong className={styles.resultCount}>{filtered.length} {filtered.length === 1 ? "záznam" : filtered.length > 1 && filtered.length < 5 ? "záznamy" : "záznamov"}</strong>
@@ -95,7 +97,7 @@ export function HelpBrowser({
               {items.length > 0 ? <button type="button" onClick={reset}>Vyčistiť filtre</button> : null}
             </div>
           )}
-        </div>
+        </PageContainer>
       </div>
     </section>
   );
