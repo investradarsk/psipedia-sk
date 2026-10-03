@@ -66,9 +66,14 @@ async function openHero(page: Page, path: string, visualKey: string, label: stri
       try { await element.decode(); } catch {}
     });
   }
+  await page.evaluate(() => {
+    history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+  });
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));
+  expect(await page.evaluate(() => window.scrollY), label + ": audit starts at page top").toBe(0);
 
   return hero;
 }
@@ -232,12 +237,32 @@ test("UNIFIED-SECTION-HERO intro paragraphs use only canonical margins", async (
   await page.setViewportSize({ width: 390, height: 844 });
   const response = await page.goto("/steniatka", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
-  const introParagraphs = page.locator("[data-section-hero-intro] > p");
-  await expect(introParagraphs).toHaveCount(2);
-  expect(await introParagraphs.nth(0).evaluate((node) => getComputedStyle(node).marginTop)).toBe("0px");
-  expect(await introParagraphs.nth(0).evaluate((node) => getComputedStyle(node).marginBottom)).toBe("0px");
-  expect(await introParagraphs.nth(1).evaluate((node) => getComputedStyle(node).marginTop)).toBe("8px");
-  expect(await introParagraphs.nth(1).evaluate((node) => getComputedStyle(node).marginBottom)).toBe("0px");
+  const intro = page.locator("[data-section-hero-intro]").first();
+  await expect(intro).toBeVisible();
+  const margins = await intro.evaluate((node) => {
+    const first = document.createElement("p");
+    const second = document.createElement("p");
+    first.textContent = "Canonical intro paragraph one";
+    second.textContent = "Canonical intro paragraph two";
+    node.append(first, second);
+    const firstStyle = getComputedStyle(first);
+    const secondStyle = getComputedStyle(second);
+    const result = {
+      firstTop: firstStyle.marginTop,
+      firstBottom: firstStyle.marginBottom,
+      secondTop: secondStyle.marginTop,
+      secondBottom: secondStyle.marginBottom,
+    };
+    first.remove();
+    second.remove();
+    return result;
+  });
+  expect(margins).toEqual({
+    firstTop: "0px",
+    firstBottom: "0px",
+    secondTop: "8px",
+    secondBottom: "0px",
+  });
 });
 
 test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async ({ page }) => {
