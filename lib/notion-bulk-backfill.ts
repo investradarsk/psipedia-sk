@@ -15,6 +15,7 @@ import {
   loadNotionBulkServices,
 } from "./notion-bulk-sources.ts";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "./notion-sync-shared.ts";
+import { notionSeoPropertySchema } from "./notion-seo-contract.ts";
 import {
   resolveNotionCanonicalTarget,
   type NotionCanonicalTargetDefinition,
@@ -43,6 +44,7 @@ type AgendaDefinition = {
   configuredId?: (bindings: NotionBulkBindings) => string;
   createIfMissing?: boolean;
   createSchema?: Record<string, unknown>;
+  extendSchema?: Record<string, unknown>;
   load: (database: D1Database) => Promise<import("./notion-bulk-reconciliation.ts").CanonicalSourceRecord[]>;
 };
 
@@ -166,6 +168,7 @@ const helpCasesSchema = {
   "Obrázok": urlSchema(),
   "Urgentné": checkboxSchema(),
   "Vyriešené": checkboxSchema(),
+  ...notionSeoPropertySchema("help-cases"),
   "Vytvorené": dateSchema(),
   "Aktualizované": dateSchema(),
   "Publikované": dateSchema(),
@@ -223,6 +226,7 @@ const definitions: AgendaDefinition[] = [
     targetTitle: "Podujatia",
     titleProperty: "Názov",
     configuredId: (bindings) => clean(bindings.NOTION_EVENTS_DATA_SOURCE_ID),
+    extendSchema: notionSeoPropertySchema("events"),
     load: loadNotionBulkEvents,
   },
   {
@@ -246,6 +250,7 @@ const definitions: AgendaDefinition[] = [
     titleProperty: "Názov",
     createIfMissing: true,
     createSchema: helpCasesSchema,
+    extendSchema: notionSeoPropertySchema("help-cases"),
     load: loadNotionBulkHelpCases,
   },
   {
@@ -449,11 +454,34 @@ async function reconcileAgenda(
     });
   }
 
-  const dataSource = await notionRequest<DataSourceResponse>(
+  let dataSource = await notionRequest<DataSourceResponse>(
     bindings,
     `/data_sources/${encodeURIComponent(target.dataSourceId)}`,
   );
-  const schema = dataSource.properties ?? {};
+  let schema = dataSource.properties ?? {};
+  const schemaExtension = definition.extendSchema ?? {};
+  const missingExtensionProperties = Object.keys(schemaExtension).filter((name) => !schema[name]);
+  const addedSchemaProperties = new Set<string>();
+
+  if (mode === "execute" && missingExtensionProperties.length) {
+    const properties = Object.fromEntries(
+      missingExtensionProperties.map((name) => [name, schemaExtension[name]]),
+    );
+    await notionRequest<DataSourceResponse>(
+      bindings,
+      `/data_sources/${encodeURIComponent(target.dataSourceId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ properties }),
+      },
+    );
+    missingExtensionProperties.forEach((name) => addedSchemaProperties.add(name));
+    dataSource = await notionRequest<DataSourceResponse>(
+      bindings,
+      `/data_sources/${encodeURIComponent(target.dataSourceId)}`,
+    );
+    schema = dataSource.properties ?? {};
+  }
   const required = [definition.titleProperty, "Psipedia ID", "URL Psipedia"];
   const sourceProperties = [...new Set(source.flatMap((record) => Object.keys(record.properties)))];
   const optional = sourceProperties.filter((name) => !required.includes(name));
@@ -479,7 +507,14 @@ async function reconcileAgenda(
   const filteredSource = source.map((record) => ({
     ...record,
     properties: Object.fromEntries(Object.entries(record.properties).filter(([name]) => allowed.has(name))),
-    ownership: Object.fromEntries(Object.entries(record.ownership ?? {}).filter(([name]) => allowed.has(name))),
+    ownership: {
+      ...Object.fromEntries(Object.entries(record.ownership ?? {}).filter(([name]) => allowed.has(name))),
+      ...Object.fromEntries(
+        [...addedSchemaProperties]
+          .filter((name) => allowed.has(name))
+          .map((name) => [name, "system" as const]),
+      ),
+    },
   }));
 
   const pages = await listAllPages(bindings, target.dataSourceId);
