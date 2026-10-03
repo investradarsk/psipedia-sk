@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildPublicEventPresentation, eventTypePortalHref, selectRelatedEvents } from "../lib/events.ts";
+import { buildPublicEventPresentation, eventTypeFromPortalSlug, eventTypePortalHref, selectRelatedEvents } from "../lib/events.ts";
 
 function event(overrides) {
   return {
@@ -63,13 +63,36 @@ test("PUBLIC-HYGIENE event presentation removes import diagnostics, raw sources 
   assert.match(presentation.practicalInfo, /Zdroj: klubový bulletin/);
 });
 
-test("event type links only target existing public type routes", () => {
-  assert.equal(eventTypePortalHref("Výstava"), "/podujatia/vystavy");
-  assert.equal(eventTypePortalHref("Preteky"), "/podujatia/preteky");
-  assert.equal(eventTypePortalHref("Seminár"), "/podujatia/seminare");
-  assert.equal(eventTypePortalHref("Tréning"), null);
-  assert.equal(eventTypePortalHref("Stretnutie"), null);
-  assert.equal(eventTypePortalHref("Iné"), null);
+test("every public event type has a reversible crawlable listing route", () => {
+  const routes = [
+    ["Výstava", "/podujatia/vystavy", "vystavy"],
+    ["Preteky", "/podujatia/preteky", "preteky"],
+    ["Seminár", "/podujatia/seminare", "seminare"],
+    ["Tréning", "/podujatia/treningy", "treningy"],
+    ["Stretnutie", "/podujatia/stretnutia", "stretnutia"],
+    ["Iné", "/podujatia/dalsie", "dalsie"],
+  ];
+  for (const [eventType, href, slug] of routes) {
+    assert.equal(eventTypePortalHref(eventType), href);
+    assert.equal(eventTypeFromPortalSlug(slug), eventType);
+  }
+});
+
+test("internal discovery controls remain crawlable while directory pagination stays link-based", () => {
+  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
+  const helpBrowser = readFileSync(new URL("../components/help-browser.tsx", import.meta.url), "utf8");
+  const helpCategoryRoute = readFileSync(new URL("../app/pomoc-psom/[category]/page.tsx", import.meta.url), "utf8");
+  const directoryResults = readFileSync(new URL("../components/directory-results.tsx", import.meta.url), "utf8");
+  const relatedEntities = readFileSync(new URL("../components/related-entity-list.tsx", import.meta.url), "utf8");
+
+  assert.match(calendar, /href=\{eventTimeFilterHref\(value, typePathname\)\}/);
+  assert.match(calendar, /href=\{pathname\}/);
+  assert.match(helpCategoryRoute, /rawSearchParams\.stav/);
+  assert.match(helpBrowser, /href=\{statusHref\(!activeOnly\)\}/);
+  assert.match(helpBrowser, /params\.set\("stav", "vsetky"\)/);
+  assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page - 1\)\}>← Predchádzajúca<\/Link>/);
+  assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page \+ 1\)\}>Ďalšia →<\/Link>/);
+  assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
 test("related events prefer active same-type events while past details prefer the nearest active events", () => {
