@@ -345,6 +345,11 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
             <strong>{count(data.summary.changedMedia)}</strong>
             <small>na schválenie · {count(data.summary.mediaIssues)} problémov spolu</small>
           </Link>
+          <Link href="/admin/kvalita/seo">
+            <span>SEO audit</span>
+            <strong>→</strong>
+            <small>publikované canonical entity</small>
+          </Link>
         </nav>
         <button
           className="admin-quality-quick-check"
