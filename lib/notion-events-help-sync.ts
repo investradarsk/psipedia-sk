@@ -29,6 +29,10 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import {
+  notionSeoSchemaExtensionFields,
+  notionSeoSchemaExtensionIsDefault,
+} from "./notion-seo-contract.ts";
+import {
   notionRequest,
   sha256Text,
   type NotionPage,
@@ -754,7 +758,56 @@ async function syncAgenda(input: {
         continue;
       }
 
-      const notionHash = await snapshotHash(input.definition.key, pageSnapshot(input.definition.key, page, schema));
+      const notionSnapshot = pageSnapshot(input.definition.key, page, schema);
+      const notionHash = await snapshotHash(input.definition.key, notionSnapshot);
+      const extensionFields = notionSeoSchemaExtensionFields(input.definition.key);
+
+      if (
+        extensionFields.length
+        && notionHash !== canonicalHash
+        && notionSeoSchemaExtensionIsDefault(input.definition.key, notionSnapshot)
+      ) {
+        const extensionFieldSet = new Set<string>(extensionFields);
+        const legacySourceSnapshot = Object.fromEntries(
+          Object.entries(sourceSnapshot).filter(([name]) => !extensionFieldSet.has(name)),
+        ) as Record<string, ReconciliationValue>;
+        const legacyNotionSnapshot = Object.fromEntries(
+          Object.entries(notionSnapshot).filter(([name]) => !extensionFieldSet.has(name)),
+        ) as Record<string, ReconciliationValue>;
+        const legacyCanonicalHash = await snapshotHash(input.definition.key, legacySourceSnapshot);
+        const legacyNotionHash = await snapshotHash(input.definition.key, legacyNotionSnapshot);
+
+        if (
+          mapping.content_hash === legacyCanonicalHash
+          && mapping.content_hash === legacyNotionHash
+        ) {
+          if (input.mode !== "sync") {
+            summary.pushedToNotion += 1;
+            continue;
+          }
+          const written = await writeSourceToNotion({
+            bindings: input.bindings,
+            dataSourceId: target.dataSourceId,
+            source,
+            schema,
+            pageId: page.id,
+          });
+          const syncedAt = new Date().toISOString();
+          const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
+          await saveMapping({
+            database: input.database,
+            agenda: input.definition.key,
+            pageId: page.id,
+            entityId,
+            hash: canonicalHash,
+            notionLastEditedTime: written.last_edited_time ?? syncedAt,
+            psipediaUpdatedAt: updatedAt,
+            syncedAt,
+          });
+          summary.pushedToNotion += 1;
+          continue;
+        }
+      }
 
       // Legacy event mappings predate psipedia_updated_at and are not a safe
       // bidirectional baseline. Adopt them only when both snapshots agree.
