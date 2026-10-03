@@ -33,7 +33,7 @@ test.describe("public services search layout", () => {
     const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
-    const form = page.locator(".directory-main-search");
+    const form = page.locator("[data-section-hero-search]");
     const controls = form.locator("select, input, button");
     await expect(form).toBeVisible();
     await expect(controls).toHaveCount(3);
@@ -56,7 +56,7 @@ test.describe("public services search layout", () => {
     expect(controlBoxes[1]!.top).toBeLessThan(controlBoxes[2]!.top);
 
     await expectNoHorizontalOverflow(page, "/adresar mobile");
-    await expectSeriousCriticalAxeClean(page, ".directory-main-search", "/adresar mobile search");
+    await expectSeriousCriticalAxeClean(page, "[data-section-hero-search]", "/adresar mobile search");
     await testInfo.attach("ux1cb-after-adresar-mobile-390x844", {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
@@ -70,7 +70,7 @@ test.describe("public services search layout", () => {
     const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
-    const form = page.locator(".directory-main-search");
+    const form = page.locator("[data-section-hero-search]");
     const controls = form.locator("select, input, button");
     await expect(controls).toHaveCount(3);
     const tops = await controls.evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().top)));
@@ -171,7 +171,7 @@ test.describe("public services search layout", () => {
 
     const header = page.locator("[data-directory-public-header]");
     await expect(header.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
-    await expect(header.locator("[data-directory-landing-hero]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
+    await expect(header.locator("[data-unified-section-hero-copy]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
 
     const categoryNav = header.getByRole("navigation", { name: "Kategórie služieb" });
     await expect(categoryNav.getByRole("link")).toHaveCount(10);
@@ -288,7 +288,7 @@ test.describe("public services search layout", () => {
       const response = await page.goto("/adresar?category=veterinari&q=publikovana", { waitUntil: "domcontentloaded" });
       expect(response?.status()).toBe(200);
 
-      const form = page.locator(".directory-main-search");
+      const form = page.locator("[data-section-hero-search]");
       await expect(form).toBeVisible();
       const formBox = await form.boundingBox();
       expect(formBox).not.toBeNull();
@@ -309,7 +309,7 @@ test.describe("public services search layout", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/adresar", { waitUntil: "domcontentloaded" });
-    const form = page.locator(".directory-main-search");
+    const form = page.locator("[data-section-hero-search]");
     await form.locator('select[name="category"]').selectOption("veterinari");
     await form.locator('input[name="q"]').fill("publikovana");
     await Promise.all([
