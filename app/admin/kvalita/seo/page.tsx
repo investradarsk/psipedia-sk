@@ -132,6 +132,30 @@ export default async function AdminSeoQualityPage({
       </section>
 
       <section className="admin-panel">
+        <h2>Nálezy podľa problému</h2>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr><th>Kontrola</th><th>Počet entít</th><th></th></tr>
+            </thead>
+            <tbody>
+              {adminSeoIssueDefinitions.map((issue) => (
+                <tr key={issue.code}>
+                  <td>{issue.label}</td>
+                  <td><strong>{report.issueCounts[issue.code]}</strong></td>
+                  <td>
+                    <Link className={styles.edit} href={auditHref(filterState, { issue: issue.code, page: 1 })}>
+                      Zobraziť →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="admin-panel">
         <form className="admin-toolbar" method="get" action="/admin/kvalita/seo">
           <label className="admin-search">
             <span aria-hidden="true">⌕</span>
