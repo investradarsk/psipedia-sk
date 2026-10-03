@@ -4,12 +4,13 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ProgrammaticAdLoader } from "@/components/programmatic-ad-loader";
+import { StructuredData } from "@/components/structured-data";
 import { BackToTop } from "@/components/back-to-top";
 import { isValidGooglePublisherClientId } from "@/lib/monetization";
 import { getNavigationItems } from "@/lib/navigation-store";
 import { getPartnerSession } from "@/lib/partner-auth";
 import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { buildSiteIdentityJsonLd, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 import "./design-system.css";
 import "./breed-hero-safe-zone.css";
@@ -81,6 +82,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="sk">
       <body>
+        <StructuredData value={buildSiteIdentityJsonLd()} />
         <SiteHeader navigationItems={navigationItems} partnerAuthenticated={Boolean(partnerSession)} />
         {children}
         <SiteFooter />

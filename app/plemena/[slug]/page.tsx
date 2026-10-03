@@ -22,7 +22,7 @@ import {
 } from "@/lib/breed-store";
 import { breeds, getFciGroup } from "@/lib/content";
 import { breedSeoFallback, buildContentMetadata, resolvedCanonical } from "@/lib/content-seo";
-import { absoluteUrl, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, articleAuthorJsonLd, buildWebPageJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { getPublicArticleListMeta } from "@/lib/public-article-list";
 import { BreedProfileAccordion } from "./breed-profile-accordion";
 import styles from "./breed-profile.module.css";
@@ -130,7 +130,7 @@ export default async function BreedDetailPage({ params }: Props) {
         "@type": "Article",
         "@id": `${canonical}#article`,
         url: canonical,
-        mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+        mainEntityOfPage: { "@id": canonical },
         headline: `${breed.name} – povaha, potreby a profil plemena`,
         description: breed.intro || fci.povaha_temperament || managedBreed?.officialFciName,
         image: [
@@ -143,16 +143,19 @@ export default async function BreedDetailPage({ params }: Props) {
         isAccessibleForFree: true,
         articleSection: "Plemená psov",
         keywords: [breed.name, `FCI skupina ${breed.fciGroup}`, breed.origin, "plemená psov"],
-        author: { "@type": "Organization", name: "Redakcia Psipedia", url: `${SITE_URL}/o-nas` },
-        publisher: {
-          "@type": "Organization",
-          "@id": ORGANIZATION_ID,
-          name: "Psipedia.sk",
-          url: SITE_URL,
-          logo: { "@type": "ImageObject", url: `${SITE_URL}/favicon.svg`, width: 64, height: 64 },
-        },
+        author: articleAuthorJsonLd("Redakcia Psipedia"),
+        publisher: { "@id": ORGANIZATION_ID },
         about: { "@type": "Thing", name: breed.name, description: breed.intro },
       },
+      buildWebPageJsonLd({
+        canonical,
+        name: breed.name,
+        description: breed.intro || fci.povaha_temperament || managedBreed?.officialFciName,
+        mainEntityId: `${canonical}#article`,
+        breadcrumbId: `${canonical}#breadcrumb`,
+        datePublished: publishedAt,
+        dateModified: updatedAt,
+      }),
       {
         "@type": "BreadcrumbList",
         "@id": `${canonical}#breadcrumb`,

@@ -18,6 +18,9 @@ export function decideBidirectionalChange(input: {
   const notionChanged = input.notionHash !== input.baselineHash;
   const psipediaChanged = input.psipediaHash !== input.baselineHash;
 
+  if (notionChanged && psipediaChanged && input.notionHash === input.psipediaHash) {
+    return { notionChanged, psipediaChanged, decision: "UNCHANGED" };
+  }
   if (notionChanged && psipediaChanged) {
     return { notionChanged, psipediaChanged, decision: "CONFLICT" };
   }
