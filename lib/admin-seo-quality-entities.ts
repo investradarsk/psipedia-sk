@@ -1,4 +1,3 @@
-import { canonicalBreedIdsSql } from "@/lib/breed-canonical";
 import {
   breedSeoFallback,
   directorySeoFallback,
@@ -357,7 +356,7 @@ export async function loadPublishedSeoQualityEntities(database: D1Database): Pro
     SELECT id, slug, name, image_url, intro, character, needs, history, exercise, training, health,
       editorial_json, seo_json
     FROM managed_breeds
-    WHERE id IN (${canonicalBreedIdsSql})
+    WHERE status = 'published'
     ORDER BY id
   `).all<RawRow>();
   entities.push(...breeds.results.map(breedEntity));
