@@ -116,17 +116,25 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         expect(Math.abs(heroBox!.width - shellBox!.width), label + ": hero matches canonical shell width").toBeLessThanOrEqual(1);
 
         if (ROOT_ROUTE_SLUGS.has(route.slug)) {
-          const siteHeader = opened.page.locator(".site-header").first();
-          const siteHeaderBox = await siteHeader.boundingBox();
-          expect(siteHeaderBox, label + ": site header box").not.toBeNull();
-          const heroOffsetFromHeader = heroBox!.y - (siteHeaderBox!.y + siteHeaderBox!.height);
-          if (referenceRootHeroOffsetFromHeader === null) referenceRootHeroOffsetFromHeader = heroOffsetFromHeader;
-          if (referenceRootHeroWidth === null) referenceRootHeroWidth = heroBox!.width;
+          const rootGeometry = await opened.page.evaluate(() => {
+            const heroElement = document.querySelector<HTMLElement>("[data-unified-section-hero]");
+            const headerElement = document.querySelector<HTMLElement>(".site-header");
+            if (!heroElement || !headerElement) return null;
+            const heroRect = heroElement.getBoundingClientRect();
+            const headerRect = headerElement.getBoundingClientRect();
+            return {
+              heroOffsetFromHeader: heroRect.y - (headerRect.y + headerRect.height),
+              heroWidth: heroRect.width,
+            };
+          });
+          expect(rootGeometry, label + ": root hero/header geometry").not.toBeNull();
+          if (referenceRootHeroOffsetFromHeader === null) referenceRootHeroOffsetFromHeader = rootGeometry!.heroOffsetFromHeader;
+          if (referenceRootHeroWidth === null) referenceRootHeroWidth = rootGeometry!.heroWidth;
           expect(
-            Math.abs(heroOffsetFromHeader - referenceRootHeroOffsetFromHeader),
+            Math.abs(rootGeometry!.heroOffsetFromHeader - referenceRootHeroOffsetFromHeader),
             label + ": canonical root hero offset below shared header",
           ).toBeLessThanOrEqual(2);
-          expect(Math.abs(heroBox!.width - referenceRootHeroWidth), label + ": canonical root hero width").toBeLessThanOrEqual(2);
+          expect(Math.abs(rootGeometry!.heroWidth - referenceRootHeroWidth), label + ": canonical root hero width").toBeLessThanOrEqual(2);
         }
 
         const sideInset = (overflow.clientWidth - heroBox!.width) / 2;
@@ -142,33 +150,52 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         const eyebrow = hero.locator("[data-section-hero-eyebrow]");
         const title = hero.locator("[data-section-hero-title]");
         const intro = hero.locator("[data-section-hero-intro]");
+        const copyGeometry = await hero.evaluate((root) => {
+          const box = (selector: string) => {
+            const element = root.querySelector<HTMLElement>(selector);
+            if (!element) return null;
+            const rect = element.getBoundingClientRect();
+            return { y: rect.y, height: rect.height };
+          };
+          return {
+            breadcrumbs: box("[data-section-hero-breadcrumbs]"),
+            eyebrow: box("[data-section-hero-eyebrow]"),
+            title: box("[data-section-hero-title]"),
+            intro: box("[data-section-hero-intro]"),
+          };
+        });
 
-        if (await breadcrumbs.count() && await eyebrow.count()) {
-          const breadcrumbsBox = await breadcrumbs.boundingBox();
-          const eyebrowBox = await eyebrow.boundingBox();
+        if (copyGeometry.breadcrumbs && copyGeometry.eyebrow) {
           const expectedGap = viewport.width <= 767 ? 10 : 12;
-          expect(Math.abs(eyebrowBox!.y - (breadcrumbsBox!.y + breadcrumbsBox!.height) - expectedGap), label + ": breadcrumb→eyebrow gap").toBeLessThanOrEqual(2);
+          expect(
+            Math.abs(copyGeometry.eyebrow.y - (copyGeometry.breadcrumbs.y + copyGeometry.breadcrumbs.height) - expectedGap),
+            label + ": breadcrumb→eyebrow gap",
+          ).toBeLessThanOrEqual(2);
         }
-        if (await eyebrow.count()) {
-          const eyebrowBox = await eyebrow.boundingBox();
-          const titleBox = await title.boundingBox();
+        if (copyGeometry.eyebrow && copyGeometry.title) {
           const expectedGap = viewport.width <= 767 ? 7 : 8;
-          expect(Math.abs(titleBox!.y - (eyebrowBox!.y + eyebrowBox!.height) - expectedGap), label + ": eyebrow→H1 gap").toBeLessThanOrEqual(2);
+          expect(
+            Math.abs(copyGeometry.title.y - (copyGeometry.eyebrow.y + copyGeometry.eyebrow.height) - expectedGap),
+            label + ": eyebrow→H1 gap",
+          ).toBeLessThanOrEqual(2);
         }
-        if (await intro.count()) {
-          const titleBox = await title.boundingBox();
-          const introBox = await intro.boundingBox();
+        if (copyGeometry.title && copyGeometry.intro) {
           const expectedGap = viewport.width <= 767 ? 9 : 12;
-          expect(Math.abs(introBox!.y - (titleBox!.y + titleBox!.height) - expectedGap), label + ": H1→intro gap").toBeLessThanOrEqual(2);
+          expect(
+            Math.abs(copyGeometry.intro.y - (copyGeometry.title.y + copyGeometry.title.height) - expectedGap),
+            label + ": H1→intro gap",
+          ).toBeLessThanOrEqual(2);
         }
 
         if (viewport.width <= 430) {
-          await expect.poll(async () => {
-            const mediaBox = await media.boundingBox();
-            const copyBox = await copy.boundingBox();
-            if (!mediaBox || !copyBox) return -999;
-            return mediaBox.y - (copyBox.y + copyBox.height);
-          }, { message: label + ": copy must end before image", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
+          await expect.poll(async () => hero.evaluate((root) => {
+            const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+            const copyElement = root.querySelector<HTMLElement>("[data-unified-section-hero-copy]");
+            if (!mediaElement || !copyElement) return -999;
+            const mediaRect = mediaElement.getBoundingClientRect();
+            const copyRect = copyElement.getBoundingClientRect();
+            return mediaRect.y - (copyRect.y + copyRect.height);
+          }), { message: label + ": copy must end before image", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
 
           const mediaBox = await media.boundingBox();
           expect(mediaBox, label + ": media box").not.toBeNull();
@@ -181,26 +208,43 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
           expect(ratio, label + ": mobile media should be low 16:6").toBeLessThan(2.72);
 
           if (await intro.count()) {
-            const mediaBoxNow = await media.boundingBox();
-            const introBox = await intro.boundingBox();
-            expect(Math.abs(mediaBoxNow!.y - (introBox!.y + introBox!.height) - 16), label + ": intro→image gap").toBeLessThanOrEqual(2);
+            const introMediaGap = await hero.evaluate((root) => {
+              const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+              const introElement = root.querySelector<HTMLElement>("[data-section-hero-intro]");
+              if (!mediaElement || !introElement) return null;
+              const mediaRect = mediaElement.getBoundingClientRect();
+              const introRect = introElement.getBoundingClientRect();
+              return mediaRect.y - (introRect.y + introRect.height);
+            });
+            expect(introMediaGap, label + ": intro/image geometry").not.toBeNull();
+            expect(Math.abs(introMediaGap! - 16), label + ": intro→image gap").toBeLessThanOrEqual(2);
           }
 
           if (await tools.count()) {
-            await expect.poll(async () => {
-              const currentMediaBox = await media.boundingBox();
-              const toolsBox = await tools.boundingBox();
-              if (!currentMediaBox || !toolsBox) return -999;
-              return toolsBox.y - (currentMediaBox.y + currentMediaBox.height);
-            }, { message: label + ": image must end before tools", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
+            await expect.poll(async () => hero.evaluate((root) => {
+              const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+              const toolsElement = root.querySelector<HTMLElement>("[data-unified-section-hero-tools]");
+              if (!mediaElement || !toolsElement) return -999;
+              const mediaRect = mediaElement.getBoundingClientRect();
+              const toolsRect = toolsElement.getBoundingClientRect();
+              return toolsRect.y - (mediaRect.y + mediaRect.height);
+            }), { message: label + ": image must end before tools", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
           }
         } else {
-          const mediaBox = await media.boundingBox();
-          const copyBox = await copy.boundingBox();
-          expect(mediaBox, label + ": desktop media box").not.toBeNull();
-          expect(copyBox, label + ": desktop copy box").not.toBeNull();
-          expect(copyBox!.x, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(mediaBox!.x - 1);
-          expect(copyBox!.y, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(mediaBox!.y - 1);
+          const desktopGeometry = await hero.evaluate((root) => {
+            const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+            const copyElement = root.querySelector<HTMLElement>("[data-unified-section-hero-copy]");
+            if (!mediaElement || !copyElement) return null;
+            const mediaRect = mediaElement.getBoundingClientRect();
+            const copyRect = copyElement.getBoundingClientRect();
+            return {
+              media: { x: mediaRect.x, y: mediaRect.y },
+              copy: { x: copyRect.x, y: copyRect.y },
+            };
+          });
+          expect(desktopGeometry, label + ": desktop media/copy geometry").not.toBeNull();
+          expect(desktopGeometry!.copy.x, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(desktopGeometry!.media.x - 1);
+          expect(desktopGeometry!.copy.y, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(desktopGeometry!.media.y - 1);
         }
 
         const serious = (await new AxeBuilder({ page: opened.page })
