@@ -68,7 +68,10 @@ export function normalizeCanonicalUrl(value: string) {
   }
 }
 
-function normalizedDateValue(value: ReconciliationValue) {
+function normalizedDateValue(
+  value: ReconciliationValue,
+  precision: "exact" | "minute" = "exact",
+) {
   if (typeof value !== "string") return normalizedScalar(value);
   const clean = value.trim();
   if (!clean) return "";
@@ -81,16 +84,20 @@ function normalizedDateValue(value: ReconciliationValue) {
 
   const normalized = `${match[1]}T${match[2]}${match[3] ?? ""}${match[4] ?? "Z"}`;
   const timestamp = Date.parse(normalized);
-  return Number.isFinite(timestamp) ? `instant:${timestamp}` : `raw:${clean}`;
+  if (!Number.isFinite(timestamp)) return `raw:${clean}`;
+  if (precision === "minute") return `minute:${Math.floor(timestamp / 60_000)}`;
+  return `instant:${timestamp}`;
 }
 
 function valuesEqual(
   left: ReconciliationValue,
   right: ReconciliationValue,
   propertyType = "",
+  ownership: ReconciliationOwnership = "fill-missing",
 ) {
   if (propertyType === "date") {
-    return normalizedDateValue(left) === normalizedDateValue(right);
+    const precision = ownership === "system" ? "minute" : "exact";
+    return normalizedDateValue(left, precision) === normalizedDateValue(right, precision);
   }
   return normalizedScalar(left) === normalizedScalar(right);
 }
@@ -120,11 +127,10 @@ function compareMatchedRecord(
 
   for (const [property, desired] of Object.entries(sourceProperties)) {
     const current = page.properties[property];
-    if (valuesEqual(current ?? null, desired, page.propertyTypes?.[property])) continue;
-
     const ownership = property === "Psipedia ID" || property === "URL Psipedia"
       ? "system"
       : source.ownership?.[property] ?? "fill-missing";
+    if (valuesEqual(current ?? null, desired, page.propertyTypes?.[property], ownership)) continue;
 
     if (ownership === "system" || valueMissing(current)) {
       changes[property] = desired;
