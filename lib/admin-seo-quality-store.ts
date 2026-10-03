@@ -35,6 +35,11 @@ function emptyAgendaCounts(): AdminSeoQualityReport["agendaCounts"] {
   }])) as AdminSeoQualityReport["agendaCounts"];
 }
 
+function emptyIssueCounts(): AdminSeoQualityReport["issueCounts"] {
+  return Object.fromEntries(adminSeoIssueDefinitions.map((issue) => [issue.code, 0]))
+    as AdminSeoQualityReport["issueCounts"];
+}
+
 export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {}): Promise<AdminSeoQualityReport> {
   const database = (env as unknown as { DB?: D1Database }).DB;
   if (!database) throw new Error("SEO quality audit vyžaduje pripojenú D1 databázu.");
@@ -53,12 +58,14 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
   });
 
   const agendaCounts = emptyAgendaCounts();
+  const issueCounts = emptyIssueCounts();
   for (const item of audited) {
     const counts = agendaCounts[item.entity.agenda];
     counts.entities += 1;
     counts.findings += item.findings.length;
     if (item.qualityFindingCount > 0) counts.qualityEntities += 1;
     if (item.customGapCount > 0) counts.customGapEntities += 1;
+    for (const finding of item.findings) issueCounts[finding.code] += 1;
   }
 
   const inbox = audited.filter((item) => item.findings.length > 0);
@@ -104,6 +111,7 @@ export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {
     resultCount: visible.length,
     items: visible.slice(offset, offset + PAGE_SIZE),
     agendaCounts,
+    issueCounts,
     filters: {
       agenda: filters.agenda,
       scope: filters.scope,
