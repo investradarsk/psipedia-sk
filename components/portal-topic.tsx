@@ -3,7 +3,7 @@ import { ArticleCard } from "@/components/article-card";
 import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
-import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicContentShell, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
@@ -93,6 +93,28 @@ export async function PortalTopic({
     items: ["zrozumiteľné vysvetlenie", "praktické kroky a odporúčania", "súvisiace články na jednej adrese"],
   };
 
+  const relatedContent = (
+    <>
+      <PublicLandingSectionHeading
+        eyebrow={newsCategory ? "Najnovšie správy" : isReviews ? "Recenzie v kategórii" : "Súvisiace čítanie"}
+        title={newsCategory ? newsCategory.label : isReviews ? subpage.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}
+        action={
+          <Link href={newsCategory ? "/novinky" : isReviews ? "/recenzie" : "/clanky"} className="text-link text-link--large">
+            {newsCategory ? "Všetky novinky" : isReviews ? "Všetky recenzie" : "Všetky články"} <ArrowIcon />
+          </Link>
+        }
+      />
+      {sortedArticles.length ? (
+        <div className="article-grid">{sortedArticles.slice(0, isReviews ? 12 : 5).map((article) => <ArticleCard article={article} {...reviewCardProps} key={article.slug} />)}</div>
+      ) : (
+        <div className="portal-empty"><span aria-hidden="true">{newsCategory?.icon ?? "🐾"}</span><div><h3>{newsCategory ? "Ďalšie správy pribudnú čoskoro" : isReviews ? "Recenzie v tejto kategórii pripravujeme" : "Ďalšie články pripravujeme"}</h3><p>{newsCategory ? "Na tejto stránke nájdete nové overené správy hneď, ako pribudnú." : isReviews ? "Postupne sem pridáme praktické testy a skúsenosti, ktoré pomôžu pri výbere." : "Medzitým si môžete prezrieť súvisiace témy a praktické návody v ostatných častiach Psipedie."}</p></div></div>
+      )}
+      {isCare && <p className="care-medical-note"><strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú diagnózu ani veterinárne vyšetrenie.</p>}
+      {isActivities && <p className="care-medical-note activity-safety-note"><strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.</p>}
+      {isPuppies && <p className="care-medical-note puppy-safety-note"><strong>Bezpečný vývoj:</strong> Každé šteniatko rastie inak. Zdravie, očkovanie, výživu a primeranú záťaž konzultuj s veterinárom, ktorý pozná jeho stav.</p>}
+    </>
+  );
+
   return (
     <main id="obsah">
       {isReviews && reviewHeroVisual ? (
@@ -153,7 +175,8 @@ export async function PortalTopic({
         </aside>
       </section>}
 
-      {hasReviewGuide && <section className="section shell public-shell portal-topic-body review-topic-guide">
+      {hasReviewGuide && <section className="section review-topic-first-section">
+        <PublicContentShell variant="listing" className="portal-topic-body review-topic-guide">
         <div className="portal-topic-copy">
           {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
           <span className="eyebrow">Sprievodca kategóriou</span>
@@ -171,6 +194,7 @@ export async function PortalTopic({
           {subpage.commonQuestions?.length ? <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>{section.intro}</p>}
           <Link href="/recenzie" className="text-link">Všetky recenzie <ArrowIcon size={18} /></Link>
         </aside>
+        </PublicContentShell>
       </section>}
 
       {isCare && <section className="section section--tint care-guidance-section">
@@ -209,21 +233,12 @@ export async function PortalTopic({
         </PageContainer>
       </section>}
 
-      <section className={`section ${isStructuredTopic || isReviews ? "" : "section--tint"}`}>
-        <PageContainer>
-          <div className="section-heading split-heading">
-            <div><span className="eyebrow">{newsCategory ? "Najnovšie správy" : isReviews ? "Recenzie v kategórii" : "Súvisiace čítanie"}</span><h2>{newsCategory ? newsCategory.label : isReviews ? subpage.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}</h2></div>
-            <Link href={newsCategory ? "/novinky" : isReviews ? "/recenzie" : "/clanky"} className="text-link text-link--large">{newsCategory ? "Všetky novinky" : isReviews ? "Všetky recenzie" : "Všetky články"} <ArrowIcon /></Link>
-          </div>
-          {sortedArticles.length ? (
-            <div className="article-grid">{sortedArticles.slice(0, isReviews ? 12 : 5).map((article) => <ArticleCard article={article} {...reviewCardProps} key={article.slug} />)}</div>
-          ) : (
-            <div className="portal-empty"><span aria-hidden="true">{newsCategory?.icon ?? "🐾"}</span><div><h3>{newsCategory ? "Ďalšie správy pribudnú čoskoro" : isReviews ? "Recenzie v tejto kategórii pripravujeme" : "Ďalšie články pripravujeme"}</h3><p>{newsCategory ? "Na tejto stránke nájdete nové overené správy hneď, ako pribudnú." : isReviews ? "Postupne sem pridáme praktické testy a skúsenosti, ktoré pomôžu pri výbere." : "Medzitým si môžete prezrieť súvisiace témy a praktické návody v ostatných častiach Psipedie."}</p></div></div>
-          )}
-          {isCare && <p className="care-medical-note"><strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú diagnózu ani veterinárne vyšetrenie.</p>}
-          {isActivities && <p className="care-medical-note activity-safety-note"><strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.</p>}
-          {isPuppies && <p className="care-medical-note puppy-safety-note"><strong>Bezpečný vývoj:</strong> Každé šteniatko rastie inak. Zdravie, očkovanie, výživu a primeranú záťaž konzultuj s veterinárom, ktorý pozná jeho stav.</p>}
-        </PageContainer>
+      <section className={`section ${isReviews && !hasReviewGuide ? "review-topic-first-section" : ""} ${isStructuredTopic || isReviews ? "" : "section--tint"}`}>
+        {isReviews && !hasReviewGuide ? (
+          <PublicContentShell variant="listing">{relatedContent}</PublicContentShell>
+        ) : (
+          <PageContainer>{relatedContent}</PageContainer>
+        )}
       </section>
     </main>
   );
