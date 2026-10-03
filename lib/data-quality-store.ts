@@ -932,7 +932,7 @@ export async function loadDataQualityDashboard(input: {
     district,
   };
 
-  const section = input.section === "media" ? "media" : "profiles";
+  const section = input.section ?? "both";
   const [profileRead, mediaRead] = await Promise.all([
     readAdminAutomationData({
       key: "data-quality:profiles",
@@ -940,7 +940,7 @@ export async function loadDataQualityDashboard(input: {
         requestedProfilePage,
         profileFilters,
         solution !== "all",
-        section === "profiles",
+        section !== "media",
       ),
       fallback: {
         summary: {
@@ -966,7 +966,7 @@ export async function loadDataQualityDashboard(input: {
         requestedMediaPage,
         category,
         mediaStatus,
-        section === "media",
+        section !== "profiles",
       ),
       fallback: {
         summary: { mediaIssues: 0, changedMedia: 0, missingMediaSource: 0 },
@@ -981,7 +981,7 @@ export async function loadDataQualityDashboard(input: {
   const [suggestionRead, lookupRead] = await Promise.all([
     readAdminAutomationData({
       key: "data-quality:profile-suggestions",
-      load: () => section === "profiles"
+      load: () => section !== "media"
         ? loadQualitySuggestionsForProfiles(profileRead.data.profiles, database(), issue)
         : Promise.resolve([] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>),
       fallback: [],
@@ -990,7 +990,7 @@ export async function loadDataQualityDashboard(input: {
     readAdminAutomationData({
       key: "data-quality:entity-lookups",
       load: async () => {
-        if (section !== "media") return [];
+        if (section === "profiles") return [];
         if (mediaRead.status === "UNAVAILABLE") {
           const error = new Error("Media údaje pre lookup nie sú dostupné.");
           error.name = "DataQualityLookupDependencyUnavailable";
