@@ -5,6 +5,7 @@ import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
+  PublicContentShell,
   PublicFoundation,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
@@ -81,7 +82,8 @@ export default async function BreedsPage({ searchParams }: Props) {
               }
             />
           </UnifiedSectionHeroShell>
-          <section className="page-body shell">
+          <section className="page-body">
+            <PublicContentShell variant="listing">
             <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
             <div className="breed-atlas-footer">
               <nav className="breed-utility-links" aria-label="Ďalšie možnosti v sekcii Plemená">
@@ -95,6 +97,7 @@ export default async function BreedsPage({ searchParams }: Props) {
               <a href="https://www.fci.be/nomenclature/" target="_blank" rel="noreferrer">Oficiálna nomenklatúra FCI <ArrowIcon size={17} /></a>
             </aside>
             </div>
+            </PublicContentShell>
           </section>
         </PublicFoundation>
       </main>
