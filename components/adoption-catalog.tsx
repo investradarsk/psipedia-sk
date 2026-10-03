@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PawMark } from "@/components/icons";
-import { PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   adoptionCatalogAgeLabels,
@@ -90,7 +90,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
   const pagination = result.pagination;
   const heroVisual = await getSectionHeroVisual("help.adopcia");
   return <PublicFoundation className={styles.foundation}>
-    <div className={styles.headerWrap}>
+    <UnifiedSectionHeroShell>
       <UnifiedSectionHero
         breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
           <Link href="/">Domov</Link><span aria-hidden="true">/</span><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><span aria-current="page">Psy na adopciu</span>
@@ -110,7 +110,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
         }
         metaSlot={<span><strong>{pagination.total}</strong> {pagination.total === 1 ? "publikovaný profil" : "publikovaných profilov"}</span>}
       />
-    </div>
+    </UnifiedSectionHeroShell>
 
     <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
       <div className={`${styles.field} ${styles.searchField}`}><label htmlFor="adoption-q">Hľadať</label><input id="adoption-q" name="q" defaultValue={filters.q} placeholder="meno, mesto, plemeno…" /></div>
