@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ArticleSeo } from "@/lib/content";
-import { absoluteUrl, buildPageMetadata, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, buildPageMetadata, compactPageTitle, FALLBACK_PAGE_TITLE_MAX_LENGTH, searchResultDescription, SITE_URL } from "@/lib/seo";
 
 export type EditableSeo = ArticleSeo;
 
@@ -80,40 +80,121 @@ export function buildContentMetadata(input: ContentMetadataInput): Metadata {
   };
 }
 
+const directoryFallbackCopy: Record<string, { title: string; description: string }> = {
+  veterinari: {
+    title: "veterinárne služby",
+    description: "Veterinárne služby, kontakt, adresa a praktické údaje pre majiteľov psov.",
+  },
+  treneri: {
+    title: "tréning psov",
+    description: "Výcvik a tréning psov, kontakt, lokalita a praktické údaje.",
+  },
+  "salony-a-sluzby": {
+    title: "psí salón",
+    description: "Úprava srsti a starostlivosť o psa, kontakt, lokalita a praktické údaje.",
+  },
+  "hotely-a-opatrovanie": {
+    title: "hotel a opatrovanie",
+    description: "Ubytovanie alebo opatrovanie psa, kontakt, lokalita a praktické údaje.",
+  },
+  "kynologicke-kluby": {
+    title: "kynologický klub",
+    description: "Výcvik, aktivity klubu, kontakt, lokalita a praktické údaje.",
+  },
+  "chovatelske-kluby": {
+    title: "chovateľský klub",
+    description: "Informácie o chovateľskom klube, kontakte, lokalite a jeho zameraní.",
+  },
+  "chovatelske-stanice": {
+    title: "chovateľská stanica",
+    description: "Informácie o chovateľskej stanici, kontakte, lokalite a zameraní chovu.",
+  },
+  vencenie: {
+    title: "venčenie psov",
+    description: "Venčenie psov, kontakt, lokalita a praktické údaje o službe.",
+  },
+  fyzioterapia: {
+    title: "fyzioterapia pre psov",
+    description: "Fyzioterapia a rehabilitácia psov, kontakt, lokalita a praktické údaje.",
+  },
+  "dalsie-sluzby": {
+    title: "služby pre psov",
+    description: "Služby pre psov, kontakt, lokalita a praktické údaje.",
+  },
+  "psie-skoly": {
+    title: "psia škola",
+    description: "Výcvik psov, kontakt, lokalita a praktické údaje o psej škole.",
+  },
+  "utulky-a-zachrana": {
+    title: "pomoc psom",
+    description: "Informácie o pomoci psom, kontakte, lokalite a praktických možnostiach podpory.",
+  },
+};
+
+function primaryLocation(value: string) {
+  return value.split(/[–—,/]/u)[0]?.trim() || value.trim();
+}
+
+function containsText(value: string, part: string) {
+  return Boolean(part) && value.toLocaleLowerCase("sk-SK").includes(part.toLocaleLowerCase("sk-SK"));
+}
+
+function compactFallbackTitle(name: string, descriptor: string, city = "") {
+  const cleanName = name.trim();
+  const cleanDescriptor = descriptor.trim();
+  const location = primaryLocation(city);
+  const base = cleanDescriptor && !containsText(cleanName, cleanDescriptor)
+    ? `${cleanName} – ${cleanDescriptor}`
+    : cleanName;
+  const withLocation = location && !containsText(cleanName, location)
+    ? `${base}, ${location}`
+    : base;
+  return compactPageTitle(
+    withLocation.length <= FALLBACK_PAGE_TITLE_MAX_LENGTH ? withLocation : base,
+  );
+}
+
 export function breedSeoFallback(name: string) {
   return {
-    title: `${name} – povaha, zdravie a výcvik`,
-    description: `${name}: povaha, veľkosť, zdravie, potreba pohybu, výcvik a praktické informácie pre majiteľov.`,
+    title: compactFallbackTitle(name, "povaha, zdravie a výcvik"),
+    description: searchResultDescription(
+      `${name}: povaha, veľkosť, zdravie, potreba pohybu, výcvik a praktické informácie pre život s plemenom.`,
+    ),
   };
 }
 
 export function directorySeoFallback(name: string, city: string, category: string) {
-  const primaryCity = city.split(/[–—,/]/u)[0]?.trim() || city;
-  const place = primaryCity && !name.toLocaleLowerCase("sk").includes(primaryCity.toLocaleLowerCase("sk")) ? ` ${primaryCity}` : "";
-  if (category === "kynologicke-kluby") return {
-    title: `${name}${place} – kynologický klub`,
-    description: `Informácie o kynologickom klube ${name}${city ? ` v lokalite ${city}` : ""}. Kontakt, lokalita, výcvik a ďalšie praktické údaje.`,
+  const copy = directoryFallbackCopy[category] ?? {
+    title: "služby pre psov",
+    description: "Služby pre psov, kontakt, lokalita a praktické údaje.",
   };
-  if (category === "veterinari") return {
-    title: `${name}${place} – kontakt a služby`,
-    description: `${name}${city ? ` v lokalite ${city}` : ""}: kontakt, veterinárne služby, adresa a ďalšie praktické informácie.`,
-  };
+  const location = city.trim();
   return {
-    title: `${name}${place} – služby pre psov`,
-    description: `${name}${city ? ` v lokalite ${city}` : ""}: ponuka služieb pre psov, kontakt, lokalita a ďalšie praktické informácie.`,
+    title: compactFallbackTitle(name, copy.title, location),
+    description: searchResultDescription(
+      `${name}${location ? ` – ${location}` : ""}. ${copy.description}`,
+    ),
   };
 }
 
 export function eventSeoFallback(title: string, type: string, city: string) {
+  const eventType = type.trim() || "podujatie";
+  const location = city.trim();
   return {
-    title: `${title}${type ? ` – ${type}` : ""}${city ? `, ${city}` : ""}`,
-    description: `${type || "Podujatie"} ${title}${city ? ` v lokalite ${city}` : ""}. Termín, miesto, organizátor a praktické informácie pre návštevníkov so psami.`,
+    title: compactFallbackTitle(title, eventType, location),
+    description: searchResultDescription(
+      `${eventType}: ${title}${location ? ` v lokalite ${location}` : ""}. Termín, miesto, organizátor a praktické informácie.`,
+    ),
   };
 }
 
 export function helpSeoFallback(title: string, category: string, city: string) {
+  const helpCategory = category.trim() || "pomoc psom";
+  const location = city.trim();
   return {
-    title: `${title}${category ? ` – ${category}` : ""}${city ? `, ${city}` : ""}`,
-    description: `${title}${city ? ` v lokalite ${city}` : ""}. Informácie, kontakt a možnosti pomoci na Psipedia.sk.`,
+    title: compactFallbackTitle(title, helpCategory, location),
+    description: searchResultDescription(
+      `${title}${location ? ` – ${location}` : ""}. ${helpCategory}: kontakt a praktické informácie o možnostiach pomoci.`,
+    ),
   };
 }

@@ -26,6 +26,31 @@ export type ListingIndexPolicy = {
   page: number | null;
 };
 
+export type CoreLandingSeoKey = "directory" | "events" | "help" | "breeds";
+
+const coreLandingSeo = {
+  directory: {
+    title: "Služby pre psov – adresár Slovensko",
+    description: "Nájdite veterinárov, trénerov, psie salóny, hotely, opatrovanie, kluby a ďalšie služby pre psov podľa lokality.",
+  },
+  events: {
+    title: "Podujatia pre psov na Slovensku",
+    description: "Kalendár výstav, pretekov, skúšok, tréningov, seminárov a stretnutí so psami na Slovensku.",
+  },
+  help: {
+    title: "Pomoc psom – adopcie a stratené psy",
+    description: "Adopcie, stratené a nájdené psy, útulky, dočasná opatera, zbierky a ďalšie možnosti pomoci psom na Slovensku.",
+  },
+  breeds: {
+    title: "Plemená psov – atlas a informácie",
+    description: "Atlas plemien psov podľa FCI s informáciami o povahe, potrebách, zdraví, pohybe, výcviku a vhodnosti do rodiny.",
+  },
+} as const satisfies Record<CoreLandingSeoKey, { title: string; description: string }>;
+
+export function coreLandingSeoFallback(key: CoreLandingSeoKey) {
+  return coreLandingSeo[key];
+}
+
 type ListingMetadataInput = {
   title: string;
   description: string;

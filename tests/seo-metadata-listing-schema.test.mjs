@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { buildCollectionPageJsonLd } from "../lib/listing-seo.ts";
-import { buildPageMetadata, SITE_URL } from "../lib/seo.ts";
+import { breedSeoFallback, buildContentMetadata, directorySeoFallback, eventSeoFallback, helpSeoFallback } from "../lib/content-seo.ts";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback } from "../lib/listing-seo.ts";
+import { FALLBACK_PAGE_TITLE_MAX_LENGTH, PAGE_TITLE_BRAND_SUFFIX, SEARCH_DESCRIPTION_MAX_LENGTH, SEARCH_TITLE_MAX_LENGTH, buildPageMetadata, SITE_URL } from "../lib/seo.ts";
 
 function graphEntity(schema, type) {
   const entity = schema["@graph"].find((item) => item["@type"] === type);
@@ -74,7 +75,7 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
   const directoryPage = fs.readFileSync(new URL("../app/adresar/[category]/page.tsx", import.meta.url), "utf8");
   const adoptionPage = fs.readFileSync(new URL("../app/pomoc-psom/adopcia/page.tsx", import.meta.url), "utf8");
 
-  assert.match(articlePage, /const articles = await getPublishedArticleSummaries\(/);
+  assert.match(articlePage, /getPublishedArticleSummaries\(\{ limit: 200 \}\)/);
   assert.match(articlePage, /items: articles\.map\(/);
   assert.match(breedPage, /listPublishedCanonicalBreedIndex\(\)/);
   assert.match(breedPage, /items: breeds\.map\(/);
@@ -101,4 +102,112 @@ test("SEO-3 section listing metadata delegates to shared social metadata contrac
   assert.match(sectionPage, /buildListingPageMetadata\(\{/);
   assert.doesNotMatch(sectionPage, /openGraph:\s*\{/);
   assert.doesNotMatch(sectionPage, /twitter:\s*\{/);
+});
+
+
+test("SEO-METADATA-QUALITY-2 profile fallback templates stay concise and category-specific", () => {
+  const cases = [
+    ["veterinari", "Veterina Nitra", "Nitra", /veterinárne služby/i],
+    ["treneri", "Psia akadémia", "Bratislava", /tréning psov/i],
+    ["salony-a-sluzby", "Salón Labka", "Trnava", /psí salón/i],
+    ["hotely-a-opatrovanie", "Psí hotel Luna", "Žilina", /hotel a opatrovanie/i],
+    ["kynologicke-kluby", "Kynologický klub Zobor", "Nitra", /kynologický klub/i],
+    ["chovatelske-stanice", "Silver Meadow", "Senec", /chovateľská stanica/i],
+    ["dalsie-sluzby", "Dog Taxi", "Košice", /služby pre psov/i],
+  ];
+
+  for (const [category, name, city, expected] of cases) {
+    const fallback = directorySeoFallback(name, city, category);
+    assert.ok(fallback.title.length <= FALLBACK_PAGE_TITLE_MAX_LENGTH, category);
+    assert.ok((fallback.title + PAGE_TITLE_BRAND_SUFFIX).length <= SEARCH_TITLE_MAX_LENGTH, category);
+    assert.ok(fallback.description.length <= SEARCH_DESCRIPTION_MAX_LENGTH, category);
+    assert.match(fallback.title, expected, category);
+    assert.match(fallback.description, new RegExp(name, "i"), category);
+  }
+
+  const veryLong = directorySeoFallback(
+    "Veterinárne centrum pre malé zvieratá s mimoriadne dlhým obchodným názvom",
+    "Bratislava",
+    "veterinari",
+  );
+  assert.ok((veryLong.title + PAGE_TITLE_BRAND_SUFFIX).length <= SEARCH_TITLE_MAX_LENGTH);
+  assert.ok(veryLong.description.length <= SEARCH_DESCRIPTION_MAX_LENGTH);
+});
+
+test("SEO-METADATA-QUALITY-2 event, help and breed fallbacks have bounded titles and descriptions", () => {
+  const cases = [
+    eventSeoFallback("Jesenné skúšky retrieverov", "Skúšky", "Nitra"),
+    helpSeoFallback("Rex hľadá nový domov", "Adopcia", "Levice"),
+    breedSeoFallback("Labradorský retriever"),
+  ];
+
+  for (const fallback of cases) {
+    assert.ok(fallback.title.length <= FALLBACK_PAGE_TITLE_MAX_LENGTH);
+    assert.ok((fallback.title + PAGE_TITLE_BRAND_SUFFIX).length <= SEARCH_TITLE_MAX_LENGTH);
+    assert.ok(fallback.description.length >= 70);
+    assert.ok(fallback.description.length <= SEARCH_DESCRIPTION_MAX_LENGTH);
+  }
+});
+
+test("SEO-METADATA-QUALITY-2 core landing fallbacks are informative without double branding", () => {
+  const paths = {
+    directory: "/adresar",
+    events: "/podujatia",
+    help: "/pomoc-psom",
+    breeds: "/plemena",
+  };
+
+  for (const key of Object.keys(paths)) {
+    const fallback = coreLandingSeoFallback(key);
+    assert.ok((fallback.title + PAGE_TITLE_BRAND_SUFFIX).length <= SEARCH_TITLE_MAX_LENGTH, key);
+    assert.ok(fallback.description.length >= 80, key);
+    assert.ok(fallback.description.length <= SEARCH_DESCRIPTION_MAX_LENGTH, key);
+    assert.doesNotMatch(fallback.title, /Psipedia/i, key);
+
+    const metadata = buildListingPageMetadata({
+      ...fallback,
+      path: paths[key],
+    });
+    assert.equal(metadata.alternates?.canonical, `${SITE_URL}${paths[key]}`, key);
+    assert.equal(metadata.robots?.index, true, key);
+    assert.equal(metadata.robots?.follow, true, key);
+  }
+});
+
+test("SEO-METADATA-QUALITY-2 custom SEO stays authoritative over fallback metadata", () => {
+  const fallback = directorySeoFallback("Fallback Veterina", "Nitra", "veterinari");
+  const metadata = buildContentMetadata({
+    seo: {
+      title: "Vlastný SEO titulok",
+      focusKeyword: "veterinár Nitra",
+      description: "Vlastný SEO popis z Notion alebo databázy.",
+      canonicalUrl: "",
+      ogTitle: "",
+      ogDescription: "",
+      ogImage: "",
+      noindex: false,
+    },
+    fallbackTitle: fallback.title,
+    fallbackDescription: fallback.description,
+    path: "/adresar/veterinari/vlastny-profil",
+    imageAlt: "Vlastný profil",
+  });
+
+  assert.equal(metadata.title, "Vlastný SEO titulok");
+  assert.equal(metadata.description, "Vlastný SEO popis z Notion alebo databázy.");
+  assert.equal(metadata.alternates?.canonical, `${SITE_URL}/adresar/veterinari/vlastny-profil`);
+  assert.equal(metadata.robots?.index, true);
+  assert.equal(metadata.robots?.follow, true);
+});
+
+test("SEO-METADATA-QUALITY-2 public landing routes use the central fallback copy", () => {
+  const directoryPage = fs.readFileSync(new URL("../app/adresar/page.tsx", import.meta.url), "utf8");
+  const sectionPage = fs.readFileSync(new URL("../app/[section]/page.tsx", import.meta.url), "utf8");
+  const helpPage = fs.readFileSync(new URL("../app/pomoc-psom/page.tsx", import.meta.url), "utf8");
+  const breedsPage = fs.readFileSync(new URL("../app/plemena/page.tsx", import.meta.url), "utf8");
+
+  assert.match(directoryPage, /coreLandingSeoFallback\("directory"\)/);
+  assert.match(sectionPage, /coreLandingSeoFallback\("events"\)/);
+  assert.match(helpPage, /coreLandingSeoFallback\("help"\)/);
+  assert.match(breedsPage, /coreLandingSeoFallback\("breeds"\)/);
 });
