@@ -225,7 +225,7 @@
 .hero :global([data-section-hero-search] select) {
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 11px;
   border: 0;
   outline: 0;
@@ -235,7 +235,7 @@
 }
 
 .hero :global([data-section-hero-search] button) {
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 16px;
   border: 0;
   border-radius: 9px;
