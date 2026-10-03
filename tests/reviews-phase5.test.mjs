@@ -39,7 +39,8 @@ test("Phase 5 review category pages are direct filtered listings, not generic in
   assert.match(topic, /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
   assert.match(topic, /isReviews && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
   assert.match(topic, /!isReviews && <section className="section shell public-shell portal-topic-body"/);
-  assert.match(topic, /hasReviewGuide && <section className="section shell public-shell portal-topic-body review-topic-guide"/);
+  assert.match(topic, /hasReviewGuide && <section className="section review-topic-first-section"/);
+  assert.match(topic, /<PublicContentShell variant="listing" className="portal-topic-body review-topic-guide">/);
   assert.match(topic, /Recenzie v kategórii/);
   assert.match(topic, /Všetky recenzie/);
 });
