@@ -545,14 +545,15 @@ async function loadProfileQualityPage(
   const locationOptionsPromise = includeItems
     ? loadDirectoryLocationOptions(db, filters)
     : Promise.resolve({ regionOptions: [] as string[], districtOptions: [] as string[] });
-  const countPromise = includeItems
+  const needsFilteredCount = filters.issue !== "all" || filters.priority !== "all";
+  const countPromise = includeItems && needsFilteredCount
     ? db.prepare(`
         SELECT COUNT(*) AS count
         FROM directory_profiles
         WHERE status <> 'archived'${resultFilter.clause}
           AND ${PROFILE_ISSUE_SQL}
       `).bind(...resultFilter.bindings).first<{ count: number }>()
-    : Promise.resolve<{ count: number }>({ count: 0 });
+    : Promise.resolve<{ count: number } | null>(null);
 
   const [summaryRow, countRow, locationOptions] = await Promise.all([
     summaryPromise,
@@ -579,7 +580,9 @@ async function loadProfileQualityPage(
     };
   }
 
-  const resultCount = Number(countRow?.count ?? 0);
+  const resultCount = needsFilteredCount
+    ? Number(countRow?.count ?? 0)
+    : summary.profilesWithIssues;
   const paging = pagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE, resultCount);
   const rows: DirectoryQualityRow[] = [];
   const pageSize = loadAllMatches ? 500 : paging.pageSize;
@@ -758,18 +761,22 @@ async function loadMediaQualityPage(
   }
 
   const statusClause = mediaStatusSql(mediaStatus);
-  const countPromise = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM media_source_monitors
-    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}${statusClause}
-  `).bind(...mediaCategory.bindings).first<{ count: number }>();
+  const countPromise = mediaStatus === "all"
+    ? Promise.resolve<{ count: number } | null>(null)
+    : db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM media_source_monitors
+        WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}${statusClause}
+      `).bind(...mediaCategory.bindings).first<{ count: number }>();
   const [summaryRow, countRow] = await Promise.all([summaryPromise, countPromise]);
   const summary = {
     mediaIssues: Number(summaryRow?.media_issues ?? 0),
     changedMedia: Number(summaryRow?.changed_media ?? 0),
     missingMediaSource: Number(summaryRow?.missing_media_source ?? 0),
   };
-  const resultCount = Number(countRow?.count ?? 0);
+  const resultCount = mediaStatus === "all"
+    ? summary.mediaIssues
+    : Number(countRow?.count ?? 0);
   const paging = pagination(requestedPage, DATA_QUALITY_MEDIA_PAGE_SIZE, resultCount);
   const offset = (paging.page - 1) * paging.pageSize;
   const monitors = await listMediaSourceIssues(db, paging.pageSize, offset, category, mediaStatus);
