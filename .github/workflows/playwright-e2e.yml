@@ -24,40 +24,22 @@ jobs:
     outputs:
       admin_events: ${{ steps.scope.outputs.admin_events }}
       search: ${{ steps.scope.outputs.search }}
+      core: ${{ steps.scope.outputs.core }}
+      dependency: ${{ steps.scope.outputs.dependency }}
+      scopes: ${{ steps.scope.outputs.scopes }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
       - id: scope
         name: Detect changed feature areas
-        shell: bash
-        run: |
-          set -euo pipefail
-          git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" > /tmp/changed-files.txt
-          cat /tmp/changed-files.txt
-
-          head_ref="${{ github.head_ref }}"
-          workflow_changed=false
-          if grep -qx '.github/workflows/playwright-e2e.yml' /tmp/changed-files.txt; then
-            workflow_changed=true
-          fi
-
-          admin_events=false
-          if grep -Eq '^(app/admin/events/|app/api/admin/events/|components/admin-events|lib/admin-events|scripts/bootstrap-admin-events-e2e\.mjs$|scripts/check-admin-events-local\.mjs$|tests/e2e/admin-events\.spec\.ts$|tests/admin-events)' /tmp/changed-files.txt; then
-            admin_events=true
-          elif [[ "${workflow_changed}" == "true" && "${head_ref}" != codex/lost-found-1* ]]; then
-            admin_events=true
-          fi
-
-          search=false
-          if grep -Eq '^(app/hladat/|components/site-header\.tsx$|lib/portal-search|tests/portal-search\.test\.mjs$|tests/e2e/search\.spec\.ts$|tests/fixtures/search-e2e\.sql$)' /tmp/changed-files.txt; then
-            search=true
-          elif [[ "${workflow_changed}" == "true" && "${head_ref}" != codex/lost-found-1* ]]; then
-            search=true
-          fi
-
-          echo "admin_events=${admin_events}" >> "${GITHUB_OUTPUT}"
-          echo "search=${search}" >> "${GITHUB_OUTPUT}"
+        env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-scope.mjs --github-output
 
   validate:
     name: Build, lint and unit/integration tests
@@ -66,6 +48,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Log revision evidence
         run: |
           echo "event_name=${{ github.event_name }}"
@@ -78,16 +62,32 @@ jobs:
         with:
           node-version: 24.18.0
           cache: npm
+      - id: required-scope
+        name: Resolve required-check scope
+        if: github.event_name == 'pull_request'
+        env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-scope.mjs --github-output
+      - name: Validate CI scope policy
+        run: node scripts/check-ci-scope.mjs
       - name: Install dependencies
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
         run: npm ci
       - name: Lint
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
         run: npm run lint
       - name: Unit and integration tests
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
         run: npm test
       - name: Adoption unit/integration suite
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-catalog.test.mjs tests/adoption-detail.test.mjs tests/adoption-sitemap-integration.test.mjs tests/adoption-admin-list.test.mjs tests/adoption-admin-editor.test.mjs
+      - name: Docs-only required-status fast path
+        if: github.event_name == 'pull_request' && steps.required-scope.outputs.core != 'true'
+        run: echo "No runtime/CI source changed; required status preserved without dependency install."
       - name: SEO-RECOVERY-1 focused metadata and sitemap regressions
-        if: github.event_name == 'pull_request' && github.head_ref == 'codex/seo-recovery-1'
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/seo-recovery-1' && steps.required-scope.outputs.core == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
   pull-request-e2e:

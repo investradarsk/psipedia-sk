@@ -9,7 +9,6 @@ on:
       - "components/profile-review-section.tsx"
       - "components/profile-review-submission-form.tsx"
       - "components/profile-review-submission-form.module.css"
-      - "config/runtime-env.ts"
       - "lib/profile-review-domain.ts"
       - "lib/profile-review-read.ts"
       - "lib/profile-review-submission.ts"

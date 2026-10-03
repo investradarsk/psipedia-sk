@@ -27,9 +27,13 @@ on:
       - "tests/admin-attention-queue.test.mjs"
       - "tests/e2e/admin-geo-foundation.spec.ts"
       - "docs/geo-foundation.md"
-      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/map-geo-foundation-ci.yml"
   workflow_dispatch:
+
+concurrency:
+  group: map-1b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

@@ -15,11 +15,9 @@ on:
       - "lib/admin-web-push.ts"
       - "public/pwa/**"
       - "public/sw.js"
-      - "worker/index.ts"
       - "drizzle/*admin_pwa*"
       - "tests/admin-pwa.test.mjs"
       - "tests/e2e/admin-pwa.spec.ts"
-      - ".env.example"
       - ".github/workflows/admin-pwa-ci.yml"
   workflow_dispatch:
 

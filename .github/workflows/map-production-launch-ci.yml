@@ -10,8 +10,6 @@ on:
       - "scripts/production-d1-migrate.mjs"
       - "scripts/map-production-readiness.mjs"
       - "scripts/map-production-privacy-smoke.mjs"
-      - "config/runtime-env.ts"
-      - ".env.example"
       - "app/mapa/**"
       - "components/map/**"
       - "lib/geo-operations.ts"
@@ -28,7 +26,7 @@ on:
       - "tests/production-d1-migration.test.mjs"
       - "docs/map-production-launch.md"
       - "docs/PRODUCTION-D1-MIGRATIONS.md"
-      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 concurrency:

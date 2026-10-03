@@ -17,7 +17,6 @@ on:
       - "tests/e2e/outreach.spec.ts"
       - "tests/fixtures/outreach-e2e.sql"
       - ".github/workflows/outreach-ci.yml"
-      - ".env.example"
   workflow_dispatch:
 
 concurrency:

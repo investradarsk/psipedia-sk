@@ -17,7 +17,6 @@ on:
       - "lib/pii-crypto.ts"
       - "lib/rate-limit.ts"
       - "lib/turnstile.ts"
-      - "worker/index.ts"
       - "tests/review-author-auth.test.mjs"
       - "tests/e2e/review-author-auth.spec.ts"
       - "tests/fixtures/review-author-auth-e2e.sql"
