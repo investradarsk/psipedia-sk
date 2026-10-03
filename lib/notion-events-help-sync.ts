@@ -830,6 +830,22 @@ async function syncAgenda(input: {
             psipediaUpdatedAt: updatedAt,
             syncedAt,
           });
+        } else if (input.mode !== "dry-run" && mapping.content_hash !== canonicalHash) {
+          // Schema-only expansion can change both snapshot hashes while leaving
+          // both canonical sides equal. Adopt that equal state as the new
+          // baseline instead of manufacturing a conflict.
+          const syncedAt = new Date().toISOString();
+          const updatedAt = await canonicalUpdatedAt(input.definition.key, entityId, input.database);
+          await saveMapping({
+            database: input.database,
+            agenda: input.definition.key,
+            pageId: page.id,
+            entityId,
+            hash: canonicalHash,
+            notionLastEditedTime: page.last_edited_time ?? syncedAt,
+            psipediaUpdatedAt: updatedAt,
+            syncedAt,
+          });
         }
         continue;
       }
