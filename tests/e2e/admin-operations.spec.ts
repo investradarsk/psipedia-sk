@@ -181,7 +181,7 @@ test("technical tools and maps have separate working admin entries without horiz
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
   await expect(page.getByRole("heading", { name: "Mapy", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Technické GEO detaily", exact: true })).toHaveAttribute("href", "/admin/operations?source=GEO_LOCATION_ISSUE");
+  await expect(page.getByRole("link", { name: "Technické GEO detaily", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   response = await page.goto("/admin/operations/geo", { waitUntil: "domcontentloaded" });
