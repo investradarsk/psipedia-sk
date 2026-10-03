@@ -37,7 +37,7 @@ test("seeded adoption catalogue, filters and detail stay public-safe and accessi
   await expectNoCriticalAxeViolations(page);
   await expectNoHorizontalOverflow(page);
 
-  await page.getByLabel("Hľadať").fill("E2E Rex");
+  await page.getByRole("textbox", { name: "Hľadať", exact: true }).fill("E2E Rex");
   await page.getByRole("button", { name: "Filtrovať" }).click();
   await expect(page).toHaveURL(/q=E2E(?:\+|%20)Rex/);
   await expect(page.getByRole("link", { name: "E2E Rex", exact: true })).toBeVisible();
