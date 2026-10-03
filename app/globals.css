@@ -15940,3 +15940,10 @@ a.breed-fci-path-node:focus-visible {
     font-size: clamp(1.45rem, 7vw, 1.85rem);
   }
 }
+
+
+/* PUBLIC-LANDING-ALIGNMENT-1: review category landing uses listing rhythm;
+   later editorial sections keep the global .section spacing. */
+.section.review-topic-first-section {
+  padding-top: 0;
+}
