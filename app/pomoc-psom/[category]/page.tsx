@@ -35,6 +35,7 @@ export default async function HelpCategoryPage({ params, searchParams }: Props) 
   if (!definition) notFound();
   const [items, rawSearchParams] = await Promise.all([getPublishedHelpCases(category), searchParams]);
   const initialQuery = scalar(rawSearchParams.q).trim().slice(0, 120);
+  const initialActiveOnly = scalar(rawSearchParams.stav) !== "vsetky";
   const schema = buildCollectionPageJsonLd({
     name: definition.label,
     description: definition.description,
@@ -46,5 +47,5 @@ export default async function HelpCategoryPage({ params, searchParams }: Props) 
     ],
     items: items.slice(0, 50).map((item) => ({ name: item.title, path: helpCaseHref(item) })),
   });
-  return <><StructuredData value={schema} /><HelpPage items={items} initialCategory={category} initialQuery={initialQuery} /></>;
+  return <><StructuredData value={schema} /><HelpPage items={items} initialCategory={category} initialQuery={initialQuery} initialActiveOnly={initialActiveOnly} /></>;
 }
