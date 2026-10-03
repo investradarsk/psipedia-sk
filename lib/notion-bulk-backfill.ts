@@ -94,6 +94,18 @@ export type NotionBulkAgendaResult = {
     skipped: number;
     error: number;
   }>;
+  diagnostics?: {
+    updateFieldCounts: Record<string, number>;
+    updateSamples: Array<{
+      psipediaId: string;
+      title: string;
+      notionPageId: string;
+      field: string;
+      propertyType: string;
+      sourceValue: ReconciliationValue;
+      notionValue: ReconciliationValue;
+    }>;
+  };
   errors: Array<{ sourceId: string; message: string }>;
 };
 
@@ -351,6 +363,46 @@ function pageRecord(
   };
 }
 
+export function buildNotionUpdateDiagnostics(
+  plan: ReturnType<typeof planNotionReconciliation>,
+  notionRecords: ExistingNotionRecord[],
+  sampleLimit = 50,
+): NonNullable<NotionBulkAgendaResult["diagnostics"]> {
+  const byPageId = new Map(notionRecords.map((page) => [page.pageId, page]));
+  const updateFieldCounts: Record<string, number> = {};
+  const samplesPerField = new Map<string, number>();
+  const updateSamples: NonNullable<NotionBulkAgendaResult["diagnostics"]>["updateSamples"] = [];
+
+  for (const action of plan.actions) {
+    if (action.kind !== "UPDATE" || !action.pageId || !action.changes) continue;
+    const page = byPageId.get(action.pageId);
+    for (const [field, sourceValue] of Object.entries(action.changes)) {
+      updateFieldCounts[field] = (updateFieldCounts[field] ?? 0) + 1;
+      const fieldSamples = samplesPerField.get(field) ?? 0;
+      if (fieldSamples >= 3 || updateSamples.length >= sampleLimit) continue;
+      updateSamples.push({
+        psipediaId: action.source.id,
+        title: action.source.title,
+        notionPageId: action.pageId,
+        field,
+        propertyType: page?.propertyTypes?.[field] ?? "",
+        sourceValue,
+        notionValue: page?.properties[field] ?? null,
+      });
+      samplesPerField.set(field, fieldSamples + 1);
+    }
+  }
+
+  const sortedCounts = Object.fromEntries(
+    Object.entries(updateFieldCounts)
+      .sort(([leftField, leftCount], [rightField, rightCount]) => (
+        rightCount - leftCount || leftField.localeCompare(rightField)
+      )),
+  );
+
+  return { updateFieldCounts: sortedCounts, updateSamples };
+}
+
 function chunks(value: string) {
   if (!value) return [];
   const result = [];
@@ -519,6 +571,9 @@ async function reconcileAgenda(
   const pages = await listAllPages(bindings, target.dataSourceId);
   const notion = pages.map((page) => pageRecord(page, definition.titleProperty, schema));
   const plan = planNotionReconciliation(filteredSource, notion);
+  const diagnostics = mode === "dry-run"
+    ? buildNotionUpdateDiagnostics(plan, notion)
+    : undefined;
 
   const duplicateConflicts = plan.actions
     .filter((action) => action.kind === "DUPLICATE")
@@ -617,6 +672,7 @@ async function reconcileAgenda(
     missingOptionalProperties: schemaCheck.missingOptional,
     duplicateConflicts,
     conflicts,
+    ...(diagnostics ? { diagnostics } : {}),
     batches: execution.batches,
     errors: execution.errors,
   };
