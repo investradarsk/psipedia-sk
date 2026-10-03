@@ -71,6 +71,9 @@ test("generic Help browser does not merge dedicated adoption or lost-found domai
 
 test("published resolved Help details remain discoverable through a crawlable SSR archive state", () => {
   assert.match(categoryRoute, /initialActiveOnly = scalar\(rawSearchParams\.stav\) !== "vsetky"/);
+  assert.match(categoryRoute, /generateMetadata\(\{ params, searchParams \}: Props\)/);
+  assert.match(categoryRoute, /buildListingPageMetadata\(\{/);
+  assert.match(categoryRoute, /searchParams: await searchParams/);
   assert.match(landing, /initialActiveOnly=\{initialActiveOnly\}/);
   assert.match(browser, /useState\(initialActiveOnly\)/);
   assert.match(browser, /href=\{statusHref\(!activeOnly\)\}/);
