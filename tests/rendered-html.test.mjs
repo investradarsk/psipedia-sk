@@ -1030,6 +1030,19 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.doesNotMatch(helpHtml, /"verified"/i);
   assert.doesNotMatch(helpHtml, /help-hero--photo/);
 
+  const cleanHelpCategory = await worker.fetch(new Request("http://localhost/pomoc-psom/zbierky", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(cleanHelpCategory.status, 200);
+  const cleanHelpCategoryHtml = await cleanHelpCategory.text();
+  assert.doesNotMatch(cleanHelpCategoryHtml, /<meta name="robots" content="noindex, follow"/);
+  assert.match(cleanHelpCategoryHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/pomoc-psom\/zbierky"/);
+
+  const archivedHelpCategory = await worker.fetch(new Request("http://localhost/pomoc-psom/zbierky?stav=vsetky", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(archivedHelpCategory.status, 200);
+  const archivedHelpCategoryHtml = await archivedHelpCategory.text();
+  assert.match(archivedHelpCategoryHtml, /<meta name="robots" content="noindex, follow"/);
+  assert.match(archivedHelpCategoryHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/pomoc-psom\/zbierky"/);
+  assert.doesNotMatch(archivedHelpCategoryHtml, /rel="canonical"[^>]+stav=vsetky/);
+
   const adoption = await worker.fetch(new Request("http://localhost/pomoc-psom/adopcia", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(adoption.status, 200);
   assert.match(await adoption.text(), /Psy na adopciu/);
