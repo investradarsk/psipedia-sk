@@ -33,7 +33,7 @@ test("one canonical UnifiedSectionHero contract owns the section header", () => 
   assert.match(unified, /data-unified-section-hero-media/);
   assert.match(unified, /data-unified-section-hero-copy/);
   assert.match(unified, /data-unified-section-hero-tools/);
-  assert.match(unified, /<h1>/);
+  assert.match(unified, /<h1 data-section-hero-title>/);
 });
 
 test("desktop keeps the persisted 16:7 crop while using a lower public height", () => {
