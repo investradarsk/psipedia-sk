@@ -75,7 +75,7 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
   const directoryPage = fs.readFileSync(new URL("../app/adresar/[category]/page.tsx", import.meta.url), "utf8");
   const adoptionPage = fs.readFileSync(new URL("../app/pomoc-psom/adopcia/page.tsx", import.meta.url), "utf8");
 
-  assert.match(articlePage, /const articles = await getPublishedArticleSummaries\(/);
+  assert.match(articlePage, /getPublishedArticleSummaries\(\{ limit: 200 \}\)/);
   assert.match(articlePage, /items: articles\.map\(/);
   assert.match(breedPage, /listPublishedCanonicalBreedIndex\(\)/);
   assert.match(breedPage, /items: breeds\.map\(/);
