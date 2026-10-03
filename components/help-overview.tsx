@@ -155,6 +155,11 @@ export async function HelpOverview({
                 hidden={[{ name: "sekcia", value: "pomoc-psom" }]}
               />
             }
+            ctaSlot={
+              <PublicActionLink href="/organizacie" variant="secondary" icon={<ArrowIcon size={16} />}>
+                Zobraziť organizácie
+              </PublicActionLink>
+            }
             metaSlot={
               <div className={styles.headerMeta}>
                 <span><strong>{totalActive}</strong> aktívnych záznamov</span>
