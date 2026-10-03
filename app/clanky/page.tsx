@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleBrowser } from "@/components/article-browser";
-import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { UnifiedSectionHero } from "@/components/public-visual-system";
+import { Breadcrumbs } from "@/components/page-system";
+import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { StructuredData } from "@/components/structured-data";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
@@ -55,7 +55,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
     <>
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
-        <PageContainer className="page-hero" data-section-public-header>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Novinky</span></Breadcrumbs>}
             eyebrow="Psipedia"
@@ -73,7 +73,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
               />
             }
           />
-        </PageContainer>
+        </UnifiedSectionHeroShell>
         <section className="page-body shell">
           <ArticleBrowser
             articles={articles}
