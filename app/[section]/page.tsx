@@ -9,7 +9,7 @@ import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
 import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
-import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { listLatestPublicProfileReviews, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
@@ -50,6 +50,15 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       title: "Novinky zo sveta psov",
       description: NOVINKY_DESCRIPTION,
       path: "/clanky",
+      searchParams: rawSearchParams,
+    });
+  }
+  if (slug === "podujatia") {
+    const landingSeo = coreLandingSeoFallback("events");
+    return buildListingPageMetadata({
+      title: landingSeo.title,
+      description: landingSeo.description,
+      path: "/podujatia",
       searchParams: rawSearchParams,
     });
   }
