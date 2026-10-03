@@ -8,18 +8,19 @@ import {
   listPublishedDirectoryProfiles,
   parseDirectoryFilters,
 } from "@/lib/directory-store";
-import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
 
 const directoryDescription = "Veterinári, tréneri, psie školy, kluby a ďalšie služby pre psov na Slovensku.";
+const directoryLandingSeo = coreLandingSeoFallback("directory");
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   return buildListingPageMetadata({
-    title: "Služby pre psov",
-    description: directoryDescription,
+    title: directoryLandingSeo.title,
+    description: directoryLandingSeo.description,
     path: "/adresar",
     searchParams: await searchParams,
   });
