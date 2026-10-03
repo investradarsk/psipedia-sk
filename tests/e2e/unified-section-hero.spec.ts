@@ -87,7 +87,7 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
     const opened = await makePage(browser, viewport);
     let referenceSideInset: number | null = null;
     let referenceVisualHeight: number | null = null;
-    let referenceRootHeroY: number | null = null;
+    let referenceRootHeroOffsetFromHeader: number | null = null;
     let referenceRootHeroWidth: number | null = null;
     try {
       for (const route of ROUTES) {
@@ -116,9 +116,16 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         expect(Math.abs(heroBox!.width - shellBox!.width), label + ": hero matches canonical shell width").toBeLessThanOrEqual(1);
 
         if (ROOT_ROUTE_SLUGS.has(route.slug)) {
-          if (referenceRootHeroY === null) referenceRootHeroY = heroBox!.y;
+          const siteHeader = opened.page.locator(".site-header").first();
+          const siteHeaderBox = await siteHeader.boundingBox();
+          expect(siteHeaderBox, label + ": site header box").not.toBeNull();
+          const heroOffsetFromHeader = heroBox!.y - (siteHeaderBox!.y + siteHeaderBox!.height);
+          if (referenceRootHeroOffsetFromHeader === null) referenceRootHeroOffsetFromHeader = heroOffsetFromHeader;
           if (referenceRootHeroWidth === null) referenceRootHeroWidth = heroBox!.width;
-          expect(Math.abs(heroBox!.y - referenceRootHeroY), label + ": canonical root hero top Y").toBeLessThanOrEqual(2);
+          expect(
+            Math.abs(heroOffsetFromHeader - referenceRootHeroOffsetFromHeader),
+            label + ": canonical root hero offset below shared header",
+          ).toBeLessThanOrEqual(2);
           expect(Math.abs(heroBox!.width - referenceRootHeroWidth), label + ": canonical root hero width").toBeLessThanOrEqual(2);
         }
 
