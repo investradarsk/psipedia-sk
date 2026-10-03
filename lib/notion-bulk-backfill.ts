@@ -467,7 +467,7 @@ async function reconcileAgenda(
     const properties = Object.fromEntries(
       missingExtensionProperties.map((name) => [name, schemaExtension[name]]),
     );
-    await notionRequest<DataSourceResponse>(
+    dataSource = await notionRequest<DataSourceResponse>(
       bindings,
       `/data_sources/${encodeURIComponent(target.dataSourceId)}`,
       {
@@ -476,11 +476,7 @@ async function reconcileAgenda(
       },
     );
     missingExtensionProperties.forEach((name) => addedSchemaProperties.add(name));
-    dataSource = await notionRequest<DataSourceResponse>(
-      bindings,
-      `/data_sources/${encodeURIComponent(target.dataSourceId)}`,
-    );
-    schema = dataSource.properties ?? {};
+    schema = dataSource.properties ?? { ...schema, ...properties };
   }
   const required = [definition.titleProperty, "Psipedia ID", "URL Psipedia"];
   const sourceProperties = [...new Set(source.flatMap((record) => Object.keys(record.properties)))];
