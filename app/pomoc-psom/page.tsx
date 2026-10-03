@@ -19,15 +19,16 @@ import {
   type PublicDogReport,
 } from "@/lib/lost-found-dogs";
 import type { AdoptionDog } from "@/lib/adoption";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
+import { buildCollectionPageJsonLd, coreLandingSeoFallback } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
 
 const helpRootDescription = "Adopcie, stratené psy, urgentné prípady, útulky, zbierky a ďalšie možnosti pomoci psom na jednom mieste.";
+const helpLandingSeo = coreLandingSeoFallback("help");
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = buildPageMetadata({
-  title: "Pomoc psom",
-  description: helpRootDescription,
+  title: helpLandingSeo.title,
+  description: helpLandingSeo.description,
   path: "/pomoc-psom",
 });
 
