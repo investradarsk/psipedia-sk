@@ -4,8 +4,7 @@ import { StructuredData } from "@/components/structured-data";
 import { HelpPage } from "@/components/help-page";
 import { getPublishedHelpCases } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref, isHelpCategory } from "@/lib/help";
-import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
 type Props = {
@@ -17,13 +16,14 @@ function scalar(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { category: slug } = await params;
   const category = getHelpCategory(slug);
-  return category ? buildPageMetadata({
+  return category ? buildListingPageMetadata({
     title: `${category.label} – Pomoc psom`,
     description: category.description,
     path: `/pomoc-psom/${category.slug}`,
+    searchParams: await searchParams,
   }) : {};
 }
 
