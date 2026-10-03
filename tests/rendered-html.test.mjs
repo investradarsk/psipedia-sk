@@ -1020,7 +1020,7 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.match(helpHtml, /Kategórie pomoci/);
   assert.match(helpHtml, /Pomáhajme spolu/);
   assert.match(helpHtml, /Postup krok za krokom/);
-  assert.match(helpHtml, /<h1>Pomoc psom<\/h1>/);
+  assert.match(helpHtml, /<h1 data-section-hero-title[^>]*>Pomoc psom<\/h1>/);
   assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Vyberte, čo chcete riešiť/);
   assert.match(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);

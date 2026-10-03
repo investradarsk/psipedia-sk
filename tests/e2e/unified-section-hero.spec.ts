@@ -25,6 +25,8 @@ const ROUTES = [
   { slug: "recenzie-krmiva", path: "/recenzie/krmiva", visualKey: "reviews.krmiva" },
 ] as const;
 
+const ROOT_ROUTE_SLUGS = new Set(["steniatka", "starostlivost", "aktivity", "novinky", "plemena", "adresar", "podujatia", "pomoc", "recenzie"]);
+
 const VIEWPORTS = [
   { label: "mobile-390", width: 390, height: 844 },
   { label: "mobile-430", width: 430, height: 932 },
@@ -64,9 +66,14 @@ async function openHero(page: Page, path: string, visualKey: string, label: stri
       try { await element.decode(); } catch {}
     });
   }
+  await page.evaluate(() => {
+    history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+  });
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));
+  expect(await page.evaluate(() => window.scrollY), label + ": audit starts at page top").toBe(0);
 
   return hero;
 }
@@ -80,6 +87,8 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
     const opened = await makePage(browser, viewport);
     let referenceSideInset: number | null = null;
     let referenceVisualHeight: number | null = null;
+    let referenceRootHeroOffsetFromHeader: number | null = null;
+    let referenceRootHeroWidth: number | null = null;
     try {
       for (const route of ROUTES) {
         const label = viewport.label + " " + route.path;
@@ -91,14 +100,42 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         }));
         expect(overflow.scrollWidth, label + ": horizontal overflow").toBeLessThanOrEqual(overflow.clientWidth + 1);
 
+        const shell = opened.page.locator("[data-unified-section-hero-shell]").first();
+        await expect(shell, label + ": canonical hero shell").toBeVisible();
         const media = hero.locator("[data-unified-section-hero-media]");
         const visual = hero.locator("[data-unified-section-hero-visual]");
         const copy = hero.locator("[data-unified-section-hero-copy]");
         const tools = hero.locator("[data-unified-section-hero-tools]");
+        const shellBox = await shell.boundingBox();
         const heroBox = await hero.boundingBox();
         const visualBox = await visual.boundingBox();
+        expect(shellBox, label + ": shell box").not.toBeNull();
         expect(heroBox, label + ": hero box").not.toBeNull();
         expect(visualBox, label + ": visual box").not.toBeNull();
+        expect(Math.abs(heroBox!.x - shellBox!.x), label + ": hero aligns to canonical shell left edge").toBeLessThanOrEqual(1);
+        expect(Math.abs(heroBox!.width - shellBox!.width), label + ": hero matches canonical shell width").toBeLessThanOrEqual(1);
+
+        if (ROOT_ROUTE_SLUGS.has(route.slug)) {
+          const rootGeometry = await opened.page.evaluate(() => {
+            const heroElement = document.querySelector<HTMLElement>("[data-unified-section-hero]");
+            const headerElement = document.querySelector<HTMLElement>(".site-header");
+            if (!heroElement || !headerElement) return null;
+            const heroRect = heroElement.getBoundingClientRect();
+            const headerRect = headerElement.getBoundingClientRect();
+            return {
+              heroOffsetFromHeader: heroRect.y - (headerRect.y + headerRect.height),
+              heroWidth: heroRect.width,
+            };
+          });
+          expect(rootGeometry, label + ": root hero/header geometry").not.toBeNull();
+          if (referenceRootHeroOffsetFromHeader === null) referenceRootHeroOffsetFromHeader = rootGeometry!.heroOffsetFromHeader;
+          if (referenceRootHeroWidth === null) referenceRootHeroWidth = rootGeometry!.heroWidth;
+          expect(
+            Math.abs(rootGeometry!.heroOffsetFromHeader - referenceRootHeroOffsetFromHeader),
+            label + ": canonical root hero offset below shared header",
+          ).toBeLessThanOrEqual(2);
+          expect(Math.abs(rootGeometry!.heroWidth - referenceRootHeroWidth), label + ": canonical root hero width").toBeLessThanOrEqual(2);
+        }
 
         const sideInset = (overflow.clientWidth - heroBox!.width) / 2;
         if (referenceSideInset === null) referenceSideInset = sideInset;
@@ -109,35 +146,105 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
           expect(Math.abs(visualBox!.height - referenceVisualHeight), label + ": canonical desktop visual height").toBeLessThanOrEqual(2);
         }
 
+        const breadcrumbs = hero.locator("[data-section-hero-breadcrumbs]");
+        const eyebrow = hero.locator("[data-section-hero-eyebrow]");
+        const title = hero.locator("[data-section-hero-title]");
+        const intro = hero.locator("[data-section-hero-intro]");
+        const copyGeometry = await hero.evaluate((root) => {
+          const box = (selector: string) => {
+            const element = root.querySelector<HTMLElement>(selector);
+            if (!element) return null;
+            const rect = element.getBoundingClientRect();
+            return { y: rect.y, height: rect.height };
+          };
+          return {
+            breadcrumbs: box("[data-section-hero-breadcrumbs]"),
+            eyebrow: box("[data-section-hero-eyebrow]"),
+            title: box("[data-section-hero-title]"),
+            intro: box("[data-section-hero-intro]"),
+          };
+        });
+
+        if (copyGeometry.breadcrumbs && copyGeometry.eyebrow) {
+          const expectedGap = viewport.width <= 767 ? 10 : 12;
+          expect(
+            Math.abs(copyGeometry.eyebrow.y - (copyGeometry.breadcrumbs.y + copyGeometry.breadcrumbs.height) - expectedGap),
+            label + ": breadcrumb→eyebrow gap",
+          ).toBeLessThanOrEqual(2);
+        }
+        if (copyGeometry.eyebrow && copyGeometry.title) {
+          const expectedGap = viewport.width <= 767 ? 7 : 8;
+          expect(
+            Math.abs(copyGeometry.title.y - (copyGeometry.eyebrow.y + copyGeometry.eyebrow.height) - expectedGap),
+            label + ": eyebrow→H1 gap",
+          ).toBeLessThanOrEqual(2);
+        }
+        if (copyGeometry.title && copyGeometry.intro) {
+          const expectedGap = viewport.width <= 767 ? 9 : 12;
+          expect(
+            Math.abs(copyGeometry.intro.y - (copyGeometry.title.y + copyGeometry.title.height) - expectedGap),
+            label + ": H1→intro gap",
+          ).toBeLessThanOrEqual(2);
+        }
+
         if (viewport.width <= 430) {
-          await expect.poll(async () => {
-            const mediaBox = await media.boundingBox();
-            const copyBox = await copy.boundingBox();
-            if (!mediaBox || !copyBox) return -999;
-            return mediaBox.y - (copyBox.y + copyBox.height);
-          }, { message: label + ": copy must end before image", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
+          await expect.poll(async () => hero.evaluate((root) => {
+            const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+            const copyElement = root.querySelector<HTMLElement>("[data-unified-section-hero-copy]");
+            if (!mediaElement || !copyElement) return -999;
+            const mediaRect = mediaElement.getBoundingClientRect();
+            const copyRect = copyElement.getBoundingClientRect();
+            return mediaRect.y - (copyRect.y + copyRect.height);
+          }), { message: label + ": copy must end before image", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
 
           const mediaBox = await media.boundingBox();
           expect(mediaBox, label + ": media box").not.toBeNull();
+          expect(Math.abs(mediaBox!.x), label + ": mobile media left edge").toBeLessThanOrEqual(1);
+          expect(Math.abs((mediaBox!.x + mediaBox!.width) - overflow.clientWidth), label + ": mobile media right edge").toBeLessThanOrEqual(1);
+          const mediaRadius = await media.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
+          expect(mediaRadius, label + ": mobile media radius").toBe("0px");
           const ratio = mediaBox!.width / mediaBox!.height;
           expect(ratio, label + ": mobile media should be low 16:6").toBeGreaterThan(2.62);
           expect(ratio, label + ": mobile media should be low 16:6").toBeLessThan(2.72);
 
+          if (await intro.count()) {
+            const introMediaGap = await hero.evaluate((root) => {
+              const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+              const introElement = root.querySelector<HTMLElement>("[data-section-hero-intro]");
+              if (!mediaElement || !introElement) return null;
+              const mediaRect = mediaElement.getBoundingClientRect();
+              const introRect = introElement.getBoundingClientRect();
+              return mediaRect.y - (introRect.y + introRect.height);
+            });
+            expect(introMediaGap, label + ": intro/image geometry").not.toBeNull();
+            expect(Math.abs(introMediaGap! - 16), label + ": intro→image gap").toBeLessThanOrEqual(2);
+          }
+
           if (await tools.count()) {
-            await expect.poll(async () => {
-              const currentMediaBox = await media.boundingBox();
-              const toolsBox = await tools.boundingBox();
-              if (!currentMediaBox || !toolsBox) return -999;
-              return toolsBox.y - (currentMediaBox.y + currentMediaBox.height);
-            }, { message: label + ": image must end before tools", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
+            await expect.poll(async () => hero.evaluate((root) => {
+              const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+              const toolsElement = root.querySelector<HTMLElement>("[data-unified-section-hero-tools]");
+              if (!mediaElement || !toolsElement) return -999;
+              const mediaRect = mediaElement.getBoundingClientRect();
+              const toolsRect = toolsElement.getBoundingClientRect();
+              return toolsRect.y - (mediaRect.y + mediaRect.height);
+            }), { message: label + ": image must end before tools", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
           }
         } else {
-          const mediaBox = await media.boundingBox();
-          const copyBox = await copy.boundingBox();
-          expect(mediaBox, label + ": desktop media box").not.toBeNull();
-          expect(copyBox, label + ": desktop copy box").not.toBeNull();
-          expect(copyBox!.x, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(mediaBox!.x - 1);
-          expect(copyBox!.y, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(mediaBox!.y - 1);
+          const desktopGeometry = await hero.evaluate((root) => {
+            const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
+            const copyElement = root.querySelector<HTMLElement>("[data-unified-section-hero-copy]");
+            if (!mediaElement || !copyElement) return null;
+            const mediaRect = mediaElement.getBoundingClientRect();
+            const copyRect = copyElement.getBoundingClientRect();
+            return {
+              media: { x: mediaRect.x, y: mediaRect.y },
+              copy: { x: copyRect.x, y: copyRect.y },
+            };
+          });
+          expect(desktopGeometry, label + ": desktop media/copy geometry").not.toBeNull();
+          expect(desktopGeometry!.copy.x, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(desktopGeometry!.media.x - 1);
+          expect(desktopGeometry!.copy.y, label + ": desktop copy overlays image-led hero").toBeGreaterThanOrEqual(desktopGeometry!.media.y - 1);
         }
 
         const serious = (await new AxeBuilder({ page: opened.page })
@@ -175,6 +282,38 @@ test("SECTION-HERO-V2 keeps homepage as a separate visual reference", async ({ b
       await opened.context.close();
     }
   }
+});
+
+test("UNIFIED-SECTION-HERO intro paragraphs use only canonical margins", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto("/steniatka", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  const intro = page.locator("[data-section-hero-intro]").first();
+  await expect(intro).toBeVisible();
+  const margins = await intro.evaluate((node) => {
+    const first = document.createElement("p");
+    const second = document.createElement("p");
+    first.textContent = "Canonical intro paragraph one";
+    second.textContent = "Canonical intro paragraph two";
+    node.append(first, second);
+    const firstStyle = getComputedStyle(first);
+    const secondStyle = getComputedStyle(second);
+    const result = {
+      firstTop: firstStyle.marginTop,
+      firstBottom: firstStyle.marginBottom,
+      secondTop: secondStyle.marginTop,
+      secondBottom: secondStyle.marginBottom,
+    };
+    first.remove();
+    second.remove();
+    return result;
+  });
+  expect(margins).toEqual({
+    firstTop: "0px",
+    firstBottom: "0px",
+    secondTop: "8px",
+    secondBottom: "0px",
+  });
 });
 
 test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async ({ page }) => {

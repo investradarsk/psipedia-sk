@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
   UnifiedSectionHero,
+  UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import type { HelpCategorySlug } from "@/lib/help";
@@ -134,7 +135,7 @@ export async function HelpOverview({
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
-        <PageContainer className={styles.headerWrap}>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs label="Drobečková navigácia">
               <Link href="/">Domov</Link><span>/</span><span>Pomoc psom</span>
@@ -159,7 +160,7 @@ export async function HelpOverview({
               </div>
             }
           />
-        </PageContainer>
+        </UnifiedSectionHeroShell>
 
         <section className={[styles.shell, styles.overviewCategoryBlock].join(" ")} aria-labelledby="help-categories-heading">
           <div className={styles.overviewHeading}>

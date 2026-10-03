@@ -19,4 +19,4 @@ export type {
   PublicLandingTone,
   PublicCategoryTileItem,
 } from "./public-visual-system";
-export { UnifiedSectionHero } from "./unified-section-hero";
+export { UnifiedSectionHero, UnifiedSectionHeroShell } from "./unified-section-hero";

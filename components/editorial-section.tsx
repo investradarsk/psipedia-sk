@@ -11,6 +11,7 @@ import {
   PublicFoundation,
   PublicIcon,
   UnifiedSectionHero,
+  UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
 import type { Article } from "@/lib/content";
@@ -289,17 +290,16 @@ export async function EditorialSectionHub({
     <PublicFoundation className={`${styles.foundation} ${sectionToneClass(sectionSlug)}`}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
-        <PageContainer className={styles.headerShell} data-section-public-header>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>}
             eyebrow={section.eyebrow}
             title={section.label}
-            intro={<><p>{section.description}</p><p className={styles.headerIntro}>{section.intro}</p></>}
+            intro={<><p>{section.description}</p><p>{section.intro}</p></>}
             visual={heroVisual}
             searchSlot={<SearchBox sectionSlug={sectionSlug} />}
-            className={styles.header}
           />
-        </PageContainer>
+        </UnifiedSectionHeroShell>
 
         <PortalSectionTabs section={section} />
 
@@ -435,7 +435,7 @@ export async function EditorialSectionTopic({
     <PublicFoundation className={`${styles.foundation} ${sectionToneClass(sectionSlug)}`}>
       <main id="obsah" className={styles.main}>
         <StructuredData value={schema} />
-        <PageContainer className={styles.headerShell} data-section-public-header>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs>
               <Link href="/">Domov</Link><span>/</span><Link href={`/${sectionSlug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
@@ -445,9 +445,8 @@ export async function EditorialSectionTopic({
             intro={subpage.description}
             visual={heroVisual}
             searchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage} />}
-            className={styles.topicHeader}
           />
-        </PageContainer>
+        </UnifiedSectionHeroShell>
 
         <PortalSectionTabs section={section} activeSlug={subpage.slug} />
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicActionLink, PublicCategoryTiles, PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { PublicActionLink, PublicCategoryTiles, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { bratislavaDateKey, eventDateStatus, eventTypeListingSeo, eventTypePortalHref, eventTypes, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
@@ -56,8 +56,7 @@ export async function EventsPage({
   return (
     <main id="obsah">
       <PublicFoundation className={styles.foundation}>
-      <header className={styles.pageHeader}>
-        <PageContainer>
+      <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs className={styles.breadcrumbs}>
               <Link href="/">Domov</Link><span>/</span>
@@ -79,8 +78,10 @@ export async function EventsPage({
             }
             ctaSlot={isMainListing ? <PublicActionLink href="/podujatia/pridat-podujatie" variant="secondary">Pridať podujatie</PublicActionLink> : undefined}
           />
+      </UnifiedSectionHeroShell>
 
-          {isMainListing ? (
+      {isMainListing ? (
+        <PageContainer>
             <section className={styles.landingCategories} aria-labelledby="events-category-heading">
               <div className={styles.landingCategoryHeading}>
                 <div>
@@ -91,9 +92,8 @@ export async function EventsPage({
               </div>
               <PublicCategoryTiles items={landingCategories} label="Hlavné typy podujatí" />
             </section>
-          ) : null}
         </PageContainer>
-      </header>
+      ) : null}
 
       <section className={styles.calendarSection} aria-label="Kalendár podujatí">
         <PageContainer>

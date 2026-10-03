@@ -26,12 +26,14 @@ const sectionRoute = read("app/[section]/page.tsx");
 const contentRoute = read("app/[section]/[slug]/page.tsx");
 
 test("one canonical UnifiedSectionHero contract owns the section header", () => {
+  assert.match(unified, /data-unified-section-hero-shell/);
+  assert.match(unified, /UnifiedSectionHeroShell/);
   assert.match(unified, /data-unified-section-hero/);
   assert.match(unified, /data-section-visual-key/);
   assert.match(unified, /data-unified-section-hero-media/);
   assert.match(unified, /data-unified-section-hero-copy/);
   assert.match(unified, /data-unified-section-hero-tools/);
-  assert.match(unified, /<h1>/);
+  assert.match(unified, /<h1 data-section-hero-title>/);
 });
 
 test("desktop keeps the persisted 16:7 crop while using a lower public height", () => {
@@ -39,6 +41,19 @@ test("desktop keeps the persisted 16:7 crop while using a lower public height", 
   assert.match(unifiedCss, /--section-visual-desktop-y/);
   assert.match(unifiedCss, /--section-visual-desktop-zoom/);
   assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
+});
+
+test("canonical hero shell owns landing geometry and mobile edge-to-edge media", () => {
+  assert.match(unifiedCss, /\.shell\s*\{[\s\S]*padding-top:\s*22px[\s\S]*padding-bottom:\s*32px/);
+  assert.match(unifiedCss, /@media \(max-width: 767px\)[\s\S]*\.shell\s*\{[\s\S]*padding-top:\s*14px[\s\S]*padding-bottom:\s*22px/);
+  assert.match(unifiedCss, /width:\s*100dvw/);
+  assert.match(unifiedCss, /border-radius:\s*0/);
+  assert.match(unifiedCss, /\.hero \.intro > p\s*\{[\s\S]*margin:\s*0/);
+  assert.match(unifiedCss, /\.hero \.intro > p \+ p\s*\{[\s\S]*margin-top:\s*8px/);
+  assert.doesNotMatch(news, /className="page-hero"/);
+  for (const source of [editorial, portalHub, portalTopic, directory, events, helpOverview, helpPage, adoption, lostFound, reviews, breeds, news]) {
+    assert.match(source, /UnifiedSectionHeroShell/);
+  }
 });
 
 test("mobile is a standalone low 16:6 media block with no overlay", () => {

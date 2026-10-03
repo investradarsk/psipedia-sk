@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { ArrowIcon } from "@/components/icons";
-import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
   UnifiedSectionHero,
+  UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { StructuredData } from "@/components/structured-data";
@@ -57,7 +58,7 @@ export default async function BreedsPage({ searchParams }: Props) {
       {schema && <StructuredData value={schema} />}
       <main id="obsah">
         <PublicFoundation className={styles.foundation}>
-          <PageContainer className={styles.headerShell} data-section-public-header>
+          <UnifiedSectionHeroShell>
             <UnifiedSectionHero
               breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Plemená</span></Breadcrumbs>}
               eyebrow={portalSection?.eyebrow ?? "Atlas plemien"}
@@ -79,7 +80,7 @@ export default async function BreedsPage({ searchParams }: Props) {
                 </PublicActionLink>
               }
             />
-          </PageContainer>
+          </UnifiedSectionHeroShell>
           <section className="page-body shell">
             <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
             <div className="breed-atlas-footer">

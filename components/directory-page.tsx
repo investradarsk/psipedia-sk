@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import {
@@ -169,7 +169,7 @@ export async function DirectoryPage({
   return (
     <main id="obsah" className={styles.page}>
       <PublicFoundation className={styles.foundation}>
-        <PageContainer className={styles.headerShell} data-directory-public-header>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs>
               <Link href="/">Domov</Link>
@@ -216,7 +216,9 @@ export async function DirectoryPage({
               />
             }
           />
+        </UnifiedSectionHeroShell>
 
+        <PageContainer>
           {active ? categoryNavigation : (
             <div className={styles.discovery} aria-labelledby="directory-discovery-title">
               <div className={styles.discoveryHeading}>

@@ -47,7 +47,7 @@ concurrency:
 
 jobs:
   source-contracts:
-    if: github.head_ref == 'codex/section-hero-v2'
+    if: github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -71,7 +71,7 @@ jobs:
         run: npm run build
 
   preview-visual:
-    if: github.head_ref == 'codex/section-hero-v2'
+    if: github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1'
     needs: source-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 45
