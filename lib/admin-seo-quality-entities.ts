@@ -4,6 +4,7 @@ import {
   eventSeoFallback,
   helpSeoFallback,
 } from "@/lib/content-seo";
+import { eventTypePortalHref, eventTypes, type EventType } from "@/lib/events";
 import { searchResultTitle } from "@/lib/seo";
 import {
   parseSeoAuditJson,
@@ -19,11 +20,13 @@ function num(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function withAlt(input: Omit<AdminSeoQualityEntity, "imageAlt"> & { imageAlt?: string }) {
+function withImageContract(
+  input: Omit<AdminSeoQualityEntity, "imageAlt"> & { imageAlt?: unknown },
+): AdminSeoQualityEntity {
   return {
     ...input,
-    imageAlt: seoAuditText(input.imageAlt) || seoAuditText(input.title),
-  } satisfies AdminSeoQualityEntity;
+    imageAlt: seoAuditText(input.imageAlt),
+  };
 }
 
 function directoryEntity(row: RawRow): AdminSeoQualityEntity {
@@ -33,7 +36,7 @@ function directoryEntity(row: RawRow): AdminSeoQualityEntity {
   const category = seoAuditText(row.category);
   const city = seoAuditText(row.city);
   const fallback = directorySeoFallback(name, city, category);
-  return withAlt({
+  return withImageContract({
     agenda: "directory",
     id: num(row.id),
     title: name,
@@ -50,6 +53,9 @@ function directoryEntity(row: RawRow): AdminSeoQualityEntity {
       ...seoStringsFromJson(row.qualifications_json),
     ],
     imageUrl: seoAuditText(row.image_url),
+    imageAlt: name ? `Fotografia služby ${name}` : "",
+    imageAltMode: "derived-public",
+    imageAltSource: "DirectoryProfileDetail: Fotografia služby {name}",
     city,
     cityRequired: num(row.online) !== 1,
     category,
@@ -64,30 +70,26 @@ function directoryEntity(row: RawRow): AdminSeoQualityEntity {
   });
 }
 
-const EVENT_PARENT: Record<string, string> = {
-  "Výstava": "/podujatia/vystavy",
-  "Preteky": "/podujatia/preteky",
-  "Seminár": "/podujatia/seminare",
-  "Tréning": "/podujatia/seminare",
-  "Stretnutie": "/podujatia",
-  "Iné": "/podujatia",
-};
+function eventParentPath(eventType: string) {
+  if (!(eventTypes as readonly string[]).includes(eventType)) return null;
+  return eventTypePortalHref(eventType as EventType);
+}
 
-function eventEntity(row: RawRow): AdminSeoQualityEntity {
+export function eventEntity(row: RawRow): AdminSeoQualityEntity {
   const seo = parseSeoAuditJson(row.seo_json);
   const title = seoAuditText(row.title);
   const slug = seoAuditText(row.slug);
   const eventType = seoAuditText(row.event_type);
   const city = seoAuditText(row.city);
   const fallback = eventSeoFallback(title, eventType, city);
-  return withAlt({
+  return withImageContract({
     agenda: "events",
     id: num(row.id),
     title,
     slug,
     adminHref: `/admin/podujatia/${num(row.id)}`,
     expectedCanonicalPath: `/podujatia/${slug}`,
-    parentPath: EVENT_PARENT[eventType] ?? null,
+    parentPath: eventParentPath(eventType),
     excerpt: seoAuditText(row.excerpt),
     description: seoAuditText(row.description),
     uniqueContentParts: [
@@ -96,6 +98,9 @@ function eventEntity(row: RawRow): AdminSeoQualityEntity {
       seoAuditText(row.practical_info),
     ],
     imageUrl: seoAuditText(row.image_url),
+    imageAlt: title,
+    imageAltMode: "derived-public",
+    imageAltSource: "EventDetail: event.title",
     city,
     cityRequired: true,
     category: eventType,
@@ -117,7 +122,9 @@ function helpEntity(row: RawRow): AdminSeoQualityEntity {
   const category = seoAuditText(row.category);
   const city = seoAuditText(row.city);
   const fallback = helpSeoFallback(title, category, city);
-  return withAlt({
+  const dogName = seoAuditText(row.dog_name);
+  const publicImageAlt = dogName ? `${dogName} – ${title}` : title;
+  return withImageContract({
     agenda: "help",
     id: num(row.id),
     title,
@@ -134,6 +141,9 @@ function helpEntity(row: RawRow): AdminSeoQualityEntity {
       seoAuditText(row.contact_note),
     ],
     imageUrl: seoAuditText(row.image_url),
+    imageAlt: publicImageAlt,
+    imageAltMode: "derived-public",
+    imageAltSource: "HelpDetailShell: dogName ? dogName – title : title",
     city,
     cityRequired: true,
     category,
@@ -160,7 +170,7 @@ function lostFoundEntity(row: RawRow): AdminSeoQualityEntity {
   const basePath = lost ? "/pomoc-psom/stratene-psy" : type === "FOUND" ? "/pomoc-psom/najdene-psy" : "";
   const description = seoAuditText(row.description);
   const resultDescription = `${lost ? "Stratený pes" : "Nájdený pes"} · ${city}. ${description}`.slice(0, 158);
-  return withAlt({
+  return withImageContract({
     agenda: "help",
     id: num(row.id),
     title,
@@ -179,6 +189,8 @@ function lostFoundEntity(row: RawRow): AdminSeoQualityEntity {
     ],
     imageUrl: seoAuditText(row.main_image),
     imageAlt: dogName ? `${lost ? "Stratený" : "Nájdený"} pes ${dogName}` : (lost ? "Stratený pes" : "Nájdený pes"),
+    imageAltMode: "derived-public",
+    imageAltSource: "LostFoundDogDetail: dogName/type label",
     city,
     cityRequired: true,
     category: type,
@@ -198,7 +210,7 @@ function organizationEntity(row: RawRow): AdminSeoQualityEntity {
   const slug = seoAuditText(row.slug);
   const shortDescription = seoAuditText(row.short_description);
   const description = seoAuditText(row.description);
-  return withAlt({
+  return withImageContract({
     agenda: "organizations",
     id: num(row.id),
     title: name,
@@ -210,6 +222,9 @@ function organizationEntity(row: RawRow): AdminSeoQualityEntity {
     description,
     uniqueContentParts: [shortDescription, description],
     imageUrl: seoAuditText(row.image_url),
+    imageAlt: name,
+    imageAltMode: "derived-public",
+    imageAltSource: "buildOrganizationMetadata: organization.name",
     city: seoAuditText(row.resolved_city),
     cityRequired: true,
     category: seoAuditText(row.type),
@@ -230,7 +245,7 @@ function adoptionEntity(row: RawRow): AdminSeoQualityEntity {
   const city = seoAuditText(row.city);
   const shortDescription = seoAuditText(row.short_description);
   const description = seoAuditText(row.description);
-  return withAlt({
+  return withImageContract({
     agenda: "adoptions",
     id: num(row.id),
     title: name,
@@ -249,6 +264,8 @@ function adoptionEntity(row: RawRow): AdminSeoQualityEntity {
     ],
     imageUrl: seoAuditText(row.main_image),
     imageAlt: name ? `${name} – pes na adopciu` : "",
+    imageAltMode: "derived-public",
+    imageAltSource: "AdoptionDetail: name – pes na adopciu",
     city,
     cityRequired: true,
     category: "adopcia",
@@ -269,7 +286,7 @@ function breedEntity(row: RawRow): AdminSeoQualityEntity {
   const slug = seoAuditText(row.slug);
   const fallback = breedSeoFallback(name);
   const editorialText = seoStringsFromJson(row.editorial_json);
-  return withAlt({
+  return withImageContract({
     agenda: "breeds",
     id: num(row.id),
     title: name,
@@ -290,6 +307,9 @@ function breedEntity(row: RawRow): AdminSeoQualityEntity {
       ...editorialText,
     ],
     imageUrl: seoAuditText(row.image_url),
+    imageAlt: name ? `${name} – profilová fotografia plemena` : "",
+    imageAltMode: "derived-public",
+    imageAltSource: "Breed profile hero: name – profilová fotografia plemena",
     cityRequired: false,
     categoryRequired: false,
     customSeoSupported: true,
@@ -302,7 +322,7 @@ function breedEntity(row: RawRow): AdminSeoQualityEntity {
   });
 }
 
-function articleEntity(row: RawRow): AdminSeoQualityEntity {
+export function articleEntity(row: RawRow): AdminSeoQualityEntity {
   const title = seoAuditText(row.title);
   const slug = seoAuditText(row.slug);
   const portalSection = seoAuditText(row.portal_section) || "clanky";
@@ -313,7 +333,7 @@ function articleEntity(row: RawRow): AdminSeoQualityEntity {
   const expectedCanonicalPath = portalSection === "clanky"
     ? `/clanky/${slug}`
     : `/${portalSection}/${slug}`;
-  return withAlt({
+  return withImageContract({
     agenda: "articles",
     id: num(row.id),
     title,
@@ -331,7 +351,9 @@ function articleEntity(row: RawRow): AdminSeoQualityEntity {
       ...seoStringsFromJson(row.blocks_json),
     ],
     imageUrl: seoAuditText(row.image_url),
-    imageAlt: seoAuditText(row.image_alt) || title,
+    imageAlt: seoAuditText(row.image_alt),
+    imageAltMode: "stored",
+    imageAltSource: "managed_articles.image_alt",
     cityRequired: false,
     category: seoAuditText(row.category),
     categoryRequired: true,
@@ -367,7 +389,7 @@ export async function loadPublishedSeoQualityEntities(database: D1Database): Pro
   entities.push(...events.results.map(eventEntity));
 
   const help = await database.prepare(`
-    SELECT id, slug, title, category, excerpt, description, city, location_note, contact_note, image_url, seo_json
+    SELECT id, slug, title, category, excerpt, description, dog_name, city, location_note, contact_note, image_url, seo_json
     FROM help_cases
     WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene')
     ORDER BY id
