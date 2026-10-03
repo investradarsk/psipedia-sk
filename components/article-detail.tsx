@@ -20,7 +20,7 @@ import type { ArticleDiscoveryData } from "@/lib/article-discovery";
 import type { EditorialAuthorProfile } from "@/lib/editorial-authors";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
-import { absoluteUrl, articleAuthorJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, articleAuthorJsonLd, buildWebPageJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { articleBlockHeadings, articleBlockPlainText, legacyArticleBlocks } from "@/lib/article-blocks";
 import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/editorial-content";
 import { AD_PLACEMENTS } from "@/lib/monetization";
@@ -66,7 +66,7 @@ export function ArticleDetail({
     : null;
   const topicHref = newsCategory ? `/novinky/${newsCategory.slug}` : reviewCategory ? portalSubpageHref(portalSection!, reviewCategory) : `/tema/${categorySlug(article.category)}`;
   const topicLabel = newsCategory?.label ?? reviewCategory?.label ?? article.category;
-  const canonical = article.seo?.canonicalUrl || `${SITE_URL}${articleHref(article)}`;
+  const canonical = absoluteUrl(article.seo?.canonicalUrl || articleHref(article));
   const image = article.image ? absoluteUrl(article.image) : undefined;
   const imageCreditHref = safeExternalImageCreditUrl(article.imageCreditUrl);
   const showImageMeta = Boolean(article.image && (article.imageCaption || article.imageCredit || imageCreditHref));
@@ -110,7 +110,7 @@ export function ArticleDetail({
         "@type": section === "novinky" ? "NewsArticle" : "Article",
         "@id": `${canonical}#article`,
         url: canonical,
-        mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+        mainEntityOfPage: { "@id": canonical },
         headline: article.title,
         description: article.excerpt,
         datePublished: article.dateIso,
@@ -121,16 +121,19 @@ export function ArticleDetail({
         keywords: [article.seo?.focusKeyword, portalSectionLabel(section), topicLabel, article.category, "psy"].filter(Boolean),
         wordCount,
         author: articleAuthorJsonLd(authorName),
-        publisher: {
-          "@type": "Organization",
-          "@id": ORGANIZATION_ID,
-          name: "Psipedia.sk",
-          url: SITE_URL,
-          logo: { "@type": "ImageObject", url: `${SITE_URL}/favicon.svg`, width: 64, height: 64 },
-        },
+        publisher: { "@id": ORGANIZATION_ID },
         image: image ? [image] : undefined,
         thumbnailUrl: image,
       },
+      buildWebPageJsonLd({
+        canonical,
+        name: article.title,
+        description: article.excerpt,
+        mainEntityId: `${canonical}#article`,
+        breadcrumbId: `${canonical}#breadcrumb`,
+        datePublished: article.dateIso,
+        dateModified: article.updatedDateIso,
+      }),
       {
         "@type": "BreadcrumbList",
         "@id": `${canonical}#breadcrumb`,
