@@ -15,6 +15,7 @@ export type ExistingNotionRecord = {
   psipediaId: string;
   url: string;
   properties: Record<string, ReconciliationValue>;
+  propertyTypes?: Record<string, string>;
 };
 
 export type ReconciliationActionKind =
@@ -67,7 +68,30 @@ export function normalizeCanonicalUrl(value: string) {
   }
 }
 
-function valuesEqual(left: ReconciliationValue, right: ReconciliationValue) {
+function normalizedDateValue(value: ReconciliationValue) {
+  if (typeof value !== "string") return normalizedScalar(value);
+  const clean = value.trim();
+  if (!clean) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return `date:${clean}`;
+
+  const match = clean.match(
+    /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})?$/,
+  );
+  if (!match) return `raw:${clean}`;
+
+  const normalized = `${match[1]}T${match[2]}${match[3] ?? ""}${match[4] ?? "Z"}`;
+  const timestamp = Date.parse(normalized);
+  return Number.isFinite(timestamp) ? `instant:${timestamp}` : `raw:${clean}`;
+}
+
+function valuesEqual(
+  left: ReconciliationValue,
+  right: ReconciliationValue,
+  propertyType = "",
+) {
+  if (propertyType === "date") {
+    return normalizedDateValue(left) === normalizedDateValue(right);
+  }
   return normalizedScalar(left) === normalizedScalar(right);
 }
 
@@ -96,7 +120,7 @@ function compareMatchedRecord(
 
   for (const [property, desired] of Object.entries(sourceProperties)) {
     const current = page.properties[property];
-    if (valuesEqual(current ?? null, desired)) continue;
+    if (valuesEqual(current ?? null, desired, page.propertyTypes?.[property])) continue;
 
     const ownership = property === "Psipedia ID" || property === "URL Psipedia"
       ? "system"
