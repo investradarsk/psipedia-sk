@@ -47,8 +47,8 @@ export default async function AdoptionPage({ searchParams }: Props) {
   return <>
     {schema && <StructuredData value={schema} />}
     <main id="obsah" tabIndex={-1}>
+      <AdoptionCatalog result={result} filters={filters} breeds={breeds} />
       <PageContainer className={styles.listingShell}>
-        <AdoptionCatalog result={result} filters={filters} breeds={breeds} />
         <p><Link href="/pomoc-psom">← Späť na Pomoc psom</Link></p>
       </PageContainer>
     </main>
