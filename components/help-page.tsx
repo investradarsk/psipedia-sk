@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HelpBrowser } from "@/components/help-browser";
 import { AlertCircleIcon, HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
+import { PageContainer } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
@@ -124,14 +125,14 @@ export async function HelpPage({
 
         <section className={styles.closingCta} aria-labelledby="help-closing-cta-heading">
           <div className={styles.closingCtaOverlay}>
-            <div className={[styles.shell, styles.closingCtaInner].join(" ")}>
+            <PageContainer className={styles.closingCtaInner}>
               <span className={styles.closingEyebrow}>Každá pomoc má zmysel</span>
               <h2 id="help-closing-cta-heading">Pomáhajme spolu</h2>
               <p>Lepší svet pre psov vzniká vďaka ľuďom, ktorí nechcú zostať bokom.</p>
               <PublicActionLink href="/pomoc-psom/dobrovolnictvo" variant="primary" icon={<ArrowIcon size={16} />}>
                 Chcem pomôcť
               </PublicActionLink>
-            </div>
+            </PageContainer>
           </div>
         </section>
       </PublicFoundation>
