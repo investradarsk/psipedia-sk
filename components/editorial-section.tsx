@@ -10,6 +10,7 @@ import {
   PublicContentList,
   PublicFoundation,
   PublicIcon,
+  PublicLandingSectionHeading,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -309,20 +310,24 @@ export async function EditorialSectionHub({
 
         <section className={styles.contentSection} aria-labelledby={`${sectionSlug}-latest`} data-section-content-list>
           <PageContainer>
-            <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Odporúčané a najnovšie</span><h2 id={`${sectionSlug}-latest`}>Čítaj priamo zo sekcie</h2></div>
-              <PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>
-            </div>
+            <PublicLandingSectionHeading
+              eyebrow="Odporúčané a najnovšie"
+              title="Čítaj priamo zo sekcie"
+              id={`${sectionSlug}-latest`}
+              action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
+            />
             <SectionContentList articles={visibleArticles} label={`Články v sekcii ${section.label}`} />
           </PageContainer>
         </section>
 
         <section className={styles.directorySection} aria-labelledby={`${sectionSlug}-areas`} data-section-directory>
           <PageContainer>
-            <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Oblasti</span><h2 id={`${sectionSlug}-areas`}>Vyber tému</h2></div>
-              <p>Stále kategórie s jasnou adresou, stručným kontextom a súvisiacim obsahom.</p>
-            </div>
+            <PublicLandingSectionHeading
+              eyebrow="Oblasti"
+              title="Vyber tému"
+              description="Stále kategórie s jasnou adresou, stručným kontextom a súvisiacim obsahom."
+              id={`${sectionSlug}-areas`}
+            />
             <div className={styles.dataGrid}>
               {subpages.map((subpage) => {
                 const topicArticles = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug);
@@ -356,14 +361,18 @@ export async function EditorialSectionHub({
 
         <section className={styles.nextSection} aria-labelledby={`${sectionSlug}-next`}>
           <PageContainer>
-            <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Ďalší krok</span><h2 id={`${sectionSlug}-next`}>Užitočné služby a pokračovanie</h2></div>
-              <HorizontalCarouselControls
-                targetId={`${sectionSlug}-next-carousel`}
-                className={styles.carouselControls}
-                buttonClassName={styles.carouselControl}
-              />
-            </div>
+            <PublicLandingSectionHeading
+              eyebrow="Ďalší krok"
+              title="Užitočné služby a pokračovanie"
+              id={`${sectionSlug}-next`}
+              action={
+                <HorizontalCarouselControls
+                  targetId={`${sectionSlug}-next-carousel`}
+                  className={styles.carouselControls}
+                  buttonClassName={styles.carouselControl}
+                />
+              }
+            />
             <div
               id={`${sectionSlug}-next-carousel`}
               className={styles.nextCarousel}
@@ -478,9 +487,11 @@ export async function EditorialSectionTopic({
 
           {(subpage.homeSteps?.length || subpage.warningSigns?.length || subpage.expertAdvice) && (
             <section className={styles.guidanceSection} aria-labelledby="topic-guidance-heading">
-              <div className={styles.sectionHeading}>
-                <div><span className={styles.eyebrow}>{labels.eyebrow}</span><h2 id="topic-guidance-heading">Užitočné kroky a hranice</h2></div>
-              </div>
+              <PublicLandingSectionHeading
+                eyebrow={labels.eyebrow}
+                title="Užitočné kroky a hranice"
+                id="topic-guidance-heading"
+              />
               <div className={styles.guidanceGrid}>
                 {!!subpage.homeSteps?.length && (
                   <article className={styles.guidanceCard}>
@@ -517,10 +528,12 @@ export async function EditorialSectionTopic({
           )}
 
           <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
-            <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Súvisiace čítanie</span><h2 id="topic-related-heading">Články: {subpage.label}</h2></div>
-              <PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>
-            </div>
+            <PublicLandingSectionHeading
+              eyebrow="Súvisiace čítanie"
+              title={<>Články: {subpage.label}</>}
+              id="topic-related-heading"
+              action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
+            />
             <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
           </section>
 
