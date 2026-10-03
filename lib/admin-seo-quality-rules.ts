@@ -110,6 +110,7 @@ export type AdminSeoQualityReport = {
     customGapEntities: number;
     findings: number;
   }>;
+  issueCounts: Record<AdminSeoIssueCode, number>;
   filters: Required<Pick<AdminSeoQualityFilters, "agenda" | "scope" | "issue">> & { query: string };
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
 };
