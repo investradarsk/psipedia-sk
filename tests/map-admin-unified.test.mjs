@@ -136,13 +136,13 @@ test("bulk stays unified, bounded 1-100 and server cursor-based", () => {
   assert.match(bulk, /MANAGED_EVENT/);
 });
 
-test("operator UI stays card-based and technical GEO remains secondary", () => {
+test("operator UI stays card-based while hidden GEO alerts stay out of the Mapy page", () => {
   assert.match(state, /geoAdminGenericOperatorState/);
   assert.match(loader, /geoAdminGenericOperatorState/);
   assert.doesNotMatch(dashboard, /<table/);
   assert.match(dashboard, /flexWrap: "wrap"/);
   assert.match(dashboard, /<details/);
-  assert.match(page, /Technické GEO detaily/);
+  assert.doesNotMatch(page, /Technické GEO detaily|GEO_LOCATION_ISSUE/);
 });
 
 test("MAP-ADMIN-UNIFIED adds no schema migration or manual-marker default", () => {
