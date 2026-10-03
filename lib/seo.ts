@@ -194,17 +194,49 @@ export function buildPageMetadata({
  * Keep document titles useful in search results without changing the visible
  * article heading. The root layout adds " | Psipedia.sk" afterwards.
  */
+export const SEARCH_TITLE_MAX_LENGTH = 60;
+export const SEARCH_DESCRIPTION_MAX_LENGTH = 155;
+export const PAGE_TITLE_BRAND_SUFFIX = ` | ${SITE_NAME}`;
+export const FALLBACK_PAGE_TITLE_MAX_LENGTH = SEARCH_TITLE_MAX_LENGTH - PAGE_TITLE_BRAND_SUFFIX.length;
+
 export function searchResultTitle(title: string, maxLength = 52) {
   const normalized = title.trim().replace(/\s+/g, " ");
   if (normalized.length <= maxLength) return normalized;
 
-  const candidate = normalized.slice(0, maxLength + 1);
+  const available = Math.max(1, maxLength - 1);
+  const candidate = normalized.slice(0, available + 1);
   const lastSpace = candidate.lastIndexOf(" ");
-  const shortened = lastSpace >= Math.floor(maxLength * 0.7)
+  const shortened = lastSpace >= Math.floor(available * 0.7)
     ? candidate.slice(0, lastSpace)
-    : normalized.slice(0, maxLength);
+    : normalized.slice(0, available);
+  const clean = shortened.replace(/[\s,:;.!?–—-]+$/u, "").trim();
 
-  return `${shortened.replace(/[\s,:;.!?–—-]+$/u, "")}…`;
+  return `${clean || normalized.slice(0, available)}…`;
+}
+
+/**
+ * Fallback page titles are sized for the root "%s | Psipedia.sk" template.
+ * Explicit custom SEO titles remain authoritative and are not shortened here.
+ */
+export function compactPageTitle(title: string, maxDocumentLength = SEARCH_TITLE_MAX_LENGTH) {
+  const normalized = pageTitleWithoutBrand(title);
+  const maxPageLength = Math.max(24, maxDocumentLength - PAGE_TITLE_BRAND_SUFFIX.length);
+  return searchResultTitle(normalized, maxPageLength);
+}
+
+export function searchResultDescription(description: string, maxLength = SEARCH_DESCRIPTION_MAX_LENGTH) {
+  const normalized = description.trim().replace(/\s+/g, " ");
+  if (normalized.length <= maxLength) return normalized;
+
+  const available = Math.max(1, maxLength - 1);
+  const candidate = normalized.slice(0, available + 1);
+  const lastSpace = candidate.lastIndexOf(" ");
+  const shortened = lastSpace >= Math.floor(available * 0.7)
+    ? candidate.slice(0, lastSpace)
+    : normalized.slice(0, available);
+  const clean = shortened.replace(/[\s,:;.!?–—-]+$/u, "").trim();
+
+  return `${clean || normalized.slice(0, available)}…`;
 }
 
 export function articleAuthorJsonLd(author: string) {
