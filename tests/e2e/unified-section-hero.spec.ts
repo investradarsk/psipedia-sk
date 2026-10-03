@@ -25,6 +25,8 @@ const ROUTES = [
   { slug: "recenzie-krmiva", path: "/recenzie/krmiva", visualKey: "reviews.krmiva" },
 ] as const;
 
+const ROOT_ROUTE_SLUGS = new Set(["steniatka", "starostlivost", "aktivity", "novinky", "plemena", "adresar", "podujatia", "pomoc", "recenzie"]);
+
 const VIEWPORTS = [
   { label: "mobile-390", width: 390, height: 844 },
   { label: "mobile-430", width: 430, height: 932 },
@@ -80,6 +82,8 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
     const opened = await makePage(browser, viewport);
     let referenceSideInset: number | null = null;
     let referenceVisualHeight: number | null = null;
+    let referenceRootHeroY: number | null = null;
+    let referenceRootHeroWidth: number | null = null;
     try {
       for (const route of ROUTES) {
         const label = viewport.label + " " + route.path;
@@ -91,14 +95,27 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         }));
         expect(overflow.scrollWidth, label + ": horizontal overflow").toBeLessThanOrEqual(overflow.clientWidth + 1);
 
+        const shell = opened.page.locator("[data-unified-section-hero-shell]").first();
+        await expect(shell, label + ": canonical hero shell").toBeVisible();
         const media = hero.locator("[data-unified-section-hero-media]");
         const visual = hero.locator("[data-unified-section-hero-visual]");
         const copy = hero.locator("[data-unified-section-hero-copy]");
         const tools = hero.locator("[data-unified-section-hero-tools]");
+        const shellBox = await shell.boundingBox();
         const heroBox = await hero.boundingBox();
         const visualBox = await visual.boundingBox();
+        expect(shellBox, label + ": shell box").not.toBeNull();
         expect(heroBox, label + ": hero box").not.toBeNull();
         expect(visualBox, label + ": visual box").not.toBeNull();
+        expect(Math.abs(heroBox!.x - shellBox!.x), label + ": hero aligns to canonical shell left edge").toBeLessThanOrEqual(1);
+        expect(Math.abs(heroBox!.width - shellBox!.width), label + ": hero matches canonical shell width").toBeLessThanOrEqual(1);
+
+        if (ROOT_ROUTE_SLUGS.has(route.slug)) {
+          if (referenceRootHeroY === null) referenceRootHeroY = heroBox!.y;
+          if (referenceRootHeroWidth === null) referenceRootHeroWidth = heroBox!.width;
+          expect(Math.abs(heroBox!.y - referenceRootHeroY), label + ": canonical root hero top Y").toBeLessThanOrEqual(2);
+          expect(Math.abs(heroBox!.width - referenceRootHeroWidth), label + ": canonical root hero width").toBeLessThanOrEqual(2);
+        }
 
         const sideInset = (overflow.clientWidth - heroBox!.width) / 2;
         if (referenceSideInset === null) referenceSideInset = sideInset;
@@ -107,6 +124,30 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         if (viewport.width >= 768) {
           if (referenceVisualHeight === null) referenceVisualHeight = visualBox!.height;
           expect(Math.abs(visualBox!.height - referenceVisualHeight), label + ": canonical desktop visual height").toBeLessThanOrEqual(2);
+        }
+
+        const breadcrumbs = hero.locator("[data-section-hero-breadcrumbs]");
+        const eyebrow = hero.locator("[data-section-hero-eyebrow]");
+        const title = hero.locator("[data-section-hero-title]");
+        const intro = hero.locator("[data-section-hero-intro]");
+
+        if (await breadcrumbs.count() && await eyebrow.count()) {
+          const breadcrumbsBox = await breadcrumbs.boundingBox();
+          const eyebrowBox = await eyebrow.boundingBox();
+          const expectedGap = viewport.width <= 767 ? 10 : 12;
+          expect(Math.abs(eyebrowBox!.y - (breadcrumbsBox!.y + breadcrumbsBox!.height) - expectedGap), label + ": breadcrumb→eyebrow gap").toBeLessThanOrEqual(2);
+        }
+        if (await eyebrow.count()) {
+          const eyebrowBox = await eyebrow.boundingBox();
+          const titleBox = await title.boundingBox();
+          const expectedGap = viewport.width <= 767 ? 7 : 8;
+          expect(Math.abs(titleBox!.y - (eyebrowBox!.y + eyebrowBox!.height) - expectedGap), label + ": eyebrow→H1 gap").toBeLessThanOrEqual(2);
+        }
+        if (await intro.count()) {
+          const titleBox = await title.boundingBox();
+          const introBox = await intro.boundingBox();
+          const expectedGap = viewport.width <= 767 ? 9 : 12;
+          expect(Math.abs(introBox!.y - (titleBox!.y + titleBox!.height) - expectedGap), label + ": H1→intro gap").toBeLessThanOrEqual(2);
         }
 
         if (viewport.width <= 430) {
@@ -119,9 +160,19 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
 
           const mediaBox = await media.boundingBox();
           expect(mediaBox, label + ": media box").not.toBeNull();
+          expect(Math.abs(mediaBox!.x), label + ": mobile media left edge").toBeLessThanOrEqual(1);
+          expect(Math.abs((mediaBox!.x + mediaBox!.width) - overflow.clientWidth), label + ": mobile media right edge").toBeLessThanOrEqual(1);
+          const mediaRadius = await media.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
+          expect(mediaRadius, label + ": mobile media radius").toBe("0px");
           const ratio = mediaBox!.width / mediaBox!.height;
           expect(ratio, label + ": mobile media should be low 16:6").toBeGreaterThan(2.62);
           expect(ratio, label + ": mobile media should be low 16:6").toBeLessThan(2.72);
+
+          if (await intro.count()) {
+            const mediaBoxNow = await media.boundingBox();
+            const introBox = await intro.boundingBox();
+            expect(Math.abs(mediaBoxNow!.y - (introBox!.y + introBox!.height) - 16), label + ": intro→image gap").toBeLessThanOrEqual(2);
+          }
 
           if (await tools.count()) {
             await expect.poll(async () => {
@@ -175,6 +226,18 @@ test("SECTION-HERO-V2 keeps homepage as a separate visual reference", async ({ b
       await opened.context.close();
     }
   }
+});
+
+test("UNIFIED-SECTION-HERO intro paragraphs use only canonical margins", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto("/steniatka", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  const introParagraphs = page.locator("[data-section-hero-intro] > p");
+  await expect(introParagraphs).toHaveCount(2);
+  expect(await introParagraphs.nth(0).evaluate((node) => getComputedStyle(node).marginTop)).toBe("0px");
+  expect(await introParagraphs.nth(0).evaluate((node) => getComputedStyle(node).marginBottom)).toBe("0px");
+  expect(await introParagraphs.nth(1).evaluate((node) => getComputedStyle(node).marginTop)).toBe("8px");
+  expect(await introParagraphs.nth(1).evaluate((node) => getComputedStyle(node).marginBottom)).toBe("0px");
 });
 
 test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async ({ page }) => {
