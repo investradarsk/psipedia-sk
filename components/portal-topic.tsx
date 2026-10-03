@@ -3,7 +3,7 @@ import { ArticleCard } from "@/components/article-card";
 import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
-import { UnifiedSectionHero } from "@/components/public-visual-system";
+import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
@@ -96,7 +96,7 @@ export async function PortalTopic({
   return (
     <main id="obsah">
       {isReviews && reviewHeroVisual ? (
-        <div className="shell public-shell portal-unified-hero">
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs>
               <Link href="/">Domov</Link><span>/</span><Link href="/recenzie">Recenzie a testy</Link><span>/</span><span>{subpage.label}</span>
@@ -118,7 +118,7 @@ export async function PortalTopic({
               />
             }
           />
-        </div>
+        </UnifiedSectionHeroShell>
       ) : (
         <SectionHero
           className={`portal-topic-hero portal-section-hero portal-topic-hero--${section.accent}`}
