@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
+import { BreedCrawlIndex } from "@/components/breed-crawl-index";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
 import {
@@ -85,6 +86,7 @@ export default async function BreedsPage({ searchParams }: Props) {
           <section className="page-body">
             <PublicContentShell variant="listing">
             <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
+            {policy.kind === "clean" && <BreedCrawlIndex breeds={breeds} groups={fciGroups} />}
             <div className="breed-atlas-footer">
               <nav className="breed-utility-links" aria-label="Ďalšie možnosti v sekcii Plemená">
                 {portalSection?.subpages.filter((subpage) => subpage.slug !== "atlas" && subpage.slug !== "porovnanie").map((subpage) => (
