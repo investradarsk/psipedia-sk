@@ -9,6 +9,7 @@ import {
   validateNotionSchema,
 } from "../lib/notion-bulk-reconciliation.ts";
 import {
+  buildNotionUpdateDiagnostics,
   notionBulkAgendaKeysForScope,
   isNotionBulkScope,
 } from "../lib/notion-bulk-backfill.ts";
@@ -66,6 +67,65 @@ test("same canonical data plans UNCHANGED", () => {
     [page("p1", 1, "A", "https://psipedia.sk/x/1", { Web: "https://example.sk" })],
   );
   assert.equal(plan.unchanged, 1);
+});
+
+test("dry-run diagnostics count update fields and show source vs Notion values", () => {
+  const notion = [
+    page(
+      "p1",
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { Slug: "old-a", "Aktualizované": "2026-08-16T09:01:00Z" },
+      { Slug: "rich_text", "Aktualizované": "date" },
+    ),
+    page(
+      "p2",
+      2,
+      "B",
+      "https://psipedia.sk/x/2",
+      { Slug: "old-b", "Aktualizované": "2026-08-16T10:01:00Z" },
+      { Slug: "rich_text", "Aktualizované": "date" },
+    ),
+  ];
+  const plan = planNotionReconciliation(
+    [
+      source(
+        1,
+        "A",
+        "https://psipedia.sk/x/1",
+        { Slug: "new-a", "Aktualizované": "2026-08-17T09:01:00Z" },
+        { Slug: "system", "Aktualizované": "system" },
+      ),
+      source(
+        2,
+        "B",
+        "https://psipedia.sk/x/2",
+        { Slug: "new-b", "Aktualizované": "2026-08-17T10:01:00Z" },
+        { Slug: "system", "Aktualizované": "system" },
+      ),
+    ],
+    notion,
+  );
+
+  const diagnostics = buildNotionUpdateDiagnostics(plan, notion);
+  assert.deepEqual(diagnostics.updateFieldCounts, {
+    "Aktualizované": 2,
+    Slug: 2,
+  });
+  assert.equal(diagnostics.updateSamples.length, 4);
+  assert.deepEqual(
+    diagnostics.updateSamples.find((sample) => sample.field === "Aktualizované"),
+    {
+      psipediaId: "1",
+      title: "A",
+      notionPageId: "p1",
+      field: "Aktualizované",
+      propertyType: "date",
+      sourceValue: "2026-08-17T09:01:00Z",
+      notionValue: "2026-08-16T09:01:00Z",
+    },
+  );
 });
 
 test("date round-trip with equivalent ISO datetime plans UNCHANGED", () => {
