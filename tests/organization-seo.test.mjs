@@ -71,6 +71,7 @@ test("metadata uses a safe deterministic organization fallback when descriptions
 test("Organization JSON-LD has stable canonical identity plus a real breadcrumb hierarchy", () => {
   const jsonLd = buildOrganizationJsonLd(organization());
   const entity = graphEntity(jsonLd, "Organization");
+  const webPage = graphEntity(jsonLd, "WebPage");
   const breadcrumb = graphEntity(jsonLd, "BreadcrumbList");
 
   assert.deepEqual(entity, {
@@ -78,16 +79,32 @@ test("Organization JSON-LD has stable canonical identity plus a real breadcrumb 
     "@id": "https://psipedia.sk/organizacie/psia-nadej#organization",
     name: "Psia nádej",
     url: "https://psipedia.sk/organizacie/psia-nadej",
+    mainEntityOfPage: { "@id": "https://psipedia.sk/organizacie/psia-nadej" },
     description: "Bezpečný verejný opis organizácie.",
     image: "https://psipedia.sk/media/organizations/psia-nadej.webp",
+    logo: {
+      "@type": "ImageObject",
+      url: "https://psipedia.sk/media/organizations/psia-nadej.webp",
+    },
     email: "info@example.sk",
     telephone: "+421 900 123 456",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Nitra",
+      addressRegion: "Nitriansky kraj",
+      addressCountry: "SK",
+    },
     sameAs: [
       "https://example.sk/",
       "https://facebook.com/example",
       "https://instagram.com/example",
     ],
   });
+  assert.equal(webPage["@id"], "https://psipedia.sk/organizacie/psia-nadej");
+  assert.deepEqual(webPage.publisher, { "@id": "https://psipedia.sk/#organization" });
+  assert.deepEqual(webPage.isPartOf, { "@id": "https://psipedia.sk/#website" });
+  assert.deepEqual(webPage.mainEntity, { "@id": "https://psipedia.sk/organizacie/psia-nadej#organization" });
+  assert.deepEqual(webPage.breadcrumb, { "@id": "https://psipedia.sk/organizacie/psia-nadej#breadcrumb" });
   assert.deepEqual(breadcrumb.itemListElement, [
     { "@type": "ListItem", position: 1, name: "Domov", item: "https://psipedia.sk/" },
     { "@type": "ListItem", position: 2, name: "Pomoc psom", item: "https://psipedia.sk/pomoc-psom" },
@@ -116,6 +133,13 @@ test("Organization JSON-LD excludes unsafe URLs and empty optional values withou
     "@id": "https://psipedia.sk/organizacie/psia-nadej#organization",
     name: "Psia nádej",
     url: "https://psipedia.sk/organizacie/psia-nadej",
+    mainEntityOfPage: { "@id": "https://psipedia.sk/organizacie/psia-nadej" },
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Nitra",
+      addressRegion: "Nitriansky kraj",
+      addressCountry: "SK",
+    },
   });
   assert.equal(JSON.stringify(jsonLd).includes("undefined"), false);
   assert.equal(JSON.stringify(jsonLd).includes("null"), false);

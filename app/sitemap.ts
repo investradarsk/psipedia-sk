@@ -74,6 +74,7 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
   const latestHelp = latestModified(helpCases.map((item) => item.updatedAt));
   const latestLostFound = latestModified(lostFoundReports.map((item) => item.updatedAt));
   const latestAdoptions = latestModified(adoptions.map((item) => item.updatedAt));
+  const latestOrganizations = latestModified(organizations.map((item) => item.updatedAt));
   const latestBreeds = latestModified(breeds.map((breed) => breed.updatedAt));
   const latestSections = latestModified(portalSections.map((section) => section.updatedAt));
   const homepageModified = latestModified([
@@ -262,6 +263,7 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
     sitemapEntry("/pomoc-psom/adopcia", { lastModified: latestAdoptions, changeFrequency: "daily", priority: 0.85 }),
     sitemapEntry("/pomoc-psom/stratene-psy", { lastModified: latestLostFound, changeFrequency: "daily", priority: 0.85 }),
     sitemapEntry("/pomoc-psom/najdene-psy", { lastModified: latestLostFound, changeFrequency: "daily", priority: 0.85 }),
+    sitemapEntry("/organizacie", { lastModified: latestOrganizations, changeFrequency: "weekly", priority: 0.65 }),
     ...["/o-nas", "/zasady-obsahu", "/sukromie", "/cookies", "/podmienky-pouzivania", "/pravne-informacie", "/opravy-a-podnety"]
       .map((path) => sitemapEntry(path, { changeFrequency: "monthly", priority: 0.5 })),
     ...portalSections.flatMap((section) => {

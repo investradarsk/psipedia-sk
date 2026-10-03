@@ -19,7 +19,7 @@ import { getManagedPortalSection, getManagedPortalSubpage } from "@/lib/section-
 import { buildListingPageMetadata, buildCollectionPageJsonLd, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, eventSeoFallback, resolvedCanonical } from "@/lib/content-seo";
-import { absoluteUrl, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, buildWebPageJsonLd, SITE_URL } from "@/lib/seo";
 import { legacyArticleRedirectPath } from "@/lib/legacy-public-redirects";
 import { getPublicMapItemsForEntity } from "@/lib/map-query";
 import { getPublicMapRuntime } from "@/lib/public-map-runtime";
@@ -152,9 +152,57 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       const event = buildPublicEventPresentation(storedEvent);
       const canonical = resolvedCanonical(event.seo, eventHref(event));
       const eventCategory = eventPortalCategory(event.eventType);
-      const location = event.region === "Online" ? { "@type": "VirtualLocation", url: event.websiteUrl || canonical } : { "@type": "Place", name: event.venue || event.city, address: { "@type": "PostalAddress", streetAddress: event.address || undefined, addressLocality: event.city, addressRegion: event.region, addressCountry: "SK" } };
-      const breadcrumbItems = [{ "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Podujatia", item: `${SITE_URL}/podujatia` }, ...(eventCategory ? [{ "@type": "ListItem", position: 3, name: eventCategory.label, item: absoluteUrl(eventCategory.href) }] : []), { "@type": "ListItem", position: eventCategory ? 4 : 3, name: event.title, item: canonical }];
-      const schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Event", "@id": `${canonical}#event`, name: event.title, description: event.description || event.excerpt, startDate: eventDateTimeIso(event.startDate, event.startTime), endDate: event.endDate ? eventDateTimeIso(event.endDate, event.endTime) : undefined, eventStatus: event.cancelled ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled", eventAttendanceMode: event.region === "Online" ? "https://schema.org/OnlineEventAttendanceMode" : "https://schema.org/OfflineEventAttendanceMode", location, organizer: { "@type": "Organization", name: event.organizer, url: event.websiteUrl || undefined }, image: event.imageUrl ? [absoluteUrl(event.imageUrl)] : undefined, url: canonical }, { "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`, itemListElement: breadcrumbItems }] };
+      const eventEntityId = `${canonical}#event`;
+      const breadcrumbId = `${canonical}#breadcrumb`;
+      const location = event.region === "Online"
+        ? { "@type": "VirtualLocation", url: event.websiteUrl || canonical }
+        : {
+            "@type": "Place",
+            name: event.venue || event.city,
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: event.address || undefined,
+              addressLocality: event.city,
+              addressRegion: event.region,
+              addressCountry: "SK",
+            },
+          };
+      const breadcrumbItems = [
+        { "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Podujatia", item: `${SITE_URL}/podujatia` },
+        ...(eventCategory ? [{ "@type": "ListItem", position: 3, name: eventCategory.label, item: absoluteUrl(eventCategory.href) }] : []),
+        { "@type": "ListItem", position: eventCategory ? 4 : 3, name: event.title, item: canonical },
+      ];
+      // Event data does not carry a canonical organizer entity/logo. Do not invent a foreign Organization node.
+      const schema = {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Event",
+            "@id": eventEntityId,
+            name: event.title,
+            description: event.description || event.excerpt,
+            startDate: eventDateTimeIso(event.startDate, event.startTime),
+            endDate: event.endDate ? eventDateTimeIso(event.endDate, event.endTime) : undefined,
+            eventStatus: event.cancelled ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled",
+            eventAttendanceMode: event.region === "Online"
+              ? "https://schema.org/OnlineEventAttendanceMode"
+              : "https://schema.org/OfflineEventAttendanceMode",
+            location,
+            mainEntityOfPage: { "@id": canonical },
+            image: event.imageUrl ? [absoluteUrl(event.imageUrl)] : undefined,
+            url: canonical,
+          },
+          buildWebPageJsonLd({
+            canonical,
+            name: event.title,
+            description: event.description || event.excerpt,
+            mainEntityId: eventEntityId,
+            breadcrumbId,
+          }),
+          { "@type": "BreadcrumbList", "@id": breadcrumbId, itemListElement: breadcrumbItems },
+        ],
+      };
       const [related, publicMap] = await Promise.all([
         getUpcomingEvents(8).then((events) => selectRelatedEvents(event, events)),
         getPublicMapItemsForEntity({ entityType: "MANAGED_EVENT", entityId: event.id })
