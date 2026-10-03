@@ -22,7 +22,6 @@ import {
   type MediaSourceMonitor,
 } from "@/lib/media-source-monitor";
 import {
-  listCanonicalAutomationUpdateSuggestionEntityIds,
   listCanonicalAutomationUpdateSuggestionsForEntities,
   type AutomationUpdateOrigin,
 } from "@/lib/data-automation-update-review";
@@ -506,9 +505,9 @@ async function loadProfileQualityPage(
   requestedPage: number,
   filters: ProfileQualityFilters,
   loadAllMatches = false,
+  includeItems = true,
 ): Promise<ProfileReadData> {
   const db = database();
-  const locationOptions = await loadDirectoryLocationOptions(db, filters);
   if (filters.category === "podujatia") {
     return {
       summary: {
@@ -523,13 +522,14 @@ async function loadProfileQualityPage(
       },
       profiles: [],
       pagination: emptyPagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE),
-      ...locationOptions,
+      regionOptions: [],
+      districtOptions: [],
     };
   }
 
   const baseFilter = profileFilterSql(filters, { includeIssue: false, includePriority: false });
   const resultFilter = profileFilterSql(filters);
-  const summaryRow = await db.prepare(`
+  const summaryPromise = db.prepare(`
     SELECT
       COUNT(*) AS total_profiles,
       SUM(CASE WHEN ${PROFILE_ISSUE_SQL} THEN 1 ELSE 0 END) AS profiles_with_issues,
@@ -542,7 +542,23 @@ async function loadProfileQualityPage(
     FROM directory_profiles
     WHERE status <> 'archived'${baseFilter.clause}
   `).bind(...baseFilter.bindings).first<ProfileSummaryRow>();
+  const locationOptionsPromise = includeItems
+    ? loadDirectoryLocationOptions(db, filters)
+    : Promise.resolve({ regionOptions: [] as string[], districtOptions: [] as string[] });
+  const countPromise = includeItems
+    ? db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM directory_profiles
+        WHERE status <> 'archived'${resultFilter.clause}
+          AND ${PROFILE_ISSUE_SQL}
+      `).bind(...resultFilter.bindings).first<{ count: number }>()
+    : Promise.resolve<{ count: number }>({ count: 0 });
 
+  const [summaryRow, countRow, locationOptions] = await Promise.all([
+    summaryPromise,
+    countPromise,
+    locationOptionsPromise,
+  ]);
   const summary = {
     totalProfiles: Number(summaryRow?.total_profiles ?? 0),
     profilesWithIssues: Number(summaryRow?.profiles_with_issues ?? 0),
@@ -554,12 +570,15 @@ async function loadProfileQualityPage(
     incompleteAddress: Number(summaryRow?.incomplete_address ?? 0),
   };
 
-  const countRow = await db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM directory_profiles
-    WHERE status <> 'archived'${resultFilter.clause}
-      AND ${PROFILE_ISSUE_SQL}
-  `).bind(...resultFilter.bindings).first<{ count: number }>();
+  if (!includeItems) {
+    return {
+      summary,
+      profiles: [],
+      pagination: emptyPagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE),
+      ...locationOptions,
+    };
+  }
+
   const resultCount = Number(countRow?.count ?? 0);
   const paging = pagination(requestedPage, DATA_QUALITY_PROFILE_PAGE_SIZE, resultCount);
   const rows: DirectoryQualityRow[] = [];
@@ -623,13 +642,14 @@ async function loadQualitySuggestionsForProfiles(
   issue: DataQualityIssueFilter,
 ) {
   if (!profiles.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
-  const candidateIds = new Set(await listCanonicalAutomationUpdateSuggestionEntityIds({ entityType: "DIRECTORY" }, db));
-  const profileIdSet = new Set(profiles.map((profile) => profile.id));
-  const relevantIds = [...candidateIds].filter((id) => profileIdSet.has(id));
-  if (!relevantIds.length) return [] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>;
+  const relevantIds = [...new Set(
+    profiles
+      .map((profile) => Number(profile.id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0),
+  )];
 
   const suggestions = [];
-  for (const batch of chunks(relevantIds, 40)) {
+  for (const batch of chunks(relevantIds, 80)) {
     suggestions.push(...await listCanonicalAutomationUpdateSuggestionsForEntities({
       entityType: "DIRECTORY",
       canonicalEntityIds: batch,
@@ -704,6 +724,7 @@ async function loadMediaQualityPage(
   requestedPage: number,
   category: DataQualityCategory,
   mediaStatus: DataQualityMediaStatus,
+  includeItems = true,
 ): Promise<MediaReadData> {
   const db = database();
   if (!await mediaSourceMonitorSchemaReady(db)) {
@@ -713,7 +734,7 @@ async function loadMediaQualityPage(
   }
 
   const mediaCategory = mediaCategorySql(category);
-  const summaryRow = await db.prepare(`
+  const summaryPromise = db.prepare(`
     SELECT
       COUNT(*) AS media_issues,
       SUM(CASE WHEN status IN ('CHANGED','CANDIDATE') THEN 1 ELSE 0 END) AS changed_media,
@@ -721,17 +742,33 @@ async function loadMediaQualityPage(
     FROM media_source_monitors
     WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}
   `).bind(...mediaCategory.bindings).first<MediaSummaryRow>();
+
+  if (!includeItems) {
+    const summaryRow = await summaryPromise;
+    return {
+      summary: {
+        mediaIssues: Number(summaryRow?.media_issues ?? 0),
+        changedMedia: Number(summaryRow?.changed_media ?? 0),
+        missingMediaSource: Number(summaryRow?.missing_media_source ?? 0),
+      },
+      monitors: [],
+      pagination: emptyPagination(requestedPage, DATA_QUALITY_MEDIA_PAGE_SIZE),
+      monitorReady: true,
+    };
+  }
+
+  const statusClause = mediaStatusSql(mediaStatus);
+  const countPromise = db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM media_source_monitors
+    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}${statusClause}
+  `).bind(...mediaCategory.bindings).first<{ count: number }>();
+  const [summaryRow, countRow] = await Promise.all([summaryPromise, countPromise]);
   const summary = {
     mediaIssues: Number(summaryRow?.media_issues ?? 0),
     changedMedia: Number(summaryRow?.changed_media ?? 0),
     missingMediaSource: Number(summaryRow?.missing_media_source ?? 0),
   };
-  const statusClause = mediaStatusSql(mediaStatus);
-  const countRow = await db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM media_source_monitors
-    WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')${mediaCategory.clause}${statusClause}
-  `).bind(...mediaCategory.bindings).first<{ count: number }>();
   const resultCount = Number(countRow?.count ?? 0);
   const paging = pagination(requestedPage, DATA_QUALITY_MEDIA_PAGE_SIZE, resultCount);
   const offset = (paging.page - 1) * paging.pageSize;
@@ -853,6 +890,7 @@ export async function loadDataQualityDashboard(input: {
   region?: string;
   district?: string;
   mediaStatus?: string;
+  section?: "profiles" | "media";
 } = {}): Promise<DataQualityDashboard> {
   const requestedProfilePage = safePage(input.profilePage);
   const requestedMediaPage = safePage(input.mediaPage);
@@ -887,61 +925,77 @@ export async function loadDataQualityDashboard(input: {
     district,
   };
 
-  const profileRead = await readAdminAutomationData({
-    key: "data-quality:profiles",
-    load: () => loadProfileQualityPage(requestedProfilePage, profileFilters, solution !== "all"),
-    fallback: {
-      summary: {
-        totalProfiles: 0,
-        profilesWithIssues: 0,
-        missingDescription: 0,
-        missingPhone: 0,
-        missingEmail: 0,
-        missingWebsite: 0,
-        missingImage: 0,
-        incompleteAddress: 0,
+  const section = input.section === "media" ? "media" : "profiles";
+  const [profileRead, mediaRead] = await Promise.all([
+    readAdminAutomationData({
+      key: "data-quality:profiles",
+      load: () => loadProfileQualityPage(
+        requestedProfilePage,
+        profileFilters,
+        solution !== "all",
+        section === "profiles",
+      ),
+      fallback: {
+        summary: {
+          totalProfiles: 0,
+          profilesWithIssues: 0,
+          missingDescription: 0,
+          missingPhone: 0,
+          missingEmail: 0,
+          missingWebsite: 0,
+          missingImage: 0,
+          incompleteAddress: 0,
+        },
+        profiles: [],
+        pagination: emptyPagination(requestedProfilePage, DATA_QUALITY_PROFILE_PAGE_SIZE),
+        regionOptions: [],
+        districtOptions: [],
       },
-      profiles: [],
-      pagination: emptyPagination(requestedProfilePage, DATA_QUALITY_PROFILE_PAGE_SIZE),
-      regionOptions: [],
-      districtOptions: [],
-    },
-    empty: (value) => value.summary.totalProfiles === 0,
-  });
+      empty: (value) => value.summary.totalProfiles === 0,
+    }),
+    readAdminAutomationData({
+      key: "data-quality:media",
+      load: () => loadMediaQualityPage(
+        requestedMediaPage,
+        category,
+        mediaStatus,
+        section === "media",
+      ),
+      fallback: {
+        summary: { mediaIssues: 0, changedMedia: 0, missingMediaSource: 0 },
+        monitors: [],
+        pagination: emptyPagination(requestedMediaPage, DATA_QUALITY_MEDIA_PAGE_SIZE),
+        monitorReady: false,
+      },
+      empty: (value) => value.summary.mediaIssues === 0,
+    }),
+  ]);
 
-  const suggestionRead = await readAdminAutomationData({
-    key: "data-quality:profile-suggestions",
-    load: () => loadQualitySuggestionsForProfiles(profileRead.data.profiles, database(), issue),
-    fallback: [],
-    empty: (value) => value.length === 0,
-  });
-
-  const mediaRead = await readAdminAutomationData({
-    key: "data-quality:media",
-    load: () => loadMediaQualityPage(requestedMediaPage, category, mediaStatus),
-    fallback: {
-      summary: { mediaIssues: 0, changedMedia: 0, missingMediaSource: 0 },
-      monitors: [],
-      pagination: emptyPagination(requestedMediaPage, DATA_QUALITY_MEDIA_PAGE_SIZE),
-      monitorReady: false,
-    },
-    empty: (value) => value.summary.mediaIssues === 0,
-  });
-
-  const lookupRead = await readAdminAutomationData({
-    key: "data-quality:entity-lookups",
-    load: async () => {
-      if (mediaRead.status === "UNAVAILABLE") {
-        const error = new Error("Media údaje pre lookup nie sú dostupné.");
-        error.name = "DataQualityLookupDependencyUnavailable";
-        throw error;
-      }
-      if (!mediaRead.data.monitors.length) return [];
-      return resolveDataQualityMediaItems(database(), mediaRead.data.monitors);
-    },
-    fallback: fallbackMediaItems(mediaRead.data.monitors),
-    empty: (value) => value.length === 0,
-  });
+  const [suggestionRead, lookupRead] = await Promise.all([
+    readAdminAutomationData({
+      key: "data-quality:profile-suggestions",
+      load: () => section === "profiles"
+        ? loadQualitySuggestionsForProfiles(profileRead.data.profiles, database(), issue)
+        : Promise.resolve([] as Array<{ profileId: number; suggestion: DataQualityFieldSuggestion }>),
+      fallback: [],
+      empty: (value) => value.length === 0,
+    }),
+    readAdminAutomationData({
+      key: "data-quality:entity-lookups",
+      load: async () => {
+        if (section !== "media") return [];
+        if (mediaRead.status === "UNAVAILABLE") {
+          const error = new Error("Media údaje pre lookup nie sú dostupné.");
+          error.name = "DataQualityLookupDependencyUnavailable";
+          throw error;
+        }
+        if (!mediaRead.data.monitors.length) return [];
+        return resolveDataQualityMediaItems(database(), mediaRead.data.monitors);
+      },
+      fallback: fallbackMediaItems(mediaRead.data.monitors),
+      empty: (value) => value.length === 0,
+    }),
+  ]);
 
   const suggestionsByProfile = new Map<number, DataQualityFieldSuggestion[]>();
   for (const item of suggestionRead.data) {
