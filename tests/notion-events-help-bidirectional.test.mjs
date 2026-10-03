@@ -26,6 +26,8 @@ import {
   mergeNotionSeo,
   notionSeoPropertyNames,
   notionSeoPropertySchema,
+  notionSeoSchemaExtensionFields,
+  notionSeoSchemaExtensionIsDefault,
   notionSeoSourceProperties,
 } from "../lib/notion-seo-contract.ts";
 
@@ -431,6 +433,28 @@ test("Notion SEO schema uses optional text/url/checkbox properties and defaults 
 
   const source = notionSeoSourceProperties("events", {}, "");
   assert.equal(source.Noindex, false);
+
+  assert.deepEqual(notionSeoSchemaExtensionFields("events"), [
+    "Canonical URL", "Noindex", "OG title", "OG popis", "OG obrázok",
+  ]);
+  assert.deepEqual(notionSeoSchemaExtensionFields("help-cases"), [
+    "SEO title", "SEO popis", "Canonical URL", "Noindex",
+    "OG title", "OG popis", "OG obrázok",
+  ]);
+  assert.equal(notionSeoSchemaExtensionIsDefault("events", {
+    "Canonical URL": "",
+    Noindex: false,
+    "OG title": "",
+    "OG popis": "",
+    "OG obrázok": "",
+  }), true);
+  assert.equal(notionSeoSchemaExtensionIsDefault("events", {
+    "Canonical URL": "",
+    Noindex: false,
+    "OG title": "Ručný override",
+    "OG popis": "",
+    "OG obrázok": "",
+  }), false);
 });
 
 test("empty Notion SEO values clear the override to fallback while absent fields preserve canonical values", () => {
@@ -467,6 +491,14 @@ test("bulk backfill extends only existing safe Notion schemas and does not requi
   assert.doesNotMatch(source, /extendSchema: notionSeoPropertySchema\("organizations"\)/);
   assert.doesNotMatch(source, /extendSchema: notionSeoPropertySchema\("adoptions"\)/);
   assert.doesNotMatch(source, /extendSchema: notionSeoPropertySchema\("lost-found"\)/);
+});
+
+test("bidirectional sync seeds only untouched newly-added SEO fields from canonical Psipedia", async () => {
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /notionSeoSchemaExtensionIsDefault/);
+  assert.match(source, /mapping\.content_hash === legacyCanonicalHash/);
+  assert.match(source, /mapping\.content_hash === legacyNotionHash/);
+  assert.match(source, /summary\.pushedToNotion \+= 1/);
 });
 
 test("status mapping preserves agenda-specific lifecycle semantics", () => {
