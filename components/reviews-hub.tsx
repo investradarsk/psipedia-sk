@@ -3,7 +3,7 @@ import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, BowlIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
-import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
@@ -110,8 +110,7 @@ export async function ReviewsHub({
   return (
     <main id="obsah">
       <PublicFoundation className={styles.foundation}>
-      <header className={styles.hero}>
-        <PageContainer>
+      <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Recenzie a testy</span></Breadcrumbs>}
             eyebrow="Rozhodovanie podľa skúseností"
@@ -128,8 +127,7 @@ export async function ReviewsHub({
               />
             }
           />
-        </PageContainer>
-      </header>
+      </UnifiedSectionHeroShell>
 
       <section className={styles.modeSection} id="obsah-recenzie" aria-labelledby="reviews-mode-heading">
         <PageContainer>
