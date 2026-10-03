@@ -79,6 +79,12 @@ test("published resolved Help details remain discoverable through a crawlable SS
   assert.doesNotMatch(browser, /type="checkbox" checked=\{activeOnly\}/);
 });
 
+test("canonical organizations stay reachable through the Help hierarchy", () => {
+  assert.match(helpModel, /if \(item\.category === "utulky"\) return `\/organizacie\/\$\{item\.slug\}`/);
+  assert.match(categoryRoute, /getPublishedHelpCases\(category\)/);
+  assert.match(card, /href=\{detailHref\}/);
+});
+
 test("fundraising progress is rendered only when both real amounts exist", () => {
   assert.match(helpModel, /item\.goalAmount === null/);
   assert.match(helpModel, /item\.raisedAmount === null/);
@@ -92,6 +98,7 @@ test("fundraising progress is rendered only when both real amounts exist", () =>
 test("adoption and lost-found listings expose canonical data-first fields", () => {
   assert.match(adoption, /dog\.organizationName/);
   assert.match(adoption, /dog\.organizationSlug/);
+  assert.match(adoption, /href=\{"\/organizacie\/" \+ dog\.organizationSlug\}/);
   assert.match(adoption, /dog\.lastVerifiedAt/);
   assert.match(adoption, /dog\.publishedAt/);
   assert.match(lostFound, /listPublicDogReports\(type/);
