@@ -118,7 +118,7 @@ test("related events prefer active same-type events while past details prefer th
   );
 });
 
-test("route keeps canonical metadata, truthful Event status/location/organizer and no fake offers", () => {
+test("route keeps canonical metadata, truthful Event status/location and canonical page publisher without fake foreign Organization data", () => {
   const page = readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
   assert.match(page, /buildContentMetadata/);
   assert.match(page, /resolvedCanonical\(event\.seo,eventHref\(event\)\)|resolvedCanonical\(event\.seo, eventHref\(event\)\)/);
@@ -129,7 +129,10 @@ test("route keeps canonical metadata, truthful Event status/location/organizer a
   assert.match(page, /eventDateTimeIso\(event\.startDate, event\.startTime\)/);
   assert.match(page, /event\.cancelled \? "https:\/\/schema\.org\/EventCancelled" : "https:\/\/schema\.org\/EventScheduled"/);
   assert.match(page, /location,/);
-  assert.match(page, /organizer: \{ "@type": "Organization", name: event\.organizer/);
+  assert.match(page, /buildWebPageJsonLd\(\{/);
+  assert.match(page, /mainEntityOfPage: \{ "@id": canonical \}/);
+  assert.match(page, /Do not invent a foreign Organization node/);
+  assert.doesNotMatch(page, /organizer: \{ "@type": "Organization"/);
   assert.match(page, /url: canonical/);
   assert.doesNotMatch(page, /offers:|priceCurrency|ticket/);
   assert.match(page, /getUpcomingEvents\(8\)/);
