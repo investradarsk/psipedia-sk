@@ -169,11 +169,11 @@ test.describe("public services search layout", () => {
     const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
-    const header = page.locator("[data-directory-public-header]");
-    await expect(header.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
-    await expect(header.locator("[data-unified-section-hero-copy]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
+    const hero = page.locator("[data-unified-section-hero]").first();
+    await expect(hero.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
+    await expect(hero.locator("[data-unified-section-hero-copy]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
 
-    const categoryNav = header.getByRole("navigation", { name: "Kategórie služieb" });
+    const categoryNav = page.getByRole("navigation", { name: "Kategórie služieb" });
     await expect(categoryNav.getByRole("link")).toHaveCount(10);
 
     const panels = page.locator("section[data-directory-category]");
