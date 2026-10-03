@@ -2,6 +2,7 @@ import {
   cloneElement,
   isValidElement,
   type CSSProperties,
+  type HTMLAttributes,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -10,6 +11,7 @@ import {
   type ResolvedSectionVisual,
 } from "@/lib/section-visual-contract";
 import type { SectionHeroConfig } from "@/lib/portal";
+import { PageContainer } from "@/components/page-system";
 import styles from "./unified-section-hero.module.css";
 
 type VisualStyle = CSSProperties & Record<
@@ -65,6 +67,17 @@ function managedCta(config: SectionHeroConfig, fallback: ReactNode) {
   return fallback;
 }
 
+export function UnifiedSectionHeroShell({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <PageContainer
+      {...props}
+      className={[styles.shell, className].filter(Boolean).join(" ")}
+      data-unified-section-hero-shell
+      data-section-public-header
+    />
+  );
+}
+
 export async function UnifiedSectionHero({
   breadcrumbs,
   eyebrow,
@@ -111,10 +124,10 @@ export async function UnifiedSectionHero({
         </div>
 
         <div className={styles.copy} data-unified-section-hero-copy>
-          {breadcrumbs ? <div className={styles.breadcrumbs}>{breadcrumbs}</div> : null}
-          {managedEyebrow ? <div className={styles.eyebrow}>{managedEyebrow}</div> : null}
-          <h1>{managedTitle}</h1>
-          {managedIntro ? <div className={styles.intro}>{managedIntro}</div> : null}
+          {breadcrumbs ? <div className={styles.breadcrumbs} data-section-hero-breadcrumbs>{breadcrumbs}</div> : null}
+          {managedEyebrow ? <div className={styles.eyebrow} data-section-hero-eyebrow>{managedEyebrow}</div> : null}
+          <h1 data-section-hero-title>{managedTitle}</h1>
+          {managedIntro ? <div className={styles.intro} data-section-hero-intro>{managedIntro}</div> : null}
         </div>
       </div>
 
