@@ -988,8 +988,8 @@ test("renders the functional event calendar and type view", async () => {
   const calendarHtml = await calendar.text();
   assert.match(calendarHtml, /Kalendár podujatí/);
   assert.match(calendarHtml, /Názov, mesto, miesto alebo organizátor/);
-  assert.match(calendarHtml, /<button[^>]*aria-pressed="false"[^>]*>Ukončené<\/button>/);
-  assert.doesNotMatch(calendarHtml, /href="\/podujatia\?termin=/);
+  assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=ukoncene"[^>]*>Ukončené<\/a>/);
+  assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=vsetky"[^>]*>Všetky<\/a>/);
   assert.match(calendarHtml, /Prvé podujatia pripravujeme/);
 
   const shows = await worker.fetch(new Request("http://localhost/podujatia/vystavy", { headers: { accept: "text/html" } }), bindings, context);
@@ -1001,8 +1001,8 @@ test("renders the functional event calendar and type view", async () => {
   const pastShowsHtml = await pastShows.text();
   assert.match(pastShowsHtml, /<meta name="robots" content="noindex, follow"/);
   assert.match(pastShowsHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/podujatia\/vystavy"/);
-  assert.doesNotMatch(pastShowsHtml, /href="\/podujatia\/vystavy\?termin=/);
-  assert.match(pastShowsHtml, /<button[^>]*aria-pressed="true"[^>]*>Ukončené<\/button>/);
+  assert.match(pastShowsHtml, /<a[^>]*href="\/podujatia\/vystavy\?termin=ukoncene"[^>]*aria-current="page"[^>]*>Ukončené<\/a>/);
+  assert.match(pastShowsHtml, /<a[^>]*href="\/podujatia\/vystavy\?termin=vsetky"[^>]*>Všetky<\/a>/);
 });
 
 test("renders the help portal, stable category URL and emergency guide", async () => {
@@ -1029,6 +1029,19 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.match(helpHtml, /"BreadcrumbList"/);
   assert.doesNotMatch(helpHtml, /"verified"/i);
   assert.doesNotMatch(helpHtml, /help-hero--photo/);
+
+  const cleanHelpCategory = await worker.fetch(new Request("http://localhost/pomoc-psom/zbierky", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(cleanHelpCategory.status, 200);
+  const cleanHelpCategoryHtml = await cleanHelpCategory.text();
+  assert.doesNotMatch(cleanHelpCategoryHtml, /<meta name="robots" content="noindex, follow"/);
+  assert.match(cleanHelpCategoryHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/pomoc-psom\/zbierky"/);
+
+  const archivedHelpCategory = await worker.fetch(new Request("http://localhost/pomoc-psom/zbierky?stav=vsetky", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(archivedHelpCategory.status, 200);
+  const archivedHelpCategoryHtml = await archivedHelpCategory.text();
+  assert.match(archivedHelpCategoryHtml, /<meta name="robots" content="noindex, follow"/);
+  assert.match(archivedHelpCategoryHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/pomoc-psom\/zbierky"/);
+  assert.doesNotMatch(archivedHelpCategoryHtml, /rel="canonical"[^>]+stav=vsetky/);
 
   const adoption = await worker.fetch(new Request("http://localhost/pomoc-psom/adopcia", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(adoption.status, 200);

@@ -178,10 +178,13 @@ export function eventIsPast(event: Pick<DogEvent, "endDate" | "startDate">, toda
   return eventDateStatus(event, typeof today === "string" ? today : bratislavaDateKey(today)) === "past";
 }
 
-const eventTypePortalSlugs: Partial<Record<EventType, string>> = {
+const eventTypePortalSlugs: Record<EventType, string> = {
   "Výstava": "vystavy",
   "Preteky": "preteky",
   "Seminár": "seminare",
+  "Tréning": "treningy",
+  "Stretnutie": "stretnutia",
+  "Iné": "dalsie",
 };
 
 export function eventTypeFromPortalSlug(slug: string): EventType | null {
@@ -247,9 +250,11 @@ export function eventPortalCategory(eventType: EventType) {
   return ({
     Výstava: { href: "/podujatia/vystavy", label: "Výstavy" },
     Preteky: { href: "/podujatia/preteky", label: "Preteky" },
-    Seminár: { href: "/podujatia/seminare", label: "Semináre a tréningy" },
-    Tréning: { href: "/podujatia/seminare", label: "Semináre a tréningy" },
-  } as Partial<Record<EventType, { href: string; label: string }>>)[eventType] ?? null;
+    Seminár: { href: "/podujatia/seminare", label: "Semináre" },
+    Tréning: { href: "/podujatia/treningy", label: "Tréningy" },
+    Stretnutie: { href: "/podujatia/stretnutia", label: "Stretnutia" },
+    Iné: { href: "/podujatia/dalsie", label: "Ďalšie podujatia" },
+  } satisfies Record<EventType, { href: string; label: string }>)[eventType];
 }
 
 export function eventTimeFilterFromParam(value: string | string[] | undefined): EventTimeFilter {

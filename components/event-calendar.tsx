@@ -99,6 +99,7 @@ export function EventCalendar({
   const [region, setRegion] = useState(ALL_REGIONS);
   const [month, setMonth] = useState(ALL_MONTHS);
   const [time, setTime] = useState<EventTimeFilter>(initialTime);
+  const typePathname = type === "Všetky" ? "/podujatia" : eventTypePortalHref(type) ?? "/podujatia";
 
   const months = useMemo(() => {
     const values = new Set<string>();
@@ -107,8 +108,9 @@ export function EventCalendar({
   }, [events]);
 
   function selectTime(value: EventTimeFilter) {
+    const href = eventTimeFilterHref(value, typePathname);
     setTime(value);
-    window.history.replaceState(null, "", eventTimeFilterHref(value, window.location.pathname));
+    window.history.replaceState(null, "", href);
   }
 
   function selectType(value: EventType | "Všetky", pathname: string) {
@@ -165,11 +167,13 @@ export function EventCalendar({
   }, [filtered, isOverviewMode]);
 
   function resetFilters() {
+    const initialPathname = initialType === "Všetky" ? "/podujatia" : eventTypePortalHref(initialType) ?? "/podujatia";
     setQuery("");
     setType(initialType);
     setRegion(ALL_REGIONS);
     setMonth(ALL_MONTHS);
-    selectTime(initialTime);
+    setTime(initialTime);
+    window.history.replaceState(null, "", eventTimeFilterHref(initialTime, initialPathname));
   }
 
   return (
@@ -242,15 +246,18 @@ export function EventCalendar({
             ["past", "Ukončené"],
             ["all", "Všetky"],
           ] as const).map(([value, label]) => (
-            <button
-              type="button"
+            <a
+              href={eventTimeFilterHref(value, typePathname)}
               className={time === value ? styles.activeTimeChip : styles.timeChip}
-              aria-pressed={time === value}
-              onClick={() => selectTime(value)}
+              aria-current={time === value ? "page" : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                selectTime(value);
+              }}
               key={value}
             >
               {label}
-            </button>
+            </a>
           ))}
         </div>
         <div className={styles.resultCount} aria-live="polite">

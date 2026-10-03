@@ -19,16 +19,18 @@ export function HelpBrowser({
   initialCategory = "all",
   children,
   initialQuery = "",
+  initialActiveOnly = true,
 }: {
   items: HelpCase[];
   initialCategory?: CategoryFilter;
   children?: ReactNode;
   initialQuery?: string;
+  initialActiveOnly?: boolean;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState<CategoryFilter>(initialCategory);
   const [region, setRegion] = useState<RegionFilter>("all");
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [activeOnly, setActiveOnly] = useState(initialActiveOnly);
 
   const categoryOptions = useMemo(
     () => helpCategories.filter((item) => !dedicatedCategories.has(item.slug) && (initialCategory === item.slug || items.some((entry) => entry.category === item.slug))),
@@ -46,11 +48,21 @@ export function HelpBrowser({
     });
   }, [items, query, category, region, activeOnly]);
 
+  function statusHref(nextActiveOnly: boolean) {
+    const basePath = initialCategory === "all" ? "/pomoc-psom" : `/pomoc-psom/${initialCategory}`;
+    const params = new URLSearchParams();
+    const cleanQuery = query.trim();
+    if (cleanQuery) params.set("q", cleanQuery);
+    if (!nextActiveOnly) params.set("stav", "vsetky");
+    const serialized = params.toString();
+    return serialized ? `${basePath}?${serialized}` : basePath;
+  }
+
   function reset() {
     setQuery("");
     setCategory(initialCategory);
     setRegion("all");
-    setActiveOnly(true);
+    setActiveOnly(initialActiveOnly);
   }
 
   return (
@@ -75,7 +87,18 @@ export function HelpBrowser({
               {slovakRegions.map((item) => <option value={item} key={item}>{item}</option>)}
             </select>
           </label>
-          <label className={styles.checkbox}><input type="checkbox" checked={activeOnly} onChange={(event) => setActiveOnly(event.target.checked)} /><span>Len aktívne</span></label>
+          <a
+            className={styles.statusToggle}
+            href={statusHref(!activeOnly)}
+            onClick={(event) => {
+              event.preventDefault();
+              const nextActiveOnly = !activeOnly;
+              setActiveOnly(nextActiveOnly);
+              window.history.replaceState(null, "", statusHref(nextActiveOnly));
+            }}
+          >
+            {activeOnly ? "Zobraziť aj ukončené" : "Zobraziť len aktívne"}
+          </a>
         </form>
 
         {children}
