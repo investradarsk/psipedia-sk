@@ -1,3 +1,9 @@
+.shell {
+  min-width: 0;
+  padding-top: 22px;
+  padding-bottom: 32px;
+}
+
 .hero {
   position: relative;
   display: grid;
@@ -94,6 +100,18 @@
   color: rgba(255,255,255,.91);
   font-size: clamp(.88rem, 1.2vw, 1rem);
   line-height: 1.52;
+}
+
+.hero .intro > p {
+  max-width: none;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}
+
+.hero .intro > p + p {
+  margin-top: 8px;
 }
 
 .tools {
@@ -254,6 +272,11 @@
 }
 
 @media (max-width: 767px) {
+  .shell {
+    padding-top: 14px;
+    padding-bottom: 22px;
+  }
+
   .hero {
     overflow: visible;
   }
@@ -281,12 +304,15 @@
     inset: auto;
     order: 2;
     z-index: 0;
-    width: 100%;
+    width: 100dvw;
+    max-width: 100dvw;
     height: auto;
     aspect-ratio: 16 / 6;
+    align-self: center;
     margin-top: 16px;
+    margin-inline: calc((100% - 100dvw) / 2);
     overflow: hidden;
-    border-radius: 18px;
+    border-radius: 0;
     background: #e8eee9;
   }
 
