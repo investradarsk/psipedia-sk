@@ -2,8 +2,7 @@ import Link from "next/link";
 import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
-import { PageContainer } from "@/components/page-system";
-import { PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
@@ -96,7 +95,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
         />
       </UnifiedSectionHeroShell>
 
-      <PageContainer className={styles.listingShell}>
+      <PublicContentShell variant="listing" className={styles.listingShell}>
       <form className={styles.filters} method="get" aria-label={"Filtrovať " + label + " psy"}>
         <div className={styles.field}><label htmlFor="lf-q">Hľadať</label><input id="lf-q" name="q" defaultValue={q} placeholder="meno, farba, popis…" /></div>
         <div className={styles.field}><label htmlFor="lf-region">Kraj</label><select id="lf-region" name="region" defaultValue={region}><option value="">Všetky kraje</option>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
@@ -125,7 +124,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
         const start = Math.max(1, Math.min(result.page - 3, result.pages - 6)); const item = start + index; if (item > result.pages) return null;
         return item === result.page ? <span key={item} aria-current="page">{item}</span> : <Link key={item} href={pageHref(type, params, item)}>{item}</Link>;
       })}{result.page < result.pages && <Link aria-label="Ďalšia strana" href={pageHref(type, params, result.page + 1)}>→</Link>}</nav>}
-      </PageContainer>
+      </PublicContentShell>
     </PublicFoundation>
   </main></>;
 }

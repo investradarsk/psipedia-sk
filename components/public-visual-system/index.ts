@@ -20,3 +20,5 @@ export type {
   PublicCategoryTileItem,
 } from "./public-visual-system";
 export { UnifiedSectionHero, UnifiedSectionHeroShell } from "./unified-section-hero";
+export { PublicContentShell, PublicLandingSectionHeading } from "./public-landing-layout";
+export type { PublicContentShellVariant, PublicLandingHeadingTone } from "./public-landing-layout";

@@ -14,6 +14,8 @@ on:
       - "components/events-page*"
       - "components/help-overview*"
       - "components/help-page*"
+      - "components/help-browser*"
+      - "components/lost-found-dogs.module.css"
       - "components/adoption-catalog*"
       - "components/lost-found-dogs-page*"
       - "components/reviews-hub*"
@@ -21,6 +23,8 @@ on:
       - "app/clanky/page.tsx"
       - "app/hladat/page.tsx"
       - "app/plemena/page.tsx"
+      - "app/pomoc-psom/**"
+      - "app/globals.css"
       - "app/[section]/page.tsx"
       - "app/[section]/[slug]/page.tsx"
       - "lib/portal.ts"
@@ -32,6 +36,8 @@ on:
       - "tests/section-hero-v2.test.mjs"
       - "tests/unified-section-hero.test.mjs"
       - "tests/e2e/unified-section-hero.spec.ts"
+      - "tests/public-landing-alignment.test.mjs"
+      - "tests/e2e/public-landing-alignment.spec.ts"
       - "package-lock.json"
       - "scripts/production-d1-migrate.mjs"
       - ".github/workflows/production-d1-migrate.yml"
@@ -47,7 +53,7 @@ concurrency:
 
 jobs:
   source-contracts:
-    if: github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1'
+    if: github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1' || github.head_ref == 'codex/public-landing-alignment-1'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -61,6 +67,8 @@ jobs:
         run: npm run test:section-hero-v2
       - name: Unified hero regression contracts
         run: npm run test:unified-section-hero
+      - name: Public landing alignment contracts
+        run: npm run test:public-landing-alignment
       - name: Production migration contracts
         run: npm run test:migration-safety
       - name: Full test suite
@@ -71,7 +79,7 @@ jobs:
         run: npm run build
 
   preview-visual:
-    if: github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1'
+    if: github.head_ref == 'codex/section-hero-v2' || github.head_ref == 'codex/mobile-hero-fullwidth-1' || github.head_ref == 'codex/public-landing-alignment-1'
     needs: source-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -133,12 +141,27 @@ jobs:
           UNIFIED_SECTION_HERO_ARTIFACT_DIR: .e2e-artifacts/section-hero-v2
         run: npx playwright test tests/e2e/unified-section-hero.spec.ts --project=desktop-chromium --workers=1 --retries=0
 
+      - name: PUBLIC-LANDING-ALIGNMENT geometry and screenshot audit
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          PUBLIC_LANDING_ALIGNMENT_ARTIFACT_DIR: .e2e-artifacts/public-landing-alignment
+        run: npx playwright test tests/e2e/public-landing-alignment.spec.ts --project=desktop-chromium --workers=1 --retries=0
+
       - name: Upload SECTION-HERO-V2 screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: section-hero-v2-screenshots-${{ github.run_attempt }}
           path: .e2e-artifacts/section-hero-v2/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload PUBLIC-LANDING-ALIGNMENT screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-landing-alignment-screenshots-${{ github.run_attempt }}
+          path: .e2e-artifacts/public-landing-alignment/
           if-no-files-found: warn
           retention-days: 14
 

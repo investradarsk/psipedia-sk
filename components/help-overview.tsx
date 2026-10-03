@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon, PawMark } from "@/components/icons";
-import { Breadcrumbs } from "@/components/page-system";
+import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
   PublicActionLink,
+  PublicContentShell,
   PublicFoundation,
+  PublicLandingSectionHeading,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -111,14 +113,14 @@ function Promo({ promo }: { promo: PromoBanner }) {
   return (
     <aside className={[styles.overviewPromo, styles[`overviewPromo_${promo.tone}`]].join(" ")}>
       <div className={styles.overviewPromoShade}>
-        <div className={styles.overviewPromoCopy}>
+        <PageContainer className={styles.overviewPromoCopy}>
           <span>{promo.eyebrow}</span>
           <h2>{promo.title}</h2>
           <p>{promo.text}</p>
           <PublicActionLink href={promo.href} variant="primary" icon={<ArrowIcon size={16} />}>
             {promo.action}
           </PublicActionLink>
-        </div>
+        </PageContainer>
       </div>
     </aside>
   );
@@ -162,16 +164,16 @@ export async function HelpOverview({
           />
         </UnifiedSectionHeroShell>
 
-        <section className={[styles.shell, styles.overviewCategoryBlock].join(" ")} aria-labelledby="help-categories-heading">
-          <div className={styles.overviewHeading}>
-            <div>
-              <span className={styles.sectionEyebrow}>Kategórie pomoci</span>
-              <h2 id="help-categories-heading">Vyberte, čo chcete riešiť</h2>
-            </div>
-            <p>Každá kategória má vlastný úplný prehľad a filtre. Tu vidíte iba najnovší výber, aby bola stránka rýchla a prehľadná.</p>
-          </div>
+        <section className={styles.overviewCategoryBlock} aria-labelledby="help-categories-heading">
+          <PublicContentShell variant="landing">
+            <PublicLandingSectionHeading
+              eyebrow="Kategórie pomoci"
+              title="Vyberte, čo chcete riešiť"
+              description="Každá kategória má vlastný úplný prehľad a filtre. Tu vidíte iba najnovší výber, aby bola stránka rýchla a prehľadná."
+              id="help-categories-heading"
+            />
 
-          <nav className={styles.overviewCategoryGrid} data-help-category-nav aria-label="Kategórie pomoci">
+            <nav className={styles.overviewCategoryGrid} data-help-category-nav aria-label="Kategórie pomoci">
             {sections.map((section) => (
               <Link href={section.href} key={section.slug}>
                 <span className={styles.overviewCategoryIcon}><HelpCategoryIcon category={section.slug} size={22} /></span>
@@ -183,7 +185,8 @@ export async function HelpOverview({
                 <ArrowIcon size={17} />
               </Link>
             ))}
-          </nav>
+            </nav>
+          </PublicContentShell>
         </section>
 
         <Promo promo={lostFoundSubmitPromo} />
@@ -194,17 +197,18 @@ export async function HelpOverview({
             return (
               <div key={section.slug}>
                 <section className={styles.overviewSection} aria-labelledby={`help-overview-${section.slug}`} data-help-overview-section={section.slug}>
-                  <div className={[styles.shell, styles.overviewSectionInner].join(" ")}>
-                    <div className={styles.overviewSectionHeading}>
-                      <div>
-                        <span className={styles.sectionEyebrow}>Pomoc psom</span>
-                        <h2 id={`help-overview-${section.slug}`}>{section.label}</h2>
-                        <p>{section.description}</p>
-                      </div>
-                      <PublicActionLink href={section.href} variant="secondary" icon={<ArrowIcon size={16} />}>
-                        Zobraziť všetky
-                      </PublicActionLink>
-                    </div>
+                  <PageContainer className={styles.overviewSectionInner}>
+                    <PublicLandingSectionHeading
+                      eyebrow="Pomoc psom"
+                      title={section.label}
+                      description={section.description}
+                      id={`help-overview-${section.slug}`}
+                      action={
+                        <PublicActionLink href={section.href} variant="secondary" icon={<ArrowIcon size={16} />}>
+                          Zobraziť všetky
+                        </PublicActionLink>
+                      }
+                    />
 
                     {section.items.length ? (
                       <div className={styles.overviewGrid}>
@@ -216,7 +220,7 @@ export async function HelpOverview({
                         <Link href={section.href}>Otvoriť kategóriu <ArrowIcon size={15} /></Link>
                       </div>
                     )}
-                  </div>
+                  </PageContainer>
                 </section>
                 {promo ? <Promo promo={promo} /> : null}
               </div>
@@ -226,14 +230,14 @@ export async function HelpOverview({
 
         <section className={styles.closingCta} aria-labelledby="help-closing-cta-heading">
           <div className={styles.closingCtaOverlay}>
-            <div className={[styles.shell, styles.closingCtaInner].join(" ")}>
+            <PageContainer className={styles.closingCtaInner}>
               <span className={styles.closingEyebrow}>Každá pomoc má zmysel</span>
               <h2 id="help-closing-cta-heading">Pomáhajme spolu</h2>
               <p>Lepší svet pre psov vzniká vďaka ľuďom, ktorí nechcú zostať bokom.</p>
               <PublicActionLink href="/pomoc-psom/dobrovolnictvo" variant="primary" icon={<ArrowIcon size={16} />}>
                 Chcem pomôcť
               </PublicActionLink>
-            </div>
+            </PageContainer>
           </div>
         </section>
       </PublicFoundation>

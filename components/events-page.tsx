@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicActionLink, PublicCategoryTiles, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicActionLink, PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { bratislavaDateKey, eventDateStatus, eventTypeListingSeo, eventTypePortalHref, eventTypes, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
@@ -81,24 +81,29 @@ export async function EventsPage({
       </UnifiedSectionHeroShell>
 
       {isMainListing ? (
-        <PageContainer>
-            <section className={styles.landingCategories} aria-labelledby="events-category-heading">
-              <div className={styles.landingCategoryHeading}>
-                <div>
-                  <span>Typy podujatí</span>
-                  <h2 id="events-category-heading">Vyberte si, čo vás zaujíma</h2>
-                </div>
-                <p>Vyberte si typ podujatia a zobrazte aktuálne termíny, miesto a ďalšie detaily.</p>
-              </div>
-              <PublicCategoryTiles items={landingCategories} label="Hlavné typy podujatí" />
-            </section>
-        </PageContainer>
+        <section className={styles.landingCategories} aria-labelledby="events-category-heading">
+          <PublicContentShell variant="landing">
+            <PublicLandingSectionHeading
+              eyebrow="Typy podujatí"
+              title="Vyberte si, čo vás zaujíma"
+              description="Vyberte si typ podujatia a zobrazte aktuálne termíny, miesto a ďalšie detaily."
+              id="events-category-heading"
+            />
+            <PublicCategoryTiles items={landingCategories} label="Hlavné typy podujatí" />
+          </PublicContentShell>
+        </section>
       ) : null}
 
-      <section className={styles.calendarSection} aria-label="Kalendár podujatí">
-        <PageContainer>
-          <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} />
-        </PageContainer>
+      <section className={`${styles.calendarSection}${isMainListing ? "" : ` ${styles.calendarSectionListing}`}`} aria-label="Kalendár podujatí">
+        {isMainListing ? (
+          <PageContainer>
+            <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} />
+          </PageContainer>
+        ) : (
+          <PublicContentShell variant="listing">
+            <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} />
+          </PublicContentShell>
+        )}
       </section>
 
       <section className={styles.organizerSection} aria-labelledby="event-organizer-heading">

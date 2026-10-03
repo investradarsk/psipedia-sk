@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PawMark } from "@/components/icons";
-import { PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   adoptionCatalogAgeLabels,
@@ -112,6 +112,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       />
     </UnifiedSectionHeroShell>
 
+    <PublicContentShell variant="listing">
     <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
       <div className={`${styles.field} ${styles.searchField}`}><label htmlFor="adoption-q">Hľadať</label><input id="adoption-q" name="q" defaultValue={filters.q} placeholder="meno, mesto, plemeno…" /></div>
       <div className={styles.field}><label htmlFor="adoption-breed">Plemeno</label>{!breeds.available && filters.breedId ? <input type="hidden" name="plemeno" value={filters.breedId} /> : null}<select id="adoption-breed" name="plemeno" defaultValue={filters.breedId ? String(filters.breedId) : ""} disabled={!breeds.available}><option value="">{breeds.available ? "Všetky plemená" : "Plemená sú momentálne nedostupné"}</option>{breeds.options.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
@@ -138,5 +139,6 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       <span aria-current="page">Strana {pagination.page} z {pagination.totalPages}</span>
       {pagination.page < pagination.totalPages && <Link href={adoptionCatalogHref(filters, { page: pagination.page + 1 })}>Ďalšia →</Link>}
     </nav>}
+    </PublicContentShell>
   </PublicFoundation>;
 }

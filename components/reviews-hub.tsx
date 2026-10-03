@@ -3,7 +3,7 @@ import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, BowlIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
-import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
@@ -130,11 +130,12 @@ export async function ReviewsHub({
       </UnifiedSectionHeroShell>
 
       <section className={styles.modeSection} id="obsah-recenzie" aria-labelledby="reviews-mode-heading">
-        <PageContainer>
-          <div className={styles.modeHeading}>
-            <span className={styles.eyebrow}>Vyber si, čo chceš pozrieť</span>
-            <h2 id="reviews-mode-heading">Štyri jednoduché vstupy do recenzií</h2>
-          </div>
+        <PublicContentShell variant="landing">
+          <PublicLandingSectionHeading
+            eyebrow="Vyber si, čo chceš pozrieť"
+            title="Štyri jednoduché vstupy do recenzií"
+            id="reviews-mode-heading"
+          />
           <PublicCategoryTiles
             label="Typ recenzií"
             items={[
@@ -179,7 +180,7 @@ export async function ReviewsHub({
               },
             ]}
           />
-        </PageContainer>
+        </PublicContentShell>
       </section>
 
       <section className={styles.trustStrip} aria-label="Pravidlá hodnotenia">
@@ -194,10 +195,11 @@ export async function ReviewsHub({
         <>
           <section className={styles.section}>
             <PageContainer>
-              <div className={styles.sectionHeading}>
-                <div><span className={styles.eyebrow}>Najnovšie testy Psipedia</span><h2>Produkty, ktoré sme rozobrali prakticky</h2></div>
-                <p>Pri každom teste uvádzame, čo bolo hodnotené, pre akého psa dáva produkt zmysel a či článok obsahuje partnerský alebo affiliate odkaz.</p>
-              </div>
+              <PublicLandingSectionHeading
+                eyebrow="Najnovšie testy Psipedia"
+                title="Produkty, ktoré sme rozobrali prakticky"
+                description="Pri každom teste uvádzame, čo bolo hodnotené, pre akého psa dáva produkt zmysel a či článok obsahuje partnerský alebo affiliate odkaz."
+              />
               {reviewArticles.length ? (
                 <div className={styles.articleGrid}>
                   {reviewArticles.slice(0, 3).map((article) => {
@@ -225,10 +227,11 @@ export async function ReviewsHub({
 
           <section className={styles.sectionAlt}>
             <PageContainer>
-              <div className={styles.sectionHeading}>
-                <div><span className={styles.eyebrow}>Kategórie produktov</span><h2>Čo chceš porovnať?</h2></div>
-                <p>Každá kategória používa spravovanú taxonómiu Psipedia, takže redakcia môže obsah ďalej rozširovať bez nového systému.</p>
-              </div>
+              <PublicLandingSectionHeading
+                eyebrow="Kategórie produktov"
+                title="Čo chceš porovnať?"
+                description="Každá kategória používa spravovanú taxonómiu Psipedia, takže redakcia môže obsah ďalej rozširovať bez nového systému."
+              />
               <div className={styles.categoryGrid}>
                 {subpages.map((subpage) => {
                   const count = reviewArticles.filter((article) => article.portalSubpage === subpage.slug).length;
@@ -249,10 +252,11 @@ export async function ReviewsHub({
       {showServices ? (
         <section className={styles.section}>
           <PageContainer>
-            <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>Skúsenosti používateľov</span><h2>Najnovšie recenzie služieb</h2></div>
-              <p>Ide o publikované recenzie priamo z profilov Psipedia. Hodnotenie služby zostáva naviazané na konkrétny profil a jeho vlastný priemer.</p>
-            </div>
+            <PublicLandingSectionHeading
+              eyebrow="Skúsenosti používateľov"
+              title="Najnovšie recenzie služieb"
+              description="Ide o publikované recenzie priamo z profilov Psipedia. Hodnotenie služby zostáva naviazané na konkrétny profil a jeho vlastný priemer."
+            />
             {profileReviews.length ? (
               <div className={styles.reviewGrid}>
                 {profileReviews.map((review) => <ReviewFeedCard key={review.id} review={review} />)}
@@ -279,10 +283,11 @@ export async function ReviewsHub({
       {showEshops ? (
         <section className={styles.sectionAlt}>
           <PageContainer>
-            <div className={styles.sectionHeading}>
-              <div><span className={styles.eyebrow}>E-shopy</span><h2>Hodnotenia nákupnej skúsenosti</h2></div>
-              <p>Používateľ ohodnotí päť oblastí od 1 do 5. Na odoslanie stačí overený e-mail; externé hviezdičky sa do skóre Psipedia nemiešajú.</p>
-            </div>
+            <PublicLandingSectionHeading
+              eyebrow="E-shopy"
+              title="Hodnotenia nákupnej skúsenosti"
+              description="Používateľ ohodnotí päť oblastí od 1 do 5. Na odoslanie stačí overený e-mail; externé hviezdičky sa do skóre Psipedia nemiešajú."
+            />
             {eshops.length ? (
               <div className={styles.eshopGrid}>
                 {eshops.map((shop) => (
@@ -321,9 +326,11 @@ export async function ReviewsHub({
 
       <section className={styles.methodology}>
         <PageContainer>
-          <div className={styles.sectionHeading}>
-            <div><span className={styles.eyebrow}>Ako hodnotíme</span><h2>Jasné pravidlá pre testy aj používateľské recenzie</h2></div>
-          </div>
+          <PublicLandingSectionHeading
+            eyebrow="Ako hodnotíme"
+            title="Jasné pravidlá pre testy aj používateľské recenzie"
+            tone="inverse"
+          />
           <div className={styles.methodGrid}>
             <article><strong>1</strong><h3>Kontext pred skóre</h3><p>Uvádzame veľkosť, vek, aktivitu psa a spôsob použitia, aby bol výsledok zrozumiteľný.</p></article>
             <article><strong>2</strong><h3>Transparentný obchodný vzťah</h3><p>Affiliate a sponzorovaný obsah musí byť označený. Obchodný vzťah nesmie meniť používateľské hviezdičky.</p></article>

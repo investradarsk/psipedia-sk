@@ -189,29 +189,6 @@
   background: rgba(237, 243, 233, .34);
 }
 
-.sectionHeading {
-  display: flex;
-  min-width: 0;
-  gap: 20px;
-  align-items: end;
-  justify-content: space-between;
-  margin-bottom: 18px;
-}
-
-.sectionHeading h2 {
-  margin: 3px 0 0;
-  font-size: clamp(1.55rem, 2.6vw, 2.25rem);
-  line-height: 1.12;
-}
-
-.sectionHeading > p {
-  max-width: 570px;
-  margin: 0;
-  color: var(--muted);
-  font-size: .875rem;
-  line-height: 1.55;
-}
-
 .contentList {
   background: transparent;
 }
@@ -475,12 +452,6 @@
   .urgentActions > *,
   .serviceLinks > div > * {
     width: 100%;
-  }
-
-  .sectionHeading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
   }
 
   .dataGrid,

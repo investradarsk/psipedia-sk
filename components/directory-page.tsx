@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicCategoryTiles, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import {
@@ -218,32 +218,30 @@ export async function DirectoryPage({
           />
         </UnifiedSectionHeroShell>
 
-        <PageContainer>
+        <PublicContentShell variant={active ? "listing" : "landing"}>
           {active ? categoryNavigation : (
             <div className={styles.discovery} aria-labelledby="directory-discovery-title">
-              <div className={styles.discoveryHeading}>
-                <div>
-                  <span className={styles.sectionEyebrow}>Rýchly výber</span>
-                  <h2 id="directory-discovery-title">Vyber si kategóriu služby</h2>
-                </div>
-                <p>Prejdi rovno do existujúcej kategórie alebo použi vyhľadávanie vyššie.</p>
-              </div>
+              <PublicLandingSectionHeading
+                eyebrow="Rýchly výber"
+                title="Vyber si kategóriu služby"
+                description="Prejdi rovno do existujúcej kategórie alebo použi vyhľadávanie vyššie."
+                id="directory-discovery-title"
+              />
               <PublicCategoryTiles items={landingCategoryTiles} label="Kategórie služieb" />
             </div>
           )}
-        </PageContainer>
+        </PublicContentShell>
 
         {!active && !showResults && (
           <>
             <section className={styles.primarySection} aria-labelledby="directory-primary-title">
-              <div className={`shell ${styles.overview}`}>
-                <header className={styles.sectionHeading}>
-                  <div>
-                    <span className={styles.sectionEyebrow}>Najviac možností</span>
-                    <h2 id="directory-primary-title">Hlavné kategórie</h2>
-                  </div>
-                  <p>Zoradené podľa aktuálneho počtu publikovaných profilov, nie podľa pevne nastavenej priority.</p>
-                </header>
+              <PageContainer className={styles.overview}>
+                <PublicLandingSectionHeading
+                  eyebrow="Najviac možností"
+                  title="Hlavné kategórie"
+                  description="Zoradené podľa aktuálneho počtu publikovaných profilov, nie podľa pevne nastavenej priority."
+                  id="directory-primary-title"
+                />
 
                 <div className={styles.primaryGrid}>
                   {primaryCategories.map(({ category, count }, index) => {
@@ -283,18 +281,17 @@ export async function DirectoryPage({
                     );
                   })}
                 </div>
-              </div>
+              </PageContainer>
             </section>
 
             <section className={styles.secondarySection} aria-labelledby="directory-secondary-title">
-              <div className={`shell ${styles.secondaryShell}`}>
-                <header className={styles.sectionHeading}>
-                  <div>
-                    <span className={styles.sectionEyebrow}>Ďalšie možnosti</span>
-                    <h2 id="directory-secondary-title">Ďalšie kategórie služieb</h2>
-                  </div>
-                  <p>Menšie kategórie zostávajú rovnako dostupné, ale nepreberajú vizuálnu váhu hlavného obsahu.</p>
-                </header>
+              <PageContainer className={styles.secondaryShell}>
+                <PublicLandingSectionHeading
+                  eyebrow="Ďalšie možnosti"
+                  title="Ďalšie kategórie služieb"
+                  description="Menšie kategórie zostávajú rovnako dostupné, ale nepreberajú vizuálnu váhu hlavného obsahu."
+                  id="directory-secondary-title"
+                />
 
                 <div className={styles.secondaryGrid}>
                   {secondaryCategories.map(({ category, count }) => {
@@ -327,11 +324,11 @@ export async function DirectoryPage({
                     );
                   })}
                 </div>
-              </div>
+              </PageContainer>
             </section>
 
             <section className={styles.providerSection} data-directory-provider-cta>
-              <div className={`shell ${styles.providerCta}`}>
+              <PageContainer className={styles.providerCta}>
                 <div>
                   <span className={styles.sectionEyebrow}>Pre poskytovateľov</span>
                   <h2>Poskytujete služby pre psov?</h2>
@@ -341,14 +338,14 @@ export async function DirectoryPage({
                   <span>Pridať alebo upraviť profil</span>
                   <ArrowIcon size={17} />
                 </Link>
-              </div>
+              </PageContainer>
             </section>
           </>
         )}
 
         {(active || showResults) && (
           <section className={styles.resultsSection}>
-            <div className={`shell ${styles.resultsShell}`}>
+            <PageContainer className={styles.resultsShell}>
               <DirectoryResults
                 result={result}
                 filters={filters}
@@ -357,7 +354,7 @@ export async function DirectoryPage({
                 category={active?.slug}
                 showCategory={!active}
               />
-            </div>
+            </PageContainer>
           </section>
         )}
       </PublicFoundation>
