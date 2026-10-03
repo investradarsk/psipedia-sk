@@ -168,3 +168,13 @@ test("event organizer remains text-only until a canonical organizer relation exi
   assert.match(schema, /organizer:\s*text\("organizer"\)/);
   assert.doesNotMatch(eventStore, /organizer_id|organization_id/i);
 });
+
+test("articles expose explicit breed relations without inventing heuristic directory or Help links", async () => {
+  const [relations, articleDetail] = await Promise.all([
+    readFile(new URL("../lib/content-relations.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/article-detail.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(relations, /JOIN breed_article_relations r ON r\.article_id = a\.id/);
+  assert.match(articleDetail, /<RelatedBreedList breeds=\{relatedBreeds\}/);
+  assert.doesNotMatch(relations, /article_directory_relations|article_help_relations/);
+});

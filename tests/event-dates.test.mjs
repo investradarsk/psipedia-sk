@@ -45,14 +45,14 @@ test("structured event times use the Bratislava DST offset for their date", () =
   assert.equal(eventDateTimeIso("2026-07-15", ""), "2026-07-15");
 });
 
-test("event types link only to real calendar categories", () => {
+test("every event type links to a dedicated crawlable calendar category", () => {
   assert.deepEqual(eventPortalCategory("Výstava"), { href: "/podujatia/vystavy", label: "Výstavy" });
-  assert.deepEqual(eventPortalCategory("Tréning"), { href: "/podujatia/seminare", label: "Semináre a tréningy" });
-  assert.equal(eventPortalCategory("Stretnutie"), null);
-  assert.equal(eventPortalCategory("Iné"), null);
+  assert.deepEqual(eventPortalCategory("Tréning"), { href: "/podujatia/treningy", label: "Tréningy" });
+  assert.deepEqual(eventPortalCategory("Stretnutie"), { href: "/podujatia/stretnutia", label: "Stretnutia" });
+  assert.deepEqual(eventPortalCategory("Iné"), { href: "/podujatia/dalsie", label: "Ďalšie podujatia" });
 });
 
-test("event time filters keep shareable URLs without requiring crawlable filter anchors", () => {
+test("event time filters keep stable shareable URLs for crawlable archive anchors", () => {
   assert.equal(eventTimeFilterFromParam("prebiehajuce"), "current");
   assert.equal(eventTimeFilterFromParam("ukoncene"), "past");
   assert.equal(eventTimeFilterFromParam(["vsetky"]), "all");
@@ -62,13 +62,14 @@ test("event time filters keep shareable URLs without requiring crawlable filter 
   assert.equal(eventTimeFilterHref("upcoming", "/podujatia/vystavy"), "/podujatia/vystavy");
 });
 
-test("event type filters expose only clean crawlable category links while time stays UI state", () => {
+test("event type and time filters expose crawlable links while preserving client-side transitions", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   assert.match(calendar, /eventTypePortalHref\(option\.value\)/);
   assert.match(calendar, /<a[\s\S]*href=\{pathname\}/);
-  assert.doesNotMatch(calendar, /href=\{eventTimeFilterHref\(/);
+  assert.match(calendar, /href=\{eventTimeFilterHref\(value, typePathname\)\}/);
   assert.match(calendar, /history\.pushState\(null, "", eventTimeFilterHref\(time, pathname\)\)/);
-  assert.match(calendar, /history\.replaceState\(null, "", eventTimeFilterHref\(value, window\.location\.pathname\)\)/);
+  assert.match(calendar, /const href = eventTimeFilterHref\(value, typePathname\)/);
+  assert.match(calendar, /history\.replaceState\(null, "", href\)/);
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {
