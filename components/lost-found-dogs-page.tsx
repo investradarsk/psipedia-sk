@@ -38,11 +38,17 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
   const policy = resolveListingIndexPolicy(basePath, raw, { indexPagination: true });
 
   const submissionsEnabled = lostFoundSubmissionEnabled();
-  const [result, breeds, heroVisual] = await Promise.all([
+  const [result, breeds, sharedHeroVisual] = await Promise.all([
     listPublicDogReports(type, { q, region, locality, date, sex, size, breedId, page, pageSize: 24 }),
     listPublishedBreedOptions(),
     getSectionHeroVisual("help.stratene-a-najdene"),
   ]);
+  const heroVisual = {
+    ...sharedHeroVisual,
+    heroContent: sharedHeroVisual.heroContent
+      ? { config: sharedHeroVisual.heroContent.config }
+      : undefined,
+  };
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries({ q, region, locality, date, sex, size, breed: breedId ? String(breedId) : "" })) if (value) params.set(key, value);
   const label = dogReportTypeShortLabel(type).toLowerCase();
