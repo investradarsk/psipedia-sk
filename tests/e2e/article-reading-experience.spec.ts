@@ -542,14 +542,35 @@ test("ARTICLE-2 preserves canonical Article schema, dates, author and image meta
   const canonical = page.locator('link[rel="canonical"]');
   await expect(canonical).toHaveAttribute("href", "https://psipedia.sk" + path);
 
-  const graph = await page.locator('script[type="application/ld+json"]').first().evaluate((node) => JSON.parse(node.textContent || "{}")["@graph"] ?? []);
-  const articleSchema = graph.find((item: { "@type"?: string }) => item["@type"] === "Article");
+  type SchemaNode = {
+    "@type"?: string;
+    "@id"?: string;
+    datePublished?: string;
+    dateModified?: string;
+    author?: { "@id"?: string; name?: string };
+    publisher?: { "@id"?: string };
+    image?: unknown[];
+    logo?: { url?: string };
+  };
+  const graph = await page.locator('script[type="application/ld+json"]').evaluateAll((nodes) =>
+    nodes.flatMap((node) => {
+      const parsed = JSON.parse(node.textContent || "{}");
+      return Array.isArray(parsed["@graph"]) ? parsed["@graph"] : [parsed];
+    }),
+  ) as SchemaNode[];
+  const articleSchema = graph.find((item) => item["@type"] === "Article");
+  const publisher = graph.find((item) => item["@id"] === "https://psipedia.sk/#organization");
+  const webPage = graph.find((item) => item["@type"] === "WebPage" && item["@id"] === "https://psipedia.sk" + path);
   expect(articleSchema).toBeTruthy();
-  expect(articleSchema.datePublished).toBe("2026-08-17");
-  expect(articleSchema.dateModified).toBeTruthy();
-  expect(articleSchema.author?.name).toBe("Redakcia Psipedia");
-  expect(Array.isArray(articleSchema.image)).toBe(true);
-  expect(articleSchema.image.length).toBeGreaterThan(0);
+  expect(articleSchema?.datePublished).toBe("2026-08-17");
+  expect(articleSchema?.dateModified).toBeTruthy();
+  expect(articleSchema?.author?.["@id"]).toBe("https://psipedia.sk/#organization");
+  expect(articleSchema?.publisher?.["@id"]).toBe("https://psipedia.sk/#organization");
+  expect(Array.isArray(articleSchema?.image)).toBe(true);
+  expect(articleSchema?.image?.length).toBeGreaterThan(0);
+  expect(publisher?.["@type"]).toBe("Organization");
+  expect(publisher?.logo?.url).toBe("https://psipedia.sk/pwa/icon-512.png");
+  expect(webPage?.publisher?.["@id"]).toBe("https://psipedia.sk/#organization");
 });
 
 
