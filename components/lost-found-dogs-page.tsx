@@ -2,7 +2,6 @@ import Link from "next/link";
 import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
-import { PageContainer } from "@/components/page-system";
 import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { slovakRegions } from "@/lib/events";
