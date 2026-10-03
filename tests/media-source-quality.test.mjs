@@ -82,7 +82,8 @@ test("admin quality workspace separates profile cleanup from focused image appro
 test("admin quality loads detail data only for the active workspace", () => {
   assert.match(adminPage, /section:\s*mediaSection\s*\?\s*"media"\s*:\s*"profiles"/);
   assert.match(dataQualityStore, /const \[profileRead, mediaRead\] = await Promise\.all/);
-  assert.match(dataQualityStore, /section === "profiles"/);
-  assert.match(dataQualityStore, /section === "media"/);
+  assert.match(dataQualityStore, /input\.section \?\? "both"/);
+  assert.match(dataQualityStore, /section !== "media"/);
+  assert.match(dataQualityStore, /section !== "profiles"/);
   assert.doesNotMatch(dataQualityStore, /listCanonicalAutomationUpdateSuggestionEntityIds/);
 });
