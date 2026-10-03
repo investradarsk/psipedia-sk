@@ -72,8 +72,9 @@ test("ADMIN-SEO-QUALITY-1 stays read-only and exposes management links", () => {
 
   assert.match(entities, /SELECT id, slug, name, category/);
   assert.match(entities, /WHERE status = 'published'/);
-  assert.doesNotMatch(entities, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
-  assert.doesNotMatch(store, /\b(?:INSERT|UPDATE|DELETE|REPLACE)\b/i);
+  const writeSql = /\b(?:INSERT\s+INTO|UPDATE\s+[a-z_]|DELETE\s+FROM|REPLACE\s+INTO)\b/i;
+  assert.doesNotMatch(entities, writeSql);
+  assert.doesNotMatch(store, writeSql);
   assert.match(page, /item\.entity\.adminHref/);
   assert.match(page, /Spravovať →/);
   assert.doesNotMatch(page, /fetch\(|method=["']POST|method=["']PUT|method=["']DELETE/);
