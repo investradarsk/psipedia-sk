@@ -137,6 +137,73 @@ test("date round-trip with equivalent ISO datetime plans UNCHANGED", () => {
   assert.equal(plan.unchanged, 1);
 });
 
+test("system-owned date round-trip tolerates Notion minute truncation", () => {
+  const plan = planNotionReconciliation(
+    [source(
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { "Aktualizované": "2026-09-13T14:41:07.345Z" },
+      { "Aktualizované": "system" },
+    )],
+    [page(
+      "p1",
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { "Aktualizované": "2026-09-13T14:41:00.000+00:00" },
+      { "Aktualizované": "date" },
+    )],
+  );
+  assert.equal(plan.update, 0);
+  assert.equal(plan.unchanged, 1);
+});
+
+test("system-owned date in a different minute still plans UPDATE", () => {
+  const plan = planNotionReconciliation(
+    [source(
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { "Aktualizované": "2026-09-13T14:42:07.345Z" },
+      { "Aktualizované": "system" },
+    )],
+    [page(
+      "p1",
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { "Aktualizované": "2026-09-13T14:41:00.000+00:00" },
+      { "Aktualizované": "date" },
+    )],
+  );
+  assert.equal(plan.update, 1);
+  assert.deepEqual(plan.actions[0].changes, {
+    "Aktualizované": "2026-09-13T14:42:07.345Z",
+  });
+});
+
+test("fill-missing dates keep exact comparison and do not get minute tolerance", () => {
+  const plan = planNotionReconciliation(
+    [source(
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { "Dátum hlásenia": "2026-09-13T14:41:07.345Z" },
+    )],
+    [page(
+      "p1",
+      1,
+      "A",
+      "https://psipedia.sk/x/1",
+      { "Dátum hlásenia": "2026-09-13T14:41:00.000+00:00" },
+      { "Dátum hlásenia": "date" },
+    )],
+  );
+  assert.equal(plan.conflict, 1);
+  assert.deepEqual(plan.actions[0].conflictFields, ["Dátum hlásenia"]);
+});
+
 test("date-only round-trip plans UNCHANGED", () => {
   const plan = planNotionReconciliation(
     [source(1, "A", "https://psipedia.sk/x/1", { "Dátum hlásenia": "2026-08-17" })],
