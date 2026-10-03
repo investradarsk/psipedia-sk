@@ -39,6 +39,7 @@ export default async function AdminDataQualityPage({
     region: firstParam(params.region),
     district: firstParam(params.district),
     mediaStatus: firstParam(params.mediaStatus),
+    section: mediaSection ? "media" : "profiles",
   });
 
   return (
