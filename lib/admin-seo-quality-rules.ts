@@ -13,6 +13,7 @@ export const adminSeoAgendas = [
 export type AdminSeoAgenda = (typeof adminSeoAgendas)[number];
 export type AdminSeoFindingScope = "custom" | "content" | "metadata" | "indexing" | "discovery";
 export type AdminSeoFindingSeverity = "info" | "warning" | "error";
+export type AdminSeoImageAltMode = "stored" | "derived-public" | "decorative" | "unsupported";
 
 export const adminSeoAgendaLabels: Record<AdminSeoAgenda, string> = {
   directory: "Adresár",
@@ -58,7 +59,8 @@ export type AdminSeoQualityEntity = {
   uniqueContentParts: string[];
   imageUrl: string;
   imageAlt: string;
-  imageIsDecorative?: boolean;
+  imageAltMode: AdminSeoImageAltMode;
+  imageAltSource: string;
   city?: string;
   cityRequired?: boolean;
   category?: string;
@@ -243,8 +245,17 @@ export function auditSeoQualityEntity(entity: AdminSeoQualityEntity): AdminSeoQu
 
   if (!seoAuditText(entity.imageUrl)) {
     findings.push(finding("image-missing", "content", "warning", "Publikovaná entita nemá hlavný obrázok."));
-  } else if (!entity.imageIsDecorative && !seoAuditText(entity.imageAlt)) {
-    findings.push(finding("image-alt-missing", "content", "warning", 'Hlavný obsahový obrázok nemá výsledný alt text. Dekoratívne alt="" sa sem nezapočítava.'));
+  } else if (
+    entity.imageAltMode !== "decorative"
+    && entity.imageAltMode !== "unsupported"
+    && !seoAuditText(entity.imageAlt)
+  ) {
+    findings.push(finding(
+      "image-alt-missing",
+      "content",
+      "warning",
+      `Hlavný obsahový obrázok nemá reálny ALT zo zdroja „${entity.imageAltSource}“. Dekoratívne alt="" sa sem nezapočítava.`,
+    ));
   }
 
   if (entity.customSeoSupported && customTitle !== null && !customTitle) {

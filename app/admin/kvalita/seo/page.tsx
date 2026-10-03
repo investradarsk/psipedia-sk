@@ -55,6 +55,13 @@ function scopeLabel(value: string) {
   return "obsah";
 }
 
+function altModeLabel(value: string) {
+  if (value === "stored") return "uložený ALT";
+  if (value === "derived-public") return "verejný rendering";
+  if (value === "decorative") return 'dekoratívny alt=""';
+  return "samostatný ALT nepodporovaný";
+}
+
 export default async function AdminSeoQualityPage({
   searchParams,
 }: {
@@ -226,7 +233,8 @@ export default async function AdminSeoQualityPage({
                   <td>
                     <small>
                       Canonical: {item.entity.expectedCanonicalPath}<br />
-                      Parent: {item.entity.parentPath ?? "nezistený"}
+                      Parent: {item.entity.parentPath ?? "nezistený"}<br />
+                      ALT: {altModeLabel(item.entity.imageAltMode)} · {item.entity.imageAltSource}
                     </small>
                   </td>
                   <td><Link className={styles.edit} href={item.entity.adminHref}>Spravovať →</Link></td>

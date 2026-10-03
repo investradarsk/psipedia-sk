@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { articleEntity, eventEntity } from "../lib/admin-seo-quality-entities.ts";
 import { auditSeoQualityEntity } from "../lib/admin-seo-quality-rules.ts";
 
 function entity(overrides = {}) {
@@ -20,7 +21,8 @@ function entity(overrides = {}) {
     ],
     imageUrl: "/media/directory/klinika.webp",
     imageAlt: "Veterinárna klinika Nitra",
-    imageIsDecorative: false,
+    imageAltMode: "stored",
+    imageAltSource: "test.image_alt",
     city: "Nitra",
     cityRequired: true,
     category: "veterinari",
@@ -44,11 +46,89 @@ test("ADMIN-SEO-QUALITY-1 distinguishes missing custom SEO from weak resolved me
   assert.equal(findings.some((item) => item.code === "result-description-weak"), false);
 });
 
-test("ADMIN-SEO-QUALITY-1 does not treat decorative alt empty as an error", () => {
-  const decorative = auditSeoQualityEntity(entity({ imageAlt: "", imageIsDecorative: true }));
-  const contentImage = auditSeoQualityEntity(entity({ imageAlt: "", imageIsDecorative: false }));
+test("ADMIN-SEO-QUALITY-ALT-1 keeps decorative and unsupported image contracts out of image-alt-missing", () => {
+  const adapted = articleEntity({
+    id: 91,
+    title: "Článok s obrázkom",
+    slug: "clanok-s-obrazkom",
+    portal_section: "clanky",
+    category: "starostlivost",
+    excerpt: "Praktický článok s dostatočne dlhým perexom pre kontrolu SEO auditu a jeho výsledných metadata.",
+    intro: "Toto je dostatočne dlhý úvod článku, ktorý slúži iba ako testovací obsah pre SEO audit obrázkov a ALT kontraktu.",
+    takeaway: "",
+    sections_json: "[]",
+    blocks_json: "[]",
+    image_url: "/media/articles/test.webp",
+    image_alt: "",
+    seo_title: "",
+    meta_description: "",
+    canonical_url: "",
+    noindex: 0,
+  });
+  const decorative = auditSeoQualityEntity({ ...adapted, imageAltMode: "decorative", imageAltSource: "public decorative contract" });
+  const unsupported = auditSeoQualityEntity({ ...adapted, imageAltMode: "unsupported", imageAltSource: "agenda has no ALT contract" });
   assert.equal(decorative.some((item) => item.code === "image-alt-missing"), false);
-  assert.equal(contentImage.some((item) => item.code === "image-alt-missing"), true);
+  assert.equal(unsupported.some((item) => item.code === "image-alt-missing"), false);
+});
+
+test("ADMIN-SEO-QUALITY-ALT-1 article adapter uses the real stored ALT and never invents title fallback", () => {
+  const baseRow = {
+    id: 92,
+    title: "Ako sa starať o labradora",
+    slug: "ako-sa-starat-o-labradora",
+    portal_section: "clanky",
+    category: "starostlivost",
+    excerpt: "Praktický sprievodca starostlivosťou o labradora s informáciami o pohybe, srsti, zdraví a každodennom režime.",
+    intro: "Labrador potrebuje pravidelný pohyb, primeranú starostlivosť o srsť a zuby, kontrolu hmotnosti a preventívnu veterinárnu starostlivosť.",
+    takeaway: "",
+    sections_json: "[]",
+    blocks_json: "[]",
+    image_url: "/media/articles/labrador.webp",
+    seo_title: "",
+    meta_description: "",
+    canonical_url: "",
+    noindex: 0,
+  };
+
+  const missing = articleEntity({ ...baseRow, image_alt: "" });
+  assert.equal(missing.imageAlt, "");
+  assert.equal(missing.imageAltMode, "stored");
+  assert.equal(missing.imageAltSource, "managed_articles.image_alt");
+  assert.notEqual(missing.imageAlt, missing.title);
+  assert.equal(auditSeoQualityEntity(missing).some((item) => item.code === "image-alt-missing"), true);
+
+  const present = articleEntity({ ...baseRow, image_alt: "Čierny labrador pri prechádzke v prírode" });
+  assert.equal(present.imageAlt, "Čierny labrador pri prechádzke v prírode");
+  assert.equal(auditSeoQualityEntity(present).some((item) => item.code === "image-alt-missing"), false);
+});
+
+test("ADMIN-SEO-QUALITY-ALT-1 event adapter uses all six canonical discovery parents", () => {
+  const expected = new Map([
+    ["Výstava", "/podujatia/vystavy"],
+    ["Preteky", "/podujatia/preteky"],
+    ["Seminár", "/podujatia/seminare"],
+    ["Tréning", "/podujatia/treningy"],
+    ["Stretnutie", "/podujatia/stretnutia"],
+    ["Iné", "/podujatia/dalsie"],
+  ]);
+
+  for (const [eventType, parentPath] of expected) {
+    const adapted = eventEntity({
+      id: 100,
+      title: `Test ${eventType}`,
+      slug: "test-event",
+      event_type: eventType,
+      city: "Nitra",
+      excerpt: "Testovacie podujatie s dostatočne dlhým perexom pre regresnú kontrolu SEO quality auditu.",
+      description: "Testovací popis podujatia je dostatočne dlhý na to, aby samotný ALT a crawlable parent test nebol ovplyvnený inými quality pravidlami.",
+      practical_info: "",
+      image_url: "/media/events/test.webp",
+      seo_json: "{}",
+    });
+    assert.equal(adapted.parentPath, parentPath, eventType);
+    assert.equal(adapted.imageAlt, `Test ${eventType}`, eventType);
+    assert.equal(adapted.imageAltMode, "derived-public", eventType);
+  }
 });
 
 test("ADMIN-SEO-QUALITY-1 reports explicit noindex and only non-self custom canonicals", () => {
