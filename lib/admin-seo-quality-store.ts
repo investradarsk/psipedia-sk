@@ -36,8 +36,7 @@ function emptyAgendaCounts(): AdminSeoQualityReport["agendaCounts"] {
 }
 
 function emptyIssueCounts(): AdminSeoQualityReport["issueCounts"] {
-  return Object.fromEntries(adminSeoIssueDefinitions.map((issue) => [issue.code, 0]))
-    as AdminSeoQualityReport["issueCounts"];
+  return Object.fromEntries(adminSeoIssueDefinitions.map((issue) => [issue.code, 0])) as AdminSeoQualityReport["issueCounts"];
 }
 
 export async function loadAdminSeoQualityAudit(input: AdminSeoQualityFilters = {}): Promise<AdminSeoQualityReport> {
