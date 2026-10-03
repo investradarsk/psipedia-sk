@@ -44,14 +44,14 @@ test("Admin Mapy default dataset is unresolved-only, with coordinates still requ
   assert.match(operatorComponent, /Iba súradnice — treba Google miesto/);
 });
 
-test("operator CTA links to canonical editors and technical detail stays secondary", () => {
+test("operator CTA links to canonical editors while hidden GEO alerts stay out of the Mapy page", () => {
   assert.match(operatorStore, /\/admin\/adresar\/\$\{id\}#service-address/);
   assert.match(operatorStore, /\/admin\/organizacie\/\$\{organizationId\}/);
   assert.match(operatorStore, /\/admin\/podujatia\/\$\{id\}/);
   assert.match(operatorComponent, /Otvoriť profil/);
   assert.match(operatorComponent, /<details/);
   assert.match(operatorComponent, /Technické detaily/);
-  assert.match(geoPage, /Technické GEO detaily/);
+  assert.doesNotMatch(geoPage, /Technické GEO detaily|GEO_LOCATION_ISSUE/);
   assert.match(advancedComponent, /AdminGeoOperations/);
 });
 
