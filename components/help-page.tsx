@@ -35,11 +35,13 @@ export async function HelpPage({
   initialCategory = "all",
   categoryCounts = {},
   initialQuery = "",
+  initialActiveOnly = true,
 }: {
   items: HelpCase[];
   initialCategory?: "all" | HelpCategorySlug;
   categoryCounts?: HelpCategoryCounts;
   initialQuery?: string;
+  initialActiveOnly?: boolean;
 }) {
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
   const activeCount = active
@@ -82,7 +84,7 @@ export async function HelpPage({
           />
         </UnifiedSectionHeroShell>
 
-        <HelpBrowser items={browserItems} initialCategory={initialCategory} initialQuery={initialQuery}>
+        <HelpBrowser items={browserItems} initialCategory={initialCategory} initialQuery={initialQuery} initialActiveOnly={initialActiveOnly}>
           {!active && (
             <section className={styles.categoryBlock} aria-labelledby="help-categories-heading">
               <div className={styles.categoryHeading}>
