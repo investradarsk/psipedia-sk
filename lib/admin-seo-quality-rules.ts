@@ -117,7 +117,7 @@ export type AdminSeoQualityReport = {
 export const ADMIN_SEO_QUALITY_THRESHOLDS = {
   descriptionMin: 80,
   uniqueContentMin: 180,
-  resultTitleMin: 18,
+  resultTitleMin: 25,
   resultTitleMax: 70,
   resultDescriptionMin: 70,
   resultDescriptionMax: 180,
@@ -186,7 +186,7 @@ export function parseSeoAuditJson(value: unknown): EditableSeo {
       title: seoAuditText(parsed.title),
       description: seoAuditText(parsed.description),
       canonicalUrl: seoAuditText(parsed.canonicalUrl),
-      noindex: Boolean(parsed.noindex),
+      noindex: parsed.noindex === true || parsed.noindex === 1 || parsed.noindex === "1",
       focusKeyword: seoAuditText(parsed.focusKeyword),
       ogTitle: seoAuditText(parsed.ogTitle),
       ogDescription: seoAuditText(parsed.ogDescription),
@@ -253,9 +253,11 @@ export function auditSeoQualityEntity(entity: AdminSeoQualityEntity): AdminSeoQu
     findings.push(finding("custom-description-missing", "custom", "info", "Custom SEO description nie je vyplnený; kvalitný fallback môže byť úplne postačujúci."));
   }
 
-  const resultTitleLength = seoAuditText(entity.resultTitle).length;
+  const unbrandedResultTitle = seoAuditText(entity.resultTitle).replace(/\s*(?:\||–|—|-)\s*Psipedia(?:\.sk)?\s*$/iu, "").trim();
+  const finalDocumentTitle = unbrandedResultTitle ? `${unbrandedResultTitle} | Psipedia.sk` : "";
+  const resultTitleLength = finalDocumentTitle.length;
   if (resultTitleLength < t.resultTitleMin || resultTitleLength > t.resultTitleMax) {
-    findings.push(finding("result-title-weak", "metadata", "warning", `Výsledný title má ${resultTitleLength} znakov; interná heuristika je ${t.resultTitleMin}–${t.resultTitleMax}.`));
+    findings.push(finding("result-title-weak", "metadata", "warning", `Výsledný dokumentový <title> má ${resultTitleLength} znakov vrátane brand suffixu; interná heuristika je ${t.resultTitleMin}–${t.resultTitleMax}.`));
   }
   const resultDescriptionLength = seoAuditText(entity.resultDescription).length;
   if (resultDescriptionLength < t.resultDescriptionMin || resultDescriptionLength > t.resultDescriptionMax) {
