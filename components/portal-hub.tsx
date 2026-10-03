@@ -4,7 +4,7 @@ import { EventCard } from "@/components/event-card";
 import { EditorialSectionHub } from "@/components/editorial-section";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { UnifiedSectionHero } from "@/components/public-visual-system";
+import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
@@ -109,7 +109,7 @@ export async function PortalHub({ section, articles, events, allSections = [] }:
 
   return (
     <main id="obsah">
-      <div className="shell public-shell portal-unified-hero">
+      <UnifiedSectionHeroShell>
         <UnifiedSectionHero
           breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>}
           eyebrow={section.eyebrow}
@@ -126,7 +126,7 @@ export async function PortalHub({ section, articles, events, allSections = [] }:
             />
           ) : undefined}
         />
-      </div>
+      </UnifiedSectionHeroShell>
 
       {showSectionTabs && <PortalSectionTabs section={section} />}
 
