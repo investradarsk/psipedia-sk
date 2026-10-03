@@ -148,6 +148,51 @@ function helpEntity(row: RawRow): AdminSeoQualityEntity {
   });
 }
 
+function lostFoundEntity(row: RawRow): AdminSeoQualityEntity {
+  const type = seoAuditText(row.type);
+  const lost = type === "LOST";
+  const dogName = seoAuditText(row.dog_name);
+  const breed = seoAuditText(row.breed);
+  const city = seoAuditText(row.city);
+  const slug = seoAuditText(row.slug);
+  const subject = dogName || breed || "pes";
+  const title = `${lost ? "Stratený" : "Nájdený"} ${subject}${city ? ` – ${city}` : ""}`;
+  const basePath = lost ? "/pomoc-psom/stratene-psy" : type === "FOUND" ? "/pomoc-psom/najdene-psy" : "";
+  const description = seoAuditText(row.description);
+  const resultDescription = `${lost ? "Stratený pes" : "Nájdený pes"} · ${city}. ${description}`.slice(0, 158);
+  return withAlt({
+    agenda: "help",
+    id: num(row.id),
+    title,
+    slug,
+    adminHref: `/admin/stratene-najdene/${num(row.id)}`,
+    expectedCanonicalPath: basePath ? `${basePath}/${slug}` : "",
+    parentPath: basePath || null,
+    excerpt: "",
+    description,
+    uniqueContentParts: [
+      description,
+      seoAuditText(row.distinguishing_marks),
+      seoAuditText(row.collar_description),
+      seoAuditText(row.location_description),
+      seoAuditText(row.public_contact_note),
+    ],
+    imageUrl: seoAuditText(row.main_image),
+    imageAlt: dogName ? `${lost ? "Stratený" : "Nájdený"} pes ${dogName}` : (lost ? "Stratený pes" : "Nájdený pes"),
+    city,
+    cityRequired: true,
+    category: type,
+    categoryRequired: true,
+    customSeoSupported: false,
+    customSeoTitle: null,
+    customSeoDescription: null,
+    customCanonical: "",
+    noindex: false,
+    resultTitle: title,
+    resultDescription,
+  });
+}
+
 function organizationEntity(row: RawRow): AdminSeoQualityEntity {
   const name = seoAuditText(row.name);
   const slug = seoAuditText(row.slug);
@@ -328,6 +373,18 @@ export async function loadPublishedSeoQualityEntities(database: D1Database): Pro
     ORDER BY id
   `).all<RawRow>();
   entities.push(...help.results.map(helpEntity));
+
+  const lostFound = await database.prepare(`
+    SELECT id, type, slug, dog_name, breed, description, distinguishing_marks, collar_description,
+      main_image, city, location_description, public_contact_note
+    FROM lost_found_dog_reports
+    WHERE status = 'ACTIVE'
+      AND published_at IS NOT NULL
+      AND duplicate_of_id IS NULL
+      AND (expires_at IS NULL OR expires_at > ?)
+    ORDER BY id
+  `).bind(now).all<RawRow>();
+  entities.push(...lostFound.results.map(lostFoundEntity));
 
   const organizations = await database.prepare(`
     SELECT o.id, o.name, o.slug, o.type, o.short_description, o.description, o.image_url,
