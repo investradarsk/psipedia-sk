@@ -44,7 +44,7 @@ type AgendaDefinition = {
   configuredId?: (bindings: NotionBulkBindings) => string;
   createIfMissing?: boolean;
   createSchema?: Record<string, unknown>;
-  extendSchema?: Record<string, unknown>;
+  extendSchema?: Record<string, DataSourceProperty>;
   load: (database: D1Database) => Promise<import("./notion-bulk-reconciliation.ts").CanonicalSourceRecord[]>;
 };
 
@@ -466,7 +466,7 @@ async function reconcileAgenda(
   if (mode === "execute" && missingExtensionProperties.length) {
     const properties = Object.fromEntries(
       missingExtensionProperties.map((name) => [name, schemaExtension[name]]),
-    );
+    ) as Record<string, DataSourceProperty>;
     dataSource = await notionRequest<DataSourceResponse>(
       bindings,
       `/data_sources/${encodeURIComponent(target.dataSourceId)}`,
