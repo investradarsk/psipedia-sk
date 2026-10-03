@@ -1,5 +1,7 @@
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import type { EditableSeo } from "./content-seo.ts";
 import type { CanonicalSourceRecord, ReconciliationValue } from "./notion-bulk-reconciliation.ts";
+import { notionSeoSourceProperties } from "./notion-seo-contract.ts";
 
 const SITE_URL = "https://psipedia.sk";
 
@@ -155,7 +157,7 @@ export async function loadNotionBulkEvents(database: D1Database) {
     FROM managed_events ORDER BY id ASC`);
 
   return sourceRows.map((row) => {
-    const seo = jsonObject(row.seo_json) ?? {};
+    const seo = (jsonObject(row.seo_json) ?? {}) as EditableSeo;
     const url = `${SITE_URL}/podujatia/${s(row.slug)}`;
     return source(row.id, row.title, url, {
       "Názov": s(row.title),
@@ -178,8 +180,7 @@ export async function loadNotionBulkEvents(database: D1Database) {
       "Registrácia": s(row.registration_url),
       "Hlavný obrázok URL": asset(row.image_url),
       "Zrušené": b(row.cancelled),
-      "SEO title": s(seo.title),
-      "Meta description": s(seo.description),
+      ...notionSeoSourceProperties("events", seo, asset(seo.ogImage)),
     }, ["Slug"]);
   });
 }
@@ -254,10 +255,11 @@ export async function loadNotionBulkAdoptions(database: D1Database) {
 export async function loadNotionBulkHelpCases(database: D1Database) {
   const sourceRows = await rows(database, `SELECT id,slug,title,category,status,excerpt,description,organization,dog_name,breed,age_note,city,region,
     location_note,reported_date,deadline_date,action_label,action_url,contact_note,goal_amount,raised_amount,image_url,urgent,resolved,
-    created_at,updated_at,published_at FROM help_cases ORDER BY id ASC`);
+    created_at,updated_at,published_at,seo_json FROM help_cases ORDER BY id ASC`);
 
   return sourceRows.map((row) => {
     const category = s(row.category);
+    const seo = (jsonObject(row.seo_json) ?? {}) as EditableSeo;
     const url = `${SITE_URL}/pomoc-psom/${category}/${s(row.slug)}`;
     return source(row.id, row.title, url, {
       "Názov": s(row.title),
@@ -283,6 +285,7 @@ export async function loadNotionBulkHelpCases(database: D1Database) {
       "Obrázok": asset(row.image_url),
       "Urgentné": b(row.urgent),
       "Vyriešené": b(row.resolved),
+      ...notionSeoSourceProperties("help-cases", seo, asset(seo.ogImage)),
       "Vytvorené": date(row.created_at),
       "Aktualizované": date(row.updated_at),
       "Publikované": date(row.published_at),

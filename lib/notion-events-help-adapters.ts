@@ -1,4 +1,5 @@
 import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
+import { mergeNotionSeo, notionSeoEditableFields } from "./notion-seo-contract.ts";
 import {
   createManagedEvent,
   getManagedEventById,
@@ -74,7 +75,7 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
   events: [
     "Názov", "Slug", "Stav", "Typ podujatia", "Začiatok", "Čas začiatku", "Koniec", "Čas konca",
     "Miesto", "Mesto", "Kraj", "Adresa", "Organizátor", "Perex", "Popis", "Praktické info",
-    "Web", "Registrácia", "Hlavný obrázok URL", "Zrušené", "SEO title", "Meta description",
+    "Web", "Registrácia", "Hlavný obrázok URL", "Zrušené", ...notionSeoEditableFields("events"),
   ],
   organizations: [
     "Názov", "Slug", "Stav", "Typ", "Právny názov", "IČO / registračné číslo",
@@ -90,7 +91,7 @@ export const agendaEditableFields: Record<BidirectionalAgendaKey, readonly strin
   "help-cases": [
     "Názov", "Slug", "Kategória", "Psipedia stav", "Perex", "Popis", "Organizácia", "Pes", "Plemeno",
     "Vek", "Mesto", "Kraj", "Miesto", "Dátum hlásenia", "Deadline", "CTA text", "CTA URL", "Kontakt",
-    "Cieľ", "Vyzbierané", "Obrázok", "Urgentné", "Vyriešené",
+    "Cieľ", "Vyzbierané", "Obrázok", "Urgentné", "Vyriešené", ...notionSeoEditableFields("help-cases"),
   ],
   "lost-found": [
     "Názov", "Slug", "Typ", "Psipedia stav", "Meno psa", "Pohlavie", "Plemeno", "Farba", "Vek",
@@ -175,11 +176,7 @@ function eventInput(
     imageUrl,
     imageKey: imageKeyFor(existing?.imageUrl, existing?.imageKey, imageUrl),
     cancelled: b(values["Zrušené"]),
-    seo: {
-      ...(existing?.seo ?? {}),
-      title: s(values["SEO title"]),
-      description: s(values["Meta description"]),
-    },
+    seo: mergeNotionSeo("events", values, existing?.seo),
   };
 }
 
@@ -376,7 +373,7 @@ function helpPayload(
     urgent: b(values["Urgentné"]),
     // Resolved has a dedicated optimistic-concurrency lifecycle transition.
     resolved: existing?.resolved ?? false,
-    seo: existing?.seo,
+    seo: mergeNotionSeo("help-cases", values, existing?.seo),
   };
 }
 

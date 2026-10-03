@@ -15,12 +15,21 @@ import {
 } from "../lib/notion-canonical-target.ts";
 import {
   adoptionStatusFromNotion,
+  agendaEditableFields,
   eventStatusFromNotion,
   helpStatusFromNotion,
   lostFoundStatusFromNotion,
   organizationStatusFromNotion,
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
+import {
+  mergeNotionSeo,
+  notionSeoPropertyNames,
+  notionSeoPropertySchema,
+  notionSeoSchemaExtensionFields,
+  notionSeoSchemaExtensionIsDefault,
+  notionSeoSourceProperties,
+} from "../lib/notion-seo-contract.ts";
 
 const definition = {
   key: "lost-found",
@@ -112,6 +121,17 @@ test("simultaneous change fails closed as CONFLICT", () => {
     psipediaHash: "c",
   });
   assert.equal(state.decision, "CONFLICT");
+  assert.equal(state.notionChanged, true);
+  assert.equal(state.psipediaChanged, true);
+});
+
+test("equal current snapshots can safely rebaseline after optional schema growth", () => {
+  const state = decideBidirectionalChange({
+    baselineHash: "legacy-shape",
+    notionHash: "expanded-shape",
+    psipediaHash: "expanded-shape",
+  });
+  assert.equal(state.decision, "UNCHANGED");
   assert.equal(state.notionChanged, true);
   assert.equal(state.psipediaChanged, true);
 });
@@ -375,6 +395,110 @@ test("create provisions exactly one initial data source and repeated execute is 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("renderer-backed Notion SEO contract is limited to events and generic help", () => {
+  const eventFields = Object.values(notionSeoPropertyNames.events);
+  const helpFields = Object.values(notionSeoPropertyNames["help-cases"]);
+
+  assert.deepEqual(eventFields, [
+    "SEO title", "Meta description", "Canonical URL", "Noindex",
+    "OG title", "OG popis", "OG obrázok",
+  ]);
+  assert.deepEqual(helpFields, [
+    "SEO title", "SEO popis", "Canonical URL", "Noindex",
+    "OG title", "OG popis", "OG obrázok",
+  ]);
+
+  for (const field of eventFields) assert.equal(agendaEditableFields.events.includes(field), true);
+  for (const field of helpFields) assert.equal(agendaEditableFields["help-cases"].includes(field), true);
+
+  const unsupported = new Set([
+    ...agendaEditableFields.organizations,
+    ...agendaEditableFields.adoptions,
+    ...agendaEditableFields["lost-found"],
+  ]);
+  for (const field of new Set([...eventFields, ...helpFields])) assert.equal(unsupported.has(field), false);
+  assert.equal(eventFields.includes("Alt text obrázka"), false);
+  assert.equal(helpFields.includes("Alt text obrázka"), false);
+});
+
+test("Notion SEO schema uses optional text/url/checkbox properties and defaults Noindex false", () => {
+  const schema = notionSeoPropertySchema("events");
+  assert.deepEqual(schema["SEO title"], { rich_text: {} });
+  assert.deepEqual(schema["Meta description"], { rich_text: {} });
+  assert.deepEqual(schema["Canonical URL"], { url: {} });
+  assert.deepEqual(schema.Noindex, { checkbox: {} });
+  assert.deepEqual(schema["OG obrázok"], { url: {} });
+
+  const source = notionSeoSourceProperties("events", {}, "");
+  assert.equal(source.Noindex, false);
+
+  assert.deepEqual(notionSeoSchemaExtensionFields("events"), [
+    "Canonical URL", "Noindex", "OG title", "OG popis", "OG obrázok",
+  ]);
+  assert.deepEqual(notionSeoSchemaExtensionFields("help-cases"), [
+    "SEO title", "SEO popis", "Canonical URL", "Noindex",
+    "OG title", "OG popis", "OG obrázok",
+  ]);
+  assert.equal(notionSeoSchemaExtensionIsDefault("events", {
+    "Canonical URL": "",
+    Noindex: false,
+    "OG title": "",
+    "OG popis": "",
+    "OG obrázok": "",
+  }), true);
+  assert.equal(notionSeoSchemaExtensionIsDefault("events", {
+    "Canonical URL": "",
+    Noindex: false,
+    "OG title": "Ručný override",
+    "OG popis": "",
+    "OG obrázok": "",
+  }), false);
+});
+
+test("empty Notion SEO values clear the override to fallback while absent fields preserve canonical values", () => {
+  const existing = {
+    title: "Pôvodný title",
+    description: "Pôvodný popis",
+    canonicalUrl: "https://psipedia.sk/podujatia/povodny",
+    noindex: true,
+    ogTitle: "Pôvodný OG",
+    ogDescription: "Pôvodný OG popis",
+    ogImage: "/images/povodny.webp",
+  };
+
+  const merged = mergeNotionSeo("events", {
+    "SEO title": "",
+    Noindex: false,
+    "OG popis": "",
+  }, existing);
+
+  assert.equal(merged.title, "");
+  assert.equal(merged.noindex, false);
+  assert.equal(merged.ogDescription, "");
+  assert.equal(merged.description, existing.description);
+  assert.equal(merged.canonicalUrl, existing.canonicalUrl);
+  assert.equal(merged.ogTitle, existing.ogTitle);
+  assert.equal(merged.ogImage, existing.ogImage);
+});
+
+test("bulk backfill extends only existing safe Notion schemas and does not require D1 schema work", async () => {
+  const source = await readFile(new URL("../lib/notion-bulk-backfill.ts", import.meta.url), "utf8");
+  assert.match(source, /extendSchema: notionSeoPropertySchema\("events"\)/);
+  assert.match(source, /extendSchema: notionSeoPropertySchema\("help-cases"\)/);
+  assert.match(source, /method: "PATCH"[\s\S]*JSON\.stringify\(\{ properties \}\)/);
+  assert.doesNotMatch(source, /extendSchema: notionSeoPropertySchema\("organizations"\)/);
+  assert.doesNotMatch(source, /extendSchema: notionSeoPropertySchema\("adoptions"\)/);
+  assert.doesNotMatch(source, /extendSchema: notionSeoPropertySchema\("lost-found"\)/);
+});
+
+test("bidirectional sync seeds only untouched newly-added SEO fields from canonical Psipedia", async () => {
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /notionSeoSchemaExtensionIsDefault/);
+  assert.match(source, /mapping\.content_hash === legacyCanonicalHash/);
+  assert.match(source, /mapping\.content_hash === legacyNotionHash/);
+  assert.match(source, /summary\.pushedToNotion \+= 1/);
 });
 
 test("status mapping preserves agenda-specific lifecycle semantics", () => {
