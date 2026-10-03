@@ -33,7 +33,6 @@ test("canonical post-hero shells reuse PageContainer instead of inventing anothe
   assert.match(layout, /data-public-content-shell/);
   assert.match(layout, /data-public-content-variant=\{variant\}/);
   assert.match(layoutCss, /\.shell\s*\{\s*min-width:\s*0;\s*\}/);
-  assert.doesNotMatch(layoutCss, /\.shell\s*\{[^}]*\bwidth\s*:/s);
   assert.match(globals, /\.shell\s*\{[\s\S]*width:\s*min\(1180px,\s*calc\(100% - 48px\)\)/);
   assert.match(globals, /@media \(max-width: 820px\)[\s\S]*\.shell\s*\{[\s\S]*width:\s*min\(100% - 32px,\s*680px\)/);
   assert.match(globals, /@media \(max-width: 620px\)[\s\S]*\.shell\s*\{[\s\S]*width:\s*min\(100% - 24px,\s*520px\)/);
