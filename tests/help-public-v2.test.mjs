@@ -69,6 +69,16 @@ test("generic Help browser does not merge dedicated adoption or lost-found domai
   assert.doesNotMatch(browser, /category\.slug !== "adopcia"/);
 });
 
+test("published resolved Help details remain discoverable through a crawlable SSR archive state", () => {
+  assert.match(categoryRoute, /initialActiveOnly = scalar\(rawSearchParams\.stav\) !== "vsetky"/);
+  assert.match(landing, /initialActiveOnly=\{initialActiveOnly\}/);
+  assert.match(browser, /useState\(initialActiveOnly\)/);
+  assert.match(browser, /href=\{statusHref\(!activeOnly\)\}/);
+  assert.match(browser, /params\.set\("stav", "vsetky"\)/);
+  assert.match(browser, /Zobraziť aj ukončené/);
+  assert.doesNotMatch(browser, /type="checkbox" checked=\{activeOnly\}/);
+});
+
 test("fundraising progress is rendered only when both real amounts exist", () => {
   assert.match(helpModel, /item\.goalAmount === null/);
   assert.match(helpModel, /item\.raisedAmount === null/);
