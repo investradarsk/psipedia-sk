@@ -234,6 +234,27 @@ export function buildPublishedOrganizationIndexQuery(limit = 250) {
   };
 }
 
+export function buildPublishedOrganizationHubQuery() {
+  return `SELECT o.id, o.name, o.slug, o.short_description, o.description,
+    COALESCE((
+      SELECT l.city FROM organization_locations l
+      WHERE l.organization_id = o.id
+      ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
+      LIMIT 1
+    ), o.city) AS city,
+    COALESCE((
+      SELECT l.region FROM organization_locations l
+      WHERE l.organization_id = o.id
+      ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
+      LIMIT 1
+    ), o.region) AS region,
+    o.image_url, o.website_url, o.public_email, o.public_phone,
+    o.published_at, o.last_verified_at, o.updated_at
+    FROM help_organizations o
+    WHERE ${PUBLIC_ORGANIZATION_PREDICATE}
+    ORDER BY o.name COLLATE NOCASE ASC, o.id ASC`;
+}
+
 function buildPublishedDirectoryQuery(directoryProfileId: number) {
   return {
     sql: `SELECT p.id, p.name, p.slug, p.category
@@ -393,6 +414,30 @@ export async function listPublishedOrganizations(
   const { results } = await database
     .prepare(query.sql)
     .bind(...query.bindings)
+    .all<PublicOrganizationIndexRow>();
+  return results.map((row) => ({
+    id: Number(row.id),
+    name: row.name,
+    slug: row.slug,
+    shortDescription: cleanPublicOrganizationCopy(row.short_description),
+    description: cleanPublicOrganizationCopy(row.description),
+    city: row.city,
+    region: row.region,
+    imageUrl: row.image_url,
+    websiteUrl: row.website_url,
+    publicEmail: row.public_email,
+    publicPhone: row.public_phone,
+    publishedAt: row.published_at,
+    lastVerifiedAt: row.last_verified_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function listPublishedOrganizationsForHub(
+  database: AdoptionD1Database,
+): Promise<PublicOrganizationIndexItem[]> {
+  const { results } = await database
+    .prepare(buildPublishedOrganizationHubQuery())
     .all<PublicOrganizationIndexRow>();
   return results.map((row) => ({
     id: Number(row.id),
