@@ -18,16 +18,16 @@ import { portalSubpageHref } from "@/lib/portal";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
-import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import styles from "./breed-atlas.module.css";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const section = await getManagedPortalSection("plemena");
+  const landingSeo = coreLandingSeoFallback("breeds");
   return buildListingPageMetadata({
-    title: section?.label ?? "Atlas plemien psov",
-    description: section?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, starostlivosť a vhodnosť do rodiny.",
+    title: landingSeo.title,
+    description: landingSeo.description,
     path: "/plemena",
     searchParams: await searchParams,
   });
