@@ -42,10 +42,7 @@ test("lastModified uses the latest real timestamp and omits unknown dates", () =
 test("article JSON-LD distinguishes a named person from the Psipedia editorial organization", () => {
   assert.deepEqual(articleAuthorJsonLd("Martin"), { "@type": "Person", name: "Martin" });
   assert.deepEqual(articleAuthorJsonLd("Redakcia Psipedia"), {
-    "@type": "Organization",
     "@id": "https://psipedia.sk/#organization",
-    name: "Redakcia Psipedia",
-    url: "https://psipedia.sk",
   });
   assert.deepEqual(JSON.parse(serializeJsonLd({ author: articleAuthorJsonLd("Martin") })), {
     author: { "@type": "Person", name: "Martin" },

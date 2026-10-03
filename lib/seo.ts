@@ -21,6 +21,16 @@ export const SOCIAL_FALLBACK_IMAGE = {
 
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 export const WEBSITE_ID = `${SITE_URL}/#website`;
+export const SITE_LOGO_ID = `${SITE_URL}/#logo`;
+export const SITE_LOGO_URL = `${SITE_URL}/pwa/icon-512.png`;
+
+export function publisherJsonLdReference() {
+  return { "@id": ORGANIZATION_ID };
+}
+
+export function websiteJsonLdReference() {
+  return { "@id": WEBSITE_ID };
+}
 
 export function buildSiteIdentityJsonLd() {
   return {
@@ -34,9 +44,12 @@ export function buildSiteIdentityJsonLd() {
         url: SITE_URL,
         logo: {
           "@type": "ImageObject",
-          url: `${SITE_URL}/pwa/icon-512.png`,
+          "@id": SITE_LOGO_ID,
+          url: SITE_LOGO_URL,
+          contentUrl: SITE_LOGO_URL,
           width: 512,
           height: 512,
+          caption: SITE_NAME,
         },
         image: `${SITE_URL}/images/hero-labrador.webp`,
         description: SITE_DESCRIPTION,
@@ -61,6 +74,44 @@ export function buildSiteIdentityJsonLd() {
         },
       },
     ],
+  };
+}
+
+type WebPageJsonLdInput = {
+  canonical: string;
+  name: string;
+  description?: string | null;
+  mainEntityId?: string | null;
+  breadcrumbId?: string | null;
+  datePublished?: string | null;
+  dateModified?: string | null;
+};
+
+export function buildWebPageJsonLd({
+  canonical,
+  name,
+  description,
+  mainEntityId,
+  breadcrumbId,
+  datePublished,
+  dateModified,
+}: WebPageJsonLdInput) {
+  const url = absoluteUrl(canonical);
+  const normalizedDescription = description?.trim();
+
+  return {
+    "@type": "WebPage",
+    "@id": url,
+    url,
+    name,
+    ...(normalizedDescription ? { description: normalizedDescription } : {}),
+    isPartOf: websiteJsonLdReference(),
+    publisher: publisherJsonLdReference(),
+    ...(mainEntityId ? { mainEntity: { "@id": absoluteUrl(mainEntityId) } } : {}),
+    ...(breadcrumbId ? { breadcrumb: { "@id": absoluteUrl(breadcrumbId) } } : {}),
+    ...(datePublished ? { datePublished } : {}),
+    ...(dateModified ? { dateModified } : {}),
+    inLanguage: "sk-SK",
   };
 }
 
@@ -210,12 +261,7 @@ export function searchResultTitle(title: string, maxLength = 52) {
 export function articleAuthorJsonLd(author: string) {
   const name = author.trim();
   if (name.toLocaleLowerCase("sk-SK") === "redakcia psipedia") {
-    return {
-      "@type": "Organization",
-      "@id": ORGANIZATION_ID,
-      name,
-      url: SITE_URL,
-    };
+    return publisherJsonLdReference();
   }
   return { "@type": "Person", name };
 }
