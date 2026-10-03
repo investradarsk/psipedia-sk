@@ -2,11 +2,11 @@ import Link from "next/link";
 import { HelpBrowser } from "@/components/help-browser";
 import { AlertCircleIcon, HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon } from "@/components/icons";
-import { PageContainer } from "@/components/page-system";
 import {
   PublicActionLink,
   PublicFoundation,
   UnifiedSectionHero,
+  UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
@@ -52,7 +52,7 @@ export async function HelpPage({
   return (
     <main id="obsah" tabIndex={-1}>
       <PublicFoundation className={styles.foundation}>
-        <PageContainer className={styles.headerWrap} data-help-public-header>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
               <Link href="/">Domov</Link><span aria-hidden="true">/</span>
@@ -79,7 +79,7 @@ export async function HelpPage({
               </div>
             }
           />
-        </PageContainer>
+        </UnifiedSectionHeroShell>
 
         <HelpBrowser items={browserItems} initialCategory={initialCategory} initialQuery={initialQuery}>
           {!active && (
