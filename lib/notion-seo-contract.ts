@@ -40,6 +40,36 @@ export function notionSeoEditableFields(agenda: NotionSeoAgenda) {
   return Object.values(notionSeoPropertyNames[agenda]);
 }
 
+
+export function notionSeoSchemaExtensionFields(agenda: string) {
+  if (agenda === "events") {
+    const fields = notionSeoPropertyNames.events;
+    return [
+      fields.canonicalUrl,
+      fields.noindex,
+      fields.ogTitle,
+      fields.ogDescription,
+      fields.ogImage,
+    ] as const;
+  }
+  if (agenda === "help-cases") return notionSeoEditableFields("help-cases");
+  return [] as const;
+}
+
+export function notionSeoSchemaExtensionIsDefault(
+  agenda: string,
+  values: Record<string, ReconciliationValue>,
+) {
+  const fields = notionSeoSchemaExtensionFields(agenda);
+  if (!fields.length || !fields.every((name) => hasOwn(values, name))) return false;
+  const noindex = agenda === "events"
+    ? notionSeoPropertyNames.events.noindex
+    : notionSeoPropertyNames["help-cases"].noindex;
+  return fields.every((name) => (
+    name === noindex ? !bool(values[name]) : clean(values[name]) === ""
+  ));
+}
+
 export function notionSeoPropertySchema(agenda: NotionSeoAgenda) {
   const fields = notionSeoPropertyNames[agenda];
   return {
