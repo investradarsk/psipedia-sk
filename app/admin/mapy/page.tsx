@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AdminGeoOperatorDashboard } from "@/components/admin-geo-operator-dashboard";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -47,7 +46,6 @@ export default async function AdminMapsPage({
       eyebrow="Admin · Mapy"
       title="Mapy"
       description="Pracovný inbox položiek, ktoré ešte treba vyriešiť cez Google Maps. Hotové položky sa tu nezobrazujú."
-      actions={<Link href="/admin/operations?source=GEO_LOCATION_ISSUE">Technické GEO detaily</Link>}
     >
       {unavailable || !operatorData
         ? <section className="admin-form-card"><p className="admin-message admin-message--error">{unavailable || "Geo operator view sa nepodarilo načítať."}</p></section>
