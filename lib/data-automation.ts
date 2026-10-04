@@ -49,6 +49,43 @@ export type AutomationPriority = (typeof automationPriorities)[number];
 
 export type AutomationHelpSourceShape = "SINGLE_ITEM" | "MULTI_ITEM_LIST";
 
+export const automationExtractionStrategies = [
+  "STRUCTURED_FEED",
+  "DEDICATED_ADAPTER",
+  "GENERIC_FIRST_PARTY",
+  "TAVILY_CRAWL",
+  "TAVILY_EXTRACT",
+  "TAVILY_SEARCH_ENRICHMENT",
+] as const;
+export type AutomationExtractionStrategy = (typeof automationExtractionStrategies)[number];
+
+export const automationExtractionCoverageClasses = [
+  "COMPLETE_ENUMERATION",
+  "BOUNDED_PARTIAL",
+  "RANKED_SEARCH",
+  "DETAIL_ONLY",
+  "UNKNOWN",
+] as const;
+export type AutomationExtractionCoverageClass = (typeof automationExtractionCoverageClasses)[number];
+
+export type AutomationExtractionCoverage = {
+  classification: AutomationExtractionCoverageClass;
+  complete: boolean;
+  enumeratedItemCount?: number | null;
+  visitedPageCount?: number | null;
+  truncated?: boolean;
+};
+
+export type AutomationSourceRecordExtractionEvidence = {
+  itemUrl: string | null;
+  externalId: string | null;
+  discoveredFromRoot: string | null;
+  strategy: AutomationExtractionStrategy;
+  evidenceMetadata: Record<string, unknown>;
+  coverage: AutomationExtractionCoverage;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | null;
+};
+
 export type AutomationSourceConfig = {
   sourceShape?: AutomationHelpSourceShape;
   recordsPath?: string;
@@ -103,6 +140,7 @@ export type AutomationSourceRecord = {
   sourceTimestamp: string | null;
   rawRecord: unknown;
   proposed: Record<string, unknown>;
+  extraction?: AutomationSourceRecordExtractionEvidence;
   lifecycleSignals?: AutomationLifecycleSignal[];
 };
 
