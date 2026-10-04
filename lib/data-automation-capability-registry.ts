@@ -17,6 +17,7 @@ import { TRNAVA_ADOPTION_DETAIL_ADAPTER } from "./data-automation-adoption-adapt
 import { ZATULANE_PSIKY_SALA_FOSTER_DETAIL_ADAPTER } from "./data-automation-foster-adapters.ts";
 import { KOSICE_FOUND_DOG_DETAIL_ADAPTER } from "./data-automation-lost-found-adapters.ts";
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
+import { automationSourceScopedStrategyOrder } from "./data-automation-source-scoped-extraction.ts";
 
 export type AutomationCapabilitySourceShape = "SINGLE_ITEM" | "MULTI_ITEM_LIST" | "SOURCE_DEFINED";
 
@@ -257,16 +258,8 @@ export function automationExtractionCapabilities(
   ], options.governanceAllowed);
 }
 
-const extractionStrategyPriority: readonly AutomationExtractionStrategy[] = [
-  "STRUCTURED_FEED",
-  "DEDICATED_ADAPTER",
-  "GENERIC_FIRST_PARTY",
-  "TAVILY_CRAWL",
-  "TAVILY_EXTRACT",
-];
-
 export function selectAutomationExtractionStrategy(capabilities: readonly AutomationExtractionCapability[]) {
-  for (const strategy of extractionStrategyPriority) {
+  for (const strategy of automationSourceScopedStrategyOrder) {
     const capability = capabilities.find((item) => item.strategy === strategy && item.status === "SUPPORTED");
     if (capability) return capability;
   }
