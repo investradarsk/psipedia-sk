@@ -157,7 +157,7 @@ test("DISCOVERY-CAT-1C admin exposure uses canonical DIRECTORY category metadata
   }
 });
 
-test("DISCOVERY-CAT-1C source reuse is entity- and category-aware", () => {
+test("DISCOVERY-CAT-1C source reuse requires exact canonical root and never hostname-only reuse", () => {
   const candidate = {
     entityType: "DIRECTORY",
     canonicalUrl: "https://multi.example.sk/vet",
@@ -184,7 +184,7 @@ test("DISCOVERY-CAT-1C source reuse is entity- and category-aware", () => {
       config: {},
     },
   ];
-  assert.equal(selectRelevantExistingSourceForCandidate(candidate, sources)?.id, 2);
+  assert.equal(selectRelevantExistingSourceForCandidate(candidate, sources), null);
 
   assert.equal(selectRelevantExistingSourceForCandidate({
     ...candidate,
