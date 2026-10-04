@@ -93,17 +93,20 @@ test("editorial subsections use subsection visual keys and real topic search sco
   assert.match(searchPage, /podsekcia/);
 });
 
-test("Novinky uses section.novinky and never derives hero from article image", () => {
+test("Novinky uses section.novinky and keeps search only in ArticleBrowser", () => {
   assert.match(news, /getSectionHeroVisual\("section\.novinky"\)/);
   assert.doesNotMatch(news, /articles\.find\([^)]*article\.image/);
-  assert.match(news, /action="\/clanky"/);
-  assert.match(news, /inputName="hladat"/);
+  assert.doesNotMatch(news, /SectionHeroSearch/);
+  assert.match(news, /<ArticleBrowser/);
+  assert.match(news, /initialQuery=\{scalar\(params\.hladat\) \?\? ""\}/);
 });
 
-test("Plemena uses section.plemena and existing q browser contract", () => {
+test("Plemena uses section.plemena and keeps search only in BreedBrowser", () => {
   assert.match(breeds, /getSectionHeroVisual\("section\.plemena"\)/);
-  assert.match(breeds, /action="\/plemena"/);
-  assert.match(breeds, /initialFilters\.query/);
+  assert.doesNotMatch(breeds, /SectionHeroSearch/);
+  assert.match(breeds, /<BreedBrowser/);
+  assert.match(breeds, /initialFilters=\{initialFilters\}/);
+  assert.match(breeds, /<PublicSubcategoryNavigator/);
 });
 
 test("directory root and categories resolve only section visual keys", () => {
