@@ -64,8 +64,13 @@ export function canonicalizeLegacyNewsLanding(items: NavigationItem[]) {
 }
 
 export function applyPublicMapLaunchGate(items: NavigationItem[], enabled: boolean) {
-  const withoutMap = items.filter((item) => item.id !== "mapa" && item.href !== "/mapa");
-  if (!enabled) return withoutMap;
+  const isMapItem = (item: NavigationItem) => item.id === "mapa" || item.href === "/mapa";
+  if (!enabled) return items.filter((item) => !isMapItem(item));
+
+  // Once the map exists in managed navigation, its saved admin order and settings
+  // are authoritative. The launch gate only controls whether the map may appear.
+  if (items.some(isMapItem)) return items;
+
   const mapItem: NavigationItem = {
     id: "mapa",
     label: "Mapa",
@@ -74,12 +79,12 @@ export function applyPublicMapLaunchGate(items: NavigationItem[], enabled: boole
     position: 4.5,
     visible: true,
   };
-  const directoryIndex = withoutMap.findIndex((item) => item.parentId === null && item.href === "/adresar");
-  if (directoryIndex < 0) return [...withoutMap, mapItem];
+  const directoryIndex = items.findIndex((item) => item.parentId === null && item.href === "/adresar");
+  if (directoryIndex < 0) return [...items, mapItem];
   return [
-    ...withoutMap.slice(0, directoryIndex + 1),
+    ...items.slice(0, directoryIndex + 1),
     mapItem,
-    ...withoutMap.slice(directoryIndex + 1),
+    ...items.slice(directoryIndex + 1),
   ];
 }
 
