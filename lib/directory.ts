@@ -123,8 +123,8 @@ const legacyDirectoryCategories = [
     heroTitle: "Psie školy",
     seoTitle: "Psie školy – adresár",
     description: "Pôvodná kategória presmerovaná na Psí tréneri a psie školy.",
-    intro: "Pôvodná kategória psích škôl je zachovaná pre existujúce profily a kompatibilitu.",
-    resultsTitle: "Zoznam psích škôl",
+    intro: "Pôvodná kategória presmerovaná na Psí tréneri a psie školy.",
+    resultsTitle: "Psie školy",
     icon: "🎓",
   },
   {
@@ -134,8 +134,8 @@ const legacyDirectoryCategories = [
     heroTitle: "Útulky a záchrana",
     seoTitle: "Útulky a záchrana – adresár",
     description: "Pôvodná kategória zachovaná pre existujúce profily.",
-    intro: "Pôvodná kategória útulkov a záchrany je zachovaná pre existujúce profily a kompatibilitu.",
-    resultsTitle: "Zoznam útulkov a organizácií",
+    intro: "Pôvodná kategória zachovaná pre existujúce profily.",
+    resultsTitle: "Útulky a záchrana",
     icon: "❤️",
   },
 ] as const;
