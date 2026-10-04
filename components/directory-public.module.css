@@ -1602,3 +1602,56 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* SERVICES-PUBLIC-UX-1: foundation-driven directory landing and category flow. */
+.categoryLanding {
+  padding-bottom: var(--public-space-section);
+}
+
+.categorySwitcherWrap {
+  min-width: 0;
+  border-block: 1px solid rgba(23, 75, 56, .08);
+  background: rgba(237, 243, 233, .48);
+}
+
+.categorySwitcher {
+  min-width: 0;
+}
+
+.resultsSection {
+  padding-block: 0;
+}
+
+.resultsShell {
+  min-width: 0;
+  padding-bottom: var(--public-space-section);
+}
+
+.contextSection {
+  min-width: 0;
+}
+
+.contextShell {
+  padding-bottom: var(--public-space-section);
+}
+
+.providerSection {
+  padding-top: 0;
+}
+
+@media (max-width: 620px) {
+  .categoryLanding,
+  .resultsShell,
+  .contextShell {
+    padding-bottom: var(--public-space-section);
+  }
+
+  .categorySwitcherWrap {
+    overflow: hidden;
+  }
+
+  .providerSection {
+    padding-bottom: 40px;
+  }
+}
