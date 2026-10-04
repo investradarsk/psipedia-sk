@@ -61,7 +61,7 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
       action={basePath}
       onSubmit={() => setSecondaryFiltersOpen(false)}
     >
-      <label className="directory-search"><span>Vyhľadávanie</span><div><SearchIcon size={19} /><input name="q" defaultValue={filters.query} placeholder="Názov, služba, plemeno alebo lokalita" /></div></label>
+      <label className="directory-search"><span>Vyhľadávanie</span><div><SearchIcon size={19} /><input name="q" defaultValue={filters.query} placeholder="Názov služby alebo lokalita" /></div></label>
 
       <button
         className={styles.toggle}

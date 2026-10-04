@@ -1,30 +1,28 @@
 import Link from "next/link";
-import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { Breadcrumbs } from "@/components/page-system";
+import {
+  PublicContentShell,
+  PublicContextBanner,
+  PublicFoundation,
+  PublicLandingSectionHeading,
+  PublicSubcategoryNavigator,
+  UnifiedSectionHero,
+  UnifiedSectionHeroShell,
+} from "@/components/public-visual-system";
 import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import {
   directoryCategories,
   directoryCategoryHref,
-  directoryProfileHref,
   getDirectoryCategory,
   type DirectoryCategorySlug,
-  type PublicDirectoryProfile,
 } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import { DirectoryResults } from "@/components/directory-results";
-import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { getResolvedSectionVisual, getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./directory-public.module.css";
 
 function profileCountLabel(count: number) {
   return count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov";
-}
-
-function previewMeta(profile: PublicDirectoryProfile) {
-  const location = [profile.city, profile.district && profile.district !== profile.city ? profile.district : "", profile.region]
-    .filter(Boolean)
-    .join(" · ");
-  return [location, profile.services[0] ?? ""].filter(Boolean).join(" · ");
 }
 
 function categoryIcon(slug: DirectoryCategorySlug) {
@@ -45,47 +43,11 @@ function categoryIcon(slug: DirectoryCategorySlug) {
   }
 }
 
-function CategoryPreviewList({
-  category,
-  previews,
-  count,
-}: {
-  category: (typeof directoryCategories)[number];
-  previews: PublicDirectoryProfile[];
-  count: number | undefined;
-}) {
-  if (previews.length === 0) {
-    return (
-      <p className={styles.emptyPreview} data-directory-empty-state>
-        {count === 0 ? "Zatiaľ bez publikovaných profilov." : "Publikované profily sa momentálne nepodarilo načítať."}
-      </p>
-    );
-  }
-
-  return (
-    <div className={styles.previewList} role="list" aria-label={`Ukážka profilov: ${category.label}`}>
-      {previews.map((profile) => {
-        const meta = previewMeta(profile);
-        return (
-          <Link
-            className={`${styles.previewRow}${profile.imageUrl ? ` ${styles.previewRowWithImage}` : ""}`}
-            href={directoryProfileHref(profile)}
-            key={profile.id}
-            role="listitem"
-            data-directory-preview-profile
-          >
-            {profile.imageUrl && (
-              <img className={styles.previewImage} src={profile.imageUrl} alt="" loading="lazy" decoding="async" />
-            )}
-            <span className={styles.previewCopy}>
-              <strong>{profile.name}</strong>
-              {meta && <small>{meta}</small>}
-            </span>
-            <span className={styles.previewArrow} aria-hidden="true"><ArrowIcon size={16} /></span>
-          </Link>
-        );
-      })}
-    </div>
+function hasDirectoryFilters(filters: DirectoryFilters) {
+  return Boolean(
+    filters.query || filters.category || filters.region || filters.district || filters.city ||
+    filters.service || filters.breed || filters.fciGroup || filters.organization ||
+    filters.profileType || filters.sort !== "recommended",
   );
 }
 
@@ -93,16 +55,12 @@ export async function DirectoryPage({
   result,
   filters,
   categoryCounts,
-  categoryPreviews = {},
   initialCategory = "all",
-  showResults = true,
 }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   categoryCounts: Partial<Record<DirectoryCategorySlug, number>>;
-  categoryPreviews?: Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
   initialCategory?: "all" | DirectoryCategorySlug;
-  showResults?: boolean;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   const heroVisual = await getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
@@ -111,60 +69,47 @@ export async function DirectoryPage({
     .filter((count): count is number => typeof count === "number");
   const totalPublished = knownCounts.length > 0 ? knownCounts.reduce((sum, count) => sum + count, 0) : null;
   const activeCount = active ? categoryCounts[active.slug] : undefined;
-  const landingCategoryTiles = directoryCategories.map((category) => {
+  const filtered = hasDirectoryFilters(filters);
+
+  const categoryVisualEntries = active ? [] : await Promise.all(
+    directoryCategories.map(async (category) => [
+      category.slug,
+      await getResolvedSectionVisual(`directory.${category.slug}`),
+    ] as const),
+  );
+  const categoryVisuals = new Map(categoryVisualEntries);
+
+  const landingCategoryItems = directoryCategories.map((category) => {
     const count = categoryCounts[category.slug];
+    const visual = categoryVisuals.get(category.slug);
     return {
       href: directoryCategoryHref(category),
       title: category.label,
       description: category.description,
       meta: typeof count === "number" ? `${count} ${profileCountLabel(count)}` : undefined,
       icon: categoryIcon(category.slug),
+      image: visual ? {
+        src: visual.imageUrl,
+        alt: visual.altText,
+        width: 640,
+        height: 360,
+        loading: "lazy" as const,
+      } : undefined,
     };
   });
 
-  const rankedCategories = directoryCategories
-    .map((category, index) => ({
-      category,
-      index,
-      count: categoryCounts[category.slug],
-    }))
-    .sort((left, right) => {
-      const leftCount = typeof left.count === "number" ? left.count : -1;
-      const rightCount = typeof right.count === "number" ? right.count : -1;
-      return rightCount - leftCount || left.index - right.index;
-    });
-  const primaryCategories = rankedCategories.slice(0, 5);
-  const secondaryCategories = rankedCategories.slice(5);
-
-  const categoryNavigation = (
-    <nav
-      className={`${styles.categoryNav}${active ? ` ${styles.categoryNavCompact}` : ""}`}
-      aria-label="Kategórie služieb"
-      data-directory-category-navigation
-    >
-      {directoryCategories.map((category) => {
-        const count = categoryCounts[category.slug];
-        return (
-          <Link
-            href={directoryCategoryHref(category)}
-            key={category.slug}
-            aria-current={active?.slug === category.slug ? "page" : undefined}
-          >
-            <span className={styles.categoryNavIcon}>{categoryIcon(category.slug)}</span>
-            <span className={styles.categoryNavCopy}>
-              <strong>{category.label}</strong>
-              {typeof count === "number" && (
-                <small aria-label={`${count} ${profileCountLabel(count)}`}>
-                  {count} {profileCountLabel(count)}
-                </small>
-              )}
-            </span>
-            <ArrowIcon size={15} />
-          </Link>
-        );
-      })}
-    </nav>
-  );
+  const compactCategoryItems = [
+    {
+      href: "/adresar",
+      title: "Všetky služby",
+      current: !active,
+    },
+    ...directoryCategories.map((category) => ({
+      href: directoryCategoryHref(category),
+      title: category.label,
+      current: active?.slug === category.slug,
+    })),
+  ];
 
   return (
     <main id="obsah" className={styles.page}>
@@ -193,168 +138,76 @@ export async function DirectoryPage({
               : !active && totalPublished !== null
                 ? `${totalPublished.toLocaleString("sk-SK")} publikovaných profilov v adresári`
                 : undefined}
-            searchSlot={
-              <SectionHeroSearch
-                action={active ? `/adresar/${active.slug}` : "/adresar"}
-                id={active ? `directory-hero-${active.slug}` : "directory-hero-all"}
-                label={active ? `Hľadať v kategórii ${active.label}` : "Názov, služba alebo lokalita"}
-                placeholder={active?.slug === "veterinari"
-                  ? "Veterinár, mesto alebo okres…"
-                  : active
-                    ? "Názov, mesto alebo služba…"
-                    : "Nitra, fyzioterapia, labrador…"}
-                defaultValue={filters.query}
-                beforeInput={!active ? (
-                  <label>
-                    <span className="sr-only">Kategória služby</span>
-                    <select name="category" defaultValue={filters.category} aria-label="Kategória služby">
-                      <option value="">Všetky služby</option>
-                      {directoryCategories.map((category) => <option value={category.slug} key={category.slug}>{category.label}</option>)}
-                    </select>
-                  </label>
-                ) : undefined}
-              />
-            }
           />
         </UnifiedSectionHeroShell>
 
-        <PublicContentShell variant={active ? "listing" : "landing"}>
-          {active ? categoryNavigation : (
-            <div className={styles.discovery} aria-labelledby="directory-discovery-title">
+        {!active ? (
+          <PublicContentShell variant="landing" className={styles.categoryLanding}>
+            <div data-directory-category-navigation>
               <PublicLandingSectionHeading
-                eyebrow="Rýchly výber"
-                title="Vyber si kategóriu služby"
-                description="Prejdi rovno do existujúcej kategórie alebo použi vyhľadávanie vyššie."
-                id="directory-discovery-title"
+                eyebrow="Kategórie služieb"
+                title="Vyber si kategóriu"
+                description="Prejdi priamo do služby, ktorú hľadáš. Na mobile môžeš kategórie pohodlne posúvať do strán."
+                id="directory-categories-title"
               />
-              <PublicCategoryTiles items={landingCategoryTiles} label="Kategórie služieb" />
+              <PublicSubcategoryNavigator
+                mode="landing"
+                items={landingCategoryItems}
+                label="Kategórie služieb"
+              />
             </div>
-          )}
-        </PublicContentShell>
-
-        {!active && !showResults && (
-          <>
-            <section className={styles.primarySection} aria-labelledby="directory-primary-title">
-              <PageContainer className={styles.overview}>
-                <PublicLandingSectionHeading
-                  eyebrow="Najviac možností"
-                  title="Hlavné kategórie"
-                  description="Zoradené podľa aktuálneho počtu publikovaných profilov, nie podľa pevne nastavenej priority."
-                  id="directory-primary-title"
-                />
-
-                <div className={styles.primaryGrid}>
-                  {primaryCategories.map(({ category, count }, index) => {
-                    const previews = categoryPreviews[category.slug] ?? [];
-                    const action = typeof count === "number"
-                      ? `Zobraziť všetkých ${count}`
-                      : "Zobraziť všetkých";
-                    return (
-                      <section
-                        className={`${styles.categoryPanel} ${styles.primaryPanel} ${index === 0 ? styles.primaryLead : index === 1 ? styles.primaryFeature : styles.primaryStandard}`}
-                        key={category.slug}
-                        data-directory-category={category.slug}
-                        data-directory-category-count={typeof count === "number" ? String(count) : undefined}
-                        data-directory-category-empty={count === 0 ? "true" : undefined}
-                        data-directory-primary
-                        aria-labelledby={`directory-category-${category.slug}`}
-                      >
-                        <header className={styles.categoryHeader}>
-                          <div className={styles.categoryHeading}>
-                            <span className={styles.categoryIcon}>{categoryIcon(category.slug)}</span>
-                            <div>
-                              <h3 id={`directory-category-${category.slug}`}>{category.label}</h3>
-                              <p>{category.description}</p>
-                            </div>
-                          </div>
-                          {typeof count === "number" && (
-                            <span className={styles.categoryCount}>{count} {profileCountLabel(count)}</span>
-                          )}
-                        </header>
-
-                        <CategoryPreviewList category={category} previews={previews} count={count} />
-
-                        <Link className={styles.categoryAction} href={directoryCategoryHref(category)}>
-                          <span>{action}</span><ArrowIcon size={16} />
-                        </Link>
-                      </section>
-                    );
-                  })}
-                </div>
-              </PageContainer>
-            </section>
-
-            <section className={styles.secondarySection} aria-labelledby="directory-secondary-title">
-              <PageContainer className={styles.secondaryShell}>
-                <PublicLandingSectionHeading
-                  eyebrow="Ďalšie možnosti"
-                  title="Ďalšie kategórie služieb"
-                  description="Menšie kategórie zostávajú rovnako dostupné, ale nepreberajú vizuálnu váhu hlavného obsahu."
-                  id="directory-secondary-title"
-                />
-
-                <div className={styles.secondaryGrid}>
-                  {secondaryCategories.map(({ category, count }) => {
-                    const action = typeof count === "number"
-                      ? `Zobraziť všetkých ${count}`
-                      : "Zobraziť všetkých";
-                    return (
-                      <section
-                        className={styles.secondaryItem}
-                        key={category.slug}
-                        data-directory-category={category.slug}
-                        data-directory-category-count={typeof count === "number" ? String(count) : undefined}
-                        data-directory-category-empty={count === 0 ? "true" : undefined}
-                        data-directory-secondary
-                        aria-labelledby={`directory-category-${category.slug}`}
-                      >
-                        <div className={styles.secondaryIcon}>{categoryIcon(category.slug)}</div>
-                        <div className={styles.secondaryCopy}>
-                          <h3 id={`directory-category-${category.slug}`}>{category.label}</h3>
-                          <p>{category.description}</p>
-                          {count === 0 && <small data-directory-empty-state>Zatiaľ bez publikovaných profilov.</small>}
-                        </div>
-                        <div className={styles.secondaryActionWrap}>
-                          {typeof count === "number" && <strong>{count} {profileCountLabel(count)}</strong>}
-                          <Link className={styles.secondaryAction} href={directoryCategoryHref(category)}>
-                            <span>{action}</span><ArrowIcon size={16} />
-                          </Link>
-                        </div>
-                      </section>
-                    );
-                  })}
-                </div>
-              </PageContainer>
-            </section>
-
-            <section className={styles.providerSection} data-directory-provider-cta>
-              <PageContainer className={styles.providerCta}>
-                <div>
-                  <span className={styles.sectionEyebrow}>Pre poskytovateľov</span>
-                  <h2>Poskytujete služby pre psov?</h2>
-                  <p>Spravujete veterinárnu ambulanciu, salón, hotel, výcvikovú školu alebo inú službu? Ozvite sa nám, ak chcete profil doplniť alebo upraviť.</p>
-                </div>
-                <Link href="/o-nas#kontakt">
-                  <span>Pridať alebo upraviť profil</span>
-                  <ArrowIcon size={17} />
-                </Link>
-              </PageContainer>
-            </section>
-          </>
+          </PublicContentShell>
+        ) : (
+          <div className={styles.categorySwitcherWrap} data-directory-category-navigation>
+            <PublicSubcategoryNavigator
+              mode="compact"
+              items={compactCategoryItems}
+              label="Prepnúť kategóriu služby"
+              className={styles.categorySwitcher}
+            />
+          </div>
         )}
 
-        {(active || showResults) && (
-          <section className={styles.resultsSection}>
-            <PageContainer className={styles.resultsShell}>
-              <DirectoryResults
-                result={result}
-                filters={filters}
-                basePath={active ? `/adresar/${active.slug}` : "/adresar"}
-                title={active ? active.resultsTitle : "Výsledky vyhľadávania"}
-                category={active?.slug}
-                showCategory={!active}
-              />
-            </PageContainer>
+        <section className={styles.resultsSection}>
+          <PublicContentShell variant="listing" className={styles.resultsShell}>
+            <DirectoryResults
+              result={result}
+              filters={filters}
+              basePath={active ? `/adresar/${active.slug}` : "/adresar"}
+              title={active ? active.resultsTitle : filtered ? "Výsledky vyhľadávania" : "Odporúčané služby"}
+              category={active?.slug}
+              showCategory={!active}
+            />
+          </PublicContentShell>
+        </section>
+
+        <section className={styles.contextSection}>
+          <PublicContentShell variant="plain" className={styles.contextShell}>
+            <PublicContextBanner
+              eyebrow="Služby v okolí"
+              title="Nájdite služby pre psov na mape"
+              text="Pozri si služby podľa polohy a rýchlejšie nájdi možnosti vo svojom okolí."
+              ctaLabel="Pozrieť mapu"
+              ctaHref="/mapa"
+              icon={<PawMark size={20} />}
+              tone="forest"
+            />
+          </PublicContentShell>
+        </section>
+
+        {!active && (
+          <section className={styles.providerSection} data-directory-provider-cta>
+            <PublicContentShell variant="plain" className={styles.providerCta}>
+              <div>
+                <span className={styles.sectionEyebrow}>Pre poskytovateľov</span>
+                <h2>Poskytujete služby pre psov?</h2>
+                <p>Spravujete veterinárnu ambulanciu, salón, hotel, výcvikovú školu alebo inú službu? Ozvite sa nám, ak chcete profil doplniť alebo upraviť.</p>
+              </div>
+              <Link href="/o-nas#kontakt">
+                <span>Pridať alebo upraviť profil</span>
+                <ArrowIcon size={17} />
+              </Link>
+            </PublicContentShell>
           </section>
         )}
       </PublicFoundation>

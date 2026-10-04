@@ -4,7 +4,6 @@ import { StructuredData } from "@/components/structured-data";
 import { directoryCategories, directoryCategoryHref } from "@/lib/directory";
 import {
   getDirectoryCategoryCounts,
-  getDirectoryCategoryPreviews,
   listPublishedDirectoryProfiles,
   parseDirectoryFilters,
 } from "@/lib/directory-store";
@@ -30,17 +29,9 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const filters = parseDirectoryFilters(rawSearchParams);
   const policy = resolveListingIndexPolicy("/adresar", rawSearchParams);
-  const hasSearch = Boolean(
-    filters.query || filters.category || filters.region || filters.district || filters.city ||
-    filters.service || filters.breed || filters.fciGroup || filters.organization || filters.profileType,
-  );
-  const [result, categoryCounts, categoryPreviews] = await Promise.all([
-    hasSearch ? listPublishedDirectoryProfiles({ filters }) : Promise.resolve({
-      profiles: [], total: 0, page: 1, pageSize: 24, totalPages: 1,
-      options: { regions: [], districts: [], cities: [], services: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] },
-    }),
+  const [result, categoryCounts] = await Promise.all([
+    listPublishedDirectoryProfiles({ filters }),
     getDirectoryCategoryCounts(),
-    hasSearch ? Promise.resolve({}) : getDirectoryCategoryPreviews(3),
   ]);
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Služby pre psov",
@@ -63,8 +54,6 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
         result={result}
         filters={filters}
         categoryCounts={categoryCounts}
-        categoryPreviews={categoryPreviews}
-        showResults={hasSearch}
       />
     </>
   );

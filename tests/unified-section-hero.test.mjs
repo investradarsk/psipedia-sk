@@ -11,6 +11,7 @@ const editorial = read("components/editorial-section.tsx");
 const portalHub = read("components/portal-hub.tsx");
 const portalTopic = read("components/portal-topic.tsx");
 const directory = read("components/directory-page.tsx");
+const directoryCard = read("components/directory-card.tsx");
 const events = read("components/events-page.tsx");
 const helpOverview = read("components/help-overview.tsx");
 const helpPage = read("components/help-page.tsx");
@@ -174,7 +175,7 @@ test("SECTION-HERO-V2 keeps the approved 0107 hero config migration uniquely ass
 });
 
 test("cards retain dynamic images while hero sources are stable", () => {
-  assert.match(directory, /profile\.imageUrl/);
+  assert.match(directoryCard, /profile\.imageUrl/);
   assert.match(helpOverview, /item\.imageUrl/);
   assert.match(adoption, /mainImage/);
   assert.match(lostFound, /report\.mainImage/);
