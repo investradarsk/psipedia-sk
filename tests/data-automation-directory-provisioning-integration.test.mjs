@@ -687,7 +687,7 @@ test("HOTFIX unknown EVENT page never invents an adapter and remains fail-closed
   assert.deepEqual(source.config, {});
   assert.equal(source.enabled, false);
   assert.equal(automationSourceReadiness(source).ready, false);
-  assert.equal(automationSourceReadiness(source).reason, "MISSING_ADAPTER");
+  assert.equal(automationSourceReadiness(source).reason, "NO_RELIABLE_EXTRACTION_STRATEGY");
 });
 
 test("HOTFIX known EVENT activation still requires governance and uses the unified readiness contract", async () => {
@@ -991,13 +991,14 @@ test("HOTFIX DIRECTORY candidate without a supported adapter remains fail-closed
 
   assert.deepEqual(source.config, {});
   const readiness = automationSourceReadiness(source);
-  assert.equal(readiness.reason, "MISSING_ADAPTER");
+  assert.equal(readiness.reason, "NO_RELIABLE_EXTRACTION_STRATEGY");
   assert.equal(readiness.ready, false);
 });
 
 
 test("HOTFIX source-only error mapping explains readiness blockers without exposing backend codes", () => {
   const cases = new Map([
+    ["automation_source_not_ready:NO_RELIABLE_EXTRACTION_STRATEGY", "Tento zdroj zatiaľ nevieme spoľahlivo automaticky čítať."],
     ["automation_source_not_ready:MISSING_ADAPTER", "Zdroj nemá priradený adapter na automatické spracovanie."],
     ["automation_source_not_ready:UNSUPPORTED_ADAPTER", "Priradený adapter tohto zdroja nie je dostupný v produkcii."],
     ["automation_source_not_ready:ADAPTER_ENTITY_MISMATCH", "Adapter nezodpovedá typu obsahu tohto zdroja."],
