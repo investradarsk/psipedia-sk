@@ -29,6 +29,12 @@ import {
   automationUrlWithinApprovedSourceScope,
   type SourceScopedExtractionContract,
 } from "./data-automation-source-scoped-extraction.ts";
+import {
+  TavilyAutomationCrawlProvider,
+  TavilyAutomationExtractProvider,
+  TavilySourceScopedError,
+  type TavilySourceScopedRequestGate,
+} from "./data-automation-tavily-source-scoped.ts";
 
 export class AutomationConnectorError extends Error {
   readonly code: string;
@@ -56,6 +62,9 @@ export type AutomationConnectorContext = {
   sourceScopedContract?: SourceScopedExtractionContract;
   strategyOverride?: AutomationExtractionStrategy;
   genericProbe?: boolean;
+  tavilyCrawlProvider?: TavilyAutomationCrawlProvider;
+  tavilyExtractProvider?: TavilyAutomationExtractProvider;
+  tavilyRequestGate?: TavilySourceScopedRequestGate;
   onResponse?: (meta: {
     status: number;
     contentType: string | null;
@@ -314,6 +323,28 @@ async function fetchOnce(
   }
 }
 
+const GENERIC_TAVILY_FALLBACK_CODES = new Set([
+  "no_items_discovered",
+  "ambiguous_listing",
+  "unsupported_structured_data",
+  "invalid_item_structure",
+]);
+
+function tavilyConnectorError(error: unknown) {
+  if (!(error instanceof TavilySourceScopedError)) {
+    return new AutomationConnectorError("tavily_provider_error");
+  }
+  return new AutomationConnectorError(error.code.toLowerCase(), error.retryable);
+}
+
+async function validateTavilyRecords(source: AutomationSource, records: AutomationSourceRecord[]) {
+  const bounded = boundedAutomationRecords(records, source.maxRecordsPerRun);
+  const helpShapeError = automationHelpRecordShapeError(source, bounded.length);
+  if (helpShapeError) throw new AutomationConnectorError(helpShapeError);
+  validateRecordCount(source, bounded);
+  return bounded;
+}
+
 async function withRetry<T>(
   source: AutomationSource,
   operation: () => Promise<T>,
@@ -346,12 +377,43 @@ export async function fetchAutomationSourceRecords(
   const initialAdapterKey = source.config.htmlAdapterKey?.trim()
     || initialEventFallback.htmlAdapterKey?.trim()
     || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
+  const tavilyOverride = context.strategyOverride === "TAVILY_CRAWL"
+    || context.strategyOverride === "TAVILY_EXTRACT";
   const genericRequested = source.connectorType === "CONTROLLED_HTML"
     && Boolean(context.sourceScopedContract)
+    && !tavilyOverride
     && (context.strategyOverride === "GENERIC_FIRST_PARTY" || !initialAdapterKey);
   const scopedPolicy = genericRequested && context.sourceScopedContract
     ? (url: string) => automationUrlWithinApprovedSourceScope(context.sourceScopedContract!.identity, url)
     : undefined;
+
+  if (tavilyOverride) {
+    if (source.connectorType !== "CONTROLLED_HTML") {
+      throw new AutomationConnectorError("tavily_unsupported_connector");
+    }
+    const contract = context.sourceScopedContract;
+    const gate = context.tavilyRequestGate;
+    if (!contract || !gate) throw new AutomationConnectorError("tavily_source_contract_missing");
+    try {
+      if (context.strategyOverride === "TAVILY_CRAWL") {
+        if (!context.tavilyCrawlProvider) throw new AutomationConnectorError("tavily_crawl_unavailable");
+        const result = await context.tavilyCrawlProvider.crawl({ source, contract, gate });
+        return validateTavilyRecords(source, result.records);
+      }
+      if (!context.tavilyExtractProvider) throw new AutomationConnectorError("tavily_extract_unavailable");
+      if (!source.sourceUrl) throw new AutomationConnectorError("unsafe_or_missing_source_url");
+      const result = await context.tavilyExtractProvider.extract({
+        source,
+        contract,
+        gate,
+        urls: [source.sourceUrl],
+      });
+      return validateTavilyRecords(source, result.records);
+    } catch (error) {
+      if (error instanceof AutomationConnectorError) throw error;
+      throw tavilyConnectorError(error);
+    }
+  }
 
   return withRetry(source, async () => {
     const fetched = await fetchOnce(source, fetchImpl, context.onResponse, {
@@ -427,6 +489,36 @@ export async function fetchAutomationSourceRecords(
       } catch (error) {
         if (error instanceof AutomationConnectorError) throw error;
         if (error instanceof GenericFirstPartyExtractionError) {
+          const fallbackAllowed = !context.genericProbe
+            && GENERIC_TAVILY_FALLBACK_CODES.has(error.code)
+            && Boolean(context.tavilyRequestGate);
+          if (fallbackAllowed) {
+            try {
+              if (
+                source.config.sourceShape === "SINGLE_ITEM"
+                && context.tavilyExtractProvider
+              ) {
+                const result = await context.tavilyExtractProvider.extract({
+                  source: effectiveSource,
+                  contract: baseContract,
+                  gate: context.tavilyRequestGate!,
+                  urls: [fetched.finalUrl],
+                });
+                return validateTavilyRecords(source, result.records);
+              }
+              if (context.tavilyCrawlProvider) {
+                const result = await context.tavilyCrawlProvider.crawl({
+                  source: effectiveSource,
+                  contract: baseContract,
+                  gate: context.tavilyRequestGate!,
+                });
+                return validateTavilyRecords(source, result.records);
+              }
+            } catch (providerError) {
+              if (providerError instanceof AutomationConnectorError) throw providerError;
+              throw tavilyConnectorError(providerError);
+            }
+          }
           throw new AutomationConnectorError(error.code);
         }
         throw new AutomationConnectorError("generic_source_parse_failed");
