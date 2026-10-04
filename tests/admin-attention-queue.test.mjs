@@ -305,11 +305,12 @@ test("Partner claim and verification Attention lifecycles use stable keys, deep 
   assert.equal(mapPartnerVerificationAttention({...verification,status:"REJECTED"},NOW).attentionState,"DISMISSED");
 });
 
-test("Attention read model has 16 user-facing sources, bounded page size and no silent empty fallback", () => {
-  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 16);
-  assert.equal(adminAttentionQueueSourceTypes.length, 16);
+test("Attention read model has 15 user-facing sources, bounded page size and no silent empty fallback", () => {
+  assert.equal(ADMIN_ATTENTION_QUERY_COUNT, 15);
+  assert.equal(adminAttentionQueueSourceTypes.length, 15);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_ACTION"), true);
   assert.equal(adminAttentionQueueSourceTypes.includes("AUTOMATION_FINDING"), false);
+  assert.equal(adminAttentionQueueSourceTypes.includes("GEO_LOCATION_ISSUE"), false);
   const store = readFileSync(new URL("../lib/admin-attention-queue-store.ts", import.meta.url), "utf8");
   assert.match(store, /ADMIN_ATTENTION_MAX_PAGE_SIZE = 50/);
   assert.match(store, /LIMIT \\?/);

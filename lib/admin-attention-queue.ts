@@ -1,7 +1,7 @@
 import { ADOPTION_NOINDEX_STALE_DAYS, ADOPTION_STALE_DAYS } from "./adoption.ts";
 import {partnerAttentionHref,partnerAttentionKey} from "./partner-attention.ts";
 
-export const ADMIN_ATTENTION_QUERY_COUNT = 16;
+export const ADMIN_ATTENTION_QUERY_COUNT = 15;
 
 export const adminAttentionSourceTypes = [
   "MODERATION_SUBMISSION",
@@ -25,7 +25,7 @@ export const adminAttentionSourceTypes = [
 export type AdminAttentionSourceType = (typeof adminAttentionSourceTypes)[number];
 export type AdminAttentionQueueSourceType = Exclude<AdminAttentionSourceType, "AUTOMATION_FINDING">;
 export const adminAttentionQueueSourceTypes = adminAttentionSourceTypes.filter(
-  (source): source is AdminAttentionQueueSourceType => source !== "AUTOMATION_FINDING",
+  (source): source is AdminAttentionQueueSourceType => source !== "AUTOMATION_FINDING" && source !== "GEO_LOCATION_ISSUE",
 );
 
 export const adminAttentionPriorities = ["HIGH", "MEDIUM", "LOW"] as const;

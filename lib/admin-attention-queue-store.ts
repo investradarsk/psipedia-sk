@@ -47,7 +47,7 @@ type RuntimeBindings = { DB?: D1Database };
 
 export const ADMIN_ATTENTION_PAGE_SIZE = 24;
 export const ADMIN_ATTENTION_MAX_PAGE_SIZE = 50;
-export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 16;
+export const ADMIN_ATTENTION_SOURCE_QUERY_COUNT = 15;
 export const ADMIN_ATTENTION_REQUEST_QUERY_MAX = ADMIN_ATTENTION_SOURCE_QUERY_COUNT * 2;
 
 export const adminAttentionAvailabilityStates = ["OK", "EMPTY", "PARTIAL", "UNAVAILABLE"] as const;
