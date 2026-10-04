@@ -22,6 +22,15 @@ function safePreviewErrorDetail(code: string) {
     adapter_parse_failed: "Parser zdroja zlyhal pri spracovaní odpovede.",
     adapter_no_records: "Parser nenašiel žiadne záznamy, hoci tento zdroj ich očakáva.",
     adapter_record_count_below_minimum: "Parser našiel podozrivo málo záznamov oproti bezpečnostnému minimu.",
+    no_items_discovered: "Zdroj nemá dostatočne jednoznačnú štruktúru položiek.",
+    source_scope_violation: "Zdroj sa pokúsil prejsť mimo schváleného rozsahu URL.",
+    ambiguous_listing: "Štruktúra zoznamu položiek je nejednoznačná.",
+    unsupported_structured_data: "Štruktúrované údaje zdroja sa nedajú bezpečne spracovať.",
+    traversal_limit_reached: "Zdroj prekročil bezpečný limit prechádzania.",
+    detail_fetch_failed: "Detail položiek sa nepodarilo bezpečne načítať.",
+    unsafe_item_url: "Zdroj obsahuje položku s nepovolenou URL.",
+    invalid_item_structure: "Položka nemá dostatočne jednoznačnú štruktúru.",
+    generic_source_parse_failed: "Generický parser nedokázal zdroj bezpečne spracovať.",
   };
   if (/^source_http_\d{3}$/.test(code)) return `Zdroj vrátil HTTP ${code.slice(-3)}.`;
   return details[code] ?? "Zdroj sa nepodarilo bezpečne spracovať.";
@@ -103,7 +112,7 @@ export async function previewAutomationSource(input: {
       newCandidates,
       possibleUpdates,
       errors: errors.slice(0, 20),
-      parserErrors: errors.filter((code) => /^(adapter_|structured_json_)/.test(code)).slice(0, 20),
+      parserErrors: errors.filter((code) => /^(adapter_|structured_json_|generic_|no_items_|source_scope_|ambiguous_listing|unsupported_structured_data|traversal_limit_|detail_fetch_|unsafe_item_|invalid_item_)/.test(code)).slice(0, 20),
       errorDetails: errors.slice(0, 20).map((code) => ({ code, detail: safePreviewErrorDetail(code) })),
       writes: { observations: 0, findings: 0, canonical: 0, publications: 0 },
     };
@@ -126,7 +135,7 @@ export async function previewAutomationSource(input: {
       newCandidates: 0,
       possibleUpdates: 0,
       errors: [code],
-      parserErrors: /^(adapter_|structured_json_)/.test(code) ? [code] : [],
+      parserErrors: /^(adapter_|structured_json_|generic_|no_items_|source_scope_|ambiguous_listing|unsupported_structured_data|traversal_limit_|detail_fetch_|unsafe_item_|invalid_item_)/.test(code) ? [code] : [],
       errorDetails: [{ code, detail: safePreviewErrorDetail(code) }],
       writes: { observations: 0, findings: 0, canonical: 0, publications: 0 },
     };
