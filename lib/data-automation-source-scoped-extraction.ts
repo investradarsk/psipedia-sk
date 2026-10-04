@@ -167,10 +167,8 @@ export function assertAutomationUrlWithinApprovedSourceScope(
 }
 
 export function buildSourceScopedExtractionContract(
-  source: Pick<
-    AutomationSource,
-    "id" | "entityType" | "sourceUrl" | "maxRecordsPerRun" | "timeoutMs" | "throttleMs"
-  >,
+  source: Pick<AutomationSource, "id" | "entityType" | "sourceUrl">
+    & Partial<Pick<AutomationSource, "maxRecordsPerRun" | "timeoutMs" | "throttleMs">>,
   governance?: Pick<AutomationGovernanceState, "pathScope" | "maxRequestsPerDay"> | null,
 ): AutomationSourceScopedContractResult {
   const sourceRootUrl = canonicalizeSourceUrl(source.sourceUrl);
@@ -203,7 +201,7 @@ export function buildSourceScopedExtractionContract(
       identity,
       limits: {
         maxPages: 10,
-        maxItems: Math.max(1, Math.min(500, Math.floor(source.maxRecordsPerRun || 1))),
+        maxItems: Math.max(1, Math.min(500, Math.floor(source.maxRecordsPerRun || 100))),
         maxBytes: AUTOMATION_SOURCE_MAX_BYTES,
         maxRedirects: AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
         timeoutMs: automationSourceRequestTimeoutMs(source.timeoutMs),
