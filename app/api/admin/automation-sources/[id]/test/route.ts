@@ -10,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
-type RuntimeBindings = { DB?: D1Database };
+type RuntimeBindings = { DB?: D1Database; TAVILY_API_KEY?: string };
 
 export async function POST(request: Request, { params }: Props) {
   const auth = await requireAutomationAdminMutation(request);
@@ -25,7 +25,8 @@ export async function POST(request: Request, { params }: Props) {
   const db = (env as unknown as RuntimeBindings).DB;
   if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
 
-  const staticReadiness = automationSourceReadiness(source);
+  const tavilyCredentialConfigured = Boolean((env as unknown as RuntimeBindings).TAVILY_API_KEY?.trim());
+  const staticReadiness = automationSourceReadiness(source, undefined, { tavilyCredentialConfigured });
   const genericProbeEligible = staticReadiness.capabilities.some((capability) =>
     capability.strategy === "GENERIC_FIRST_PARTY"
     && capability.status === "UNAVAILABLE"
@@ -34,7 +35,7 @@ export async function POST(request: Request, { params }: Props) {
   const readiness = staticReadiness.ready
     ? staticReadiness
     : genericProbeEligible
-      ? await automationSourceActivationReadiness(source, db)
+      ? await automationSourceActivationReadiness(source, db, { tavilyCredentialConfigured })
       : staticReadiness;
   if (!readiness.ready) {
     return Response.json({
