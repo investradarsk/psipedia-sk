@@ -14,7 +14,10 @@ import {
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
-import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
+import {
+  buildSourceScopedExtractionContract,
+  type SourceScopedExtractionContract,
+} from "./data-automation-source-scoped-extraction.ts";
 import {
   evaluateGovernanceForActivation,
   getGovernanceState,
@@ -88,7 +91,7 @@ export async function automationSourceActivationReadiness(
     };
   }
 
-  let scopedContract = null;
+  let scopedContract: SourceScopedExtractionContract | null = null;
   if (source.connectorType !== "MANUAL_IMPORT") {
     const contract = buildSourceScopedExtractionContract(source, governance.state);
     if (!contract.ready) {
