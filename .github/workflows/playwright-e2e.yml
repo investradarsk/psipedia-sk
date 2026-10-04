@@ -535,7 +535,7 @@ jobs:
     if: github.event_name == 'pull_request' && needs.pr-scope.outputs.public_ux == 'true'
     needs: [pr-scope]
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     permissions:
       contents: read
       checks: read
@@ -592,7 +592,7 @@ jobs:
       - name: PUBLIC-UX-HARDENING measurements, Axe and screenshots
         env:
           E2E_BASE_URL: ${{ steps.preview.outputs.url }}
-        run: npx playwright test tests/e2e/public-ux-hardening.spec.ts --project=desktop-chromium --workers=1 --retries=0
+        run: npx playwright test tests/e2e/public-ux-hardening.spec.ts --project=desktop-chromium --workers=3 --retries=0
       - name: Upload immutable browser audit evidence
         if: always()
         uses: actions/upload-artifact@v4
