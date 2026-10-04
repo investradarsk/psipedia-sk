@@ -22,10 +22,13 @@ test("reviews hub separates editorial products, user service reviews and verifie
   assert.match(hub, /Produkty/);
   assert.match(hub, /Služby/);
   assert.match(hub, /E-shopy/);
-  assert.match(hub, /Štyri jednoduché vstupy do recenzií/);
+  assert.match(hub, /Tri hlavné vstupy do recenzií/);
+  assert.match(hub, /Zobraziť všetko|Všetko je zobrazené/);
   assert.match(hub, /<UnifiedSectionHero/);
   assert.match(hub, /getSectionHeroVisual\("section\.recenzie"\)/);
   assert.match(hub, /<PublicCategoryTiles/);
+  assert.match(hub, /<PublicSubcategoryNavigator/);
+  assert.match(hub, /label="Kategórie produktových recenzií"/);
   assert.match(hub, /Najnovšie testy Psipedia/);
   assert.match(hub, /Najnovšie recenzie služieb/);
   assert.match(hub, /Hodnotenia nákupnej skúsenosti/);

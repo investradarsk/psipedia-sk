@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArticleBrowser } from "@/components/article-browser";
 import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentShell, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
 import { StructuredData } from "@/components/structured-data";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
@@ -62,16 +61,6 @@ export default async function ArticlesPage({ searchParams }: Props) {
             title="Novinky zo sveta psov"
             intro="Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov."
             visual={heroVisual}
-            searchSlot={
-              <SectionHeroSearch
-                action="/clanky"
-                id="news-hero-query"
-                label="Hľadať v Novinkách"
-                placeholder="Hľadať článok alebo tému…"
-                defaultValue={scalar(params.hladat) ?? ""}
-                inputName="hladat"
-              />
-            }
           />
         </UnifiedSectionHeroShell>
         <section className="page-body">

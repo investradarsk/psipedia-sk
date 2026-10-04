@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
-import { ArrowIcon, BowlIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
+import { ArrowIcon, BowlIcon, PawMark, SearchIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { SectionHeroSearch } from "@/components/section-hero-search";
-import { PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, PublicSubcategoryNavigator, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
 import type { PublicEshop } from "@/lib/eshop-ratings";
@@ -133,21 +133,13 @@ export async function ReviewsHub({
         <PublicContentShell variant="landing">
           <PublicLandingSectionHeading
             eyebrow="Vyber si, čo chceš pozrieť"
-            title="Štyri jednoduché vstupy do recenzií"
+            title="Tri hlavné vstupy do recenzií"
+            description="Najprv si vyber typ obsahu. Produktové kategórie zobrazujeme až v produktovej vetve, aby sa hierarchia nemiešala."
             id="reviews-mode-heading"
           />
           <PublicCategoryTiles
             label="Typ recenzií"
             items={[
-              {
-                href: viewHref("all"),
-                title: "Všetko",
-                description: "Testy produktov, skúsenosti so službami aj hodnotenia e-shopov na jednom mieste.",
-                meta: view === "all" ? "Zobrazené" : "Otvoriť",
-                icon: <SparkIcon size={22} />,
-                current: view === "all",
-                prefetch: false,
-              },
               {
                 href: viewHref("products"),
                 title: "Produkty",
@@ -180,6 +172,9 @@ export async function ReviewsHub({
               },
             ]}
           />
+          <div className={styles.allReviewsRow}>
+            {view !== "all" ? <Link href={viewHref("all")} rel="nofollow">Zobraziť všetko</Link> : <span>Všetko je zobrazené</span>}
+          </div>
         </PublicContentShell>
       </section>
 
@@ -232,18 +227,21 @@ export async function ReviewsHub({
                 title="Čo chceš porovnať?"
                 description="Každá kategória používa spravovanú taxonómiu Psipedia, takže redakcia môže obsah ďalej rozširovať bez nového systému."
               />
-              <div className={styles.categoryGrid}>
-                {subpages.map((subpage) => {
+              <PublicSubcategoryNavigator
+                mode="landing"
+                label="Kategórie produktových recenzií"
+                items={subpages.map((subpage) => {
                   const count = reviewArticles.filter((article) => article.portalSubpage === subpage.slug).length;
-                  return (
-                    <Link href={portalSubpageHref(section, subpage)} key={subpage.slug} className={styles.categoryCard}>
-                      <span aria-hidden="true">{subpage.icon ?? "★"}</span>
-                      <div><h3>{subpage.label}</h3><p>{subpage.description}</p><small>{count} {count === 1 ? "test" : count > 1 && count < 5 ? "testy" : "testov"}</small></div>
-                      <ArrowIcon size={19} />
-                    </Link>
-                  );
+                  return {
+                    href: portalSubpageHref(section, subpage),
+                    title: subpage.label,
+                    description: subpage.description,
+                    image: subpage.imageUrl ? { src: subpage.imageUrl, alt: subpage.imageAlt ?? "" } : undefined,
+                    icon: subpage.icon ? <span aria-hidden="true">{subpage.icon}</span> : undefined,
+                    meta: `${count} ${count === 1 ? "test" : count > 1 && count < 5 ? "testy" : "testov"}`,
+                  };
                 })}
-              </div>
+              />
             </PageContainer>
           </section>
         </>

@@ -8,9 +8,11 @@ import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   PublicActionLink,
   PublicContentList,
+  PublicContentShell,
   PublicFoundation,
   PublicIcon,
   PublicLandingSectionHeading,
+  PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -302,7 +304,35 @@ export async function EditorialSectionHub({
           />
         </UnifiedSectionHeroShell>
 
-        <PortalSectionTabs section={section} />
+        <section className={styles.directorySection} aria-labelledby={`${sectionSlug}-areas`} data-section-subcategories>
+          <PublicContentShell variant="landing">
+            <PublicLandingSectionHeading
+              eyebrow="Oblasti"
+              title="Vyber tému"
+              description="Vyber si oblasť podľa toho, čo práve riešiš. Každá téma má vlastnú adresu a súvisiaci obsah."
+              id={`${sectionSlug}-areas`}
+            />
+            <PublicSubcategoryNavigator
+              mode="landing"
+              label={`Témy v sekcii ${section.label}`}
+              items={subpages.map((subpage) => {
+                const topicArticles = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug);
+                const count = topicArticles.length;
+                return {
+                  href: portalSubpageHref(section, subpage),
+                  title: subpage.label,
+                  description: subpage.description,
+                  image: {
+                    src: subpage.imageUrl || topicImage(sectionSlug, subpage.slug, topicArticles),
+                    alt: subpage.imageAlt ?? "",
+                  },
+                  icon: subpage.icon ? <span aria-hidden="true">{subpage.icon}</span> : undefined,
+                  meta: formatSlovakCount(count, { one: "článok", few: "články", many: "článkov" }),
+                };
+              })}
+            />
+          </PublicContentShell>
+        </section>
 
         <PageContainer className={styles.calloutShell} data-section-public-callout>
           <HubCallout sectionSlug={sectionSlug} />
@@ -317,45 +347,6 @@ export async function EditorialSectionHub({
               action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
             />
             <SectionContentList articles={visibleArticles} label={`Články v sekcii ${section.label}`} />
-          </PageContainer>
-        </section>
-
-        <section className={styles.directorySection} aria-labelledby={`${sectionSlug}-areas`} data-section-directory>
-          <PageContainer>
-            <PublicLandingSectionHeading
-              eyebrow="Oblasti"
-              title="Vyber tému"
-              description="Stále kategórie s jasnou adresou, stručným kontextom a súvisiacim obsahom."
-              id={`${sectionSlug}-areas`}
-            />
-            <div className={styles.dataGrid}>
-              {subpages.map((subpage) => {
-                const topicArticles = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug);
-                const count = topicArticles.length;
-                const image = topicImage(sectionSlug, subpage.slug, topicArticles);
-                return (
-                  <Link
-                    href={portalSubpageHref(section, subpage)}
-                    className={styles.topicCard}
-                    data-section-topic-card
-                    key={subpage.slug}
-                  >
-                    <span className={styles.topicCardMedia} data-section-topic-image>
-                      <img src={image} alt="" loading="lazy" decoding="async" />
-                    </span>
-                    <span className={styles.topicCardBody}>
-                      {subpage.popularTopics?.length ? (
-                        <span className={styles.topicCardEyebrow}>{subpage.popularTopics.slice(0, 2).join(" · ")}</span>
-                      ) : null}
-                      <strong className={styles.topicCardTitle}>{subpage.label}</strong>
-                      <span className={styles.topicCardDescription}>{subpage.description}</span>
-                      <span className={styles.topicCardMeta}>{formatSlovakCount(count, { one: "článok", few: "články", many: "článkov" })}</span>
-                      <span className={styles.topicCardAction}>Otvoriť tému <ArrowIcon size={17} /></span>
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
           </PageContainer>
         </section>
 

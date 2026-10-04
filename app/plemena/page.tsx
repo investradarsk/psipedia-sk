@@ -2,20 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { BreedCrawlIndex } from "@/components/breed-crawl-index";
-import { ArrowIcon } from "@/components/icons";
+import { ArrowIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
 import {
-  PublicActionLink,
   PublicContentShell,
   PublicFoundation,
+  PublicLandingSectionHeading,
+  PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
 import { StructuredData } from "@/components/structured-data";
 import { fciGroups } from "@/lib/content";
 import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
-import { portalSubpageHref } from "@/lib/portal";
+import { portalSections, portalSubpageHref } from "@/lib/portal";
 import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -43,10 +43,11 @@ export default async function BreedsPage({ searchParams }: Props) {
     getSectionHeroVisual("section.plemena"),
   ]);
   const rawSearchParams = await searchParams;
+  const breedSection = portalSection ?? portalSections.find((section) => section.slug === "plemena") ?? null;
   const initialFilters = parseBreedAtlasFilters(rawSearchParams);
   const policy = resolveListingIndexPolicy("/plemena", rawSearchParams);
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
-    name: portalSection?.label ?? "Plemená",
+    name: breedSection?.label ?? "Plemená",
     description: portalSection?.description ?? "Atlas plemien rozdelený podľa 10 medzinárodných skupín FCI: fotografie, povaha, starostlivosť a vhodnosť do rodiny.",
     path: "/plemena",
     breadcrumbs: [
@@ -63,36 +64,48 @@ export default async function BreedsPage({ searchParams }: Props) {
           <UnifiedSectionHeroShell>
             <UnifiedSectionHero
               breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Plemená</span></Breadcrumbs>}
-              eyebrow={portalSection?.eyebrow ?? "Atlas plemien"}
-              title={portalSection?.label ?? "Plemená"}
-              intro="Nájdite plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie."
+              eyebrow={breedSection?.eyebrow ?? "Atlas plemien"}
+              title={breedSection?.label ?? "Plemená"}
+              intro="Nájdi plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie."
               visual={heroVisual}
-              searchSlot={
-                <SectionHeroSearch
-                  action="/plemena"
-                  id="breed-hero-query"
-                  label="Hľadať plemeno"
-                  placeholder="Hľadať plemeno…"
-                  defaultValue={initialFilters.query}
-                />
-              }
-              ctaSlot={
-                <PublicActionLink href="/porovnat-plemena" icon={<ArrowIcon size={16} />}>
-                  Porovnať plemená
-                </PublicActionLink>
-              }
             />
           </UnifiedSectionHeroShell>
+          {breedSection ? (
+            <section aria-labelledby="breed-actions-heading" data-breed-primary-actions>
+              <PublicContentShell variant="landing">
+                <PublicLandingSectionHeading
+                  eyebrow="Plemená podľa cieľa"
+                  title="Čo chceš urobiť?"
+                  description="Atlas zostáva hlavný pracovný nástroj nižšie. Tu si vyber inú cestu, ak chceš plemeno nájsť podľa potrieb, porovnať alebo otvoriť kluby."
+                  id="breed-actions-heading"
+                />
+                <PublicSubcategoryNavigator
+                  mode="landing"
+                  label="Hlavné možnosti v sekcii Plemená"
+                  items={breedSection.subpages
+                    .filter((subpage) => subpage.slug !== "atlas")
+                    .map((subpage) => ({
+                      href: portalSubpageHref(breedSection, subpage),
+                      title: subpage.label,
+                      description: subpage.description,
+                      image: subpage.imageUrl ? { src: subpage.imageUrl, alt: subpage.imageAlt ?? "" } : undefined,
+                      icon: subpage.icon
+                        ? <span aria-hidden="true">{subpage.icon}</span>
+                        : subpage.slug === "vyber-plemena"
+                          ? <SearchIcon />
+                          : subpage.slug === "porovnanie"
+                            ? <SparkIcon />
+                            : <PawMark />,
+                    }))}
+                />
+              </PublicContentShell>
+            </section>
+          ) : null}
           <section className="page-body">
             <PublicContentShell variant="listing">
             <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
             {policy.kind === "clean" && <BreedCrawlIndex breeds={breeds} groups={fciGroups} />}
             <div className="breed-atlas-footer">
-              <nav className="breed-utility-links" aria-label="Ďalšie možnosti v sekcii Plemená">
-                {portalSection?.subpages.filter((subpage) => subpage.slug !== "atlas" && subpage.slug !== "porovnanie").map((subpage) => (
-                  <Link href={portalSubpageHref(portalSection, subpage)} key={subpage.slug}>{subpage.label} <ArrowIcon size={17} /></Link>
-                ))}
-              </nav>
             <aside className="fci-source-note">
               <strong>Čo znamená FCI skupina?</strong>
               <p>Medzinárodná kynologická federácia zaraďuje uznané plemená do 10 skupín podľa pôvodu a pracovného využitia. V atlase používame toto oficiálne členenie; obrazové portréty sú ilustračné.</p>

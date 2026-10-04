@@ -102,7 +102,9 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /UnifiedSectionHero/);
   assert.match(section, /getSectionHeroVisual/);
   assert.match(section, /PublicContentList/);
-  assert.match(section, /data-section-topic-card/);
+  assert.match(section, /data-section-subcategories/);
+  assert.match(section, /<PublicSubcategoryNavigator/);
+  assert.match(section, /mode="landing"/);
   assert.match(section, /HorizontalCarouselControls/);
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
@@ -111,6 +113,31 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
+});
+
+test("PUBLIC-HUBS-UX-1 keeps one landing navigator on editorial roots and compact navigation on topic pages", () => {
+  const section = read("components/editorial-section.tsx");
+  const hubStart = section.indexOf("export async function EditorialSectionHub");
+  const topicStart = section.indexOf("export async function EditorialSectionTopic");
+  assert.ok(hubStart >= 0 && topicStart > hubStart);
+  const hub = section.slice(hubStart, topicStart);
+  const topic = section.slice(topicStart);
+  assert.match(hub, /<PublicSubcategoryNavigator[\s\S]*mode="landing"/);
+  assert.doesNotMatch(hub, /<PortalSectionTabs/);
+  assert.doesNotMatch(hub, /data-section-topic-card/);
+  assert.match(topic, /<PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
+});
+
+test("PUBLIC-HUBS-UX-1 keeps one local search on article and breed landings", () => {
+  const news = read("app/clanky/page.tsx");
+  const breeds = read("app/plemena/page.tsx");
+  assert.doesNotMatch(news, /SectionHeroSearch/);
+  assert.match(news, /<ArticleBrowser/);
+  assert.match(news, /initialQuery=\{scalar\(params\.hladat\) \?\? ""\}/);
+  assert.doesNotMatch(breeds, /SectionHeroSearch/);
+  assert.match(breeds, /<BreedBrowser/);
+  assert.match(breeds, /initialFilters=\{initialFilters\}/);
+  assert.match(breeds, /<PublicSubcategoryNavigator/);
 });
 
 test("SECTION-PUBLIC preserves urgent health guidance and removes generic puppy template labels", () => {
@@ -132,7 +159,8 @@ test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual con
   assert.match(section, /starostlivost:/);
   assert.match(section, /aktivity:/);
   assert.match(section, /sectionToneClass\(sectionSlug\)/);
-  assert.match(section, /data-section-topic-card/);
+  assert.match(section, /data-section-subcategories/);
+  assert.match(section, /<PublicSubcategoryNavigator/);
   assert.match(section, /HorizontalCarouselControls/);
   assert.match(css, /\.puppyTone/);
   assert.match(css, /\.careTone/);
