@@ -67,7 +67,8 @@ test("all four comparable category landing roots use the same landing shell and 
     assert.match(source, /PublicLandingSectionHeading/);
   }
   assert.match(events, /PublicCategoryTiles/);
-  assert.match(directory, /PublicCategoryTiles/);
+  assert.match(directory, /PublicSubcategoryNavigator/);
+  assert.match(directory, /mode="landing"/);
   assert.match(reviews, /PublicCategoryTiles/);
   assert.match(helpOverview, /overviewCategoryGrid/);
 });
@@ -102,14 +103,13 @@ test("lost-found hub is no longer a legacy page-hero route", () => {
   assert.match(lostFoundHub, /PublicContentShell variant="listing"/);
 });
 
-test("directory has one post-hero spacing owner instead of legacy double spacing", () => {
+test("directory has one shared post-hero spacing and navigation contract", () => {
   assert.doesNotMatch(directoryCss, /\.discoveryHeading|\.sectionHeading|\.overviewHeading/);
-  assert.doesNotMatch(directoryCss, /\.discovery\s*\{[^}]*?(?:margin-top|padding-top)/s);
-  assert.doesNotMatch(directoryCss, /\.categoryNav(?:Compact)?\s*\{[^}]*margin-top/s);
-  assert.equal((directoryCss.match(/PUBLIC-LANDING-ALIGNMENT-1: one compact category-navigation contract/g) ?? []).length, 1);
-  assert.doesNotMatch(directory, /className=.*shell.*styles\.(?:overview|secondaryShell|providerCta|resultsShell)/);
-  assert.match(directory, /<PageContainer className=\{styles\.overview\}>/);
-  assert.match(directory, /<PageContainer className=\{styles\.resultsShell\}>/);
+  assert.match(directory, /<PublicContentShell variant="landing" className=\{styles\.categoryLanding\}>/);
+  assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
+  assert.match(directory, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
+  assert.match(directoryCss, /SERVICES-PUBLIC-UX-1: foundation-driven directory landing/);
+  assert.match(directoryCss, /\.resultsSection\s*\{\s*padding-block:\s*0;/);
 });
 
 test("reviews use shared headings while only the first category section loses legacy top padding", () => {
@@ -132,4 +132,61 @@ test("editorial second-pass headings share the same contract without changing ca
 test("event category listing and lost-found listing do not stack old top padding on the listing variant", () => {
   assert.match(eventsCss, /\.calendarSectionListing\s*\{\s*padding-top:\s*0/);
   assert.doesNotMatch(lostFoundCss, /\.listingShell\s*\{[^}]*padding-top/s);
+});
+
+
+test("SERVICES-PUBLIC-UX-1 removes repeated category decisions and duplicate local search", () => {
+  const root = read("app/adresar/page.tsx");
+  const category = read("app/adresar/[category]/page.tsx");
+  const filters = read("components/directory-filter-form.tsx");
+  const filterCss = read("components/directory-filter-form.module.css");
+
+  assert.doesNotMatch(root, /getDirectoryCategoryPreviews/);
+  assert.match(root, /listPublishedDirectoryProfiles\(\{ filters \}\)/);
+  assert.doesNotMatch(directory, /PublicCategoryTiles|SectionHeroSearch|searchSlot=/);
+  assert.doesNotMatch(directory, /Rýchly výber|Hlavné kategórie|Ďalšie kategórie/);
+  assert.equal((directory.match(/mode="landing"/g) ?? []).length, 1);
+  assert.equal((directory.match(/mode="compact"/g) ?? []).length, 1);
+  assert.match(directory, /title: "Všetky služby"/);
+  assert.match(directory, /current: active\?\.slug === category\.slug/);
+  assert.equal((filters.match(/name="q"/g) ?? []).length, 1);
+  assert.match(filters, /placeholder="Názov služby alebo lokalita"/);
+  assert.match(filters, /aria-expanded=\{secondaryFiltersOpen\}/);
+  assert.match(filters, /activeFilterCount/);
+  assert.match(filters, /dependentSubmit\("region"\)/);
+  assert.match(filters, /dependentSubmit\("district"\)/);
+  assert.match(filters, /<Link href=\{basePath\}>Zrušiť filtre<\/Link>/);
+  assert.match(filterCss, /@media \(max-width: 620px\)[\s\S]*\.secondaryFilters\s*\{\s*display:\s*none/);
+  assert.match(filterCss, /\.secondaryFiltersOpen\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(category, /directoryCategoryListingMetadata/);
+  assert.match(category, /resolveListingIndexPolicy/);
+});
+
+test("SERVICES-PUBLIC-UX-1 keeps one forest map banner after results and provider CTA secondary", () => {
+  const resultsPosition = directory.indexOf("<DirectoryResults");
+  const bannerPosition = directory.indexOf("<PublicContextBanner");
+  const providerPosition = directory.indexOf("data-directory-provider-cta");
+
+  assert.ok(resultsPosition >= 0 && bannerPosition > resultsPosition);
+  assert.ok(providerPosition > bannerPosition);
+  assert.equal((directory.match(/<PublicContextBanner/g) ?? []).length, 1);
+  assert.match(directory, /eyebrow="Služby v okolí"/);
+  assert.match(directory, /title="Nájdite služby pre psov na mape"/);
+  assert.match(directory, /ctaLabel="Pozrieť mapu"/);
+  assert.match(directory, /ctaHref="\/mapa"/);
+  assert.match(directory, /tone="forest"/);
+});
+
+test("SERVICES-PUBLIC-UX-1 keeps canonical category links and mobile foundation behavior", () => {
+  const navigator = read("components/public-visual-system/public-subcategory-navigator.tsx");
+  const navigatorCss = read("components/public-visual-system/public-subcategory-navigator.module.css");
+
+  assert.match(directory, /href: directoryCategoryHref\(category\)/);
+  assert.doesNotMatch(directory, /\?category=/);
+  assert.match(navigator, /<Link[\s\S]*href=\{item\.href\}/);
+  assert.match(navigator, /aria-current=\{item\.current \? "page" : undefined\}/);
+  assert.match(navigatorCss, /grid-auto-columns:\s*minmax\(228px, 79%\)/);
+  assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
+  assert.match(navigatorCss, /flex-wrap:\s*nowrap/);
+  assert.match(navigatorCss, /min-height:\s*44px/);
 });
