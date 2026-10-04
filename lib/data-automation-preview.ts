@@ -3,6 +3,8 @@ import { classifyAutomationFinding, type AutomationSource } from "./data-automat
 import { matchAutomationCanonical, type AutomationD1Database } from "./data-automation-store.ts";
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
 import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
+import { getGovernanceState } from "./data-automation-governance.ts";
+import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 
 function safePreviewErrorDetail(code: string) {
   const details: Record<string, string> = {
@@ -39,10 +41,16 @@ export async function previewAutomationSource(input: {
   const startedAt = Date.now();
 
   try {
+    const governance = await getGovernanceState(
+      { type: "AUTOMATION_SOURCE", id: input.source.id },
+      input.database,
+    );
+    const scoped = buildSourceScopedExtractionContract(input.source, governance.state);
     const records = await fetchAutomationSourceRecords(input.source, {
       fetchImpl: input.fetchImpl,
       sleep: input.sleep,
       htmlAdapters: productionAutomationHtmlAdapters,
+      sourceScopedContract: scoped.ready ? scoped.contract : undefined,
       onResponse(meta) {
         httpStatus = meta.status;
         contentType = meta.contentType;
