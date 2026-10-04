@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import { breedSeoFallback, buildContentMetadata, directorySeoFallback, eventSeoFallback, helpSeoFallback } from "../lib/content-seo.ts";
-import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback } from "../lib/listing-seo.ts";
+import { directoryCategories, directoryCategoryListingMetadata, getDirectoryCategory } from "../lib/directory.ts";
+import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "../lib/listing-seo.ts";
 import { FALLBACK_PAGE_TITLE_MAX_LENGTH, PAGE_TITLE_BRAND_SUFFIX, SEARCH_DESCRIPTION_MAX_LENGTH, SEARCH_TITLE_MAX_LENGTH, buildPageMetadata, SITE_URL } from "../lib/seo.ts";
 
 function graphEntity(schema, type) {
@@ -210,4 +211,139 @@ test("SEO-METADATA-QUALITY-2 public landing routes use the central fallback copy
   assert.match(sectionPage, /coreLandingSeoFallback\("events"\)/);
   assert.match(helpPage, /coreLandingSeoFallback\("help"\)/);
   assert.match(breedsPage, /coreLandingSeoFallback\("breeds"\)/);
+});
+
+
+test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 central category contract separates navigation from page intent", () => {
+  const expected = {
+    veterinari: ["Veterinári", "Veterinári a veterinárne ambulancie", "Veterinári a veterinárne ambulancie"],
+    treneri: ["Psí tréneri a psie školy", "Tréneri psov a psie školy", "Tréneri psov a psie školy – adresár"],
+    "kynologicke-kluby": ["Kynologické kluby", "Kynologické kluby", "Kynologické kluby – adresár"],
+    "chovatelske-kluby": ["Chovateľské kluby", "Chovateľské kluby", "Chovateľské kluby – adresár"],
+    "chovatelske-stanice": ["Chovateľské stanice", "Chovateľské stanice", "Chovateľské stanice – adresár"],
+    "salony-a-sluzby": ["Salóny", "Psie salóny", "Psie salóny na Slovensku – adresár"],
+    "hotely-a-opatrovanie": ["Hotely a opatrovanie", "Hotely pre psov a opatrovanie", "Hotely pre psov a opatrovanie"],
+    vencenie: ["Venčenie", "Venčenie psov", "Venčenie psov – adresár"],
+    fyzioterapia: ["Fyzioterapia", "Fyzioterapia pre psov", "Fyzioterapia pre psov – adresár"],
+    "dalsie-sluzby": ["Ďalšie služby", "Ďalšie služby pre psov", "Ďalšie služby pre psov – adresár"],
+  };
+
+  assert.equal(directoryCategories.length, 10);
+  for (const category of directoryCategories) {
+    assert.deepEqual(
+      [category.label, category.heroTitle, category.seoTitle],
+      expected[category.slug],
+      category.slug,
+    );
+    assert.ok(category.intro.length >= 90, category.slug);
+    assert.ok(category.intro.length <= SEARCH_DESCRIPTION_MAX_LENGTH, category.slug);
+    assert.match(category.intro, /\./, category.slug);
+    assert.ok(category.resultsTitle.startsWith("Zoznam "), category.slug);
+    assert.doesNotMatch(category.seoTitle, /Psipedia/i, category.slug);
+
+    const page2 = directoryCategoryListingMetadata(category, 2);
+    assert.ok((page2.title + PAGE_TITLE_BRAND_SUFFIX).length <= SEARCH_TITLE_MAX_LENGTH, category.slug);
+    assert.ok(page2.description.length <= SEARCH_DESCRIPTION_MAX_LENGTH, category.slug);
+  }
+});
+
+test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 preserves clean, pagination and filter index policies", () => {
+  const category = getDirectoryCategory("salony-a-sluzby");
+  assert.ok(category);
+  const path = "/adresar/salony-a-sluzby";
+
+  const cleanPolicy = resolveListingIndexPolicy(path, {}, { indexPagination: true });
+  const cleanCopy = directoryCategoryListingMetadata(category, cleanPolicy.page);
+  const clean = buildListingPageMetadata({
+    ...cleanCopy,
+    path,
+    searchParams: {},
+    indexPagination: true,
+  });
+  assert.equal(cleanPolicy.kind, "clean");
+  assert.equal(clean.title, "Psie salóny na Slovensku – adresár");
+  assert.equal(clean.alternates?.canonical, `${SITE_URL}${path}`);
+  assert.equal(clean.robots?.index, true);
+  assert.equal(clean.robots?.follow, true);
+
+  const page2Params = { page: "2" };
+  const page2Policy = resolveListingIndexPolicy(path, page2Params, { indexPagination: true });
+  const page2Copy = directoryCategoryListingMetadata(category, page2Policy.page);
+  const page2 = buildListingPageMetadata({
+    ...page2Copy,
+    path,
+    searchParams: page2Params,
+    indexPagination: true,
+  });
+  assert.equal(page2Policy.kind, "pagination");
+  assert.equal(page2.title, "Psie salóny na Slovensku – adresár, strana 2");
+  assert.notEqual(page2.title, clean.title);
+  assert.notEqual(page2.description, clean.description);
+  assert.equal(page2.alternates?.canonical, `${SITE_URL}${path}?page=2`);
+  assert.equal(page2.robots?.index, true);
+  assert.equal(page2.robots?.follow, true);
+
+  const filterParams = { q: "pudel", region: "Trnavský kraj" };
+  const filterPolicy = resolveListingIndexPolicy(path, filterParams, { indexPagination: true });
+  const filterCopy = directoryCategoryListingMetadata(category, filterPolicy.page);
+  const filtered = buildListingPageMetadata({
+    ...filterCopy,
+    path,
+    searchParams: filterParams,
+    indexPagination: true,
+  });
+  assert.equal(filterPolicy.kind, "query");
+  assert.equal(filtered.alternates?.canonical, `${SITE_URL}${path}`);
+  assert.equal(filtered.robots?.index, false);
+  assert.equal(filtered.robots?.follow, true);
+});
+
+test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro, results and crawlable link contracts", () => {
+  const directoryPage = fs.readFileSync(new URL("../components/directory-page.tsx", import.meta.url), "utf8");
+  const categoryPage = fs.readFileSync(new URL("../app/adresar/[category]/page.tsx", import.meta.url), "utf8");
+  const results = fs.readFileSync(new URL("../components/directory-results.tsx", import.meta.url), "utf8");
+  const card = fs.readFileSync(new URL("../components/directory-card.tsx", import.meta.url), "utf8");
+  const detail = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
+
+  assert.match(directoryPage, /title=\{active\?\.heroTitle \?\? "Služby pre psov"\}/);
+  assert.match(directoryPage, /intro=\{active\?\.intro \?\?/);
+  assert.match(directoryPage, /title=\{active \? active\.resultsTitle : "Výsledky vyhľadávania"\}/);
+
+  assert.match(categoryPage, /directoryCategoryListingMetadata\(category, policy\.page\)/);
+  assert.match(categoryPage, /name: category\.heroTitle/);
+  assert.match(categoryPage, /description: category\.intro/);
+
+  assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
+  assert.match(results, /<Link href=\{pageHref\(basePath, filters, result\.page - 1\)\}>/);
+  assert.match(results, /<Link href=\{pageHref\(basePath, filters, result\.page \+ 1\)\}>/);
+  assert.match(directoryPage, /href=\{directoryCategoryHref\(category\)\}/);
+  assert.match(detail, /href=\{\`\/adresar\/\$\{presentation\.category\}\`\}/);
+});
+
+test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 category schema stays canonical and points ItemList at detail URLs", () => {
+  const category = getDirectoryCategory("salony-a-sluzby");
+  assert.ok(category);
+  const path = "/adresar/salony-a-sluzby";
+  const schema = buildCollectionPageJsonLd({
+    name: category.heroTitle,
+    description: category.intro,
+    path,
+    breadcrumbs: [
+      { name: "Domov", path: "/" },
+      { name: "Služby pre psov", path: "/adresar" },
+      { name: category.label, path },
+    ],
+    items: [
+      { name: "Psí salón Test", path: "/adresar/salony-a-sluzby/psi-salon-test" },
+    ],
+  });
+
+  const collection = graphEntity(schema, "CollectionPage");
+  const itemList = graphEntity(schema, "ItemList");
+  const breadcrumbs = graphEntity(schema, "BreadcrumbList");
+
+  assert.equal(collection.url, `${SITE_URL}${path}`);
+  assert.equal(collection.name, "Psie salóny");
+  assert.equal(itemList.itemListElement[0].item, `${SITE_URL}/adresar/salony-a-sluzby/psi-salon-test`);
+  assert.equal(breadcrumbs.itemListElement[2].item, `${SITE_URL}${path}`);
 });
