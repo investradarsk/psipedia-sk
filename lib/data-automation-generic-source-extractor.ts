@@ -199,7 +199,19 @@ function explicitIdentifier(node: JsonLdNode) {
   return id && !/^https?:\/\//i.test(id) ? id : null;
 }
 
-function imageUrl(value: unknown, baseUrl: string, contract: SourceScopedExtractionContract) {
+function publicEvidenceUrl(raw: unknown, baseUrl: string) {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  let absolute: string;
+  try {
+    absolute = new URL(decodeHtml(raw.trim()), baseUrl).toString();
+  } catch {
+    return null;
+  }
+  const canonical = canonicalizeSourceUrl(absolute);
+  return canonical && isSafeAutomationSourceUrl(canonical) ? canonical : null;
+}
+
+function imageUrl(value: unknown, baseUrl: string) {
   const values = Array.isArray(value) ? value : [value];
   for (const item of values) {
     const raw = typeof item === "string"
@@ -207,7 +219,7 @@ function imageUrl(value: unknown, baseUrl: string, contract: SourceScopedExtract
       : item && typeof item === "object" && !Array.isArray(item)
         ? (item as Record<string, unknown>).url ?? (item as Record<string, unknown>).contentUrl
         : null;
-    const url = scopeUrl(raw, baseUrl, contract);
+    const url = publicEvidenceUrl(raw, baseUrl);
     if (url) return url;
   }
   return null;
@@ -259,7 +271,7 @@ function nodeProposal(
   const directAddress = postalAddress(node.address);
   const status = boundedText(node.eventStatus ?? node.status, 300);
   const externalId = explicitIdentifier(node);
-  const image = imageUrl(node.image, baseUrl, contract);
+  const image = imageUrl(node.image, baseUrl);
   const types = schemaTypes(node);
 
   const proposed: Record<string, unknown> = {};
@@ -466,7 +478,7 @@ function htmlDetailEvidence(html: string, pageUrl: string, contract: SourceScope
   ).replace(/\s+/g, " ").trim().slice(0, 5000);
   const dateTime = html.match(/<time\b[^>]*datetime\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1]?.trim() ?? null;
   const image = html.match(/<meta\b[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1] ?? null;
-  const scopedImage = image ? scopeUrl(image, pageUrl, contract) : null;
+  const scopedImage = image ? publicEvidenceUrl(image, pageUrl) : null;
   return {
     node: {
       "@type": "Product",
