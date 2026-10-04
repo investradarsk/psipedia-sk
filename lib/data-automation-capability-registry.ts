@@ -1,5 +1,10 @@
 import type { ControlledHtmlAdapter } from "./data-automation-connectors.ts";
-import type { AutomationEntityType, AutomationSource, AutomationSourceConfig } from "./data-automation.ts";
+import type {
+  AutomationEntityType,
+  AutomationExtractionStrategy,
+  AutomationSource,
+  AutomationSourceConfig,
+} from "./data-automation.ts";
 import {
   GENERIC_DIRECTORY_PROFILE_ADAPTER,
   GENERIC_HELP_ITEM_PAGE_ADAPTER,
@@ -97,10 +102,181 @@ export function resolveAutomationCapability(
   return capability;
 }
 
+export type AutomationExtractionCapabilityStatus = "SUPPORTED" | "UNAVAILABLE" | "UNSUPPORTED" | "BLOCKED";
+
+export type AutomationExtractionCapability = {
+  strategy: AutomationExtractionStrategy;
+  status: AutomationExtractionCapabilityStatus;
+  reason: string;
+  adapterKey: string | null;
+  label: string | null;
+  sourceShape: AutomationCapabilitySourceShape | null;
+};
+
+function withGovernanceStatus(
+  capabilities: AutomationExtractionCapability[],
+  governanceAllowed: boolean | undefined,
+) {
+  if (governanceAllowed !== false) return capabilities;
+  return capabilities.map((capability) => ({
+    ...capability,
+    status: "BLOCKED" as const,
+    reason: "GOVERNANCE_BLOCKED",
+  }));
+}
+
+export function automationExtractionCapabilities(
+  source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
+  registry = productionAutomationCapabilityRegistry,
+  options: { governanceAllowed?: boolean } = {},
+): AutomationExtractionCapability[] {
+  if (source.connectorType === "MANUAL_IMPORT") return [];
+  if (source.connectorType === "STRUCTURED_JSON") {
+    return withGovernanceStatus([{
+      strategy: "STRUCTURED_FEED",
+      status: "SUPPORTED",
+      reason: "STRUCTURED_JSON_MAPPING",
+      adapterKey: null,
+      label: "Structured JSON mapping",
+      sourceShape: "SOURCE_DEFINED",
+    }], options.governanceAllowed);
+  }
+  if (source.connectorType !== "CONTROLLED_HTML") {
+    return withGovernanceStatus([{
+      strategy: "STRUCTURED_FEED",
+      status: "UNSUPPORTED",
+      reason: "UNSUPPORTED_CONNECTOR",
+      adapterKey: null,
+      label: null,
+      sourceShape: null,
+    }], options.governanceAllowed);
+  }
+
+  const resolution = sourceAdapterResolution(source);
+  const adapterKey = resolution.adapterKey;
+  let dedicated: AutomationExtractionCapability;
+  if (resolution.sourceMismatch) {
+    const configuredCapability = adapterKey ? registry[adapterKey] : null;
+    dedicated = {
+      strategy: "DEDICATED_ADAPTER",
+      status: "UNSUPPORTED",
+      reason: "ADAPTER_SOURCE_MISMATCH",
+      adapterKey,
+      label: configuredCapability?.label ?? null,
+      sourceShape: source.config.sourceShape ?? null,
+    };
+  } else if (!adapterKey) {
+    dedicated = {
+      strategy: "DEDICATED_ADAPTER",
+      status: "UNAVAILABLE",
+      reason: "MISSING_ADAPTER",
+      adapterKey: null,
+      label: null,
+      sourceShape: source.config.sourceShape ?? null,
+    };
+  } else {
+    const capability = registry[adapterKey];
+    if (!capability) {
+      dedicated = {
+        strategy: "DEDICATED_ADAPTER",
+        status: "UNSUPPORTED",
+        reason: "UNSUPPORTED_ADAPTER",
+        adapterKey,
+        label: null,
+        sourceShape: source.config.sourceShape ?? null,
+      };
+    } else if (capability.entityType !== source.entityType) {
+      dedicated = {
+        strategy: "DEDICATED_ADAPTER",
+        status: "UNSUPPORTED",
+        reason: "ADAPTER_ENTITY_MISMATCH",
+        adapterKey,
+        label: capability.label,
+        sourceShape: capability.sourceShape,
+      };
+    } else if (
+      source.config.sourceShape
+      && capability.sourceShape !== "SOURCE_DEFINED"
+      && source.config.sourceShape !== capability.sourceShape
+    ) {
+      dedicated = {
+        strategy: "DEDICATED_ADAPTER",
+        status: "UNSUPPORTED",
+        reason: "ADAPTER_SHAPE_MISMATCH",
+        adapterKey,
+        label: capability.label,
+        sourceShape: capability.sourceShape,
+      };
+    } else if (typeof capability.parser !== "function") {
+      dedicated = {
+        strategy: "DEDICATED_ADAPTER",
+        status: "UNAVAILABLE",
+        reason: "MISSING_PARSER",
+        adapterKey,
+        label: capability.label,
+        sourceShape: capability.sourceShape,
+      };
+    } else {
+      dedicated = {
+        strategy: "DEDICATED_ADAPTER",
+        status: "SUPPORTED",
+        reason: "READY",
+        adapterKey,
+        label: capability.label,
+        sourceShape: capability.sourceShape,
+      };
+    }
+  }
+
+  return withGovernanceStatus([
+    dedicated,
+    {
+      strategy: "GENERIC_FIRST_PARTY",
+      status: "UNAVAILABLE",
+      reason: "NOT_IMPLEMENTED",
+      adapterKey: null,
+      label: "Generic first-party extraction",
+      sourceShape: source.config.sourceShape ?? null,
+    },
+    {
+      strategy: "TAVILY_CRAWL",
+      status: "UNAVAILABLE",
+      reason: "NOT_IMPLEMENTED",
+      adapterKey: null,
+      label: "Tavily scoped crawl",
+      sourceShape: source.config.sourceShape ?? null,
+    },
+    {
+      strategy: "TAVILY_EXTRACT",
+      status: "UNAVAILABLE",
+      reason: "NOT_IMPLEMENTED",
+      adapterKey: null,
+      label: "Tavily scoped extract",
+      sourceShape: source.config.sourceShape ?? null,
+    },
+  ], options.governanceAllowed);
+}
+
+const extractionStrategyPriority: readonly AutomationExtractionStrategy[] = [
+  "STRUCTURED_FEED",
+  "DEDICATED_ADAPTER",
+  "GENERIC_FIRST_PARTY",
+  "TAVILY_CRAWL",
+  "TAVILY_EXTRACT",
+];
+
+export function selectAutomationExtractionStrategy(capabilities: readonly AutomationExtractionCapability[]) {
+  for (const strategy of extractionStrategyPriority) {
+    const capability = capabilities.find((item) => item.strategy === strategy && item.status === "SUPPORTED");
+    if (capability) return capability;
+  }
+  return null;
+}
+
 export type AutomationSourceReadinessReason =
   | "READY"
   | "UNSUPPORTED_CONNECTOR"
-  | "MISSING_ADAPTER"
+  | "NO_RELIABLE_EXTRACTION_STRATEGY"
   | "UNSUPPORTED_ADAPTER"
   | "ADAPTER_ENTITY_MISMATCH"
   | "ADAPTER_SOURCE_MISMATCH"
@@ -111,6 +287,8 @@ export type AutomationSourceReadiness = {
   applicable: boolean;
   ready: boolean;
   reason: AutomationSourceReadinessReason;
+  strategy: AutomationExtractionStrategy | null;
+  capabilities: AutomationExtractionCapability[];
   adapterKey: string | null;
   adapterLabel: string | null;
   sourceShape: AutomationCapabilitySourceShape | null;
@@ -121,35 +299,54 @@ export function automationSourceReadiness(
   registry = productionAutomationCapabilityRegistry,
 ): AutomationSourceReadiness {
   if (source.connectorType === "MANUAL_IMPORT") {
-    return { applicable: false, ready: true, reason: "READY", adapterKey: null, adapterLabel: null, sourceShape: null };
-  }
-  if (source.connectorType === "STRUCTURED_JSON") {
-    return { applicable: true, ready: true, reason: "READY", adapterKey: null, adapterLabel: "Structured JSON mapping", sourceShape: "SOURCE_DEFINED" };
-  }
-  if (source.connectorType !== "CONTROLLED_HTML") {
-    return { applicable: true, ready: false, reason: "UNSUPPORTED_CONNECTOR", adapterKey: null, adapterLabel: null, sourceShape: null };
-  }
-  const resolution = sourceAdapterResolution(source);
-  const adapterKey = resolution.adapterKey;
-  if (resolution.sourceMismatch) {
-    const configuredCapability = adapterKey ? registry[adapterKey] : null;
     return {
-      applicable: true,
-      ready: false,
-      reason: "ADAPTER_SOURCE_MISMATCH",
-      adapterKey,
-      adapterLabel: configuredCapability?.label ?? null,
-      sourceShape: source.config.sourceShape ?? null,
+      applicable: false,
+      ready: true,
+      reason: "READY",
+      strategy: null,
+      capabilities: [],
+      adapterKey: null,
+      adapterLabel: null,
+      sourceShape: null,
     };
   }
-  if (!adapterKey) return { applicable: true, ready: false, reason: "MISSING_ADAPTER", adapterKey: null, adapterLabel: null, sourceShape: source.config.sourceShape ?? null };
-  const capability = registry[adapterKey];
-  if (!capability) return { applicable: true, ready: false, reason: "UNSUPPORTED_ADAPTER", adapterKey, adapterLabel: null, sourceShape: source.config.sourceShape ?? null };
-  if (capability.entityType !== source.entityType) return { applicable: true, ready: false, reason: "ADAPTER_ENTITY_MISMATCH", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
-  const configuredShape = source.config.sourceShape;
-  if (configuredShape && capability.sourceShape !== "SOURCE_DEFINED" && configuredShape !== capability.sourceShape) {
-    return { applicable: true, ready: false, reason: "ADAPTER_SHAPE_MISMATCH", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
+
+  const capabilities = automationExtractionCapabilities(source, registry);
+  const selected = selectAutomationExtractionStrategy(capabilities);
+  if (selected) {
+    return {
+      applicable: true,
+      ready: true,
+      reason: "READY",
+      strategy: selected.strategy,
+      capabilities,
+      adapterKey: selected.adapterKey,
+      adapterLabel: selected.label,
+      sourceShape: selected.sourceShape,
+    };
   }
-  if (typeof capability.parser !== "function") return { applicable: true, ready: false, reason: "MISSING_PARSER", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
-  return { applicable: true, ready: true, reason: "READY", adapterKey, adapterLabel: capability.label, sourceShape: capability.sourceShape };
+
+  const dedicated = capabilities.find((item) => item.strategy === "DEDICATED_ADAPTER");
+  const diagnosticReason = dedicated?.reason;
+  const reason: AutomationSourceReadinessReason =
+    diagnosticReason === "ADAPTER_SOURCE_MISMATCH"
+      || diagnosticReason === "UNSUPPORTED_ADAPTER"
+      || diagnosticReason === "ADAPTER_ENTITY_MISMATCH"
+      || diagnosticReason === "ADAPTER_SHAPE_MISMATCH"
+      || diagnosticReason === "MISSING_PARSER"
+      ? diagnosticReason
+      : capabilities.some((item) => item.reason === "UNSUPPORTED_CONNECTOR")
+        ? "UNSUPPORTED_CONNECTOR"
+        : "NO_RELIABLE_EXTRACTION_STRATEGY";
+
+  return {
+    applicable: true,
+    ready: false,
+    reason,
+    strategy: null,
+    capabilities,
+    adapterKey: dedicated?.adapterKey ?? null,
+    adapterLabel: dedicated?.label ?? null,
+    sourceShape: dedicated?.sourceShape ?? source.config.sourceShape ?? null,
+  };
 }
