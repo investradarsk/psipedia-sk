@@ -1,7 +1,12 @@
 .shell {
+  min-width: 0;
+}
+
+.plain,
+.landing,
+.listing {
   --public-space-functional: 24px;
   --public-space-section: 36px;
-  min-width: 0;
 }
 
 .landing {
@@ -99,7 +104,9 @@
 }
 
 @media (max-width: 620px) {
-  .shell {
+  .plain,
+  .landing,
+  .listing {
     --public-space-functional: 20px;
     --public-space-section: 32px;
   }
