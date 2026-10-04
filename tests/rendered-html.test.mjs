@@ -785,7 +785,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const trainersHtml = await trainers.text();
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Psí tréneri a psie školy/);
-  assert.match(trainersHtml, /Názov, služba, plemeno alebo lokalita/);
+  assert.match(trainersHtml, /Názov služby alebo lokalita/);
   assert.match(trainersHtml, /Mesto\/obec/);
   assert.match(trainersHtml, /Zoradenie/);
   assert.match(trainersHtml, /Nenašli sme zhodu/);
