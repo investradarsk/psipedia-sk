@@ -83,6 +83,27 @@
   background: #f7f9f5;
   --public-landing-eyebrow: #876315;
 }
+
+.allReviewsRow {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 750;
+}
+
+.allReviewsRow a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--forest);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
 .trustStrip { border-bottom: 1px solid rgba(23,53,43,.08); background: #fffdf8; }
 .trustGrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0; padding-block: 18px; }
 .trustGrid div { display: grid; gap: 4px; padding: 0 22px; border-left: 1px solid rgba(23,53,43,.1); }
