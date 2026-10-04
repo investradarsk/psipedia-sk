@@ -317,6 +317,7 @@ export async function reviewAutomationSource(input: {
 type AutomationSourceTechnicalGovernanceRefreshOptions = {
   actor: string;
   fetchImpl?: typeof fetch;
+  tavilyCredentialConfigured?: boolean;
 };
 
 async function sourceActivationReadinessForEnable(
@@ -332,6 +333,7 @@ async function sourceActivationReadinessForEnable(
     cadenceMinutes,
     now: input.now,
     fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
+    tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
   });
   if (
     !readiness.ready
@@ -349,6 +351,7 @@ async function sourceActivationReadinessForEnable(
       cadenceMinutes,
       now: input.now,
       fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
+      tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
     });
   }
   return readiness;
