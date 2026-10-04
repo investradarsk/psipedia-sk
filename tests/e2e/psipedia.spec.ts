@@ -346,9 +346,9 @@ test("@production events listing, detail and past/upcoming separation work", asy
   const upcomingLinks = await eventLinks();
   expect(upcomingLinks.length, "Upcoming event listing is empty").toBeGreaterThan(0);
 
-  const pastFilter = page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("button", { name: "Ukončené", exact: true });
+  const pastFilter = page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("link", { name: "Ukončené", exact: true });
   await pastFilter.click();
-  await expect(pastFilter).toHaveAttribute("aria-pressed", "true");
+  await expect(pastFilter).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveURL(/termin=ukoncene/);
 
   const pastLinks = await eventLinks();

@@ -99,7 +99,7 @@ test.describe("UX-2A public visual consistency", () => {
       await expectNoHorizontalOverflow(page, `Podujatia ${viewport.label}`);
       await expectBreadcrumbsFit(page, `Podujatia ${viewport.label}`);
       await expectMinHeight(
-        page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("button"),
+        page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("link"),
         `Podujatia time controls ${viewport.label}`,
       );
       const cards = page.locator("[data-event-card]");
