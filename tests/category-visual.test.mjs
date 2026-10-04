@@ -62,17 +62,18 @@ test("CATEGORY-BANNERS uses existing project taxonomies and canonical links", ()
 test("CATEGORY-BANNERS preserves functional search, filter and content contracts", () => {
   const events = read("components/events-page.tsx");
   const directory = read("components/directory-page.tsx");
+  const directoryFilters = read("components/directory-filter-form.tsx");
   const reviews = read("components/reviews-hub.tsx");
   const help = read("components/help-overview.tsx");
 
   assert.match(events, /<EventCalendar events=\{events\}/);
   assert.match(events, /href="\/podujatia\/pridat-podujatie"/);
 
-  assert.match(directory, /action="\/adresar"/);
-  assert.match(directory, /method="get"/);
-  assert.match(directory, /name="category"/);
-  assert.match(directory, /name="q"/);
   assert.match(directory, /<DirectoryResults/);
+  assert.match(directoryFilters, /action=\{basePath\}/);
+  assert.match(directoryFilters, /method="get"/);
+  assert.match(directoryFilters, /name="category"/);
+  assert.match(directoryFilters, /name="q"/);
 
   assert.match(reviews, /action="\/hladat"/);
   assert.match(reviews, /name="sekcia" value="recenzie"/);
