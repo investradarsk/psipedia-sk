@@ -1,18 +1,50 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { PublicActionLink, PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import {
+  PublicContextBanner,
+  PublicContentShell,
+  PublicFoundation,
+  PublicLandingSectionHeading,
+  PublicSubcategoryNavigator,
+  UnifiedSectionHero,
+  UnifiedSectionHeroShell,
+} from "@/components/public-visual-system";
 import { PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
-import { bratislavaDateKey, eventDateStatus, eventTypeListingSeo, eventTypePortalHref, eventTypes, type DogEvent, type EventTimeFilter, type EventType } from "@/lib/events";
+import {
+  bratislavaDateKey,
+  eventDateStatus,
+  eventTypeListingSeo,
+  eventTypePortalHref,
+  eventTypes,
+  type DogEvent,
+  type EventTimeFilter,
+  type EventType,
+} from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./events-public.module.css";
+
+const EVENT_NAV_COPY: Record<EventType, { title: string; description: string }> = {
+  Výstava: { title: "Výstavy", description: "Národné, medzinárodné a klubové výstavy psov." },
+  Preteky: { title: "Preteky", description: "Športové súťaže, pracovné skúšky a ďalšie preteky." },
+  Seminár: { title: "Semináre", description: "Vzdelávanie, workshopy a odborné stretnutia." },
+  Tréning: { title: "Tréningy", description: "Verejné tréningy a praktické kynologické aktivity." },
+  Stretnutie: { title: "Stretnutia", description: "Klubové, komunitné a spoločenské akcie so psami." },
+  Iné: { title: "Ďalšie", description: "Ďalšie termíny a akcie zo sveta psov." },
+};
 
 function eventLandingIcon(eventType: EventType) {
   if (eventType === "Preteky") return <WhistleIcon size={22} />;
   if (eventType === "Výstava") return <SparkIcon size={22} />;
   return <PawMark size={22} />;
+}
+
+function eventLandingFallbackImage(eventType: EventType, sectionImage: string) {
+  if (eventType === "Preteky" || eventType === "Seminár" || eventType === "Tréning") {
+    return "/images/trening-pri-nohe.webp";
+  }
+  return sectionImage;
 }
 
 export async function EventsPage({
@@ -37,26 +69,64 @@ export async function EventsPage({
   const categoryHref = isMainListing ? null : eventTypePortalHref(initialType);
   const categorySlug = categoryHref?.split("/").filter(Boolean).at(-1) ?? "";
   const heroVisual = await getSectionHeroVisual(isMainListing || !categorySlug ? "section.podujatia" : `events.${categorySlug}`);
+  const heroVisualForPage = {
+    ...heroVisual,
+    heroContent: {
+      ...(heroVisual.heroContent ?? {}),
+      config: {
+        ...(heroVisual.heroContent?.config ?? {}),
+        ctaEnabled: false,
+        quickLinks: [],
+      },
+    },
+  };
   const today = bratislavaDateKey();
-  const activeCount = events.filter((event) => !event.cancelled && eventDateStatus(event, today) !== "past").length;
-  const landingCategories = eventTypes.flatMap((eventType) => {
+  const activeCount = events.filter((event) =>
+    !event.cancelled
+    && eventDateStatus(event, today) !== "past"
+    && (initialType === "Všetky" || event.eventType === initialType),
+  ).length;
+  const landingCategories = isMainListing ? eventTypes.flatMap((eventType) => {
     const href = eventTypePortalHref(eventType);
     if (!href) return [];
-    const seo = eventTypeListingSeo(eventType);
+    const copy = EVENT_NAV_COPY[eventType];
     const count = events.filter((event) => !event.cancelled && event.eventType === eventType && eventDateStatus(event, today) !== "past").length;
+    const featuredEvent = events.find((event) =>
+      !event.cancelled
+      && event.eventType === eventType
+      && eventDateStatus(event, today) !== "past"
+      && Boolean(event.imageUrl),
+    );
+    const image = {
+      src: featuredEvent?.imageUrl || eventLandingFallbackImage(eventType, heroVisual.imageUrl),
+      alt: "",
+    };
     return [{
       href,
-      title: seo.title,
-      description: seo.description,
+      title: copy.title,
+      description: copy.description,
       meta: `${count} aktívnych`,
+      image,
       icon: eventLandingIcon(eventType),
     }];
-  });
+  }) : [];
+
+  const compactNavigation = [
+    { href: "/podujatia", title: "Všetky podujatia", current: isMainListing },
+    ...eventTypes.flatMap((eventType) => {
+      const href = eventTypePortalHref(eventType);
+      return href ? [{
+        href,
+        title: EVENT_NAV_COPY[eventType].title,
+        current: initialType === eventType,
+      }] : [];
+    }),
+  ];
 
   return (
     <main id="obsah">
       <PublicFoundation className={styles.foundation}>
-      <UnifiedSectionHeroShell>
+        <UnifiedSectionHeroShell>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs className={styles.breadcrumbs}>
               <Link href="/">Domov</Link><span>/</span>
@@ -65,56 +135,50 @@ export async function EventsPage({
             eyebrow="Kalendár a databáza"
             title={title}
             intro={description}
-            visual={heroVisual}
+            visual={heroVisualForPage}
             metaSlot={activeCount > 0 ? <span><strong>{activeCount}</strong> aktívnych termínov</span> : undefined}
-            searchSlot={
-              <SectionHeroSearch
-                action={categoryHref ?? "/podujatia"}
-                id={isMainListing ? "events-hero-query" : `events-hero-${categorySlug}`}
-                label={isMainListing ? "Hľadať podujatie" : `Hľadať v kategórii ${copy.title}`}
-                placeholder="Hľadať podujatie alebo mesto…"
-                defaultValue={initialQuery}
-              />
-            }
-            ctaSlot={isMainListing ? <PublicActionLink href="/podujatia/pridat-podujatie" variant="secondary">Pridať podujatie</PublicActionLink> : undefined}
           />
-      </UnifiedSectionHeroShell>
+        </UnifiedSectionHeroShell>
 
-      {isMainListing ? (
-        <section className={styles.landingCategories} aria-labelledby="events-category-heading">
-          <PublicContentShell variant="landing">
-            <PublicLandingSectionHeading
-              eyebrow="Typy podujatí"
-              title="Vyberte si, čo vás zaujíma"
-              description="Vyberte si typ podujatia a zobrazte aktuálne termíny, miesto a ďalšie detaily."
-              id="events-category-heading"
-            />
-            <PublicCategoryTiles items={landingCategories} label="Hlavné typy podujatí" />
-          </PublicContentShell>
-        </section>
-      ) : null}
-
-      <section className={`${styles.calendarSection}${isMainListing ? "" : ` ${styles.calendarSectionListing}`}`} aria-label="Kalendár podujatí">
         {isMainListing ? (
-          <PageContainer>
-            <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} />
-          </PageContainer>
+          <section className={styles.landingCategories} aria-labelledby="events-category-heading">
+            <PublicContentShell variant="landing">
+              <PublicLandingSectionHeading
+                eyebrow="Typy podujatí"
+                title="Vyberte si, čo vás zaujíma"
+                description="Vyberte typ alebo rovno pokračujte do kalendára a hľadajte podľa názvu, termínu či lokality."
+                id="events-category-heading"
+              />
+              <PublicSubcategoryNavigator items={landingCategories} label="Typy podujatí" mode="landing" />
+            </PublicContentShell>
+          </section>
         ) : (
+          <PublicSubcategoryNavigator
+            items={compactNavigation}
+            label="Typy podujatí"
+            mode="compact"
+            className={styles.typeNavigator}
+          />
+        )}
+
+        <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
             <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} />
           </PublicContentShell>
-        )}
-      </section>
+        </section>
 
-      <section className={styles.organizerSection} aria-labelledby="event-organizer-heading">
-        <PageContainer className={styles.organizerRow}>
-          <div>
-            <h2 id="event-organizer-heading">Chýba tu vaše podujatie?</h2>
-            <p>Pošlite nám údaje na redakčné overenie. Zverejnenie zostáva pod kontrolou redakcie.</p>
-          </div>
-          <PublicActionLink href="/podujatia/pridat-podujatie">Pridať podujatie</PublicActionLink>
-        </PageContainer>
-      </section>
+        <section className={styles.organizerSection} aria-label="Pre organizátorov">
+          <PageContainer>
+            <PublicContextBanner
+              eyebrow="Pre organizátorov"
+              title="Organizujete podujatie?"
+              text="Pridajte ho do kalendára Psipedia. Údaje pred zverejnením prejdú redakčnou kontrolou."
+              ctaLabel="Pridať podujatie"
+              ctaHref="/podujatia/pridat-podujatie"
+              tone="coral"
+            />
+          </PageContainer>
+        </section>
       </PublicFoundation>
     </main>
   );
