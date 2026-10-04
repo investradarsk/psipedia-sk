@@ -202,6 +202,9 @@ function writeGithubOutput(result, files) {
   const adminEvents = workflowChanged || files.some((file) =>
     /^(app\/admin\/events\/|app\/api\/admin\/events\/|components\/admin-events|lib\/admin-events|scripts\/bootstrap-admin-events-e2e\.mjs$|scripts\/check-admin-events-local\.mjs$|tests\/e2e\/admin-events\.spec\.ts$|tests\/admin-events)/.test(file),
   );
+  const publicUx = workflowChanged || result.dependency || files.some((file) =>
+    /^(?:app\/(?:page\.tsx|globals\.css|(?:steniatka|starostlivost|aktivity|adresar|podujatia|pomoc-psom|plemena|recenzie|clanky|organizacie|mapa|hladat|oblubene)\/)|components\/(?:public-visual-system\/|directory-|event|editorial-|portal-section|review|breed|news-|article-|help-|site-header|site-footer)|tests\/e2e\/public-ux-hardening\.spec\.ts$|scripts\/ci-scope\.mjs$)/.test(file),
+  );
   const search = workflowChanged || result.scopes.includes("SEARCH");
 
   appendFileSync(output, [
@@ -209,6 +212,7 @@ function writeGithubOutput(result, files) {
     `dependency=${result.dependency}`,
     `admin_events=${adminEvents}`,
     `search=${search}`,
+    `public_ux=${publicUx}`,
     `scopes=${result.scopes.join(",")}`,
     `docs_only=${result.docsOnly}`,
     "",

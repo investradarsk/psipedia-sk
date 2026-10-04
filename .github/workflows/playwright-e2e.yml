@@ -24,6 +24,7 @@ jobs:
     outputs:
       admin_events: ${{ steps.scope.outputs.admin_events }}
       search: ${{ steps.scope.outputs.search }}
+      public_ux: ${{ steps.scope.outputs.public_ux }}
       core: ${{ steps.scope.outputs.core }}
       dependency: ${{ steps.scope.outputs.dependency }}
       scopes: ${{ steps.scope.outputs.scopes }}
@@ -528,6 +529,82 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+  public-ux-hardening:
+    name: PUBLIC-UX-HARDENING browser audit
+    if: github.event_name == 'pull_request' && needs.pr-scope.outputs.public_ux == 'true'
+    needs: [pr-scope]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Resolve exact Cloudflare preview for PR head
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs"
+          preview_url=""
+          for attempt in $(seq 1 90); do
+            payload="$(curl --silent --show-error --fail \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${api}")"
+            state="$(printf '%s' "${payload}" | node -e '
+              let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
+                const runs=JSON.parse(x).check_runs||[];
+                const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
+                process.stdout.write(run ? String(run.status)+"|"+String(run.conclusion||"") : "missing|");
+              });
+            ')"
+            if [ "${state}" = "completed|failure" ]; then
+              echo "::error::Cloudflare Workers Build failed for ${PR_HEAD_SHA}."
+              exit 1
+            fi
+            if [ "${state}" = "completed|success" ]; then
+              preview_url="$(printf '%s' "${payload}" | node -e '
+                let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
+                  const runs=JSON.parse(x).check_runs||[];
+                  const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
+                  const summary=run?.output?.summary||"";
+                  const match=summary.match(/Preview URL:\s*(https:\/\/[^\s]+)/);
+                  process.stdout.write(match?.[1]||"");
+                });
+              ')"
+              if [ -n "${preview_url}" ]; then break; fi
+            fi
+            sleep 5
+          done
+          test -n "${preview_url}"
+          echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
+      - name: PUBLIC-UX-HARDENING measurements, Axe and screenshots
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: npx playwright test tests/e2e/public-ux-hardening.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Upload immutable browser audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-ux-hardening-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/public-ux-hardening/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
+          include-hidden-files: true
 
   seo-recovery-e2e:
     name: SEO-RECOVERY-1 exact-preview indexability matrix
