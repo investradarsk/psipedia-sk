@@ -67,6 +67,51 @@ export type DynamicAutomationCandidateIdentity = {
   approximateAge?: string | number | null;
 };
 
+export type AutomationSourceItemIdentity = {
+  sourceId: number;
+  sourceRecordId: string;
+};
+
+export type AutomationCanonicalEntityIdentity = {
+  entityType: AutomationEntityType;
+  canonicalEntityId: number;
+};
+
+export type AutomationProvenanceIdentity = {
+  entityType: AutomationEntityType;
+  externalSourceUrl: string | null;
+  externalRecordId: string;
+};
+
+export function automationSourceItemIdentity(
+  source: Pick<AutomationSource, "id">,
+  record: Pick<AutomationSourceRecord, "sourceRecordId">,
+): AutomationSourceItemIdentity | null {
+  const sourceRecordId = clean(record.sourceRecordId);
+  return sourceRecordId ? { sourceId: source.id, sourceRecordId } : null;
+}
+
+export function automationCanonicalEntityIdentity(
+  match: Pick<AutomationCanonicalMatch, "entityType" | "entityId">,
+): AutomationCanonicalEntityIdentity | null {
+  return match.entityId
+    ? { entityType: match.entityType, canonicalEntityId: match.entityId }
+    : null;
+}
+
+export function automationProvenanceIdentity(
+  entityType: AutomationEntityType,
+  record: Pick<AutomationSourceRecord, "sourceRecordId" | "sourceUrl">,
+): AutomationProvenanceIdentity | null {
+  const externalRecordId = clean(record.sourceRecordId);
+  if (!externalRecordId) return null;
+  return {
+    entityType,
+    externalSourceUrl: canonicalizeSourceUrl(record.sourceUrl),
+    externalRecordId,
+  };
+}
+
 export type DynamicAutomationIngestionDecision = {
   entityType: DynamicAutomationEntityType;
   matchConfidence: AutomationIdentityConfidenceState;
