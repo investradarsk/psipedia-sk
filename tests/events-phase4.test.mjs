@@ -80,19 +80,45 @@ test("every public event type has a reversible crawlable listing route", () => {
 
 test("internal discovery controls remain crawlable while directory pagination stays link-based", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
+  const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
   const helpBrowser = readFileSync(new URL("../components/help-browser.tsx", import.meta.url), "utf8");
   const helpCategoryRoute = readFileSync(new URL("../app/pomoc-psom/[category]/page.tsx", import.meta.url), "utf8");
   const directoryResults = readFileSync(new URL("../components/directory-results.tsx", import.meta.url), "utf8");
   const relatedEntities = readFileSync(new URL("../components/related-entity-list.tsx", import.meta.url), "utf8");
 
   assert.match(calendar, /href=\{eventTimeFilterHref\(value, typePathname\)\}/);
-  assert.match(calendar, /href=\{pathname\}/);
+  assert.match(eventsPage, /<PublicSubcategoryNavigator[\s\S]*mode="landing"/);
+  assert.match(eventsPage, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
+  assert.match(eventsPage, /eventTypePortalHref\(eventType\)/);
+  assert.doesNotMatch(calendar, /eventTypeFilters|selectType|className=\{styles\.typeBar\}/);
   assert.match(helpCategoryRoute, /rawSearchParams\.stav/);
   assert.match(helpBrowser, /href=\{statusHref\(!activeOnly\)\}/);
   assert.match(helpBrowser, /params\.set\("stav", "vsetky"\)/);
   assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page - 1\)\}>← Predchádzajúca<\/Link>/);
   assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page \+ 1\)\}>Ďalšia →<\/Link>/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
+});
+
+test("EVENTS-PUBLIC-UX-1 keeps one dominant type navigation and one local event search", () => {
+  const page = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
+  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../components/events-public.module.css", import.meta.url), "utf8");
+
+  assert.match(page, /PublicSubcategoryNavigator/);
+  assert.match(page, /mode="landing"/);
+  assert.match(page, /mode="compact"/);
+  assert.match(page, /PublicContextBanner/);
+  assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
+  assert.doesNotMatch(page, /SectionHeroSearch|PublicCategoryTiles|searchSlot=/);
+  assert.equal((calendar.match(/<input/g) ?? []).length, 1);
+  assert.doesNotMatch(calendar, /eventTypeFilters|EVENT_SECTION_COPY|categoryOverview|selectType/);
+  assert.match(calendar, /aria-expanded=\{filtersOpen\}/);
+  assert.match(calendar, /id="event-secondary-filters"/);
+  assert.match(calendar, /placeholder="Názov, mesto, miesto alebo organizátor"/);
+  assert.match(css, /\.filterToggle[\s\S]*min-height:\s*44px/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.secondaryFilters[\s\S]*display:\s*none/);
+  assert.match(css, /\.secondaryFiltersOpen[\s\S]*display:\s*grid/);
+  assert.match(css, /\.timeBar[\s\S]*overflow-x:\s*auto/);
 });
 
 test("related events prefer active same-type events while past details prefer the nearest active events", () => {
