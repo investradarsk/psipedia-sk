@@ -243,12 +243,15 @@ test("PUBLIC-UX-FOUNDATION-1 provides one two-mode crawlable subcategory navigat
   assert.match(navigator, /PublicSubcategoryNavigatorMode = "landing" \| "compact"/);
   assert.match(navigator, /data-public-subcategory-mode="landing"/);
   assert.match(navigator, /data-public-subcategory-mode="compact"/);
+  assert.match(navigator, /section-tabs-inner/);
+  assert.match(navigator, /section-tab/);
   assert.match(navigator, /<Link[\s\S]*href=\{item\.href\}/);
   assert.match(navigator, /aria-current=\{item\.current \? "page" : undefined\}/);
   assert.match(navigator, /loading=\{item\.image\.loading \?\? "lazy"\}/);
   assert.match(navigator, /width=\{item\.image\.width \?\? 640\}/);
   assert.match(navigator, /height=\{item\.image\.height \?\? 360\}/);
   assert.doesNotMatch(navigator, /useState|useEffect|onClick/);
+  assert.doesNotMatch(navigator, /\.slice\(/);
   assert.match(navigatorCss, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(navigatorCss, /@media \(max-width: 620px\)[\s\S]*grid-auto-columns:\s*minmax\(228px, 79%\)/);
   assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
