@@ -985,3 +985,153 @@
 .calendarSectionListing {
   padding-top: 0;
 }
+
+
+/* EVENTS-PUBLIC-UX-1: one event-type navigation, one local search and compact mobile filters. */
+.landingCategories {
+  min-width: 0;
+}
+
+.typeNavigator {
+  padding-top: 24px;
+}
+
+.calendarSection {
+  padding: 0 0 var(--ps-space-section);
+}
+
+.toolbar {
+  grid-template-columns: minmax(260px, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin: 0;
+}
+
+.secondaryFilters {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(150px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.filterToggle {
+  display: none;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  background: var(--ps-surface-raised);
+  color: var(--forest-dark);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filterToggle:focus-visible,
+.resetFilters:focus-visible {
+  outline: 3px solid rgba(23, 75, 56, .28);
+  outline-offset: 2px;
+}
+
+.resetFilters {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: var(--ps-radius-control);
+  background: var(--ps-surface);
+  color: var(--forest-dark);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.resetFilters:hover {
+  border-color: var(--forest);
+  color: var(--forest);
+}
+
+.organizerSection {
+  padding: 0 0 30px;
+  border-top: 0;
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .secondaryFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+
+  .searchControl {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .typeNavigator {
+    padding-top: 20px;
+  }
+
+  .calendarSection {
+    padding-top: 0;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+  }
+
+  .searchControl {
+    grid-column: 1 / -1;
+  }
+
+  .filterToggle {
+    display: inline-flex;
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .secondaryFilters {
+    display: none;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 2px;
+  }
+
+  .secondaryFiltersOpen {
+    display: grid;
+  }
+
+  .resultBar {
+    gap: 10px;
+  }
+
+  .timeBar {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .timeChip,
+  .activeTimeChip {
+    flex: 0 0 auto;
+  }
+
+  .organizerSection {
+    padding-bottom: 24px;
+  }
+}

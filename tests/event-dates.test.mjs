@@ -62,14 +62,17 @@ test("event time filters keep stable shareable URLs for crawlable archive anchor
   assert.equal(eventTimeFilterHref("upcoming", "/podujatia/vystavy"), "/podujatia/vystavy");
 });
 
-test("event type and time filters expose crawlable links while preserving client-side transitions", () => {
+test("event type navigation and time filters stay crawlable with the intended transition model", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-  assert.match(calendar, /eventTypePortalHref\(option\.value\)/);
-  assert.match(calendar, /<a[\s\S]*href=\{pathname\}/);
+  const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
+  assert.match(eventsPage, /eventTypePortalHref\(eventType\)/);
+  assert.match(eventsPage, /PublicSubcategoryNavigator/);
+  assert.match(eventsPage, /mode="landing"/);
+  assert.match(eventsPage, /mode="compact"/);
   assert.match(calendar, /href=\{eventTimeFilterHref\(value, typePathname\)\}/);
-  assert.match(calendar, /history\.pushState\(null, "", eventTimeFilterHref\(time, pathname\)\)/);
   assert.match(calendar, /const href = eventTimeFilterHref\(value, typePathname\)/);
   assert.match(calendar, /history\.replaceState\(null, "", href\)/);
+  assert.doesNotMatch(calendar, /history\.pushState|eventTypePortalHref\(option\.value\)/);
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {

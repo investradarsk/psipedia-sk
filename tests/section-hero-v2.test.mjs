@@ -98,10 +98,12 @@ test("CTA and quick link URLs fail closed and CTA variants are constrained", () 
   assert.match(heroCss, /\.managedCta\[data-variant="accent"\][\s\S]*#b94732/);
 });
 
-test("events have a safe default coral CTA and no implementation copy", () => {
+test("events keep the safe managed CTA default while the public listing uses one organizer CTA", () => {
   assert.match(portal, /slug: "podujatia"[\s\S]*ctaLabel: "\+ Pridať podujatie"[\s\S]*ctaVariant: "accent"/);
   assert.doesNotMatch(events, /Rýchle vstupy používajú existujúce verejné kategórie/);
-  assert.match(events, /Vyberte si typ podujatia a zobrazte aktuálne termíny, miesto a ďalšie detaily/);
+  assert.match(events, /Vyberte typ alebo rovno pokračujte do kalendára a hľadajte podľa názvu, termínu či lokality/);
+  assert.match(events, /ctaEnabled:\s*false/);
+  assert.match(events, /<PublicContextBanner[\s\S]*ctaHref="\/podujatia\/pridat-podujatie"/);
 });
 
 test("missing hero config falls back to route copy and static canonical defaults", () => {
