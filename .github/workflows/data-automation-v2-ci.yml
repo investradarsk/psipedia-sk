@@ -38,7 +38,7 @@ on:
       - "tests/automation-admin-v2-ux.test.mjs"
       - "tests/g4-possible-review-decisions.test.mjs"
       - "tests/g5-canonical-apply.test.mjs"
-      - "tests/automation-cluster-admin-integration.test.mjs"
+      - "tests/automation-cluster-admin-integration.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-tavily-strategy-chain.test.mjs tests/data-automation-source-provider-usage.test.mjs"
       - "scripts/automation-source-ux-reset.mjs"
       - "tests/automation-source-ux-reset.test.mjs"
       - "tests/automation-update-review.test.mjs"
