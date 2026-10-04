@@ -14,6 +14,7 @@ import {
 } from "./data-automation-source-provisioning.ts";
 import {
   AUTOMATION_SOURCE_HTTP_USER_AGENT,
+  AUTOMATION_SOURCE_MAX_BYTES,
   AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
@@ -51,7 +52,6 @@ export type AutomationConnectorContext = {
   }) => void;
 };
 
-const MAX_SOURCE_BYTES = 1_000_000;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 function redirectVisitKey(value: string) {
@@ -185,7 +185,7 @@ function validateRecordCount(source: AutomationSource, records: AutomationSource
 
 async function responseText(response: Response) {
   const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_SOURCE_BYTES) {
+  if (Number.isFinite(declared) && declared > AUTOMATION_SOURCE_MAX_BYTES) {
     throw new AutomationConnectorError("source_response_too_large");
   }
   if (!response.body) return "";
@@ -198,7 +198,7 @@ async function responseText(response: Response) {
       const { done, value } = await reader.read();
       if (done) break;
       bytes += value.byteLength;
-      if (bytes > MAX_SOURCE_BYTES) {
+      if (bytes > AUTOMATION_SOURCE_MAX_BYTES) {
         await reader.cancel().catch(() => undefined);
         throw new AutomationConnectorError("source_response_too_large");
       }
@@ -281,7 +281,7 @@ async function fetchOnce(
       );
     }
     validateContentType(source, contentType);
-    if (declaredLength !== null && Number.isFinite(declaredLength) && declaredLength > MAX_SOURCE_BYTES) {
+    if (declaredLength !== null && Number.isFinite(declaredLength) && declaredLength > AUTOMATION_SOURCE_MAX_BYTES) {
       throw new AutomationConnectorError("source_response_too_large");
     }
     return { response, finalUrl: currentUrl };

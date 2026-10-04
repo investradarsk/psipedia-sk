@@ -186,6 +186,9 @@ export function automationSourceDomain(url: string | null) {
 
 const automationTechnicalReadinessMessages: Record<string, string> = {
   UNSUPPORTED_CONNECTOR: "Typ pripojenia tohto zdroja nie je podporovaný pre automatickú kontrolu.",
+  NO_RELIABLE_EXTRACTION_STRATEGY: "Tento zdroj zatiaľ nevieme spoľahlivo automaticky čítať.",
+  INVALID_PATH_SCOPE: "Rozsah povolených ciest zdroja nie je platný.",
+  UNSAFE_SOURCE_ROOT: "URL zdroja nespĺňa bezpečnostné pravidlá pre automatické načítanie.",
   MISSING_ADAPTER: "Zdroj nemá priradený adapter na automatické spracovanie.",
   UNSUPPORTED_ADAPTER: "Priradený adapter tohto zdroja nie je dostupný v produkcii.",
   ADAPTER_ENTITY_MISMATCH: "Adapter nezodpovedá typu obsahu tohto zdroja.",

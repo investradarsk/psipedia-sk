@@ -43,7 +43,7 @@ function sourceShapeLabel(readiness: AutomationSourceReadiness) {
 function readinessLabel(readiness: AutomationSourceReadiness) {
   if (readiness.ready) return "Pripravený";
   if (readiness.reason === "UNSUPPORTED_CONNECTOR") return "Nepodporovaný typ zdroja";
-  return "Potrebuje podporovaný adapter";
+  return "Chýba spoľahlivý spôsob automatického čítania";
 }
 
 type CandidateApprovalPreview = {
@@ -183,7 +183,7 @@ export function AdminAutomationCandidateReview({
               <h2>Bezpečnostná kontrola</h2>
               <p>{readiness.ready
                 ? "Psipedia tento typ zdroja pozná a vie ho bezpečne otestovať."
-                : "Zdroj potrebuje technické nastavenie. Kým nebude pripravený, zostane vypnutý."}</p>
+                : "Tento zdroj zatiaľ nevieme spoľahlivo automaticky čítať. Kým nebude pripravený, zostane vypnutý."}</p>
             </div>
             <span className={[styles.badge, readiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
               {readiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}

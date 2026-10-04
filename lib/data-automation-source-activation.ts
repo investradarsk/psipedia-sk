@@ -9,6 +9,7 @@ import {
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
+import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import {
   evaluateGovernanceForActivation,
   getGovernanceState,
@@ -57,17 +58,6 @@ export async function automationSourceActivationReadiness(
     return { ready: false, reason: "CADENCE_INVALID", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
 
-  const technical = automationSourceReadiness(source);
-  if (technical.applicable && !technical.ready) {
-    return {
-      ready: false,
-      reason: "TECHNICAL_NOT_READY",
-      governance: emptyGovernance,
-      governanceBlockingReasons: [],
-      technicalReason: technical.reason,
-    };
-  }
-
   if (source.connectorType !== "MANUAL_IMPORT" && (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl))) {
     return { ready: false, reason: "UNSAFE_SOURCE_URL", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
@@ -79,6 +69,8 @@ export async function automationSourceActivationReadiness(
     storageFields: ["url", "metadata"],
   }, options.now);
 
+  // Governance is the permission layer. Extraction capability is evaluated only
+  // after recurring access, robots/terms and retention have been approved.
   if (!decision.allowed) {
     return {
       ready: false,
@@ -86,6 +78,30 @@ export async function automationSourceActivationReadiness(
       governance,
       governanceBlockingReasons: decision.blockingReasons,
       technicalReason: null,
+    };
+  }
+
+  if (source.connectorType !== "MANUAL_IMPORT") {
+    const contract = buildSourceScopedExtractionContract(source, governance.state);
+    if (!contract.ready) {
+      return {
+        ready: false,
+        reason: "TECHNICAL_NOT_READY",
+        governance,
+        governanceBlockingReasons: [],
+        technicalReason: contract.reason,
+      };
+    }
+  }
+
+  const technical = automationSourceReadiness(source);
+  if (technical.applicable && !technical.ready) {
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: technical.reason,
     };
   }
 

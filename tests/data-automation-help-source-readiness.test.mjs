@@ -245,7 +245,7 @@ test("candidate and source UI expose universal readiness without asking for a te
 
   assert.match(candidate, /Bezpečnostná kontrola/);
   assert.match(candidate, /Typ zdroja/);
-  assert.match(candidate, /Potrebuje podporovaný adapter/);
+  assert.match(candidate, /Chýba spoľahlivý spôsob automatického čítania/);
   assert.match(candidate, /Pokročilé — technická pripravenosť/);
 
   assert.match(sourceDetail, /Technická pripravenosť/);
