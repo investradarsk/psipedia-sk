@@ -840,7 +840,7 @@ test("HOTFIX missing source governance fails closed without partial configure wr
   assert.equal(after.nextCheckAt, before.nextCheckAt);
   assert.equal(
     automationSourceOnlyErrorMessage(message),
-    "Tento zdroj zatiaľ nemožno automaticky kontrolovať.",
+    "Zdroj ešte nemá vytvorené pravidlá pre automatické kontroly.",
   );
 });
 
@@ -996,25 +996,32 @@ test("HOTFIX DIRECTORY candidate without a supported adapter remains fail-closed
 });
 
 
-test("HOTFIX source-only error mapping never exposes readiness backend codes", () => {
-  const expected = "Tento zdroj zatiaľ nemožno automaticky kontrolovať.";
-  for (const code of [
-    "automation_source_not_ready:MISSING_ADAPTER",
-    "automation_source_not_ready:UNSUPPORTED_ADAPTER",
-    "automation_source_not_ready:ADAPTER_ENTITY_MISMATCH",
-    "automation_source_not_ready:ADAPTER_SOURCE_MISMATCH",
-    "automation_source_not_ready:ADAPTER_SHAPE_MISMATCH",
-    "automation_source_not_ready:MISSING_PARSER",
-    "automation_candidate_source_not_ready:UNSUPPORTED_ADAPTER",
-    "automation_candidate_source_provisioning_conflict",
-    "automation_source_governance_blocked:GOVERNANCE_MISSING",
-    "automation_source_governance_blocked:ROBOTS_NOT_ALLOWED,TERMS_NOT_ALLOWED",
-  ]) {
-    assert.equal(automationSourceOnlyErrorMessage(code), expected, code);
+test("HOTFIX source-only error mapping explains readiness blockers without exposing backend codes", () => {
+  const cases = new Map([
+    ["automation_source_not_ready:MISSING_ADAPTER", "Zdroj nemá priradený adapter na automatické spracovanie."],
+    ["automation_source_not_ready:UNSUPPORTED_ADAPTER", "Priradený adapter tohto zdroja nie je dostupný v produkcii."],
+    ["automation_source_not_ready:ADAPTER_ENTITY_MISMATCH", "Adapter nezodpovedá typu obsahu tohto zdroja."],
+    ["automation_source_not_ready:ADAPTER_SOURCE_MISMATCH", "Adapter nezodpovedá tomuto zdroju alebo jeho URL."],
+    ["automation_source_not_ready:ADAPTER_SHAPE_MISMATCH", "Nastavený formát zdroja nezodpovedá adapteru."],
+    ["automation_source_not_ready:MISSING_PARSER", "Adapter zdroja nemá dostupný parser."],
+    ["automation_candidate_source_not_ready:UNSUPPORTED_ADAPTER", "Priradený adapter tohto zdroja nie je dostupný v produkcii."],
+    ["automation_candidate_source_provisioning_conflict", "Tento zdroj zatiaľ nemožno automaticky kontrolovať."],
+    ["automation_source_governance_blocked:GOVERNANCE_MISSING", "Zdroj ešte nemá vytvorené pravidlá pre automatické kontroly."],
+    [
+      "automation_source_governance_blocked:ROBOTS_NOT_ALLOWED,TERMS_NOT_ALLOWED",
+      "robots.txt zdroja automatickú kontrolu nepovoľuje alebo ju nemožno overiť. Podmienky použitia zdroja nie sú schválené pre automatickú kontrolu.",
+    ],
+  ]);
+
+  for (const [code, expected] of cases) {
+    const readable = automationSourceOnlyErrorMessage(code);
+    assert.equal(readable, expected, code);
+    assert.doesNotMatch(readable, /^automation_/i, code);
   }
+
   assert.equal(
     automationSourceOnlyErrorMessage("automation_source_review_required", "Nastavenie sa nepodarilo uložiť."),
-    "Nastavenie sa nepodarilo uložiť.",
+    "Zdroj ešte nie je schválený. Najprv ho schváľ v automatizáciách.",
   );
 });
 
