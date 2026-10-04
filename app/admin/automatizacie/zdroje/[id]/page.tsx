@@ -10,7 +10,11 @@ import {
 } from "@/lib/data-automation-source-activation";
 import { env } from "cloudflare:workers";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
-import { automationCategoryBySlug, automationCategoryForSource } from "@/lib/admin-automation-presentation";
+import {
+  automationCategoryBySlug,
+  automationCategoryForSource,
+  automationSourceActivationStatusMessage,
+} from "@/lib/admin-automation-presentation";
 import { listAutomationSourceCanonicalContent } from "@/lib/data-automation-product-store";
 import { readAdminAutomationData, summarizeAdminAutomationReads } from "@/lib/admin-automation-reliability";
 
@@ -72,6 +76,7 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
   const monitoringRetryable = readiness
     ? automationSourceTechnicalGovernanceRetryable(readiness)
     : false;
+  const monitoringStatusMessage = automationSourceActivationStatusMessage(readiness, monitoringRetryable);
 
   return (
     <AdminShell user={user} eyebrow="Automatizácie" title={source.label} description={source.sourceUrl ?? "Schválený zdroj"}
@@ -83,6 +88,7 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
         content={content}
         monitoringReady={monitoringReady}
         monitoringRetryable={monitoringRetryable}
+        monitoringStatusMessage={monitoringStatusMessage}
       />
     </AdminShell>
   );
