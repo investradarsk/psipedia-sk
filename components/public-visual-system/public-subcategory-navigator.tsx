@@ -67,7 +67,7 @@ function LandingItem({ item }: { item: PublicSubcategoryItem }) {
 function CompactItem({ item }: { item: PublicSubcategoryItem }) {
   return (
     <Link
-      className={cx(styles.compactItem, item.current && styles.compactItemCurrent)}
+      className={cx("section-tab", item.current && "is-active", styles.compactItem, item.current && styles.compactItemCurrent)}
       href={item.href}
       aria-current={item.current ? "page" : undefined}
       rel={item.rel}
@@ -102,7 +102,7 @@ export function PublicSubcategoryNavigator({
         data-public-subcategory-navigator
         data-public-subcategory-mode="compact"
       >
-        <PageContainer className={styles.compactTrack} data-public-subcategory-track>
+        <PageContainer className={cx("section-tabs-inner", styles.compactTrack)} data-public-subcategory-track>
           {items.map((item, index) => <CompactItem item={item} key={item.href + "-" + index} />)}
         </PageContainer>
       </nav>
