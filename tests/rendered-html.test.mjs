@@ -772,7 +772,8 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.equal(events.status, 200);
   const eventsHtml = await events.text();
   assert.match(eventsHtml, /Kalendár podujatí/);
-  assert.match(eventsHtml, /Výstava/);
+  assert.match(eventsHtml, /href="\/podujatia\/vystavy"/);
+  assert.match(eventsHtml, /Výstavy/);
 
   const calendar = await worker.fetch(new Request("http://localhost/podujatia/kalendar", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(calendar.status, 200);

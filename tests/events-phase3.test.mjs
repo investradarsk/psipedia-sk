@@ -16,7 +16,7 @@ test("/podujatia remains the primary full event listing without mutating canonic
   assert.match(portalPage, /slug === "podujatia" \? getPublishedEvents\(\)/);
   assert.match(portalPage, /slug === "podujatia"\) return <EventsPage/);
   assert.match(eventsPage, /<EventCalendar events=\{events\} today=\{today\}/);
-  assert.match(eventsPage, /href="\/podujatia\/pridat-podujatie"/);
+  assert.match(eventsPage, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(eventsPage, /createManagedEvent|updateManagedEvent|deleteManagedEvent/);
 });
 
@@ -25,30 +25,31 @@ test("Events 2.0 removes the random photo hero and keeps data above the fold", (
   assert.match(eventsPage, /activeCount/);
   assert.match(eventsPage, /eventDateStatus\(event, today\)/);
   assert.match(eventsPage, /<UnifiedSectionHero/);
-  assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo|trening-pri-nohe/);
-  assert.match(eventsCss, /\.pageHeader[\s\S]*padding:\s*24px 0 22px/);
+  assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo/);
+  assert.match(eventsPage, /getSectionHeroVisual\(isMainListing \|\| !categorySlug \? "section\.podujatia" : `events\.\$\{categorySlug\}`\)/);
+  assert.match(eventsCss, /\.calendarSection[\s\S]*var\(--ps-space-section\)/);
 });
 
-test("event filters use canonical types, regions, date status, search and reliable month ranges", () => {
-  assert.match(calendar, /eventTypeFilters\.map/);
+test("event filters keep canonical page type, regions, date status, search and reliable month ranges", () => {
+  assert.match(calendar, /const typePathname = initialType === "Všetky"/);
+  assert.match(calendar, /eventTypePortalHref\(initialType\)/);
   assert.match(calendar, /slovakRegions\.map/);
   assert.match(calendar, /eventDateStatus\(event, today\)/);
   assert.match(calendar, /normalizeSearch/);
   assert.match(calendar, /monthKeysForEvent/);
   assert.match(calendar, /event\.startDate\.slice\(0, 7\) <= month/);
+  assert.match(calendar, /initialType === "Všetky" \|\| event\.eventType === initialType/);
   assert.match(calendar, /Nenašli sme zhodu/);
   assert.match(calendar, /resetFilters/);
-  assert.doesNotMatch(calendar, /const eventTypes\s*=/);
+  assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
-test("default /podujatia overview groups the five nearest events by canonical type", () => {
-  assert.match(calendar, /eventTypes[\s\S]*items\.slice\(0, 5\)/);
-  assert.match(calendar, /data-event-category-overview/);
-  assert.match(calendar, /data-event-category=\{group\.eventType\}/);
-  assert.match(calendar, /Všetky výstavy/);
-  assert.match(calendar, /Všetky tréningy/);
-  assert.match(eventsCss, /\.categoryKicker\s*\{[^}]*color:\s*var\(--coral-dark/);
-  assert.match(eventsCss, /\.categoryAll[\s\S]*var\(--coral/);
+test("root event types are page-owned and the calendar does not repeat them in overview groups", () => {
+  assert.match(eventsPage, /eventTypes\.flatMap/);
+  assert.match(eventsPage, /PublicSubcategoryNavigator/);
+  assert.match(eventsPage, /mode="landing"/);
+  assert.match(calendar, /className=\{styles\.eventList\} data-event-list/);
+  assert.doesNotMatch(calendar, /items\.slice\(0, 5\)|data-event-category-overview|data-event-category=\{group\.eventType\}|Všetky výstavy|Všetky tréningy/);
 });
 
 test("default listing order keeps current and upcoming events ahead of past events", () => {

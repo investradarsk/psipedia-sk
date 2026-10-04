@@ -66,7 +66,8 @@ test("all four comparable category landing roots use the same landing shell and 
     assert.match(source, /variant="landing"|variant=\{active \? "listing" : "landing"\}/);
     assert.match(source, /PublicLandingSectionHeading/);
   }
-  assert.match(events, /PublicCategoryTiles/);
+  assert.match(events, /PublicSubcategoryNavigator/);
+  assert.match(events, /mode="landing"/);
   assert.match(directory, /PublicSubcategoryNavigator/);
   assert.match(directory, /mode="landing"/);
   assert.match(reviews, /PublicCategoryTiles/);
