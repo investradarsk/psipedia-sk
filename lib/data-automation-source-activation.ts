@@ -4,6 +4,11 @@ import {
   type AutomationSource,
 } from "./data-automation.ts";
 import {
+  AutomationConnectorError,
+  fetchAutomationSourceRecords,
+  type AutomationFetch,
+} from "./data-automation-connectors.ts";
+import {
   AUTOMATION_SOURCE_HTTP_USER_AGENT,
   AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
   automationSourceRequestTimeoutMs,
@@ -34,10 +39,7 @@ export type AutomationSourceActivationReadiness = {
   technicalReason: string | null;
 };
 
-type ActivationSource = Pick<
-  AutomationSource,
-  "id" | "entityType" | "connectorType" | "sourceUrl" | "config" | "cadenceMinutes" | "reviewStatus"
->;
+type ActivationSource = AutomationSource;
 
 function validCadence(value: number) {
   return Number.isSafeInteger(value) && value >= 60 && value <= 43_200;
@@ -46,7 +48,12 @@ function validCadence(value: number) {
 export async function automationSourceActivationReadiness(
   source: ActivationSource,
   database: AutomationGovernanceDatabase,
-  options: { cadenceMinutes?: number; now?: Date } = {},
+  options: {
+    cadenceMinutes?: number;
+    now?: Date;
+    fetchImpl?: AutomationFetch;
+    sleep?: (ms: number) => Promise<void>;
+  } = {},
 ): Promise<AutomationSourceActivationReadiness> {
   const emptyGovernance: AutomationGovernanceRead = { schemaAvailable: true, state: null };
   if (source.reviewStatus !== "APPROVED") {
@@ -81,6 +88,7 @@ export async function automationSourceActivationReadiness(
     };
   }
 
+  let scopedContract = null;
   if (source.connectorType !== "MANUAL_IMPORT") {
     const contract = buildSourceScopedExtractionContract(source, governance.state);
     if (!contract.ready) {
@@ -92,16 +100,58 @@ export async function automationSourceActivationReadiness(
         technicalReason: contract.reason,
       };
     }
+    scopedContract = contract.contract;
   }
 
-  const technical = automationSourceReadiness(source);
+  let technical = automationSourceReadiness(source);
+  const dedicated = technical.capabilities.find((item) => item.strategy === "DEDICATED_ADAPTER");
+  const genericProbeAllowed = source.connectorType === "CONTROLLED_HTML"
+    && scopedContract
+    && technical.reason === "NO_RELIABLE_EXTRACTION_STRATEGY"
+    && dedicated?.reason === "MISSING_ADAPTER";
+
+  if (genericProbeAllowed) {
+    try {
+      const records = await fetchAutomationSourceRecords(source, {
+        fetchImpl: options.fetchImpl,
+        sleep: options.sleep,
+        sourceScopedContract: scopedContract,
+        strategyOverride: "GENERIC_FIRST_PARTY",
+        genericProbe: true,
+      });
+      technical = automationSourceReadiness(source, undefined, {
+        genericProbe: {
+          supported: records.length > 0,
+          reason: records.length > 0 ? "PROBE_CONFIRMED" : "no_items_discovered",
+          sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
+        },
+      });
+    } catch (error) {
+      const reason = error instanceof AutomationConnectorError
+        ? error.code
+        : error instanceof Error
+          ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 120)
+          : "generic_probe_failed";
+      technical = automationSourceReadiness(source, undefined, {
+        genericProbe: {
+          supported: false,
+          reason,
+          sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
+        },
+      });
+    }
+  }
+
   if (technical.applicable && !technical.ready) {
+    const generic = technical.capabilities.find((item) => item.strategy === "GENERIC_FIRST_PARTY");
     return {
       ready: false,
       reason: "TECHNICAL_NOT_READY",
       governance,
       governanceBlockingReasons: [],
-      technicalReason: technical.reason,
+      technicalReason: generic?.reason && generic.reason !== "PROBE_REQUIRED"
+        ? generic.reason
+        : technical.reason,
     };
   }
 
