@@ -101,6 +101,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0106_section_visuals.sql",
   "0107_section_hero_config.sql",
   "0108_notion_events_help_bidirectional_sync.sql",
+  "0109_dynamic_entity_identity_indexes.sql",
 ]);
 
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([

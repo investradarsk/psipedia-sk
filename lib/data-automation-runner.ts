@@ -52,6 +52,10 @@ import {
 import { upsertCanonicalExternalProvenance } from "./data-automation-product-store.ts";
 import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
+import {
+  validateDynamicAutomationIngestion,
+  type DynamicAutomationIngestionDecision,
+} from "./data-automation-dynamic-identity.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
@@ -61,8 +65,17 @@ async function createCanonicalDraftForFinding(
   findingType: AutomationFindingType,
   database: D1Database,
   detectedAt: string,
+  ingestionDecision?: DynamicAutomationIngestionDecision | null,
 ) {
   if (findingType !== "NEW_ENTITY" && findingType !== "DUPLICATE_CANDIDATE") return null;
+
+  // Dynamic automation is intentionally stricter than manual admin draft
+  // creation. Uncertain/insufficient source evidence remains review-only.
+  if (ingestionDecision) {
+    if (findingType === "DUPLICATE_CANDIDATE") return null;
+    if (!ingestionDecision.canCreateDraft || ingestionDecision.gate !== "VALID_FOR_DRAFT") return null;
+  }
+
   return applyAutomationFinding({
     id: findingId,
     reviewerEmail: AUTOMATION_DRAFT_ACTOR,
@@ -121,13 +134,28 @@ function requiredIdentity(source: AutomationSource, record: AutomationSourceReco
   }
 }
 
-function findingReason(type: AutomationFindingType, record: AutomationSourceRecord, candidates: Array<{ id: number; key: string }> = []) {
-  if (type === "NEW_ENTITY") return "Zdrojový záznam nemá bezpečný canonical match. Automatizácia z neho vytvorí koncept na ďalšiu úpravu alebo publikovanie.";
+function findingReason(
+  type: AutomationFindingType,
+  record: AutomationSourceRecord,
+  candidates: Array<{ id: number; key: string }> = [],
+  ingestionDecision?: DynamicAutomationIngestionDecision | null,
+) {
+  if (type === "NEW_ENTITY") {
+    if (ingestionDecision?.gate === "INSUFFICIENT") {
+      return `Zdrojový záznam nemá dostatok identity dôkazov na automatický canonical koncept (${ingestionDecision.reasons.join(", ")}). Zostáva iba na review.`;
+    }
+    return "Zdrojový záznam nemá bezpečný canonical match a spĺňa minimum evidence pre automatický koncept.";
+  }
   if (type === "POSSIBLE_UPDATE") return "Deterministický canonical match existuje, ale zdroj navrhuje zmenu polí. Canonical záznam nebol prepísaný.";
   if (type === "POSSIBLE_INACTIVE") return "Zdroj signalizuje možnú neaktivitu alebo ukončenie. Vyžaduje ručné potvrdenie.";
   if (type === "POSSIBLE_CANCELLED") return "Zdroj signalizuje možné zrušenie podujatia. Verejný canonical záznam zostal bez zmeny.";
   if (type === "DUPLICATE_CANDIDATE") {
     const ids = candidates.map((candidate) => candidate.key || String(candidate.id)).join(", ");
+    if (ingestionDecision?.gate === "UNCERTAIN") {
+      return ids
+        ? `Match nie je jednoznačný; kandidáti: ${ids}. Dynamic entity zostáva review-only a koncept sa automaticky nevytvorí.`
+        : "Match nie je dostatočne bezpečný. Dynamic entity zostáva review-only a koncept sa automaticky nevytvorí.";
+    }
     return ids
       ? `Match nie je jednoznačný; kandidáti: ${ids}. Vytvorí sa samostatný koncept označený ako možná duplicita.`
       : "Match nie je dostatočne bezpečný. Vytvorí sa samostatný koncept označený ako možná duplicita.";
@@ -335,6 +363,7 @@ async function processRecord(
   let match = source.entityType === "DIRECTORY" && !isDirectoryFacilityObservation(record)
     ? { entityType: source.entityType, entityId: null, entityKey: null, quality: "NONE" as const, before: null }
     : await matchAutomationCanonical(source, record, database);
+  let ingestionDecision = validateDynamicAutomationIngestion({ source, record, match });
 
   // Safe canonical matches are not terminal duplicates until the payload is
   // compared. This is what enables read-only update suggestions for both
@@ -349,14 +378,16 @@ async function processRecord(
       detectedAt,
     }, database);
 
-    const lifecycle = await processAutomationLifecycleSignals({
-      source,
-      record,
-      match,
-      runId,
-      detectedAt,
-      database,
-    });
+    const lifecycle = !ingestionDecision || ingestionDecision.canAttachLifecycleSuggestion
+      ? await processAutomationLifecycleSignals({
+          source,
+          record,
+          match,
+          runId,
+          detectedAt,
+          database,
+        })
+      : { signals: [], newFindingCount: 0, updatedFindingCount: 0 };
     const contentProposal = stripAutomationLifecycleFields(source.entityType, proposedForFinding, lifecycle.signals);
     const classified = classifyAutomationFinding({ match, proposed: contentProposal });
     if (!classified) {
@@ -404,7 +435,7 @@ async function processRecord(
       diff: classified.diff,
       payloadHash: contentPayloadHash,
       fingerprint,
-      reason: findingReason(classified.findingType, record, match.candidates ?? []),
+      reason: findingReason(classified.findingType, record, match.candidates ?? [], ingestionDecision),
       detectedAt,
     }, database);
     const receipt = await ensureProcessedReceipt(source, record, proposalHash, detectedAt, database);
@@ -482,6 +513,18 @@ async function processRecord(
 
   if (clusterResolution?.quality === "POSSIBLE") {
     const findingType = "DUPLICATE_CANDIDATE" as const;
+    const clusterMatch: AutomationCanonicalMatch = {
+      entityType: source.entityType,
+      entityId: null,
+      entityKey: null,
+      quality: "UNCERTAIN",
+      before: null,
+      candidates: clusterResolution.possibleCandidateIds.map((id) => ({
+        id,
+        key: `${source.entityType.toLowerCase()}:${id}`,
+      })),
+    };
+    const clusterDecision = validateDynamicAutomationIngestion({ source, record, match: clusterMatch });
     const fingerprint = automationFindingFingerprint({
       sourceKey: source.sourceKey,
       sourceRecordId: record.sourceRecordId,
@@ -504,11 +547,16 @@ async function processRecord(
       diff: buildAutomationDiff(null, proposedForFinding),
       payloadHash: proposalHash,
       fingerprint,
-      reason: `Multi-source cluster match vyžaduje review; kandidátne clustre: ${clusterResolution.possibleCandidateIds.join(", ") || "bez jednoznačného kandidáta"}.`,
+      reason: findingReason(
+        findingType,
+        record,
+        clusterMatch.candidates ?? [],
+        clusterDecision,
+      ),
       detectedAt,
     }, database);
     await linkAutomationFindingToCluster(result.id, clusterResolution.clusterId, detectedAt, database);
-    const draft = await createCanonicalDraftForFinding(result.id, findingType, database, detectedAt);
+    const draft = await createCanonicalDraftForFinding(result.id, findingType, database, detectedAt, clusterDecision);
     return { finding: findingType, draft, ...result };
   }
 
@@ -525,6 +573,7 @@ async function processRecord(
       }],
     };
   }
+  ingestionDecision = validateDynamicAutomationIngestion({ source, record, match });
 
   const classified = classifyAutomationFinding({ match, proposed: proposedForFinding });
   if (!classified) return { finding: null, created: false, reopened: false };
@@ -563,13 +612,19 @@ async function processRecord(
     diff: classified.diff,
     payloadHash: proposalHash,
     fingerprint,
-    reason: findingReason(classified.findingType, record, duplicateCandidates),
+    reason: findingReason(classified.findingType, record, duplicateCandidates, ingestionDecision),
     detectedAt,
   }, database);
   if (clusterResolution) {
     await linkAutomationFindingToCluster(result.id, clusterResolution.clusterId, detectedAt, database);
   }
-  const draft = await createCanonicalDraftForFinding(result.id, classified.findingType, database, detectedAt);
+  const draft = await createCanonicalDraftForFinding(
+    result.id,
+    classified.findingType,
+    database,
+    detectedAt,
+    ingestionDecision,
+  );
   return { finding: classified.findingType, draft, ...result };
 }
 

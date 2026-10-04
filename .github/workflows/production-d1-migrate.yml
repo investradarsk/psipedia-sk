@@ -56,6 +56,7 @@ on:
           - 0106_section_visuals.sql
           - 0107_section_hero_config.sql
           - 0108_notion_events_help_bidirectional_sync.sql
+          - 0109_dynamic_entity_identity_indexes.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -132,6 +133,7 @@ jobs:
             0106_section_visuals.sql) expected_confirmation="APPLY-0106-psipedia-sk-db" ;;
             0107_section_hero_config.sql) expected_confirmation="APPLY-0107-psipedia-sk-db" ;;
             0108_notion_events_help_bidirectional_sync.sql) expected_confirmation="APPLY-0108-psipedia-sk-db" ;;
+            0109_dynamic_entity_identity_indexes.sql) expected_confirmation="APPLY-0109-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
