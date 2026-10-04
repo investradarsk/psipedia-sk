@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DOG_NAME_DAY_TIME_ZONE, dogNameDayDateKey, resolveDogNameDay } from "../lib/dog-name-days.ts";
 
+const read = (path) => readFileSync(path, "utf8");
+
 const source = readFileSync("components/public-visual-system/public-visual-system.tsx", "utf8");
 const styles = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
 const barrel = readFileSync("components/public-visual-system/index.ts", "utf8");
