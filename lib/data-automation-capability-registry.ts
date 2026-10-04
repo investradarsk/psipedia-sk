@@ -138,6 +138,7 @@ export function automationExtractionCapabilities(
   options: {
     governanceAllowed?: boolean;
     genericProbe?: AutomationGenericExtractionProbe | null;
+    tavilyCredentialConfigured?: boolean;
   } = {},
 ): AutomationExtractionCapability[] {
   if (source.connectorType === "MANUAL_IMPORT") return [];
@@ -252,19 +253,35 @@ export function automationExtractionCapabilities(
     },
     {
       strategy: "TAVILY_CRAWL",
-      status: "UNAVAILABLE",
-      reason: "NOT_IMPLEMENTED",
+      status: !options.tavilyCredentialConfigured
+        ? "UNAVAILABLE"
+        : source.config.sourceShape === "SINGLE_ITEM"
+          ? "UNSUPPORTED"
+          : "SUPPORTED",
+      reason: !options.tavilyCredentialConfigured
+        ? "TAVILY_KEY_MISSING"
+        : source.config.sourceShape === "SINGLE_ITEM"
+          ? "DETAIL_SOURCE_PREFERS_EXTRACT"
+          : "READY",
       adapterKey: null,
       label: "Tavily scoped crawl",
-      sourceShape: source.config.sourceShape ?? null,
+      sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
     },
     {
       strategy: "TAVILY_EXTRACT",
-      status: "UNAVAILABLE",
-      reason: "NOT_IMPLEMENTED",
+      status: !options.tavilyCredentialConfigured
+        ? "UNAVAILABLE"
+        : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
+          ? "SUPPORTED"
+          : "UNSUPPORTED",
+      reason: !options.tavilyCredentialConfigured
+        ? "TAVILY_KEY_MISSING"
+        : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
+          ? "READY"
+          : "KNOWN_DETAIL_URL_REQUIRED",
       adapterKey: null,
       label: "Tavily scoped extract",
-      sourceShape: source.config.sourceShape ?? null,
+      sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
     },
   ], options.governanceAllowed);
 }
@@ -304,6 +321,7 @@ export function automationSourceReadiness(
   options: {
     governanceAllowed?: boolean;
     genericProbe?: AutomationGenericExtractionProbe | null;
+    tavilyCredentialConfigured?: boolean;
   } = {},
 ): AutomationSourceReadiness {
   if (source.connectorType === "MANUAL_IMPORT") {
