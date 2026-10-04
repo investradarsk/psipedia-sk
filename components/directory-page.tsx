@@ -185,7 +185,7 @@ export async function DirectoryPage({
           <PublicContentShell variant="plain" className={styles.contextShell}>
             <PublicContextBanner
               eyebrow="Služby v okolí"
-              title="Nájdite služby pre psov na mape"
+              title="Nájdi služby pre psov na mape"
               text="Pozri si služby podľa polohy a rýchlejšie nájdi možnosti vo svojom okolí."
               ctaLabel="Pozrieť mapu"
               ctaHref="/mapa"
