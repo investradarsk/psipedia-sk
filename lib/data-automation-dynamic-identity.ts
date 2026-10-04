@@ -179,15 +179,13 @@ function eventDraftEvidence(record: AutomationSourceRecord) {
   return reasons;
 }
 
-function adoptionDraftEvidence(record: AutomationSourceRecord, source: Pick<AutomationSource, "sourceKey" | "sourceUrl">) {
+function adoptionDraftEvidence(record: AutomationSourceRecord) {
   const p = record.proposed;
   const reasons: string[] = [];
   if (!clean(p.name ?? p.dogName)) reasons.push("adoption_dog_name_missing");
   const stable = automationStableSourceIdentity(record);
   if (stable === "NONE" || stable === "WEAK") reasons.push("adoption_stable_identity_missing");
-  const organization = clean(p.organizationName ?? p.organization);
-  const scopedSource = clean(source.sourceKey) && canonicalizeSourceUrl(source.sourceUrl);
-  if (!organization && !scopedSource) reasons.push("adoption_organization_or_source_identity_missing");
+  if (!clean(p.organizationName ?? p.organization)) reasons.push("adoption_organization_identity_missing");
   return reasons;
 }
 
@@ -198,7 +196,7 @@ function genericFosterTitle(value: unknown) {
     || /^(?:docasna\s+opatera|hladame\s+docasku|potrebujeme\s+docasku)$/.test(normalized);
 }
 
-function fosterDraftEvidence(record: AutomationSourceRecord, source: Pick<AutomationSource, "sourceKey" | "sourceUrl">) {
+function fosterDraftEvidence(record: AutomationSourceRecord) {
   const p = record.proposed;
   const reasons: string[] = [];
   const dog = clean(p.dogName ?? p.name);
@@ -206,9 +204,7 @@ function fosterDraftEvidence(record: AutomationSourceRecord, source: Pick<Automa
   if (!dog && (!title || genericFosterTitle(title))) reasons.push("foster_concrete_case_identity_missing");
   const stable = automationStableSourceIdentity(record);
   if (stable === "NONE" || stable === "WEAK") reasons.push("foster_stable_identity_missing");
-  const organization = clean(p.organizationName ?? p.organization);
-  const scopedSource = clean(source.sourceKey) && canonicalizeSourceUrl(source.sourceUrl);
-  if (!organization && !scopedSource) reasons.push("foster_organization_or_source_identity_missing");
+  if (!clean(p.organizationName ?? p.organization)) reasons.push("foster_organization_identity_missing");
   return reasons;
 }
 
@@ -279,9 +275,9 @@ export function validateDynamicAutomationIngestion(input: {
   const reasons = entityType === "EVENT"
     ? eventDraftEvidence(input.record)
     : entityType === "ADOPTION"
-      ? adoptionDraftEvidence(input.record, input.source)
+      ? adoptionDraftEvidence(input.record)
       : entityType === "FOSTER"
-        ? fosterDraftEvidence(input.record, input.source)
+        ? fosterDraftEvidence(input.record)
         : lostFoundDraftEvidence(input.record);
 
   return {
