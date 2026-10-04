@@ -230,3 +230,57 @@ test("SEARCH-1 keeps heterogeneous results in one unified presentation", () => {
   assert.match(searchPage, /item\.description/);
   assert.doesNotMatch(searchPage, /<PublicArticleListItem/);
 });
+
+
+test("PUBLIC-UX-FOUNDATION-1 provides one two-mode crawlable subcategory navigator", () => {
+  const navigator = read("components/public-visual-system/public-subcategory-navigator.tsx");
+  const navigatorCss = read("components/public-visual-system/public-subcategory-navigator.module.css");
+  const portalTabs = read("components/portal-section-tabs.tsx");
+  const publicIndex = read("components/public-visual-system/index.ts");
+
+  assert.match(navigator, /PublicSubcategoryNavigatorMode = "landing" \| "compact"/);
+  assert.match(navigator, /data-public-subcategory-mode="landing"/);
+  assert.match(navigator, /data-public-subcategory-mode="compact"/);
+  assert.match(navigator, /<Link[\s\S]*href=\{item\.href\}/);
+  assert.match(navigator, /aria-current=\{item\.current \? "page" : undefined\}/);
+  assert.match(navigator, /loading=\{item\.image\.loading \?\? "lazy"\}/);
+  assert.match(navigator, /width=\{item\.image\.width \?\? 640\}/);
+  assert.match(navigator, /height=\{item\.image\.height \?\? 360\}/);
+  assert.doesNotMatch(navigator, /useState|useEffect|onClick/);
+  assert.match(navigatorCss, /grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(navigatorCss, /@media \(max-width: 620px\)[\s\S]*grid-auto-columns:\s*minmax\(228px, 79%\)/);
+  assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
+  assert.match(navigatorCss, /min-height:\s*44px/);
+  assert.match(navigatorCss, /-webkit-line-clamp:\s*2/);
+  assert.match(navigatorCss, /prefers-reduced-motion:\s*reduce/);
+  assert.match(portalTabs, /<PublicSubcategoryNavigator/);
+  assert.match(portalTabs, /mode="compact"/);
+  assert.match(publicIndex, /PublicSubcategoryNavigator/);
+});
+
+test("PUBLIC-UX-FOUNDATION-1 provides a reusable compact contextual banner", () => {
+  const banner = read("components/public-visual-system/public-context-banner.tsx");
+  const bannerCss = read("components/public-visual-system/public-context-banner.module.css");
+  const publicIndex = read("components/public-visual-system/index.ts");
+
+  assert.match(banner, /PublicContextBannerTone = "forest" \| "sage" \| "coral" \| "sand"/);
+  assert.match(banner, /data-public-context-banner/);
+  assert.match(banner, /<PublicActionLink href=\{ctaHref!\}/);
+  assert.match(banner, /loading=\{image\.loading \?\? "lazy"\}/);
+  assert.match(banner, /width=\{image\.width \?\? 720\}/);
+  assert.match(banner, /height=\{image\.height \?\? 480\}/);
+  assert.match(bannerCss, /grid-template-columns:\s*minmax\(0, 1\.25fr\) minmax\(220px, \.75fr\)/);
+  assert.match(bannerCss, /@media \(max-width: 720px\)[\s\S]*aspect-ratio:\s*16 \/ 7/);
+  assert.match(publicIndex, /PublicContextBanner/);
+});
+
+test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing approved shell geometry", () => {
+  const layoutCss = read("components/public-visual-system/public-landing-layout.module.css");
+  const hero = read("components/public-visual-system/unified-section-hero.tsx");
+
+  assert.match(layoutCss, /--public-space-functional:\s*24px/);
+  assert.match(layoutCss, /--public-space-section:\s*36px/);
+  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*--public-space-functional:\s*20px[\s\S]*--public-space-section:\s*32px/);
+  assert.match(hero, /const hasTools = Boolean\(resolvedSearch \|\| resolvedCta \|\| metaSlot \|\| config\.metaLabel \|\| quickLinks\.length\)/);
+  assert.match(hero, /\{hasTools \? \([\s\S]*data-unified-section-hero-tools[\s\S]*\) : null\}/);
+});
