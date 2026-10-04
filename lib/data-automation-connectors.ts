@@ -4,6 +4,7 @@ import {
   isSafeAutomationSourceUrl,
   retryBackoffMs,
   shouldRetryAutomationStatus,
+  type AutomationExtractionStrategy,
   type AutomationSource,
   type AutomationSourceConfig,
   type AutomationSourceRecord,
@@ -19,6 +20,15 @@ import {
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
 import { automationHelpRecordShapeError } from "./data-automation-help-source-readiness.ts";
+import {
+  extractGenericFirstPartySource,
+  GenericFirstPartyExtractionError,
+  genericFirstPartyProbeContract,
+} from "./data-automation-generic-source-extractor.ts";
+import {
+  automationUrlWithinApprovedSourceScope,
+  type SourceScopedExtractionContract,
+} from "./data-automation-source-scoped-extraction.ts";
 
 export class AutomationConnectorError extends Error {
   readonly code: string;
@@ -43,6 +53,9 @@ export type AutomationConnectorContext = {
   fetchImpl?: AutomationFetch;
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
+  sourceScopedContract?: SourceScopedExtractionContract;
+  strategyOverride?: AutomationExtractionStrategy;
+  genericProbe?: boolean;
   onResponse?: (meta: {
     status: number;
     contentType: string | null;
@@ -183,9 +196,10 @@ function validateRecordCount(source: AutomationSource, records: AutomationSource
   }
 }
 
-async function responseText(response: Response) {
+async function responseText(response: Response, maxBytes = AUTOMATION_SOURCE_MAX_BYTES) {
+  const boundedMaxBytes = Math.max(1, Math.min(AUTOMATION_SOURCE_MAX_BYTES, Math.floor(maxBytes)));
   const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > AUTOMATION_SOURCE_MAX_BYTES) {
+  if (Number.isFinite(declared) && declared > boundedMaxBytes) {
     throw new AutomationConnectorError("source_response_too_large");
   }
   if (!response.body) return "";
@@ -198,7 +212,7 @@ async function responseText(response: Response) {
       const { done, value } = await reader.read();
       if (done) break;
       bytes += value.byteLength;
-      if (bytes > AUTOMATION_SOURCE_MAX_BYTES) {
+      if (bytes > boundedMaxBytes) {
         await reader.cancel().catch(() => undefined);
         throw new AutomationConnectorError("source_response_too_large");
       }
@@ -215,6 +229,10 @@ async function fetchOnce(
   source: AutomationSource,
   fetchImpl: AutomationFetch,
   onResponse?: AutomationConnectorContext["onResponse"],
+  options: {
+    urlPolicy?: (url: string) => boolean;
+    maxRedirects?: number;
+  } = {},
 ) {
   if (!source.sourceUrl || !isSafeAutomationSourceUrl(source.sourceUrl)) {
     throw new AutomationConnectorError("unsafe_or_missing_source_url");
@@ -226,6 +244,9 @@ async function fetchOnce(
   let redirectCount = 0;
 
   while (true) {
+    if (options.urlPolicy && !options.urlPolicy(currentUrl)) {
+      throw new AutomationConnectorError("source_scope_violation");
+    }
     const loopKey = redirectVisitKey(currentUrl);
     if (seen.has(loopKey)) throw new AutomationConnectorError("source_redirect_loop");
     seen.add(loopKey);
@@ -258,7 +279,9 @@ async function fetchOnce(
     if (REDIRECT_STATUSES.has(response.status)) {
       const location = response.headers.get("location");
       if (!location) throw new AutomationConnectorError("source_redirect_invalid");
-      if (redirectCount >= AUTOMATION_SOURCE_MAX_REDIRECT_HOPS) throw new AutomationConnectorError("source_redirect_too_many");
+      if (redirectCount >= (options.maxRedirects ?? AUTOMATION_SOURCE_MAX_REDIRECT_HOPS)) {
+        throw new AutomationConnectorError("source_redirect_too_many");
+      }
       let target: URL;
       try {
         target = new URL(location, currentUrl);
@@ -267,6 +290,9 @@ async function fetchOnce(
       }
       if (!isSafeAutomationSourceUrl(target.toString())) {
         throw new AutomationConnectorError("source_redirect_blocked");
+      }
+      if (options.urlPolicy && !options.urlPolicy(target.toString())) {
+        throw new AutomationConnectorError("source_scope_violation");
       }
       await response.body?.cancel().catch(() => undefined);
       currentUrl = target.toString();
@@ -314,9 +340,24 @@ export async function fetchAutomationSourceRecords(
   if (source.connectorType === "MANUAL_IMPORT") return [];
   const fetchImpl = context.fetchImpl ?? fetch;
   const sleep = context.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const initialEventFallback: AutomationSourceConfig = source.entityType === "EVENT"
+    ? eventHtmlAdapterConfigForSourceUrl(source.sourceUrl)
+    : {};
+  const initialAdapterKey = source.config.htmlAdapterKey?.trim()
+    || initialEventFallback.htmlAdapterKey?.trim()
+    || (source.entityType === "ORGANIZATION" ? organizationHtmlAdapterKeyForSourceUrl(source.sourceUrl) : null);
+  const genericRequested = source.connectorType === "CONTROLLED_HTML"
+    && Boolean(context.sourceScopedContract)
+    && (context.strategyOverride === "GENERIC_FIRST_PARTY" || !initialAdapterKey);
+  const scopedPolicy = genericRequested && context.sourceScopedContract
+    ? (url: string) => automationUrlWithinApprovedSourceScope(context.sourceScopedContract!.identity, url)
+    : undefined;
 
   return withRetry(source, async () => {
-    const fetched = await fetchOnce(source, fetchImpl, context.onResponse);
+    const fetched = await fetchOnce(source, fetchImpl, context.onResponse, {
+      urlPolicy: scopedPolicy,
+      maxRedirects: context.sourceScopedContract?.limits.maxRedirects,
+    });
     const response = fetched.response;
     const effectiveSource = fetched.finalUrl === source.sourceUrl ? source : { ...source, sourceUrl: fetched.finalUrl };
     if (source.connectorType === "STRUCTURED_JSON") {
@@ -344,6 +385,54 @@ export async function fetchAutomationSourceRecords(
         ? organizationHtmlAdapterKeyForSourceUrl(effectiveSource.sourceUrl)
         : null);
     const adapter = adapterKey ? context.htmlAdapters?.[adapterKey] : undefined;
+    const useGeneric = context.strategyOverride === "GENERIC_FIRST_PARTY" || (!adapter && Boolean(context.sourceScopedContract));
+
+    if (useGeneric) {
+      const baseContract = context.sourceScopedContract;
+      if (!baseContract) throw new AutomationConnectorError("generic_source_contract_missing");
+      const contract = context.genericProbe ? genericFirstPartyProbeContract(baseContract) : baseContract;
+      let remainingBytes = contract.limits.maxBytes;
+      const html = await responseText(response, remainingBytes);
+      remainingBytes -= new TextEncoder().encode(html).byteLength;
+      try {
+        const result = await extractGenericFirstPartySource({
+          source: effectiveSource,
+          contract,
+          rootHtml: html,
+          rootUrl: fetched.finalUrl,
+          fetchPage: async (url) => {
+            if (!automationUrlWithinApprovedSourceScope(contract.identity, url)) {
+              throw new AutomationConnectorError("source_scope_violation");
+            }
+            if (contract.limits.throttleMs > 0) await sleep(contract.limits.throttleMs);
+            const nestedSource = { ...effectiveSource, sourceUrl: url };
+            const nested = await fetchOnce(nestedSource, fetchImpl, context.onResponse, {
+              urlPolicy: (candidate) => automationUrlWithinApprovedSourceScope(contract.identity, candidate),
+              maxRedirects: contract.limits.maxRedirects,
+            });
+            if (!automationUrlWithinApprovedSourceScope(contract.identity, nested.finalUrl)) {
+              throw new AutomationConnectorError("source_scope_violation");
+            }
+            const nestedHtml = await responseText(nested.response, remainingBytes);
+            remainingBytes -= new TextEncoder().encode(nestedHtml).byteLength;
+            if (remainingBytes < 0) throw new AutomationConnectorError("source_response_too_large");
+            return { html: nestedHtml, finalUrl: nested.finalUrl };
+          },
+        });
+        const records = boundedAutomationRecords(result.records, Math.min(source.maxRecordsPerRun, contract.limits.maxItems));
+        const helpShapeError = automationHelpRecordShapeError(source, records.length);
+        if (helpShapeError) throw new AutomationConnectorError(helpShapeError);
+        validateRecordCount(source, records);
+        return records;
+      } catch (error) {
+        if (error instanceof AutomationConnectorError) throw error;
+        if (error instanceof GenericFirstPartyExtractionError) {
+          throw new AutomationConnectorError(error.code);
+        }
+        throw new AutomationConnectorError("generic_source_parse_failed");
+      }
+    }
+
     if (!adapter) throw new AutomationConnectorError("controlled_html_adapter_not_configured");
     const html = await responseText(response);
     let parsed: AutomationSourceRecord[];

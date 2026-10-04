@@ -50,6 +50,8 @@ import {
   updateAutomationIngestionReceiptPayload,
 } from "./data-automation-ingestion-receipts.ts";
 import { upsertCanonicalExternalProvenance } from "./data-automation-product-store.ts";
+import { getGovernanceState } from "./data-automation-governance.ts";
+import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
@@ -608,10 +610,16 @@ async function runSource(
   let errorSummary: string | null = null;
 
   try {
+    const governance = await getGovernanceState(
+      { type: "AUTOMATION_SOURCE", id: source.id },
+      options.database,
+    );
+    const scoped = buildSourceScopedExtractionContract(source, governance.state);
     const records = await fetchAutomationSourceRecords(source, {
       fetchImpl: options.fetchImpl,
       htmlAdapters: options.htmlAdapters,
       sleep: options.sleep,
+      sourceScopedContract: scoped.ready ? scoped.contract : undefined,
     });
 
     for (const record of records) {

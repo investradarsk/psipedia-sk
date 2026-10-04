@@ -331,6 +331,7 @@ async function sourceActivationReadinessForEnable(
   let readiness = await automationSourceActivationReadiness(source, db, {
     cadenceMinutes,
     now: input.now,
+    fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
   });
   if (
     !readiness.ready
@@ -347,6 +348,7 @@ async function sourceActivationReadinessForEnable(
     readiness = await automationSourceActivationReadiness(source, db, {
       cadenceMinutes,
       now: input.now,
+      fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
     });
   }
   return readiness;
