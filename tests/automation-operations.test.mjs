@@ -11,6 +11,10 @@ import {
   readAdminAutomationData,
   summarizeAdminAutomationReads,
 } from "../lib/admin-automation-reliability.ts";
+import {
+  automationSourceActivationStatusMessage,
+  automationSourceOnlyErrorMessage,
+} from "../lib/admin-automation-presentation.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
@@ -234,6 +238,85 @@ test("empty refresh continuation preserves the last meaningful batch metrics", (
   assert.match(store, /last_batch_error_count=CASE WHEN \?>0 THEN \? ELSE last_batch_error_count END/);
 });
 
+
+test("source readiness UI explains exact activation blockers", () => {
+  const governance = { schemaAvailable: true, state: null };
+
+  assert.equal(
+    automationSourceActivationStatusMessage({
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: "MISSING_ADAPTER",
+    }),
+    "Zdroj nemá priradený adapter na automatické spracovanie.",
+  );
+
+  assert.equal(
+    automationSourceActivationStatusMessage({
+      ready: false,
+      reason: "REVIEW_REQUIRED",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: null,
+    }),
+    "Zdroj ešte nie je schválený. Najprv ho schváľ v automatizáciách.",
+  );
+
+  assert.equal(
+    automationSourceActivationStatusMessage({
+      ready: false,
+      reason: "GOVERNANCE_BLOCKED",
+      governance,
+      governanceBlockingReasons: ["ROBOTS_NOT_ALLOWED"],
+      technicalReason: null,
+    }),
+    "robots.txt zdroja automatickú kontrolu nepovoľuje alebo ju nemožno overiť.",
+  );
+
+  assert.match(
+    automationSourceActivationStatusMessage({
+      ready: false,
+      reason: "GOVERNANCE_BLOCKED",
+      governance,
+      governanceBlockingReasons: ["ACCESS_NOT_ALLOWED", "ROBOTS_NOT_ALLOWED"],
+      technicalReason: null,
+    }, true),
+    /Pri zapnutí sa technická kontrola prístupu a robots\.txt zopakuje\.$/,
+  );
+});
+
+test("source activation API errors keep concrete blocker explanations across admin categories", () => {
+  assert.equal(
+    automationSourceOnlyErrorMessage("automation_source_not_ready:MISSING_ADAPTER"),
+    "Zdroj nemá priradený adapter na automatické spracovanie.",
+  );
+  assert.equal(
+    automationSourceOnlyErrorMessage("automation_source_governance_blocked:CADENCE_TOO_FREQUENT"),
+    "Zvolená frekvencia je pre tento zdroj príliš častá.",
+  );
+  assert.equal(
+    automationSourceOnlyErrorMessage("automation_candidate_source_not_ready:ADAPTER_ENTITY_MISMATCH"),
+    "Adapter nezodpovedá typu obsahu tohto zdroja.",
+  );
+  assert.equal(
+    automationSourceOnlyErrorMessage("automation_source_url_not_safe"),
+    "URL zdroja chýba alebo nespĺňa bezpečnostné pravidlá pre automatické načítanie.",
+  );
+});
+
+test("all feed-source categories use the shared source detail blocker UI", () => {
+  const categoryUi = read("components/admin-automation-category-sources.tsx");
+  const detail = read("app/admin/automatizacie/zdroje/[id]/page.tsx");
+  const settings = read("components/admin-automation-source-settings.tsx");
+
+  assert.match(categoryUi, /href=\{"\/admin\/automatizacie\/zdroje\/" \+ source\.id\}/);
+  assert.match(detail, /automationSourceActivationStatusMessage\(readiness, monitoringRetryable\)/);
+  assert.match(detail, /monitoringStatusMessage=\{monitoringStatusMessage\}/);
+  assert.match(settings, /monitoringStatusMessage: string \| null/);
+  assert.match(settings, /\{monitoringStatusMessage \?\?/);
+});
 
 test("admin automation availability contract distinguishes success and genuine empty", async () => {
   const ok = await readAdminAutomationData({
