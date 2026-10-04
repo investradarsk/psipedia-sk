@@ -179,9 +179,12 @@
 }
 
 .contentSection,
-.directorySection,
 .nextSection {
   padding-block: clamp(30px, 4vw, 48px);
+}
+
+.directorySection {
+  padding-block: 0;
 }
 
 .contentSection,
@@ -460,9 +463,12 @@
   }
 
   .contentSection,
-  .directorySection,
   .nextSection {
     padding-block: 30px;
+  }
+
+  .directorySection {
+    padding-block: 0;
   }
 }
 
