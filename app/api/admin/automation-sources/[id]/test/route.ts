@@ -32,11 +32,9 @@ export async function POST(request: Request, { params }: Props) {
     && capability.status === "UNAVAILABLE"
     && capability.reason === "PROBE_REQUIRED"
   );
-  const readiness = staticReadiness.ready
-    ? staticReadiness
-    : genericProbeEligible
-      ? await automationSourceActivationReadiness(source, db, { tavilyCredentialConfigured })
-      : staticReadiness;
+  const readiness = genericProbeEligible
+    ? await automationSourceActivationReadiness(source, db, { tavilyCredentialConfigured })
+    : staticReadiness;
   if (!readiness.ready) {
     return Response.json({
       error: "Zdroj zatiaľ nie je pripravený na automatické spracovanie.",
