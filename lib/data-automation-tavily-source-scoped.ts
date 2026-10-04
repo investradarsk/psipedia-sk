@@ -105,7 +105,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function escapeRegex(value: string) {
-  return value.replace(/[.*+?^$()|[\]{}]/g, "\\$&");
+  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
 }
 
 function scopePatternRegex(pattern: string) {
