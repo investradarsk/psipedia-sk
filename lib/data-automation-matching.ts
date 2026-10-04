@@ -6,6 +6,10 @@ import {
   type AutomationEntityType,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
+import {
+  isDynamicAutomationEntityType,
+  matchDynamicAutomationCandidate,
+} from "./data-automation-dynamic-identity.ts";
 
 export type AutomationMatchCandidate = {
   id: number;
@@ -25,6 +29,19 @@ export type AutomationMatchCandidate = {
   region?: string | null;
   registrationNumber?: string | null;
   type?: string | null;
+  startTime?: string | null;
+  venue?: string | null;
+  district?: string | null;
+  locationDescription?: string | null;
+  sex?: string | null;
+  breed?: string | null;
+  color?: string | null;
+  size?: string | null;
+  birthDate?: string | null;
+  approximateAge?: string | number | null;
+  exactSourceIdentity?: boolean;
+  exactDetailUrl?: boolean;
+  sameSourceRecordIds?: string[];
 };
 
 function clean(value: unknown) {
@@ -94,7 +111,26 @@ function candidateMatch(
 ) {
   const proposed = record.proposed;
   const sourceId = clean(record.sourceRecordId);
+  const type = clean(proposed.type);
+
+  // LOST and FOUND are separate source claims. Even a reused URL/source id
+  // must never silently collapse a semantic type change.
+  if (
+    entityType === "LOST_FOUND"
+    && type
+    && clean(candidate.type)
+    && type !== clean(candidate.type)
+    && (
+      candidate.exactSourceIdentity
+      || candidate.exactDetailUrl
+      || (record.sourceUrl && sameUrl(record.sourceUrl, candidate.sourceUrl))
+      || (sourceId && clean(candidate.sourceId) === sourceId)
+    )
+  ) return "UNCERTAIN" as const;
+
+  if (candidate.exactSourceIdentity) return "EXACT_SOURCE_ID" as const;
   if (sourceId && clean(candidate.sourceId) === sourceId) return "EXACT_SOURCE_ID" as const;
+  if (candidate.exactDetailUrl) return "EXACT_CANONICAL_KEY" as const;
 
   if (entityType !== "ORGANIZATION" && record.sourceUrl && sameUrl(record.sourceUrl, candidate.sourceUrl)) {
     return "EXACT_CANONICAL_KEY" as const;
@@ -106,10 +142,8 @@ function candidateMatch(
   const slug = clean(proposed.slug)
     ?? (entityType === "ORGANIZATION" ? clean(automationDraftSlug(null, clean(proposed.name) ?? "")) : null);
   const category = clean(proposed.category);
-  const type = clean(proposed.type);
-  if (slug && clean(candidate.slug) === slug) {
+  if (slug && clean(candidate.slug) === slug && !isDynamicAutomationEntityType(entityType)) {
     if (entityType === "DIRECTORY" && category && clean(candidate.category) !== category) return null;
-    if (entityType === "LOST_FOUND" && type && clean(candidate.type) !== type) return null;
     if (entityType === "ORGANIZATION" && !organizationSemanticsCompatible(type, candidate.type)) return null;
     return "EXACT_CANONICAL_KEY" as const;
   }
@@ -134,35 +168,14 @@ function candidateMatch(
     ) return "STRONG_IDENTITY" as const;
   }
 
-  if (entityType === "EVENT") {
-    const date = clean(proposed.startDate ?? proposed.start_date);
-    if (
-      sameIdentity(proposed.title, candidate.name)
-      && date && date === clean(candidate.date)
-      && sameIdentity(proposed.organizer, candidate.organizer)
-    ) return "STRONG_IDENTITY" as const;
+  if (isDynamicAutomationEntityType(entityType)) {
+    return matchDynamicAutomationCandidate(entityType, record, candidate);
   }
 
   if (entityType === "DIRECTORY") {
     if (
       category && category === clean(candidate.category)
       && sameIdentity(proposed.name, candidate.name)
-      && sameIdentity(proposed.city, candidate.city)
-    ) return "STRONG_IDENTITY" as const;
-  }
-
-  if (entityType === "ADOPTION") {
-    if (
-      sameIdentity(proposed.name, candidate.name)
-      && sameIdentity(proposed.organizationName ?? proposed.organization, candidate.organizer)
-      && sameIdentity(proposed.city, candidate.city)
-    ) return "STRONG_IDENTITY" as const;
-  }
-
-  if (entityType === "FOSTER") {
-    if (
-      sameIdentity(proposed.dogName ?? proposed.name, candidate.dogName)
-      && sameIdentity(proposed.organizationName ?? proposed.organization, candidate.organizer)
       && sameIdentity(proposed.city, candidate.city)
     ) return "STRONG_IDENTITY" as const;
   }
@@ -187,7 +200,7 @@ export function selectSafeAutomationMatch(input: {
     .map((candidate) => ({ candidate, quality: candidateMatch(input.entityType, input.record, candidate) }))
     .filter((entry): entry is { candidate: AutomationMatchCandidate; quality: NonNullable<ReturnType<typeof candidateMatch>> } => Boolean(entry.quality));
 
-  const rank = { EXACT_SOURCE_ID: 0, EXACT_CANONICAL_KEY: 1, STRONG_IDENTITY: 2 } as const;
+  const rank = { EXACT_SOURCE_ID: 0, EXACT_CANONICAL_KEY: 1, STRONG_IDENTITY: 2, UNCERTAIN: 3 } as const;
   ranked.sort((a, b) => rank[a.quality] - rank[b.quality] || a.candidate.id - b.candidate.id);
   if (!ranked.length) {
     return { entityType: input.entityType, entityId: null, entityKey: null, quality: "NONE", before: null };
@@ -195,7 +208,7 @@ export function selectSafeAutomationMatch(input: {
 
   const bestRank = rank[ranked[0].quality];
   const best = ranked.filter((entry) => rank[entry.quality] === bestRank);
-  if (best.length !== 1) {
+  if (best.length !== 1 || best[0].quality === "UNCERTAIN") {
     return {
       entityType: input.entityType,
       entityId: null,
