@@ -10,7 +10,6 @@ import {
 } from "../lib/data-automation-dynamic-identity.ts";
 import { selectSafeAutomationMatch } from "../lib/data-automation-matching.ts";
 import {
-  buildAutomationDiff,
   classifyAutomationFinding,
 } from "../lib/data-automation.ts";
 import {
