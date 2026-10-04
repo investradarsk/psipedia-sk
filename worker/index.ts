@@ -253,6 +253,7 @@ const worker = {
           database: env.DB,
           htmlAdapters: productionAutomationHtmlAdapters,
           organizationEnricher: createProductionOrganizationEnricher(),
+          tavilyApiKey: env.TAVILY_API_KEY,
         }).catch((error) => {
           console.error(JSON.stringify({
             event: "data_automation_sweep",
@@ -371,7 +372,12 @@ const worker = {
         }));
         return { schemaReady: false, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 1 };
       }),
-      runDataAutomationSweep({ database: env.DB, htmlAdapters: productionAutomationHtmlAdapters, organizationEnricher: createProductionOrganizationEnricher() }).catch((error) => {
+      runDataAutomationSweep({
+        database: env.DB,
+        htmlAdapters: productionAutomationHtmlAdapters,
+        organizationEnricher: createProductionOrganizationEnricher(),
+        tavilyApiKey: env.TAVILY_API_KEY,
+      }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_sweep",
           result: "failed",
