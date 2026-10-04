@@ -331,6 +331,16 @@ function commonCandidate(row: Record<string, unknown>, key: string): AutomationM
     region: String(row.region ?? "") || null,
     registrationNumber: String(row.registration_number ?? "") || null,
     type: String(row.type ?? "") || null,
+    startTime: String(row.start_time ?? "") || null,
+    venue: String(row.venue ?? row.location ?? row.address ?? "") || null,
+    district: String(row.district ?? "") || null,
+    locationDescription: String(row.location_description ?? row.location_note ?? "") || null,
+    sex: String(row.sex ?? "") || null,
+    breed: String(row.breed_name ?? row.breed ?? "") || null,
+    color: String(row.color ?? "") || null,
+    size: String(row.size ?? "") || null,
+    birthDate: String(row.birth_date ?? "") || null,
+    approximateAge: row.approximate_age_months ?? row.approximate_age ?? row.age_note ?? null,
   };
 }
 
@@ -412,6 +422,113 @@ function helpBefore(row: Record<string, unknown>) {
   };
 }
 
+type DynamicProvenanceHints = {
+  exactSourceIds: Set<number>;
+  exactDetailUrlIds: Set<number>;
+};
+
+async function dynamicProvenanceHints(
+  source: AutomationSource,
+  record: AutomationSourceRecord,
+  db: AutomationD1Database,
+): Promise<DynamicProvenanceHints> {
+  const exactSourceIds = new Set<number>();
+  const exactDetailUrlIds = new Set<number>();
+  const sourceRecordId = record.sourceRecordId.trim();
+  const sourceUrl = canonicalizeSourceUrl(record.sourceUrl) ?? "";
+
+  if (sourceRecordId) {
+    const receipt = await db.prepare(`SELECT p.canonical_entity_id
+      FROM automation_ingestion_receipts r
+      JOIN canonical_external_provenance p
+        ON p.entity_type=r.entity_type
+       AND p.external_record_id=r.source_record_id
+       AND p.external_source_url=COALESCE(r.source_url,'')
+      WHERE r.source_id=? AND r.entity_type=? AND r.source_record_id=?
+      LIMIT 10`).bind(
+        source.id,
+        source.entityType,
+        sourceRecordId,
+      ).all<{ canonical_entity_id: number }>();
+    for (const row of receipt.results) {
+      const id = Number(row.canonical_entity_id);
+      if (Number.isInteger(id) && id > 0) exactSourceIds.add(id);
+    }
+  }
+
+  if (sourceUrl) {
+    const urlMatches = await db.prepare(`SELECT canonical_entity_id
+      FROM canonical_external_provenance
+      WHERE entity_type=? AND external_source_url=?
+      ORDER BY canonical_entity_id ASC LIMIT 10`).bind(
+        source.entityType,
+        sourceUrl,
+      ).all<{ canonical_entity_id: number }>();
+    for (const row of urlMatches.results) {
+      const id = Number(row.canonical_entity_id);
+      if (Number.isInteger(id) && id > 0) exactDetailUrlIds.add(id);
+    }
+  }
+
+  return { exactSourceIds, exactDetailUrlIds };
+}
+
+async function appendCanonicalRowsById(
+  db: AutomationD1Database,
+  table: "managed_events" | "adoption_dogs" | "help_cases" | "lost_found_dog_reports",
+  rows: Record<string, unknown>[],
+  ids: Set<number>,
+) {
+  const present = new Set(rows.map((row) => Number(row.id)));
+  const missing = [...ids].filter((id) => !present.has(id)).slice(0, 20);
+  if (!missing.length) return rows;
+  const placeholders = missing.map(() => "?").join(",");
+  const extra = await db.prepare(`SELECT * FROM ${table} WHERE id IN (${placeholders}) ORDER BY id ASC`)
+    .bind(...missing)
+    .all<Record<string, unknown>>();
+  return [...rows, ...extra.results];
+}
+
+async function decorateDynamicCandidates(
+  source: AutomationSource,
+  candidates: AutomationMatchCandidate[],
+  hints: DynamicProvenanceHints,
+  db: AutomationD1Database,
+) {
+  if (!candidates.length) return candidates;
+  const ids = [...new Set(candidates.map((candidate) => candidate.id).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 100);
+  if (!ids.length) return candidates;
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = await db.prepare(`SELECT p.canonical_entity_id,r.source_record_id
+    FROM automation_ingestion_receipts r
+    JOIN canonical_external_provenance p
+      ON p.entity_type=r.entity_type
+     AND p.external_record_id=r.source_record_id
+     AND p.external_source_url=COALESCE(r.source_url,'')
+    WHERE r.source_id=? AND r.entity_type=?
+      AND p.canonical_entity_id IN (${placeholders})
+    ORDER BY p.canonical_entity_id ASC,r.source_record_id ASC`).bind(
+      source.id,
+      source.entityType,
+      ...ids,
+    ).all<{ canonical_entity_id: number; source_record_id: string }>();
+  const sameSourceIds = new Map<number, string[]>();
+  for (const row of rows.results) {
+    const id = Number(row.canonical_entity_id);
+    const value = String(row.source_record_id ?? "").trim();
+    if (!Number.isInteger(id) || id <= 0 || !value) continue;
+    const list = sameSourceIds.get(id) ?? [];
+    if (!list.includes(value)) list.push(value);
+    sameSourceIds.set(id, list);
+  }
+  return candidates.map((candidate) => ({
+    ...candidate,
+    exactSourceIdentity: hints.exactSourceIds.has(candidate.id),
+    exactDetailUrl: hints.exactDetailUrlIds.has(candidate.id),
+    sameSourceRecordIds: sameSourceIds.get(candidate.id) ?? [],
+  }));
+}
+
 async function candidateRows(source: AutomationSource, record: AutomationSourceRecord, database?: AutomationD1Database) {
   const db = getDatabase(database);
   const proposed = record.proposed;
@@ -424,10 +541,21 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
 
   if (source.entityType === "EVENT") {
     const startDate = String(proposed.startDate ?? proposed.start_date ?? "");
+    const hints = await dynamicProvenanceHints(source, record, db);
     result = await db.prepare(`SELECT * FROM managed_events
-      WHERE slug=? OR start_date=? OR website_url=? OR registration_url=?
-      ORDER BY id ASC LIMIT 100`).bind(slug, startDate, sourceUrl, sourceUrl).all<Record<string, unknown>>();
-    return result.results.map((row) => ({ ...commonCandidate(row, `event:${row.id}`), before: eventBefore(row), sourceUrl: String(row.website_url ?? row.registration_url ?? "") || null }));
+      WHERE start_date=? OR website_url=? OR registration_url=?
+      ORDER BY id ASC LIMIT 100`).bind(startDate, sourceUrl, sourceUrl).all<Record<string, unknown>>();
+    const rows = await appendCanonicalRowsById(
+      db,
+      "managed_events",
+      result.results,
+      new Set([...hints.exactSourceIds, ...hints.exactDetailUrlIds]),
+    );
+    return decorateDynamicCandidates(source, rows.map((row) => ({
+      ...commonCandidate(row, `event:${row.id}`),
+      before: eventBefore(row),
+      sourceUrl: String(row.website_url ?? row.registration_url ?? "") || null,
+    })), hints, db);
   }
 
   if (source.entityType === "ORGANIZATION") {
@@ -460,21 +588,85 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
 
   if (source.entityType === "ADOPTION") {
     const organizationName = String(proposed.organizationName ?? proposed.organization ?? "");
+    const hints = await dynamicProvenanceHints(source, record, db);
     result = await db.prepare(`SELECT * FROM adoption_dogs
-      WHERE external_source_url=? OR slug=? OR (name=? COLLATE NOCASE AND organization_name=? COLLATE NOCASE)
-      ORDER BY id ASC LIMIT 50`).bind(sourceUrl, slug, name, organizationName).all<Record<string, unknown>>();
-    return result.results.map((row) => ({ ...commonCandidate(row, `adoption:${row.id}`), before: adoptionBefore(row) }));
+      WHERE external_source_url=? OR (name=? COLLATE NOCASE AND organization_name=? COLLATE NOCASE)
+      ORDER BY id ASC LIMIT 50`).bind(sourceUrl, name, organizationName).all<Record<string, unknown>>();
+    const rows = await appendCanonicalRowsById(
+      db,
+      "adoption_dogs",
+      result.results,
+      new Set([...hints.exactSourceIds, ...hints.exactDetailUrlIds]),
+    );
+    return decorateDynamicCandidates(
+      source,
+      rows.map((row) => ({ ...commonCandidate(row, `adoption:${row.id}`), before: adoptionBefore(row) })),
+      hints,
+      db,
+    );
   }
 
   if (source.entityType === "LOST_FOUND") {
     const type = String(proposed.type ?? "");
+    const eventDate = String(proposed.eventDate ?? proposed.event_date ?? proposed.reportedDate ?? proposed.reported_date ?? "");
+    const district = String(proposed.district ?? "");
+    const region = String(proposed.region ?? "");
+    const hints = await dynamicProvenanceHints(source, record, db);
     result = await db.prepare(`SELECT * FROM lost_found_dog_reports
-      WHERE source_url=? OR (type=? AND slug=?)
-      ORDER BY id ASC LIMIT 50`).bind(sourceUrl, type, slug).all<Record<string, unknown>>();
-    return result.results.map((row) => ({ ...commonCandidate(row, `lost-found:${row.id}`), before: lostFoundBefore(row) }));
+      WHERE source_url=? OR (
+        type=? AND event_date=? AND (
+          (?<>'' AND city=? COLLATE NOCASE)
+          OR (?<>'' AND district=? COLLATE NOCASE)
+          OR (?<>'' AND region=? COLLATE NOCASE)
+        )
+      )
+      ORDER BY id ASC LIMIT 50`).bind(
+        sourceUrl,
+        type,
+        eventDate,
+        city, city,
+        district, district,
+        region, region,
+      ).all<Record<string, unknown>>();
+    const rows = await appendCanonicalRowsById(
+      db,
+      "lost_found_dog_reports",
+      result.results,
+      new Set([...hints.exactSourceIds, ...hints.exactDetailUrlIds]),
+    );
+    return decorateDynamicCandidates(
+      source,
+      rows.map((row) => ({ ...commonCandidate(row, `lost-found:${row.id}`), before: lostFoundBefore(row) })),
+      hints,
+      db,
+    );
   }
 
   const dogName = String(proposed.dogName ?? proposed.name ?? "");
+  if (source.entityType === "FOSTER") {
+    const organization = String(proposed.organizationName ?? proposed.organization ?? "");
+    const hints = await dynamicProvenanceHints(source, record, db);
+    result = await db.prepare(`SELECT * FROM help_cases
+      WHERE action_url=? OR (
+        category='docasna-opatera'
+        AND organization=? COLLATE NOCASE
+        AND (title=? COLLATE NOCASE OR dog_name=? COLLATE NOCASE)
+      )
+      ORDER BY id ASC LIMIT 50`).bind(sourceUrl, organization, name, dogName).all<Record<string, unknown>>();
+    const rows = await appendCanonicalRowsById(
+      db,
+      "help_cases",
+      result.results,
+      new Set([...hints.exactSourceIds, ...hints.exactDetailUrlIds]),
+    );
+    return decorateDynamicCandidates(
+      source,
+      rows.map((row) => ({ ...commonCandidate(row, `help:${row.id}`), before: helpBefore(row) })),
+      hints,
+      db,
+    );
+  }
+
   result = await db.prepare(`SELECT * FROM help_cases
     WHERE (category=? AND slug=?) OR action_url=?
       OR (category=? AND (title=? COLLATE NOCASE OR dog_name=? COLLATE NOCASE) AND city=? COLLATE NOCASE)
