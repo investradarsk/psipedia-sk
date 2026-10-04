@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { SectionTabs } from "@/components/page-system";
+import { PublicSubcategoryNavigator } from "@/components/public-visual-system";
 import { portalSubpageHref, type PortalSection } from "@/lib/portal";
 import styles from "./portal-section-tabs.module.css";
 
@@ -14,27 +13,22 @@ export function PortalSectionTabs({
   if (!subpages.length) return null;
 
   return (
-    <SectionTabs label={`Navigácia v sekcii ${section.label}`} className={`portal-section-tabs portal-section-tabs--${section.accent} ${styles.nav}`}>
-      <Link
-        className={`section-tab${activeSlug ? "" : " is-active"}`}
-        href={`/${section.slug}`}
-        aria-current={activeSlug ? undefined : "page"}
-      >
-        Prehľad
-      </Link>
-      {subpages.map((subpage) => {
-        const active = activeSlug === subpage.slug;
-        return (
-          <Link
-            className={`section-tab${active ? " is-active" : ""}`}
-            href={portalSubpageHref(section, subpage)}
-            aria-current={active ? "page" : undefined}
-            key={subpage.slug}
-          >
-            {subpage.label}
-          </Link>
-        );
-      })}
-    </SectionTabs>
+    <PublicSubcategoryNavigator
+      mode="compact"
+      label={`Navigácia v sekcii ${section.label}`}
+      className={`portal-section-tabs portal-section-tabs--${section.accent} ${styles.nav}`}
+      items={[
+        {
+          href: `/${section.slug}`,
+          title: "Prehľad",
+          current: !activeSlug,
+        },
+        ...subpages.map((subpage) => ({
+          href: portalSubpageHref(section, subpage),
+          title: subpage.label,
+          current: activeSlug === subpage.slug,
+        })),
+      ]}
+    />
   );
 }
