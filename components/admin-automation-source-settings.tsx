@@ -16,12 +16,14 @@ export function AdminAutomationSourceSettings({
   content,
   monitoringReady,
   monitoringRetryable,
+  monitoringStatusMessage,
 }: {
   source: AutomationSourceAdminRow;
   draftsHref: string;
   content: AutomationCanonicalContentLink[];
   monitoringReady: boolean;
   monitoringRetryable: boolean;
+  monitoringStatusMessage: string | null;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(source.enabled);
@@ -67,9 +69,9 @@ export function AdminAutomationSourceSettings({
 
         {!monitoringReady && (
           <p className="admin-flash" role="status">
-            {monitoringRetryable
+            {monitoringStatusMessage ?? (monitoringRetryable
               ? "Pri zapnutí sa bezpečnosť zdroja znova overí."
-              : "Tento zdroj zatiaľ nemožno automaticky kontrolovať."}
+              : "Tento zdroj zatiaľ nemožno automaticky kontrolovať.")}
           </p>
         )}
 
