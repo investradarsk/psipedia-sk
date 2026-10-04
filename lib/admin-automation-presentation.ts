@@ -3,6 +3,7 @@ import type { AutomationSourceAdminRow, AutomationSourceCandidateRow } from "./d
 import type { AutomationDiscoveryRoot } from "./data-automation-discovery-store";
 import { automationProductCategoryBySlug, automationProductCategoryForEntity, type AutomationCategoryMode } from "./data-automation-product-model.ts";
 import type { AutomationFindingSummary } from "./data-automation-store";
+import type { AutomationSourceActivationReadiness } from "./data-automation-source-activation";
 
 export type AutomationUxCategory = {
   slug: string;
@@ -183,6 +184,75 @@ export function automationSourceDomain(url: string | null) {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "—"; }
 }
 
+const automationTechnicalReadinessMessages: Record<string, string> = {
+  UNSUPPORTED_CONNECTOR: "Typ pripojenia tohto zdroja nie je podporovaný pre automatickú kontrolu.",
+  MISSING_ADAPTER: "Zdroj nemá priradený adapter na automatické spracovanie.",
+  UNSUPPORTED_ADAPTER: "Priradený adapter tohto zdroja nie je dostupný v produkcii.",
+  ADAPTER_ENTITY_MISMATCH: "Adapter nezodpovedá typu obsahu tohto zdroja.",
+  ADAPTER_SOURCE_MISMATCH: "Adapter nezodpovedá tomuto zdroju alebo jeho URL.",
+  ADAPTER_SHAPE_MISMATCH: "Nastavený formát zdroja nezodpovedá adapteru.",
+  MISSING_PARSER: "Adapter zdroja nemá dostupný parser.",
+};
+
+const automationGovernanceBlockerMessages: Record<string, string> = {
+  GOVERNANCE_SCHEMA_UNAVAILABLE: "Chýba databázová schéma pre pravidlá automatizácie.",
+  GOVERNANCE_MISSING: "Zdroj ešte nemá vytvorené pravidlá pre automatické kontroly.",
+  GOVERNANCE_EXPIRED: "Bezpečnostné schválenie zdroja vypršalo.",
+  ACCESS_NOT_ALLOWED: "Automatický prístup k zdroju nie je povolený alebo sa ho nepodarilo overiť.",
+  ROBOTS_NOT_ALLOWED: "robots.txt zdroja automatickú kontrolu nepovoľuje alebo ju nemožno overiť.",
+  TERMS_NOT_ALLOWED: "Podmienky použitia zdroja nie sú schválené pre automatickú kontrolu.",
+  RECURRING_USE_NOT_APPROVED: "Opakovaná automatická kontrola zdroja nie je schválená.",
+  MANUAL_ONLY: "Zdroj je nastavený iba na manuálne spracovanie.",
+  CADENCE_TOO_FREQUENT: "Zvolená frekvencia je pre tento zdroj príliš častá.",
+  RETENTION_NOT_APPROVED: "Ukladanie údajov z tohto zdroja nie je schválené.",
+  RETENTION_URL_NOT_ALLOWED: "Nie je povolené ukladať URL z tohto zdroja.",
+  RETENTION_TITLE_NOT_ALLOWED: "Nie je povolené ukladať názov z tohto zdroja.",
+  RETENTION_SNIPPET_NOT_ALLOWED: "Nie je povolené ukladať úryvok z tohto zdroja.",
+  RETENTION_METADATA_NOT_ALLOWED: "Nie je povolené ukladať metadata z tohto zdroja.",
+};
+
+function automationTechnicalReadinessMessage(reason: string | null | undefined) {
+  return reason ? automationTechnicalReadinessMessages[reason] ?? "Zdroj nemá podporovanú technickú konfiguráciu pre automatickú kontrolu." : "Zdroj nemá podporovanú technickú konfiguráciu pre automatickú kontrolu.";
+}
+
+function automationGovernanceBlockerMessage(reasons: readonly string[]) {
+  if (!reasons.length) return "Pravidlá automatizácie momentálne nepovoľujú zapnutie tohto zdroja.";
+  const messages = [...new Set(reasons)].map((reason) =>
+    automationGovernanceBlockerMessages[reason] ?? "Pravidlá automatizácie blokujú tento zdroj."
+  );
+  return messages.join(" ");
+}
+
+export function automationSourceActivationStatusMessage(
+  readiness: AutomationSourceActivationReadiness | null,
+  retryable = false,
+) {
+  if (!readiness) {
+    return "Stav automatického kontrolovania sa momentálne nepodarilo načítať. Obnov stránku a skús to znova.";
+  }
+  if (readiness.ready) return null;
+
+  if (readiness.reason === "REVIEW_REQUIRED") {
+    return "Zdroj ešte nie je schválený. Najprv ho schváľ v automatizáciách.";
+  }
+  if (readiness.reason === "TECHNICAL_NOT_READY") {
+    return automationTechnicalReadinessMessage(readiness.technicalReason);
+  }
+  if (readiness.reason === "UNSAFE_SOURCE_URL") {
+    return "URL zdroja chýba alebo nespĺňa bezpečnostné pravidlá pre automatické načítanie.";
+  }
+  if (readiness.reason === "CADENCE_INVALID") {
+    return "Zdroj má neplatnú frekvenciu automatickej kontroly.";
+  }
+  if (readiness.reason === "GOVERNANCE_BLOCKED") {
+    const blocker = automationGovernanceBlockerMessage(readiness.governanceBlockingReasons);
+    return retryable
+      ? blocker + " Pri zapnutí sa technická kontrola prístupu a robots.txt zopakuje."
+      : blocker;
+  }
+  return "Tento zdroj zatiaľ nemožno automaticky kontrolovať.";
+}
+
 export function automationSourceOnlyErrorMessage(
   value: unknown,
   fallback = "Operáciu sa nepodarilo dokončiť.",
@@ -191,14 +261,28 @@ export function automationSourceOnlyErrorMessage(
   if (/^automation_source_technical_verification_failed$/i.test(message)) {
     return "Tento zdroj sa momentálne nepodarilo bezpečne overiť. Skús to neskôr.";
   }
-  if (/^automation_source_governance_blocked:.*CADENCE_TOO_FREQUENT/i.test(message)) {
-    return "Zvolený rozvrh je pre tento zdroj príliš častý.";
+  if (/^automation_source_review_required$/i.test(message)) {
+    return "Zdroj ešte nie je schválený. Najprv ho schváľ v automatizáciách.";
+  }
+  if (/^automation_source_url_not_safe$/i.test(message)) {
+    return "URL zdroja chýba alebo nespĺňa bezpečnostné pravidlá pre automatické načítanie.";
+  }
+  if (/^automation_source_cadence_invalid$/i.test(message)) {
+    return "Zdroj má neplatnú frekvenciu automatickej kontroly.";
+  }
+  const technical = message.match(/^automation_source_not_ready:([A-Z0-9_]+)$/i)
+    ?? message.match(/^automation_candidate_source_not_ready:([A-Z0-9_]+)$/i);
+  if (technical) return automationTechnicalReadinessMessage(technical[1].toUpperCase());
+  const governance = message.match(/^automation_source_governance_blocked:(.*)$/i);
+  if (governance) {
+    return automationGovernanceBlockerMessage(
+      governance[1].split(",").map((reason) => reason.trim().toUpperCase()).filter(Boolean),
+    );
   }
   if (
-    /^automation_source_not_ready(?::.*)?$/i.test(message)
-    || /^automation_source_governance_blocked(?::.*)?$/i.test(message)
+    /^automation_source_not_ready$/i.test(message)
+    || /^automation_source_governance_blocked$/i.test(message)
     || /^automation_source_activation_blocked(?::.*)?$/i.test(message)
-    || /^automation_candidate_source_not_ready:/i.test(message)
     || /^automation_candidate_source_provisioning_conflict$/i.test(message)
   ) {
     return "Tento zdroj zatiaľ nemožno automaticky kontrolovať.";
