@@ -10,6 +10,7 @@ const eventSync = await readFile(new URL("../lib/notion-event-sync.ts", import.m
 const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
 const adminPage = await readFile(new URL("../app/admin/kvalita/page.tsx", import.meta.url), "utf8");
 const adminComponent = await readFile(new URL("../components/admin-data-quality-dashboard.tsx", import.meta.url), "utf8");
+const dataQualityStore = await readFile(new URL("../lib/data-quality-store.ts", import.meta.url), "utf8");
 const adminNavigation = await readFile(new URL("../lib/admin-navigation.ts", import.meta.url), "utf8");
 
 test("media source monitor has a stable one-row-per-entity schema", () => {
@@ -75,4 +76,14 @@ test("admin quality workspace separates profile cleanup from focused image appro
   assert.match(adminComponent, /Obrázky na kontrolu/);
   assert.match(adminComponent, /admin-quality-profile-row/);
   assert.match(adminComponent, /admin-quality-media-card/);
+});
+
+
+test("admin quality loads detail data only for the active workspace", () => {
+  assert.match(adminPage, /section:\s*mediaSection\s*\?\s*"media"\s*:\s*"profiles"/);
+  assert.match(dataQualityStore, /const \[profileRead, mediaRead\] = await Promise\.all/);
+  assert.match(dataQualityStore, /input\.section \?\? "both"/);
+  assert.match(dataQualityStore, /section !== "media"/);
+  assert.match(dataQualityStore, /section !== "profiles"/);
+  assert.doesNotMatch(dataQualityStore, /listCanonicalAutomationUpdateSuggestionEntityIds/);
 });
