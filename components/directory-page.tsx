@@ -185,8 +185,8 @@ export async function DirectoryPage({
               )}
             </Breadcrumbs>}
             eyebrow={active ? active.singular : "Adresár služieb"}
-            title={active?.label ?? "Služby pre psov"}
-            intro={active?.description ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
+            title={active?.heroTitle ?? "Služby pre psov"}
+            intro={active?.intro ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
             visual={heroVisual}
             metaSlot={active && typeof activeCount === "number"
               ? `${activeCount} ${profileCountLabel(activeCount)}`
@@ -350,7 +350,7 @@ export async function DirectoryPage({
                 result={result}
                 filters={filters}
                 basePath={active ? `/adresar/${active.slug}` : "/adresar"}
-                title={active ? active.label : "Výsledky vyhľadávania"}
+                title={active ? active.resultsTitle : "Výsledky vyhľadávania"}
                 category={active?.slug}
                 showCategory={!active}
               />
