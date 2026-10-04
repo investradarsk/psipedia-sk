@@ -114,6 +114,12 @@ export type AutomationExtractionCapability = {
   sourceShape: AutomationCapabilitySourceShape | null;
 };
 
+export type AutomationGenericExtractionProbe = {
+  supported: boolean;
+  reason: string;
+  sourceShape?: AutomationCapabilitySourceShape | null;
+};
+
 function withGovernanceStatus(
   capabilities: AutomationExtractionCapability[],
   governanceAllowed: boolean | undefined,
@@ -129,7 +135,10 @@ function withGovernanceStatus(
 export function automationExtractionCapabilities(
   source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
   registry = productionAutomationCapabilityRegistry,
-  options: { governanceAllowed?: boolean } = {},
+  options: {
+    governanceAllowed?: boolean;
+    genericProbe?: AutomationGenericExtractionProbe | null;
+  } = {},
 ): AutomationExtractionCapability[] {
   if (source.connectorType === "MANUAL_IMPORT") return [];
   if (source.connectorType === "STRUCTURED_JSON") {
@@ -233,11 +242,13 @@ export function automationExtractionCapabilities(
     dedicated,
     {
       strategy: "GENERIC_FIRST_PARTY",
-      status: "UNAVAILABLE",
-      reason: "NOT_IMPLEMENTED",
+      status: options.genericProbe?.supported ? "SUPPORTED" : "UNAVAILABLE",
+      reason: options.genericProbe?.supported
+        ? "PROBE_CONFIRMED"
+        : options.genericProbe?.reason || "PROBE_REQUIRED",
       adapterKey: null,
       label: "Generic first-party extraction",
-      sourceShape: source.config.sourceShape ?? null,
+      sourceShape: options.genericProbe?.sourceShape ?? source.config.sourceShape ?? "SOURCE_DEFINED",
     },
     {
       strategy: "TAVILY_CRAWL",
@@ -290,6 +301,10 @@ export type AutomationSourceReadiness = {
 export function automationSourceReadiness(
   source: Pick<AutomationSource, "entityType" | "connectorType" | "config" | "sourceUrl">,
   registry = productionAutomationCapabilityRegistry,
+  options: {
+    governanceAllowed?: boolean;
+    genericProbe?: AutomationGenericExtractionProbe | null;
+  } = {},
 ): AutomationSourceReadiness {
   if (source.connectorType === "MANUAL_IMPORT") {
     return {
@@ -304,7 +319,7 @@ export function automationSourceReadiness(
     };
   }
 
-  const capabilities = automationExtractionCapabilities(source, registry);
+  const capabilities = automationExtractionCapabilities(source, registry, options);
   const selected = selectAutomationExtractionStrategy(capabilities);
   if (selected) {
     return {
