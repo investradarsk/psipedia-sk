@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
 import { StructuredData } from "@/components/structured-data";
-import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
+import { directoryCategories, directoryCategoryListingMetadata, getDirectoryCategory } from "@/lib/directory";
 import { getDirectoryCategoryCounts, listPublishedDirectoryProfiles, parseDirectoryFilters } from "@/lib/directory-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
@@ -16,11 +16,14 @@ export function generateStaticParams() {
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const category = getDirectoryCategory((await params).category);
   if (!category) return {};
+  const rawSearchParams = await searchParams;
+  const policy = resolveListingIndexPolicy(`/adresar/${category.slug}`, rawSearchParams, { indexPagination: true });
+  const listingMetadata = directoryCategoryListingMetadata(category, policy.page);
   return buildListingPageMetadata({
-    title: `${category.label} – adresár`,
-    description: category.description,
+    title: listingMetadata.title,
+    description: listingMetadata.description,
     path: `/adresar/${category.slug}`,
-    searchParams: await searchParams,
+    searchParams: rawSearchParams,
     indexPagination: true,
   });
 }
@@ -36,8 +39,8 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   ]);
   const policy = resolveListingIndexPolicy(`/adresar/${category.slug}`, rawSearchParams, { indexPagination: true });
   const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
-    name: category.label,
-    description: category.description,
+    name: category.heroTitle,
+    description: category.intro,
     path: policy.canonicalPath,
     breadcrumbs: [
       { name: "Domov", path: "/" },
