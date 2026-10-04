@@ -20,6 +20,23 @@ test("map navigation is deny-by-default and appears once after services when ena
   assert.equal(on.filter((item) => item.href === "/mapa").length, 1);
 });
 
+test("map launch gate preserves admin-saved map order and settings when enabled", () => {
+  const managed = [
+    { id: "adresar", label: "Služby pre psov", href: "/adresar", parentId: null, position: 0, visible: true },
+    { id: "podujatia", label: "Podujatia", href: "/podujatia", parentId: null, position: 1, visible: true },
+    { id: "pomoc", label: "Pomoc psom", href: "/pomoc-psom", parentId: null, position: 2, visible: true },
+    { id: "mapa", label: "Mapa", href: "/mapa", parentId: null, position: 3, visible: true },
+    { id: "recenzie", label: "Recenzie a testy", href: "/recenzie", parentId: null, position: 4, visible: true },
+  ];
+
+  const on = applyPublicMapLaunchGate(managed, true);
+  assert.deepEqual(on, managed);
+  assert.equal(on.at(-2)?.href, "/mapa");
+
+  const hidden = managed.map((item) => item.href === "/mapa" ? { ...item, visible: false } : item);
+  assert.equal(applyPublicMapLaunchGate(hidden, true).find((item) => item.href === "/mapa")?.visible, false);
+});
+
 test("Google renderer readiness requires only browser key and Map ID", () => {
   assert.equal(googleMapsRendererConfigured({}), false);
   assert.equal(googleMapsRendererConfigured({ GOOGLE_MAPS_BROWSER_API_KEY: "browser-key" }), false);
