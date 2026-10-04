@@ -9,7 +9,9 @@ test("editorial section tabs use the managed subsection source of truth", () => 
   assert.match(tabs, /section\.subpages\.filter/);
   assert.match(tabs, /subpage\.visible !== false/);
   assert.match(tabs, /portalSubpageHref\(section, subpage\)/);
-  assert.match(tabs, /aria-current=\{active \? "page"/);
+  assert.match(tabs, /<PublicSubcategoryNavigator/);
+  assert.match(tabs, /mode="compact"/);
+  assert.match(tabs, /current: activeSlug === subpage\.slug/);
   assert.doesNotMatch(tabs, /pred-kupou-psa|zdravie|psie-sporty/);
   assert.doesNotMatch(tabs, /Adresa URL|adminFieldLabels/);
   assert.doesNotMatch(tabs, /\?category=|\?kategoria=|URLSearchParams/);
@@ -140,15 +142,16 @@ test("SECTION-PUBLIC keeps puppies, care and activities on one shared visual con
   assert.match(css, /var\(--section-accent-soft\)/);
 });
 
-test("SECTION-PUBLIC navigation scopes mobile overflow to the navigation component", () => {
+test("SECTION-PUBLIC navigation scopes mobile overflow to the canonical navigation component", () => {
   const tabs = read("components/portal-section-tabs.tsx");
-  const css = read("components/portal-section-tabs.module.css");
+  const css = read("components/public-visual-system/public-subcategory-navigator.module.css");
   assert.match(tabs, /styles\.nav/);
+  assert.match(tabs, /<PublicSubcategoryNavigator/);
   assert.match(css, /min-height:\s*44px/);
   assert.match(css, /flex-wrap:\s*nowrap/);
   assert.match(css, /overflow-x:\s*auto/);
   assert.match(css, /overscroll-behavior-x:\s*contain/);
-  assert.match(css, /\.section-tab\.is-active/);
+  assert.match(css, /\.compactItemCurrent/);
 });
 
 test("SECTION-PUBLIC keeps canonical training taxonomy and legacy redirect compatibility", () => {
