@@ -73,16 +73,27 @@ function statusCopy(
   source: AutomationSourceAdminRow,
   governanceEvaluation: AutomationGovernanceEvaluation,
   readiness: AutomationSourceReadiness,
+  genericProbeEligible: boolean,
 ) {
-  if (readiness.applicable && !readiness.ready) {
+  if (source.enabled) {
+    if (source.lastRunStatus === "FAILED" || source.lastErrorCode) {
+      return { title: "Zdroj hlási problém", text: "Skontroluj zdroj. Technické detaily chyby sú dostupné pod Pokročilé.", warning: true };
+    }
+    return { title: "Zdroj je aktívny", text: "Psipedia ho kontroluje podľa nastaveného harmonogramu.", warning: false };
+  }
+  if (readiness.applicable && !readiness.ready && !genericProbeEligible) {
     return {
       title: "Zdroj potrebuje technické nastavenie",
       text: "Sledovanie zostáva vypnuté, kým Psipedia nevie tento typ zdroja bezpečne spracovať.",
       warning: true,
     };
   }
-  if (source.lastRunStatus === "FAILED" || source.lastErrorCode) {
-    return { title: "Zdroj hlási problém", text: "Skontroluj zdroj. Technické detaily chyby sú dostupné pod Pokročilé.", warning: true };
+  if (genericProbeEligible && source.reviewStatus === "APPROVED" && governanceEvaluation.allowed) {
+    return {
+      title: "Zdroj čaká na bezpečné overenie",
+      text: "Psipedia môže skúsiť generické čítanie v schválenom rozsahu. Pri zapnutí sa zdroj najprv overí.",
+      warning: true,
+    };
   }
   if (source.reviewStatus === "PENDING") {
     return { title: "Zdroj je pripravený na kontrolu", text: "Over zdroj a rozhodni, či ho Psipedia môže používať.", warning: true };
@@ -93,10 +104,7 @@ function statusCopy(
   if (!source.enabled && !governanceEvaluation.allowed) {
     return { title: "Zdroj potrebuje technickú kontrolu", text: "Sledovanie zostane vypnuté, kým bezpečnostné pravidlá nepovolia pravidelnú kontrolu.", warning: true };
   }
-  if (!source.enabled) {
-    return { title: "Zdroj je pripravený na sledovanie", text: "Bezpečnostná kontrola je v poriadku. Zdroj môžeš zapnúť.", warning: true };
-  }
-  return { title: "Zdroj je aktívny", text: "Psipedia ho kontroluje podľa nastaveného harmonogramu.", warning: false };
+  return { title: "Zdroj je pripravený na sledovanie", text: "Bezpečnostná kontrola je v poriadku. Zdroj môžeš zapnúť.", warning: true };
 }
 
 export function AdminAutomationSourceDetail({
@@ -163,7 +171,15 @@ export function AdminAutomationSourceDetail({
   });
 
   const readiness = automationSourceReadiness(source);
-  const status = statusCopy(source, governanceEvaluation, readiness);
+  const genericProbeEligible = readiness.capabilities.some((capability) =>
+    capability.strategy === "GENERIC_FIRST_PARTY"
+    && capability.status === "UNAVAILABLE"
+    && capability.reason === "PROBE_REQUIRED"
+  );
+  const canUseGenericProbe = readiness.ready || genericProbeEligible;
+  const canTestSource = readiness.ready
+    || (genericProbeEligible && source.reviewStatus === "APPROVED" && governanceEvaluation.allowed);
+  const status = statusCopy(source, governanceEvaluation, readiness, genericProbeEligible);
 
   async function pollRunStatus() {
     let networkFailures = 0;
@@ -302,10 +318,12 @@ export function AdminAutomationSourceDetail({
               <h2>Technická pripravenosť</h2>
               <p>{readiness.ready
                 ? "Psipedia tento typ zdroja pozná a vie ho bezpečne spracovať."
-                : "Zdroj potrebuje technické nastavenie. Bežné sledovanie zostáva zablokované."}</p>
+                : genericProbeEligible
+                  ? "Zdroj nemá dedicated adapter, ale môže prejsť bezpečným generickým overením v schválenom rozsahu."
+                  : "Zdroj potrebuje technické nastavenie. Bežné sledovanie zostáva zablokované."}</p>
             </div>
             <span className={[styles.badge, readiness.ready ? styles.badgeGood : styles.badgeWarning].join(" ")}>
-              {readiness.ready ? "V poriadku" : "Vyžaduje technickú kontrolu"}
+              {readiness.ready ? "V poriadku" : genericProbeEligible ? "Možno bezpečne overiť" : "Vyžaduje technickú kontrolu"}
             </span>
           </div>
           <details className={styles.advanced}>
@@ -352,10 +370,10 @@ export function AdminAutomationSourceDetail({
         )}
 
         <div className="admin-form-actions">
-          <button type="button" disabled={busy || (readiness.applicable && !readiness.ready)} onClick={() => void testSource()}>{busyAction === "test" ? "Overujem zdroj…" : "Overiť zdroj"}</button>
+          <button type="button" disabled={busy || (readiness.applicable && !canTestSource)} onClick={() => void testSource()}>{busyAction === "test" ? "Overujem zdroj…" : "Overiť zdroj"}</button>
           {source.reviewStatus !== "APPROVED" && <button className="is-primary" type="button" disabled={busy} onClick={() => void action({ action: "approve", notes })}>Schváliť zdroj</button>}
-          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (readiness.applicable && !readiness.ready)} onClick={() => void action({ action: "enable" })}>Zapnúť sledovanie</button>}
-          {source.enabled && <button className="is-primary" type="button" disabled={busy || (readiness.applicable && !readiness.ready)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Skontrolovať teraz"}</button>}
+          {source.reviewStatus === "APPROVED" && !source.enabled && <button className="is-primary" type="button" disabled={busy || !governanceEvaluation.allowed || (readiness.applicable && !canUseGenericProbe)} onClick={() => void action({ action: "enable" })}>Zapnúť sledovanie</button>}
+          {source.enabled && <button className="is-primary" type="button" disabled={busy || (readiness.applicable && !canUseGenericProbe)} onClick={() => void runNow()}>{busyAction === "run" ? "Kontrolujem zdroj…" : "Skontrolovať teraz"}</button>}
           {source.enabled && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "disable" })}>Pozastaviť sledovanie</button>}
           {source.reviewStatus !== "REJECTED" && <button className="is-danger" type="button" disabled={busy} onClick={() => void action({ action: "reject", notes })}>Zamietnuť zdroj</button>}
         </div>
