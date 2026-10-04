@@ -195,6 +195,16 @@ const automationTechnicalReadinessMessages: Record<string, string> = {
   ADAPTER_SOURCE_MISMATCH: "Adapter nezodpovedá tomuto zdroju alebo jeho URL.",
   ADAPTER_SHAPE_MISMATCH: "Nastavený formát zdroja nezodpovedá adapteru.",
   MISSING_PARSER: "Adapter zdroja nemá dostupný parser.",
+  NO_ITEMS_DISCOVERED: "Zdroj nemá dostatočne jednoznačnú štruktúru na bezpečné automatické čítanie.",
+  SOURCE_SCOPE_VIOLATION: "Zdroj sa pokúsil prejsť mimo schváleného rozsahu URL.",
+  AMBIGUOUS_LISTING: "Štruktúra zoznamu položiek nie je dostatočne jednoznačná.",
+  UNSUPPORTED_STRUCTURED_DATA: "Štruktúrované údaje zdroja sa nedajú bezpečne spracovať.",
+  TRAVERSAL_LIMIT_REACHED: "Zdroj prekročil bezpečný limit automatického prechádzania.",
+  DETAIL_FETCH_FAILED: "Detail položiek sa nepodarilo bezpečne načítať.",
+  UNSAFE_ITEM_URL: "Zdroj obsahuje položku s nepovolenou URL.",
+  INVALID_ITEM_STRUCTURE: "Položky zdroja nemajú dostatočne jednoznačnú štruktúru.",
+  GENERIC_SOURCE_PARSE_FAILED: "Zdroj sa nepodarilo bezpečne spracovať generickým parserom.",
+  GENERIC_SOURCE_CONTRACT_MISSING: "Zdroj nemá platný schválený rozsah pre automatické čítanie.",
 };
 
 const automationGovernanceBlockerMessages: Record<string, string> = {
