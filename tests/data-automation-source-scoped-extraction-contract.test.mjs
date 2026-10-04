@@ -277,3 +277,105 @@ test("governance blockers take precedence over extraction capability", async () 
   assert.ok(blocked.governanceBlockingReasons.includes("RECURRING_USE_NOT_APPROVED"));
   assert.equal(blocked.technicalReason, null);
 });
+
+
+function approvedGovernanceDbRow(overrides = {}) {
+  return {
+    id: 1,
+    subject_type: "AUTOMATION_SOURCE",
+    subject_id: 10,
+    access_status: "ALLOWED",
+    robots_status: "ALLOWED",
+    terms_status: "ALLOWED",
+    recurring_status: "APPROVED",
+    retention_status: "APPROVED",
+    retain_url: 1,
+    retain_title: 1,
+    retain_snippet: 1,
+    retain_metadata: 1,
+    retention_days: null,
+    min_cadence_minutes: null,
+    max_requests_per_day: 12,
+    manual_only: 0,
+    path_scope: "/psy/**",
+    restrictions_note: null,
+    terms_url: null,
+    privacy_url: null,
+    robots_url: null,
+    evidence_url: null,
+    reviewed_at: "2026-10-04T10:00:00.000Z",
+    reviewed_by: "admin@example.com",
+    rationale: "approved",
+    expires_at: null,
+    review_due_at: null,
+    created_at: "2026-10-04T10:00:00.000Z",
+    updated_at: "2026-10-04T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+test("approved adapterless source becomes READY only after successful bounded generic probe", async () => {
+  const noAdapter = source({
+    config: { sourceShape: "MULTI_ITEM_LIST" },
+    retryMaxAttempts: 0,
+    throttleMs: 0,
+  });
+  const html = `<!doctype html><html><head>
+    <script type="application/ld+json">${JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      numberOfItems: 1,
+      itemListElement: [{
+        "@type": "ListItem",
+        position: 1,
+        item: {
+          "@type": "Product",
+          name: "Falco",
+          url: "https://utulok.example/psy/falco",
+        },
+      }],
+    })}</script>
+  </head><body></body></html>`;
+
+  let requests = 0;
+  const readiness = await automationSourceActivationReadiness(
+    noAdapter,
+    governanceDb(approvedGovernanceDbRow()),
+    {
+      fetchImpl: async () => {
+        requests += 1;
+        return new Response(html, {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      },
+    },
+  );
+
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.reason, "READY");
+  assert.equal(readiness.technicalReason, null);
+  assert.equal(requests, 1);
+});
+
+test("approved adapterless but unparseable source remains fail closed after generic probe", async () => {
+  const noAdapter = source({
+    config: { sourceShape: "MULTI_ITEM_LIST" },
+    retryMaxAttempts: 0,
+    throttleMs: 0,
+  });
+  const readiness = await automationSourceActivationReadiness(
+    noAdapter,
+    governanceDb(approvedGovernanceDbRow()),
+    {
+      fetchImpl: async () => new Response("<html><body><h1>Psy</h1></body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    },
+  );
+
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.reason, "TECHNICAL_NOT_READY");
+  assert.equal(readiness.technicalReason, "no_items_discovered");
+});
