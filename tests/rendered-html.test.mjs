@@ -799,10 +799,11 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Adresár služieb/);
   assert.doesNotMatch(directoryHtml, /Služby pre psov na jednom mieste/);
-  assert.match(directoryHtml, /Hlavné kategórie/);
+  assert.match(directoryHtml, /Vyber si kategóriu/);
+  assert.doesNotMatch(directoryHtml, /Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
   assert.match(directoryHtml, /Poskytujete služby pre psov/);
   assert.match(directoryHtml, /Fyzioterapia/);
-  assert.match(directoryHtml, /Názov, služba alebo lokalita/);
+  assert.match(directoryHtml, /Názov služby alebo lokalita/);
   assert.doesNotMatch(directoryHtml, /directory-hero--photo/);
   assert.doesNotMatch(directoryHtml, /Profily v adresári/);
 
