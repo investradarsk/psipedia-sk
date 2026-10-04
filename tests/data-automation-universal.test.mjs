@@ -126,7 +126,7 @@ test("registry rejects duplicate keys and missing parsers", () => {
 });
 
 test("universal readiness fails closed on unsupported and mismatched adapters", () => {
-  assert.equal(automationSourceReadiness(source("DIRECTORY", {})).reason, "MISSING_ADAPTER");
+  assert.equal(automationSourceReadiness(source("DIRECTORY", {})).reason, "NO_RELIABLE_EXTRACTION_STRATEGY");
   assert.equal(automationSourceReadiness(source("DIRECTORY", { htmlAdapterKey: "missing" })).reason, "UNSUPPORTED_ADAPTER");
   assert.equal(automationSourceReadiness(source("EVENT", {
     htmlAdapterKey: "generic-directory-profile",
