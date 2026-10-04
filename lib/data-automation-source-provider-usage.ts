@@ -15,6 +15,15 @@ export type AutomationSourceProviderUsageStatus =
 
 export type AutomationSourceProviderUsageDatabase = Pick<D1Database, "prepare">;
 
+export const AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_LIMIT = 200;
+
+function cooldownMs(status: string) {
+  if (status === "AUTH_FAILED" || status === "CONFIG_MISSING") return 24 * 60 * 60_000;
+  if (status === "RATE_LIMITED") return 12 * 60 * 60_000;
+  if (status === "TIMEOUT" || status === "PROVIDER_ERROR" || status === "INVALID_RESPONSE") return 60 * 60_000;
+  return 0;
+}
+
 export function utcAutomationSourceProviderDayBucket(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
@@ -41,6 +50,33 @@ export async function reserveAutomationSourceProviderRequest(input: {
   const maxDay = boundedPositiveInt(input.maxRequestsPerDay, 1, 50);
   const maxRun = boundedPositiveInt(input.maxRequestsPerRun, 1, 10);
 
+  try {
+    const latest = await input.database.prepare(`
+      SELECT status,created_at FROM automation_source_provider_usage
+      WHERE source_id=? AND status<>'RESERVED'
+      ORDER BY created_at DESC,id DESC LIMIT 1
+    `).bind(input.sourceId).first<{ status: string; created_at: string }>();
+    if (latest) {
+      const delay = cooldownMs(String(latest.status ?? ""));
+      const created = Date.parse(String(latest.created_at ?? ""));
+      if (delay > 0 && Number.isFinite(created) && created + delay > now.getTime()) {
+        return {
+          reserved: false as const,
+          reason: "COOLDOWN" as const,
+          cooldownUntil: new Date(created + delay).toISOString(),
+          operationKey: input.operationKey,
+          dayBucket,
+        };
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/no such table:\s*automation_source_provider_usage/i.test(message)) {
+      throw new Error("automation_source_provider_usage_unavailable");
+    }
+    throw error;
+  }
+
   let result;
   try {
     result = await input.database.prepare(`
@@ -59,6 +95,11 @@ export async function reserveAutomationSourceProviderRequest(input: {
         FROM automation_source_provider_usage
         WHERE run_id=?
       ) < ?
+      AND (
+        SELECT COALESCE(SUM(request_count),0)
+        FROM automation_source_provider_usage
+        WHERE day_bucket=?
+      ) < ?
       ON CONFLICT(operation_key) DO NOTHING
     `).bind(
       input.operationKey,
@@ -73,6 +114,8 @@ export async function reserveAutomationSourceProviderRequest(input: {
       maxDay,
       input.runId,
       maxRun,
+      dayBucket,
+      AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_LIMIT,
     ).run();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -86,7 +129,13 @@ export async function reserveAutomationSourceProviderRequest(input: {
     return { reserved: true as const, operationKey: input.operationKey, dayBucket };
   }
 
-  return { reserved: false as const, operationKey: input.operationKey, dayBucket };
+  return {
+    reserved: false as const,
+    reason: "BUDGET" as const,
+    cooldownUntil: null,
+    operationKey: input.operationKey,
+    dayBucket,
+  };
 }
 
 export async function finalizeAutomationSourceProviderRequest(input: {
