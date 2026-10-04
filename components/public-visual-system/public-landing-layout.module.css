@@ -1,4 +1,6 @@
 .shell {
+  --public-space-functional: 24px;
+  --public-space-section: 36px;
   min-width: 0;
 }
 
@@ -97,6 +99,11 @@
 }
 
 @media (max-width: 620px) {
+  .shell {
+    --public-space-functional: 20px;
+    --public-space-section: 32px;
+  }
+
   .landing {
     padding-top: 24px;
   }
