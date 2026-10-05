@@ -360,6 +360,43 @@ export function sanitizeDirectEntityUpdateProposal(input: {
   delete result.name;
   delete result.category;
 
+  const official = new Set(officialFields(input.record));
+  const authoritativeContact = (field: string, officialField: string) =>
+    trusted || authoritativeFieldOrigin(input.record, field) || official.has(officialField);
+
+  if (!authoritativeContact("publicPhone", "publicPhone") && !authoritativeContact("phone", "publicPhone")) {
+    delete result.publicPhone;
+    delete result.public_phone;
+    delete result.phone;
+  }
+  if (!authoritativeContact("publicEmail", "publicEmail") && !authoritativeContact("email", "publicEmail")) {
+    delete result.publicEmail;
+    delete result.public_email;
+    delete result.email;
+  }
+  if (
+    !authoritativeContact("websiteUrl", "websiteUrl")
+    && !authoritativeContact("website_url", "websiteUrl")
+    && !authoritativeContact("website", "websiteUrl")
+  ) {
+    delete result.websiteUrl;
+    delete result.website_url;
+    delete result.website;
+  }
+  if (!trusted && !official.has("facebookUrl")) {
+    delete result.facebookUrl;
+    delete result.facebook_url;
+  }
+  if (!trusted && !official.has("instagramUrl")) {
+    delete result.instagramUrl;
+    delete result.instagram_url;
+  }
+  if (!trusted && !official.has("description")) {
+    delete result.description;
+    delete result.shortDescription;
+    delete result.short_description;
+  }
+
   if (!authoritativeRegistration) {
     delete result.registrationNumber;
     delete result.registration_number;
