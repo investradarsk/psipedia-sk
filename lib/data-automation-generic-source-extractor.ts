@@ -684,6 +684,110 @@ async function fosterRecordFromHtmlDetail(input: {
   } satisfies AutomationSourceRecord;
 }
 
+function lostFoundHtmlDetailEvidence(
+  html: string,
+  pageUrl: string,
+  source: AutomationSource,
+  contract: SourceScopedExtractionContract,
+) {
+  const h1 = textFromHtml(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? "").slice(0, 300);
+  if (!h1) return null;
+  const heading = normalizedAdoptionHeading(h1);
+  if (/^(?:stratene\s+a\s+najdene\s+psy|stratene\s+psy|najdene\s+psy|lost\s+and\s+found\s+dogs)$/.test(heading)) {
+    return null;
+  }
+
+  const text = textFromHtml(html).slice(0, 10_000);
+  const normalized = normalizedAdoptionHeading(text);
+  const lost = /(?:^|\s)(?:strateny\s+pes|stratena\s+fenka|pes\s+sa\s+stratil|fenka\s+sa\s+stratila|nezvestny\s+pes|nezvestna\s+fenka)(?:\s|$)/.test(normalized);
+  const found = /(?:^|\s)(?:najdeny\s+pes|najdena\s+fenka|pes\s+bol\s+najdeny|fenka\s+bola\s+najdena)(?:\s|$)/.test(normalized);
+  const staticType = source.config.staticFields?.type === "LOST" || source.config.staticFields?.type === "FOUND"
+    ? source.config.staticFields.type
+    : null;
+  if ((lost && found) || (!lost && !found && !staticType)) return null;
+  if (staticType === "LOST" && found) return null;
+  if (staticType === "FOUND" && lost) return null;
+
+  const incidentDate = /(?:d[aá]tum\s+(?:n[aá]lezu|straty|incidentu|udalosti)|incident\s+date|date\s+(?:lost|found))\s*[:–—-]\s*(?:\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{4}-\d{2}-\d{2})/i.test(text)
+    || /(?:d[nň]a\s*)?(?:\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{4}-\d{2}-\d{2}).{0,160}(?:stratil|stratila|straten|nezvestn|bol\s+n[aá]jden|bola\s+n[aá]jden)/i.test(text);
+  if (!incidentDate) return null;
+
+  const locality = /(?:^|\s)(?:mesto|okres|kraj|regi[oó]n|lokalita|miesto\s+(?:straty|n[aá]lezu)|city|district|region|location)\s*[:–—-]\s*\S+/i.test(text);
+  if (!locality) return null;
+
+  const dogSignals = [
+    /(?:^|\s)(?:meno|dog\s+name)\s*[:–—-]\s*\S+/i,
+    /(?:^|\s)(?:pohlavie|sex|gender)\s*[:–—-]\s*\S+/i,
+    /(?:^|\s)(?:plemeno|rasa|breed)\s*[:–—-]\s*\S+/i,
+    /(?:^|\s)(?:farba|color|colour)\s*[:–—-]\s*\S+/i,
+    /(?:^|\s)(?:vek|age)\s*[:–—-]\s*\S+/i,
+    /(?:^|\s)(?:ve[lľ]kos[tť]|size)\s*[:–—-]\s*\S+/i,
+  ].filter((pattern) => pattern.test(text)).length;
+  if (dogSignals < 1) return null;
+
+  const canonicalHref = html.match(/<link\b[^>]*rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*href\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1]
+    ?? html.match(/<link\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*>/i)?.[1]
+    ?? null;
+  const canonical = canonicalHref ? scopeUrl(canonicalHref, pageUrl, contract) : canonicalizeSourceUrl(pageUrl);
+  if (!canonical || canonical !== canonicalizeSourceUrl(pageUrl)) return null;
+
+  const description = decodeHtml(
+    html.match(/<meta\b[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*>/i)?.[1] ?? "",
+  ).replace(/\s+/g, " ").trim().slice(0, 5000);
+  return { title: h1, canonical, description, pageTextExcerpt: text };
+}
+
+async function lostFoundRecordFromHtmlDetail(input: {
+  html: string;
+  pageUrl: string;
+  source: AutomationSource;
+  contract: SourceScopedExtractionContract;
+  discoveryMethod: string;
+  detailFetched: boolean;
+}) {
+  const evidence = lostFoundHtmlDetailEvidence(input.html, input.pageUrl, input.source, input.contract);
+  if (!evidence) return null;
+  const proposed: Record<string, unknown> = {
+    sourceUrl: evidence.canonical,
+    ...(evidence.description ? { description: evidence.description } : {}),
+  };
+  const id = await sourceRecordId({
+    externalId: null,
+    itemUrl: evidence.canonical,
+    sourceRoot: input.contract.identity.canonicalSourceRootUrl,
+    proposed,
+    schemaTypes: [],
+  });
+  return {
+    sourceRecordId: id,
+    sourceUrl: evidence.canonical,
+    sourceTimestamp: null,
+    rawRecord: {
+      pageUrl: input.pageUrl,
+      title: evidence.title,
+      pageTextExcerpt: evidence.pageTextExcerpt,
+    },
+    proposed,
+    extraction: {
+      itemUrl: evidence.canonical,
+      externalId: null,
+      discoveredFromRoot: input.contract.identity.canonicalSourceRootUrl,
+      strategy: "GENERIC_FIRST_PARTY" as const,
+      evidenceMetadata: {
+        discoveryMethod: input.discoveryMethod,
+        pageUrl: input.pageUrl,
+        detailFetched: input.detailFetched,
+        lostFoundDetailEvidence: true,
+      },
+      coverage: {
+        classification: "UNKNOWN" as const,
+        complete: false,
+      },
+      confidence: "HIGH" as const,
+    },
+  } satisfies AutomationSourceRecord;
+}
+
 function recordIdentityKey(record: AutomationSourceRecord) {
   return record.sourceUrl ? "url:" + record.sourceUrl : "id:" + record.sourceRecordId;
 }
@@ -836,6 +940,7 @@ export async function extractGenericFirstPartySource(input: {
           input.source.entityType === "EVENT"
           || input.source.entityType === "ADOPTION"
           || input.source.entityType === "FOSTER"
+          || input.source.entityType === "LOST_FOUND"
         )
       ) {
         const record = input.source.entityType === "ADOPTION"
@@ -856,7 +961,16 @@ export async function extractGenericFirstPartySource(input: {
                 discoveryMethod: "FOSTER_ROOT_HTML_DETAIL",
                 detailFetched: false,
               })
-            : await (async () => {
+            : input.source.entityType === "LOST_FOUND"
+              ? await lostFoundRecordFromHtmlDetail({
+                  html: page.html,
+                  pageUrl,
+                  source: input.source,
+                  contract: input.contract,
+                  discoveryMethod: "LOST_FOUND_ROOT_HTML_DETAIL",
+                  detailFetched: false,
+                })
+              : await (async () => {
               const fallback = htmlDetailEvidence(page.html, pageUrl, input.contract);
               return fallback
                 ? recordFromNode({
@@ -1012,6 +1126,15 @@ export async function extractGenericFirstPartySource(input: {
         source: input.source,
         contract: input.contract,
         discoveryMethod: "FOSTER_DETAIL_HTML",
+        detailFetched: true,
+      });
+    } else if (input.source.entityType === "LOST_FOUND") {
+      record = await lostFoundRecordFromHtmlDetail({
+        html: fetched.html,
+        pageUrl: finalUrl,
+        source: input.source,
+        contract: input.contract,
+        discoveryMethod: "LOST_FOUND_DETAIL_HTML",
         detailFetched: true,
       });
     } else {
