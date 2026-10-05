@@ -375,6 +375,8 @@ test.describe("public services search layout", () => {
       if (viewport.width <= 620) {
         await expect(filterToggle).toBeVisible();
         await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+        await page.waitForLoadState("networkidle");
+        await expect(filterToggle).toBeEnabled();
         await filterToggle.click();
         await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
       } else {
