@@ -63,20 +63,26 @@ test.describe("public services search layout", () => {
     });
   });
 
-  test("retains the desktop three-column search layout without overflow", async ({ page }, testInfo) => {
+  test("retains the desktop directory filter layout without overflow", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop layout contract");
     await page.setViewportSize({ width: 1440, height: 900 });
 
     const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
-    const form = page.locator("[data-section-hero-search]");
-    const controls = form.locator("select, input, button");
-    await expect(controls).toHaveCount(3);
-    const tops = await controls.evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().top)));
+    const form = page.locator(".directory-results form").first();
+    await expect(form).toBeVisible();
+    await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
+
+    const firstRowControls = form.locator('input[name="q"], select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
+    await expect(firstRowControls).toHaveCount(5);
+    const tops = await firstRowControls.evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().top)));
     expect(new Set(tops).size).toBe(1);
 
+    await expect(form.getByRole("button", { name: /^Filtre/ })).toBeHidden();
+    await expect(form.getByRole("button", { name: "Zobraziť výsledky" })).toBeVisible();
     await expectNoHorizontalOverflow(page, "/adresar desktop");
+    await expectSeriousCriticalAxeClean(page, ".directory-results", "/adresar desktop filters");
   });
 
   test("UX-1C-B progressively discloses secondary category filters on mobile", async ({ page }, testInfo) => {
@@ -174,39 +180,34 @@ test.describe("public services search layout", () => {
     await expect(hero.locator("[data-unified-section-hero-copy]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
 
     const categoryNav = page.getByRole("navigation", { name: "Kategórie služieb" });
-    await expect(categoryNav.getByRole("link")).toHaveCount(10);
+    await expect(categoryNav).toHaveAttribute("data-public-subcategory-mode", "landing");
+    const categoryLinks = categoryNav.getByRole("link");
+    await expect(categoryLinks).toHaveCount(10);
 
-    const panels = page.locator("section[data-directory-category]");
-    const primaryPanels = page.locator("section[data-directory-primary]");
-    const secondaryPanels = page.locator("section[data-directory-secondary]");
-    await expect(panels).toHaveCount(10);
-    await expect(primaryPanels).toHaveCount(5);
-    await expect(secondaryPanels).toHaveCount(5);
+    const canonicalHrefs = [
+      "/adresar/veterinari",
+      "/adresar/treneri",
+      "/adresar/kynologicke-kluby",
+      "/adresar/chovatelske-kluby",
+      "/adresar/chovatelske-stanice",
+      "/adresar/salony-a-sluzby",
+      "/adresar/hotely-a-opatrovanie",
+      "/adresar/vencenie",
+      "/adresar/fyzioterapia",
+      "/adresar/dalsie-sluzby",
+    ];
+    const hrefs = await categoryLinks.evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    expect(hrefs).toEqual(canonicalHrefs);
 
-    const primaryCounts = (await primaryPanels.evaluateAll((elements) =>
-      elements.map((element) => Number(element.getAttribute("data-directory-category-count")))
-    ));
-    expect(primaryCounts.every(Number.isInteger)).toBe(true);
-    expect(primaryCounts).toEqual([...primaryCounts].sort((left, right) => right - left));
-
-    for (let index = 0; index < await panels.count(); index += 1) {
-      const panel = panels.nth(index);
-      const slug = await panel.getAttribute("data-directory-category");
-      expect(slug).toBeTruthy();
-      await expect(panel.getByRole("link", { name: /Zobraziť všetkých/ })).toHaveAttribute("href", `/adresar/${slug}`);
-      const countValue = await panel.getAttribute("data-directory-category-count");
-      expect(countValue).not.toBeNull();
-      const count = Number(countValue);
-      expect(Number.isInteger(count)).toBe(true);
-      if (count === 0) {
-        await expect(panel.locator("[data-directory-preview-profile]")).toHaveCount(0);
-        await expect(panel.locator("[data-directory-empty-state]")).toHaveText("Zatiaľ bez publikovaných profilov.");
-      }
+    for (let index = 0; index < await categoryLinks.count(); index += 1) {
+      const link = categoryLinks.nth(index);
+      await expect(link).toBeVisible();
+      await expect(link.locator("small"), `category ${canonicalHrefs[index]} is missing its data-backed count`).toHaveText(/^\d+ (?:profil|profily|profilov)$/);
     }
 
-    const firstPrimary = primaryPanels.first();
-    expect(await firstPrimary.locator("[data-directory-preview-profile]").count()).toBeGreaterThan(0);
-    await expect(page.getByText("E2E Tréner", { exact: true })).toHaveCount(0);
+    const results = page.locator(".directory-results");
+    await expect(results.getByRole("heading", { level: 2, name: "Odporúčané služby" })).toBeVisible();
+    expect(await results.locator("[data-directory-card]").count()).toBeGreaterThan(0);
 
     const providerCta = page.locator("[data-directory-provider-cta]");
     await expect(providerCta.getByRole("heading", { name: "Poskytujete služby pre psov?" })).toBeVisible();
