@@ -329,11 +329,22 @@ export function normalizeAutomationLostFoundRecord(
   const dogName = explicitDogName(p.dogName ?? p.dog_name)
     ?? structured.dogName
     ?? explicitDogName(labelled.dogName);
-  const sex = explicitSex(p.sex) ?? structured.sex ?? explicitSex(labelled.sex);
+  const sourceScopedExtraction = Boolean(
+    record.extraction
+    && ["GENERIC_FIRST_PARTY", "TAVILY_CRAWL", "TAVILY_EXTRACT"].includes(record.extraction.strategy),
+  );
+  // Generic/Tavily schema enrichment may carry UNKNOWN placeholders.
+  // For source-scoped extraction, explicit structured/labelled source evidence
+  // must outrank those placeholders so canonical enum values are not erased.
+  const sex = sourceScopedExtraction
+    ? structured.sex ?? explicitSex(labelled.sex) ?? explicitSex(p.sex)
+    : explicitSex(p.sex) ?? structured.sex ?? explicitSex(labelled.sex);
   const breed = clean(p.breed ?? structured.breed ?? labelled.breed, 300);
   const color = clean(p.color ?? structured.color ?? labelled.color, 200);
   const approximateAge = clean(p.approximateAge ?? p.approximate_age ?? structured.approximateAge ?? labelled.approximateAge, 300);
-  const size = explicitSize(p.size) ?? structured.size ?? explicitSize(labelled.size);
+  const size = sourceScopedExtraction
+    ? structured.size ?? explicitSize(labelled.size) ?? explicitSize(p.size)
+    : explicitSize(p.size) ?? structured.size ?? explicitSize(labelled.size);
 
   const city = clean(p.city ?? structured.city ?? labelled.city, 200);
   const district = clean(p.district ?? structured.district ?? labelled.district, 200);
