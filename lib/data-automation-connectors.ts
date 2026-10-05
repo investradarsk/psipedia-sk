@@ -330,6 +330,10 @@ const GENERIC_TAVILY_FALLBACK_CODES = new Set([
   "invalid_item_structure",
 ]);
 
+export function canFallbackGenericExtractionToTavily(code: string) {
+  return GENERIC_TAVILY_FALLBACK_CODES.has(code);
+}
+
 function tavilyConnectorError(error: unknown) {
   if (!(error instanceof TavilySourceScopedError)) {
     return new AutomationConnectorError("tavily_provider_error");
@@ -490,7 +494,7 @@ export async function fetchAutomationSourceRecords(
         if (error instanceof AutomationConnectorError) throw error;
         if (error instanceof GenericFirstPartyExtractionError) {
           const fallbackAllowed = !context.genericProbe
-            && GENERIC_TAVILY_FALLBACK_CODES.has(error.code)
+            && canFallbackGenericExtractionToTavily(error.code)
             && Boolean(context.tavilyRequestGate);
           if (fallbackAllowed) {
             try {
