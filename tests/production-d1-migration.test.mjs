@@ -6,10 +6,12 @@ import test from "node:test";
 
 import {
   DEFAULT_TARGET_MIGRATION,
+  DYNAMIC_ENTITY_IDENTITY_INDEXES,
   PARTNER_MULTIMETHOD_AUTH_INDEXES,
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   assertAutomationGovernanceSchema,
+  assertDynamicEntityIdentitySchema,
   assertTavilyEventCadenceState,
   assertPartnerAuthPreserved,
   requiresExactPartnerAuthPreservation,
@@ -406,6 +408,52 @@ test("NOTION-BIDIRECTIONAL-EVENTS-HELP-1 0108 migration is additive and identity
   assert.match(migration, /UNIQUE \(agenda, entity_id\)/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS notion_agenda_targets/);
   assert.doesNotMatch(migration, /\bDROP\b|\bDELETE\b/i);
+});
+
+test("PRODUCTION-D1-0109-PREFLIGHT-1 wires 0109 preflight, history and verification fail-closed", async () => {
+  const target = "0109_dynamic_entity_identity_indexes.sql";
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), true);
+  assert.equal(DYNAMIC_ENTITY_IDENTITY_INDEXES.length, 11);
+
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
+  assert.equal(workflow.includes("- 0109_dynamic_entity_identity_indexes.sql"), true);
+  assert.equal(workflow.includes("APPLY-0109-psipedia-sk-db"), true);
+
+  const cleanSchema = { objects: [] };
+  assert.deepEqual(targetSchemaObjects(cleanSchema, target), { partial: false });
+
+  for (const index of DYNAMIC_ENTITY_IDENTITY_INDEXES) {
+    const detected = targetSchemaObjects({ objects: [{ name: index, type: "index", sql: "" }] }, target);
+    assert.deepEqual(detected, { partial: true }, `0109 partial detection missed ${index}`);
+    assert.throws(
+      () => assertPendingTargetSchemaClean(target, detected),
+      /target schema objects already exist; possible partial\/manual drift/,
+    );
+  }
+
+  const fullyAppliedSchema = {
+    objects: DYNAMIC_ENTITY_IDENTITY_INDEXES.map((name) => ({ name, type: "index", sql: "" })),
+  };
+  assert.doesNotThrow(() => assertDynamicEntityIdentitySchema(fullyAppliedSchema));
+
+  const missingOneSchema = {
+    objects: DYNAMIC_ENTITY_IDENTITY_INDEXES.slice(0, -1).map((name) => ({ name, type: "index", sql: "" })),
+  };
+  assert.throws(
+    () => assertDynamicEntityIdentitySchema(missingOneSchema),
+    new RegExp(`Missing dynamic entity identity index: ${DYNAMIC_ENTITY_IDENTITY_INDEXES.at(-1)}`),
+  );
+
+  const prefix = Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`);
+  const expected = [...prefix, ...supportedTargetsThrough(109)];
+  assert.deepEqual(
+    validateProductionTargetHistory(expected.slice(0, -1), expected, target),
+    { latestIndex: 108, targetApplied: false },
+  );
+  assert.deepEqual(
+    validateProductionTargetHistory(expected, expected, target),
+    { latestIndex: 109, targetApplied: true },
+  );
 });
 
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
