@@ -7,6 +7,7 @@ import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
+import { validateDynamicAutomationIngestion } from "./data-automation-dynamic-identity.ts";
 import {
   TavilyAutomationCrawlProvider,
   TavilyAutomationExtractProvider,
@@ -144,6 +145,8 @@ export async function previewAutomationSource(input: {
     let possibleMatches = 0;
     let newCandidates = 0;
     let possibleUpdates = 0;
+    let reviewOnly = 0;
+    let insufficient = 0;
     const errors: string[] = [];
 
     for (const record of records) {
@@ -164,9 +167,26 @@ export async function previewAutomationSource(input: {
         normalized += 1;
         const match = await matchAutomationCanonical(input.source, candidateRecord, input.database);
         if (match.entityId || match.quality === "UNCERTAIN") possibleMatches += 1;
+        const ingestionDecision = validateDynamicAutomationIngestion({
+          source: input.source,
+          record: candidateRecord,
+          match,
+        });
         const finding = classifyAutomationFinding({ match, proposed: candidateRecord.proposed });
-        if (finding?.findingType === "NEW_ENTITY") newCandidates += 1;
-        if (finding && finding.findingType !== "NEW_ENTITY" && finding.findingType !== "DUPLICATE_CANDIDATE") possibleUpdates += 1;
+        if (finding?.findingType === "NEW_ENTITY") {
+          if (!ingestionDecision || ingestionDecision.canCreateDraft) newCandidates += 1;
+          else {
+            reviewOnly += 1;
+            if (ingestionDecision.gate === "INSUFFICIENT") insufficient += 1;
+          }
+        }
+        if (finding?.findingType === "DUPLICATE_CANDIDATE") reviewOnly += 1;
+        if (
+          finding
+          && finding.findingType !== "NEW_ENTITY"
+          && finding.findingType !== "DUPLICATE_CANDIDATE"
+          && (!ingestionDecision || ingestionDecision.canSuggestUpdate)
+        ) possibleUpdates += 1;
       } catch (error) {
         errors.push(error instanceof Error ? error.message : "preview_record_error");
       }
@@ -186,6 +206,8 @@ export async function previewAutomationSource(input: {
       possibleMatches,
       newCandidates,
       possibleUpdates,
+      reviewOnly,
+      insufficient,
       errors: errors.slice(0, 20),
       parserErrors: errors.filter((code) => /^(adapter_|structured_json_|generic_|no_items_|source_scope_|ambiguous_listing|unsupported_structured_data|traversal_limit_|detail_fetch_|unsafe_item_|invalid_item_)/.test(code)).slice(0, 20),
       errorDetails: errors.slice(0, 20).map((code) => ({ code, detail: safePreviewErrorDetail(code) })),
@@ -209,6 +231,8 @@ export async function previewAutomationSource(input: {
       possibleMatches: 0,
       newCandidates: 0,
       possibleUpdates: 0,
+      reviewOnly: 0,
+      insufficient: 0,
       errors: [code],
       parserErrors: /^(adapter_|structured_json_|generic_|no_items_|source_scope_|ambiguous_listing|unsupported_structured_data|traversal_limit_|detail_fetch_|unsafe_item_|invalid_item_)/.test(code) ? [code] : [],
       errorDetails: [{ code, detail: safePreviewErrorDetail(code) }],
