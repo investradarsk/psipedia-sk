@@ -172,3 +172,44 @@ test("Wikimedia image fetches use an identifiable user agent", () => {
   assert.match(syncSource, /headers\.set\("Api-User-Agent", WIKIMEDIA_USER_AGENT\)/);
   assert.match(syncSource, /headers: remoteImageHeaders\(url\)/);
 });
+
+
+test("Notion rich text preserves bold, italic and links in intro, paragraphs, quotes and callouts", () => {
+  assert.match(syncSource, /notionRichTextInline/);
+  assert.match(syncSource, /annotations\.bold === true/);
+  assert.match(syncSource, /annotations\.italic === true/);
+  assert.match(syncSource, /type: "link", href/);
+  assert.match(syncSource, /introRichText/);
+  assert.match(syncSource, /\.\.\.\(richText \? \{ richText \} : \{\}\)/);
+  assert.match(syncSource, /notionRichTextMarkdown/);
+});
+
+test("Notion body supports native external images, video embeds and tables", () => {
+  assert.match(syncSource, /function notionImageBlock/);
+  assert.match(syncSource, /type: "image"/);
+  assert.match(syncSource, /function notionEmbedBlock/);
+  assert.match(syncSource, /type: "embed"/);
+  assert.match(syncSource, /function notionTableBlock/);
+  assert.match(syncSource, /type: "table"/);
+  assert.match(syncSource, /getBlockChildren/);
+  assert.match(syncSource, /block\.type === "table" && block\.has_children/);
+});
+
+test("Notion Psipedia block manifest can create any normalized Admin article block with placement", () => {
+  assert.match(syncSource, /isAdminManifestHeading/);
+  assert.match(syncSource, /"psipedia bloky"/);
+  assert.match(syncSource, /JSON\.parse\(blockText\(manifest\)\)/);
+  assert.match(syncSource, /normalizeArticleBlocks/);
+  assert.match(syncSource, /afterSection/);
+  assert.match(syncSource, /beforeHeading/);
+  assert.match(syncSource, /position === "start"/);
+  assert.match(syncSource, /placeManifestBlocks/);
+});
+
+test("Notion main image metadata syncs alt text and source URL and participates in idempotency hash", () => {
+  assert.match(syncSource, /imageAlt: altText \|\| null/);
+  assert.match(syncSource, /imageCreditUrl: imageSourceUrl \|\| null/);
+  assert.match(syncSource, /notionImageAlt/);
+  assert.match(syncSource, /notionImageCreditUrl/);
+  assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
+});
