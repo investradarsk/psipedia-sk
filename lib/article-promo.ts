@@ -265,7 +265,7 @@ export function preserveArticlePromoBlocks<T extends AnchoredBlock>(
 ): T[] {
   const promos = existingBlocks
     .map((block, index) => ({ block, index }))
-    .filter((entry) => entry.block.type === "psipedia-promo");
+    .filter((entry) => entry.block.type === "psipedia-promo" && !entry.block.id.startsWith("notion-"));
   if (!promos.length) return [...nextNotionBlocks];
 
   const nextIds = new Set(nextNotionBlocks.filter(isNotionOwnedBlock).map((block) => block.id));

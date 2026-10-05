@@ -214,3 +214,21 @@ test("ARTICLE-PROMO Notion sync hashes source-owned content but merges manual pr
   assert.ok(hash >= 0 && merge > hash && update > merge);
   assert.match(sync, /existing\.blocks/);
 });
+
+
+test("ARTICLE-PROMO preservation does not duplicate Notion-owned promo blocks", () => {
+  const existing = [
+    { id: "notion-a", type: "text" },
+    { id: "notion-manifest-blocks-1", type: "psipedia-promo", promoKey: "treneri", variant: "auto" },
+    { id: "manual-promo", type: "psipedia-promo", promoKey: "mapa", variant: "v1" },
+    { id: "notion-b", type: "h2" },
+  ];
+  const next = [
+    { id: "notion-a", type: "text" },
+    { id: "notion-manifest-blocks-1", type: "psipedia-promo", promoKey: "treneri", variant: "auto" },
+    { id: "notion-b", type: "h2" },
+  ];
+  const merged = preserveArticlePromoBlocks(existing, next);
+  assert.equal(merged.filter((block) => block.id === "notion-manifest-blocks-1").length, 1);
+  assert.equal(merged.filter((block) => block.id === "manual-promo").length, 1);
+});
