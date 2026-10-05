@@ -33,30 +33,54 @@ test.describe("public services search layout", () => {
     const response = await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
 
-    const form = page.locator("[data-section-hero-search]");
-    const controls = form.locator("select, input, button");
+    const form = page.locator(".directory-results form").first();
     await expect(form).toBeVisible();
-    await expect(controls).toHaveCount(3);
+    await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
+
+    const primarySearch = form.locator('input[name="q"]');
+    const filterToggle = form.getByRole("button", { name: /^Filtre/ });
+    const submit = form.getByRole("button", { name: "Zobraziť výsledky" });
+    const secondaryFields = form.locator('select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
+
+    await expect(primarySearch).toBeVisible();
+    await expect(filterToggle).toBeVisible();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(secondaryFields).toHaveCount(4);
+    for (const fieldName of ["category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} collapsed mobile filter`).toBeHidden();
+    }
+    await expect(submit).toBeVisible();
 
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
     expect(formBox!.x).toBeGreaterThanOrEqual(12);
     expect(390 - (formBox!.x + formBox!.width)).toBeGreaterThanOrEqual(12);
 
-    const controlBoxes = await controls.evaluateAll((elements) => elements.map((element) => {
-      const rect = element.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, width: rect.width, top: rect.top };
-    }));
-    for (const box of controlBoxes) {
-      expect(box.left).toBeGreaterThanOrEqual(formBox!.x);
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+    for (const fieldName of ["category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} expanded mobile filter`).toBeVisible();
+    }
+
+    const visibleBoxes = await form.locator("input, select, button, a").evaluateAll((elements) => elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+      }));
+    for (const box of visibleBoxes) {
+      expect(box.left).toBeGreaterThanOrEqual(formBox!.x - 1);
       expect(box.right).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
       expect(box.width).toBeGreaterThan(0);
+      expect(box.height).toBeGreaterThanOrEqual(44);
     }
-    expect(controlBoxes[0]!.top).toBeLessThan(controlBoxes[1]!.top);
-    expect(controlBoxes[1]!.top).toBeLessThan(controlBoxes[2]!.top);
 
     await expectNoHorizontalOverflow(page, "/adresar mobile");
-    await expectSeriousCriticalAxeClean(page, "[data-section-hero-search]", "/adresar mobile search");
+    await expectSeriousCriticalAxeClean(page, ".directory-results", "/adresar mobile search");
     await testInfo.attach("ux1cb-after-adresar-mobile-390x844", {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
@@ -74,13 +98,67 @@ test.describe("public services search layout", () => {
     await expect(form).toBeVisible();
     await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
 
-    const firstRowControls = form.locator('input[name="q"], select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
-    await expect(firstRowControls).toHaveCount(5);
-    const tops = await firstRowControls.evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().top)));
-    expect(new Set(tops).size).toBe(1);
+    const requiredFields = form.locator('input[name="q"], select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
+    await expect(requiredFields).toHaveCount(5);
+    for (const fieldName of ["q", "category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} desktop filter`).toBeVisible();
+    }
 
-    await expect(form.getByRole("button", { name: /^Filtre/ })).toBeHidden();
-    await expect(form.getByRole("button", { name: "Zobraziť výsledky" })).toBeVisible();
+    const filterToggle = form.getByRole("button", { name: /^Filtre/ });
+    const submit = form.getByRole("button", { name: "Zobraziť výsledky" });
+    await expect(filterToggle).toBeHidden();
+    await expect(submit).toBeVisible();
+
+    const formBox = await form.boundingBox();
+    expect(formBox).not.toBeNull();
+    const fieldBoxes = await requiredFields.evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        name: element.getAttribute("name") ?? element.tagName.toLowerCase(),
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      };
+    }));
+    const submitBox = await submit.boundingBox();
+    expect(submitBox).not.toBeNull();
+    const boxes = [
+      ...fieldBoxes,
+      {
+        name: "submit",
+        left: submitBox!.x,
+        right: submitBox!.x + submitBox!.width,
+        top: submitBox!.y,
+        bottom: submitBox!.y + submitBox!.height,
+        width: submitBox!.width,
+        height: submitBox!.height,
+      },
+    ];
+
+    for (const box of boxes) {
+      expect(box.width, `${box.name} width`).toBeGreaterThan(0);
+      expect(box.height, `${box.name} height`).toBeGreaterThan(0);
+      expect(box.left, `${box.name} left form bound`).toBeGreaterThanOrEqual(formBox!.x - 1);
+      expect(box.right, `${box.name} right form bound`).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
+      expect(box.top, `${box.name} top form bound`).toBeGreaterThanOrEqual(formBox!.y - 1);
+      expect(box.bottom, `${box.name} bottom form bound`).toBeLessThanOrEqual(formBox!.y + formBox!.height + 1);
+    }
+
+    for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
+        const left = boxes[leftIndex]!;
+        const right = boxes[rightIndex]!;
+        const overlaps = left.left < right.right - 1
+          && left.right > right.left + 1
+          && left.top < right.bottom - 1
+          && left.bottom > right.top + 1;
+        expect(overlaps, `${left.name} overlaps ${right.name}`).toBe(false);
+      }
+    }
+
     await expectNoHorizontalOverflow(page, "/adresar desktop");
     await expectSeriousCriticalAxeClean(page, ".directory-results", "/adresar desktop filters");
   });
@@ -289,15 +367,40 @@ test.describe("public services search layout", () => {
       const response = await page.goto("/adresar?category=veterinari&q=publikovana", { waitUntil: "domcontentloaded" });
       expect(response?.status()).toBe(200);
 
-      const form = page.locator("[data-section-hero-search]");
+      const form = page.locator(".directory-results form").first();
       await expect(form).toBeVisible();
+      await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
+
+      const filterToggle = form.getByRole("button", { name: /^Filtre/ });
+      if (viewport.width <= 620) {
+        await expect(filterToggle).toBeVisible();
+        await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+        await page.waitForLoadState("networkidle");
+        await expect(filterToggle).toBeEnabled();
+        await filterToggle.click();
+        await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+      } else {
+        await expect(filterToggle).toBeHidden();
+      }
+
+      for (const fieldName of ["q", "category", "region", "district", "city"]) {
+        await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} at ${viewport.width}px`).toBeVisible();
+      }
+      await expect(form.getByRole("button", { name: "Zobraziť výsledky" })).toBeVisible();
+
       const formBox = await form.boundingBox();
       expect(formBox).not.toBeNull();
 
-      const controlBoxes = await form.locator("select, input, button").evaluateAll((elements) => elements.map((element) => {
-        const rect = element.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
-      }));
+      const controlBoxes = await form.locator("select, input, button, a").evaluateAll((elements) => elements
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          const style = window.getComputedStyle(element);
+          return rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+        })
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+        }));
       for (const box of controlBoxes) {
         expect(box.left).toBeGreaterThanOrEqual(formBox!.x - 1);
         expect(box.right).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
@@ -310,12 +413,13 @@ test.describe("public services search layout", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/adresar", { waitUntil: "domcontentloaded" });
-    const form = page.locator("[data-section-hero-search]");
+    const form = page.locator(".directory-results form").first();
+    await form.getByRole("button", { name: /^Filtre/ }).click();
     await form.locator('select[name="category"]').selectOption("veterinari");
     await form.locator('input[name="q"]').fill("publikovana");
     await Promise.all([
       page.waitForURL((url) => url.pathname === "/adresar" && url.searchParams.get("category") === "veterinari" && url.searchParams.get("q") === "publikovana"),
-      form.getByRole("button", { name: "Hľadať" }).click(),
+      form.getByRole("button", { name: "Zobraziť výsledky" }).click(),
     ]);
     await expect(form.locator('select[name="category"]')).toHaveValue("veterinari");
     await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");

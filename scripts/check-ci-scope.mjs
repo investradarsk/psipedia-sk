@@ -25,6 +25,12 @@ assert.match(onBlock(required), /\n  pull_request:/, "required workflow must alw
 assert.doesNotMatch(onBlock(required), /\n    paths(?:-ignore)?:/, "required workflow must not use top-level PR path filtering");
 assert.match(required, /node scripts\/ci-scope\.mjs --github-output/);
 assert.match(required, /node scripts\/check-ci-scope\.mjs/);
+assert.match(required, /directory:\s*\$\{\{\s*steps\.scope\.outputs\.directory\s*\}\}/, "directory scope output must be wired");
+assert.match(required, /name:\s*Directory PR E2E — desktop and mobile/, "focused directory PR E2E job must exist");
+assert.match(required, /needs\.pr-scope\.outputs\.directory == 'true'/, "directory PR E2E must be scope-gated");
+for (const spec of ["admin-directory-filters.spec.ts", "services-detail-shell.spec.ts", "services-search-layout.spec.ts"]) {
+  assert.ok(required.includes(`tests/e2e/${spec}`), `directory PR E2E must execute ${spec}`);
+}
 
 const expensiveSignature = /(?:npm ci|npm run build|playwright install|db:validate-clean)/;
 for (const [name, source] of workflows) {
@@ -106,6 +112,22 @@ const scenarioH = classifyChangedFiles([".github/workflows/map-read-api-ci.yml"]
 assert.ok(scenarioH.scopes.includes("MAPS"));
 assert.equal(scenarioH.core, true);
 
+for (const file of [
+  "tests/e2e/services-search-layout.spec.ts",
+  "tests/e2e/services-detail-shell.spec.ts",
+  "tests/e2e/admin-directory-filters.spec.ts",
+  "tests/fixtures/directory-admin-e2e.sql",
+  "components/directory-filter-form.tsx",
+  "components/directory-filter-form.module.css",
+  "app/adresar/[category]/page.tsx",
+]) {
+  const directoryScenario = classifyChangedFiles([file]);
+  assert.ok(
+    directoryScenario.scopes.includes("DIRECTORY_SERVICES"),
+    `${file}: must enable DIRECTORY_SERVICES scope for focused PR E2E`,
+  );
+}
+
 const packageScriptOnly = classifyChangedFiles(["package.json"]);
 assert.equal(packageScriptOnly.packageMetadataOnly, true);
 assert.ok(!packageScriptOnly.scopes.includes("MAPS"));
@@ -154,4 +176,4 @@ assert.ok(pr580.scopes.includes("ORGANIZATION_PROFILES"));
 assert.ok(!pr580.scopes.includes("NOTION"));
 assert.ok(!pr580.scopes.includes("DATABASE_MIGRATIONS"));
 
-console.log(`CI scope guard OK: ${workflowFiles.length} workflows, required checks stable, scenarios A-H pass.`);
+console.log(`CI scope guard OK: ${workflowFiles.length} workflows, required checks stable, scenarios A-H plus directory PR E2E coverage pass.`);
