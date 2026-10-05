@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-export const CI_SCOPE_VERSION = 2;
+export const CI_SCOPE_VERSION = 3;
 
 const RULES = {
   ADMIN: [
@@ -39,6 +39,8 @@ const RULES = {
     /^components\/directory-/,
     /^lib\/directory-/,
     /^tests\/directory-/,
+    /^tests\/e2e\/(?:admin-directory-filters|services-detail-shell|services-search-layout)\.spec\.ts$/,
+    /^tests\/fixtures\/directory-admin-e2e\.sql$/,
     /^drizzle\/(?:0019|0031|0074|0077|0098)_/,
   ],
   EVENTS: [
@@ -203,12 +205,14 @@ function writeGithubOutput(result, files) {
     /^(app\/admin\/events\/|app\/api\/admin\/events\/|components\/admin-events|lib\/admin-events|scripts\/bootstrap-admin-events-e2e\.mjs$|scripts\/check-admin-events-local\.mjs$|tests\/e2e\/admin-events\.spec\.ts$|tests\/admin-events)/.test(file),
   );
   const search = workflowChanged || result.scopes.includes("SEARCH");
+  const directory = workflowChanged || result.scopes.includes("DIRECTORY_SERVICES");
 
   appendFileSync(output, [
     `core=${result.core}`,
     `dependency=${result.dependency}`,
     `admin_events=${adminEvents}`,
     `search=${search}`,
+    `directory=${directory}`,
     `scopes=${result.scopes.join(",")}`,
     `docs_only=${result.docsOnly}`,
     "",
