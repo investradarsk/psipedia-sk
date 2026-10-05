@@ -1330,10 +1330,19 @@ async function runDiscoveryRoot(
           const addressSearch = root.entityType === "DIRECTORY"
             ? await addressEnrichmentSearchForRoot(root, options, runId)
             : undefined;
+          const searchCandidateTitle = root.discoveryType === "SEARCH_PROVIDER"
+            ? String(candidate.metadata?.title ?? candidate.label ?? "").trim() || null
+            : null;
+          const searchSnippet = root.discoveryType === "SEARCH_PROVIDER"
+            && typeof candidate.metadata?.snippet === "string"
+              ? candidate.metadata.snippet
+              : null;
           const ingested = await ingestDirectEntityUrl({
             entityType: root.entityType,
             sourceUrl: candidate.sourceUrl,
             label: candidate.label,
+            searchCandidateTitle,
+            searchSnippet,
             directoryCategory,
             database: options.database,
             fetchImpl: options.fetchImpl,
@@ -1342,9 +1351,7 @@ async function runDiscoveryRoot(
             addressSearch,
             enrichmentSearch,
             organizationEnricher,
-            addressEvidenceText: typeof candidate.metadata?.snippet === "string"
-              ? candidate.metadata.snippet
-              : null,
+            addressEvidenceText: searchSnippet,
           });
           canonicalDuplicateCount += ingested.existingCanonicalMatches;
           newEntityCount += ingested.newEntities;

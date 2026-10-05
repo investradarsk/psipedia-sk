@@ -31,6 +31,11 @@ import {
 import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { matchAutomationCanonical } from "./data-automation-store.ts";
+import {
+  evaluateDirectEntityIdentity,
+  markExistingCanonicalProvenance,
+  sanitizeDirectEntityUpdateProposal,
+} from "./data-automation-direct-identity.ts";
 import { automationMatchExplanation, type AutomationMatchExplanationCode } from "./data-automation-operations-model.ts";
 import { probeAutomationSourceAccess, probeAutomationSourceRobots } from "./data-automation-source-activation.ts";
 import {
@@ -109,9 +114,9 @@ function ephemeralSource(input: {
   };
 }
 
-function searchResultFallbackName(label: string, sourceUrl: string) {
+function searchResultFallbackName(searchCandidateTitle: string, sourceUrl: string) {
   const host = new URL(sourceUrl).hostname.toLowerCase().replace(/^www\./, "");
-  const clean = label.replace(/\s+/g, " ").trim();
+  const clean = searchCandidateTitle.replace(/\s+/g, " ").trim();
   if (!clean || clean.length < 2 || clean.length > 160) return null;
   const parts = clean.split(/\s(?:\||–|—|-)\s/).map((part) => part.trim()).filter(Boolean);
   const candidate = parts.find((part) => part.length >= 2 && part.length <= 160) ?? clean;
@@ -124,12 +129,14 @@ function searchResultFallbackName(label: string, sourceUrl: string) {
 function searchResultFallbackRecord(input: {
   entityType: "DIRECTORY" | "ORGANIZATION";
   sourceUrl: string;
-  label: string;
+  searchCandidateTitle?: string | null;
+  searchSnippet?: string | null;
   directoryCategory?: string | null;
 }): AutomationSourceRecord | null {
   const sourceUrl = canonicalizeSourceUrl(input.sourceUrl);
-  if (!sourceUrl) return null;
-  const name = searchResultFallbackName(input.label, sourceUrl);
+  const searchCandidateTitle = String(input.searchCandidateTitle ?? "").trim();
+  if (!sourceUrl || !searchCandidateTitle) return null;
+  const name = searchResultFallbackName(searchCandidateTitle, sourceUrl);
   if (!name) return null;
   const proposed = input.entityType === "DIRECTORY"
     ? {
@@ -152,6 +159,14 @@ function searchResultFallbackRecord(input: {
       sourceUrl,
       extractedName: name,
       identitySource: "SEARCH_RESULT_TITLE_FALLBACK",
+      searchSnippet: String(input.searchSnippet ?? "").trim() || null,
+      directEvidence: {
+        fieldOrigins: {
+          name: "SEARCH_PROVIDER",
+          websiteUrl: "SEARCH_PROVIDER",
+          ...(input.entityType === "DIRECTORY" ? { category: "DERIVED" } : {}),
+        },
+      },
     },
     proposed,
   };
@@ -263,7 +278,8 @@ async function fetchDirectEntityRecords(
   input: {
     entityType: "DIRECTORY" | "ORGANIZATION";
     sourceUrl: string;
-    label: string;
+    searchCandidateTitle?: string | null;
+    searchSnippet?: string | null;
     directoryCategory?: string | null;
     fetchImpl: AutomationFetch;
   },
@@ -330,6 +346,8 @@ export async function ingestDirectEntityUrl(input: {
   entityType: "DIRECTORY" | "ORGANIZATION";
   sourceUrl: string;
   label: string;
+  searchCandidateTitle?: string | null;
+  searchSnippet?: string | null;
   directoryCategory?: string | null;
   database: D1Database;
   fetchImpl?: AutomationFetch;
@@ -365,7 +383,8 @@ export async function ingestDirectEntityUrl(input: {
   const fetchedRecords = await fetchDirectEntityRecords(source, {
     entityType: input.entityType,
     sourceUrl: input.sourceUrl,
-    label: input.label,
+    searchCandidateTitle: input.searchCandidateTitle,
+    searchSnippet: input.searchSnippet,
     directoryCategory: input.directoryCategory,
     fetchImpl,
   });
@@ -404,7 +423,9 @@ export async function ingestDirectEntityUrl(input: {
     const proposed = enrichDirectoryProposalAddress(enrichedRecord.proposed);
     const exact = await enrichDirectoryProposalWithExactAddress({
       proposed,
-      name: typeof proposed.name === "string" && proposed.name.trim() ? proposed.name : input.label,
+      name: typeof proposed.name === "string" && proposed.name.trim()
+        ? proposed.name
+        : String(input.searchCandidateTitle ?? "").trim(),
       sourceUrl: enrichedRecord.sourceUrl || input.sourceUrl,
       extraEvidenceText: input.addressEvidenceText,
       addressSearch: boundedAddressSearch,
@@ -439,16 +460,48 @@ export async function ingestDirectEntityUrl(input: {
       if (verifiedDirectoryAddress) result.addressVerifiedExact += 1;
       else result.addressNoExact += 1;
     }
+    let identityDecision = evaluateDirectEntityIdentity({
+      entityType: input.entityType,
+      record,
+      verifiedDirectoryAddress: Boolean(verifiedDirectoryAddress),
+    });
     const match = await matchAutomationCanonical(source, record, input.database);
+    const acceptedProvenanceMatch = Boolean(match.entityId && match.quality === "EXACT_SOURCE_ID");
+    if (acceptedProvenanceMatch) {
+      identityDecision = markExistingCanonicalProvenance(identityDecision);
+    }
+
+    console.info(JSON.stringify({
+      event: "data_automation_direct_entity_gate",
+      entityType: input.entityType,
+      gate: identityDecision.gate,
+      reasons: identityDecision.reasons,
+      evidenceClasses: identityDecision.evidenceClasses,
+      identitySource: identityDecision.identitySource,
+      sourceUrl: record.sourceUrl,
+      acceptedProvenanceMatch,
+    }));
+
+    if (!identityDecision.canUseNonProvenanceMatch && !acceptedProvenanceMatch) {
+      continue;
+    }
+
     const explanation = automationMatchExplanation({ record, match });
     const outcomeLabel = String(record.proposed.name ?? record.proposed.title ?? input.label).trim().slice(0, 240) || input.label;
     if (input.expectedCanonicalEntityId && match.entityId !== input.expectedCanonicalEntityId) {
       continue;
     }
 
-    const proposedForComparison = input.entityType === "DIRECTORY"
+    let proposedForComparison = input.entityType === "DIRECTORY"
       ? directoryActionableProposal(withoutAmbiguousDirectoryAddress(record.proposed, addressReview), match.before)
       : organizationActionableProposal(record.proposed, match.before);
+    proposedForComparison = acceptedProvenanceMatch && !identityDecision.canUseNonProvenanceMatch
+      ? {}
+      : sanitizeDirectEntityUpdateProposal({
+          record,
+          proposed: proposedForComparison,
+          verifiedDirectoryAddress: Boolean(verifiedDirectoryAddress),
+        });
     if (
       input.entityType === "DIRECTORY"
       && verifiedDirectoryAddress
@@ -531,6 +584,7 @@ export async function ingestDirectEntityUrl(input: {
     }
 
     if (input.expectedCanonicalEntityId) continue;
+    if (!identityDecision.canCreateDraft) continue;
     if (!classified || (classified.findingType !== "NEW_ENTITY" && classified.findingType !== "DUPLICATE_CANDIDATE")) {
       continue;
     }

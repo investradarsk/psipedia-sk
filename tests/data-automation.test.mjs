@@ -192,7 +192,7 @@ test("9. safe canonical matching prefers exact deterministic identity", () => {
   assert.equal(isSafeAutomationSourceUrl("https://example.com/feed"), true);
 });
 
-test("9b. organization matching infers the same slug used by draft creation", () => {
+test("9b. organization name-derived slug is retrieval-only and never exact identity", () => {
   const match = selectSafeAutomationMatch({
     entityType: "ORGANIZATION",
     record: record({
@@ -210,8 +210,8 @@ test("9b. organization matching infers the same slug used by draft creation", ()
       region: "Bratislavský kraj",
     }],
   });
-  assert.equal(match.entityId, 41);
-  assert.equal(match.quality, "EXACT_CANONICAL_KEY");
+  assert.equal(match.entityId, null);
+  assert.equal(match.quality, "UNCERTAIN");
   const store = readFileSync(new URL("../lib/data-automation-store.ts", import.meta.url), "utf8");
   assert.match(store, /const organizationSlug = slug \|\| automationDraftSlug\(null, name\)/);
 });

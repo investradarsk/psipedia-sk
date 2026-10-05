@@ -388,6 +388,15 @@ function directoryBefore(row: Record<string, unknown>) {
     websiteUrl: row.website_url, importKey: row.import_key, verified: bool(row.verified),
     publicPhone: contacts.phone, publicEmail: contacts.email,
     facebookUrl: contacts.facebook, instagramUrl: contacts.instagram,
+    ico: sourceData.ico ?? sourceData.companyId ?? sourceData.company_id ?? null,
+    facilityRegistryId:
+      sourceData.facilityRegistryId ?? sourceData.facility_registry_id ?? sourceData.registryId ?? sourceData.registry_id ?? null,
+    facilityRegistryNamespace:
+      sourceData.facilityRegistryNamespace
+      ?? sourceData.facility_registry_namespace
+      ?? sourceData.registryNamespace
+      ?? sourceData.registry_namespace
+      ?? null,
   };
 }
 
@@ -473,9 +482,33 @@ async function dynamicProvenanceHints(
   return { exactSourceIds, exactDetailUrlIds };
 }
 
+async function directEntityProvenanceIds(
+  source: AutomationSource,
+  record: AutomationSourceRecord,
+  db: AutomationD1Database,
+) {
+  if (source.entityType !== "DIRECTORY" && source.entityType !== "ORGANIZATION") return new Set<number>();
+  const sourceRecordId = record.sourceRecordId.trim();
+  const sourceUrl = canonicalizeSourceUrl(record.sourceUrl) ?? "";
+  if (!sourceRecordId) return new Set<number>();
+  const result = await db.prepare(`SELECT canonical_entity_id
+    FROM canonical_external_provenance
+    WHERE entity_type=? AND external_source_url=? AND external_record_id=?
+    ORDER BY canonical_entity_id ASC LIMIT 10`).bind(
+      source.entityType,
+      sourceUrl,
+      sourceRecordId,
+    ).all<{ canonical_entity_id: number }>();
+  return new Set(
+    result.results
+      .map((row) => Number(row.canonical_entity_id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0),
+  );
+}
+
 async function appendCanonicalRowsById(
   db: AutomationD1Database,
-  table: "managed_events" | "adoption_dogs" | "help_cases" | "lost_found_dog_reports",
+  table: "managed_events" | "adoption_dogs" | "help_cases" | "lost_found_dog_reports" | "directory_profiles" | "help_organizations",
   rows: Record<string, unknown>[],
   ids: Set<number>,
 ) {
@@ -563,6 +596,7 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
     const importKey = String(proposed.importKey ?? proposed.import_key ?? "");
     const registration = String(proposed.registrationNumber ?? proposed.registration_number ?? "");
     const websiteUrl = String(proposed.websiteUrl ?? proposed.website_url ?? "");
+    const provenanceIds = await directEntityProvenanceIds(source, record, db);
     result = await db.prepare(`SELECT * FROM help_organizations
       WHERE slug=? OR import_key=? OR registration_number=? OR website_url=? OR name=? COLLATE NOCASE
         OR (?<>'' AND city=? COLLATE NOCASE)
@@ -570,20 +604,28 @@ async function candidateRows(source: AutomationSource, record: AutomationSourceR
         organizationSlug, importKey, registration, websiteUrl, name,
         city, city,
       ).all<Record<string, unknown>>();
-    return result.results.map((row) => ({
+    const rows = await appendCanonicalRowsById(db, "help_organizations", result.results, provenanceIds);
+    return rows.map((row) => ({
       ...commonCandidate(row, `organization:${row.id}`),
       sourceUrl: String(row.source_url ?? "") || null,
       websiteUrl: String(row.website_url ?? "") || null,
+      exactSourceIdentity: provenanceIds.has(Number(row.id)),
       before: organizationBefore(row),
     }));
   }
 
   if (source.entityType === "DIRECTORY") {
     const importKey = String(proposed.importKey ?? proposed.import_key ?? "");
+    const provenanceIds = await directEntityProvenanceIds(source, record, db);
     result = await db.prepare(`SELECT * FROM directory_profiles
       WHERE import_key=? OR (category=? AND slug=?) OR (category=? AND name=? COLLATE NOCASE)
       ORDER BY id ASC LIMIT 50`).bind(importKey, category, slug, category, name).all<Record<string, unknown>>();
-    return result.results.map((row) => ({ ...commonCandidate(row, `directory:${row.id}`), before: directoryBefore(row) }));
+    const rows = await appendCanonicalRowsById(db, "directory_profiles", result.results, provenanceIds);
+    return rows.map((row) => ({
+      ...commonCandidate(row, `directory:${row.id}`),
+      exactSourceIdentity: provenanceIds.has(Number(row.id)),
+      before: directoryBefore(row),
+    }));
   }
 
   if (source.entityType === "ADOPTION") {
