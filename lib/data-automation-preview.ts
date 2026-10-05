@@ -9,6 +9,7 @@ import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enri
 import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
 import { normalizeAutomationAdoptionRecord } from "./data-automation-adoption-normalize.ts";
 import { normalizeAutomationFosterRecord } from "./data-automation-foster-normalize.ts";
+import { normalizeAutomationLostFoundRecord } from "./data-automation-lost-found-normalize.ts";
 import { validateDynamicAutomationIngestion } from "./data-automation-dynamic-identity.ts";
 import {
   TavilyAutomationCrawlProvider,
@@ -168,6 +169,9 @@ export async function previewAutomationSource(input: {
         }
         if (input.source.entityType === "FOSTER") {
           candidateRecord = normalizeAutomationFosterRecord(candidateRecord, { sourceConfig: input.source.config });
+        }
+        if (input.source.entityType === "LOST_FOUND") {
+          candidateRecord = normalizeAutomationLostFoundRecord(candidateRecord, { sourceConfig: input.source.config });
         }
         if (!candidateRecord.proposed || typeof candidateRecord.proposed !== "object" || Array.isArray(candidateRecord.proposed)) {
           throw new Error("normalized_payload_invalid");

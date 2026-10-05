@@ -249,7 +249,9 @@ export function automationExtractionCapabilities(
           ? source.entityType + "_ORGANIZATION_IDENTITY_REQUIRED"
           : null
       : source.entityType === "LOST_FOUND"
-        ? "LOST_FOUND_SOURCE_SCOPED_NOT_ENABLED"
+        ? source.config.sourceShape !== "SINGLE_ITEM" && source.config.sourceShape !== "MULTI_ITEM_LIST"
+          ? "LOST_FOUND_SOURCE_SHAPE_REQUIRED"
+          : null
         : null;
 
   return withGovernanceStatus([

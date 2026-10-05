@@ -259,7 +259,7 @@ test("source-level organization identity is inherited only from explicit approve
   assert.equal(withoutStatic.proposed.organizationName, undefined);
 });
 
-test("legacy HELP readiness unlocks ADOPTION and FOSTER while LOST_FOUND stays adapter-only", () => {
+test("legacy HELP readiness enables source-scoped ADOPTION, FOSTER and LOST_FOUND with entity-specific requirements", () => {
   for (const entityType of ["ADOPTION", "FOSTER"]) {
     const result = automationHelpSourceReadiness({
       entityType,
@@ -273,10 +273,11 @@ test("legacy HELP readiness unlocks ADOPTION and FOSTER while LOST_FOUND stays a
   const lostFound = automationHelpSourceReadiness({
     entityType: "LOST_FOUND",
     connectorType: "CONTROLLED_HTML",
-    config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { organizationName: "OZ ABC" } },
+    config: { sourceShape: "MULTI_ITEM_LIST" },
   });
-  assert.equal(lostFound.ready, false);
-  assert.equal(lostFound.reason, "MISSING_ADAPTER");
+  assert.equal(lostFound.ready, true);
+  assert.equal(lostFound.reason, "READY");
+  assert.equal(lostFound.adapterKey, null);
 });
 
 test("source-scoped ADOPTION readiness requires explicit sourceShape and organization identity", () => {

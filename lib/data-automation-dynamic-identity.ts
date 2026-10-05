@@ -4,6 +4,7 @@ import {
 import { automationEventNormalizationMetadata } from "./data-automation-event-normalize.ts";
 import { automationAdoptionNormalizationMetadata } from "./data-automation-adoption-normalize.ts";
 import { automationFosterNormalizationMetadata } from "./data-automation-foster-normalize.ts";
+import { automationLostFoundNormalizationMetadata } from "./data-automation-lost-found-normalize.ts";
 import {
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
@@ -290,12 +291,15 @@ function fosterDraftEvidence(record: AutomationSourceRecord) {
   return reasons;
 }
 
-function lostFoundDraftEvidence(record: AutomationSourceRecord) {
+function lostFoundDraftEvidence(
+  record: AutomationSourceRecord,
+  sourceShape?: AutomationSource["config"]["sourceShape"],
+) {
   const p = record.proposed;
   const reasons: string[] = [];
   const type = clean(p.type)?.toUpperCase();
   if (type !== "LOST" && type !== "FOUND") reasons.push("lost_found_type_missing");
-  if (!clean(p.eventDate ?? p.event_date ?? p.reportedDate ?? p.reported_date)) {
+  if (!clean(p.eventDate ?? p.event_date)) {
     reasons.push("lost_found_incident_date_missing");
   }
   if (!clean(p.city ?? p.district ?? p.region ?? p.locationDescription ?? p.location_description)) {
@@ -303,11 +307,35 @@ function lostFoundDraftEvidence(record: AutomationSourceRecord) {
   }
   const stable = automationStableSourceIdentity(record);
   if (stable === "NONE" || stable === "WEAK") reasons.push("lost_found_stable_identity_missing");
+
+  const normalized = automationLostFoundNormalizationMetadata(record);
+  if (normalized?.typeConflict === true) reasons.push("lost_found_type_conflict");
+  if (normalized?.incidentDateConflict === true) reasons.push("lost_found_incident_date_conflict");
+  if (
+    normalized
+    && record.extraction
+    && ["GENERIC_FIRST_PARTY", "TAVILY_CRAWL", "TAVILY_EXTRACT"].includes(record.extraction.strategy)
+    && normalized.dogProfileEvidence !== true
+  ) {
+    reasons.push("lost_found_dog_profile_evidence_missing");
+  }
+  if (
+    sourceShape === "MULTI_ITEM_LIST"
+    && record.extraction?.strategy === "TAVILY_CRAWL"
+    && record.extraction.itemUrl
+    && record.extraction.discoveredFromRoot
+    && canonicalizeSourceUrl(record.extraction.itemUrl) === canonicalizeSourceUrl(record.extraction.discoveredFromRoot)
+  ) {
+    reasons.push("lost_found_concrete_detail_required");
+  }
+  const resolved = normalized?.explicitResolved === true
+    || record.lifecycleSignals?.some((signal) => signal.signalType === "LOST_FOUND_RESOLVED");
+  if (resolved) reasons.push("lost_found_resolved_new_draft_blocked");
   return reasons;
 }
 
 export function validateDynamicAutomationIngestion(input: {
-  source: Pick<AutomationSource, "entityType" | "sourceKey" | "sourceUrl">;
+  source: Pick<AutomationSource, "entityType" | "sourceKey" | "sourceUrl"> & Partial<Pick<AutomationSource, "config">>;
   record: AutomationSourceRecord;
   match?: AutomationCanonicalMatch | null;
 }): DynamicAutomationIngestionDecision | null {
@@ -360,7 +388,7 @@ export function validateDynamicAutomationIngestion(input: {
       ? adoptionDraftEvidence(input.record)
       : entityType === "FOSTER"
         ? fosterDraftEvidence(input.record)
-        : lostFoundDraftEvidence(input.record);
+        : lostFoundDraftEvidence(input.record, input.source.config?.sourceShape);
 
   return {
     entityType,
