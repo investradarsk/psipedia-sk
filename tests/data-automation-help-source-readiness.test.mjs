@@ -55,15 +55,34 @@ test("universal HELP readiness registers production ADOPTION FOSTER and LOST_FOU
   assert.equal(productionAutomationHelpAdapterRegistry["kosice-found-dog-detail"].entityType, "LOST_FOUND");
 });
 
-test("HELP source without sourceShape or adapter fails closed", () => {
+test("HELP source keeps entity-specific fail-closed readiness", () => {
   assert.equal(automationHelpSourceReadiness(source()).reason, "MISSING_SOURCE_SHAPE");
   assert.equal(automationHelpSourceReadiness(source()).ready, false);
 
-  const shapeOnly = automationHelpSourceReadiness(source({
+  const adoptionShapeOnly = automationHelpSourceReadiness(source({
     config: { sourceShape: "SINGLE_ITEM" },
   }));
-  assert.equal(shapeOnly.reason, "MISSING_ADAPTER");
-  assert.equal(shapeOnly.ready, false);
+  assert.equal(adoptionShapeOnly.reason, "MISSING_ORGANIZATION_IDENTITY");
+  assert.equal(adoptionShapeOnly.ready, false);
+
+  const adoptionSourceScoped = automationHelpSourceReadiness(source({
+    config: {
+      sourceShape: "SINGLE_ITEM",
+      staticFields: { organizationName: "Útulok ABC" },
+    },
+  }));
+  assert.equal(adoptionSourceScoped.reason, "READY");
+  assert.equal(adoptionSourceScoped.ready, true);
+  assert.equal(adoptionSourceScoped.adapterKey, null);
+
+  for (const entityType of ["FOSTER", "LOST_FOUND"]) {
+    const legacy = automationHelpSourceReadiness(source({
+      entityType,
+      config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "OZ Test" } },
+    }));
+    assert.equal(legacy.reason, "MISSING_ADAPTER");
+    assert.equal(legacy.ready, false);
+  }
 });
 
 test("unknown adapter key is not production-ready", () => {
@@ -134,6 +153,18 @@ test("production candidate provisioning supports only allow-listed HELP detail p
     canonicalUrl: "https://trnava.utulok.sk/psy/",
     metadata: { title: "Psy na adopciu" },
   }), {});
+
+  assert.deepEqual(candidateProvisioningConfigFor({
+    entityType: "ADOPTION",
+    canonicalUrl: "https://utulok.example/psy-na-adopciu/",
+    metadata: {
+      sourceShape: "MULTI_ITEM_LIST",
+      organizationName: "Útulok Example",
+    },
+  }), {
+    sourceShape: "MULTI_ITEM_LIST",
+    staticFields: { organizationName: "Útulok Example" },
+  });
 
 
   assert.deepEqual(candidateProvisioningConfigFor({
