@@ -333,6 +333,7 @@ async function recordFromNode(input: {
   contract: SourceScopedExtractionContract;
   discoveryMethod: string;
   detailFetched: boolean;
+  pageTextExcerpt?: string | null;
 }) {
   const itemUrl = input.itemUrl ?? nodeUrl(input.node, input.pageUrl, input.contract);
   const mapped = nodeProposal(input.node, itemUrl, input.pageUrl, input.contract);
@@ -352,6 +353,7 @@ async function recordFromNode(input: {
       schemaTypes: mapped.schemaTypes,
       structured: boundedStructuredValue(input.node),
       pageUrl: input.pageUrl,
+      ...(input.pageTextExcerpt ? { pageTextExcerpt: input.pageTextExcerpt.slice(0, 10_000) } : {}),
     },
     proposed: mapped.proposed,
     extraction: {
@@ -591,6 +593,7 @@ export async function extractGenericFirstPartySource(input: {
             contract: input.contract,
             discoveryMethod: "JSON_LD_ITEM_LIST",
             detailFetched: false,
+            pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
           });
           if (record) records.set(recordIdentityKey(record), record);
           else if (url) itemUrls.add(url);
@@ -609,6 +612,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "JSON_LD_DETAIL",
           detailFetched: false,
+          pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
         });
         if (!record) throw new GenericFirstPartyExtractionError("invalid_item_structure");
         sourceShape = "SINGLE_ITEM";
@@ -650,6 +654,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "JSON_LD_COLLECTION",
           detailFetched: false,
+          pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
         });
         if (record) records.set(recordIdentityKey(record), record);
       }
@@ -731,6 +736,7 @@ export async function extractGenericFirstPartySource(input: {
         contract: input.contract,
         discoveryMethod: "DETAIL_JSON_LD",
         detailFetched: true,
+        pageTextExcerpt: textFromHtml(detail.html).slice(0, 10_000),
       });
     } else {
       const fallback = htmlDetailEvidence(fetched.html, finalUrl, input.contract);
@@ -743,6 +749,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "DETAIL_HTML_CANONICAL",
           detailFetched: true,
+          pageTextExcerpt: textFromHtml(detail.html).slice(0, 10_000),
         });
       }
     }
