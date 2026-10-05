@@ -75,14 +75,20 @@ test("HELP source keeps entity-specific fail-closed readiness", () => {
   assert.equal(adoptionSourceScoped.ready, true);
   assert.equal(adoptionSourceScoped.adapterKey, null);
 
-  for (const entityType of ["FOSTER", "LOST_FOUND"]) {
-    const legacy = automationHelpSourceReadiness(source({
-      entityType,
-      config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "OZ Test" } },
-    }));
-    assert.equal(legacy.reason, "MISSING_ADAPTER");
-    assert.equal(legacy.ready, false);
-  }
+  const fosterSourceScoped = automationHelpSourceReadiness(source({
+    entityType: "FOSTER",
+    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "OZ Test" } },
+  }));
+  assert.equal(fosterSourceScoped.reason, "READY");
+  assert.equal(fosterSourceScoped.ready, true);
+  assert.equal(fosterSourceScoped.adapterKey, null);
+
+  const lostFoundLegacy = automationHelpSourceReadiness(source({
+    entityType: "LOST_FOUND",
+    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "OZ Test" } },
+  }));
+  assert.equal(lostFoundLegacy.reason, "MISSING_ADAPTER");
+  assert.equal(lostFoundLegacy.ready, false);
 });
 
 test("unknown adapter key is not production-ready", () => {
@@ -175,6 +181,17 @@ test("production candidate provisioning supports only allow-listed HELP detail p
     sourceShape: "SINGLE_ITEM",
     htmlAdapterKey: "zatulane-psiky-sala-foster-detail",
     expectedMinRecords: 1,
+  });
+  assert.deepEqual(candidateProvisioningConfigFor({
+    entityType: "FOSTER",
+    canonicalUrl: "https://foster.example/cases",
+    metadata: {
+      sourceShape: "MULTI_ITEM_LIST",
+      organizationName: "OZ Test",
+    },
+  }), {
+    sourceShape: "MULTI_ITEM_LIST",
+    staticFields: { organizationName: "OZ Test" },
   });
   assert.deepEqual(candidateProvisioningConfigFor({
     entityType: "LOST_FOUND",
