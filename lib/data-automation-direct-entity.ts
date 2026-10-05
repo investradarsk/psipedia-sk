@@ -164,7 +164,7 @@ function searchResultFallbackRecord(input: {
         fieldOrigins: {
           name: "SEARCH_PROVIDER",
           websiteUrl: "SEARCH_PROVIDER",
-          ...(input.entityType === "DIRECTORY" ? { category: "CANONICAL_EXISTING" } : {}),
+          ...(input.entityType === "DIRECTORY" ? { category: "DERIVED" } : {}),
         },
       },
     },
