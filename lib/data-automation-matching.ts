@@ -1,5 +1,4 @@
 import {
-  automationDraftSlug,
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
   type AutomationCanonicalMatch,
@@ -10,6 +9,13 @@ import {
   isDynamicAutomationEntityType,
   matchDynamicAutomationCandidate,
 } from "./data-automation-dynamic-identity.ts";
+import {
+  DIRECTORY_SEMANTIC_KIND,
+  directoryCandidateKeys,
+  directoryRecordFields,
+  selectDirectoryClusterCandidate,
+  type DirectoryClusterCandidate,
+} from "./data-automation-directory-matching.ts";
 
 export type AutomationMatchCandidate = {
   id: number;
@@ -128,23 +134,27 @@ function candidateMatch(
     )
   ) return "UNCERTAIN" as const;
 
+  const directEntity = entityType === "DIRECTORY" || entityType === "ORGANIZATION";
   if (candidate.exactSourceIdentity) return "EXACT_SOURCE_ID" as const;
-  if (sourceId && clean(candidate.sourceId) === sourceId) return "EXACT_SOURCE_ID" as const;
-  if (candidate.exactDetailUrl) return "EXACT_CANONICAL_KEY" as const;
+  if (!directEntity && sourceId && clean(candidate.sourceId) === sourceId) return "EXACT_SOURCE_ID" as const;
+  if (!directEntity && candidate.exactDetailUrl) return "EXACT_CANONICAL_KEY" as const;
 
-  if (entityType !== "ORGANIZATION" && record.sourceUrl && sameUrl(record.sourceUrl, candidate.sourceUrl)) {
+  if (!directEntity && record.sourceUrl && sameUrl(record.sourceUrl, candidate.sourceUrl)) {
     return "EXACT_CANONICAL_KEY" as const;
   }
 
   const importKey = clean(proposed.importKey ?? proposed.import_key);
   if (importKey && clean(candidate.importKey) === importKey) return "EXACT_CANONICAL_KEY" as const;
 
-  const slug = clean(proposed.slug)
-    ?? (entityType === "ORGANIZATION" ? clean(automationDraftSlug(null, clean(proposed.name) ?? "")) : null);
+  const slug = clean(proposed.slug);
   const category = clean(proposed.category);
-  if (slug && clean(candidate.slug) === slug && !isDynamicAutomationEntityType(entityType)) {
+  if (
+    slug
+    && entityType !== "ORGANIZATION"
+    && clean(candidate.slug) === slug
+    && !isDynamicAutomationEntityType(entityType)
+  ) {
     if (entityType === "DIRECTORY" && category && clean(candidate.category) !== category) return null;
-    if (entityType === "ORGANIZATION" && !organizationSemanticsCompatible(type, candidate.type)) return null;
     return "EXACT_CANONICAL_KEY" as const;
   }
 
@@ -172,14 +182,6 @@ function candidateMatch(
     return matchDynamicAutomationCandidate(entityType, record, candidate);
   }
 
-  if (entityType === "DIRECTORY") {
-    if (
-      category && category === clean(candidate.category)
-      && sameIdentity(proposed.name, candidate.name)
-      && sameIdentity(proposed.city, candidate.city)
-    ) return "STRONG_IDENTITY" as const;
-  }
-
   if (entityType === "HELP_ITEM") {
     if (
       sameIdentity(proposed.title, candidate.name)
@@ -191,11 +193,141 @@ function candidateMatch(
   return null;
 }
 
+function directoryCanonicalRecord(
+  record: AutomationSourceRecord,
+  candidate: AutomationMatchCandidate,
+): AutomationSourceRecord {
+  const before = candidate.before ?? {};
+  return {
+    ...record,
+    sourceRecordId: `canonical-directory:${candidate.id}`,
+    sourceUrl: candidate.sourceUrl ?? record.sourceUrl,
+    rawRecord: { canonicalEntityId: candidate.id },
+    proposed: {
+      name: candidate.name ?? before.name,
+      category: candidate.category ?? before.category,
+      semanticKind: DIRECTORY_SEMANTIC_KIND,
+      city: candidate.city ?? before.city ?? before.municipality,
+      street: before.street,
+      houseNumber: before.houseNumber ?? before.house_number,
+      postalCode: before.postalCode ?? before.postal_code,
+      publicPhone: before.publicPhone ?? before.phone,
+      publicEmail: before.publicEmail ?? before.email,
+      websiteUrl: candidate.websiteUrl ?? before.websiteUrl ?? before.website_url,
+      ico: before.ico ?? before.companyId ?? before.company_id,
+      facilityRegistryId: before.facilityRegistryId ?? before.facility_registry_id ?? before.registryId ?? before.registry_id,
+      facilityRegistryNamespace:
+        before.facilityRegistryNamespace
+        ?? before.facility_registry_namespace
+        ?? before.registryNamespace
+        ?? before.registry_namespace,
+      canonicalEntityId: candidate.id,
+    },
+  };
+}
+
+function selectSafeDirectoryMatch(input: {
+  record: AutomationSourceRecord;
+  candidates: AutomationMatchCandidate[];
+}): AutomationCanonicalMatch {
+  const provenance = input.candidates.filter((candidate) => candidate.exactSourceIdentity);
+  if (provenance.length === 1) {
+    const candidate = provenance[0];
+    return {
+      entityType: "DIRECTORY",
+      entityId: candidate.id,
+      entityKey: candidate.key,
+      quality: "EXACT_SOURCE_ID",
+      before: candidate.before,
+    };
+  }
+  if (provenance.length > 1) {
+    return {
+      entityType: "DIRECTORY",
+      entityId: null,
+      entityKey: null,
+      quality: "UNCERTAIN",
+      before: null,
+      candidates: provenance.map((candidate) => ({ id: candidate.id, key: candidate.key })),
+    };
+  }
+
+  const importKey = clean(input.record.proposed.importKey ?? input.record.proposed.import_key);
+  if (importKey) {
+    const exactImport = input.candidates.filter((candidate) => clean(candidate.importKey) === importKey);
+    if (exactImport.length === 1) {
+      const candidate = exactImport[0];
+      return {
+        entityType: "DIRECTORY",
+        entityId: candidate.id,
+        entityKey: candidate.key,
+        quality: "EXACT_CANONICAL_KEY",
+        before: candidate.before,
+      };
+    }
+    if (exactImport.length > 1) {
+      return {
+        entityType: "DIRECTORY",
+        entityId: null,
+        entityKey: null,
+        quality: "UNCERTAIN",
+        before: null,
+        candidates: exactImport.map((candidate) => ({ id: candidate.id, key: candidate.key })),
+      };
+    }
+  }
+
+  const clusterCandidates: DirectoryClusterCandidate[] = input.candidates.map((candidate) => {
+    const canonicalRecord = directoryCanonicalRecord(input.record, candidate);
+    return {
+      id: candidate.id,
+      semanticKind: DIRECTORY_SEMANTIC_KIND,
+      canonicalEntityId: candidate.id,
+      canonicalEntityKey: candidate.key,
+      fields: directoryRecordFields(canonicalRecord),
+      keys: directoryCandidateKeys(canonicalRecord),
+    };
+  });
+  const decision = selectDirectoryClusterCandidate(input.record, clusterCandidates, { allowRegistryExact: true });
+
+  if (decision.quality === "EXACT" || decision.quality === "STRONG") {
+    const candidate = input.candidates.find((entry) => entry.id === decision.candidateId);
+    if (!candidate) {
+      return { entityType: "DIRECTORY", entityId: null, entityKey: null, quality: "NONE", before: null };
+    }
+    return {
+      entityType: "DIRECTORY",
+      entityId: candidate.id,
+      entityKey: candidate.key,
+      quality: decision.quality === "EXACT" ? "EXACT_CANONICAL_KEY" : "STRONG_IDENTITY",
+      before: candidate.before,
+    };
+  }
+
+  if (decision.quality === "POSSIBLE") {
+    const ids = new Set(decision.possibleCandidateIds);
+    const possible = input.candidates.filter((candidate) => ids.has(candidate.id));
+    return {
+      entityType: "DIRECTORY",
+      entityId: null,
+      entityKey: null,
+      quality: "UNCERTAIN",
+      before: null,
+      candidates: possible.map((candidate) => ({ id: candidate.id, key: candidate.key })),
+    };
+  }
+
+  return { entityType: "DIRECTORY", entityId: null, entityKey: null, quality: "NONE", before: null };
+}
+
 export function selectSafeAutomationMatch(input: {
   entityType: AutomationEntityType;
   record: AutomationSourceRecord;
   candidates: AutomationMatchCandidate[];
 }): AutomationCanonicalMatch {
+  if (input.entityType === "DIRECTORY") {
+    return selectSafeDirectoryMatch({ record: input.record, candidates: input.candidates });
+  }
   const ranked = input.candidates
     .map((candidate) => ({ candidate, quality: candidateMatch(input.entityType, input.record, candidate) }))
     .filter((entry): entry is { candidate: AutomationMatchCandidate; quality: NonNullable<ReturnType<typeof candidateMatch>> } => Boolean(entry.quality));
