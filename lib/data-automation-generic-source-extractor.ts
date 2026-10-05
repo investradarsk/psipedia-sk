@@ -736,7 +736,7 @@ export async function extractGenericFirstPartySource(input: {
         contract: input.contract,
         discoveryMethod: "DETAIL_JSON_LD",
         detailFetched: true,
-        pageTextExcerpt: textFromHtml(detail.html).slice(0, 10_000),
+        pageTextExcerpt: textFromHtml(fetched.html).slice(0, 10_000),
       });
     } else {
       const fallback = htmlDetailEvidence(fetched.html, finalUrl, input.contract);
@@ -749,7 +749,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "DETAIL_HTML_CANONICAL",
           detailFetched: true,
-          pageTextExcerpt: textFromHtml(detail.html).slice(0, 10_000),
+          pageTextExcerpt: textFromHtml(fetched.html).slice(0, 10_000),
         });
       }
     }
