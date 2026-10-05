@@ -559,7 +559,8 @@ test("dedicated EVENT adapter remains higher priority than generic/Tavily", asyn
     config: { htmlAdapterKey: "skj-exhibition-calendar", sourceShape: "MULTI_ITEM_LIST" },
   });
   let tavilyCalls = 0;
-  await fetchAutomationSourceRecords(src, {
+  const fixture = readFileSync(new URL("./fixtures/data-automation/skj-calendar.html", import.meta.url), "utf8");
+  const records = await fetchAutomationSourceRecords(src, {
     sourceScopedContract: contract(src, "/sk/vystavy/kalendar/**"),
     htmlAdapters: productionAutomationHtmlAdapters,
     tavilyCrawlProvider: {
@@ -569,11 +570,13 @@ test("dedicated EVENT adapter remains higher priority than generic/Tavily", asyn
       },
     },
     tavilyRequestGate: gate().value,
-    fetchImpl: async () => new Response(`<html><body><table>
-      <tr><th>Dátum</th><th>Názov</th><th>Miesto</th></tr>
-      <tr><td>10. 3. 2027</td><td>Výstava ABC</td><td>Nitra</td></tr>
-    </table></body></html>`, { status: 200, headers: { "content-type": "text/html" } }),
-  }).catch(() => []);
+    fetchImpl: async () => new Response(fixture, {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    }),
+  });
+  assert.equal(records.length, 2);
+  assert.equal(records[0].proposed.city, "Nitra");
   assert.equal(tavilyCalls, 0);
 });
 
