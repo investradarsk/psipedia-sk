@@ -19,6 +19,7 @@ import {
   buildSourceScopedExtractionContract,
   type SourceScopedExtractionContract,
 } from "./data-automation-source-scoped-extraction.ts";
+import { automationSourceProviderUsageSchemaReady } from "./data-automation-source-provider-usage.ts";
 import {
   evaluateGovernanceForActivation,
   getGovernanceState,
@@ -153,6 +154,20 @@ export async function automationSourceActivationReadiness(
         },
       });
     }
+  }
+
+  if (
+    technical.ready
+    && (technical.strategy === "TAVILY_CRAWL" || technical.strategy === "TAVILY_EXTRACT")
+    && !(await automationSourceProviderUsageSchemaReady(database))
+  ) {
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: "TAVILY_USAGE_SCHEMA_UNAVAILABLE",
+    };
   }
 
   if (technical.applicable && !technical.ready) {

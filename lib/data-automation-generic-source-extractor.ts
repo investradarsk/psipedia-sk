@@ -333,6 +333,7 @@ async function recordFromNode(input: {
   contract: SourceScopedExtractionContract;
   discoveryMethod: string;
   detailFetched: boolean;
+  pageTextExcerpt?: string | null;
 }) {
   const itemUrl = input.itemUrl ?? nodeUrl(input.node, input.pageUrl, input.contract);
   const mapped = nodeProposal(input.node, itemUrl, input.pageUrl, input.contract);
@@ -352,6 +353,7 @@ async function recordFromNode(input: {
       schemaTypes: mapped.schemaTypes,
       structured: boundedStructuredValue(input.node),
       pageUrl: input.pageUrl,
+      ...(input.pageTextExcerpt ? { pageTextExcerpt: input.pageTextExcerpt.slice(0, 10_000) } : {}),
     },
     proposed: mapped.proposed,
     extraction: {
@@ -591,6 +593,7 @@ export async function extractGenericFirstPartySource(input: {
             contract: input.contract,
             discoveryMethod: "JSON_LD_ITEM_LIST",
             detailFetched: false,
+            pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
           });
           if (record) records.set(recordIdentityKey(record), record);
           else if (url) itemUrls.add(url);
@@ -609,6 +612,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "JSON_LD_DETAIL",
           detailFetched: false,
+          pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
         });
         if (!record) throw new GenericFirstPartyExtractionError("invalid_item_structure");
         sourceShape = "SINGLE_ITEM";
@@ -634,6 +638,49 @@ export async function extractGenericFirstPartySource(input: {
         };
       }
 
+      if (
+        visitedListings.size === 1
+        && structuredItems.length === 0
+        && input.source.config.sourceShape === "SINGLE_ITEM"
+        && input.source.entityType === "EVENT"
+      ) {
+        const fallback = htmlDetailEvidence(page.html, pageUrl, input.contract);
+        if (fallback) {
+          const record = await recordFromNode({
+            node: fallback.node,
+            pageUrl,
+            itemUrl: fallback.canonical,
+            source: input.source,
+            contract: input.contract,
+            discoveryMethod: "ROOT_HTML_CANONICAL",
+            detailFetched: false,
+            pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
+          });
+          if (!record) throw new GenericFirstPartyExtractionError("invalid_item_structure");
+          sourceShape = "SINGLE_ITEM";
+          const coverage: AutomationExtractionCoverage = {
+            classification: "DETAIL_ONLY",
+            complete: false,
+            enumeratedItemCount: 1,
+            visitedPageCount: 1,
+            truncated: false,
+          };
+          return {
+            records: [withCoverage(record, coverage)],
+            coverage,
+            diagnostics: {
+              sourceShape,
+              visitedListingPages: 1,
+              discoveredItemUrls: 1,
+              detailFetches: 0,
+              rejectedUrls,
+              malformedStructuredBlocks,
+              warnings: [],
+            },
+          };
+        }
+      }
+
       for (const node of structuredItems) {
         if (records.size + itemUrls.size >= input.contract.limits.maxItems) {
           truncated = true;
@@ -650,6 +697,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "JSON_LD_COLLECTION",
           detailFetched: false,
+          pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
         });
         if (record) records.set(recordIdentityKey(record), record);
       }
@@ -731,6 +779,7 @@ export async function extractGenericFirstPartySource(input: {
         contract: input.contract,
         discoveryMethod: "DETAIL_JSON_LD",
         detailFetched: true,
+        pageTextExcerpt: textFromHtml(fetched.html).slice(0, 10_000),
       });
     } else {
       const fallback = htmlDetailEvidence(fetched.html, finalUrl, input.contract);
@@ -743,6 +792,7 @@ export async function extractGenericFirstPartySource(input: {
           contract: input.contract,
           discoveryMethod: "DETAIL_HTML_CANONICAL",
           detailFetched: true,
+          pageTextExcerpt: textFromHtml(fetched.html).slice(0, 10_000),
         });
       }
     }

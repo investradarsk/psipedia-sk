@@ -24,6 +24,19 @@ function cooldownMs(status: string) {
   return 0;
 }
 
+export async function automationSourceProviderUsageSchemaReady(
+  database: AutomationSourceProviderUsageDatabase,
+) {
+  try {
+    const row = await database.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='automation_source_provider_usage' LIMIT 1",
+    ).first<{ name: string }>();
+    return row?.name === "automation_source_provider_usage";
+  } catch {
+    return false;
+  }
+}
+
 export function utcAutomationSourceProviderDayBucket(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
@@ -37,7 +50,7 @@ export async function reserveAutomationSourceProviderRequest(input: {
   database: AutomationSourceProviderUsageDatabase;
   operationKey: string;
   sourceId: number;
-  runId: number;
+  runId: number | null;
   providerKey: string;
   operation: AutomationSourceProviderOperation;
   maxRequestsPerDay: number;

@@ -5,6 +5,18 @@ import { productionAutomationHtmlAdapters } from "./data-automation-real-sources
 import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
 import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
+import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
+import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
+import { validateDynamicAutomationIngestion } from "./data-automation-dynamic-identity.ts";
+import {
+  TavilyAutomationCrawlProvider,
+  TavilyAutomationExtractProvider,
+  type TavilySourceScopedRequestGate,
+} from "./data-automation-tavily-source-scoped.ts";
+import {
+  finalizeAutomationSourceProviderRequest,
+  reserveAutomationSourceProviderRequest,
+} from "./data-automation-source-provider-usage.ts";
 
 function safePreviewErrorDetail(code: string) {
   const details: Record<string, string> = {
@@ -41,6 +53,7 @@ export async function previewAutomationSource(input: {
   database: AutomationD1Database;
   fetchImpl?: AutomationFetch;
   sleep?: (ms: number) => Promise<void>;
+  tavilyApiKey?: string;
 }) {
   let httpStatus: number | null = null;
   let contentType: string | null = null;
@@ -55,11 +68,67 @@ export async function previewAutomationSource(input: {
       input.database,
     );
     const scoped = buildSourceScopedExtractionContract(input.source, governance.state);
+    const tavilyKey = input.tavilyApiKey?.trim() ?? "";
+    const tavilyCrawlProvider = tavilyKey
+      ? new TavilyAutomationCrawlProvider({
+          apiKey: tavilyKey,
+          fetchImpl: input.fetchImpl,
+          sleep: input.sleep,
+        })
+      : undefined;
+    const tavilyExtractProvider = tavilyKey
+      ? new TavilyAutomationExtractProvider({
+          apiKey: tavilyKey,
+          fetchImpl: input.fetchImpl,
+          sleep: input.sleep,
+        })
+      : undefined;
+    let providerRequestSequence = 0;
+    const tavilyRequestGate: TavilySourceScopedRequestGate | undefined = tavilyKey && scoped.ready
+      ? {
+          reserve: async (operation) => {
+            providerRequestSequence += 1;
+            if (providerRequestSequence > scoped.contract.limits.maxProviderRequests) return null;
+            const operationKey = [
+              "source",
+              input.source.id,
+              "preview",
+              new Date().toISOString(),
+              operation.toLowerCase(),
+              providerRequestSequence,
+            ].join(":");
+            const reservation = await reserveAutomationSourceProviderRequest({
+              database: input.database,
+              operationKey,
+              sourceId: input.source.id,
+              runId: null,
+              providerKey: "tavily",
+              operation,
+              maxRequestsPerDay: scoped.contract.limits.maxProviderRequestsPerDay,
+              maxRequestsPerRun: scoped.contract.limits.maxProviderRequests,
+            });
+            return reservation.reserved ? { operationKey } : null;
+          },
+          finalize: async (usage) => {
+            await finalizeAutomationSourceProviderRequest({
+              database: input.database,
+              operationKey: usage.operationKey,
+              status: usage.status,
+              resultCount: usage.resultCount,
+              acceptedCount: usage.acceptedCount,
+              scopeRejectedCount: usage.scopeRejectedCount,
+            });
+          },
+        }
+      : undefined;
     const records = await fetchAutomationSourceRecords(input.source, {
       fetchImpl: input.fetchImpl,
       sleep: input.sleep,
       htmlAdapters: productionAutomationHtmlAdapters,
       sourceScopedContract: scoped.ready ? scoped.contract : undefined,
+      tavilyCrawlProvider,
+      tavilyExtractProvider,
+      tavilyRequestGate,
       onResponse(meta) {
         httpStatus = meta.status;
         contentType = meta.contentType;
@@ -76,22 +145,48 @@ export async function previewAutomationSource(input: {
     let possibleMatches = 0;
     let newCandidates = 0;
     let possibleUpdates = 0;
+    let reviewOnly = 0;
+    let insufficient = 0;
     const errors: string[] = [];
 
     for (const record of records) {
       try {
-        const candidateRecord = organizationEnricher
+        let candidateRecord = organizationEnricher
           ? await organizationEnricher(record, { detectedAt: new Date().toISOString() })
           : record;
+        candidateRecord = await enrichAutomationRecordSchemaFirst({
+          entityType: input.source.entityType,
+          record: candidateRecord,
+        });
+        if (input.source.entityType === "EVENT") {
+          candidateRecord = normalizeAutomationEventRecord(candidateRecord);
+        }
         if (!candidateRecord.proposed || typeof candidateRecord.proposed !== "object" || Array.isArray(candidateRecord.proposed)) {
           throw new Error("normalized_payload_invalid");
         }
         normalized += 1;
         const match = await matchAutomationCanonical(input.source, candidateRecord, input.database);
         if (match.entityId || match.quality === "UNCERTAIN") possibleMatches += 1;
+        const ingestionDecision = validateDynamicAutomationIngestion({
+          source: input.source,
+          record: candidateRecord,
+          match,
+        });
         const finding = classifyAutomationFinding({ match, proposed: candidateRecord.proposed });
-        if (finding?.findingType === "NEW_ENTITY") newCandidates += 1;
-        if (finding && finding.findingType !== "NEW_ENTITY" && finding.findingType !== "DUPLICATE_CANDIDATE") possibleUpdates += 1;
+        if (finding?.findingType === "NEW_ENTITY") {
+          if (!ingestionDecision || ingestionDecision.canCreateDraft) newCandidates += 1;
+          else {
+            reviewOnly += 1;
+            if (ingestionDecision.gate === "INSUFFICIENT") insufficient += 1;
+          }
+        }
+        if (finding?.findingType === "DUPLICATE_CANDIDATE") reviewOnly += 1;
+        if (
+          finding
+          && finding.findingType !== "NEW_ENTITY"
+          && finding.findingType !== "DUPLICATE_CANDIDATE"
+          && (!ingestionDecision || ingestionDecision.canSuggestUpdate)
+        ) possibleUpdates += 1;
       } catch (error) {
         errors.push(error instanceof Error ? error.message : "preview_record_error");
       }
@@ -111,6 +206,8 @@ export async function previewAutomationSource(input: {
       possibleMatches,
       newCandidates,
       possibleUpdates,
+      reviewOnly,
+      insufficient,
       errors: errors.slice(0, 20),
       parserErrors: errors.filter((code) => /^(adapter_|structured_json_|generic_|no_items_|source_scope_|ambiguous_listing|unsupported_structured_data|traversal_limit_|detail_fetch_|unsafe_item_|invalid_item_)/.test(code)).slice(0, 20),
       errorDetails: errors.slice(0, 20).map((code) => ({ code, detail: safePreviewErrorDetail(code) })),
@@ -134,6 +231,8 @@ export async function previewAutomationSource(input: {
       possibleMatches: 0,
       newCandidates: 0,
       possibleUpdates: 0,
+      reviewOnly: 0,
+      insufficient: 0,
       errors: [code],
       parserErrors: /^(adapter_|structured_json_|generic_|no_items_|source_scope_|ambiguous_listing|unsupported_structured_data|traversal_limit_|detail_fetch_|unsafe_item_|invalid_item_)/.test(code) ? [code] : [],
       errorDetails: [{ code, detail: safePreviewErrorDetail(code) }],

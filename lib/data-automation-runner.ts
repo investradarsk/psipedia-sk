@@ -56,6 +56,7 @@ import {
   validateDynamicAutomationIngestion,
   type DynamicAutomationIngestionDecision,
 } from "./data-automation-dynamic-identity.ts";
+import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
 import {
   TavilyAutomationCrawlProvider,
   TavilyAutomationExtractProvider,
@@ -128,9 +129,6 @@ function requiredIdentity(source: AutomationSource, record: AutomationSourceReco
   const p = record.proposed;
   if (!record.sourceRecordId.trim()) throw new Error("source_record_id_missing");
   if (!p || typeof p !== "object" || Array.isArray(p)) throw new Error("normalized_payload_invalid");
-  if (source.entityType === "EVENT" && (!String(p.title ?? "").trim() || !String(p.startDate ?? p.start_date ?? "").trim())) {
-    throw new Error("event_identity_missing");
-  }
   if (source.entityType === "ORGANIZATION" && !String(p.name ?? "").trim()) throw new Error("organization_identity_missing");
   if (source.entityType === "DIRECTORY" && (!String(p.name ?? "").trim() || !String(p.category ?? "").trim())) {
     throw new Error("directory_identity_missing");
@@ -655,6 +653,9 @@ export async function processAutomationRecordForReview(input: {
     entityType: input.source.entityType,
     record,
   });
+  if (input.source.entityType === "EVENT") {
+    record = normalizeAutomationEventRecord(record, { now: input.now ?? new Date() });
+  }
   return processRecord(input.source, null, record, detectedAt, input.database, input.findingProposal);
 }
 
@@ -787,6 +788,9 @@ async function runSource(
           entityType: source.entityType,
           record: candidateRecord,
         });
+        if (source.entityType === "EVENT") {
+          candidateRecord = normalizeAutomationEventRecord(candidateRecord, { now: startedAt });
+        }
         const result = await processRecord(source, runId, candidateRecord, detectedAt, options.database);
         const counts = automationResultFindingCounts(result);
         newFindings += counts.created;

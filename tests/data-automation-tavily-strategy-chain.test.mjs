@@ -139,10 +139,19 @@ function governanceDb(row) {
         bind() {
           return {
             async first() {
-              if (!sql.includes("automation_governance_reviews")) throw new Error("unexpected query");
-              return row;
+              if (sql.includes("automation_governance_reviews")) return row;
+              if (sql.includes("sqlite_master") && sql.includes("automation_source_provider_usage")) {
+                return { name: "automation_source_provider_usage" };
+              }
+              throw new Error("unexpected query");
             },
           };
+        },
+        async first() {
+          if (sql.includes("sqlite_master") && sql.includes("automation_source_provider_usage")) {
+            return { name: "automation_source_provider_usage" };
+          }
+          throw new Error("unexpected query");
         },
       };
     },

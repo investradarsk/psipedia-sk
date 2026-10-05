@@ -1,6 +1,7 @@
 import {
   automationCoverageCanInferAbsence,
 } from "./data-automation-source-scoped-extraction.ts";
+import { automationEventNormalizationMetadata } from "./data-automation-event-normalize.ts";
 import {
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
@@ -221,6 +222,11 @@ function eventDraftEvidence(record: AutomationSourceRecord) {
   const organizer = clean(p.organizer ?? p.organization ?? p.organizationName);
   const location = clean(p.venue ?? p.location ?? p.address ?? p.city ?? p.locationDescription);
   if (!organizer && !location) reasons.push("event_context_missing");
+  const normalized = automationEventNormalizationMetadata(record);
+  if (normalized?.archiveOnly === true) reasons.push("event_past_archive_only");
+  if (p.cancelled === true || normalized?.explicitCancellation === true) {
+    reasons.push("event_cancelled_new_draft_blocked");
+  }
   return reasons;
 }
 
