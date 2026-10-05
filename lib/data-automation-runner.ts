@@ -690,12 +690,16 @@ async function runSource(
       );
     }
 
-    const scoped = buildSourceScopedExtractionContract(source, governance.state);
-    if (!scoped.ready) {
+    const scoped = source.connectorType === "MANUAL_IMPORT"
+      ? null
+      : buildSourceScopedExtractionContract(source, governance.state);
+    if (scoped && !scoped.ready) {
       throw new AutomationConnectorError("automation_source_contract_not_ready:" + scoped.reason);
     }
 
-    const tavilyKey = options.tavilyApiKey?.trim() ?? "";
+    const tavilyKey = source.connectorType === "CONTROLLED_HTML"
+      ? options.tavilyApiKey?.trim() ?? ""
+      : "";
     const tavilyCrawlProvider = tavilyKey
       ? new TavilyAutomationCrawlProvider({
           apiKey: tavilyKey,
@@ -733,8 +737,8 @@ async function runSource(
           runId,
           providerKey: "tavily",
           operation,
-          maxRequestsPerDay: scoped.contract.limits.maxProviderRequestsPerDay,
-          maxRequestsPerRun: scoped.contract.limits.maxProviderRequests,
+          maxRequestsPerDay: scoped!.contract.limits.maxProviderRequestsPerDay,
+          maxRequestsPerRun: scoped!.contract.limits.maxProviderRequests,
           now: startedAt,
         });
         return reservation.reserved ? { operationKey } : null;
@@ -756,7 +760,7 @@ async function runSource(
       fetchImpl: options.fetchImpl,
       htmlAdapters: options.htmlAdapters,
       sleep: options.sleep,
-      sourceScopedContract: scoped.contract,
+      sourceScopedContract: scoped?.ready ? scoped.contract : undefined,
       tavilyCrawlProvider,
       tavilyExtractProvider,
       tavilyRequestGate,
