@@ -2,6 +2,7 @@ import {
   automationCoverageCanInferAbsence,
 } from "./data-automation-source-scoped-extraction.ts";
 import { automationEventNormalizationMetadata } from "./data-automation-event-normalize.ts";
+import { automationAdoptionNormalizationMetadata } from "./data-automation-adoption-normalize.ts";
 import {
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
@@ -237,6 +238,14 @@ function adoptionDraftEvidence(record: AutomationSourceRecord) {
   const stable = automationStableSourceIdentity(record);
   if (stable === "NONE" || stable === "WEAK") reasons.push("adoption_stable_identity_missing");
   if (!clean(p.organizationName ?? p.organization)) reasons.push("adoption_organization_identity_missing");
+
+  const normalized = automationAdoptionNormalizationMetadata(record);
+  const adopted = normalized?.explicitAdopted === true
+    || record.lifecycleSignals?.some((signal) => signal.signalType === "ADOPTION_ADOPTED");
+  const reserved = normalized?.explicitReserved === true
+    || record.lifecycleSignals?.some((signal) => signal.signalType === "ADOPTION_RESERVED");
+  if (adopted) reasons.push("adoption_adopted_new_draft_blocked");
+  else if (reserved) reasons.push("adoption_reserved_new_draft_blocked");
   return reasons;
 }
 
