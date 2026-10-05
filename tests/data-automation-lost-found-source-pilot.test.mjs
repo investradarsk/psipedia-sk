@@ -6,6 +6,7 @@ import {
   automationLostFoundNormalizationMetadata,
 } from "../lib/data-automation-lost-found-normalize.ts";
 import { validateDynamicAutomationIngestion } from "../lib/data-automation-dynamic-identity.ts";
+import { enrichAutomationRecordSchemaFirst } from "../lib/data-automation-entity-enrichment.ts";
 import {
   automationExtractionCapabilities,
   automationSourceReadiness,
@@ -371,7 +372,11 @@ test("generic MULTI_ITEM_LIST extracts concrete FOUND and LOST detail reports", 
     },
   });
   assert.equal(result.records.length, 2);
-  const normalized = result.records.map((record) => normalizeAutomationLostFoundRecord(record, { sourceConfig: src.config }));
+  const enriched = await Promise.all(result.records.map((record) => enrichAutomationRecordSchemaFirst({
+    entityType: "LOST_FOUND",
+    record,
+  })));
+  const normalized = enriched.map((record) => normalizeAutomationLostFoundRecord(record, { sourceConfig: src.config }));
   const rex = normalized.find((record) => record.proposed.dogName === "Rex");
   const bella = normalized.find((record) => record.proposed.dogName === "Bella");
   assert.equal(rex?.proposed.type, "FOUND");
