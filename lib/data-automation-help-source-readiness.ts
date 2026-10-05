@@ -117,9 +117,10 @@ export function automationHelpSourceReadiness(
           reason: "MISSING_ORGANIZATION_IDENTITY",
         };
       }
-      // Legacy HELP readiness is no longer adapter-only for ADOPTION/FOSTER.
-      // The generalized source-scoped capability/activation layer still decides
-      // whether GENERIC_FIRST_PARTY or Tavily is actually usable.
+    }
+    if (source.entityType === "ADOPTION" || source.entityType === "FOSTER" || source.entityType === "LOST_FOUND") {
+      // Legacy HELP readiness is no longer adapter-only for source-scoped dynamic HELP entities.
+      // Entity-specific normalization and ingestion gates remain authoritative.
       return {
         applicable: true,
         ready: true,
