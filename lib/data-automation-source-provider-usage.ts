@@ -50,7 +50,7 @@ export async function reserveAutomationSourceProviderRequest(input: {
   database: AutomationSourceProviderUsageDatabase;
   operationKey: string;
   sourceId: number;
-  runId: number;
+  runId: number | null;
   providerKey: string;
   operation: AutomationSourceProviderOperation;
   maxRequestsPerDay: number;
