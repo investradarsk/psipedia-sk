@@ -480,7 +480,7 @@ test("TAVILY-SOURCE-SCOPED-1 0110 detects partial provider usage schema drift", 
   );
   assert.throws(
     () => assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: true }),
-    /already contains target migration objects/i,
+    /target schema objects already exist; possible partial\/manual drift/i,
   );
 });
 
