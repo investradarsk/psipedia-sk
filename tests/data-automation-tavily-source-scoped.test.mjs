@@ -407,3 +407,71 @@ test("Tavily Crawl and Extract coverage can never drive missing semantics", asyn
   assert.equal(automationCoverageCanInferAbsence({ classification: "BOUNDED_PARTIAL", complete: false }), false);
   assert.equal(automationCoverageCanInferAbsence({ classification: "DETAIL_ONLY", complete: false }), false);
 });
+
+
+test("transient retry consumes a fresh budget reservation before each HTTP attempt", async () => {
+  let fetches = 0;
+  let reservations = 0;
+  const finalized = [];
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    sleep: async () => {},
+    fetchImpl: async () => {
+      fetches += 1;
+      return json({}, 503);
+    },
+  });
+  await assert.rejects(
+    provider.crawl({
+      source: source({ retryMaxAttempts: 2 }),
+      contract: contract(),
+      gate: {
+        async reserve(operation) {
+          reservations += 1;
+          return reservations === 1 ? { operationKey: "attempt-1-" + operation } : null;
+        },
+        async finalize(value) {
+          finalized.push(value);
+        },
+      },
+    }),
+    (error) => error instanceof TavilySourceScopedError && error.code === "TAVILY_BUDGET_EXHAUSTED",
+  );
+  assert.equal(fetches, 1);
+  assert.equal(reservations, 2);
+  assert.equal(finalized[0].status, "PROVIDER_ERROR");
+});
+
+test("all scope-rejected Crawl results finalize as scope violation", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => json(payload([
+      { url: "https://other.example/psy/max", raw_content: "# Max" },
+      { url: "https://example.sk/blog/max", raw_content: "# Max" },
+    ])),
+  });
+  await assert.rejects(
+    provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+    (error) => error instanceof TavilySourceScopedError && error.code === "TAVILY_SCOPE_VIOLATION",
+  );
+  assert.equal(g.finalized.at(-1).status, "SCOPE_VIOLATION");
+});
+
+test("malformed provider response finalizes reserved usage as INVALID_RESPONSE", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationExtractProvider({
+    apiKey: "key",
+    fetchImpl: async () => json({ unexpected: [] }),
+  });
+  await assert.rejects(
+    provider.extract({
+      source: source(),
+      contract: contract(),
+      gate: g.value,
+      urls: ["https://example.sk/psy/max"],
+    }),
+    (error) => error instanceof TavilySourceScopedError && error.code === "TAVILY_INVALID_RESPONSE",
+  );
+  assert.equal(g.finalized.at(-1).status, "INVALID_RESPONSE");
+});
