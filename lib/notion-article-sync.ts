@@ -7,8 +7,15 @@ import {
   type ManagedArticle,
   type ManagedArticleInput,
 } from "@/lib/article-store";
-import type { ArticleBlock } from "@/lib/article-blocks";
+import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import { preserveArticlePromoBlocks } from "@/lib/article-promo";
+import {
+  EDITORIAL_RICH_TEXT_VERSION,
+  sanitizeEditorialHref,
+  type EditorialRichTextDocument,
+  type EditorialRichTextInline,
+  type EditorialRichTextMark,
+} from "@/lib/editorial-content";
 import { articleHref } from "@/lib/portal";
 import {
   isCompatibleLegacyArticleSubsection,
@@ -32,6 +39,8 @@ type NotionPage = {
 type NotionBlock = {
   id: string;
   type: string;
+  has_children?: boolean;
+  children?: NotionBlock[];
   [key: string]: unknown;
 };
 
@@ -84,13 +93,83 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function richTextRecords(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    : [];
+}
+
 function richTextPlainText(value: unknown) {
-  if (!Array.isArray(value)) return "";
-  return normalizeText(value.map((item) => {
-    if (!item || typeof item !== "object") return "";
-    const record = item as Record<string, unknown>;
-    return typeof record.plain_text === "string" ? record.plain_text : "";
-  }).join(""));
+  return normalizeText(richTextRecords(value).map((record) => (
+    typeof record.plain_text === "string" ? record.plain_text : ""
+  )).join(""));
+}
+
+function richTextHref(record: Record<string, unknown>) {
+  if (typeof record.href === "string") return sanitizeEditorialHref(record.href, true);
+  const text = record.text;
+  if (!text || typeof text !== "object") return "";
+  const link = (text as Record<string, unknown>).link;
+  if (!link || typeof link !== "object") return "";
+  return sanitizeEditorialHref((link as Record<string, unknown>).url, true);
+}
+
+function notionRichTextInline(value: unknown): EditorialRichTextInline[] {
+  const nodes: EditorialRichTextInline[] = [];
+
+  for (const record of richTextRecords(value)) {
+    const plain = typeof record.plain_text === "string" ? record.plain_text : "";
+    if (!plain) continue;
+
+    const annotations = record.annotations && typeof record.annotations === "object"
+      ? record.annotations as Record<string, unknown>
+      : {};
+    const marks: EditorialRichTextMark[] = [];
+    if (annotations.bold === true) marks.push({ type: "bold" });
+    if (annotations.italic === true) marks.push({ type: "italic" });
+    const href = richTextHref(record);
+    if (href) marks.push({ type: "link", href });
+
+    plain.split("\n").forEach((part, index) => {
+      if (index) nodes.push({ type: "hardBreak" });
+      if (part) nodes.push({ type: "text", text: part, ...(marks.length ? { marks } : {}) });
+    });
+  }
+
+  return nodes;
+}
+
+function notionRichTextDocument(
+  value: unknown,
+  type: "paragraph" | "blockquote" | "callout" = "paragraph",
+  tone: "info" | "tip" | "warning" = "info",
+): EditorialRichTextDocument | null {
+  const content = notionRichTextInline(value);
+  if (!content.length) return null;
+  const block = type === "paragraph"
+    ? { type: "paragraph" as const, content }
+    : type === "blockquote"
+      ? { type: "blockquote" as const, content }
+      : { type: "callout" as const, tone, content };
+  return { version: EDITORIAL_RICH_TEXT_VERSION, type: "doc", content: [block] };
+}
+
+function notionRichTextMarkdown(value: unknown) {
+  return richTextRecords(value).map((record) => {
+    let text = typeof record.plain_text === "string" ? record.plain_text : "";
+    if (!text) return "";
+    const annotations = record.annotations && typeof record.annotations === "object"
+      ? record.annotations as Record<string, unknown>
+      : {};
+    const href = richTextHref(record);
+
+    // Article list/table cells use the lightweight Markdown renderer. Prefer a
+    // link over other marks when Notion combines marks that renderer cannot nest.
+    if (href) return `[${text}](${href})`;
+    if (annotations.bold === true) return `**${text}**`;
+    if (annotations.italic === true) return `_${text}_`;
+    return text;
+  }).join("");
 }
 
 function propertyRecord(page: NotionPage, name: string) {
@@ -275,6 +354,8 @@ async function prepareNotionMainImage(
   existing?: ManagedArticle | null,
 ): Promise<PreparedNotionImage> {
   const sourceUrl = urlProperty(page, "Hlavný obrázok URL");
+  const imageSourceUrl = urlProperty(page, "Zdroj obrázka");
+  const altText = richTextProperty(page, "Alt text obrázka");
 
   if (!sourceUrl) {
     if (!existing) return { payload, uploadedKey: null, replacedKeys: [] };
@@ -285,6 +366,8 @@ async function prepareNotionMainImage(
         ...payload,
         imageUrl: existingImageUrl,
         imageKey: existing.imageKey,
+        imageAlt: altText || existing.imageAlt || null,
+        imageCreditUrl: imageSourceUrl || existing.imageCreditUrl || null,
         ogImageUrl: existingOgImageUrl,
         ogImageKey: existing.ogImageKey,
       },
@@ -310,6 +393,8 @@ async function prepareNotionMainImage(
           ...payload,
           imageUrl: existingImageUrl,
           imageKey: existing.imageKey,
+          imageAlt: altText || existing.imageAlt || null,
+          imageCreditUrl: imageSourceUrl || existing.imageCreditUrl || null,
           ogImageUrl: existingOgImageUrl,
           ogImageKey: existing.ogImageKey ?? existing.imageKey,
         },
@@ -322,9 +407,6 @@ async function prepareNotionMainImage(
   const remote = await downloadRemoteImage(sourceUrl);
   const key = `articles/${new Date().getUTCFullYear()}/${crypto.randomUUID()}.${remote.extension}`;
   const imageUrl = storedImageUrl(key);
-  const imageSourceUrl = urlProperty(page, "Zdroj obrázka");
-  const altText = richTextProperty(page, "Alt text obrázka");
-
   await bucket.put(key, remote.bytes, {
     httpMetadata: {
       contentType: remote.contentType,
@@ -349,6 +431,8 @@ async function prepareNotionMainImage(
       ...payload,
       imageUrl,
       imageKey: key,
+      imageAlt: altText || null,
+      imageCreditUrl: imageSourceUrl || null,
       ogImageUrl: imageUrl,
       ogImageKey: key,
     },
@@ -369,12 +453,86 @@ function blockPayload(block: NotionBlock) {
   return value && typeof value === "object" ? value as Record<string, unknown> : null;
 }
 
+function blockRichText(block: NotionBlock) {
+  return blockPayload(block)?.rich_text;
+}
+
 function blockText(block: NotionBlock) {
-  return richTextPlainText(blockPayload(block)?.rich_text);
+  return richTextPlainText(blockRichText(block));
 }
 
 function notionBlockId(block: NotionBlock, index: number) {
   return `notion-${block.id || index + 1}`.slice(0, 100);
+}
+
+function notionExternalBlockUrl(block: NotionBlock) {
+  const payload = blockPayload(block);
+  if (!payload) return "";
+  if (block.type === "embed") return sanitizeEditorialHref(payload.url, false);
+
+  const mediaType = typeof payload.type === "string" ? payload.type : "";
+  if (mediaType !== "external") return "";
+  const external = payload.external;
+  if (!external || typeof external !== "object") return "";
+  return sanitizeEditorialHref((external as Record<string, unknown>).url, false);
+}
+
+function notionImageBlock(block: NotionBlock, index: number): ArticleBlock | null {
+  if (block.type !== "image") return null;
+  const url = notionExternalBlockUrl(block);
+  if (!url.startsWith("https://")) return null;
+  const caption = richTextPlainText(blockPayload(block)?.caption);
+  return {
+    id: notionBlockId(block, index),
+    type: "image",
+    url,
+    imageKey: null,
+    alt: caption || "Ilustračný obrázok k článku",
+    ...(caption ? { caption } : {}),
+    size: "normal",
+  };
+}
+
+function notionEmbedBlock(block: NotionBlock, index: number): ArticleBlock | null {
+  if (block.type !== "embed" && block.type !== "video") return null;
+  const url = notionExternalBlockUrl(block);
+  if (!url) return null;
+  const caption = richTextPlainText(blockPayload(block)?.caption);
+  return {
+    id: notionBlockId(block, index),
+    type: "embed",
+    url,
+    ...(caption ? { title: caption, caption } : {}),
+  };
+}
+
+function notionTableBlock(block: NotionBlock, index: number): ArticleBlock | null {
+  if (block.type !== "table") return null;
+  const payload = blockPayload(block);
+  const rows = (block.children ?? []).flatMap((row) => {
+    if (row.type !== "table_row") return [];
+    const cells = blockPayload(row)?.cells;
+    if (!Array.isArray(cells)) return [];
+    return [cells.map((cell) => notionRichTextMarkdown(cell))];
+  });
+  if (!rows.length) return null;
+
+  const width = Math.max(
+    Number(payload?.table_width) || 0,
+    ...rows.map((row) => row.length),
+  );
+  const normalizedRows = rows.map((row) => Array.from({ length: width }, (_, cellIndex) => row[cellIndex] ?? ""));
+  const hasColumnHeader = payload?.has_column_header === true;
+  const headers = hasColumnHeader
+    ? normalizedRows.shift() ?? []
+    : Array.from({ length: width }, (_, cellIndex) => `Stĺpec ${cellIndex + 1}`);
+
+  return headers.length ? {
+    id: notionBlockId(block, index),
+    type: "table",
+    headers,
+    rows: normalizedRows,
+  } : null;
 }
 
 type NotionArticlePlacement = {
@@ -510,10 +668,112 @@ function isStopHeading(value: string) {
   return normalizeText(value).toLocaleLowerCase("sk") === "seo";
 }
 
+function isAdminManifestHeading(value: string) {
+  const normalized = normalizeText(value).toLocaleLowerCase("sk");
+  return normalized === "psipedia bloky"
+    || normalized === "redakčné prvky pre psipedia admin";
+}
+
 function calloutType(block: NotionBlock): "warning" | "tip" {
   const icon = blockPayload(block)?.icon;
   if (icon && typeof icon === "object" && (icon as Record<string, unknown>).emoji === "⚠️") return "warning";
   return "tip";
+}
+
+type NotionManifestDirective = {
+  block: ArticleBlock;
+  afterSection?: string;
+  beforeHeading?: string;
+  position?: "start" | "end";
+};
+
+function parseAdminManifest(blocks: NotionBlock[]): NotionManifestDirective[] {
+  const start = blocks.findIndex((block) => block.type === "heading_2" && isAdminManifestHeading(blockText(block)));
+  if (start < 0) return [];
+
+  const selected: NotionBlock[] = [];
+  for (let index = start + 1; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    if (block.type === "heading_2" && !isAdminManifestHeading(blockText(block))) break;
+    selected.push(block);
+  }
+
+  const manifest = selected.find((block) => {
+    if (block.type !== "code") return false;
+    const language = blockPayload(block)?.language;
+    return language === "json" || language === "javascript" || language === "plain text";
+  });
+  if (!manifest) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(blockText(manifest));
+  } catch {
+    throw new Error("Sekcia „Psipedia bloky“ obsahuje neplatný JSON manifest.");
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Sekcia „Psipedia bloky“ musí obsahovať JSON pole blokov.");
+  }
+
+  return parsed.slice(0, 100).flatMap((raw, index): NotionManifestDirective[] => {
+    if (!raw || typeof raw !== "object") return [];
+    const record = raw as Record<string, unknown>;
+    const afterSection = typeof record.afterSection === "string" ? normalizeText(record.afterSection) : "";
+    const beforeHeading = typeof record.beforeHeading === "string" ? normalizeText(record.beforeHeading) : "";
+    const position = record.position === "start" ? "start" : record.position === "end" ? "end" : undefined;
+    const input = { ...record };
+    delete input.afterSection;
+    delete input.beforeHeading;
+    delete input.position;
+
+    const [block] = normalizeArticleBlocks([{
+      ...input,
+      id: `notion-manifest-${manifest.id || "blocks"}-${index + 1}`,
+    }]);
+    if (!block) return [];
+
+    return [{
+      block,
+      ...(afterSection ? { afterSection } : {}),
+      ...(beforeHeading ? { beforeHeading } : {}),
+      ...(position ? { position } : {}),
+    }];
+  });
+}
+
+function placeManifestBlocks(articleBlocks: ArticleBlock[], directives: NotionManifestDirective[]) {
+  const result = [...articleBlocks];
+
+  const normalizedHeading = (block: ArticleBlock) => (
+    block.type === "h2" || block.type === "h3"
+      ? normalizeText(block.text).toLocaleLowerCase("sk")
+      : ""
+  );
+
+  for (const directive of directives) {
+    let insertAt = result.length;
+
+    if (directive.position === "start") {
+      insertAt = 0;
+    } else if (directive.beforeHeading) {
+      const target = directive.beforeHeading.toLocaleLowerCase("sk");
+      const headingIndex = result.findIndex((block) => normalizedHeading(block) === target);
+      if (headingIndex >= 0) insertAt = headingIndex;
+    } else if (directive.afterSection) {
+      const target = directive.afterSection.toLocaleLowerCase("sk");
+      const headingIndex = result.findIndex((block) => normalizedHeading(block) === target);
+      if (headingIndex >= 0) {
+        const heading = result[headingIndex];
+        const stopTypes = heading.type === "h2" ? new Set(["h2"]) : new Set(["h2", "h3"]);
+        insertAt = headingIndex + 1;
+        while (insertAt < result.length && !stopTypes.has(result[insertAt].type)) insertAt += 1;
+      }
+    }
+
+    result.splice(insertAt, 0, directive.block);
+  }
+
+  return result;
 }
 
 function convertBodyBlocks(blocks: NotionBlock[]) {
@@ -530,6 +790,7 @@ function convertBodyBlocks(blocks: NotionBlock[]) {
   }
 
   let intro = "";
+  let introRichText: EditorialRichTextDocument | null = null;
   const articleBlocks: ArticleBlock[] = [];
   let listBuffer: { type: "bullet-list" | "numbered-list"; items: string[]; id: string } | null = null;
 
@@ -541,7 +802,7 @@ function convertBodyBlocks(blocks: NotionBlock[]) {
 
   selected.forEach((block, index) => {
     const text = blockText(block);
-    if (!text && block.type !== "divider") return;
+    if (!text && block.type !== "divider" && block.type !== "image" && block.type !== "video" && block.type !== "embed" && block.type !== "table") return;
 
     if (block.type === "heading_1") {
       flushList();
@@ -554,18 +815,26 @@ function convertBodyBlocks(blocks: NotionBlock[]) {
         flushList();
         listBuffer = { id: notionBlockId(block, index), type, items: [] };
       }
-      if (text) listBuffer.items.push(text);
+      const item = notionRichTextMarkdown(blockRichText(block));
+      if (item) listBuffer.items.push(item);
       return;
     }
 
     flushList();
 
     if (block.type === "paragraph") {
+      const richText = notionRichTextDocument(blockRichText(block), "paragraph");
       if (!intro && text.length >= 20) {
         intro = text;
+        introRichText = richText;
         return;
       }
-      if (text) articleBlocks.push({ id: notionBlockId(block, index), type: "text", content: text });
+      if (text) articleBlocks.push({
+        id: notionBlockId(block, index),
+        type: "text",
+        content: text,
+        ...(richText ? { richText } : {}),
+      });
       return;
     }
     if (block.type === "heading_2") {
@@ -577,12 +846,39 @@ function convertBodyBlocks(blocks: NotionBlock[]) {
       return;
     }
     if (block.type === "quote") {
-      articleBlocks.push({ id: notionBlockId(block, index), type: "quote", content: text });
+      const richText = notionRichTextDocument(blockRichText(block), "blockquote");
+      articleBlocks.push({
+        id: notionBlockId(block, index),
+        type: "quote",
+        content: text,
+        ...(richText ? { richText } : {}),
+      });
       return;
     }
     if (block.type === "callout") {
-      articleBlocks.push({ id: notionBlockId(block, index), type: calloutType(block), content: text });
+      const type = calloutType(block);
+      const richText = notionRichTextDocument(blockRichText(block), "callout", type === "warning" ? "warning" : "tip");
+      articleBlocks.push({
+        id: notionBlockId(block, index),
+        type,
+        content: text,
+        ...(richText ? { richText } : {}),
+      });
+      return;
     }
+
+    const image = notionImageBlock(block, index);
+    if (image) {
+      articleBlocks.push(image);
+      return;
+    }
+    const embed = notionEmbedBlock(block, index);
+    if (embed) {
+      articleBlocks.push(embed);
+      return;
+    }
+    const table = notionTableBlock(block, index);
+    if (table) articleBlocks.push(table);
   });
   flushList();
 
@@ -592,7 +888,13 @@ function convertBodyBlocks(blocks: NotionBlock[]) {
   if (!articleBlocks.length) {
     throw new Error("Synchronizovaná časť článku neobsahuje žiadny podporovaný obsahový blok.");
   }
-  return { intro, blocks: articleBlocks };
+
+  const manifest = parseAdminManifest(blocks);
+  return {
+    intro,
+    introRichText,
+    blocks: placeManifestBlocks(articleBlocks, manifest),
+  };
 }
 
 function estimateReadingMinutes(intro: string, blocks: ArticleBlock[]) {
@@ -619,7 +921,7 @@ export function notionPageToManagedArticleInput(
   const metaDescription = richTextProperty(page, "Meta description");
   const seoTitle = richTextProperty(page, "SEO title");
   const focusKeyword = richTextProperty(page, "Hlavné kľúčové slovo");
-  const { intro, blocks: articleBlocks } = convertBodyBlocks(blocks);
+  const { intro, introRichText, blocks: articleBlocks } = convertBodyBlocks(blocks);
 
   if (!title) throw new Error("Doplň v Notione názov článku.");
   if (!slug) throw new Error("Doplň v Notione slug článku.");
@@ -639,6 +941,7 @@ export function notionPageToManagedArticleInput(
     accent: "forest",
     author: "Redakcia Psipedia",
     intro,
+    introRichText,
     takeaway: "",
     sections: [],
     blocks: articleBlocks,
@@ -715,7 +1018,7 @@ async function listReadyNotionPages(bindings: NotionSyncBindings) {
   return results.slice(0, MAX_SYNC_ITEMS);
 }
 
-async function getPageBlocks(bindings: NotionSyncBindings, pageId: string) {
+async function getBlockChildren(bindings: NotionSyncBindings, blockId: string) {
   const results: NotionBlock[] = [];
   let cursor: string | null = null;
   do {
@@ -723,12 +1026,21 @@ async function getPageBlocks(bindings: NotionSyncBindings, pageId: string) {
     if (cursor) query.set("start_cursor", cursor);
     const response = await notionRequest<NotionBlocksResponse>(
       bindings,
-      `/blocks/${encodeURIComponent(pageId)}/children?${query.toString()}`,
+      `/blocks/${encodeURIComponent(blockId)}/children?${query.toString()}`,
     );
     results.push(...(response.results ?? []));
     cursor = response.has_more && response.next_cursor ? response.next_cursor : null;
   } while (cursor && results.length < 500);
   return results.slice(0, 500);
+}
+
+async function getPageBlocks(bindings: NotionSyncBindings, pageId: string) {
+  const results = await getBlockChildren(bindings, pageId);
+  return Promise.all(results.map(async (block) => (
+    block.type === "table" && block.has_children
+      ? { ...block, children: await getBlockChildren(bindings, block.id) }
+      : block
+  )));
 }
 
 function notionTextValue(value: string) {
