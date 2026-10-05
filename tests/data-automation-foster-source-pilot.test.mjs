@@ -241,7 +241,7 @@ test("organization identity uses record, structured, labelled, then source stati
   assert.equal(automationFosterNormalizationMetadata(staticOrg)?.organizationSource, "SOURCE_STATIC");
 });
 
-test("FOSTER readiness unlocks adapter-less shape+organization while LOST_FOUND remains fail-closed", () => {
+test("FOSTER and LOST_FOUND keep entity-specific adapter-less source-scoped readiness", () => {
   const foster = automationHelpSourceReadiness({
     entityType: "FOSTER",
     connectorType: "CONTROLLED_HTML",
@@ -253,20 +253,22 @@ test("FOSTER readiness unlocks adapter-less shape+organization while LOST_FOUND 
   const lostFound = automationHelpSourceReadiness({
     entityType: "LOST_FOUND",
     connectorType: "CONTROLLED_HTML",
-    config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { organizationName: "OZ Test" } },
+    config: { sourceShape: "MULTI_ITEM_LIST" },
   });
-  assert.equal(lostFound.ready, false);
-  assert.equal(lostFound.reason, "MISSING_ADAPTER");
+  assert.equal(lostFound.ready, true);
+  assert.equal(lostFound.reason, "READY");
 
   const lfCapabilities = automationExtractionCapabilities({
     ...source(),
     entityType: "LOST_FOUND",
+    config: { sourceShape: "MULTI_ITEM_LIST" },
   }, undefined, { tavilyCredentialConfigured: true });
-  assert.equal(lfCapabilities.find((x) => x.strategy === "GENERIC_FIRST_PARTY")?.reason, "LOST_FOUND_SOURCE_SCOPED_NOT_ENABLED");
+  assert.notEqual(lfCapabilities.find((x) => x.strategy === "GENERIC_FIRST_PARTY")?.reason, "LOST_FOUND_SOURCE_SCOPED_NOT_ENABLED");
   assert.equal(automationSourceReadiness({
     ...source(),
     entityType: "LOST_FOUND",
-  }, undefined, { tavilyCredentialConfigured: true }).reason, "NO_RELIABLE_EXTRACTION_STRATEGY");
+    config: { sourceShape: "MULTI_ITEM_LIST" },
+  }, undefined, { tavilyCredentialConfigured: true }).ready, true);
 });
 
 test("source-scoped FOSTER capability and provisioning require explicit shape plus organization", () => {
