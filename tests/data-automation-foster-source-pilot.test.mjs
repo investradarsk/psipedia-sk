@@ -344,6 +344,26 @@ test("generic SINGLE_ITEM FOSTER accepts a concrete case and rejects a marketing
   );
 });
 
+test("flattened generic FOSTER detail preserves explicit resolved lifecycle and blocks a new draft", async () => {
+  const src = source({
+    sourceUrl: "https://foster.example/cases/max",
+    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "OZ Test" } },
+  });
+  const extracted = await extractGenericFirstPartySource({
+    source: src,
+    contract: contract(src),
+    rootHtml: detailHtml("dočaska zabezpečená"),
+    rootUrl: src.sourceUrl,
+    fetchPage: async () => { throw new Error("unexpected"); },
+  });
+  assert.equal(extracted.records.length, 1);
+  const normalized = normalizeAutomationFosterRecord(extracted.records[0], { sourceConfig: src.config });
+  assert.equal(normalizeAutomationLifecycleSignals("FOSTER", normalized)[0]?.signalType, "FOSTER_RESOLVED");
+  const result = decision(src, normalized);
+  assert.equal(result?.gate, "INSUFFICIENT");
+  assert.ok(result?.reasons.includes("foster_resolved_new_draft_blocked"));
+});
+
 test("Tavily Crawl and Extract stay provider-neutral and share the FOSTER normalizer", async () => {
   const crawlSrc = source();
   const crawlProvider = new TavilyAutomationCrawlProvider({
