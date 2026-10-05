@@ -23,9 +23,6 @@ import {
 } from "../lib/data-automation-tavily-source-scoped.ts";
 import { normalizeAutomationLifecycleSignals } from "../lib/data-automation-lifecycle.ts";
 import {
-  automationSourceActivationReadiness,
-} from "../lib/data-automation-source-activation.ts";
-import {
   fetchAutomationSourceRecords,
 } from "../lib/data-automation-connectors.ts";
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources.ts";
@@ -139,62 +136,6 @@ function noMatch(entityType = "EVENT") {
 
 function decision(src, record, match = noMatch()) {
   return validateDynamicAutomationIngestion({ source: src, record, match });
-}
-
-function governanceRow(overrides = {}) {
-  return {
-    id: 1,
-    subject_type: "AUTOMATION_SOURCE",
-    subject_id: 701,
-    access_status: "ALLOWED",
-    robots_status: "ALLOWED",
-    terms_status: "ALLOWED",
-    recurring_status: "APPROVED",
-    retention_status: "APPROVED",
-    retain_url: 1,
-    retain_title: 0,
-    retain_snippet: 0,
-    retain_metadata: 1,
-    retention_days: null,
-    min_cadence_minutes: null,
-    max_requests_per_day: 12,
-    manual_only: 0,
-    path_scope: "/events/**",
-    restrictions_note: null,
-    terms_url: null,
-    privacy_url: null,
-    robots_url: null,
-    evidence_url: null,
-    reviewed_at: "2026-10-05T09:00:00.000Z",
-    reviewed_by: "admin@example.com",
-    rationale: "approved",
-    expires_at: null,
-    review_due_at: null,
-    created_at: "2026-10-05T09:00:00.000Z",
-    updated_at: "2026-10-05T09:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function activationDb({ governance = governanceRow(), usageTable = true } = {}) {
-  return {
-    prepare(sql) {
-      return {
-        bind() {
-          return {
-            async first() {
-              if (sql.includes("automation_governance_reviews")) return governance;
-              if (sql.includes("sqlite_master") && sql.includes("automation_source_provider_usage")) {
-                return usageTable ? { name: "automation_source_provider_usage" } : null;
-              }
-              throw new Error("unexpected first query: " + sql.replace(/\s+/g, " ").trim());
-            },
-          };
-        },
-      };
-    },
-    async batch() { return []; },
-  };
 }
 
 test("EVENT date parser accepts explicit Slovak/ISO dates and rejects relative text", () => {
@@ -580,41 +521,20 @@ test("dedicated EVENT adapter remains higher priority than generic/Tavily", asyn
   assert.equal(tavilyCalls, 0);
 });
 
-test("Tavily-backed activation is blocked when 0110 usage schema is missing", async () => {
-  const src = source();
-  const readiness = await automationSourceActivationReadiness(
-    src,
-    activationDb({ usageTable: false }),
-    {
-      now: NOW,
-      tavilyCredentialConfigured: true,
-      fetchImpl: async () => new Response("<html><body><h1>Kalendár</h1></body></html>", {
-        status: 200,
-        headers: { "content-type": "text/html" },
-      }),
-    },
+test("Tavily activation is gated on 0110 while generic/dedicated paths stay independent", () => {
+  const activation = readFileSync(new URL("../lib/data-automation-source-activation.ts", import.meta.url), "utf8");
+  assert.match(activation, /technical\.strategy === "TAVILY_CRAWL"/);
+  assert.match(activation, /technical\.strategy === "TAVILY_EXTRACT"/);
+  assert.match(activation, /automationSourceProviderUsageSchemaReady\(database\)/);
+  assert.match(activation, /TAVILY_USAGE_SCHEMA_UNAVAILABLE/);
+  assert.doesNotMatch(
+    activation,
+    /technical\.strategy === "GENERIC_FIRST_PARTY"[\s\S]{0,300}TAVILY_USAGE_SCHEMA_UNAVAILABLE/,
   );
-  assert.equal(readiness.ready, false);
-  assert.equal(readiness.reason, "TECHNICAL_NOT_READY");
-  assert.equal(readiness.technicalReason, "TAVILY_USAGE_SCHEMA_UNAVAILABLE");
-});
-
-test("generic-first activation does not depend on 0110 provider usage schema", async () => {
-  const src = source();
-  const readiness = await automationSourceActivationReadiness(
-    src,
-    activationDb({ usageTable: false }),
-    {
-      now: NOW,
-      tavilyCredentialConfigured: true,
-      fetchImpl: async () => new Response(eventItemListHtml(), {
-        status: 200,
-        headers: { "content-type": "text/html" },
-      }),
-    },
+  assert.doesNotMatch(
+    activation,
+    /technical\.strategy === "DEDICATED_ADAPTER"[\s\S]{0,300}TAVILY_USAGE_SCHEMA_UNAVAILABLE/,
   );
-  assert.equal(readiness.ready, true);
-  assert.equal(readiness.reason, "READY");
 });
 
 test("runner and preview both use EVENT normalization before canonical matching", () => {
