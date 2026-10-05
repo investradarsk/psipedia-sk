@@ -225,6 +225,19 @@ function explicitResolvedLine(text: string) {
   return null;
 }
 
+function explicitResolvedFlatText(text: string) {
+  const normalized = normalizeAutomationIdentity(text);
+  const match = normalized.match(
+    /(?:^|\s)(?:stav|status)\s+(vyriesene|vybavene|docaska zabezpecena|docasna opatera zabezpecena|nasiel docasnu opateru|nasla docasnu opateru|uz nepotrebuje docasnu opateru|adoptovany|adoptovana|adopted)(?:\s|$)/,
+  );
+  if (!match) return null;
+  return {
+    signalType: "FOSTER_RESOLVED" as const,
+    targetState: "RESOLVED",
+    evidenceText: match[1],
+  };
+}
+
 export function normalizeAutomationFosterRecord(
   record: AutomationSourceRecord,
   options: { sourceConfig?: AutomationSourceConfig } = {},
@@ -334,7 +347,8 @@ export function normalizeAutomationFosterRecord(
     : structured.resolved
       ? { signalType: "FOSTER_RESOLVED" as const, targetState: "RESOLVED", evidenceText: "resolved=true" }
       : explicitResolvedStatus(structured.status ?? labelled.status)
-        ?? explicitResolvedLine(text);
+        ?? explicitResolvedLine(text)
+        ?? explicitResolvedFlatText(text);
   const lifecycleSignals: AutomationLifecycleSignal[] = [...(record.lifecycleSignals ?? [])];
   if (lifecycle && !lifecycleSignals.some((signal) => signal.signalType === lifecycle.signalType)) {
     lifecycleSignals.push({
