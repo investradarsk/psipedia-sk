@@ -87,6 +87,19 @@ function explicitAgeMonths(value: unknown) {
   return Number.isSafeInteger(total) && total >= 0 && total <= 360 ? total : null;
 }
 
+export type AutomationAdoptionSize = "SMALL" | "MEDIUM" | "LARGE" | "GIANT" | "UNKNOWN";
+
+export function normalizeAutomationAdoptionSize(value: unknown): AutomationAdoptionSize | null {
+  const normalized = normalizeAutomationIdentity(value);
+  if (!normalized) return null;
+  if (/^(?:small|small dog|maly|mala|male)$/.test(normalized)) return "SMALL";
+  if (/^(?:medium|medium sized|stredny|stredna|stredne)$/.test(normalized)) return "MEDIUM";
+  if (/^(?:large|velky|velka|velke)$/.test(normalized)) return "LARGE";
+  if (/^(?:giant|extra large|obrovsky|obrovska|obrovske)$/.test(normalized)) return "GIANT";
+  if (/^(?:unknown|neznama|nezname|neuvedene)$/.test(normalized)) return "UNKNOWN";
+  return null;
+}
+
 function explicitWeight(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) && value > 0 && value < 150 ? value : null;
   const text = clean(value, 120);
@@ -277,7 +290,8 @@ export function normalizeAutomationAdoptionRecord(
   else if (typeof p.breed_mix === "boolean") proposed.breedMix = p.breed_mix;
   else if (breed.breedMix !== null) proposed.breedMix = breed.breedMix;
 
-  const size = clean(p.size ?? structured.size ?? labelled.size, 160);
+  const size = normalizeAutomationAdoptionSize(p.size ?? structured.size ?? labelled.size);
+  delete proposed.size;
   if (size) proposed.size = size;
   const weight = explicitWeight(p.weight ?? structured.weight ?? labelled.weight);
   if (weight !== null) proposed.weight = weight;
