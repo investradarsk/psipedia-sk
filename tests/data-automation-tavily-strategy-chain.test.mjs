@@ -399,3 +399,42 @@ test("UNCERTAIN canonical match remains review-only for Tavily evidence", () => 
   assert.equal(decision?.canCreateDraft, false);
   assert.equal(decision?.canSuggestUpdate, false);
 });
+
+
+test("activation never treats first-party 403 as permission to use Tavily", async () => {
+  let fetches = 0;
+  const readiness = await automationSourceActivationReadiness(
+    source(),
+    governanceDb(governanceRow()),
+    {
+      tavilyCredentialConfigured: true,
+      fetchImpl: async () => {
+        fetches += 1;
+        return new Response("Forbidden", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        });
+      },
+    },
+  );
+  assert.equal(fetches, 1);
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.reason, "TECHNICAL_NOT_READY");
+  assert.equal(readiness.technicalReason, "source_http_403");
+});
+
+test("activation may select Tavily only after a safe generic parser insufficiency", async () => {
+  const readiness = await automationSourceActivationReadiness(
+    source(),
+    governanceDb(governanceRow()),
+    {
+      tavilyCredentialConfigured: true,
+      fetchImpl: async () => new Response("<html><body><h1>Psy</h1></body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    },
+  );
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.reason, "READY");
+});
