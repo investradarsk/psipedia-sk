@@ -171,6 +171,10 @@ export function AdminAutomationSourceDetail({
   });
 
   const readiness = automationSourceReadiness(source);
+  const adoptionSourceOrganization = source.entityType === "ADOPTION"
+    && typeof source.config.staticFields?.organizationName === "string"
+    ? source.config.staticFields.organizationName.trim()
+    : "";
   const genericProbeEligible = readiness.capabilities.some((capability) =>
     capability.strategy === "GENERIC_FIRST_PARTY"
     && capability.status === "UNAVAILABLE"
@@ -332,6 +336,9 @@ export function AdminAutomationSourceDetail({
               <div className={styles.reviewSummary}>
                 <div><span>Typ zdroja</span><strong>{readiness.sourceShape === "SINGLE_ITEM" ? "Detail jednej položky" : readiness.sourceShape === "MULTI_ITEM_LIST" ? "Zoznam položiek" : "Neurčené"}</strong></div>
                 <div><span>Adapter</span><strong>{readiness.adapterLabel ?? "Nie je priradený"}</strong></div>
+                {source.entityType === "ADOPTION" && (
+                  <div><span>Organizácia zdroja</span><strong>{adoptionSourceOrganization || "Chýba — doplň staticFields.organizationName"}</strong></div>
+                )}
               </div>
               <p><strong>Dôvod:</strong> {readiness.reason}</p>
               <p><strong>Adapter key:</strong> {readiness.adapterKey ?? "—"}</p>
