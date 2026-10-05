@@ -148,22 +148,35 @@ export function candidateProvisioningConfigFor(input: {
       entityType: input.entityType,
       canonicalUrl: input.canonicalUrl,
     });
-    if (
-      Object.keys(dedicated).length > 0
-      || (input.entityType !== "ADOPTION" && input.entityType !== "FOSTER")
-    ) return dedicated;
+    if (Object.keys(dedicated).length > 0) return dedicated;
 
     const sourceShape = input.metadata.sourceShape === "SINGLE_ITEM" || input.metadata.sourceShape === "MULTI_ITEM_LIST"
       ? input.metadata.sourceShape
       : null;
-    const organizationName = typeof input.metadata.organizationName === "string"
-      ? input.metadata.organizationName.trim().slice(0, 500)
-      : "";
-    if (!sourceShape || !organizationName) return {};
-    return {
-      sourceShape,
-      staticFields: { organizationName },
-    };
+    if (!sourceShape) return {};
+
+    if (input.entityType === "LOST_FOUND") {
+      const configuredType = input.metadata.type === "LOST" || input.metadata.type === "FOUND"
+        ? input.metadata.type
+        : null;
+      return {
+        sourceShape,
+        ...(configuredType ? { staticFields: { type: configuredType } } : {}),
+      };
+    }
+
+    if (input.entityType === "ADOPTION" || input.entityType === "FOSTER") {
+      const organizationName = typeof input.metadata.organizationName === "string"
+        ? input.metadata.organizationName.trim().slice(0, 500)
+        : "";
+      if (!organizationName) return {};
+      return {
+        sourceShape,
+        staticFields: { organizationName },
+      };
+    }
+
+    return {};
   }
 
   if (input.entityType === "HELP_ITEM") {
