@@ -642,6 +642,7 @@ export async function extractGenericFirstPartySource(input: {
         visitedListings.size === 1
         && structuredItems.length === 0
         && input.source.config.sourceShape === "SINGLE_ITEM"
+        && input.source.entityType === "EVENT"
       ) {
         const fallback = htmlDetailEvidence(page.html, pageUrl, input.contract);
         if (fallback) {
