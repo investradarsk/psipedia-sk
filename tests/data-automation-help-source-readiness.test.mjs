@@ -83,12 +83,13 @@ test("HELP source keeps entity-specific fail-closed readiness", () => {
   assert.equal(fosterSourceScoped.ready, true);
   assert.equal(fosterSourceScoped.adapterKey, null);
 
-  const lostFoundLegacy = automationHelpSourceReadiness(source({
+  const lostFoundSourceScoped = automationHelpSourceReadiness(source({
     entityType: "LOST_FOUND",
-    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "OZ Test" } },
+    config: { sourceShape: "SINGLE_ITEM" },
   }));
-  assert.equal(lostFoundLegacy.reason, "MISSING_ADAPTER");
-  assert.equal(lostFoundLegacy.ready, false);
+  assert.equal(lostFoundSourceScoped.reason, "READY");
+  assert.equal(lostFoundSourceScoped.ready, true);
+  assert.equal(lostFoundSourceScoped.adapterKey, null);
 });
 
 test("unknown adapter key is not production-ready", () => {
@@ -201,6 +202,21 @@ test("production candidate provisioning supports only allow-listed HELP detail p
     sourceShape: "SINGLE_ITEM",
     htmlAdapterKey: "kosice-found-dog-detail",
     expectedMinRecords: 1,
+  });
+  assert.deepEqual(candidateProvisioningConfigFor({
+    entityType: "LOST_FOUND",
+    canonicalUrl: "https://lost.example/reports",
+    metadata: { sourceShape: "MULTI_ITEM_LIST" },
+  }), {
+    sourceShape: "MULTI_ITEM_LIST",
+  });
+  assert.deepEqual(candidateProvisioningConfigFor({
+    entityType: "LOST_FOUND",
+    canonicalUrl: "https://lost.example/found",
+    metadata: { sourceShape: "SINGLE_ITEM", type: "FOUND" },
+  }), {
+    sourceShape: "SINGLE_ITEM",
+    staticFields: { type: "FOUND" },
   });
   for (const entityType of ["ADOPTION", "FOSTER", "LOST_FOUND"]) {
     assert.deepEqual(candidateProvisioningConfigFor({
