@@ -14,8 +14,10 @@ import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-so
 
 const SOURCE_ROOT = "https://adoption-e2e.example/dogs";
 const DETAIL_URL = SOURCE_ROOT + "/max";
+const REVIEW_URL = SOURCE_ROOT + "/bella";
 const ORGANIZATION = "E2E Source Scoped Adoption";
 const DOG_NAME = "Max E2E Source Scoped";
+const REVIEW_NAME = "Bella E2E Reserved";
 const FIXED_NOW = new Date("2026-10-05T12:00:00.000Z");
 
 function d1Database(filename) {
@@ -102,6 +104,9 @@ const LISTING = `<!doctype html>
     <article class="dog-card">
       <a class="dog-name" href="/dogs/max">${DOG_NAME}</a>
     </article>
+    <article class="dog-card">
+      <a class="dog-name" href="/dogs/bella">${REVIEW_NAME}</a>
+    </article>
   </body>
 </html>`;
 
@@ -123,6 +128,23 @@ const DETAIL = `<!doctype html>
   </body>
 </html>`;
 
+const REVIEW_DETAIL = `<!doctype html>
+<html lang="sk">
+  <head>
+    <link rel="canonical" href="${REVIEW_URL}">
+    <meta name="description" content="Rezervovaný pes zostáva review-only.">
+  </head>
+  <body>
+    <h1>${REVIEW_NAME}</h1>
+    <p>Pohlavie: fenka</p>
+    <p>Vek: 3 roky</p>
+    <p>Rasa: kríženec</p>
+    <p>Veľkosť: malá</p>
+    <p>Stav: rezervovaná</p>
+    <p>Mesto: Nitra</p>
+  </body>
+</html>`;
+
 function fetchImpl(input) {
   const url = typeof input === "string"
     ? input
@@ -135,6 +157,7 @@ function fetchImpl(input) {
   }
   if (parsed.pathname === "/dogs") return Promise.resolve(page(url, LISTING));
   if (parsed.pathname === "/dogs/max") return Promise.resolve(page(url, DETAIL));
+  if (parsed.pathname === "/dogs/bella") return Promise.resolve(page(url, REVIEW_DETAIL));
   return Promise.resolve(new Response("Not found", {
     status: 404,
     headers: { "content-type": "text/plain" },
@@ -234,9 +257,9 @@ test("local D1 ADOPTION source-scoped flow is draft-safe, provenance-backed and 
     htmlAdapters: productionAutomationHtmlAdapters,
   });
   assert.equal(first.status, "SUCCESS");
-  assert.equal(first.checked, 1);
+  assert.equal(first.checked, 2);
   assert.equal(first.draftCreated, 1);
-  assert.equal(first.reviewOnly, 0);
+  assert.equal(first.reviewOnly, 1);
   assert.equal(first.errors, 0);
 
   const dog = sqlite.prepare(`SELECT id,status,published_at,size,organization_name,external_source_url
@@ -265,6 +288,9 @@ test("local D1 ADOPTION source-scoped flow is draft-safe, provenance-backed and 
   const firstDogCount = Number(sqlite.prepare(`SELECT COUNT(*) AS count
     FROM adoption_dogs WHERE organization_name=? AND name=?`).get(ORGANIZATION, DOG_NAME).count);
   assert.equal(firstDogCount, 1);
+  const reviewDogCount = Number(sqlite.prepare(`SELECT COUNT(*) AS count
+    FROM adoption_dogs WHERE organization_name=? AND name=?`).get(ORGANIZATION, REVIEW_NAME).count);
+  assert.equal(reviewDogCount, 0);
 
   const second = await runAutomationSourceNow(created.id, {
     database,
@@ -273,9 +299,9 @@ test("local D1 ADOPTION source-scoped flow is draft-safe, provenance-backed and 
     htmlAdapters: productionAutomationHtmlAdapters,
   });
   assert.equal(second.status, "SUCCESS");
-  assert.equal(second.checked, 1);
+  assert.equal(second.checked, 2);
   assert.equal(second.draftCreated, 0);
-  assert.equal(second.reviewOnly, 0);
+  assert.equal(second.reviewOnly, 1);
   assert.equal(second.errors, 0);
 
   const secondDogCount = Number(sqlite.prepare(`SELECT COUNT(*) AS count
