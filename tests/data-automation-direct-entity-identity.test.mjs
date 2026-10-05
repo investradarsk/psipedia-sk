@@ -447,7 +447,7 @@ test("weak search evidence cannot propose identity-critical canonical updates", 
   assert.equal("legalName" in sanitized, false);
   assert.equal("registrationNumber" in sanitized, false);
   assert.equal("type" in sanitized, false);
-  assert.equal(sanitized.publicPhone, "+421903111222");
+  assert.equal("publicPhone" in sanitized, false);
 });
 
 test("refresh operational label is never promoted into search fallback identity", () => {
