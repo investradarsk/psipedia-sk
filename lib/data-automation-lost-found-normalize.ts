@@ -80,7 +80,9 @@ function explicitSex(value: unknown): LostFoundSex | null {
 }
 
 function explicitSize(value: unknown): LostFoundSize | null {
-  const normalized = normalizeAutomationIdentity(value);
+  const normalized = normalizeAutomationIdentity(
+    typeof value === "string" ? value.replace(/[ľĺ]/g, "l").replace(/[ĽĹ]/g, "L") : value,
+  );
   if (!normalized) return null;
   if (/^(?:small|maly|mala|male)$/.test(normalized)) return "SMALL";
   if (/^(?:medium|stredny|stredna|stredne)$/.test(normalized)) return "MEDIUM";
