@@ -38,7 +38,10 @@ on:
       - ".github/workflows/automation-finalize-v1.yml"
       - "tests/g5-canonical-apply.test.mjs"
       - "tests/fixtures/data-automation/**"
-      - "tests/admin-attention-queue.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-tavily-strategy-chain.test.mjs tests/data-automation-source-provider-usage.test.mjs"
+      - "tests/admin-attention-queue.test.mjs"
+      - "tests/data-automation-tavily-source-scoped.test.mjs"
+      - "tests/data-automation-tavily-strategy-chain.test.mjs"
+      - "tests/data-automation-source-provider-usage.test.mjs"
       - ".github/workflows/data-automation-ci.yml"
   workflow_dispatch:
 
