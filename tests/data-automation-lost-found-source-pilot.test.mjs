@@ -378,6 +378,7 @@ test("generic MULTI_ITEM_LIST extracts concrete FOUND and LOST detail reports", 
   assert.equal(rex?.proposed.eventDate, "2026-10-05");
   assert.equal(rex?.proposed.city, "Nitra");
   assert.equal(rex?.proposed.sex, "MALE");
+  assert.equal(rex?.proposed.size, "LARGE");
   assert.equal(rex?.proposed.breed, "Labrador");
   assert.equal(rex?.proposed.color, "čierna");
   assert.equal(decision(src, rex)?.gate, "VALID_FOR_DRAFT");
