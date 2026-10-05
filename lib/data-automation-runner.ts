@@ -114,6 +114,8 @@ type SourceRunSummary = {
   newFindings: number;
   updatedFindings: number;
   newDataFindings: number;
+  draftCreated: number;
+  reviewOnly: number;
   sourceErrors: number;
   errors: number;
   nextCheckAt: string | null;
@@ -670,6 +672,8 @@ async function runSource(
   let newFindings = 0;
   let updatedFindings = 0;
   let newDataFindings = 0;
+  let draftCreated = 0;
+  let reviewOnly = 0;
   let sourceErrors = 0;
   let errors = 0;
   let status: SourceRunSummary["status"] = "SUCCESS";
@@ -796,6 +800,10 @@ async function runSource(
         newFindings += counts.created;
         updatedFindings += counts.updated;
         newDataFindings += counts.created;
+        const draft = "draft" in result ? result.draft : null;
+        const createdDraft = draft?.application?.applicationType === "CREATE_DRAFT";
+        if (createdDraft) draftCreated += 1;
+        else if (result.finding && result.finding !== "SOURCE_ERROR") reviewOnly += 1;
       } catch (error) {
         errors += 1;
         status = "PARTIAL";
@@ -867,6 +875,8 @@ async function runSource(
     newFindings,
     updatedFindings,
     newDataFindings,
+    draftCreated,
+    reviewOnly,
     sourceErrors,
     errors,
     nextCheckAt: health.nextCheckAt,
@@ -890,7 +900,7 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
     );
   } catch (error) {
     if (missingAutomationSchema(error)) {
-      return { sources: 0, success: 0, partial: 0, failed: 0, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 0, errors: 0, schemaReady: false, runs: [] as SourceRunSummary[] };
+      return { sources: 0, success: 0, partial: 0, failed: 0, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, draftCreated: 0, reviewOnly: 0, sourceErrors: 0, errors: 0, schemaReady: false, runs: [] as SourceRunSummary[] };
     }
     throw error;
   }
@@ -914,6 +924,8 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
         newFindings: 0,
         updatedFindings: 0,
         newDataFindings: 0,
+        draftCreated: 0,
+        reviewOnly: 0,
         sourceErrors: 1,
         errors: 1,
         nextCheckAt: source.nextCheckAt,
@@ -930,6 +942,8 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
     newFindings: runs.reduce((sum, run) => sum + run.newFindings, 0),
     updatedFindings: runs.reduce((sum, run) => sum + run.updatedFindings, 0),
     newDataFindings: runs.reduce((sum, run) => sum + run.newDataFindings, 0),
+    draftCreated: runs.reduce((sum, run) => sum + run.draftCreated, 0),
+    reviewOnly: runs.reduce((sum, run) => sum + run.reviewOnly, 0),
     sourceErrors: runs.reduce((sum, run) => sum + run.sourceErrors, 0),
     errors: runs.reduce((sum, run) => sum + run.errors, 0),
     schemaReady: true,
