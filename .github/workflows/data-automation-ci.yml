@@ -70,7 +70,9 @@ jobs:
       - run: npm ci
       - run: npm run db:check-migrations
       - name: Focused automation and Attention Center tests
-        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/data-automation-clustering.test.mjs tests/automation-detach-drafts.test.mjs tests/automation-cleanup-legacy.test.mjs tests/automation-finalize-v1.test.mjs tests/g5-canonical-apply.test.mjs tests/admin-attention-queue.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-tavily-strategy-chain.test.mjs tests/data-automation-source-provider-usage.test.mjs
+        run: node --experimental-strip-types --test tests/data-automation.test.mjs tests/data-automation-apply.test.mjs tests/data-automation-v4.test.mjs tests/data-automation-v5.test.mjs tests/data-automation-background-run.test.mjs tests/data-automation-clustering.test.mjs tests/automation-detach-drafts.test.mjs tests/automation-cleanup-legacy.test.mjs tests/automation-finalize-v1.test.mjs tests/g5-canonical-apply.test.mjs tests/admin-attention-queue.test.mjs tests/data-automation-tavily-source-scoped.test.mjs tests/data-automation-source-provider-usage.test.mjs
+      - name: Tavily source-scoped strategy chain
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-tavily-strategy-chain.test.mjs
       - name: HELP-INGEST-1C foster adapter tests
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-foster-ingest.test.mjs
       - name: DISCOVERY-4B governance tests
