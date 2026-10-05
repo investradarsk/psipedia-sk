@@ -291,7 +291,10 @@ function fosterDraftEvidence(record: AutomationSourceRecord) {
   return reasons;
 }
 
-function lostFoundDraftEvidence(record: AutomationSourceRecord) {
+function lostFoundDraftEvidence(
+  record: AutomationSourceRecord,
+  sourceShape?: AutomationSource["config"]["sourceShape"],
+) {
   const p = record.proposed;
   const reasons: string[] = [];
   const type = clean(p.type)?.toUpperCase();
@@ -317,7 +320,7 @@ function lostFoundDraftEvidence(record: AutomationSourceRecord) {
     reasons.push("lost_found_dog_profile_evidence_missing");
   }
   if (
-    source.config.sourceShape === "MULTI_ITEM_LIST"
+    sourceShape === "MULTI_ITEM_LIST"
     && record.extraction?.strategy === "TAVILY_CRAWL"
     && record.extraction.itemUrl
     && record.extraction.discoveredFromRoot
@@ -332,7 +335,7 @@ function lostFoundDraftEvidence(record: AutomationSourceRecord) {
 }
 
 export function validateDynamicAutomationIngestion(input: {
-  source: Pick<AutomationSource, "entityType" | "sourceKey" | "sourceUrl">;
+  source: Pick<AutomationSource, "entityType" | "sourceKey" | "sourceUrl"> & Partial<Pick<AutomationSource, "config">>;
   record: AutomationSourceRecord;
   match?: AutomationCanonicalMatch | null;
 }): DynamicAutomationIngestionDecision | null {
@@ -385,7 +388,7 @@ export function validateDynamicAutomationIngestion(input: {
       ? adoptionDraftEvidence(input.record)
       : entityType === "FOSTER"
         ? fosterDraftEvidence(input.record)
-        : lostFoundDraftEvidence(input.record);
+        : lostFoundDraftEvidence(input.record, input.source.config?.sourceShape);
 
   return {
     entityType,
