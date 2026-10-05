@@ -104,6 +104,20 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0109_dynamic_entity_identity_indexes.sql",
 ]);
 
+export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
+  "managed_events_automation_identity_idx",
+  "managed_events_automation_website_idx",
+  "managed_events_automation_registration_idx",
+  "adoption_dogs_automation_identity_idx",
+  "adoption_dogs_automation_source_url_idx",
+  "help_cases_automation_foster_dog_idx",
+  "help_cases_automation_foster_title_idx",
+  "help_cases_automation_action_url_idx",
+  "lost_found_automation_city_identity_idx",
+  "lost_found_automation_district_identity_idx",
+  "lost_found_automation_source_url_idx",
+]);
+
 export const AUTOMATION_ENTITY_RESOLUTION_TABLES = Object.freeze([
   "automation_source_authority",
   "automation_entity_clusters",
@@ -1021,6 +1035,11 @@ export function targetSchemaObjects(schema, targetMigration) {
         || names.has("event_notion_sync_psipedia_updated_idx"),
     };
   }
+  if (targetMigration === "0109_dynamic_entity_identity_indexes.sql") {
+    return {
+      partial: DYNAMIC_ENTITY_IDENTITY_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1658,6 +1677,13 @@ function assertNotionEventsHelpBidirectionalSchema(schema) {
   invariant(targetSql.includes("data_source_id TEXT NOT NULL UNIQUE"), "Notion agenda target data-source uniqueness is missing");
 }
 
+export function assertDynamicEntityIdentitySchema(schema) {
+  const names = objectMap(schema.objects);
+  for (const index of DYNAMIC_ENTITY_IDENTITY_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing dynamic entity identity index: ${index}`);
+  }
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1697,6 +1723,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 106) assertSectionVisualSchema(schema);
   if (migrationIndex(targetMigration) >= 107) assertSectionHeroConfigSchema(schema);
   if (migrationIndex(targetMigration) >= 108) assertNotionEventsHelpBidirectionalSchema(schema);
+  if (migrationIndex(targetMigration) >= 109) assertDynamicEntityIdentitySchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1911,6 +1938,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 105) assertArticlePopularitySchema(schema);
     if (targetIndex > 106) assertSectionVisualSchema(schema);
     if (targetIndex > 107) assertSectionHeroConfigSchema(schema);
+    if (targetIndex > 108) assertNotionEventsHelpBidirectionalSchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
@@ -2234,6 +2262,9 @@ async function verify(targetMigration) {
       integrity: partnerH3Integrity,
     } : null,
     historyVerifiedThrough: targetMigration,
+    dynamicEntityIdentity: targetIndex >= 109 ? {
+      indexes: DYNAMIC_ENTITY_IDENTITY_INDEXES,
+    } : null,
     tavilyEventRoot: targetIndex >= 86 ? {
       rootKey: "tavily-sk-dog-events",
       enabled: false,
