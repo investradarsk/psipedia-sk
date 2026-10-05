@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import {
   normalizeAutomationAdoptionRecord,
+  normalizeAutomationAdoptionSize,
   automationAdoptionNormalizationMetadata,
 } from "../lib/data-automation-adoption-normalize.ts";
 import {
@@ -135,6 +136,36 @@ function gate() {
   };
 }
 
+test("ADOPTION size normalizer only emits canonical enum values from explicit evidence", () => {
+  const cases = [
+    ["malý", "SMALL"],
+    ["stredný", "MEDIUM"],
+    ["veľký", "LARGE"],
+    ["obrovský", "GIANT"],
+    ["SMALL", "SMALL"],
+    ["MEDIUM", "MEDIUM"],
+    ["LARGE", "LARGE"],
+    ["GIANT", "GIANT"],
+    ["neuvedené", "UNKNOWN"],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeAutomationAdoptionSize(input), expected, input);
+  }
+  assert.equal(normalizeAutomationAdoptionSize("stredne veľký"), null);
+  assert.equal(normalizeAutomationAdoptionSize("cca 25 kg"), null);
+  assert.equal(normalizeAutomationAdoptionSize("Labrador"), null);
+
+  const ambiguous = normalizeAutomationAdoptionRecord({
+    sourceRecordId: "dog-ambiguous-size",
+    sourceUrl: "https://adopt.example/adoption/mia",
+    sourceTimestamp: null,
+    rawRecord: {},
+    proposed: { name: "Mia", size: "stredne veľký" },
+  }, { sourceConfig: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "Útulok ABC" } } });
+  assert.equal(Object.hasOwn(ambiguous.proposed, "size"), false);
+  assert.notEqual(ambiguous.proposed.size, "stredne veľký");
+});
+
 test("ADOPTION normalizer maps explicit canonical fields conservatively", () => {
   const src = source({
     sourceUrl: "https://adopt.example/adoption/max",
@@ -176,7 +207,7 @@ test("ADOPTION normalizer maps explicit canonical fields conservatively", () => 
   assert.equal(normalized.proposed.approximateAgeMonths, 30);
   assert.equal(normalized.proposed.breedName, "kríženec Labradora");
   assert.equal(normalized.proposed.breedMix, true);
-  assert.equal(normalized.proposed.size, "stredná");
+  assert.equal(normalized.proposed.size, "MEDIUM");
   assert.equal(normalized.proposed.weight, 28.5);
   assert.equal(normalized.proposed.color, "čierna");
   assert.equal(normalized.proposed.city, "Nitra");
@@ -603,7 +634,7 @@ test("automation-created adoption remains DRAFT and unpublished", () => {
   assert.match(adoptionBranch[1], /published_at: null/);
 });
 
-test("0110 gates only Tavily-backed activation and ADOPTION rollout adds no migration", () => {
+test("production-applied 0110 remains a real fail-closed Tavily runtime schema gate and ADOPTION adds no migration", () => {
   const activation = readFileSync(new URL("../lib/data-automation-source-activation.ts", import.meta.url), "utf8");
   assert.match(activation, /technical\.strategy === "TAVILY_CRAWL"/);
   assert.match(activation, /technical\.strategy === "TAVILY_EXTRACT"/);
