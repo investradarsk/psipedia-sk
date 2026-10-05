@@ -7,6 +7,7 @@ import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
+import { normalizeAutomationAdoptionRecord } from "./data-automation-adoption-normalize.ts";
 import { validateDynamicAutomationIngestion } from "./data-automation-dynamic-identity.ts";
 import {
   TavilyAutomationCrawlProvider,
@@ -160,6 +161,9 @@ export async function previewAutomationSource(input: {
         });
         if (input.source.entityType === "EVENT") {
           candidateRecord = normalizeAutomationEventRecord(candidateRecord);
+        }
+        if (input.source.entityType === "ADOPTION") {
+          candidateRecord = normalizeAutomationAdoptionRecord(candidateRecord, { sourceConfig: input.source.config });
         }
         if (!candidateRecord.proposed || typeof candidateRecord.proposed !== "object" || Array.isArray(candidateRecord.proposed)) {
           throw new Error("normalized_payload_invalid");
