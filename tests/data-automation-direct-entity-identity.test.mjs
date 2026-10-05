@@ -323,7 +323,7 @@ test("ORGANIZATION name-derived/equal slug is candidate retrieval only, never EX
   assert.equal(match.entityId, null);
 });
 
-test("same ORGANIZATION name in different cities does not auto-match", () => {
+test("same ORGANIZATION name with explicit conflicting locality does not auto-match", () => {
   const record = directRecord({
     entityType: "ORGANIZATION",
     proposed: { name: "OZ Psia nádej", city: "Nitra", region: "Nitriansky kraj" },
@@ -339,7 +339,7 @@ test("same ORGANIZATION name in different cities does not auto-match", () => {
       }),
     ],
   });
-  assert.equal(match.quality, "UNCERTAIN");
+  assert.equal(match.quality, "NONE");
 });
 
 test("unique normalized organization registration number is deterministic; duplicate exact signal is uncertain", () => {
