@@ -114,7 +114,7 @@ function firstPartyProfile(record: AutomationSourceRecord) {
   const source = directEntityIdentitySource(record);
   return source === "page_metadata"
     || firstPartyStructured(record)
-    || officialFields(record).length > 0;
+    || explicitFieldOrigin(record, "name") === "FIRST_PARTY";
 }
 
 function explicitFieldOrigin(record: AutomationSourceRecord, field: string) {
@@ -150,7 +150,15 @@ function authoritativeContactCount(record: AutomationSourceRecord) {
     return publicContactCount(record);
   }
   const fields = ["publicPhone", "phone", "publicEmail", "email", "websiteUrl", "website_url", "website"];
-  return fields.filter((field) => text(record.proposed[field]) && authoritativeFieldOrigin(record, field)).length;
+  const originBacked = fields.filter(
+    (field) => text(record.proposed[field]) && authoritativeFieldOrigin(record, field),
+  ).length;
+  const official = new Set(officialFields(record));
+  const officialContacts = [
+    official.has("publicPhone") && text(record.proposed.publicPhone),
+    official.has("publicEmail") && text(record.proposed.publicEmail),
+  ].filter(Boolean).length;
+  return Math.max(originBacked, officialContacts);
 }
 
 function stablePublicUrl(record: AutomationSourceRecord) {
@@ -262,7 +270,9 @@ function organizationDecision(
       || type
       || contacts > 0
       || text(p.legalName)
-      || addedOfficialFields.some((field) => field !== "websiteUrl"),
+      || addedOfficialFields.some((field) =>
+        ["publicPhone", "publicEmail", "registrationNumber"].includes(field)
+      ),
   );
 
   if (registration && (type || firstParty || trusted)) return "VALID_FOR_DRAFT" as const;
