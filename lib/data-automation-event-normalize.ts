@@ -177,6 +177,28 @@ function labelledFacts(text: string) {
       if (value) facts[key] = value.slice(0, 1000);
     }
   }
+
+  const flat = text.replace(/\s+/g, " ").trim();
+  const nextLabel = "(?:dátum|datum|termín|termin|kedy|miesto(?:\\s+konania)?|lokalita|organizátor|organizator|usporiadateľ|usporiadatel|registrácia|registracia|prihlásenie|prihlasenie|prihláška|prihlaska|propozície|propozicie|výsledky|vysledky|čas|cas|začiatok|zaciatok|typ|druh\\s+podujatia)";
+  const flatMappings: Array<[string, string]> = [
+    ["date", "(?:dátum|datum|termín|termin|kedy)"],
+    ["venue", "(?:miesto(?:\\s+konania)?|lokalita)"],
+    ["organizer", "(?:organizátor|organizator|usporiadateľ|usporiadatel)"],
+    ["registration", "(?:registrácia|registracia|prihlásenie|prihlasenie|prihláška|prihlaska)"],
+    ["propositions", "(?:propozície|propozicie)"],
+    ["results", "(?:výsledky|vysledky)"],
+    ["time", "(?:čas|cas|začiatok|zaciatok)"],
+    ["type", "(?:typ|druh\\s+podujatia)"],
+  ];
+  for (const [key, label] of flatMappings) {
+    if (facts[key]) continue;
+    const pattern = new RegExp(
+      "(?:^|\\s)" + label + "\\s*[:–—-]\\s*(.{1,1000}?)(?=\\s+" + nextLabel + "\\s*[:–—-]|$)",
+      "i",
+    );
+    const value = flat.match(pattern)?.[1]?.trim();
+    if (value) facts[key] = value.slice(0, 1000);
+  }
   return facts;
 }
 
