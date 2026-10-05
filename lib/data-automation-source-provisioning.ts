@@ -148,7 +148,10 @@ export function candidateProvisioningConfigFor(input: {
       entityType: input.entityType,
       canonicalUrl: input.canonicalUrl,
     });
-    if (Object.keys(dedicated).length > 0 || input.entityType !== "ADOPTION") return dedicated;
+    if (
+      Object.keys(dedicated).length > 0
+      || (input.entityType !== "ADOPTION" && input.entityType !== "FOSTER")
+    ) return dedicated;
 
     const sourceShape = input.metadata.sourceShape === "SINGLE_ITEM" || input.metadata.sourceShape === "MULTI_ITEM_LIST"
       ? input.metadata.sourceShape

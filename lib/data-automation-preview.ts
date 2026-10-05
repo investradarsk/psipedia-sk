@@ -8,6 +8,7 @@ import { buildSourceScopedExtractionContract } from "./data-automation-source-sc
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
 import { normalizeAutomationAdoptionRecord } from "./data-automation-adoption-normalize.ts";
+import { normalizeAutomationFosterRecord } from "./data-automation-foster-normalize.ts";
 import { validateDynamicAutomationIngestion } from "./data-automation-dynamic-identity.ts";
 import {
   TavilyAutomationCrawlProvider,
@@ -164,6 +165,9 @@ export async function previewAutomationSource(input: {
         }
         if (input.source.entityType === "ADOPTION") {
           candidateRecord = normalizeAutomationAdoptionRecord(candidateRecord, { sourceConfig: input.source.config });
+        }
+        if (input.source.entityType === "FOSTER") {
+          candidateRecord = normalizeAutomationFosterRecord(candidateRecord, { sourceConfig: input.source.config });
         }
         if (!candidateRecord.proposed || typeof candidateRecord.proposed !== "object" || Array.isArray(candidateRecord.proposed)) {
           throw new Error("normalized_payload_invalid");

@@ -239,23 +239,27 @@ export function automationExtractionCapabilities(
     }
   }
 
-  const sourceScopedAdoptionBlock = source.entityType === "ADOPTION" && dedicated.status !== "SUPPORTED"
-    ? source.config.sourceShape !== "SINGLE_ITEM" && source.config.sourceShape !== "MULTI_ITEM_LIST"
-      ? "ADOPTION_SOURCE_SHAPE_REQUIRED"
-      : typeof source.config.staticFields?.organizationName !== "string"
-        || !source.config.staticFields.organizationName.trim()
-        ? "ADOPTION_ORGANIZATION_IDENTITY_REQUIRED"
-        : null
-    : null;
+  const sourceScopedHelpBlock = dedicated.status === "SUPPORTED"
+    ? null
+    : source.entityType === "ADOPTION" || source.entityType === "FOSTER"
+      ? source.config.sourceShape !== "SINGLE_ITEM" && source.config.sourceShape !== "MULTI_ITEM_LIST"
+        ? source.entityType + "_SOURCE_SHAPE_REQUIRED"
+        : typeof source.config.staticFields?.organizationName !== "string"
+          || !source.config.staticFields.organizationName.trim()
+          ? source.entityType + "_ORGANIZATION_IDENTITY_REQUIRED"
+          : null
+      : source.entityType === "LOST_FOUND"
+        ? "LOST_FOUND_SOURCE_SCOPED_NOT_ENABLED"
+        : null;
 
   return withGovernanceStatus([
     dedicated,
     {
       strategy: "GENERIC_FIRST_PARTY",
-      status: sourceScopedAdoptionBlock
+      status: sourceScopedHelpBlock
         ? "UNAVAILABLE"
         : options.genericProbe?.supported ? "SUPPORTED" : "UNAVAILABLE",
-      reason: sourceScopedAdoptionBlock
+      reason: sourceScopedHelpBlock
         ?? (options.genericProbe?.supported
           ? "PROBE_CONFIRMED"
           : options.genericProbe?.reason || "PROBE_REQUIRED"),
@@ -265,14 +269,14 @@ export function automationExtractionCapabilities(
     },
     {
       strategy: "TAVILY_CRAWL",
-      status: sourceScopedAdoptionBlock
+      status: sourceScopedHelpBlock
         ? "UNAVAILABLE"
         : !options.tavilyCredentialConfigured
           ? "UNAVAILABLE"
           : source.config.sourceShape === "SINGLE_ITEM"
             ? "UNSUPPORTED"
             : "SUPPORTED",
-      reason: sourceScopedAdoptionBlock
+      reason: sourceScopedHelpBlock
         ?? (!options.tavilyCredentialConfigured
           ? "TAVILY_KEY_MISSING"
           : source.config.sourceShape === "SINGLE_ITEM"
@@ -284,14 +288,14 @@ export function automationExtractionCapabilities(
     },
     {
       strategy: "TAVILY_EXTRACT",
-      status: sourceScopedAdoptionBlock
+      status: sourceScopedHelpBlock
         ? "UNAVAILABLE"
         : !options.tavilyCredentialConfigured
           ? "UNAVAILABLE"
           : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
             ? "SUPPORTED"
             : "UNSUPPORTED",
-      reason: sourceScopedAdoptionBlock
+      reason: sourceScopedHelpBlock
         ?? (!options.tavilyCredentialConfigured
           ? "TAVILY_KEY_MISSING"
           : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)

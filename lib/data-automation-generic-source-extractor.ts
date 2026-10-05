@@ -585,6 +585,105 @@ async function adoptionRecordFromHtmlDetail(input: {
   } satisfies AutomationSourceRecord;
 }
 
+
+function fosterHtmlDetailEvidence(
+  html: string,
+  pageUrl: string,
+  source: AutomationSource,
+  contract: SourceScopedExtractionContract,
+) {
+  const h1 = textFromHtml(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? "").slice(0, 300);
+  if (!h1) return null;
+  const heading = normalizedAdoptionHeading(h1);
+  if (/^(?:docasna opatera|hladame docasku|hladame docasnu opateru|potrebujeme docasku|urgentne potrebujeme docasku|pomozte nam docasna opatera)$/.test(heading)) {
+    return null;
+  }
+
+  const text = textFromHtml(html).slice(0, 10_000);
+  const fosterSemantic = /(?:do[cč]asn[aá]\s+opatera|do[cč]ask[auy]|temporary\s+foster)/i.test(text);
+  if (!fosterSemantic) return null;
+
+  const caseSignals = [
+    /(?:^|\s)(?:meno|ps[ií]k|pes|fenka)\s*[:–—-]/i,
+    /(?:^|\s)(?:plemeno|rasa)\s*[:–—-]/i,
+    /(?:^|\s)vek\s*[:–—-]/i,
+    /(?:^|\s)mesto\s*[:–—-]/i,
+    /(?:^|\s)(?:kraj|regi[oó]n)\s*[:–—-]/i,
+    /(?:^|\s)(?:lokalita|miesto)\s*[:–—-]/i,
+    /(?:^|\s)(?:urgentn[eé]|s[uú]rne)\s*[:–—-]/i,
+    /(?:^|\s)kontakt\s*[:–—-]/i,
+  ].filter((pattern) => pattern.test(text)).length;
+  if (caseSignals < 2) return null;
+
+  const sourceOrganization = typeof source.config.staticFields?.organizationName === "string"
+    ? source.config.staticFields.organizationName.trim()
+    : "";
+  const labelledOrganization = /(?:^|\s)(?:organiz[aá]cia|[uú]tulok|oz)\s*[:–—-]\s*\S+/i.test(text);
+  if (!sourceOrganization && !labelledOrganization) return null;
+
+  const canonicalHref = html.match(/<link\b[^>]*rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*href\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1]
+    ?? html.match(/<link\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*>/i)?.[1]
+    ?? null;
+  const canonical = canonicalHref ? scopeUrl(canonicalHref, pageUrl, contract) : canonicalizeSourceUrl(pageUrl);
+  if (!canonical || canonical !== canonicalizeSourceUrl(pageUrl)) return null;
+
+  const description = decodeHtml(
+    html.match(/<meta\b[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*>/i)?.[1] ?? "",
+  ).replace(/\s+/g, " ").trim().slice(0, 5000);
+  return { title: h1, canonical, description, pageTextExcerpt: text };
+}
+
+async function fosterRecordFromHtmlDetail(input: {
+  html: string;
+  pageUrl: string;
+  source: AutomationSource;
+  contract: SourceScopedExtractionContract;
+  discoveryMethod: string;
+  detailFetched: boolean;
+}) {
+  const evidence = fosterHtmlDetailEvidence(input.html, input.pageUrl, input.source, input.contract);
+  if (!evidence) return null;
+  const proposed: Record<string, unknown> = {
+    title: evidence.title,
+    actionUrl: evidence.canonical,
+    ...(evidence.description ? { description: evidence.description } : {}),
+  };
+  const id = await sourceRecordId({
+    externalId: null,
+    itemUrl: evidence.canonical,
+    sourceRoot: input.contract.identity.canonicalSourceRootUrl,
+    proposed,
+    schemaTypes: [],
+  });
+  return {
+    sourceRecordId: id,
+    sourceUrl: evidence.canonical,
+    sourceTimestamp: null,
+    rawRecord: {
+      pageUrl: input.pageUrl,
+      pageTextExcerpt: evidence.pageTextExcerpt,
+    },
+    proposed,
+    extraction: {
+      itemUrl: evidence.canonical,
+      externalId: null,
+      discoveredFromRoot: input.contract.identity.canonicalSourceRootUrl,
+      strategy: "GENERIC_FIRST_PARTY" as const,
+      evidenceMetadata: {
+        discoveryMethod: input.discoveryMethod,
+        pageUrl: input.pageUrl,
+        detailFetched: input.detailFetched,
+        fosterDetailEvidence: true,
+      },
+      coverage: {
+        classification: "UNKNOWN" as const,
+        complete: false,
+      },
+      confidence: "HIGH" as const,
+    },
+  } satisfies AutomationSourceRecord;
+}
+
 function recordIdentityKey(record: AutomationSourceRecord) {
   return record.sourceUrl ? "url:" + record.sourceUrl : "id:" + record.sourceRecordId;
 }
@@ -733,7 +832,11 @@ export async function extractGenericFirstPartySource(input: {
         visitedListings.size === 1
         && structuredItems.length === 0
         && input.source.config.sourceShape === "SINGLE_ITEM"
-        && (input.source.entityType === "EVENT" || input.source.entityType === "ADOPTION")
+        && (
+          input.source.entityType === "EVENT"
+          || input.source.entityType === "ADOPTION"
+          || input.source.entityType === "FOSTER"
+        )
       ) {
         const record = input.source.entityType === "ADOPTION"
           ? await adoptionRecordFromHtmlDetail({
@@ -744,7 +847,16 @@ export async function extractGenericFirstPartySource(input: {
               discoveryMethod: "ADOPTION_ROOT_HTML_DETAIL",
               detailFetched: false,
             })
-          : await (async () => {
+          : input.source.entityType === "FOSTER"
+            ? await fosterRecordFromHtmlDetail({
+                html: page.html,
+                pageUrl,
+                source: input.source,
+                contract: input.contract,
+                discoveryMethod: "FOSTER_ROOT_HTML_DETAIL",
+                detailFetched: false,
+              })
+            : await (async () => {
               const fallback = htmlDetailEvidence(page.html, pageUrl, input.contract);
               return fallback
                 ? recordFromNode({
@@ -891,6 +1003,15 @@ export async function extractGenericFirstPartySource(input: {
         source: input.source,
         contract: input.contract,
         discoveryMethod: "ADOPTION_DETAIL_HTML",
+        detailFetched: true,
+      });
+    } else if (input.source.entityType === "FOSTER") {
+      record = await fosterRecordFromHtmlDetail({
+        html: fetched.html,
+        pageUrl: finalUrl,
+        source: input.source,
+        contract: input.contract,
+        discoveryMethod: "FOSTER_DETAIL_HTML",
         detailFetched: true,
       });
     } else {

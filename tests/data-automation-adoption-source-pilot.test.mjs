@@ -259,24 +259,24 @@ test("source-level organization identity is inherited only from explicit approve
   assert.equal(withoutStatic.proposed.organizationName, undefined);
 });
 
-test("legacy HELP readiness unlocks only ADOPTION with known shape and organization", () => {
-  const adoption = automationHelpSourceReadiness({
-    entityType: "ADOPTION",
-    connectorType: "CONTROLLED_HTML",
-    config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { organizationName: "Útulok ABC" } },
-  });
-  assert.equal(adoption.ready, true);
-  assert.equal(adoption.adapterKey, null);
-
-  for (const entityType of ["FOSTER", "LOST_FOUND"]) {
+test("legacy HELP readiness unlocks ADOPTION and FOSTER while LOST_FOUND stays adapter-only", () => {
+  for (const entityType of ["ADOPTION", "FOSTER"]) {
     const result = automationHelpSourceReadiness({
       entityType,
       connectorType: "CONTROLLED_HTML",
       config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { organizationName: "OZ ABC" } },
     });
-    assert.equal(result.ready, false);
-    assert.equal(result.reason, "MISSING_ADAPTER");
+    assert.equal(result.ready, true);
+    assert.equal(result.adapterKey, null);
   }
+
+  const lostFound = automationHelpSourceReadiness({
+    entityType: "LOST_FOUND",
+    connectorType: "CONTROLLED_HTML",
+    config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { organizationName: "OZ ABC" } },
+  });
+  assert.equal(lostFound.ready, false);
+  assert.equal(lostFound.reason, "MISSING_ADAPTER");
 });
 
 test("source-scoped ADOPTION readiness requires explicit sourceShape and organization identity", () => {

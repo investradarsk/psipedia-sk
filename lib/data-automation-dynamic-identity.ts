@@ -3,6 +3,7 @@ import {
 } from "./data-automation-source-scoped-extraction.ts";
 import { automationEventNormalizationMetadata } from "./data-automation-event-normalize.ts";
 import { automationAdoptionNormalizationMetadata } from "./data-automation-adoption-normalize.ts";
+import { automationFosterNormalizationMetadata } from "./data-automation-foster-normalize.ts";
 import {
   canonicalizeSourceUrl,
   normalizeAutomationIdentity,
@@ -273,6 +274,19 @@ function fosterDraftEvidence(record: AutomationSourceRecord) {
   const stable = automationStableSourceIdentity(record);
   if (stable === "NONE" || stable === "WEAK") reasons.push("foster_stable_identity_missing");
   if (!clean(p.organizationName ?? p.organization)) reasons.push("foster_organization_identity_missing");
+
+  const normalized = automationFosterNormalizationMetadata(record);
+  if (
+    normalized
+    && record.extraction
+    && ["GENERIC_FIRST_PARTY", "TAVILY_CRAWL", "TAVILY_EXTRACT"].includes(record.extraction.strategy)
+    && normalized.fosterProfileEvidence !== true
+  ) {
+    reasons.push("foster_profile_evidence_missing");
+  }
+  const resolved = normalized?.explicitResolved === true
+    || record.lifecycleSignals?.some((signal) => signal.signalType === "FOSTER_RESOLVED");
+  if (resolved) reasons.push("foster_resolved_new_draft_blocked");
   return reasons;
 }
 
