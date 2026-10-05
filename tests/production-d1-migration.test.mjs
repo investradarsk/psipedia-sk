@@ -409,6 +409,43 @@ test("NOTION-BIDIRECTIONAL-EVENTS-HELP-1 0108 migration is additive and identity
   assert.doesNotMatch(migration, /\bDROP\b|\bDELETE\b/i);
 });
 
+test("TAVILY-SOURCE-SCOPED-1 0110 detects partial provider usage schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{ name: "automation_source_provider_usage", type: "table", sql: "" }],
+    }, "0110_tavily_source_provider_usage.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{ name: "automation_source_provider_usage_source_day_idx", type: "index", sql: "" }],
+    }, "0110_tavily_source_provider_usage.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0110_tavily_source_provider_usage.sql"),
+    { partial: false },
+  );
+  assert.equal(
+    assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: false }),
+    true,
+  );
+  assert.throws(
+    () => assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: true }),
+    /already contains target migration objects/i,
+  );
+});
+
+test("TAVILY-SOURCE-SCOPED-1 0110 migration is additive, bounded and operation-aware", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0110_tavily_source_provider_usage.sql"), "utf8");
+  assert.match(migration, /CREATE TABLE `automation_source_provider_usage`/);
+  assert.match(migration, /CHECK \(`operation` IN \('CRAWL','EXTRACT'\)\)/);
+  assert.match(migration, /automation_source_provider_usage_source_day_idx/);
+  assert.match(migration, /automation_source_provider_usage_run_idx/);
+  assert.match(migration, /automation_source_provider_usage_operation_day_idx/);
+  assert.doesNotMatch(migration, /\bDROP\b|\bDELETE\b|\bUPDATE\s+/i);
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
