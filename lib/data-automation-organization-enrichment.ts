@@ -415,6 +415,7 @@ export function createProductionOrganizationEnricher(
     const entry = chooseDirectoryEntry(proposed, entries);
 
     const secondarySources: string[] = [];
+    const trustedDirectoryMatched = Boolean(entry);
     if (entry) secondarySources.push(entry.sourceUrl);
     if (!proposed.websiteUrl && entry?.websiteUrl) proposed.websiteUrl = entry.websiteUrl;
     if (!proposed.facebookUrl && entry?.facebookUrl) proposed.facebookUrl = entry.facebookUrl;
@@ -433,6 +434,7 @@ export function createProductionOrganizationEnricher(
     }
 
     const website = String(proposed.websiteUrl ?? "").trim();
+    const officialFields: string[] = [];
     if (website) {
       const official = await enrichFromOfficialSite(website);
       const finalWebsite = String(official.websiteUrl ?? website).trim();
@@ -440,7 +442,10 @@ export function createProductionOrganizationEnricher(
         proposed.websiteUrl = finalWebsite;
       }
       for (const key of ["publicEmail","publicPhone","facebookUrl","instagramUrl","registrationNumber","description","shortDescription","imageUrl"] as const) {
-        if (!proposed[key] && official[key]) proposed[key] = official[key];
+        if (!proposed[key] && official[key]) {
+          proposed[key] = official[key];
+          officialFields.push(key);
+        }
       }
       if (finalWebsite) secondarySources.push(finalWebsite);
     }
@@ -452,7 +457,11 @@ export function createProductionOrganizationEnricher(
       primary: record.rawRecord,
       enrichment: {
         directoryUrl: entry?.sourceUrl ?? null,
+        trustedDirectoryMatched,
+        trustedDirectoryCity: entry?.city ?? null,
+        trustedDirectoryForm: entry?.form ?? null,
         officialWebsiteUrl: String(proposed.websiteUrl ?? "").trim() || null,
+        officialFields,
         sources: [...new Set(secondarySources)],
         enrichedAt: context.detectedAt,
       },
