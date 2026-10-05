@@ -319,7 +319,7 @@ test("missing Tavily key remains UNAVAILABLE and configured capability stays sou
 
   const detail = automationExtractionCapabilities(source({
     sourceUrl: "https://example.sk/psy/max",
-    config: { sourceShape: "SINGLE_ITEM" },
+    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "Útulok A" } },
   }), undefined, { tavilyCredentialConfigured: true });
   assert.equal(detail.find((x) => x.strategy === "TAVILY_CRAWL")?.status, "UNSUPPORTED");
   assert.equal(detail.find((x) => x.strategy === "TAVILY_EXTRACT")?.status, "SUPPORTED");
