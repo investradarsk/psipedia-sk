@@ -1560,6 +1560,27 @@ function assertAutomationSearchUsageSchema(schema) {
   }
 }
 
+function assertAutomationSourceProviderUsageSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(
+    names.get("automation_source_provider_usage")?.type === "table",
+    "Missing automation_source_provider_usage table",
+  );
+  for (const index of AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing source provider usage index: ${index}`);
+  }
+  const sql = String(names.get("automation_source_provider_usage")?.sql ?? "");
+  for (const column of [
+    "operation_key", "source_id", "run_id", "provider_key", "operation", "day_bucket",
+    "request_count", "result_count", "accepted_count", "scope_rejected_count", "status",
+    "created_at", "finalized_at",
+  ]) {
+    invariant(sql.includes(column), `automation_source_provider_usage.${column} is missing`);
+  }
+  invariant(sql.includes("'CRAWL','EXTRACT'"), "source provider operation constraint is incomplete");
+  invariant(sql.includes("'BUDGET_EXHAUSTED'"), "source provider status constraint is incomplete");
+}
+
 export function assertAutomationGovernanceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("automation_governance_reviews")?.type === "table", "Missing automation_governance_reviews table");
@@ -1711,6 +1732,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 106) assertSectionVisualSchema(schema);
   if (migrationIndex(targetMigration) >= 107) assertSectionHeroConfigSchema(schema);
   if (migrationIndex(targetMigration) >= 108) assertNotionEventsHelpBidirectionalSchema(schema);
+  if (migrationIndex(targetMigration) >= 110) assertAutomationSourceProviderUsageSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
