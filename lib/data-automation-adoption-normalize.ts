@@ -315,6 +315,16 @@ export function normalizeAutomationAdoptionRecord(
     });
   }
 
+  const profileEvidence = Boolean(
+    sex
+    || birthDate
+    || ageMonths !== null
+    || breed.breedName
+    || size
+    || weight !== null
+    || color
+  );
+
   const adoptionNormalization = {
     version: AUTOMATION_ADOPTION_NORMALIZATION_VERSION,
     normalizedFields: Object.keys(proposed)
@@ -331,6 +341,7 @@ export function normalizeAutomationAdoptionRecord(
             : null,
     explicitAdopted: lifecycle?.signalType === "ADOPTION_ADOPTED",
     explicitReserved: lifecycle?.signalType === "ADOPTION_RESERVED",
+    profileEvidence,
     evidence: {
       structured: Boolean(
         structured.name
