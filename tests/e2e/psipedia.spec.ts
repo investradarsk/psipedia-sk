@@ -9,8 +9,20 @@ async function useNecessaryCookies(page: Page) {
 }
 
 async function gotoProductionPage(page: Page, path: string) {
-  // Production smoke validates the committed response and rendered app content, not DOMContentLoaded timing.
-  const response = await page.goto(path, { waitUntil: "commit" });
+  // Production edge/network latency can occasionally exceed one navigation window.
+  // Retry only navigation timeouts; HTTP and render failures remain strict and fail immediately.
+  let response = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      response = await page.goto(path, { waitUntil: "commit", timeout: 30_000 });
+      break;
+    } catch (error) {
+      const isNavigationTimeout = error instanceof Error && error.name === "TimeoutError";
+      if (!isNavigationTimeout || attempt === 2) throw error;
+      console.warn(`Production navigation timeout for ${path}; retrying once`);
+    }
+  }
+
   expect(response, `No navigation response for ${path}`).not.toBeNull();
   expect(response?.status(), `${path} returned HTTP ${response?.status()}`).toBeLessThan(400);
   await expect(page.locator("main"), `${path} did not render public content`).toBeVisible();
@@ -100,6 +112,7 @@ async function expectSectionTabsClear(page: Page, path: string, minimumGap = 0) 
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.includes("@production")) testInfo.setTimeout(90_000);
   if (testInfo.title !== NO_CONSENT_TEST) await useNecessaryCookies(page);
 });
 
