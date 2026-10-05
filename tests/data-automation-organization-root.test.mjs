@@ -135,7 +135,7 @@ test("DISCOVERY-CAT-1B admin category exposes ORGANIZATION Tavily roots", () => 
   const categoryPage = read("app/admin/automatizacie/[category]/page.tsx");
   const rootPage = read("app/admin/automatizacie/[category]/discovery/[id]/page.tsx");
   assert.match(presentation, /entityTypes: \["ORGANIZATION"\]/);
-  assert.match(categoryPage, /root\.discoveryType === "SEARCH_PROVIDER"/);
-  assert.match(categoryPage, /root\.config\.provider/);
+  assert.match(categoryPage, /import \{ isTavilySearchDiscoveryRoot \} from "@\/lib\/tavily-canary-control"/);
+  assert.match(categoryPage, /\.filter\(isTavilySearchDiscoveryRoot\)/);
   assert.match(rootPage, /category\.entityTypes\.includes\(root\.entityType\)/);
 });
