@@ -224,8 +224,8 @@ function explicitCancellation(record: AutomationSourceRecord, status: string | n
   if (/(?:^| )eventcancelled(?: |$)|(?:^| )cancelled(?: |$)|(?:^| )canceled(?: |$)/.test(normalizedStatus)) {
     return status ?? "Cancelled";
   }
-  const match = text.match(/\b(?:zrušené|zrušená|zrušený|podujatie\s+sa\s+ruší|akcia\s+sa\s+ruší|cancelled|canceled)\b/i);
-  return match?.[0] ?? null;
+  const match = text.match(/(?:^|[\s:;,.!?–—-])(?:zrušené|zrušená|zrušený|podujatie\s+sa\s+ruší|akcia\s+sa\s+ruší|cancelled|canceled)(?=$|[\s:;,.!?–—-])/i);
+  return match?.[0]?.trim() ?? null;
 }
 
 function conservativeCityFromVenue(value: string | null) {
@@ -327,8 +327,23 @@ export function normalizeAutomationEventRecord(
   const normalizedFields = Object.keys(proposed)
     .filter((key) => proposed[key] !== undefined && proposed[key] !== null && proposed[key] !== "");
 
+  const eventNormalization = {
+    version: AUTOMATION_EVENT_NORMALIZATION_VERSION,
+    normalizedFields,
+    explicitCancellation: Boolean(cancellation),
+    archiveOnly,
+    evidence: {
+      structured: Boolean(structured.startDate || structured.organizer || structured.venue),
+      labelled: Boolean(Object.keys(labelled).length),
+    },
+  };
+
   return {
     ...record,
+    rawRecord: {
+      ...object(record.rawRecord),
+      _automationEventNormalization: eventNormalization,
+    },
     proposed,
     lifecycleSignals,
     extraction: record.extraction
@@ -336,16 +351,7 @@ export function normalizeAutomationEventRecord(
           ...record.extraction,
           evidenceMetadata: {
             ...record.extraction.evidenceMetadata,
-            eventNormalization: {
-              version: AUTOMATION_EVENT_NORMALIZATION_VERSION,
-              normalizedFields,
-              explicitCancellation: Boolean(cancellation),
-              archiveOnly,
-              evidence: {
-                structured: Boolean(structured.startDate || structured.organizer || structured.venue),
-                labelled: Boolean(Object.keys(labelled).length),
-              },
-            },
+            eventNormalization,
           },
         }
       : record.extraction,
@@ -353,7 +359,8 @@ export function normalizeAutomationEventRecord(
 }
 
 export function automationEventNormalizationMetadata(record: AutomationSourceRecord) {
-  const value = record.extraction?.evidenceMetadata?.eventNormalization;
+  const value = record.extraction?.evidenceMetadata?.eventNormalization
+    ?? object(record.rawRecord)._automationEventNormalization;
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
