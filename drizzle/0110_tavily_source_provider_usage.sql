@@ -32,6 +32,3 @@ CREATE INDEX `automation_source_provider_usage_run_idx`
 
 CREATE INDEX `automation_source_provider_usage_operation_day_idx`
   ON `automation_source_provider_usage` (`operation`,`day_bucket`,`created_at`);
-
-CREATE INDEX `automation_source_provider_usage_provider_status_idx`
-  ON `automation_source_provider_usage` (`provider_key`,`status`,`created_at`);
