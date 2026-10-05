@@ -441,9 +441,16 @@ abstract class TavilyProviderBase {
     coverage: AutomationExtractionCoverage;
     started: number;
   }) {
+    const status = input.diagnostics.acceptedCount > 0
+      ? "SUCCESS"
+      : input.diagnostics.scopeRejectedCount > 0
+        ? "SCOPE_VIOLATION"
+        : input.diagnostics.invalidCount > 0
+          ? "INVALID_RESPONSE"
+          : "EMPTY";
     await input.gate.finalize({
       operationKey: input.operationKey,
-      status: input.diagnostics.acceptedCount ? "SUCCESS" : "EMPTY",
+      status,
       resultCount: input.diagnostics.resultCount,
       acceptedCount: input.diagnostics.acceptedCount,
       scopeRejectedCount: input.diagnostics.scopeRejectedCount,
@@ -497,7 +504,19 @@ export class TavilyAutomationCrawlProvider extends TavilyProviderBase {
       },
     });
 
-    const parsed = parsePayload(req.payload);
+    let parsed: ParsedPayload;
+    try {
+      parsed = parsePayload(req.payload);
+    } catch (error) {
+      await input.gate.finalize({
+        operationKey: req.operationKey,
+        status: "INVALID_RESPONSE",
+        resultCount: 0,
+        acceptedCount: 0,
+        scopeRejectedCount: 0,
+      });
+      throw error;
+    }
     const filtered = filterRows(parsed.rows, input.contract);
     const truncated = parsed.rows.length >= limit
       || filtered.contentTruncatedCount > 0
@@ -542,7 +561,11 @@ export class TavilyAutomationCrawlProvider extends TavilyProviderBase {
       coverage,
       started: req.started,
     });
-    if (!records.length) throw new TavilySourceScopedError("TAVILY_NO_USABLE_RESULTS");
+    if (!records.length) {
+      if (diagnostics.scopeRejectedCount > 0) throw new TavilySourceScopedError("TAVILY_SCOPE_VIOLATION");
+      if (diagnostics.invalidCount > 0) throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE");
+      throw new TavilySourceScopedError("TAVILY_NO_USABLE_RESULTS");
+    }
     return { records, coverage, diagnostics };
   }
 }
@@ -581,7 +604,19 @@ export class TavilyAutomationExtractProvider extends TavilyProviderBase {
       },
     });
 
-    const parsed = parsePayload(req.payload);
+    let parsed: ParsedPayload;
+    try {
+      parsed = parsePayload(req.payload);
+    } catch (error) {
+      await input.gate.finalize({
+        operationKey: req.operationKey,
+        status: "INVALID_RESPONSE",
+        resultCount: 0,
+        acceptedCount: 0,
+        scopeRejectedCount: 0,
+      });
+      throw error;
+    }
     const filtered = filterRows(parsed.rows, input.contract);
     const coverage: AutomationExtractionCoverage = {
       classification: "DETAIL_ONLY",
@@ -623,7 +658,11 @@ export class TavilyAutomationExtractProvider extends TavilyProviderBase {
       coverage,
       started: req.started,
     });
-    if (!records.length) throw new TavilySourceScopedError("TAVILY_NO_USABLE_RESULTS");
+    if (!records.length) {
+      if (diagnostics.scopeRejectedCount > 0) throw new TavilySourceScopedError("TAVILY_SCOPE_VIOLATION");
+      if (diagnostics.invalidCount > 0) throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE");
+      throw new TavilySourceScopedError("TAVILY_NO_USABLE_RESULTS");
+    }
     return { records, coverage, diagnostics };
   }
 }
