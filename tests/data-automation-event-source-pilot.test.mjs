@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  automationEventNormalizationMetadata,
   normalizeAutomationEventRecord,
   parseAutomationEventDateRange,
 } from "../lib/data-automation-event-normalize.ts";
@@ -256,6 +257,31 @@ test("Tavily Extract detail fallback normalizes explicit facts and remains DETAI
   assert.equal(normalized.proposed.venue, "Nitra");
   assert.equal(normalized.proposed.organizer, "Klub Extract");
   assert.equal(decision(src, normalized)?.gate, "VALID_FOR_DRAFT");
+});
+
+test("EVENT-only document links stay in evidence when canonical EVENT has no dedicated columns", () => {
+  const normalized = normalizeAutomationEventRecord({
+    sourceRecordId: "event-links",
+    sourceUrl: "https://events.example.sk/events/event-links",
+    sourceTimestamp: null,
+    rawRecord: {
+      contentExcerpt: [
+        "Dátum: 12. 10. 2027",
+        "Miesto: Nitra",
+        "Organizátor: Klub ABC",
+        "Propozície: https://events.example.sk/docs/propozicie.pdf",
+        "Výsledky: https://events.example.sk/results/event-links",
+      ].join("\n"),
+    },
+    proposed: { title: "Event s dokumentmi" },
+  }, { now: NOW });
+  const metadata = automationEventNormalizationMetadata(normalized);
+
+  assert.equal(normalized.proposed.propositionsUrl, undefined);
+  assert.equal(normalized.proposed.resultsUrl, undefined);
+  assert.equal(metadata?.evidenceLinks?.propositionsUrl, "https://events.example.sk/docs/propozicie.pdf");
+  assert.equal(metadata?.evidenceLinks?.resultsUrl, "https://events.example.sk/results/event-links");
+  assert.equal(decision(source(), normalized)?.gate, "VALID_FOR_DRAFT");
 });
 
 test("weak Tavily marketing content and missing EVENT evidence stay review-only", () => {
