@@ -263,10 +263,13 @@ function labelledFacts(text: string) {
 }
 
 function incidentDateFromText(text: string) {
-  const lines = text.replace(/\r/g, "\n").split(/\n+/).map((line) => line.trim()).filter(Boolean).slice(0, 400);
-  for (const line of lines) {
-    if (!/(?:stratil|stratila|straten|nezvestn|bol\s+n[aá]jden|bola\s+n[aá]jden|n[aá]jden[ýá]\s+(?:pes|fenka))/i.test(line)) continue;
-    const match = line.match(/(?:d[nň]a\s*)?(\d{1,2}\.\s*\d{1,2}\.\s*\d{4}|\d{4}-\d{2}-\d{2})/i)?.[1];
+  const segments = text.replace(/\r/g, "\n").split(/\n+/).map((line) => line.trim()).filter(Boolean).slice(0, 400);
+  const incident = "(?:stratil|stratila|straten[ýá]?|nezvestn[ýá]?|bol\\s+n[aá]jden[ý]?|bola\\s+n[aá]jden[aá]?|n[aá]jden[ýá]\\s+(?:pes|fenka))";
+  const date = "(\\d{1,2}\\.\\s*\\d{1,2}\\.\\s*\\d{4}|\\d{4}-\\d{2}-\\d{2})";
+  const after = new RegExp(incident + "[^0-9]{0,100}(?:d[nň]a\\s*)?" + date, "i");
+  const before = new RegExp("(?:d[nň]a\\s*)?" + date + "[^a-zA-Záäčďéíĺľňóôŕšťúýž]{0,20}.{0,80}?" + incident, "i");
+  for (const segment of segments) {
+    const match = segment.match(after)?.[1] ?? segment.match(before)?.[1] ?? null;
     const parsed = exactDate(match);
     if (parsed) return parsed;
   }
