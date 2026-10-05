@@ -144,6 +144,7 @@ export const AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES = Object.freeze([
   "automation_source_provider_usage_source_day_idx",
   "automation_source_provider_usage_run_idx",
   "automation_source_provider_usage_operation_day_idx",
+  "automation_source_provider_usage_provider_status_idx",
 ]);
 
 export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
