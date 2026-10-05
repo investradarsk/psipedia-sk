@@ -220,7 +220,6 @@ function labelledFacts(text: string) {
     }
   }
 
-  const flat = text.replace(/\s+/g, " ").trim();
   const labels = "(?:typ|type|meno|dog\\s+name|pes|fenka|pohlavie|sex|gender|plemeno|rasa|breed|farba|color|colour|vek|pribli[zž]n[yý]\\s+vek|age|ve[lľ]kos[tť]|size|d[aá]tum\\s+(?:n[aá]lezu|straty|incidentu|udalosti)|incident\\s+date|date\\s+(?:lost|found)|mesto|city|okres|district|kraj|regi[oó]n|region|lokalita|miesto\\s+(?:straty|n[aá]lezu)|location|zdroj|source|zdroj\\s+url|source\\s+url|odkaz|stav|status|kontakt|telefon|tel|email|e-mail)";
   const flatMappings: Array<[string, string]> = [
     ["type", "(?:typ|type)"],
@@ -239,14 +238,26 @@ function labelledFacts(text: string) {
     ["sourceUrl", "(?:zdroj\\s+url|source\\s+url|odkaz)"],
     ["status", "(?:stav|status)"],
   ];
+  // Evidence fields are joined with newlines by recordText. Parse each segment
+  // independently so the final label on a page excerpt cannot consume a
+  // separately-sourced meta description/content excerpt.
+  const segments = text
+    .replace(/\r/g, "\n")
+    .split(/\n+/)
+    .map((segment) => segment.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
   for (const [key, label] of flatMappings) {
     if (facts[key]) continue;
     const pattern = new RegExp(
       "(?:^|\\s)" + label + "\\s*[:–—-]\\s*(.{1,1000}?)(?=\\s+" + labels + "\\s*[:–—-]|$)",
       "i",
     );
-    const value = flat.match(pattern)?.[1]?.trim();
-    if (value) facts[key] = value.slice(0, 1000);
+    for (const segment of segments) {
+      const value = segment.match(pattern)?.[1]?.trim();
+      if (!value) continue;
+      facts[key] = value.slice(0, 1000);
+      break;
+    }
   }
   return facts;
 }
