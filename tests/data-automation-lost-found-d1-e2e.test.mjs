@@ -294,7 +294,7 @@ test("local D1 LOST_FOUND source-scoped flow creates one safe draft, reviews res
   const receipts = sqlite.prepare(`SELECT result, COUNT(*) AS count
     FROM automation_ingestion_receipts
     WHERE source_id=? AND entity_type='LOST_FOUND'
-    GROUP BY result`).all(created.id).results;
+    GROUP BY result`).all(created.id);
   assert.deepEqual(receipts.map((row) => ({ result: row.result, count: Number(row.count) })), [
     { result: "DRAFT_CREATED", count: 1 },
   ]);
