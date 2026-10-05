@@ -45,6 +45,7 @@ export async function POST(request: Request, { params }: Props) {
   const preview = await previewAutomationSource({
     source: sourceAdminRowToRuntimeSource(source),
     database: db,
+    tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
   });
   return Response.json({ preview }, { headers: { "cache-control": "no-store" } });
 }
