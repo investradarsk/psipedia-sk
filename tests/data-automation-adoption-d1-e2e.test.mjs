@@ -235,9 +235,11 @@ test("local D1 ADOPTION source-scoped flow is draft-safe, provenance-backed and 
   });
   assert.equal(first.status, "SUCCESS");
   assert.equal(first.checked, 1);
+  assert.equal(first.draftCreated, 1);
+  assert.equal(first.reviewOnly, 0);
   assert.equal(first.errors, 0);
 
-  const dog = sqlite.prepare(`SELECT id,status,published_at,organization_name,external_source_url
+  const dog = sqlite.prepare(`SELECT id,status,published_at,size,organization_name,external_source_url
     FROM adoption_dogs WHERE organization_name=? AND name=? ORDER BY id DESC LIMIT 1`).get(
       ORGANIZATION,
       DOG_NAME,
@@ -245,6 +247,8 @@ test("local D1 ADOPTION source-scoped flow is draft-safe, provenance-backed and 
   assert.ok(dog, "canonical adoption draft must exist");
   assert.equal(String(dog.status).toUpperCase(), "DRAFT");
   assert.equal(dog.published_at, null);
+  assert.equal(dog.size, "MEDIUM");
+  assert.ok(["SMALL", "MEDIUM", "LARGE", "GIANT", "UNKNOWN"].includes(dog.size));
   assert.equal(dog.organization_name, ORGANIZATION);
   assert.equal(dog.external_source_url, DETAIL_URL);
 
@@ -270,6 +274,8 @@ test("local D1 ADOPTION source-scoped flow is draft-safe, provenance-backed and 
   });
   assert.equal(second.status, "SUCCESS");
   assert.equal(second.checked, 1);
+  assert.equal(second.draftCreated, 0);
+  assert.equal(second.reviewOnly, 0);
   assert.equal(second.errors, 0);
 
   const secondDogCount = Number(sqlite.prepare(`SELECT COUNT(*) AS count
