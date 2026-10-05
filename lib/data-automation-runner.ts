@@ -58,6 +58,7 @@ import {
 } from "./data-automation-dynamic-identity.ts";
 import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
 import { normalizeAutomationAdoptionRecord } from "./data-automation-adoption-normalize.ts";
+import { normalizeAutomationFosterRecord } from "./data-automation-foster-normalize.ts";
 import {
   TavilyAutomationCrawlProvider,
   TavilyAutomationExtractProvider,
@@ -662,6 +663,9 @@ export async function processAutomationRecordForReview(input: {
   if (input.source.entityType === "ADOPTION") {
     record = normalizeAutomationAdoptionRecord(record, { sourceConfig: input.source.config });
   }
+  if (input.source.entityType === "FOSTER") {
+    record = normalizeAutomationFosterRecord(record, { sourceConfig: input.source.config });
+  }
   return processRecord(input.source, null, record, detectedAt, input.database, input.findingProposal);
 }
 
@@ -801,6 +805,9 @@ async function runSource(
         }
         if (source.entityType === "ADOPTION") {
           candidateRecord = normalizeAutomationAdoptionRecord(candidateRecord, { sourceConfig: source.config });
+        }
+        if (source.entityType === "FOSTER") {
+          candidateRecord = normalizeAutomationFosterRecord(candidateRecord, { sourceConfig: source.config });
         }
         const result = await processRecord(source, runId, candidateRecord, detectedAt, options.database);
         const counts = automationResultFindingCounts(result);
