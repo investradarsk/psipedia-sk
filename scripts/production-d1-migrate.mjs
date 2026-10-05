@@ -139,6 +139,13 @@ export const AUTOMATION_SEARCH_USAGE_INDEXES = Object.freeze([
   "automation_search_usage_fingerprint_idx",
 ]);
 
+export const AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES = Object.freeze([
+  "automation_source_provider_usage_operation_unique",
+  "automation_source_provider_usage_source_day_idx",
+  "automation_source_provider_usage_run_idx",
+  "automation_source_provider_usage_operation_day_idx",
+]);
+
 export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
   "automation_governance_reviews_subject_unique",
   "automation_governance_reviews_review_due_idx",
@@ -1020,6 +1027,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || names.has("notion_agenda_sync_psipedia_updated_idx")
         || names.has("notion_agenda_targets")
         || names.has("event_notion_sync_psipedia_updated_idx"),
+    };
+  }
+  if (targetMigration === "0110_tavily_source_provider_usage.sql") {
+    return {
+      partial: names.has("automation_source_provider_usage")
+        || AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES.some((index) => names.has(index)),
     };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
