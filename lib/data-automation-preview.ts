@@ -7,6 +7,15 @@ import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
 import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
+import {
+  TavilyAutomationCrawlProvider,
+  TavilyAutomationExtractProvider,
+  type TavilySourceScopedRequestGate,
+} from "./data-automation-tavily-source-scoped.ts";
+import {
+  finalizeAutomationSourceProviderRequest,
+  reserveAutomationSourceProviderRequest,
+} from "./data-automation-source-provider-usage.ts";
 
 function safePreviewErrorDetail(code: string) {
   const details: Record<string, string> = {
@@ -43,6 +52,7 @@ export async function previewAutomationSource(input: {
   database: AutomationD1Database;
   fetchImpl?: AutomationFetch;
   sleep?: (ms: number) => Promise<void>;
+  tavilyApiKey?: string;
 }) {
   let httpStatus: number | null = null;
   let contentType: string | null = null;
@@ -57,11 +67,67 @@ export async function previewAutomationSource(input: {
       input.database,
     );
     const scoped = buildSourceScopedExtractionContract(input.source, governance.state);
+    const tavilyKey = input.tavilyApiKey?.trim() ?? "";
+    const tavilyCrawlProvider = tavilyKey
+      ? new TavilyAutomationCrawlProvider({
+          apiKey: tavilyKey,
+          fetchImpl: input.fetchImpl,
+          sleep: input.sleep,
+        })
+      : undefined;
+    const tavilyExtractProvider = tavilyKey
+      ? new TavilyAutomationExtractProvider({
+          apiKey: tavilyKey,
+          fetchImpl: input.fetchImpl,
+          sleep: input.sleep,
+        })
+      : undefined;
+    let providerRequestSequence = 0;
+    const tavilyRequestGate: TavilySourceScopedRequestGate | undefined = tavilyKey && scoped.ready
+      ? {
+          reserve: async (operation) => {
+            providerRequestSequence += 1;
+            if (providerRequestSequence > scoped.contract.limits.maxProviderRequests) return null;
+            const operationKey = [
+              "source",
+              input.source.id,
+              "preview",
+              new Date().toISOString(),
+              operation.toLowerCase(),
+              providerRequestSequence,
+            ].join(":");
+            const reservation = await reserveAutomationSourceProviderRequest({
+              database: input.database,
+              operationKey,
+              sourceId: input.source.id,
+              runId: null,
+              providerKey: "tavily",
+              operation,
+              maxRequestsPerDay: scoped.contract.limits.maxProviderRequestsPerDay,
+              maxRequestsPerRun: scoped.contract.limits.maxProviderRequests,
+            });
+            return reservation.reserved ? { operationKey } : null;
+          },
+          finalize: async (usage) => {
+            await finalizeAutomationSourceProviderRequest({
+              database: input.database,
+              operationKey: usage.operationKey,
+              status: usage.status,
+              resultCount: usage.resultCount,
+              acceptedCount: usage.acceptedCount,
+              scopeRejectedCount: usage.scopeRejectedCount,
+            });
+          },
+        }
+      : undefined;
     const records = await fetchAutomationSourceRecords(input.source, {
       fetchImpl: input.fetchImpl,
       sleep: input.sleep,
       htmlAdapters: productionAutomationHtmlAdapters,
       sourceScopedContract: scoped.ready ? scoped.contract : undefined,
+      tavilyCrawlProvider,
+      tavilyExtractProvider,
+      tavilyRequestGate,
       onResponse(meta) {
         httpStatus = meta.status;
         contentType = meta.contentType;
