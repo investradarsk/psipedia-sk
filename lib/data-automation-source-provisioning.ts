@@ -144,10 +144,23 @@ export function candidateProvisioningConfigFor(input: {
   }
 
   if (isAutomationHelpEntityType(input.entityType)) {
-    return helpCandidateProvisioningConfigFor({
+    const dedicated = helpCandidateProvisioningConfigFor({
       entityType: input.entityType,
       canonicalUrl: input.canonicalUrl,
     });
+    if (Object.keys(dedicated).length > 0 || input.entityType !== "ADOPTION") return dedicated;
+
+    const sourceShape = input.metadata.sourceShape === "SINGLE_ITEM" || input.metadata.sourceShape === "MULTI_ITEM_LIST"
+      ? input.metadata.sourceShape
+      : null;
+    const organizationName = typeof input.metadata.organizationName === "string"
+      ? input.metadata.organizationName.trim().slice(0, 500)
+      : "";
+    if (!sourceShape || !organizationName) return {};
+    return {
+      sourceShape,
+      staticFields: { organizationName },
+    };
   }
 
   if (input.entityType === "HELP_ITEM") {
