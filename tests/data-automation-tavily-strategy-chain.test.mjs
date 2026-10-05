@@ -21,7 +21,7 @@ function source(overrides = {}) {
     entityType: "ADOPTION",
     connectorType: "CONTROLLED_HTML",
     sourceUrl: "https://example.sk/psy",
-    config: { sourceShape: "MULTI_ITEM_LIST" },
+    config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { organizationName: "Útulok A" } },
     enabled: true,
     cadenceMinutes: 1440,
     throttleMs: 0,
@@ -241,7 +241,7 @@ test("generic unsupported multi-item source falls forward once to Crawl", async 
 test("known SINGLE_ITEM detail falls forward once to Extract", async () => {
   const src = source({
     sourceUrl: "https://example.sk/psy/max",
-    config: { sourceShape: "SINGLE_ITEM" },
+    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "Útulok A" } },
   });
   let crawlCalls = 0;
   let extractCalls = 0;
@@ -319,7 +319,7 @@ test("missing Tavily key remains UNAVAILABLE and configured capability stays sou
 
   const detail = automationExtractionCapabilities(source({
     sourceUrl: "https://example.sk/psy/max",
-    config: { sourceShape: "SINGLE_ITEM" },
+    config: { sourceShape: "SINGLE_ITEM", staticFields: { organizationName: "Útulok A" } },
   }), undefined, { tavilyCredentialConfigured: true });
   assert.equal(detail.find((x) => x.strategy === "TAVILY_CRAWL")?.status, "UNSUPPORTED");
   assert.equal(detail.find((x) => x.strategy === "TAVILY_EXTRACT")?.status, "SUPPORTED");

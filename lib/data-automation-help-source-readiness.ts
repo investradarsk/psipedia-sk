@@ -44,6 +44,7 @@ export type AutomationHelpSourceReadinessReason =
   | "UNSUPPORTED_SOURCE"
   | "MISSING_SOURCE_SHAPE"
   | "MISSING_ADAPTER"
+  | "MISSING_ORGANIZATION_IDENTITY"
   | "UNSUPPORTED_ADAPTER"
   | "ADAPTER_ENTITY_MISMATCH"
   | "ADAPTER_SHAPE_MISMATCH";
@@ -102,6 +103,32 @@ export function automationHelpSourceReadiness(
     return { applicable: true, ready: false, sourceShape: null, adapterKey, adapterLabel: null, reason: "MISSING_SOURCE_SHAPE" };
   }
   if (!adapterKey) {
+    if (source.entityType === "ADOPTION") {
+      const organizationName = typeof source.config.staticFields?.organizationName === "string"
+        ? source.config.staticFields.organizationName.trim()
+        : "";
+      if (!organizationName) {
+        return {
+          applicable: true,
+          ready: false,
+          sourceShape,
+          adapterKey: null,
+          adapterLabel: null,
+          reason: "MISSING_ORGANIZATION_IDENTITY",
+        };
+      }
+      // Legacy HELP readiness is no longer adapter-only for ADOPTION. The
+      // generalized source-scoped capability/activation layer still decides
+      // whether GENERIC_FIRST_PARTY or Tavily is actually usable.
+      return {
+        applicable: true,
+        ready: true,
+        sourceShape,
+        adapterKey: null,
+        adapterLabel: null,
+        reason: "READY",
+      };
+    }
     return { applicable: true, ready: false, sourceShape, adapterKey: null, adapterLabel: null, reason: "MISSING_ADAPTER" };
   }
 

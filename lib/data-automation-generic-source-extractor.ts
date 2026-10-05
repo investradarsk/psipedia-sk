@@ -494,6 +494,97 @@ function htmlDetailEvidence(html: string, pageUrl: string, contract: SourceScope
   };
 }
 
+function normalizedAdoptionHeading(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("sk-SK")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function adoptionHtmlDetailEvidence(html: string, pageUrl: string, contract: SourceScopedExtractionContract) {
+  const h1 = textFromHtml(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? "").slice(0, 160);
+  if (!h1) return null;
+  const heading = normalizedAdoptionHeading(h1);
+  if (/^(?:psy? na adopciu|adopcia|hladame domov|adoptujte psika|nasi zverenci|psy? hladaju domov)$/.test(heading)) {
+    return null;
+  }
+
+  const text = textFromHtml(html).slice(0, 10_000);
+  const dogSignals = [
+    /(?:^|\s)pohlavie\s*[:–—-]/i,
+    /(?:^|\s)vek\s*[:–—-]/i,
+    /(?:^|\s)(?:plemeno|rasa)\s*[:–—-]/i,
+    /(?:^|\s)ve[lľ]kos[tť]\s*[:–—-]/i,
+    /(?:^|\s)(?:v[aá]ha|hmotnos[tť])\s*[:–—-]/i,
+    /(?:^|\s)farba\s*[:–—-]/i,
+    /(?:^|\s)d[aá]tum\s+narodenia\s*[:–—-]/i,
+  ].filter((pattern) => pattern.test(text)).length;
+  if (dogSignals < 2) return null;
+
+  const canonicalHref = html.match(/<link\b[^>]*rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*href\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1]
+    ?? html.match(/<link\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*>/i)?.[1]
+    ?? null;
+  const canonical = canonicalHref ? scopeUrl(canonicalHref, pageUrl, contract) : canonicalizeSourceUrl(pageUrl);
+  if (!canonical || canonical !== canonicalizeSourceUrl(pageUrl)) return null;
+  const description = decodeHtml(
+    html.match(/<meta\b[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*>/i)?.[1] ?? "",
+  ).replace(/\s+/g, " ").trim().slice(0, 5000);
+  return { name: h1, canonical, description, pageTextExcerpt: text };
+}
+
+async function adoptionRecordFromHtmlDetail(input: {
+  html: string;
+  pageUrl: string;
+  source: AutomationSource;
+  contract: SourceScopedExtractionContract;
+  discoveryMethod: string;
+  detailFetched: boolean;
+}) {
+  const evidence = adoptionHtmlDetailEvidence(input.html, input.pageUrl, input.contract);
+  if (!evidence) return null;
+  const proposed: Record<string, unknown> = {
+    name: evidence.name,
+    websiteUrl: evidence.canonical,
+    ...(evidence.description ? { description: evidence.description } : {}),
+  };
+  const id = await sourceRecordId({
+    externalId: null,
+    itemUrl: evidence.canonical,
+    sourceRoot: input.contract.identity.canonicalSourceRootUrl,
+    proposed,
+    schemaTypes: [],
+  });
+  return {
+    sourceRecordId: id,
+    sourceUrl: evidence.canonical,
+    sourceTimestamp: null,
+    rawRecord: {
+      pageUrl: input.pageUrl,
+      pageTextExcerpt: evidence.pageTextExcerpt,
+    },
+    proposed,
+    extraction: {
+      itemUrl: evidence.canonical,
+      externalId: null,
+      discoveredFromRoot: input.contract.identity.canonicalSourceRootUrl,
+      strategy: "GENERIC_FIRST_PARTY" as const,
+      evidenceMetadata: {
+        discoveryMethod: input.discoveryMethod,
+        pageUrl: input.pageUrl,
+        detailFetched: input.detailFetched,
+        adoptionDetailEvidence: true,
+      },
+      coverage: {
+        classification: "UNKNOWN" as const,
+        complete: false,
+      },
+      confidence: "HIGH" as const,
+    },
+  } satisfies AutomationSourceRecord;
+}
+
 function recordIdentityKey(record: AutomationSourceRecord) {
   return record.sourceUrl ? "url:" + record.sourceUrl : "id:" + record.sourceRecordId;
 }
@@ -642,21 +733,33 @@ export async function extractGenericFirstPartySource(input: {
         visitedListings.size === 1
         && structuredItems.length === 0
         && input.source.config.sourceShape === "SINGLE_ITEM"
-        && input.source.entityType === "EVENT"
+        && (input.source.entityType === "EVENT" || input.source.entityType === "ADOPTION")
       ) {
-        const fallback = htmlDetailEvidence(page.html, pageUrl, input.contract);
-        if (fallback) {
-          const record = await recordFromNode({
-            node: fallback.node,
-            pageUrl,
-            itemUrl: fallback.canonical,
-            source: input.source,
-            contract: input.contract,
-            discoveryMethod: "ROOT_HTML_CANONICAL",
-            detailFetched: false,
-            pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
-          });
-          if (!record) throw new GenericFirstPartyExtractionError("invalid_item_structure");
+        const record = input.source.entityType === "ADOPTION"
+          ? await adoptionRecordFromHtmlDetail({
+              html: page.html,
+              pageUrl,
+              source: input.source,
+              contract: input.contract,
+              discoveryMethod: "ADOPTION_ROOT_HTML_DETAIL",
+              detailFetched: false,
+            })
+          : await (async () => {
+              const fallback = htmlDetailEvidence(page.html, pageUrl, input.contract);
+              return fallback
+                ? recordFromNode({
+                    node: fallback.node,
+                    pageUrl,
+                    itemUrl: fallback.canonical,
+                    source: input.source,
+                    contract: input.contract,
+                    discoveryMethod: "ROOT_HTML_CANONICAL",
+                    detailFetched: false,
+                    pageTextExcerpt: textFromHtml(page.html).slice(0, 10_000),
+                  })
+                : null;
+            })();
+        if (record) {
           sourceShape = "SINGLE_ITEM";
           const coverage: AutomationExtractionCoverage = {
             classification: "DETAIL_ONLY",
@@ -780,6 +883,15 @@ export async function extractGenericFirstPartySource(input: {
         discoveryMethod: "DETAIL_JSON_LD",
         detailFetched: true,
         pageTextExcerpt: textFromHtml(fetched.html).slice(0, 10_000),
+      });
+    } else if (input.source.entityType === "ADOPTION") {
+      record = await adoptionRecordFromHtmlDetail({
+        html: fetched.html,
+        pageUrl: finalUrl,
+        source: input.source,
+        contract: input.contract,
+        discoveryMethod: "ADOPTION_DETAIL_HTML",
+        detailFetched: true,
       });
     } else {
       const fallback = htmlDetailEvidence(fetched.html, finalUrl, input.contract);
