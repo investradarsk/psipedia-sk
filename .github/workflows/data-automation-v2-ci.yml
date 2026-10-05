@@ -125,6 +125,13 @@ jobs:
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/canonical-draft-delete-e2e.sql
+      - name: ADOPTION source-scoped local D1 E2E
+        shell: bash
+        run: |
+          set -euo pipefail
+          d1_path="$(find .wrangler/state/v3/d1 -type f -name '*.sqlite' -print -quit)"
+          test -n "$d1_path"
+          PSIPEDIA_E2E_D1_PATH="$d1_path" node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-adoption-d1-e2e.test.mjs
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/data-automation-v2
