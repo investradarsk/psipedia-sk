@@ -1196,7 +1196,14 @@ async function syncOneNotionPage(
 
   const basePayload = notionPageToManagedArticleInput(page, blocks, existing ?? undefined);
   const notionImageSourceUrl = urlProperty(page, "Hlavný obrázok URL");
-  const contentHash = await sha256(JSON.stringify({ payload: basePayload, notionImageSourceUrl }));
+  const notionImageAlt = richTextProperty(page, "Alt text obrázka");
+  const notionImageCreditUrl = urlProperty(page, "Zdroj obrázka");
+  const contentHash = await sha256(JSON.stringify({
+    payload: basePayload,
+    notionImageSourceUrl,
+    notionImageAlt,
+    notionImageCreditUrl,
+  }));
   const now = new Date().toISOString();
 
   if (mapping && existing) {
