@@ -239,46 +239,64 @@ export function automationExtractionCapabilities(
     }
   }
 
+  const sourceScopedAdoptionBlock = source.entityType === "ADOPTION" && dedicated.status !== "SUPPORTED"
+    ? source.config.sourceShape !== "SINGLE_ITEM" && source.config.sourceShape !== "MULTI_ITEM_LIST"
+      ? "ADOPTION_SOURCE_SHAPE_REQUIRED"
+      : typeof source.config.staticFields?.organizationName !== "string"
+        || !source.config.staticFields.organizationName.trim()
+        ? "ADOPTION_ORGANIZATION_IDENTITY_REQUIRED"
+        : null
+    : null;
+
   return withGovernanceStatus([
     dedicated,
     {
       strategy: "GENERIC_FIRST_PARTY",
-      status: options.genericProbe?.supported ? "SUPPORTED" : "UNAVAILABLE",
-      reason: options.genericProbe?.supported
-        ? "PROBE_CONFIRMED"
-        : options.genericProbe?.reason || "PROBE_REQUIRED",
+      status: sourceScopedAdoptionBlock
+        ? "UNAVAILABLE"
+        : options.genericProbe?.supported ? "SUPPORTED" : "UNAVAILABLE",
+      reason: sourceScopedAdoptionBlock
+        ?? (options.genericProbe?.supported
+          ? "PROBE_CONFIRMED"
+          : options.genericProbe?.reason || "PROBE_REQUIRED"),
       adapterKey: null,
       label: "Generic first-party extraction",
       sourceShape: options.genericProbe?.sourceShape ?? source.config.sourceShape ?? "SOURCE_DEFINED",
     },
     {
       strategy: "TAVILY_CRAWL",
-      status: !options.tavilyCredentialConfigured
+      status: sourceScopedAdoptionBlock
         ? "UNAVAILABLE"
-        : source.config.sourceShape === "SINGLE_ITEM"
-          ? "UNSUPPORTED"
-          : "SUPPORTED",
-      reason: !options.tavilyCredentialConfigured
-        ? "TAVILY_KEY_MISSING"
-        : source.config.sourceShape === "SINGLE_ITEM"
-          ? "DETAIL_SOURCE_PREFERS_EXTRACT"
-          : "READY",
+        : !options.tavilyCredentialConfigured
+          ? "UNAVAILABLE"
+          : source.config.sourceShape === "SINGLE_ITEM"
+            ? "UNSUPPORTED"
+            : "SUPPORTED",
+      reason: sourceScopedAdoptionBlock
+        ?? (!options.tavilyCredentialConfigured
+          ? "TAVILY_KEY_MISSING"
+          : source.config.sourceShape === "SINGLE_ITEM"
+            ? "DETAIL_SOURCE_PREFERS_EXTRACT"
+            : "READY"),
       adapterKey: null,
       label: "Tavily scoped crawl",
       sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
     },
     {
       strategy: "TAVILY_EXTRACT",
-      status: !options.tavilyCredentialConfigured
+      status: sourceScopedAdoptionBlock
         ? "UNAVAILABLE"
-        : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
-          ? "SUPPORTED"
-          : "UNSUPPORTED",
-      reason: !options.tavilyCredentialConfigured
-        ? "TAVILY_KEY_MISSING"
-        : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
-          ? "READY"
-          : "KNOWN_DETAIL_URL_REQUIRED",
+        : !options.tavilyCredentialConfigured
+          ? "UNAVAILABLE"
+          : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
+            ? "SUPPORTED"
+            : "UNSUPPORTED",
+      reason: sourceScopedAdoptionBlock
+        ?? (!options.tavilyCredentialConfigured
+          ? "TAVILY_KEY_MISSING"
+          : source.config.sourceShape === "SINGLE_ITEM" && Boolean(source.sourceUrl)
+            ? "READY"
+            : "KNOWN_DETAIL_URL_REQUIRED"),
       adapterKey: null,
       label: "Tavily scoped extract",
       sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
