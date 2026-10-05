@@ -384,10 +384,11 @@ test("G2 high-impact conflict handling preserves preferred evidence instead of s
   assert.match(clustering, /impact=\?/);
 });
 
-test("G2 adds no migration and leaves ORGANIZATION matcher ownership outside this PR", () => {
+test("G2 adds no migration and preserves the existing DIRECTORY + ORGANIZATION resolution strategies", () => {
   const clustering = readFileSync(new URL("../lib/data-automation-clustering.ts", import.meta.url), "utf8");
   assert.match(clustering, /DIRECTORY_ENTITY_RESOLUTION_STRATEGY/);
   assert.match(clustering, /entityType: "DIRECTORY",\s*matcherImplemented: true/s);
-  assert.match(clustering, /function foundationOnlyStrategy\(entityType: "ORGANIZATION"\)/);
-  assert.match(clustering, /if \(entityType === "ORGANIZATION"\) return foundationOnlyStrategy\(entityType\)/);
+  assert.match(clustering, /ORGANIZATION_ENTITY_RESOLUTION_STRATEGY/);
+  assert.match(clustering, /entityType: "ORGANIZATION",\s*matcherImplemented: true/s);
+  assert.match(clustering, /if \(entityType === "ORGANIZATION"\) return ORGANIZATION_ENTITY_RESOLUTION_STRATEGY/);
 });

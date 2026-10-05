@@ -38,6 +38,8 @@ function value(record: AutomationSourceRecord, field: string) {
   if (field === "municipality") return p.municipality ?? p.city;
   if (field === "houseNumber") return p.houseNumber ?? p.house_number;
   if (field === "postalCode") return p.postalCode ?? p.postal_code;
+  if (field === "phone") return p.phone ?? p.publicPhone ?? p.public_phone;
+  if (field === "email") return p.email ?? p.publicEmail ?? p.public_email;
   if (field === "domain") return p.domain ?? p.websiteDomain ?? p.website_domain ?? p.website ?? p.websiteUrl ?? p.website_url;
   if (field === "ico") return p.ico ?? p.companyId ?? p.company_id;
   if (field === "registryId") return p.facilityRegistryId ?? p.facility_registry_id ?? p.registryId ?? p.registry_id;
@@ -113,8 +115,8 @@ export function directoryCandidateKeys(record: AutomationSourceRecord): Automati
       keyType: "DOMAIN",
       value: p.domain ?? p.websiteDomain ?? p.website_domain ?? p.website ?? p.websiteUrl ?? p.website_url,
     }),
-    normalizeAutomationCandidateKey({ keyType: "PHONE", value: p.phone }),
-    normalizeAutomationCandidateKey({ keyType: "EMAIL", value: p.email }),
+    normalizeAutomationCandidateKey({ keyType: "PHONE", value: p.phone ?? p.publicPhone ?? p.public_phone }),
+    normalizeAutomationCandidateKey({ keyType: "EMAIL", value: p.email ?? p.publicEmail ?? p.public_email }),
   ].filter((key): key is AutomationCandidateKey => Boolean(key));
   return [...new Map(inputs.map((key) => [
     [key.keyType, key.namespace, key.normalizedValue].join("\u0000"),

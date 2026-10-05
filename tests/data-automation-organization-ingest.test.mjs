@@ -172,10 +172,13 @@ test("ORGANIZATION-INGEST-1 candidate provisioning config is conservative and en
   assert.deepEqual(candidateProvisioningConfigFor({
     entityType: "DIRECTORY",
     canonicalUrl: "https://example.sk/",
-    metadata: { directoryCategory: "VETERINARIAN" },
+    metadata: { directoryCategory: "veterinari" },
   }), {
+    sourceShape: "SINGLE_ITEM",
+    htmlAdapterKey: "generic-directory-profile",
+    expectedMinRecords: 1,
     staticFields: {
-      category: "VETERINARIAN",
+      category: "veterinari",
       semanticKind: "FACILITY_OR_SERVICE_PROFILE",
     },
   });
@@ -207,10 +210,10 @@ test("ORGANIZATION-INGEST-1 preview remains read-only and provisioning uses the 
   const store = read("lib/data-automation-source-store.ts");
   assert.match(preview, /writes:\s*\{ observations: 0, findings: 0, canonical: 0, publications: 0 \}/);
   const matchingStore = read("lib/data-automation-store.ts");
-  const organizationCandidateQuery = matchingStore.slice(
-    matchingStore.indexOf('if (source.entityType === "ORGANIZATION")'),
-    matchingStore.indexOf('if (source.entityType === "DIRECTORY")'),
-  );
+  const organizationStart = matchingStore.indexOf('if (source.entityType === "ORGANIZATION")');
+  const organizationEnd = matchingStore.indexOf('if (source.entityType === "DIRECTORY")', organizationStart);
+  const organizationCandidateQuery = matchingStore.slice(organizationStart, organizationEnd);
+  assert.ok(organizationStart >= 0 && organizationEnd > organizationStart);
   assert.match(organizationCandidateQuery, /website_url=\?/);
   assert.doesNotMatch(organizationCandidateQuery, /source_url=\?/);
   assert.match(store, /candidateProvisioningConfigFor\(/);
