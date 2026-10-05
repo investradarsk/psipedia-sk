@@ -306,8 +306,6 @@ export function normalizeAutomationEventRecord(
   if (organizer) proposed.organizer = organizer;
   if (websiteUrl) proposed.websiteUrl = websiteUrl;
   if (registrationUrl) proposed.registrationUrl = registrationUrl;
-  if (propositionsUrl) proposed.propositionsUrl = propositionsUrl;
-  if (resultsUrl) proposed.resultsUrl = resultsUrl;
   if (eventType) proposed.eventType = eventType;
   if (cancellation) proposed.cancelled = true;
 
@@ -335,6 +333,10 @@ export function normalizeAutomationEventRecord(
     evidence: {
       structured: Boolean(structured.startDate || structured.organizer || structured.venue),
       labelled: Boolean(Object.keys(labelled).length),
+    },
+    evidenceLinks: {
+      propositionsUrl,
+      resultsUrl,
     },
   };
 
