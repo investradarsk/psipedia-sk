@@ -9,7 +9,7 @@ import { automationSourceActivationReadiness } from "@/lib/data-automation-sourc
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
-type RuntimeBindings = { DB?: D1Database };
+type RuntimeBindings = { DB?: D1Database; TAVILY_API_KEY?: string };
 
 function runPayload(source: Awaited<ReturnType<typeof getAutomationSourceAdmin>>) {
   if (!source) return null;
@@ -54,7 +54,9 @@ export async function POST(request: Request, { params }: Props) {
   if (!source) return Response.json({ error: "Zdroj neexistuje." }, { status: 404 });
   if (!source.enabled) return Response.json({ error: "automation_source_disabled" }, { status: 409 });
   if (source.reviewStatus !== "APPROVED") return Response.json({ error: "automation_source_review_required" }, { status: 409 });
-  const readiness = await automationSourceActivationReadiness(source, db);
+  const readiness = await automationSourceActivationReadiness(source, db, {
+    tavilyCredentialConfigured: Boolean((env as unknown as RuntimeBindings).TAVILY_API_KEY?.trim()),
+  });
   if (!readiness.ready) {
     return Response.json({
       error: "Zdroj zatiaľ nie je pripravený na automatické spracovanie.",
@@ -75,6 +77,7 @@ export async function POST(request: Request, { params }: Props) {
     database: db,
     htmlAdapters: productionAutomationHtmlAdapters,
     organizationEnricher: createProductionOrganizationEnricher(),
+    tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
   }).catch((error) => {
     console.error(JSON.stringify({
       event: "automation_manual_background_run",

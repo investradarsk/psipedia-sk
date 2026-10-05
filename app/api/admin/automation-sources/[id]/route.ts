@@ -22,7 +22,7 @@ import {
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
-type Bindings = { DB?: D1Database };
+type Bindings = { DB?: D1Database; TAVILY_API_KEY?: string };
 
 function idFrom(value: string) {
   const id = Number.parseInt(value, 10);
@@ -66,7 +66,10 @@ export async function PUT(request: Request, { params }: Props) {
         id,
         schedule,
         enabled,
-        technicalGovernanceRefresh: enabled ? { actor: auth.user.email } : undefined,
+        technicalGovernanceRefresh: enabled ? {
+          actor: auth.user.email,
+          tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+        } : undefined,
       }, bindings.DB);
       const immediateRun = enabled && !before.enabled && schedule.mode === "INTERVAL";
       if (immediateRun) {
@@ -74,6 +77,7 @@ export async function PUT(request: Request, { params }: Props) {
           database: bindings.DB,
           htmlAdapters: productionAutomationHtmlAdapters,
           organizationEnricher: createProductionOrganizationEnricher(),
+          tavilyApiKey: bindings.TAVILY_API_KEY,
         }).catch((error) => console.error(JSON.stringify({
           event: "automation_source_immediate_first_run",
           sourceId: id,
@@ -118,7 +122,10 @@ export async function PUT(request: Request, { params }: Props) {
       const source = await setAutomationSourceEnabled({
         id,
         enabled,
-        technicalGovernanceRefresh: enabled ? { actor: auth.user.email } : undefined,
+        technicalGovernanceRefresh: enabled ? {
+          actor: auth.user.email,
+          tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+        } : undefined,
       }, bindings.DB);
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
     }

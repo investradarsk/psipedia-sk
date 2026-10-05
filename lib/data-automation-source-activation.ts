@@ -5,6 +5,7 @@ import {
 } from "./data-automation.ts";
 import {
   AutomationConnectorError,
+  canFallbackGenericExtractionToTavily,
   fetchAutomationSourceRecords,
   type AutomationFetch,
 } from "./data-automation-connectors.ts";
@@ -56,6 +57,7 @@ export async function automationSourceActivationReadiness(
     now?: Date;
     fetchImpl?: AutomationFetch;
     sleep?: (ms: number) => Promise<void>;
+    tavilyCredentialConfigured?: boolean;
   } = {},
 ): Promise<AutomationSourceActivationReadiness> {
   const emptyGovernance: AutomationGovernanceRead = { schemaAvailable: true, state: null };
@@ -106,12 +108,15 @@ export async function automationSourceActivationReadiness(
     scopedContract = contract.contract;
   }
 
-  let technical = automationSourceReadiness(source);
+  let technical = automationSourceReadiness(source, undefined, {
+    tavilyCredentialConfigured: options.tavilyCredentialConfigured,
+  });
   const dedicated = technical.capabilities.find((item) => item.strategy === "DEDICATED_ADAPTER");
+  const generic = technical.capabilities.find((item) => item.strategy === "GENERIC_FIRST_PARTY");
   const genericProbeAllowed = source.connectorType === "CONTROLLED_HTML"
     && scopedContract
-    && technical.reason === "NO_RELIABLE_EXTRACTION_STRATEGY"
-    && dedicated?.reason === "MISSING_ADAPTER";
+    && dedicated?.reason === "MISSING_ADAPTER"
+    && generic?.reason === "PROBE_REQUIRED";
 
   if (genericProbeAllowed) {
     try {
@@ -123,6 +128,7 @@ export async function automationSourceActivationReadiness(
         genericProbe: true,
       });
       technical = automationSourceReadiness(source, undefined, {
+        tavilyCredentialConfigured: options.tavilyCredentialConfigured,
         genericProbe: {
           supported: records.length > 0,
           reason: records.length > 0 ? "PROBE_CONFIRMED" : "no_items_discovered",
@@ -136,6 +142,10 @@ export async function automationSourceActivationReadiness(
           ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 120)
           : "generic_probe_failed";
       technical = automationSourceReadiness(source, undefined, {
+        tavilyCredentialConfigured: Boolean(
+          options.tavilyCredentialConfigured
+          && canFallbackGenericExtractionToTavily(reason),
+        ),
         genericProbe: {
           supported: false,
           reason,

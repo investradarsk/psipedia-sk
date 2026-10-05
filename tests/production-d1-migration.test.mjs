@@ -120,6 +120,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0107_section_hero_config.sql",
     "0108_notion_events_help_bidirectional_sync.sql",
     "0109_dynamic_entity_identity_indexes.sql",
+    "0110_tavily_source_provider_usage.sql",
   ]);
 });
 
@@ -456,6 +457,42 @@ test("PRODUCTION-D1-0109-PREFLIGHT-1 wires 0109 preflight, history and verificat
   );
 });
 
+test("TAVILY-SOURCE-SCOPED-1 0110 detects partial provider usage schema drift", () => {
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{ name: "automation_source_provider_usage", type: "table", sql: "" }],
+    }, "0110_tavily_source_provider_usage.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{ name: "automation_source_provider_usage_source_day_idx", type: "index", sql: "" }],
+    }, "0110_tavily_source_provider_usage.sql"),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({ objects: [] }, "0110_tavily_source_provider_usage.sql"),
+    { partial: false },
+  );
+  assert.doesNotThrow(
+    () => assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: false }),
+  );
+  assert.throws(
+    () => assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: true }),
+    /target schema objects already exist; possible partial\/manual drift/i,
+  );
+});
+
+test("TAVILY-SOURCE-SCOPED-1 0110 migration is additive, bounded and operation-aware", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0110_tavily_source_provider_usage.sql"), "utf8");
+  assert.match(migration, /CREATE TABLE `automation_source_provider_usage`/);
+  assert.match(migration, /CHECK \(`operation` IN \('CRAWL','EXTRACT'\)\)/);
+  assert.match(migration, /automation_source_provider_usage_source_day_idx/);
+  assert.match(migration, /automation_source_provider_usage_run_idx/);
+  assert.match(migration, /automation_source_provider_usage_operation_day_idx/);
+  assert.doesNotMatch(migration, /\bDROP\s+(?:TABLE|INDEX)\b|\bDELETE\s+FROM\b|\bUPDATE\s+\w+\s+SET\b/i);
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -515,7 +552,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0110_future_migration.sql",
+    "0111_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -543,14 +580,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0110_future_migration.sql",
+    "0111_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0110_future_migration.sql",
+    "0111_future_migration.sql",
   ]);
 });
 

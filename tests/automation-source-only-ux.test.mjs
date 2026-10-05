@@ -105,7 +105,9 @@ test("source configure is validation-first and preserves immediate run only afte
   const store = await read("lib/data-automation-source-store.ts");
   assert.match(route, /configureAutomationSource/);
   assert.doesNotMatch(route, /setAutomationSourceCadence/);
-  assert.match(route, /technicalGovernanceRefresh: enabled \? \{ actor: auth\.user\.email \} : undefined/);
+  assert.match(route, /technicalGovernanceRefresh: enabled \? \{/);
+  assert.match(route, /actor: auth\.user\.email/);
+  assert.match(route, /tavilyCredentialConfigured: Boolean\(bindings\.TAVILY_API_KEY\?\.trim\(\)\)/);
   assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
   assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
   assert.match(store, /sourceActivationReadinessForEnable/);

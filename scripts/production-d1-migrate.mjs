@@ -102,6 +102,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0107_section_hero_config.sql",
   "0108_notion_events_help_bidirectional_sync.sql",
   "0109_dynamic_entity_identity_indexes.sql",
+  "0110_tavily_source_provider_usage.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -150,6 +151,13 @@ export const AUTOMATION_SEARCH_USAGE_INDEXES = Object.freeze([
   "automation_search_usage_entity_day_idx",
   "automation_search_usage_root_day_idx",
   "automation_search_usage_fingerprint_idx",
+]);
+
+export const AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES = Object.freeze([
+  "automation_source_provider_usage_operation_unique",
+  "automation_source_provider_usage_source_day_idx",
+  "automation_source_provider_usage_run_idx",
+  "automation_source_provider_usage_operation_day_idx",
 ]);
 
 export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
@@ -1040,6 +1048,12 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: DYNAMIC_ENTITY_IDENTITY_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0110_tavily_source_provider_usage.sql") {
+    return {
+      partial: names.has("automation_source_provider_usage")
+        || AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES.some((index) => names.has(index)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1565,6 +1579,27 @@ function assertAutomationSearchUsageSchema(schema) {
   }
 }
 
+function assertAutomationSourceProviderUsageSchema(schema) {
+  const names = objectMap(schema.objects);
+  invariant(
+    names.get("automation_source_provider_usage")?.type === "table",
+    "Missing automation_source_provider_usage table",
+  );
+  for (const index of AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES) {
+    invariant(names.get(index)?.type === "index", `Missing source provider usage index: ${index}`);
+  }
+  const sql = String(names.get("automation_source_provider_usage")?.sql ?? "");
+  for (const column of [
+    "operation_key", "source_id", "run_id", "provider_key", "operation", "day_bucket",
+    "request_count", "result_count", "accepted_count", "scope_rejected_count", "status",
+    "created_at", "finalized_at",
+  ]) {
+    invariant(sql.includes(column), `automation_source_provider_usage.${column} is missing`);
+  }
+  invariant(sql.includes("'CRAWL','EXTRACT'"), "source provider operation constraint is incomplete");
+  invariant(sql.includes("'BUDGET_EXHAUSTED'"), "source provider status constraint is incomplete");
+}
+
 export function assertAutomationGovernanceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("automation_governance_reviews")?.type === "table", "Missing automation_governance_reviews table");
@@ -1724,6 +1759,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 107) assertSectionHeroConfigSchema(schema);
   if (migrationIndex(targetMigration) >= 108) assertNotionEventsHelpBidirectionalSchema(schema);
   if (migrationIndex(targetMigration) >= 109) assertDynamicEntityIdentitySchema(schema);
+  if (migrationIndex(targetMigration) >= 110) assertAutomationSourceProviderUsageSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
@@ -1939,6 +1975,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 106) assertSectionVisualSchema(schema);
     if (targetIndex > 107) assertSectionHeroConfigSchema(schema);
     if (targetIndex > 108) assertNotionEventsHelpBidirectionalSchema(schema);
+    if (targetIndex > 109) assertDynamicEntityIdentitySchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }

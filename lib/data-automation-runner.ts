@@ -50,12 +50,21 @@ import {
   updateAutomationIngestionReceiptPayload,
 } from "./data-automation-ingestion-receipts.ts";
 import { upsertCanonicalExternalProvenance } from "./data-automation-product-store.ts";
-import { getGovernanceState } from "./data-automation-governance.ts";
+import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import {
   validateDynamicAutomationIngestion,
   type DynamicAutomationIngestionDecision,
 } from "./data-automation-dynamic-identity.ts";
+import {
+  TavilyAutomationCrawlProvider,
+  TavilyAutomationExtractProvider,
+  type TavilySourceScopedRequestGate,
+} from "./data-automation-tavily-source-scoped.ts";
+import {
+  finalizeAutomationSourceProviderRequest,
+  reserveAutomationSourceProviderRequest,
+} from "./data-automation-source-provider-usage.ts";
 
 export const DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8;
 const AUTOMATION_DRAFT_ACTOR = "automation@psipedia.sk";
@@ -93,6 +102,7 @@ export type DataAutomationSweepOptions = {
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
   organizationEnricher?: OrganizationRecordEnricher;
+  tavilyApiKey?: string;
 };
 
 type SourceRunSummary = {
@@ -669,12 +679,91 @@ async function runSource(
       { type: "AUTOMATION_SOURCE", id: source.id },
       options.database,
     );
-    const scoped = buildSourceScopedExtractionContract(source, governance.state);
+    const governanceDecision = evaluateGovernanceForActivation(governance, {
+      recurring: true,
+      cadenceMinutes: source.cadenceMinutes,
+      storageFields: ["url", "metadata"],
+    }, startedAt);
+    if (!governanceDecision.allowed) {
+      throw new AutomationConnectorError(
+        "automation_source_governance_blocked:" + governanceDecision.blockingReasons.join(","),
+      );
+    }
+
+    const scoped = source.connectorType === "MANUAL_IMPORT"
+      ? null
+      : buildSourceScopedExtractionContract(source, governance.state);
+    if (scoped && !scoped.ready) {
+      throw new AutomationConnectorError("automation_source_contract_not_ready:" + scoped.reason);
+    }
+
+    const tavilyKey = source.connectorType === "CONTROLLED_HTML"
+      ? options.tavilyApiKey?.trim() ?? ""
+      : "";
+    const tavilyCrawlProvider = tavilyKey
+      ? new TavilyAutomationCrawlProvider({
+          apiKey: tavilyKey,
+          fetchImpl: options.fetchImpl,
+          sleep: options.sleep,
+          now: () => startedAt,
+        })
+      : undefined;
+    const tavilyExtractProvider = tavilyKey
+      ? new TavilyAutomationExtractProvider({
+          apiKey: tavilyKey,
+          fetchImpl: options.fetchImpl,
+          sleep: options.sleep,
+          now: () => startedAt,
+        })
+      : undefined;
+
+    let providerRequestSequence = 0;
+    const tavilyRequestGate: TavilySourceScopedRequestGate | undefined = tavilyKey ? {
+      reserve: async (operation) => {
+        providerRequestSequence += 1;
+        const operationKey = [
+          "source",
+          source.id,
+          "run",
+          runId,
+          "tavily",
+          operation.toLowerCase(),
+          providerRequestSequence,
+        ].join(":");
+        const reservation = await reserveAutomationSourceProviderRequest({
+          database: options.database,
+          operationKey,
+          sourceId: source.id,
+          runId,
+          providerKey: "tavily",
+          operation,
+          maxRequestsPerDay: scoped!.contract.limits.maxProviderRequestsPerDay,
+          maxRequestsPerRun: scoped!.contract.limits.maxProviderRequests,
+          now: startedAt,
+        });
+        return reservation.reserved ? { operationKey } : null;
+      },
+      finalize: async (input) => {
+        await finalizeAutomationSourceProviderRequest({
+          database: options.database,
+          operationKey: input.operationKey,
+          status: input.status,
+          resultCount: input.resultCount,
+          acceptedCount: input.acceptedCount,
+          scopeRejectedCount: input.scopeRejectedCount,
+          now: startedAt,
+        });
+      },
+    } : undefined;
+
     const records = await fetchAutomationSourceRecords(source, {
       fetchImpl: options.fetchImpl,
       htmlAdapters: options.htmlAdapters,
       sleep: options.sleep,
-      sourceScopedContract: scoped.ready ? scoped.contract : undefined,
+      sourceScopedContract: scoped?.ready ? scoped.contract : undefined,
+      tavilyCrawlProvider,
+      tavilyExtractProvider,
+      tavilyRequestGate,
     });
 
     for (const record of records) {

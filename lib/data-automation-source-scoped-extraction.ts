@@ -45,6 +45,7 @@ export type AutomationSourceScopedLimits = {
   timeoutMs: number;
   throttleMs: number;
   maxProviderRequests: number;
+  maxProviderRequestsPerDay: number;
   maxDepth: number;
   maxBreadth: number;
 };
@@ -190,9 +191,10 @@ export function buildSourceScopedExtractionContract(
     }),
   };
   const providerBudget = governance?.maxRequestsPerDay;
-  const maxProviderRequests = Number.isSafeInteger(providerBudget) && Number(providerBudget) > 0
+  const maxProviderRequestsPerDay = Number.isSafeInteger(providerBudget) && Number(providerBudget) > 0
     ? Math.min(50, Number(providerBudget))
     : 10;
+  const maxProviderRequests = Math.min(10, maxProviderRequestsPerDay);
   return {
     ready: true,
     reason: "READY",
@@ -207,6 +209,7 @@ export function buildSourceScopedExtractionContract(
         timeoutMs: automationSourceRequestTimeoutMs(source.timeoutMs),
         throttleMs: Math.max(0, Math.min(30_000, Math.floor(source.throttleMs || 0))),
         maxProviderRequests,
+        maxProviderRequestsPerDay,
         maxDepth: 3,
         maxBreadth: 20,
       },
