@@ -124,6 +124,8 @@ jobs:
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/canonical-draft-delete-e2e.sql
+      - name: EVENT source-scoped isolated local D1 pilot
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-event-source-pilot-d1.test.mjs
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/data-automation-v2
