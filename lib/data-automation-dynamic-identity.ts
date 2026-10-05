@@ -240,6 +240,14 @@ function adoptionDraftEvidence(record: AutomationSourceRecord) {
   if (!clean(p.organizationName ?? p.organization)) reasons.push("adoption_organization_identity_missing");
 
   const normalized = automationAdoptionNormalizationMetadata(record);
+  if (
+    normalized
+    && record.extraction
+    && ["GENERIC_FIRST_PARTY", "TAVILY_CRAWL", "TAVILY_EXTRACT"].includes(record.extraction.strategy)
+    && normalized.profileEvidence !== true
+  ) {
+    reasons.push("adoption_profile_evidence_missing");
+  }
   const adopted = normalized?.explicitAdopted === true
     || record.lifecycleSignals?.some((signal) => signal.signalType === "ADOPTION_ADOPTED");
   const reserved = normalized?.explicitReserved === true
