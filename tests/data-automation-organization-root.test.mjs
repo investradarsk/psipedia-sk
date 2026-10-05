@@ -56,7 +56,7 @@ test("DISCOVERY-CAT-1B weekly budget remains bounded", () => {
   assert.equal(policy.maxPagesPerQuery, 1);
 });
 
-test("DISCOVERY-CAT-1B existing-source reuse stays exact/single-domain/entity-isolated", () => {
+test("DISCOVERY-CAT-1B existing-source reuse stays exact/path-scoped/entity-isolated", () => {
   const sources = [
     { id: 1, entityType: "ORGANIZATION", sourceUrl: "https://example.sk/" },
     { id: 2, entityType: "EVENT", sourceUrl: "https://event.example.sk/" },
@@ -70,7 +70,7 @@ test("DISCOVERY-CAT-1B existing-source reuse stays exact/single-domain/entity-is
     entityType: "ORGANIZATION",
     canonicalUrl: "https://example.sk/utulok",
     sourceUrl: "https://example.sk/utulok",
-  }, sources)?.id, 1);
+  }, sources), null);
   assert.equal(selectRelevantExistingSourceForCandidate({
     entityType: "ORGANIZATION",
     canonicalUrl: "https://event.example.sk/",
