@@ -129,8 +129,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          d1_path="$(find .wrangler/state/v3/d1 -type f -name '*.sqlite' -print -quit)"
+          d1_path="$(node - <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const { DatabaseSync } = require("node:sqlite");
+
+          function sqliteFiles(root) {
+            const output = [];
+            for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+              const full = path.join(root, entry.name);
+              if (entry.isDirectory()) output.push(...sqliteFiles(full));
+              else if (entry.isFile() && entry.name.endsWith(".sqlite")) output.push(full);
+            }
+            return output;
+          }
+
+          for (const file of sqliteFiles(".wrangler/state/v3/d1")) {
+            try {
+              const db = new DatabaseSync(file, { readOnly: true });
+              const rows = db.prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('automation_sources','canonical_external_provenance')",
+              ).all();
+              db.close();
+              if (rows.length === 2) {
+                process.stdout.write(file);
+                process.exit(0);
+              }
+            } catch {}
+          }
+          process.exit(1);
+          NODE
+          )"
           test -n "$d1_path"
+          echo "Using local D1 database: $d1_path"
           PSIPEDIA_E2E_D1_PATH="$d1_path" node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/data-automation-adoption-d1-e2e.test.mjs
       - name: Start isolated local app
         run: |
