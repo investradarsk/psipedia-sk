@@ -388,10 +388,12 @@ async function providerRecord(input: {
 abstract class TavilyProviderBase {
   protected readonly client: TavilyHttpClient;
   protected readonly now: () => Date;
+  protected readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: ProviderOptions) {
     this.client = new TavilyHttpClient(options);
     this.now = options.now ?? (() => new Date());
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   get credentialConfigured() {
@@ -406,29 +408,39 @@ abstract class TavilyProviderBase {
     endpoint: string;
     body: Record<string, unknown>;
   }) {
-    const reservation = await input.gate.reserve(input.operation);
-    if (!reservation) throw new TavilySourceScopedError("TAVILY_BUDGET_EXHAUSTED");
+    const retryLimit = Math.min(MAX_RETRIES, Math.max(0, Math.floor(input.source.retryMaxAttempts)));
     const started = Date.now();
-    try {
-      const payload = await this.client.post({
-        endpoint: input.endpoint,
-        body: input.body,
-        timeoutMs: input.contract.limits.timeoutMs,
-        maxBytes: input.contract.limits.maxBytes,
-        retryMaxAttempts: input.source.retryMaxAttempts,
-        retryBackoffMs: input.source.retryBackoffMs,
-      });
-      return { payload, operationKey: reservation.operationKey, started };
-    } catch (error) {
-      await input.gate.finalize({
-        operationKey: reservation.operationKey,
-        status: usageStatus(error),
-        resultCount: 0,
-        acceptedCount: 0,
-        scopeRejectedCount: 0,
-      });
-      throw error;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= retryLimit; attempt += 1) {
+      const reservation = await input.gate.reserve(input.operation);
+      if (!reservation) throw new TavilySourceScopedError("TAVILY_BUDGET_EXHAUSTED");
+      try {
+        const payload = await this.client.post({
+          endpoint: input.endpoint,
+          body: input.body,
+          timeoutMs: input.contract.limits.timeoutMs,
+          maxBytes: input.contract.limits.maxBytes,
+          retryMaxAttempts: 0,
+          retryBackoffMs: input.source.retryBackoffMs,
+        });
+        return { payload, operationKey: reservation.operationKey, started };
+      } catch (error) {
+        lastError = error;
+        await input.gate.finalize({
+          operationKey: reservation.operationKey,
+          status: usageStatus(error),
+          resultCount: 0,
+          acceptedCount: 0,
+          scopeRejectedCount: 0,
+        });
+        const retryable = error instanceof TavilySourceScopedError && error.retryable;
+        if (!retryable || attempt >= retryLimit) throw error;
+        await this.sleep(retryBackoffMs(attempt, input.source.retryBackoffMs));
+      }
     }
+
+    throw lastError;
   }
 
   protected async complete(input: {
