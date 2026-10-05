@@ -1,7 +1,3 @@
-export const AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_REQUESTS = 100;
-export const AUTOMATION_SOURCE_PROVIDER_RATE_LIMIT_COOLDOWN_MINUTES = 60;
-export const AUTOMATION_SOURCE_PROVIDER_AUTH_COOLDOWN_MINUTES = 24 * 60;
-
 export type AutomationSourceProviderOperation = "CRAWL" | "EXTRACT";
 
 export type AutomationSourceProviderUsageStatus =
@@ -116,15 +112,8 @@ export async function reserveAutomationSourceProviderRequest(input: {
       input.sourceId,
       dayBucket,
       maxDay,
-      input.providerKey,
-      dayBucket,
-      AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_REQUESTS,
       input.runId,
       maxRun,
-      input.providerKey,
-      rateLimitedSince,
-      input.providerKey,
-      authFailedSince,
       dayBucket,
       AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_LIMIT,
     ).run();
