@@ -161,7 +161,7 @@ test("Notion image sync is idempotent and cleans up failed or replaced R2 object
   assert.match(syncSource, /currentObject\?\.customMetadata\?\.notionSourceHash === sourceFingerprint/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, prepared\.replacedKeys\)/);
-  assert.match(syncSource, /JSON\.stringify\(\{ payload: basePayload, notionImageSourceUrl \}\)/);
+  assert.match(syncSource, /JSON\.stringify\(\{[\s\S]*payload: basePayload,[\s\S]*notionImageSourceUrl,[\s\S]*notionImageAlt,[\s\S]*notionImageCreditUrl/);
 });
 
 
