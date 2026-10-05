@@ -5,6 +5,8 @@ import { productionAutomationHtmlAdapters } from "./data-automation-real-sources
 import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
 import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
+import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
+import { normalizeAutomationEventRecord } from "./data-automation-event-normalize.ts";
 
 function safePreviewErrorDetail(code: string) {
   const details: Record<string, string> = {
@@ -80,9 +82,16 @@ export async function previewAutomationSource(input: {
 
     for (const record of records) {
       try {
-        const candidateRecord = organizationEnricher
+        let candidateRecord = organizationEnricher
           ? await organizationEnricher(record, { detectedAt: new Date().toISOString() })
           : record;
+        candidateRecord = await enrichAutomationRecordSchemaFirst({
+          entityType: input.source.entityType,
+          record: candidateRecord,
+        });
+        if (input.source.entityType === "EVENT") {
+          candidateRecord = normalizeAutomationEventRecord(candidateRecord);
+        }
         if (!candidateRecord.proposed || typeof candidateRecord.proposed !== "object" || Array.isArray(candidateRecord.proposed)) {
           throw new Error("normalized_payload_invalid");
         }
