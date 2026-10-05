@@ -178,6 +178,16 @@ function candidateMatch(
     ) return "STRONG_IDENTITY" as const;
 
     if (sameOrganizationName(proposed.name, candidate.name)) {
+      const proposedCity = clean(proposed.city);
+      const candidateCity = clean(candidate.city);
+      const proposedRegion = clean(proposed.region);
+      const candidateRegion = clean(candidate.region);
+      if (
+        (proposedCity && candidateCity && !sameIdentity(proposedCity, candidateCity))
+        || (proposedRegion && candidateRegion && !sameIdentity(proposedRegion, candidateRegion))
+      ) {
+        return null;
+      }
       return "UNCERTAIN" as const;
     }
   }
