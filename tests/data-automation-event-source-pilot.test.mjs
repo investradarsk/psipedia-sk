@@ -548,6 +548,6 @@ test("runner and preview both use EVENT normalization before canonical matching"
 test("EVENT pilot adds no new migration and preserves 0109/0110 ownership", () => {
   const migration0109 = readFileSync(new URL("../drizzle/0109_dynamic_entity_identity_indexes.sql", import.meta.url), "utf8");
   const migration0110 = readFileSync(new URL("../drizzle/0110_tavily_source_provider_usage.sql", import.meta.url), "utf8");
-  assert.match(migration0109, /dynamic_entity_identity/i);
+  assert.match(migration0109, /DYNAMIC-ENTITY-IDENTITY-1/);
   assert.match(migration0110, /automation_source_provider_usage/);
 });
