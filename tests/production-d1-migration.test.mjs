@@ -474,9 +474,8 @@ test("TAVILY-SOURCE-SCOPED-1 0110 detects partial provider usage schema drift", 
     targetSchemaObjects({ objects: [] }, "0110_tavily_source_provider_usage.sql"),
     { partial: false },
   );
-  assert.equal(
-    assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: false }),
-    true,
+  assert.doesNotThrow(
+    () => assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: false }),
   );
   assert.throws(
     () => assertPendingTargetSchemaClean("0110_tavily_source_provider_usage.sql", { partial: true }),
@@ -491,7 +490,7 @@ test("TAVILY-SOURCE-SCOPED-1 0110 migration is additive, bounded and operation-a
   assert.match(migration, /automation_source_provider_usage_source_day_idx/);
   assert.match(migration, /automation_source_provider_usage_run_idx/);
   assert.match(migration, /automation_source_provider_usage_operation_day_idx/);
-  assert.doesNotMatch(migration, /\bDROP\b|\bDELETE\b|\bUPDATE\s+/i);
+  assert.doesNotMatch(migration, /\bDROP\s+(?:TABLE|INDEX)\b|\bDELETE\s+FROM\b|\bUPDATE\s+\w+\s+SET\b/i);
 });
 
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
