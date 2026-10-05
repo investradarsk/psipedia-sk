@@ -45,12 +45,12 @@ const expectedSubmenus = {
 } as const;
 
 const uxFoundationRoutes = [
-  { path: "/starostlivost", firstContent: "[data-section-public-callout]", minGap: 14, maxGap: 28 },
-  { path: "/starostlivost/vyziva", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
-  { path: "/aktivity", firstContent: "[data-section-public-callout]", minGap: 14, maxGap: 28 },
-  { path: "/aktivity/trening", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
-  { path: "/steniatka", firstContent: "[data-section-public-callout]", minGap: 14, maxGap: 28 },
-  { path: "/steniatka/pred-kupou-psa", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
+  { path: "/starostlivost", navigation: "landing", firstContent: "[data-section-public-callout]", minGap: 0, maxGap: 0 },
+  { path: "/starostlivost/vyziva", navigation: "compact", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
+  { path: "/aktivity", navigation: "landing", firstContent: "[data-section-public-callout]", minGap: 0, maxGap: 0 },
+  { path: "/aktivity/trening", navigation: "compact", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
+  { path: "/steniatka", navigation: "landing", firstContent: "[data-section-public-callout]", minGap: 0, maxGap: 0 },
+  { path: "/steniatka/pred-kupou-psa", navigation: "compact", firstContent: "[data-section-public-topic-body]", minGap: 24, maxGap: 54 },
 ] as const;
 
 const compactHeaderPairs = [
@@ -301,7 +301,7 @@ test("mobile menu scrolls to the final items with Šteniatka expanded", async ({
   await expect(menu.getByRole("link", { name: "Kontakt", exact: true })).toBeInViewport();
 });
 
-test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs", async ({ page, isMobile }) => {
+test("PortalHub landing navigation and PortalTopic compact tabs share gutters without overlap", async ({ page, isMobile }) => {
   for (const route of uxFoundationRoutes) {
     await page.goto(route.path);
     await expect(page.locator("main#obsah")).toBeVisible();
@@ -309,37 +309,58 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
 
     const headerContainer = page.locator("[data-section-public-header]").first();
     const breadcrumbs = headerContainer.locator(".page-breadcrumbs");
-    const tabs = page.locator(".portal-section-tabs");
-    const tabsInner = tabs.locator(".section-tabs-inner");
+    const compactTabs = page.locator(".portal-section-tabs");
+    const navigation = route.navigation === "compact"
+      ? compactTabs
+      : page.locator('[data-section-subcategories] [data-public-subcategory-navigator][data-public-subcategory-mode="landing"]');
+    const navigationTrack = navigation.locator("[data-public-subcategory-track]");
     const firstContent = page.locator(route.firstContent).first();
 
     await expect(headerContainer, `${route.path}: compact public header container missing`).toBeVisible();
     await expect(breadcrumbs, `${route.path}: shared Breadcrumbs missing`).toBeVisible();
-    await expect(tabs, `${route.path}: SectionTabs missing`).toBeVisible();
+    await expect(navigation, `${route.path}: ${route.navigation} subcategory navigation missing`).toBeVisible();
+    await expect(navigationTrack, `${route.path}: subcategory navigation track missing`).toBeVisible();
     await expect(firstContent, `${route.path}: first content block missing`).toBeVisible();
 
-    const activeTab = tabs.locator('.section-tab[aria-current="page"]');
-    await expect(activeTab, `${route.path}: active tab missing`).toHaveCount(1);
-    await activeTab.scrollIntoViewIfNeeded();
-    await expect(activeTab).toBeVisible();
+    if (route.navigation === "landing") {
+      await expect(compactTabs, `${route.path}: obsolete compact SectionTabs returned on landing hub`).toHaveCount(0);
+      const items = navigation.locator("[data-public-subcategory-item]");
+      expect(await items.count(), `${route.path}: landing subcategory navigation is empty`).toBeGreaterThan(0);
+      await expect(items.first(), `${route.path}: first landing subcategory is not visible`).toBeVisible();
 
-    const activeBox = await measuredBox(activeTab, `${route.path}: active tab`);
-    expect(activeBox.height, `${route.path}: section tab touch target`).toBeGreaterThanOrEqual(44);
-    const activeHit = await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest(".section-tab")), {
-      x: activeBox.x + activeBox.width / 2,
-      y: activeBox.y + activeBox.height / 2,
-    });
-    expect(activeHit, `${route.path}: active tab is covered`).toBe(true);
+      const directory = page.locator("[data-section-subcategories]").first();
+      const [directoryBox, contentBox] = await Promise.all([
+        measuredBox(directory, `${route.path}: landing subcategory section`),
+        measuredBox(firstContent, `${route.path}: content after landing subcategories`),
+      ]);
+      expect(
+        contentBox.y - (directoryBox.y + directoryBox.height),
+        `${route.path}: landing subcategories overlap following content`,
+      ).toBeGreaterThanOrEqual(0);
+    } else {
+      const activeTab = navigation.locator('.section-tab[aria-current="page"]');
+      await expect(activeTab, `${route.path}: active tab missing`).toHaveCount(1);
+      await activeTab.scrollIntoViewIfNeeded();
+      await expect(activeTab).toBeVisible();
 
-    const tabsBox = await measuredBox(tabs, `${route.path}: section tabs`);
-    const contentTarget = firstContent.locator(":scope > *").first();
-    const contentBox = await measuredBox(contentTarget, `${route.path}: content after tabs`);
-    const flowGap = contentBox.y - (tabsBox.y + tabsBox.height);
-    expect(flowGap, `${route.path}: tabs/content spacing`).toBeGreaterThanOrEqual(route.minGap);
-    expect(flowGap, `${route.path}: tabs/content spacing`).toBeLessThanOrEqual(route.maxGap);
+      const activeBox = await measuredBox(activeTab, `${route.path}: active tab`);
+      expect(activeBox.height, `${route.path}: section tab touch target`).toBeGreaterThanOrEqual(44);
+      const activeHit = await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest(".section-tab")), {
+        x: activeBox.x + activeBox.width / 2,
+        y: activeBox.y + activeBox.height / 2,
+      });
+      expect(activeHit, `${route.path}: active tab is covered`).toBe(true);
+
+      const navigationBox = await measuredBox(navigation, `${route.path}: compact section tabs`);
+      const contentTarget = firstContent.locator(":scope > *").first();
+      const contentBox = await measuredBox(contentTarget, `${route.path}: content after tabs`);
+      const flowGap = contentBox.y - (navigationBox.y + navigationBox.height);
+      expect(flowGap, `${route.path}: tabs/content spacing`).toBeGreaterThanOrEqual(route.minGap);
+      expect(flowGap, `${route.path}: tabs/content spacing`).toBeLessThanOrEqual(route.maxGap);
+    }
 
     const headerPublicBox = await measuredBox(headerContainer, `${route.path}: public header container`);
-    const tabsInnerBox = await measuredBox(tabsInner, `${route.path}: tabs container`);
+    const navigationTrackBox = await measuredBox(navigationTrack, `${route.path}: subcategory navigation container`);
 
     if (isMobile) {
       const siteHeaderBox = await measuredBox(page.locator(".header-inner"), `${route.path}: site header`);
@@ -348,7 +369,7 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
       for (const [label, measured] of [
         ["site header", siteHeaderBox],
         ["section header", headerPublicBox],
-        ["tabs", tabsInnerBox],
+        ["subcategory navigation", navigationTrackBox],
         ["content", contentShellBox],
       ] as const) {
         expect(Math.abs(measured.x - 16), `${route.path}: ${label} left gutter`).toBeLessThanOrEqual(1);
@@ -358,7 +379,7 @@ test("PortalHub and PortalTopic share gutters, spacing and visible SectionTabs",
       expect(Math.abs(breadcrumbBox.x - 16), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
     } else {
       expect(headerPublicBox.width, `${route.path}: desktop header container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
-      expect(tabsInnerBox.width, `${route.path}: desktop tabs exceed 1180px`).toBeLessThanOrEqual(1180.5);
+      expect(navigationTrackBox.width, `${route.path}: desktop subcategory navigation exceeds 1180px`).toBeLessThanOrEqual(1180.5);
     }
   }
 });
