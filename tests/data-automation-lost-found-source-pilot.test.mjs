@@ -98,9 +98,6 @@ function foundDetailHtml(status = "") {
     <p>Pohlavie: pes</p>
     <p>Farba: čierna</p>
     <p>Veľkosť: veľký</p>
-    <p>Kontakt: Ján Novák</p>
-    <p>Tel: 0900 111 222</p>
-    <p>Email: jan@example.sk</p>
     ${status ? `<p>Stav: ${status}</p>` : ""}
   </body></html>`;
 }
