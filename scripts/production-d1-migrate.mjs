@@ -1974,6 +1974,8 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 105) assertArticlePopularitySchema(schema);
     if (targetIndex > 106) assertSectionVisualSchema(schema);
     if (targetIndex > 107) assertSectionHeroConfigSchema(schema);
+    if (targetIndex > 108) assertNotionEventsHelpBidirectionalSchema(schema);
+    if (targetIndex > 109) assertDynamicEntityIdentitySchema(schema);
   } else {
     assertTargetSchema(schema, targetMigration);
   }
