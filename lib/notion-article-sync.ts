@@ -156,7 +156,7 @@ function notionRichTextDocument(
 
 function notionRichTextMarkdown(value: unknown) {
   return richTextRecords(value).map((record) => {
-    let text = typeof record.plain_text === "string" ? record.plain_text : "";
+    const text = typeof record.plain_text === "string" ? record.plain_text : "";
     if (!text) return "";
     const annotations = record.annotations && typeof record.annotations === "object"
       ? record.annotations as Record<string, unknown>
