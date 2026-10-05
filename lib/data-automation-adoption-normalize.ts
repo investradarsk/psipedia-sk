@@ -225,6 +225,20 @@ function explicitLifecycleStatus(value: unknown) {
   return null;
 }
 
+function explicitLifecycleLine(text: string) {
+  const lines = text
+    .replace(/\r/g, "\n")
+    .split(/\n+/)
+    .map((line) => line.replace(/^\s*[-*#>]+\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, 300);
+  for (const line of lines) {
+    const signal = explicitLifecycleStatus(line);
+    if (signal) return signal;
+  }
+  return null;
+}
+
 export function normalizeAutomationAdoptionRecord(
   record: AutomationSourceRecord,
   options: { sourceConfig?: AutomationSourceConfig } = {},
@@ -303,7 +317,8 @@ export function normalizeAutomationAdoptionRecord(
   );
   if (verifiedAt && Number.isFinite(Date.parse(verifiedAt))) proposed.lastVerifiedAt = new Date(verifiedAt).toISOString();
 
-  const lifecycle = explicitLifecycleStatus(p.status ?? structured.status ?? labelled.status);
+  const lifecycle = explicitLifecycleStatus(p.status ?? structured.status ?? labelled.status)
+    ?? explicitLifecycleLine(adoptionText(record));
   if (lifecycle) delete proposed.status;
   const lifecycleSignals: AutomationLifecycleSignal[] = [...(record.lifecycleSignals ?? [])];
   if (lifecycle && !lifecycleSignals.some((signal) => signal.signalType === lifecycle.signalType)) {
