@@ -68,9 +68,9 @@ async function expectAxeClean(page: Page, label: string) {
   expect(violations, `${label} accessibility violations:\n${details}`).toEqual([]);
 }
 
-async function readSectionTabs(page: Page, path: string) {
+async function readSubcategoryLinks(page: Page, path: string, mode: "landing" | "compact") {
   await page.goto(path);
-  return page.locator(".portal-section-tabs .section-tab").evaluateAll((links) => links.map((link) => ({
+  return page.locator(`[data-public-subcategory-navigator][data-public-subcategory-mode="${mode}"] [data-public-subcategory-item]`).evaluateAll((links) => links.map((link) => ({
     label: link.textContent?.trim().replace(/\s+/g, " ") ?? "",
     href: link.getAttribute("href") ?? "",
   })));
@@ -151,29 +151,48 @@ test("event category and time filters keep a shareable URL across reload", async
   }
 });
 
-test("managed portal SectionTabs contain valid labels and slugs", async ({ page }) => {
+test("managed portal landing subcategory navigation contains valid labels and slugs", async ({ page }) => {
   const technicalLabels = ["adresa url", "názov sekcie", "slug"];
   for (const section of ["steniatka", "starostlivost", "aktivity"]) {
     const path = `/${section}`;
-    const tabs = await readSectionTabs(page, path);
-    expect(tabs.length, `${path}: SectionTabs are empty`).toBeGreaterThan(1);
-    expect(tabs[0], `${path}: overview tab is invalid`).toEqual({ label: "Prehľad", href: path });
+    const links = await readSubcategoryLinks(page, path, "landing");
+    expect(links.length, `${path}: landing subcategory navigation is empty`).toBeGreaterThan(0);
+    await expect(page.locator(".portal-section-tabs"), `${path}: obsolete compact SectionTabs returned on landing hub`).toHaveCount(0);
 
-    const subpages = tabs.slice(1);
-    const labels = subpages.map((item) => item.label);
-    const hrefs = subpages.map((item) => item.href);
-    expect(labels.every(Boolean), `${path}: empty SectionTabs label; ${JSON.stringify(tabs)}`).toBe(true);
-    expect(labels.some((label) => technicalLabels.some((technical) => label.toLocaleLowerCase("sk-SK").includes(technical))), `${path}: technical/admin label leaked into SectionTabs; ${JSON.stringify(tabs)}`).toBe(false);
-    expect(new Set(labels).size, `${path}: duplicate SectionTabs label; ${JSON.stringify(tabs)}`).toBe(labels.length);
-    expect(new Set(hrefs).size, `${path}: duplicate SectionTabs href; ${JSON.stringify(tabs)}`).toBe(hrefs.length);
-    expect(hrefs.every((href) => new RegExp(`^/${section}/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`).test(href)), `${path}: invalid SectionTabs href; ${JSON.stringify(tabs)}`).toBe(true);
+    const labels = links.map((item) => item.label);
+    const hrefs = links.map((item) => item.href);
+    expect(labels.every(Boolean), `${path}: empty subcategory label; ${JSON.stringify(links)}`).toBe(true);
+    expect(labels.some((label) => technicalLabels.some((technical) => label.toLocaleLowerCase("sk-SK").includes(technical))), `${path}: technical/admin label leaked into subcategory navigation; ${JSON.stringify(links)}`).toBe(false);
+    expect(new Set(labels).size, `${path}: duplicate subcategory label; ${JSON.stringify(links)}`).toBe(labels.length);
+    expect(new Set(hrefs).size, `${path}: duplicate subcategory href; ${JSON.stringify(links)}`).toBe(hrefs.length);
+    expect(hrefs.every((href) => new RegExp(`^/${section}/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`).test(href)), `${path}: invalid subcategory href; ${JSON.stringify(links)}`).toBe(true);
   }
 });
 
-test("portal SectionTabs never overlap the following content", async ({ page }) => {
+test("portal subcategory navigation follows landing and compact modes without overlap", async ({ page }) => {
   for (const path of ["/steniatka", "/starostlivost", "/aktivity"]) {
-    await expectSectionTabsClear(page, path, 12);
+    await page.goto(path);
+    const directory = page.locator("[data-section-subcategories]").first();
+    const landing = directory.locator('[data-public-subcategory-navigator][data-public-subcategory-mode="landing"]');
+    const following = page.locator("[data-section-public-callout]").first();
+
+    await expect(directory, `${path}: landing subcategory section missing`).toBeVisible();
+    await expect(landing, `${path}: landing subcategory navigator missing`).toBeVisible();
+    await expect(page.locator(".portal-section-tabs"), `${path}: obsolete compact SectionTabs returned on landing hub`).toHaveCount(0);
+    await expect(following, `${path}: content after landing subcategories missing`).toBeVisible();
+
+    const [directoryBox, followingBox] = await Promise.all([
+      directory.boundingBox(),
+      following.boundingBox(),
+    ]);
+    expect(directoryBox, `${path}: cannot measure landing subcategories`).not.toBeNull();
+    expect(followingBox, `${path}: cannot measure content after landing subcategories`).not.toBeNull();
+    expect(
+      followingBox!.y - (directoryBox!.y + directoryBox!.height),
+      `${path}: landing subcategories overlap following content`,
+    ).toBeGreaterThanOrEqual(0);
   }
+
   for (const path of ["/steniatka/prve-dni", "/starostlivost/vyziva", "/aktivity/psie-sporty"]) {
     await expectSectionTabsClear(page, path);
   }
