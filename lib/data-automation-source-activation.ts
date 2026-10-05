@@ -5,6 +5,7 @@ import {
 } from "./data-automation.ts";
 import {
   AutomationConnectorError,
+  canFallbackGenericExtractionToTavily,
   fetchAutomationSourceRecords,
   type AutomationFetch,
 } from "./data-automation-connectors.ts";
@@ -141,7 +142,10 @@ export async function automationSourceActivationReadiness(
           ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 120)
           : "generic_probe_failed";
       technical = automationSourceReadiness(source, undefined, {
-        tavilyCredentialConfigured: options.tavilyCredentialConfigured,
+        tavilyCredentialConfigured: Boolean(
+          options.tavilyCredentialConfigured
+          && canFallbackGenericExtractionToTavily(reason),
+        ),
         genericProbe: {
           supported: false,
           reason,
