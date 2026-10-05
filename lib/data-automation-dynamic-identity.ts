@@ -316,6 +316,15 @@ function lostFoundDraftEvidence(record: AutomationSourceRecord) {
   ) {
     reasons.push("lost_found_dog_profile_evidence_missing");
   }
+  if (
+    source.config.sourceShape === "MULTI_ITEM_LIST"
+    && record.extraction?.strategy === "TAVILY_CRAWL"
+    && record.extraction.itemUrl
+    && record.extraction.discoveredFromRoot
+    && canonicalizeSourceUrl(record.extraction.itemUrl) === canonicalizeSourceUrl(record.extraction.discoveredFromRoot)
+  ) {
+    reasons.push("lost_found_concrete_detail_required");
+  }
   const resolved = normalized?.explicitResolved === true
     || record.lifecycleSignals?.some((signal) => signal.signalType === "LOST_FOUND_RESOLVED");
   if (resolved) reasons.push("lost_found_resolved_new_draft_blocked");
