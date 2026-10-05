@@ -119,8 +119,12 @@ function firstPartyProfile(record: AutomationSourceRecord) {
 
 function explicitFieldOrigin(record: AutomationSourceRecord, field: string) {
   const raw = object(record.rawRecord);
-  const direct = object(raw?.directEvidence);
-  const fieldOrigins = object(direct?.fieldOrigins) ?? object(raw?.evidenceOrigins);
+  const primary = rawPrimary(record);
+  const direct = object(raw?.directEvidence) ?? object(primary?.directEvidence);
+  const fieldOrigins =
+    object(direct?.fieldOrigins)
+    ?? object(raw?.evidenceOrigins)
+    ?? object(primary?.evidenceOrigins);
   return text(fieldOrigins?.[field]);
 }
 
