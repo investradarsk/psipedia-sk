@@ -176,6 +176,10 @@ function candidateMatch(
       && sameIdentity(proposed.city, candidate.city)
       && sameIdentity(proposed.region, candidate.region)
     ) return "STRONG_IDENTITY" as const;
+
+    if (sameOrganizationName(proposed.name, candidate.name)) {
+      return "UNCERTAIN" as const;
+    }
   }
 
   if (isDynamicAutomationEntityType(entityType)) {
@@ -328,6 +332,34 @@ export function selectSafeAutomationMatch(input: {
   if (input.entityType === "DIRECTORY") {
     return selectSafeDirectoryMatch({ record: input.record, candidates: input.candidates });
   }
+
+  if (input.entityType === "ORGANIZATION") {
+    const provenance = input.candidates.filter((candidate) => candidate.exactSourceIdentity);
+    if (provenance.length) {
+      const compatible = provenance.filter((candidate) =>
+        organizationSemanticsCompatible(input.record.proposed.type, candidate.type)
+      );
+      if (provenance.length === 1 && compatible.length === 1) {
+        const candidate = compatible[0];
+        return {
+          entityType: "ORGANIZATION",
+          entityId: candidate.id,
+          entityKey: candidate.key,
+          quality: "EXACT_SOURCE_ID",
+          before: candidate.before,
+        };
+      }
+      return {
+        entityType: "ORGANIZATION",
+        entityId: null,
+        entityKey: null,
+        quality: "UNCERTAIN",
+        before: null,
+        candidates: provenance.map((candidate) => ({ id: candidate.id, key: candidate.key })),
+      };
+    }
+  }
+
   const ranked = input.candidates
     .map((candidate) => ({ candidate, quality: candidateMatch(input.entityType, input.record, candidate) }))
     .filter((entry): entry is { candidate: AutomationMatchCandidate; quality: NonNullable<ReturnType<typeof candidateMatch>> } => Boolean(entry.quality));
