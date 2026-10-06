@@ -67,6 +67,7 @@ export async function PUT(request: Request, { params }: Props) {
         technicalGovernanceRefresh: enabled ? {
           actor: auth.user.email,
           tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+          internetTransport: "TAVILY_ONLY",
         } : undefined,
       }, bindings.DB);
       const immediateRun = enabled && !before.enabled && schedule.mode === "INTERVAL";
@@ -122,6 +123,7 @@ export async function PUT(request: Request, { params }: Props) {
         technicalGovernanceRefresh: enabled ? {
           actor: auth.user.email,
           tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+          internetTransport: "TAVILY_ONLY",
         } : undefined,
       }, bindings.DB);
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
