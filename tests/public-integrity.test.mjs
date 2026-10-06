@@ -91,14 +91,17 @@ test("public trust language rejects generic verification marketing while keeping
   assert.match(combined, /Výzvy s uvedeným organizátorom, cieľom a odkazom/);
 });
 
-test("precise verification terms remain attached to auditable adoption freshness", async () => {
+test("public adoption freshness uses confirmation wording backed by auditable timestamps", async () => {
   const catalog = await fs.readFile(new URL("../components/adoption-catalog.tsx", import.meta.url), "utf8");
   const detail = await fs.readFile(new URL("../components/adoption-detail.tsx", import.meta.url), "utf8");
   const adoptionModel = await fs.readFile(new URL("../lib/adoption-detail.ts", import.meta.url), "utf8");
 
-  assert.match(catalog, /Naposledy overené/);
+  assert.match(catalog, /Naposledy potvrdená dostupnosť/);
+  assert.match(catalog, /Dostupnosť potvrdená:/);
+  assert.doesNotMatch(catalog, /Naposledy overené|Posledná kontrola:/);
   assert.match(detail, /dog\.lastVerifiedAt/);
-  assert.match(detail, /Posledné overenie:/);
+  assert.match(detail, /Naposledy potvrdená dostupnosť:/);
+  assert.doesNotMatch(detail, /Overenie profilu|Posledné overenie:/);
   assert.match(detail, /Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou/);
   assert.match(adoptionModel, /lastVerifiedAt/);
 });
