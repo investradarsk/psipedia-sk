@@ -31,7 +31,7 @@ import {
   SITEMAP_MAX_D1_CONCURRENCY,
   SitemapStageError,
 } from "../lib/sitemap-runtime.ts";
-import { withAvailableBreedImages } from "../lib/breed-image.ts";
+import { withAvailableBreedImages } from "../lib/breed-image.ts";\nimport robots from "../app/robots.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
@@ -60,6 +60,36 @@ test("Event JSON-LD keeps a known Bratislava time and DST offset", () => {
   const eventPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
   assert.match(eventPage, /startDate:\s*eventDateTimeIso\(event\.startDate, event\.startTime\)/);
   assert.match(eventPage, /endDate:\s*event\.endDate\s*\?\s*eventDateTimeIso\(event\.endDate, event\.endTime\)/);
+});
+
+test("AI-CRAWLER-POLICY-1 preserves discovery access while blocking training-only crawlers", () => {
+  const policy = robots();
+  const rules = new Map(policy.rules.map((rule) => [rule.userAgent, rule]));
+  const internalPaths = ["/admin/", "/api/", "/hladat", "/oblubene"];
+
+  for (const crawler of [
+    "*",
+    "Googlebot",
+    "Google-Extended",
+    "OAI-SearchBot",
+    "ChatGPT-User",
+    "Claude-SearchBot",
+    "Claude-User",
+  ]) {
+    assert.equal(rules.get(crawler)?.allow, "/", crawler);
+    assert.deepEqual(rules.get(crawler)?.disallow, internalPaths, crawler);
+  }
+
+  for (const crawler of ["GPTBot", "ClaudeBot"]) {
+    assert.equal(rules.get(crawler)?.allow, undefined, crawler);
+    assert.equal(rules.get(crawler)?.disallow, "/", crawler);
+  }
+
+  assert.deepEqual(policy.sitemap, [
+    `${SITE_URL}/sitemap.xml`,
+    `${SITE_URL}/news-sitemap.xml`,
+  ]);
+  assert.equal(policy.host, SITE_URL);
 });
 
 test("News sitemap admits only publication dates from the last two days", () => {
