@@ -557,7 +557,7 @@ test("Tavily Extract marks exact provider-delivered entity page fields as first-
       },
     },
   });
-  const scoped = contract(src, "/**");
+  const scoped = contract(src, null);
   const provider = new TavilyAutomationExtractProvider({
     apiKey: "key",
     fetchImpl: async () => json(payload([{
