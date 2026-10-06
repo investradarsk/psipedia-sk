@@ -157,6 +157,7 @@ export async function listDueAutomationSources(
   database?: AutomationD1Database,
   now = new Date(),
   limit = 8,
+  options: { providerManagedAccess?: boolean } = {},
 ) {
   const db = getDatabase(database);
   const result = await db.prepare(`SELECT id,source_key,label,entity_type,connector_type,source_url,config_json,enabled,
@@ -186,6 +187,9 @@ export async function listDueAutomationSources(
       recurring: true,
       cadenceMinutes: source.cadenceMinutes,
       storageFields: ["url", "metadata"],
+      providerManagedAccess: Boolean(
+        options.providerManagedAccess && source.connectorType !== "MANUAL_IMPORT",
+      ),
     }, now);
     if (decision.allowed) governed.push(source);
   }

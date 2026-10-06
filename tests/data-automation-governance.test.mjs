@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { evaluateGovernanceForActivation } from "../lib/data-automation-governance.ts";
 import { listDueAutomationDiscoveryRoots } from "../lib/data-automation-discovery-store.ts";
+import { listDueAutomationSources } from "../lib/data-automation-store.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -354,4 +355,130 @@ test("technical source governance refresh uses audited upsert history and never 
   assert.doesNotMatch(refresh, /DELETE|delete/i);
   assert.match(migration, /CREATE TRIGGER `automation_governance_reviews_history_update`/);
   assert.match(migration, /automation_governance_review_history_no_delete/);
+});
+
+
+function scheduledSourceGovernanceDb() {
+  const source = {
+    id: 82,
+    source_key: "mushing-events",
+    label: "Preteky – Mushing",
+    entity_type: "EVENT",
+    connector_type: "CONTROLLED_HTML",
+    source_url: "https://mushing.sk/preteky",
+    config_json: JSON.stringify({ sourceShape: "MULTI_ITEM_LIST" }),
+    enabled: 1,
+    cadence_minutes: 10080,
+    schedule_mode: "CALENDAR",
+    schedule_days_json: JSON.stringify(["TUE"]),
+    schedule_local_time: "20:06",
+    schedule_timezone: "Europe/Bratislava",
+    throttle_ms: 0,
+    timeout_ms: 8000,
+    retry_max_attempts: 2,
+    retry_backoff_ms: 1000,
+    max_records_per_run: 50,
+    next_check_at: "2026-10-06T18:06:00.000Z",
+    review_status: "APPROVED",
+  };
+  const governance = {
+    id: 82,
+    subject_type: "AUTOMATION_SOURCE",
+    subject_id: 82,
+    access_status: "UNKNOWN",
+    robots_status: "UNKNOWN",
+    terms_status: "ALLOWED",
+    recurring_status: "APPROVED",
+    retention_status: "APPROVED",
+    retain_url: 1,
+    retain_title: 0,
+    retain_snippet: 0,
+    retain_metadata: 1,
+    retention_days: null,
+    min_cadence_minutes: null,
+    max_requests_per_day: 10,
+    manual_only: 0,
+    path_scope: "/preteky/**",
+    restrictions_note: null,
+    terms_url: null,
+    privacy_url: null,
+    robots_url: null,
+    evidence_url: "https://mushing.sk/preteky",
+    reviewed_at: "2026-10-06T17:00:00.000Z",
+    reviewed_by: "operator@example.com",
+    rationale: "provider-managed public source",
+    expires_at: null,
+    review_due_at: null,
+    created_at: "2026-10-06T17:00:00.000Z",
+    updated_at: "2026-10-06T17:00:00.000Z",
+  };
+  return {
+    prepare(sql) {
+      return {
+        bind() {
+          return {
+            async all() {
+              if (sql.includes("FROM automation_sources")) return { results: [source] };
+              throw new Error("unexpected all query");
+            },
+            async first() {
+              if (sql.includes("automation_governance_reviews")) return governance;
+              throw new Error("unexpected first query");
+            },
+          };
+        },
+      };
+    },
+    async batch() { return []; },
+  };
+}
+
+test("TAVILY_ONLY scheduled source selection uses provider-managed governance just like the actual run", async () => {
+  const now = new Date("2026-10-06T18:10:00.000Z");
+  const legacy = await listDueAutomationSources(
+    scheduledSourceGovernanceDb(),
+    now,
+    8,
+  );
+  assert.deepEqual(legacy, []);
+
+  const tavilyOnly = await listDueAutomationSources(
+    scheduledSourceGovernanceDb(),
+    now,
+    8,
+    { providerManagedAccess: true },
+  );
+  assert.equal(tavilyOnly.length, 1);
+  assert.equal(tavilyOnly[0].id, 82);
+});
+
+test("SEARCH_PROVIDER scheduled discovery does not require direct-origin access or robots state", async () => {
+  const db = discoveryGovernanceDb({
+    discoveryType: "SEARCH_PROVIDER",
+    governance: "valid",
+  });
+  const originalPrepare = db.prepare.bind(db);
+  db.prepare = (sql) => {
+    const prepared = originalPrepare(sql);
+    if (!sql.includes("automation_governance_reviews")) return prepared;
+    return {
+      bind() {
+        return {
+          async first() {
+            return {
+              ...governanceRow(),
+              access_status: "UNKNOWN",
+              robots_status: "UNKNOWN",
+            };
+          },
+        };
+      },
+    };
+  };
+  const roots = await listDueAutomationDiscoveryRoots(
+    db,
+    new Date("2026-10-06T18:10:00.000Z"),
+  );
+  assert.equal(roots.length, 1);
+  assert.equal(roots[0].discoveryType, "SEARCH_PROVIDER");
 });
