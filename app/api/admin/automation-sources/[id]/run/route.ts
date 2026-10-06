@@ -2,8 +2,6 @@ import { env, waitUntil } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { runAutomationSourceNow } from "@/lib/data-automation-runner";
-import { productionAutomationHtmlAdapters } from "@/lib/data-automation-real-sources";
-import { createProductionOrganizationEnricher } from "@/lib/data-automation-organization-enrichment";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
 import { automationSourceActivationReadiness } from "@/lib/data-automation-source-activation";
 
@@ -75,8 +73,6 @@ export async function POST(request: Request, { params }: Props) {
 
   const task = runAutomationSourceNow(id, {
     database: db,
-    htmlAdapters: productionAutomationHtmlAdapters,
-    organizationEnricher: createProductionOrganizationEnricher(),
     tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
   }).catch((error) => {
     console.error(JSON.stringify({
