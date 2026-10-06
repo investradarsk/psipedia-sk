@@ -61,7 +61,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
         <div><dt>Veľkosť</dt><dd>{adoptionCatalogSizeLabels[dog.size]}</dd></div>
       </dl>
       {dog.status === "RESERVED" && <p className={styles.reservedNote}>Tento pes je momentálne rezervovaný.</p>}
-      {dog.lastVerifiedAt ? <p className={styles.freshness}>Posledná kontrola: {formatCatalogDate(dog.lastVerifiedAt)}</p> : dog.publishedAt ? <p className={styles.freshness}>Publikované: {formatCatalogDate(dog.publishedAt)}</p> : null}
+      {dog.lastVerifiedAt ? <p className={styles.freshness}>Dostupnosť potvrdená: {formatCatalogDate(dog.lastVerifiedAt)}</p> : dog.publishedAt ? <p className={styles.freshness}>Publikované: {formatCatalogDate(dog.publishedAt)}</p> : null}
       <Link href={href}>Zobraziť profil →</Link>
     </div>
   </article>;
@@ -127,7 +127,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
 
     <div className={styles.summary}>
       <div><h2>Aktuálne profily</h2><p>{pagination.total} {pagination.total === 1 ? "pes" : "psov"}</p></div>
-      <form method="get" className={styles.sortForm}>{hiddenFilterInputs(filters, "radenie")}<label htmlFor="adoption-sort">Zoradiť</label><select id="adoption-sort" name="radenie" defaultValue={filters.sort}><option value="newest">Najnovšie</option><option value="verified">Naposledy overené</option><option value="youngest">Najmladšie</option><option value="oldest">Najstaršie</option></select><button type="submit">Použiť</button></form>
+      <form method="get" className={styles.sortForm}>{hiddenFilterInputs(filters, "radenie")}<label htmlFor="adoption-sort">Zoradiť</label><select id="adoption-sort" name="radenie" defaultValue={filters.sort}><option value="newest">Najnovšie</option><option value="verified">Naposledy potvrdená dostupnosť</option><option value="youngest">Najmladšie</option><option value="oldest">Najstaršie</option></select><button type="submit">Použiť</button></form>
     </div>
 
     {!view.isEmpty ? <div className={styles.grid}>{view.items.map((dog) => <DogCard dog={dog} key={dog.id} />)}</div> : <div className={styles.empty}>
