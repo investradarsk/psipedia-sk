@@ -122,7 +122,7 @@ test("sitemap keeps entity parity, real updated timestamps and excludes query/re
   assert.match(source, /lastModified: latestModified\(\[event\.updatedAt\]\)/);
   assert.match(source, /lastModified: latestModified\(\[item\.updatedAt\]\)/);
   assert.match(source, /buildOrganizationSitemapEntries\(organizations\)/);
-  assert.match(organizationSitemap, /lastModified: latestModified\(\[organization\.updatedAt\]\)/);
+  assert.match(organizationSitemap, /latestModified\(\[organization\.updatedAt, organization\.publishedAt\]\)/);
   assert.match(source, /SITEMAP_REDIRECT_SOURCES/);
   assert.match(source, /assertValidSitemap\(entries\)/);
 });
