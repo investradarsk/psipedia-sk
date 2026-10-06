@@ -132,3 +132,15 @@ export function formatHelpDate(value: string | null) {
   if (!value) return null;
   return new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
 }
+
+export function formatHelpUpdatedDate(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "Europe/Bratislava",
+  }).format(date);
+}
