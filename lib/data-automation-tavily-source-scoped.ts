@@ -11,9 +11,11 @@ import {
   automationUrlWithinApprovedSourceScope,
   type SourceScopedExtractionContract,
 } from "./data-automation-source-scoped-extraction.ts";
-import type {
-  AutomationSourceProviderOperation,
-  AutomationSourceProviderUsageStatus,
+import {
+  normalizeAutomationSourceProviderDiagnostics,
+  type AutomationSourceProviderErrorDiagnostics,
+  type AutomationSourceProviderOperation,
+  type AutomationSourceProviderUsageStatus,
 } from "./data-automation-source-provider-usage.ts";
 
 export const TAVILY_CRAWL_ENDPOINT = "https://api.tavily.com/crawl";
@@ -24,6 +26,7 @@ const MAX_RETRIES = 2;
 const RAW_EXCERPT_MAX = 4000;
 const DESCRIPTION_MAX = 5000;
 const CONTENT_MAX = 250000;
+const PROVIDER_ERROR_BODY_MAX_BYTES = 4096;
 
 export const tavilySourceScopedErrorCodes = [
   "TAVILY_CONFIG_MISSING",
@@ -40,15 +43,23 @@ export const tavilySourceScopedErrorCodes = [
 
 export type TavilySourceScopedErrorCode = typeof tavilySourceScopedErrorCodes[number];
 
+export type TavilyProviderErrorDiagnostics = AutomationSourceProviderErrorDiagnostics;
+
 export class TavilySourceScopedError extends Error {
   readonly code: TavilySourceScopedErrorCode;
   readonly retryable: boolean;
+  readonly diagnostics: TavilyProviderErrorDiagnostics;
 
-  constructor(code: TavilySourceScopedErrorCode, retryable = false) {
+  constructor(
+    code: TavilySourceScopedErrorCode,
+    retryable = false,
+    diagnostics: TavilyProviderErrorDiagnostics = {},
+  ) {
     super(code);
     this.name = "TavilySourceScopedError";
     this.code = code;
     this.retryable = retryable;
+    this.diagnostics = normalizeAutomationSourceProviderDiagnostics(diagnostics);
   }
 }
 
@@ -57,6 +68,7 @@ type ProviderFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<R
 export type TavilySourceScopedRequestGate = {
   reserve(operation: AutomationSourceProviderOperation): Promise<{
     operationKey: string;
+    runId?: number | null;
     blockedReason?: "COOLDOWN";
   } | null>;
   finalize(input: {
@@ -65,6 +77,7 @@ export type TavilySourceScopedRequestGate = {
     resultCount: number;
     acceptedCount: number;
     scopeRejectedCount: number;
+    diagnostics?: AutomationSourceProviderErrorDiagnostics;
   }): Promise<void>;
 };
 
@@ -229,12 +242,116 @@ function parsePayload(payload: unknown): ParsedPayload {
   };
 }
 
-function httpError(status: number) {
-  if (status === 401 || status === 403) return new TavilySourceScopedError("TAVILY_AUTH_FAILED");
-  if (status === 429) return new TavilySourceScopedError("TAVILY_RATE_LIMITED");
-  if (status === 432 || status === 433) return new TavilySourceScopedError("TAVILY_BUDGET_EXHAUSTED");
-  if (status >= 500) return new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true);
-  if (status >= 400) return new TavilySourceScopedError("TAVILY_PROVIDER_ERROR");
+function redactKnownSecret(value: unknown, secret: string) {
+  if (typeof value !== "string") return value;
+  if (!secret) return value;
+  return value.split(secret).join("[REDACTED]");
+}
+
+function scalarDiagnostic(value: unknown) {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  return undefined;
+}
+
+function objectDiagnostic(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+async function readProviderErrorDiagnostics(
+  response: Response,
+  apiKey: string,
+): Promise<TavilyProviderErrorDiagnostics> {
+  const base: TavilyProviderErrorDiagnostics = {
+    providerHttpStatus: response.status,
+    providerRequestId: scalarDiagnostic(
+      response.headers.get("x-request-id")
+        ?? response.headers.get("request-id")
+        ?? response.headers.get("x-tavily-request-id"),
+    ),
+  };
+  try {
+    const declared = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > PROVIDER_ERROR_BODY_MAX_BYTES) {
+      await response.body?.cancel().catch(() => undefined);
+      return normalizeAutomationSourceProviderDiagnostics(base);
+    }
+    if (!response.body) return normalizeAutomationSourceProviderDiagnostics(base);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const chunks: string[] = [];
+    let bytes = 0;
+    try {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        bytes += part.value.byteLength;
+        if (bytes > PROVIDER_ERROR_BODY_MAX_BYTES) {
+          await reader.cancel().catch(() => undefined);
+          return normalizeAutomationSourceProviderDiagnostics(base);
+        }
+        chunks.push(decoder.decode(part.value, { stream: true }));
+      }
+      chunks.push(decoder.decode());
+    } finally {
+      reader.releaseLock();
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(chunks.join(""));
+    } catch {
+      return normalizeAutomationSourceProviderDiagnostics(base);
+    }
+    const object = objectDiagnostic(payload);
+    if (!object) return normalizeAutomationSourceProviderDiagnostics(base);
+    const nestedError = objectDiagnostic(object.error);
+
+    const providerErrorCode = scalarDiagnostic(
+      object.code ?? object.type ?? nestedError?.code ?? nestedError?.type,
+    );
+    const providerErrorDetail = scalarDiagnostic(
+      object.detail
+        ?? object.message
+        ?? (typeof object.error === "string" ? object.error : undefined)
+        ?? nestedError?.detail
+        ?? nestedError?.message,
+    );
+    const providerRequestId = scalarDiagnostic(
+      object.request_id
+        ?? object.requestId
+        ?? nestedError?.request_id
+        ?? nestedError?.requestId
+        ?? base.providerRequestId,
+    );
+    return normalizeAutomationSourceProviderDiagnostics({
+      ...base,
+      providerErrorCode: redactKnownSecret(providerErrorCode, apiKey),
+      providerErrorDetail: redactKnownSecret(providerErrorDetail, apiKey),
+      providerRequestId: redactKnownSecret(providerRequestId, apiKey),
+    });
+  } catch {
+    return normalizeAutomationSourceProviderDiagnostics(base);
+  }
+}
+
+function transportDiagnostics(error: unknown): TavilyProviderErrorDiagnostics {
+  if (!(error instanceof Error)) return {};
+  const cause = objectDiagnostic(error.cause);
+  return normalizeAutomationSourceProviderDiagnostics({
+    transportErrorName: error.name,
+    transportErrorCode: scalarDiagnostic(cause?.code),
+  });
+}
+
+function httpError(status: number, diagnostics: TavilyProviderErrorDiagnostics = {}) {
+  if (status === 401 || status === 403) return new TavilySourceScopedError("TAVILY_AUTH_FAILED", false, diagnostics);
+  if (status === 429) return new TavilySourceScopedError("TAVILY_RATE_LIMITED", false, diagnostics);
+  if (status === 432 || status === 433) return new TavilySourceScopedError("TAVILY_BUDGET_EXHAUSTED", false, diagnostics);
+  if (status >= 500) return new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true, diagnostics);
+  if (status >= 400) return new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", false, diagnostics);
   return null;
 }
 
@@ -288,17 +405,21 @@ class TavilyHttpClient {
           body: JSON.stringify(input.body),
           signal: AbortSignal.timeout(input.timeoutMs),
         });
-        const classified = httpError(response.status);
+        const diagnostics = response.ok
+          ? undefined
+          : await readProviderErrorDiagnostics(response, this.apiKey);
+        const classified = httpError(response.status, diagnostics);
         if (classified) throw classified;
-        if (!response.ok) throw new TavilySourceScopedError("TAVILY_PROVIDER_ERROR");
+        if (!response.ok) throw new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", false, diagnostics);
         return boundedJson(response, input.maxBytes);
       } catch (error) {
         const name = error instanceof Error ? error.name : "";
+        const diagnostics = transportDiagnostics(error);
         const mapped = error instanceof TavilySourceScopedError
           ? error
           : name === "TimeoutError" || name === "AbortError"
-            ? new TavilySourceScopedError("TAVILY_TIMEOUT", true)
-            : new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true);
+            ? new TavilySourceScopedError("TAVILY_TIMEOUT", true, diagnostics)
+            : new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true, diagnostics);
         lastError = mapped;
         if (!mapped.retryable || attempt >= retryLimit) throw mapped;
         await this.sleep(retryBackoffMs(attempt, input.retryBackoffMs));
@@ -547,13 +668,29 @@ abstract class TavilyProviderBase {
         return { payload, operationKey: reservation.operationKey, started };
       } catch (error) {
         lastError = error;
+        const diagnostics = error instanceof TavilySourceScopedError ? error.diagnostics : undefined;
         await input.gate.finalize({
           operationKey: reservation.operationKey,
           status: usageStatus(error),
           resultCount: 0,
           acceptedCount: 0,
           scopeRejectedCount: 0,
+          diagnostics,
         });
+        console.info(JSON.stringify({
+          event: "automation_source_provider_request_failed",
+          provider: "tavily",
+          sourceId: input.source.id,
+          runId: reservation.runId ?? undefined,
+          operation: input.operation,
+          operationKey: reservation.operationKey,
+          errorCode: error instanceof TavilySourceScopedError ? error.code : "TAVILY_PROVIDER_ERROR",
+          httpStatus: diagnostics?.providerHttpStatus ?? undefined,
+          providerErrorCode: diagnostics?.providerErrorCode ?? undefined,
+          providerRequestId: diagnostics?.providerRequestId ?? undefined,
+          transportErrorName: diagnostics?.transportErrorName ?? undefined,
+          transportErrorCode: diagnostics?.transportErrorCode ?? undefined,
+        }));
         const retryable = error instanceof TavilySourceScopedError && error.retryable;
         if (!retryable || attempt >= retryLimit) throw error;
         await this.sleep(retryBackoffMs(attempt, input.source.retryBackoffMs));
