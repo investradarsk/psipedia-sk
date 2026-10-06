@@ -357,7 +357,7 @@ test("DIRECTORY-AI-PROFILE-SURFACE-1 JSON-LD preserves canonical graph and adds 
     assert.equal(entity.address["@type"], "PostalAddress");
     assert.deepEqual(entity.knowsAbout, ["Labradorský retriever"]);
     assert.ok(entity.sameAs.includes("https://canonical.example.org/"));
-    assert.ok(entity.sameAs.includes("https://facebook.com/profil.example"));
+    assert.ok(entity.sameAs.includes("https://facebook.com/profil.example/"));
     assert.equal(webPage["@id"], canonical);
     assert.equal(webPage.dateModified, "2026-10-04T08:30:00Z");
     assert.deepEqual(webPage.mainEntity, { "@id": `${canonical}#profile` });
