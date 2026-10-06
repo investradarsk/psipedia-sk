@@ -171,7 +171,9 @@ export function automationRecordEvidenceClasses(record: AutomationSourceRecord):
   const method = extractionMethod(record);
 
   if (clean(extraction?.externalId)) output.add("EXPLICIT_EXTERNAL_ID");
-  if (canonicalizeSourceUrl(extraction?.itemUrl) || canonicalizeSourceUrl(record.sourceUrl)) {
+  const providerEvidenceType = clean(extraction?.evidenceMetadata?.providerEvidenceType)?.toUpperCase() ?? "";
+  const sourceListRow = providerEvidenceType === "CRAWL_LIST_ROW";
+  if (!sourceListRow && (canonicalizeSourceUrl(extraction?.itemUrl) || canonicalizeSourceUrl(record.sourceUrl))) {
     output.add("CANONICAL_DETAIL_URL");
   }
 
@@ -197,7 +199,11 @@ export function automationRecordEvidenceClasses(record: AutomationSourceRecord):
 
 export function automationStableSourceIdentity(record: AutomationSourceRecord) {
   if (clean(record.extraction?.externalId)) return "EXTERNAL_ID" as const;
-  if (canonicalizeSourceUrl(record.extraction?.itemUrl) || canonicalizeSourceUrl(record.sourceUrl)) {
+  const providerEvidenceType = clean(record.extraction?.evidenceMetadata?.providerEvidenceType)?.toUpperCase() ?? "";
+  if (
+    providerEvidenceType !== "CRAWL_LIST_ROW"
+    && (canonicalizeSourceUrl(record.extraction?.itemUrl) || canonicalizeSourceUrl(record.sourceUrl))
+  ) {
     return "DETAIL_URL" as const;
   }
   const id = clean(record.sourceRecordId);
