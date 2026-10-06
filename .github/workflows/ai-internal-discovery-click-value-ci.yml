@@ -112,6 +112,25 @@ jobs:
           node scripts/bootstrap-breed-e2e.mjs seed
           node scripts/bootstrap-adoption-e2e.mjs
           node scripts/bootstrap-internal-discovery-e2e.mjs
+      - name: Restart isolated local app after runtime relation seed
+        run: |
+          if [ -f .e2e-artifacts/internal-discovery/server.pid ]; then
+            kill "$(cat .e2e-artifacts/internal-discovery/server.pid)" 2>/dev/null || true
+          fi
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/internal-discovery/server.log 2>&1 &
+          echo $! > .e2e-artifacts/internal-discovery/server.pid
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/internal-discovery/server.log
+            exit 1
+          fi
       - name: Discovery Playwright — desktop
         run: npm run e2e -- tests/e2e/internal-discovery.spec.ts --project=desktop-chromium --workers=1 --retries=0
       - name: Discovery Playwright — mobile
