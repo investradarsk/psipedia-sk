@@ -81,6 +81,15 @@ export function parseAutomationEventDateRange(value: unknown) {
     return { startDate, endDate, startTime: null, endTime: null };
   }
 
+  const compactCrossMonth = text.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*[–—-]\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+  if (compactCrossMonth) {
+    const year = Number(compactCrossMonth[5]);
+    const startDate = validDateParts(year, Number(compactCrossMonth[2]), Number(compactCrossMonth[1]));
+    const endDate = validDateParts(year, Number(compactCrossMonth[4]), Number(compactCrossMonth[3]));
+    if (!startDate || !endDate || endDate < startDate) return null;
+    return { startDate, endDate, startTime: null, endTime: null };
+  }
+
   return null;
 }
 
@@ -250,10 +259,13 @@ export function normalizeAutomationEventRecord(
   const labelled = labelledFacts(text);
 
   const proposedStart = isoDateTime(p.startDate ?? p.start_date);
+  const raw = object(record.rawRecord);
   const labelledRange = parseAutomationEventDateRange(labelled.date);
+  const rawDateRange = parseAutomationEventDateRange(raw.dateText);
   const startDate = proposedStart?.date
     ?? structured.startDate
     ?? labelledRange?.startDate
+    ?? rawDateRange?.startDate
     ?? null;
   const startTime = time(p.startTime ?? p.start_time)
     ?? proposedStart?.time
@@ -263,6 +275,7 @@ export function normalizeAutomationEventRecord(
   const endDate = proposedEnd?.date
     ?? structured.endDate
     ?? labelledRange?.endDate
+    ?? rawDateRange?.endDate
     ?? null;
   const endTime = time(p.endTime ?? p.end_time)
     ?? proposedEnd?.time
