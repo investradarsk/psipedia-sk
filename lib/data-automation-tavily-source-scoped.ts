@@ -335,7 +335,44 @@ function filterRows(rows: ParsedPayload["rows"], contract: SourceScopedExtractio
   return { accepted, scopeRejectedCount, duplicateCount, invalidCount, contentTruncatedCount };
 }
 
+function markdownCellText(value: string) {
+  return value
+    .replace(/~~([^~]+)~~/g, "$1")
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+    .replace(/[*_`>#]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikeSlovakEventDate(value: string) {
+  const text = value.replace(/\s+/g, "");
+  return /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(text)
+    || /^\d{1,2}\.[–—-]\d{1,2}\.\d{1,2}\.\d{4}$/.test(text)
+    || /^\d{1,2}\.\d{1,2}\.[–—-]\d{1,2}\.\d{1,2}\.\d{4}$/.test(text);
+}
+
+function markdownEventRows(content: string) {
+  const rows: Array<{ dateText: string; title: string; venue: string | null; rawLine: string }> = [];
+  for (const rawLine of content.split(/\r?\n/).slice(0, 2000)) {
+    if (!rawLine.includes("|")) continue;
+    const cells = rawLine
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map(markdownCellText)
+      .filter(Boolean);
+    if (cells.length < 2 || !looksLikeSlovakEventDate(cells[0])) continue;
+    const title = cells[1]?.slice(0, 500) ?? "";
+    const venue = cells[2]?.slice(0, 500) || null;
+    if (!title || /^[-–—\s]+$/.test(title)) continue;
+    rows.push({ dateText: cells[0], title, venue, rawLine: rawLine.slice(0, 4000) });
+  }
+  return rows;
+}
+
 async function providerRecord(input: {
+  source: AutomationSource;
   contract: SourceScopedExtractionContract;
   strategy: "TAVILY_CRAWL" | "TAVILY_EXTRACT";
   url: string;
@@ -345,12 +382,23 @@ async function providerRecord(input: {
 }) {
   const title = markdownTitle(input.content, input.url);
   const description = markdownDescription(input.content);
-  const proposed: Record<string, unknown> = { websiteUrl: input.url };
+  const proposed: Record<string, unknown> = {
+    ...(input.source.config.staticFields ?? {}),
+    websiteUrl: input.url,
+  };
   if (title) {
     proposed.title = title;
     proposed.name = title;
   }
   if (description) proposed.description = description;
+
+  const firstPartyEntity = input.source.entityType === "DIRECTORY" || input.source.entityType === "ORGANIZATION";
+  const fieldOrigins: Record<string, string> = {};
+  if (firstPartyEntity) {
+    if (title) fieldOrigins.name = "FIRST_PARTY";
+    fieldOrigins.websiteUrl = "FIRST_PARTY";
+    if (description) fieldOrigins.description = "FIRST_PARTY";
+  }
 
   return {
     sourceRecordId: "url:" + await sha256Hex(input.url),
@@ -361,6 +409,12 @@ async function providerRecord(input: {
       url: input.url,
       contentExcerpt: input.content.slice(0, RAW_EXCERPT_MAX),
       contentTruncated: input.content.length > RAW_EXCERPT_MAX,
+      ...(firstPartyEntity ? {
+        identitySource: input.strategy === "TAVILY_EXTRACT"
+          ? "TAVILY_EXTRACT_FIRST_PARTY"
+          : "TAVILY_CRAWL_FIRST_PARTY",
+        directEvidence: { fieldOrigins },
+      } : {}),
     },
     proposed,
     extraction: {
@@ -383,6 +437,62 @@ async function providerRecord(input: {
       confidence: "LOW",
     },
   } satisfies AutomationSourceRecord;
+}
+
+async function providerRecordsForRow(input: {
+  source: AutomationSource;
+  contract: SourceScopedExtractionContract;
+  strategy: "TAVILY_CRAWL" | "TAVILY_EXTRACT";
+  url: string;
+  content: string;
+  retrievedAt: string;
+  coverage: AutomationExtractionCoverage;
+}) {
+  if (
+    input.strategy === "TAVILY_CRAWL"
+    && input.source.entityType === "EVENT"
+    && input.source.config.sourceShape === "MULTI_ITEM_LIST"
+  ) {
+    const rows = markdownEventRows(input.content);
+    if (rows.length) {
+      return Promise.all(rows.slice(0, input.source.maxRecordsPerRun).map(async (row) => ({
+        sourceRecordId: "tavily-row:" + await sha256Hex(
+          [input.url, row.dateText, row.title, row.venue ?? ""].join("|"),
+        ),
+        sourceUrl: input.url,
+        sourceTimestamp: null,
+        rawRecord: {
+          provider: "tavily",
+          url: input.url,
+          contentExcerpt: row.rawLine,
+          dateText: row.dateText,
+          venue: row.venue,
+          identitySource: "TAVILY_CRAWL_LIST_ROW",
+        },
+        proposed: {
+          ...(input.source.config.staticFields ?? {}),
+          title: row.title,
+          ...(row.venue ? { venue: row.venue } : {}),
+          websiteUrl: input.url,
+        },
+        extraction: {
+          itemUrl: input.url,
+          externalId: null,
+          discoveredFromRoot: input.contract.identity.canonicalSourceRootUrl,
+          strategy: input.strategy,
+          evidenceMetadata: {
+            provider: "tavily",
+            providerEvidenceType: "CRAWL_LIST_ROW",
+            retrievedAt: input.retrievedAt,
+            approvedScopeIdentityKey: input.contract.identity.identityKey,
+          },
+          coverage: input.coverage,
+          confidence: "MEDIUM",
+        },
+      } satisfies AutomationSourceRecord)));
+    }
+  }
+  return [await providerRecord(input)];
 }
 
 abstract class TavilyProviderBase {
@@ -510,7 +620,7 @@ export class TavilyAutomationCrawlProvider extends TavilyProviderBase {
         select_domains: ["^" + escapeRegex(rootUrl.hostname) + "$"],
         allow_external: false,
         include_images: false,
-        extract_depth: "basic",
+        extract_depth: "advanced",
         format: "markdown",
         include_usage: true,
       },
@@ -541,14 +651,15 @@ export class TavilyAutomationCrawlProvider extends TavilyProviderBase {
       truncated,
     };
     const at = this.now().toISOString();
-    const records = await Promise.all(filtered.accepted.map((row) => providerRecord({
+    const records = (await Promise.all(filtered.accepted.map((row) => providerRecordsForRow({
+      source: input.source,
       contract: input.contract,
       strategy: "TAVILY_CRAWL",
       url: row.url,
       content: row.content,
       retrievedAt: at,
       coverage,
-    })));
+    })))).flat().slice(0, input.source.maxRecordsPerRun);
     const diagnostics: TavilySourceScopedDiagnostics = {
       provider: "tavily",
       operation: "CRAWL",
@@ -609,7 +720,7 @@ export class TavilyAutomationExtractProvider extends TavilyProviderBase {
       endpoint: TAVILY_EXTRACT_ENDPOINT,
       body: {
         urls,
-        extract_depth: "basic",
+        extract_depth: "advanced",
         include_images: false,
         format: "markdown",
         include_usage: true,
@@ -638,14 +749,15 @@ export class TavilyAutomationExtractProvider extends TavilyProviderBase {
       truncated: unique.length > urls.length || filtered.contentTruncatedCount > 0,
     };
     const at = this.now().toISOString();
-    const records = await Promise.all(filtered.accepted.map((row) => providerRecord({
+    const records = (await Promise.all(filtered.accepted.map((row) => providerRecordsForRow({
+      source: input.source,
       contract: input.contract,
       strategy: "TAVILY_EXTRACT",
       url: row.url,
       content: row.content,
       retrievedAt: at,
       coverage,
-    })));
+    })))).flat().slice(0, input.source.maxRecordsPerRun);
     const diagnostics: TavilySourceScopedDiagnostics = {
       provider: "tavily",
       operation: "EXTRACT",
