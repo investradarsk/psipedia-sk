@@ -59,11 +59,11 @@ export async function previewAutomationSource(input: {
   tavilyApiKey?: string;
   internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 }) {
-  let httpStatus: number | null = null;
-  let contentType: string | null = null;
-  let contentLength: number | null = null;
-  let finalUrl: string | null = input.source.sourceUrl;
-  let redirectCount = 0;
+  const httpStatus: number | null = null;
+  const contentType: string | null = null;
+  const contentLength: number | null = null;
+  const finalUrl: string | null = input.source.sourceUrl;
+  const redirectCount = 0;
   const startedAt = Date.now();
 
   try {
