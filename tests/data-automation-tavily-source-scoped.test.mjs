@@ -11,6 +11,8 @@ import {
   buildSourceScopedExtractionContract,
   automationCoverageCanInferAbsence,
 } from "../lib/data-automation-source-scoped-extraction.ts";
+import { normalizeAutomationEventRecord } from "../lib/data-automation-event-normalize.ts";
+import { validateDynamicAutomationIngestion } from "../lib/data-automation-dynamic-identity.ts";
 
 function source(overrides = {}) {
   return {
@@ -474,4 +476,103 @@ test("malformed provider response finalizes reserved usage as INVALID_RESPONSE",
     (error) => error instanceof TavilySourceScopedError && error.code === "TAVILY_INVALID_RESPONSE",
   );
   assert.equal(g.finalized.at(-1).status, "INVALID_RESPONSE");
+});
+
+
+test("Tavily Crawl preserves static fields and expands mushing-style markdown rows into stable EVENT records", async () => {
+  const src = source({
+    entityType: "EVENT",
+    sourceKey: "mushing-events",
+    sourceUrl: "https://mushing.sk/preteky",
+    config: {
+      sourceShape: "MULTI_ITEM_LIST",
+      staticFields: { eventType: "Preteky" },
+    },
+    maxRecordsPerRun: 50,
+  });
+  const scoped = contract(src, "/preteky/**");
+  const calls = [];
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), body: JSON.parse(String(init?.body ?? "{}")) });
+      return json(payload([{
+        url: "https://mushing.sk/preteky",
+        raw_content: [
+          "# Preteky",
+          "| 12.–13.09.2026 | Pezinská baba | Pezinská baba | PROPOZÍCIE |",
+          "| 20.09.2026 | Haniska | Haniska | Prihláška |",
+          "| 31.10.–1.11.2026 | Mošovce | Mošovce | REGISTRÁCIE |",
+        ].join("\n"),
+      }]));
+    },
+  });
+
+  const result = await provider.crawl({ source: src, contract: scoped, gate: gate().value });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, TAVILY_CRAWL_ENDPOINT);
+  assert.equal(calls[0].body.extract_depth, "advanced");
+  assert.equal(result.records.length, 3);
+  assert.deepEqual(result.records.map((record) => record.proposed.title), [
+    "Pezinská baba",
+    "Haniska",
+    "Mošovce",
+  ]);
+  assert.ok(result.records.every((record) => record.proposed.eventType === "Preteky"));
+  assert.ok(result.records.every((record) => /^tavily-row:/.test(record.sourceRecordId)));
+
+  const normalized = result.records.map((record) =>
+    normalizeAutomationEventRecord(record, { now: new Date("2026-08-01T00:00:00.000Z") })
+  );
+  assert.deepEqual(normalized.map((record) => record.proposed.startDate), [
+    "2026-09-12",
+    "2026-09-20",
+    "2026-10-31",
+  ]);
+  assert.deepEqual(normalized.map((record) => record.proposed.endDate ?? null), [
+    "2026-09-13",
+    null,
+    "2026-11-01",
+  ]);
+  for (const record of normalized) {
+    const decision = validateDynamicAutomationIngestion({ source: src, record });
+    assert.equal(decision?.gate, "VALID_FOR_DRAFT");
+    assert.equal(decision?.stableIdentity, "SOURCE_RECORD_ID");
+    assert.equal(decision?.evidenceClasses.includes("CANONICAL_DETAIL_URL"), false);
+  }
+});
+
+test("Tavily Extract marks exact provider-delivered entity page fields as first-party evidence and keeps static category", async () => {
+  const src = source({
+    entityType: "DIRECTORY",
+    sourceKey: "vet-profile",
+    sourceUrl: "https://vet.example.sk/",
+    config: {
+      sourceShape: "SINGLE_ITEM",
+      staticFields: {
+        category: "veterinari",
+        semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+      },
+    },
+  });
+  const scoped = contract(src, "/**");
+  const provider = new TavilyAutomationExtractProvider({
+    apiKey: "key",
+    fetchImpl: async () => json(payload([{
+      url: src.sourceUrl,
+      raw_content: "# HappyVet Nitra\nAdresa: Mostná 12, 949 01 Nitra",
+    }])),
+  });
+  const result = await provider.extract({
+    source: src,
+    contract: scoped,
+    gate: gate().value,
+    urls: [src.sourceUrl],
+  });
+  const record = result.records[0];
+  assert.equal(record.proposed.category, "veterinari");
+  assert.equal(record.proposed.semanticKind, "FACILITY_OR_SERVICE_PROFILE");
+  assert.equal(record.rawRecord.identitySource, "TAVILY_EXTRACT_FIRST_PARTY");
+  assert.equal(record.rawRecord.directEvidence.fieldOrigins.name, "FIRST_PARTY");
+  assert.equal(record.rawRecord.directEvidence.fieldOrigins.websiteUrl, "FIRST_PARTY");
 });
