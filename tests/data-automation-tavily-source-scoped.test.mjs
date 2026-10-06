@@ -549,6 +549,8 @@ test("Tavily Extract marks exact provider-delivered entity page fields as first-
     sourceUrl: "https://vet.example.sk/",
     config: {
       sourceShape: "SINGLE_ITEM",
+      htmlAdapterKey: "generic-directory-profile",
+      expectedMinRecords: 1,
       staticFields: {
         category: "veterinari",
         semanticKind: "FACILITY_OR_SERVICE_PROFILE",
