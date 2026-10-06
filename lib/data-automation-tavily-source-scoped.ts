@@ -580,9 +580,6 @@ class TavilyHttpClient {
   }
 }
 
-function filterRows  }
-}
-
 function filterRows(rows: ParsedPayload["rows"], contract: SourceScopedExtractionContract) {
   const accepted: ParsedPayload["rows"] = [];
   const seen = new Set<string>();
