@@ -1,3 +1,4 @@
+import { canonicalBreedIdsSql } from "./breed-canonical.ts";
 import { env } from "cloudflare:workers";
 import {
   ADOPTION_ADMIN_PAGE_SIZE,
@@ -98,7 +99,7 @@ export type PreparedAdoptionWrite = NormalizedAdoptionInput & {
 const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile_name,
     o.name AS canonical_organization_name, o.slug AS canonical_organization_slug
   FROM adoption_dogs d
-  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.status = 'published'
+  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsSql})
   LEFT JOIN help_organizations o ON o.id = d.organization_id`;
 const AGE_MONTHS_SQL = `COALESCE(d.approximate_age_months, CAST((julianday('now') - julianday(d.birth_date)) / 30.4375 AS INTEGER))`;
 const MUTABLE_COLUMNS = [

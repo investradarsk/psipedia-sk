@@ -77,7 +77,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         <span className={styles.eyebrow}>Pomoc psom · adopcia</span>
         <h1>{dog.name}</h1>
         {location && <p className={styles.detailLocation}><LocationIcon size={16} /> {location}</p>}
-        {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedName}</p>}
+        {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
         {dog.shortDescription && <p className={styles.detailLead}>{dog.shortDescription}</p>}
         <Facts items={basicFacts} />
         {stale && <div className={styles.staleNotice}><strong>Profil potrebuje nové overenie</strong><span>Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou.</span></div>}

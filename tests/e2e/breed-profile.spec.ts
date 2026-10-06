@@ -271,7 +271,8 @@ test("breed profile: sticky section navigation, no-crop media, useful cards and 
   ]) {
     await expect(page.locator(`a[href="${href}"]`)).toBeVisible();
   }
-  await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toBeVisible();
+  await expect(page.locator('a[href="/adresar/treneri"]')).toBeVisible();
+  await expect(page.locator('a[href^="/adresar/treneri?breed="]')).toHaveCount(0);
   await expectNoHorizontalOverflow(page, "Breed profile sticky navigation");
   await expectAxeClean(page, "Breed profile");
 
