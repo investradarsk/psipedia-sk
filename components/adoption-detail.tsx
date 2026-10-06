@@ -33,6 +33,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
   const sections = buildAdoptionDetailSections(dog);
   const age = formatAdoptionDetailAge(dog);
   const verifiedAt = formatAdoptionDetailVerification(dog.lastVerifiedAt);
+  const updatedAt = formatAdoptionDetailVerification(dog.updatedAt);
   const stale = adoptionDetailIsStale(dog);
   const basicFacts: Fact[] = [
     age ? { label: "Vek", value: age } : null,
@@ -41,6 +42,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
     dog.weight !== null ? { label: "Hmotnosť", value: `${dog.weight} kg` } : null,
     dog.color.trim() ? { label: "Farba", value: dog.color } : null,
     dog.activityLevel !== "UNKNOWN" ? { label: "Aktivita", value: adoptionDetailActivityLabels[dog.activityLevel] } : null,
+    updatedAt ? { label: "Aktualizované", value: updatedAt } : null,
   ].filter((item): item is Fact => Boolean(item));
   const compatibilityFacts: Fact[] = [
     dog.suitableForChildren !== "UNKNOWN" ? { label: "Deti", value: adoptionDetailCompatibilityLabels[dog.suitableForChildren] } : null,
