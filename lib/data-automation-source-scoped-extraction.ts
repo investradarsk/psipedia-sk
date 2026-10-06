@@ -206,7 +206,10 @@ export function buildSourceScopedExtractionContract(
         maxItems: Math.max(1, Math.min(500, Math.floor(source.maxRecordsPerRun || 100))),
         maxBytes: AUTOMATION_SOURCE_MAX_BYTES,
         maxRedirects: AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
-        timeoutMs: automationSourceRequestTimeoutMs(source.timeoutMs),
+        // Tavily Crawl/Extract can legitimately take longer than a direct
+        // first-party HTML fetch. Keep source-configured higher values, but
+        // never give provider transport less than 20 seconds.
+        timeoutMs: Math.max(20_000, automationSourceRequestTimeoutMs(source.timeoutMs)),
         throttleMs: Math.max(0, Math.min(30_000, Math.floor(source.throttleMs || 0))),
         maxProviderRequests,
         maxProviderRequestsPerDay,
