@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
+import { classifyAiReferralReferrer } from "@/lib/ai-referral";
 import {
   INTERNAL_TRAFFIC_EVENT,
   INTERNAL_TRAFFIC_QUERY_PARAM,
@@ -22,6 +23,7 @@ type AnalyticsWindow = typeof window & {
   gtag?: (...args: unknown[]) => void;
   psipediaGa4Configured?: boolean;
   psipediaGa4LastPageView?: string;
+  psipediaGa4AiReferralTracked?: boolean;
   psipediaGa4LoadPromise?: Promise<void>;
   [key: `ga-disable-${string}`]: boolean | undefined;
 };
@@ -80,6 +82,12 @@ async function sendPageView(pagePath: string) {
   const pageKey = `${pagePath}${window.location.search}`;
   if (analyticsWindow.psipediaGa4LastPageView === pageKey) return;
 
+  const aiReferralSource = analyticsWindow.psipediaGa4AiReferralTracked
+    ? null
+    : classifyAiReferralReferrer(document.referrer);
+  const shouldTrackAiReferral = aiReferralSource !== null;
+  if (shouldTrackAiReferral) analyticsWindow.psipediaGa4AiReferralTracked = true;
+
   try {
     await loadAnalytics();
     analyticsWindow.gtag?.("event", "page_view", {
@@ -88,8 +96,16 @@ async function sendPageView(pagePath: string) {
       page_path: pageKey,
       page_title: document.title,
     });
+    if (aiReferralSource) {
+      analyticsWindow.gtag?.("event", "ai_referral_visit", {
+        send_to: MEASUREMENT_ID,
+        ai_referral_source: aiReferralSource,
+        landing_page_path: pageKey,
+      });
+    }
     analyticsWindow.psipediaGa4LastPageView = pageKey;
   } catch (error) {
+    if (shouldTrackAiReferral) analyticsWindow.psipediaGa4AiReferralTracked = false;
     analyticsWindow.psipediaGa4LoadPromise = undefined;
     console.error(error);
   }

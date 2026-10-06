@@ -1,0 +1,41 @@
+name: AI-REFERRAL-MEASUREMENT-1 validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/cookie-consent.tsx"
+      - "lib/ai-referral.ts"
+      - "tests/ai-referral.test.mjs"
+      - "docs/ai-referral-measurement.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ai-referral-measurement-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-referral-measurement-1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-referral-measurement:
+    if: github.head_ref == 'codex/ai-referral-measurement-1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: AI referral classifier and integration contracts
+        run: npm run test:ai-referral
+      - name: Existing analytics privacy regressions
+        run: npm run test:monetization
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
