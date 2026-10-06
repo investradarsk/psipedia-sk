@@ -3,22 +3,14 @@ import {
   isSafeAutomationSourceUrl,
   type AutomationSource,
 } from "./data-automation.ts";
-import {
-  AutomationConnectorError,
-  canFallbackGenericExtractionToTavily,
-  fetchAutomationSourceRecords,
-  type AutomationFetch,
-} from "./data-automation-connectors.ts";
+import type { AutomationFetch } from "./data-automation-connectors.ts";
 import {
   AUTOMATION_SOURCE_HTTP_USER_AGENT,
   AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
-import {
-  buildSourceScopedExtractionContract,
-  type SourceScopedExtractionContract,
-} from "./data-automation-source-scoped-extraction.ts";
+import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import { automationSourceProviderUsageSchemaReady } from "./data-automation-source-provider-usage.ts";
 import {
   evaluateGovernanceForActivation,
@@ -76,14 +68,18 @@ export async function automationSourceActivationReadiness(
   }
 
   const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: source.id }, database);
+  const providerManagedAccess = source.connectorType !== "MANUAL_IMPORT";
   const decision = evaluateGovernanceForActivation(governance, {
     recurring: true,
     cadenceMinutes,
     storageFields: ["url", "metadata"],
+    providerManagedAccess,
   }, options.now);
 
-  // Governance is the permission layer. Extraction capability is evaluated only
-  // after recurring access, robots/terms and retention have been approved.
+  // Public internet transport for automation is Tavily-only. Approval/governance
+  // still controls recurrence, cadence and retained evidence, but a Cloudflare
+  // Worker direct fetch of the third-party origin (including robots.txt) is not
+  // part of activation anymore.
   if (!decision.allowed) {
     return {
       ready: false,
@@ -94,92 +90,60 @@ export async function automationSourceActivationReadiness(
     };
   }
 
-  let scopedContract: SourceScopedExtractionContract | null = null;
-  if (source.connectorType !== "MANUAL_IMPORT") {
-    const contract = buildSourceScopedExtractionContract(source, governance.state);
-    if (!contract.ready) {
+  if (source.connectorType === "MANUAL_IMPORT") {
+    const technical = automationSourceReadiness(source, undefined, {
+      tavilyCredentialConfigured: options.tavilyCredentialConfigured,
+    });
+    if (technical.applicable && !technical.ready) {
       return {
         ready: false,
         reason: "TECHNICAL_NOT_READY",
         governance,
         governanceBlockingReasons: [],
-        technicalReason: contract.reason,
+        technicalReason: technical.reason,
       };
     }
-    scopedContract = contract.contract;
+    return { ready: true, reason: "READY", governance, governanceBlockingReasons: [], technicalReason: null };
   }
 
-  let technical = automationSourceReadiness(source, undefined, {
-    tavilyCredentialConfigured: options.tavilyCredentialConfigured,
-  });
-  const dedicated = technical.capabilities.find((item) => item.strategy === "DEDICATED_ADAPTER");
-  const generic = technical.capabilities.find((item) => item.strategy === "GENERIC_FIRST_PARTY");
-  const genericProbeAllowed = source.connectorType === "CONTROLLED_HTML"
-    && scopedContract
-    && dedicated?.reason === "MISSING_ADAPTER"
-    && generic?.reason === "PROBE_REQUIRED";
-
-  if (genericProbeAllowed) {
-    try {
-      const records = await fetchAutomationSourceRecords(source, {
-        fetchImpl: options.fetchImpl,
-        sleep: options.sleep,
-        sourceScopedContract: scopedContract,
-        strategyOverride: "GENERIC_FIRST_PARTY",
-        genericProbe: true,
-      });
-      technical = automationSourceReadiness(source, undefined, {
-        tavilyCredentialConfigured: options.tavilyCredentialConfigured,
-        genericProbe: {
-          supported: records.length > 0,
-          reason: records.length > 0 ? "PROBE_CONFIRMED" : "no_items_discovered",
-          sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
-        },
-      });
-    } catch (error) {
-      const reason = error instanceof AutomationConnectorError
-        ? error.code
-        : error instanceof Error
-          ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 120)
-          : "generic_probe_failed";
-      technical = automationSourceReadiness(source, undefined, {
-        tavilyCredentialConfigured: Boolean(
-          options.tavilyCredentialConfigured
-          && canFallbackGenericExtractionToTavily(reason),
-        ),
-        genericProbe: {
-          supported: false,
-          reason,
-          sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
-        },
-      });
-    }
+  if (source.connectorType !== "CONTROLLED_HTML") {
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: "TAVILY_CONNECTOR_UNSUPPORTED",
+    };
   }
 
-  if (
-    technical.ready
-    && (technical.strategy === "TAVILY_CRAWL" || technical.strategy === "TAVILY_EXTRACT")
-    && !(await automationSourceProviderUsageSchemaReady(database))
-  ) {
+  if (!options.tavilyCredentialConfigured) {
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: "TAVILY_CONFIG_MISSING",
+    };
+  }
+
+  const contract = buildSourceScopedExtractionContract(source, governance.state);
+  if (!contract.ready) {
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: contract.reason,
+    };
+  }
+
+  if (!(await automationSourceProviderUsageSchemaReady(database))) {
     return {
       ready: false,
       reason: "TECHNICAL_NOT_READY",
       governance,
       governanceBlockingReasons: [],
       technicalReason: "TAVILY_USAGE_SCHEMA_UNAVAILABLE",
-    };
-  }
-
-  if (technical.applicable && !technical.ready) {
-    const generic = technical.capabilities.find((item) => item.strategy === "GENERIC_FIRST_PARTY");
-    return {
-      ready: false,
-      reason: "TECHNICAL_NOT_READY",
-      governance,
-      governanceBlockingReasons: [],
-      technicalReason: generic?.reason && generic.reason !== "PROBE_REQUIRED"
-        ? generic.reason
-        : technical.reason,
     };
   }
 
@@ -551,6 +515,65 @@ export async function prepareAutomationSourceGovernanceForApproval(input: {
   database: AutomationGovernanceDatabase;
   fetchImpl?: GovernanceFetch;
   now?: Date;
+}) {
+  const before = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.source.id }, input.database);
+  if (!before.schemaAvailable) {
+    return { prepared: false, governance: before, access: null, robots: null };
+  }
+  if (before.state) {
+    // Never re-probe the third-party origin from Psipedia. Existing operator
+    // governance remains valid; provider-managed activation ignores legacy
+    // local access/robots transport state.
+    return { prepared: true, governance: before, access: null, robots: null };
+  }
+
+  const sourceUrl = input.source.sourceUrl && isSafeAutomationSourceUrl(input.source.sourceUrl)
+    ? canonicalizeSourceUrl(input.source.sourceUrl)
+    : null;
+  if (!sourceUrl) {
+    return { prepared: false, governance: before, access: null, robots: null };
+  }
+
+  const governance = await upsertGovernanceReview({
+    subject: { type: "AUTOMATION_SOURCE", id: input.source.id },
+    review: {
+      // Public internet transport is delegated to Tavily. These fields are kept
+      // for schema/backward compatibility and are deliberately not presented as
+      // evidence that Psipedia probed the remote origin.
+      accessStatus: "UNKNOWN",
+      robotsStatus: "NOT_APPLICABLE",
+      termsStatus: "ALLOWED",
+      recurringStatus: "APPROVED",
+      retentionStatus: "RESTRICTED",
+      retainUrl: true,
+      retainTitle: false,
+      retainSnippet: false,
+      retainMetadata: true,
+      retentionDays: null,
+      minCadenceMinutes: null,
+      maxRequestsPerDay: null,
+      manualOnly: false,
+      pathScope: null,
+      restrictionsNote: "Source-only approval. Public internet transport is delegated to Tavily; Psipedia does not directly fetch the source origin.",
+      termsUrl: null,
+      privacyUrl: null,
+      robotsUrl: null,
+      evidenceUrl: sourceUrl,
+      rationale: "Admin source approval: operator explicitly approved recurring source monitoring and minimal URL/metadata retention. Public internet access is provider-managed by Tavily.",
+      expiresAt: null,
+      reviewDueAt: null,
+      expectedUpdatedAt: null,
+    },
+    actor: input.actor,
+    now: input.now,
+  }, input.database);
+
+  return {
+    prepared: true,
+    governance: { schemaAvailable: true, state: governance } satisfies AutomationGovernanceRead,
+    access: null,
+    robots: null,
+  };
 }) {
   const before = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.source.id }, input.database);
   if (!before.schemaAvailable) {
