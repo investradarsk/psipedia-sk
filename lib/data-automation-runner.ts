@@ -102,6 +102,7 @@ async function createCanonicalDraftForFinding(
 export type DataAutomationSweepOptions = {
   database: D1Database;
   now?: Date;
+  providerNow?: () => Date;
   fetchImpl?: AutomationFetch;
   htmlAdapters?: Record<string, ControlledHtmlAdapter>;
   sleep?: (ms: number) => Promise<void>;
@@ -679,6 +680,7 @@ async function runSource(
   options: DataAutomationSweepOptions,
 ): Promise<SourceRunSummary> {
   const startedAt = options.now ? new Date(options.now) : new Date();
+  const providerNow = options.providerNow ?? (() => new Date());
   const detectedAt = startedAt.toISOString();
   const runId = await beginAutomationRun(source.id, detectedAt, options.database);
   let checked = 0;
@@ -766,11 +768,11 @@ async function runSource(
           operation,
           maxRequestsPerDay: scoped!.contract.limits.maxProviderRequestsPerDay,
           maxRequestsPerRun: scoped!.contract.limits.maxProviderRequests,
-          now: startedAt,
+          now: providerNow(),
         });
-        if (reservation.reserved) return { operationKey };
+        if (reservation.reserved) return { operationKey, runId };
         if (reservation.reason === "COOLDOWN") {
-          return { operationKey, blockedReason: "COOLDOWN" as const };
+          return { operationKey, runId, blockedReason: "COOLDOWN" as const };
         }
         return null;
       },
@@ -782,7 +784,8 @@ async function runSource(
           resultCount: input.resultCount,
           acceptedCount: input.acceptedCount,
           scopeRejectedCount: input.scopeRejectedCount,
-          now: startedAt,
+          diagnostics: input.diagnostics,
+          now: providerNow(),
         });
       },
     } : undefined;

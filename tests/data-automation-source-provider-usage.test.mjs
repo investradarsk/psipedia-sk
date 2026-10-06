@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_LIMIT,
+  finalizeAutomationSourceProviderRequest,
+  normalizeAutomationSourceProviderDiagnostics,
   reserveAutomationSourceProviderRequest,
 } from "../lib/data-automation-source-provider-usage.ts";
 
@@ -176,4 +178,111 @@ test("the same transient timeout still cools down a later independent run", asyn
   });
   assert.equal(result.reserved, false);
   assert.equal(result.reason, "COOLDOWN");
+});
+
+
+function telemetryDb() {
+  const calls = [];
+  return {
+    calls,
+    value: {
+      prepare(sql) {
+        return {
+          bind(...args) {
+            calls.push({ sql, args });
+            return {
+              async first() {
+                if (sql.includes("SELECT run_id,status,created_at")) return null;
+                throw new Error("unexpected first query");
+              },
+              async run() {
+                if (
+                  !sql.includes("INSERT INTO automation_source_provider_usage")
+                  && !sql.includes("UPDATE automation_source_provider_usage")
+                ) throw new Error("unexpected run query");
+                return { meta: { changes: 1 } };
+              },
+            };
+          },
+        };
+      },
+    },
+  };
+}
+
+test("provider diagnostics persistence is allowlisted, bounded, redacted and queryable", async () => {
+  const mock = telemetryDb();
+  const secret = "tvly-super-secret";
+  await finalizeAutomationSourceProviderRequest({
+    database: mock.value,
+    operationKey: "source:82:run:115:tavily:crawl:1",
+    status: "PROVIDER_ERROR",
+    diagnostics: {
+      providerHttpStatus: 502,
+      providerErrorCode: "upstream error",
+      providerErrorDetail: `Authorization: Bearer ${secret}\u0000 ${"x".repeat(800)}`,
+      providerRequestId: " req/abc 123 ",
+      transportErrorName: "Type Error",
+      transportErrorCode: "ECONNRESET",
+    },
+    now: new Date("2026-10-06T19:40:14.658Z"),
+  });
+  const update = mock.calls.find((call) => call.sql.includes("UPDATE automation_source_provider_usage"));
+  assert.ok(update);
+  assert.match(update.sql, /provider_http_status=\?/);
+  assert.match(update.sql, /provider_error_code=\?/);
+  assert.match(update.sql, /provider_error_detail=\?/);
+  assert.match(update.sql, /provider_request_id=\?/);
+  assert.match(update.sql, /transport_error_name=\?/);
+  assert.match(update.sql, /transport_error_code=\?/);
+  assert.equal(update.args[4], 502);
+  assert.equal(update.args[5], "upstream_error");
+  assert.ok(String(update.args[6]).length <= 500);
+  assert.equal(String(update.args[6]).includes(secret), false);
+  assert.equal(String(update.args[6]).includes("\u0000"), false);
+  assert.equal(update.args[7], "req/abc_123");
+  assert.equal(update.args[8], "Type_Error");
+  assert.equal(update.args[9], "ECONNRESET");
+  assert.equal(update.args[10], "2026-10-06T19:40:14.658Z");
+  assert.equal(update.args[11], "source:82:run:115:tavily:crawl:1");
+});
+
+test("diagnostic normalizer rejects invalid HTTP status and does not preserve raw secret-shaped values", () => {
+  const normalized = normalizeAutomationSourceProviderDiagnostics({
+    providerHttpStatus: 999,
+    providerErrorDetail: "token=tvly-super-secret",
+    providerRequestId: "request id with spaces",
+  });
+  assert.equal(normalized.providerHttpStatus, null);
+  assert.equal(normalized.providerErrorDetail.includes("tvly-super-secret"), false);
+  assert.equal(normalized.providerRequestId, "request_id_with_spaces");
+});
+
+test("provider reserve and finalize timestamps can represent distinct attempt times", async () => {
+  const mock = telemetryDb();
+  const reserveAt = new Date("2026-10-06T19:40:06.459Z");
+  const finalizeAt = new Date("2026-10-06T19:40:08.123Z");
+  const reservation = await reserveAutomationSourceProviderRequest({
+    database: mock.value,
+    operationKey: "source:82:run:115:tavily:crawl:1",
+    sourceId: 82,
+    runId: 115,
+    providerKey: "tavily",
+    operation: "CRAWL",
+    maxRequestsPerDay: 10,
+    maxRequestsPerRun: 6,
+    now: reserveAt,
+  });
+  assert.equal(reservation.reserved, true);
+  await finalizeAutomationSourceProviderRequest({
+    database: mock.value,
+    operationKey: reservation.operationKey,
+    status: "PROVIDER_ERROR",
+    now: finalizeAt,
+  });
+  const insert = mock.calls.find((call) => call.sql.includes("INSERT INTO automation_source_provider_usage"));
+  const update = mock.calls.find((call) => call.sql.includes("UPDATE automation_source_provider_usage"));
+  assert.equal(insert.args[6], reserveAt.toISOString());
+  assert.equal(update.args[10], finalizeAt.toISOString());
+  assert.notEqual(insert.args[6], update.args[10]);
 });

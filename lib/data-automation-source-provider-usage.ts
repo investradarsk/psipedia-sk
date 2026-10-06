@@ -13,7 +13,69 @@ export type AutomationSourceProviderUsageStatus =
   | "SCOPE_VIOLATION"
   | "BUDGET_EXHAUSTED";
 
+export type AutomationSourceProviderErrorDiagnostics = {
+  providerHttpStatus?: number | null;
+  providerErrorCode?: string | null;
+  providerErrorDetail?: string | null;
+  providerRequestId?: string | null;
+  transportErrorName?: string | null;
+  transportErrorCode?: string | null;
+};
+
+const PROVIDER_DIAGNOSTIC_DETAIL_MAX = 500;
+const PROVIDER_DIAGNOSTIC_IDENTIFIER_MAX = 120;
+
+function replaceControlCharacters(value: string) {
+  return Array.from(value, (character) => {
+    const code = character.charCodeAt(0);
+    return code <= 0x1f || code === 0x7f ? " " : character;
+  }).join("");
+}
+
+function diagnosticText(value: unknown, max: number) {
+  if (typeof value !== "string") return null;
+  const normalized = replaceControlCharacters(value.normalize("NFC"))
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return null;
+  return normalized
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/=:-]+/gi, "Bearer [REDACTED]")
+    .replace(/\btvly-[A-Za-z0-9._-]{4,}\b/gi, "[REDACTED]")
+    .replace(/((?:api[_ -]?key|authorization|token)\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED]")
+    .slice(0, max);
+}
+
+function diagnosticIdentifier(value: unknown) {
+  const text = diagnosticText(value, PROVIDER_DIAGNOSTIC_IDENTIFIER_MAX);
+  if (!text) return null;
+  const bounded = text.replace(/[^a-zA-Z0-9_.:\/-]/g, "_").slice(0, PROVIDER_DIAGNOSTIC_IDENTIFIER_MAX);
+  return bounded || null;
+}
+
+export function normalizeAutomationSourceProviderDiagnostics(
+  diagnostics: AutomationSourceProviderErrorDiagnostics | undefined,
+) {
+  const status = Number(diagnostics?.providerHttpStatus);
+  return {
+    providerHttpStatus: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
+    providerErrorCode: diagnosticIdentifier(diagnostics?.providerErrorCode),
+    providerErrorDetail: diagnosticText(diagnostics?.providerErrorDetail, PROVIDER_DIAGNOSTIC_DETAIL_MAX),
+    providerRequestId: diagnosticIdentifier(diagnostics?.providerRequestId),
+    transportErrorName: diagnosticIdentifier(diagnostics?.transportErrorName),
+    transportErrorCode: diagnosticIdentifier(diagnostics?.transportErrorCode),
+  };
+}
+
 export type AutomationSourceProviderUsageDatabase = Pick<D1Database, "prepare">;
+
+export const AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS = Object.freeze([
+  "provider_http_status",
+  "provider_error_code",
+  "provider_error_detail",
+  "provider_request_id",
+  "transport_error_name",
+  "transport_error_code",
+] as const);
 
 export const AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_LIMIT = 200;
 
@@ -29,9 +91,11 @@ export async function automationSourceProviderUsageSchemaReady(
 ) {
   try {
     const row = await database.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='automation_source_provider_usage' LIMIT 1",
-    ).first<{ name: string }>();
-    return row?.name === "automation_source_provider_usage";
+      "SELECT name,sql FROM sqlite_master WHERE type='table' AND name='automation_source_provider_usage' LIMIT 1",
+    ).first<{ name: string; sql: string | null }>();
+    if (row?.name !== "automation_source_provider_usage") return false;
+    const sql = String(row.sql ?? "");
+    return AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS.every((column) => sql.includes(column));
   } catch {
     return false;
   }
@@ -164,18 +228,28 @@ export async function finalizeAutomationSourceProviderRequest(input: {
   resultCount?: number;
   acceptedCount?: number;
   scopeRejectedCount?: number;
+  diagnostics?: AutomationSourceProviderErrorDiagnostics;
   now?: Date;
 }) {
   const at = (input.now ?? new Date()).toISOString();
+  const diagnostics = normalizeAutomationSourceProviderDiagnostics(input.diagnostics);
   await input.database.prepare(`
     UPDATE automation_source_provider_usage
-    SET status=?,result_count=?,accepted_count=?,scope_rejected_count=?,finalized_at=?
+    SET status=?,result_count=?,accepted_count=?,scope_rejected_count=?,
+        provider_http_status=?,provider_error_code=?,provider_error_detail=?,provider_request_id=?,
+        transport_error_name=?,transport_error_code=?,finalized_at=?
     WHERE operation_key=? AND status='RESERVED'
   `).bind(
     input.status,
     Math.max(0, Math.floor(input.resultCount ?? 0)),
     Math.max(0, Math.floor(input.acceptedCount ?? 0)),
     Math.max(0, Math.floor(input.scopeRejectedCount ?? 0)),
+    diagnostics.providerHttpStatus,
+    diagnostics.providerErrorCode,
+    diagnostics.providerErrorDetail,
+    diagnostics.providerRequestId,
+    diagnostics.transportErrorName,
+    diagnostics.transportErrorCode,
     at,
     input.operationKey,
   ).run();

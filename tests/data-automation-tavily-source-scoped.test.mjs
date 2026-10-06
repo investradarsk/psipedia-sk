@@ -657,3 +657,197 @@ test("Tavily Extract can recover a mushing-style EVENT list from the approved ro
     "2026-11-01",
   ]);
 });
+
+
+test("HTTP 500 keeps provider classification and finalizes bounded structured diagnostics", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => json({
+      error: { code: "upstream_error", message: "temporary upstream failure" },
+      request_id: "req-500",
+    }, 500),
+  });
+  await assert.rejects(
+    provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+    (error) => error instanceof TavilySourceScopedError
+      && error.code === "TAVILY_PROVIDER_ERROR"
+      && error.retryable === true
+      && error.message === "TAVILY_PROVIDER_ERROR"
+      && error.diagnostics.providerHttpStatus === 500
+      && error.diagnostics.providerErrorCode === "upstream_error"
+      && error.diagnostics.providerRequestId === "req-500",
+  );
+  assert.equal(g.finalized.length, 1);
+  assert.equal(g.finalized[0].status, "PROVIDER_ERROR");
+  assert.equal(g.finalized[0].diagnostics.providerHttpStatus, 500);
+  assert.equal(g.finalized[0].diagnostics.providerErrorDetail, "temporary upstream failure");
+});
+
+test("HTTP 400 is non-retryable but persists its provider diagnostics", async () => {
+  let calls = 0;
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    sleep: async () => {},
+    fetchImpl: async () => {
+      calls += 1;
+      return json({ detail: "invalid parameter", code: "validation_error" }, 400);
+    },
+  });
+  await assert.rejects(
+    provider.crawl({
+      source: source({ retryMaxAttempts: 2 }),
+      contract: contract(),
+      gate: g.value,
+    }),
+    (error) => error instanceof TavilySourceScopedError
+      && error.code === "TAVILY_PROVIDER_ERROR"
+      && error.retryable === false
+      && error.diagnostics.providerHttpStatus === 400,
+  );
+  assert.equal(calls, 1);
+  assert.equal(g.finalized.length, 1);
+  assert.equal(g.finalized[0].diagnostics.providerErrorCode, "validation_error");
+});
+
+test("HTTP auth and rate-limit classifications stay unchanged while retaining HTTP status", async () => {
+  for (const [status, code] of [
+    [401, "TAVILY_AUTH_FAILED"],
+    [403, "TAVILY_AUTH_FAILED"],
+    [429, "TAVILY_RATE_LIMITED"],
+  ]) {
+    let calls = 0;
+    const g = gate();
+    const provider = new TavilyAutomationCrawlProvider({
+      apiKey: "key",
+      sleep: async () => {},
+      fetchImpl: async () => {
+        calls += 1;
+        return json({ detail: "provider rejected request" }, status);
+      },
+    });
+    await assert.rejects(
+      provider.crawl({
+        source: source({ retryMaxAttempts: 2 }),
+        contract: contract(),
+        gate: g.value,
+      }),
+      (error) => error instanceof TavilySourceScopedError
+        && error.code === code
+        && error.diagnostics.providerHttpStatus === status,
+    );
+    assert.equal(calls, 1);
+    assert.equal(g.finalized[0].diagnostics.providerHttpStatus, status);
+  }
+});
+
+test("network failure records only safe transport name and scalar cause code", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => {
+      const error = new TypeError("socket failed with sensitive free-form text");
+      error.cause = { code: "ECONNRESET", detail: "must-not-be-persisted" };
+      throw error;
+    },
+  });
+  await assert.rejects(
+    provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+    (error) => error instanceof TavilySourceScopedError
+      && error.code === "TAVILY_PROVIDER_ERROR"
+      && error.retryable === true
+      && error.diagnostics.transportErrorName === "TypeError"
+      && error.diagnostics.transportErrorCode === "ECONNRESET"
+      && error.diagnostics.providerErrorDetail == null,
+  );
+  assert.equal(g.finalized[0].diagnostics.transportErrorName, "TypeError");
+  assert.equal(g.finalized[0].diagnostics.transportErrorCode, "ECONNRESET");
+  assert.equal("message" in g.finalized[0].diagnostics, false);
+});
+
+test("provider diagnostics redact echoed credentials before error or persistence surfaces", async () => {
+  const secret = "tvly-super-secret";
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: secret,
+    fetchImpl: async () => json({
+      detail: `Authorization: Bearer ${secret}`,
+      error: { code: `bad-${secret}`, message: secret },
+      request_id: `req-${secret}`,
+    }, 500),
+  });
+  let thrown;
+  try {
+    await provider.crawl({ source: source(), contract: contract(), gate: g.value });
+  } catch (error) {
+    thrown = error;
+  }
+  assert.ok(thrown instanceof TavilySourceScopedError);
+  const diagnosticJson = JSON.stringify(thrown.diagnostics);
+  const persistedJson = JSON.stringify(g.finalized[0].diagnostics);
+  assert.equal(diagnosticJson.includes(secret), false);
+  assert.equal(persistedJson.includes(secret), false);
+  assert.equal(thrown.message.includes(secret), false);
+  assert.equal(diagnosticJson.includes("Authorization: Bearer " + secret), false);
+});
+
+test("oversized or malformed provider error bodies never replace the original HTTP classification", async () => {
+  for (const responseFactory of [
+    () => new Response(JSON.stringify({ detail: "x".repeat(5000) }), {
+      status: 500,
+      headers: { "content-type": "application/json", "content-length": "6000" },
+    }),
+    () => new Response("{malformed", {
+      status: 500,
+      headers: { "content-type": "application/json" },
+    }),
+  ]) {
+    const g = gate();
+    const provider = new TavilyAutomationCrawlProvider({
+      apiKey: "key",
+      fetchImpl: async () => responseFactory(),
+    });
+    await assert.rejects(
+      provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+      (error) => error instanceof TavilySourceScopedError
+        && error.code === "TAVILY_PROVIDER_ERROR"
+        && error.retryable === true
+        && error.diagnostics.providerHttpStatus === 500,
+    );
+    assert.equal(g.finalized[0].status, "PROVIDER_ERROR");
+    assert.equal(g.finalized[0].diagnostics.providerHttpStatus, 500);
+  }
+});
+
+test("each transient retry finalizes its own diagnostics row", async () => {
+  let calls = 0;
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    sleep: async () => {},
+    fetchImpl: async () => {
+      calls += 1;
+      return json({
+        code: "upstream_error",
+        request_id: "req-" + calls,
+      }, 503);
+    },
+  });
+  await assert.rejects(
+    provider.crawl({
+      source: source({ retryMaxAttempts: 2 }),
+      contract: contract(),
+      gate: g.value,
+    }),
+    (error) => error instanceof TavilySourceScopedError && error.code === "TAVILY_PROVIDER_ERROR",
+  );
+  assert.equal(calls, 3);
+  assert.equal(g.reservations.length, 3);
+  assert.equal(g.finalized.length, 3);
+  assert.deepEqual(
+    g.finalized.map((attempt) => attempt.diagnostics.providerRequestId),
+    ["req-1", "req-2", "req-3"],
+  );
+  assert.ok(g.finalized.every((attempt) => attempt.diagnostics.providerHttpStatus === 503));
+});
