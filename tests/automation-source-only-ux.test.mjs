@@ -111,8 +111,9 @@ test("source configure is validation-first and preserves immediate run only afte
   assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
   assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
   assert.match(store, /sourceActivationReadinessForEnable/);
-  assert.match(store, /automationSourceTechnicalGovernanceRefreshNeeded/);
-  assert.match(store, /refreshAutomationSourceTechnicalGovernance/);
+  assert.match(store, /internetTransport: input\.technicalGovernanceRefresh\?\.internetTransport/);
+  assert.doesNotMatch(store, /refreshAutomationSourceTechnicalGovernance/);
+  assert.match(route, /internetTransport: "TAVILY_ONLY"/);
   assert.match(store, /cadence_minutes=\?,schedule_mode=\?,schedule_days_json=\?,schedule_local_time=\?,schedule_timezone=\?/);
 
   const configureIndex = route.indexOf("const source = await configureAutomationSource");
