@@ -31,7 +31,8 @@ import {
   SITEMAP_MAX_D1_CONCURRENCY,
   SitemapStageError,
 } from "../lib/sitemap-runtime.ts";
-import { withAvailableBreedImages } from "../lib/breed-image.ts";\nimport robots from "../app/robots.ts";
+import { withAvailableBreedImages } from "../lib/breed-image.ts";
+import robots from "../app/robots.ts";
 
 test("lastModified uses the latest real timestamp and omits unknown dates", () => {
   assert.equal(latestModified(["2026-08-17", "2026-09-07T12:30:00Z"])?.toISOString(), "2026-09-07T12:30:00.000Z");
