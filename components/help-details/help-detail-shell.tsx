@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ShieldCheckIcon } from "@/components/help-public-icons";
-import { formatHelpAmount, formatHelpDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
+import { formatHelpAmount, formatHelpDate, formatHelpUpdatedDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
 import {
   DetailContactsCard,
@@ -54,7 +54,8 @@ export function HelpDetailShell({
 }) {
   const category = getHelpCategory(item.category);
   const presentation = getHelpPresentation(item);
-  const showTrust = item.verified || presentation.sources.length > 0 || Boolean(presentation.lastChecked);
+  const updatedLabel = formatHelpUpdatedDate(item.updatedAt);
+  const showTrust = presentation.sources.length > 0 || Boolean(updatedLabel);
   const heroTitle = title?.trim() || item.title;
   const imageAlt = item.dogName ? `${item.dogName} – ${item.title}` : item.title;
 
@@ -71,7 +72,6 @@ export function HelpDetailShell({
           <div className={styles.heroCopy}>
             <div className={styles.tags}>
               <span className={styles.tag}>{category?.singular ?? "Pomoc psom"}</span>
-              {item.verified && <span className={styles.verified}>Overené Psipediou</span>}
               {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
               {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
             </div>
@@ -103,10 +103,10 @@ export function HelpDetailShell({
         <section className={styles.trust} aria-labelledby={`help-trust-${item.id}`}>
           <span className={styles.trustIcon} aria-hidden="true"><ShieldCheckIcon size={18} /></span>
           <div>
-            <h2 id={`help-trust-${item.id}`}>Overenie a zdroje</h2>
-            <p>{item.verified ? "Psipedia označila tento záznam ako overený na základe dostupných zdrojov. Údaje sa môžu časom meniť." : "Pri tomto zázname uvádzame len zdrojové údaje, ktoré sú uložené v databáze."}</p>
+            <h2 id={`help-trust-${item.id}`}>Aktuálnosť a zdroje</h2>
+            <p>Uvádzame verejné údaje a zdroje uložené pri tomto zázname. Informácie sa môžu časom meniť.</p>
             <div className={styles.trustMeta}>
-              {presentation.lastChecked && <span>Posledná kontrola: <strong>{presentation.lastChecked}</strong></span>}
+              {updatedLabel && <span>Aktualizované: <strong>{updatedLabel}</strong></span>}
               {presentation.sources.map((source) => source.href
                 ? <a key={`${source.label}-${source.value}`} href={source.href} target="_blank" rel="noreferrer nofollow">{source.label} ↗</a>
                 : <span key={`${source.label}-${source.value}`}>{source.label}: {source.value}</span>)}
