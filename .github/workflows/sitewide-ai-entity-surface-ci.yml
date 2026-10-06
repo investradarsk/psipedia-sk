@@ -63,7 +63,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Build branch code
         run: npm run build
-      - name: Configure isolated local security values
+      - name: Configure CI-only local PII keys
         run: |
           PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
           PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
