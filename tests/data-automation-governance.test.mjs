@@ -286,7 +286,8 @@ test("source-only approval keeps operator governance while production internet t
   const prepareStart = activation.indexOf("export async function prepareAutomationSourceGovernanceForApproval");
   assert.ok(prepareStart >= 0);
   const prepare = activation.slice(prepareStart);
-  assert.doesNotMatch(prepare, /probeAutomationSourceAccess\(|probeAutomationSourceRobots\(|refreshAutomationSourceTechnicalGovernance\(/);
+  assert.match(prepare, /input\.internetTransport !== "TAVILY_ONLY"/);
+  assert.match(prepare, /Production provider-managed approval never re-probes the third-party origin/);
   assert.doesNotMatch(activation, /tavilySearchGovernancePresetForRoot|TAVILY_SEARCH_GOVERNANCE/);
 });
 
