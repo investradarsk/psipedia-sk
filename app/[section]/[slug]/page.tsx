@@ -199,6 +199,8 @@ export default async function PortalContentPage({ params, searchParams }: Props)
             description: event.description || event.excerpt,
             mainEntityId: eventEntityId,
             breadcrumbId,
+            datePublished: event.publishedAt || event.createdAt,
+            dateModified: event.updatedAt,
           }),
           { "@type": "BreadcrumbList", "@id": breadcrumbId, itemListElement: breadcrumbItems },
         ],
