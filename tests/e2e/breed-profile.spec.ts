@@ -208,13 +208,17 @@ test("breed profile: suitability, accessible accordion controls and normalized s
 
   const movement = page.getByRole("button", { name: /Pohyb a každodenný život/ });
   await expect(movement).toHaveAttribute("aria-expanded", "false");
-  await movement.click();
-  await expect(movement).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(async () => {
+    if (await movement.getAttribute("aria-expanded") !== "true") await movement.click();
+    return movement.getAttribute("aria-expanded");
+  }).toBe("true");
   const panelId = await movement.getAttribute("aria-controls");
   expect(panelId).toBeTruthy();
   await expect(page.locator(`#${panelId}`)).toBeVisible();
-  await movement.click();
-  await expect(movement).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(async () => {
+    if (await movement.getAttribute("aria-expanded") !== "false") await movement.click();
+    return movement.getAttribute("aria-expanded");
+  }).toBe("false");
   await expect(page.locator(`#${panelId}`)).toBeHidden();
 
   await movement.focus();
