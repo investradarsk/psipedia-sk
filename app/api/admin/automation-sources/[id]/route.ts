@@ -108,6 +108,7 @@ export async function PUT(request: Request, { params }: Props) {
           source,
           actor: auth.user.email,
           database: bindings.DB,
+          internetTransport: "TAVILY_ONLY",
         });
       }
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
