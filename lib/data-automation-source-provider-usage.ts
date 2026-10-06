@@ -25,11 +25,16 @@ export type AutomationSourceProviderErrorDiagnostics = {
 const PROVIDER_DIAGNOSTIC_DETAIL_MAX = 500;
 const PROVIDER_DIAGNOSTIC_IDENTIFIER_MAX = 120;
 
+function replaceControlCharacters(value: string) {
+  return Array.from(value, (character) => {
+    const code = character.charCodeAt(0);
+    return code <= 0x1f || code === 0x7f ? " " : character;
+  }).join("");
+}
+
 function diagnosticText(value: unknown, max: number) {
   if (typeof value !== "string") return null;
-  const normalized = value
-    .normalize("NFC")
-    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+  const normalized = replaceControlCharacters(value.normalize("NFC"))
     .replace(/\s+/g, " ")
     .trim();
   if (!normalized) return null;
