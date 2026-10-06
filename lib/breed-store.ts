@@ -1,4 +1,5 @@
 import { breedProfileHref, canonicalBreedIdsSql, canonicalBreedWinnerSql, rotateBreeds } from "./breed-canonical";
+import { BREEDING_STATION_LANDING_INDEX_THRESHOLD, breedingStationBreedLandingPath } from "./breeding-station-landings";
 import { publicArticleRelationTargetSql, publicDirectoryRelationTargetSql } from "./content-relations";
 import { articleHref, type ArticlePortalSection } from "./portal";
 import { directoryProfileHref } from "./directory";
@@ -73,6 +74,7 @@ export type BreedEditorOptions = {
 export type BreedDetailRelations = {
   articles:Array<{id:number;slug:string;title:string;excerpt:string;portalSection:ArticlePortalSection;href:string;image:string|null;accent:string}>;
   breedingStations:Array<{id:number;slug:string;name:string;href:string;excerpt:string;city:string;region:string;image:string|null}>;
+  breedingStationLanding:{href:string;label:string}|null;
   breedClubs:Array<{id:number;slug:string;name:string;href:string;excerpt:string;city:string;region:string;image:string|null}>;
   similarBreeds:Array<{id:number;slug:string;name:string;href:string;image:string;fciGroup:number;fciSection:string}>;
 };
@@ -221,9 +223,9 @@ export async function getBreedEditorOptions():Promise<BreedEditorOptions>{const 
   database.prepare("SELECT id,name,category,city,region FROM directory_profiles WHERE category IN ('chovatelske-stanice','chovatelske-kluby') ORDER BY category,name LIMIT 500"),
 ]);return {breeds:breedsResult.results as BreedEditorOptions["breeds"],articles:articlesResult.results as BreedEditorOptions["articles"],directoryProfiles:directoryResult.results as BreedEditorOptions["directoryProfiles"]};}
 
-export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"relatedBreedIds">):Promise<BreedDetailRelations>{
+export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"slug"|"name"|"relatedBreedIds">):Promise<BreedDetailRelations>{
   const database=db();
-  if(!database)return {articles:[],breedingStations:[],breedClubs:[],similarBreeds:[]};
+  if(!database)return {articles:[],breedingStations:[],breedingStationLanding:null,breedClubs:[],similarBreeds:[]};
   const now=new Date().toISOString();
   const articleQuery=database.prepare(`SELECT DISTINCT a.id,a.slug,a.title,a.excerpt,a.portal_section,a.image_url,a.accent
     FROM breed_article_relations r
@@ -231,11 +233,15 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"rela
     WHERE r.breed_id=? AND ${publicArticleRelationTargetSql("a")}
     ORDER BY a.published_at DESC,a.id DESC
     LIMIT 5`).bind(breed.id,now);
-  const stationsQuery=database.prepare(`SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
-    FROM breed_directory_relations r
-    JOIN directory_profiles d ON d.id=r.profile_id
-    WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-stanice'
-    ORDER BY d.name COLLATE NOCASE ASC,d.id ASC
+  const stationsQuery=database.prepare(`WITH station_matches AS (
+      SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
+      FROM breed_directory_relations r
+      JOIN directory_profiles d ON d.id=r.profile_id
+      WHERE r.breed_id=? AND ${publicDirectoryRelationTargetSql("d")} AND d.category='chovatelske-stanice'
+    )
+    SELECT station_matches.*, COUNT(*) OVER() AS relation_total
+    FROM station_matches
+    ORDER BY name COLLATE NOCASE ASC,id ASC
     LIMIT 4`).bind(breed.id);
   const clubsQuery=database.prepare(`SELECT DISTINCT d.id,d.slug,d.name,d.category,d.excerpt,d.city,d.region,d.image_url
     FROM breed_directory_relations r
@@ -257,6 +263,10 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"rela
     const portalSection=row.portal_section as ArticlePortalSection;
     return {id:row.id,slug:row.slug,title:row.title,excerpt:row.excerpt,portalSection,href:articleHref({slug:row.slug,portalSection}),image:row.image_url,accent:row.accent};
   });
+  const stationTotal=Number((stationsResult.results[0] as {relation_total?:number|string}|undefined)?.relation_total??0);
+  const breedingStationLanding=stationTotal>=BREEDING_STATION_LANDING_INDEX_THRESHOLD
+    ? {href:breedingStationBreedLandingPath(breed.slug),label:`Chovateľské stanice pre plemeno ${breed.name}`}
+    : null;
   const directory=[...stationsResult.results,...clubsResult.results]
     .map((row)=>row as {id:number;slug:string;name:string;category:"chovatelske-stanice"|"chovatelske-kluby";excerpt:string;city:string;region:string;image_url:string|null})
     .map((row)=>({id:row.id,slug:row.slug,name:row.name,href:directoryProfileHref({category:row.category,slug:row.slug}),category:row.category,excerpt:row.excerpt,city:row.city,region:row.region,image:row.image_url}));
@@ -264,6 +274,7 @@ export async function getBreedDetailRelations(breed:Pick<ManagedBreed,"id"|"rela
   return {
     articles,
     breedingStations:directory.filter((item)=>item.category==='chovatelske-stanice'),
+    breedingStationLanding,
     breedClubs:directory.filter((item)=>item.category==='chovatelske-kluby'),
     similarBreeds:similarBreeds.map(item=>({...item,image:ownedBreedImage(item.image)})),
   };

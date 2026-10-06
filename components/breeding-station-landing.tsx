@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { DirectoryCard } from "@/components/directory-card";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
 import { PawMark } from "@/components/icons";
 import {
   PublicContentShell,
@@ -12,6 +13,7 @@ import {
   buildBreedingStationLandingBreadcrumbs,
   type BreedingStationLanding,
 } from "@/lib/breeding-station-landings";
+import { buildBreedingStationDiscoveryLinks } from "@/lib/internal-discovery";
 import styles from "@/components/directory-public.module.css";
 
 function profileCountLabel(count: number) {
@@ -20,6 +22,7 @@ function profileCountLabel(count: number) {
 
 export function BreedingStationLandingPage({ landing }: { landing: BreedingStationLanding }) {
   const breadcrumbs = buildBreedingStationLandingBreadcrumbs(landing);
+  const discoveryLinks = buildBreedingStationDiscoveryLinks(landing);
   const hasMapData = landing.profiles.some((profile) => Boolean(profile.city || profile.region));
 
   return (
@@ -58,6 +61,16 @@ export function BreedingStationLandingPage({ landing }: { landing: BreedingStati
             </div>
           </PublicContentShell>
         </section>
+
+        {discoveryLinks.length > 0 && (
+          <section className={styles.contextSection} aria-labelledby="breeding-station-discovery">
+            <PublicContentShell variant="plain" className={styles.contextShell}>
+              <span className="eyebrow">Kam ďalej</span>
+              <h2 id="breeding-station-discovery">Súvisiace chovateľské informácie</h2>
+              <RelatedEntityLinks links={discoveryLinks} label="Súvisiace chovateľské informácie" />
+            </PublicContentShell>
+          </section>
+        )}
 
         {hasMapData && (
           <section className={styles.contextSection}>

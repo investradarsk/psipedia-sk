@@ -104,9 +104,9 @@ export default async function BreedDetailPage({ params }: Props) {
           breedSlug: managedBreed.slug,
           error: error instanceof Error ? error.message : String(error),
         });
-        return { articles: [], breedingStations: [], breedClubs: [], similarBreeds: [] };
+        return { articles: [], breedingStations: [], breedingStationLanding: null, breedClubs: [], similarBreeds: [] };
       })
-    : { articles: [], breedingStations: [], breedClubs: [], similarBreeds: [] };
+    : { articles: [], breedingStations: [], breedingStationLanding: null, breedClubs: [], similarBreeds: [] };
 
   const relatedArticleMeta = await getPublicArticleListMeta(relations.articles.map((article) => article.slug)).catch((error) => {
     console.error("Public breed related article metadata read failed", {
@@ -607,15 +607,15 @@ export default async function BreedDetailPage({ params }: Props) {
             actionLabel="Zobraziť kluby"
           />
           <PublicDataCard
-            href="/adresar/chovatelske-stanice"
+            href={relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice"}
             eyebrow="Adresár"
-            title="Chovateľské stanice"
+            title={relations.breedingStationLanding?.label ?? "Chovateľské stanice"}
             description="Publikované stanice v databáze Psipedie."
             icon={<PawMark size={24} />}
             actionLabel="Zobraziť stanice"
           />
           <PublicDataCard
-            href={`/adresar/treneri?breed=${encodeURIComponent(breed.name)}`}
+            href="/adresar/treneri"
             eyebrow="Adresár"
             title="Psí tréneri"
             description="Tréneri so skúsenosťami s pracovnými aj rodinnými psami."

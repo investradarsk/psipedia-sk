@@ -964,7 +964,9 @@ test("filters a directory category on the server and keeps verification data pri
     assert.match(detailHtml, /mailto:klub@example.com/);
     // Textová verejná adresa sama o sebe nesmie vytvoriť exact navigáciu.
     assert.doesNotMatch(detailHtml, />Navigovať<\/a>/);
-    assert.match(detailHtml, /href="\/adresar\/kynologicke-kluby\?region=Bratislavsk%C3%BD%20kraj"/);
+    assert.doesNotMatch(detailHtml, /href="\/adresar\/kynologicke-kluby\?region=/);
+    assert.doesNotMatch(detailHtml, /href="\/adresar\/kynologicke-kluby\/kraj\/bratislavsky"/); // one mock profile stays below the clean-landing index threshold
+    assert.match(detailHtml, /Bratislavský kraj/);
     assert.match(detailHtml, /Spravujete tento profil\?/);
     assert.match(detailHtml, /Navrhnúť opravu údajov/);
     assert.match(detailHtml, /rel="canonical" href="https:\/\/psipedia\.sk\/adresar\/kynologicke-kluby\/testovaci-klub"/);

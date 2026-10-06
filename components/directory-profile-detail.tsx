@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
@@ -17,6 +18,7 @@ import { getDirectoryCategory } from "@/lib/directory";
 import { getDirectoryQuickFacts, type DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
+import type { InternalDiscoveryLink } from "@/lib/internal-discovery";
 import styles from "./directory-profile-detail.module.css";
 
 export function DirectoryProfileDetail({
@@ -26,6 +28,7 @@ export function DirectoryProfileDetail({
   commercial,
   publicMap,
   relatedBreeds = [],
+  locationDiscoveryLinks = [],
 }: {
   presentation: DirectoryDetailPresentation;
   reviews: PublicProfileReviewData | null;
@@ -33,6 +36,7 @@ export function DirectoryProfileDetail({
   commercial?: { premium: boolean; promoted: boolean; sponsoredLabel: string | null };
   publicMap?: PublicEntityMapResult & PublicMapRuntime;
   relatedBreeds?: PublicRelatedBreed[];
+  locationDiscoveryLinks?: InternalDiscoveryLink[];
 }) {
   const category = getDirectoryCategory(presentation.category);
   const hasEmbeddedMap = Boolean(publicMap?.items.length);
@@ -113,11 +117,7 @@ export function DirectoryProfileDetail({
                   <span className={styles.locationIcon} aria-hidden="true">●</span>
                   {presentation.city && <strong>{presentation.city}</strong>}
                   {presentation.district && <span>okres {presentation.district}</span>}
-                  {presentation.region && (
-                    <Link href={`/adresar/${presentation.category}?region=${encodeURIComponent(presentation.region)}`}>
-                      {presentation.region}
-                    </Link>
-                  )}
+                  {presentation.region && <span>{presentation.region}</span>}
                 </div>
               )}
 
@@ -205,6 +205,12 @@ export function DirectoryProfileDetail({
           {relatedBreeds.length > 0 ? (
             <DetailSection eyebrow="Súvisiace plemená" title="Plemená prepojené s týmto profilom">
               <RelatedBreedList breeds={relatedBreeds} label="Plemená prepojené s týmto profilom" />
+            </DetailSection>
+          ) : null}
+
+          {locationDiscoveryLinks.length > 0 ? (
+            <DetailSection eyebrow="Ďalšie v okolí" title="Ďalšie profily v lokalite">
+              <RelatedEntityLinks links={locationDiscoveryLinks} label="Ďalšie profily v lokalite" />
             </DetailSection>
           ) : null}
 
