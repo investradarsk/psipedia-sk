@@ -91,6 +91,7 @@ jobs:
       - name: Seed event, help and lost-found fixtures
         run: |
           node scripts/bootstrap-admin-events-e2e.mjs
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command "INSERT INTO portal_section_settings (slug,label,eyebrow,description,intro,hero_config_json,subpages_json,position,visible,updated_at,updated_by) VALUES ('podujatia','Podujatia','Čo sa deje','Kalendár podujatí so psami.','Lokálny E2E seed verejnej sekcie podujatí.','{}','[]',0,1,'2026-10-06T00:00:00.000Z','e2e@psipedia.sk') ON CONFLICT(slug) DO UPDATE SET visible=1;"
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
       - name: Start isolated local app
