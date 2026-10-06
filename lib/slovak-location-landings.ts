@@ -134,7 +134,7 @@ export function getSlovakLandingLocationBySlug(
 
 function exactRegion(raw: string) {
   const clean = raw.trim();
-  return SLOVAK_REGION_LANDINGS.find((region) => region.sql.values.includes(clean)) ?? null;
+  return SLOVAK_REGION_LANDINGS.find((region) => (region.sql.values as readonly string[]).includes(clean)) ?? null;
 }
 
 function exactDistrict(raw: string) {
@@ -148,7 +148,7 @@ function exactCity(raw: string) {
   const clean = raw.trim();
   for (const aggregate of CITY_AGGREGATES) {
     if (
-      aggregate.sql.values.includes(clean)
+      (aggregate.sql.values as readonly string[]).includes(clean)
       || aggregate.sql.prefixes?.some((prefix) => clean.startsWith(prefix))
     ) return aggregate;
   }
