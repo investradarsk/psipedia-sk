@@ -106,6 +106,7 @@ test("DIRECTORY regression keeps PR #641 semantic fact and schema contracts unch
 
 test("sitemap keeps entity parity, real updated timestamps and excludes query/redirect duplicates", () => {
   const source = read("../app/sitemap.ts");
+  const organizationSitemap = read("../lib/organization-sitemap.ts");
   for (const parityStage of [
     "parity-articles",
     "parity-events",
@@ -120,7 +121,8 @@ test("sitemap keeps entity parity, real updated timestamps and excludes query/re
   }
   assert.match(source, /lastModified: latestModified\(\[event\.updatedAt\]\)/);
   assert.match(source, /lastModified: latestModified\(\[item\.updatedAt\]\)/);
-  assert.match(source, /lastModified: latestModified\(\[organization\.updatedAt\]\)/);
+  assert.match(source, /buildOrganizationSitemapEntries\(organizations\)/);
+  assert.match(organizationSitemap, /lastModified: latestModified\(\[organization\.updatedAt\]\)/);
   assert.match(source, /SITEMAP_REDIRECT_SOURCES/);
   assert.match(source, /assertValidSitemap\(entries\)/);
 });
