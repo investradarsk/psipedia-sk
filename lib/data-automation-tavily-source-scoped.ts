@@ -453,8 +453,7 @@ async function providerRecordsForRow(input: {
   coverage: AutomationExtractionCoverage;
 }) {
   if (
-    input.strategy === "TAVILY_CRAWL"
-    && input.source.entityType === "EVENT"
+    input.source.entityType === "EVENT"
     && input.source.config.sourceShape === "MULTI_ITEM_LIST"
   ) {
     const rows = markdownEventRows(input.content);
@@ -471,7 +470,9 @@ async function providerRecordsForRow(input: {
           contentExcerpt: row.rawLine,
           dateText: row.dateText,
           venue: row.venue,
-          identitySource: "TAVILY_CRAWL_LIST_ROW",
+          identitySource: input.strategy === "TAVILY_CRAWL"
+            ? "TAVILY_CRAWL_LIST_ROW"
+            : "TAVILY_EXTRACT_LIST_ROW",
         },
         proposed: {
           ...(input.source.config.staticFields ?? {}),
@@ -486,7 +487,9 @@ async function providerRecordsForRow(input: {
           strategy: input.strategy,
           evidenceMetadata: {
             provider: "tavily",
-            providerEvidenceType: "CRAWL_LIST_ROW",
+            providerEvidenceType: input.strategy === "TAVILY_CRAWL"
+              ? "CRAWL_LIST_ROW"
+              : "EXTRACT_LIST_ROW",
             retrievedAt: input.retrievedAt,
             approvedScopeIdentityKey: input.contract.identity.identityKey,
           },
