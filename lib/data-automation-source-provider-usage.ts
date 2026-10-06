@@ -63,6 +63,15 @@ export function normalizeAutomationSourceProviderDiagnostics(
 
 export type AutomationSourceProviderUsageDatabase = Pick<D1Database, "prepare">;
 
+export const AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS = Object.freeze([
+  "provider_http_status",
+  "provider_error_code",
+  "provider_error_detail",
+  "provider_request_id",
+  "transport_error_name",
+  "transport_error_code",
+] as const);
+
 export const AUTOMATION_SOURCE_PROVIDER_GLOBAL_DAILY_LIMIT = 200;
 
 function cooldownMs(status: string) {
@@ -77,9 +86,11 @@ export async function automationSourceProviderUsageSchemaReady(
 ) {
   try {
     const row = await database.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='automation_source_provider_usage' LIMIT 1",
-    ).first<{ name: string }>();
-    return row?.name === "automation_source_provider_usage";
+      "SELECT name,sql FROM sqlite_master WHERE type='table' AND name='automation_source_provider_usage' LIMIT 1",
+    ).first<{ name: string; sql: string | null }>();
+    if (row?.name !== "automation_source_provider_usage") return false;
+    const sql = String(row.sql ?? "");
+    return AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS.every((column) => sql.includes(column));
   } catch {
     return false;
   }
