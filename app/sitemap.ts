@@ -6,6 +6,7 @@ import { listPublishedCanonicalBreedSitemapIndex } from "@/lib/breed-store";
 import { eventHref } from "@/lib/events";
 import { directoryCategories, isDirectoryCategory } from "@/lib/directory";
 import { getPublishedDirectorySitemapRecords } from "@/lib/directory-sitemap";
+import { listIndexableBreedingStationLandingSitemapRecords } from "@/lib/breeding-station-sitemap";
 import { getPublishedArticleSitemapRecords, getPublishedEventSitemapRecords, getPublishedHelpSitemapRecords } from "@/lib/entity-sitemap";
 import { helpCaseHref } from "@/lib/help";
 import { listPublishedOrganizationsForSitemap } from "@/lib/help-organization-store";
@@ -34,6 +35,7 @@ type SitemapDatasets = {
   articles: Awaited<ReturnType<typeof getPublishedArticleSitemapRecords>>;
   events: Awaited<ReturnType<typeof getPublishedEventSitemapRecords>>;
   directoryProfiles: Awaited<ReturnType<typeof getPublishedDirectorySitemapRecords>>;
+  breedingStationLandings: Awaited<ReturnType<typeof listIndexableBreedingStationLandingSitemapRecords>>;
   helpCases: Awaited<ReturnType<typeof getPublishedHelpSitemapRecords>>;
   managedSections: Awaited<ReturnType<typeof listManagedPortalSectionsForSitemap>>;
   breeds: Awaited<ReturnType<typeof listPublishedCanonicalBreedSitemapIndex>>;
@@ -48,6 +50,7 @@ async function loadSitemapDatasets(): Promise<SitemapDatasets> {
     { key: "articles", stage: "load-articles", load: () => getPublishedArticleSitemapRecords() },
     { key: "events", stage: "load-events", load: () => getPublishedEventSitemapRecords() },
     { key: "directoryProfiles", stage: "load-directory", load: () => getPublishedDirectorySitemapRecords() },
+    { key: "breedingStationLandings", stage: "load-breeding-station-landings", load: () => listIndexableBreedingStationLandingSitemapRecords() },
     { key: "helpCases", stage: "load-help-cases", load: () => getPublishedHelpSitemapRecords() },
     { key: "managedSections", stage: "load-managed-sections", load: () => listManagedPortalSectionsForSitemap() },
     { key: "breeds", stage: "load-breeds", load: () => listPublishedCanonicalBreedSitemapIndex() },
@@ -65,7 +68,7 @@ async function loadSitemapDatasets(): Promise<SitemapDatasets> {
 }
 
 function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
-  const { articles, events, directoryProfiles, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations } = datasets;
+  const { articles, events, directoryProfiles, breedingStationLandings, helpCases, managedSections, breeds, lostFoundReports, adoptions, organizations } = datasets;
   const portalSections = managedSections.filter((section) => section.visible);
   const articleModified = (article: (typeof articles)[number]) => article.updatedAt;
   const latestArticles = latestModified(articles.map(articleModified));
@@ -254,6 +257,13 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
     });
   }), breedEntries.map((entry) => entry.url)));
 
+  const breedingStationLandingEntries = runSitemapStageSync("build-breeding-station-landing-entries", () => breedingStationLandings
+    .map((landing) => sitemapEntry(landing.path, {
+      lastModified: latestModified([landing.lastModified]),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    })));
+
   const landingEntries: MetadataRoute.Sitemap = runSitemapStageSync("build-landing-entries", () => [
     sitemapEntry("", { lastModified: homepageModified, changeFrequency: "daily", priority: 1 }),
     sitemapEntry("/clanky", { lastModified: latestArticles, changeFrequency: "weekly", priority: 0.7 }),
@@ -326,6 +336,7 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
     ...articleEntries,
     ...eventEntries,
     ...directoryEntries,
+    ...breedingStationLandingEntries,
     ...helpEntries,
     ...adoptionEntries,
     ...organizationEntries,
