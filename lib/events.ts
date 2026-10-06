@@ -166,6 +166,18 @@ export function buildPublicEventPresentation(event: DogEvent): DogEvent {
   return { ...event, excerpt, description, practicalInfo };
 }
 
+export function formatEventUpdatedAt(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: EVENT_TIME_ZONE,
+  }).format(date);
+}
+
 export function formatEventDate(event: Pick<DogEvent, "startDate" | "endDate">) {
   const formatter = new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric", timeZone: EVENT_TIME_ZONE });
   const start = new Date(`${event.startDate}T12:00:00Z`);
