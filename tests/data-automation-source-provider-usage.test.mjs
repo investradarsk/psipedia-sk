@@ -16,7 +16,7 @@ function db({ latest = null, insertChanges = 1 } = {}) {
           bind(...args) {
             return {
               async first() {
-                if (!sql.includes("SELECT status,created_at")) throw new Error("unexpected first query");
+                if (!sql.includes("SELECT run_id,status,created_at")) throw new Error("unexpected first query");
                 return latest;
               },
               async run() {
@@ -35,6 +35,7 @@ test("recent Tavily rate limit activates source cooldown before another provider
   const now = new Date("2026-10-05T12:00:00.000Z");
   const mock = db({
     latest: {
+      run_id: 99,
       status: "RATE_LIMITED",
       created_at: "2026-10-05T08:00:00.000Z",
     },
@@ -59,6 +60,7 @@ test("recent Tavily rate limit activates source cooldown before another provider
 test("expired provider cooldown permits a new bounded reservation", async () => {
   const mock = db({
     latest: {
+      run_id: 99,
       status: "RATE_LIMITED",
       created_at: "2026-10-04T20:00:00.000Z",
     },
@@ -110,7 +112,7 @@ test("auth/config cooldown is longer than transient provider cooldown by contrac
     ["PROVIDER_ERROR", "2026-10-05T11:30:00.000Z", "2026-10-05T12:30:00.000Z"],
     ["TIMEOUT", "2026-10-05T11:30:00.000Z", "2026-10-05T12:30:00.000Z"],
   ]) {
-    const mock = db({ latest: { status, created_at: createdAt } });
+    const mock = db({ latest: { run_id: 99, status, created_at: createdAt } });
     const result = await reserveAutomationSourceProviderRequest({
       database: mock.value,
       operationKey: "op-" + status,
@@ -126,4 +128,52 @@ test("auth/config cooldown is longer than transient provider cooldown by contrac
     assert.equal(result.reason, "COOLDOWN");
     assert.equal(result.cooldownUntil, expected);
   }
+});
+
+
+test("transient timeout from the same run does not activate cooldown before the bounded retry", async () => {
+  const mock = db({
+    latest: {
+      run_id: 92,
+      status: "TIMEOUT",
+      created_at: "2026-10-06T17:16:55.474Z",
+    },
+    insertChanges: 1,
+  });
+  const result = await reserveAutomationSourceProviderRequest({
+    database: mock.value,
+    operationKey: "source:82:run:92:tavily:crawl:2",
+    sourceId: 82,
+    runId: 92,
+    providerKey: "tavily",
+    operation: "CRAWL",
+    maxRequestsPerDay: 10,
+    maxRequestsPerRun: 3,
+    now: new Date("2026-10-06T17:17:05.000Z"),
+  });
+  assert.equal(result.reserved, true);
+  assert.equal(mock.calls.some((sql) => sql.includes("INSERT INTO automation_source_provider_usage")), true);
+});
+
+test("the same transient timeout still cools down a later independent run", async () => {
+  const mock = db({
+    latest: {
+      run_id: 92,
+      status: "TIMEOUT",
+      created_at: "2026-10-06T17:16:55.474Z",
+    },
+  });
+  const result = await reserveAutomationSourceProviderRequest({
+    database: mock.value,
+    operationKey: "source:82:run:93:tavily:crawl:1",
+    sourceId: 82,
+    runId: 93,
+    providerKey: "tavily",
+    operation: "CRAWL",
+    maxRequestsPerDay: 10,
+    maxRequestsPerRun: 3,
+    now: new Date("2026-10-06T17:17:05.000Z"),
+  });
+  assert.equal(result.reserved, false);
+  assert.equal(result.reason, "COOLDOWN");
 });
