@@ -222,6 +222,7 @@ test("provider diagnostics persistence is allowlisted, bounded, redacted and que
       providerErrorCode: "upstream error",
       providerErrorDetail: `Authorization: Bearer ${secret}\u0000 ${"x".repeat(800)}`,
       providerRequestId: " req/abc 123 ",
+      transportPhase: "SUCCESS_BODY_READ",
       transportErrorName: "Type Error",
       transportErrorCode: "ECONNRESET",
     },
@@ -233,6 +234,7 @@ test("provider diagnostics persistence is allowlisted, bounded, redacted and que
   assert.match(update.sql, /provider_error_code=\?/);
   assert.match(update.sql, /provider_error_detail=\?/);
   assert.match(update.sql, /provider_request_id=\?/);
+  assert.match(update.sql, /transport_phase=\?/);
   assert.match(update.sql, /transport_error_name=\?/);
   assert.match(update.sql, /transport_error_code=\?/);
   assert.equal(update.args[4], 502);
@@ -241,10 +243,11 @@ test("provider diagnostics persistence is allowlisted, bounded, redacted and que
   assert.equal(String(update.args[6]).includes(secret), false);
   assert.equal(String(update.args[6]).includes("\u0000"), false);
   assert.equal(update.args[7], "req/abc_123");
-  assert.equal(update.args[8], "Type_Error");
-  assert.equal(update.args[9], "ECONNRESET");
-  assert.equal(update.args[10], "2026-10-06T19:40:14.658Z");
-  assert.equal(update.args[11], "source:82:run:115:tavily:crawl:1");
+  assert.equal(update.args[8], "SUCCESS_BODY_READ");
+  assert.equal(update.args[9], "Type_Error");
+  assert.equal(update.args[10], "ECONNRESET");
+  assert.equal(update.args[11], "2026-10-06T19:40:14.658Z");
+  assert.equal(update.args[12], "source:82:run:115:tavily:crawl:1");
 });
 
 test("diagnostic normalizer rejects invalid HTTP status and does not preserve raw secret-shaped values", () => {
@@ -252,10 +255,19 @@ test("diagnostic normalizer rejects invalid HTTP status and does not preserve ra
     providerHttpStatus: 999,
     providerErrorDetail: "token=tvly-super-secret",
     providerRequestId: "request id with spaces",
+    transportPhase: "NOT_A_PHASE",
   });
   assert.equal(normalized.providerHttpStatus, null);
   assert.equal(normalized.providerErrorDetail.includes("tvly-super-secret"), false);
   assert.equal(normalized.providerRequestId, "request_id_with_spaces");
+  assert.equal(normalized.transportPhase, null);
+
+  const valid = normalizeAutomationSourceProviderDiagnostics({
+    providerHttpStatus: 200,
+    transportPhase: "SUCCESS_BODY_READ",
+  });
+  assert.equal(valid.providerHttpStatus, 200);
+  assert.equal(valid.transportPhase, "SUCCESS_BODY_READ");
 });
 
 test("provider reserve and finalize timestamps can represent distinct attempt times", async () => {
@@ -283,6 +295,6 @@ test("provider reserve and finalize timestamps can represent distinct attempt ti
   const insert = mock.calls.find((call) => call.sql.includes("INSERT INTO automation_source_provider_usage"));
   const update = mock.calls.find((call) => call.sql.includes("UPDATE automation_source_provider_usage"));
   assert.equal(insert.args[6], reserveAt.toISOString());
-  assert.equal(update.args[10], finalizeAt.toISOString());
-  assert.notEqual(insert.args[6], update.args[10]);
+  assert.equal(update.args[11], finalizeAt.toISOString());
+  assert.notEqual(insert.args[6], update.args[11]);
 });

@@ -684,6 +684,29 @@ test("HTTP 500 keeps provider classification and finalizes bounded structured di
   assert.equal(g.finalized[0].diagnostics.providerErrorDetail, "temporary upstream failure");
 });
 
+test("HTTP 500 parses Tavily nested detail.error without changing retry semantics", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => json({
+      detail: { error: "[500] Internal server error" },
+    }, 500),
+  });
+  await assert.rejects(
+    provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+    (error) => error instanceof TavilySourceScopedError
+      && error.code === "TAVILY_PROVIDER_ERROR"
+      && error.retryable === true
+      && error.diagnostics.providerHttpStatus === 500
+      && error.diagnostics.providerErrorDetail === "[500] Internal server error"
+      && error.diagnostics.transportPhase === "RESPONSE_HEADERS",
+  );
+  assert.equal(g.finalized[0].status, "PROVIDER_ERROR");
+  assert.equal(g.finalized[0].diagnostics.providerHttpStatus, 500);
+  assert.equal(g.finalized[0].diagnostics.providerErrorDetail, "[500] Internal server error");
+  assert.equal(g.finalized[0].diagnostics.transportPhase, "RESPONSE_HEADERS");
+});
+
 test("HTTP 400 is non-retryable but persists its provider diagnostics", async () => {
   let calls = 0;
   const g = gate();
@@ -757,13 +780,69 @@ test("network failure records only safe transport name and scalar cause code", a
     (error) => error instanceof TavilySourceScopedError
       && error.code === "TAVILY_PROVIDER_ERROR"
       && error.retryable === true
+      && error.diagnostics.providerHttpStatus == null
+      && error.diagnostics.transportPhase === "FETCH"
       && error.diagnostics.transportErrorName === "TypeError"
       && error.diagnostics.transportErrorCode === "ECONNRESET"
       && error.diagnostics.providerErrorDetail == null,
   );
+  assert.equal(g.finalized[0].diagnostics.providerHttpStatus, null);
+  assert.equal(g.finalized[0].diagnostics.transportPhase, "FETCH");
   assert.equal(g.finalized[0].diagnostics.transportErrorName, "TypeError");
   assert.equal(g.finalized[0].diagnostics.transportErrorCode, "ECONNRESET");
   assert.equal("message" in g.finalized[0].diagnostics, false);
+});
+
+test("HTTP 200 body-read TypeError preserves status and records SUCCESS_BODY_READ phase", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.error(new TypeError("body stream failed"));
+      },
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  });
+
+  await assert.rejects(
+    provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+    (error) => error instanceof TavilySourceScopedError
+      && error.code === "TAVILY_PROVIDER_ERROR"
+      && error.retryable === true
+      && error.diagnostics.providerHttpStatus === 200
+      && error.diagnostics.transportPhase === "SUCCESS_BODY_READ"
+      && error.diagnostics.transportErrorName === "TypeError"
+      && error.diagnostics.transportErrorCode === "BODY_STREAM_ERROR",
+  );
+  assert.equal(g.finalized[0].status, "PROVIDER_ERROR");
+  assert.equal(g.finalized[0].diagnostics.providerHttpStatus, 200);
+  assert.equal(g.finalized[0].diagnostics.transportPhase, "SUCCESS_BODY_READ");
+  assert.equal(g.finalized[0].diagnostics.transportErrorName, "TypeError");
+});
+
+test("HTTP 200 invalid JSON stays INVALID_RESPONSE with known status and JSON_PARSE phase", async () => {
+  const g = gate();
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => new Response("{not-json", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  });
+  await assert.rejects(
+    provider.crawl({ source: source(), contract: contract(), gate: g.value }),
+    (error) => error instanceof TavilySourceScopedError
+      && error.code === "TAVILY_INVALID_RESPONSE"
+      && error.retryable === false
+      && error.diagnostics.providerHttpStatus === 200
+      && error.diagnostics.transportPhase === "JSON_PARSE",
+  );
+  assert.equal(g.finalized[0].status, "INVALID_RESPONSE");
+  assert.equal(g.finalized[0].diagnostics.providerHttpStatus, 200);
+  assert.equal(g.finalized[0].diagnostics.transportPhase, "JSON_PARSE");
 });
 
 test("provider diagnostics redact echoed credentials before error or persistence surfaces", async () => {
@@ -850,4 +929,5 @@ test("each transient retry finalizes its own diagnostics row", async () => {
     ["req-1", "req-2", "req-3"],
   );
   assert.ok(g.finalized.every((attempt) => attempt.diagnostics.providerHttpStatus === 503));
+  assert.ok(g.finalized.every((attempt) => attempt.diagnostics.transportPhase === "RESPONSE_HEADERS"));
 });

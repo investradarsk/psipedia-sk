@@ -1,5 +1,17 @@
 export type AutomationSourceProviderOperation = "CRAWL" | "EXTRACT";
 
+export const automationSourceProviderTransportPhases = [
+  "FETCH",
+  "RESPONSE_HEADERS",
+  "ERROR_BODY_READ",
+  "SUCCESS_BODY_READ",
+  "JSON_PARSE",
+  "RESPONSE_VALIDATE",
+] as const;
+
+export type AutomationSourceProviderTransportPhase =
+  typeof automationSourceProviderTransportPhases[number];
+
 export type AutomationSourceProviderUsageStatus =
   | "RESERVED"
   | "SUCCESS"
@@ -18,6 +30,7 @@ export type AutomationSourceProviderErrorDiagnostics = {
   providerErrorCode?: string | null;
   providerErrorDetail?: string | null;
   providerRequestId?: string | null;
+  transportPhase?: AutomationSourceProviderTransportPhase | null;
   transportErrorName?: string | null;
   transportErrorCode?: string | null;
 };
@@ -56,11 +69,16 @@ export function normalizeAutomationSourceProviderDiagnostics(
   diagnostics: AutomationSourceProviderErrorDiagnostics | undefined,
 ) {
   const status = Number(diagnostics?.providerHttpStatus);
+  const phase = diagnostics?.transportPhase;
   return {
     providerHttpStatus: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
     providerErrorCode: diagnosticIdentifier(diagnostics?.providerErrorCode),
     providerErrorDetail: diagnosticText(diagnostics?.providerErrorDetail, PROVIDER_DIAGNOSTIC_DETAIL_MAX),
     providerRequestId: diagnosticIdentifier(diagnostics?.providerRequestId),
+    transportPhase: typeof phase === "string"
+      && automationSourceProviderTransportPhases.includes(phase as AutomationSourceProviderTransportPhase)
+      ? phase as AutomationSourceProviderTransportPhase
+      : null,
     transportErrorName: diagnosticIdentifier(diagnostics?.transportErrorName),
     transportErrorCode: diagnosticIdentifier(diagnostics?.transportErrorCode),
   };
@@ -73,6 +91,7 @@ export const AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS = Object.freeze([
   "provider_error_code",
   "provider_error_detail",
   "provider_request_id",
+  "transport_phase",
   "transport_error_name",
   "transport_error_code",
 ] as const);
@@ -237,7 +256,7 @@ export async function finalizeAutomationSourceProviderRequest(input: {
     UPDATE automation_source_provider_usage
     SET status=?,result_count=?,accepted_count=?,scope_rejected_count=?,
         provider_http_status=?,provider_error_code=?,provider_error_detail=?,provider_request_id=?,
-        transport_error_name=?,transport_error_code=?,finalized_at=?
+        transport_phase=?,transport_error_name=?,transport_error_code=?,finalized_at=?
     WHERE operation_key=? AND status='RESERVED'
   `).bind(
     input.status,
@@ -248,6 +267,7 @@ export async function finalizeAutomationSourceProviderRequest(input: {
     diagnostics.providerErrorCode,
     diagnostics.providerErrorDetail,
     diagnostics.providerRequestId,
+    diagnostics.transportPhase,
     diagnostics.transportErrorName,
     diagnostics.transportErrorCode,
     at,

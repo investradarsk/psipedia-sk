@@ -15,6 +15,7 @@ import {
   normalizeAutomationSourceProviderDiagnostics,
   type AutomationSourceProviderErrorDiagnostics,
   type AutomationSourceProviderOperation,
+  type AutomationSourceProviderTransportPhase,
   type AutomationSourceProviderUsageStatus,
 } from "./data-automation-source-provider-usage.ts";
 
@@ -177,15 +178,44 @@ function safeUsage(value: unknown) {
   return output;
 }
 
-async function boundedJson(response: Response, maxBytes: number) {
+async function boundedJson(
+  response: Response,
+  maxBytes: number,
+  apiKey: string,
+  providerHttpStatus: number,
+) {
   const cap = clamp(maxBytes, 1, 2_000_000);
-  const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > cap) throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE");
-  if (!response.body) throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE");
-  const reader = response.body.getReader();
+  let declared: number;
+  try {
+    declared = Number(response.headers.get("content-length"));
+  } catch (error) {
+    throw mapTransportFailure(error, apiKey, "RESPONSE_HEADERS", providerHttpStatus);
+  }
+  if (Number.isFinite(declared) && declared > cap) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE", false, {
+      providerHttpStatus,
+      transportPhase: "RESPONSE_VALIDATE",
+    });
+  }
+  if (!response.body) {
+    throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE", false, {
+      providerHttpStatus,
+      transportPhase: "RESPONSE_VALIDATE",
+    });
+  }
+
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  try {
+    reader = response.body.getReader();
+  } catch (error) {
+    throw mapTransportFailure(error, apiKey, "SUCCESS_BODY_READ", providerHttpStatus);
+  }
+
   const decoder = new TextDecoder();
   const chunks: string[] = [];
   let bytes = 0;
+  let releaseError: unknown;
   try {
     while (true) {
       const part = await reader.read();
@@ -193,18 +223,35 @@ async function boundedJson(response: Response, maxBytes: number) {
       bytes += part.value.byteLength;
       if (bytes > cap) {
         await reader.cancel().catch(() => undefined);
-        throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE");
+        throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE", false, {
+          providerHttpStatus,
+          transportPhase: "RESPONSE_VALIDATE",
+        });
       }
       chunks.push(decoder.decode(part.value, { stream: true }));
     }
     chunks.push(decoder.decode());
+  } catch (error) {
+    if (error instanceof TavilySourceScopedError) throw error;
+    throw mapTransportFailure(error, apiKey, "SUCCESS_BODY_READ", providerHttpStatus);
   } finally {
-    reader.releaseLock();
+    try {
+      reader.releaseLock();
+    } catch (error) {
+      releaseError = error;
+    }
   }
+  if (releaseError) {
+    throw mapTransportFailure(releaseError, apiKey, "SUCCESS_BODY_READ", providerHttpStatus);
+  }
+
   try {
     return JSON.parse(chunks.join("")) as unknown;
   } catch {
-    throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE");
+    throw new TavilySourceScopedError("TAVILY_INVALID_RESPONSE", false, {
+      providerHttpStatus,
+      transportPhase: "JSON_PARSE",
+    });
   }
 }
 
@@ -259,18 +306,77 @@ function objectDiagnostic(value: unknown) {
     : null;
 }
 
+function coarseTransportErrorCode(error: Error) {
+  const cause = objectDiagnostic(error.cause);
+  const causeCode = scalarDiagnostic(cause?.code);
+  if (causeCode) return causeCode;
+  if (error.name === "AbortError") return "ABORTED";
+  if (error.name !== "TypeError") return undefined;
+
+  const message = error.message.toLowerCase();
+  if (message.includes("fetch failed")) return "FETCH_FAILED";
+  if (/body.*(?:unusable|used|disturbed|locked)|already.*(?:read|used)/.test(message)) {
+    return "BODY_ALREADY_USED";
+  }
+  if (message.includes("stream")) return "BODY_STREAM_ERROR";
+  if (/invalid.*(?:request|url)|failed to parse.*url/.test(message)) return "INVALID_REQUEST";
+  return "UNKNOWN_TYPEERROR";
+}
+
+function transportDiagnostics(
+  error: unknown,
+  apiKey: string,
+  transportPhase: AutomationSourceProviderTransportPhase,
+  providerHttpStatus?: number | null,
+): TavilyProviderErrorDiagnostics {
+  if (!(error instanceof Error)) {
+    return normalizeAutomationSourceProviderDiagnostics({
+      providerHttpStatus,
+      transportPhase,
+    });
+  }
+  return normalizeAutomationSourceProviderDiagnostics({
+    providerHttpStatus,
+    transportPhase,
+    transportErrorName: redactKnownSecret(error.name, apiKey),
+    transportErrorCode: redactKnownSecret(coarseTransportErrorCode(error), apiKey),
+  });
+}
+
+function mapTransportFailure(
+  error: unknown,
+  apiKey: string,
+  transportPhase: AutomationSourceProviderTransportPhase,
+  providerHttpStatus?: number | null,
+) {
+  const name = error instanceof Error ? error.name : "";
+  const diagnostics = transportDiagnostics(error, apiKey, transportPhase, providerHttpStatus);
+  return name === "TimeoutError" || name === "AbortError"
+    ? new TavilySourceScopedError("TAVILY_TIMEOUT", true, diagnostics)
+    : new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true, diagnostics);
+}
+
 async function readProviderErrorDiagnostics(
   response: Response,
   apiKey: string,
+  providerHttpStatus: number,
 ): Promise<TavilyProviderErrorDiagnostics> {
+  let providerRequestId: unknown;
+  try {
+    providerRequestId = response.headers.get("x-request-id")
+      ?? response.headers.get("request-id")
+      ?? response.headers.get("x-tavily-request-id");
+  } catch (error) {
+    return transportDiagnostics(error, apiKey, "RESPONSE_HEADERS", providerHttpStatus);
+  }
+
   const base: TavilyProviderErrorDiagnostics = {
-    providerHttpStatus: response.status,
-    providerRequestId: redactKnownSecret(scalarDiagnostic(
-      response.headers.get("x-request-id")
-        ?? response.headers.get("request-id")
-        ?? response.headers.get("x-tavily-request-id"),
-    ), apiKey),
+    providerHttpStatus,
+    transportPhase: "RESPONSE_HEADERS",
+    providerRequestId: redactKnownSecret(scalarDiagnostic(providerRequestId), apiKey),
   };
+
+  let bodyText = "";
   try {
     const declared = Number(response.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > PROVIDER_ERROR_BODY_MAX_BYTES) {
@@ -283,6 +389,7 @@ async function readProviderErrorDiagnostics(
     const decoder = new TextDecoder();
     const chunks: string[] = [];
     let bytes = 0;
+    let releaseError: unknown;
     try {
       while (true) {
         const part = await reader.read();
@@ -296,53 +403,65 @@ async function readProviderErrorDiagnostics(
       }
       chunks.push(decoder.decode());
     } finally {
-      reader.releaseLock();
+      try {
+        reader.releaseLock();
+      } catch (error) {
+        releaseError = error;
+      }
     }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(chunks.join(""));
-    } catch {
-      return normalizeAutomationSourceProviderDiagnostics(base);
-    }
-    const object = objectDiagnostic(payload);
-    if (!object) return normalizeAutomationSourceProviderDiagnostics(base);
-    const nestedError = objectDiagnostic(object.error);
-
-    const providerErrorCode = scalarDiagnostic(
-      object.code ?? object.type ?? nestedError?.code ?? nestedError?.type,
-    );
-    const providerErrorDetail = scalarDiagnostic(
-      object.detail
-        ?? object.message
-        ?? (typeof object.error === "string" ? object.error : undefined)
-        ?? nestedError?.detail
-        ?? nestedError?.message,
-    );
-    const providerRequestId = scalarDiagnostic(
-      object.request_id
-        ?? object.requestId
-        ?? nestedError?.request_id
-        ?? nestedError?.requestId
-        ?? base.providerRequestId,
-    );
+    if (releaseError) throw releaseError;
+    bodyText = chunks.join("");
+  } catch (error) {
+    const transport = transportDiagnostics(error, apiKey, "ERROR_BODY_READ", providerHttpStatus);
     return normalizeAutomationSourceProviderDiagnostics({
       ...base,
-      providerErrorCode: redactKnownSecret(providerErrorCode, apiKey),
-      providerErrorDetail: redactKnownSecret(providerErrorDetail, apiKey),
-      providerRequestId: redactKnownSecret(providerRequestId, apiKey),
+      transportPhase: transport.transportPhase,
+      transportErrorName: transport.transportErrorName,
+      transportErrorCode: transport.transportErrorCode,
     });
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(bodyText);
   } catch {
     return normalizeAutomationSourceProviderDiagnostics(base);
   }
-}
+  const object = objectDiagnostic(payload);
+  if (!object) return normalizeAutomationSourceProviderDiagnostics(base);
+  const nestedDetail = objectDiagnostic(object.detail);
+  const nestedError = objectDiagnostic(object.error);
 
-function transportDiagnostics(error: unknown, apiKey: string): TavilyProviderErrorDiagnostics {
-  if (!(error instanceof Error)) return {};
-  const cause = objectDiagnostic(error.cause);
+  const providerErrorCode = scalarDiagnostic(
+    object.code
+      ?? object.type
+      ?? nestedDetail?.code
+      ?? nestedDetail?.type
+      ?? nestedError?.code
+      ?? nestedError?.type,
+  );
+  const providerErrorDetail = scalarDiagnostic(
+    (typeof object.detail === "string" ? object.detail : undefined)
+      ?? nestedDetail?.error
+      ?? nestedDetail?.message
+      ?? (typeof object.error === "string" ? object.error : undefined)
+      ?? nestedError?.detail
+      ?? nestedError?.message,
+  );
+  const providerRequestIdFromBody = scalarDiagnostic(
+    object.request_id
+      ?? object.requestId
+      ?? nestedDetail?.request_id
+      ?? nestedDetail?.requestId
+      ?? nestedError?.request_id
+      ?? nestedError?.requestId
+      ?? base.providerRequestId,
+  );
   return normalizeAutomationSourceProviderDiagnostics({
-    transportErrorName: redactKnownSecret(error.name, apiKey),
-    transportErrorCode: redactKnownSecret(scalarDiagnostic(cause?.code), apiKey),
+    ...base,
+    providerErrorCode: redactKnownSecret(providerErrorCode, apiKey),
+    providerErrorDetail: redactKnownSecret(providerErrorDetail, apiKey),
+    providerRequestId: redactKnownSecret(providerRequestIdFromBody, apiKey),
   });
 }
 
@@ -394,9 +513,16 @@ class TavilyHttpClient {
     const retryLimit = Math.min(MAX_RETRIES, Math.max(0, Math.floor(input.retryMaxAttempts)));
     let lastError: unknown;
 
+    const retryOrThrow = async (error: TavilySourceScopedError, attempt: number) => {
+      lastError = error;
+      if (!error.retryable || attempt >= retryLimit) throw error;
+      await this.sleep(retryBackoffMs(attempt, input.retryBackoffMs));
+    };
+
     for (let attempt = 0; attempt <= retryLimit; attempt += 1) {
+      let response: Response;
       try {
-        const response = await this.fetchImpl(input.endpoint, {
+        response = await this.fetchImpl(input.endpoint, {
           method: "POST",
           headers: {
             Authorization: "Bearer " + this.apiKey,
@@ -405,24 +531,49 @@ class TavilyHttpClient {
           body: JSON.stringify(input.body),
           signal: AbortSignal.timeout(input.timeoutMs),
         });
-        const diagnostics = response.ok
-          ? undefined
-          : await readProviderErrorDiagnostics(response, this.apiKey);
-        const classified = httpError(response.status, diagnostics);
-        if (classified) throw classified;
-        if (!response.ok) throw new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", false, diagnostics);
-        return boundedJson(response, input.maxBytes);
       } catch (error) {
-        const name = error instanceof Error ? error.name : "";
-        const diagnostics = transportDiagnostics(error, this.apiKey);
+        await retryOrThrow(mapTransportFailure(error, this.apiKey, "FETCH", null), attempt);
+        continue;
+      }
+
+      let providerHttpStatus: number;
+      try {
+        providerHttpStatus = response.status;
+      } catch (error) {
+        await retryOrThrow(
+          mapTransportFailure(error, this.apiKey, "RESPONSE_HEADERS", null),
+          attempt,
+        );
+        continue;
+      }
+
+      try {
+        const responseOk = response.ok;
+        const diagnostics = responseOk
+          ? undefined
+          : await readProviderErrorDiagnostics(response, this.apiKey, providerHttpStatus);
+        const classified = httpError(providerHttpStatus, diagnostics);
+        if (classified) throw classified;
+        if (!responseOk) {
+          throw new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", false, diagnostics);
+        }
+        const payload = await boundedJson(
+          response,
+          input.maxBytes,
+          this.apiKey,
+          providerHttpStatus,
+        );
+        return { payload, providerHttpStatus };
+      } catch (error) {
         const mapped = error instanceof TavilySourceScopedError
           ? error
-          : name === "TimeoutError" || name === "AbortError"
-            ? new TavilySourceScopedError("TAVILY_TIMEOUT", true, diagnostics)
-            : new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true, diagnostics);
-        lastError = mapped;
-        if (!mapped.retryable || attempt >= retryLimit) throw mapped;
-        await this.sleep(retryBackoffMs(attempt, input.retryBackoffMs));
+          : mapTransportFailure(
+              error,
+              this.apiKey,
+              "RESPONSE_HEADERS",
+              providerHttpStatus,
+            );
+        await retryOrThrow(mapped, attempt);
       }
     }
     throw lastError;
@@ -657,7 +808,7 @@ abstract class TavilyProviderBase {
         throw new TavilySourceScopedError("TAVILY_COOLDOWN", true);
       }
       try {
-        const payload = await this.client.post({
+        const response = await this.client.post({
           endpoint: input.endpoint,
           body: input.body,
           timeoutMs: input.contract.limits.timeoutMs,
@@ -665,7 +816,12 @@ abstract class TavilyProviderBase {
           retryMaxAttempts: 0,
           retryBackoffMs: input.source.retryBackoffMs,
         });
-        return { payload, operationKey: reservation.operationKey, started };
+        return {
+          payload: response.payload,
+          providerHttpStatus: response.providerHttpStatus,
+          operationKey: reservation.operationKey,
+          started,
+        };
       } catch (error) {
         lastError = error;
         const diagnostics = error instanceof TavilySourceScopedError ? error.diagnostics : undefined;
@@ -688,6 +844,7 @@ abstract class TavilyProviderBase {
           httpStatus: diagnostics?.providerHttpStatus ?? undefined,
           providerErrorCode: diagnostics?.providerErrorCode ?? undefined,
           providerRequestId: diagnostics?.providerRequestId ?? undefined,
+          transportPhase: diagnostics?.transportPhase ?? undefined,
           transportErrorName: diagnostics?.transportErrorName ?? undefined,
           transportErrorCode: diagnostics?.transportErrorCode ?? undefined,
         }));
@@ -777,14 +934,25 @@ export class TavilyAutomationCrawlProvider extends TavilyProviderBase {
     try {
       parsed = parsePayload(req.payload);
     } catch (error) {
+      const invalid = error instanceof TavilySourceScopedError
+        ? new TavilySourceScopedError(error.code, error.retryable, {
+            ...error.diagnostics,
+            providerHttpStatus: req.providerHttpStatus,
+            transportPhase: "RESPONSE_VALIDATE",
+          })
+        : new TavilySourceScopedError("TAVILY_INVALID_RESPONSE", false, {
+            providerHttpStatus: req.providerHttpStatus,
+            transportPhase: "RESPONSE_VALIDATE",
+          });
       await input.gate.finalize({
         operationKey: req.operationKey,
         status: "INVALID_RESPONSE",
         resultCount: 0,
         acceptedCount: 0,
         scopeRejectedCount: 0,
+        diagnostics: invalid.diagnostics,
       });
-      throw error;
+      throw invalid;
     }
     const filtered = filterRows(parsed.rows, input.contract);
     const truncated = parsed.rows.length >= limit
@@ -878,14 +1046,25 @@ export class TavilyAutomationExtractProvider extends TavilyProviderBase {
     try {
       parsed = parsePayload(req.payload);
     } catch (error) {
+      const invalid = error instanceof TavilySourceScopedError
+        ? new TavilySourceScopedError(error.code, error.retryable, {
+            ...error.diagnostics,
+            providerHttpStatus: req.providerHttpStatus,
+            transportPhase: "RESPONSE_VALIDATE",
+          })
+        : new TavilySourceScopedError("TAVILY_INVALID_RESPONSE", false, {
+            providerHttpStatus: req.providerHttpStatus,
+            transportPhase: "RESPONSE_VALIDATE",
+          });
       await input.gate.finalize({
         operationKey: req.operationKey,
         status: "INVALID_RESPONSE",
         resultCount: 0,
         acceptedCount: 0,
         scopeRejectedCount: 0,
+        diagnostics: invalid.diagnostics,
       });
-      throw error;
+      throw invalid;
     }
     const filtered = filterRows(parsed.rows, input.contract);
     const coverage: AutomationExtractionCoverage = {

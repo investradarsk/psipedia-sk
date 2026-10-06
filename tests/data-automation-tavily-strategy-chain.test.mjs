@@ -142,7 +142,7 @@ function governanceDb(row) {
             async first() {
               if (sql.includes("automation_governance_reviews")) return row;
               if (sql.includes("sqlite_master") && sql.includes("automation_source_provider_usage")) {
-                return { name: "automation_source_provider_usage", sql: "CREATE TABLE automation_source_provider_usage (\n  provider_http_status integer,\n  provider_error_code text,\n  provider_error_detail text,\n  provider_request_id text,\n  transport_error_name text,\n  transport_error_code text\n)" };
+                return { name: "automation_source_provider_usage", sql: "CREATE TABLE automation_source_provider_usage (\n  provider_http_status integer,\n  provider_error_code text,\n  provider_error_detail text,\n  provider_request_id text,\n  transport_error_name text,\n  transport_error_code text,\n  transport_phase text\n)" };
               }
               throw new Error("unexpected query");
             },
@@ -150,7 +150,7 @@ function governanceDb(row) {
         },
         async first() {
           if (sql.includes("sqlite_master") && sql.includes("automation_source_provider_usage")) {
-            return { name: "automation_source_provider_usage", sql: "CREATE TABLE automation_source_provider_usage (\n  provider_http_status integer,\n  provider_error_code text,\n  provider_error_detail text,\n  provider_request_id text,\n  transport_error_name text,\n  transport_error_code text\n)" };
+            return { name: "automation_source_provider_usage", sql: "CREATE TABLE automation_source_provider_usage (\n  provider_http_status integer,\n  provider_error_code text,\n  provider_error_detail text,\n  provider_request_id text,\n  transport_error_name text,\n  transport_error_code text,\n  transport_phase text\n)" };
           }
           throw new Error("unexpected query");
         },
@@ -563,7 +563,7 @@ test("TAVILY_CRAWL auth/rate/budget failures do not bypass into Extract", async 
 });
 
 
-test("Tavily activation fails closed while provider diagnostics migration 0111 is missing", async () => {
+test("Tavily activation fails closed while transport phase migration 0112 is missing", async () => {
   const db = governanceDb(governanceRow());
   const originalPrepare = db.prepare.bind(db);
   db.prepare = (sql) => {
@@ -572,7 +572,7 @@ test("Tavily activation fails closed while provider diagnostics migration 0111 i
         async first() {
           return {
             name: "automation_source_provider_usage",
-            sql: "CREATE TABLE automation_source_provider_usage (id integer, status text)",
+            sql: "CREATE TABLE automation_source_provider_usage (\n  provider_http_status integer,\n  provider_error_code text,\n  provider_error_detail text,\n  provider_request_id text,\n  transport_error_name text,\n  transport_error_code text\n)",
           };
         },
         bind() {
@@ -580,7 +580,7 @@ test("Tavily activation fails closed while provider diagnostics migration 0111 i
             async first() {
               return {
                 name: "automation_source_provider_usage",
-                sql: "CREATE TABLE automation_source_provider_usage (id integer, status text)",
+                sql: "CREATE TABLE automation_source_provider_usage (\n  provider_http_status integer,\n  provider_error_code text,\n  provider_error_detail text,\n  provider_request_id text,\n  transport_error_name text,\n  transport_error_code text\n)",
               };
             },
           };

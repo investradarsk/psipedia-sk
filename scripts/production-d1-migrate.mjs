@@ -104,6 +104,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0109_dynamic_entity_identity_indexes.sql",
   "0110_tavily_source_provider_usage.sql",
   "0111_tavily_provider_diagnostics.sql",
+  "0112_tavily_transport_phase.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -168,6 +169,10 @@ export const AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS = Object.freeze([
   "provider_request_id",
   "transport_error_name",
   "transport_error_code",
+]);
+
+export const AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS = Object.freeze([
+  "transport_phase",
 ]);
 
 export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
@@ -1070,6 +1075,12 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS.some((column) => sql.includes(column)),
     };
   }
+  if (targetMigration === "0112_tavily_transport_phase.sql") {
+    const sql = String(names.get("automation_source_provider_usage")?.sql ?? "");
+    return {
+      partial: AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS.some((column) => sql.includes(column)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1624,6 +1635,14 @@ export function assertAutomationSourceProviderDiagnosticsSchema(schema) {
   }
 }
 
+export function assertAutomationSourceProviderTransportPhaseSchema(schema) {
+  const names = objectMap(schema.objects);
+  const sql = String(names.get("automation_source_provider_usage")?.sql ?? "");
+  for (const column of AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS) {
+    invariant(sql.includes(column), `automation_source_provider_usage.${column} is missing`);
+  }
+}
+
 export function assertAutomationGovernanceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("automation_governance_reviews")?.type === "table", "Missing automation_governance_reviews table");
@@ -1785,6 +1804,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 109) assertDynamicEntityIdentitySchema(schema);
   if (migrationIndex(targetMigration) >= 110) assertAutomationSourceProviderUsageSchema(schema);
   if (migrationIndex(targetMigration) >= 111) assertAutomationSourceProviderDiagnosticsSchema(schema);
+  if (migrationIndex(targetMigration) >= 112) assertAutomationSourceProviderTransportPhaseSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {
