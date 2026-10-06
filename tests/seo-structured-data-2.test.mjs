@@ -8,6 +8,7 @@ import {
   SITE_LOGO_URL,
   WEBSITE_ID,
   articleAuthorJsonLd,
+  buildGenericMainEntityJsonLd,
   buildSiteIdentityJsonLd,
   buildWebPageJsonLd,
 } from "../lib/seo.ts";
@@ -52,6 +53,26 @@ test("SEO-STRUCTURED-DATA-2 canonical WebPage references the shared WebSite, pub
   assert.equal(page.datePublished, "2026-09-01T10:00:00.000Z");
   assert.equal(page.dateModified, "2026-10-03T10:00:00.000Z");
   assert.equal(page.inLanguage, "sk-SK");
+});
+
+test("SITEWIDE-AI-ENTITY-SURFACE-1 generic public entities get deterministic canonical identity without invented subtype semantics", () => {
+  const entity = buildGenericMainEntityJsonLd({
+    canonical: "/pomoc-psom/adopcia/ben",
+    name: "Ben",
+    description: "Verejný opis psa.",
+    image: "/images/ben.webp",
+    idSuffix: "dog",
+  });
+
+  assert.deepEqual(entity, {
+    "@type": "Thing",
+    "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#dog",
+    name: "Ben",
+    url: "https://psipedia.sk/pomoc-psom/adopcia/ben",
+    mainEntityOfPage: { "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben" },
+    description: "Verejný opis psa.",
+    image: "https://psipedia.sk/images/ben.webp",
+  });
 });
 
 test("SEO-STRUCTURED-DATA-2 editorial author reuses the canonical Psipedia Organization instead of creating a second incomplete Organization", () => {
