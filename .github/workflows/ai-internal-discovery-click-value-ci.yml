@@ -1,19 +1,36 @@
 name: AI-INTERNAL-DISCOVERY-CLICK-VALUE-1 validation
+
 on:
   pull_request:
     branches: [main]
-permissions: { contents: read }
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "tests/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/ai-internal-discovery-click-value-ci.yml"
+
+permissions:
+  contents: read
+
 concurrency:
   group: ai-internal-discovery-click-value-1-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
 jobs:
   contracts:
+    name: Discovery contracts, lint, build and regressions
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24.18.0, cache: npm }
+        with:
+          node-version: 24.18.0
+          cache: npm
       - run: npm ci
       - run: npm run test:internal-discovery
       - run: npm run test:directory-ai-landings-scale
@@ -21,48 +38,87 @@ jobs:
       - run: npm run test:sitewide-ai-entity-surface
       - run: npm run test:seo-structured-data
       - run: npm run test:article-ux
-      - run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/sitemap-seo.test.mjs
       - run: npm run lint
       - run: npm run build
+      - name: Rendered HTML and sitemap regression
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/sitemap-seo.test.mjs
+
   playwright:
+    name: Discovery Playwright — desktop/mobile
     needs: contracts
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env: { E2E_BASE_URL: "http://localhost:5173", PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1", LOST_FOUND_SUBMISSIONS_ENABLED: "1" }
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      LOST_FOUND_SUBMISSIONS_ENABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24.18.0, cache: npm }
+        with:
+          node-version: 24.18.0
+          cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - run: |
+      - name: Configure CI-only local PII keys
+        run: |
           PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
           PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
-          printf 'PII_ENCRYPTION_KEY=%s\nPII_HASH_KEY=%s\nTURNSTILE_SITE_KEY=1x00000000000000000000AA\nPSIPEDIA_E2E_LOCAL_BOOTSTRAP=1\nLOST_FOUND_SUBMISSIONS_ENABLED=1\n' "$PII_ENCRYPTION_KEY" "$PII_HASH_KEY" > .dev.vars
-      - run: |
-          mv drizzle/0038_adoption_staging_data.sql /tmp/0038.sql
-          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039.sql
-          trap 'mv /tmp/0038.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$PII_ENCRYPTION_KEY"
+            printf 'PII_HASH_KEY=%s\n' "$PII_HASH_KEY"
+            printf '%s\n' "TURNSTILE_SITE_KEY=1x00000000000000000000AA"
+            printf '%s\n' "PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1"
+            printf '%s\n' "LOST_FOUND_SUBMISSIONS_ENABLED=1"
+          } > .dev.vars
+      - name: Apply foundation migrations to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
-      - run: |
+      - name: Seed pre-start public fixtures
+        run: |
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
           npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
-      - run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs
-      - run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
-      - run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs verify
-      - run: node scripts/bootstrap-breed-e2e.mjs prepare
-      - run: |
+      - name: Seed adoption staging prerequisites
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs
+      - name: Apply canonical adoption migrations
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Verify canonical adoption activation
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs verify
+      - name: Prepare deterministic breed assets
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
+      - name: Start isolated local app
+        run: |
           mkdir -p .e2e-artifacts/internal-discovery
           nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/internal-discovery/server.log 2>&1 &
           echo $! > .e2e-artifacts/internal-discovery/server.pid
-          for i in $(seq 1 120); do curl -sf http://localhost:5173/ >/dev/null && exit 0; sleep 1; done
-          tail -200 .e2e-artifacts/internal-discovery/server.log; exit 1
-      - run: |
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/internal-discovery/server.log
+            exit 1
+          fi
+      - name: Seed runtime canonical relations
+        run: |
           node scripts/bootstrap-breed-e2e.mjs seed
           node scripts/bootstrap-adoption-e2e.mjs
           node scripts/bootstrap-internal-discovery-e2e.mjs
-      - run: npm run e2e -- tests/e2e/internal-discovery.spec.ts --project=desktop-chromium --workers=1 --retries=0
-      - run: npm run e2e -- tests/e2e/internal-discovery.spec.ts --project=mobile-chromium --workers=1 --retries=0
-      - if: always()
-        run: kill "$(cat .e2e-artifacts/internal-discovery/server.pid)" 2>/dev/null || true
+      - name: Discovery Playwright — desktop
+        run: npm run e2e -- tests/e2e/internal-discovery.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Discovery Playwright — mobile
+        run: npm run e2e -- tests/e2e/internal-discovery.spec.ts --project=mobile-chromium --workers=1 --retries=0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/internal-discovery/server.pid ]; then
+            kill "$(cat .e2e-artifacts/internal-discovery/server.pid)" 2>/dev/null || true
+          fi
