@@ -65,11 +65,11 @@ jobs:
         run: npm run build
       - name: Configure isolated local security values
         run: |
-          encryption_name="PII_ENCRYPTION_KEY"
-          hash_name="PII_HASH_KEY"
+          PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
+          PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
           {
-            printf '%s=%s\n' "$encryption_name" "$(openssl rand -base64 32)"
-            printf '%s=%s\n' "$hash_name" "$(openssl rand -base64 32)"
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$PII_ENCRYPTION_KEY"
+            printf 'PII_HASH_KEY=%s\n' "$PII_HASH_KEY"
             printf '%s\n' "TURNSTILE_SITE_KEY=1x00000000000000000000AA"
             printf '%s\n' "PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1"
             printf '%s\n' "LOST_FOUND_SUBMISSIONS_ENABLED=1"
