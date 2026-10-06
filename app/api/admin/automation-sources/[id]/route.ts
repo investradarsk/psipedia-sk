@@ -4,8 +4,6 @@ import { isAutomationCadenceOption } from "@/lib/admin-automation-presentation";
 import { parseAutomationSourceAdminInput } from "@/lib/data-automation-source-admin";
 import { parseAutomationGovernanceInput, upsertGovernanceReview } from "@/lib/data-automation-governance";
 import { runAutomationSourceNow } from "@/lib/data-automation-runner";
-import { productionAutomationHtmlAdapters } from "@/lib/data-automation-real-sources";
-import { createProductionOrganizationEnricher } from "@/lib/data-automation-organization-enrichment";
 import {
   configureAutomationSource,
   getAutomationSourceAdmin,
@@ -69,15 +67,15 @@ export async function PUT(request: Request, { params }: Props) {
         technicalGovernanceRefresh: enabled ? {
           actor: auth.user.email,
           tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+          internetTransport: "TAVILY_ONLY",
         } : undefined,
       }, bindings.DB);
       const immediateRun = enabled && !before.enabled && schedule.mode === "INTERVAL";
       if (immediateRun) {
         const task = runAutomationSourceNow(id, {
           database: bindings.DB,
-          htmlAdapters: productionAutomationHtmlAdapters,
-          organizationEnricher: createProductionOrganizationEnricher(),
           tavilyApiKey: bindings.TAVILY_API_KEY,
+          internetTransport: "TAVILY_ONLY",
         }).catch((error) => console.error(JSON.stringify({
           event: "automation_source_immediate_first_run",
           sourceId: id,
@@ -110,6 +108,7 @@ export async function PUT(request: Request, { params }: Props) {
           source,
           actor: auth.user.email,
           database: bindings.DB,
+          internetTransport: "TAVILY_ONLY",
         });
       }
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });
@@ -125,6 +124,7 @@ export async function PUT(request: Request, { params }: Props) {
         technicalGovernanceRefresh: enabled ? {
           actor: auth.user.email,
           tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+          internetTransport: "TAVILY_ONLY",
         } : undefined,
       }, bindings.DB);
       return source ? Response.json({ source }) : Response.json({ error: "Zdroj sa nenašiel." }, { status: 404 });

@@ -5,8 +5,6 @@ import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
 import { TavilyAutomationSearchProvider } from "../lib/data-automation-search-tavily";
-import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources";
-import { createProductionOrganizationEnricher } from "../lib/data-automation-organization-enrichment";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runPartnerNotificationSweep } from "../lib/partner-email";
 import { cleanupPartnerMedia } from "../lib/partner-media";
@@ -374,9 +372,8 @@ const worker = {
       }),
       runDataAutomationSweep({
         database: env.DB,
-        htmlAdapters: productionAutomationHtmlAdapters,
-        organizationEnricher: createProductionOrganizationEnricher(),
         tavilyApiKey: env.TAVILY_API_KEY,
+        internetTransport: "TAVILY_ONLY",
       }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_sweep",
@@ -388,6 +385,8 @@ const worker = {
       runDataAutomationDiscoverySweep({
         database: env.DB,
         searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
+        tavilyApiKey: env.TAVILY_API_KEY,
+        internetTransport: "TAVILY_ONLY",
       }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_discovery_sweep",

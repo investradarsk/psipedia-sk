@@ -52,7 +52,15 @@ export async function POST(request: Request, { params }: Props) {
   for (const root of runnable) await recordAutomationSearchAdminEvent({ root, actorEmail: auth.user.email, reason: "MANUAL_RUN", extraRequests: 0, now }, bindings.DB);
   await releaseAutomationSearchCooldownsForAdmin({ rootIds: runnable.map((root) => root.id), now }, bindings.DB);
   const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
-  const task = Promise.allSettled(runnable.map((root) => runAutomationDiscoveryRootCanary({ rootId: root.id, options: { database: bindings.DB!, searchProvider: provider } }))).then((results) => {
+  const task = Promise.allSettled(runnable.map((root) => runAutomationDiscoveryRootCanary({
+    rootId: root.id,
+    options: {
+      database: bindings.DB!,
+      searchProvider: provider,
+      tavilyApiKey: bindings.TAVILY_API_KEY,
+      internetTransport: "TAVILY_ONLY",
+    },
+  }))).then((results) => {
     results.forEach((result, index) => {
       if (result.status === "rejected") console.error(JSON.stringify({ event: "automation_category_manual_search", category: slug, rootId: runnable[index]?.id, result: "failed", error: result.reason instanceof Error ? result.reason.message : String(result.reason) }));
     });

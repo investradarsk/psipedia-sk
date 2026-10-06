@@ -59,7 +59,6 @@ import {
 } from "./data-automation-product-model.ts";
 import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
 import type { EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
-import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import type { AutomationEnrichmentSearchPlan } from "./data-automation-enrichment-evidence.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { DirectoryAddressSearch } from "./data-automation-directory-address-enrichment.ts";
@@ -78,8 +77,15 @@ export type AutomationDiscoveryFetch = (input: RequestInfo | URL, init?: Request
 export type DataAutomationDiscoverySweepOptions = {
   database: D1Database;
   now?: Date;
+  /**
+   * Transport injection used for Tavily API calls in production and for
+   * deterministic provider mocks in tests. TAVILY_ONLY prevents legacy roots
+   * from using it against arbitrary third-party origins.
+   */
   fetchImpl?: AutomationDiscoveryFetch;
   searchProvider?: AutomationSearchProvider;
+  tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   sleep?: (ms: number) => Promise<void>;
 };
 
@@ -1017,6 +1023,10 @@ async function discoverCandidates(
     };
   }
 
+  if (options.internetTransport === "TAVILY_ONLY") {
+    throw new AutomationSearchProviderError("TAVILY_ONLY_LEGACY_ROOT_UNSUPPORTED");
+  }
+
   if (root.discoveryType === "SITEMAP") {
     return discoverSitemapCandidates(root, options, maxCandidates);
   }
@@ -1303,9 +1313,6 @@ async function runDiscoveryRoot(
       }, options.database);
       exclusionCount = Math.max(exclusionCount, exclusions.exclusionCount);
       const enrichmentSearch = await entityEnrichmentSearchForRoot(root, options, runId);
-      const organizationEnricher: OrganizationRecordEnricher | undefined = root.entityType === "ORGANIZATION"
-        ? createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl })
-        : undefined;
 
       for (const candidate of candidates) {
         try {
@@ -1346,11 +1353,12 @@ async function runDiscoveryRoot(
             directoryCategory,
             database: options.database,
             fetchImpl: options.fetchImpl,
+            tavilyApiKey: options.tavilyApiKey,
+            internetTransport: options.internetTransport,
             now: startedAt,
             provenanceType: "DIRECT_ENTITY_DISCOVERY",
             addressSearch,
             enrichmentSearch,
-            organizationEnricher,
             addressEvidenceText: searchSnippet,
           });
           canonicalDuplicateCount += ingested.existingCanonicalMatches;
@@ -1572,7 +1580,6 @@ async function runDirectEntityRefresh(
     now,
   );
   const refreshEnrichmentSearches = new Map<number, EntityEnrichmentSearch | undefined>();
-  const refreshOrganizationEnricher = createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl });
   let checked = 0;
   let canonicalDuplicates = 0;
   let updateSuggestions = 0;
@@ -1606,12 +1613,13 @@ async function runDirectEntityRefresh(
         directoryCategory: candidate.category,
         database: options.database,
         fetchImpl: options.fetchImpl,
+        tavilyApiKey: options.tavilyApiKey,
+        internetTransport: options.internetTransport,
         now,
         provenanceType: "DIRECT_ENTITY_REFRESH",
         expectedCanonicalEntityId: candidate.id,
         addressSearch,
         enrichmentSearch,
-        organizationEnricher: candidate.entityType === "ORGANIZATION" ? refreshOrganizationEnricher : undefined,
       });
       canonicalDuplicates += refreshed.canonicalDuplicates;
       updateSuggestions += refreshed.updateSuggestions;
@@ -1653,8 +1661,18 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
     roots = await listDueAutomationDiscoveryRoots(
       options.database as AutomationDiscoveryDatabase,
       options.now ?? new Date(),
-      DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP,
+      options.internetTransport === "TAVILY_ONLY"
+        ? 50
+        : DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP,
     );
+    if (options.internetTransport === "TAVILY_ONLY") {
+      // Legacy RSS/SITEMAP/STRUCTURED_DIRECTORY roots are intentionally not
+      // executed in production: they perform direct third-party HTTP reads.
+      // Tavily SEARCH_PROVIDER roots are the only internet discovery transport.
+      roots = roots
+        .filter((root) => root.discoveryType === "SEARCH_PROVIDER")
+        .slice(0, DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP);
+    }
   } catch (error) {
     if (missingDiscoverySchema(error)) {
       return { roots: 0, success: 0, partial: 0, failed: 0, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 0, schemaReady: false, runs: [] as DiscoveryRunSummary[] };

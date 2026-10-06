@@ -57,12 +57,13 @@ export async function previewAutomationSource(input: {
   fetchImpl?: AutomationFetch;
   sleep?: (ms: number) => Promise<void>;
   tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 }) {
-  let httpStatus: number | null = null;
-  let contentType: string | null = null;
-  let contentLength: number | null = null;
-  let finalUrl: string | null = input.source.sourceUrl;
-  let redirectCount = 0;
+  const httpStatus: number | null = null;
+  const contentType: string | null = null;
+  const contentLength: number | null = null;
+  const finalUrl: string | null = input.source.sourceUrl;
+  const redirectCount = 0;
   const startedAt = Date.now();
 
   try {
@@ -71,7 +72,14 @@ export async function previewAutomationSource(input: {
       input.database,
     );
     const scoped = buildSourceScopedExtractionContract(input.source, governance.state);
+    const tavilyOnly = input.internetTransport === "TAVILY_ONLY";
     const tavilyKey = input.tavilyApiKey?.trim() ?? "";
+    if (tavilyOnly && input.source.connectorType === "CONTROLLED_HTML" && !tavilyKey) {
+      throw new AutomationConnectorError("tavily_config_missing");
+    }
+    if (tavilyOnly && input.source.connectorType !== "CONTROLLED_HTML" && input.source.connectorType !== "MANUAL_IMPORT") {
+      throw new AutomationConnectorError("tavily_connector_unsupported");
+    }
     const tavilyCrawlProvider = tavilyKey
       ? new TavilyAutomationCrawlProvider({
           apiKey: tavilyKey,
@@ -124,26 +132,27 @@ export async function previewAutomationSource(input: {
           },
         }
       : undefined;
+    const tavilyStrategy = tavilyOnly && input.source.connectorType === "CONTROLLED_HTML"
+      ? input.source.config.sourceShape === "SINGLE_ITEM"
+        ? "TAVILY_EXTRACT" as const
+        : "TAVILY_CRAWL" as const
+      : undefined;
     const records = await fetchAutomationSourceRecords(input.source, {
+      // Explicit provider strategy means this transport can only call Tavily,
+      // never the third-party source origin directly.
       fetchImpl: input.fetchImpl,
       sleep: input.sleep,
-      htmlAdapters: productionAutomationHtmlAdapters,
+      htmlAdapters: tavilyOnly ? undefined : productionAutomationHtmlAdapters,
       sourceScopedContract: scoped.ready ? scoped.contract : undefined,
+      strategyOverride: tavilyStrategy,
       tavilyCrawlProvider,
       tavilyExtractProvider,
       tavilyRequestGate,
-      onResponse(meta) {
-        httpStatus = meta.status;
-        contentType = meta.contentType;
-        contentLength = meta.contentLength;
-        finalUrl = meta.finalUrl;
-        redirectCount = meta.redirectCount;
-      },
     });
-
-    const organizationEnricher = input.source.entityType === "ORGANIZATION"
+    const organizationEnricher = !tavilyOnly && input.source.entityType === "ORGANIZATION"
       ? createProductionOrganizationEnricher({ fetchImpl: input.fetchImpl })
       : null;
+
     let normalized = 0;
     let possibleMatches = 0;
     let newCandidates = 0;

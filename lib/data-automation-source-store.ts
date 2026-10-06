@@ -318,6 +318,7 @@ type AutomationSourceTechnicalGovernanceRefreshOptions = {
   actor: string;
   fetchImpl?: typeof fetch;
   tavilyCredentialConfigured?: boolean;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 };
 
 async function sourceActivationReadinessForEnable(
@@ -329,14 +330,21 @@ async function sourceActivationReadinessForEnable(
     technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
   },
 ) {
+  const internetTransport = input.technicalGovernanceRefresh?.internetTransport;
   let readiness = await automationSourceActivationReadiness(source, db, {
     cadenceMinutes,
     now: input.now,
-    fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
+    fetchImpl: internetTransport === "TAVILY_ONLY" ? undefined : input.technicalGovernanceRefresh?.fetchImpl,
     tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
+    internetTransport,
   });
+
+  // Production always passes TAVILY_ONLY and therefore never enters this
+  // legacy compatibility branch. It remains only for isolated lower-level
+  // tests and explicit non-production callers.
   if (
-    !readiness.ready
+    internetTransport !== "TAVILY_ONLY"
+    && !readiness.ready
     && input.technicalGovernanceRefresh
     && automationSourceTechnicalGovernanceRefreshNeeded(readiness)
   ) {
@@ -350,10 +358,12 @@ async function sourceActivationReadinessForEnable(
     readiness = await automationSourceActivationReadiness(source, db, {
       cadenceMinutes,
       now: input.now,
-      fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
-      tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
+      fetchImpl: input.technicalGovernanceRefresh.fetchImpl,
+      tavilyCredentialConfigured: input.technicalGovernanceRefresh.tavilyCredentialConfigured,
+      internetTransport,
     });
   }
+
   return readiness;
 }
 

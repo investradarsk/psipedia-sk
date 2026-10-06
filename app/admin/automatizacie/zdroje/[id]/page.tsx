@@ -20,7 +20,7 @@ import { readAdminAutomationData, summarizeAdminAutomationReads } from "@/lib/ad
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
-type Bindings = { DB?: D1Database };
+type Bindings = { DB?: D1Database; TAVILY_API_KEY?: string };
 
 export default async function AutomationSourceDetailPage({ params }: Props) {
   const rawId = (await params).id;
@@ -57,7 +57,11 @@ export default async function AutomationSourceDetailPage({ params }: Props) {
       key: `source-detail:${id}:readiness`,
       load: async () => {
         if (!db) throw new Error("DB binding unavailable");
-        return automationSourceActivationReadiness(source, db);
+        const bindings = env as unknown as Bindings;
+        return automationSourceActivationReadiness(source, db, {
+          tavilyCredentialConfigured: Boolean(bindings.TAVILY_API_KEY?.trim()),
+          internetTransport: "TAVILY_ONLY",
+        });
       },
       fallback: null,
       empty: (value) => value === null,

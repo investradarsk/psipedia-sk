@@ -447,3 +447,43 @@ test("activation may select Tavily only after a safe generic parser insufficienc
   assert.equal(readiness.ready, true);
   assert.equal(readiness.reason, "READY");
 });
+
+
+test("TAVILY_ONLY activation never probes the third-party source or robots.txt", async () => {
+  let fetches = 0;
+  const readiness = await automationSourceActivationReadiness(
+    source(),
+    governanceDb(governanceRow({
+      access_status: "UNKNOWN",
+      robots_status: "UNKNOWN",
+    })),
+    {
+      tavilyCredentialConfigured: true,
+      internetTransport: "TAVILY_ONLY",
+      fetchImpl: async () => {
+        fetches += 1;
+        throw new Error("third-party origin must not be fetched during Tavily-only activation");
+      },
+    },
+  );
+  assert.equal(fetches, 0);
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.reason, "READY");
+});
+
+test("TAVILY_ONLY activation fails closed when Tavily is not configured", async () => {
+  const readiness = await automationSourceActivationReadiness(
+    source(),
+    governanceDb(governanceRow({
+      access_status: "UNKNOWN",
+      robots_status: "UNKNOWN",
+    })),
+    {
+      tavilyCredentialConfigured: false,
+      internetTransport: "TAVILY_ONLY",
+    },
+  );
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.reason, "TECHNICAL_NOT_READY");
+  assert.equal(readiness.technicalReason, "TAVILY_CONFIG_MISSING");
+});

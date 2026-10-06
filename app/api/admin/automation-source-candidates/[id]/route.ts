@@ -62,6 +62,7 @@ export async function PUT(request: Request, { params }: Props) {
             source,
             actor: auth.user.email,
             database: db,
+            internetTransport: "TAVILY_ONLY",
           });
         }
       }

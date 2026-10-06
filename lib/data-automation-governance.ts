@@ -163,6 +163,12 @@ export function evaluateGovernanceForActivation(
     recurring: boolean;
     cadenceMinutes?: number | null;
     storageFields?: Array<"url" | "title" | "snippet" | "metadata">;
+    /**
+     * Public internet transport is delegated to an approved provider (Tavily).
+     * In this mode Psipedia must not probe the third-party origin directly, so
+     * local access/robots probe state is not an activation prerequisite.
+     */
+    providerManagedAccess?: boolean;
   },
   now = new Date(),
 ): AutomationGovernanceEvaluation {
@@ -172,8 +178,10 @@ export function evaluateGovernanceForActivation(
   if (!state) reasons.push("GOVERNANCE_MISSING");
   if (state) {
     if (isoExpired(state.expiresAt, now)) reasons.push("GOVERNANCE_EXPIRED");
-    if (state.accessStatus !== "ALLOWED") reasons.push("ACCESS_NOT_ALLOWED");
-    if (!["ALLOWED", "NOT_APPLICABLE"].includes(state.robotsStatus)) reasons.push("ROBOTS_NOT_ALLOWED");
+    if (!usage.providerManagedAccess) {
+      if (state.accessStatus !== "ALLOWED") reasons.push("ACCESS_NOT_ALLOWED");
+      if (!["ALLOWED", "NOT_APPLICABLE"].includes(state.robotsStatus)) reasons.push("ROBOTS_NOT_ALLOWED");
+    }
     if (state.termsStatus !== "ALLOWED") reasons.push("TERMS_NOT_ALLOWED");
     if (usage.recurring && state.recurringStatus !== "APPROVED") reasons.push("RECURRING_USE_NOT_APPROVED");
     if (usage.recurring && state.manualOnly) reasons.push("MANUAL_ONLY");

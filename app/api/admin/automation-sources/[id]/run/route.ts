@@ -2,8 +2,6 @@ import { env, waitUntil } from "cloudflare:workers";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { runAutomationSourceNow } from "@/lib/data-automation-runner";
-import { productionAutomationHtmlAdapters } from "@/lib/data-automation-real-sources";
-import { createProductionOrganizationEnricher } from "@/lib/data-automation-organization-enrichment";
 import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
 import { automationSourceActivationReadiness } from "@/lib/data-automation-source-activation";
 
@@ -56,6 +54,7 @@ export async function POST(request: Request, { params }: Props) {
   if (source.reviewStatus !== "APPROVED") return Response.json({ error: "automation_source_review_required" }, { status: 409 });
   const readiness = await automationSourceActivationReadiness(source, db, {
     tavilyCredentialConfigured: Boolean((env as unknown as RuntimeBindings).TAVILY_API_KEY?.trim()),
+    internetTransport: "TAVILY_ONLY",
   });
   if (!readiness.ready) {
     return Response.json({
@@ -75,9 +74,8 @@ export async function POST(request: Request, { params }: Props) {
 
   const task = runAutomationSourceNow(id, {
     database: db,
-    htmlAdapters: productionAutomationHtmlAdapters,
-    organizationEnricher: createProductionOrganizationEnricher(),
     tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
+    internetTransport: "TAVILY_ONLY",
   }).catch((error) => {
     console.error(JSON.stringify({
       event: "automation_manual_background_run",

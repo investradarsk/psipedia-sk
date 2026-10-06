@@ -299,13 +299,15 @@ test("AUTOMATION-ENTITY-ENRICHMENT-2 entity templates normalize specialized pars
   assert.equal(help.actionUrl, "https://example.sk/pomoc");
 });
 
-test("AUTOMATION-ENTITY-ENRICHMENT-2 direct organization flow runs first-party enrichment before targeted search", () => {
+test("TAVILY-INTERNET-ONLY direct organization flow never creates a production first-party HTTP enricher", () => {
   const direct = read("lib/data-automation-direct-entity.ts");
   const firstParty = direct.indexOf("await organizationEnricher(fetchedRecord");
   const schemaFirst = direct.indexOf("await enrichAutomationRecordSchemaFirst({");
-  assert.ok(firstParty >= 0);
+  assert.ok(firstParty >= 0, "explicitly injected test enricher remains supported");
   assert.ok(schemaFirst > firstParty);
-  assert.match(direct, /input\.organizationEnricher \?\? createProductionOrganizationEnricher/);
+  assert.match(direct, /input\.organizationEnricher \?\? null/);
+  assert.doesNotMatch(direct, /createProductionOrganizationEnricher/);
+  assert.match(direct, /strategyOverride:\s*"TAVILY_EXTRACT"/);
 });
 
 test("AUTOMATION-ENTITY-ENRICHMENT-2 dedicated search budget family stays separate from discovery counters", () => {

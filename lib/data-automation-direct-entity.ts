@@ -4,6 +4,11 @@ import { getAutomationRecordSuppression } from "./automation-record-suppressions
 import { upsertCanonicalPossibleDuplicateFlag } from "./canonical-draft-flags.ts";
 import { ensureResourceForDirectoryProfile, ensureResourceForHelpOrganization } from "./canonical-resource.ts";
 import { AutomationConnectorError, fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
+import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
+import {
+  TavilyAutomationExtractProvider,
+  type TavilySourceScopedRequestGate,
+} from "./data-automation-tavily-source-scoped.ts";
 import { mapAutomationRecordToDraftInput } from "./data-automation-draft-mapper.ts";
 import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
 import {
@@ -18,7 +23,9 @@ import {
 } from "./data-automation-address-review-store.ts";
 import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
-import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
+import type { OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
+import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
+import { probeAutomationSourceAccess, probeAutomationSourceRobots } from "./data-automation-source-activation.ts";
 import { enrichAutomationRecordSchemaFirst, type EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
 import {
   classifyAutomationFinding,
@@ -28,7 +35,6 @@ import {
   type AutomationSource,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
-import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { matchAutomationCanonical } from "./data-automation-store.ts";
 import {
@@ -37,7 +43,6 @@ import {
   sanitizeDirectEntityUpdateProposal,
 } from "./data-automation-direct-identity.ts";
 import { automationMatchExplanation, type AutomationMatchExplanationCode } from "./data-automation-operations-model.ts";
-import { probeAutomationSourceAccess, probeAutomationSourceRobots } from "./data-automation-source-activation.ts";
 import {
   upsertCanonicalExternalProvenance,
   upsertDirectEntityUpdateSuggestion,
@@ -282,17 +287,72 @@ async function fetchDirectEntityRecords(
     searchSnippet?: string | null;
     directoryCategory?: string | null;
     fetchImpl: AutomationFetch;
+    tavilyApiKey?: string;
+    internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   },
 ) {
+  if (input.internetTransport !== "TAVILY_ONLY") {
+    // Compatibility path for deterministic low-level tests only. Production
+    // orchestration always passes TAVILY_ONLY.
+    try {
+      return await fetchAutomationSourceRecords(source, {
+        fetchImpl: input.fetchImpl,
+        htmlAdapters: productionAutomationHtmlAdapters,
+      });
+    } catch (error) {
+      if (!(error instanceof AutomationConnectorError) || error.code !== "adapter_no_records") throw error;
+      const fallback = searchResultFallbackRecord(input);
+      return fallback ? [fallback] : [];
+    }
+  }
+
+  const apiKey = input.tavilyApiKey?.trim() ?? "";
+  if (!apiKey) throw new AutomationConnectorError("tavily_config_missing");
+
+  const scoped = buildSourceScopedExtractionContract(source, null);
+  if (!scoped.ready) throw new AutomationConnectorError("automation_source_contract_not_ready:" + scoped.reason);
+
+  const provider = new TavilyAutomationExtractProvider({
+    apiKey,
+    fetchImpl: input.fetchImpl,
+  });
+  let requests = 0;
+  const gate: TavilySourceScopedRequestGate = {
+    reserve: async (operation) => {
+      requests += 1;
+      if (requests > scoped.contract.limits.maxProviderRequests) return null;
+      return {
+        operationKey: [
+          "direct-entity",
+          source.entityType.toLowerCase(),
+          operation.toLowerCase(),
+          requests,
+        ].join(":"),
+      };
+    },
+    finalize: async () => undefined,
+  };
+
   try {
     return await fetchAutomationSourceRecords(source, {
       fetchImpl: input.fetchImpl,
-      htmlAdapters: productionAutomationHtmlAdapters,
+      sourceScopedContract: scoped.contract,
+      strategyOverride: "TAVILY_EXTRACT",
+      tavilyExtractProvider: provider,
+      tavilyRequestGate: gate,
     });
   } catch (error) {
-    if (!(error instanceof AutomationConnectorError) || error.code !== "adapter_no_records") throw error;
-    const fallback = searchResultFallbackRecord(input);
-    return fallback ? [fallback] : [];
+    // The already-retrieved Tavily Search candidate remains a weak, review-safe
+    // fallback only when Extract returned no usable page. #635 identity rules
+    // prevent this record from independently creating a canonical draft.
+    if (
+      error instanceof AutomationConnectorError
+      && ["tavily_no_usable_results", "tavily_invalid_response"].includes(error.code)
+    ) {
+      const fallback = searchResultFallbackRecord(input);
+      return fallback ? [fallback] : [];
+    }
+    throw error;
   }
 }
 
@@ -351,6 +411,8 @@ export async function ingestDirectEntityUrl(input: {
   directoryCategory?: string | null;
   database: D1Database;
   fetchImpl?: AutomationFetch;
+  tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   now?: Date;
   provenanceType?: CanonicalExternalProvenanceType;
   expectedCanonicalEntityId?: number | null;
@@ -368,18 +430,22 @@ export async function ingestDirectEntityUrl(input: {
   }
 
   const source = ephemeralSource(input);
-  if (!source.config.htmlAdapterKey) throw new Error("automation_direct_entity_adapter_missing");
-
   const fetchImpl = input.fetchImpl ?? fetch;
-  const [access, robots] = await Promise.all([
-    probeAutomationSourceAccess(source, fetchImpl),
-    probeAutomationSourceRobots(source, fetchImpl),
-  ]);
-  const robotsAllowed = robots.status === "ALLOWED" || robots.status === "NOT_APPLICABLE";
-  if (access.status !== "ALLOWED" || !robotsAllowed) {
-    throw new Error("automation_direct_entity_technical_governance_blocked");
+
+  if (input.internetTransport !== "TAVILY_ONLY") {
+    // Legacy/test compatibility only. Production direct discovery/refresh is
+    // explicitly TAVILY_ONLY and never reaches these origin probes.
+    const [access, robots] = await Promise.all([
+      probeAutomationSourceAccess(source, fetchImpl),
+      probeAutomationSourceRobots(source, fetchImpl),
+    ]);
+    const robotsAllowed = robots.status === "ALLOWED" || robots.status === "NOT_APPLICABLE";
+    if (access.status !== "ALLOWED" || !robotsAllowed) {
+      throw new Error("automation_direct_entity_technical_governance_blocked");
+    }
   }
 
+  // In production fetchImpl is only the Tavily API transport.
   const fetchedRecords = await fetchDirectEntityRecords(source, {
     entityType: input.entityType,
     sourceUrl: input.sourceUrl,
@@ -387,6 +453,8 @@ export async function ingestDirectEntityUrl(input: {
     searchSnippet: input.searchSnippet,
     directoryCategory: input.directoryCategory,
     fetchImpl,
+    tavilyApiKey: input.tavilyApiKey,
+    internetTransport: input.internetTransport,
   });
 
   let addressSearchUsed = false;
@@ -403,8 +471,11 @@ export async function ingestDirectEntityUrl(input: {
     addressReview: DirectoryAddressReviewProposal | null;
     addressAttempted: boolean;
   }> = [];
+  // Optional enrichers are dependency-injected for isolated tests. Production
+  // orchestration does not pass a first-party HTTP enricher; internet enrichment
+  // is performed by Tavily Search/Extract upstream.
   const organizationEnricher = input.entityType === "ORGANIZATION"
-    ? input.organizationEnricher ?? createProductionOrganizationEnricher({ fetchImpl })
+    ? input.organizationEnricher ?? null
     : null;
   for (const fetchedRecord of fetchedRecords) {
     const firstPartyRecord = organizationEnricher

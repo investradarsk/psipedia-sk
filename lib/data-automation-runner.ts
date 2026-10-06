@@ -107,6 +107,7 @@ export type DataAutomationSweepOptions = {
   sleep?: (ms: number) => Promise<void>;
   organizationEnricher?: OrganizationRecordEnricher;
   tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 };
 
 type SourceRunSummary = {
@@ -700,6 +701,8 @@ async function runSource(
       recurring: true,
       cadenceMinutes: source.cadenceMinutes,
       storageFields: ["url", "metadata"],
+      providerManagedAccess: options.internetTransport === "TAVILY_ONLY"
+        && source.connectorType !== "MANUAL_IMPORT",
     }, startedAt);
     if (!governanceDecision.allowed) {
       throw new AutomationConnectorError(
@@ -714,9 +717,16 @@ async function runSource(
       throw new AutomationConnectorError("automation_source_contract_not_ready:" + scoped.reason);
     }
 
+    const tavilyOnly = options.internetTransport === "TAVILY_ONLY";
+    if (tavilyOnly && source.connectorType !== "MANUAL_IMPORT" && source.connectorType !== "CONTROLLED_HTML") {
+      throw new AutomationConnectorError("tavily_connector_unsupported");
+    }
     const tavilyKey = source.connectorType === "CONTROLLED_HTML"
       ? options.tavilyApiKey?.trim() ?? ""
       : "";
+    if (tavilyOnly && source.connectorType === "CONTROLLED_HTML" && !tavilyKey) {
+      throw new AutomationConnectorError("tavily_config_missing");
+    }
     const tavilyCrawlProvider = tavilyKey
       ? new TavilyAutomationCrawlProvider({
           apiKey: tavilyKey,
@@ -773,11 +783,20 @@ async function runSource(
       },
     } : undefined;
 
+    const tavilyStrategy = tavilyOnly && source.connectorType === "CONTROLLED_HTML"
+      ? source.config.sourceShape === "SINGLE_ITEM"
+        ? "TAVILY_EXTRACT" as const
+        : "TAVILY_CRAWL" as const
+      : undefined;
     const records = await fetchAutomationSourceRecords(source, {
+      // In production TAVILY_ONLY uses an explicit provider strategy, so
+      // fetchImpl can only reach Tavily. LEGACY_DIRECT remains for isolated
+      // deterministic tests and is never selected by production orchestration.
       fetchImpl: options.fetchImpl,
-      htmlAdapters: options.htmlAdapters,
+      htmlAdapters: tavilyOnly ? undefined : options.htmlAdapters,
       sleep: options.sleep,
       sourceScopedContract: scoped?.ready ? scoped.contract : undefined,
+      strategyOverride: tavilyStrategy,
       tavilyCrawlProvider,
       tavilyExtractProvider,
       tavilyRequestGate,
