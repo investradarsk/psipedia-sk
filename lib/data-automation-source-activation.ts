@@ -3,14 +3,22 @@ import {
   isSafeAutomationSourceUrl,
   type AutomationSource,
 } from "./data-automation.ts";
-import type { AutomationFetch } from "./data-automation-connectors.ts";
+import {
+  AutomationConnectorError,
+  canFallbackGenericExtractionToTavily,
+  fetchAutomationSourceRecords,
+  type AutomationFetch,
+} from "./data-automation-connectors.ts";
 import {
   AUTOMATION_SOURCE_HTTP_USER_AGENT,
   AUTOMATION_SOURCE_MAX_REDIRECT_HOPS,
   automationSourceRequestTimeoutMs,
 } from "./data-automation-http-policy.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
-import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
+import {
+  buildSourceScopedExtractionContract,
+  type SourceScopedExtractionContract,
+} from "./data-automation-source-scoped-extraction.ts";
 import { automationSourceProviderUsageSchemaReady } from "./data-automation-source-provider-usage.ts";
 import {
   evaluateGovernanceForActivation,
@@ -51,6 +59,7 @@ export async function automationSourceActivationReadiness(
     fetchImpl?: AutomationFetch;
     sleep?: (ms: number) => Promise<void>;
     tavilyCredentialConfigured?: boolean;
+    internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   } = {},
 ): Promise<AutomationSourceActivationReadiness> {
   const emptyGovernance: AutomationGovernanceRead = { schemaAvailable: true, state: null };
@@ -67,19 +76,15 @@ export async function automationSourceActivationReadiness(
     return { ready: false, reason: "UNSAFE_SOURCE_URL", governance: emptyGovernance, governanceBlockingReasons: [], technicalReason: null };
   }
 
+  const tavilyOnly = options.internetTransport === "TAVILY_ONLY";
   const governance = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: source.id }, database);
-  const providerManagedAccess = source.connectorType !== "MANUAL_IMPORT";
   const decision = evaluateGovernanceForActivation(governance, {
     recurring: true,
     cadenceMinutes,
     storageFields: ["url", "metadata"],
-    providerManagedAccess,
+    providerManagedAccess: tavilyOnly && source.connectorType !== "MANUAL_IMPORT",
   }, options.now);
 
-  // Public internet transport for automation is Tavily-only. Approval/governance
-  // still controls recurrence, cadence and retained evidence, but a Cloudflare
-  // Worker direct fetch of the third-party origin (including robots.txt) is not
-  // part of activation anymore.
   if (!decision.allowed) {
     return {
       ready: false,
@@ -90,60 +95,138 @@ export async function automationSourceActivationReadiness(
     };
   }
 
-  if (source.connectorType === "MANUAL_IMPORT") {
-    const technical = automationSourceReadiness(source, undefined, {
-      tavilyCredentialConfigured: options.tavilyCredentialConfigured,
-    });
-    if (technical.applicable && !technical.ready) {
+  if (tavilyOnly) {
+    if (source.connectorType === "MANUAL_IMPORT") {
+      return { ready: true, reason: "READY", governance, governanceBlockingReasons: [], technicalReason: null };
+    }
+    if (source.connectorType !== "CONTROLLED_HTML") {
       return {
         ready: false,
         reason: "TECHNICAL_NOT_READY",
         governance,
         governanceBlockingReasons: [],
-        technicalReason: technical.reason,
+        technicalReason: "TAVILY_CONNECTOR_UNSUPPORTED",
+      };
+    }
+    if (!options.tavilyCredentialConfigured) {
+      return {
+        ready: false,
+        reason: "TECHNICAL_NOT_READY",
+        governance,
+        governanceBlockingReasons: [],
+        technicalReason: "TAVILY_CONFIG_MISSING",
+      };
+    }
+    const contract = buildSourceScopedExtractionContract(source, governance.state);
+    if (!contract.ready) {
+      return {
+        ready: false,
+        reason: "TECHNICAL_NOT_READY",
+        governance,
+        governanceBlockingReasons: [],
+        technicalReason: contract.reason,
+      };
+    }
+    if (!(await automationSourceProviderUsageSchemaReady(database))) {
+      return {
+        ready: false,
+        reason: "TECHNICAL_NOT_READY",
+        governance,
+        governanceBlockingReasons: [],
+        technicalReason: "TAVILY_USAGE_SCHEMA_UNAVAILABLE",
       };
     }
     return { ready: true, reason: "READY", governance, governanceBlockingReasons: [], technicalReason: null };
   }
 
-  if (source.connectorType !== "CONTROLLED_HTML") {
-    return {
-      ready: false,
-      reason: "TECHNICAL_NOT_READY",
-      governance,
-      governanceBlockingReasons: [],
-      technicalReason: "TAVILY_CONNECTOR_UNSUPPORTED",
-    };
+  // Legacy/test-only capability probing. Production admin/worker paths select
+  // TAVILY_ONLY explicitly and never execute this direct-origin branch.
+  let scopedContract: SourceScopedExtractionContract | null = null;
+  if (source.connectorType !== "MANUAL_IMPORT") {
+    const contract = buildSourceScopedExtractionContract(source, governance.state);
+    if (!contract.ready) {
+      return {
+        ready: false,
+        reason: "TECHNICAL_NOT_READY",
+        governance,
+        governanceBlockingReasons: [],
+        technicalReason: contract.reason,
+      };
+    }
+    scopedContract = contract.contract;
   }
 
-  if (!options.tavilyCredentialConfigured) {
-    return {
-      ready: false,
-      reason: "TECHNICAL_NOT_READY",
-      governance,
-      governanceBlockingReasons: [],
-      technicalReason: "TAVILY_CONFIG_MISSING",
-    };
+  let technical = automationSourceReadiness(source, undefined, {
+    tavilyCredentialConfigured: options.tavilyCredentialConfigured,
+  });
+  const dedicated = technical.capabilities.find((item) => item.strategy === "DEDICATED_ADAPTER");
+  const generic = technical.capabilities.find((item) => item.strategy === "GENERIC_FIRST_PARTY");
+  const genericProbeAllowed = source.connectorType === "CONTROLLED_HTML"
+    && scopedContract
+    && dedicated?.reason === "MISSING_ADAPTER"
+    && generic?.reason === "PROBE_REQUIRED";
+
+  if (genericProbeAllowed) {
+    try {
+      const records = await fetchAutomationSourceRecords(source, {
+        fetchImpl: options.fetchImpl,
+        sleep: options.sleep,
+        sourceScopedContract: scopedContract,
+        strategyOverride: "GENERIC_FIRST_PARTY",
+        genericProbe: true,
+      });
+      technical = automationSourceReadiness(source, undefined, {
+        tavilyCredentialConfigured: options.tavilyCredentialConfigured,
+        genericProbe: {
+          supported: records.length > 0,
+          reason: records.length > 0 ? "PROBE_CONFIRMED" : "no_items_discovered",
+          sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
+        },
+      });
+    } catch (error) {
+      const reason = error instanceof AutomationConnectorError
+        ? error.code
+        : error instanceof Error
+          ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 120)
+          : "generic_probe_failed";
+      technical = automationSourceReadiness(source, undefined, {
+        tavilyCredentialConfigured: Boolean(
+          options.tavilyCredentialConfigured
+          && canFallbackGenericExtractionToTavily(reason),
+        ),
+        genericProbe: {
+          supported: false,
+          reason,
+          sourceShape: source.config.sourceShape ?? "SOURCE_DEFINED",
+        },
+      });
+    }
   }
 
-  const contract = buildSourceScopedExtractionContract(source, governance.state);
-  if (!contract.ready) {
-    return {
-      ready: false,
-      reason: "TECHNICAL_NOT_READY",
-      governance,
-      governanceBlockingReasons: [],
-      technicalReason: contract.reason,
-    };
-  }
-
-  if (!(await automationSourceProviderUsageSchemaReady(database))) {
+  if (
+    technical.ready
+    && (technical.strategy === "TAVILY_CRAWL" || technical.strategy === "TAVILY_EXTRACT")
+    && !(await automationSourceProviderUsageSchemaReady(database))
+  ) {
     return {
       ready: false,
       reason: "TECHNICAL_NOT_READY",
       governance,
       governanceBlockingReasons: [],
       technicalReason: "TAVILY_USAGE_SCHEMA_UNAVAILABLE",
+    };
+  }
+
+  if (technical.applicable && !technical.ready) {
+    const genericCapability = technical.capabilities.find((item) => item.strategy === "GENERIC_FIRST_PARTY");
+    return {
+      ready: false,
+      reason: "TECHNICAL_NOT_READY",
+      governance,
+      governanceBlockingReasons: [],
+      technicalReason: genericCapability?.reason && genericCapability.reason !== "PROBE_REQUIRED"
+        ? genericCapability.reason
+        : technical.reason,
     };
   }
 
