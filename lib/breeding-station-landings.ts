@@ -2,34 +2,14 @@ import { env } from "cloudflare:workers";
 import { canonicalBreedWinnerSql } from "@/lib/breed-canonical";
 import { publicDirectoryRelationTargetSql } from "@/lib/content-relations";
 import type { PublicDirectoryProfile } from "@/lib/directory";
-import { SLOVAK_REGIONS } from "@/lib/slovakia-locations";
+import { SLOVAK_REGION_LANDINGS, type SlovakRegionLandingLocation } from "@/lib/slovak-location-landings";
 
 export const BREEDING_STATION_CATEGORY = "chovatelske-stanice" as const;
 export const BREEDING_STATION_LANDING_INDEX_THRESHOLD = 2;
 
-export type BreedingStationRegion = {
-  slug: string;
-  name: (typeof SLOVAK_REGIONS)[number];
-  locative: string;
-};
+export type BreedingStationRegion = SlovakRegionLandingLocation;
 
-export const BREEDING_STATION_REGIONS = [
-  { slug: "bratislavsky", name: "Bratislavský kraj", locative: "Bratislavskom kraji" },
-  { slug: "trnavsky", name: "Trnavský kraj", locative: "Trnavskom kraji" },
-  { slug: "trenciansky", name: "Trenčiansky kraj", locative: "Trenčianskom kraji" },
-  { slug: "nitriansky", name: "Nitriansky kraj", locative: "Nitrianskom kraji" },
-  { slug: "zilinsky", name: "Žilinský kraj", locative: "Žilinskom kraji" },
-  { slug: "banskobystricky", name: "Banskobystrický kraj", locative: "Banskobystrickom kraji" },
-  { slug: "presovsky", name: "Prešovský kraj", locative: "Prešovskom kraji" },
-  { slug: "kosicky", name: "Košický kraj", locative: "Košickom kraji" },
-] as const satisfies readonly BreedingStationRegion[];
-
-if (
-  BREEDING_STATION_REGIONS.length !== SLOVAK_REGIONS.length
-  || BREEDING_STATION_REGIONS.some((region) => !(SLOVAK_REGIONS as readonly string[]).includes(region.name))
-) {
-  throw new Error("breeding-station-region-map-out-of-sync");
-}
+export const BREEDING_STATION_REGIONS = SLOVAK_REGION_LANDINGS;
 
 export type BreedingStationLandingSelector = {
   breedSlug?: string;
