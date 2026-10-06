@@ -8,7 +8,7 @@ import { getDirectoryDetailPresentation } from "@/lib/directory-detail-presentat
 import { getPublishedDirectoryProfile } from "@/lib/directory-store";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, directorySeoFallback, resolvedCanonical } from "@/lib/content-seo";
-import { absoluteUrl, buildWebPageJsonLd, SITE_URL } from "@/lib/seo";
+import { buildDirectoryProfileJsonLd } from "@/lib/directory-profile-schema";
 import { PartnerPublicOwnership } from "@/components/partner-public-ownership";
 import { getPartnerSession } from "@/lib/partner-auth";
 import { PARTNER_SESSION_COOKIE } from "@/lib/partner-auth-store";
@@ -103,7 +103,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
     });
     return { items: [] };
   });
-  const relatedBreedsPromise = listRelatedBreedsForDirectoryProfile(profile.id).catch((error) => {
+  const relatedBreedsPromise = listRelatedBreedsForDirectoryProfile(profile.id, { limit: 6 }).catch((error) => {
     console.error("Public directory breed relations read failed", {
       profileId: profile.id,
       error: error instanceof Error ? error.message : String(error),
@@ -118,60 +118,7 @@ export default async function DirectoryProfilePage({ params, searchParams }: Pro
     relatedBreedsPromise,
   ]);
   const publicMapPresentation = { ...publicMap, ...getPublicMapRuntime() };
-  const schemaType = profile.category === "veterinari"
-    ? "VeterinaryCare"
-    : ["kynologicke-kluby", "chovatelske-kluby"].includes(profile.category)
-      ? "Organization"
-      : "LocalBusiness";
-  const sameAs = [presentation.websiteUrl, presentation.facebookUrl, presentation.instagramUrl]
-    .filter((value): value is string => Boolean(value));
-  const profileEntityId = `${canonical}#profile`;
-  const breadcrumbId = `${canonical}#breadcrumb`;
-  const profileImage = profile.imageUrl ? absoluteUrl(profile.imageUrl) : undefined;
-  const schema = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": schemaType,
-        "@id": profileEntityId,
-        name: profile.name,
-        url: canonical,
-        description: presentation.description || profile.excerpt,
-        mainEntityOfPage: { "@id": canonical },
-        image: profileImage,
-        ...(schemaType === "Organization" && profileImage
-          ? { logo: { "@type": "ImageObject", url: profileImage } }
-          : {}),
-        telephone: presentation.phone?.value || undefined,
-        email: presentation.emails[0]?.value || undefined,
-        address: profile.address || profile.city ? {
-          "@type": "PostalAddress",
-          streetAddress: profile.address || undefined,
-          addressLocality: profile.city || undefined,
-          addressRegion: profile.region || undefined,
-          addressCountry: "SK",
-        } : undefined,
-        sameAs: sameAs.length > 0 ? sameAs : undefined,
-      },
-      buildWebPageJsonLd({
-        canonical,
-        name: profile.name,
-        description: presentation.description || profile.excerpt,
-        mainEntityId: profileEntityId,
-        breadcrumbId,
-      }),
-      {
-        "@type": "BreadcrumbList",
-        "@id": breadcrumbId,
-        itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL },
-          { "@type": "ListItem", position: 2, name: "Služby pre psov", item: `${SITE_URL}/adresar` },
-          { "@type": "ListItem", position: 3, name: getDirectoryCategory(profile.category)?.label, item: `${SITE_URL}/adresar/${profile.category}` },
-          { "@type": "ListItem", position: 4, name: profile.name, item: canonical },
-        ],
-      },
-    ],
-  };
+  const schema = buildDirectoryProfileJsonLd({ profile, presentation, canonical, relatedBreeds });
   const correctionHref = `/adresar/${profile.category}/${profile.slug}/upravit`;
   return <><StructuredData value={schema}/><DirectoryProfileDetail presentation={presentation} reviews={reviewResult.data} reviewReadError={reviewResult.readError} commercial={commercial} publicMap={publicMapPresentation} relatedBreeds={relatedBreeds} /><PartnerPublicOwnership state={partnerState} correctionHref={correctionHref} /></>;
 }

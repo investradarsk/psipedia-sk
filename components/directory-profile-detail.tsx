@@ -14,7 +14,7 @@ import {
 } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { getDirectoryCategory } from "@/lib/directory";
-import type { DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
+import { getDirectoryQuickFacts, type DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import type { PublicProfileReviewData } from "@/lib/profile-review-read";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./directory-profile-detail.module.css";
@@ -38,6 +38,11 @@ export function DirectoryProfileDetail({
   const hasEmbeddedMap = Boolean(publicMap?.items.length);
   const hasHeroLocation = Boolean(
     presentation.city || presentation.district || presentation.region,
+  );
+  const quickFacts = getDirectoryQuickFacts(
+    presentation,
+    category?.singular ?? category?.label ?? "Profil adresára",
+    relatedBreeds,
   );
 
   const contacts = [
@@ -135,6 +140,38 @@ export function DirectoryProfileDetail({
 
       <section className={`shell ${styles.contentGrid}`}>
         <article className={styles.article}>
+          {quickFacts.length > 0 && (
+            <section className={styles.quickFacts} aria-labelledby="directory-basic-information">
+              <h2 id="directory-basic-information">Základné informácie</h2>
+              <dl className={styles.quickFactsList}>
+                {quickFacts.map((fact) => (
+                  <div key={fact.label}>
+                    <dt>{fact.label}</dt>
+                    <dd>
+                      {fact.dateTime ? (
+                        <time dateTime={fact.dateTime}>{fact.value}</time>
+                      ) : fact.links ? (
+                        <span className={styles.quickFactLinks}>
+                          {fact.links.map((link, index) => (
+                            <span key={`${link.href}-${link.label}`}>
+                              {index > 0 ? ", " : null}
+                              <a
+                                href={link.href}
+                                {...(/^https?:\/\//i.test(link.href) ? { target: "_blank", rel: "noreferrer" } : {})}
+                              >
+                                {link.label}
+                              </a>
+                            </span>
+                          ))}
+                        </span>
+                      ) : fact.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+
           {presentation.description && (
             <DetailSection eyebrow="Profil služby" title="O službe">
               <DetailParagraphs value={presentation.description} />

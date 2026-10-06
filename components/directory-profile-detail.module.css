@@ -466,3 +466,78 @@
 .heroMedia {
   border-radius: 0;
 }
+
+
+.quickFacts {
+  padding: clamp(18px, 2.4vw, 24px);
+  border: 1px solid rgba(23, 75, 56, 0.14);
+  border-radius: 18px;
+  background: #f7faf5;
+}
+
+.quickFacts h2 {
+  margin: 0 0 14px;
+  font-family: Georgia, serif;
+  font-size: clamp(1.35rem, 2vw, 1.65rem);
+  font-weight: 500;
+}
+
+.quickFactsList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 0;
+}
+
+.quickFactsList > div {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.75fr) minmax(0, 1.25fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(23, 75, 56, 0.09);
+}
+
+.quickFactsList > div:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.quickFactsList dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.quickFactsList dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.quickFactsList a {
+  color: var(--forest);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.quickFactLinks {
+  display: inline;
+}
+
+@media (max-width: 680px) {
+  .quickFactsList {
+    grid-template-columns: 1fr;
+  }
+
+  .quickFactsList > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .quickFactsList > div:nth-child(2) {
+    border-top: 1px solid rgba(23, 75, 56, 0.09);
+  }
+}
