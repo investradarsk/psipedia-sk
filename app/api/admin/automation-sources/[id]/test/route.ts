@@ -40,6 +40,7 @@ export async function POST(request: Request, { params }: Props) {
     source: sourceAdminRowToRuntimeSource(source),
     database: db,
     tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
+    internetTransport: "TAVILY_ONLY",
   });
   return Response.json({ preview }, { headers: { "cache-control": "no-store" } });
 }
