@@ -54,6 +54,7 @@ export async function POST(request: Request, { params }: Props) {
   if (source.reviewStatus !== "APPROVED") return Response.json({ error: "automation_source_review_required" }, { status: 409 });
   const readiness = await automationSourceActivationReadiness(source, db, {
     tavilyCredentialConfigured: Boolean((env as unknown as RuntimeBindings).TAVILY_API_KEY?.trim()),
+    internetTransport: "TAVILY_ONLY",
   });
   if (!readiness.ready) {
     return Response.json({
