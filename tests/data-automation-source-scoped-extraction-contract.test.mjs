@@ -379,3 +379,14 @@ test("approved adapterless but unparseable source remains fail closed after gene
   assert.equal(readiness.reason, "TECHNICAL_NOT_READY");
   assert.equal(readiness.technicalReason, "no_items_discovered");
 });
+
+
+test("Tavily source-scoped transport gets at least a 20 second timeout floor", () => {
+  const low = buildSourceScopedExtractionContract(source({ timeoutMs: 5000 }), approvedGovernance());
+  assert.equal(low.ready, true);
+  assert.equal(low.contract.limits.timeoutMs, 20000);
+
+  const high = buildSourceScopedExtractionContract(source({ timeoutMs: 30000 }), approvedGovernance());
+  assert.equal(high.ready, true);
+  assert.equal(high.contract.limits.timeoutMs, 30000);
+});

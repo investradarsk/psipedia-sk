@@ -34,6 +34,7 @@ export const tavilySourceScopedErrorCodes = [
   "TAVILY_INVALID_RESPONSE",
   "TAVILY_SCOPE_VIOLATION",
   "TAVILY_BUDGET_EXHAUSTED",
+  "TAVILY_COOLDOWN",
   "TAVILY_NO_USABLE_RESULTS",
 ] as const;
 
@@ -54,7 +55,10 @@ export class TavilySourceScopedError extends Error {
 type ProviderFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export type TavilySourceScopedRequestGate = {
-  reserve(operation: AutomationSourceProviderOperation): Promise<{ operationKey: string } | null>;
+  reserve(operation: AutomationSourceProviderOperation): Promise<{
+    operationKey: string;
+    blockedReason?: "COOLDOWN";
+  } | null>;
   finalize(input: {
     operationKey: string;
     status: Exclude<AutomationSourceProviderUsageStatus, "RESERVED">;
@@ -525,6 +529,9 @@ abstract class TavilyProviderBase {
     for (let attempt = 0; attempt <= retryLimit; attempt += 1) {
       const reservation = await input.gate.reserve(input.operation);
       if (!reservation) throw new TavilySourceScopedError("TAVILY_BUDGET_EXHAUSTED");
+      if (reservation.blockedReason === "COOLDOWN") {
+        throw new TavilySourceScopedError("TAVILY_COOLDOWN", true);
+      }
       try {
         const payload = await this.client.post({
           endpoint: input.endpoint,

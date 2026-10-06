@@ -768,7 +768,11 @@ async function runSource(
           maxRequestsPerRun: scoped!.contract.limits.maxProviderRequests,
           now: startedAt,
         });
-        return reservation.reserved ? { operationKey } : null;
+        if (reservation.reserved) return { operationKey };
+        if (reservation.reason === "COOLDOWN") {
+          return { operationKey, blockedReason: "COOLDOWN" as const };
+        }
+        return null;
       },
       finalize: async (input) => {
         await finalizeAutomationSourceProviderRequest({
