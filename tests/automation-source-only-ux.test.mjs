@@ -111,7 +111,8 @@ test("source configure is validation-first and preserves immediate run only afte
   assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
   assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
   assert.match(store, /sourceActivationReadinessForEnable/);
-  assert.match(store, /internetTransport: input\.technicalGovernanceRefresh\?\.internetTransport/);
+  assert.match(store, /const internetTransport = input\.technicalGovernanceRefresh\?\.internetTransport/);
+  assert.match(store, /internetTransport,/);
   assert.match(store, /internetTransport !== "TAVILY_ONLY"/);
   assert.match(store, /automationSourceTechnicalGovernanceRefreshNeeded/);
   assert.match(store, /refreshAutomationSourceTechnicalGovernance/);
