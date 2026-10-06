@@ -22,7 +22,7 @@ import {
 } from "@/lib/breed-store";
 import { breeds, getFciGroup } from "@/lib/content";
 import { breedSeoFallback, buildContentMetadata, resolvedCanonical } from "@/lib/content-seo";
-import { absoluteUrl, articleAuthorJsonLd, buildWebPageJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, articleAuthorJsonLd, buildGenericMainEntityJsonLd, buildWebPageJsonLd, ORGANIZATION_ID, serializeJsonLd, SITE_URL } from "@/lib/seo";
 import { getPublicArticleListMeta } from "@/lib/public-article-list";
 import { BreedProfileAccordion } from "./breed-profile-accordion";
 import styles from "./breed-profile.module.css";
@@ -123,6 +123,14 @@ export default async function BreedDetailPage({ params }: Props) {
   const canonical = resolvedCanonical(breed.seo, `/plemena/${breed.slug}`);
   const publishedAt = "publishedAt" in breed && typeof breed.publishedAt === "string" ? breed.publishedAt : undefined;
   const updatedAt = "updatedAt" in breed && typeof breed.updatedAt === "string" ? breed.updatedAt : undefined;
+  const breedEntity = buildGenericMainEntityJsonLd({
+    canonical,
+    name: breed.name,
+    description: breed.intro || fci.povaha_temperament || managedBreed?.officialFciName,
+    image: breed.image,
+    idSuffix: "breed",
+  });
+  const breedEntityId = breedEntity["@id"];
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -145,13 +153,14 @@ export default async function BreedDetailPage({ params }: Props) {
         keywords: [breed.name, `FCI skupina ${breed.fciGroup}`, breed.origin, "plemená psov"],
         author: articleAuthorJsonLd("Redakcia Psipedia"),
         publisher: { "@id": ORGANIZATION_ID },
-        about: { "@type": "Thing", name: breed.name, description: breed.intro },
+        about: { "@id": breedEntityId },
       },
+      breedEntity,
       buildWebPageJsonLd({
         canonical,
         name: breed.name,
         description: breed.intro || fci.povaha_temperament || managedBreed?.officialFciName,
-        mainEntityId: `${canonical}#article`,
+        mainEntityId: breedEntityId,
         breadcrumbId: `${canonical}#breadcrumb`,
         datePublished: publishedAt,
         dateModified: updatedAt,
