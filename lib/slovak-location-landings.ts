@@ -85,22 +85,28 @@ const DISTRICT_LOCATIONS = uniqueCanonicalLocations(
   "district",
 );
 
-const CITY_AGGREGATES = [
+const CANONICAL_CITY_NAMES = Object.values(SLOVAK_MUNICIPALITIES_BY_DISTRICT).flat();
+
+const CITY_AGGREGATES: readonly SlovakLandingLocation[] = [
   {
     dimension: "city",
     slug: "bratislava",
     name: "Bratislava",
     phrase: "v meste Bratislava",
-    sql: { values: ["Bratislava"], prefixes: ["Bratislava - "] },
+    sql: {
+      values: ["Bratislava", ...CANONICAL_CITY_NAMES.filter((name) => /^Bratislava - /u.test(name))],
+    },
   },
   {
     dimension: "city",
     slug: "kosice",
     name: "Košice",
     phrase: "v meste Košice",
-    sql: { values: ["Košice"], prefixes: ["Košice - "] },
+    sql: {
+      values: ["Košice", ...CANONICAL_CITY_NAMES.filter((name) => /^Košice - /u.test(name))],
+    },
   },
-] as const satisfies readonly SlovakLandingLocation[];
+];
 
 const CITY_LOCATIONS = uniqueCanonicalLocations(
   Object.entries(SLOVAK_MUNICIPALITIES_BY_DISTRICT).flatMap(([district, cities]) => (
@@ -147,10 +153,7 @@ function exactDistrict(raw: string) {
 function exactCity(raw: string) {
   const clean = raw.trim();
   for (const aggregate of CITY_AGGREGATES) {
-    if (
-      (aggregate.sql.values as readonly string[]).includes(clean)
-      || aggregate.sql.prefixes?.some((prefix) => clean.startsWith(prefix))
-    ) return aggregate;
+    if (aggregate.sql.values.includes(clean)) return aggregate;
   }
   const slug = slovakLocationSlug(clean);
   const city = CITY_LOCATIONS.get(slug);
