@@ -607,7 +607,9 @@ test("run now reuses production runner and blocks disabled or unapproved sources
   assert.match(runner, /automation_source_review_required/);
   assert.match(runner, /source\.reviewStatus !== "APPROVED"/);
   assert.match(runner, /return runSource\(source, options\)/);
-  assert.match(route, /productionAutomationHtmlAdapters/);
+  assert.match(route, /internetTransport:\s*"TAVILY_ONLY"/);
+  assert.match(route, /tavilyApiKey:/);
+  assert.doesNotMatch(route, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
   assert.match(route, /canonicalDraftWrite:\s*true,\s*publication:\s*false/);
 });
 
