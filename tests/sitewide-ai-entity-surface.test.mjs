@@ -25,6 +25,7 @@ test("BREED public surface has a canonical breed identity without an invented co
   assert.match(source, /about: \{ "@id": breedEntityId \}/);
   assert.match(source, /mainEntityId: breedEntityId/);
   assert.doesNotMatch(source, /"@type": "Product"|"@type": "LocalBusiness"|"@type": "ProfilePage"/);
+  assert.doesNotMatch(source, />Overené informácie</);
 });
 
 test("EVENT public surface keeps visible facts aligned with the shared Event graph", () => {
@@ -64,6 +65,7 @@ test("ADOPTION public surface uses a privacy-safe canonical dog main entity", ()
   assert.match(schema, /idSuffix: "dog"/);
   assert.match(schema, /mainEntity: \{ "@id": dogEntity\["@id"\] \}/);
   assert.doesNotMatch(schema, /contactEmail.*dogEntity|contactPhone.*dogEntity|ProfilePage/);
+  assert.doesNotMatch(detail, /Overenie profilu|Posledné overenie|Profil potrebuje nové overenie/);
 });
 
 test("LOST and FOUND surface preserves lifecycle index policy and excludes private contact data from schema", () => {
