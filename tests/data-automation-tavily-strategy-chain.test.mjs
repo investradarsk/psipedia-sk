@@ -10,6 +10,7 @@ import {
 } from "../lib/data-automation-connectors.ts";
 import { automationSourceActivationReadiness } from "../lib/data-automation-source-activation.ts";
 import { buildSourceScopedExtractionContract } from "../lib/data-automation-source-scoped-extraction.ts";
+import { TavilySourceScopedError } from "../lib/data-automation-tavily-source-scoped.ts";
 import { productionAutomationHtmlAdapters } from "../lib/data-automation-real-sources.ts";
 import { validateDynamicAutomationIngestion } from "../lib/data-automation-dynamic-identity.ts";
 
@@ -486,4 +487,77 @@ test("TAVILY_ONLY activation fails closed when Tavily is not configured", async 
   assert.equal(readiness.ready, false);
   assert.equal(readiness.reason, "TECHNICAL_NOT_READY");
   assert.equal(readiness.technicalReason, "TAVILY_CONFIG_MISSING");
+});
+
+
+test("TAVILY_CRAWL transient provider failure falls back once to TAVILY_EXTRACT without direct internet access", async () => {
+  const src = source({
+    entityType: "EVENT",
+    sourceKey: "mushing-events",
+    sourceUrl: "https://mushing.sk/preteky",
+    config: { sourceShape: "MULTI_ITEM_LIST", staticFields: { eventType: "Preteky" } },
+  });
+  let crawlCalls = 0;
+  let extractCalls = 0;
+  let directFetches = 0;
+  const records = await fetchAutomationSourceRecords(src, {
+    sourceScopedContract: contract(src, "/preteky/**"),
+    strategyOverride: "TAVILY_CRAWL",
+    tavilyCrawlProvider: {
+      async crawl() {
+        crawlCalls += 1;
+        throw new TavilySourceScopedError("TAVILY_PROVIDER_ERROR", true);
+      },
+    },
+    tavilyExtractProvider: {
+      async extract() {
+        extractCalls += 1;
+        return {
+          records: [providerRecord(src, "TAVILY_EXTRACT", {
+            title: "Mošovce",
+            eventType: "Preteky",
+          })],
+          coverage: {},
+          diagnostics: {},
+        };
+      },
+    },
+    tavilyRequestGate: gate(),
+    fetchImpl: async () => {
+      directFetches += 1;
+      throw new Error("direct origin must never be fetched");
+    },
+  });
+  assert.equal(records.length, 1);
+  assert.equal(crawlCalls, 1);
+  assert.equal(extractCalls, 1);
+  assert.equal(directFetches, 0);
+});
+
+test("TAVILY_CRAWL auth/rate/budget failures do not bypass into Extract", async () => {
+  for (const code of ["TAVILY_AUTH_FAILED", "TAVILY_RATE_LIMITED", "TAVILY_BUDGET_EXHAUSTED"]) {
+    const src = source();
+    let extractCalls = 0;
+    await assert.rejects(
+      fetchAutomationSourceRecords(src, {
+        sourceScopedContract: contract(src),
+        strategyOverride: "TAVILY_CRAWL",
+        tavilyCrawlProvider: {
+          async crawl() {
+            throw new TavilySourceScopedError(code);
+          },
+        },
+        tavilyExtractProvider: {
+          async extract() {
+            extractCalls += 1;
+            return { records: [], coverage: {}, diagnostics: {} };
+          },
+        },
+        tavilyRequestGate: gate(),
+      }),
+      (error) => error instanceof AutomationConnectorError
+        && error.code === code.toLowerCase(),
+    );
+    assert.equal(extractCalls, 0);
+  }
 });
