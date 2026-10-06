@@ -578,3 +578,29 @@ test("Tavily Extract marks exact provider-delivered entity page fields as first-
   assert.equal(record.rawRecord.directEvidence.fieldOrigins.name, "FIRST_PARTY");
   assert.equal(record.rawRecord.directEvidence.fieldOrigins.websiteUrl, "FIRST_PARTY");
 });
+
+
+test("provider cooldown denial is reported as cooldown, not budget exhaustion", async () => {
+  let calls = 0;
+  const provider = new TavilyAutomationCrawlProvider({
+    apiKey: "key",
+    fetchImpl: async () => {
+      calls += 1;
+      return json(payload([]));
+    },
+  });
+  await assert.rejects(
+    provider.crawl({
+      source: source(),
+      contract: contract(),
+      gate: {
+        async reserve() {
+          return { operationKey: "cooldown-op", blockedReason: "COOLDOWN" };
+        },
+        async finalize() {},
+      },
+    }),
+    (error) => error instanceof TavilySourceScopedError && error.code === "TAVILY_COOLDOWN",
+  );
+  assert.equal(calls, 0);
+});
