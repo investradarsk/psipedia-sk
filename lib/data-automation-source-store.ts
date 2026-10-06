@@ -314,6 +314,7 @@ type AutomationSourceTechnicalGovernanceRefreshOptions = {
   actor: string;
   fetchImpl?: typeof fetch;
   tavilyCredentialConfigured?: boolean;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 };
 
 async function sourceActivationReadinessForEnable(
@@ -332,6 +333,7 @@ async function sourceActivationReadinessForEnable(
     cadenceMinutes,
     now: input.now,
     tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
+    internetTransport: input.technicalGovernanceRefresh?.internetTransport,
   });
 }
 
