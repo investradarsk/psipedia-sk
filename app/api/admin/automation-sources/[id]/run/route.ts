@@ -74,6 +74,7 @@ export async function POST(request: Request, { params }: Props) {
   const task = runAutomationSourceNow(id, {
     database: db,
     tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
+    internetTransport: "TAVILY_ONLY",
   }).catch((error) => {
     console.error(JSON.stringify({
       event: "automation_manual_background_run",
