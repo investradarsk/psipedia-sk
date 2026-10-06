@@ -27,6 +27,7 @@ export async function POST(request: Request, { params }: Props) {
   const tavilyCredentialConfigured = Boolean((env as unknown as RuntimeBindings).TAVILY_API_KEY?.trim());
   const readiness = await automationSourceActivationReadiness(source, db, {
     tavilyCredentialConfigured,
+    internetTransport: "TAVILY_ONLY",
   });
   if (!readiness.ready) {
     return Response.json({
