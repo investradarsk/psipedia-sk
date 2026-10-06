@@ -1,7 +1,7 @@
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import type { DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
-import { getDirectoryCategory, type PublicDirectoryProfile } from "@/lib/directory";
-import { absoluteUrl, buildWebPageJsonLd, SITE_URL } from "@/lib/seo";
+import { getDirectoryCategory, type PublicDirectoryProfile } from "./directory.ts";
+import { absoluteUrl, buildWebPageJsonLd, SITE_URL } from "./seo.ts";
 
 export function buildDirectoryProfileJsonLd({
   profile,
