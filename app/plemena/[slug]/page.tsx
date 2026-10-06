@@ -469,7 +469,7 @@ export default async function BreedDetailPage({ params }: Props) {
 
         {sources.length ? (
           <section className={styles.readingSection} aria-labelledby="breed-sources">
-            <p className={styles.eyebrow}>Overené informácie</p>
+            <p className={styles.eyebrow}>Zdroje informácií</p>
             <h2 id="breed-sources">Odborné zdroje</h2>
             <ol className="breed-source-list">
               {sources.map((source) => (
