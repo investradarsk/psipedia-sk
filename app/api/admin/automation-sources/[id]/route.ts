@@ -74,6 +74,7 @@ export async function PUT(request: Request, { params }: Props) {
         const task = runAutomationSourceNow(id, {
           database: bindings.DB,
           tavilyApiKey: bindings.TAVILY_API_KEY,
+          internetTransport: "TAVILY_ONLY",
         }).catch((error) => console.error(JSON.stringify({
           event: "automation_source_immediate_first_run",
           sourceId: id,
