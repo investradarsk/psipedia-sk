@@ -11,7 +11,12 @@ test.describe("public services detail shell", () => {
     const main = page.locator("main#obsah");
     const heading = main.getByRole("heading", { level: 1, name: longServicesDetailName });
     await expect(heading).toBeVisible();
-    await expect(main.getByText("Tréner / psia škola", { exact: true })).toBeVisible();
+    await expect(main.locator("header").getByText("Tréner / psia škola", { exact: true })).toBeVisible();
+    const basicInformation = main.getByRole("heading", { name: "Základné informácie", exact: true }).locator("xpath=ancestor::section[1]");
+    await expect(basicInformation.getByText("Typ profilu", { exact: true })).toBeVisible();
+    await expect(basicInformation.getByText("Tréner / psia škola", { exact: true })).toBeVisible();
+    await expect(basicInformation.getByText("Telefón", { exact: true })).toBeVisible();
+    await expect(basicInformation.getByRole("link", { name: "+421 900 123 456", exact: true })).toHaveAttribute("href", "tel:+421900123456");
     await expect(main.getByText("Overené", { exact: true })).toHaveCount(0);
     await expect(main.getByText("Odporúčame", { exact: true })).toBeVisible();
     await expect(main.getByRole("link", { name: "Poslať dopyt", exact: true })).toHaveAttribute("href", "#kontakt");
@@ -49,7 +54,13 @@ test.describe("public services detail shell", () => {
 
     const main = page.locator("main#obsah");
     await expect(main.getByRole("heading", { level: 1, name: "E2E Minimálna služba" })).toBeVisible();
-    await expect(main.getByText("Služba pre psov", { exact: true })).toBeVisible();
+    await expect(main.locator("header").getByText("Služba pre psov", { exact: true })).toBeVisible();
+    const basicInformation = main.getByRole("heading", { name: "Základné informácie", exact: true }).locator("xpath=ancestor::section[1]");
+    await expect(basicInformation.getByText("Typ profilu", { exact: true })).toBeVisible();
+    await expect(basicInformation.getByText("Služba pre psov", { exact: true })).toBeVisible();
+    await expect(basicInformation.getByText("Telefón", { exact: true })).toHaveCount(0);
+    await expect(basicInformation.getByText("E-mail", { exact: true })).toHaveCount(0);
+    await expect(basicInformation.getByText("Web", { exact: true })).toHaveCount(0);
     await expect(main.getByText("Overené", { exact: true })).toHaveCount(0);
     await expect(main.getByText("Odporúčame", { exact: true })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Služby", exact: true })).toHaveCount(0);
