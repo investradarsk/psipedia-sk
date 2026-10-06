@@ -103,6 +103,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0108_notion_events_help_bidirectional_sync.sql",
   "0109_dynamic_entity_identity_indexes.sql",
   "0110_tavily_source_provider_usage.sql",
+  "0111_tavily_provider_diagnostics.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -158,6 +159,15 @@ export const AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES = Object.freeze([
   "automation_source_provider_usage_source_day_idx",
   "automation_source_provider_usage_run_idx",
   "automation_source_provider_usage_operation_day_idx",
+]);
+
+export const AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS = Object.freeze([
+  "provider_http_status",
+  "provider_error_code",
+  "provider_error_detail",
+  "provider_request_id",
+  "transport_error_name",
+  "transport_error_code",
 ]);
 
 export const AUTOMATION_GOVERNANCE_INDEXES = Object.freeze([
@@ -1054,6 +1064,12 @@ export function targetSchemaObjects(schema, targetMigration) {
         || AUTOMATION_SOURCE_PROVIDER_USAGE_INDEXES.some((index) => names.has(index)),
     };
   }
+  if (targetMigration === "0111_tavily_provider_diagnostics.sql") {
+    const sql = String(names.get("automation_source_provider_usage")?.sql ?? "");
+    return {
+      partial: AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS.some((column) => sql.includes(column)),
+    };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1600,6 +1616,14 @@ function assertAutomationSourceProviderUsageSchema(schema) {
   invariant(sql.includes("'BUDGET_EXHAUSTED'"), "source provider status constraint is incomplete");
 }
 
+export function assertAutomationSourceProviderDiagnosticsSchema(schema) {
+  const names = objectMap(schema.objects);
+  const sql = String(names.get("automation_source_provider_usage")?.sql ?? "");
+  for (const column of AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS) {
+    invariant(sql.includes(column), `automation_source_provider_usage.${column} is missing`);
+  }
+}
+
 export function assertAutomationGovernanceSchema(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("automation_governance_reviews")?.type === "table", "Missing automation_governance_reviews table");
@@ -1760,6 +1784,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 108) assertNotionEventsHelpBidirectionalSchema(schema);
   if (migrationIndex(targetMigration) >= 109) assertDynamicEntityIdentitySchema(schema);
   if (migrationIndex(targetMigration) >= 110) assertAutomationSourceProviderUsageSchema(schema);
+  if (migrationIndex(targetMigration) >= 111) assertAutomationSourceProviderDiagnosticsSchema(schema);
 }
 
 function migrationHistory(databaseName, configPath) {

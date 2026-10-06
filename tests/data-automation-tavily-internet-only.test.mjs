@@ -131,3 +131,18 @@ test("scheduled due selection uses the same provider-managed governance policy a
     /providerManagedAccess:\s*root\.discoveryType\s*===\s*"SEARCH_PROVIDER"/,
   );
 });
+
+
+test("provider usage telemetry uses an injectable attempt clock instead of the fixed run start", async () => {
+  const runner = await readFile(path.join(repoRoot, "lib/data-automation-runner.ts"), "utf8");
+  assert.match(runner, /providerNow\?:\s*\(\)\s*=>\s*Date/);
+  assert.match(runner, /const providerNow = options\.providerNow \?\? \(\(\) => new Date\(\)\)/);
+  const reserveBlock = runner.match(/reserve:\s*async \(operation\)[\s\S]*?finalize:\s*async/);
+  assert.ok(reserveBlock);
+  assert.match(reserveBlock[0], /now:\s*providerNow\(\)/);
+  const finalizeBlock = runner.match(/finalize:\s*async \(input\)[\s\S]*?\}\s*:\s*undefined/);
+  assert.ok(finalizeBlock);
+  assert.match(finalizeBlock[0], /now:\s*providerNow\(\)/);
+  assert.doesNotMatch(reserveBlock[0], /now:\s*startedAt/);
+  assert.doesNotMatch(finalizeBlock[0], /now:\s*startedAt/);
+});
