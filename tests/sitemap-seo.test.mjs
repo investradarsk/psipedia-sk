@@ -15,7 +15,7 @@ import {
   listPublishedEventSitemapRecords,
   listPublishedHelpSitemapRecords,
 } from "../lib/entity-sitemap.ts";
-import { articleAuthorJsonLd, serializeJsonLd } from "../lib/seo.ts";
+import { articleAuthorJsonLd, serializeJsonLd, SITE_URL } from "../lib/seo.ts";
 import { assertSitemapEntityParity, inspectSitemapEntityParity } from "../lib/sitemap-parity.ts";
 import {
   assertValidSitemap,
