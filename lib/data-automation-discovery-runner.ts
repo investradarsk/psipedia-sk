@@ -1023,6 +1023,10 @@ async function discoverCandidates(
     };
   }
 
+  if (options.internetTransport === "TAVILY_ONLY") {
+    throw new AutomationSearchProviderError("TAVILY_ONLY_LEGACY_ROOT_UNSUPPORTED");
+  }
+
   if (root.discoveryType === "SITEMAP") {
     return discoverSitemapCandidates(root, options, maxCandidates);
   }
@@ -1655,8 +1659,18 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
     roots = await listDueAutomationDiscoveryRoots(
       options.database as AutomationDiscoveryDatabase,
       options.now ?? new Date(),
-      DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP,
+      options.internetTransport === "TAVILY_ONLY"
+        ? 50
+        : DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP,
     );
+    if (options.internetTransport === "TAVILY_ONLY") {
+      // Legacy RSS/SITEMAP/STRUCTURED_DIRECTORY roots are intentionally not
+      // executed in production: they perform direct third-party HTTP reads.
+      // Tavily SEARCH_PROVIDER roots are the only internet discovery transport.
+      roots = roots
+        .filter((root) => root.discoveryType === "SEARCH_PROVIDER")
+        .slice(0, DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP);
+    }
   } catch (error) {
     if (missingDiscoverySchema(error)) {
       return { roots: 0, success: 0, partial: 0, failed: 0, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 0, schemaReady: false, runs: [] as DiscoveryRunSummary[] };
