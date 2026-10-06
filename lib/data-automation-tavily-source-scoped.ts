@@ -265,11 +265,11 @@ async function readProviderErrorDiagnostics(
 ): Promise<TavilyProviderErrorDiagnostics> {
   const base: TavilyProviderErrorDiagnostics = {
     providerHttpStatus: response.status,
-    providerRequestId: scalarDiagnostic(
+    providerRequestId: redactKnownSecret(scalarDiagnostic(
       response.headers.get("x-request-id")
         ?? response.headers.get("request-id")
         ?? response.headers.get("x-tavily-request-id"),
-    ),
+    ), apiKey),
   };
   try {
     const declared = Number(response.headers.get("content-length"));
@@ -337,12 +337,12 @@ async function readProviderErrorDiagnostics(
   }
 }
 
-function transportDiagnostics(error: unknown): TavilyProviderErrorDiagnostics {
+function transportDiagnostics(error: unknown, apiKey: string): TavilyProviderErrorDiagnostics {
   if (!(error instanceof Error)) return {};
   const cause = objectDiagnostic(error.cause);
   return normalizeAutomationSourceProviderDiagnostics({
-    transportErrorName: error.name,
-    transportErrorCode: scalarDiagnostic(cause?.code),
+    transportErrorName: redactKnownSecret(error.name, apiKey),
+    transportErrorCode: redactKnownSecret(scalarDiagnostic(cause?.code), apiKey),
   });
 }
 
@@ -414,7 +414,7 @@ class TavilyHttpClient {
         return boundedJson(response, input.maxBytes);
       } catch (error) {
         const name = error instanceof Error ? error.name : "";
-        const diagnostics = transportDiagnostics(error);
+        const diagnostics = transportDiagnostics(error, this.apiKey);
         const mapped = error instanceof TavilySourceScopedError
           ? error
           : name === "TimeoutError" || name === "AbortError"
