@@ -59,8 +59,10 @@ test("article JSON-LD distinguishes a named person from the Psipedia editorial o
 test("Event JSON-LD keeps a known Bratislava time and DST offset", () => {
   assert.equal(eventDateTimeIso("2026-09-16", "18:00"), "2026-09-16T18:00:00+02:00");
   const eventPage = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
-  assert.match(eventPage, /startDate:\s*eventDateTimeIso\(event\.startDate, event\.startTime\)/);
-  assert.match(eventPage, /endDate:\s*event\.endDate\s*\?\s*eventDateTimeIso\(event\.endDate, event\.endTime\)/);
+  const eventSchema = fs.readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
+  assert.match(eventPage, /buildEventJsonLd\(event, canonical\)/);
+  assert.match(eventSchema, /startDate:\s*eventDateTimeIso\(event\.startDate, event\.startTime\)/);
+  assert.match(eventSchema, /endDate:\s*event\.endDate\s*\?\s*eventDateTimeIso\(event\.endDate, event\.endTime\)/);
 });
 
 test("AI-CRAWLER-POLICY-1 preserves discovery access while blocking training-only crawlers", () => {

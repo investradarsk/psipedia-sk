@@ -115,6 +115,35 @@ export function buildWebPageJsonLd({
   };
 }
 
+export type GenericMainEntityJsonLdInput = {
+  canonical: string;
+  name: string;
+  description?: string | null;
+  image?: string | null;
+  idSuffix?: string;
+};
+
+export function buildGenericMainEntityJsonLd({
+  canonical,
+  name,
+  description,
+  image,
+  idSuffix = "entity",
+}: GenericMainEntityJsonLdInput) {
+  const url = absoluteUrl(canonical);
+  const normalizedDescription = description?.trim();
+  const normalizedImage = image?.trim();
+  return {
+    "@type": "Thing",
+    "@id": `${url}#${idSuffix}`,
+    name,
+    url,
+    mainEntityOfPage: { "@id": url },
+    ...(normalizedDescription ? { description: normalizedDescription } : {}),
+    ...(normalizedImage ? { image: absoluteUrl(normalizedImage) } : {}),
+  };
+}
+
 export const INDEXABLE_ROBOTS: Metadata["robots"] = {
   index: true,
   follow: true,

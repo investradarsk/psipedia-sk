@@ -7,6 +7,7 @@ import {
   type AdoptionDog,
   type AdoptionPublicStatus,
 } from "./adoption.ts";
+import { buildGenericMainEntityJsonLd } from "./seo.ts";
 
 export type PublicAdoptionDetailDog = AdoptionDog & { status: AdoptionPublicStatus };
 
@@ -136,12 +137,22 @@ function absoluteDetailUrl(siteUrl: string, value: string) {
 export function buildAdoptionDetailStructuredData(dog: PublicAdoptionDetailDog, siteUrl: string) {
   const path = adoptionDetailPath(dog.slug);
   const canonical = absoluteDetailUrl(siteUrl, path);
+  const breadcrumbId = `${canonical}#breadcrumb`;
+  const dogEntity = buildGenericMainEntityJsonLd({
+    canonical,
+    name: dog.name,
+    description: dog.shortDescription,
+    image: dog.mainImage ? absoluteDetailUrl(siteUrl, dog.mainImage) : null,
+    idSuffix: "dog",
+  });
   const page: Record<string, unknown> = {
     "@type": "WebPage",
     "@id": canonical,
     url: canonical,
     name: `${dog.name} – pes na adopciu`,
     inLanguage: "sk",
+    mainEntity: { "@id": dogEntity["@id"] },
+    breadcrumb: { "@id": breadcrumbId },
   };
   if (dog.shortDescription.trim()) page.description = dog.shortDescription.trim();
   if (dog.publishedAt || dog.createdAt) page.datePublished = dog.publishedAt || dog.createdAt;
@@ -152,8 +163,10 @@ export function buildAdoptionDetailStructuredData(dog: PublicAdoptionDetailDog, 
     "@context": "https://schema.org",
     "@graph": [
       page,
+      dogEntity,
       {
         "@type": "BreadcrumbList",
+        "@id": breadcrumbId,
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Domov", item: siteUrl },
           { "@type": "ListItem", position: 2, name: "Pomoc psom", item: `${siteUrl}/pomoc-psom` },

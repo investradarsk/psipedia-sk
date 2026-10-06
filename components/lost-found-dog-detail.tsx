@@ -5,9 +5,8 @@ import { StructuredData } from "@/components/structured-data";
 import { getPublicDogReport } from "@/lib/lost-found-dog-store";
 import { chipStateLabel, dogReportBasePath, dogReportStatusLabel, dogReportTitle, dogReportTypeLabel, dogReportTypeShortLabel, dogSexLabel, dogSizeLabel, formatDogReportDate, type DogReportType } from "@/lib/lost-found-dogs";
 import { lostFoundStatusShouldIndex } from "@/lib/lost-found-lifecycle.js";
+import { buildGenericMainEntityJsonLd, buildWebPageJsonLd, SITE_URL } from "@/lib/seo";
 import styles from "./lost-found-dogs.module.css";
-
-const SITE_URL = "https://psipedia.sk";
 
 export async function lostFoundDogMetadata(type: DogReportType, slug: string): Promise<Metadata> {
   const report = await getPublicDogReport(type, slug);
@@ -36,14 +35,36 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
   const active = report.status === "ACTIVE";
   const relayHref = `/kontakt?tema=${encodeURIComponent(`Hlásenie ${report.id}: ${dogReportTypeLabel(type)}`)}`;
   const canonical = `${SITE_URL}${dogReportBasePath(type)}/${report.slug}`;
+  const breadcrumbId = `${canonical}#breadcrumb`;
+  const reportImage = report.mainImage ? (report.mainImage.startsWith("http") ? report.mainImage : `${SITE_URL}${report.mainImage}`) : null;
+  const reportEntity = buildGenericMainEntityJsonLd({
+    canonical,
+    name: report.dogName || report.breed || dogReportTitle(report),
+    description: report.description,
+    image: reportImage,
+    idSuffix: "dog-report",
+  });
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
-      { "@type": "WebPage", "@id": canonical, url: canonical, name: dogReportTitle(report), description: report.description, dateModified: report.updatedAt, ...(report.mainImage ? { image: report.mainImage.startsWith("http") ? report.mainImage : `${SITE_URL}${report.mainImage}` } : {}) },
-      { "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`, itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Pomoc psom", item: `${SITE_URL}/pomoc-psom` },
-        { "@type": "ListItem", position: 2, name: type === "LOST" ? "Stratené psy" : "Nájdené psy", item: `${SITE_URL}${dogReportBasePath(type)}` },
-        { "@type": "ListItem", position: 3, name: report.dogName || report.breed || "Pes", item: canonical },
+      {
+        ...buildWebPageJsonLd({
+          canonical,
+          name: dogReportTitle(report),
+          description: report.description,
+          mainEntityId: reportEntity["@id"],
+          breadcrumbId,
+          datePublished: report.publishedAt || report.createdAt,
+          dateModified: report.updatedAt,
+        }),
+        ...(reportImage ? { primaryImageOfPage: reportImage } : {}),
+      },
+      reportEntity,
+      { "@type": "BreadcrumbList", "@id": breadcrumbId, itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Domov", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Pomoc psom", item: `${SITE_URL}/pomoc-psom` },
+        { "@type": "ListItem", position: 3, name: type === "LOST" ? "Stratené psy" : "Nájdené psy", item: `${SITE_URL}${dogReportBasePath(type)}` },
+        { "@type": "ListItem", position: 4, name: report.dogName || report.breed || "Pes", item: canonical },
       ] },
     ],
   };

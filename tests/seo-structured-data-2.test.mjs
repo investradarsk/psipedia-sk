@@ -8,6 +8,7 @@ import {
   SITE_LOGO_URL,
   WEBSITE_ID,
   articleAuthorJsonLd,
+  buildGenericMainEntityJsonLd,
   buildSiteIdentityJsonLd,
   buildWebPageJsonLd,
 } from "../lib/seo.ts";
@@ -54,6 +55,26 @@ test("SEO-STRUCTURED-DATA-2 canonical WebPage references the shared WebSite, pub
   assert.equal(page.inLanguage, "sk-SK");
 });
 
+test("SITEWIDE-AI-ENTITY-SURFACE-1 generic public entities get deterministic canonical identity without invented subtype semantics", () => {
+  const entity = buildGenericMainEntityJsonLd({
+    canonical: "/pomoc-psom/adopcia/ben",
+    name: "Ben",
+    description: "Verejný opis psa.",
+    image: "/images/ben.webp",
+    idSuffix: "dog",
+  });
+
+  assert.deepEqual(entity, {
+    "@type": "Thing",
+    "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#dog",
+    name: "Ben",
+    url: "https://psipedia.sk/pomoc-psom/adopcia/ben",
+    mainEntityOfPage: { "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben" },
+    description: "Verejný opis psa.",
+    image: "https://psipedia.sk/images/ben.webp",
+  });
+});
+
 test("SEO-STRUCTURED-DATA-2 editorial author reuses the canonical Psipedia Organization instead of creating a second incomplete Organization", () => {
   assert.deepEqual(articleAuthorJsonLd("Redakcia Psipedia"), { "@id": ORGANIZATION_ID });
   assert.deepEqual(articleAuthorJsonLd("Jana Testovacia"), { "@type": "Person", name: "Jana Testovacia" });
@@ -64,6 +85,7 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
   const article = fs.readFileSync(new URL("../components/article-detail.tsx", import.meta.url), "utf8");
   const breed = fs.readFileSync(new URL("../app/plemena/[slug]/page.tsx", import.meta.url), "utf8");
   const event = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const eventSchema = fs.readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
   const directory = fs.readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
   const directorySchema = fs.readFileSync(new URL("../lib/directory-profile-schema.ts", import.meta.url), "utf8");
   const help = fs.readFileSync(new URL("../app/pomoc-psom/[category]/[slug]/page.tsx", import.meta.url), "utf8");
@@ -71,9 +93,10 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
 
   assert.match(layout, /<StructuredData value=\{buildSiteIdentityJsonLd\(\)\}/);
 
-  for (const source of [article, breed, event, directorySchema, help, organization]) {
+  for (const source of [article, breed, eventSchema, directorySchema, help, organization]) {
     assert.match(source, /buildWebPageJsonLd\(/);
   }
+  assert.match(event, /buildEventJsonLd\(event, canonical\)/);
   assert.match(directory, /buildDirectoryProfileJsonLd\(/);
 
   assert.match(article, /publisher: \{ "@id": ORGANIZATION_ID \}/);
@@ -83,11 +106,11 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
 });
 
 test("SEO-STRUCTURED-DATA-2 never substitutes the Psipedia brand for a foreign organization logo", () => {
-  const event = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const event = fs.readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
   const directorySchema = fs.readFileSync(new URL("../lib/directory-profile-schema.ts", import.meta.url), "utf8");
   const organization = fs.readFileSync(new URL("../lib/organization-seo.ts", import.meta.url), "utf8");
 
-  assert.match(event, /Do not invent a foreign Organization node/);
+  assert.match(event, /Do not invent a foreign Person\/Organization entity/);
   assert.doesNotMatch(event, /organizer: \{ "@type": "Organization"/);
 
   assert.match(directorySchema, /schemaType === "Organization" && profileImage/);

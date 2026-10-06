@@ -9,12 +9,9 @@ test.beforeEach(async ({ page }) => {
 
 test("event detail exposes primary facts before long content and keeps optional media honest", async ({ page }, testInfo) => {
   await page.setViewportSize(testInfo.project.name.includes("mobile") ? { width: 390, height: 844 } : { width: 1440, height: 960 });
-  await page.goto("/podujatia");
-  const eventLink = page.locator('[data-event-card] a[href^="/podujatia/"]').first();
-  const href = await eventLink.getAttribute("href");
-  test.skip(!href, "The local event database has no published event to inspect.");
-
-  await page.goto(href!);
+  const href = "/podujatia/e2e-admin-event-2";
+  const response = await page.goto(href, { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
   const header = page.locator("[data-event-detail-header]");
   await expect(header.locator("h1")).toBeVisible();
 

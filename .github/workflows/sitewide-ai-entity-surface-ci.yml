@@ -1,0 +1,138 @@
+name: SITEWIDE-AI-ENTITY-SURFACE-1 validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "tests/**"
+      - "package.json"
+      - "scripts/**"
+      - ".github/workflows/sitewide-ai-entity-surface-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sitewide-ai-entity-surface-1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  entity-contracts:
+    name: Entity contracts, SEO, rendered HTML, lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Focused sitewide entity regressions
+        run: npm run test:sitewide-ai-entity-surface
+      - name: Structured data suite
+        run: npm run test:seo-structured-data
+      - name: Social and metadata suite
+        run: npm run test:social-metadata
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Rendered HTML and sitemap parity
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/rendered-html.test.mjs tests/sitemap-seo.test.mjs
+
+  public-entity-playwright:
+    name: Public entity Playwright — desktop/mobile
+    needs: entity-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      LOST_FOUND_SUBMISSIONS_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build branch code
+        run: npm run build
+      - name: Configure CI-only local PII keys
+        run: |
+          PII_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.from("0123456789abcdef".repeat(2)).toString("base64url"))')"
+          PII_HASH_KEY="$(node -e 'process.stdout.write(Buffer.from("fedcba9876543210".repeat(2)).toString("base64url"))')"
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$PII_ENCRYPTION_KEY"
+            printf 'PII_HASH_KEY=%s\n' "$PII_HASH_KEY"
+            printf '%s\n' "TURNSTILE_SITE_KEY=1x00000000000000000000AA"
+            printf '%s\n' "PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1"
+            printf '%s\n' "LOST_FOUND_SUBMISSIONS_ENABLED=1"
+          } > .dev.vars
+      - name: Apply foundation migrations to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed adoption staging prerequisites
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs
+      - name: Apply canonical adoption migrations
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Verify canonical adoption activation
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs verify
+      - name: Prepare deterministic breed assets
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
+      - name: Seed event, help and lost-found fixtures
+        run: |
+          node scripts/bootstrap-admin-events-e2e.mjs
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --command "INSERT INTO portal_section_settings (slug,label,eyebrow,description,intro,hero_config_json,subpages_json,position,visible,updated_at,updated_by) VALUES ('podujatia','Podujatia','Čo sa deje','Kalendár podujatí so psami.','Lokálny E2E seed verejnej sekcie podujatí.','{}','[]',0,1,'2026-10-06T00:00:00.000Z','e2e@psipedia.sk') ON CONFLICT(slug) DO UPDATE SET visible=1;"
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/lost-found-e2e.sql
+          npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/help-detail-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/sitewide-ai-entity-surface
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/sitewide-ai-entity-surface/server.log 2>&1 &
+          echo $! > .e2e-artifacts/sitewide-ai-entity-surface/server.pid
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -200 .e2e-artifacts/sitewide-ai-entity-surface/server.log
+            exit 1
+          fi
+      - name: Seed runtime breed and adoption fixtures
+        run: |
+          node scripts/bootstrap-breed-e2e.mjs seed
+          node scripts/bootstrap-adoption-e2e.mjs
+      - name: Entity Playwright — desktop
+        run: npm run e2e -- tests/e2e/event-detail-phase4.spec.ts tests/e2e/adoption.spec.ts tests/e2e/breed-profile.spec.ts tests/e2e/lost-found-dogs.spec.ts tests/e2e/help-detail-primitives.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Entity Playwright — mobile
+        run: npm run e2e -- tests/e2e/event-detail-phase4.spec.ts tests/e2e/adoption.spec.ts tests/e2e/breed-profile.spec.ts tests/e2e/lost-found-dogs.spec.ts tests/e2e/help-detail-primitives.spec.ts --project=mobile-chromium --workers=1 --retries=0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/sitewide-ai-entity-surface/server.pid ]; then
+            kill "$(cat .e2e-artifacts/sitewide-ai-entity-surface/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sitewide-ai-entity-surface-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/sitewide-ai-entity-surface/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14

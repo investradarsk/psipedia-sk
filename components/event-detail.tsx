@@ -7,7 +7,7 @@ import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
-import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, formatEventUpdatedAt, type DogEvent } from "@/lib/events";
 import styles from "./events-public.module.css";
 
 function eventTimeLabel(event: DogEvent) {
@@ -46,6 +46,7 @@ export function EventDetail({
         ? "Ukončené"
         : null;
   const hasActions = Boolean(event.registrationUrl || event.websiteUrl);
+  const updatedLabel = formatEventUpdatedAt(event.updatedAt);
 
   return (
     <main id="obsah">
@@ -83,6 +84,12 @@ export function EventDetail({
                   <div>
                     <dt>Organizátor</dt>
                     <dd>{event.organizer}</dd>
+                  </div>
+                )}
+                {updatedLabel && (
+                  <div>
+                    <dt>Aktualizované</dt>
+                    <dd><time dateTime={event.updatedAt}>{updatedLabel}</time></dd>
                   </div>
                 )}
               </dl>
