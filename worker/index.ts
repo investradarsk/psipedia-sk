@@ -373,6 +373,7 @@ const worker = {
       runDataAutomationSweep({
         database: env.DB,
         tavilyApiKey: env.TAVILY_API_KEY,
+        internetTransport: "TAVILY_ONLY",
       }).catch((error) => {
         console.error(JSON.stringify({
           event: "data_automation_sweep",
