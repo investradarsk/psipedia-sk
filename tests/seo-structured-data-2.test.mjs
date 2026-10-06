@@ -49,6 +49,8 @@ test("SEO-STRUCTURED-DATA-2 canonical WebPage references the shared WebSite, pub
   assert.deepEqual(page.isPartOf, { "@id": WEBSITE_ID });
   assert.deepEqual(page.mainEntity, { "@id": "https://psipedia.sk/test-detail#entity" });
   assert.deepEqual(page.breadcrumb, { "@id": "https://psipedia.sk/test-detail#breadcrumb" });
+  assert.equal(page.datePublished, "2026-09-01T10:00:00.000Z");
+  assert.equal(page.dateModified, "2026-10-03T10:00:00.000Z");
   assert.equal(page.inLanguage, "sk-SK");
 });
 
@@ -63,14 +65,16 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
   const breed = fs.readFileSync(new URL("../app/plemena/[slug]/page.tsx", import.meta.url), "utf8");
   const event = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
   const directory = fs.readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
+  const directorySchema = fs.readFileSync(new URL("../lib/directory-profile-schema.ts", import.meta.url), "utf8");
   const help = fs.readFileSync(new URL("../app/pomoc-psom/[category]/[slug]/page.tsx", import.meta.url), "utf8");
   const organization = fs.readFileSync(new URL("../lib/organization-seo.ts", import.meta.url), "utf8");
 
   assert.match(layout, /<StructuredData value=\{buildSiteIdentityJsonLd\(\)\}/);
 
-  for (const source of [article, breed, event, directory, help, organization]) {
+  for (const source of [article, breed, event, directorySchema, help, organization]) {
     assert.match(source, /buildWebPageJsonLd\(/);
   }
+  assert.match(directory, /buildDirectoryProfileJsonLd\(/);
 
   assert.match(article, /publisher: \{ "@id": ORGANIZATION_ID \}/);
   assert.match(breed, /publisher: \{ "@id": ORGANIZATION_ID \}/);
@@ -80,17 +84,17 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
 
 test("SEO-STRUCTURED-DATA-2 never substitutes the Psipedia brand for a foreign organization logo", () => {
   const event = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
-  const directory = fs.readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
+  const directorySchema = fs.readFileSync(new URL("../lib/directory-profile-schema.ts", import.meta.url), "utf8");
   const organization = fs.readFileSync(new URL("../lib/organization-seo.ts", import.meta.url), "utf8");
 
   assert.match(event, /Do not invent a foreign Organization node/);
   assert.doesNotMatch(event, /organizer: \{ "@type": "Organization"/);
 
-  assert.match(directory, /schemaType === "Organization" && profileImage/);
-  assert.match(directory, /logo: \{ "@type": "ImageObject", url: profileImage \}/);
+  assert.match(directorySchema, /schemaType === "Organization" && profileImage/);
+  assert.match(directorySchema, /logo: \{ "@type": "ImageObject", url: profileImage \}/);
   assert.match(organization, /logo: \{ "@type": "ImageObject", url: imageUrl \}/);
 
-  for (const source of [event, directory, organization]) {
+  for (const source of [event, directorySchema, organization]) {
     assert.doesNotMatch(source, /favicon\.svg|pwa\/icon-512\.png/);
   }
 });

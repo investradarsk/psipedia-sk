@@ -1,4 +1,6 @@
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import type { PublicRelatedBreed } from "@/lib/content-relations";
 
 export type DirectoryDetailFact = { label: string; value: string };
 export type DirectoryDetailPhone = { value: string; href: string };
@@ -37,6 +39,14 @@ export type DirectoryDetailPresentation = {
   facebookUrl: string | null;
   instagramUrl: string | null;
   navigationUrl: string | null;
+  updatedAt: string;
+};
+
+export type DirectoryQuickFact = {
+  label: string;
+  value?: string;
+  links?: Array<{ label: string; href: string }>;
+  dateTime?: string;
 };
 
 const unavailableValue = /^(?:neoveren[eé]|nezisten[eé]|neuveden[eé]|n\/a|nie je uveden[eé])$/i;
@@ -80,6 +90,53 @@ export function publicDirectoryDetailUrl(value: string | null | undefined) {
   }
 }
 
+export function formatDirectoryUpdatedAt(value: string | null | undefined) {
+  const timestamp = value?.trim() ?? "";
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return null;
+  const formatted = new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "Europe/Bratislava",
+  }).format(date);
+  return `Aktualizované ${formatted}`;
+}
+
+export function getDirectoryQuickFacts(
+  presentation: DirectoryDetailPresentation,
+  profileType: string,
+  relatedBreeds: Array<Pick<PublicRelatedBreed, "name" | "href">> = [],
+): DirectoryQuickFact[] {
+  const facts: DirectoryQuickFact[] = [];
+  const addText = (label: string, value: string | null | undefined) => {
+    const clean = usefulDirectoryDetailValue(value);
+    if (clean) facts.push({ label, value: clean });
+  };
+  const addLinks = (label: string, links: Array<{ label: string; href: string }>) => {
+    const visible = links.filter((link) => Boolean(link.label.trim() && link.href.trim()));
+    if (visible.length) facts.push({ label, links: visible });
+  };
+
+  addText("Typ profilu", profileType);
+  addText("Mesto / obec", presentation.city);
+  addText("Okres", presentation.district);
+  addText("Kraj", presentation.region);
+  addLinks("Plemená", relatedBreeds.map((breed) => ({ label: breed.name, href: breed.href })));
+  addText("Služby", presentation.services.join(", "));
+  addText("Zameranie / kvalifikácie", presentation.qualifications.join(", "));
+  if (presentation.websiteUrl) addLinks("Web", [{ label: "Oficiálny web", href: presentation.websiteUrl }]);
+  if (presentation.facebookUrl) addLinks("Facebook", [{ label: "Facebook", href: presentation.facebookUrl }]);
+  if (presentation.instagramUrl) addLinks("Instagram", [{ label: "Instagram", href: presentation.instagramUrl }]);
+  if (presentation.phone) addLinks("Telefón", [{ label: presentation.phone.value, href: presentation.phone.href }]);
+  addLinks("E-mail", presentation.emails.map((email) => ({ label: email.value, href: email.href })));
+  const updatedLabel = formatDirectoryUpdatedAt(presentation.updatedAt);
+  if (updatedLabel) facts.push({ label: "Posledná aktualizácia", value: updatedLabel, dateTime: presentation.updatedAt });
+
+  return facts;
+}
+
 function splitDescription(value: string | null) {
   return value ? value.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean) : [];
 }
@@ -87,12 +144,13 @@ function splitDescription(value: string | null) {
 export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile): DirectoryDetailPresentation {
   const publicAddress = profile.address.trim()
     || (profile.formattedServiceAddress ? profile.formattedServiceAddress.replace(/\n/g, ", ") : "");
-  const phoneValue = usefulDirectoryDetailValue(importedValue(profile, "Telefón", "Telefon", "phone"));
-  const rawEmail = usefulDirectoryDetailValue(importedValue(profile, "E-mail", "Email", "email"));
+  const publicContacts = readDirectoryPublicContacts(profile.importData, profile.websiteUrl ?? "");
+  const phoneValue = usefulDirectoryDetailValue(publicContacts.phone);
+  const rawEmail = usefulDirectoryDetailValue(publicContacts.email);
   const emails = rawEmail?.split(/[;,]/).map((item) => item.trim()).filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item)) ?? [];
-  const websiteUrl = publicDirectoryDetailUrl(importedValue(profile, "Web", "Webstránka") ?? profile.websiteUrl);
-  const facebookUrl = publicDirectoryDetailUrl(importedValue(profile, "Facebook"));
-  const instagramUrl = publicDirectoryDetailUrl(importedValue(profile, "Instagram"));
+  const websiteUrl = publicDirectoryDetailUrl(publicContacts.website);
+  const facebookUrl = publicDirectoryDetailUrl(publicContacts.facebook);
+  const instagramUrl = publicDirectoryDetailUrl(publicContacts.instagram);
   // Textová/redakčná adresa sama osebe nie je dôkazom exact GEO polohy.
   // Navigáciu poskytuje PublicLocationMap iba vtedy, keď existuje aktuálny
   // verejný RESOLVED bod (Google Place alebo dôveryhodné súradnice).
@@ -147,5 +205,6 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     facebookUrl,
     instagramUrl,
     navigationUrl,
+    updatedAt: profile.updatedAt,
   };
 }

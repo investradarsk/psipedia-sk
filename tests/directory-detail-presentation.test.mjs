@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
-import { getDirectoryDetailPresentation, publicDirectoryDetailUrl, usefulDirectoryDetailValue } from "../lib/directory-detail-presentation.ts";
+import {
+  formatDirectoryUpdatedAt,
+  getDirectoryDetailPresentation,
+  getDirectoryQuickFacts,
+  publicDirectoryDetailUrl,
+  usefulDirectoryDetailValue,
+} from "../lib/directory-detail-presentation.ts";
+import { buildDirectoryProfileJsonLd } from "../lib/directory-profile-schema.ts";
 
 function profile(overrides = {}) {
   return {
@@ -193,4 +201,175 @@ test("editorial public address wins independently of technical confirmation with
   }));
   assert.equal(unconfirmed.address, "Legacy 12");
   assert.equal(unconfirmed.navigationUrl, null);
+});
+
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 formats a neutral public updated date", () => {
+  assert.equal(formatDirectoryUpdatedAt("2026-10-04T08:30:00Z"), "Aktualizované 4. 10. 2026");
+  assert.equal(formatDirectoryUpdatedAt(""), null);
+  assert.equal(formatDirectoryUpdatedAt("not-a-date"), null);
+});
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 veterinary quick facts contain only populated public values", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    services: ["Pohotovosť", "Chirurgia"],
+    qualifications: ["Interná medicína"],
+    importData: {
+      Telefón: "+421 900 111 222",
+      "E-mail": "kontakt@veterina.example",
+      Web: "https://veterina.example",
+      Facebook: "https://facebook.com/veterina.example",
+      Instagram: "Neuvedené",
+      _psipedia_quality_phone_status: "NOT_FOUND",
+      _psipedia_quality_phone_checked_at: "2026-10-01T08:00:00Z",
+    },
+    updatedAt: "2026-10-04T08:30:00Z",
+  }));
+  const facts = getDirectoryQuickFacts(presentation, "Veterinárne pracovisko");
+  const byLabel = Object.fromEntries(facts.map((fact) => [fact.label, fact]));
+
+  assert.equal(byLabel["Typ profilu"].value, "Veterinárne pracovisko");
+  assert.equal(byLabel["Mesto / obec"].value, "Nitra");
+  assert.equal(byLabel.Okres.value, "Nitra");
+  assert.equal(byLabel.Kraj.value, "Nitriansky kraj");
+  assert.equal(byLabel.Služby.value, "Pohotovosť, Chirurgia");
+  assert.equal(byLabel["Zameranie / kvalifikácie"].value, "Interná medicína");
+  assert.deepEqual(byLabel.Telefón.links, [{ label: "+421 900 111 222", href: "tel:+421900111222" }]);
+  assert.deepEqual(byLabel["E-mail"].links, [{ label: "kontakt@veterina.example", href: "mailto:kontakt@veterina.example" }]);
+  assert.deepEqual(byLabel.Web.links, [{ label: "Oficiálny web", href: "https://veterina.example/" }]);
+  assert.equal(byLabel.Instagram, undefined);
+  assert.equal(byLabel["Posledná aktualizácia"].value, "Aktualizované 4. 10. 2026");
+  assert.equal(facts.some((fact) => /quality|intern/i.test(fact.label)), false);
+});
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 omits empty quick-fact rows", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    city: "",
+    district: "",
+    region: "",
+    services: [],
+    qualifications: [],
+    websiteUrl: null,
+    importData: {
+      Telefón: "Neuvedené",
+      "E-mail": "Nezistené",
+      Facebook: "N/A",
+    },
+    updatedAt: "invalid",
+  }));
+
+  assert.deepEqual(getDirectoryQuickFacts(presentation, "Tréner / psia škola"), [
+    { label: "Typ profilu", value: "Tréner / psia škola" },
+  ]);
+});
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 breeder quick facts use canonical breed relations, not text parsing", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "chovatelske-stanice",
+    name: "Moonlight Dogs",
+    description: "Rodinná chovateľská stanica so zameraním na pracovnú líniu.",
+    services: [],
+    qualifications: ["Pracovná línia"],
+    importData: {
+      Plemeno: "Legacy textové plemeno",
+      Facebook: "https://facebook.com/moonlightdogs",
+    },
+  }));
+  const relations = [{
+    id: 11,
+    slug: "labradorsky-retriever",
+    name: "Labradorský retriever",
+    href: "/plemena/labradorsky-retriever",
+    imageUrl: null,
+    fciGroup: 8,
+  }];
+  const facts = getDirectoryQuickFacts(presentation, "Chovateľská stanica", relations);
+  const breeds = facts.find((fact) => fact.label === "Plemená");
+
+  assert.deepEqual(breeds?.links, [{
+    label: "Labradorský retriever",
+    href: "/plemena/labradorsky-retriever",
+  }]);
+  assert.equal(JSON.stringify(facts).includes("Legacy textové plemeno"), false);
+  assert.equal(facts.find((fact) => fact.label === "Zameranie / kvalifikácie")?.value, "Pracovná línia");
+});
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 club fixture exposes type, location and public focus", () => {
+  const presentation = getDirectoryDetailPresentation(profile({
+    category: "kynologicke-kluby",
+    name: "Kynologický klub Nitra",
+    services: ["Agility", "Poslušnosť"],
+    qualifications: [],
+    importData: { Telefón: "+421 905 222 333" },
+  }));
+  const facts = getDirectoryQuickFacts(presentation, "Kynologický klub");
+  const labels = facts.map((fact) => fact.label);
+
+  assert.ok(labels.includes("Typ profilu"));
+  assert.ok(labels.includes("Mesto / obec"));
+  assert.ok(labels.includes("Služby"));
+  assert.ok(labels.includes("Telefón"));
+});
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 JSON-LD preserves canonical graph and adds truthful visible fields", () => {
+  const fixtures = [
+    { category: "veterinari", expectedType: "VeterinaryCare" },
+    { category: "chovatelske-stanice", expectedType: "LocalBusiness" },
+    { category: "kynologicke-kluby", expectedType: "Organization" },
+  ];
+
+  for (const fixture of fixtures) {
+    const sourceProfile = profile({
+      category: fixture.category,
+      address: "Testovacia 1",
+      websiteUrl: "https://canonical.example.org",
+      importData: {
+        Telefón: "+421 900 123 456",
+        "E-mail": "profil@example.org",
+        Facebook: "https://facebook.com/profil.example",
+      },
+      updatedAt: "2026-10-04T08:30:00Z",
+    });
+    const presentation = getDirectoryDetailPresentation(sourceProfile);
+    const relatedBreeds = [{
+      id: 11,
+      slug: "labradorsky-retriever",
+      name: "Labradorský retriever",
+      href: "/plemena/labradorsky-retriever",
+      imageUrl: null,
+      fciGroup: 8,
+    }];
+    const canonical = `https://psipedia.sk/adresar/${fixture.category}/testovacia-sluzba`;
+    const schema = buildDirectoryProfileJsonLd({
+      profile: sourceProfile,
+      presentation,
+      canonical,
+      relatedBreeds,
+    });
+    const entity = schema["@graph"].find((item) => item["@type"] === fixture.expectedType);
+    const webPage = schema["@graph"].find((item) => item["@type"] === "WebPage");
+    const breadcrumbs = schema["@graph"].find((item) => item["@type"] === "BreadcrumbList");
+
+    assert.ok(entity);
+    assert.equal(entity["@id"], `${canonical}#profile`);
+    assert.deepEqual(entity.mainEntityOfPage, { "@id": canonical });
+    assert.equal(entity.address["@type"], "PostalAddress");
+    assert.deepEqual(entity.knowsAbout, ["Labradorský retriever"]);
+    assert.ok(entity.sameAs.includes("https://canonical.example.org/"));
+    assert.ok(entity.sameAs.includes("https://facebook.com/profil.example"));
+    assert.equal(webPage["@id"], canonical);
+    assert.equal(webPage.dateModified, "2026-10-04T08:30:00Z");
+    assert.deepEqual(webPage.mainEntity, { "@id": `${canonical}#profile` });
+    assert.deepEqual(webPage.breadcrumb, { "@id": `${canonical}#breadcrumb` });
+    assert.equal(breadcrumbs["@id"], `${canonical}#breadcrumb`);
+  }
+});
+
+test("DIRECTORY-AI-PROFILE-SURFACE-1 public component renders semantic quick facts without an Overené badge", () => {
+  const component = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
+  assert.match(component, /Základné informácie/);
+  assert.match(component, /<dl className=\{styles\.quickFactsList\}>/);
+  assert.match(component, /<time dateTime=\{fact\.dateTime\}>/);
+  assert.doesNotMatch(component, />Overené</);
 });

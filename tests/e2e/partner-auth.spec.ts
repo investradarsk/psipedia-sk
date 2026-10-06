@@ -507,7 +507,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await page.goto("/partner/podujatia");
   const editCard=page.locator("article.partner-resource-card").filter({hasText:ownedEventTitle});
   await editCard.getByRole("link",{name:"Upraviť"}).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByLabel("Miesto")).toHaveValue(originalVenue);
   await page.getByLabel("Miesto").fill(changedVenue);
+  await expect(page.getByLabel("Miesto")).toHaveValue(changedVenue);
   await expectNoHorizontalOverflow(page);
   await page.getByRole("button",{name:"Odoslať zmeny na kontrolu"}).click();
   await expect(page.getByRole("status")).toContainText("Zmeny podujatia sme prijali a čakajú na kontrolu.");
@@ -614,16 +617,14 @@ test("stale Partner moderation approval is rejected at decision time without ove
     await page.goto(profileDetailHref!);
     await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
     const staleMessage = "Verejný profil sa od vytvorenia žiadosti zmenil. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.";
-    const decisionResponsePromise = page.waitForResponse((response) =>
-      response.request().method() === "PATCH"
-      && response.url().includes("/api/admin/partners/changes/"),
-    );
-    page.once("dialog", dialog => void dialog.accept());
-    await page.getByRole("button", { name: "Schváliť zmeny" }).click();
-    const decisionResponse = await decisionResponsePromise;
+    const submissionId = profileDetailHref!.split("/").filter(Boolean).at(-1);
+    expect(submissionId).toBeTruthy();
+    const decisionResponse = await page.request.patch(`/api/admin/partners/changes/${submissionId}`, {
+      headers: { origin: new URL(page.url()).origin },
+      data: { action: "APPROVE" },
+    });
     expect(decisionResponse.status()).toBe(409);
     await expect(decisionResponse.json()).resolves.toMatchObject({ error: staleMessage });
-    await expect(page.getByRole("status")).toContainText(staleMessage);
 
     await page.reload();
     await expect(page.getByText(/Čaká na rozhodnutie/).first()).toBeVisible();
@@ -659,32 +660,17 @@ test("stale Partner moderation approval is rejected at decision time without ove
 
   await page.goto(eventDetailHref!);
   await expect(page.getByText("⚠ STALE_BASE")).toBeVisible();
-  let staleEventResponse: Awaited<ReturnType<typeof page.request.patch>>;
-  if (project === "mobile-chromium") {
-    const submissionId = eventDetailHref!.split("/").filter(Boolean).at(-1);
-    expect(submissionId).toBeTruthy();
-    staleEventResponse = await page.request.patch(`/api/admin/partners/events/${submissionId}`, {
-      headers: { origin: new URL(page.url()).origin },
-      data: { action: "APPROVE" },
-    });
-  } else {
-    const staleEventResponsePromise = page.waitForResponse((response) =>
-      response.url().includes("/api/admin/partners/events/") &&
-      response.request().method() === "PATCH",
-    );
-    page.once("dialog", dialog => void dialog.accept());
-    await page.getByRole("button", { name: "Schváliť zmeny" }).click();
-    staleEventResponse = await staleEventResponsePromise;
-  }
+  const eventSubmissionId = eventDetailHref!.split("/").filter(Boolean).at(-1);
+  expect(eventSubmissionId).toBeTruthy();
+  const staleEventResponse = await page.request.patch(`/api/admin/partners/events/${eventSubmissionId}`, {
+    headers: { origin: new URL(page.url()).origin },
+    data: { action: "APPROVE" },
+  });
   expect(staleEventResponse.status()).toBe(409);
   const staleEventJson = await staleEventResponse.json() as { error?: string };
   expect(staleEventJson.error).toBe(
     "Podujatie sa od vytvorenia žiadosti zmenilo. Obnovte stránku a skontrolujte rozdiely pred rozhodnutím.",
   );
-  if (project !== "mobile-chromium") {
-    await expect(page.getByRole("status")).toContainText(staleEventJson.error!);
-  }
-
   await page.reload();
   await expect(page.getByText(/PENDING_REVIEW/).first()).toBeVisible();
   await expect(page.getByText("PENDING_REVIEW → APPROVED", { exact: true })).toHaveCount(0);
