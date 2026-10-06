@@ -13,7 +13,11 @@ import type { AutomationSourceCandidateInput } from "./data-automation-discovery
 import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
-import { automationSourceActivationReadiness } from "./data-automation-source-activation.ts";
+import {
+  automationSourceActivationReadiness,
+  automationSourceTechnicalGovernanceRefreshNeeded,
+  refreshAutomationSourceTechnicalGovernance,
+} from "./data-automation-source-activation.ts";
 import { getGovernanceState } from "./data-automation-governance.ts";
 import {
   assertAutomationScheduleMinimumCadence,
@@ -326,15 +330,41 @@ async function sourceActivationReadinessForEnable(
     technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
   },
 ) {
-  // Activation is provider-managed. Never probe the third-party source from
-  // Psipedia while enabling it; Tavily credentials and scoped provider support
-  // are checked by automationSourceActivationReadiness.
-  return automationSourceActivationReadiness(source, db, {
+  const internetTransport = input.technicalGovernanceRefresh?.internetTransport;
+  let readiness = await automationSourceActivationReadiness(source, db, {
     cadenceMinutes,
     now: input.now,
+    fetchImpl: internetTransport === "TAVILY_ONLY" ? undefined : input.technicalGovernanceRefresh?.fetchImpl,
     tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
-    internetTransport: input.technicalGovernanceRefresh?.internetTransport,
+    internetTransport,
   });
+
+  // Production always passes TAVILY_ONLY and therefore never enters this
+  // legacy compatibility branch. It remains only for isolated lower-level
+  // tests and explicit non-production callers.
+  if (
+    internetTransport !== "TAVILY_ONLY"
+    && !readiness.ready
+    && input.technicalGovernanceRefresh
+    && automationSourceTechnicalGovernanceRefreshNeeded(readiness)
+  ) {
+    await refreshAutomationSourceTechnicalGovernance({
+      source,
+      actor: input.technicalGovernanceRefresh.actor,
+      database: db,
+      fetchImpl: input.technicalGovernanceRefresh.fetchImpl,
+      now: input.now,
+    });
+    readiness = await automationSourceActivationReadiness(source, db, {
+      cadenceMinutes,
+      now: input.now,
+      fetchImpl: input.technicalGovernanceRefresh.fetchImpl,
+      tavilyCredentialConfigured: input.technicalGovernanceRefresh.tavilyCredentialConfigured,
+      internetTransport,
+    });
+  }
+
+  return readiness;
 }
 
 function sourceActivationError(readiness: Awaited<ReturnType<typeof automationSourceActivationReadiness>>) {
