@@ -13,11 +13,7 @@ import type { AutomationSourceCandidateInput } from "./data-automation-discovery
 import { selectRelevantExistingSourceForCandidate } from "./data-automation-source-matching.ts";
 import { candidateProvisioningConfigFor } from "./data-automation-source-provisioning.ts";
 import { automationSourceReadiness } from "./data-automation-capability-registry.ts";
-import {
-  automationSourceActivationReadiness,
-  automationSourceTechnicalGovernanceRefreshNeeded,
-  refreshAutomationSourceTechnicalGovernance,
-} from "./data-automation-source-activation.ts";
+import { automationSourceActivationReadiness } from "./data-automation-source-activation.ts";
 import { getGovernanceState } from "./data-automation-governance.ts";
 import {
   assertAutomationScheduleMinimumCadence,
@@ -329,32 +325,14 @@ async function sourceActivationReadinessForEnable(
     technicalGovernanceRefresh?: AutomationSourceTechnicalGovernanceRefreshOptions;
   },
 ) {
-  let readiness = await automationSourceActivationReadiness(source, db, {
+  // Activation is provider-managed. Never probe the third-party source from
+  // Psipedia while enabling it; Tavily credentials and scoped provider support
+  // are checked by automationSourceActivationReadiness.
+  return automationSourceActivationReadiness(source, db, {
     cadenceMinutes,
     now: input.now,
-    fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
     tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
   });
-  if (
-    !readiness.ready
-    && input.technicalGovernanceRefresh
-    && automationSourceTechnicalGovernanceRefreshNeeded(readiness)
-  ) {
-    await refreshAutomationSourceTechnicalGovernance({
-      source,
-      actor: input.technicalGovernanceRefresh.actor,
-      database: db,
-      fetchImpl: input.technicalGovernanceRefresh.fetchImpl,
-      now: input.now,
-    });
-    readiness = await automationSourceActivationReadiness(source, db, {
-      cadenceMinutes,
-      now: input.now,
-      fetchImpl: input.technicalGovernanceRefresh?.fetchImpl,
-      tavilyCredentialConfigured: input.technicalGovernanceRefresh?.tavilyCredentialConfigured,
-    });
-  }
-  return readiness;
 }
 
 function sourceActivationError(readiness: Awaited<ReturnType<typeof automationSourceActivationReadiness>>) {
