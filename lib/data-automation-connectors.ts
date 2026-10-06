@@ -330,6 +330,18 @@ const GENERIC_TAVILY_FALLBACK_CODES = new Set([
   "invalid_item_structure",
 ]);
 
+const TAVILY_CRAWL_EXTRACT_FALLBACK_CODES = new Set([
+  "TAVILY_PROVIDER_ERROR",
+  "TAVILY_TIMEOUT",
+  "TAVILY_INVALID_RESPONSE",
+  "TAVILY_NO_USABLE_RESULTS",
+]);
+
+function canFallbackTavilyCrawlToExtract(error: unknown) {
+  return error instanceof TavilySourceScopedError
+    && TAVILY_CRAWL_EXTRACT_FALLBACK_CODES.has(error.code);
+}
+
 export function canFallbackGenericExtractionToTavily(code: string) {
   return GENERIC_TAVILY_FALLBACK_CODES.has(code);
 }
@@ -401,8 +413,31 @@ export async function fetchAutomationSourceRecords(
     try {
       if (context.strategyOverride === "TAVILY_CRAWL") {
         if (!context.tavilyCrawlProvider) throw new AutomationConnectorError("tavily_crawl_unavailable");
-        const result = await context.tavilyCrawlProvider.crawl({ source, contract, gate });
-        return validateTavilyRecords(source, result.records);
+        try {
+          const result = await context.tavilyCrawlProvider.crawl({ source, contract, gate });
+          return validateTavilyRecords(source, result.records);
+        } catch (error) {
+          if (
+            !canFallbackTavilyCrawlToExtract(error)
+            || !context.tavilyExtractProvider
+            || !source.sourceUrl
+          ) throw error;
+          console.info(JSON.stringify({
+            event: "automation_tavily_strategy_fallback",
+            sourceId: source.id,
+            sourceKey: source.sourceKey,
+            from: "TAVILY_CRAWL",
+            to: "TAVILY_EXTRACT",
+            reason: error.code,
+          }));
+          const extracted = await context.tavilyExtractProvider.extract({
+            source,
+            contract,
+            gate,
+            urls: [source.sourceUrl],
+          });
+          return validateTavilyRecords(source, extracted.records);
+        }
       }
       if (!context.tavilyExtractProvider) throw new AutomationConnectorError("tavily_extract_unavailable");
       if (!source.sourceUrl) throw new AutomationConnectorError("unsafe_or_missing_source_url");
