@@ -59,7 +59,6 @@ import {
 } from "./data-automation-product-model.ts";
 import { ingestDirectEntityUrl } from "./data-automation-direct-entity.ts";
 import type { EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
-import { createProductionOrganizationEnricher, type OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
 import type { AutomationEnrichmentSearchPlan } from "./data-automation-enrichment-evidence.ts";
 import { evaluateGovernanceForActivation, getGovernanceState } from "./data-automation-governance.ts";
 import type { DirectoryAddressSearch } from "./data-automation-directory-address-enrichment.ts";
@@ -78,8 +77,15 @@ export type AutomationDiscoveryFetch = (input: RequestInfo | URL, init?: Request
 export type DataAutomationDiscoverySweepOptions = {
   database: D1Database;
   now?: Date;
+  /**
+   * Transport injection used for Tavily API calls in production and for
+   * deterministic provider mocks in tests. TAVILY_ONLY prevents legacy roots
+   * from using it against arbitrary third-party origins.
+   */
   fetchImpl?: AutomationDiscoveryFetch;
   searchProvider?: AutomationSearchProvider;
+  tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   sleep?: (ms: number) => Promise<void>;
 };
 
@@ -1303,9 +1309,6 @@ async function runDiscoveryRoot(
       }, options.database);
       exclusionCount = Math.max(exclusionCount, exclusions.exclusionCount);
       const enrichmentSearch = await entityEnrichmentSearchForRoot(root, options, runId);
-      const organizationEnricher: OrganizationRecordEnricher | undefined = root.entityType === "ORGANIZATION"
-        ? createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl })
-        : undefined;
 
       for (const candidate of candidates) {
         try {
@@ -1346,11 +1349,11 @@ async function runDiscoveryRoot(
             directoryCategory,
             database: options.database,
             fetchImpl: options.fetchImpl,
+            tavilyApiKey: options.tavilyApiKey,
             now: startedAt,
             provenanceType: "DIRECT_ENTITY_DISCOVERY",
             addressSearch,
             enrichmentSearch,
-            organizationEnricher,
             addressEvidenceText: searchSnippet,
           });
           canonicalDuplicateCount += ingested.existingCanonicalMatches;
@@ -1572,7 +1575,6 @@ async function runDirectEntityRefresh(
     now,
   );
   const refreshEnrichmentSearches = new Map<number, EntityEnrichmentSearch | undefined>();
-  const refreshOrganizationEnricher = createProductionOrganizationEnricher({ fetchImpl: options.fetchImpl });
   let checked = 0;
   let canonicalDuplicates = 0;
   let updateSuggestions = 0;
@@ -1606,12 +1608,12 @@ async function runDirectEntityRefresh(
         directoryCategory: candidate.category,
         database: options.database,
         fetchImpl: options.fetchImpl,
+        tavilyApiKey: options.tavilyApiKey,
         now,
         provenanceType: "DIRECT_ENTITY_REFRESH",
         expectedCanonicalEntityId: candidate.id,
         addressSearch,
         enrichmentSearch,
-        organizationEnricher: candidate.entityType === "ORGANIZATION" ? refreshOrganizationEnricher : undefined,
       });
       canonicalDuplicates += refreshed.canonicalDuplicates;
       updateSuggestions += refreshed.updateSuggestions;
