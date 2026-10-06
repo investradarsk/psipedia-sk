@@ -189,6 +189,7 @@ export async function listDueAutomationDiscoveryRoots(
       recurring: true,
       cadenceMinutes: root.cadenceMinutes,
       storageFields: [...storageFields],
+      providerManagedAccess: root.discoveryType === "SEARCH_PROVIDER",
     }, now);
     if (decision.allowed) governed.push(root);
   }
@@ -338,6 +339,7 @@ function discoveryGovernanceUsage(root: AutomationDiscoveryRoot) {
     storageFields: root.discoveryType === "SEARCH_PROVIDER"
       ? ["url", "title", "snippet", "metadata"] as Array<"url" | "title" | "snippet" | "metadata">
       : ["url", "title", "metadata"] as Array<"url" | "title" | "snippet" | "metadata">,
+    providerManagedAccess: root.discoveryType === "SEARCH_PROVIDER",
   };
 }
 
