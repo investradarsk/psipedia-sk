@@ -85,6 +85,7 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
   const article = fs.readFileSync(new URL("../components/article-detail.tsx", import.meta.url), "utf8");
   const breed = fs.readFileSync(new URL("../app/plemena/[slug]/page.tsx", import.meta.url), "utf8");
   const event = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const eventSchema = fs.readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
   const directory = fs.readFileSync(new URL("../app/adresar/[category]/[slug]/page.tsx", import.meta.url), "utf8");
   const directorySchema = fs.readFileSync(new URL("../lib/directory-profile-schema.ts", import.meta.url), "utf8");
   const help = fs.readFileSync(new URL("../app/pomoc-psom/[category]/[slug]/page.tsx", import.meta.url), "utf8");
@@ -92,9 +93,10 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
 
   assert.match(layout, /<StructuredData value=\{buildSiteIdentityJsonLd\(\)\}/);
 
-  for (const source of [article, breed, event, directorySchema, help, organization]) {
+  for (const source of [article, breed, eventSchema, directorySchema, help, organization]) {
     assert.match(source, /buildWebPageJsonLd\(/);
   }
+  assert.match(event, /buildEventJsonLd\(event, canonical\)/);
   assert.match(directory, /buildDirectoryProfileJsonLd\(/);
 
   assert.match(article, /publisher: \{ "@id": ORGANIZATION_ID \}/);
@@ -104,11 +106,11 @@ test("SEO-STRUCTURED-DATA-2 public detail routes use canonical WebPage publisher
 });
 
 test("SEO-STRUCTURED-DATA-2 never substitutes the Psipedia brand for a foreign organization logo", () => {
-  const event = fs.readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const event = fs.readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
   const directorySchema = fs.readFileSync(new URL("../lib/directory-profile-schema.ts", import.meta.url), "utf8");
   const organization = fs.readFileSync(new URL("../lib/organization-seo.ts", import.meta.url), "utf8");
 
-  assert.match(event, /Do not invent a foreign Organization node/);
+  assert.match(event, /Do not invent a foreign Person\/Organization entity/);
   assert.doesNotMatch(event, /organizer: \{ "@type": "Organization"/);
 
   assert.match(directorySchema, /schemaType === "Organization" && profileImage/);
