@@ -91,7 +91,8 @@
     "test:public-landing-alignment": "node --test tests/public-landing-alignment.test.mjs",
     "test:breed-crawl-hierarchy": "node --test tests/breed-crawl-hierarchy.test.mjs",
     "test:breeding-station-ai-landings": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breeding-station-ai-landings.test.mjs",
-    "test:directory-ai-landings-scale": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-ai-landings-scale.test.mjs"
+    "test:directory-ai-landings-scale": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/directory-ai-landings-scale.test.mjs",
+    "test:internal-discovery": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/internal-discovery.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

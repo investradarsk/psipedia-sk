@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { DirectoryCard } from "@/components/directory-card";
+import { RelatedEntityLinks } from "@/components/related-entity-links";
 import { PawMark } from "@/components/icons";
 import {
   PublicContentShell,
@@ -12,14 +13,19 @@ import {
   buildDirectoryLocationLandingBreadcrumbs,
   type DirectoryLocationLanding,
 } from "@/lib/directory-location-landings";
+import { listIndexableDirectoryLandingParentLinks } from "@/lib/internal-discovery";
 import styles from "@/components/directory-public.module.css";
 
 function profileCountLabel(count: number) {
   return count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov";
 }
 
-export function DirectoryLocationLandingPage({ landing }: { landing: DirectoryLocationLanding }) {
+export async function DirectoryLocationLandingPage({ landing }: { landing: DirectoryLocationLanding }) {
   const breadcrumbs = buildDirectoryLocationLandingBreadcrumbs(landing);
+  const discoveryLinks = await listIndexableDirectoryLandingParentLinks(landing).catch((error) => {
+    console.error("Directory landing parent discovery read failed", { path: landing.path, error: error instanceof Error ? error.message : String(error) });
+    return [];
+  });
   const hasMapData = landing.profiles.some((profile) => Boolean(profile.city || profile.region));
 
   return (
@@ -58,6 +64,16 @@ export function DirectoryLocationLandingPage({ landing }: { landing: DirectoryLo
             </div>
           </PublicContentShell>
         </section>
+
+        {discoveryLinks.length > 0 && (
+          <section className={styles.contextSection} aria-labelledby="directory-location-discovery">
+            <PublicContentShell variant="plain" className={styles.contextShell}>
+              <span className="eyebrow">Kam ďalej</span>
+              <h2 id="directory-location-discovery">Súvisiace možnosti v širšej lokalite</h2>
+              <RelatedEntityLinks links={discoveryLinks} label="Súvisiace možnosti v širšej lokalite" />
+            </PublicContentShell>
+          </section>
+        )}
 
         {hasMapData && (
           <section className={styles.contextSection}>
