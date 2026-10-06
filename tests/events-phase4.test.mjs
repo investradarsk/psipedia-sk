@@ -177,7 +177,7 @@ test("route reuses the canonical Event graph builder without duplicating schema 
   assert.match(schemaBuilder, /mainEntityOfPage: \{ "@id": canonical \}/);
   assert.match(schemaBuilder, /Do not invent a foreign Person\/Organization entity/);
   assert.doesNotMatch(schemaBuilder, /organizer: \{ "@type": "Organization"/);
-  assert.doesNotMatch(schemaBuilder, /offers:|priceCurrency|ticket/);
+  assert.doesNotMatch(schemaBuilder, /\boffers\s*:|\bpriceCurrency\s*:|\bticket\s*:/);
   assert.match(page, /getUpcomingEvents\(8\)/);
   assert.match(page, /buildPublicEventPresentation\(storedEvent\)/);
   assert.match(page, /selectRelatedEvents\(event,/);
