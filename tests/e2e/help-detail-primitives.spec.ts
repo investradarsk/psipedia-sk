@@ -66,7 +66,8 @@ test("contact actions and help options remain operable; absent data creates no e
 });
 
 test("Admin Help keeps bulk selection page-scoped and publishes only the current view without writing local D1", async ({ page }) => {
-  await page.goto("/admin/pomoc?q=E2E+bulk&status=draft");
+  await page.goto("/admin/pomoc?q=E2E+bulk&status=draft", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
   await expect(page.locator(".admin-help-row")).toHaveCount(50);
   await expect(page.locator(".admin-help-results")).toContainText("Nájdené: 65");
 
