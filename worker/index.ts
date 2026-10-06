@@ -249,9 +249,8 @@ const worker = {
         runScheduledAdminPush(env),
         runDataAutomationSweep({
           database: env.DB,
-          htmlAdapters: productionAutomationHtmlAdapters,
-          organizationEnricher: createProductionOrganizationEnricher(),
           tavilyApiKey: env.TAVILY_API_KEY,
+          internetTransport: "TAVILY_ONLY",
         }).catch((error) => {
           console.error(JSON.stringify({
             event: "data_automation_sweep",
@@ -263,6 +262,8 @@ const worker = {
         runDataAutomationDiscoverySweep({
           database: env.DB,
           searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
+          tavilyApiKey: env.TAVILY_API_KEY,
+          internetTransport: "TAVILY_ONLY",
         }).catch((error) => {
           console.error(JSON.stringify({
             event: "data_automation_discovery_sweep",
