@@ -37,6 +37,8 @@ jobs:
       - run: npm run test:breeding-station-ai-landings
       - run: npm run test:sitewide-ai-entity-surface
       - run: npm run test:seo-structured-data
+      - name: AI referral regression
+        run: npm run test:ai-referral
       - run: npm run test:article-ux
       - run: npm run lint
       - run: npm run build
