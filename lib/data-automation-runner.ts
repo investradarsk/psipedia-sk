@@ -941,6 +941,7 @@ export async function runDataAutomationSweep(options: DataAutomationSweepOptions
       options.database as AutomationD1Database,
       options.now ?? new Date(),
       DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP,
+      { providerManagedAccess: options.internetTransport === "TAVILY_ONLY" },
     );
   } catch (error) {
     if (missingAutomationSchema(error)) {

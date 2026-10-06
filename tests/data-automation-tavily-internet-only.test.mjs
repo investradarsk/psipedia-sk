@@ -109,3 +109,25 @@ test("Tavily-only source execution uses explicit provider strategy instead of di
   assert.match(direct, /strategyOverride:\s*"TAVILY_EXTRACT"/);
   assert.match(direct, /internetTransport !== "TAVILY_ONLY"/);
 });
+
+
+test("scheduled due selection uses the same provider-managed governance policy as Tavily execution", async () => {
+  const [runner, store, discoveryStore] = await Promise.all([
+    readFile(path.join(repoRoot, "lib/data-automation-runner.ts"), "utf8"),
+    readFile(path.join(repoRoot, "lib/data-automation-store.ts"), "utf8"),
+    readFile(path.join(repoRoot, "lib/data-automation-discovery-store.ts"), "utf8"),
+  ]);
+
+  assert.match(
+    runner,
+    /listDueAutomationSources\([\s\S]*providerManagedAccess:\s*options\.internetTransport\s*===\s*"TAVILY_ONLY"/,
+  );
+  assert.match(
+    store,
+    /providerManagedAccess:\s*Boolean\([\s\S]*options\.providerManagedAccess/,
+  );
+  assert.match(
+    discoveryStore,
+    /providerManagedAccess:\s*root\.discoveryType\s*===\s*"SEARCH_PROVIDER"/,
+  );
+});
