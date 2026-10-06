@@ -213,7 +213,9 @@ test.describe("admin directory v2", () => {
 
     const publicResponse = await page.goto("/adresar/treneri/directory-admin-editor-fixture", { waitUntil: "domcontentloaded" });
     expect(publicResponse?.status()).toBe(200);
-    await expect(page.getByText("+421 900 333 444")).toBeVisible();
+    const publicPhoneLinks = page.getByRole("link", { name: "+421 900 333 444", exact: true });
+    await expect(publicPhoneLinks).toHaveCount(2);
+    await expect(publicPhoneLinks.first()).toBeVisible();
   });
 
   test("create flow validates current contract and produces a manageable draft", async ({ page }, testInfo) => {
