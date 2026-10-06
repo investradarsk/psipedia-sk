@@ -16,9 +16,39 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: INTERNAL_CRAWL_PATHS,
       },
-      { userAgent: "OAI-SearchBot", allow: "/", disallow: INTERNAL_CRAWL_PATHS },
-      { userAgent: "ChatGPT-User", allow: "/", disallow: INTERNAL_CRAWL_PATHS },
-      { userAgent: "GPTBot", allow: "/", disallow: INTERNAL_CRAWL_PATHS },
+      {
+        userAgent: "Google-Extended",
+        allow: "/",
+        disallow: INTERNAL_CRAWL_PATHS,
+      },
+      {
+        userAgent: "OAI-SearchBot",
+        allow: "/",
+        disallow: INTERNAL_CRAWL_PATHS,
+      },
+      {
+        userAgent: "ChatGPT-User",
+        allow: "/",
+        disallow: INTERNAL_CRAWL_PATHS,
+      },
+      {
+        userAgent: "GPTBot",
+        disallow: "/",
+      },
+      {
+        userAgent: "Claude-SearchBot",
+        allow: "/",
+        disallow: INTERNAL_CRAWL_PATHS,
+      },
+      {
+        userAgent: "Claude-User",
+        allow: "/",
+        disallow: INTERNAL_CRAWL_PATHS,
+      },
+      {
+        userAgent: "ClaudeBot",
+        disallow: "/",
+      },
     ],
     sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/news-sitemap.xml`],
     host: SITE_URL,
