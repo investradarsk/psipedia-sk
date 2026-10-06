@@ -1,18 +1,38 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { buildEventJsonLd } from "../lib/event-schema.ts";
 import { buildPublicEventPresentation, eventTypeFromPortalSlug, eventTypePortalHref, selectRelatedEvents } from "../lib/events.ts";
 
 function event(overrides) {
   return {
     id: 1,
     slug: "podujatie",
+    title: "Klubová výstava",
+    excerpt: "Verejný popis podujatia.",
     eventType: "Výstava",
+    status: "published",
     startDate: "2026-09-20",
     startTime: "09:00",
     endDate: null,
     endTime: null,
+    venue: "Výstavisko",
+    city: "Nitra",
+    region: "Nitriansky kraj",
+    address: "Výstavná 1",
+    organizer: "Klub test",
+    description: "Verejný popis podujatia.",
+    practicalInfo: "",
+    websiteUrl: "https://example.org/event",
+    registrationUrl: null,
+    imageUrl: "/images/event.webp",
+    imageKey: null,
     cancelled: false,
+    createdAt: "2026-08-01T10:00:00.000Z",
+    updatedAt: "2026-09-01T10:00:00.000Z",
+    publishedAt: "2026-08-05T10:00:00.000Z",
+    createdBy: "editor",
+    updatedBy: "editor",
     ...overrides,
   };
 }
@@ -144,27 +164,51 @@ test("related events prefer active same-type events while past details prefer th
   );
 });
 
-test("route keeps canonical metadata, truthful Event status/location and canonical page publisher without fake foreign Organization data", () => {
+test("route reuses the canonical Event graph builder without duplicating schema in the page", () => {
   const page = readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
+  const schemaBuilder = readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
   assert.match(page, /buildContentMetadata/);
   assert.match(page, /resolvedCanonical\(event\.seo,eventHref\(event\)\)|resolvedCanonical\(event\.seo, eventHref\(event\)\)/);
-  assert.match(page, /"@type": "Event"/);
-  assert.match(page, /"@type": "BreadcrumbList"/);
-  assert.match(page, /position: 1, name: "Domov"/);
-  assert.match(page, /position: 2, name: "Podujatia"/);
-  assert.match(page, /eventDateTimeIso\(event\.startDate, event\.startTime\)/);
-  assert.match(page, /event\.cancelled \? "https:\/\/schema\.org\/EventCancelled" : "https:\/\/schema\.org\/EventScheduled"/);
-  assert.match(page, /location,/);
-  assert.match(page, /buildWebPageJsonLd\(\{/);
-  assert.match(page, /mainEntityOfPage: \{ "@id": canonical \}/);
-  assert.match(page, /Do not invent a foreign Organization node/);
-  assert.doesNotMatch(page, /organizer: \{ "@type": "Organization"/);
-  assert.match(page, /url: canonical/);
-  assert.doesNotMatch(page, /offers:|priceCurrency|ticket/);
+  assert.match(page, /buildEventJsonLd\(event, canonical\)/);
+  assert.doesNotMatch(page, /"@type": "Event"/);
+  assert.match(schemaBuilder, /"@type": "Event"/);
+  assert.match(schemaBuilder, /"@type": "BreadcrumbList"/);
+  assert.match(schemaBuilder, /buildWebPageJsonLd\(\{/);
+  assert.match(schemaBuilder, /mainEntityOfPage: \{ "@id": canonical \}/);
+  assert.match(schemaBuilder, /Do not invent a foreign Person\/Organization entity/);
+  assert.doesNotMatch(schemaBuilder, /organizer: \{ "@type": "Organization"/);
+  assert.doesNotMatch(schemaBuilder, /offers:|priceCurrency|ticket/);
   assert.match(page, /getUpcomingEvents\(8\)/);
   assert.match(page, /buildPublicEventPresentation\(storedEvent\)/);
   assert.match(page, /selectRelatedEvents\(event,/);
   assert.match(page, /<EventDetail event=\{event\} related=\{related\}/);
+});
+
+test("Event graph covers physical, online and registration-free events with canonical dates", () => {
+  const physical = buildEventJsonLd(event({ registrationUrl: null }), "https://psipedia.sk/podujatia/klubova-vystava");
+  const physicalEvent = physical["@graph"].find((item) => item["@type"] === "Event");
+  const physicalPage = physical["@graph"].find((item) => item["@type"] === "WebPage");
+  assert.equal(physicalEvent.location["@type"], "Place");
+  assert.equal(physicalEvent.location.address.addressLocality, "Nitra");
+  assert.equal(physicalEvent.startDate, "2026-09-20T09:00:00+02:00");
+  assert.equal("registrationUrl" in physicalEvent, false);
+  assert.equal("offers" in physicalEvent, false);
+  assert.equal(physicalPage.datePublished, "2026-08-05T10:00:00.000Z");
+  assert.equal(physicalPage.dateModified, "2026-09-01T10:00:00.000Z");
+  assert.deepEqual(physicalPage.mainEntity, { "@id": "https://psipedia.sk/podujatia/klubova-vystava#event" });
+
+  const online = buildEventJsonLd(event({
+    slug: "online-webinar",
+    region: "Online",
+    city: "",
+    venue: "",
+    address: "",
+    websiteUrl: "https://example.org/webinar",
+    registrationUrl: null,
+  }), "/podujatia/online-webinar");
+  const onlineEvent = online["@graph"].find((item) => item["@type"] === "Event");
+  assert.deepEqual(onlineEvent.location, { "@type": "VirtualLocation", url: "https://example.org/webinar" });
+  assert.equal(onlineEvent.eventAttendanceMode, "https://schema.org/OnlineEventAttendanceMode");
 });
 
 test("existing admin already manages every field needed by the public detail", () => {
