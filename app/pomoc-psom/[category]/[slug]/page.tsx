@@ -5,7 +5,7 @@ import { getPublishedHelpCase } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { StructuredData } from "@/components/structured-data";
 import { buildContentMetadata, helpSeoFallback, resolvedCanonical } from "@/lib/content-seo";
-import { buildWebPageJsonLd, SITE_URL } from "@/lib/seo";
+import { buildGenericMainEntityJsonLd, buildWebPageJsonLd, SITE_URL } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ category: string; slug: string }> };
@@ -34,6 +34,13 @@ export default async function HelpCasePage({ params }: Props) {
   if (!item) notFound();
   const canonical = resolvedCanonical(item.seo, helpCaseHref(item));
   const breadcrumbId = `${canonical}#breadcrumb`;
+  const helpEntity = buildGenericMainEntityJsonLd({
+    canonical,
+    name: item.dogName?.trim() || item.title,
+    description: item.description || item.excerpt,
+    image: item.imageUrl,
+    idSuffix: "help-case",
+  });
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -41,10 +48,12 @@ export default async function HelpCasePage({ params }: Props) {
         canonical,
         name: item.title,
         description: item.description || item.excerpt,
+        mainEntityId: helpEntity["@id"],
         breadcrumbId,
         datePublished: item.publishedAt || item.createdAt,
         dateModified: item.updatedAt,
       }),
+      helpEntity,
       {
         "@type": "BreadcrumbList",
         "@id": breadcrumbId,
