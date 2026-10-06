@@ -270,10 +270,9 @@ test("runtime enforces explicit governance decisions while preserving legacy ena
 });
 
 
-test("source-only approval separates technical evidence from explicit operator decisions", async () => {
+test("source-only approval keeps operator governance while production internet transport is provider-managed", async () => {
   const activation = await readFile(path.join(repoRoot, "lib/data-automation-source-activation.ts"), "utf8");
-  assert.match(activation, /probeAutomationSourceAccess/);
-  assert.match(activation, /probeAutomationSourceRobots/);
+  assert.match(activation, /providerManagedAccess/);
   assert.match(activation, /termsStatus: "ALLOWED"/);
   assert.match(activation, /recurringStatus: "APPROVED"/);
   assert.match(activation, /retentionStatus: "RESTRICTED"/);
@@ -281,14 +280,13 @@ test("source-only approval separates technical evidence from explicit operator d
   assert.match(activation, /retainMetadata: true/);
   assert.match(activation, /retainTitle: false/);
   assert.match(activation, /retainSnippet: false/);
-  assert.match(activation, /refreshAutomationSourceTechnicalGovernance/);
-  assert.match(activation, /termsStatus: current\.termsStatus/);
-  assert.match(activation, /recurringStatus: current\.recurringStatus/);
-  assert.match(activation, /retentionStatus: current\.retentionStatus/);
-  assert.match(activation, /manualOnly: current\.manualOnly/);
-  assert.match(activation, /minCadenceMinutes: current\.minCadenceMinutes/);
-  assert.match(activation, /expectedUpdatedAt: current\.updatedAt/);
-  assert.match(activation, /Discovery-root governance was not inherited/);
+  assert.match(activation, /Public internet transport is delegated to Tavily/);
+  assert.match(activation, /robotsStatus: "NOT_APPLICABLE"/);
+
+  const prepareStart = activation.indexOf("export async function prepareAutomationSourceGovernanceForApproval");
+  assert.ok(prepareStart >= 0);
+  const prepare = activation.slice(prepareStart);
+  assert.doesNotMatch(prepare, /probeAutomationSourceAccess\(|probeAutomationSourceRobots\(|refreshAutomationSourceTechnicalGovernance\(/);
   assert.doesNotMatch(activation, /tavilySearchGovernancePresetForRoot|TAVILY_SEARCH_GOVERNANCE/);
 });
 
