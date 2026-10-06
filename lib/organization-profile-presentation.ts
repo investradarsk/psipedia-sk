@@ -72,6 +72,18 @@ const fundraisingActionLabels: Partial<Record<PublicOrganizationFundraisingMetho
   EXTERNAL_FUNDRAISER: "Otvoriť zbierku ↗",
 };
 
+function formatOrganizationUpdatedAt(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    timeZone: "Europe/Bratislava",
+  }).format(date);
+}
+
 function text(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
@@ -202,6 +214,7 @@ export function buildOrganizationProfilePresentation(
     : [];
   const website = externalUrl(organization.websiteUrl);
 
+  const updatedAt = formatOrganizationUpdatedAt(organization.updatedAt);
   const facts: OrganizationProfileFact[] = [
     { label: "Typ organizácie", value: organizationTypeLabels[organization.type] },
     text(organization.legalName) && text(organization.legalName) !== text(organization.name)
@@ -210,6 +223,7 @@ export function buildOrganizationProfilePresentation(
     text(organization.registrationNumber)
       ? { label: "Registračné číslo", value: text(organization.registrationNumber)! }
       : null,
+    updatedAt ? { label: "Aktualizované", value: updatedAt } : null,
   ].filter((fact): fact is OrganizationProfileFact => Boolean(fact));
 
   const contacts = [
