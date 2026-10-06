@@ -1,5 +1,5 @@
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
-import { readDirectoryPublicContacts } from "@/lib/directory-profile-metadata";
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
 export type DirectoryDetailFact = { label: string; value: string };
