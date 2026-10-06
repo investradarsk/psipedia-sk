@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   AUTOMATION_SOURCE_PROVIDER_DIAGNOSTIC_COLUMNS,
+  AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS,
   DEFAULT_TARGET_MIGRATION,
   DYNAMIC_ENTITY_IDENTITY_INDEXES,
   PARTNER_MULTIMETHOD_AUTH_INDEXES,
@@ -13,6 +14,7 @@ import {
   SUPPORTED_PRODUCTION_TARGETS,
   assertAutomationGovernanceSchema,
   assertAutomationSourceProviderDiagnosticsSchema,
+  assertAutomationSourceProviderTransportPhaseSchema,
   assertDynamicEntityIdentitySchema,
   assertTavilyEventCadenceState,
   assertPartnerAuthPreserved,
@@ -124,6 +126,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0109_dynamic_entity_identity_indexes.sql",
     "0110_tavily_source_provider_usage.sql",
     "0111_tavily_provider_diagnostics.sql",
+    "0112_tavily_transport_phase.sql",
   ]);
 });
 
@@ -546,6 +549,56 @@ test("AUTOMATION-TAVILY-PROVIDER-DIAGNOSTICS-1 0111 migration is additive and ex
   );
 });
 
+test("AUTOMATION-TAVILY-TRANSPORT-DIAG-2 0112 detects partial additive column drift", () => {
+  const target = "0112_tavily_transport_phase.sql";
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{
+        name: "automation_source_provider_usage",
+        type: "table",
+        sql: "CREATE TABLE automation_source_provider_usage (id integer, transport_phase text)",
+      }],
+    }, target),
+    { partial: true },
+  );
+  assert.deepEqual(
+    targetSchemaObjects({
+      objects: [{
+        name: "automation_source_provider_usage",
+        type: "table",
+        sql: "CREATE TABLE automation_source_provider_usage (id integer, transport_error_name text)",
+      }],
+    }, target),
+    { partial: false },
+  );
+});
+
+test("AUTOMATION-TAVILY-TRANSPORT-DIAG-2 0112 migration is additive and exposes transport_phase", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0112_tavily_transport_phase.sql"), "utf8");
+  for (const column of AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS) {
+    assert.match(migration, new RegExp(`ADD COLUMN \\\`${column}\\\``));
+  }
+  assert.doesNotMatch(migration, /\bDROP\b|\bDELETE\b|\bUPDATE\b/i);
+
+  const tableSql = `CREATE TABLE automation_source_provider_usage (
+    id integer,
+    ${AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS.map((column) => column + " text").join(", ")}
+  )`;
+  assert.doesNotThrow(() => assertAutomationSourceProviderTransportPhaseSchema({
+    objects: [{ name: "automation_source_provider_usage", type: "table", sql: tableSql }],
+  }));
+  assert.throws(
+    () => assertAutomationSourceProviderTransportPhaseSchema({
+      objects: [{
+        name: "automation_source_provider_usage",
+        type: "table",
+        sql: "CREATE TABLE automation_source_provider_usage (id integer, transport_error_name text)",
+      }],
+    }),
+    /transport_phase is missing/,
+  );
+});
+
 test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows operator lifecycle and schedule state", () => {
   const stableConfig = {
     root_key: "tavily-sk-dog-events",
@@ -605,7 +658,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0112_future_migration.sql",
+    "0113_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -633,14 +686,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0112_future_migration.sql",
+    "0113_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0112_future_migration.sql",
+    "0113_future_migration.sql",
   ]);
 });
 
