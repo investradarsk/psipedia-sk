@@ -124,8 +124,8 @@ jobs:
             sleep 1
           done
           if curl --silent --fail http://localhost:5173/ >/dev/null 2>&1; then
-            pkill -f 'vite.*--host 127.0.0.1' 2>/dev/null || true
-            sleep 1
+            echo "Previous Vite process did not stop cleanly."
+            exit 1
           fi
           nohup ./node_modules/.bin/vite --host 127.0.0.1 > .e2e-artifacts/internal-discovery/server.log 2>&1 &
           echo $! > .e2e-artifacts/internal-discovery/server.pid
