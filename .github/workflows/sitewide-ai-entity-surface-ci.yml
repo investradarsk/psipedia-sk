@@ -35,8 +35,8 @@ jobs:
         run: npm run test:sitewide-ai-entity-surface
       - name: Structured data suite
         run: npm run test:seo-structured-data
-      - name: SEO metadata suite
-        run: npm run test:seo-metadata
+      - name: Social and metadata suite
+        run: npm run test:social-metadata
       - name: Lint
         run: npm run lint
       - name: Build
