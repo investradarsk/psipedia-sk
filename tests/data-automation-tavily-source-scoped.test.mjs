@@ -604,3 +604,56 @@ test("provider cooldown denial is reported as cooldown, not budget exhaustion", 
   );
   assert.equal(calls, 0);
 });
+
+
+test("Tavily Extract can recover a mushing-style EVENT list from the approved root page", async () => {
+  const src = source({
+    entityType: "EVENT",
+    sourceKey: "mushing-events",
+    sourceUrl: "https://mushing.sk/preteky",
+    config: {
+      sourceShape: "MULTI_ITEM_LIST",
+      staticFields: { eventType: "Preteky" },
+    },
+    maxRecordsPerRun: 50,
+  });
+  const scoped = contract(src, "/preteky/**");
+  const provider = new TavilyAutomationExtractProvider({
+    apiKey: "key",
+    fetchImpl: async () => json(payload([{
+      url: "https://mushing.sk/preteky/",
+      raw_content: [
+        "# Preteky",
+        "| 14.–18.10.2026 | ME IFSS Gävle | Gävle – Švédsko |",
+        "| 31.10.–1.11.2026 | Mošovce | Mošovce | REGISTRÁCIE |",
+      ].join("\n"),
+    }])),
+  });
+
+  const result = await provider.extract({
+    source: src,
+    contract: scoped,
+    gate: gate().value,
+    urls: [src.sourceUrl],
+  });
+
+  assert.equal(result.records.length, 2);
+  assert.deepEqual(result.records.map((record) => record.proposed.title), [
+    "ME IFSS Gävle",
+    "Mošovce",
+  ]);
+  assert.ok(result.records.every((record) => record.extraction.strategy === "TAVILY_EXTRACT"));
+  assert.ok(result.records.every((record) => record.rawRecord.identitySource === "TAVILY_EXTRACT_LIST_ROW"));
+
+  const normalized = result.records.map((record) =>
+    normalizeAutomationEventRecord(record, { now: new Date("2026-10-06T00:00:00.000Z") })
+  );
+  assert.deepEqual(normalized.map((record) => record.proposed.startDate), [
+    "2026-10-14",
+    "2026-10-31",
+  ]);
+  assert.deepEqual(normalized.map((record) => record.proposed.endDate ?? null), [
+    "2026-10-18",
+    "2026-11-01",
+  ]);
+});
