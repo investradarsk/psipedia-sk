@@ -74,13 +74,13 @@ export function FundraiserHelpDetail({ item }: Props) {
       textFact("Organizátor", item.organization),
       textFact("Lokalita", location(item)),
       rawFact("Termín", formatHelpDate(item.deadlineDate)),
-      { label: "Overenie", value: item.verified ? "Overené Psipediou" : "Odkaz zatiaľ nie je redakčne overený" },
+      { label: "Odkaz na zbierku", value: item.verified ? "Verejný odkaz je dostupný" : "Verejný odkaz zatiaľ nie je dostupný" },
     ]} />
     <HelpProgressCard item={item} />
     <GenericContacts item={item} />
   </>}>
     {presentation.description && <HelpSection eyebrow="Finančná pomoc" title="Účel zbierky"><HelpParagraphs value={presentation.description} /></HelpSection>}
-    {!item.verified && <HelpSection title="Prečo odkaz nemusí byť dostupný"><p>Psipedia verejný odkaz na zbierku sprístupní až po redakčnom overení. Neoverený stav neznamená, že organizátor je nedôveryhodný; znamená iba, že tento záznam ešte nemá potvrdené overenie.</p></HelpSection>}
+    {!item.verified && <HelpSection title="Prečo odkaz nemusí byť dostupný"><p>Psipedia verejný odkaz na zbierku sprístupní až po redakčnom posúdení dostupných podkladov. Tento stav neznamená, že organizátor je nedôveryhodný; znamená iba, že verejný odkaz zatiaľ nie je sprístupnený.</p></HelpSection>}
   </HelpDetailShell>;
 }
 
