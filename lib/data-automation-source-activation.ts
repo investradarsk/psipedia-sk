@@ -531,6 +531,7 @@ export async function refreshAutomationSourceTechnicalGovernance(input: {
   database: AutomationGovernanceDatabase;
   fetchImpl?: GovernanceFetch;
   now?: Date;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 }) {
   const before = await getGovernanceState({ type: "AUTOMATION_SOURCE", id: input.source.id }, input.database);
   if (!before.schemaAvailable || !before.state) {
@@ -603,10 +604,73 @@ export async function prepareAutomationSourceGovernanceForApproval(input: {
   if (!before.schemaAvailable) {
     return { prepared: false, governance: before, access: null, robots: null };
   }
+
+  if (input.internetTransport !== "TAVILY_ONLY") {
+    if (before.state) {
+      const refreshed = await refreshAutomationSourceTechnicalGovernance(input);
+      return {
+        prepared: refreshed.refreshed,
+        governance: refreshed.governance,
+        access: refreshed.access,
+        robots: refreshed.robots,
+      };
+    }
+
+    const fetchImpl = input.fetchImpl ?? fetch;
+    const [access, robots] = await Promise.all([
+      probeAutomationSourceAccess(input.source, fetchImpl),
+      probeAutomationSourceRobots(input.source, fetchImpl),
+    ]);
+    const sourceUrl = input.source.sourceUrl && isSafeAutomationSourceUrl(input.source.sourceUrl)
+      ? canonicalizeSourceUrl(input.source.sourceUrl)
+      : null;
+    if (!sourceUrl) return { prepared: false, governance: before, access, robots };
+
+    const governance = await upsertGovernanceReview({
+      subject: { type: "AUTOMATION_SOURCE", id: input.source.id },
+      review: {
+        accessStatus: access.status,
+        robotsStatus: robots.status,
+        termsStatus: "ALLOWED",
+        recurringStatus: "APPROVED",
+        retentionStatus: "RESTRICTED",
+        retainUrl: true,
+        retainTitle: false,
+        retainSnippet: false,
+        retainMetadata: true,
+        retentionDays: null,
+        minCadenceMinutes: null,
+        maxRequestsPerDay: null,
+        manualOnly: false,
+        pathScope: null,
+        restrictionsNote: technicalRestrictionsNote(
+          "Source-only approval. Stored evidence is limited to URL and automation metadata.",
+          access,
+          robots,
+        ),
+        termsUrl: null,
+        privacyUrl: null,
+        robotsUrl: robots.evidenceUrl,
+        evidenceUrl: sourceUrl,
+        rationale: "Admin source approval: operator explicitly approved source-level terms, recurring monitoring and minimal URL/metadata retention; access and robots were verified against the source domain. Discovery-root governance was not inherited.",
+        expiresAt: null,
+        reviewDueAt: null,
+        expectedUpdatedAt: null,
+      },
+      actor: input.actor,
+      now: input.now,
+    }, input.database);
+    logAutomationSourceTechnicalVerification(input.source, access, robots);
+    return {
+      prepared: true,
+      governance: { schemaAvailable: true, state: governance } satisfies AutomationGovernanceRead,
+      access,
+      robots,
+    };
+  }
+
   if (before.state) {
-    // Never re-probe the third-party origin from Psipedia. Existing operator
-    // governance remains valid; provider-managed activation ignores legacy
-    // local access/robots transport state.
+    // Production provider-managed approval never re-probes the third-party origin.
     return { prepared: true, governance: before, access: null, robots: null };
   }
 
