@@ -24,6 +24,8 @@ import {
 import type { GeocoderProvider } from "./geo-provider.ts";
 import { organizationActionableProposal } from "./data-automation-organization-diff.ts";
 import type { OrganizationRecordEnricher } from "./data-automation-organization-enrichment.ts";
+import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
+import { probeAutomationSourceAccess, probeAutomationSourceRobots } from "./data-automation-source-activation.ts";
 import { enrichAutomationRecordSchemaFirst, type EntityEnrichmentSearch } from "./data-automation-entity-enrichment.ts";
 import {
   classifyAutomationFinding,
@@ -286,8 +288,24 @@ async function fetchDirectEntityRecords(
     directoryCategory?: string | null;
     fetchImpl: AutomationFetch;
     tavilyApiKey?: string;
+    internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   },
 ) {
+  if (input.internetTransport !== "TAVILY_ONLY") {
+    // Compatibility path for deterministic low-level tests only. Production
+    // orchestration always passes TAVILY_ONLY.
+    try {
+      return await fetchAutomationSourceRecords(source, {
+        fetchImpl: input.fetchImpl,
+        htmlAdapters: productionAutomationHtmlAdapters,
+      });
+    } catch (error) {
+      if (!(error instanceof AutomationConnectorError) || error.code !== "adapter_no_records") throw error;
+      const fallback = searchResultFallbackRecord(input);
+      return fallback ? [fallback] : [];
+    }
+  }
+
   const apiKey = input.tavilyApiKey?.trim() ?? "";
   if (!apiKey) throw new AutomationConnectorError("tavily_config_missing");
 
@@ -394,6 +412,7 @@ export async function ingestDirectEntityUrl(input: {
   database: D1Database;
   fetchImpl?: AutomationFetch;
   tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
   now?: Date;
   provenanceType?: CanonicalExternalProvenanceType;
   expectedCanonicalEntityId?: number | null;
@@ -413,8 +432,20 @@ export async function ingestDirectEntityUrl(input: {
   const source = ephemeralSource(input);
   const fetchImpl = input.fetchImpl ?? fetch;
 
-  // Public internet reads are Tavily-only. Psipedia never probes or fetches the
-  // candidate origin directly; fetchImpl is used only as the Tavily API transport.
+  if (input.internetTransport !== "TAVILY_ONLY") {
+    // Legacy/test compatibility only. Production direct discovery/refresh is
+    // explicitly TAVILY_ONLY and never reaches these origin probes.
+    const [access, robots] = await Promise.all([
+      probeAutomationSourceAccess(source, fetchImpl),
+      probeAutomationSourceRobots(source, fetchImpl),
+    ]);
+    const robotsAllowed = robots.status === "ALLOWED" || robots.status === "NOT_APPLICABLE";
+    if (access.status !== "ALLOWED" || !robotsAllowed) {
+      throw new Error("automation_direct_entity_technical_governance_blocked");
+    }
+  }
+
+  // In production fetchImpl is only the Tavily API transport.
   const fetchedRecords = await fetchDirectEntityRecords(source, {
     entityType: input.entityType,
     sourceUrl: input.sourceUrl,
@@ -423,6 +454,7 @@ export async function ingestDirectEntityUrl(input: {
     directoryCategory: input.directoryCategory,
     fetchImpl,
     tavilyApiKey: input.tavilyApiKey,
+    internetTransport: input.internetTransport,
   });
 
   let addressSearchUsed = false;
