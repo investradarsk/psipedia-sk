@@ -90,15 +90,22 @@ test("detail SEO follows active quality and stale/indexability rules", () => {
   assert.match(seo.description, /Priateľský labrador/);
 });
 
-test("structured data uses only WebPage and BreadcrumbList with real optional values", () => {
+test("structured data uses a canonical privacy-safe dog entity with WebPage and BreadcrumbList", () => {
   const minimal = asPublicAdoptionDetail(dog("ACTIVE", { shortDescription: "", mainImage: null, publishedAt: null }));
   const schema = buildAdoptionDetailStructuredData(minimal, "https://psipedia.sk");
-  assert.deepEqual(schema["@graph"].map((item) => item["@type"]), ["WebPage", "BreadcrumbList"]);
+  assert.deepEqual(schema["@graph"].map((item) => item["@type"]), ["WebPage", "Thing", "BreadcrumbList"]);
   const page = schema["@graph"][0];
+  const entity = schema["@graph"][1];
   assert.equal(page.description, undefined);
   assert.equal(page.primaryImageOfPage, undefined);
   assert.equal(page.datePublished, minimal.createdAt);
-  assert.equal(schema["@graph"][1].itemListElement.at(-1).name, "Ben");
+  assert.deepEqual(page.mainEntity, { "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#dog" });
+  assert.deepEqual(page.breadcrumb, { "@id": "https://psipedia.sk/pomoc-psom/adopcia/ben#breadcrumb" });
+  assert.equal(entity["@id"], "https://psipedia.sk/pomoc-psom/adopcia/ben#dog");
+  assert.equal(entity.name, "Ben");
+  assert.equal("contactEmail" in entity, false);
+  assert.equal("contactPhone" in entity, false);
+  assert.equal(schema["@graph"][2].itemListElement.at(-1).name, "Ben");
 });
 
 test("missing optional data does not create empty information sections", () => {
