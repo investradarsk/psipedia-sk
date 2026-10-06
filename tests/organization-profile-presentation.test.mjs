@@ -56,6 +56,7 @@ test("published public fields map into identity, contacts and one shared action"
     { label: "Typ organizácie", value: "Občianske združenie" },
     { label: "Právny názov", value: "Psia nádej, o.z." },
     { label: "Registračné číslo", value: "12345678" },
+    { label: "Aktualizované", value: "11. 9. 2026" },
   ]);
   assert.deepEqual(presentation.locations, [{
     id: 50,
@@ -99,7 +100,10 @@ test("optional or unsafe values disappear instead of producing broken UI", () =>
   assert.equal(presentation.description, null);
   assert.equal(presentation.location, null);
   assert.equal(presentation.imageUrl, null);
-  assert.deepEqual(presentation.facts, [{ label: "Typ organizácie", value: "Občianske združenie" }]);
+  assert.deepEqual(presentation.facts, [
+    { label: "Typ organizácie", value: "Občianske združenie" },
+    { label: "Aktualizované", value: "11. 9. 2026" },
+  ]);
   assert.deepEqual(presentation.contacts, []);
   assert.deepEqual(presentation.actions, []);
 });
