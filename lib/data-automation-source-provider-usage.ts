@@ -65,12 +65,18 @@ export async function reserveAutomationSourceProviderRequest(input: {
 
   try {
     const latest = await input.database.prepare(`
-      SELECT status,created_at FROM automation_source_provider_usage
+      SELECT run_id,status,created_at FROM automation_source_provider_usage
       WHERE source_id=? AND status<>'RESERVED'
       ORDER BY created_at DESC,id DESC LIMIT 1
-    `).bind(input.sourceId).first<{ status: string; created_at: string }>();
+    `).bind(input.sourceId).first<{ run_id: number | null; status: string; created_at: string }>();
     if (latest) {
-      const delay = cooldownMs(String(latest.status ?? ""));
+      // Cooldown protects subsequent independent runs. It must not block a
+      // bounded retry inside the same run after a transient timeout/provider
+      // error; that retry already obeys backoff and per-run request limits.
+      const sameRun = latest.run_id !== null
+        && input.runId !== null
+        && Number(latest.run_id) === Number(input.runId);
+      const delay = sameRun ? 0 : cooldownMs(String(latest.status ?? ""));
       const created = Date.parse(String(latest.created_at ?? ""));
       if (delay > 0 && Number.isFinite(created) && created + delay > now.getTime()) {
         return {

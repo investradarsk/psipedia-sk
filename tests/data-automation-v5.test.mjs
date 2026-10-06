@@ -139,7 +139,8 @@ test("enrichment stays review-gated and organization image is an applyable canon
 
   assert.match(runner, /organizationEnricher/);
   assert.match(runner, /processRecord\(source, runId, candidateRecord/);
-  assert.match(worker, /createProductionOrganizationEnricher/);
+  assert.doesNotMatch(worker, /createProductionOrganizationEnricher/);
+  assert.match(worker, /internetTransport:\s*"TAVILY_ONLY"/);
   assert.match(apply, /imageUrl: field\("image_url"\)/);
   assert.match(canonicalDraftService, /image_url: after\.imageUrl/);
   assert.match(store, /imageUrl: row\.image_url/);
