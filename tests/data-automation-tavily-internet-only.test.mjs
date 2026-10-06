@@ -74,8 +74,13 @@ test("production automation entrypoints explicitly select TAVILY_ONLY and do not
     readFile(path.join(repoRoot, "app/api/admin/automation-categories/[category]/search/route.ts"), "utf8"),
   ]);
 
-  assert.match(worker, /runDataAutomationSweep\([\s\S]*internetTransport:\s*"TAVILY_ONLY"/);
-  assert.match(worker, /runDataAutomationDiscoverySweep\([\s\S]*internetTransport:\s*"TAVILY_ONLY"/);
+  const sourceSweeps = [...worker.matchAll(/runDataAutomationSweep\(\{([\s\S]*?)\}\)\.catch/g)];
+  const discoverySweeps = [...worker.matchAll(/runDataAutomationDiscoverySweep\(\{([\s\S]*?)\}\)\.catch/g)];
+  assert.equal(sourceSweeps.length, 2, "five-minute and hourly source sweeps must both be covered");
+  assert.equal(discoverySweeps.length, 2, "five-minute and hourly discovery sweeps must both be covered");
+  assert.ok(sourceSweeps.every((match) => /internetTransport:\s*"TAVILY_ONLY"/.test(match[1])));
+  assert.ok(discoverySweeps.every((match) => /internetTransport:\s*"TAVILY_ONLY"/.test(match[1])));
+  assert.ok(discoverySweeps.every((match) => /tavilyApiKey:\s*env\.TAVILY_API_KEY/.test(match[1])));
   assert.doesNotMatch(worker, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
 
   assert.match(sourceRunRoute, /internetTransport:\s*"TAVILY_ONLY"/);
