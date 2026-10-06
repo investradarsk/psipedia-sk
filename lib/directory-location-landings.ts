@@ -267,8 +267,8 @@ function buildPresentation(input: {
     categoryLabel: category.label,
     h1,
     seoTitle: h1,
-    description: `${h1}. Adresár aktuálne obsahuje ${input.total} publikovaných canonical profilov pre túto lokalitu.`,
-    intro: `Zobrazené profily patria do kategórie ${category.label.toLocaleLowerCase("sk")} a majú v Psipedii canonical lokalitu ${input.location.name}.`,
+    description: `${h1}. Adresár aktuálne obsahuje ${input.total} publikovaných profilov pre túto lokalitu.`,
+    intro: `Zobrazené profily patria do kategórie ${category.label.toLocaleLowerCase("sk")} a majú v Psipedii uvedenú lokalitu ${input.location.name}.`,
   };
 }
 
