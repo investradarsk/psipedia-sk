@@ -700,6 +700,7 @@ async function runSource(
       recurring: true,
       cadenceMinutes: source.cadenceMinutes,
       storageFields: ["url", "metadata"],
+      providerManagedAccess: source.connectorType !== "MANUAL_IMPORT",
     }, startedAt);
     if (!governanceDecision.allowed) {
       throw new AutomationConnectorError(
@@ -714,9 +715,15 @@ async function runSource(
       throw new AutomationConnectorError("automation_source_contract_not_ready:" + scoped.reason);
     }
 
+    if (source.connectorType !== "MANUAL_IMPORT" && source.connectorType !== "CONTROLLED_HTML") {
+      throw new AutomationConnectorError("tavily_connector_unsupported");
+    }
     const tavilyKey = source.connectorType === "CONTROLLED_HTML"
       ? options.tavilyApiKey?.trim() ?? ""
       : "";
+    if (source.connectorType === "CONTROLLED_HTML" && !tavilyKey) {
+      throw new AutomationConnectorError("tavily_config_missing");
+    }
     const tavilyCrawlProvider = tavilyKey
       ? new TavilyAutomationCrawlProvider({
           apiKey: tavilyKey,
@@ -773,11 +780,18 @@ async function runSource(
       },
     } : undefined;
 
+    const tavilyStrategy = source.connectorType === "CONTROLLED_HTML"
+      ? source.config.sourceShape === "SINGLE_ITEM"
+        ? "TAVILY_EXTRACT" as const
+        : "TAVILY_CRAWL" as const
+      : undefined;
     const records = await fetchAutomationSourceRecords(source, {
+      // fetchImpl is only the Tavily API transport in production because the
+      // explicit strategy override prevents direct third-party source fetching.
       fetchImpl: options.fetchImpl,
-      htmlAdapters: options.htmlAdapters,
       sleep: options.sleep,
       sourceScopedContract: scoped?.ready ? scoped.contract : undefined,
+      strategyOverride: tavilyStrategy,
       tavilyCrawlProvider,
       tavilyExtractProvider,
       tavilyRequestGate,
