@@ -1,6 +1,8 @@
 import { AutomationConnectorError, fetchAutomationSourceRecords, type AutomationFetch } from "./data-automation-connectors.ts";
 import { classifyAutomationFinding, type AutomationSource } from "./data-automation.ts";
 import { matchAutomationCanonical, type AutomationD1Database } from "./data-automation-store.ts";
+import { productionAutomationHtmlAdapters } from "./data-automation-real-sources.ts";
+import { createProductionOrganizationEnricher } from "./data-automation-organization-enrichment.ts";
 import { getGovernanceState } from "./data-automation-governance.ts";
 import { buildSourceScopedExtractionContract } from "./data-automation-source-scoped-extraction.ts";
 import { enrichAutomationRecordSchemaFirst } from "./data-automation-entity-enrichment.ts";
@@ -55,6 +57,7 @@ export async function previewAutomationSource(input: {
   fetchImpl?: AutomationFetch;
   sleep?: (ms: number) => Promise<void>;
   tavilyApiKey?: string;
+  internetTransport?: "TAVILY_ONLY" | "LEGACY_DIRECT";
 }) {
   let httpStatus: number | null = null;
   let contentType: string | null = null;
@@ -69,11 +72,12 @@ export async function previewAutomationSource(input: {
       input.database,
     );
     const scoped = buildSourceScopedExtractionContract(input.source, governance.state);
+    const tavilyOnly = input.internetTransport === "TAVILY_ONLY";
     const tavilyKey = input.tavilyApiKey?.trim() ?? "";
-    if (input.source.connectorType === "CONTROLLED_HTML" && !tavilyKey) {
+    if (tavilyOnly && input.source.connectorType === "CONTROLLED_HTML" && !tavilyKey) {
       throw new AutomationConnectorError("tavily_config_missing");
     }
-    if (input.source.connectorType !== "CONTROLLED_HTML" && input.source.connectorType !== "MANUAL_IMPORT") {
+    if (tavilyOnly && input.source.connectorType !== "CONTROLLED_HTML" && input.source.connectorType !== "MANUAL_IMPORT") {
       throw new AutomationConnectorError("tavily_connector_unsupported");
     }
     const tavilyCrawlProvider = tavilyKey
@@ -128,7 +132,7 @@ export async function previewAutomationSource(input: {
           },
         }
       : undefined;
-    const tavilyStrategy = input.source.connectorType === "CONTROLLED_HTML"
+    const tavilyStrategy = tavilyOnly && input.source.connectorType === "CONTROLLED_HTML"
       ? input.source.config.sourceShape === "SINGLE_ITEM"
         ? "TAVILY_EXTRACT" as const
         : "TAVILY_CRAWL" as const
@@ -138,12 +142,17 @@ export async function previewAutomationSource(input: {
       // never the third-party source origin directly.
       fetchImpl: input.fetchImpl,
       sleep: input.sleep,
+      htmlAdapters: tavilyOnly ? undefined : productionAutomationHtmlAdapters,
       sourceScopedContract: scoped.ready ? scoped.contract : undefined,
       strategyOverride: tavilyStrategy,
       tavilyCrawlProvider,
       tavilyExtractProvider,
       tavilyRequestGate,
     });
+    const organizationEnricher = !tavilyOnly && input.source.entityType === "ORGANIZATION"
+      ? createProductionOrganizationEnricher({ fetchImpl: input.fetchImpl })
+      : null;
+
     let normalized = 0;
     let possibleMatches = 0;
     let newCandidates = 0;
@@ -154,7 +163,9 @@ export async function previewAutomationSource(input: {
 
     for (const record of records) {
       try {
-        let candidateRecord = record;
+        let candidateRecord = organizationEnricher
+          ? await organizationEnricher(record, { detectedAt: new Date().toISOString() })
+          : record;
         candidateRecord = await enrichAutomationRecordSchemaFirst({
           entityType: input.source.entityType,
           record: candidateRecord,
