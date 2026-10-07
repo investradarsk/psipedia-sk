@@ -30,7 +30,7 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
       eyebrow="Obsah"
       title="Články a novinky"
       description="Hľadaj, filtruj, upravuj a publikuj redakčný obsah. Pracovný prehľad zostáva na /admin."
-      actions={<><Link className="admin-secondary-action" href="/admin/clanky/temy">Témy článkov</Link><Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link></>}
+      actions={<><Link className="admin-secondary-action" href="/admin/clanky/kalendar">Redakčný kalendár</Link><Link className="admin-secondary-action" href="/admin/clanky/temy">Témy článkov</Link><Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link></>}
     >
       <AdminDashboard
         key={JSON.stringify(filters)}
