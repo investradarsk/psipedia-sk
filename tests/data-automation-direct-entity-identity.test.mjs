@@ -5,6 +5,7 @@ import {
   evaluateDirectEntityIdentity,
   sanitizeDirectEntityUpdateProposal,
 } from "../lib/data-automation-direct-identity.ts";
+import { selectDirectEntityName } from "../lib/data-automation-direct-content-quality.ts";
 import { selectSafeAutomationMatch } from "../lib/data-automation-matching.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -91,6 +92,64 @@ function candidate(id, before = {}, overrides = {}) {
     exactSourceIdentity: overrides.exactSourceIdentity ?? false,
   };
 }
+
+test("direct name quality rejects navigation and can select a cleaner Tavily Search title", () => {
+  const selected = selectDirectEntityName({
+    extractedName: "Skip to content",
+    searchCandidateTitle: "Psia škola ABC | Výcvik psov",
+    sourceUrl: "https://abc.sk/",
+  });
+  assert.equal(selected.name, "Psia škola ABC");
+  assert.equal(selected.source, "TAVILY_SEARCH");
+  assert.equal(selected.accepted, true);
+});
+
+test("direct name quality fails closed on similarly strong conflicting identities", () => {
+  const selected = selectDirectEntityName({
+    extractedName: "Psia škola Alfa",
+    searchCandidateTitle: "Hotel pre psov Beta",
+    sourceUrl: "https://example.sk/",
+  });
+  assert.equal(selected.name, null);
+  assert.equal(selected.source, "CONFLICT");
+  assert.equal(selected.accepted, false);
+  assert.equal(selected.conflict, true);
+});
+
+test("direct name quality rejects hostname and legal/navigation titles", () => {
+  const selected = selectDirectEntityName({
+    extractedName: "example.sk",
+    searchCandidateTitle: "Ochrana osobných údajov",
+    sourceUrl: "https://example.sk/",
+  });
+  assert.equal(selected.name, null);
+  assert.equal(selected.source, "NONE");
+  assert.equal(selected.accepted, false);
+});
+
+test("direct Tavily ingestion records Search-selected names as SEARCH_PROVIDER evidence", () => {
+  const direct = read("lib/data-automation-direct-entity.ts");
+  assert.match(direct, /reconcileDirectEntityName/);
+  assert.match(direct, /selectDirectEntityName/);
+  assert.match(
+    direct,
+    /fieldOrigins\.name = selection\.source === "TAVILY_SEARCH"[\s\S]*\? "SEARCH_PROVIDER"[\s\S]*: "FIRST_PARTY"/,
+  );
+  assert.match(direct, /records\.map\(\(record\) =>[\s\S]*reconcileDirectEntityName/);
+});
+
+test("existing direct canonical records remain review-only and are never text-overwritten by discovery", () => {
+  const direct = read("lib/data-automation-direct-entity.ts");
+  const existingStart = direct.indexOf('if (match.entityId && match.quality !== "UNCERTAIN"');
+  const newDraftStart = direct.indexOf("if (input.expectedCanonicalEntityId) continue;", existingStart);
+  assert.ok(existingStart >= 0 && newDraftStart > existingStart);
+  const existingBranch = direct.slice(existingStart, newDraftStart);
+
+  assert.match(existingBranch, /upsertDirectEntityUpdateSuggestion/);
+  assert.match(existingBranch, /proposed: proposedForComparison/);
+  assert.doesNotMatch(existingBranch, /createCanonicalDraft/);
+  assert.doesNotMatch(existingBranch, /UPDATE\s+(?:directory_profiles|help_organizations)/i);
+});
 
 test("DIRECT identity gate classifies search title + URL as weak and insufficient", () => {
   const decision = evaluateDirectEntityIdentity({
