@@ -17,3 +17,34 @@
 .actions {
   composes: actions from "./admin-list-row.module.css";
 }
+
+.quickFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quickFilters a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #d8e2da;
+  border-radius: 999px;
+  color: #174b38;
+  background: #f5f8f5;
+  text-decoration: none;
+  font-weight: 750;
+}
+
+.quickFilters a[aria-current="page"] {
+  border-color: #174b38;
+  background: #174b38;
+  color: #fff;
+}
+
+.quickFilters a:focus-visible {
+  outline: 3px solid #d3a73a;
+  outline-offset: 2px;
+}
