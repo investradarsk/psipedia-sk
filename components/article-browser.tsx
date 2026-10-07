@@ -29,7 +29,7 @@ export function ArticleBrowser({
   }, [articles, category, query]);
 
   return (
-    <div className="article-browser">
+    <div className="article-browser article-browser--listing">
       <div className="browser-toolbar">
         <div className="filter-row" role="group" aria-label="Filtrovať magazín podľa témy">
           {filters.map((filter) => (
@@ -56,8 +56,8 @@ export function ArticleBrowser({
       </p>
 
       {visible.length > 0 ? (
-        <div className="article-grid">
-          {visible.map((article) => <ArticleCard key={article.slug} article={article} headingLevel={2} />)}
+        <div className="article-grid article-grid--listing" data-article-listing-grid>
+          {visible.map((article) => <ArticleCard key={article.slug} article={article} headingLevel={2} omitMissingImage />)}
         </div>
       ) : (
         <div className="empty-state">
