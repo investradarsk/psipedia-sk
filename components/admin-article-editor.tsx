@@ -245,6 +245,7 @@ export function AdminArticleEditor({
       topicIds,
     };
 
+    let hasQaIssues = false;
     try {
       const endpoint = article ? `/api/admin/articles/${article.id}` : "/api/admin/articles";
       const response = await fetch(endpoint, {
@@ -255,6 +256,7 @@ export function AdminArticleEditor({
       const data = (await response.json()) as { article?: ManagedArticle; error?: string; issues?: ArticleQaIssue[] };
       if (!response.ok || !data.article) {
         if (Array.isArray(data.issues)) {
+          hasQaIssues = data.issues.length > 0;
           setQaIssues(data.issues);
           const firstBlocker = data.issues.find((item) => item.severity === "BLOCKER");
           const targetId = firstBlocker?.blockId ? "article-content"
@@ -278,7 +280,7 @@ export function AdminArticleEditor({
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
       // Preserve the QA blocker focus selected above; only generic errors focus the result.
-      if (!qaIssues.length) focusResult();
+      if (!hasQaIssues) focusResult();
     } finally {
       setSaving(false);
     }
