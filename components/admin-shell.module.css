@@ -60,6 +60,13 @@
   }
 }
 
+.topbarSticky {
+  position: sticky;
+  top: 0;
+  z-index: 46;
+  background: #102f25;
+}
+
 .stickyNav {
   position: sticky;
   z-index: 45;

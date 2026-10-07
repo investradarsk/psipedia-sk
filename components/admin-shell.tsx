@@ -69,7 +69,7 @@ export function AdminShell({
   return (
     <main id="obsah" className="admin-root">
       <div className="admin-shell shell">
-        <header className="admin-topbar">
+        <header className={`admin-topbar ${styles.topbarSticky}`}>
           <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – pracovný prehľad">
             <span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small>
           </Link>

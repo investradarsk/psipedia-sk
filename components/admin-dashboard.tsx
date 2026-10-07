@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   AdminBulkSelectionControls,
@@ -80,6 +81,7 @@ export function AdminDashboard({
   listPath?: string;
   topicOptions?: ArticleTopic[];
 }) {
+  const router = useRouter();
   const [articles, setArticles] = useState(initialArticles);
   const [counts, setCounts] = useState(initialCounts);
   const [resultCount, setResultCount] = useState(initialResultCount);
@@ -103,6 +105,9 @@ export function AdminDashboard({
   });
   const routePath = fixedPortalSection ? "/admin/steniatka" : listPath;
   const paginationBase = articleAdminListHref(routePath, { ...filters, page: 1 });
+  function applyFilter(overrides: Partial<ArticleAdminListFilters>) {
+    router.push(articleAdminListHref(routePath, filters, { ...overrides, page: 1 }));
+  }
 
   async function removeArticle(article: ManagedArticleSummary) {
     const confirmed = window.confirm(`Naozaj chceš natrvalo odstrániť ${article.portalSection === "novinky" ? "novinku" : "článok"} „${article.title}“?`);
@@ -157,6 +162,13 @@ export function AdminDashboard({
       </section>
 
       <section className="admin-panel">
+        <nav className={styles.quickFilters} aria-label="Rýchly filter stavu článkov">
+          {articleAdminStatuses.map((value) => (
+            <Link key={value} href={articleAdminListHref(routePath, filters, { status: value, page: 1 })} aria-current={filters.status === value ? "page" : undefined}>
+              {statusLabels[value]}
+            </Link>
+          ))}
+        </nav>
         <form className="admin-toolbar" method="get" action={routePath} role="search">
           <label className="admin-search">
             <SearchIcon size={19} />
@@ -165,14 +177,14 @@ export function AdminDashboard({
           </label>
           <label className="admin-select-filter">
             <span>Stav</span>
-            <select name="status" defaultValue={filters.status}>
+            <select name="status" defaultValue={filters.status} onChange={(event) => applyFilter({ status: event.target.value as ArticleAdminListFilters["status"] })}>
               {articleAdminStatuses.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}
             </select>
           </label>
           {!fixedPortalSection && (
             <label className="admin-select-filter">
               <span>Sekcia</span>
-              <select name="section" defaultValue={filters.portalSection}>
+              <select name="section" defaultValue={filters.portalSection} onChange={(event) => applyFilter({ portalSection: event.target.value as ArticleAdminListFilters["portalSection"] })}>
                 <option value="all">Všetky sekcie</option>
                 {articlePortalSectionOptions.map((option) => (
                   <option key={option.slug} value={option.slug}>{option.label}</option>
@@ -183,7 +195,7 @@ export function AdminDashboard({
           {!fixedPortalSection && (
             <label className="admin-select-filter">
               <span>Téma</span>
-              <select name="topic" defaultValue={filters.topicId ? String(filters.topicId) : ""}>
+              <select name="topic" defaultValue={filters.topicId ? String(filters.topicId) : ""} onChange={(event) => applyFilter({ topicId: Number(event.target.value) || null })}>
                 <option value="">Všetky témy</option>
                 {topicOptions.map((topic) => (
                   <option key={topic.id} value={topic.id}>{topic.label}{topic.isActive ? "" : " (neaktívna)"}</option>
