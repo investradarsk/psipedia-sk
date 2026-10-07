@@ -87,7 +87,7 @@ test.describe("public services search layout", () => {
     });
   });
 
-  test("retains the desktop directory filter layout without overflow", async ({ page }, testInfo) => {
+  test("PUBLIC-SEARCH-SIMPLIFY-1 keeps the desktop services search compact without overflow", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop layout contract");
     await page.setViewportSize({ width: 1440, height: 900 });
 
@@ -97,66 +97,41 @@ test.describe("public services search layout", () => {
     const form = page.locator(".directory-results form").first();
     await expect(form).toBeVisible();
     await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
-
-    const requiredFields = form.locator('input[name="q"], select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
-    await expect(requiredFields).toHaveCount(5);
-    for (const fieldName of ["q", "category", "region", "district", "city"]) {
-      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} desktop filter`).toBeVisible();
-    }
+    await expect(form.locator('input[name="q"]')).toBeVisible();
 
     const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
     const submit = form.getByRole("button", { name: "Hľadať" });
-    await expect(filterToggle).toBeHidden();
+    await expect(filterToggle).toBeVisible();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
     await expect(submit).toBeVisible();
+
+    for (const fieldName of ["category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} collapsed desktop filter`).toBeHidden();
+    }
+
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+    for (const fieldName of ["category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} expanded desktop filter`).toBeVisible();
+    }
 
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
-    const fieldBoxes = await requiredFields.evaluateAll((elements) => elements.map((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        name: element.getAttribute("name") ?? element.tagName.toLowerCase(),
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-    }));
-    const submitBox = await submit.boundingBox();
-    expect(submitBox).not.toBeNull();
-    const boxes = [
-      ...fieldBoxes,
-      {
-        name: "submit",
-        left: submitBox!.x,
-        right: submitBox!.x + submitBox!.width,
-        top: submitBox!.y,
-        bottom: submitBox!.y + submitBox!.height,
-        width: submitBox!.width,
-        height: submitBox!.height,
-      },
-    ];
-
-    for (const box of boxes) {
-      expect(box.width, `${box.name} width`).toBeGreaterThan(0);
-      expect(box.height, `${box.name} height`).toBeGreaterThan(0);
-      expect(box.left, `${box.name} left form bound`).toBeGreaterThanOrEqual(formBox!.x - 1);
-      expect(box.right, `${box.name} right form bound`).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
-      expect(box.top, `${box.name} top form bound`).toBeGreaterThanOrEqual(formBox!.y - 1);
-      expect(box.bottom, `${box.name} bottom form bound`).toBeLessThanOrEqual(formBox!.y + formBox!.height + 1);
-    }
-
-    for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
-      for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
-        const left = boxes[leftIndex]!;
-        const right = boxes[rightIndex]!;
-        const overlaps = left.left < right.right - 1
-          && left.right > right.left + 1
-          && left.top < right.bottom - 1
-          && left.bottom > right.top + 1;
-        expect(overlaps, `${left.name} overlaps ${right.name}`).toBe(false);
-      }
+    const visibleBoxes = await form.locator("input, select, button, a").evaluateAll((elements) => elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+      }));
+    for (const box of visibleBoxes) {
+      expect(box.left).toBeGreaterThanOrEqual(formBox!.x - 1);
+      expect(box.right).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
+      expect(box.width).toBeGreaterThan(0);
+      expect(box.height).toBeGreaterThanOrEqual(44);
     }
 
     await expectNoHorizontalOverflow(page, "/adresar desktop");
