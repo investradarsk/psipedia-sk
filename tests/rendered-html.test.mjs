@@ -844,9 +844,10 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(nutrition.status, 200);
   const nutritionHtml = await nutrition.text();
-  assert.match(nutritionHtml, /Výživa(?:<!-- -->)? v praxi/);
-  assert.match(nutritionHtml, /Čo sledovať doma/);
-  assert.match(nutritionHtml, /Kedy nečakať/);
+  // Care topic pages use the article-first content hub, not the old instructional template.
+  assert.match(nutritionHtml, /data-content-hub/);
+  assert.match(nutritionHtml, /data-section-content-list/);
+  assert.match(nutritionHtml, /Súvisiace čítanie/);
   assert.match(nutritionHtml, /Ako vybrať granule bez marketingových mýtov/);
   assert.doesNotMatch(nutritionHtml, /Chôdza pri nohe bez ťahania/);
 
@@ -916,10 +917,10 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   const firstDays = await worker.fetch(new Request("http://localhost/steniatka/prve-dni", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(firstDays.status, 200);
   const firstDaysHtml = await firstDays.text();
-  assert.match(firstDaysHtml, /Prvé dni doma(?:<!-- -->)? v praxi/);
-  assert.match(firstDaysHtml, /Praktické kroky/);
-  assert.match(firstDaysHtml, /Na čo si dať pozor/);
-  assert.match(firstDaysHtml, /Dôležité pre túto fázu/);
+  // Puppy topic pages also use the article-first content hub.
+  assert.match(firstDaysHtml, /data-content-hub/);
+  assert.match(firstDaysHtml, /data-section-content-list/);
+  assert.match(firstDaysHtml, /Súvisiace čítanie/);
 
   const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
   assert.match(editorSource, /Obsah oblasti Šteniatok/);
