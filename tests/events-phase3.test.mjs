@@ -61,7 +61,7 @@ test("default listing order keeps current and upcoming events ahead of past even
   assert.match(calendar, /status === "upcoming"[\s\S]*return event\.cancelled \? 2 : 1/);
   assert.match(calendar, /return event\.cancelled \? 4 : 3/);
   assert.match(calendar, /rightEnd\.localeCompare\(leftEnd\)/);
-  assert.match(calendar, /\}\.sort\(\(left, right\) => compareEvents\(left, right, today\)\)/);
+  assert.match(calendar, /\)\.sort\(\(left, right\) => compareEvents\(left, right, today\)\)/);
 });
 
 test("event rows stay compact and date-first while using canonical preview images when available", () => {
