@@ -64,8 +64,8 @@ test("Help landing counts come from canonical adoption and lost-found stores", (
 });
 
 test("generic Help browser does not merge dedicated adoption or lost-found domains", () => {
-  assert.match(browser, /dedicatedCategories = new Set<HelpCategorySlug>\(\["adopcia", "stratene-a-najdene"\]\)/);
-  assert.match(landing, /item\.category !== "stratene-a-najdene"/);
+  assert.match(landing, /const browserItems = items\.filter\(\(item\) => item\.category !== "stratene-a-najdene"\)/);
+  assert.doesNotMatch(browser, /getPublicAdoptions|listPublicDogReports/);
   assert.doesNotMatch(browser, /category\.slug !== "adopcia"/);
 });
 
