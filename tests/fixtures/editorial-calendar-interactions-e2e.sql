@@ -1,5 +1,5 @@
 -- Isolated E2E seed; timestamps stay in the future even as CI calendar dates advance.
-DELETE FROM managed_articles WHERE id IN (974101, 974102, 974103);
+DELETE FROM managed_articles WHERE id IN (974101, 974102, 974103, 974104, 974105);
 
 INSERT INTO managed_articles (
   id, slug, title, excerpt, category, portal_section, status, accent, author,
@@ -42,3 +42,26 @@ INSERT INTO managed_articles (
   strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 day'),
   'ci:editorial-calendar', 'ci:editorial-calendar'
 );
+
+-- Two per-project rescheduling targets avoid cross-project mutation interference.
+INSERT INTO managed_articles (
+  id, slug, title, excerpt, category, portal_section, status, accent, author,
+  intro, takeaway, sections_json, sources_json, blocks_json,
+  reading_minutes, created_at, updated_at, published_at, created_by, updated_by
+)
+SELECT 974104, 'editorial-calendar-e2e-reschedule-desktop', 'CALENDAR E2E reschedule desktop',
+  excerpt, category, portal_section, status, accent, author, intro, takeaway,
+  sections_json, sources_json, blocks_json, reading_minutes, created_at,
+  updated_at, published_at, created_by, updated_by
+FROM managed_articles WHERE id = 974101;
+
+INSERT INTO managed_articles (
+  id, slug, title, excerpt, category, portal_section, status, accent, author,
+  intro, takeaway, sections_json, sources_json, blocks_json,
+  reading_minutes, created_at, updated_at, published_at, created_by, updated_by
+)
+SELECT 974105, 'editorial-calendar-e2e-reschedule-mobile', 'CALENDAR E2E reschedule mobile',
+  excerpt, category, portal_section, status, accent, author, intro, takeaway,
+  sections_json, sources_json, blocks_json, reading_minutes, created_at,
+  updated_at, published_at, created_by, updated_by
+FROM managed_articles WHERE id = 974101;
