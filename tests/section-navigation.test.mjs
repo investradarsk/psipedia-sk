@@ -137,7 +137,8 @@ test("PUBLIC-HUBS-UX-1 keeps one local search on article and breed landings", ()
   assert.doesNotMatch(breeds, /SectionHeroSearch/);
   assert.match(breeds, /<BreedBrowser/);
   assert.match(breeds, /initialFilters=\{initialFilters\}/);
-  assert.match(breeds, /<PublicSubcategoryNavigator/);
+  assert.match(breeds, /<BreedCrawlIndex/);
+  assert.doesNotMatch(breeds, /<PublicSubcategoryNavigator/);
 });
 
 test("SECTION-PUBLIC preserves urgent health guidance and removes generic puppy template labels", () => {
