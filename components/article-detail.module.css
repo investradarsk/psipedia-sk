@@ -528,7 +528,7 @@
 
 .sidebarSticky {
   position: sticky;
-  top: 96px;
+  top: calc(var(--psipedia-sticky-header-height, 76px) + 20px);
   padding-top: 2px;
 }
 
