@@ -13,5 +13,5 @@ test("adoption canonical organization and breed",async({request,page})=>{const p
 test("legacy directory category redirects to canonical trainer category",async({request})=>{
   const r=await request.get("/adresar/psie-skoly",{maxRedirects:0});
   expect([301,308]).toContain(r.status());
-  expect(r.headers().location).toBe("/adresar/treneri");
+  expect(new URL(r.headers().location!).pathname).toBe("/adresar/treneri");
 });
