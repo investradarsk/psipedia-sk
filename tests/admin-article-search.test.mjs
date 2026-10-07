@@ -91,3 +91,33 @@ test("article search query contract stays server-side and deterministic", () => 
   assert.equal(query.orderBy, "updated_at DESC, id DESC");
   assert.equal(query.offset, 0);
 });
+
+test("ADMIN-ARTICLE-UX-V2 quick status preserves server-side section/topic and resets pagination", () => {
+  const filters = parseArticleAdminListFilters(params({
+    status: "draft", section: "steniatka", topic: "17", page: "4",
+    query: "pes", sort: "title", direction: "asc",
+  }));
+  for (const status of ["all", "published", "scheduled", "draft"]) {
+    const url = new URL(articleAdminListHref("/admin/clanky", filters, { status, page: 1 }), "https://psipedia.sk");
+    const next = parseArticleAdminListFilters(url.searchParams);
+    assert.equal(next.status, status);
+    assert.equal(next.portalSection, "steniatka");
+    assert.equal(next.topicId, 17);
+    assert.equal(next.query, "pes");
+    assert.equal(next.page, 1);
+  }
+  const sectionUrl = new URL(articleAdminListHref("/admin/clanky", filters, { portalSection: "starostlivost", page: 1 }), "https://psipedia.sk");
+  assert.equal(parseArticleAdminListFilters(sectionUrl.searchParams).status, "draft");
+  assert.equal(parseArticleAdminListFilters(sectionUrl.searchParams).portalSection, "starostlivost");
+  assert.equal(parseArticleAdminListFilters(sectionUrl.searchParams).page, 1);
+});
+
+test("ADMIN-ARTICLE-UX-V2 dashboard triggers immediate server navigation", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync("components/admin-dashboard.tsx", "utf8");
+  assert.match(source, /router\.push\(articleAdminListHref/);
+  assert.match(source, /onChange=\{\(event\) => applyFilter\(\{ status:/);
+  assert.match(source, /onChange=\{\(event\) => applyFilter\(\{ portalSection:/);
+  assert.match(source, /onChange=\{\(event\) => applyFilter\(\{ topicId:/);
+  assert.match(source, /aria-current=\{filters\.status === value/);
+});

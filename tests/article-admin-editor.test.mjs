@@ -149,3 +149,16 @@ test("ARTICLE-ADMIN keeps built-in Novinky available for create flow", () => {
   assert.match(editor, /option\.slug === "clanky" \|\| option\.slug === "novinky"/);
   assert.match(editor, /section\.slug !== "novinky"/);
 });
+
+test("ADMIN-ARTICLE-UX-V2 publish/schedule feedback is focused and visible", () => {
+  const editor = readFileSync("components/admin-article-editor.tsx", "utf8");
+  const shell = readFileSync("components/admin-shell.tsx", "utf8");
+  const style = readFileSync("components/admin-shell.module.css", "utf8");
+  assert.match(editor, /scrollIntoView\(\{ behavior: "smooth", block: "center" \}\)/);
+  assert.match(editor, /resultRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(editor, /role=\{error \? "alert" : "status"\}/);
+  assert.match(editor, /focusResult\(\)/);
+  assert.match(shell, /styles\.topbarSticky/);
+  assert.match(style, /\.topbarSticky\s*\{[^}]*position: sticky/s);
+  assert.match(style, /\.stickyNav\s*\{[^}]*position: sticky/s);
+});
