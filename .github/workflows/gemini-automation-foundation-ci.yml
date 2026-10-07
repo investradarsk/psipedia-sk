@@ -1,0 +1,41 @@
+name: Gemini automation foundation contracts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/gemini-automation-*.ts"
+      - "tests/gemini-automation-*.test.mjs"
+      - "drizzle/0113_gemini_automation_foundation.sql"
+      - "config/runtime-env.ts"
+      - ".env.example"
+      - "scripts/ci-scope.mjs"
+      - ".github/workflows/gemini-automation-foundation-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gemini-foundation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Isolated Gemini foundation contract and migration safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Gemini foundation focused tests (network mocked)
+        run: node --experimental-strip-types --test tests/gemini-automation-foundation.test.mjs
+      - name: Runtime secret contract
+        run: npm run test:config
+      - name: Migration safety
+        run: npm run test:migration-safety
+      - name: CI scope contract
+        run: node scripts/check-ci-scope.mjs
