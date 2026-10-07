@@ -154,7 +154,9 @@ export function ArticleDetail({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
       <ArticleReadTracker articleSlug={article.slug} />
       <ArticleReadingProgress />
-      <header className={`${styles.hero} shell`} data-article-reading-start>
+      <div className={`${styles.articleLayout} shell`} data-article-layout>
+        <div className={styles.articleMainColumn}>
+          <header className={styles.hero} data-article-reading-start>
         <Breadcrumbs label="Navigácia v článku">
           <Link href="/">Domov</Link><span>/</span>
           <Link href={sectionHref}>{portalSectionLabel(section)}</Link><span>/</span>
@@ -208,11 +210,10 @@ export function ArticleDetail({
             </figure>
           ) : null}
         </div>
-      </header>
+          </header>
 
-      <div className={`${styles.readingShell} shell`}>
-        <div className={styles.magazineLayout}>
-          <article className="article-prose" data-article-reading-end>
+          <div className={styles.readingShell}>
+            <article className="article-prose" data-article-reading-end>
             <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
             {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
             {showTableOfContents ? (
@@ -237,9 +238,11 @@ export function ArticleDetail({
               <ShareButton title={article.title} label={shareLabel} url={canonical} />
             </div>
             <ArticleFeedback articlePath={articleHref(article)} articleTitle={article.title} />
-          </article>
+            </article>
+          </div>
+        </div>
 
-          {showDiscoverySidebar ? (
+        {showDiscoverySidebar ? (
             <aside
               className={styles.sidebar}
               aria-label="Objavte ďalší obsah"
@@ -263,8 +266,7 @@ export function ArticleDetail({
                 ) : null}
               </div>
             </aside>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       {relatedBreeds.length > 0 ? (
