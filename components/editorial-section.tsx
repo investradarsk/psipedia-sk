@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArticleListItem } from "@/components/article-list-item";
+import { ArticleCard } from "@/components/article-card";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
 import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
@@ -404,6 +405,14 @@ function guidanceLabels(sectionSlug: EditorialSectionSlug) {
   return { eyebrow: "Praktická orientácia", first: "Praktické kroky", second: "Na čo si dať pozor", expert: "Dôležité pre túto fázu" };
 }
 
+// The existing managed featuredArticleSlugs ordering is the editorial source of truth.
+// Never promote the newest article to pillar by accident.
+function topicPillar(subpage: PortalSubpage, articles: Article[]) {
+  return (subpage.featuredArticleSlugs ?? [])
+    .map((slug) => articles.find((article) => article.slug === slug))
+    .find((article): article is Article => Boolean(article)) ?? null;
+}
+
 export async function EditorialSectionTopic({
   section,
   subpage,
@@ -417,6 +426,8 @@ export async function EditorialSectionTopic({
   if (!isEditorialSectionSlug(sectionSlug)) return null;
   const topicArticles = orderedArticles(section, articles, subpage);
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
+  const pillar = sectionSlug === "aktivity" ? null : topicPillar(subpage, topicArticles);
+  const remainingArticles = pillar ? topicArticles.filter((article) => article.slug !== pillar.slug) : topicArticles;
   const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
@@ -455,6 +466,7 @@ export async function EditorialSectionTopic({
         ) : null}
 
         <PageContainer className={styles.topicBody} data-section-public-topic-body>
+          {sectionSlug === "aktivity" ? (<>
           <section className={styles.introSection} aria-labelledby="topic-intro-heading">
             <span className={styles.eyebrow}>O tejto téme</span>
             <h2 id="topic-intro-heading">{subpage.label} v praxi</h2>
@@ -528,6 +540,27 @@ export async function EditorialSectionTopic({
             <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
           </section>
 
+          </>) : (
+            <div className={styles.contentHub} data-content-hub>
+              {subpage.intro && <p className={styles.contentHubIntro}>{subpage.intro}</p>}
+              {pillar && (
+                <section className={styles.contentHubPillar} aria-labelledby="topic-pillar-heading" data-content-hub-pillar>
+                  <span className={styles.eyebrow}>Začni tu</span>
+                  <h2 id="topic-pillar-heading">Hlavný sprievodca</h2>
+                  <ArticleCard article={pillar} variant="grid" headingLevel={3} showFavorite={false} omitMissingImage />
+                </section>
+              )}
+              <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
+                <PublicLandingSectionHeading
+                  eyebrow="Súvisiace čítanie"
+                  title={pillar ? "Ďalšie články" : `Články: ${subpage.label}`}
+                  id="topic-related-heading"
+                  action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
+                />
+                <SectionContentList articles={remainingArticles} label={`Články k téme ${subpage.label}`} limit={10} />
+              </section>
+            </div>
+          )}
           <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
         </PageContainer>
       </main>
