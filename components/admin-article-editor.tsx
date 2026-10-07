@@ -6,6 +6,7 @@ import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
 import { AdminActionButton, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
 import { ArticleBlocks } from "@/components/article-blocks";
+import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
@@ -134,6 +135,19 @@ export function AdminArticleEditor({
   const dirtyRef = useRef(false);
   const allowNavigationRef = useRef(false);
   const resultRef = useRef<HTMLDivElement>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (highlightTimer.current) clearTimeout(highlightTimer.current); }, []);
+  function navigatePreview(targetId: string, field = false) {
+    const target = document.getElementById(field ? targetId : `admin-editor-block-${targetId}`);
+    if (!target) return;
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    document.querySelectorAll(`.${navStyles.targetHighlight}`).forEach((element) => element.classList.remove(navStyles.targetHighlight));
+    target.classList.add(navStyles.targetHighlight);
+    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    // Focusing the wrapper keeps an existing rich-text caret and drag state intact.
+    target.focus({ preventScroll: true });
+    highlightTimer.current = setTimeout(() => target.classList.remove(navStyles.targetHighlight), 1800);
+  }
   const focusResult = () => window.requestAnimationFrame(() => {
     resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     resultRef.current?.focus({ preventScroll: true });
@@ -552,9 +566,9 @@ export function AdminArticleEditor({
           <div className="admin-preview-bar"><span><i /> Živý náhľad</span><small>takto bude článok vyzerať</small></div>
           <article className="admin-preview-paper">
             <span className="eyebrow">{portalSectionLabel(portalSection)} · {portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel : category}</span>
-            <h1>{title || "Názov tvojho článku"}</h1>
-            <p className="admin-preview-excerpt">{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
-            {imageUrl && <img className="admin-preview-image" src={imageUrl} alt={imageAlt || title} />}
+            <h1 className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť názov článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{title || "Názov tvojho článku"}</h1>
+            <p className={`admin-preview-excerpt ${navStyles.previewTarget}`} role="button" tabIndex={0} aria-label="Upraviť perex článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
+            {imageUrl && <div className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť titulnú fotografiu" onClick={() => navigatePreview("article-media", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-media", true); } }}><img className="admin-preview-image" src={imageUrl} alt={imageAlt || title} /></div>}
             {imageUrl && (imageCaption || imageCredit) ? (
               <p className="admin-preview-image-meta">
                 {imageCaption}
@@ -562,9 +576,9 @@ export function AdminArticleEditor({
                 {imageCredit ? `Foto: ${imageCredit}` : ""}
               </p>
             ) : null}
-            <EditorialRichText className="admin-preview-intro" document={intro.trim() ? introRichText : legacyRichTextToDocument("Úvod článku sa zobrazí na tomto mieste.")} />
+            <div className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť úvod článku" onClick={() => navigatePreview("article-content", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-content", true); } }}><EditorialRichText className="admin-preview-intro" document={intro.trim() ? introRichText : legacyRichTextToDocument("Úvod článku sa zobrazí na tomto mieste.")} /></div>
             {takeaway.trim() && <div className="admin-preview-takeaway"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayRichText} /></div>}
-            <ArticleBlocks blocks={blocks} preview promoUtcDay={promoUtcDay} />
+            <ArticleBlocks blocks={blocks} preview promoUtcDay={promoUtcDay} onNavigateBlock={(blockId) => navigatePreview(blockId)} />
           </article>
         </aside>
       )}
