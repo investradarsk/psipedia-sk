@@ -540,7 +540,7 @@ export async function EditorialSectionTopic({
             <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
           </section>
 
-          </>)          ) : (
+          </>) : (
             <div className={styles.contentHub} data-content-hub>
               {subpage.intro && <p className={styles.contentHubIntro}>{subpage.intro}</p>}
               {pillar && (
