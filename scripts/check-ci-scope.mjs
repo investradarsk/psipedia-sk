@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { classifyChangedFiles } from "./ci-scope.mjs";
+import { classifyChangedFiles, focusedPrE2eFlags } from "./ci-scope.mjs";
 
 const workflowDir = ".github/workflows";
 const workflowFiles = readdirSync(workflowDir).filter((name) => /\.ya?ml$/.test(name)).sort();
@@ -289,6 +289,15 @@ assert.equal(scenarioK.boundedCore, false);
 assert.equal(scenarioK.validationMode, "ci-control");
 assert.equal(prWorkflowWouldRun("playwright-e2e.yml", scenarioKFiles), true);
 assert.match(required, /- name:\s*Validate CI scope policy[\s\S]*run:\s*node scripts\/check-ci-scope\.mjs/);
+
+// CI-control changes must validate the scope engine itself without fanning out unrelated feature E2E.
+const playwrightControlFiles = [".github/workflows/playwright-e2e.yml", "scripts/ci-scope.mjs", "scripts/check-ci-scope.mjs"];
+const playwrightControl = classifyChangedFiles(playwrightControlFiles);
+assert.equal(playwrightControl.validationMode, "ci-control");
+assert.deepEqual(
+  focusedPrE2eFlags(playwrightControl, playwrightControlFiles),
+  { adminEvents: false, search: false, directory: false },
+);
 
 for (const file of [
   "tests/e2e/services-search-layout.spec.ts",
