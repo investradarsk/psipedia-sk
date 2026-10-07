@@ -316,6 +316,51 @@ export async function getDueAutomationDiscoveryRoot(
   return decision.allowed ? root : null;
 }
 
+const AUTOMATION_DISCOVERY_RUN_LEASE_MS = 20 * 60_000;
+
+export type AutomationDiscoveryRunClaim = {
+  root: AutomationDiscoveryRoot;
+  runId: number;
+  startedAt: Date;
+};
+
+function automationDiscoveryActiveRunCutoff(now: Date) {
+  return new Date(now.getTime() - AUTOMATION_DISCOVERY_RUN_LEASE_MS).toISOString();
+}
+
+async function createAutomationDiscoveryRunClaim(input: {
+  rootId: number;
+  now: Date;
+  requireDue: boolean;
+}, db: AutomationDiscoveryDatabase) {
+  const startedAt = input.now.toISOString();
+  const activeSince = automationDiscoveryActiveRunCutoff(input.now);
+  const statement = input.requireDue
+    ? db.prepare(`INSERT INTO automation_discovery_runs
+        (root_id,status,started_at,candidate_count,reviewable_candidate_count,duplicate_candidate_count,error_count)
+        SELECT r.id,'SUCCESS',?,0,0,0,0
+        FROM automation_discovery_roots r
+        WHERE r.id=? AND r.enabled=1 AND r.review_status='APPROVED'
+          AND (r.next_check_at IS NULL OR r.next_check_at<=?)
+          AND NOT EXISTS (
+            SELECT 1 FROM automation_discovery_runs active
+            WHERE active.root_id=r.id AND active.completed_at IS NULL AND active.started_at>?
+          )
+        RETURNING id`).bind(startedAt, input.rootId, startedAt, activeSince)
+    : db.prepare(`INSERT INTO automation_discovery_runs
+        (root_id,status,started_at,candidate_count,reviewable_candidate_count,duplicate_candidate_count,error_count)
+        SELECT r.id,'SUCCESS',?,0,0,0,0
+        FROM automation_discovery_roots r
+        WHERE r.id=? AND r.enabled=1 AND r.review_status='APPROVED'
+          AND NOT EXISTS (
+            SELECT 1 FROM automation_discovery_runs active
+            WHERE active.root_id=r.id AND active.completed_at IS NULL AND active.started_at>?
+          )
+        RETURNING id`).bind(startedAt, input.rootId, activeSince);
+  const row = await statement.first<{ id: number }>();
+  return row ? Number(row.id) : null;
+}
+
 export async function claimDueAutomationDiscoveryRoot(
   root: AutomationDiscoveryRoot,
   databaseInput?: AutomationDiscoveryDatabase,
@@ -323,13 +368,71 @@ export async function claimDueAutomationDiscoveryRoot(
 ) {
   const db = database(databaseInput);
   const nowIso = now.toISOString();
-  const leaseUntil = new Date(now.getTime() + 20 * 60_000).toISOString();
+  const leaseUntil = new Date(now.getTime() + AUTOMATION_DISCOVERY_RUN_LEASE_MS).toISOString();
+  const activeSince = automationDiscoveryActiveRunCutoff(now);
   const result = await db.prepare(`UPDATE automation_discovery_roots
     SET next_check_at=?
     WHERE id=? AND enabled=1 AND review_status='APPROVED'
-      AND (next_check_at IS NULL OR next_check_at<=?)`)
-    .bind(leaseUntil, root.id, nowIso).run();
+      AND (next_check_at IS NULL OR next_check_at<=?)
+      AND NOT EXISTS (
+        SELECT 1 FROM automation_discovery_runs active
+        WHERE active.root_id=automation_discovery_roots.id
+          AND active.completed_at IS NULL
+          AND active.started_at>?
+      )`)
+    .bind(leaseUntil, root.id, nowIso, activeSince).run();
   return result.meta.changes ? { ...root, nextCheckAt: leaseUntil } : null;
+}
+
+export async function claimManualAutomationDiscoveryRun(
+  rootId: number,
+  databaseInput?: AutomationDiscoveryDatabase,
+  now = new Date(),
+): Promise<AutomationDiscoveryRunClaim | null> {
+  const db = database(databaseInput);
+  const root = await getAutomationDiscoveryRoot(rootId, db);
+  if (!root || !root.enabled || root.reviewStatus !== "APPROVED") return null;
+  await assertDiscoveryRootGovernance(root, db, now);
+  const runId = await createAutomationDiscoveryRunClaim({ rootId, now, requireDue: false }, db);
+  return runId ? { root, runId, startedAt: new Date(now) } : null;
+}
+
+export async function claimDueAutomationDiscoveryRun(
+  root: AutomationDiscoveryRoot,
+  databaseInput?: AutomationDiscoveryDatabase,
+  now = new Date(),
+): Promise<AutomationDiscoveryRunClaim | null> {
+  const db = database(databaseInput);
+  const dueRoot = await getDueAutomationDiscoveryRoot(root.id, db, now);
+  if (!dueRoot) return null;
+
+  const runId = await createAutomationDiscoveryRunClaim({ rootId: dueRoot.id, now, requireDue: true }, db);
+  if (!runId) return null;
+
+  const nowIso = now.toISOString();
+  const leaseUntil = new Date(now.getTime() + AUTOMATION_DISCOVERY_RUN_LEASE_MS).toISOString();
+  const result = await db.prepare(`UPDATE automation_discovery_roots
+    SET next_check_at=?
+    WHERE id=? AND enabled=1 AND review_status='APPROVED'
+      AND (next_check_at IS NULL OR next_check_at<=?)
+      AND EXISTS (
+        SELECT 1 FROM automation_discovery_runs active
+        WHERE active.id=? AND active.root_id=automation_discovery_roots.id AND active.completed_at IS NULL
+      )`)
+    .bind(leaseUntil, dueRoot.id, nowIso, runId).run();
+
+  if (!result.meta.changes) {
+    await db.prepare(`UPDATE automation_discovery_runs
+      SET status='FAILED',completed_at=?,error_count=1,error_summary='automation_discovery_claim_lost'
+      WHERE id=? AND completed_at IS NULL`).bind(nowIso, runId).run();
+    return null;
+  }
+
+  return {
+    root: { ...dueRoot, nextCheckAt: leaseUntil },
+    runId,
+    startedAt: new Date(now),
+  };
 }
 
 function discoveryGovernanceUsage(root: AutomationDiscoveryRoot) {
@@ -502,6 +605,8 @@ export function nextAutomationDiscoveryCheckAt(root: AutomationDiscoveryRoot, co
   return nextAutomationScheduledAt(root.schedule, completedAt);
 }
 
+export type AutomationDiscoveryScheduleFinishPolicy = "ADVANCE_SCHEDULE" | "PRESERVE_SCHEDULE";
+
 export async function finishAutomationDiscoveryRun(input: {
   runId: number;
   root: AutomationDiscoveryRoot;
@@ -524,24 +629,40 @@ export async function finishAutomationDiscoveryRun(input: {
   errorSummary: string | null;
   startedAt: Date;
   completedAt: Date;
+  schedulePolicy?: AutomationDiscoveryScheduleFinishPolicy;
 }, databaseInput?: AutomationDiscoveryDatabase) {
   const db = database(databaseInput);
   const completedAt = input.completedAt.toISOString();
   const durationMs = Math.max(0, input.completedAt.getTime() - input.startedAt.getTime());
-  const nextCheckAt = nextAutomationDiscoveryCheckAt(input.root, input.completedAt);
-  const rootUpdate = () => db.prepare(`UPDATE automation_discovery_roots SET
-      next_check_at=?,last_checked_at=?,
-      last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
-      last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
-      last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
-      updated_at=?
-      WHERE id=?`).bind(
-        nextCheckAt, completedAt,
-        input.status, completedAt,
-        input.status, completedAt,
-        input.status, input.errorSummary,
-        completedAt, input.root.id,
-      );
+  const schedulePolicy = input.schedulePolicy ?? "ADVANCE_SCHEDULE";
+  const scheduledNextCheckAt = nextAutomationDiscoveryCheckAt(input.root, input.completedAt);
+  const rootUpdate = () => schedulePolicy === "ADVANCE_SCHEDULE"
+    ? db.prepare(`UPDATE automation_discovery_roots SET
+        next_check_at=?,last_checked_at=?,
+        last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
+        last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
+        last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
+        updated_at=?
+        WHERE id=?`).bind(
+          scheduledNextCheckAt, completedAt,
+          input.status, completedAt,
+          input.status, completedAt,
+          input.status, input.errorSummary,
+          completedAt, input.root.id,
+        )
+    : db.prepare(`UPDATE automation_discovery_roots SET
+        last_checked_at=?,
+        last_success_at=CASE WHEN ?='SUCCESS' THEN ? ELSE last_success_at END,
+        last_error_at=CASE WHEN ?='SUCCESS' THEN last_error_at ELSE ? END,
+        last_error_code=CASE WHEN ?='SUCCESS' THEN NULL ELSE ? END,
+        updated_at=?
+        WHERE id=?`).bind(
+          completedAt,
+          input.status, completedAt,
+          input.status, completedAt,
+          input.status, input.errorSummary,
+          completedAt, input.root.id,
+        );
   try {
     await db.batch([
       db.prepare(`UPDATE automation_discovery_runs SET status=?,completed_at=?,candidate_count=?,
@@ -571,6 +692,12 @@ export async function finishAutomationDiscoveryRun(input: {
         ),
       rootUpdate(),
     ]);
+  }
+  let nextCheckAt = scheduledNextCheckAt;
+  if (schedulePolicy === "PRESERVE_SCHEDULE") {
+    const current = await db.prepare("SELECT next_check_at FROM automation_discovery_roots WHERE id=? LIMIT 1")
+      .bind(input.root.id).first<{ next_check_at: string | null }>();
+    nextCheckAt = current?.next_check_at ? String(current.next_check_at) : null;
   }
   return { nextCheckAt, durationMs };
 }
