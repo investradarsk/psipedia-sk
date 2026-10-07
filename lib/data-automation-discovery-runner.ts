@@ -16,8 +16,8 @@ import {
   type AutomationSourceCandidateInput,
 } from "./data-automation-discovery.ts";
 import {
-  beginAutomationDiscoveryRun,
-  claimDueAutomationDiscoveryRoot,
+  claimDueAutomationDiscoveryRun,
+  claimManualAutomationDiscoveryRun,
   finalizeAutomationSearchUsage,
   finishAutomationDiscoveryRun,
   getAutomationDiscoveryRoot,
@@ -34,6 +34,8 @@ import {
   type AutomationDiscoveryOutcomeInput,
   type AutomationDiscoveryDatabase,
   type AutomationDiscoveryRoot,
+  type AutomationDiscoveryRunClaim,
+  type AutomationDiscoveryScheduleFinishPolicy,
 } from "./data-automation-discovery-store.ts";
 import {
   automationSearchBudgetPolicy,
@@ -1269,9 +1271,11 @@ export function discoveryEvidenceContext(
 async function runDiscoveryRoot(
   root: AutomationDiscoveryRoot,
   options: DataAutomationDiscoverySweepOptions,
+  claim: AutomationDiscoveryRunClaim,
+  schedulePolicy: AutomationDiscoveryScheduleFinishPolicy,
 ): Promise<DiscoveryRunSummary> {
-  const startedAt = options.now ? new Date(options.now) : new Date();
-  const runId = await beginAutomationDiscoveryRun(root.id, startedAt.toISOString(), options.database as AutomationDiscoveryDatabase);
+  const startedAt = new Date(claim.startedAt);
+  const runId = claim.runId;
   const category = automationProductCategoryForRoot(root);
   const discoveryMode = automationProductModeForRoot(root);
   let candidateCount = 0;
@@ -1479,6 +1483,7 @@ async function runDiscoveryRoot(
     errorSummary,
     startedAt,
     completedAt,
+    schedulePolicy,
   }, options.database as AutomationDiscoveryDatabase);
   const summary: DiscoveryRunSummary = {
     runId,
@@ -1540,14 +1545,33 @@ export async function runAutomationDiscoveryRootCanary(input: {
     now,
   );
   if (!dueRoot) throw new Error("automation_discovery_root_not_due_or_governance_blocked");
-  const claimedRoot = await claimDueAutomationDiscoveryRoot(
+  const claim = await claimDueAutomationDiscoveryRun(
     dueRoot,
     input.options.database as AutomationDiscoveryDatabase,
     now,
   );
-  if (!claimedRoot) throw new Error("automation_discovery_root_already_claimed");
+  if (!claim) throw new Error("automation_discovery_root_already_claimed");
 
-  return runDiscoveryRoot(claimedRoot, input.options);
+  return runDiscoveryRoot(claim.root, input.options, claim, "ADVANCE_SCHEDULE");
+}
+
+export async function claimAutomationDiscoveryRootManualRun(input: {
+  rootId: number;
+  database: D1Database;
+  now?: Date;
+}) {
+  return claimManualAutomationDiscoveryRun(
+    input.rootId,
+    input.database as AutomationDiscoveryDatabase,
+    input.now ?? new Date(),
+  );
+}
+
+export async function runAutomationDiscoveryRootManual(input: {
+  claim: AutomationDiscoveryRunClaim;
+  options: DataAutomationDiscoverySweepOptions;
+}) {
+  return runDiscoveryRoot(input.claim.root, input.options, input.claim, "PRESERVE_SCHEDULE");
 }
 
 type DirectRefreshRunSummary = {
@@ -1683,13 +1707,13 @@ export async function runDataAutomationDiscoverySweep(options: DataAutomationDis
   const runs: DiscoveryRunSummary[] = [];
   for (const root of roots) {
     try {
-      const claimedRoot = await claimDueAutomationDiscoveryRoot(
+      const claim = await claimDueAutomationDiscoveryRun(
         root,
         options.database as AutomationDiscoveryDatabase,
         options.now ?? new Date(),
       );
-      if (!claimedRoot) continue;
-      runs.push(await runDiscoveryRoot(claimedRoot, options));
+      if (!claim) continue;
+      runs.push(await runDiscoveryRoot(claim.root, options, claim, "ADVANCE_SCHEDULE"));
     } catch (error) {
       console.error(JSON.stringify({
         event: "data_automation_discovery_root",
