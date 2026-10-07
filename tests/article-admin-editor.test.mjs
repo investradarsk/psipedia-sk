@@ -170,13 +170,13 @@ test("ADMIN-ARTICLE-EDITOR-NAV-1 uses canonical block IDs for keyboard-accessibl
   const renderer = readFileSync("components/article-blocks.tsx", "utf8");
   const styles = readFileSync("components/admin-article-preview-nav.module.css", "utf8");
   assert.match(blocks, /id={`admin-editor-block-\${block.id}`}/);
-  assert.match(editor, /onNavigateBlock={(blockId) => navigatePreview\(blockId\)}/);
+  assert.match(editor, /onNavigateBlock=\{\(blockId\) => navigatePreview\(blockId\)\}/);
   assert.match(editor, /getElementById\(field \? targetId : `admin-editor-block-\${targetId}`\)/);
   assert.match(renderer, /onNavigateBlock\(block.id\)/);
   assert.match(renderer, /event.key === "Enter" \|\| event.key === " "/);
-  assert.match(renderer, /tabIndex={0}/);
-  assert.match(editor, /target.focus\({ preventScroll: true }\)/);
-  assert.match(editor, /target.scrollIntoView\({ behavior: "smooth", block: "center", inline: "nearest" }\)/);
+  assert.match(renderer, /tabIndex=\{0\}/);
+  assert.match(editor, /target\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(editor, /target\.scrollIntoView\(\{ behavior: "smooth", block: "center", inline: "nearest" \}\)/);
   assert.match(styles, /scroll-margin-top:/);
   assert.match(styles, /:focus-visible/);
   assert.match(styles, /targetHighlight/);
