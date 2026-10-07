@@ -264,16 +264,21 @@ export function changedFilesFromGit({ baseSha = process.env.CI_SCOPE_BASE_SHA, h
   return normalizeFiles(output.split(/\r?\n/));
 }
 
+export function focusedPrE2eFlags(result, files = result.files) {
+  return {
+    adminEvents: files.some((file) =>
+      /^(app\/admin\/events\/|app\/api\/admin\/events\/|components\/admin-events|lib\/admin-events|scripts\/bootstrap-admin-events-e2e\.mjs$|scripts\/check-admin-events-local\.mjs$|tests\/e2e\/admin-events\.spec\.ts$|tests\/admin-events)/.test(file),
+    ),
+    search: result.scopes.includes("SEARCH"),
+    directory: result.scopes.includes("DIRECTORY_SERVICES"),
+  };
+}
+
 function writeGithubOutput(result, files) {
   const output = process.env.GITHUB_OUTPUT;
   if (!output) throw new Error("GITHUB_OUTPUT is required with --github-output");
 
-  const workflowChanged = files.includes(".github/workflows/playwright-e2e.yml");
-  const adminEvents = workflowChanged || files.some((file) =>
-    /^(app\/admin\/events\/|app\/api\/admin\/events\/|components\/admin-events|lib\/admin-events|scripts\/bootstrap-admin-events-e2e\.mjs$|scripts\/check-admin-events-local\.mjs$|tests\/e2e\/admin-events\.spec\.ts$|tests\/admin-events)/.test(file),
-  );
-  const search = workflowChanged || result.scopes.includes("SEARCH");
-  const directory = workflowChanged || result.scopes.includes("DIRECTORY_SERVICES");
+  const { adminEvents, search, directory } = focusedPrE2eFlags(result, files);
 
   appendFileSync(output, [
     `core=${result.core}`,
