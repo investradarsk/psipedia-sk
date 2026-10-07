@@ -172,7 +172,7 @@ for (const articleCase of cases) {
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
       const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
-      const header = document.querySelector<HTMLElement>("main#obsah > header")!;
+      const header = document.querySelector<HTMLElement>("[data-article-reading-start]")!;
       const imageRect = image?.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -338,20 +338,32 @@ for (const articleCase of cases) {
       const heading = document.querySelector<HTMLElement>("h1")!;
       const image = document.querySelector<HTMLElement>(".article-hero-image");
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
-      const header = document.querySelector<HTMLElement>("main#obsah > header")!;
+      const header = document.querySelector<HTMLElement>("[data-article-reading-start]")!;
+      const introParagraph = document.querySelector<HTMLElement>(".article-intro p")!;
+      const bodyHeading = document.querySelector<HTMLElement>(".article-prose h2, .article-prose h3");
+      const disclaimer = document.querySelector<HTMLElement>(".article-disclaimer")!;
+      const sidebar = document.querySelector<HTMLElement>("[data-article-discovery-sidebar]")!;
       const imageRect = image?.getBoundingClientRect();
+      const headingRect = heading.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         h1Size: Number.parseFloat(getComputedStyle(heading).fontSize),
         imageHeight: imageRect?.height ?? null,
         imageWidth: imageRect?.width ?? null,
         imageRatio: imageRect ? imageRect.width / imageRect.height : null,
-        headingLeft: heading.getBoundingClientRect().left,
+        headingLeft: headingRect.left,
+        headingTop: headingRect.top,
         proseLeft: prose.getBoundingClientRect().left,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
         proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
         noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+        sidebarTop: sidebarRect.top,
+        sidebarRightOfHero: imageRect ? sidebarRect.left > imageRect.right : sidebarRect.left > prose.getBoundingClientRect().right,
+        introTextAlign: getComputedStyle(introParagraph).textAlign,
+        headingTextAlign: bodyHeading ? getComputedStyle(bodyHeading).textAlign : null,
+        disclaimerTextAlign: getComputedStyle(disclaimer).textAlign,
       };
     });
 
@@ -381,6 +393,11 @@ for (const articleCase of cases) {
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.73);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
     if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(2);
+    expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
+    expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
+    expect(metrics.introTextAlign).toBe("justify");
+    expect(metrics.headingTextAlign).not.toBe("justify");
+    expect(metrics.disclaimerTextAlign).not.toBe("justify");
 
     const readingProgress = page.locator("[data-article-reading-progress]");
     await expect(readingProgress).toHaveCount(1);
@@ -471,16 +488,23 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const h1 = document.querySelector<HTMLElement>("h1")!;
       const progress = document.querySelector<HTMLElement>("[data-article-reading-progress]")!;
+      const sidebar = document.querySelector<HTMLElement>("[data-article-discovery-sidebar]")!;
       const heroRect = hero.getBoundingClientRect();
       const proseRect = prose.getBoundingClientRect();
       const h1Rect = h1.getBoundingClientRect();
+      const sidebarRect = sidebar.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         heroLeft: heroRect.left,
         heroWidth: heroRect.width,
         proseLeft: proseRect.left,
+        proseTop: proseRect.top,
         proseWidth: proseRect.width,
         h1Left: h1Rect.left,
+        h1Top: h1Rect.top,
+        sidebarDisplay: getComputedStyle(sidebar).display,
+        sidebarLeft: sidebarRect.left,
+        sidebarTop: sidebarRect.top,
         progressHeight: progress.getBoundingClientRect().height,
       };
     });
@@ -491,6 +515,17 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
       expect(Math.abs(metrics.heroWidth - metrics.proseWidth), `hero width at ${viewport.width}px`).toBeLessThanOrEqual(2);
     } else {
       expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - 32 + 1);
+    }
+    if (viewport.width > 1120) {
+      expect(metrics.sidebarDisplay, `desktop sidebar display at ${viewport.width}px`).not.toBe("none");
+      expect(metrics.sidebarLeft, `desktop sidebar rail at ${viewport.width}px`).toBeGreaterThan(metrics.proseLeft + metrics.proseWidth);
+      expect(metrics.sidebarTop, `desktop sidebar start at ${viewport.width}px`).toBeLessThanOrEqual(metrics.h1Top);
+    } else if (viewport.width >= 768) {
+      expect(metrics.sidebarDisplay, `stacked sidebar display at ${viewport.width}px`).not.toBe("none");
+      expect(Math.abs(metrics.sidebarLeft - metrics.proseLeft), `stacked sidebar axis at ${viewport.width}px`).toBeLessThanOrEqual(2);
+      expect(metrics.sidebarTop, `stacked sidebar follows article at ${viewport.width}px`).toBeGreaterThan(metrics.proseTop);
+    } else {
+      expect(metrics.sidebarDisplay, `mobile sidebar hidden at ${viewport.width}px`).toBe("none");
     }
     expect(metrics.progressHeight).toBeGreaterThanOrEqual(2);
     expect(metrics.progressHeight).toBeLessThanOrEqual(3);
