@@ -379,7 +379,8 @@ export default async function BreedDetailPage({ params }: Props) {
 
       <BreedSectionNav items={sectionNavItems} />
 
-      <div className={`shell ${styles.shell}`}>
+      <div className={`shell ${styles.shell} ${styles.contentLayout}`} data-testid="breed-content-layout">
+        <div className={styles.mainColumn}>
         {overviewParagraphs.length ? (
           <section id="prehlad" className={`${styles.readingSection} ${styles.anchorSection}`} aria-labelledby="breed-about">
             <p className={styles.eyebrow}>Profil plemena</p>
@@ -507,6 +508,22 @@ export default async function BreedDetailPage({ params }: Props) {
             </Link>
           </section>
         ) : null}
+        </div>
+          <aside id="uzitocne" className={`${styles.utilitySidebar} ${styles.anchorSection}`} aria-labelledby="breed-utility-heading" data-testid="breed-utility-sidebar">
+            <h2 id="breed-utility-heading">Užitočné odkazy</h2>
+            <nav aria-label="Adresár pre plemeno" className={styles.utilityLinks}>
+              {[
+                { href: "/adresar/chovatelske-kluby", title: "Chovateľské kluby" },
+                { href: relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice", title: relations.breedingStationLanding?.label ?? "Chovateľské stanice" },
+                { href: "/adresar/treneri", title: "Psí tréneri" },
+                { href: "/adresar/kynologicke-kluby", title: "Kynologické kluby" },
+              ].map((item) => (
+                <Link key={item.href} href={item.href} className={styles.utilityLink}>
+                  <strong>{item.title}</strong><span aria-hidden="true">→</span>
+                </Link>
+              ))}
+            </nav>
+          </aside>
       </div>
 
       {gallery.length > 0 ? (
@@ -591,47 +608,6 @@ export default async function BreedDetailPage({ params }: Props) {
         </section>
       ) : null}
 
-      <section id="uzitocne" className={`shell ${styles.usefulSection} ${styles.anchorSection}`}>
-        <header>
-          <span className="eyebrow">Adresár Psipedie</span>
-          <h2>Užitočné odkazy a kontakty</h2>
-          <p>Nájdite organizácie a odborníkov, ktorí vám pomôžu s chovom, výcvikom aj aktivitami.</p>
-        </header>
-        <div className={styles.dataCardGrid}>
-          <PublicDataCard
-            href="/adresar/chovatelske-kluby"
-            eyebrow="Adresár"
-            title="Chovateľské kluby"
-            description="Kluby združujúce chovateľov a priaznivcov plemena."
-            icon={<PawMark size={24} />}
-            actionLabel="Zobraziť kluby"
-          />
-          <PublicDataCard
-            href={relations.breedingStationLanding?.href ?? "/adresar/chovatelske-stanice"}
-            eyebrow="Adresár"
-            title={relations.breedingStationLanding?.label ?? "Chovateľské stanice"}
-            description="Publikované stanice v databáze Psipedie."
-            icon={<PawMark size={24} />}
-            actionLabel="Zobraziť stanice"
-          />
-          <PublicDataCard
-            href="/adresar/treneri"
-            eyebrow="Adresár"
-            title="Psí tréneri"
-            description="Tréneri so skúsenosťami s pracovnými aj rodinnými psami."
-            icon={<PawMark size={24} />}
-            actionLabel="Zobraziť trénerov"
-          />
-          <PublicDataCard
-            href="/adresar/kynologicke-kluby"
-            eyebrow="Adresár"
-            title="Kynologické kluby"
-            description="Kluby pre šport, výcvik a praktické aktivity."
-            icon={<PawMark size={24} />}
-            actionLabel="Zobraziť kluby"
-          />
-        </div>
-      </section>
 
       {relations.similarBreeds.length > 0 ? (
         <section id="podobne" className={`breed-related-section shell ${styles.compactRelated} ${styles.anchorSection}`}>
