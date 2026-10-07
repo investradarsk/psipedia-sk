@@ -522,7 +522,7 @@
 
 .sidebar {
   min-width: 0;
-  align-self: start;
+  align-self: stretch;
   font-family: "Avenir Next", Avenir, sans-serif;
 }
 
