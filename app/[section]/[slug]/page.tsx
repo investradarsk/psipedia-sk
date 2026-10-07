@@ -11,7 +11,7 @@ import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
 import { getPublishedEvent, getPublishedEvents, getUpcomingEvents } from "@/lib/event-store";
-import { buildPublicEventPresentation, eventHref, eventTimeFilterFromParam, eventTypeFromPortalSlug, eventTypeListingSeo, selectRelatedEvents } from "@/lib/events";
+import { buildPublicEventPresentation, eventHref, eventMonthFilterFromParam, eventRegionFilterFromParam, eventSearchQueryFromParam, eventTimeFilterFromParam, eventTypeFromPortalSlug, eventTypeListingSeo, selectRelatedEvents } from "@/lib/events";
 import { buildEventJsonLd } from "@/lib/event-schema";
 import { articleHref, portalSections, type ArticlePortalSection } from "@/lib/portal";
 import { getNewsCategory } from "@/lib/news";
@@ -127,13 +127,13 @@ export default async function PortalContentPage({ params, searchParams }: Props)
         .filter((event) => event.eventType === eventType)
         .map((event) => ({ name: event.title, path: eventHref(event) })),
     }) : null;
-    return <>{schema && <StructuredData value={schema} />}<EventsPage events={events} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={scalar(rawSearchParams.q) ?? ""} /></>;
+    return <>{schema && <StructuredData value={schema} />}<EventsPage events={events} initialType={eventType} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} /></>;
   }
   const managedSection = await getManagedPortalSection(section);
   if (!managedSection?.visible) notFound();
   if (section === "podujatia" && slug === "kalendar") {
     const rawSearchParams = await searchParams;
-    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={scalar(rawSearchParams.q) ?? ""} />;
+    return <EventsPage events={await getPublishedEvents()} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   }
   const portalTopic = await getManagedPortalSubpage(section, slug);
   if (portalTopic && section === "novinky") {
