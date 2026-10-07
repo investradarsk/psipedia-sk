@@ -157,18 +157,38 @@ test("article header follows compact editorial hierarchy and aligns with the rea
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
   assert.match(styles, /\.title h1[\s\S]*max-width:\s*32ch/);
   assert.match(styles, /--article-layout-gap:\s*clamp\(42px,\s*5vw,\s*72px\)/);
-  assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/);
+  assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.title[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
 });
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
   assert.match(styles, /--article-reading-width:\s*760px/);
-  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*300px\)/);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
   assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*96px/);
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
+});
+
+test("ARTICLE-PUBLIC-LAYOUT-V3 scopes prose justification and lifts the desktop discovery rail", () => {
+  const layout = indexOfOrFail(detail, "data-article-layout", "shared article layout is missing");
+  const mainColumn = indexOfOrFail(detail, "className={styles.articleMainColumn}", "article main column is missing");
+  const header = indexOfOrFail(detail, "data-article-reading-start", "article header reading marker is missing");
+  const body = indexOfOrFail(detail, 'className="article-prose" data-article-reading-end', "article body is missing");
+  const sidebar = indexOfOrFail(detail, "data-article-discovery-sidebar", "discovery sidebar is missing");
+  assert.ok(layout < mainColumn && mainColumn < header && header < body && body < sidebar);
+
+  assert.match(styles, /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
+  assert.match(styles, /\.sidebar[\s\S]*align-self:\s*stretch/);
+  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*96px/);
+  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*justify[\s\S]*text-align-last:\s*left[\s\S]*hyphens:\s*auto/);
+  assert.match(styles, /\.readingShell :global\(\.article-block-text li\)/);
+  assert.match(styles, /\.readingShell :global\(\.article-block-quote \.article-block-rich-content blockquote\)/);
+  assert.doesNotMatch(styles, /\.title h1[^{]*\{[^}]*text-align:\s*justify/s);
+  assert.doesNotMatch(styles, /\.articleMeta[^{]*\{[^}]*text-align:\s*justify/s);
+  assert.doesNotMatch(styles, /\.article-disclaimer\)[^{]*\{[^}]*text-align:\s*justify/s);
+  assert.match(styles, /@media \(max-width: 1120px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
 });
 
 test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isolated reading progress contract", () => {
