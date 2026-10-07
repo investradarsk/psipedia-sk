@@ -162,7 +162,7 @@ export function AdminDashboard({
       </section>
 
       <section className="admin-panel">
-        <nav className="admin-article-quick-filters" aria-label="Rýchly filter stavu článkov">
+        <nav className={styles.quickFilters} aria-label="Rýchly filter stavu článkov">
           {articleAdminStatuses.map((value) => (
             <Link key={value} href={articleAdminListHref(routePath, filters, { status: value, page: 1 })} aria-current={filters.status === value ? "page" : undefined}>
               {statusLabels[value]}
