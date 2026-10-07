@@ -11,7 +11,8 @@ const api = read("app/api/admin/articles/[id]/route.ts");
 const editor = read("components/admin-article-editor.tsx");
 
 test("article items open a distinct inline detail while calendar day navigation stays intact", () => {
-  assert.match(calendar, /onClick=\{\(event\) => void openArticle\(article.id, event.currentTarget\)\}/);
+  assert.match(calendar, /origin.current = event.currentTarget/);
+  assert.match(calendar, /void openArticle\(article.id\)/);
   assert.match(calendar, /setSelectedDay\(selectedDay === key \? null : key\)/);
   assert.match(calendar, /selectedDay && \(/);
   assert.match(calendar, /aria-labelledby="calendar-article-detail"/);

@@ -50,9 +50,10 @@ export function AdminEditorialCalendar({
   const saveLock = useRef(false);
 
   useEffect(() => () => activeRequest.current?.abort(), []);
+  const activeArticleId = selectedArticle?.id;
   useEffect(() => {
-    if (loadingId !== null || selectedArticle || loadError) detailHeading.current?.focus();
-  }, [loadingId, selectedArticle?.id, loadError]);
+    if (loadingId !== null || activeArticleId !== undefined || loadError) detailHeading.current?.focus();
+  }, [loadingId, activeArticleId, loadError]);
   useEffect(() => {
     if (saveError) saveErrorTarget.current?.focus();
   }, [saveError]);
@@ -97,8 +98,7 @@ export function AdminEditorialCalendar({
     });
   }
 
-  async function openArticle(id: number, trigger?: HTMLElement) {
-    if (trigger) origin.current = trigger;
+  async function openArticle(id: number) {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -173,7 +173,10 @@ export function AdminEditorialCalendar({
       <button key={article.id} type="button" className={styles.entry}
         aria-expanded={selectedArticle?.id === article.id || loadingId === article.id}
         aria-label={`${article.title}, ${statusLabel(article.status)}, ${timeFormat.format(new Date(article.publishedAt))}`}
-        onClick={(event) => void openArticle(article.id, event.currentTarget)}>
+        onClick={(event) => {
+          origin.current = event.currentTarget;
+          void openArticle(article.id);
+        }}>
         <span className={article.status === "published" ? styles.published : styles.scheduled} aria-hidden="true" />
         <span className={styles.entryTitle}>{article.title}</span>
         <time dateTime={article.publishedAt}>{timeFormat.format(new Date(article.publishedAt))}</time>
