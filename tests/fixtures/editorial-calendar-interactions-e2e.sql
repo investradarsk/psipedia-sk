@@ -27,7 +27,7 @@ INSERT INTO managed_articles (
   '[]', '[]', 4,
   strftime('%Y-%m-%dT%H:%M:%fZ','now'),
   strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-  strftime('%Y-%m-%dT%H:%M:%fZ','now','+3 days','+15 minutes'),
+  strftime('%Y-%m-%dT%H:%M:%fZ','now','+3 days'),
   'ci:editorial-calendar', 'ci:editorial-calendar'
 ),
 (
