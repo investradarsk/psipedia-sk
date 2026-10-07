@@ -774,12 +774,11 @@ test("ARTICLE-CARDS-1 article listings are responsive, keyboard-usable and visua
 
   const noImageCard = page.locator("[data-article-card]").filter({ hasText: "E2E článok bez hero obrázka" });
   if (await noImageCard.count()) {
-    await expect(noImageCard.locator(".article-placeholder")).toBeVisible();
-    const mediaRatio = await noImageCard.locator(".article-card-media").evaluate((node) => {
-      const rect = node.getBoundingClientRect();
-      return rect.width / rect.height;
-    });
-    expect(mediaRatio).toBeGreaterThan(1.45);
+    // The magazine listing intentionally omits media when no image exists.
+    await expect(noImageCard.locator(".article-placeholder")).toHaveCount(0);
+    await expect(noImageCard.locator(".article-card-media")).toHaveCount(0);
+    await expect(noImageCard.getByRole("heading", { name: "E2E článok bez hero obrázka" })).toBeVisible();
+    expect(await noImageCard.locator(".article-card-title a").getAttribute("href")).toMatch(/^\//);
   }
 
   const magazineSearch = page.getByPlaceholder("Hľadať v magazíne");

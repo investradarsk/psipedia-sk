@@ -20,6 +20,7 @@ export function ArticleCard({
   imagePriority = false,
   className,
   listItem = true,
+  omitMissingImage = false,
 }: {
   article: Article;
   variant?: ArticleCardVariant;
@@ -32,6 +33,7 @@ export function ArticleCard({
   imagePriority?: boolean;
   className?: string;
   listItem?: boolean;
+  omitMissingImage?: boolean;
 }) {
   const resolvedVariant = variant ?? (large ? "featured" : "grid");
   const href = articleHref(article);
@@ -66,7 +68,7 @@ export function ArticleCard({
       data-article-card
       data-article-variant={resolvedVariant}
     >
-      <Link
+      {(article.image || !omitMissingImage) ? <Link
         href={href}
         className="article-card-media"
         aria-label={`${resolvedActionLabel}: ${article.title}`}
@@ -82,7 +84,7 @@ export function ArticleCard({
         ) : (
           <span className="article-placeholder" aria-hidden="true"><PawMark size={64} /></span>
         )}
-      </Link>
+      </Link> : null}
       <div className="article-card-body">
         <div className="article-card-meta">
           <Link href={topicHref} className="article-card-topic">{metaLabel}</Link>
