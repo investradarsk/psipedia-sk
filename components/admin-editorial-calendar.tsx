@@ -26,6 +26,27 @@ function statusLabel(status: EditorialCalendarItem["status"] | ManagedArticle["s
   return status === "published" ? "Publikované" : status === "scheduled" ? "Naplánované" : "Koncept";
 }
 
+function CalendarArticleEntries({
+  articles, onOpen, selectedId, loadingId,
+}: {
+  articles: EditorialCalendarItem[];
+  onOpen: (id: number, element: HTMLButtonElement) => void;
+  selectedId: number | undefined;
+  loadingId: number | null;
+}) {
+  return articles.map((article) => (
+    <button key={article.id} type="button" className={styles.entry}
+      aria-expanded={selectedId === article.id || loadingId === article.id}
+      aria-label={`${article.title}, ${statusLabel(article.status)}, ${timeFormat.format(new Date(article.publishedAt))}`}
+      onClick={(event) => onOpen(article.id, event.currentTarget)}>
+      <span className={article.status === "published" ? styles.published : styles.scheduled} aria-hidden="true" />
+      <span className={styles.entryTitle}>{article.title}</span>
+      <time dateTime={article.publishedAt}>{timeFormat.format(new Date(article.publishedAt))}</time>
+      <span className={styles.srOnly}>{statusLabel(article.status)}</span>
+    </button>
+  ));
+}
+
 export function AdminEditorialCalendar({
   year, month, items,
 }: { year: number; month: number; items: EditorialCalendarItem[] }) {
@@ -168,21 +189,9 @@ export function AdminEditorialCalendar({
     }
   }
 
-  function entries(articles: EditorialCalendarItem[]) {
-    return articles.map((article) => (
-      <button key={article.id} type="button" className={styles.entry}
-        aria-expanded={selectedArticle?.id === article.id || loadingId === article.id}
-        aria-label={`${article.title}, ${statusLabel(article.status)}, ${timeFormat.format(new Date(article.publishedAt))}`}
-        onClick={(event) => {
-          origin.current = event.currentTarget;
-          void openArticle(article.id);
-        }}>
-        <span className={article.status === "published" ? styles.published : styles.scheduled} aria-hidden="true" />
-        <span className={styles.entryTitle}>{article.title}</span>
-        <time dateTime={article.publishedAt}>{timeFormat.format(new Date(article.publishedAt))}</time>
-        <span className={styles.srOnly}>{statusLabel(article.status)}</span>
-      </button>
-    ));
+  function handleOpenArticle(id: number, element: HTMLButtonElement) {
+    origin.current = element;
+    void openArticle(id);
   }
 
   const scheduledMonth = selectedArticle?.publishedAt ? new Date(selectedArticle.publishedAt) : null;
@@ -221,7 +230,8 @@ export function AdminEditorialCalendar({
                 <time dateTime={key}>{day}</time>
                 {articles.length > 0 && <span className={styles.count}>{articles.length}</span>}
               </button>
-              <div className={styles.dayEntries}>{entries(articles.slice(0, 2))}</div>
+              <div className={styles.dayEntries}><CalendarArticleEntries articles={articles.slice(0, 2)} onOpen={handleOpenArticle}
+                selectedId={selectedArticle?.id} loadingId={loadingId} /></div>
               {articles.length > 2 && <button className={styles.more} type="button" onClick={() => setSelectedDay(key)}>+${articles.length - 2} ďalšie</button>}
             </div>
           );
@@ -233,7 +243,10 @@ export function AdminEditorialCalendar({
             <h3 id="calendar-day-detail">{dateFormat.format(new Date(`${selectedDay}T12:00:00`))}</h3>
             <button type="button" onClick={() => setSelectedDay(null)}>Zavrieť detail dňa</button>
           </div>
-          {dayArticles.length ? entries(dayArticles) : <p>V tento deň nie sú žiadne články.</p>}
+          {dayArticles.length
+            ? <CalendarArticleEntries articles={dayArticles} onOpen={handleOpenArticle}
+                selectedId={selectedArticle?.id} loadingId={loadingId} />
+            : <p>V tento deň nie sú žiadne články.</p>}
         </section>
       )}
       {(selectedArticle || loadingId !== null || loadError) && (
