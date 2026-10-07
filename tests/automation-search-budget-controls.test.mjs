@@ -48,5 +48,5 @@ test("admin category UI explains that search budget does not limit refresh scans
   assert.match(component, /Dnešné využitie:/);
   assert.match(component, /Obnoviť limit/);
   assert.match(component, /Spustiť hľadanie/);
-  assert.match(component, /Kontrola existujúcich záznamov tento Tavily limit nepoužíva/);
+  assert.match(component, /Pri adresárových profiloch môže aj kontrola existujúcich záznamov použiť samostatný bounded Tavily lookup/);
 });
