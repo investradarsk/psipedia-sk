@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
 import { BreedCrawlIndex } from "@/components/breed-crawl-index";
-import { ArrowIcon, PawMark, SearchIcon, SparkIcon } from "@/components/icons";
+import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContentShell,
   PublicFoundation,
   PublicLandingSectionHeading,
-  PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -79,25 +78,16 @@ export default async function BreedsPage({ searchParams }: Props) {
                   description="Atlas zostáva hlavný pracovný nástroj nižšie. Tu si vyber inú cestu, ak chceš plemeno nájsť podľa potrieb, porovnať alebo otvoriť kluby."
                   id="breed-actions-heading"
                 />
-                <PublicSubcategoryNavigator
-                  mode="landing"
-                  label="Hlavné možnosti v sekcii Plemená"
-                  items={breedSection.subpages
+                <nav aria-label="Hlavné možnosti v sekcii Plemená" className={styles.quickActions}>
+                  {breedSection.subpages
                     .filter((subpage) => subpage.slug !== "atlas")
-                    .map((subpage) => ({
-                      href: portalSubpageHref(breedSection, subpage),
-                      title: subpage.label,
-                      description: subpage.description,
-                      image: subpage.imageUrl ? { src: subpage.imageUrl, alt: subpage.imageAlt ?? "" } : undefined,
-                      icon: subpage.icon
-                        ? <span aria-hidden="true">{subpage.icon}</span>
-                        : subpage.slug === "vyber-plemena"
-                          ? <SearchIcon />
-                          : subpage.slug === "porovnanie"
-                            ? <SparkIcon />
-                            : <PawMark />,
-                    }))}
-                />
+                    .map((subpage) => (
+                      <Link key={subpage.slug} href={portalSubpageHref(breedSection, subpage)} className={styles.quickAction}>
+                        <strong>{subpage.label}</strong>
+                        <span aria-hidden="true">→</span>
+                      </Link>
+                    ))}
+                </nav>
               </PublicContentShell>
             </section>
           ) : null}
