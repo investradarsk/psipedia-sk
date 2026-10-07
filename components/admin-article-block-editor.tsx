@@ -2,6 +2,7 @@
 
 import { ChangeEvent, Fragment, useEffect, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
+import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
 import { AdminRichTextEditor } from "@/components/admin-rich-text-editor";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
@@ -225,7 +226,9 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
           <Fragment key={block.id}>
           {insertControl(index)}
           <section
-            className={`admin-block-card ${dragIndex === index ? "is-dragging" : ""}`}
+            id={`admin-editor-block-${block.id}`}
+            tabIndex={-1}
+            className={`admin-block-card ${navStyles.editorTarget} ${dragIndex === index ? "is-dragging" : ""}`}
             draggable
             onDragStart={() => setDragIndex(index)}
             onDragEnd={() => setDragIndex(null)}
