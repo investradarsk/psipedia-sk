@@ -29,7 +29,12 @@
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 .calendar :is(button, a):focus-visible { outline: 3px solid #1a845b; outline-offset: 2px; }
 @media (max-width: 720px) {
-  .grid { display: none; }
+  .grid { display: grid; } 
+  .day, .blank { height: 3.7rem; padding: .1rem; }
+  .dayEntries, .more { display: none; }
+  .dayButton { padding: .15rem; font-size: .8rem; flex-direction: column; }
+  .weekday { padding: .25rem .05rem; font-size: .75rem; }
+  .count { font-size: .65rem; }
   .calendar { overflow: hidden; }
   .toolbar { align-items: flex-start; }
   .monthNav h2 { font-size: 1.1rem; min-width: 8rem; }
