@@ -111,10 +111,16 @@ export function AdminDashboard({
     const form = filterFormRef.current;
     const data = form ? new FormData(form) : null;
     const query = data?.get("query");
+    const status = data?.get("status");
+    const section = data?.get("section");
+    const topic = data?.get("topic");
     const sort = data?.get("sort");
     const direction = data?.get("direction");
     router.push(articleAdminListHref(routePath, filters, {
       ...(typeof query === "string" ? { query } : {}),
+      ...(status === "all" || status === "draft" || status === "published" || status === "scheduled" ? { status } : {}),
+      ...(typeof section === "string" && !fixedPortalSection ? { portalSection: section as ArticleAdminListFilters["portalSection"] } : {}),
+      ...(typeof topic === "string" && !fixedPortalSection ? { topicId: Number(topic) || null } : {}),
       ...(sort === "updated" || sort === "title" ? { sort } : {}),
       ...(direction === "asc" || direction === "desc" ? { direction } : {}),
       ...overrides, page: 1,
