@@ -67,5 +67,5 @@ for (const route of routes) {
 test("legacy directory alias redirects directly to canonical category", async ({ request }) => {
   const response = await request.get("/adresar/psie-skoly", { maxRedirects: 0 });
   expect([301, 308]).toContain(response.status());
-  expect(response.headers().location).toBe("/adresar/treneri");
+  expect(new URL(response.headers().location!).pathname).toBe("/adresar/treneri");
 });
