@@ -50,12 +50,22 @@ export async function POST(request: Request, { params }: Props) {
   let blockedRootCount = enabled.length - runnable.length;
   if (!runnable.length) return Response.json({ error: "Dnešný limit je vyčerpaný. Najprv použi Obnoviť limit.", code: "SEARCH_BUDGET_BLOCKED" }, { status: 429, headers: { "cache-control": "no-store" } });
 
+  const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
+  if (!provider.credentialConfigured) {
+    return Response.json({
+      error: "Tavily vyhľadávanie nie je nakonfigurované.",
+      code: "SEARCH_PROVIDER_CONFIG_MISSING",
+      startedRootCount: 0,
+      blockedRootCount: enabled.length,
+    }, { status: 503, headers: { "cache-control": "no-store" } });
+  }
+
   for (const root of runnable) {
     await recordAutomationSearchAdminEvent({ root, actorEmail: auth.user.email, reason: "MANUAL_RUN", extraRequests: 0, now }, bindings.DB);
   }
   await releaseAutomationSearchCooldownsForAdmin({ rootIds: runnable.map((root) => root.id), now }, bindings.DB);
 
-  const claims = [];
+  const claims: NonNullable<Awaited<ReturnType<typeof claimAutomationDiscoveryRootManualRun>>>[] = [];
   for (const root of runnable) {
     try {
       const claim = await claimAutomationDiscoveryRootManualRun({
@@ -86,7 +96,6 @@ export async function POST(request: Request, { params }: Props) {
     }, { status: 409, headers: { "cache-control": "no-store" } });
   }
 
-  const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
   const task = Promise.allSettled(claims.map((claim) => runAutomationDiscoveryRootManual({
     claim,
     options: {
