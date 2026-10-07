@@ -133,6 +133,11 @@ export function AdminArticleEditor({
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
   const allowNavigationRef = useRef(false);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const focusResult = () => window.requestAnimationFrame(() => {
+    resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    resultRef.current?.focus({ preventScroll: true });
+  });
   const [relatedBreedIds,setRelatedBreedIds]=useState(article?.relatedBreedIds??[]);
   const [topicIds, setTopicIds] = useState(article?.topics.map((topic) => topic.id) ?? []);
 
@@ -265,12 +270,14 @@ export function AdminArticleEditor({
       setPublishedAt(dateTimeValue(data.article.publishedAt));
       setEditorDirty(false);
       setMessage(nextStatus === "published" ? (portalSection === "novinky" ? "Novinka je publikovaná na webe." : "Článok je publikovaný na webe.") : nextStatus === "scheduled" ? "Publikovanie je naplánované." : "Koncept je bezpečne uložený.");
+      focusResult();
       if (!article) {
         allowNavigationRef.current = true;
         window.location.assign(`/admin/clanky/${data.article.id}?vytvoreny=1`);
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
+      focusResult();
     } finally {
       setSaving(false);
     }
@@ -520,7 +527,7 @@ export function AdminArticleEditor({
           />
         </section>
 
-        {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}
+        {(message || error) && <div ref={resultRef} tabIndex={-1} className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
 
         <div className="admin-editor-actions" aria-label="Akcie článku">
           <div>
