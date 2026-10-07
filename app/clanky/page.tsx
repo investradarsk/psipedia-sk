@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleBrowser } from "@/components/article-browser";
+import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
+import { ArticlePromo } from "@/components/article-promo";
+import { getArticleDiscoveryData } from "@/lib/article-discovery";
+import styles from "./article-listing.module.css";
 import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentShell, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
@@ -29,9 +33,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function ArticlesPage({ searchParams }: Props) {
   const params = await searchParams;
   const policy = resolveListingIndexPolicy("/clanky", params);
-  const [articles, heroVisual] = await Promise.all([
+  const [articles, heroVisual, discovery] = await Promise.all([
     getPublishedArticleSummaries({ limit: 200 }),
     getSectionHeroVisual("section.novinky"),
+    getArticleDiscoveryData({ slug: "article-listing", portalSection: "novinky" }),
   ]);
   const categories: Record<string, string> = {
     vycvik: "Výcvik",
@@ -65,11 +70,26 @@ export default async function ArticlesPage({ searchParams }: Props) {
         </UnifiedSectionHeroShell>
         <section className="page-body">
           <PublicContentShell variant="listing">
-          <ArticleBrowser
-            articles={articles}
-            initialQuery={scalar(params.hladat) ?? ""}
-            initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}
-          />
+          <div className={styles.layout} data-article-listing-layout>
+            <div className={styles.main}>
+              <ArticleBrowser
+                articles={articles}
+                initialQuery={scalar(params.hladat) ?? ""}
+                initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}
+              />
+            </div>
+            <aside className={styles.sidebar} aria-label="Objavte ďalší obsah" data-article-discovery-sidebar>
+              <div className={styles.sidebarSticky}>
+                <ArticlePopularitySidebar popularity={discovery.popularity} initialWindow="24h" />
+                {discovery.promo ? (
+                  <div className={styles.promo} data-automatic-article-promo>
+                    <ArticlePromo promoKey={discovery.promo.promoKey} variant="auto"
+                      seed={discovery.promo.seed} utcDay={discovery.utcDay} compact />
+                  </div>
+                ) : null}
+              </div>
+            </aside>
+          </div>
           </PublicContentShell>
         </section>
       </main>

@@ -1,0 +1,57 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: clamp(24px, 3vw, 44px);
+  align-items: start;
+  min-width: 0;
+}
+.main, .sidebar { min-width: 0; }
+.sidebar { align-self: stretch; font-family: "Avenir Next", Avenir, sans-serif; }
+.sidebarSticky {
+  position: sticky;
+  top: calc(var(--psipedia-sticky-header-height, 76px) + 20px);
+}
+.promo { margin-top: 26px; }
+.promo:first-child { margin-top: 0; }
+.layout :global(.article-grid--listing) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.layout :global(.article-grid--listing .article-card) {
+  border-radius: 16px;
+  transform: none;
+}
+.layout :global(.article-grid--listing .article-card-media) { aspect-ratio: 16 / 9; }
+.layout :global(.article-grid--listing .article-card-body) { padding: 15px 16px 17px; }
+.layout :global(.article-grid--listing .article-card-title) {
+  margin-top: 8px;
+  font-size: clamp(1.05rem, 1.35vw, 1.3rem);
+  line-height: 1.26;
+  overflow-wrap: anywhere;
+}
+.layout :global(.article-grid--listing .article-card-excerpt) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: .85rem;
+  line-height: 1.45;
+}
+.layout :global(.article-grid--listing .article-card:focus-within) {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+.layout :global(.article-grid--listing .article-card-media:focus-visible),
+.layout :global(.article-grid--listing .article-card-title a:focus-visible),
+.layout :global(.article-grid--listing .article-card-topic:focus-visible) {
+  outline: 3px solid var(--brand-accent-strong, #b94732);
+  outline-offset: 2px;
+}
+@media (max-width: 1120px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: none; }
+}
+@media (max-width: 680px) {
+  .layout :global(.article-grid--listing) { grid-template-columns: minmax(0, 1fr); }
+  .layout :global(.article-grid--listing .article-card-title) { font-size: 1.2rem; }
+}
