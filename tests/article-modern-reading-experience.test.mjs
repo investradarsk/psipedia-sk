@@ -165,7 +165,7 @@ test("article header follows compact editorial hierarchy and aligns with the rea
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
   assert.match(styles, /--article-reading-width:\s*760px/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
-  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)/);
+  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*var\(--cream\)/);
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
@@ -181,7 +181,7 @@ test("ARTICLE-PUBLIC-LAYOUT-V3 scopes prose justification and lifts the desktop 
 
   assert.match(styles, /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
   assert.match(styles, /\.sidebar[\s\S]*align-self:\s*stretch/);
-  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)/);
+  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*var\(--cream\)/);
   assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*justify[\s\S]*text-align-last:\s*left[\s\S]*hyphens:\s*auto/);
   assert.match(styles, /\.readingShell :global\(\.article-block-text li\)/);
   assert.match(styles, /\.readingShell :global\(\.article-block-quote \.article-block-rich-content blockquote\)/);
