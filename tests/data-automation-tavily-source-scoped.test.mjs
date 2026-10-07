@@ -288,7 +288,7 @@ test("Tavily DIRECTORY public-content gate removes navigation/footer boilerplate
 
   const result = await provider.extract({
     source: src,
-    contract: contract(src, "include:/**"),
+    contract: contract(src, null),
     gate: gate().value,
     urls: [src.sourceUrl],
   });
@@ -330,7 +330,7 @@ test("Tavily DIRECTORY keeps usable identity/URL when no quality-approved descri
 
   const result = await provider.extract({
     source: src,
-    contract: contract(src, "include:/**"),
+    contract: contract(src, null),
     gate: gate().value,
     urls: [src.sourceUrl],
   });
