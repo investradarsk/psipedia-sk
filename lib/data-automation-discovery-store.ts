@@ -394,7 +394,7 @@ export async function claimManualAutomationDiscoveryRun(
   if (!root || !root.enabled || root.reviewStatus !== "APPROVED") return null;
   await assertDiscoveryRootGovernance(root, db, now);
   const runId = await createAutomationDiscoveryRunClaim({ rootId, now, requireDue: false }, db);
-  return runId ? { root, runId, startedAt: new Date(now) } : null;
+  return runId ? { root, runId, startedAt: new Date(now.getTime()) } : null;
 }
 
 export async function claimDueAutomationDiscoveryRun(
@@ -431,7 +431,7 @@ export async function claimDueAutomationDiscoveryRun(
   return {
     root: { ...dueRoot, nextCheckAt: leaseUntil },
     runId,
-    startedAt: new Date(now),
+    startedAt: new Date(now.getTime()),
   };
 }
 
