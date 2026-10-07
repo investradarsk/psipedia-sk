@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-export const CI_SCOPE_VERSION = 3;
+export const CI_SCOPE_VERSION = 4;
 
 const RULES = {
   ADMIN: [
@@ -61,10 +61,11 @@ const RULES = {
   ARTICLES: [
     /^app\/clanky\//,
     /^app\/admin\/clanky\//,
+    /^app\/admin\/novy\//,
     /^app\/api\/admin\/articles\//,
-    /^components\/(?:article-|editorial-)/,
+    /^components\/(?:article-|editorial-|admin-article-|admin-rich-text-editor)/,
     /^lib\/(?:article-|editorial-)/,
-    /^tests\/(?:article-|editorial-)/,
+    /^tests\/(?:article-|editorial-|admin-article)/,
   ],
   BREEDS: [
     /^app\/plemena\//,
@@ -145,6 +146,41 @@ const RULES = {
     /^tests\/e2e\/unified-section-hero\.spec\.ts$/,
     /^\.github\/workflows\/(?:unified-section-hero-ci|section-hero-v2-ci)\.yml$/,
   ],
+  AI_DISCOVERY: [
+    /^app\/sitemap\.ts$/,
+    /^app\/plemena\/\[slug\]\/page\.tsx$/,
+    /^app\/adresar\/(?:\[category\]\/(?:mesto|okres|kraj)\/\[locationSlug\]|chovatelske-stanice\/(?:kraj\/\[regionSlug\]|plemeno\/\[breedSlug\](?:\/kraj\/\[regionSlug\])?))\/page\.tsx$/,
+    /^components\/(?:article-detail|directory-profile-detail|organization-profile-detail|event-detail|adoption-detail|lost-found-dog-detail|related-entity-list)(?:\.|\/)/,
+    /^components\/help-details\//,
+    /^lib\/(?:internal-discovery|slovak-location-landings|breeding-station-landings|breeding-station-sitemap|directory-location-landings|directory-location-sitemap|directory-profile-schema|directory-profile-metadata|directory-sitemap|article-discovery|entity-sitemap|sitemap-parity|sitemap-runtime|sitemap-seo|ai-referral)\.ts$/,
+    /^scripts\/bootstrap-internal-discovery-e2e\.mjs$/,
+    /^tests\/(?:internal-discovery|breeding-station-ai-landings|directory-ai-landings-scale|article-discovery|seo-structured-data-2|sitemap-seo|rendered-html|ai-referral)\.test\.mjs$/,
+    /^tests\/e2e\/(?:internal-discovery|ai-discovery-hardening)\.spec\.ts$/,
+    /^\.github\/workflows\/ai-internal-discovery-click-value-ci\.yml$/,
+  ],
+  ENTITY_SURFACES: [
+    /^app\/sitemap\.ts$/,
+    /^app\/\[section\]\/\[slug\]\/page\.tsx$/,
+    /^app\/plemena\/\[slug\]\/page\.tsx$/,
+    /^app\/pomoc-psom\/(?:adopcia\/\[slug\]|\[category\]\/\[slug\])\/page\.tsx$/,
+    /^app\/adresar\/\[category\]\/\[slug\]\/page\.tsx$/,
+    /^app\/organizacie\/\[slug\]\/page\.tsx$/,
+    /^components\/(?:article-detail|event-detail|organization-profile-detail|adoption-detail|lost-found-dog-detail|directory-profile-detail|structured-data)(?:\.|\/)/,
+    /^components\/help-details\//,
+    /^components\/detail-primitives\//,
+    /^lib\/(?:event-schema|organization-profile-presentation|organization-seo|adoption-detail|directory-detail-presentation|directory-profile-metadata|directory-profile-schema|article-seo|content-seo|seo|canonical-resource|sitemap-parity|sitemap-runtime|sitemap-seo|entity-sitemap|organization-sitemap|adoption-sitemap)\.ts$/,
+    /^tests\/(?:sitewide-ai-entity-surface|events-phase4|adoption-detail|organization-profile-presentation|organization-seo|seo-structured-data-2|directory-detail-presentation|sitemap-seo|rendered-html|social-metadata|social-metadata-rendered)\.test\.mjs$/,
+    /^tests\/e2e\/(?:event-detail-phase4|adoption|breed-profile|lost-found-dogs|help-detail-primitives)\.spec\.ts$/,
+    /^\.github\/workflows\/sitewide-ai-entity-surface-ci\.yml$/,
+  ],
+  SHARED_CORE: [
+    /^app\/(?:layout\.tsx|globals\.css)$/,
+    /^worker\/index\.ts$/,
+    /^db\/index\.ts$/,
+    /^config\/(?:runtime-env|public-site)\.ts$/,
+    /^(?:vite\.config\.ts|playwright\.config\.ts|tsconfig\.json|eslint\.config\.mjs|wrangler\.jsonc)$/,
+    /^scripts\/(?:build-verified\.sh|check-config-contract\.mjs|validate-artifact\.sh|validate-deploy-artifact\.mjs|sites-env\.sh)$/,
+  ],
 };
 
 const DOC_RE = /^(?:README(?:\.[^/]+)?|docs\/|\.github\/(?:ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)\/)|\.(?:md|mdx|txt)$/i;
@@ -157,10 +193,21 @@ function isDocsOnlyFile(file) {
   return DOC_RE.test(file) || /\.(?:md|mdx|txt)$/i.test(file);
 }
 
+const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope|check-ci-scope)\.mjs$)/;
+
+const AUTOMATION_BROAD_RE = /^(?:lib\/(?:data-automation(?:\.ts|-apply\.ts|-canonical-apply\.ts|-store\.ts|-runner\.ts|-governance\.ts|-identity\.ts|-dynamic-identity\.ts|-matching\.ts|-clustering\.ts|-capability-registry\.ts|-draft-mapper\.ts|-enrichment-normalize\.ts|-enrichment-template\.ts|-http-policy\.ts|-source-store\.ts|-source-provisioning\.ts|-source-scoped-extraction\.ts|-generic-source-extractor\.ts|-ingestion-receipts\.ts|-lifecycle(?:-apply|-store)?\.ts)|automation-record-suppressions\.ts|canonical-draft-delete\.ts)|drizzle\/(?:0050|0052|0055|0056|0057|0073|0075|0076|0078|0079|0080|0081|0082|0083|0084|0085|0086|0087|0088|0089|0091|0092|0093|0094|0095|0096|0097)_|tests\/fixtures\/data-automation\/|\.github\/workflows\/data-automation-(?:ci|v2-ci)\.yml$)/;
+
+const AUTOMATION_ADMIN_E2E_RE = /^(?:app\/admin\/(?:operations\/automation|automatizacie)\/|app\/api\/admin\/(?:automation-sources|automation-source-candidates|automation-lifecycle|canonical-drafts)\/|components\/admin-automation-(?:source|lifecycle)-|components\/admin-canonical-draft-delete\.tsx$|lib\/(?:admin-automation-api|data-automation-(?:source-admin|source-activation|source-matching|source-presets|update-review|address-review(?:-store)?|cluster-admin|match-review))\.ts$|tests\/e2e\/(?:data-automation-v2|canonical-draft-delete)\.spec\.ts$|tests\/fixtures\/canonical-draft-delete-e2e\.sql$)/;
+
+function isCiControlFile(file) {
+  return CI_CONTROL_RE.test(file);
+}
+
 export function classifyChangedFiles(inputFiles) {
   const files = normalizeFiles(inputFiles);
   const docsOnly = files.length > 0 && files.every(isDocsOnlyFile);
   const dependency = files.some((file) =>
+    file === "package.json" ||
     file === "package-lock.json" ||
     file === ".nvmrc" ||
     file === ".node-version" ||
@@ -173,16 +220,37 @@ export function classifyChangedFiles(inputFiles) {
   }
 
   const workflowOnly = files.length > 0 && files.every((file) => file.startsWith(".github/workflows/"));
-  const core = files.length === 0 ? true : !docsOnly;
+  const ciControl = files.some(isCiControlFile);
+  const ciControlOnly = files.length > 0 && files.every((file) => isCiControlFile(file) || isDocsOnlyFile(file));
+  const runtimeChanged = files.length === 0 || files.some((file) => !isDocsOnlyFile(file) && !isCiControlFile(file));
+  const sharedCore = scopes.includes("SHARED_CORE");
+  const migration = scopes.includes("DATABASE_MIGRATIONS");
+  const fullCore = files.length === 0 || (!docsOnly && (dependency || sharedCore || migration));
+  const boundedCore = runtimeChanged && !fullCore && !docsOnly;
+  const core = runtimeChanged && !docsOnly;
+  const automationBroad = scopes.includes("AUTOMATION") && files.some((file) => AUTOMATION_BROAD_RE.test(file));
+  const automationAdminE2e = scopes.includes("AUTOMATION") && (
+    automationBroad ||
+    files.some((file) => AUTOMATION_ADMIN_E2E_RE.test(file))
+  );
 
   return {
     version: CI_SCOPE_VERSION,
     files,
     core,
+    fullCore,
+    boundedCore,
+    runtimeChanged,
     docsOnly,
     dependency,
     workflowOnly,
+    ciControl,
+    ciControlOnly,
+    sharedCore,
+    automationBroad,
+    automationAdminE2e,
     scopes,
+    validationMode: fullCore ? "full" : boundedCore ? "bounded" : ciControl ? "ci-control" : "fast",
     packageMetadataOnly: files.length > 0 && files.every((file) => file === "package.json"),
   };
 }
@@ -209,12 +277,21 @@ function writeGithubOutput(result, files) {
 
   appendFileSync(output, [
     `core=${result.core}`,
+    `full_core=${result.fullCore}`,
+    `bounded_core=${result.boundedCore}`,
+    `runtime_changed=${result.runtimeChanged}`,
     `dependency=${result.dependency}`,
+    `ci_control=${result.ciControl}`,
+    `automation_broad=${result.automationBroad}`,
+    `automation_admin_e2e=${result.automationAdminE2e}`,
+    `ai_discovery=${result.scopes.includes("AI_DISCOVERY")}`,
+    `entity_surfaces=${result.scopes.includes("ENTITY_SURFACES")}`,
     `admin_events=${adminEvents}`,
     `search=${search}`,
     `directory=${directory}`,
     `scopes=${result.scopes.join(",")}`,
     `docs_only=${result.docsOnly}`,
+    `validation_mode=${result.validationMode}`,
     "",
   ].join("\n"));
 }
