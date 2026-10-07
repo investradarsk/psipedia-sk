@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   AdminBulkSelectionControls,
   BulkSelectionCheckbox,
@@ -103,10 +103,28 @@ export function AdminDashboard({
     resultCount,
     supportsAllMatching: false,
   });
+  const filterFormRef = useRef<HTMLFormElement>(null);
   const routePath = fixedPortalSection ? "/admin/steniatka" : listPath;
   const paginationBase = articleAdminListHref(routePath, { ...filters, page: 1 });
   function applyFilter(overrides: Partial<ArticleAdminListFilters>) {
-    router.push(articleAdminListHref(routePath, filters, { ...overrides, page: 1 }));
+    // Preserve unsent search/sort changes before an immediate select navigation.
+    const form = filterFormRef.current;
+    const data = form ? new FormData(form) : null;
+    const query = data?.get("query");
+    const status = data?.get("status");
+    const section = data?.get("section");
+    const topic = data?.get("topic");
+    const sort = data?.get("sort");
+    const direction = data?.get("direction");
+    router.push(articleAdminListHref(routePath, filters, {
+      ...(typeof query === "string" ? { query } : {}),
+      ...(status === "all" || status === "draft" || status === "published" || status === "scheduled" ? { status } : {}),
+      ...(typeof section === "string" && !fixedPortalSection ? { portalSection: section as ArticleAdminListFilters["portalSection"] } : {}),
+      ...(typeof topic === "string" && !fixedPortalSection ? { topicId: Number(topic) || null } : {}),
+      ...(sort === "updated" || sort === "title" ? { sort } : {}),
+      ...(direction === "asc" || direction === "desc" ? { direction } : {}),
+      ...overrides, page: 1,
+    }));
   }
 
   async function removeArticle(article: ManagedArticleSummary) {
@@ -169,7 +187,7 @@ export function AdminDashboard({
             </Link>
           ))}
         </nav>
-        <form className="admin-toolbar" method="get" action={routePath} role="search">
+        <form ref={filterFormRef} className="admin-toolbar" method="get" action={routePath} role="search">
           <label className="admin-search">
             <SearchIcon size={19} />
             <span className="sr-only">Hľadať článok</span>

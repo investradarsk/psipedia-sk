@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
+import { articleBlockLabels } from "@/lib/article-blocks";
+import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import { ArticlePromo } from "@/components/article-promo";
 import { articleBlockHeadings, type ArticleBlock } from "@/lib/article-blocks";
@@ -95,7 +97,7 @@ export function ArticleRichText({ value, className }: { value: string; className
   return <EditorialRichText className={className} document={legacyRichTextToDocument(value)} />;
 }
 
-export function ArticleBlocks({ blocks, preview = false, promoUtcDay }: { blocks: ArticleBlock[]; preview?: boolean; promoUtcDay?: string }) {
+export function ArticleBlocks({ blocks, preview = false, promoUtcDay, onNavigateBlock }: { blocks: ArticleBlock[]; preview?: boolean; promoUtcDay?: string; onNavigateBlock?: (id: string) => void }) {
   const headingIds = new Map(articleBlockHeadings(blocks).map((heading) => [heading.blockId, heading.id]));
   const sources = blocks.filter((block): block is Extract<ArticleBlock, { type: "source" }> =>
     block.type === "source" && Boolean(block.label && (safeHref(block.url) || block.note)),
@@ -104,6 +106,7 @@ export function ArticleBlocks({ blocks, preview = false, promoUtcDay }: { blocks
   return (
     <div className={preview ? "article-blocks article-blocks--preview" : "article-blocks"}>
       {blocks.map((block) => {
+        const renderBlock = (): ReactNode => {
         if (block.type === "text") return block.content ? <EditorialRichText className={`article-block-text article-block-text--${block.alignment ?? "left"}`} document={block.richText ?? legacyRichTextToDocument(block.content)} key={block.id} keyPrefix={block.id} /> : null;
         if (block.type === "h2") return block.text ? <h2 id={headingIds.get(block.id)} key={block.id}>{block.text}</h2> : null;
         if (block.type === "h3") return block.text ? <h3 id={headingIds.get(block.id)} key={block.id}>{block.text}</h3> : null;
@@ -165,6 +168,17 @@ export function ArticleBlocks({ blocks, preview = false, promoUtcDay }: { blocks
           return href ? <p className="article-block-embed-link" key={block.id}><a href={href} target="_blank" rel="noreferrer">{block.title || "Otvoriť externé video"} ↗</a></p> : null;
         }
         return null;
+        };
+        const content = renderBlock();
+        if (!content || !preview || !onNavigateBlock) return content;
+        return (
+          <div key={block.id} className={navStyles.previewTarget} role="button" tabIndex={0}
+            aria-label={`Upraviť blok: ${articleBlockLabels[block.type]}`}
+            onClick={(event) => { event.preventDefault(); onNavigateBlock(block.id); }}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onNavigateBlock(block.id); } }}>
+            {content}
+          </div>
+        );
       })}
     </div>
   );

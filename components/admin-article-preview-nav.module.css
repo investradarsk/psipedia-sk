@@ -1,0 +1,6 @@
+.previewTarget { cursor: pointer; border-radius: 5px; outline: 2px solid transparent; outline-offset: 2px; transition: outline-color 120ms ease, background-color 120ms ease; }
+.previewTarget:hover { outline-color: rgba(37, 95, 69, .25); background: rgba(37, 95, 69, .035); }
+.previewTarget:focus-visible { outline: 3px solid #bc942e; }
+.editorTarget { scroll-margin-top: 160px; }
+.targetHighlight { outline: 3px solid #bc942e !important; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .previewTarget { transition: none; } }
