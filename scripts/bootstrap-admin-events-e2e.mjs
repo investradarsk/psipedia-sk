@@ -28,6 +28,18 @@ for (const statement of schemaStatements) {
   try { db.exec(sql); } catch (error) { if (!String(error).includes('duplicate column name')) throw error; }
 }
 if (!db.prepare('PRAGMA table_info(managed_events)').all().some(column => column.name === 'seo_json')) db.exec("ALTER TABLE managed_events ADD COLUMN seo_json TEXT NOT NULL DEFAULT '{}'");
+const portalSettingsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='portal_section_settings'").get();
+if (portalSettingsTable) {
+  const fixtureUpdatedAt = '2026-09-12T12:00:00.000Z';
+  db.prepare(`INSERT OR IGNORE INTO portal_section_settings
+    (slug,label,eyebrow,description,intro,subpages_json,position,visible,updated_at,updated_by)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+      'podujatia','Podujatia','Čo sa deje',
+      'Lokálna E2E sekcia podujatí.','Lokálna E2E sekcia podujatí.',
+      '[]',0,1,fixtureUpdatedAt,'local-test'
+    );
+  db.prepare("UPDATE portal_section_settings SET visible=1 WHERE slug='podujatia'").run();
+}
 const existing = db.prepare('SELECT slug FROM managed_events').all();
 if (existing.some(row => !row.slug.startsWith('e2e-admin-event-'))) throw new Error('Refusing to touch non-fixture events.');
 db.exec('DELETE FROM managed_events');
