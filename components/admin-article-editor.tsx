@@ -277,7 +277,8 @@ export function AdminArticleEditor({
       }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Článok sa nepodarilo uložiť.");
-      focusResult();
+      // Preserve the QA blocker focus selected above; only generic errors focus the result.
+      if (!qaIssues.length) focusResult();
     } finally {
       setSaving(false);
     }
