@@ -217,3 +217,54 @@
   .dimensionList { grid-template-columns: 1fr; }
   .officialSources { padding: 22px; }
 }
+
+/* Main reference copy stays readable; navigation lives beside, not between sections. */
+.contentLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
+  align-items: start;
+  column-gap: clamp(24px, 3vw, 48px);
+}
+.mainColumn { min-width: 0; }
+.contentLayout .readingSection { max-width: 760px; margin-inline: 0; }
+.contentLayout .accordionList, .contentLayout .sportList { max-width: 100%; }
+.utilitySidebar {
+  min-width: 0;
+  margin-top: 48px;
+  position: sticky;
+  top: 110px;
+}
+.utilitySidebar h2 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.utilityLinks { display: grid; gap: 10px; }
+.utilityLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 62px;
+  padding: 13px 15px;
+  gap: 8px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  color: var(--ink);
+  background: var(--white);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.utilityLink strong { font-size: .83rem; line-height: 1.4; }
+.utilityLink span { flex: 0 0 auto; color: var(--forest); }
+.utilityLink:hover { border-color: var(--ps-border-strong); background: var(--sage-light); }
+.utilityLink:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+@media (max-width: 1024px) {
+  .contentLayout { grid-template-columns: minmax(0, 1fr); }
+  .utilitySidebar { position: static; margin: 8px 0 38px; }
+  .utilityLinks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .utilityLinks { grid-template-columns: minmax(0, 1fr); }
+  .utilityLink { min-height: 52px; }
+}
