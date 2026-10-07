@@ -530,6 +530,7 @@
   position: sticky;
   top: calc(var(--psipedia-sticky-header-height, 76px) + 20px);
   padding-top: 2px;
+  background: var(--cream);
 }
 
 .sidebarPromo {
