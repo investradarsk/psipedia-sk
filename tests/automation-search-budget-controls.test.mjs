@@ -36,7 +36,10 @@ test("category search endpoint exposes budget extension and explicit manual run"
   assert.match(route, /MANUAL_BUDGET_OVERRIDE/);
   assert.match(route, /MANUAL_RUN/);
   assert.match(route, /AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS/);
-  assert.match(route, /runAutomationDiscoveryRootCanary/);
+  assert.match(route, /claimAutomationDiscoveryRootManualRun/);
+  assert.match(route, /runAutomationDiscoveryRootManual/);
+  assert.doesNotMatch(route, /runAutomationDiscoveryRootCanary/);
+  assert.match(route, /startedRootCount:\s*claims\.length/);
   assert.match(route, /waitUntil\(task\)/);
 });
 
