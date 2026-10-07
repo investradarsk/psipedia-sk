@@ -1274,7 +1274,7 @@ async function runDiscoveryRoot(
   claim: AutomationDiscoveryRunClaim,
   schedulePolicy: AutomationDiscoveryScheduleFinishPolicy,
 ): Promise<DiscoveryRunSummary> {
-  const startedAt = new Date(claim.startedAt);
+  const startedAt = new Date(claim.startedAt.getTime());
   const runId = claim.runId;
   const category = automationProductCategoryForRoot(root);
   const discoveryMode = automationProductModeForRoot(root);
