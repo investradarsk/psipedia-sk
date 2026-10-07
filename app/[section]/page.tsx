@@ -8,7 +8,7 @@ import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getPublishedEvents } from "@/lib/event-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
-import { eventHref, eventTimeFilterFromParam } from "@/lib/events";
+import { eventHref, eventMonthFilterFromParam, eventRegionFilterFromParam, eventSearchQueryFromParam, eventTimeFilterFromParam } from "@/lib/events";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { listLatestPublicProfileReviews, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
@@ -114,6 +114,6 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ]);
     return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} />;
   }
-  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={scalar(rawSearchParams.q) ?? ""} />;
+  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }
