@@ -10,6 +10,12 @@ on:
       - "app/api/admin/editorial-authors/**"
       - "app/api/admin/uploads/**"
       - "components/admin-article-*"
+      - "components/admin-editorial-calendar*"
+      - "lib/article-schedule-time.ts"
+      - "lib/editorial-calendar.ts"
+      - "tests/editorial-calendar*.test.mjs"
+      - "tests/e2e/editorial-calendar-interactions.spec.ts"
+      - "tests/fixtures/editorial-calendar-interactions-e2e.sql"
       - "components/admin-editorial-author-*"
       - "components/admin-rich-text-editor*"
       - "lib/article-store.ts"
@@ -60,6 +66,7 @@ jobs:
         run: |
           npm run test:article-admin-editor
           node --experimental-strip-types --test tests/admin-article-search.test.mjs
+          node --experimental-strip-types --test tests/editorial-calendar.test.mjs tests/editorial-calendar-interactions.test.mjs
       - name: Lint
         run: npm run lint
       - name: Build
@@ -80,6 +87,8 @@ jobs:
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/article-admin-editor-e2e.sql
       - name: Seed isolated server-side article search fixture
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/admin-article-search-e2e.sql
+      - name: Seed editorial calendar interactions fixture
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/editorial-calendar-interactions-e2e.sql
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/article-admin
@@ -98,7 +107,7 @@ jobs:
             exit 1
           fi
       - name: ARTICLE-ADMIN Playwright — desktop and mobile
-        run: npx playwright test tests/e2e/article-admin-editor.spec.ts tests/e2e/admin-article-search.spec.ts --workers=1 --retries=0
+        run: npx playwright test tests/e2e/article-admin-editor.spec.ts tests/e2e/admin-article-search.spec.ts tests/e2e/editorial-calendar-interactions.spec.ts --workers=1 --retries=0
       - name: Stop isolated local app
         if: always()
         run: |

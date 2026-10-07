@@ -48,6 +48,7 @@ test("save is server-authoritative, shows errors and supports month transfer", (
 test("keyboard, focus return, desktop and mobile interaction contract", () => {
   assert.match(calendar, /ref=\{detailHeading\}/);
   assert.match(calendar, /origin.current\?\.isConnected/);
+  assert.match(calendar, /event.key === "Escape"/);
   assert.match(calendar, /requestAnimationFrame/);
   assert.match(calendar, /aria-expanded=/);
   assert.match(calendar, /type="date"/);

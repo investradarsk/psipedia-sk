@@ -34,6 +34,7 @@ export function AdminEditorialCalendar({
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<ManagedArticle | null>(null);
   const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [requestedId, setRequestedId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [notice, setNotice] = useState("");
@@ -85,6 +86,7 @@ export function AdminEditorialCalendar({
     activeRequest.current?.abort();
     activeRequest.current = null;
     setLoadingId(null);
+    setRequestedId(null);
     setSelectedArticle(null);
     setLoadError("");
     setSaveError("");
@@ -105,6 +107,7 @@ export function AdminEditorialCalendar({
     setSaveError("");
     setNotice("");
     setLoadingId(id);
+    setRequestedId(id);
     try {
       const response = await fetch(`/api/admin/articles/${id}`, {
         headers: { accept: "application/json" },
@@ -231,7 +234,8 @@ export function AdminEditorialCalendar({
         </section>
       )}
       {(selectedArticle || loadingId !== null || loadError) && (
-        <section className={styles.articleDetail} aria-labelledby="calendar-article-detail">
+        <section className={styles.articleDetail} aria-labelledby="calendar-article-detail"
+          onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeArticle(); } }}>
           <div className={styles.detailHeading}>
             <h3 ref={detailHeading} tabIndex={-1} id="calendar-article-detail">
               {selectedArticle?.title ?? (loadingId !== null ? "Načítavam článok…" : "Detail článku")}
@@ -239,13 +243,13 @@ export function AdminEditorialCalendar({
             <button type="button" onClick={closeArticle}>Zavrieť detail článku</button>
           </div>
           {loadingId !== null && <p role="status">Načítavam detail z redakcie…</p>}
-          {loadError && <p role="alert" className={styles.error}>{loadError} <button type="button" onClick={() => void openArticle(loadingId ?? Number.NaN)}>Skúsiť znova</button></p>}
+          {loadError && <p role="alert" className={styles.error}>{loadError} <button type="button" onClick={() => { if (requestedId !== null) void openArticle(requestedId); }}>Skúsiť znova</button></p>}
           {selectedArticle && (
             <>
               <dl className={styles.articleMeta}>
                 <div><dt>Stav</dt><dd>{statusLabel(selectedArticle.status)}</dd></div>
                 <div><dt>Publikovanie</dt><dd>{selectedArticle.publishedAt ? <time dateTime={selectedArticle.publishedAt}>{dateFormat.format(new Date(selectedArticle.publishedAt))}, {timeFormat.format(new Date(selectedArticle.publishedAt))}</time> : "Bez termínu"}</dd></div>
-                <div><dt>Sekcia</dt><dd>{selectedArticle.portalSection}{selectedArticle.topics.length ? ` · ${selectedArticle.topics.map((topic) => topic.name).join(", ")}` : ""}</dd></div>
+                <div><dt>Sekcia</dt><dd>{selectedArticle.portalSection}{selectedArticle.topics.length ? ` · ${selectedArticle.topics.map((topic) => topic.label).join(", ")}` : ""}</dd></div>
               </dl>
               {selectedArticle.status === "scheduled" && (
                 <form className={styles.scheduleForm} onSubmit={(event) => { event.preventDefault(); void saveSchedule(); }}>
