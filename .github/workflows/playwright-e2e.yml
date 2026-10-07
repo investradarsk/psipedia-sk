@@ -26,7 +26,10 @@ jobs:
       search: ${{ steps.scope.outputs.search }}
       directory: ${{ steps.scope.outputs.directory }}
       core: ${{ steps.scope.outputs.core }}
+      full_core: ${{ steps.scope.outputs.full_core }}
+      bounded_core: ${{ steps.scope.outputs.bounded_core }}
       dependency: ${{ steps.scope.outputs.dependency }}
+      ci_control: ${{ steps.scope.outputs.ci_control }}
       scopes: ${{ steps.scope.outputs.scopes }}
     steps:
       - uses: actions/checkout@v4
@@ -73,28 +76,39 @@ jobs:
       - name: Validate CI scope policy
         run: node scripts/check-ci-scope.mjs
       - name: Install dependencies
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci
       - name: Lint
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm run lint
-      - name: Unit and integration tests
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
+      - name: Full unit and integration regression
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true'
         run: npm test
+      - name: Bounded PR build and global safety contracts
+        if: github.event_name == 'pull_request' && steps.required-scope.outputs.bounded_core == 'true'
+        run: npm run test:config && npm run test:deploy-safety && npm run build
       - name: Adoption unit/integration suite
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.core == 'true'
+        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || contains(steps.required-scope.outputs.scopes, 'HELP')
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-catalog.test.mjs tests/adoption-detail.test.mjs tests/adoption-sitemap-integration.test.mjs tests/adoption-admin-list.test.mjs tests/adoption-admin-editor.test.mjs
-      - name: Docs-only required-status fast path
-        if: github.event_name == 'pull_request' && steps.required-scope.outputs.core != 'true'
-        run: echo "No runtime/CI source changed; required status preserved without dependency install."
+      - name: Fast required-status path
+        if: github.event_name == 'pull_request' && steps.required-scope.outputs.full_core != 'true' && steps.required-scope.outputs.bounded_core != 'true'
+        run: echo "No runtime product source changed; required status preserved without dependency install."
       - name: SEO-RECOVERY-1 focused metadata and sitemap regressions
         if: github.event_name == 'pull_request' && github.head_ref == 'codex/seo-recovery-1' && steps.required-scope.outputs.core == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
   pull-request-e2e:
     name: Breed CI bootstrap, all-breed regression and Playwright
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: validate
+    if: >-
+      always() &&
+      needs.validate.result == 'success' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'pull_request' && needs.pr-scope.outputs.full_core == 'true')
+      )
+    needs: [validate, pr-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
