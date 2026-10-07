@@ -395,6 +395,16 @@ export async function EditorialSectionHub({
   );
 }
 
+function guidanceLabels(sectionSlug: EditorialSectionSlug) {
+  if (sectionSlug === "starostlivost") {
+    return { eyebrow: "Rýchla orientácia", first: "Čo sledovať doma", second: "Kedy nečakať", expert: "Kedy vyhľadať odborníka" };
+  }
+  if (sectionSlug === "aktivity") {
+    return { eyebrow: "Praktický začiatok", first: "Ako začať", second: "Bezpečnosť a limity", expert: "Čo zvážiť pri výbere" };
+  }
+  return { eyebrow: "Praktická orientácia", first: "Praktické kroky", second: "Na čo si dať pozor", expert: "Dôležité pre túto fázu" };
+}
+
 // The existing managed featuredArticleSlugs ordering is the editorial source of truth.
 // Never promote the newest article to pillar by accident.
 function topicPillar(subpage: PortalSubpage, articles: Article[]) {
@@ -418,6 +428,7 @@ export async function EditorialSectionTopic({
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const pillar = sectionSlug === "aktivity" ? null : topicPillar(subpage, topicArticles);
   const remainingArticles = pillar ? topicArticles.filter((article) => article.slug !== pillar.slug) : topicArticles;
+  const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
     name: `${subpage.label} – ${section.label}`,
@@ -455,12 +466,81 @@ export async function EditorialSectionTopic({
         ) : null}
 
         <PageContainer className={styles.topicBody} data-section-public-topic-body>
-          {sectionSlug === "aktivity" ? (
-            <section className={styles.introSection} aria-labelledby="topic-intro-heading">
-              <h2 id="topic-intro-heading">{subpage.label} v praxi</h2>
-              <p>{subpage.intro || subpage.description}</p>
+          {sectionSlug === "aktivity" ? (<>
+          <section className={styles.introSection} aria-labelledby="topic-intro-heading">
+            <span className={styles.eyebrow}>O tejto téme</span>
+            <h2 id="topic-intro-heading">{subpage.label} v praxi</h2>
+            <p>{subpage.intro || subpage.description}</p>
+            {!!subpage.popularTopics?.length && (
+              <div className={styles.chips} aria-label="Súvisiace témy">
+                {subpage.popularTopics.map((item) => (
+                  <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${sectionSlug}`} key={item}>{item}</Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {!!subpage.commonQuestions?.length && (
+            <section className={styles.questions} aria-labelledby="topic-questions-heading">
+              <span className={styles.eyebrow}>Časté otázky</span>
+              <h2 id="topic-questions-heading">Na čo sa ľudia pri tejto téme pýtajú</h2>
+              <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul>
             </section>
-          ) : (
+          )}
+
+          {(subpage.homeSteps?.length || subpage.warningSigns?.length || subpage.expertAdvice) && (
+            <section className={styles.guidanceSection} aria-labelledby="topic-guidance-heading">
+              <PublicLandingSectionHeading
+                eyebrow={labels.eyebrow}
+                title="Užitočné kroky a hranice"
+                id="topic-guidance-heading"
+              />
+              <div className={styles.guidanceGrid}>
+                {!!subpage.homeSteps?.length && (
+                  <article className={styles.guidanceCard}>
+                    <PublicIcon icon={<CheckIcon />} size="md" />
+                    <h3>{labels.first}</h3>
+                    <ul>{subpage.homeSteps.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </article>
+                )}
+                {!!subpage.warningSigns?.length && (
+                  <article className={`${styles.guidanceCard} ${styles.warningCard}`}>
+                    <PublicIcon icon={<HeartIcon />} size="md" />
+                    <h3>{labels.second}</h3>
+                    <ul>{subpage.warningSigns.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </article>
+                )}
+              </div>
+              {subpage.expertAdvice && (
+                <div className={styles.expertCallout}>
+                  <PublicIcon icon={<SparkIcon />} size="md" />
+                  <div><strong>{labels.expert}</strong><p>{subpage.expertAdvice}</p></div>
+                </div>
+              )}
+              {!!subpage.serviceLinks?.length && (
+                <div className={styles.serviceLinks}>
+                  <strong>Kontakty a súvisiace služby</strong>
+                  <div>
+                    {subpage.serviceLinks.map((item) => (
+                      <PublicActionLink href={item.href} variant="secondary" icon={<ArrowIcon />} key={`${item.label}-${item.href}`}>{item.label}</PublicActionLink>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
+            <PublicLandingSectionHeading
+              eyebrow="Súvisiace čítanie"
+              title={<>Články: {subpage.label}</>}
+              id="topic-related-heading"
+              action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
+            />
+            <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
+          </section>
+
+          </>)          ) : (
             <div className={styles.contentHub} data-content-hub>
               {subpage.intro && <p className={styles.contentHubIntro}>{subpage.intro}</p>}
               {pillar && (
@@ -480,17 +560,6 @@ export async function EditorialSectionTopic({
                 <SectionContentList articles={remainingArticles} label={`Články k téme ${subpage.label}`} limit={10} />
               </section>
             </div>
-          )}
-          {sectionSlug === "aktivity" && (
-            <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
-              <PublicLandingSectionHeading
-                eyebrow="Súvisiace čítanie"
-                title={`Články: ${subpage.label}`}
-                id="topic-related-heading"
-                action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
-              />
-              <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
-            </section>
           )}
           <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
         </PageContainer>
