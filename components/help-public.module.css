@@ -212,3 +212,82 @@
   .overviewCategoryIcon{width:44px;height:44px}
   .overviewCategoryCopy small{-webkit-line-clamp:1}
 }
+
+
+/* PUBLIC-SEARCH-SIMPLIFY-1 */
+.toolbar{
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:end;
+}
+.primarySearch{min-width:0}
+.searchSubmit,.filterToggle,.resetFilters,.emptyReset{
+  display:inline-flex;
+  min-height:44px;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+  border:1px solid var(--help-border);
+  border-radius:11px;
+  font:inherit;
+  font-size:.82rem;
+  font-weight:800;
+  text-decoration:none;
+}
+.searchSubmit{
+  padding:0 18px;
+  border-color:var(--forest,#174b38);
+  color:#fff;
+  background:var(--forest,#174b38);
+  cursor:pointer;
+}
+.filterToggle{
+  gap:8px;
+  padding:0 13px;
+  color:var(--help-ink);
+  background:var(--sage-light,#edf3e9);
+  cursor:pointer;
+}
+.filterToggle[aria-expanded="true"]{border-color:rgba(23,75,56,.32);background:#edf4e9}
+.filterToggle [data-public-filter-count]{
+  padding:4px 8px;
+  border-radius:999px;
+  color:var(--forest,#174b38);
+  background:#fff;
+  font-size:.7rem;
+  white-space:nowrap;
+}
+.filterToggle [data-public-filter-hint]{color:var(--help-muted);font-size:.72rem}
+.secondaryFilters{display:none}
+.secondaryFiltersOpen{
+  display:grid;
+  min-width:0;
+  grid-column:1/-1;
+  grid-template-columns:repeat(2,minmax(0,1fr)) auto;
+  gap:10px;
+  align-items:end;
+  padding-top:2px;
+}
+.secondaryFilters label{min-width:0}
+.resetFilters{
+  padding:0 12px;
+  color:var(--forest,#174b38);
+  background:#fff;
+}
+.searchSubmit:focus-visible,.filterToggle:focus-visible,.resetFilters:focus-visible,.emptyReset:focus-visible{
+  outline:3px solid rgba(23,75,56,.24);
+  outline-offset:2px;
+}
+.emptyReset{
+  margin-top:5px;
+  padding:0 14px;
+  color:var(--forest,#174b38);
+  background:#fff;
+}
+
+@media(max-width:760px){
+  .toolbar{grid-template-columns:minmax(0,1fr);padding:12px}
+  .primarySearch,.searchSubmit,.filterToggle{grid-column:1/-1;width:100%}
+  .searchSubmit,.filterToggle{min-height:48px}
+  .secondaryFiltersOpen{grid-template-columns:minmax(0,1fr);width:100%}
+  .secondaryFilters select,.resetFilters{width:100%;min-height:48px}
+}
