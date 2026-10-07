@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
 import { StructuredData } from "@/components/structured-data";
 import { directoryCategories, directoryCategoryListingMetadata, getDirectoryCategory } from "@/lib/directory";
@@ -31,6 +31,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function DirectoryCategoryPage({ params, searchParams }: Props) {
   const category = getDirectoryCategory((await params).category);
   if (!category) notFound();
+  if (category.slug === "psie-skoly") permanentRedirect("/adresar/treneri");
   const rawSearchParams = await searchParams;
   const filters = parseDirectoryFilters(rawSearchParams);
   const [result, categoryCounts] = await Promise.all([

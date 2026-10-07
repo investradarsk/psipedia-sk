@@ -363,3 +363,9 @@ test("sitemap integration includes clean directory location records and no query
   assert.match(source, /\.\.\.directoryLocationLandingEntries/);
   assert.doesNotMatch(source, /directoryLocationLandingEntries[\s\S]{0,500}searchParams/);
 });
+
+test("legacy psie-skoly category listing redirects to canonical treneri", async () => {
+  const source = await readFile(path.join(repoRoot, "app/adresar/[category]/page.tsx"), "utf8");
+  assert.match(source, /category\.slug === "psie-skoly"/);
+  assert.match(source, /permanentRedirect\("\/adresar\/treneri"\)/);
+});

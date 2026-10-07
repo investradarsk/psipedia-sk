@@ -127,11 +127,11 @@ jobs:
       - name: Organization profile Playwright — desktop
         env:
           E2E_BASE_URL: http://localhost:5173
-        run: npm run e2e -- tests/e2e/organization-profile.spec.ts --grep-invert @production --project=desktop-chromium
+        run: npm run e2e -- tests/e2e/organization-profile.spec.ts --grep-invert @production --project=desktop-chromium --workers=1 --retries=0
       - name: Organization profile Playwright — mobile
         env:
           E2E_BASE_URL: http://localhost:5173
-        run: npm run e2e -- tests/e2e/organization-profile.spec.ts --grep-invert @production --project=mobile-chromium
+        run: npm run e2e -- tests/e2e/organization-profile.spec.ts --grep-invert @production --project=mobile-chromium --workers=1 --retries=0
       - name: UX-2A organization viewport matrix
         env:
           E2E_BASE_URL: http://localhost:5173

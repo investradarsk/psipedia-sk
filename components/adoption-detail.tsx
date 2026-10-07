@@ -80,7 +80,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
         {dog.shortDescription && <p className={styles.detailLead}>{dog.shortDescription}</p>}
         <Facts items={basicFacts} />
-        {stale && <div className={styles.staleNotice}><strong>Profil potrebuje nové overenie</strong><span>Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou.</span></div>}
+        {stale && <div className={styles.staleNotice}><strong>Profil potrebuje potvrdiť aktuálnosť</strong><span>Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou.</span></div>}
       </div>
     </section>
 
@@ -94,7 +94,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         {sections.gallery && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Fotografie</span><h2>Galéria</h2><div className={styles.detailGallery}>{dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => <img key={`${image}-${index}`} src={image} alt={`${dog.name} – fotografia ${index + 2}`} />)}</div></section>}
       </article>
 
-      <aside className={styles.detailAside} aria-label="Kontakt a overenie">
+      <aside className={styles.detailAside} aria-label="Kontakt a aktuálnosť profilu">
         {sections.contact && <section className={styles.contactCard}>
           <span className={styles.detailEyebrow}>Kontakt</span>
           <h2>{organization ? <Link className={styles.organizationLink} href={`/organizacie/${organization.slug}`}>{organization.name}</Link> : dog.organizationName || "Kontakt k adopcii"}</h2>
@@ -108,8 +108,8 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         </section>}
         <section className={styles.verificationCard}>
           <span className={styles.detailEyebrow}>Aktuálnosť</span>
-          <h2>Overenie profilu</h2>
-          {verifiedAt ? <p>Posledné overenie: <strong>{verifiedAt}</strong></p> : <p>Dátum posledného overenia nie je uvedený.</p>}
+          <h2>Aktuálnosť profilu</h2>
+          {verifiedAt ? <p>Naposledy potvrdená dostupnosť: <strong>{verifiedAt}</strong></p> : <p>Dátum potvrdenia dostupnosti nie je uvedený.</p>}
           <Link href="/pomoc-psom/adopcia">← Späť na psy na adopciu</Link>
         </section>
       </aside>
