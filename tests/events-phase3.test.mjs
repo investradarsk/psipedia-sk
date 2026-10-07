@@ -40,7 +40,10 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.match(calendar, /event\.startDate\.slice\(0, 7\) <= month/);
   assert.match(calendar, /initialType === "Všetky" \|\| event\.eventType === initialType/);
   assert.match(calendar, /Nenašli sme zhodu/);
-  assert.match(calendar, /resetFilters/);
+  assert.match(calendar, /method="get"/);
+  assert.match(calendar, /data-public-search-form="events"/);
+  assert.match(calendar, /<PublicFilterDisclosure/);
+  assert.doesNotMatch(calendar, /useState|useMemo|window\.history/);
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
@@ -58,7 +61,7 @@ test("default listing order keeps current and upcoming events ahead of past even
   assert.match(calendar, /status === "upcoming"[\s\S]*return event\.cancelled \? 2 : 1/);
   assert.match(calendar, /return event\.cancelled \? 4 : 3/);
   assert.match(calendar, /rightEnd\.localeCompare\(leftEnd\)/);
-  assert.match(calendar, /result\.sort\(\(left, right\) => compareEvents\(left, right, today\)\)/);
+  assert.match(calendar, /\}\.sort\(\(left, right\) => compareEvents\(left, right, today\)\)/);
 });
 
 test("event rows stay compact and date-first while using canonical preview images when available", () => {
@@ -78,8 +81,8 @@ test("event rows stay compact and date-first while using canonical preview image
 test("events keep shared public primitives while event-specific styles stay scoped", () => {
   assert.match(eventsPage, /Breadcrumbs, PageContainer/);
   assert.match(eventsPage, /<PageContainer/);
-  assert.match(calendar, /import \{ FilterBar \} from "@\/components\/page-system"/);
-  assert.match(calendar, /<FilterBar className=\{styles\.toolbar\}>/);
+  assert.match(calendar, /PublicFilterDisclosure/);
+  assert.match(calendar, /<form[\s\S]*className=\{styles\.toolbar\}[\s\S]*method="get"/);
   assert.match(eventsPage, /events-public\.module\.css/);
   assert.match(eventCard, /events-public\.module\.css/);
 });
@@ -100,7 +103,13 @@ test("legacy calendar URL stays a noindex canonical alias excluded from sitemap"
   assert.match(sitemapSeo, /"\/podujatia\/kalendar"/);
 });
 
-test("event category routes restore the shared time filter from the URL", () => {
-  assert.match(portalPage, /const rawSearchParams = await searchParams[\s\S]*initialTime=\{eventTimeFilterFromParam\(rawSearchParams\.termin\)\}/);
-  assert.match(contentPage, /const rawSearchParams = await searchParams[\s\S]*eventTypeFromPortalSlug\(slug\)[\s\S]*initialTime=\{eventTimeFilterFromParam\(rawSearchParams\.termin\)\}/);
+test("event routes restore search and secondary filters from the URL", () => {
+  assert.match(portalPage, /initialTime=\{eventTimeFilterFromParam\(rawSearchParams\.termin\)\}/);
+  assert.match(portalPage, /initialQuery=\{eventSearchQueryFromParam\(rawSearchParams\.q\)\}/);
+  assert.match(portalPage, /initialRegion=\{eventRegionFilterFromParam\(rawSearchParams\.region\)\}/);
+  assert.match(portalPage, /initialMonth=\{eventMonthFilterFromParam\(rawSearchParams\.mesiac\)\}/);
+  assert.match(contentPage, /eventTypeFromPortalSlug\(slug\)[\s\S]*initialTime=\{eventTimeFilterFromParam\(rawSearchParams\.termin\)\}/);
+  assert.match(contentPage, /initialQuery=\{eventSearchQueryFromParam\(rawSearchParams\.q\)\}/);
+  assert.match(contentPage, /initialRegion=\{eventRegionFilterFromParam\(rawSearchParams\.region\)\}/);
+  assert.match(contentPage, /initialMonth=\{eventMonthFilterFromParam\(rawSearchParams\.mesiac\)\}/);
 });
