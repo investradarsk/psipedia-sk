@@ -36,7 +36,10 @@ test("category search endpoint exposes budget extension and explicit manual run"
   assert.match(route, /MANUAL_BUDGET_OVERRIDE/);
   assert.match(route, /MANUAL_RUN/);
   assert.match(route, /AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS/);
-  assert.match(route, /runAutomationDiscoveryRootCanary/);
+  assert.match(route, /claimAutomationDiscoveryRootManualRun/);
+  assert.match(route, /runAutomationDiscoveryRootManual/);
+  assert.doesNotMatch(route, /runAutomationDiscoveryRootCanary/);
+  assert.match(route, /startedRootCount:\s*claims\.length/);
   assert.match(route, /waitUntil\(task\)/);
 });
 
@@ -45,5 +48,5 @@ test("admin category UI explains that search budget does not limit refresh scans
   assert.match(component, /Dnešné využitie:/);
   assert.match(component, /Obnoviť limit/);
   assert.match(component, /Spustiť hľadanie/);
-  assert.match(component, /Kontrola existujúcich záznamov tento Tavily limit nepoužíva/);
+  assert.match(component, /Pri adresárových profiloch môže aj kontrola existujúcich záznamov použiť samostatný bounded Tavily lookup/);
 });

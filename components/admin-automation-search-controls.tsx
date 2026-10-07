@@ -59,9 +59,11 @@ export function AdminAutomationSearchControls({
       if (kind === "extend-budget") {
         setMessage(`Limit bol obnovený. Povolených je ďalších ${payload.extraRequests ?? 0} requestov; pôvodná spotreba zostala v audite.`);
       } else {
+        const started = payload.startedRootCount ?? 0;
         const blocked = payload.blockedRootCount ?? 0;
+        if (started <= 0) throw new Error(payload.error || "Hľadanie sa nespustilo.");
         setMessage(blocked
-          ? `Hľadanie sa spustilo pre ${payload.startedRootCount ?? 0} častí kategórie. ${blocked} častí zostáva blokovaných denným limitom.`
+          ? `Hľadanie sa spustilo pre ${started} častí kategórie. ${blocked} častí sa nespustilo pre limit, governance alebo už aktívny run.`
           : "Hľadanie sa práve spustilo.");
       }
       router.refresh();

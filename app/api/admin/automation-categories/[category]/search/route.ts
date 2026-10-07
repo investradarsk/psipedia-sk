@@ -2,7 +2,7 @@ import { env, waitUntil } from "cloudflare:workers";
 import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
 import { automationCategoryBySlug, automationDiscoveryRootsForCategory } from "@/lib/admin-automation-presentation";
 import { listAutomationDiscoveryRoots } from "@/lib/data-automation-discovery-store";
-import { runAutomationDiscoveryRootCanary } from "@/lib/data-automation-discovery-runner";
+import { claimAutomationDiscoveryRootManualRun, runAutomationDiscoveryRootManual } from "@/lib/data-automation-discovery-runner";
 import { recordAutomationSearchAdminEvent, releaseAutomationSearchCooldownsForAdmin } from "@/lib/data-automation-search-admin";
 import { AUTOMATION_SEARCH_HARD_ROOT_DAILY_REQUESTS, automationSearchBudgetPolicy } from "@/lib/data-automation-search-budget";
 import { TavilyAutomationSearchProvider } from "@/lib/data-automation-search-tavily";
@@ -47,13 +47,57 @@ export async function POST(request: Request, { params }: Props) {
   const enabled = roots.filter((root) => root.enabled && root.reviewStatus === "APPROVED");
   if (!enabled.length) return Response.json({ error: "Najprv zapni automatické hľadanie pre túto kategóriu." }, { status: 409 });
   const runnable = enabled.filter((root) => !root.searchSafety || root.searchSafety.remainingRootRequests > 0);
-  const blockedRootCount = enabled.length - runnable.length;
+  let blockedRootCount = enabled.length - runnable.length;
   if (!runnable.length) return Response.json({ error: "Dnešný limit je vyčerpaný. Najprv použi Obnoviť limit.", code: "SEARCH_BUDGET_BLOCKED" }, { status: 429, headers: { "cache-control": "no-store" } });
-  for (const root of runnable) await recordAutomationSearchAdminEvent({ root, actorEmail: auth.user.email, reason: "MANUAL_RUN", extraRequests: 0, now }, bindings.DB);
-  await releaseAutomationSearchCooldownsForAdmin({ rootIds: runnable.map((root) => root.id), now }, bindings.DB);
+
   const provider = new TavilyAutomationSearchProvider({ apiKey: bindings.TAVILY_API_KEY });
-  const task = Promise.allSettled(runnable.map((root) => runAutomationDiscoveryRootCanary({
-    rootId: root.id,
+  if (!provider.credentialConfigured) {
+    return Response.json({
+      error: "Tavily vyhľadávanie nie je nakonfigurované.",
+      code: "SEARCH_PROVIDER_CONFIG_MISSING",
+      startedRootCount: 0,
+      blockedRootCount: enabled.length,
+    }, { status: 503, headers: { "cache-control": "no-store" } });
+  }
+
+  for (const root of runnable) {
+    await recordAutomationSearchAdminEvent({ root, actorEmail: auth.user.email, reason: "MANUAL_RUN", extraRequests: 0, now }, bindings.DB);
+  }
+  await releaseAutomationSearchCooldownsForAdmin({ rootIds: runnable.map((root) => root.id), now }, bindings.DB);
+
+  const claims: NonNullable<Awaited<ReturnType<typeof claimAutomationDiscoveryRootManualRun>>>[] = [];
+  for (const root of runnable) {
+    try {
+      const claim = await claimAutomationDiscoveryRootManualRun({
+        rootId: root.id,
+        database: bindings.DB,
+        now,
+      });
+      if (claim) claims.push(claim);
+      else blockedRootCount += 1;
+    } catch (error) {
+      blockedRootCount += 1;
+      console.error(JSON.stringify({
+        event: "automation_category_manual_search_claim",
+        category: slug,
+        rootId: root.id,
+        result: "blocked",
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  if (!claims.length) {
+    return Response.json({
+      error: "Hľadanie sa nespustilo. Vyhľadávací root je práve aktívny alebo ho blokuje bezpečnostná politika.",
+      code: "SEARCH_MANUAL_RUN_BLOCKED",
+      startedRootCount: 0,
+      blockedRootCount,
+    }, { status: 409, headers: { "cache-control": "no-store" } });
+  }
+
+  const task = Promise.allSettled(claims.map((claim) => runAutomationDiscoveryRootManual({
+    claim,
     options: {
       database: bindings.DB!,
       searchProvider: provider,
@@ -62,9 +106,9 @@ export async function POST(request: Request, { params }: Props) {
     },
   }))).then((results) => {
     results.forEach((result, index) => {
-      if (result.status === "rejected") console.error(JSON.stringify({ event: "automation_category_manual_search", category: slug, rootId: runnable[index]?.id, result: "failed", error: result.reason instanceof Error ? result.reason.message : String(result.reason) }));
+      if (result.status === "rejected") console.error(JSON.stringify({ event: "automation_category_manual_search", category: slug, rootId: claims[index]?.root.id, result: "failed", error: result.reason instanceof Error ? result.reason.message : String(result.reason) }));
     });
   });
   waitUntil(task);
-  return Response.json({ ok: true, action, startedRootCount: runnable.length, blockedRootCount }, { headers: { "cache-control": "no-store" } });
+  return Response.json({ ok: true, action, startedRootCount: claims.length, blockedRootCount }, { headers: { "cache-control": "no-store" } });
 }
