@@ -7,6 +7,7 @@ import {
   type AutomationSource,
   type AutomationSourceRecord,
 } from "./data-automation.ts";
+import { extractDirectEntityPublicContent } from "./data-automation-direct-content-quality.ts";
 import {
   automationUrlWithinApprovedSourceScope,
   type SourceScopedExtractionContract,
@@ -656,8 +657,16 @@ async function providerRecord(input: {
   retrievedAt: string;
   coverage: AutomationExtractionCoverage;
 }) {
-  const title = markdownTitle(input.content, input.url);
-  const description = markdownDescription(input.content);
+  const firstPartyEntity = input.source.entityType === "DIRECTORY" || input.source.entityType === "ORGANIZATION";
+  const publicContent = firstPartyEntity
+    ? extractDirectEntityPublicContent({ content: input.content, sourceUrl: input.url })
+    : null;
+  const title = firstPartyEntity ? publicContent?.name ?? null : markdownTitle(input.content, input.url);
+  const description = firstPartyEntity
+    ? publicContent?.description || null
+    : markdownDescription(input.content);
+  const excerpt = firstPartyEntity ? publicContent?.excerpt || null : null;
+
   const proposed: Record<string, unknown> = {
     ...(input.source.config.staticFields ?? {}),
     websiteUrl: input.url,
@@ -667,13 +676,14 @@ async function providerRecord(input: {
     proposed.name = title;
   }
   if (description) proposed.description = description;
+  if (excerpt) proposed.excerpt = excerpt;
 
-  const firstPartyEntity = input.source.entityType === "DIRECTORY" || input.source.entityType === "ORGANIZATION";
   const fieldOrigins: Record<string, string> = {};
   if (firstPartyEntity) {
     if (title) fieldOrigins.name = "FIRST_PARTY";
     fieldOrigins.websiteUrl = "FIRST_PARTY";
     if (description) fieldOrigins.description = "FIRST_PARTY";
+    if (excerpt) fieldOrigins.excerpt = "FIRST_PARTY";
   }
 
   return {
@@ -690,6 +700,7 @@ async function providerRecord(input: {
           ? "TAVILY_EXTRACT_FIRST_PARTY"
           : "TAVILY_CRAWL_FIRST_PARTY",
         directEvidence: { fieldOrigins },
+        contentQuality: publicContent?.quality,
       } : {}),
     },
     proposed,

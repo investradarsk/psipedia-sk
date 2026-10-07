@@ -242,6 +242,108 @@ test("Tavily provider retains only bounded normalized fields and raw excerpt", a
   assert.equal("raw_content" in record.rawRecord, false);
 });
 
+test("Tavily DIRECTORY public-content gate removes navigation/footer boilerplate but keeps raw evidence", async () => {
+  const src = source({
+    entityType: "DIRECTORY",
+    sourceUrl: "https://example.sk/",
+    config: {
+      sourceShape: "SINGLE_ITEM",
+      staticFields: {
+        category: "psie-sluzby",
+        semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+      },
+    },
+  });
+  const rawContent = [
+    "![Image 1: PSIA ŠKOLA a HOTEL](...)",
+    "Skip to content",
+    "![Image 2: psia skola hotel favicon](...)",
+    "[](javascript:void(0))",
+    "Úvod",
+    "O nás",
+    "Služby",
+    "Cenník",
+    "Rezervácia",
+    "",
+    "PSIA ŠKOLA a HOTEL",
+    "",
+    "Ponúkame individuálny výcvik psov a ubytovanie psov.",
+    "Výcvik prispôsobujeme potrebám psa a majiteľa.",
+    "",
+    "Kontakt",
+    "+421 900 000 000",
+    "info@example.sk",
+    "",
+    "Facebook",
+    "Instagram",
+    "",
+    "Všeobecné obchodné podmienky",
+    "Reklamačný poriadok",
+    "Ochrana osobných údajov",
+  ].join("\n");
+  const provider = new TavilyAutomationExtractProvider({
+    apiKey: "key",
+    fetchImpl: async () => json(payload([{ url: src.sourceUrl, raw_content: rawContent }])),
+  });
+
+  const result = await provider.extract({
+    source: src,
+    contract: contract(src, null),
+    gate: gate().value,
+    urls: [src.sourceUrl],
+  });
+  const record = result.records[0];
+
+  assert.equal(record.proposed.name, "PSIA ŠKOLA a HOTEL");
+  assert.equal(
+    record.proposed.description,
+    "Ponúkame individuálny výcvik psov a ubytovanie psov. Výcvik prispôsobujeme potrebám psa a majiteľa.",
+  );
+  assert.equal(record.proposed.excerpt, record.proposed.description);
+  assert.equal(record.rawRecord.contentQuality.nameAccepted, true);
+  assert.equal(record.rawRecord.contentQuality.descriptionAccepted, true);
+  assert.equal(record.rawRecord.contentQuality.descriptionReason, "quality_approved");
+  assert.ok(record.rawRecord.contentQuality.boilerplateSegmentsDropped >= 10);
+  assert.match(record.rawRecord.contentExcerpt, /Skip to content/);
+  assert.doesNotMatch(record.proposed.description, /javascript|Facebook|Instagram|Reklamačný|Ochrana osobných údajov/i);
+});
+
+test("Tavily DIRECTORY keeps usable identity/URL when no quality-approved description exists", async () => {
+  const src = source({
+    entityType: "DIRECTORY",
+    sourceUrl: "https://example.sk/",
+    config: {
+      sourceShape: "SINGLE_ITEM",
+      staticFields: {
+        category: "psie-sluzby",
+        semanticKind: "FACILITY_OR_SERVICE_PROFILE",
+      },
+    },
+  });
+  const provider = new TavilyAutomationExtractProvider({
+    apiKey: "key",
+    fetchImpl: async () => json(payload([{
+      url: src.sourceUrl,
+      raw_content: "# Psia škola ABC\nMenu\nKontakt\nFacebook\nGDPR",
+    }])),
+  });
+
+  const result = await provider.extract({
+    source: src,
+    contract: contract(src, null),
+    gate: gate().value,
+    urls: [src.sourceUrl],
+  });
+  const record = result.records[0];
+
+  assert.equal(record.proposed.name, "Psia škola ABC");
+  assert.equal(record.proposed.websiteUrl, src.sourceUrl);
+  assert.equal(Object.hasOwn(record.proposed, "description"), false);
+  assert.equal(Object.hasOwn(record.proposed, "excerpt"), false);
+  assert.equal(record.rawRecord.contentQuality.descriptionAccepted, false);
+  assert.equal(record.rawRecord.contentQuality.descriptionReason, "no_prose_segments");
+});
+
 test("Tavily Extract sends one approved detail URL and maps DETAIL_ONLY evidence", async () => {
   const src = source({
     sourceUrl: "https://example.sk/psy/max",
