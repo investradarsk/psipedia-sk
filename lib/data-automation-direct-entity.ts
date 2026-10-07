@@ -10,6 +10,7 @@ import {
   type TavilySourceScopedRequestGate,
 } from "./data-automation-tavily-source-scoped.ts";
 import { mapAutomationRecordToDraftInput } from "./data-automation-draft-mapper.ts";
+import { selectDirectEntityName } from "./data-automation-direct-content-quality.ts";
 import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
 import {
   enrichDirectoryProposalWithExactAddress,
@@ -177,6 +178,60 @@ function searchResultFallbackRecord(input: {
   };
 }
 
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function reconcileDirectEntityName(
+  record: AutomationSourceRecord,
+  searchCandidateTitle: string | null | undefined,
+  sourceUrl: string,
+) {
+  const raw = objectRecord(record.rawRecord);
+  const quality = objectRecord(raw?.contentQuality);
+  if (!raw || !quality) return record;
+
+  const selection = selectDirectEntityName({
+    extractedName: typeof record.proposed.name === "string" ? record.proposed.name : null,
+    searchCandidateTitle,
+    sourceUrl: record.sourceUrl || sourceUrl,
+  });
+  const proposed = { ...record.proposed };
+  const directEvidence = objectRecord(raw.directEvidence) ?? {};
+  const fieldOrigins = { ...(objectRecord(directEvidence.fieldOrigins) ?? {}) };
+
+  if (selection.accepted && selection.name) {
+    proposed.name = selection.name;
+    proposed.title = selection.name;
+    fieldOrigins.name = selection.source === "TAVILY_SEARCH"
+      ? "SEARCH_PROVIDER"
+      : "FIRST_PARTY";
+  } else {
+    delete proposed.name;
+    delete proposed.title;
+    delete fieldOrigins.name;
+  }
+
+  return {
+    ...record,
+    proposed,
+    rawRecord: {
+      ...raw,
+      contentQuality: {
+        ...quality,
+        nameSource: selection.source,
+        nameAccepted: selection.accepted,
+      },
+      directEvidence: {
+        ...directEvidence,
+        fieldOrigins,
+      },
+    },
+  } satisfies AutomationSourceRecord;
+}
+
 function splitDescriptionStreetAddress(value: string) {
   const clean = value.replace(/\s+/g, " ").trim();
   const match = clean.match(/^(.+?\D)\s+(\d+[A-Za-z]?(?:\/\d+[A-Za-z]?)?)$/u);
@@ -334,13 +389,16 @@ async function fetchDirectEntityRecords(
   };
 
   try {
-    return await fetchAutomationSourceRecords(source, {
+    const records = await fetchAutomationSourceRecords(source, {
       fetchImpl: input.fetchImpl,
       sourceScopedContract: scoped.contract,
       strategyOverride: "TAVILY_EXTRACT",
       tavilyExtractProvider: provider,
       tavilyRequestGate: gate,
     });
+    return records.map((record) =>
+      reconcileDirectEntityName(record, input.searchCandidateTitle, input.sourceUrl)
+    );
   } catch (error) {
     // The already-retrieved Tavily Search candidate remains a weak, review-safe
     // fallback only when Extract returned no usable page. #635 identity rules
