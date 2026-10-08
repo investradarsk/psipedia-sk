@@ -475,8 +475,12 @@ test.describe("public services search layout", () => {
     expect(response?.status()).toBe(200);
 
     const form = page.locator(".directory-results form").first();
+    // Hydration can replace an early user edit or swallow the disclosure click.
+    await expect(form).toHaveAttribute("data-public-search-ready", "true");
     await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");
-    await form.getByRole("button", { name: /^Ďalšie filtre/ }).click();
+    const advanced = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    await advanced.click();
+    await expect(advanced).toHaveAttribute("aria-expanded", "true");
     await expect(form.locator('select[name="region"]')).toHaveValue("Bratislavský kraj");
     await expect(form.locator('select[name="city"]')).toHaveValue("Bratislava");
     await expect(form.locator('select[name="sort"]')).toHaveValue("name-asc");
@@ -484,13 +488,15 @@ test.describe("public services search layout", () => {
     // Submitting an unchanged URL lets waitForURL resolve before the GET navigation.
     // Change only q so the URL transition is observable while the secondary filters persist.
     await form.locator('input[name="q"]').fill("publikovana kontrola");
+    await expect(form.locator('input[name="q"]')).toHaveValue("publikovana kontrola");
     await Promise.all([
       page.waitForURL((url) =>
         url.pathname === "/adresar/veterinari" &&
         url.searchParams.get("q") === "publikovana kontrola" &&
         url.searchParams.get("region") === "Bratislavský kraj" &&
         url.searchParams.get("city") === "Bratislava" &&
-        url.searchParams.get("sort") === "name-asc"
+        url.searchParams.get("sort") === "name-asc",
+        { waitUntil: "domcontentloaded" }
       ),
       form.getByRole("button", { name: "Hľadať" }).click(),
     ]);
