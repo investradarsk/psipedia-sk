@@ -1,0 +1,97 @@
+name: HOMEPAGE-UX-ENHANCEMENTS-1 name-day calendar
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/page.tsx"
+      - "app/psie-meniny/**"
+      - "components/*dog-name-day*"
+      - "lib/dog-name-day*"
+      - "tests/dog-name-day*"
+      - "tests/e2e/name-days.spec.ts"
+      - "tests/e2e/home-name-days-calendar.spec.ts"
+      - ".github/workflows/homepage-name-days-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: homepage-name-days-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  name-day-calendar:
+    name: NAME-DAY calendar unit, mobile/desktop E2E and screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: NAME-DAY unit/integration regressions
+        run: npm run test:name-days
+      - name: Build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # Configure CI-only local PII keys — fake fixture values, never production credentials.
+      - name: Configure isolated E2E bindings
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          TURNSTILE_SITE_KEY=1x00000000000000000000AA
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
+          LOST_FOUND_SUBMISSIONS_ENABLED=1
+          EOF
+      - name: Create isolated local D1
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Bootstrapping local adoption prerequisite
+        run: node --experimental-strip-types scripts/bootstrap-adoption-staging-ci.mjs
+      - name: Finish local D1 migrations
+        run: npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Start app locally
+        run: |
+          mkdir -p .e2e-artifacts
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/name-days-server.log 2>&1 &
+          echo $! > .e2e-artifacts/name-days-server.pid
+          for i in $(seq 1 120); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -200 .e2e-artifacts/name-days-server.log
+          exit 1
+      - name: Playwright — mobile, desktop, axe, keyboard, viewport screenshots
+        run: npm run e2e -- tests/e2e/home-name-days-calendar.spec.ts tests/e2e/name-days.spec.ts --workers=1
+      - name: Upload screenshots, accessibility evidence and Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: homepage-name-days-visual-evidence-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/playwright/
+            .e2e-artifacts/name-days-server.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop local server
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/name-days-server.pid ]; then
+            kill "$(cat .e2e-artifacts/name-days-server.pid)" 2>/dev/null || true
+          fi
