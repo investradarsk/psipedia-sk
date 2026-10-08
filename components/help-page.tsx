@@ -9,7 +9,6 @@ import {
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
 import {
   getHelpCategory,
   helpCategories,
@@ -36,12 +35,14 @@ export async function HelpPage({
   categoryCounts = {},
   initialQuery = "",
   initialActiveOnly = true,
+  initialRegion = "all",
 }: {
   items: HelpCase[];
   initialCategory?: "all" | HelpCategorySlug;
   categoryCounts?: HelpCategoryCounts;
   initialQuery?: string;
   initialActiveOnly?: boolean;
+  initialRegion?: "all" | import("@/lib/events").SlovakRegion;
 }) {
   const active = initialCategory === "all" ? null : getHelpCategory(initialCategory);
   const activeCount = active
@@ -65,15 +66,6 @@ export async function HelpPage({
             title={active?.label ?? "Pomoc psom"}
             intro={active?.description ?? "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Nájdite konkrétnu pomoc alebo spôsob, ako sa zapojiť."}
             visual={heroVisual}
-            searchSlot={active ? (
-              <SectionHeroSearch
-                action={categoryDestination(active.slug as PublicHelpCategorySlug)}
-                id={`help-hero-${active.slug}`}
-                label={`Hľadať v kategórii ${active.label}`}
-                placeholder="Meno, mesto alebo organizácia…"
-                defaultValue={initialQuery}
-              />
-            ) : undefined}
             metaSlot={
               <div className={styles.headerMeta}>
                 {activeCount !== null ? <span><strong>{activeCount}</strong> aktívnych záznamov</span> : null}
@@ -84,7 +76,13 @@ export async function HelpPage({
           />
         </UnifiedSectionHeroShell>
 
-        <HelpBrowser items={browserItems} initialCategory={initialCategory} initialQuery={initialQuery} initialActiveOnly={initialActiveOnly}>
+        <HelpBrowser
+          items={browserItems}
+          initialCategory={initialCategory}
+          initialQuery={initialQuery}
+          initialActiveOnly={initialActiveOnly}
+          initialRegion={initialRegion}
+        >
           {!active && (
             <section className={styles.categoryBlock} aria-labelledby="help-categories-heading">
               <div className={styles.categoryHeading}>

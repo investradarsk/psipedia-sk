@@ -68,6 +68,46 @@ test("Help category flows preserve dedicated domains and canonical organization 
   await expectNoHorizontalOverflow(page);
 });
 
+test("PUBLIC-SEARCH-SIMPLIFY-1 Help category search is URL-backed, singular and responsive", async ({ page }) => {
+  for (const width of [390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/pomoc-psom/docasna-opatera?q=E2E%20do%C4%8Dasn%C3%A1%20opatera", { waitUntil: "domcontentloaded" });
+
+    const form = page.locator('[data-public-search-form="help"]');
+    await expect(form).toHaveCount(1);
+    await expect(page.locator("[data-unified-section-hero] input")).toHaveCount(0);
+    await expect(form.getByRole("textbox")).toHaveValue("E2E dočasná opatera");
+    await expect(page.getByRole("heading", { name: "E2E dočasná opatera", exact: true })).toBeVisible();
+
+    const toggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(form.getByLabel("Kraj")).not.toBeVisible();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(form.getByLabel("Kraj")).toBeVisible();
+    await expect(form.getByLabel("Stav")).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/pomoc-psom/docasna-opatera", { waitUntil: "domcontentloaded" });
+  const form = page.locator('[data-public-search-form="help"]');
+  await form.getByRole("textbox").fill("public-search-no-match-7f92");
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === "/pomoc-psom/docasna-opatera" && url.searchParams.get("q") === "public-search-no-match-7f92"),
+    form.getByRole("button", { name: "Hľadať", exact: true }).click(),
+  ]);
+  await expect(page.getByRole("heading", { name: "Momentálne nemáme publikovaný prípad pre tieto filtre." })).toBeVisible();
+  await page.getByRole("link", { name: "Zobraziť celý zoznam" }).click();
+  await expect(page).toHaveURL(/\/pomoc-psom\/docasna-opatera$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/q=public-search-no-match-7f92/);
+  await expectNoAxeViolations(page);
+});
+
 test("canonical adoption cards expose organization context without changing lifecycle filters", async ({ page }) => {
   await page.goto("/pomoc-psom/adopcia", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: "Psy na adopciu" })).toBeVisible();

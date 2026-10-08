@@ -64,22 +64,26 @@ test("Help landing counts come from canonical adoption and lost-found stores", (
 });
 
 test("generic Help browser does not merge dedicated adoption or lost-found domains", () => {
-  assert.match(browser, /dedicatedCategories = new Set<HelpCategorySlug>\(\["adopcia", "stratene-a-najdene"\]\)/);
-  assert.match(landing, /item\.category !== "stratene-a-najdene"/);
+  assert.match(landing, /const browserItems = items\.filter\(\(item\) => item\.category !== "stratene-a-najdene"\)/);
+  assert.doesNotMatch(browser, /getPublicAdoptions|listPublicDogReports/);
   assert.doesNotMatch(browser, /category\.slug !== "adopcia"/);
 });
 
-test("published resolved Help details remain discoverable through a crawlable SSR archive state", () => {
+test("published resolved Help details remain discoverable through URL-backed SSR filters", () => {
   assert.match(categoryRoute, /initialActiveOnly = scalar\(rawSearchParams\.stav\) !== "vsetky"/);
+  assert.match(categoryRoute, /initialRegion = regionFilter\(rawSearchParams\.region\)/);
   assert.match(categoryRoute, /generateMetadata\(\{ params, searchParams \}: Props\)/);
   assert.match(categoryRoute, /buildListingPageMetadata\(\{/);
   assert.match(categoryRoute, /searchParams: await searchParams/);
   assert.match(landing, /initialActiveOnly=\{initialActiveOnly\}/);
-  assert.match(browser, /useState\(initialActiveOnly\)/);
-  assert.match(browser, /href=\{statusHref\(!activeOnly\)\}/);
-  assert.match(browser, /params\.set\("stav", "vsetky"\)/);
-  assert.match(browser, /Zobraziť aj ukončené/);
-  assert.doesNotMatch(browser, /type="checkbox" checked=\{activeOnly\}/);
+  assert.match(landing, /initialRegion=\{initialRegion\}/);
+  assert.match(browser, /method="get"/);
+  assert.match(browser, /name="q"/);
+  assert.match(browser, /name="region"/);
+  assert.match(browser, /name="stav"/);
+  assert.match(browser, /value="vsetky">Aj ukončené/);
+  assert.match(browser, /<PublicFilterDisclosure/);
+  assert.doesNotMatch(browser, /useState|useMemo|window\.history/);
 });
 
 test("canonical organizations stay reachable through the Help hierarchy", () => {
@@ -138,4 +142,12 @@ test("Help Admin mobile controls declare touch-safe targets without changing sha
   assert.match(adminStyles, /min-height:44px/);
   assert.match(adminStyles, /@media\(max-width:760px\)/);
   assert.match(adminStyles, /grid-template-columns:1fr/);
+});
+
+
+test("Help category pages expose exactly one primary public search", () => {
+  assert.doesNotMatch(landing, /SectionHeroSearch/);
+  assert.match(browser, /data-public-search-form="help"/);
+  assert.match(browser, /placeholder="Názov, mesto, organizácia alebo plemeno"/);
+  assert.match(browser, /Zobraziť celý zoznam/);
 });
