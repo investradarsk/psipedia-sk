@@ -39,7 +39,7 @@ export function SiteHeader({
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
   const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
-  const partnerLabel = partnerAuthenticated ? "Partner účet" : "Prihlásiť sa";
+  const partnerLabel = "Partner účet";
   const nav = useMemo(() => {
     const visible = navigationItems.filter((item) => item.visible);
     return visible.filter((item) => !item.parentId).map((item) => {
