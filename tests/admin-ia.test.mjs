@@ -107,9 +107,14 @@ test("admin shell renders shared active navigation, breadcrumbs, sticky position
   assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /href="\/admin\/operations"/);
   assert.match(shell, /activeCount > 99 \? "99\+" : activeCount/);
-  assert.match(shellCss, /\.stickyNav\s*\{[^}]*position:\s*sticky;[^}]*top:\s*76px;/s);
-  assert.match(shellCss, /@media \(max-width:\s*760px\)[\s\S]*\.stickyNav\s*\{[^}]*top:\s*68px;/);
-  assert.match(shellCss, /scroll-margin-top:\s*178px/);
+  assert.match(shellCss, /\.stickyNav\s*\{[^}]*position:\s*sticky;[^}]*top:\s*var\(--admin-sticky-top,\s*76px\);/s);
+  assert.match(shellCss, /@media \(max-width:\s*760px\)[\s\S]*\.stickyNav\s*\{[^}]*top:\s*var\(--admin-sticky-top,\s*68px\);/);
+  assert.match(shellCss, /scroll-margin-top:\s*var\(--admin-sticky-stack,\s*178px\)/);
+  const metrics = read("components/admin-sticky-metrics.tsx");
+  assert.match(metrics, /new ResizeObserver\(update\)/);
+  assert.match(metrics, /--admin-sticky-stack/);
+  assert.match(navigation, /data-admin-sticky-nav/);
+  assert.match(navigationCss, /flex-wrap:\s*nowrap/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(navigation, /aria-label="Drobečková navigácia"/);
   assert.match(navigationCss, /a\[aria-current="page"\]/);
