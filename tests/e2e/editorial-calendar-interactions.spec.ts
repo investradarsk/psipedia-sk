@@ -40,7 +40,9 @@ async function openFromDay(page: Page, calendar: ReturnType<Page["getByRole"]>, 
   await expect(dayDetail).toBeVisible();
   const entry = dayDetail.getByRole("button", { name: new RegExp(title) });
   await entry.click();
-  const detail = calendar.locator('[aria-labelledby="calendar-article-detail"]');
+  const detail = page.locator('[aria-labelledby="calendar-article-detail"]');
+  await expect(detail).toHaveAttribute("role", "dialog");
+  await expect(detail).toHaveAttribute("aria-modal", "true");
   await expect(detail.getByRole("heading", { name: title })).toBeVisible();
   return { dayDetail, entry, detail };
 }
@@ -55,6 +57,10 @@ test("opens the concrete article without navigation, multi-article day and keybo
   await expect(detail.getByRole("link", { name: "Otvoriť v editore" })).toHaveAttribute("href", "/admin/clanky/974102");
   await expect(page).toHaveURL(/\/admin\/clanky\/kalendar/);
   await detail.getByRole("heading").focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(detail.getByRole("link", { name: "Otvoriť v editore" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(detail.getByRole("button", { name: "Zavrieť detail článku" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(detail).toHaveCount(0);
   await expect(entry).toBeFocused();
@@ -67,9 +73,14 @@ test("published article stays read-only and works in 390px/430px viewports", asy
   await expect(detail.getByText("Publikovaný článok: dátum a čas sú tu iba na čítanie.")).toBeVisible();
   await expect(detail.locator('input[type="date"], input[type="time"]')).toHaveCount(0);
   await expect(detail.getByRole("link", { name: "Otvoriť v editore" })).toHaveAttribute("href", "/admin/clanky/974103");
-  for (const width of [1280, 430, 390]) {
+  for (const width of [375, 390, 430, 768, 1280, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const box = await detail.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+    if (width === 390 || width === 1280) await page.screenshot({ path: `.e2e-artifacts/admin-ux-hardening/dialog-${width}.png` });
   }
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(axe.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
@@ -120,4 +131,18 @@ test("reschedule persists on the server, removes the old item and links to the n
   await openFromDay(page, newCalendar, targetId, title);
   await expect(page.getByLabel("Dátum publikovania")).toHaveValue(isoDate);
   await expect(page.getByLabel("Čas publikovania")).toHaveValue("14:30");
+});
+
+test("calendar toolbar stays below sticky admin navigation while scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 620 });
+  const calendar = await scheduledCalendar(page);
+  const toolbar = calendar.locator('[class*="toolbar"]');
+  const navigation = page.locator('[data-admin-sticky-nav]:visible');
+  await expect(toolbar).toBeVisible();
+  await toolbar.evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY + 220));
+  await expect.poll(async () => {
+    const navBox = await navigation.boundingBox();
+    const toolbarBox = await toolbar.boundingBox();
+    return !!navBox && !!toolbarBox && toolbarBox.y + 1 >= navBox.y + navBox.height;
+  }).toBe(true);
 });

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
+import { AdminStickyMetrics } from "./admin-sticky-metrics";
 import { PawMark } from "./icons";
 import styles from "./admin-shell.module.css";
 
@@ -67,9 +68,10 @@ export function AdminShell({
   attentionCountPartial?: boolean;
 }) {
   return (
-    <main id="obsah" className="admin-root">
+    <main id="obsah" className="admin-root" data-admin-shell>
+      <AdminStickyMetrics />
       <div className="admin-shell shell">
-        <header className={`admin-topbar ${styles.topbarSticky}`}>
+        <header className={`admin-topbar ${styles.topbarSticky}`} data-admin-topbar>
           <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – pracovný prehľad">
             <span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small>
           </Link>

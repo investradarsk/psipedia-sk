@@ -10,13 +10,18 @@ const store = read("lib/article-store.ts");
 const api = read("app/api/admin/articles/[id]/route.ts");
 const editor = read("components/admin-article-editor.tsx");
 
-test("article items open a distinct inline detail while calendar day navigation stays intact", () => {
+test("article items open a distinct accessible modal while calendar day navigation stays intact", () => {
   assert.match(calendar, /onClick=\{\(event\) => onOpen\(article.id, event.currentTarget\)\}/);
   assert.match(calendar, /origin.current = element/);
   assert.match(calendar, /void openArticle\(id\)/);
   assert.match(calendar, /setSelectedDay\(selectedDay === key \? null : key\)/);
   assert.match(calendar, /selectedDay && \(/);
   assert.match(calendar, /aria-labelledby="calendar-article-detail"/);
+  assert.match(calendar, /createPortal\(/);
+  assert.match(calendar, /role="dialog" aria-modal="true"/);
+  assert.match(calendar, /document.addEventListener\("keydown", onKeyDown\)/);
+  assert.match(calendar, /document.addEventListener\("focusin", onFocusIn\)/);
+  assert.match(css, /max-height: calc\(100dvh/);
   assert.match(calendar, /Otvoriť v editore/);
   assert.match(calendar, /\/admin\/clanky\/\$\{selectedArticle.id\}/);
 });

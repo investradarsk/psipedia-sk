@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import type { ManagedArticle } from "@/lib/article-store";
 import type { EditorialCalendarItem } from "@/lib/editorial-calendar";
 import { formatArticleLocalDateTime, parseArticleLocalDateTime } from "@/lib/article-schedule-time";
@@ -67,6 +68,7 @@ export function AdminEditorialCalendar({
   const activeRequest = useRef<AbortController | null>(null);
   const origin = useRef<HTMLElement | null>(null);
   const detailHeading = useRef<HTMLHeadingElement | null>(null);
+  const articleDialog = useRef<HTMLElement | null>(null);
   const saveErrorTarget = useRef<HTMLParagraphElement | null>(null);
   const dateField = useRef<HTMLInputElement | null>(null);
   const saveLock = useRef(false);
@@ -110,7 +112,7 @@ export function AdminEditorialCalendar({
   const dayArticles = selectedDay ? grouped.get(selectedDay) ?? [] : [];
   const total = Array.from(grouped.values()).reduce((sum, articles) => sum + articles.length, 0);
 
-  function closeArticle() {
+  const closeArticle = useCallback(() => {
     activeRequest.current?.abort();
     activeRequest.current = null;
     setLoadingId(null);
@@ -123,7 +125,55 @@ export function AdminEditorialCalendar({
       if (origin.current?.isConnected) origin.current.focus();
       else document.getElementById("editorial-calendar-month-nav")?.querySelector<HTMLElement>("a")?.focus();
     });
-  }
+  }, []);
+
+  useEffect(() => {
+    if (requestedId === null) return;
+    const dialog = articleDialog.current;
+    if (!dialog) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    detailHeading.current?.focus();
+
+    const focusables = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+    )).filter((element) => element.getClientRects().length > 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeArticle();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusables();
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        detailHeading.current?.focus();
+      } else if (!elements.includes(document.activeElement as HTMLElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    const onFocusIn = (event: FocusEvent) => {
+      if (event.target instanceof Node && !dialog.contains(event.target)) detailHeading.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocusIn);
+    };
+  }, [requestedId, closeArticle]);
 
   async function openArticle(id: number) {
     activeRequest.current?.abort();
@@ -255,9 +305,9 @@ export function AdminEditorialCalendar({
             : <p>V tento deň nie sú žiadne články.</p>}
         </section>
       )}
-      {(selectedArticle || loadingId !== null || loadError) && (
-        <section className={styles.articleDetail} aria-labelledby="calendar-article-detail"
-          onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeArticle(); } }}>
+      {requestedId !== null && typeof document !== "undefined" && createPortal(
+        <div className={styles.modalBackdrop}>
+          <section ref={articleDialog} className={styles.articleDetail} role="dialog" aria-modal="true" aria-labelledby="calendar-article-detail">
           <div className={styles.detailHeading}>
             <h3 ref={detailHeading} tabIndex={-1} id="calendar-article-detail">
               {selectedArticle?.title ?? (loadingId !== null ? "Načítavam článok…" : "Detail článku")}
@@ -301,7 +351,9 @@ export function AdminEditorialCalendar({
               )}
             </>
           )}
-        </section>
+          </section>
+        </div>,
+        document.body,
       )}
       <p className={styles.caption}>Časy zodpovedajú lokálnemu časovému pásmu prehliadača, rovnako ako pri zadávaní dátumu v editore.</p>
     </section>

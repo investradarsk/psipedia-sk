@@ -1,6 +1,16 @@
 .desktopNavigation {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+/* One-row sticky navigation prevents overlaying calendar interactions. */
+.desktopNavigation :global(.admin-nav-group),
+.desktopNavigation :global(.admin-nav-public) {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .desktopNavigation :global(.admin-nav-group > span) {
@@ -65,14 +75,14 @@
   display: grid;
   align-items: stretch;
   justify-items: end;
-  padding: 12px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   background: rgba(7, 29, 22, .48);
   backdrop-filter: blur(3px);
 }
 
 .drawer {
   width: min(390px, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px);
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow: auto;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 20px;
