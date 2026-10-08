@@ -28,7 +28,7 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   const safeCursor = Number.isSafeInteger(cursor) && cursor > 0 ? cursor : null;
   const conditions = ["e.source_type = 'AUTOMATION_RUN'", "e.actor_type = 'AUTOMATION'", "e.created_at >= ?"];
   const argumentsList: (string | number)[] = [new Date(Date.now() - days * 86_400_000).toISOString()];
-  if (system === "data" || system === "gemini") {
+  if (["data", "gemini", "discovery", "notion"].includes(system)) {
     conditions.push("e.resource_type = ?");
     argumentsList.push(system);
   }
@@ -62,7 +62,7 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
       <section className="admin-panel">
         <form method="get" className="admin-form-actions" aria-label="Filtrovať automatické udalosti">
           <label>Systém <select name="system" defaultValue={system}>
-            <option value="">Všetky</option><option value="data">Dátové automatizácie</option><option value="gemini">Gemini</option>
+            <option value="">Všetky</option><option value="data">Dátové automatizácie</option><option value="discovery">Discovery</option><option value="notion">Notion</option><option value="gemini">Gemini</option>
           </select></label>
           <label>Stav <select name="status" defaultValue={status}>
             <option value="">Všetky</option>
