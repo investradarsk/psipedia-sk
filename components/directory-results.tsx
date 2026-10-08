@@ -39,7 +39,7 @@ export function DirectoryResults({ result, filters, basePath, title, category, s
   showResults?: boolean;
 }) {
   return (
-    <section className={`directory-results ${styles.resultsLayout}`} data-directory-search-first aria-labelledby="directory-results-heading">
+    <section className={`directory-results ${styles.resultsLayout}`} data-directory-search-first aria-labelledby={showResults ? "directory-results-heading" : undefined} aria-label={!showResults ? "Vyhľadávanie a kategórie služieb" : undefined}>
       <DirectoryFilterForm filters={filters} options={result.options} basePath={basePath} category={category} showCategory={showCategory} />
 
       {categoryNavigation}
