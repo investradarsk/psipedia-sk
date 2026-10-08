@@ -101,6 +101,7 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       <nav
         className={`${stickyClassName} admin-section-nav ${styles.desktopNavigation}`}
         aria-label="Redakčné moduly"
+        data-admin-sticky-nav
       >
         <NavigationGroups />
         <div className="admin-nav-public">
@@ -109,7 +110,7 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
         </div>
       </nav>
 
-      <div className={`${stickyClassName} ${styles.mobileBar}`}>
+      <div className={`${stickyClassName} ${styles.mobileBar}`} data-admin-sticky-nav>
         <div>
           <span className={styles.mobileEyebrow}>Admin</span>
           <strong>{active?.label ?? "Pracovný prehľad"}</strong>

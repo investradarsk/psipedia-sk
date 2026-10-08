@@ -1,8 +1,8 @@
 .calendar { width: 100%; min-width: 0; }
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.toolbar { position: sticky; top: var(--admin-sticky-stack, 168px); z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: .65rem; border: 1px solid #dce5df; border-radius: .75rem; background: #f8faf8; box-shadow: 0 6px 16px rgb(21 58 43 / 7%); }
 .monthNav { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
 .monthNav h2 { margin: 0; font-size: 1.3rem; text-transform: capitalize; min-width: 10rem; text-align: center; }
-.monthNav a, .filters button, .dayButton, .more, .detailHeading button { padding: .45rem .7rem; border: 1px solid #d4ded9; border-radius: .5rem; background: #fff; color: #173a2c; cursor: pointer; text-decoration: none; }
+.monthNav a, .filters button, .dayButton, .more, .detailHeading button { min-height: 44px; padding: .45rem .7rem; border: 1px solid #d4ded9; border-radius: .5rem; background: #fff; color: #173a2c; cursor: pointer; text-decoration: none; }
 .todayLink { margin-left: .3rem; }
 .filters { display: flex; gap: .4rem; padding: 0; margin: 0; border: 0; }
 .filters button[aria-pressed="true"] { background: #173a2c; color: #fff; }
@@ -35,7 +35,8 @@
   .dayButton { padding: .15rem; font-size: .8rem; flex-direction: column; }
   .weekday { padding: .25rem .05rem; font-size: .75rem; }
   .count { font-size: .65rem; }
-  .calendar { overflow: hidden; }
+  /* No clipping/scroll container: otherwise the sticky month toolbar stops working. */
+  .calendar { min-width: 0; }
   .toolbar { align-items: flex-start; }
   .monthNav h2 { font-size: 1.1rem; min-width: 8rem; }
   .filters { flex-wrap: wrap; }
@@ -44,7 +45,10 @@
 
 .entry { border: 1px solid transparent; font-family: inherit; text-align: left; cursor: pointer; }
 .entry:hover, .entry[aria-expanded="true"] { border-color: #91baa2; background: #e7f0e9; }
-.articleDetail { max-width: 46rem; margin-top: 1rem; padding: 1rem 1.2rem; border: 1px solid #cdded3; border-radius: .75rem; background: #fff; box-shadow: 0 6px 20px rgb(21 58 43 / 8%); min-width: 0; }
+.modalBackdrop { position: fixed; z-index: 200; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: rgb(7 29 22 / 62%); }
+.articleDetail { width: min(100%, 50rem); max-height: calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior-y: contain; padding: 1rem 1.2rem; border: 1px solid #cdded3; border-radius: .85rem; background: #fff; box-shadow: 0 24px 70px rgb(7 29 22 / 30%); min-width: 0; }
+.articleDetail > .detailHeading { position: sticky; z-index: 1; top: -1rem; padding: .4rem 0 .9rem; border-bottom: 1px solid #e0e8e2; background: #fff; }
+.articleDetail > .detailHeading button { flex: 0 0 auto; }
 .articleDetail h3 { margin: 0; font-size: 1.15rem; overflow-wrap: anywhere; }
 .articleMeta { display: grid; gap: .6rem; margin: 0 0 1rem; }
 .articleMeta > div { display: flex; flex-wrap: wrap; gap: .4rem; min-width: 0; }
@@ -65,7 +69,9 @@
 .outsideMonth { margin: .5rem 0; }
 .calendar :is(input, button, a, h3):focus-visible { outline: 3px solid #1a845b; outline-offset: 2px; }
 @media (max-width: 720px) {
-  .articleDetail { padding: .85rem; max-width: 100%; }
+  .modalBackdrop { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .articleDetail { padding: .85rem; width: 100%; max-width: 100%; max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .articleDetail > .detailHeading { top: -.85rem; }
   .scheduleFields { grid-template-columns: minmax(0, 1fr); }
   .articleActions { align-items: stretch; flex-direction: column; }
   .articleActions > :is(a, button) { width: 100%; }
