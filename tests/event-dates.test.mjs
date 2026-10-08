@@ -85,7 +85,7 @@ test("homepage and event listing reuse the central event date implementation", (
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
   const card = readFileSync(new URL("../components/event-card.tsx", import.meta.url), "utf8");
-  assert.match(homepage, /getUpcomingEvents\(3\)/);
+  assert.match(homepage, /getHomepageUpcomingEventsWithImages\(3\)/);
   assert.match(portal, /getPublishedEvents\(\)/);
   assert.match(portal, /slug === "podujatia"\) return <EventsPage/);
   assert.match(calendar, /eventDateStatus\(event, today\)/);

@@ -13,6 +13,7 @@ import {
 } from "@/lib/help";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
+import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import {
   listPublishedOrganizations,
   type PublicOrganizationIndexItem,
@@ -347,6 +348,20 @@ export async function getPublishedHelpCases(category?: HelpCategorySlug, limit =
     ...legacy.results.map(rowToHelpCase),
     ...organizations.map(canonicalOrganizationToHelpCase),
   ].sort(comparePublicHelpCases).slice(0, safeLimit);
+}
+
+/** Homepage-only card selection. Help listings and canonical details remain unchanged. */
+export async function getHomepageHighlightedHelpCasesWithImages(limit = 3) {
+  const database = getD1Binding();
+  if (!database) return [] as HelpCase[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const result = await database.prepare(`
+    SELECT * FROM help_cases
+    WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND resolved = 0
+      AND ${HOMEPAGE_REAL_IMAGE_SQL}
+    ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?
+  `).bind(safeLimit).all<HelpCaseRow>();
+  return result.results.map(rowToHelpCase);
 }
 
 export async function getHighlightedHelpCases(limit = 2) {

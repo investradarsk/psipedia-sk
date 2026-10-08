@@ -23,7 +23,7 @@ function HomeArticleFeatureLayout({
         data-home-article-date={lead.dateIso}
         data-home-article-section={articlePortalSection(lead)}
       >
-        <ArticleCard article={lead} variant="featured" headingLevel={3} />
+        <ArticleCard article={lead} variant="featured" headingLevel={3} omitMissingImage />
       </div>
 
       <div

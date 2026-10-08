@@ -281,7 +281,7 @@ test("renders the portal homepage", async () => {
   assert.doesNotMatch(breedOfTheDayQuery, /fci_standard_json|SELECT \*/);
 });
 
-test("homepage event cards render admin images and a clean fallback", async () => {
+test("homepage event cards render canonical approved images without a fallback", async () => {
   const now = "2026-09-19T20:00:00.000Z";
   const eventRows = [
     {
@@ -304,7 +304,7 @@ test("homepage event cards render admin images and a clean fallback", async () =
       practical_info: "",
       website_url: null,
       registration_url: null,
-      image_url: "/images/events/home-event.webp",
+      image_url: "/media/events/home-event.webp",
       image_key: "events/home-event.webp",
       cancelled: 0,
       created_at: now,
@@ -352,7 +352,7 @@ test("homepage event cards render admin images and a clean fallback", async () =
         async all() {
           return {
             success: true,
-            results: /FROM managed_events WHERE status = 'published' AND cancelled = 0/i.test(sql) ? eventRows : [],
+            results: /FROM managed_events\s+WHERE status = 'published' AND cancelled = 0/i.test(sql) && /HOMEPAGE_REAL_IMAGE_SQL|image_url\s*=\s*'\/media\/'\s*\|\|\s*image_key/i.test(sql) ? eventRows.filter((row) => row.image_key && row.image_url === `/media/${row.image_key}`) : [],
             meta: {},
           };
         },
@@ -380,9 +380,9 @@ test("homepage event cards render admin images and a clean fallback", async () =
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /Podujatie s obrázkom/);
-    assert.match(html, /Podujatie bez obrázka/);
-    assert.match(html, /src="\/images\/events\/home-event\.webp"/);
-    assert.match(html, /home-event-placeholder/);
+    assert.doesNotMatch(html, /Podujatie bez obrázka/);
+    assert.match(html, /src="\/media\/events\/home-event\.webp"/);
+    assert.doesNotMatch(html, /home-event-placeholder/);
     assert.ok(html.indexOf("home-event-list") < html.indexOf("Celý kalendár"));
   } finally {
     for (const key of Object.keys(runtimeEnv)) delete runtimeEnv[key];

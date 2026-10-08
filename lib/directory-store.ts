@@ -36,6 +36,7 @@ import {
   type DirectoryQualityResolutionInput,
 } from "@/lib/directory-profile-metadata";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
+import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import {
   directoryAddressFormats,
@@ -919,6 +920,19 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
   const result = category
     ? await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' AND category = ? ORDER BY featured DESC, name ASC LIMIT ?`).bind(category, safeLimit).all<DirectoryProfileRow>()
     : await database.prepare(`SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles WHERE status = 'published' ORDER BY featured DESC, name ASC LIMIT ?`).bind(safeLimit).all<DirectoryProfileRow>();
+  return result.results.map(rowToPublicProfile);
+}
+
+/** Homepage-only image cards: filter at the database, not after the bounded LIMIT. */
+export async function getHomepageDirectoryProfilesWithImages(category: DirectoryCategorySlug, limit = 3) {
+  const database = getD1Binding();
+  if (!database) return [] as PublicDirectoryProfile[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const result = await database.prepare(`
+    SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles
+    WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
+    ORDER BY featured DESC, name ASC, id ASC LIMIT ?
+  `).bind(category, safeLimit).all<DirectoryProfileRow>();
   return result.results.map(rowToPublicProfile);
 }
 
