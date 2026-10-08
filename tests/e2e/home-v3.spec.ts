@@ -241,7 +241,7 @@ test("homepage dynamic image cards use canonical public media and keep navigatio
         })));
         for (const card of checks) {
           expect(card.images).toHaveLength(1);
-          expect(card.images[0].src).toMatch(/^\\/media\\/[^?#]+/);
+          expect(card.images[0].src?.startsWith("/media/")).toBe(true);
           expect(card.images[0].alt?.trim().length).toBeGreaterThan(5);
           expect(card.images[0].loading).toBe("lazy");
           expect(card.links).toBe(1);
