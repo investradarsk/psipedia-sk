@@ -106,6 +106,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0111_tavily_provider_diagnostics.sql",
   "0112_tavily_transport_phase.sql",
   "0113_gemini_automation_foundation.sql",
+  "0114_gemini_dedupe.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1085,6 +1086,10 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0113_gemini_automation_foundation.sql") {
     return { partial: ["gemini_automation_settings", "gemini_automation_runs", "idx_gemini_settings_due", "idx_gemini_runs_setting_started"].some((name) => names.has(name)) };
   }
+  if (targetMigration === "0114_gemini_dedupe.sql") {
+    return { partial: ["gemini_automation_rejections", "idx_gemini_rejections_scope_recent",
+      "sqlite_autoindex_gemini_automation_rejections_1"].some((name) => names.has(name)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1809,6 +1814,21 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 110) assertAutomationSourceProviderUsageSchema(schema);
   if (migrationIndex(targetMigration) >= 111) assertAutomationSourceProviderDiagnosticsSchema(schema);
   if (migrationIndex(targetMigration) >= 112) assertAutomationSourceProviderTransportPhaseSchema(schema);
+  if (migrationIndex(targetMigration) >= 114) assertGeminiRejectionSchema(schema);
+}
+
+/** Dedupe migration verification: schema, scope, and uniqueness must survive production apply. */
+export function assertGeminiRejectionSchema(schema) {
+  const names = objectMap(schema.objects);
+  const table = names.get("gemini_automation_rejections");
+  invariant(table?.type === "table", "Missing Gemini rejection memory table");
+  invariant(names.get("idx_gemini_rejections_scope_recent")?.type === "index", "Missing Gemini rejection lookup index");
+  const tableSql = String(table.sql ?? "");
+  for (const column of ["stable_key", "identity_kind", "identity_hash", "candidate_name", "reason_code", "rejected_at", "updated_at"]) {
+    invariant(tableSql.includes(column), "Missing Gemini rejection field: " + column);
+  }
+  invariant(tableSql.includes("UNIQUE(stable_key, identity_kind, identity_hash)"), "Gemini rejection uniqueness constraint is missing");
+  invariant(tableSql.includes("length(identity_hash) = 64"), "Gemini rejection hash policy is missing");
 }
 
 function migrationHistory(databaseName, configPath) {

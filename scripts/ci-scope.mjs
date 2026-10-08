@@ -124,6 +124,7 @@ const RULES = {
     /^lib\/gemini-automation-.*\.ts$/,
     /^tests\/gemini-automation-.*\.test\.mjs$/,
     /^drizzle\/0113_gemini_automation_foundation\.sql$/,
+    /^drizzle\/0114_gemini_dedupe\.sql$/,
   ],
   PWA: [
     /^app\/manifest\.ts$/,

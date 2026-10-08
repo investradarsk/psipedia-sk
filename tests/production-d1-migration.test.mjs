@@ -13,6 +13,7 @@ import {
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   assertAutomationGovernanceSchema,
+  assertGeminiRejectionSchema,
   assertAutomationSourceProviderDiagnosticsSchema,
   assertAutomationSourceProviderTransportPhaseSchema,
   assertDynamicEntityIdentitySchema,
@@ -128,6 +129,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0111_tavily_provider_diagnostics.sql",
     "0112_tavily_transport_phase.sql",
     "0113_gemini_automation_foundation.sql",
+    "0114_gemini_dedupe.sql",
   ]);
 });
 
@@ -659,7 +661,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0114_future_migration.sql",
+    "0115_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -687,14 +689,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0114_future_migration.sql",
+    "0115_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0114_future_migration.sql",
+    "0115_future_migration.sql",
   ]);
 });
 
@@ -1290,4 +1292,29 @@ test("0085 production history guard requires 0084 before Tavily root provisionin
     ),
     /expected exactly 0084/,
   );
+});
+
+
+test("GEMINI-DEDUPE-1 0114 refuses partial rejection memory drift", () => {
+  assert.deepEqual(targetSchemaObjects({ objects: [] }, "0114_gemini_dedupe.sql"), { partial: false });
+  for (const name of ["gemini_automation_rejections", "idx_gemini_rejections_scope_recent"]) {
+    assert.deepEqual(targetSchemaObjects({ objects: [{ name, type: "table", sql: "" }] }, "0114_gemini_dedupe.sql"), { partial: true });
+  }
+});
+
+test("GEMINI-DEDUPE-1 0114 verifies expected production table, index and unique hash guard", () => {
+  const sql = `CREATE TABLE gemini_automation_rejections (
+    stable_key TEXT NOT NULL, identity_kind TEXT NOT NULL, identity_hash TEXT NOT NULL CHECK(length(identity_hash) = 64),
+    candidate_name TEXT NOT NULL, reason_code TEXT, rejected_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE(stable_key, identity_kind, identity_hash)
+  )`;
+  const objects = [
+    { name: "gemini_automation_rejections", type: "table", sql },
+    { name: "idx_gemini_rejections_scope_recent", type: "index", sql: "" },
+  ];
+  assert.doesNotThrow(() => assertGeminiRejectionSchema({ objects }));
+  assert.throws(() => assertGeminiRejectionSchema({ objects: objects.slice(0, 1) }), /index/);
+  assert.throws(() => assertGeminiRejectionSchema({ objects: [
+    { ...objects[0], sql: sql.replace("UNIQUE(stable_key, identity_kind, identity_hash)", "") }, objects[1],
+  ] }), /uniqueness/);
 });
