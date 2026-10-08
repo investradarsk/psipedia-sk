@@ -106,7 +106,11 @@ test("Plemena uses section.plemena and keeps search only in BreedBrowser", () =>
   assert.doesNotMatch(breeds, /SectionHeroSearch/);
   assert.match(breeds, /<BreedBrowser/);
   assert.match(breeds, /initialFilters=\{initialFilters\}/);
-  assert.match(breeds, /<PublicSubcategoryNavigator/);
+  // BREEDS-PUBLIC-UX-V2 deliberately replaced category tiles with
+  // compact primary-action links while retaining BreedBrowser and crawl index.
+  assert.match(breeds, /<nav aria-label="Hlavné možnosti v sekcii Plemená"/);
+  assert.match(breeds, /breedSection\.subpages/);
+  assert.match(breeds, /<BreedCrawlIndex/);
 });
 
 test("directory root and categories resolve only section visual keys", () => {

@@ -844,9 +844,12 @@ test("renders the care hub, urgent guidance and topic-specific articles", async 
   const nutrition = await worker.fetch(new Request("http://localhost/starostlivost/vyziva", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(nutrition.status, 200);
   const nutritionHtml = await nutrition.text();
-  assert.match(nutritionHtml, /Výživa(?:<!-- -->)? v praxi/);
-  assert.match(nutritionHtml, /Čo sledovať doma/);
-  assert.match(nutritionHtml, /Kedy nečakať/);
+  // CONTENT-HUB-TEMPLATE-V1: guidance panels were replaced by a short intro,
+  // editorial pillar and related feed. This checks the rendered UX, not stale copy.
+  assert.match(nutritionHtml, /data-content-hub/);
+  assert.match(nutritionHtml, /data-section-content-list/);
+  assert.match(nutritionHtml, /Súvisiace čítanie/);
+  assert.doesNotMatch(nutritionHtml, /Čo sledovať doma|Kedy nečakať/);
   assert.match(nutritionHtml, /Ako vybrať granule bez marketingových mýtov/);
   assert.doesNotMatch(nutritionHtml, /Chôdza pri nohe bez ťahania/);
 
@@ -916,10 +919,12 @@ test("renders the puppy journey, practical topic guidance and puppy admin fields
   const firstDays = await worker.fetch(new Request("http://localhost/steniatka/prve-dni", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(firstDays.status, 200);
   const firstDaysHtml = await firstDays.text();
-  assert.match(firstDaysHtml, /Prvé dni doma(?:<!-- -->)? v praxi/);
-  assert.match(firstDaysHtml, /Praktické kroky/);
-  assert.match(firstDaysHtml, /Na čo si dať pozor/);
-  assert.match(firstDaysHtml, /Dôležité pre túto fázu/);
+  // First days now uses the compact content hub rather than the old
+  // multi-panel topic guide, while the safety note is preserved.
+  assert.match(firstDaysHtml, /data-content-hub/);
+  assert.match(firstDaysHtml, /data-section-content-list/);
+  assert.match(firstDaysHtml, /Súvisiace čítanie/);
+  assert.match(firstDaysHtml, /Dôležité pre rast/);
 
   const editorSource = readFileSync(new URL("../components/admin-section-editor.tsx", import.meta.url), "utf8");
   assert.match(editorSource, /Obsah oblasti Šteniatok/);
