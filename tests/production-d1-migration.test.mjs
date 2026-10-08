@@ -1374,7 +1374,7 @@ test("0116 push migration matches the exact additive SQL and retains guarded wor
   assert.match(migration, /REFERENCES admin_notification_events\(id\) ON DELETE CASCADE/);
   assert.match(migration, /CREATE INDEX admin_notification_read_receipts_admin_idx/);
   assert.match(migration, /CREATE INDEX admin_notification_events_automation_history_idx/);
-  assert.doesNotMatch(migration, /\b(?:DROP|DELETE|UPDATE)\b/i);
+  assert.doesNotMatch(migration.replace(/--[^\n]*/g, ""), /(?:^|;)\s*(?:DROP|DELETE|UPDATE)\b/im);
   assert.match(workflow, /0116_admin_automation_push\.sql/);
   assert.match(workflow, /APPLY-0116-psipedia-sk-db/);
   assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
