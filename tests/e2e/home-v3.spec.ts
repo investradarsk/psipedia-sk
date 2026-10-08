@@ -210,3 +210,96 @@ test("390x844 homepage preserves order, has no horizontal overflow and passes ax
   const serious = result.violations.filter((item) => item.impact === "critical" || item.impact === "serious");
   expect(serious, serious.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
 });
+
+
+test("homepage dynamic image cards use canonical public media and keep navigation at five responsive widths", async ({ page }) => {
+  const blocks = [
+    { section: "[data-home-events]", card: "[data-home-event]", empty: "[data-home-events-empty]", cta: "Celý kalendár", href: "/podujatia" },
+    { section: "[data-home-veterinarians]", card: ".home-vet-item", empty: "[data-home-veterinarians-empty]", cta: "Všetci veterinári", href: "/adresar/veterinari" },
+    { section: "[data-home-help]", card: "[data-home-help-item]", empty: "[data-home-help-empty]", cta: "Všetky možnosti pomoci", href: "/pomoc-psom" },
+  ];
+  for (const width of [1440, 1280, 1024, 430, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    for (const block of blocks) {
+      const section = page.locator(block.section);
+      const cards = section.locator(block.card);
+      const count = await cards.count();
+      expect(count).toBeLessThanOrEqual(3);
+      await expect(section.getByRole("link", { name: block.cta })).toHaveAttribute("href", block.href);
+      if (count === 0) {
+        await expect(section.locator(block.empty)).toBeVisible();
+      } else {
+        await expect(section.locator(block.empty)).toHaveCount(0);
+        const checks = await cards.evaluateAll((items) => items.map((card) => ({
+          images: [...card.querySelectorAll("img")].map((img) => ({
+            src: img.getAttribute("src"),
+            alt: img.getAttribute("alt"),
+            loading: img.getAttribute("loading"),
+          })),
+          links: card.querySelectorAll("a").length,
+        })));
+        for (const card of checks) {
+          expect(card.images).toHaveLength(1);
+          expect(card.images[0].src).toMatch(/^\\/media\\/[^?#]+/);
+          expect(card.images[0].alt?.trim().length).toBeGreaterThan(5);
+          expect(card.images[0].loading).toBe("lazy");
+          expect(card.links).toBe(1);
+        }
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  }
+});
+
+test("homepage grids collapse gracefully for zero to four image-backed cards", async ({ page }) => {
+  await page.goto("/");
+  for (const width of [1440, 1280, 1024, 430, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const samples = await page.evaluate(() => {
+      const fixtures = [
+        { parent: "[data-home-events]", grid: "home-event-list", card: "home-event-item" },
+        { parent: "[data-home-veterinarians]", grid: "home-vet-list", card: "home-vet-item" },
+        { parent: "[data-home-help]", grid: "home-help-grid", card: "home-help-item" },
+      ];
+      const measurements = [];
+      for (const fixture of fixtures) {
+        const parent = document.querySelector(fixture.parent);
+        if (!parent) throw new Error("Missing homepage section");
+        for (const count of [0, 1, 2, 3, 4]) {
+          const grid = document.createElement("div");
+          grid.className = fixture.grid;
+          grid.setAttribute("data-home-grid-fixture", fixture.grid);
+          for (let index = 0; index < count; index += 1) {
+            const card = document.createElement("article");
+            card.className = fixture.card;
+            const link = document.createElement("a");
+            link.href = "/adresar";
+            const media = document.createElement("span");
+            media.className = fixture.grid === "home-event-list" ? "home-event-media" : fixture.grid === "home-help-grid" ? "home-help-media" : "";
+            link.appendChild(media);
+            card.appendChild(link);
+            grid.appendChild(card);
+          }
+          parent.appendChild(grid);
+          const rect = grid.getBoundingClientRect();
+          const nodes = [...grid.children].map((node) => node.getBoundingClientRect());
+          measurements.push({
+            grid: fixture.grid,
+            count,
+            children: nodes.length,
+            overflow: grid.scrollWidth > grid.clientWidth + 1,
+            outside: nodes.some((node) => node.left < rect.left - 1 || node.right > rect.right + 1),
+          });
+          grid.remove();
+        }
+      }
+      return measurements;
+    });
+    for (const sample of samples) {
+      expect(sample.children, `${width}px ${sample.grid} count ${sample.count}`).toBe(sample.count);
+      expect(sample.overflow, `${width}px ${sample.grid} count ${sample.count}`).toBe(false);
+      expect(sample.outside, `${width}px ${sample.grid} count ${sample.count}`).toBe(false);
+    }
+  }
+});
