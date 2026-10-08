@@ -166,16 +166,17 @@ test("public header exposes Partner login as a utility action without overflow",
   if(testInfo.project.name==="mobile-chromium"){
     await page.getByRole("button",{name:"Otvoriť menu"}).click();
     const mobileNav=page.getByRole("navigation",{name:"Mobilná navigácia"});
-    const login=mobileNav.getByRole("link",{name:"Prihlásiť sa"});
+    const login=mobileNav.getByRole("link",{name:"Partner účet"});
     await expect(login).toBeVisible();
     await expect(login).toHaveAttribute("href","/partner/prihlasenie");
   }else{
-    const login=page.locator("[data-header-masthead]").getByRole("link",{name:"Prihlásiť sa"});
+    const login=page.locator("[data-header-masthead]").getByRole("link",{name:"Partner účet"});
     await expect(login).toBeVisible();
     await expect(login).toHaveAttribute("href","/partner/prihlasenie");
     const mainNav=page.getByRole("navigation",{name:"Hlavná navigácia"});
-    await expect(mainNav.getByRole("link",{name:"Prihlásiť sa"})).toHaveCount(0);
+    await expect(mainNav.getByRole("link",{name:"Partner účet"})).toHaveCount(0);
   }
+  await expect(page.locator('[data-partner-login-entry]')).toHaveCount(1);
   await expectNoHorizontalOverflow(page);
 });
 
