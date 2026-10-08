@@ -585,10 +585,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page).toHaveURL(/\/partner\/prihlasenie$/);
   if (project === "mobile-chromium") {
     const loginLink = page.locator("#mobile-menu [data-partner-login-entry]");
-    await expect(loginLink).toHaveText("Prihlásiť sa");
+    await expect(loginLink).toHaveText("Partner účet");
     await expect(loginLink).toHaveAttribute("href", "/partner/prihlasenie");
   } else {
-    const loginLink = page.locator("[data-header-masthead]").getByRole("link", { name: "Prihlásiť sa" });
+    const loginLink = page.locator("[data-header-masthead]").getByRole("link", { name: "Partner účet" });
     await expect(loginLink).toBeVisible();
     await expect(loginLink).toHaveAttribute("href", "/partner/prihlasenie");
   }
