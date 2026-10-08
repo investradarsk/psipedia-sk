@@ -503,3 +503,73 @@ test.describe("public services search layout", () => {
   });
 
 });
+
+
+test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
+  test("HELP-SERVICES-LAYOUT-V2 keeps search first on both landing and category pages", async ({ page }) => {
+    for (const path of ["/adresar", "/adresar/treneri"]) {
+      const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+
+      const hero = page.locator("[data-unified-section-hero]").first();
+      const form = page.locator('form[data-public-search-form="services"]');
+      const categories = page.locator("[data-directory-category-navigation]");
+      const heading = page.locator("#directory-results-heading");
+
+      await expect(hero).toBeVisible();
+      await expect(form).toHaveCount(1);
+      await expect(form.locator('input[name="q"]')).toBeVisible();
+      await expect(categories).toBeVisible();
+      await expect(heading).toBeVisible();
+      await expect(page.locator("[data-section-hero-search]")).toHaveCount(0);
+
+      const correctOrder = await page.evaluate(() => {
+        const elements = [
+          document.querySelector("[data-unified-section-hero]"),
+          document.querySelector('form[data-public-search-form="services"]'),
+          document.querySelector("[data-directory-category-navigation]"),
+          document.querySelector("#directory-results-heading"),
+        ];
+        return elements.every((element, index) => (
+          element && (!index || Boolean(
+            elements[index - 1]!.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING
+          ))
+        ));
+      });
+      expect(correctOrder, `hero → search → categories → results order on ${path}`).toBe(true);
+
+      const advanced = form.locator('button[aria-expanded]');
+      await expect(advanced).toHaveAttribute("aria-expanded", "false");
+      await advanced.click();
+      await expect(advanced).toHaveAttribute("aria-expanded", "true");
+      await expect(form.locator('select[name="region"]')).toBeVisible();
+      await expect(form.getByRole("link", { name: "Zrušiť filtre" })).toHaveAttribute("href", path);
+      await expectNoHorizontalOverflow(page, path);
+      await expectSeriousCriticalAxeClean(page, ".directory-results", path);
+    }
+  });
+
+  test("HELP-SERVICES-LAYOUT-V2 uses adaptive 4/3/2/1 grids without clipped service cards", async ({ page }) => {
+    const response = await page.goto("/adresar/treneri", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const grid = page.locator("[data-directory-list]");
+    await expect(grid.locator("[data-directory-card]").first()).toBeVisible();
+
+    for (const [width, expectedColumns] of [[1440, 4], [1280, 3], [1024, 3], [900, 2], [430, 1], [390, 1]] as const) {
+      await page.setViewportSize({ width, height: 930 });
+      const columns = await grid.evaluate((element) => (
+        getComputedStyle(element).gridTemplateColumns.trim().split(/\\s+/).length
+      ));
+      expect(columns, `service cards at ${width}px`).toBe(expectedColumns);
+      await expectNoHorizontalOverflow(page, `services at ${width}px`);
+    }
+
+    await page.setViewportSize({ width: 1440, height: 930 });
+    const title = grid.locator("[data-directory-card] strong").first();
+    await title.evaluate((element) => {
+      element.textContent = "Mimoriadne dlhý názov služby s viacerými slovami a mimoriadnedlhymnezalomitelnymretazcom";
+    });
+    await expectNoHorizontalOverflow(page, "long service name");
+    await expect(grid.locator("[data-directory-card]").first()).toHaveAttribute("href", /\\/adresar\\/treneri\\//);
+  });
+});
