@@ -128,7 +128,7 @@ function Promo({ promo }: { promo: PromoBanner }) {
 
 export async function HelpOverview({
   sections,
-  totalActive,
+  totalActive: _totalActive,
 }: {
   sections: HelpOverviewSection[];
   totalActive: number;
@@ -144,7 +144,7 @@ export async function HelpOverview({
             </Breadcrumbs>}
             eyebrow="Praktická pomoc"
             title="Pomoc psom"
-            intro="Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Hlavný prehľad ukazuje len výber aktuálnych možností; celý zoznam nájdete v každej kategórii."
+            intro="Adopcie, útulky, dočasná opatera, zbierky a stratené psy. Vyberte si kategóriu alebo hľadajte priamo."
             visual={heroVisual}
             searchSlot={
               <SectionHeroSearch
@@ -162,7 +162,6 @@ export async function HelpOverview({
             }
             metaSlot={
               <div className={styles.headerMeta}>
-                <span><strong>{totalActive}</strong> aktívnych záznamov</span>
                 <span><ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje</span>
               </div>
             }
@@ -174,7 +173,7 @@ export async function HelpOverview({
             <PublicLandingSectionHeading
               eyebrow="Kategórie pomoci"
               title="Vyberte, čo chcete riešiť"
-              description="Každá kategória má vlastný úplný prehľad a filtre. Tu vidíte iba najnovší výber, aby bola stránka rýchla a prehľadná."
+              description="Vyberte typ pomoci a prejdite na úplný prehľad."
               id="help-categories-heading"
             />
 

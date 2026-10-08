@@ -28,7 +28,7 @@ function pageHref(basePath: string, filters: DirectoryFilters, page: number) {
   return query ? `${basePath}?${query}` : basePath;
 }
 
-export function DirectoryResults({ result, filters, basePath, title, category, showCategory = false, categoryNavigation }: {
+export function DirectoryResults({ result, filters, basePath, title, category, showCategory = false, categoryNavigation, showResults = true }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   basePath: string;
@@ -36,6 +36,7 @@ export function DirectoryResults({ result, filters, basePath, title, category, s
   category?: DirectoryCategorySlug;
   showCategory?: boolean;
   categoryNavigation?: ReactNode;
+  showResults?: boolean;
 }) {
   return (
     <section className={`directory-results ${styles.resultsLayout}`} data-directory-search-first aria-labelledby="directory-results-heading">
@@ -43,6 +44,7 @@ export function DirectoryResults({ result, filters, basePath, title, category, s
 
       {categoryNavigation}
 
+      {showResults ? <>
       <div className="directory-result-heading">
         <div><span className="eyebrow">Výsledky</span><h2 id="directory-results-heading">{title}</h2></div>
         <strong>{result.total} {profileCountLabel(result.total)}</strong>
@@ -59,6 +61,7 @@ export function DirectoryResults({ result, filters, basePath, title, category, s
         <strong>Strana {result.page} z {result.totalPages}</strong>
         {result.page < result.totalPages ? <Link href={pageHref(basePath, filters, result.page + 1)}>Ďalšia →</Link> : <span aria-disabled="true">Ďalšia →</span>}
       </nav>}
+      </> : null}
     </section>
   );
 }
