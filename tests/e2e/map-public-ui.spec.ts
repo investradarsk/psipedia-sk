@@ -301,6 +301,10 @@ test.describe("MAP-1D desktop", () => {
     await expect(page.getByTestId("map-card-service:1")).toBeVisible();
     await expect(page.getByTestId("map-card-event:3")).toHaveCount(0);
 
+    const desktopFilterToggle = page.getByRole("button", { name: /Ďalšie filtre/ });
+    await expect(desktopFilterToggle).toHaveAttribute("aria-expanded", "false");
+    await desktopFilterToggle.click();
+    await expect(desktopFilterToggle).toHaveAttribute("aria-expanded", "true");
     await page.getByLabel("Typ služby").selectOption("veterinari");
     await page.getByLabel("Kraj").first().selectOption("Nitriansky kraj");
     await page.getByLabel("Okres").fill("Nitra");
@@ -472,7 +476,7 @@ test.describe("MAP-1D mobile", () => {
     await page.getByRole("button", { name: "Výsledky" }).click();
     await expect(results).toHaveAttribute("data-sheet-state", "expanded");
 
-    await page.getByRole("button", { name: /Filtre/ }).click();
+    await page.getByRole("button", { name: /Ďalšie filtre/ }).click();
     const dialog = page.getByTestId("map-filter-dialog");
     await expect(dialog).toBeVisible();
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-filters.png", fullPage: true });
