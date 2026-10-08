@@ -136,3 +136,104 @@ test("bridge Notion creation uses one POST attempt even for retryable 429/503 re
     globalThis.fetch = originalFetch;
   }
 });
+
+test("lifecycle: a fresh Gemini concept creates exactly one unpublished canonical draft and one Notion page", async () => {
+  const { bridge, db, sqlite } = await lifecycleHarness();
+  let postCount = 0;
+  globalThis.__geminiNotionBridgeTestHook = async ({ allowCreate, profileId }) => {
+    assert.equal(allowCreate, true);
+    assert.equal(profileId, 1);
+    postCount += 1;
+    return { notionPageId: "test-notion-page-1", created: true };
+  };
+  try {
+    const input = { database: db, notion: {}, stableKey: "directory.treneri", candidate };
+    const first = await bridge(input);
+    assert.equal(first.created, true);
+    assert.equal(first.canonicalEntityId, 1);
+    assert.equal(first.notionPageId, "test-notion-page-1");
+    const draft = sqlite.prepare("SELECT status,published_at,verified,featured,import_key FROM directory_profiles WHERE id=1").get();
+    assert.equal(draft.status, "draft");
+    assert.equal(draft.published_at, null);
+    assert.equal(draft.verified, 0);
+    assert.equal(draft.featured, 0);
+    assert.match(draft.import_key, /^gemini:[a-f0-9]{64}$/);
+    const again = await bridge(input);
+    assert.equal(again.created, false);
+    assert.equal(again.canonicalEntityId, first.canonicalEntityId);
+    assert.equal(again.notionPageId, first.notionPageId);
+    assert.equal(postCount, 1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 1);
+    assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status, "NOTION_LINKED");
+  } finally { delete globalThis.__geminiNotionBridgeTestHook; sqlite.close(); }
+});
+
+test("lifecycle: Notion create ambiguity recovers existing remote page without another POST", async () => {
+  const { bridge, db, sqlite } = await lifecycleHarness();
+  const input = { database: db, notion: {}, stableKey: "directory.treneri", candidate };
+  const calls = [];
+  globalThis.__geminiNotionBridgeTestHook = async ({ allowCreate, profileId }) => {
+    calls.push({ allowCreate, profileId });
+    if (allowCreate) throw new Error("response lost after remote page creation");
+    return { notionPageId: "remote-created-before-network-failure", created: false };
+  };
+  try {
+    await assert.rejects(bridge(input), /response lost/);
+    assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status, "NOTION_UNCERTAIN");
+    const recovered = await bridge(input);
+    assert.equal(recovered.created, false);
+    assert.equal(recovered.notionPageId, "remote-created-before-network-failure");
+    assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status, "NOTION_LINKED");
+    assert.deepEqual(calls.map(x => x.allowCreate), [true, false]);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 1);
+  } finally { delete globalThis.__geminiNotionBridgeTestHook; sqlite.close(); }
+});
+
+test("lifecycle: unknown remote Notion create result fails closed rather than retrying the POST", async () => {
+  const { bridge, db, sqlite } = await lifecycleHarness();
+  const input = { database: db, notion: {}, stableKey: "directory.treneri", candidate };
+  const calls = [];
+  globalThis.__geminiNotionBridgeTestHook = async ({ allowCreate }) => {
+    calls.push(allowCreate);
+    if (allowCreate) throw new Error("Notion request result unknown");
+    throw new Error("GEMINI_NOTION_REMOTE_CREATE_UNCERTAIN");
+  };
+  try {
+    await assert.rejects(bridge(input), /unknown/);
+    await assert.rejects(bridge(input), /REMOTE_CREATE_UNCERTAIN/);
+    assert.deepEqual(calls, [true, false]);
+    assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status, "NOTION_UNCERTAIN");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 1);
+  } finally { delete globalThis.__geminiNotionBridgeTestHook; sqlite.close(); }
+});
+
+// Real SQLite and canonical creation/dedupe run unchanged; only the remote Notion
+// transport is substituted to simulate latency, interrupted POST and recovery.
+async function lifecycleHarness() {
+  const { register } = await import("node:module");
+  register(new URL("./gemini-notion-bridge-test-loader.mjs", import.meta.url), import.meta.url);
+  const { bridgeGeminiCandidateToNotion: bridge } = await import("../lib/gemini-automation-notion-bridge.ts?test-notion");
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(readFileSync(new URL("../drizzle/0114_gemini_dedupe.sql", import.meta.url), "utf8"));
+  sqlite.exec(readFileSync(new URL("../drizzle/0115_gemini_notion_bridge.sql", import.meta.url), "utf8"));
+  sqlite.exec(`CREATE TABLE directory_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, name TEXT, category TEXT,
+    status TEXT, excerpt TEXT, description TEXT, services_json TEXT, qualifications_json TEXT,
+    city TEXT, region TEXT, address TEXT, postal_code TEXT, street TEXT, house_number TEXT,
+    address_format TEXT, service_address_confirmation TEXT, online INTEGER, price_note TEXT,
+    website_url TEXT, import_key TEXT UNIQUE, source_data_json TEXT, verified INTEGER, featured INTEGER,
+    district TEXT, search_text TEXT, created_at TEXT, updated_at TEXT, published_at TEXT,
+    created_by TEXT, updated_by TEXT
+  )`);
+  const db = { prepare(sql) {
+    return { bind(...values) {
+      const stmt = sqlite.prepare(sql);
+      return {
+        async first() { return stmt.get(...values) ?? null; },
+        async all() { return { results: stmt.all(...values) }; },
+        async run() { const result = stmt.run(...values); return { meta: { changes: result.changes } }; },
+      };
+    } };
+  } };
+  return { bridge, db, sqlite };
+}
