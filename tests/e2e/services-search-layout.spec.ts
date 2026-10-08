@@ -522,6 +522,9 @@ test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
 
       await expect(hero).toBeVisible();
       await expect(form).toHaveCount(1);
+      // Wait for React hydration: server-rendered visibility does not mean
+      // the disclosure toggle has an attached event handler yet.
+      await expect(form).toHaveAttribute("data-public-search-ready", "true");
       await expect(form.locator('input[name="q"]')).toBeVisible();
       await expect(categories).toBeVisible();
       await expect(heading).toBeVisible();
