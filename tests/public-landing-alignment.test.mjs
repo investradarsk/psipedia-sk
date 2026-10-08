@@ -211,7 +211,8 @@ test("HELP-SERVICES-LAYOUT-V2 puts one server-backed search before category navi
   assert.equal((results.match(/<DirectoryFilterForm/g) ?? []).length, 1);
   assert.match(filters, /<PublicFilterDisclosure/);
   assert.match(directory, /getSectionHeroVisual\(active \? `directory\.\$\{active\.slug\}` : "section\.adresar"\)/);
-  assert.doesNotMatch(directory, /getResolvedSectionVisual/);
+  assert.match(directory, /getResolvedSectionVisual\(\`directory\./);
+  assert.match(directory, /image: visual \?/);
 });
 
 test("HELP-SERVICES-LAYOUT-V2 keeps dense tiles and 4-3-2-1 grid responsive without altering routing", () => {
