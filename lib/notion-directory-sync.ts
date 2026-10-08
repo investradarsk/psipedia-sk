@@ -578,6 +578,7 @@ async function createNotionPage(
   bindings: NotionDirectorySyncBindings,
   dataSourceId: string,
   properties: Record<string, unknown>,
+  singleAttempt = false,
 ) {
   return notionRequest<NotionPage>(
     bindings,
@@ -589,6 +590,7 @@ async function createNotionPage(
         properties,
       }),
     },
+    { retryTransient: !singleAttempt },
   );
 }
 
@@ -611,6 +613,7 @@ async function writeProfileToNotion(input: {
   dataSourceId: string;
   profile: ManagedDirectoryProfile;
   pageId?: string | null;
+  singleAttemptCreate?: boolean;
 }) {
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
@@ -620,7 +623,7 @@ async function writeProfileToNotion(input: {
   const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
   const page = input.pageId
     ? await patchNotionPage(input.bindings, input.pageId, properties)
-    : await createNotionPage(input.bindings, input.dataSourceId, properties);
+    : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
 
   if (sourceImageUrl) {
     await upsertMediaSourceMonitor({
@@ -1126,6 +1129,7 @@ export async function ensureDirectoryProfileInNotion(input: {
   if (!input.allowCreate) throw new Error("GEMINI_NOTION_REMOTE_CREATE_UNCERTAIN");
   const page = await writeProfileToNotion({
     database: input.database, bindings: input.bindings, dataSourceId, profile,
+    singleAttemptCreate: true,
   });
   return { notionPageId: page.id, created: true };
 }
