@@ -252,7 +252,6 @@ function MapResultCard({
         <span className={styles.cardMeta}>
           <span className={styles.typeBadge}>{mapItemTypeLabel(item)}</span>
           {approximate ? <span className={styles.approximateBadge}>Približná poloha</span> : null}
-          {item.verified ? <span className={styles.verifiedBadge}>Overené</span> : null}
         </span>
         <strong>{item.name}</strong>
         {eventDate ? <p className={styles.eventDate}>{eventDate}</p> : null}
@@ -597,6 +596,7 @@ export function MapExperience({
   const [retryNonce, setRetryNonce] = useState(0);
   const [sheetState, setSheetState] = useState<"peek" | "expanded">("peek");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(false);
   const [googleMapsConsent, setGoogleMapsConsentState] = useState(false);
   const [mapType, setMapType] = useState<PublicMapType>("roadmap");
   const requestGateRef = useRef(new MapRequestGate());
@@ -834,14 +834,28 @@ export function MapExperience({
             aria-haspopup="dialog"
             aria-expanded={mobileFiltersOpen}
           >
-            <span>Filtre</span>
+            <span>Ďalšie filtre</span>
             {filterCount ? <span className={styles.filterCount}>{filterCount}</span> : null}
           </button>
         </div>
 
-        <div className={styles.secondaryFilters} data-testid="map-desktop-filters">
-          <FilterFields filters={filters} onChange={updateFilters} />
-          <button type="button" className={styles.clearFilters} onClick={clearFilters}>Zrušiť filtre</button>
+        <div className={styles.desktopFilterDisclosure}>
+          <button
+            type="button"
+            className={styles.desktopFilterToggle}
+            onClick={() => setDesktopFiltersOpen((open) => !open)}
+            aria-expanded={desktopFiltersOpen}
+            aria-controls="map-desktop-filter-fields"
+          >
+            Ďalšie filtre{filterCount ? ` (${filterCount})` : ""}
+            <span aria-hidden="true">{desktopFiltersOpen ? "−" : "+"}</span>
+          </button>
+          {desktopFiltersOpen ? (
+            <div id="map-desktop-filter-fields" className={styles.secondaryFilters} data-testid="map-desktop-filters">
+              <FilterFields filters={filters} onChange={updateFilters} />
+              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Zrušiť filtre</button>
+            </div>
+          ) : null}
         </div>
       </div>
 
