@@ -109,7 +109,9 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /StructuredData/);
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /<SectionHero\b/);
-  assert.doesNotMatch(section, /ArticleCard/);
+  // The primary guide is now an article card, while the rest remains a content list.
+  assert.match(section, /<ArticleCard article=\{pillar\}/);
+  assert.match(section, /<SectionContentList articles=\{remainingArticles\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
@@ -137,7 +139,8 @@ test("PUBLIC-HUBS-UX-1 keeps one local search on article and breed landings", ()
   assert.doesNotMatch(breeds, /SectionHeroSearch/);
   assert.match(breeds, /<BreedBrowser/);
   assert.match(breeds, /initialFilters=\{initialFilters\}/);
-  assert.match(breeds, /<PublicSubcategoryNavigator/);
+  assert.match(breeds, /<BreedCrawlIndex/);
+  assert.doesNotMatch(breeds, /<PublicSubcategoryNavigator/);
 });
 
 test("SECTION-PUBLIC preserves urgent health guidance and removes generic puppy template labels", () => {
