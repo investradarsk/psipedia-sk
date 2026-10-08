@@ -65,8 +65,7 @@ export function EventCard({ event, today }: { event: DogEvent; today?: string })
         <h3><Link href={eventHref(event)}>{event.title}</Link></h3>
         <div className={styles.cardFacts}>
           {timeLabel && <span><strong>Čas</strong> {timeLabel}</span>}
-          {location && <span><strong>Miesto</strong> {location}</span>}
-          {event.organizer && <span><strong>Organizátor</strong> {event.organizer}</span>}
+          <span><strong>Miesto</strong> {event.region === "Online" ? "Online podujatie" : location || "Miesto bude upresnené"}</span>
         </div>
       </div>
 

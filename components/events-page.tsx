@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EventCalendar } from "@/components/event-calendar";
+import { RememberEventsListing } from "@/components/events-return-link";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
   PublicContextBanner,
@@ -92,11 +93,6 @@ export async function EventsPage({
     },
   };
   const today = bratislavaDateKey();
-  const activeCount = events.filter((event) =>
-    !event.cancelled
-    && eventDateStatus(event, today) !== "past"
-    && (initialType === "Všetky" || event.eventType === initialType),
-  ).length;
   const landingCategories = isMainListing ? eventTypes.flatMap((eventType) => {
     const href = eventTypePortalHref(eventType);
     if (!href) return [];
@@ -136,8 +132,9 @@ export async function EventsPage({
 
   return (
     <main id="obsah">
+      <RememberEventsListing key={[initialCalendarMonth, initialDay, initialType, initialTime, initialQuery, initialRegion, initialMonth].join("|")} />
       <PublicFoundation className={styles.foundation}>
-        <UnifiedSectionHeroShell>
+        <UnifiedSectionHeroShell className={styles.heroShell}>
           <UnifiedSectionHero
             breadcrumbs={<Breadcrumbs className={styles.breadcrumbs}>
               <Link href="/">Domov</Link><span>/</span>
@@ -147,7 +144,6 @@ export async function EventsPage({
             title={title}
             intro={description}
             visual={heroVisualForPage}
-            metaSlot={activeCount > 0 ? <span><strong>{activeCount}</strong> aktívnych termínov</span> : undefined}
           />
         </UnifiedSectionHeroShell>
 
