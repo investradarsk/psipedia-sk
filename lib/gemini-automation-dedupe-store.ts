@@ -1,7 +1,7 @@
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import type { GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
-import { geminiCandidateSignals, geminiIdentityHash, geminiRejectionIdentities } from "./gemini-automation-identity.ts";
+import { geminiCandidateSignals, geminiIdentityHash, geminiRejectionIdentities, normalizeGeminiWebsite } from "./gemini-automation-identity.ts";
 
 export type GeminiRejectionMatch = { identityKind: string; reasonCode: string | null };
 function validScope(stableKey: string) {
@@ -9,7 +9,11 @@ function validScope(stableKey: string) {
 }
 async function fingerprints(stableKey: string, candidate: GeminiDiscoveryCandidateV1) {
   validScope(stableKey);
-  const identities = geminiRejectionIdentities(geminiCandidateSignals(candidate));
+  const signals = geminiCandidateSignals(candidate);
+  // Provider primary_url may be an evidence/aggregator URL and change between
+  // searches. Persist only explicit website/contact identity or name+city fallback.
+  signals.website = normalizeGeminiWebsite(candidate.contacts.website);
+  const identities = geminiRejectionIdentities(signals);
   return Promise.all(identities.map(async ({ kind, key }) => ({
     kind, hash: await geminiIdentityHash(stableKey, { kind, key }),
   })));
