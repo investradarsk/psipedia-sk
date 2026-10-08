@@ -65,7 +65,7 @@ test("public header derives Partner auth state on the server", () => {
 
   assert.match(header, /partnerAuthenticated: boolean/);
   assert.match(header, /partnerAuthenticated \? "\/partner" : "\/partner\/prihlasenie"/);
-  assert.match(header, /partnerAuthenticated \? "Partner účet" : "Prihlásiť sa"/);
+  assert.match(header, /const partnerLabel = "Partner účet"/);
   assert.match(header, /href=\{partnerHref\}/);
   assert.match(header, />\{partnerLabel\}<\/Link>/);
 });
@@ -180,9 +180,9 @@ test("shared Partner labels cover roles, commercial states, payments and event o
   }
 });
 
-test("Google descriptive copy follows the same availability flag as the CTA", () => {
-  assert.match(loginPage, /googleEnabled \? "Prihláste sa cez Google/);
-  assert.match(loginPage, /: "Prihláste sa heslom alebo jednorazovým odkazom na e-mail\."/);
+test("Partner login identifies its audience and only offers Google when configured", () => {
+  assert.match(loginPage, /Pre poskytovateľov služieb, organizácie, správcov profilov a organizátorov podujatí/);
+  assert.match(loginPage, /<h2>Mám Partner účet<\/h2>/);
   assert.match(loginPage, /\{googleEnabled \? <a className="button button--google partner-google-button"/);
 });
 
