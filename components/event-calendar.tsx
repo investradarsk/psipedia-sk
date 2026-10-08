@@ -333,7 +333,7 @@ export function EventCalendar({
             )}
           </section>
         ) : (
-          <p className={styles.monthHint}>Vyberte deň a zobrazia sa podujatia s odkazmi na ich detail.</p>
+          <p className={styles.monthHint}>{monthMatches.length === 0 ? "V tomto mesiaci nie sú podujatia zodpovedajúce aktuálnym filtrom. Zmeňte mesiac alebo upravte vyhľadávanie." : "Vyberte deň a zobrazia sa podujatia s odkazmi na ich detail."}</p>
         )}
       </section>
 
