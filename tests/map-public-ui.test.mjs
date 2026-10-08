@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { MAP_RETURN_KEY, sheetStateAfterDrag, validMapReturnState } from "../lib/map-mobile-ux.ts";
 import {
   EMPTY_MAP_FILTERS,
   MAP_DEFAULT_BBOX,
@@ -209,4 +211,49 @@ test("PUBLIC-MAPS-1 detail viewport helper centers one marker and fits multiple 
     padding: 48,
     maxZoom: 15,
   });
+});
+
+test("mobile sheet has predictable collapsed, preview and expanded gestures", () => {
+  assert.equal(sheetStateAfterDrag("peek", -130, -0.3, 400), "expanded");
+  assert.equal(sheetStateAfterDrag("expanded", 130, 0.3, 400), "peek");
+  assert.equal(sheetStateAfterDrag("peek", -75, -0.2, 400), "preview");
+  assert.equal(sheetStateAfterDrag("preview", -75, -0.2, 400), "expanded");
+  assert.equal(sheetStateAfterDrag("preview", 75, 0.2, 400), "peek");
+  assert.equal(sheetStateAfterDrag("expanded", 0, 0, 400), "expanded");
+});
+
+test("map return restores only a short-lived, validated camera for the matching filters", () => {
+  const now = Date.now();
+  const context = {
+    filtersKey: "category=services", savedAt: now - 1000, selectedItemId: "service:24",
+    viewport: { zoom: 14, center: { lat: 48.3, lng: 18.1 },
+      bbox: { north: 48.6, south: 48, east: 18.4, west: 17.8 } },
+  };
+  assert.equal(MAP_RETURN_KEY, "psipedia-map-return-v3");
+  assert.deepEqual(validMapReturnState(JSON.stringify(context), context.filtersKey), context);
+  assert.equal(validMapReturnState(JSON.stringify(context), "category=events"), null);
+  assert.equal(validMapReturnState(JSON.stringify({ ...context, savedAt: now - 31 * 60_000 }), context.filtersKey), null);
+  assert.equal(validMapReturnState(JSON.stringify({ ...context, viewport: { ...context.viewport, zoom: 999 } }), context.filtersKey), null);
+  assert.equal(validMapReturnState(JSON.stringify({ ...context, selectedItemId: "x".repeat(200) }), context.filtersKey), null);
+  assert.equal(validMapReturnState("{", context.filtersKey), null);
+});
+
+test("mobile map keeps rendering and filtering local, 44px controls and a dismissible sheet", () => {
+  const view = readFileSync(new URL("../components/map/map-experience.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../components/map/map-public.module.css", import.meta.url), "utf8");
+  assert.match(view, /onClusterClick={selectCluster}/);
+  assert.match(view, /onSelectItem={selectItemById}/);
+  assert.match(view, /selectItem\(item, !singletonClusterItem, "preview"\)/);
+  assert.match(view, /container\.scrollTop \+=/);
+  assert.doesNotMatch(view, /scrollIntoView\(\{ block: "nearest"/);
+  assert.match(view, /onNavigateToProfile={saveMapReturnContext}/);
+  assert.match(view, /onClick=\{\(\) => onNavigateToProfile\(item\.id\)\}/);
+  assert.match(view, /data-testid="map-close-selection"/);
+  assert.match(view, /event\.pointerType === "touch"/);
+  assert.match(css, /data-sheet-state="preview"/);
+  assert.match(css, /env\(safe-area-inset-bottom/);
+  assert.match(css, /orientation: landscape/);
+  assert.match(css, /max-width: 360px/);
+  assert.match(css, /min-height: 44px/);
+  assert.match(css, /overflow-x: clip/);
 });
