@@ -53,7 +53,7 @@
 .body { grid-area: body; min-width: 0; display: grid; align-content: start; gap: 26px; }
 .aside { grid-area: aside; min-width: 0; display: grid; gap: 14px; position: sticky; top: 92px; }
 .aside > * { min-width: 0; }
-.aside a { overflow-wrap: anywhere; }
+.aside a { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "aside" "body"; }
   .aside { position: static; }
