@@ -19,17 +19,17 @@ export default async function PartnerRegistrationPage({ searchParams }: { search
     <main id="obsah" className="partner-shell">
       <section className="partner-auth-layout">
         <div className="partner-auth-copy">
-          <span className="eyebrow">Partner Psipedia</span>
-          <h1>Spravujte svoju prezentáciu na Psipedii.</h1>
-          <p className="lead">Partner účet je určený pre firmy, služby, organizácie a ďalších profesionálnych partnerov Psipedie.</p>
+          <span className="eyebrow">Partner účet Psipedia.sk</span>
+          <h1>Registrácia Partner účtu</h1>
+          <p className="lead">Vytvorte si Partner účet na správu profilov, služieb a podujatí na Psipedii. Určený je poskytovateľom služieb, organizáciám a oprávneným partnerom.</p>
           <div className="partner-benefit">
             <strong>Čo nasleduje</strong>
             <p>Po prihlásení budete môcť v ďalších krokoch prepojiť svoju organizáciu alebo službu.</p>
           </div>
-          <p className="partner-auth-help">Už máte účet? <Link href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Prihláste sa.</Link></p>
+          <p className="partner-auth-help">Mám Partner účet: <Link href={returnTo ? `/partner/prihlasenie?returnTo=${encodeURIComponent(returnTo)}` : "/partner/prihlasenie"}>Prejsť na prihlásenie</Link></p>
         </div>
         <div className="partner-auth-card">
-          <h2>Vytvoriť Partner účet</h2>
+          <h2>Nemám Partner účet</h2>
           {googleEnabled ? <a className="button button--google partner-google-button" href={googleHref}>Pokračovať cez Google</a> : null}
           {googleEnabled ? <div className="partner-auth-divider"><span>alebo</span></div> : null}
 
