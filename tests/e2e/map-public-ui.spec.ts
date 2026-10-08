@@ -487,9 +487,9 @@ test.describe("MAP-1D mobile", () => {
     await page.getByLabel("Vyhľadávanie v mape").fill("");
     await expect(page.getByTestId("marker-service:1")).toBeVisible();
     await page.getByRole("button", { name: "Zmenšiť" }).click();
-    await expect(results).toHaveAttribute("data-sheet-state", "peek");
+    await expect(results).toHaveAttribute("data-sheet-state", "preview");
     await page.getByTestId("marker-service:1").click();
-    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await expect(results).toHaveAttribute("data-sheet-state", "preview");
     await expect(page.getByTestId("map-card-service:1")).toHaveAttribute("data-selected", "true");
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-selected.png", fullPage: true });
 
@@ -515,7 +515,7 @@ test.describe("MAP-1D mobile", () => {
     await expect(page.getByTestId("marker-event:3")).toBeVisible();
 
     await page.getByTestId("marker-event:3").click();
-    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await expect(results).toHaveAttribute("data-sheet-state", "preview");
     await expect(page.getByTestId("map-card-event:3")).toHaveAttribute("data-selected", "true");
     await expect(page.getByTestId("map-results-guidance")).toHaveText("Vybraný výsledok nájdeš nižšie.");
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
