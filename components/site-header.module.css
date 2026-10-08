@@ -515,7 +515,8 @@
    menu and utility controls outside the narrowest supported viewports. */
 @media (max-width: 390px) {
   .masthead {
-    width: calc(100% - 24px);
+    /* Match the 16px public/mobile navigation gutter at 320-390px. */
+    width: calc(100% - 32px);
     column-gap: 2px;
   }
 
