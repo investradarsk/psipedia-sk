@@ -14,6 +14,7 @@ import {
   SUPPORTED_PRODUCTION_TARGETS,
   assertAutomationGovernanceSchema,
   assertGeminiRejectionSchema,
+  assertAdminAutomationPushSchema,
   assertAutomationSourceProviderDiagnosticsSchema,
   assertAutomationSourceProviderTransportPhaseSchema,
   assertDynamicEntityIdentitySchema,
@@ -1319,4 +1320,137 @@ test("GEMINI-DEDUPE-1 0114 verifies expected production table, index and unique 
   assert.throws(() => assertGeminiRejectionSchema({ objects: [
     { ...objects[0], sql: sql.replace("UNIQUE(stable_key, identity_kind, identity_hash)", "") }, objects[1],
   ] }), /uniqueness/);
+});
+
+
+function adminPush0116Schema() {
+  return {
+    adminPushSubscriptionColumns: [{
+      name: "categories_json",
+      type: "TEXT",
+      notnull: 1,
+      dflt_value: "'[\"RUN_STARTED\",\"RUN_RESULTS\",\"ERRORS\",\"PUBLISH\",\"IMPORT_SYNC\"]'",
+    }],
+    adminNotificationReadReceiptColumns: [
+      { name: "event_id", type: "INTEGER", notnull: 1, pk: 1 },
+      { name: "admin_email", type: "TEXT", notnull: 1, pk: 2 },
+      { name: "read_at", type: "TEXT", notnull: 1, pk: 0 },
+    ],
+    adminNotificationReadReceiptForeignKeys: [{
+      table: "admin_notification_events",
+      from: "event_id", to: "id", on_delete: "CASCADE",
+    }],
+    objects: [
+      {
+        name: "admin_notification_read_receipts",
+        type: "table",
+        sql: `CREATE TABLE admin_notification_read_receipts (
+          event_id INTEGER NOT NULL REFERENCES admin_notification_events(id) ON DELETE CASCADE,
+          admin_email TEXT NOT NULL, read_at TEXT NOT NULL,
+          PRIMARY KEY (event_id, admin_email)
+        )`,
+      },
+      {
+        name: "admin_notification_read_receipts_admin_idx", type: "index",
+        tbl_name: "admin_notification_read_receipts",
+        sql: "CREATE INDEX admin_notification_read_receipts_admin_idx ON admin_notification_read_receipts (admin_email, read_at)",
+      },
+      {
+        name: "admin_notification_events_automation_history_idx", type: "index",
+        tbl_name: "admin_notification_events",
+        sql: "CREATE INDEX admin_notification_events_automation_history_idx ON admin_notification_events (source_type, actor_type, id)",
+      },
+      { name: "sqlite_autoindex_admin_notification_read_receipts_1", type: "index", sql: null },
+    ],
+  };
+}
+
+test("0116 push migration matches the exact additive SQL and retains guarded workflow", async () => {
+  const migration = await readFile(path.join(repoRoot, "drizzle/0116_admin_automation_push.sql"), "utf8");
+  const workflow = await readFile(path.join(repoRoot, ".github/workflows/production-d1-migrate.yml"), "utf8");
+  assert.match(migration, /ALTER TABLE admin_push_subscriptions\s+ADD COLUMN categories_json TEXT NOT NULL DEFAULT/);
+  assert.match(migration, /CREATE TABLE admin_notification_read_receipts/);
+  assert.match(migration, /PRIMARY KEY \(event_id, admin_email\)/);
+  assert.match(migration, /REFERENCES admin_notification_events\(id\) ON DELETE CASCADE/);
+  assert.match(migration, /CREATE INDEX admin_notification_read_receipts_admin_idx/);
+  assert.match(migration, /CREATE INDEX admin_notification_events_automation_history_idx/);
+  assert.doesNotMatch(migration.replace(/--[^\n]*/g, ""), /(?:^|;)\s*(?:DROP|DELETE|UPDATE)\b/im);
+  assert.match(workflow, /0116_admin_automation_push\.sql/);
+  assert.match(workflow, /APPLY-0116-psipedia-sk-db/);
+  assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
+  assert.match(workflow, /id: preflight/);
+  assert.match(workflow, /steps\.preflight\.outputs\.target_applied != 'true'/);
+  assert.doesNotMatch(workflow, /time-travel\s+restore|wrangler\s+deploy/);
+});
+
+test("0116 push detects every partial artifact and refuses unrecorded schema drift", () => {
+  const target = "0116_admin_automation_push.sql";
+  const full = adminPush0116Schema();
+  assert.deepEqual(targetSchemaObjects({
+    objects: [], adminPushSubscriptionColumns: [],
+  }, target), { partial: false });
+  const samples = [
+    { objects: [], adminPushSubscriptionColumns: full.adminPushSubscriptionColumns },
+    ...full.objects.map((object) => ({ objects: [object], adminPushSubscriptionColumns: [] })),
+  ];
+  for (const schema of samples) {
+    const result = targetSchemaObjects(schema, target);
+    assert.equal(result.partial, true);
+    assert.throws(() => assertPendingTargetSchemaClean(target, result), /possible partial\/manual drift/);
+  }
+});
+
+test("0116 push fully applied schema validates constraints, columns and both exact indexes", () => {
+  const schema = adminPush0116Schema();
+  assert.doesNotThrow(() => assertAdminAutomationPushSchema(schema));
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema, adminPushSubscriptionColumns: [],
+  }), /categories_json/);
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema, adminPushSubscriptionColumns: [{ ...schema.adminPushSubscriptionColumns[0], dflt_value: "'[]'" }],
+  }), /default differs/);
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema, adminNotificationReadReceiptColumns: schema.adminNotificationReadReceiptColumns.slice(1),
+  }), /receipt column/);
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema, adminNotificationReadReceiptForeignKeys: [],
+  }), /foreign-key metadata/);
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema, objects: schema.objects.filter((item) => item.name !== "admin_notification_read_receipts"),
+  }), /receipt.*table/);
+  for (const name of ["admin_notification_read_receipts_admin_idx", "admin_notification_events_automation_history_idx"]) {
+    assert.throws(() => assertAdminAutomationPushSchema({
+      ...schema, objects: schema.objects.filter((item) => item.name !== name),
+    }), /0116 index/);
+  }
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema,
+    objects: schema.objects.map((item) => item.name === "admin_notification_events_automation_history_idx"
+      ? { ...item, sql: "CREATE INDEX admin_notification_events_automation_history_idx ON admin_notification_events (actor_type, id)" }
+      : item),
+  }), /index columns/);
+  assert.throws(() => assertAdminAutomationPushSchema({
+    ...schema,
+    objects: schema.objects.map((item) => item.name === "admin_notification_read_receipts"
+      ? { ...item, sql: item.sql.replace("ON DELETE CASCADE", "ON DELETE RESTRICT") }
+      : item),
+  }), /foreign-key declaration/);
+});
+
+test("0116 migration history is exact, pending vs already applied, and refuses ledger mismatches", () => {
+  const target = "0116_admin_automation_push.sql";
+  const prefix = Array.from({ length: 62 }, (_, i) => `${String(i).padStart(4, "0")}_migration.sql`);
+  const expected = [...prefix, ...supportedTargetsThrough(116)];
+  const pending = expected.slice(0, -1);
+  assert.deepEqual(validateProductionTargetHistory(pending, expected, target), {
+    latestIndex: 115, targetApplied: false,
+  });
+  assert.deepEqual(validateProductionTargetHistory(expected, expected, target), {
+    latestIndex: 116, targetApplied: true,
+  });
+  assert.throws(() => validateProductionTargetHistory(pending.slice(0, -1), expected, target), /expected exactly 0115/);
+  assert.throws(() => validateProductionTargetHistory([...pending.slice(0, -1), "0115_other.sql"], expected, target), /history does not exactly match/);
+  assert.throws(() => validateProductionTargetHistory(
+    [...expected.slice(0, -2), expected.at(-1)], expected, target,
+  ), /history does not exactly match/);
 });
