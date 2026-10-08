@@ -1518,7 +1518,7 @@
 }
 
 .clearActiveFilters,
-.browseNavigation a,
+.browseNavigation button,
 .listHeading a,
 .returnBar a {
   display: inline-flex;
@@ -1563,13 +1563,13 @@
   margin-bottom: 12px;
 }
 
-.browseNavigation a {
+.browseNavigation button {
   padding: 8px 13px;
   border: 1px solid var(--ps-border-strong);
   background: var(--ps-surface-raised);
 }
 
-.browseNavigation a:first-child {
+.browseNavigation button[aria-pressed="true"] {
   color: #fff;
   border-color: var(--forest);
   background: var(--forest);
@@ -1624,7 +1624,7 @@
   padding: 0 2px;
 }
 
-.browseNavigation a:focus-visible,
+.browseNavigation button:focus-visible,
 .clearActiveFilters:focus-visible,
 .listHeading a:focus-visible,
 .returnBar a:focus-visible {
@@ -1780,4 +1780,17 @@
   .monthGrid {
     min-width: 330px;
   }
+}
+
+/* A real presentation switch, while the server HTML shows both sections by default. */
+.browseNavigation button {
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.browseMode[data-events-browse-mode="calendar"] .upcomingSection,
+.browseMode[data-events-browse-mode="list"] .monthCalendar {
+  display: none;
 }
