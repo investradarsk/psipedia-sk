@@ -174,9 +174,9 @@
 
 .quickLinks a {
   display: inline-flex;
-  min-height: 34px;
+  min-height: var(--ps-control-min-height, 44px);
   align-items: center;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border: 1px solid rgba(23, 75, 56, .14);
   border-radius: 999px;
   color: #174b38;
@@ -341,7 +341,7 @@
 
   .copy h1 {
     color: #17352b;
-    font-size: clamp(2rem, 9.5vw, 2.85rem);
+    font-size: clamp(1.9rem, 9vw, 2.85rem);
     line-height: 1.01;
   }
 

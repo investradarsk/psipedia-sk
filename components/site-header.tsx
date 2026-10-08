@@ -88,13 +88,21 @@ export function SiteHeader({
 
     const root = document.documentElement;
     const property = "--psipedia-sticky-header-height";
+    const masthead = header.querySelector<HTMLElement>("[data-header-masthead]");
+    const desktopBand = header.querySelector<HTMLElement>("[data-header-nav-band]");
     const update = () => {
-      root.style.setProperty(property, `${Math.ceil(header.getBoundingClientRect().height)}px`);
+      // Exclude the expanded mobile menu: measuring the whole header would
+      // feed its own height back into the menu's viewport constraint.
+      const mastheadHeight = masthead?.getBoundingClientRect().height ?? 0;
+      const bandHeight = desktopBand?.getBoundingClientRect().height ?? 0;
+      const borderHeight = Number.parseFloat(getComputedStyle(header).borderBottomWidth) || 0;
+      root.style.setProperty(property, `${Math.ceil(mastheadHeight + bandHeight + borderHeight)}px`);
     };
     update();
 
     const observer = new ResizeObserver(update);
-    observer.observe(header);
+    if (masthead) observer.observe(masthead);
+    if (desktopBand) observer.observe(desktopBand);
     return () => {
       observer.disconnect();
       root.style.removeProperty(property);
@@ -209,6 +217,27 @@ export function SiteHeader({
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    // At the top of the page the name-day strip can push the sticky header
+    // below the viewport edge. After scrolling it sticks to 0 instead.
+    // Measure the actual menu entry point without locking document scrolling.
+    const root = document.documentElement;
+    const masthead = headerRef.current?.querySelector<HTMLElement>("[data-header-masthead]");
+    const update = () => {
+      const bottom = masthead?.getBoundingClientRect().bottom ?? 68;
+      root.style.setProperty("--psipedia-mobile-menu-top", `${Math.ceil(Math.max(0, bottom))}px`);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      root.style.removeProperty("--psipedia-mobile-menu-top");
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
