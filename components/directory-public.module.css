@@ -1720,3 +1720,16 @@
     padding-bottom: 0;
   }
 }
+
+/* DIRECTORY-HELP-LANDINGS-V3: chips replace dense root tiles without changing listing routes. */
+.categorySwitcherWrap { background: transparent; }
+.categorySwitcherWrap :global([data-public-subcategory-track]) {
+  gap: 7px;
+  padding-block: 4px 6px;
+}
+.resultsLayout { gap: clamp(12px, 1.7vw, 20px); }
+@media (max-width: 620px) {
+  .resultsShell { padding-bottom: 20px; }
+  .categorySwitcherWrap :global([data-public-subcategory-track]) { flex-wrap: wrap; overflow-x: visible; }
+  .categorySwitcherWrap :global([data-public-subcategory-item]) { min-height: 44px; white-space: normal; }
+}

@@ -1065,7 +1065,7 @@ export async function getDirectoryCategoryCounts() {
 export async function getDirectoryCategoryPreviews(limit = 3) {
   const database = getD1Binding();
   if (!database) return {} as Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
-  const safeLimit = Math.max(1, Math.min(6, Math.trunc(limit)));
+  const safeLimit = Math.max(1, Math.min(7, Math.trunc(limit)));
   const statements = directoryCategories.map((category) => database.prepare(`
     SELECT ${DIRECTORY_CARD_COLUMNS.replace("city, district, region", "city, COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$.\"Okres\"'), '') AS district, region")}
     FROM directory_profiles

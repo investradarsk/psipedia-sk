@@ -174,6 +174,9 @@ test.describe("admin directory v2", () => {
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
     await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Upraviť profil" })).toBeVisible();
+    // The server-rendered editor appears before its event handlers are hydrated.
+    // Interact with the advanced drawer only after the client editor is ready.
+    await expect(page.locator("form.admin-directory-editor")).toHaveAttribute("data-hydrated", "true");
 
     await expect(page.getByLabel("Verejný telefón")).toHaveValue("+421 900 111 222");
     await expect(page.getByLabel("Verejný e-mail")).toHaveValue("public-fixture@example.invalid");

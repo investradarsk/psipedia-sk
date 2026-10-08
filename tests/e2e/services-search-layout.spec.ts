@@ -241,10 +241,12 @@ test.describe("public services search layout", () => {
     await expect(hero.getByRole("heading", { level: 1, name: "Služby pre psov" })).toBeVisible();
     await expect(hero.locator("[data-unified-section-hero-copy]")).toContainText("Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu");
 
-    const categoryNav = page.getByRole("navigation", { name: "Kategórie služieb" });
-    await expect(categoryNav).toHaveAttribute("data-public-subcategory-mode", "landing");
+    const categoryNav = page.getByRole("navigation", { name: "Prepnúť kategóriu služby" });
+    await expect(categoryNav).toHaveAttribute("data-public-subcategory-mode", "compact");
     const categoryLinks = categoryNav.getByRole("link");
-    await expect(categoryLinks).toHaveCount(10);
+    await expect(categoryLinks).toHaveCount(11);
+    await expect(categoryLinks.first()).toHaveAttribute("href", "/adresar");
+    await expect(categoryLinks.first()).toHaveAttribute("aria-current", "page");
 
     const canonicalHrefs = [
       "/adresar/veterinari",
@@ -259,17 +261,35 @@ test.describe("public services search layout", () => {
       "/adresar/dalsie-sluzby",
     ];
     const hrefs = await categoryLinks.evaluateAll((links) => links.map((link) => link.getAttribute("href")));
-    expect(hrefs).toEqual(canonicalHrefs);
+    expect(hrefs).toEqual(["/adresar", ...canonicalHrefs]);
 
-    for (let index = 0; index < await categoryLinks.count(); index += 1) {
-      const link = categoryLinks.nth(index);
+    for (const link of await categoryLinks.all()) {
       await expect(link).toBeVisible();
-      await expect(link.locator("small"), `category ${canonicalHrefs[index]} is missing its data-backed count`).toHaveText(/^\d+ (?:profil|profily|profilov)$/);
+      const target = await link.boundingBox();
+      expect(target?.height, "compact category chip must remain tappable").toBeGreaterThanOrEqual(44);
     }
 
     const results = page.locator(".directory-results");
-    await expect(results.getByRole("heading", { level: 2, name: "Odporúčané služby" })).toBeVisible();
-    expect(await results.locator("[data-directory-card]").count()).toBeGreaterThan(0);
+    await expect(results.locator("#directory-results-heading")).toHaveCount(0);
+    await expect(results.locator("[data-directory-card]")).toHaveCount(0);
+    const overview = page.locator("[data-directory-category-overview]");
+    await expect(overview.getByRole("heading", { level: 2, name: "Služby podľa kategórie" })).toBeVisible();
+    const sections = overview.locator("section");
+    await expect(sections).toHaveCount(canonicalHrefs.length);
+    let profileCount = 0;
+    for (let index = 0; index < canonicalHrefs.length; index += 1) {
+      const section = sections.nth(index);
+      const categoryHref = canonicalHrefs[index];
+      await expect(section.getByRole("link", { name: "Celá kategória" })).toHaveAttribute("href", categoryHref);
+      const profiles = section.locator("ul > li > a");
+      const count = await profiles.count();
+      expect(count, `category ${categoryHref} exceeds 7 profile previews`).toBeLessThanOrEqual(7);
+      for (const profile of await profiles.all()) {
+        await expect(profile).toHaveAttribute("href", new RegExp(`^${categoryHref}/[^/?#]+$`));
+      }
+      profileCount += count;
+    }
+    expect(profileCount, "root should contain real published profile previews").toBeGreaterThan(0);
 
     const providerCta = page.locator("[data-directory-provider-cta]");
     await expect(providerCta.getByRole("heading", { name: "Poskytujete služby pre psov?" })).toBeVisible();
@@ -530,7 +550,10 @@ test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
       const hero = page.locator("[data-unified-section-hero]").first();
       const form = page.locator('form[data-public-search-form="services"]');
       const categories = page.locator("[data-directory-category-navigation]");
-      const heading = page.locator("#directory-results-heading");
+      const isRoot = path === "/adresar";
+      const nextContent = isRoot
+        ? page.locator("[data-directory-category-overview]")
+        : page.locator("#directory-results-heading");
 
       await expect(hero).toBeVisible();
       await expect(form).toHaveCount(1);
@@ -539,23 +562,30 @@ test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
       await expect(form).toHaveAttribute("data-public-search-ready", "true");
       await expect(form.locator('input[name="q"]')).toBeVisible();
       await expect(categories).toBeVisible();
-      await expect(heading).toBeVisible();
+      await expect(nextContent).toBeVisible();
       await expect(page.locator("[data-section-hero-search]")).toHaveCount(0);
+      if (isRoot) {
+        await expect(page.locator("#directory-results-heading")).toHaveCount(0);
+        await expect(page.locator("[data-directory-category-overview] section")).toHaveCount(10);
+      } else {
+        await expect(page.locator("[data-directory-category-overview]")).toHaveCount(0);
+      }
 
-      const correctOrder = await page.evaluate(() => {
+      const nextSelector = isRoot ? "[data-directory-category-overview]" : "#directory-results-heading";
+      const correctOrder = await page.evaluate((selector) => {
         const elements = [
           document.querySelector("[data-unified-section-hero]"),
           document.querySelector('form[data-public-search-form="services"]'),
           document.querySelector("[data-directory-category-navigation]"),
-          document.querySelector("#directory-results-heading"),
+          document.querySelector(selector),
         ];
         return elements.every((element, index) => (
           element && (!index || Boolean(
             elements[index - 1]!.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING
           ))
         ));
-      });
-      expect(correctOrder, `hero → search → categories → results order on ${path}`).toBe(true);
+      }, nextSelector);
+      expect(correctOrder, `hero → search → categories → relevant content order on ${path}`).toBe(true);
 
       const advanced = form.locator('button[aria-expanded]');
       await expect(advanced).toHaveAttribute("aria-expanded", "false");

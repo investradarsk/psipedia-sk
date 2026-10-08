@@ -4,43 +4,26 @@ import {
   PublicContentShell,
   PublicContextBanner,
   PublicFoundation,
-  PublicLandingSectionHeading,
   PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
-import { ArrowIcon, BowlIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
+import { ArrowIcon, PawMark } from "@/components/icons";
+import { DirectoryCategoryOverview } from "@/components/directory-category-overview";
 import {
   directoryCategories,
   directoryCategoryHref,
   getDirectoryCategory,
   type DirectoryCategorySlug,
+  type PublicDirectoryProfile,
 } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import { DirectoryResults } from "@/components/directory-results";
-import { getResolvedSectionVisual, getSectionHeroVisual } from "@/lib/section-visual-store";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./directory-public.module.css";
 
 function profileCountLabel(count: number) {
   return count === 1 ? "profil" : count > 1 && count < 5 ? "profily" : "profilov";
-}
-
-function categoryIcon(slug: DirectoryCategorySlug) {
-  switch (slug) {
-    case "veterinari":
-      return <HeartIcon size={20} />;
-    case "treneri":
-      return <WhistleIcon size={20} />;
-    case "salony-a-sluzby":
-    case "dalsie-sluzby":
-      return <SparkIcon size={20} />;
-    case "hotely-a-opatrovanie":
-      return <BowlIcon size={20} />;
-    case "fyzioterapia":
-      return <HeartIcon size={20} />;
-    default:
-      return <PawMark size={20} />;
-  }
 }
 
 function hasDirectoryFilters(filters: DirectoryFilters) {
@@ -55,49 +38,20 @@ export async function DirectoryPage({
   result,
   filters,
   categoryCounts,
+  categoryPreviews = {},
   initialCategory = "all",
 }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   categoryCounts: Partial<Record<DirectoryCategorySlug, number>>;
+  categoryPreviews?: Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
   initialCategory?: "all" | DirectoryCategorySlug;
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   const heroVisual = await getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
-  const knownCounts = directoryCategories
-    .map((category) => categoryCounts[category.slug])
-    .filter((count): count is number => typeof count === "number");
-  const totalPublished = knownCounts.length > 0 ? knownCounts.reduce((sum, count) => sum + count, 0) : null;
   const activeCount = active ? categoryCounts[active.slug] : undefined;
   const filtered = hasDirectoryFilters(filters);
-
-  // Preserve configured category imagery; compact tiles display it as a thumbnail.
-  const categoryVisualEntries = active ? [] : await Promise.all(
-    directoryCategories.map(async (category) => [
-      category.slug,
-      await getResolvedSectionVisual(`directory.${category.slug}`),
-    ] as const),
-  );
-  const categoryVisuals = new Map(categoryVisualEntries);
-
-  const landingCategoryItems = directoryCategories.map((category) => {
-    const count = categoryCounts[category.slug];
-    const visual = categoryVisuals.get(category.slug);
-    return {
-      href: directoryCategoryHref(category),
-      title: category.label,
-      description: category.description,
-      meta: typeof count === "number" ? `${count} ${profileCountLabel(count)}` : undefined,
-      icon: visual ? undefined : categoryIcon(category.slug),
-      image: visual ? {
-        src: visual.imageUrl,
-        alt: visual.altText,
-        width: 640,
-        height: 360,
-        loading: "lazy" as const,
-      } : undefined,
-    };
-  });
+  const showRootOverview = !active && !filtered && filters.page === 1;
 
   const compactCategoryItems = [
     {
@@ -112,37 +66,16 @@ export async function DirectoryPage({
     })),
   ];
 
-  // Search stays first in the listing flow. Category navigation follows its filter disclosure.
+  // Search stays first, followed by compact category chips on every viewport.
   const categoryNavigation = (
-    <>
-        {!active ? (
-          <div className={styles.categoryLanding}>
-            <div data-directory-category-navigation>
-              <PublicLandingSectionHeading
-                eyebrow="Kategórie služieb"
-                title="Vyber si kategóriu"
-                description="Prejdi priamo do služby, ktorú hľadáš. Vyber oblasť a otvor jej samostatný prehľad."
-                id="directory-categories-title"
-              />
-              <PublicSubcategoryNavigator
-                mode="landing"
-                items={landingCategoryItems}
-                label="Kategórie služieb"
-                className={styles.categoryTiles}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className={styles.categorySwitcherWrap} data-directory-category-navigation>
-            <PublicSubcategoryNavigator
-              mode="compact"
-              items={compactCategoryItems}
-              label="Prepnúť kategóriu služby"
-              className={styles.categorySwitcher}
-            />
-          </div>
-        )}
-    </>
+    <div className={styles.categorySwitcherWrap} data-directory-category-navigation>
+      <PublicSubcategoryNavigator
+        mode="compact"
+        items={compactCategoryItems}
+        label="Prepnúť kategóriu služby"
+        className={styles.categorySwitcher}
+      />
+    </div>
   );
 
   return (
@@ -167,11 +100,7 @@ export async function DirectoryPage({
             title={active?.heroTitle ?? "Služby pre psov"}
             intro={active?.intro ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
             visual={heroVisual}
-            metaSlot={active && typeof activeCount === "number"
-              ? `${activeCount} ${profileCountLabel(activeCount)}`
-              : !active && totalPublished !== null
-                ? `${totalPublished.toLocaleString("sk-SK")} publikovaných profilov v adresári`
-                : undefined}
+            metaSlot={active && typeof activeCount === "number" ? `${activeCount} ${profileCountLabel(activeCount)}` : undefined}
           />
         </UnifiedSectionHeroShell>
 
@@ -185,9 +114,14 @@ export async function DirectoryPage({
               category={active?.slug}
               showCategory={!active}
               categoryNavigation={categoryNavigation}
+              showResults={!showRootOverview}
             />
           </PublicContentShell>
         </section>
+
+        {showRootOverview ? (
+          <DirectoryCategoryOverview categories={directoryCategories} previews={categoryPreviews} />
+        ) : null}
 
         <section className={styles.contextSection}>
           <PublicContentShell variant="plain" className={styles.contextShell}>

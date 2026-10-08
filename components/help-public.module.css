@@ -291,3 +291,41 @@
   .secondaryFiltersOpen{grid-template-columns:minmax(0,1fr);width:100%}
   .secondaryFilters select,.resetFilters{width:100%;min-height:48px}
 }
+
+/* DIRECTORY-HELP-LANDINGS-V3: compact category chips, shorter contextual banners. */
+.overviewCategoryBlock { padding-bottom: 20px; }
+.overviewCategoryGrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.overviewCategoryGrid > a {
+  display: inline-flex; width: auto; min-width: 0; min-height: 44px;
+  gap: 7px; padding: 8px 12px; border-radius: 999px; box-shadow: none;
+}
+.overviewCategoryGrid > a > svg { display: none; }
+.overviewCategoryIcon { width: 22px; height: 22px; background: transparent; }
+.overviewCategoryCopy { display: block; }
+.overviewCategoryCopy strong { font-family: inherit; font-size: .82rem; font-weight: 800; }
+.overviewCategoryCopy small { display: none; }
+.overviewCategoryCount { min-width: 24px; height: 24px; padding-inline: 6px; font-size: .7rem; }
+.overviewSection { padding-block: 28px 32px; }
+.overviewPromo { min-height: 180px; }
+.overviewPromoCopy { padding-block: 22px; }
+.overviewPromoCopy h2 { font-size: clamp(1.4rem, 2.7vw, 2rem); }
+.overviewPromoCopy p { margin-bottom: 10px; }
+.overviewCardAction { min-height: 44px; }
+.closingCta { min-height: 215px; }
+.closingCtaInner { padding-block: 28px; }
+@media (max-width: 650px) {
+  .overviewCategoryBlock { padding-bottom: 12px; }
+  .overviewCategoryGrid { display: flex; flex-wrap: wrap; gap: 7px; }
+  .overviewCategoryGrid > a { min-height: 44px; padding: 8px 10px; }
+  .overviewCategoryIcon { width: 20px; height: 20px; }
+  .overviewSection { padding-block: 22px 26px; }
+  .overviewPromo { min-height: 190px; }
+  .overviewPromoCopy { align-self: center; padding-block: 16px; }
+  .overviewPromoCopy h2 { font-size: 1.5rem; }
+  .overviewPromoCopy p { font-size: .78rem; line-height: 1.4; }
+  .overviewPromoCopy > a { width: auto; min-height: 44px; }
+  .overviewCardAction { min-height: 44px; }
+  .closingCta { min-height: 195px; }
+  .closingCtaInner { padding-block: 22px; }
+  .closingCta h2 { font-size: 1.7rem; }
+}
