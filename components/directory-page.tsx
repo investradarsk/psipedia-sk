@@ -4,7 +4,6 @@ import {
   PublicContentShell,
   PublicContextBanner,
   PublicFoundation,
-  PublicLandingSectionHeading,
   PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
