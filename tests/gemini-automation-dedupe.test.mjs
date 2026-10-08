@@ -193,3 +193,20 @@ test("source-only primary URL changes cannot bypass name+city rejection memory",
   assert.equal((await checkGeminiCandidateDedupe(ctx.db, scope(revised))).status, "REJECTED_BEFORE");
   ctx.close();
 });
+
+test("different social-network profile URLs on a shared host cannot produce strong domain dedupe/rejection", async () => {
+  const ctx = setup();
+  const social = candidate({ primary_url: "https://facebook.com/dogschool-a",
+    contacts: { website: "https://facebook.com/dogschool-a", phone: null, email: null },
+    source_urls: ["https://facebook.com/dogschool-a"],
+    evidence: [{ source_url: "https://facebook.com/dogschool-a", fields: ["name"] }] });
+  ctx.add({ website: "https://facebook.com/dogschool-b" });
+  assert.equal((await checkGeminiCandidateDedupe(ctx.db, scope(social))).status, "POSSIBLE_DUPLICATE");
+  await rememberGeminiRejection(ctx.db, { stableKey: "directory.treneri", candidate: social });
+  const another = candidate({ ...social, primary_url: "https://facebook.com/dogschool-c",
+    source_urls: ["https://facebook.com/dogschool-c"],
+    contacts: { website: "https://facebook.com/dogschool-c", phone: null, email: null },
+    evidence: [{ source_url: "https://facebook.com/dogschool-c", fields: ["name"] }] });
+  assert.equal((await isGeminiCandidateRejected(ctx.db, scope(another))), null);
+  ctx.close();
+});
