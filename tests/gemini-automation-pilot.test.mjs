@@ -254,3 +254,41 @@ test("no scheduler, migration, publish, legacy or real provider activity is intr
   assert.match(pilot, /checkGeminiCandidateDedupe/);
   assert.match(pilot, /discoverGeminiCandidates/);
 });
+
+test("INVALID_RESPONSE retains bounded real provider search-query metrics in existing D1 run, no schema change", async () => {
+  const f = fixture(1);
+  let calls = 0;
+  try {
+    const result = await run(f, { dependencies: dependencies({
+      discovery: async () => {
+        calls++;
+        throw new GeminiAutomationError("INVALID_RESPONSE", undefined, 7);
+      },
+      bridge: async () => { throw Error("bridge must not run"); },
+    }) });
+    assert.equal(calls, 1);
+    assert.equal(result.status, "FAILED");
+    assert.equal(result.errorCode, "INVALID_RESPONSE");
+    assert.equal(result.groundedSearchQueryCount, 7);
+    assert.equal(result.conceptCount, 0);
+    assert.equal(f.runs()[0].error_code, "INVALID_RESPONSE");
+    assert.equal(f.runs()[0].request_count, 1);
+    assert.equal(f.runs()[0].grounded_search_query_count, 7);
+    assert.equal(f.runs()[0].concept_count, 0);
+    assert.equal(f.setting().next_run_at, "2026-10-12T10:00:00Z");
+  } finally { f.close(); }
+});
+
+test("invalid provider query metrics cannot poison D1 audit counts", async () => {
+  for (const count of [-1, 101, 1.5, NaN]) {
+    const f = fixture();
+    try {
+      const result = await run(f, { dependencies: dependencies({
+        discovery: async () => { throw new GeminiAutomationError("INVALID_RESPONSE", undefined, count); },
+      }) });
+      assert.equal(result.status, "FAILED");
+      assert.equal(result.groundedSearchQueryCount, 0);
+      assert.equal(f.runs()[0].grounded_search_query_count, 0);
+    } finally { f.close(); }
+  }
+});
