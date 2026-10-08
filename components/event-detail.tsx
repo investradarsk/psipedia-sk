@@ -20,7 +20,7 @@ function eventTimeLabel(event: DogEvent) {
 
 function eventLocationLines(event: DogEvent) {
   const raw = event.region === "Online"
-    ? [event.venue, event.city, "Online"]
+    ? ["Online podujatie"]
     : [event.venue, event.address, event.city, event.region];
   const lines = [...new Set(raw.map((value) => value.trim()).filter(Boolean))];
   return lines.length ? lines : ["Miesto bude upresnené"];
