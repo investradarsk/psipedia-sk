@@ -1,0 +1,35 @@
+.sections { display: grid; gap: 32px; }
+.sectionHeader { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.sectionHeader h2, .history h2 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.5rem); }
+.sectionHeader span { color: #52675c; font-size: .875rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { border: 1px solid #dbe7df; border-radius: 14px; padding: 20px; background: #fff; display: grid; gap: 18px; min-width: 0; box-shadow: 0 1px 4px rgba(10, 40, 23, .035); }
+.cardTitle { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.cardTitle h3 { margin: 0; font-size: 1.1rem; line-height: 1.4; }
+.state { flex: none; font-size: .78rem; background: #f0f4f0; padding: 5px 9px; border-radius: 999px; color: #425a4b; }
+.toggle { display: flex; gap: 10px; align-items: center; font-weight: 600; font-size: .9rem; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: #174b38; }
+.fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr); gap: 12px; }
+.fields label { display: grid; gap: 6px; font-size: .85rem; font-weight: 600; }
+.fields select, .fields input { display: block; min-width: 0; width: 100%; height: 44px; border: 1px solid #bbcfc2; border-radius: 9px; padding: 8px 10px; color: #163c2c; background: #fff; font: inherit; }
+.fields select:focus-visible, .fields input:focus-visible, .toggle input:focus-visible, .card button:focus-visible { outline: 3px solid #f0bc58; outline-offset: 2px; }
+.fields select:disabled, .fields input:disabled { opacity: .6; }
+.timestamps { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-top: 1px solid #e7eee9; padding-top: 14px; }
+.timestamps div { min-width: 0; }
+.timestamps dt { color: #65786c; font-size: .8rem; }
+.timestamps dd { margin: 3px 0 0; font-weight: 600; font-size: .9rem; overflow-wrap: anywhere; }
+.cardBottom { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.cardBottom button { padding: 10px 18px; cursor: pointer; }
+.cardBottom button:disabled { opacity: .55; cursor: not-allowed; }
+.feedback { color: #355b44; font-size: .85rem; overflow-wrap: anywhere; }
+.notice, .warning { padding: 15px 18px; border-radius: 12px; line-height: 1.55; margin: 0 0 20px; background: #f0f5f0; color: #234b33; }
+.warning { background: #fff5e5; color: #794b16; }
+.history { display: grid; gap: 14px; margin-top: 36px; }
+.empty { background: #fff; border: 1px dashed #bbcfc2; border-radius: 12px; padding: 22px; color: #57675e; margin: 0; }
+.tableScroll { overflow-x: auto; border: 1px solid #dbe7df; border-radius: 12px; background: #fff; }
+.historyTable { border-collapse: collapse; width: 100%; min-width: 960px; font-size: .875rem; }
+.historyTable th, .historyTable td { padding: 12px; text-align: left; border-bottom: 1px solid #edf2ef; vertical-align: top; }
+.historyTable th { background: #f5f8f6; white-space: nowrap; }
+.historyTable tbody tr:last-child td { border-bottom: 0; }
+@media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+@media (max-width: 460px) { .card { padding: 15px; } .fields { grid-template-columns: 1fr; } .timestamps { gap: 10px; } }
