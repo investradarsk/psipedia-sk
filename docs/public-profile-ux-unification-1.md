@@ -21,7 +21,6 @@ Bez zmien databázy, adresnej presnosti, routingu, SEO politík, Google Maps wor
 ## Regresie
 
 - Node zdrojové kontrakty: `tests/organization-profile-route.test.mjs`.
-- Playwright: `tests/e2e/public-profile-unification.spec.ts` (320/390/1440 px, reálne fixture profily, CTA, poradie, accessibility, overflow, bez obrázka a kontaktu).
-- Existujúce `services-detail-shell` a `organization-profile` E2E testy zostávajú v platnosti.
+- Playwright: nové scenáre v `tests/e2e/services-detail-shell.spec.ts` a `tests/e2e/organization-profile.spec.ts` (320/390/1440 px, reálne fixture profily, CTA, poradie, accessibility, overflow, bez obrázka a kontaktu). Tieto testy sú automaticky spúšťané existujúcimi oddelenými CI workflowmi s príslušnými D1 fixtures.
 
 Pred merge kontrolovať CI, desktop/mobile vizuálny diff a fyzický iPhone Safari; tieto výsledky nie sú deklarované ako PASS bez vykonania.
