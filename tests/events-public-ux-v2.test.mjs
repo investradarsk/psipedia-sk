@@ -14,8 +14,11 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
   assert.match(calendar, /data-events-month-calendar/);
   assert.match(calendar, /id="events-calendar"/);
   assert.match(calendar, /id="events-list"/);
-  assert.match(calendar, /href="#events-list"/);
-  assert.match(calendar, /href="#events-calendar"/);
+  assert.match(calendar, /<EventBrowseMode>/);
+  const view = source("components/events-view-mode.tsx");
+  assert.match(view, /useState<BrowseMode>\("both"\)/);
+  assert.match(view, /aria-pressed=\{mode === option.value\}/);
+  assert.match(view, /onClick=\{\(\) => setMode\(option.value\)\}/);
   assert.match(calendar, /href=\{eventHref\(event\)\}/);
   assert.match(route, /getPublishedEventsInMonth\(calendarMonth\)/);
   assert.doesNotMatch(calendar, /"use client"|window\.history|useState/);
@@ -54,6 +57,7 @@ test("mobile cards and details keep online events accurate and provide a listing
   assert.match(css, /\.eventCardWithImage[\s\S]*grid-template-columns: 62px minmax\(0, 1fr\) 68px/);
   assert.match(css, /\.toolbar \.filterToggle/);
   assert.match(css, /@media \(max-width: 380px\)/);
+  assert.match(css, /\.browseMode\[data-events-browse-mode="list"\] \.monthCalendar/);
 });
 
 test("SEO recovery boundaries: no URL schema or indexing policy changes", () => {
