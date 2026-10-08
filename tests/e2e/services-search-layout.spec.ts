@@ -394,7 +394,13 @@ test.describe("public services search layout", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     const form = page.locator(".directory-results form").first();
-    await form.getByRole("button", { name: /^Ďalšie filtre/ }).click();
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    // The interaction requires hydrated client state; an early SSR-only click is inert.
+    await page.waitForLoadState("networkidle");
+    await expect(filterToggle).toBeEnabled();
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(form.locator('select[name="category"]')).toBeVisible();
     await form.locator('select[name="category"]').selectOption("veterinari");
     await form.locator('input[name="q"]').fill("publikovana");
     await Promise.all([
