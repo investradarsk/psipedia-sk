@@ -83,8 +83,8 @@ function citedUrl(value: unknown): string | null {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
     if (!["http:", "https:"].includes(url.protocol) || !host || url.username || url.password ||
-      /^(localhost|.*\\.localhost|.*\\.local|.*\\.internal)$/i.test(host) ||
-      host.startsWith("[") || /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(host) &&
+      /^(localhost|.*\.localhost|.*\.local|.*\.internal)$/i.test(host) ||
+      host.startsWith("[") || /^\d+\.\d+\.\d+\.\d+$/.test(host) &&
         (() => {
           const [a, b] = host.split(".").map(Number);
           return a === 0 || a === 10 || a === 127 || a === 169 && b === 254 ||
