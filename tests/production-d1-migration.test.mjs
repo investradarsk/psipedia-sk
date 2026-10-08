@@ -1344,11 +1344,11 @@ function adminPush0116Schema() {
       {
         name: "admin_notification_read_receipts",
         type: "table",
-        sql: \`CREATE TABLE admin_notification_read_receipts (
+        sql: `CREATE TABLE admin_notification_read_receipts (
           event_id INTEGER NOT NULL REFERENCES admin_notification_events(id) ON DELETE CASCADE,
           admin_email TEXT NOT NULL, read_at TEXT NOT NULL,
           PRIMARY KEY (event_id, admin_email)
-        )\`,
+        )`,
       },
       {
         name: "admin_notification_read_receipts_admin_idx", type: "index",
@@ -1439,7 +1439,7 @@ test("0116 push fully applied schema validates constraints, columns and both exa
 
 test("0116 migration history is exact, pending vs already applied, and refuses ledger mismatches", () => {
   const target = "0116_admin_automation_push.sql";
-  const prefix = Array.from({ length: 62 }, (_, i) => \`\${String(i).padStart(4, "0")}_migration.sql\`);
+  const prefix = Array.from({ length: 62 }, (_, i) => `${String(i).padStart(4, "0")}_migration.sql`);
   const expected = [...prefix, ...supportedTargetsThrough(116)];
   const pending = expected.slice(0, -1);
   assert.deepEqual(validateProductionTargetHistory(pending, expected, target), {
