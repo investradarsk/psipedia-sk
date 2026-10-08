@@ -353,13 +353,18 @@ test("@production directory listing, veterinarians, profile and filters work", a
   await expect(page.locator("h1")).toBeVisible();
   await gotoProductionPage(page, "/adresar/veterinari");
   await expect(page.locator("h1")).toContainText("Veterinári");
-  const filter = page.locator(".directory-results form").first();
+  const filter = page.locator('form[data-public-search-form="services"]');
+  await expect(filter).toBeVisible();
   await filter.locator('input[name="q"]').fill("Nitra");
   await Promise.all([
-    page.waitForURL(/q=Nitra/i, { waitUntil: "commit" }),
-    filter.getByRole("button", { name: "Zobraziť výsledky" }).click(),
+    page.waitForURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("q") === "Nitra", { waitUntil: "commit" }),
+    filter.getByRole("button", { name: "Hľadať", exact: true }).click(),
   ]);
+  await expect(page).toHaveURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("q") === "Nitra");
   await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator(".directory-results")).toBeVisible();
+  await expect(page.locator('form[data-public-search-form="services"] input[name="q"]')).toHaveValue("Nitra");
+  await expect(page.locator(".directory-results [data-directory-card]").first()).toBeVisible();
   await gotoProductionPage(page, "/adresar/veterinari");
   const detailHref = await firstPublicLink(page, ".directory-grid", /^\/adresar\/veterinari\/[^/?#]+$/);
   await gotoProductionPage(page, detailHref);
