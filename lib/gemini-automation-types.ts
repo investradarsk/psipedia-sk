@@ -6,11 +6,17 @@ export type GeminiFailureCode =
 export class GeminiAutomationError extends Error {
   readonly code: GeminiFailureCode;
   readonly httpStatus?: number;
-  constructor(code: GeminiFailureCode, httpStatus?: number) {
+  /** Bounded count only; never carries query text or response data. */
+  readonly groundedSearchQueryCount?: number;
+  constructor(code: GeminiFailureCode, httpStatus?: number, groundedSearchQueryCount?: number) {
     super(code);
     this.name = "GeminiAutomationError";
     this.code = code;
     this.httpStatus = httpStatus;
+    if (code === "INVALID_RESPONSE" && Number.isInteger(groundedSearchQueryCount) &&
+      groundedSearchQueryCount! >= 0 && groundedSearchQueryCount! <= 100) {
+      this.groundedSearchQueryCount = groundedSearchQueryCount;
+    }
   }
 }
 

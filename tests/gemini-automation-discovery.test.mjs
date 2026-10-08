@@ -33,8 +33,8 @@ function mockResponse(value = envelope(), options = {}) {
     status: options.status || "completed",
     steps: [
       ...(options.search === false ? [] : [
-        { type: "google_search_call", arguments: { queries: ["Psia skola Slovensko", "treneri psov Nitra"] } },
-        { type: "google_search_result", result: [{ search_suggestions: "<not-persisted>" }] },
+        { type: "google_search_call", id: "gs_1", arguments: { queries: ["Psia skola Slovensko", "treneri psov Nitra"] } },
+        { type: "google_search_result", call_id: "gs_1", result: [{ search_suggestions: "<not-persisted>" }] },
       ]),
       { type: "model_output", content: [{
         type: "text",
@@ -134,12 +134,11 @@ test("G: normalized grounded response has only V1 candidate facts, no payload or
   assert.equal(JSON.stringify(result).includes(secret), false);
 });
 
-test("H: invalid JSON, provider shape, ungrounded result fail closed", async () => {
+test("H: invalid JSON, provider shape, and missing Search fail closed", async () => {
   for (const value of ["{not json", "null", "[]", "{\"bad\":true}"]) {
     await assert.rejects(discoverWith(value), isInvalid);
   }
-  for (const options of [{ search: false }, { citations: false }, { citationUrl: "https://another.sk/" },
-    { status: "in_progress" }]) {
+  for (const options of [{ search: false }, { status: "in_progress" }]) {
     await assert.rejects(discoverGeminiCandidates({
       env, stableKey, maxCandidates: 3,
       fetchImpl: async () => new Response(JSON.stringify(mockResponse(envelope(), options))),
@@ -158,6 +157,13 @@ test("K-L: no source, non-HTTP, invalid URLs or unrelated evidence fail", () => 
     { source_urls: [] },
     { source_urls: ["javascript:alert(1)"] },
     { source_urls: ["http://localhost/admin"] },
+    { source_urls: ["http://127.0.0.1/private"] },
+    { source_urls: ["http://10.0.0.1/private"] },
+    { source_urls: ["http://172.16.0.1/private"] },
+    { source_urls: ["http://192.168.1.1/private"] },
+    { source_urls: ["http://100.64.1.1/private"] },
+    { source_urls: ["http://[::1]/private"] },
+    { source_urls: ["http://[fe80::1]/private"] },
     { source_urls: ["https://user:pass@example.sk"] },
     { source_urls: ["not a URL"] },
     { primary_url: "ftp://example.sk" },
@@ -323,5 +329,259 @@ test("T-W: pure discovery has no DB write, Notion/dedupe, scheduler or admin-run
     assert.ok(scopes.scopes.includes("GEMINI_AUTOMATION"), path);
     assert.equal(scopes.fullCore, false);
     assert.equal(scopes.automationBroad, false);
+  }
+});
+
+
+/** Fixtures reflect the post-May-2026 Interactions steps contract:
+ * https://ai.google.dev/api/interactions-api and /api/interactions-api-v1
+ * No live Gemini requests are made by this suite. */
+const mockedInteraction = async (payload, onCall = () => {}) =>
+  discoverGeminiCandidates({
+    env, stableKey, maxCandidates: 3,
+    fetchImpl: async () => {
+      onCall();
+      return new Response(JSON.stringify(payload), { status: 200 });
+    },
+  });
+
+test("Interactions documented google_search_call arguments.queries and arguments.query both count", async () => {
+  const plural = mockResponse();
+  assert.equal((await mockedInteraction(plural)).providerMetrics.groundedSearchQueryCount, 2);
+  const singular = mockResponse();
+  singular.steps[0].arguments = { query: "treneri psov Nitra" };
+  assert.equal((await mockedInteraction(singular)).providerMetrics.groundedSearchQueryCount, 1);
+  for (const args of [
+    {}, { query: "" }, { query: "   " }, { query: "x".repeat(301) },
+    { query: 5 }, { queries: [] }, { queries: [""] },
+    { queries: ["valid", "  "] }, { queries: Array.from({ length: 31 }, () => "test") },
+    { queries: ["x".repeat(301)] }, { query: "valid", queries: ["also valid"] },
+    { queries: ["valid"], unrecognized: true },
+  ]) {
+    const invalid = mockResponse();
+    invalid.steps[0].arguments = args;
+    await assert.rejects(mockedInteraction(invalid), isInvalid);
+  }
+});
+
+test("google_search_result requires real matched successful result step, not its textual contents", async () => {
+  const valid = mockResponse();
+  assert.equal((await mockedInteraction(valid)).providerMetrics.candidateCount, 1);
+  const wrongId = mockResponse();
+  wrongId.steps[1].call_id = "search_call_not_present";
+  await assert.rejects(mockedInteraction(wrongId), isInvalid);
+  const noResult = mockResponse();
+  delete noResult.steps[1].result;
+  await assert.rejects(mockedInteraction(noResult), isInvalid);
+  const errorResult = mockResponse();
+  errorResult.steps[1].is_error = true;
+  await assert.rejects(mockedInteraction(errorResult), isInvalid);
+});
+
+test("structured JSON can span multiple model_output text blocks and annotations can be split", async () => {
+  const response = mockResponse();
+  const full = response.steps[2].content[0].text;
+  const midpoint = Math.floor(full.length / 2);
+  response.steps[2].content = [
+    { type: "text", text: full.slice(0, midpoint), annotations: [] },
+    { type: "text", text: full.slice(midpoint), annotations: [{ type: "url_citation", url }] },
+  ];
+  const result = await mockedInteraction(response);
+  assert.deepEqual(result.candidates, [candidate()]);
+});
+
+test("canonical equivalent absolute source URLs match without depending on inline Google citations", async () => {
+  const data = envelope();
+  data.candidates[0].primary_url = "https://example.sk";
+  data.candidates[0].source_urls = ["https://example.sk/", "https://example.sk", url];
+  data.candidates[0].evidence = [{ source_url: "https://example.sk", fields: ["name"] }];
+  const normalized = parseGeminiDiscoveryEnvelope(data, request());
+  assert.equal(normalized.candidates[0].primary_url, "https://example.sk/");
+  assert.deepEqual(normalized.candidates[0].source_urls, ["https://example.sk/", url]);
+  assert.deepEqual(normalized.candidates[0].evidence[0].source_url, "https://example.sk/");
+  const interaction = mockResponse(data, { citationUrl: "https://example.sk/" });
+  assert.equal((await mockedInteraction(interaction)).candidates.length, 1);
+  const alien = mockResponse(data, { citationUrl: "https://unrelated.sk/" });
+  assert.equal((await mockedInteraction(alien)).candidates.length, 1);
+  const noCitations = mockResponse(data, { citations: false });
+  assert.equal((await mockedInteraction(noCitations)).candidates.length, 1);
+});
+
+test("INVALID_RESPONSE has bounded phase-specific diagnostics and never changes public error code", async () => {
+  const base = () => mockResponse();
+  const changed = (fn) => { const value = base(); fn(value); return value; };
+  const cases = [
+    ["INTERACTION_SHAPE", 9],
+    ["INTERACTION_STATUS", changed((v) => { v.status = "requires_action"; })],
+    ["STEPS_INVALID", changed((v) => { v.steps = [null]; })],
+    ["SEARCH_CALL_INVALID", changed((v) => { v.steps[0].arguments = { query: "" }; })],
+    ["SEARCH_RESULT_INVALID", changed((v) => { v.steps[1].result = false; })],
+    ["SEARCH_RESULT_MISSING", changed((v) => { v.steps.splice(1, 1); })],
+    ["MODEL_OUTPUT_INVALID", changed((v) => { v.steps[2].content = [{ type: "image", data: "private" }]; })],
+    ["OUTPUT_JSON_INVALID", changed((v) => { v.steps[2].content[0].text = "{not JSON"; })],
+    ["DISCOVERY_SCHEMA_INVALID", changed((v) => { v.steps[2].content[0].text = JSON.stringify({ schema_version: 1, category_key: stableKey, candidates: [{ ...candidate(), name: "" }] }); })],
+    ["RESPONSE_TOO_LARGE", changed((v) => { v.steps[2].content[0].text = "z".repeat(100_001); })],
+  ];
+  const warn = console.warn;
+  const logs = [];
+  console.warn = (...args) => { logs.push(args); };
+  try {
+    for (const [reason, value] of cases) {
+      const before = logs.length;
+      await assert.rejects(mockedInteraction(value), isInvalid);
+      assert.equal(logs.length, before + 1, reason);
+      const [event, metadata] = logs.at(-1);
+      assert.equal(event, "gemini_discovery_invalid_response");
+      assert.equal(metadata.reason, reason);
+      assert.equal(metadata.schemaValid, false);
+      assert.deepEqual(Object.keys(metadata), [
+        "reason", "status", "stepCount", "stepTypes", "modelOutputBlocks",
+        "googleSearchCalls", "googleSearchResults", "citations", "jsonParsed", "schemaValid",
+      ]);
+      assert.ok(metadata.stepCount >= 0 && metadata.stepCount <= 81);
+      assert.ok(metadata.stepTypes.length <= 8);
+    }
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test("diagnostic logging strips provider body, prompt, search query, URL, candidate facts and API key", async () => {
+  const sentinel = "PRIVATE_SENTINEL_DO_NOT_LOG";
+  const response = mockResponse();
+  response.steps[0].arguments = { query: sentinel };
+  response.steps[1].result = [{ search_suggestions: sentinel, url: "https://private-host.sk/sensitive" }];
+  const fake = envelope();
+  fake.candidates[0].name = sentinel;
+  fake.candidates[0].contacts.email = "private@example.sk";
+  response.steps[2].content[0].text = JSON.stringify({ ...fake, schema_version: 2 });
+  response.steps[2].content[0].annotations = [{ type: "url_citation", url: "https://unrelated.sk/private" }];
+  const logs = [];
+  const warn = console.warn;
+  console.warn = (...args) => { logs.push(args); };
+  let providerRequests = 0;
+  try {
+    await assert.rejects(mockedInteraction(response, () => { providerRequests++; }), isInvalid);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(providerRequests, 1, "failed validation must not retry");
+  assert.equal(logs.length, 1);
+  const diagnostic = JSON.stringify(logs);
+  for (const forbidden of [sentinel, "private@example.sk", "private-host.sk", "unrelated.sk",
+    secret, "Search grounding", "source_urls", "candidate", "PRIVATE"]) {
+    assert.equal(diagnostic.includes(forbidden), false, forbidden);
+  }
+  const original = readFileSync(new URL("../lib/gemini-automation-discovery.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(original, /console\.(?:log|info|warn|error)\s*\([^\n]*(?:raw|response\.text|options\.prompt|candidate\.name)/);
+});
+
+test("review-first: 7 correlated Google Search calls/results and zero citations create valid candidates", async () => {
+  const interaction = mockResponse(envelope(), { citations: false });
+  interaction.steps = [
+    ...Array.from({ length: 7 }, (_, i) => [
+      { type: "google_search_call", id: "gs_" + i,
+        arguments: { query: "treneri psov " + i } },
+      { type: "google_search_result", call_id: "gs_" + i,
+        result: [{ search_suggestions: "<not-a-source>" }] },
+    ]).flat(),
+    interaction.steps.at(-1),
+  ];
+  let calls = 0;
+  const result = await mockedInteraction(interaction, () => calls++);
+  assert.equal(calls, 1);
+  assert.equal(result.providerMetrics.groundedSearchQueryCount, 7);
+  assert.equal(result.candidates.length, 1);
+  assert.equal(result.candidates[0].source_urls[0], url);
+});
+
+test("review-first: Search is required and every result must correlate with a valid call", async () => {
+  const cases = [
+    (v) => { v.steps.splice(0, 2); },
+    (v) => { v.steps.splice(1, 1); },
+    (v) => { v.steps[1].call_id = "unknown_search_call"; },
+    (v) => { v.steps[1].is_error = true; },
+    (v) => { v.steps[0].arguments = { queries: ["   "] }; },
+  ];
+  for (const mutate of cases) {
+    const interaction = mockResponse(envelope(), { citations: false });
+    mutate(interaction);
+    let calls = 0;
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      await assert.rejects(mockedInteraction(interaction, () => calls++), isInvalid);
+    } finally { console.warn = warn; }
+    assert.equal(calls, 1, "never retry invalid Search");
+  }
+});
+
+test("review-first: missing V1 sources/evidence, invalid URLs and invalid structured JSON fail closed", async () => {
+  const changed = [
+    (x) => { x.candidates[0].source_urls = []; },
+    (x) => { x.candidates[0].evidence = []; },
+    (x) => { x.candidates[0].evidence[0].source_url = "https://other.sk"; },
+    (x) => { x.candidates[0].source_urls = ["http://172.17.0.1"]; x.candidates[0].evidence[0].source_url = "http://172.17.0.1"; x.candidates[0].primary_url = null; },
+    (x) => { x.candidates[0].source_urls = ["http://localhost"]; x.candidates[0].evidence[0].source_url = "http://localhost"; x.candidates[0].primary_url = null; },
+  ];
+  for (const mutate of changed) {
+    const data = envelope();
+    mutate(data);
+    const response = mockResponse(data, { citations: false });
+    const warn = console.warn;
+    console.warn = () => {};
+    try { await assert.rejects(mockedInteraction(response), isInvalid); }
+    finally { console.warn = warn; }
+  }
+  const malformed = mockResponse("{invalid_json", { citations: false });
+  const warn = console.warn;
+  console.warn = () => {};
+  try { await assert.rejects(mockedInteraction(malformed), isInvalid); }
+  finally { console.warn = warn; }
+});
+
+test("review-first: inline citations are optional and never ground or block candidate facts", async () => {
+  const withCitation = await mockedInteraction(mockResponse(envelope()));
+  const noCitation = await mockedInteraction(mockResponse(envelope(), { citations: false }));
+  const alienCitation = await mockedInteraction(mockResponse(envelope(), { citationUrl: "https://irrelevant.sk" }));
+  assert.deepEqual(withCitation.candidates, noCitation.candidates);
+  assert.deepEqual(withCitation.candidates, alienCitation.candidates);
+  assert.equal(withCitation.providerMetrics.requestCount, 1);
+});
+
+test("review-first: only Google Search is sent; no URL Context parser or gate remains", async () => {
+  const { result, calls } = await discoverWith(envelope(), {
+    citations: false,
+    inspect(_url, init) {
+      const req = JSON.parse(init.body);
+      assert.deepEqual(req.tools, [{ type: "google_search" }]);
+      assert.doesNotMatch(req.input, /URL Context/i);
+      assert.equal(req.store, false);
+    },
+  });
+  assert.equal(result.candidates.length, 1);
+  assert.equal(calls, 1);
+  const discoverySource = readFileSync(new URL("../lib/gemini-automation-discovery.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(discoverySource, /url_context|GROUNDING_CITATION_MISSING|EVIDENCE_NOT_GROUNDED|groundedUrls/);
+});
+
+test("review-first: error log contains only safe structural fields without model or search text", async () => {
+  const secretMarker = "SENSITIVE_PRIVATE_VALUE_987";
+  const malformed = mockResponse(envelope(), { citations: false });
+  malformed.steps[0].arguments = { query: secretMarker };
+  malformed.steps[1].result = [{ search_suggestions: '<a href="https://secret.example/private">X</a>' }];
+  const data = envelope();
+  data.candidates[0].name = secretMarker;
+  data.candidates[0].contacts.email = "secret@example.sk";
+  malformed.steps[2].content[0].text = JSON.stringify({ ...data, schema_version: 5 });
+  const logs = [];
+  const prev = console.warn;
+  console.warn = (...args) => logs.push(args);
+  try { await assert.rejects(mockedInteraction(malformed), isInvalid); }
+  finally { console.warn = prev; }
+  assert.equal(logs.length, 1);
+  const message = JSON.stringify(logs);
+  for (const leaked of [secretMarker, "secret.example", "secret@example.sk", url, secret]) {
+    assert.equal(message.includes(leaked), false, leaked);
   }
 });

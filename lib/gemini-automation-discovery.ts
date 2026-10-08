@@ -25,7 +25,42 @@ type DiscoveryOptions = {
 function record(value: unknown): UnknownRecord | null {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value as UnknownRecord : null;
 }
-function fail(): never { throw new GeminiAutomationError("INVALID_RESPONSE"); }
+type InvalidResponseReason =
+  | "INTERACTION_SHAPE" | "INTERACTION_STATUS" | "STEPS_INVALID"
+  | "SEARCH_CALL_INVALID" | "SEARCH_RESULT_INVALID" | "SEARCH_RESULT_MISSING"
+  | "MODEL_OUTPUT_INVALID" | "OUTPUT_JSON_INVALID" | "DISCOVERY_SCHEMA_INVALID"
+  | "RESPONSE_TOO_LARGE";
+type SafeDiagnostic = {
+  status?: string;
+  stepCount?: number;
+  stepTypes?: string[];
+  modelOutputBlocks?: number;
+  searchCalls?: number;
+  searchResults?: number;
+  citations?: number;
+  searchQueryCount?: number;
+  jsonParsed?: boolean;
+  schemaValid?: boolean;
+};
+const KNOWN_STATUSES = new Set(["completed", "failed", "in_progress", "requires_action", "cancelled"]);
+const KNOWN_STEP_TYPES = new Set(["google_search_call", "google_search_result", "model_output", "thought", "user_input"]);
+
+/** Never log the provider payload, its text, URLs, queries, candidates, prompt or credentials. */
+function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
+  console.warn("gemini_discovery_invalid_response", {
+    reason,
+    status: safe.status ?? "unknown",
+    stepCount: safe.stepCount ?? 0,
+    stepTypes: safe.stepTypes ?? [],
+    modelOutputBlocks: safe.modelOutputBlocks ?? 0,
+    googleSearchCalls: safe.searchCalls ?? 0,
+    googleSearchResults: safe.searchResults ?? 0,
+    citations: safe.citations ?? 0,
+    jsonParsed: safe.jsonParsed ?? false,
+    schemaValid: safe.schemaValid ?? false,
+  });
+  throw new GeminiAutomationError("INVALID_RESPONSE", undefined, Math.min(100, Math.max(0, safe.searchQueryCount ?? 0)));
+}
 function citedUrl(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 2048) return null;
   try {
@@ -37,51 +72,89 @@ function citedUrl(value: unknown): string | null {
 function groundedResponse(payload: unknown): {
   output: unknown;
   groundedSearchQueryCount: number;
-  citedUrls: Set<string>;
+  diagnostic: SafeDiagnostic;
 } {
   const value = record(payload);
-  if (!value || value.status !== "completed" || !Array.isArray(value.steps) || value.steps.length > 80) fail();
-  const textBlocks: UnknownRecord[] = [];
+  if (!value) fail("INTERACTION_SHAPE");
+  const safe: SafeDiagnostic = {
+    status: typeof value.status === "string" && KNOWN_STATUSES.has(value.status) ? value.status : "unknown",
+    stepCount: Array.isArray(value.steps) ? Math.min(value.steps.length, 81) : 0,
+    stepTypes: [],
+    modelOutputBlocks: 0,
+    searchCalls: 0,
+    searchResults: 0,
+    citations: 0,
+    searchQueryCount: 0,
+    jsonParsed: false,
+    schemaValid: false,
+  };
+  const invalid = (reason: InvalidResponseReason): never => fail(reason, safe);
+  if (value.status !== "completed") invalid("INTERACTION_STATUS");
+  if (!Array.isArray(value.steps) || value.steps.length > 80) invalid("STEPS_INVALID");
+  const textPieces: string[] = [];
   const citations = new Set<string>();
-  let calls = 0;
-  let results = 0;
+  const callIds = new Set<string>();
+  const resultIds = new Set<string>();
   let searchCount = 0;
+  let textLength = 0;
   for (const raw of value.steps) {
     const step = record(raw);
-    if (!step) fail();
+    if (!step || typeof step.type !== "string") invalid("STEPS_INVALID");
+    const safeType = KNOWN_STEP_TYPES.has(step.type) ? step.type : "other";
+    if (!safe.stepTypes!.includes(safeType) && safe.stepTypes!.length < 8) safe.stepTypes!.push(safeType);
     if (step.type === "google_search_call") {
-      calls++;
-      const queries = record(step.arguments)?.queries;
-      if (!Array.isArray(queries) || queries.length > 30 ||
-        queries.some((query) => typeof query !== "string" || query.length > 300)) fail();
-      searchCount += queries.filter((q: string) => q.trim().length > 0).length;
-    }
-    if (step.type === "google_search_result") results++;
-    if (step.type === "model_output") {
-      if (!Array.isArray(step.content)) fail();
+      safe.searchCalls!++;
+      const args = record(step.arguments);
+      if (!args || typeof step.id !== "string" || !step.id || step.id.length > 256 ||
+        callIds.has(step.id)) invalid("SEARCH_CALL_INVALID");
+      callIds.add(step.id);
+      // Both shapes appear in the official v1beta documentation. Never accept a hybrid.
+      const keys = Object.keys(args);
+      if (keys.length !== 1 || !["query", "queries"].includes(keys[0])) invalid("SEARCH_CALL_INVALID");
+      const queries = keys[0] === "query" ? [args.query] : args.queries;
+      if (!Array.isArray(queries) || queries.length < 1 || queries.length > 30 ||
+        queries.some((query) => typeof query !== "string" || !query.trim() || query.length > 300)) {
+        invalid("SEARCH_CALL_INVALID");
+      }
+      searchCount += queries.length;
+      safe.searchQueryCount = Math.min(searchCount, 100);
+    } else if (step.type === "google_search_result") {
+      safe.searchResults!++;
+      if (typeof step.call_id !== "string" || !step.call_id || step.call_id.length > 256 ||
+        step.is_error === true || !Array.isArray(step.result) || step.result.length > 100 ||
+        step.result.some((item: unknown) => !record(item))) invalid("SEARCH_RESULT_INVALID");
+      resultIds.add(step.call_id);
+    } else if (step.type === "model_output") {
+      if (!Array.isArray(step.content) || step.content.length > 32) invalid("MODEL_OUTPUT_INVALID");
       for (const content of step.content) {
         const part = record(content);
-        if (!part || part.type !== "text") fail();
-        textBlocks.push(part);
+        if (!part || part.type !== "text" || typeof part.text !== "string") invalid("MODEL_OUTPUT_INVALID");
+        safe.modelOutputBlocks!++;
+        textLength += part.text.length;
+        if (textLength > 100_000) invalid("RESPONSE_TOO_LARGE");
+        textPieces.push(part.text);
         const annotations = part.annotations;
         if (annotations === undefined) continue;
-        if (!Array.isArray(annotations) || annotations.length > 128) fail();
+        if (!Array.isArray(annotations) || annotations.length > 128) invalid("MODEL_OUTPUT_INVALID");
         for (const annotation of annotations) {
           const citation = record(annotation);
           if (citation?.type === "url_citation") {
-            const url = citedUrl(citation.url);
-            if (url) citations.add(url);
+            const normalized = citedUrl(citation.url);
+            if (normalized) citations.add(normalized);
           }
         }
       }
     }
   }
-  // Search must actually have run; merely supplying the tool declaration is insufficient.
-  if (calls < 1 || results < 1 || searchCount < 1 || textBlocks.length !== 1 ||
-    typeof textBlocks[0].text !== "string" || textBlocks[0].text.length > 100_000) fail();
+  safe.citations = Math.min(citations.size, 128);
+  if (safe.searchCalls! < 1 || searchCount < 1) invalid("SEARCH_CALL_INVALID");
+  if (safe.searchResults! < 1 || ![...resultIds].every((id) => callIds.has(id))) invalid("SEARCH_RESULT_MISSING");
+  if (textPieces.length < 1 || !textLength) invalid("MODEL_OUTPUT_INVALID");
+  // Text blocks are optional/multiple in the wire contract; JSON remains validated as one document.
   let output: unknown;
-  try { output = JSON.parse(textBlocks[0].text as string); } catch { fail(); }
-  return { output, groundedSearchQueryCount: Math.min(searchCount, 100), citedUrls: citations };
+  try { output = JSON.parse(textPieces.join("")); } catch { invalid("OUTPUT_JSON_INVALID"); }
+  safe.jsonParsed = true;
+  return { output, groundedSearchQueryCount: Math.min(searchCount, 100), diagnostic: safe };
 }
 
 async function interact(options: {
@@ -118,11 +191,11 @@ async function interact(options: {
     if (response.status === 429) throw new GeminiAutomationError("RATE_LIMITED", response.status);
     if (!response.ok) throw new GeminiAutomationError("PROVIDER_ERROR", response.status);
     const length = Number(response.headers.get("content-length") || 0);
-    if (!Number.isFinite(length) || length > 512_000) fail();
+    if (!Number.isFinite(length) || length > 512_000) fail("RESPONSE_TOO_LARGE");
     const raw = await response.text();
-    if (raw.length > 512_000) fail();
+    if (raw.length > 512_000) fail("RESPONSE_TOO_LARGE");
     let payload: unknown;
-    try { payload = JSON.parse(raw); } catch { fail(); }
+    try { payload = JSON.parse(raw); } catch { fail("INTERACTION_SHAPE"); }
     return { model, payload };
   } catch (error) {
     if (error instanceof GeminiAutomationError) throw error;
@@ -157,16 +230,22 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
     fetchImpl: options.fetchImpl,
     timeoutMs: options.timeoutMs,
   });
-  const { output, groundedSearchQueryCount, citedUrls } = groundedResponse(response.payload);
-  const parsed = parseGeminiDiscoveryEnvelope(output, request);
-  // For every entity, require an evidence source actually cited by Google's grounded model
-  // output. Grounded search for a different entity must not authenticate invented records.
-  for (const candidate of parsed.candidates) {
-    if (!candidate.evidence.some((evidence) => {
-      const normalized = citedUrl(evidence.source_url);
-      return normalized !== null && citedUrls.has(normalized);
-    })) fail();
+  const { output, groundedSearchQueryCount, diagnostic } = groundedResponse(response.payload);
+  let parsed: ReturnType<typeof parseGeminiDiscoveryEnvelope>;
+  try {
+    parsed = parseGeminiDiscoveryEnvelope(output, request);
+  } catch (error) {
+    if (error instanceof GeminiAutomationError && error.code === "INVALID_RESPONSE") {
+      fail("DISCOVERY_SCHEMA_INVALID", diagnostic);
+    }
+    throw error;
   }
+  diagnostic.schemaValid = true;
+  // REVIEW-FIRST: Google Search must have executed and local Discovery Candidate V1
+  // strictly validates public source/evidence URLs. Candidates then pass through
+  // deterministic dedupe and human review in unpublished drafts/Notion concepts.
+  // Inline Google citations are optional diagnostics, never a creation gate.
+  // Publishing without an explicit human decision is not available here.
   return {
     candidates: parsed.candidates,
     providerMetrics: {

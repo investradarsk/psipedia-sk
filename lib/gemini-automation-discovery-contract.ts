@@ -75,12 +75,25 @@ function urlValue(value: unknown, nullable = false): string | null {
   if (raw === null) return null;
   try {
     const parsed = new URL(raw);
-    if (!["https:", "http:"].includes(parsed.protocol) || !parsed.hostname ||
-      parsed.username || parsed.password ||
-      /^(localhost|.*\.localhost|.*\.local)$/i.test(parsed.hostname) ||
-      /^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(parsed.hostname) ||
-      /^\[?(::1|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:)/i.test(parsed.hostname)) return invalid();
-    return raw;
+    const host = parsed.hostname.toLowerCase();
+    const ipv4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
+    const octets = ipv4?.slice(1).map(Number);
+    const privateIpv4 = octets && (
+      octets[0] === 0 || octets[0] === 10 || octets[0] === 127 ||
+      octets[0] === 169 && octets[1] === 254 ||
+      octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31 ||
+      octets[0] === 192 && octets[1] === 168 ||
+      octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127 ||
+      octets[0] === 198 && (octets[1] === 18 || octets[1] === 19) ||
+      octets[0] >= 224
+    );
+    if (!["https:", "http:"].includes(parsed.protocol) || !host ||
+      parsed.username || parsed.password || privateIpv4 ||
+      /^(localhost|.*\.(?:localhost|local|internal))$/i.test(host) ||
+      /^\[(?:::|::1|::ffff:|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/i.test(host)) return invalid();
+    // URL serialization is deterministic (e.g. origin vs origin/, host casing).
+    // Do not infer new facts or remove query parameters/path segments.
+    return parsed.href;
   } catch { return invalid(); }
 }
 function nullableFields(value: unknown, keys: readonly string[], limits: Record<string, number>): Record<string, string | null> {
