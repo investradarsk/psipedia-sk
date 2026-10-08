@@ -1229,3 +1229,278 @@
   .secondaryFiltersOpen{grid-template-columns:minmax(0,1fr);width:100%}
   .secondaryFiltersOpen select,.resetFilters{width:100%;min-height:48px}
 }
+
+
+/* EVENTS-CALENDAR-V1: compact, server-rendered monthly discovery. */
+.monthCalendar {
+  min-width: 0;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-surface-raised);
+  padding: clamp(12px, 2vw, 22px);
+}
+
+.monthHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.monthEyebrow {
+  margin: 0 0 4px;
+  color: var(--ink-2);
+  font-weight: 800;
+  font-size: .74rem;
+}
+
+.monthHeading h2 {
+  margin: 0;
+  color: var(--forest-dark);
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
+}
+
+.monthNavigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.monthNavigation a,
+.dayDetailHeading a {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid var(--ps-border-strong);
+  border-radius: 10px;
+  background: var(--ps-surface);
+  color: var(--forest-dark);
+  font-size: .86rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  min-width: 0;
+}
+
+.weekday {
+  min-width: 0;
+  padding: 6px 1px;
+  color: var(--ink-2);
+  font-size: .8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.monthDay,
+.outsideDay {
+  min-width: 0;
+  min-height: 74px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 9px;
+  padding: 8px;
+}
+
+.monthDay {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+  background: var(--ps-surface);
+  color: var(--forest-dark);
+  font-size: .9rem;
+  text-decoration: none;
+}
+
+.monthDay:hover {
+  border-color: var(--forest);
+}
+
+.monthDay[data-count]:not([data-count="0"]) {
+  border-color: var(--forest);
+}
+
+.monthDay[data-today="true"] .monthDayNumber {
+  display: inline-grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--forest);
+  color: #fff;
+}
+
+.monthDay[data-selected="true"] {
+  border: 2px solid var(--forest-dark);
+  background: var(--sage-light);
+  padding: 7px;
+}
+
+.monthDayNumber {
+  font-weight: 800;
+  line-height: 25px;
+}
+
+.monthDayCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 2px 5px;
+  border-radius: 7px;
+  background: var(--forest);
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 850;
+  line-height: 1.1;
+}
+
+.outsideDay {
+  background: var(--ps-surface);
+  opacity: .35;
+}
+
+.dayDetail {
+  min-width: 0;
+  margin-top: 18px;
+  border-top: 1px solid var(--ps-border-soft);
+  padding-top: 18px;
+  scroll-margin-top: 24px;
+}
+
+.dayDetailHeading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.dayDetailHeading h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.dayEvents {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.dayEvent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--ps-surface);
+}
+
+.dayEvent div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dayEvent a {
+  color: var(--forest-dark);
+  font-weight: 800;
+}
+
+.dayEvent span,
+.dayEvent strong,
+.dayEmpty,
+.monthHint {
+  color: var(--ink-2);
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.dayEvent strong {
+  color: var(--forest-dark);
+}
+
+.dayEmpty,
+.monthHint {
+  margin: 14px 0 0;
+}
+
+.upcomingSection {
+  min-width: 0;
+  margin-top: 28px;
+}
+
+.upcomingSection h2 {
+  margin: 0 0 14px;
+  color: var(--forest-dark);
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+}
+
+.monthNavigation a:focus-visible,
+.monthDay:focus-visible,
+.dayDetailHeading a:focus-visible,
+.dayEvent a:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
+
+@media (max-width: 520px) {
+  .monthGrid {
+    gap: 3px;
+  }
+  .monthDay,
+  .outsideDay {
+    min-height: 52px;
+    padding: 4px;
+    border-radius: 5px;
+  }
+  .monthDay {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1px;
+  }
+  .monthDay[data-selected="true"] {
+    padding: 3px;
+  }
+  .monthDayNumber {
+    font-size: .77rem;
+    line-height: 19px;
+  }
+  .monthDay[data-today="true"] .monthDayNumber {
+    width: 20px;
+    height: 20px;
+  }
+  .monthDayCount {
+    min-width: 19px;
+    min-height: 18px;
+    padding: 1px 4px;
+    border-radius: 5px;
+    font-size: .68rem;
+  }
+  .weekday {
+    font-size: .72rem;
+  }
+  .monthNavigation {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

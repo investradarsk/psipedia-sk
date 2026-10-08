@@ -3,9 +3,19 @@ import { EventCard } from "@/components/event-card";
 import { SearchIcon } from "@/components/icons";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
+  calendarMonthDays,
+  calendarMonthLabel,
+  calendarWeekdays,
+  eventsForCalendarDay,
+  moveCalendarMonth,
+  resolveCalendarMonth,
+} from "@/lib/event-calendar-view";
+import {
   eventDateStatus,
+  eventHref,
   eventTimeFilterParam,
   eventTypePortalHref,
+  formatEventDate,
   slovakRegions,
   type DogEvent,
   type EventTimeFilter,
@@ -72,26 +82,43 @@ function compareEvents(left: DogEvent, right: DogEvent, today: string) {
     || left.id - right.id;
 }
 
+function dateLabel(day: string) {
+  return new Intl.DateTimeFormat("sk-SK", {
+    day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+  }).format(new Date(day + "T12:00:00Z"));
+}
+
 export function EventCalendar({
   events,
+  calendarEvents = [],
   today,
   initialType = "Všetky",
   initialTime = "upcoming",
   initialQuery = "",
   initialRegion = "",
   initialMonth = "",
+  initialCalendarMonth = "",
+  initialDay = "",
 }: {
   events: DogEvent[];
+  calendarEvents?: DogEvent[];
   today: string;
   initialType?: EventType | "Všetky";
   initialTime?: EventTimeFilter;
   initialQuery?: string;
   initialRegion?: "" | SlovakRegion;
   initialMonth?: string;
+  initialCalendarMonth?: string;
+  initialDay?: string;
 }) {
   const query = initialQuery.trim().slice(0, 120);
   const region = initialRegion;
   const month = initialMonth;
+  const visibleMonth = resolveCalendarMonth(initialCalendarMonth, month, today);
+  const todayMonth = today.slice(0, 7);
+  const days = calendarMonthDays(visibleMonth);
+  const selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(initialDay)
+    && days.some((item) => item.date === initialDay && item.inMonth) ? initialDay : "";
   const typePathname = initialType === "Všetky" ? "/podujatia" : eventTypePortalHref(initialType) ?? "/podujatia";
   const months = new Set<string>();
   events.forEach((event) => monthKeysForEvent(event).forEach((value) => months.add(value)));
@@ -99,7 +126,10 @@ export function EventCalendar({
   const monthOptions = [...months].sort();
   const needle = normalizeSearch(query);
 
-  const filtered = events.filter((event) => {
+  // One public filtering contract for the existing list and the bounded calendar read.
+  // Filtering stays server-rendered; no independent browser search engine is introduced.
+  const matchesFilters = (event: DogEvent) => {
+    if (event.status !== "published") return false;
     const dateStatus = eventDateStatus(event, today);
     const haystack = normalizeSearch([
       event.title,
@@ -124,21 +154,43 @@ export function EventCalendar({
       && (!region || event.region === region)
       && monthMatches
       && timeMatches;
-  }).sort((left, right) => compareEvents(left, right, today));
+  };
+  const filtered = events.filter(matchesFilters).sort((left, right) => compareEvents(left, right, today));
+  const monthMatches = calendarEvents.filter(matchesFilters);
+  const dailyEvents = selectedDay ? eventsForCalendarDay(monthMatches, selectedDay) : [];
+  const eventCounts = new Map(days.map((day) => [day.date, day.inMonth ? eventsForCalendarDay(monthMatches, day.date).length : 0]));
 
   const activeSecondaryCount = Number(Boolean(region)) + Number(Boolean(month));
   const hasActiveFilters = Boolean(query || region || month || initialTime !== "upcoming");
+
+  function calendarHref(targetMonth: string, day = "") {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (region) params.set("region", region);
+    if (month) params.set("mesiac", month);
+    const timeParam = eventTimeFilterParam(initialTime);
+    if (timeParam) params.set("termin", timeParam);
+    if (targetMonth !== (month || todayMonth)) params.set("kalendar", targetMonth);
+    if (day) params.set("den", day);
+    const serialized = params.toString();
+    return serialized ? typePathname + "?" + serialized : typePathname;
+  }
 
   function timeHref(value: EventTimeFilter) {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (region) params.set("region", region);
     if (month) params.set("mesiac", month);
+    if (visibleMonth !== (month || todayMonth)) params.set("kalendar", visibleMonth);
+    if (selectedDay) params.set("den", selectedDay);
     const timeParam = eventTimeFilterParam(value);
     if (timeParam) params.set("termin", timeParam);
     const serialized = params.toString();
-    return serialized ? `${typePathname}?${serialized}` : typePathname;
+    return serialized ? typePathname + "?" + serialized : typePathname;
   }
+
+  const upcomingTitle = initialTime === "past" ? "Ukončené podujatia" : initialTime === "current"
+    ? "Prebiehajúce podujatia" : initialTime === "all" ? "Zoznam podujatí" : "Nadchádzajúce podujatia";
 
   return (
     <div className={styles.calendar}>
@@ -152,6 +204,7 @@ export function EventCalendar({
         {eventTimeFilterParam(initialTime) ? (
           <input type="hidden" name="termin" value={eventTimeFilterParam(initialTime)} />
         ) : null}
+        {visibleMonth !== (month || todayMonth) ? <input type="hidden" name="kalendar" value={visibleMonth} /> : null}
 
         <label className={styles.searchControl}>
           <span>Hľadať</span>
@@ -216,17 +269,88 @@ export function EventCalendar({
         </div>
       </div>
 
-      {filtered.length ? (
-        <div className={styles.eventList} data-event-list>
-          {filtered.map((event) => <EventCard event={event} today={today} key={event.id} />)}
+      <section className={styles.monthCalendar} data-events-month-calendar aria-labelledby="events-calendar-title">
+        <div className={styles.monthHeading}>
+          <div>
+            <p className={styles.monthEyebrow}>Kalendár podujatí</p>
+            <h2 id="events-calendar-title">{calendarMonthLabel(visibleMonth)}</h2>
+          </div>
+          <nav className={styles.monthNavigation} aria-label="Navigácia kalendára">
+            <Link href={calendarHref(moveCalendarMonth(visibleMonth, -1))} aria-label="Predchádzajúci mesiac" rel="prev">←</Link>
+            <Link href={calendarHref(todayMonth)} aria-label="Prejsť na aktuálny mesiac">Dnes</Link>
+            <Link href={calendarHref(moveCalendarMonth(visibleMonth, 1))} aria-label="Nasledujúci mesiac" rel="next">→</Link>
+          </nav>
         </div>
-      ) : (
-        <div className={styles.emptyState}>
-          <h2>{events.length ? "Nenašli sme zhodu" : "Prvé podujatia pripravujeme"}</h2>
-          <p>{events.length ? "Upravte vyhľadávanie alebo filtre, prípadne sa vráťte k celému zoznamu." : "Kalendár je pripravený. Nové termíny sa tu objavia hneď po publikovaní v redakcii."}</p>
-          {events.length > 0 && hasActiveFilters ? <Link href={typePathname}>Zobraziť celý zoznam</Link> : null}
+
+        <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
+          {calendarWeekdays.map((name) => <span className={styles.weekday} key={name}>{name}</span>)}
+          {days.map((day) => {
+            const count = eventCounts.get(day.date) ?? 0;
+            const dayName = dateLabel(day.date);
+            const active = selectedDay === day.date;
+            const todayFlag = day.date === today;
+            if (!day.inMonth) return <span className={styles.outsideDay} aria-hidden="true" key={day.date} />;
+            return (
+              <Link
+                key={day.date}
+                href={calendarHref(visibleMonth, day.date) + "#vybrany-den"}
+                className={styles.monthDay}
+                data-calendar-date={day.date}
+                data-selected={active ? "true" : undefined}
+                data-today={todayFlag ? "true" : undefined}
+                data-count={count}
+                aria-current={todayFlag ? "date" : undefined}
+                aria-label={(active ? "Vybraný deň " : "") + dayName + (count ? ", " + count + " podujatí" : ", bez podujatí")}
+              >
+                <span className={styles.monthDayNumber}>{day.day}</span>
+                {count > 0 ? <span className={styles.monthDayCount} aria-hidden="true">{count}</span> : null}
+              </Link>
+            );
+          })}
         </div>
-      )}
+
+        {selectedDay ? (
+          <section className={styles.dayDetail} id="vybrany-den" tabIndex={-1} aria-labelledby="selected-day-title" data-selected-day={selectedDay}>
+            <div className={styles.dayDetailHeading}>
+              <h3 id="selected-day-title">{dateLabel(selectedDay)}</h3>
+              <Link href={calendarHref(visibleMonth)} aria-label="Zrušiť výber dňa">Zavrieť výber</Link>
+            </div>
+            {dailyEvents.length ? (
+              <ul className={styles.dayEvents}>
+                {dailyEvents.map((event) => (
+                  <li key={event.id} className={styles.dayEvent}>
+                    <div>
+                      <Link href={eventHref(event)}>{event.title}</Link>
+                      <span>{formatEventDate(event)}{event.startTime ? " · " + event.startTime : ""}</span>
+                      {(event.venue || event.city) ? <span>{[event.venue, event.city].filter(Boolean).join(" · ")}</span> : null}
+                    </div>
+                    {event.cancelled ? <strong>Zrušené</strong> : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.dayEmpty}>V tento deň nie sú podujatia, ktoré zodpovedajú zvoleným filtrom. Skúste iný deň alebo upravte filtre.</p>
+            )}
+          </section>
+        ) : (
+          <p className={styles.monthHint}>Vyberte deň a zobrazia sa podujatia s odkazmi na ich detail.</p>
+        )}
+      </section>
+
+      <section className={styles.upcomingSection} aria-labelledby="events-upcoming-heading">
+        <h2 id="events-upcoming-heading">{upcomingTitle}</h2>
+        {filtered.length ? (
+          <div className={styles.eventList} data-event-list>
+            {filtered.map((event) => <EventCard event={event} today={today} key={event.id} />)}
+          </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <h3>{events.length ? "Nenašli sme zhodu" : "Prvé podujatia pripravujeme"}</h3>
+            <p>{events.length ? "Upravte vyhľadávanie alebo filtre, prípadne sa vráťte k celému zoznamu." : "Kalendár je pripravený. Nové termíny sa tu objavia hneď po publikovaní v redakcii."}</p>
+            {events.length > 0 && hasActiveFilters ? <Link href={typePathname}>Zobraziť celý zoznam</Link> : null}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
