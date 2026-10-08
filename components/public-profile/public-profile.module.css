@@ -5,6 +5,12 @@
   background: linear-gradient(135deg, #eef4e9 0%, #fffaf0 62%, #fff0e8 100%);
   border-bottom: 1px solid var(--ps-border-soft);
 }
+.hero :global(.page-breadcrumbs) { min-width: 0; }
+.hero :global(.page-breadcrumbs) a {
+  display: inline-flex; align-items: center; min-height: 44px; max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.hero :global(.page-breadcrumbs) a:focus-visible { outline: 3px solid var(--forest); outline-offset: 2px; }
 .heroGrid { display: grid; align-items: center; gap: clamp(18px, 3.6vw, 48px); min-width: 0; padding-top: clamp(20px, 3vw, 34px); }
 .hasMedia { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); }
 .heroCopy { min-width: 0; }
