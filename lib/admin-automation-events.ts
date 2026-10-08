@@ -5,9 +5,10 @@ export type AutomationRunStatus = "STARTED" | "SUCCESS" | "NO_CHANGE" | "PARTIAL
 export type AdminPushCategory = "RUN_STARTED" | "RUN_RESULTS" | "ERRORS" | "PUBLISH" | "IMPORT_SYNC";
 export const ADMIN_PUSH_CATEGORIES: AdminPushCategory[] = ["RUN_STARTED", "RUN_RESULTS", "ERRORS", "PUBLISH", "IMPORT_SYNC"];
 
-export function adminPushCategoryForEvent(eventType: string): AdminPushCategory | null {
+export function adminPushCategoryForEvent(eventType: string, system?: string): AdminPushCategory | null {
   if (eventType === "automation_run_started") return "RUN_STARTED";
   if (eventType === "automation_run_failed" || eventType === "automation_run_partial_success" || eventType === "automation_source_issue") return "ERRORS";
+  if (eventType.startsWith("automation_run_") && system === "notion") return "IMPORT_SYNC";
   if (eventType.startsWith("automation_run_")) return "RUN_RESULTS";
   if (eventType === "automation_article_published" || eventType === "automation_article_draft") return "PUBLISH";
   if (eventType.startsWith("automation_import_") || eventType.startsWith("automation_sync_")) return "IMPORT_SYNC";
