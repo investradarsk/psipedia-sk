@@ -558,7 +558,7 @@ test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
     for (const [width, expectedColumns] of [[1440, 4], [1280, 3], [1024, 3], [900, 2], [430, 1], [390, 1]] as const) {
       await page.setViewportSize({ width, height: 930 });
       const columns = await grid.evaluate((element) => (
-        getComputedStyle(element).gridTemplateColumns.trim().split(/\\s+/).length
+        getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length
       ));
       expect(columns, `service cards at ${width}px`).toBe(expectedColumns);
       await expectNoHorizontalOverflow(page, `services at ${width}px`);
@@ -570,6 +570,6 @@ test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
       element.textContent = "Mimoriadne dlhý názov služby s viacerými slovami a mimoriadnedlhymnezalomitelnymretazcom";
     });
     await expectNoHorizontalOverflow(page, "long service name");
-    await expect(grid.locator("[data-directory-card]").first()).toHaveAttribute("href", /\\/adresar\\/treneri\\//);
+    await expect(grid.locator("[data-directory-card]").first()).toHaveAttribute("href", /\/adresar\/treneri\//);
   });
 });
