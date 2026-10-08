@@ -70,12 +70,12 @@
 .stickyNav {
   position: sticky;
   z-index: 45;
-  top: 76px;
+  top: var(--admin-sticky-top, 76px);
 }
 
 @media (max-width: 760px) {
   .stickyNav {
-    top: 68px;
+    top: var(--admin-sticky-top, 68px);
   }
 }
 
@@ -84,18 +84,27 @@
 .contentArea,
 .contentArea :global([id]),
 .contentArea :global(:focus-visible) {
-  scroll-margin-top: 178px;
+  scroll-margin-top: var(--admin-sticky-stack, 178px);
 }
 
 .contentArea {
   min-width: 0;
 }
+/* Keep existing table wrappers scrollable without clipping the calendar. */
+.contentArea :global(.admin-table-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.contentArea :global(input),
+.contentArea :global(select),
+.contentArea :global(textarea) { max-width: 100%; }
 
 @media (max-width: 760px) {
   .headingAnchor,
   .contentArea,
   .contentArea :global([id]),
   .contentArea :global(:focus-visible) {
-    scroll-margin-top: 150px;
+    scroll-margin-top: var(--admin-sticky-stack, 150px);
   }
 }
