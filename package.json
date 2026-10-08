@@ -59,7 +59,7 @@
     "test:article-promo": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-promo.test.mjs",
     "test:name-days": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/dog-name-days.test.mjs tests/dog-name-day-import.test.mjs tests/name-day-admin-contract.test.mjs",
     "test:monetization": "node --experimental-strip-types --test tests/monetization-foundation.test.mjs tests/internal-traffic.test.mjs",
-    "test:admin-pwa": "node --experimental-strip-types --test tests/admin-pwa.test.mjs tests/admin-universal-push.test.mjs",
+    "test:admin-pwa": "node --experimental-strip-types --test tests/admin-pwa.test.mjs tests/admin-universal-push.test.mjs tests/admin-automation-push.test.mjs",
     "test:admin-buttons": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-button-system.test.mjs tests/admin-seo-quality.test.mjs",
     "audit:public-integrity": "node scripts/check-public-integrity.mjs",
     "test:public-integrity": "node --experimental-strip-types --test tests/public-integrity.test.mjs && npm run audit:public-integrity",
