@@ -49,8 +49,9 @@ test("opens the concrete article without navigation, multi-article day and keybo
   const calendar = await scheduledCalendar(page);
   const { dayDetail, entry, detail } = await openFromDay(page, calendar, 974102, "CALENDAR E2E scheduled B");
   await expect(dayDetail.getByRole("button", { name: /CALENDAR E2E scheduled A/ })).toBeVisible();
-  await expect(dayDetail.getByRole("button", { name: /CALENDAR E2E reschedule desktop/ })).toBeVisible();
-  await expect(dayDetail.getByRole("button", { name: /CALENDAR E2E reschedule mobile/ })).toBeVisible();
+  // The desktop/mobile reschedule scenarios intentionally change other fixture
+  // articles between months. Only the two stable seeded articles are required
+  // to verify this multi-article-day interaction.
   await expect(detail.getByRole("link", { name: "Otvoriť v editore" })).toHaveAttribute("href", "/admin/clanky/974102");
   await expect(page).toHaveURL(/\/admin\/clanky\/kalendar/);
   await detail.getByRole("heading").focus();
