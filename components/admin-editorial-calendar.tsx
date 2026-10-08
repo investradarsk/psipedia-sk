@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { ManagedArticle } from "@/lib/article-store";
 import type { EditorialCalendarItem } from "@/lib/editorial-calendar";
+import { formatArticleLocalDateTime, parseArticleLocalDateTime } from "@/lib/article-schedule-time";
 import styles from "./admin-editorial-calendar.module.css";
 
 const weekdays = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"];
 const monthFormat = new Intl.DateTimeFormat("sk-SK", { month: "long", year: "numeric" });
 const timeFormat = new Intl.DateTimeFormat("sk-SK", { hour: "2-digit", minute: "2-digit" });
+const dateFormat = new Intl.DateTimeFormat("sk-SK", { dateStyle: "full" });
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -18,19 +22,72 @@ function monthUrl(year: number, month: number) {
   return `/admin/clanky/kalendar?mesiac=${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function statusLabel(status: EditorialCalendarItem["status"]) {
-  return status === "published" ? "Publikované" : "Naplánované";
+function statusLabel(status: EditorialCalendarItem["status"] | ManagedArticle["status"]) {
+  return status === "published" ? "Publikované" : status === "scheduled" ? "Naplánované" : "Koncept";
+}
+
+function CalendarArticleEntries({
+  articles, onOpen, selectedId, loadingId,
+}: {
+  articles: EditorialCalendarItem[];
+  onOpen: (id: number, element: HTMLButtonElement) => void;
+  selectedId: number | undefined;
+  loadingId: number | null;
+}) {
+  return articles.map((article) => (
+    <button key={article.id} type="button" className={styles.entry}
+      aria-expanded={selectedId === article.id || loadingId === article.id}
+      aria-label={`${article.title}, ${statusLabel(article.status)}, ${timeFormat.format(new Date(article.publishedAt))}`}
+      onClick={(event) => onOpen(article.id, event.currentTarget)}>
+      <span className={article.status === "published" ? styles.published : styles.scheduled} aria-hidden="true" />
+      <span className={styles.entryTitle}>{article.title}</span>
+      <time dateTime={article.publishedAt}>{timeFormat.format(new Date(article.publishedAt))}</time>
+      <span className={styles.srOnly}>{statusLabel(article.status)}</span>
+    </button>
+  ));
 }
 
 export function AdminEditorialCalendar({
   year, month, items,
 }: { year: number; month: number; items: EditorialCalendarItem[] }) {
+  const router = useRouter();
   const [filter, setFilter] = useState<"all" | "published" | "scheduled">("all");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedArticle, setSelectedArticle] = useState<ManagedArticle | null>(null);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [requestedId, setRequestedId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
+  const calendarRoot = useRef<HTMLElement | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
+  const origin = useRef<HTMLElement | null>(null);
+  const detailHeading = useRef<HTMLHeadingElement | null>(null);
+  const saveErrorTarget = useRef<HTMLParagraphElement | null>(null);
+  const dateField = useRef<HTMLInputElement | null>(null);
+  const saveLock = useRef(false);
+
+  // Expose readiness only after hydration so early browser clicks cannot
+  // silently precede React event-handler attachment.
+  useEffect(() => {
+    calendarRoot.current?.setAttribute("data-interactive", "true");
+  }, []);
+  useEffect(() => () => activeRequest.current?.abort(), []);
+  const activeArticleId = selectedArticle?.id;
+  useEffect(() => {
+    if (loadingId !== null || activeArticleId !== undefined || loadError) detailHeading.current?.focus();
+  }, [loadingId, activeArticleId, loadError]);
+  useEffect(() => {
+    if (saveError) saveErrorTarget.current?.focus();
+  }, [saveError]);
+
   const first = new Date(year, month - 1, 1);
   const today = dateKey(new Date());
   const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
-
   const grouped = useMemo(() => {
     const result = new Map<string, EditorialCalendarItem[]>();
     for (const article of items) {
@@ -53,22 +110,103 @@ export function AdminEditorialCalendar({
   const dayArticles = selectedDay ? grouped.get(selectedDay) ?? [] : [];
   const total = Array.from(grouped.values()).reduce((sum, articles) => sum + articles.length, 0);
 
-  function entries(articles: EditorialCalendarItem[]) {
-    return articles.map((article) => (
-      <Link key={article.id} className={styles.entry} href={`/admin/clanky/${article.id}`}
-        aria-label={`${article.title}, ${statusLabel(article.status)}, ${timeFormat.format(new Date(article.publishedAt))}`}>
-        <span className={article.status === "published" ? styles.published : styles.scheduled} aria-hidden="true" />
-        <span className={styles.entryTitle}>{article.title}</span>
-        <time dateTime={article.publishedAt}>{timeFormat.format(new Date(article.publishedAt))}</time>
-        <span className={styles.srOnly}>{statusLabel(article.status)}</span>
-      </Link>
-    ));
+  function closeArticle() {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setLoadingId(null);
+    setRequestedId(null);
+    setSelectedArticle(null);
+    setLoadError("");
+    setSaveError("");
+    setNotice("");
+    requestAnimationFrame(() => {
+      if (origin.current?.isConnected) origin.current.focus();
+      else document.getElementById("editorial-calendar-month-nav")?.querySelector<HTMLElement>("a")?.focus();
+    });
   }
 
+  async function openArticle(id: number) {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    setSelectedArticle(null);
+    setLoadError("");
+    setSaveError("");
+    setNotice("");
+    setLoadingId(id);
+    setRequestedId(id);
+    try {
+      const response = await fetch(`/api/admin/articles/${id}`, {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const result = await response.json() as { article?: ManagedArticle; error?: string };
+      if (!response.ok || !result.article) throw new Error(result.error || "Detail článku sa nepodarilo načítať.");
+      if (controller.signal.aborted) return;
+      setSelectedArticle(result.article);
+      const local = formatArticleLocalDateTime(result.article.publishedAt);
+      setDate(local.slice(0, 10));
+      setTime(local.slice(11, 16));
+    } catch (error) {
+      if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "Detail článku sa nepodarilo načítať.");
+    } finally {
+      if (!controller.signal.aborted) setLoadingId(null);
+    }
+  }
+
+  async function saveSchedule() {
+    if (saveLock.current || saving || refreshing || selectedArticle?.status !== "scheduled") return;
+    setSaveError("");
+    setNotice("");
+    const publishedAt = parseArticleLocalDateTime(date, time);
+    if (!publishedAt) {
+      setSaveError("Vyber platný dátum a čas. Neexistujúce časy pri zmene letného času nie je možné naplánovať.");
+      dateField.current?.focus();
+      return;
+    }
+    if (new Date(publishedAt).getTime() <= Date.now()) {
+      setSaveError("Pre plánované publikovanie vyber budúci dátum a čas.");
+      return;
+    }
+    saveLock.current = true;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/articles/${selectedArticle.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ publishedAt, expectedUpdatedAt: selectedArticle.updatedAt }),
+      });
+      const result = await response.json() as { article?: ManagedArticle; error?: string };
+      if (!response.ok || !result.article) throw new Error(result.error || "Termín sa nepodarilo uložiť.");
+      // Treat the server response as canonical. The grid is refreshed from
+      // the server rather than optimistically inserting a duplicate entry.
+      setSelectedArticle(result.article);
+      const local = formatArticleLocalDateTime(result.article.publishedAt);
+      setDate(local.slice(0, 10));
+      setTime(local.slice(11, 16));
+      setNotice(`Termín publikovania bol uložený: ${dateFormat.format(new Date(result.article.publishedAt ?? ""))}, ${timeFormat.format(new Date(result.article.publishedAt ?? ""))}.`);
+      startRefresh(() => router.refresh());
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Termín sa nepodarilo uložiť.");
+    } finally {
+      saveLock.current = false;
+      setSaving(false);
+    }
+  }
+
+  function handleOpenArticle(id: number, element: HTMLButtonElement) {
+    origin.current = element;
+    void openArticle(id);
+  }
+
+  const scheduledMonth = selectedArticle?.publishedAt ? new Date(selectedArticle.publishedAt) : null;
+  const outsideMonth = Boolean(notice && scheduledMonth && !dateKey(scheduledMonth).startsWith(monthPrefix));
+
   return (
-    <section className={styles.calendar} aria-label="Redakčný kalendár">
+    <section ref={calendarRoot} className={styles.calendar} aria-label="Redakčný kalendár">
       <div className={styles.toolbar}>
-        <nav className={styles.monthNav} aria-label="Navigácia po mesiacoch">
+        <nav id="editorial-calendar-month-nav" className={styles.monthNav} aria-label="Navigácia po mesiacoch">
           <Link href={monthUrl(year, month - 1)} aria-label="Predchádzajúci mesiac">←</Link>
           <h2>{monthFormat.format(first)}</h2>
           <Link href={monthUrl(year, month + 1)} aria-label="Nasledujúci mesiac">→</Link>
@@ -98,7 +236,8 @@ export function AdminEditorialCalendar({
                 <time dateTime={key}>{day}</time>
                 {articles.length > 0 && <span className={styles.count}>{articles.length}</span>}
               </button>
-              <div className={styles.dayEntries}>{entries(articles.slice(0, 2))}</div>
+              <div className={styles.dayEntries}><CalendarArticleEntries articles={articles.slice(0, 2)} onOpen={handleOpenArticle}
+                selectedId={selectedArticle?.id} loadingId={loadingId} /></div>
               {articles.length > 2 && <button className={styles.more} type="button" onClick={() => setSelectedDay(key)}>+{articles.length - 2} ďalšie</button>}
             </div>
           );
@@ -107,10 +246,61 @@ export function AdminEditorialCalendar({
       {selectedDay && (
         <section className={styles.detail} aria-labelledby="calendar-day-detail">
           <div className={styles.detailHeading}>
-            <h3 id="calendar-day-detail">{new Intl.DateTimeFormat("sk-SK", { dateStyle: "full" }).format(new Date(`${selectedDay}T12:00:00`))}</h3>
+            <h3 id="calendar-day-detail">{dateFormat.format(new Date(`${selectedDay}T12:00:00`))}</h3>
             <button type="button" onClick={() => setSelectedDay(null)}>Zavrieť detail dňa</button>
           </div>
-          {dayArticles.length ? entries(dayArticles) : <p>V tento deň nie sú žiadne články.</p>}
+          {dayArticles.length
+            ? <CalendarArticleEntries articles={dayArticles} onOpen={handleOpenArticle}
+                selectedId={selectedArticle?.id} loadingId={loadingId} />
+            : <p>V tento deň nie sú žiadne články.</p>}
+        </section>
+      )}
+      {(selectedArticle || loadingId !== null || loadError) && (
+        <section className={styles.articleDetail} aria-labelledby="calendar-article-detail"
+          onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeArticle(); } }}>
+          <div className={styles.detailHeading}>
+            <h3 ref={detailHeading} tabIndex={-1} id="calendar-article-detail">
+              {selectedArticle?.title ?? (loadingId !== null ? "Načítavam článok…" : "Detail článku")}
+            </h3>
+            <button type="button" onClick={closeArticle}>Zavrieť detail článku</button>
+          </div>
+          {loadingId !== null && <p role="status">Načítavam detail z redakcie…</p>}
+          {loadError && <p role="alert" className={styles.error}>{loadError} <button type="button" onClick={() => { if (requestedId !== null) void openArticle(requestedId); }}>Skúsiť znova</button></p>}
+          {selectedArticle && (
+            <>
+              <dl className={styles.articleMeta}>
+                <div><dt>Stav</dt><dd>{statusLabel(selectedArticle.status)}</dd></div>
+                <div><dt>Publikovanie</dt><dd>{selectedArticle.publishedAt ? <time dateTime={selectedArticle.publishedAt}>{dateFormat.format(new Date(selectedArticle.publishedAt))}, {timeFormat.format(new Date(selectedArticle.publishedAt))}</time> : "Bez termínu"}</dd></div>
+                <div><dt>Sekcia</dt><dd>{selectedArticle.portalSection}{selectedArticle.topics.length ? ` · ${selectedArticle.topics.map((topic) => topic.label).join(", ")}` : ""}</dd></div>
+              </dl>
+              {selectedArticle.status === "scheduled" && (
+                <form className={styles.scheduleForm} onSubmit={(event) => { event.preventDefault(); void saveSchedule(); }}>
+                  <div className={styles.scheduleFields}>
+                    <label>Dátum publikovania
+                      <input ref={dateField} type="date" value={date} onChange={(event) => setDate(event.target.value)} required disabled={saving || refreshing} />
+                    </label>
+                    <label>Čas publikovania
+                      <input type="time" value={time} onChange={(event) => setTime(event.target.value)} required disabled={saving || refreshing} />
+                    </label>
+                  </div>
+                  <p className={styles.timezoneHint}>Čas sa zadáva v miestnom časovom pásme prehliadača, rovnako ako v editore článku.</p>
+                  {saveError && <p ref={saveErrorTarget} tabIndex={-1} role="alert" className={styles.error}>{saveError} <button type="button" onClick={() => void openArticle(selectedArticle.id)}>Obnoviť detail</button></p>}
+                  {notice && <p className={styles.success} role="status" aria-live="polite">{notice}</p>}
+                  {outsideMonth && scheduledMonth && <p className={styles.outsideMonth}>Článok sa už v tomto mesiaci nezobrazuje. <Link href={monthUrl(scheduledMonth.getFullYear(), scheduledMonth.getMonth() + 1)}>Prejsť na nový mesiac</Link></p>}
+                  <div className={styles.articleActions}>
+                    <button className={styles.save} type="submit" disabled={saving || refreshing}>{saving || refreshing ? "Ukladám…" : "Uložiť termín"}</button>
+                    <Link href={`/admin/clanky/${selectedArticle.id}`}>Otvoriť v editore</Link>
+                  </div>
+                </form>
+              )}
+              {selectedArticle.status !== "scheduled" && (
+                <div className={styles.articleActions}>
+                  <p>{selectedArticle.status === "published" ? "Publikovaný článok: dátum a čas sú tu iba na čítanie." : "Plánovanie konceptu sa spravuje v editore."}</p>
+                  <Link href={`/admin/clanky/${selectedArticle.id}`}>Otvoriť v editore</Link>
+                </div>
+              )}
+            </>
+          )}
         </section>
       )}
       <p className={styles.caption}>Časy zodpovedajú lokálnemu časovému pásmu prehliadača, rovnako ako pri zadávaní dátumu v editore.</p>

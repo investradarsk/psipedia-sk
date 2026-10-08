@@ -17,12 +17,12 @@ test("calendar uses the canonical lifecycle status and publication timestamp", (
   assert.doesNotMatch(store, /created_at|updated_at/);
 });
 
-test("calendar supports authenticated, bounded month navigation and direct editor links", () => {
+test("calendar supports authenticated, bounded month navigation and editor deep links from the article detail", () => {
   assert.match(route, /requireAdminPageUser/);
   assert.match(route, /listEditorialCalendarItems\(year, month\)/);
   assert.match(calendar, /monthUrl\(year, month - 1\)/);
   assert.match(calendar, /monthUrl\(year, month \+ 1\)/);
-  assert.match(calendar, /\/admin\/clanky\/\$\{article\.id\}/);
+  assert.match(calendar, /\/admin\/clanky\/\$\{selectedArticle\.id\}/);
   assert.match(listing, /href="\/admin\/clanky\/kalendar"/);
 });
 
