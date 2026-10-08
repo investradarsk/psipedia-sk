@@ -62,6 +62,7 @@ on:
           - 0112_tavily_transport_phase.sql
           - 0113_gemini_automation_foundation.sql
           - 0114_gemini_dedupe.sql
+          - 0115_gemini_notion_bridge.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -144,6 +145,7 @@ jobs:
             0112_tavily_transport_phase.sql) expected_confirmation="APPLY-0112-psipedia-sk-db" ;;
             0113_gemini_automation_foundation.sql) expected_confirmation="APPLY-0113-psipedia-sk-db" ;;
              0114_gemini_dedupe.sql) expected_confirmation="APPLY-0114-psipedia-sk-db" ;;
+            0115_gemini_notion_bridge.sql) expected_confirmation="APPLY-0115-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

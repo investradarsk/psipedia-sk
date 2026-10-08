@@ -105,7 +105,7 @@ const RULES = {
     /(^|\/)notion-/,
     /^app\/api\/admin\/notion/,
     /^tests\/notion-/,
-    /^drizzle\/(?:0044|0045|0047|0098|0102|0108)_/,
+    /^drizzle\/(?:0044|0045|0047|0098|0102|0108|0115)_/,
   ],
   AUTOMATION: [
     /(^|\/)automation-/,
@@ -125,6 +125,7 @@ const RULES = {
     /^tests\/gemini-automation-.*\.test\.mjs$/,
     /^drizzle\/0113_gemini_automation_foundation\.sql$/,
     /^drizzle\/0114_gemini_dedupe\.sql$/,
+    /^drizzle\/0115_gemini_notion_bridge\.sql$/,
   ],
   PWA: [
     /^app\/manifest\.ts$/,
