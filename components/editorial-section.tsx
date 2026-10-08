@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { Fragment } from "react";
+import { ContentHubCta } from "@/components/content-hub-cta";
+import { resolveContentHubCta, type ContentHubCtaDecision } from "@/lib/content-hub-context-cta";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ArticleCard } from "@/components/article-card";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
@@ -94,10 +97,12 @@ function SectionContentList({
   articles,
   label,
   limit = 8,
+  contextualCta = null,
 }: {
   articles: Article[];
   label: string;
   limit?: number;
+  contextualCta?: ContentHubCtaDecision | null;
 }) {
   if (!articles.length) {
     return (
@@ -110,28 +115,24 @@ function SectionContentList({
 
   return (
     <PublicContentList label={label} className={styles.contentList}>
-      {articles.slice(0, limit).map((article) => (
-        <ArticleListItem article={article} key={article.slug} />
+      {articles.slice(0, limit).map((article, index) => (
+        <Fragment key={article.slug}>
+          <ArticleListItem article={article} />
+          {contextualCta?.afterArticleCount === index + 1 && (
+            <div role="listitem" className={styles.contextualCtaItem}>
+              {contextualCta.key === "health-urgent"
+                ? <HealthUrgent cta={contextualCta} />
+                : <ContentHubCta cta={contextualCta} />}
+            </div>
+          )}
+        </Fragment>
       ))}
     </PublicContentList>
   );
 }
 
-function HealthUrgent() {
-  return (
-    <section className={styles.urgent} aria-labelledby="section-health-urgent" data-health-urgent>
-      <PublicIcon icon={<HeartIcon />} size="lg" className={styles.urgentIcon} />
-      <div className={styles.urgentCopy}>
-        <span className={styles.eyebrow}>Keď ide o čas</span>
-        <h2 id="section-health-urgent">Má pes akútny problém?</h2>
-        <p>Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.</p>
-      </div>
-      <div className={styles.urgentActions}>
-        <PublicActionLink href="/starostlivost/kedy-ist-so-psom-k-veterinarovi" variant="secondary">Kedy volať ihneď</PublicActionLink>
-        <PublicActionLink href="/adresar/veterinari" variant="primary">Nájsť veterinára</PublicActionLink>
-      </div>
-    </section>
-  );
+function HealthUrgent({ cta }: { cta: ContentHubCtaDecision }) {
+  return <ContentHubCta cta={cta} />;
 }
 
 function SearchBox({
@@ -428,6 +429,12 @@ export async function EditorialSectionTopic({
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const pillar = sectionSlug === "aktivity" ? null : topicPillar(subpage, topicArticles);
   const remainingArticles = pillar ? topicArticles.filter((article) => article.slug !== pillar.slug) : topicArticles;
+  // A single bounded slot after real article items, never before the pinned pillar.
+  const contextualCta = resolveContentHubCta({
+    section: sectionSlug,
+    topic: subpage.slug,
+    visibleArticleCount: Math.min(sectionSlug === "aktivity" ? topicArticles.length : remainingArticles.length, 10),
+  });
   const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
   const schema = buildCollectionPageJsonLd({
@@ -460,10 +467,6 @@ export async function EditorialSectionTopic({
         </UnifiedSectionHeroShell>
 
         <PortalSectionTabs section={section} activeSlug={subpage.slug} />
-
-        {sectionSlug === "starostlivost" && subpage.slug === "zdravie" ? (
-          <PageContainer className={styles.calloutShell}><HealthUrgent /></PageContainer>
-        ) : null}
 
         <PageContainer className={styles.topicBody} data-section-public-topic-body>
           {sectionSlug === "aktivity" ? (<>
@@ -537,7 +540,7 @@ export async function EditorialSectionTopic({
               id="topic-related-heading"
               action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
             />
-            <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} />
+            <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} contextualCta={contextualCta} />
           </section>
 
           </>) : (
@@ -557,7 +560,7 @@ export async function EditorialSectionTopic({
                   id="topic-related-heading"
                   action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
                 />
-                <SectionContentList articles={remainingArticles} label={`Články k téme ${subpage.label}`} limit={10} />
+                <SectionContentList articles={remainingArticles} label={`Články k téme ${subpage.label}`} limit={10} contextualCta={contextualCta} />
               </section>
             </div>
           )}
