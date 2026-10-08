@@ -240,6 +240,64 @@ test("R-S: classified 401/403/429/5xx, network failure and timeout, all via inje
     }) }), (error) => error.code === "TIMEOUT");
 });
 
+test("grounded discovery default accepts response after simulated 13s, with one request and no real wait", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let calls = 0;
+  let signal;
+  const pending = discoverGeminiCandidates({
+    env, stableKey, maxCandidates: 3,
+    fetchImpl: async (_endpoint, init) => {
+      calls++;
+      signal = init.signal;
+      return new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(Error("unexpected abort")), { once: true });
+        setTimeout(() => resolve(new Response(JSON.stringify(mockResponse()))), 13_000);
+      });
+    },
+  });
+  assert.equal(calls, 1);
+  t.mock.timers.tick(12_999);
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(1);
+  const result = await pending;
+  assert.equal(result.providerMetrics.requestCount, 1);
+  assert.equal(result.providerMetrics.groundedSearchQueryCount, 2);
+  assert.equal(result.candidates.length, 1);
+  assert.equal(signal.aborted, false);
+  assert.equal(calls, 1);
+});
+
+test("grounded discovery aborts at 60s for default and oversized override, never retries", async (t) => {
+  for (const [label, timeoutOption] of [
+    ["default", {}],
+    ["hard max", { timeoutMs: 120_000 }],
+  ]) {
+    await t.test(label, async (subtest) => {
+      subtest.mock.timers.enable({ apis: ["setTimeout"] });
+      let calls = 0;
+      let signal;
+      const pending = discoverGeminiCandidates({
+        env, stableKey, maxCandidates: 3, ...timeoutOption,
+        fetchImpl: async (_endpoint, init) => {
+          calls++;
+          signal = init.signal;
+          return new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(Error("mocked abort")), { once: true });
+          });
+        },
+      });
+      assert.equal(calls, 1);
+      subtest.mock.timers.tick(59_999);
+      assert.equal(signal.aborted, false);
+      subtest.mock.timers.tick(1);
+      assert.equal(signal.aborted, true);
+      await assert.rejects(pending, (error) =>
+        error instanceof GeminiAutomationError && error.code === "TIMEOUT");
+      assert.equal(calls, 1, "TIMEOUT must never trigger a retry");
+    });
+  }
+});
+
 test("model compatibility and missing key fail before network (default 2.5 is not silently upgraded)", async () => {
   let calls = 0;
   for (const value of [{}, { GEMINI_API_KEY: secret }, { ...env, GEMINI_MODEL: "gemini-2.5-flash" }]) {

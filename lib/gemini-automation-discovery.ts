@@ -4,6 +4,8 @@ import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema, buildGemi
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 
+const DISCOVERY_TIMEOUT_MS = 60_000;
+
 type UnknownRecord = Record<string, unknown>;
 type ProviderResult = { model: string; payload: unknown };
 type DiscoveryOptions = {
@@ -93,7 +95,9 @@ async function interact(options: {
   // Structured output + built-in Search is a Gemini 3-series capability.
   // Fail before network for foundation's default 2.5 model; never silently switch models.
   if (!/^gemini-3(?:[.-]|$)/.test(model)) throw new GeminiAutomationError("CONFIG_MISSING");
-  const timeoutMs = Math.min(30_000, Math.max(1, Math.trunc(options.timeoutMs ?? 12_000)));
+  // Grounded Google Search + structured output can take longer than simple generation.
+  // This single-request budget is discovery-only; no retries or fallback.
+  const timeoutMs = Math.min(DISCOVERY_TIMEOUT_MS, Math.max(1, Math.trunc(options.timeoutMs ?? DISCOVERY_TIMEOUT_MS)));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
