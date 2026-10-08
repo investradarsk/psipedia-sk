@@ -66,3 +66,6 @@ test("invalid Date fails closed", () => {
   assert.equal(dogNameDayDateKey(new Date(Number.NaN)), null);
   assert.deepEqual(resolveDogNameDay(new Date(Number.NaN), [record()]), []);
 });
+
+// Execute the interactive calendar regressions in the canonical NAME-DAY test target.
+import "./dog-name-day-calendar.test.mjs";

@@ -3,6 +3,7 @@ import { HomeEditorialSection, HomeLatestArticles } from "@/components/home-edit
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArrowIcon, PawMark, SparkIcon } from "@/components/icons";
 import { DogAgeCalculator } from "@/components/dog-age-calculator";
+import { HomeDogNameDayEntry } from "@/components/home-dog-name-day-entry";
 import { AdSlot } from "@/components/ad-slot";
 import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
@@ -300,6 +301,8 @@ export default async function Home() {
           <div className="home-section-cta home-section-cta--quiet"><Link href="/plemena" className="text-link">Všetky plemená <ArrowIcon size={18} /></Link></div>
         </section>
       )}
+
+      <HomeDogNameDayEntry />
 
       <section className="section shell home-utility-section" data-home-calculator>
         <div className="calculator-section">

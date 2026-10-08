@@ -238,3 +238,26 @@ export async function applyDogNameDayImportPlan(plan: DogNameDayImportPlan, edit
     errors: 0,
   };
 }
+
+
+/** Read-only public month lookup; never exposes drafts, archived records or provenance. */
+export async function getPublishedDogNameDaysForMonth(month: number) {
+  const database = getD1Binding();
+  if (!database || !Number.isInteger(month) || month < 1 || month > 12) {
+    return [] as DogNameDayResolverRecord[];
+  }
+  try {
+    const result = await database.prepare(
+      "SELECT month, day, name, status FROM dog_name_days WHERE status = 'published' AND month = ? ORDER BY normalized_name ASC, id ASC"
+    ).bind(month).all<DogNameDayResolverRecord>();
+    return result.results;
+  } catch (error) {
+    if (!isMissingTableError(error)) {
+      console.error(JSON.stringify({
+        event: "dog_name_day_public_month_lookup_failed",
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+    return [] as DogNameDayResolverRecord[];
+  }
+}
