@@ -3,7 +3,7 @@ import { createGeminiDiscoveryRequest, parseGeminiDiscoveryEnvelope, type Gemini
 import { readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import { geminiCandidateSignals, normalizeGeminiCity, normalizeGeminiEmail,
-  normalizeGeminiName, normalizeGeminiPhone, normalizeGeminiWebsite,
+  normalizeGeminiName, normalizeGeminiPhone, normalizeGeminiWebsite, isSharedGeminiDomain,
   type GeminiSignals } from "./gemini-automation-identity.ts";
 import { isGeminiCandidateRejected } from "./gemini-automation-dedupe-store.ts";
 
@@ -50,7 +50,8 @@ function compare(candidate: GeminiSignals, existing: GeminiSignals): { strength:
   const cityKnown = Boolean(candidate.city && existing.city);
   const sameCity = cityKnown && candidate.city === existing.city;
   const sameUrl = Boolean(candidate.website && existing.website && candidate.website.url === existing.website.url);
-  const sameDomain = Boolean(candidate.website && existing.website && candidate.website.domain === existing.website.domain);
+  const sameDomain = Boolean(candidate.website && existing.website &&
+    candidate.website.domain === existing.website.domain && !isSharedGeminiDomain(candidate.website.domain));
   const samePhone = Boolean(candidate.phone && candidate.phone === existing.phone);
   const sameEmail = Boolean(candidate.email && candidate.email === existing.email);
   const strong = [];
