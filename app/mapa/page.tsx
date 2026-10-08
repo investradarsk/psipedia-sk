@@ -58,12 +58,11 @@ export default function MapPage() {
       <section className={styles.hero}>
         <div className={`shell public-shell ${styles.heroInner}`}>
           <div className={styles.heroCopy}>
-            <span className="eyebrow">Služby, pomoc a dianie v okolí</span>
+            <span className="eyebrow">Objavujte miesta a podujatia</span>
             <h1>Mapa Psipedie</h1>
             <p>
-              Nájdite služby pre psov, organizácie a aktuálne podujatia podľa oblasti.
-              Mapa zobrazuje iba verejné lokality schválené v Psipedii; pri citlivejších
-              záznamoch môže ísť zámerne iba o približnú polohu.
+              Vyhľadajte služby, organizácie a podujatia vo svojom okolí. Pri citlivých
+              záznamoch zobrazujeme iba približnú oblasť.
             </p>
           </div>
           <nav className={styles.heroLinks} aria-label="Súvisiace sekcie Psipedie">
