@@ -116,8 +116,8 @@ test("unsaved setting or zero limit fails closed without any provider request or
   }
 });
 
-test("cost cap 100→5 and 3→3, exactly one provider call with no retry", async () => {
-  for (const [max, expected] of [[100, 5], [3, 3]]) {
+test("cost cap 100→5, 3→3 and saved pilot setting 1→1, one provider call with no retry", async () => {
+  for (const [max, expected] of [[100, 5], [3, 3], [1, 1]]) {
     const f = fixture(max);
     let calls = 0;
     try {
