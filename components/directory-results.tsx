@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { DirectoryCard } from "@/components/directory-card";
 import { DirectoryFilterForm } from "@/components/directory-filter-form";
 import type { DirectoryCategorySlug } from "@/lib/directory";
@@ -27,17 +28,20 @@ function pageHref(basePath: string, filters: DirectoryFilters, page: number) {
   return query ? `${basePath}?${query}` : basePath;
 }
 
-export function DirectoryResults({ result, filters, basePath, title, category, showCategory = false }: {
+export function DirectoryResults({ result, filters, basePath, title, category, showCategory = false, categoryNavigation }: {
   result: PublicDirectoryProfilePage;
   filters: DirectoryFilters;
   basePath: string;
   title: string;
   category?: DirectoryCategorySlug;
   showCategory?: boolean;
+  categoryNavigation?: ReactNode;
 }) {
   return (
-    <section className="directory-results" aria-labelledby="directory-results-heading">
+    <section className={`directory-results ${styles.resultsLayout}`} data-directory-search-first aria-labelledby="directory-results-heading">
       <DirectoryFilterForm filters={filters} options={result.options} basePath={basePath} category={category} showCategory={showCategory} />
+
+      {categoryNavigation}
 
       <div className="directory-result-heading">
         <div><span className="eyebrow">Výsledky</span><h2 id="directory-results-heading">{title}</h2></div>
