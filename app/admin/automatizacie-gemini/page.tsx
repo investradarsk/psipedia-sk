@@ -3,8 +3,9 @@ import { AdminGeminiAutomationSettings } from "@/components/admin-gemini-automat
 import { requireAdminPageUser } from "@/lib/admin-auth";
 import { geminiAutomationCatalog, geminiAutomationSections } from "@/lib/gemini-automation-catalog";
 import { geminiSettingViews } from "@/lib/gemini-automation-admin-settings";
+import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
 import {
-  listGeminiSettings, listRecentGeminiRuns, requireGeminiAdminD1,
+  listGeminiSettings, listRecentGeminiRuns,
   type GeminiRecentRun,
 } from "@/lib/gemini-automation-admin-store";
 import styles from "@/components/admin-gemini-automation.module.css";

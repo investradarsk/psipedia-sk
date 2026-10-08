@@ -1,9 +1,10 @@
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
 import { GeminiSettingsValidationError, parseGeminiSettingsInput } from "@/lib/gemini-automation-admin-settings";
 import {
   getGeminiSetting, listGeminiSettings, listRecentGeminiRuns,
-  requireGeminiAdminD1, saveGeminiSetting,
+  saveGeminiSetting,
 } from "@/lib/gemini-automation-admin-store";
 
 export const dynamic = "force-dynamic";

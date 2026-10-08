@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import {
@@ -20,13 +19,6 @@ export type GeminiRecentRun = {
   conceptCount: number;
   errorCode: string | null;
 };
-
-/** The only runtime dependency is the foundation D1 binding. */
-export function requireGeminiAdminD1(): GeminiD1 {
-  const database = (env as unknown as { DB?: D1Database }).DB;
-  if (!database || typeof database.prepare !== "function") throw new Error("GEMINI_D1_UNAVAILABLE");
-  return database;
-}
 
 const SETTING_COLUMNS = "id, stable_key, section, subcategory, enabled, cadence_minutes, max_new_concepts, last_run_at, next_run_at";
 
