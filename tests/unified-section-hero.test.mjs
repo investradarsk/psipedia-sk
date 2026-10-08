@@ -106,7 +106,7 @@ test("Plemena uses section.plemena and keeps search only in BreedBrowser", () =>
   assert.doesNotMatch(breeds, /SectionHeroSearch/);
   assert.match(breeds, /<BreedBrowser/);
   assert.match(breeds, /initialFilters=\{initialFilters\}/);
-  assert.match(breeds, /<PublicSubcategoryNavigator/);
+  // Breed listing now owns category discovery; the retired navigator must not be required.\n  assert.match(breeds, /<BreedCrawlIndex/);\n  assert.doesNotMatch(breeds, /<PublicSubcategoryNavigator/);
 });
 
 test("directory root and categories resolve only section visual keys", () => {

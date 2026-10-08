@@ -115,6 +115,11 @@ const RULES = {
     /^tests\/(?:automation-|data-automation)/,
     /^drizzle\/(?:0050|0052|0055|0056|0057|0073|0075|0076|0078|0079|0080|0081|0082|0083|0084|0085|0086|0087|0088|0089|0091|0092|0093|0094|0095|0096|0097)_/,
   ],
+  GEMINI_AUTOMATION: [
+    /^lib\/gemini-automation-.*\.ts$/,
+    /^tests\/gemini-automation-.*\.test\.mjs$/,
+    /^drizzle\/0113_gemini_automation_foundation\.sql$/,
+  ],
   PWA: [
     /^app\/manifest\.ts$/,
     /^public\/(?:sw\.js|pwa\/)/,
@@ -289,6 +294,7 @@ function writeGithubOutput(result, files) {
     `ci_control=${result.ciControl}`,
     `automation_broad=${result.automationBroad}`,
     `automation_admin_e2e=${result.automationAdminE2e}`,
+    `gemini_automation=${result.scopes.includes("GEMINI_AUTOMATION")}`,
     `ai_discovery=${result.scopes.includes("AI_DISCOVERY")}`,
     `entity_surfaces=${result.scopes.includes("ENTITY_SURFACES")}`,
     `admin_events=${adminEvents}`,
