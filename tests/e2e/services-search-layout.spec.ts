@@ -51,6 +51,7 @@ test.describe("public services search layout", () => {
     }
     await expect(submit).toBeVisible();
 
+    await expect(form).toBeVisible();
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
     expect(formBox!.x).toBeGreaterThanOrEqual(12);
@@ -412,9 +413,15 @@ test.describe("public services search layout", () => {
 
     const response = await page.goto("/adresar/veterinari", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
+    await page.waitForLoadState("networkidle");
 
     const form = page.locator(".directory-results form").first();
-    await form.getByRole("button", { name: /^Ďalšie filtre/ }).click();
+    await expect(form).toBeVisible();
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    await expect(filterToggle).toBeVisible();
+    await expect(filterToggle).toBeEnabled();
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
 
     const longValue = "VelmiDlhaLokalitaBezMedzierKtoraNesmieRozsiritSelectAniFormularMimoMobilnehoViewportu";
     const city = form.locator('select[name="city"]');
