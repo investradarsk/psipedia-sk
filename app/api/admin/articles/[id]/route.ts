@@ -4,9 +4,11 @@ import {
   getManagedArticleById,
   isArticleSlugConflict,
   updateManagedArticle,
+  rescheduleManagedArticle,
+  ArticleRescheduleConflictError,
   type ManagedArticleInput,
 } from "@/lib/article-store";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { articleBlockImageKeys } from "@/lib/article-blocks";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
@@ -33,9 +35,9 @@ function updateErrorResponse(error: unknown) {
     return Response.json({ error: error.message, issues: error.issues }, { status: 422 });
   }
   const message = error instanceof Error ? error.message : "Nastala neočakávaná chyba.";
-  const status = isArticleSlugConflict(error) ? 409 : 400;
+  const status = error instanceof ArticleRescheduleConflictError || isArticleSlugConflict(error) ? 409 : 400;
   return Response.json(
-    { error: status === 409 ? "Túto adresu už používa iný článok." : message },
+    { error: isArticleSlugConflict(error) ? "Túto adresu už používa iný článok." : message },
     { status },
   );
 }
@@ -108,6 +110,37 @@ export async function PUT(request: Request, { params }: RouteProps) {
     }
 
     return Response.json({ article });
+  } catch (error) {
+    return updateErrorResponse(error);
+  }
+}
+
+/**
+ * Calendar rescheduling lives on the existing canonical article resource.
+ * It delegates to updateManagedArticle rather than introducing a new
+ * scheduling backend or altering the publication lifecycle.
+ */
+export async function PATCH(request: Request, { params }: RouteProps) {
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const id = await parsedId(params);
+  if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });
+  try {
+    const body: unknown = await request.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return Response.json({ error: "Neplatná požiadavka." }, { status: 400 });
+    }
+    const { publishedAt, expectedUpdatedAt } = body as Record<string, unknown>;
+    if (typeof publishedAt !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(publishedAt) ||
+      !Number.isFinite(Date.parse(publishedAt)) ||
+      typeof expectedUpdatedAt !== "string" || !expectedUpdatedAt) {
+      return Response.json({ error: "Vyber platný dátum a čas a obnov detail článku." }, { status: 400 });
+    }
+    const article = await rescheduleManagedArticle(id, publishedAt, expectedUpdatedAt, auth.user.email);
+    return article
+      ? Response.json({ article })
+      : Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
   } catch (error) {
     return updateErrorResponse(error);
   }
