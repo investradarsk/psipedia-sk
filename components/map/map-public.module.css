@@ -1098,7 +1098,8 @@
   .page { overflow-x: clip; }
   .hero { padding: 10px 0 8px; }
   .heroInner { gap: 0; }
-  .heroCopy .eyebrow, .heroCopy p { display: none; }
+  .heroCopy :global(.eyebrow) { display: none; }
+  .heroCopy p { margin-top: 3px; font-size: .72rem; line-height: 1.3; }
   .heroCopy h1 { margin: 0; font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1.2; }
   .experience { min-width: 0; padding-top: 8px; }
   .toolbar { gap: 6px; margin-bottom: 8px; }
