@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { GeminiSectionKey, GeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import type { GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import { geminiCadenceOptions } from "@/lib/gemini-automation-catalog";
 import type { GeminiSettingView } from "@/lib/gemini-automation-admin-settings";
 import styles from "./admin-gemini-automation.module.css";
