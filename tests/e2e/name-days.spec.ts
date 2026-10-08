@@ -86,6 +86,11 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   }
   await expectAxeClean(publicPage);
 
+  await publicPage.goto("/psie-meniny");
+  await expect(publicPage.locator("[data-name-day-selected-date]")).toContainText(uniqueName);
+  await expect(publicPage.locator("[data-name-day-calendar]")).toBeVisible();
+  await expectAxeClean(publicPage);
+
   const publishedRow = page.getByRole("row").filter({ hasText: uniqueName });
   await publishedRow.getByRole("button", { name: "Archivovať" }).click();
   const confirm = page.locator("dialog[open]");
