@@ -181,12 +181,20 @@ export function parseGeminiDiscoveryEnvelope(value: unknown, request: GeminiDisc
     if (loc.country !== "Slovakia") invalid();
     const location = {
       country: "Slovakia" as const,
-      ...nullableFields({ region: loc.region, district: loc.district, city: loc.city, address: loc.address },
-        ["region", "district", "city", "address"], { region: 100, district: 100, city: 100, address: 240 }),
+      region: stringValue(loc.region, 100, true),
+      district: stringValue(loc.district, 100, true),
+      city: stringValue(loc.city, 100, true),
+      address: stringValue(loc.address, 240, true),
     };
-    const contacts = nullableFields(raw.contacts, contactKeys,
+    const rawContacts = nullableFields(raw.contacts, contactKeys,
       { phone: 60, email: 254, website: 2048, facebook: 2048, instagram: 2048 });
-    for (const key of ["website", "facebook", "instagram"]) contacts[key] = urlValue(contacts[key], true);
+    const contacts = {
+      phone: rawContacts.phone,
+      email: rawContacts.email,
+      website: urlValue(rawContacts.website, true),
+      facebook: urlValue(rawContacts.facebook, true),
+      instagram: urlValue(rawContacts.instagram, true),
+    };
     if (contacts.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contacts.email)) invalid();
     if (typeof raw.confidence !== "number" || !Number.isFinite(raw.confidence) ||
       raw.confidence < 0 || raw.confidence > 1) invalid();
