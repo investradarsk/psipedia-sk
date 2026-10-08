@@ -23,3 +23,6 @@ Ak kanonický dataset nemá publikované meno pre daný deň, UI zobrazuje práz
 
 ## Izolovaná PR vizuálna validácia
 Samostatný `.github/workflows/homepage-name-days-ci.yml` iba pre tento modul spúšťa NAME-DAY unit/integration suite a desktop/mobile Playwright na lokálnom D1 bez produkčného deployu. Výsledný Playwright report vrátane 390 px a 1440 px screenshotov publikuje ako GitHub Actions artifact.
+
+## Čerstvosť publikovaných menín
+Verejná HTML stránka môže byť na krátky čas cachovaná na Worker edge. Interaktívny kalendár preto pri prvom zobrazení, pri navigácii na nový mesiac, po obnovení fokusu a každých 60 sekúnd číta výlučne publikované záznamy cez vlastné no-store `/api/name-days/month?month=MM`; D1 zostáva jediným kanonickým zdrojom. Žiadny zásah do shared Worker cache ani administrácie.
