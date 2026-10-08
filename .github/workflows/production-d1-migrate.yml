@@ -143,6 +143,7 @@ jobs:
             0111_tavily_provider_diagnostics.sql) expected_confirmation="APPLY-0111-psipedia-sk-db" ;;
             0112_tavily_transport_phase.sql) expected_confirmation="APPLY-0112-psipedia-sk-db" ;;
             0113_gemini_automation_foundation.sql) expected_confirmation="APPLY-0113-psipedia-sk-db" ;;
+             0114_gemini_dedupe.sql) expected_confirmation="APPLY-0114-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
