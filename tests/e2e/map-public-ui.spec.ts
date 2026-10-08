@@ -482,7 +482,7 @@ test.describe("MAP-1D mobile", () => {
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-filters.png", fullPage: true });
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Filtre/ })).toBeFocused();
+    await expect(page.getByRole("button", { name: /Ďalšie filtre/ })).toBeFocused();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("");
     await expect(page.getByTestId("marker-service:1")).toBeVisible();
