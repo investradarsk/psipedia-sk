@@ -40,6 +40,13 @@ import {
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
+export class ArticleRescheduleConflictError extends Error {
+  constructor() {
+    super("Článok sa medzičasom zmenil alebo už nie je naplánovaný. Obnov detail a skús to znova.");
+    this.name = "ArticleRescheduleConflictError";
+  }
+}
+
 export type ManagedArticle = Article & {
   id: number;
   portalSection: ArticlePortalSection;
@@ -1023,6 +1030,7 @@ export async function updateManagedArticle(
   payload: ManagedArticleInput,
   editorEmail: string,
   existingArticle?: ManagedArticle,
+  schedulingPrecondition?: { updatedAt: string },
 ) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
@@ -1049,7 +1057,7 @@ export async function updateManagedArticle(
       published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
       seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
       og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
-    WHERE id = ?
+    WHERE id = ?${schedulingPrecondition ? " AND status = 'scheduled' AND updated_at = ?" : ""}
     RETURNING *
   `).bind(
     input.slug,
@@ -1092,16 +1100,78 @@ export async function updateManagedArticle(
     input.ogImageUrl,
     input.ogImageKey,
     id,
+    ...(schedulingPrecondition ? [schedulingPrecondition.updatedAt] : []),
   );
 
   const statements = [articleStatement];
   if (topicIds !== undefined) statements.push(...replaceArticleTopicStatements(database, id, topicIds, now));
   const [articleResult] = await database.batch(statements);
   const result = (articleResult.results?.[0] ?? null) as unknown as ArticleRow | null;
+  if (!result && schedulingPrecondition) throw new ArticleRescheduleConflictError();
   if (!result) return null;
   await syncArticleBreeds(database, id, input.relatedBreedIds, editorEmail);
   const topics = topicIds === undefined ? existing.topics : await getArticleTopicsByArticleId(database, id);
   return rowToManagedArticle(result, input.relatedBreedIds, topics);
+}
+
+/**
+ * Calendar-only scheduling adapter: reuse updateManagedArticle's exact
+ * normalization, future-date and publication QA rules. All non-schedule
+ * fields are carried over from the freshest server snapshot.
+ * The conditional UPDATE prevents overwriting concurrent editor changes.
+ */
+export async function rescheduleManagedArticle(
+  id: number,
+  publishedAt: string,
+  expectedUpdatedAt: string,
+  editorEmail: string,
+) {
+  const existing = await getManagedArticleById(id);
+  if (!existing) return null;
+  if (existing.status !== "scheduled" || existing.updatedAt !== expectedUpdatedAt) {
+    throw new ArticleRescheduleConflictError();
+  }
+  const payload: ManagedArticleInput = {
+    title: existing.title,
+    slug: existing.slug,
+    excerpt: existing.excerpt,
+    category: existing.category,
+    portalSection: existing.portalSection,
+    portalSubpage: existing.portalSubpage ?? null,
+    newsCategory: existing.newsCategory ?? null,
+    accent: existing.accent,
+    author: existing.author,
+    authorProfileId: existing.authorProfileId,
+    intro: existing.intro,
+    introRichText: existing.introRichText,
+    takeaway: existing.takeaway,
+    takeawayRichText: existing.takeawayRichText,
+    sections: existing.sections,
+    sources: existing.sources,
+    blocks: existing.blocks,
+    imageUrl: existing.image ?? null,
+    imageKey: existing.imageKey,
+    imageAlt: existing.imageAlt ?? null,
+    imageCaption: existing.imageCaption ?? null,
+    imageCredit: existing.imageCredit ?? null,
+    imageCreditUrl: existing.imageCreditUrl ?? null,
+    readingMinutes: existing.readingMinutes,
+    contentUpdatedAt: existing.contentUpdatedAt,
+    showUpdated: existing.showUpdated,
+    seoTitle: existing.seo?.title ?? "",
+    metaDescription: existing.seo?.description ?? "",
+    canonicalUrl: existing.seo?.canonicalUrl ?? "",
+    noindex: existing.seo?.noindex ?? false,
+    focusKeyword: existing.seo?.focusKeyword ?? "",
+    ogTitle: existing.seo?.ogTitle ?? "",
+    ogDescription: existing.seo?.ogDescription ?? "",
+    ogImageUrl: existing.seo?.ogImage ?? null,
+    ogImageKey: existing.ogImageKey,
+    relatedBreedIds: existing.relatedBreedIds,
+    status: "scheduled",
+    publishedAt,
+  };
+  return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt });
 }
 
 export type ArticleContentQaAuditFinding = ArticleQaIssue & {

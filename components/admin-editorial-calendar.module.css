@@ -41,3 +41,33 @@
   .filters { flex-wrap: wrap; }
   .detail { display: block; }
 }
+
+.entry { border: 1px solid transparent; font-family: inherit; text-align: left; cursor: pointer; }
+.entry:hover, .entry[aria-expanded="true"] { border-color: #91baa2; background: #e7f0e9; }
+.articleDetail { max-width: 46rem; margin-top: 1rem; padding: 1rem 1.2rem; border: 1px solid #cdded3; border-radius: .75rem; background: #fff; box-shadow: 0 6px 20px rgb(21 58 43 / 8%); min-width: 0; }
+.articleDetail h3 { margin: 0; font-size: 1.15rem; overflow-wrap: anywhere; }
+.articleMeta { display: grid; gap: .6rem; margin: 0 0 1rem; }
+.articleMeta > div { display: flex; flex-wrap: wrap; gap: .4rem; min-width: 0; }
+.articleMeta dt { min-width: 6.5rem; font-weight: 700; color: #415b4d; }
+.articleMeta dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.scheduleForm { border-top: 1px solid #e0e8e2; padding-top: .9rem; }
+.scheduleFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.scheduleFields label { display: flex; flex-direction: column; gap: .35rem; min-width: 0; font-weight: 600; }
+.scheduleFields input { width: 100%; min-width: 0; max-width: 100%; padding: .65rem; border: 1px solid #aebfb4; border-radius: .5rem; color: #173a2c; background: #fff; font: inherit; }
+.timezoneHint { margin: .6rem 0; font-size: .8rem; color: #526558; }
+.articleActions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: .8rem; }
+.articleActions a, .articleActions button { display: inline-flex; justify-content: center; padding: .7rem .9rem; min-height: 2.75rem; border-radius: .5rem; text-decoration: none; border: 1px solid #bbccc0; background: #fff; color: #173a2c; cursor: pointer; font: inherit; }
+.articleActions .save { color: #fff; background: #185e43; border-color: #185e43; font-weight: 700; }
+.articleActions button:disabled { opacity: .65; cursor: progress; }
+.error { color: #8f2421; font-weight: 600; overflow-wrap: anywhere; }
+.error button { margin-left: .3rem; cursor: pointer; border: 0; color: inherit; background: transparent; text-decoration: underline; font: inherit; }
+.success { color: #176142; font-weight: 600; overflow-wrap: anywhere; }
+.outsideMonth { margin: .5rem 0; }
+.calendar :is(input, button, a, h3):focus-visible { outline: 3px solid #1a845b; outline-offset: 2px; }
+@media (max-width: 720px) {
+  .articleDetail { padding: .85rem; max-width: 100%; }
+  .scheduleFields { grid-template-columns: minmax(0, 1fr); }
+  .articleActions { align-items: stretch; flex-direction: column; }
+  .articleActions > :is(a, button) { width: 100%; }
+  .articleMeta dt { min-width: 5rem; }
+}

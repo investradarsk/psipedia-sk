@@ -9,6 +9,7 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
+import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import {
@@ -35,7 +36,7 @@ function slugify(value: string, maxLength = 90) {
 }
 
 function dateTimeValue(value?: string | null) {
-  return value ? value.slice(0, 16) : "";
+  return formatArticleLocalDateTime(value);
 }
 
 const editorNavigation = [
