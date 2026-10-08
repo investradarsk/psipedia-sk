@@ -154,7 +154,16 @@ export async function runGeminiDirectoryPilot(input: {
   } catch (error) {
     summary.status = "FAILED";
     // Bridge and DB failures are not misrepresented as provider failures.
-    if (error instanceof GeminiAutomationError) summary.errorCode = error.code;
+    if (error instanceof GeminiAutomationError) {
+      summary.errorCode = error.code;
+      // Preserve already executed provider query counts even when provenance fails.
+      // No new D1 columns or raw provider content are stored.
+      if (error.code === "INVALID_RESPONSE" &&
+        Number.isInteger(error.groundedSearchQueryCount) &&
+        error.groundedSearchQueryCount! >= 0 && error.groundedSearchQueryCount! <= 100) {
+        summary.groundedSearchQueryCount = error.groundedSearchQueryCount!;
+      }
+    }
     await finishGeminiRun(input.database, {
       id: runId, status: "FAILED", at: now().toISOString(), requestCount,
       groundedSearchQueryCount: summary.groundedSearchQueryCount,
