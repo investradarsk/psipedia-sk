@@ -4,7 +4,8 @@ import AxeBuilder from "@axe-core/playwright";
 const directoryRich = "/adresar/treneri/e2e-services-detail-long";
 const directoryMinimum = "/adresar/dalsie-sluzby/e2e-services-detail-minimum";
 const organizationRich = "/organizacie/org-3b-e2e-kanonicka-organizacia";
-const organizationNoLocation = "/organizacie/org-2b-e2e-jedna-lokalita";
+const organizationSingleLocation = "/organizacie/org-2b-e2e-jedna-lokalita";
+const organizationNoLocation = "/organizacie/org-2b-e2e-bez-lokality";
 
 for (const viewport of [{ width: 320, height: 740 }, { width: 390, height: 844 }, { width: 1440, height: 900 }]) {
   test("shared profile UX " + viewport.width + "px: directory rich and organization", async ({ page }) => {
@@ -67,13 +68,19 @@ test("missing media and contact data render without fake fields or broken action
 
 test("canonical organization location stays single and support content survives", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const response = await page.goto(organizationNoLocation, { waitUntil: "domcontentloaded" });
+  const response = await page.goto(organizationSingleLocation, { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   const main = page.locator("main#obsah");
   await expect(main.locator("[data-organization-location-summary]")).toContainText("Trnava");
   await expect(main.locator("[data-fundraising-method]")).toHaveCount(1);
   await expect(main.locator("[data-organization-location]")).toHaveCount(0);
-  await expect(main.getByRole("heading", { name: "Kontakty" })).toHaveCount(0);
+  const emptyResponse = await page.goto(organizationNoLocation, { waitUntil: "domcontentloaded" });
+  expect(emptyResponse?.status()).toBe(200);
+  const emptyMain = page.locator("main#obsah");
+  await expect(emptyMain.locator("[data-organization-location-summary]")).toHaveCount(0);
+  await expect(emptyMain.locator("[data-public-profile-media]")).toHaveCount(0);
+  await expect(emptyMain.locator("[data-profile-primary-action]")).toHaveAttribute("href", "/organizacie");
+  await expect(emptyMain.getByRole("heading", { name: "Kontakty" })).toHaveCount(0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
