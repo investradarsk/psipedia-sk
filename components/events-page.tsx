@@ -50,6 +50,9 @@ function eventLandingFallbackImage(eventType: EventType, sectionImage: string) {
 
 export async function EventsPage({
   events,
+  calendarEvents = [],
+  initialCalendarMonth = "",
+  initialDay = "",
   initialType = "Všetky",
   initialTime = "upcoming",
   initialQuery = "",
@@ -58,6 +61,9 @@ export async function EventsPage({
   section,
 }: {
   events: DogEvent[];
+  calendarEvents?: DogEvent[];
+  initialCalendarMonth?: string;
+  initialDay?: string;
   initialType?: EventType | "Všetky";
   initialTime?: EventTimeFilter;
   initialQuery?: string;
@@ -145,6 +151,12 @@ export async function EventsPage({
           />
         </UnifiedSectionHeroShell>
 
+        <section className={styles.calendarSection} aria-label="Kalendár podujatí">
+          <PublicContentShell variant="listing">
+            <EventCalendar events={events} calendarEvents={calendarEvents} initialCalendarMonth={initialCalendarMonth} initialDay={initialDay} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth} />
+          </PublicContentShell>
+        </section>
+
         {isMainListing ? (
           <section className={styles.landingCategories} aria-labelledby="events-category-heading">
             <PublicContentShell variant="landing">
@@ -166,11 +178,6 @@ export async function EventsPage({
           />
         )}
 
-        <section className={styles.calendarSection} aria-label="Kalendár podujatí">
-          <PublicContentShell variant="listing">
-            <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth} />
-          </PublicContentShell>
-        </section>
 
         <section className={styles.organizerSection} aria-label="Pre organizátorov">
           <PageContainer>

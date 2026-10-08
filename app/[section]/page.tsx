@@ -6,12 +6,13 @@ import { EventsPage as EventsListingPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
 import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
-import { getPublishedEvents } from "@/lib/event-store";
+import { getPublishedEvents, getPublishedEventsInMonth } from "@/lib/event-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
-import { eventHref, eventMonthFilterFromParam, eventRegionFilterFromParam, eventSearchQueryFromParam, eventTimeFilterFromParam } from "@/lib/events";
+import { bratislavaDateKey, eventHref, eventMonthFilterFromParam, eventRegionFilterFromParam, eventSearchQueryFromParam, eventTimeFilterFromParam } from "@/lib/events";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import { listLatestPublicProfileReviews, type ProfileReviewReadDatabase } from "@/lib/profile-review-read";
 import { portalSections, type ArticlePortalSection } from "@/lib/portal";
+import { resolveCalendarMonth } from "@/lib/event-calendar-view";
 import { getManagedPortalSection, listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
@@ -74,15 +75,17 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function PortalSectionPage({ params, searchParams }: Props) {
   const { section: slug } = await params;
   if (slug === "novinky") permanentRedirect("/clanky");
-  const [section, allSections, articles, events] = await Promise.all([
+  const rawSearchParams = await searchParams;
+  const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
+  const [section, allSections, articles, events, monthEvents] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),
     slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
     slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
+    slug === "podujatia" ? getPublishedEventsInMonth(calendarMonth) : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
   const eventList = events ?? [];
-  const rawSearchParams = await searchParams;
   const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams);
   const eventSchema = slug !== "podujatia" || listingPolicy.kind !== "clean" ? null : buildCollectionPageJsonLd({
     name: section.label,
@@ -114,6 +117,6 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ]);
     return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} />;
   }
-  if (slug === "podujatia") return <EventsPage events={eventList} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
+  if (slug === "podujatia") return <EventsPage events={eventList} calendarEvents={monthEvents ?? []} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
   return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
 }
