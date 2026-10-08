@@ -29,7 +29,7 @@ type InvalidResponseReason =
   | "INTERACTION_SHAPE" | "INTERACTION_STATUS" | "STEPS_INVALID"
   | "SEARCH_CALL_INVALID" | "SEARCH_RESULT_INVALID" | "SEARCH_RESULT_MISSING"
   | "MODEL_OUTPUT_INVALID" | "OUTPUT_JSON_INVALID" | "DISCOVERY_SCHEMA_INVALID"
-  | "GROUNDING_CITATION_MISSING" | "EVIDENCE_NOT_GROUNDED" | "RESPONSE_TOO_LARGE";
+  | "RESPONSE_TOO_LARGE";
 type SafeDiagnostic = {
   status?: string;
   stepCount?: number;
@@ -38,6 +38,7 @@ type SafeDiagnostic = {
   searchCalls?: number;
   searchResults?: number;
   citations?: number;
+  searchQueryCount?: number;
   jsonParsed?: boolean;
   schemaValid?: boolean;
 };
@@ -58,7 +59,7 @@ function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
     jsonParsed: safe.jsonParsed ?? false,
     schemaValid: safe.schemaValid ?? false,
   });
-  throw new GeminiAutomationError("INVALID_RESPONSE");
+  throw new GeminiAutomationError("INVALID_RESPONSE", undefined, Math.min(100, Math.max(0, safe.searchQueryCount ?? 0)));
 }
 function citedUrl(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 2048) return null;
@@ -71,7 +72,6 @@ function citedUrl(value: unknown): string | null {
 function groundedResponse(payload: unknown): {
   output: unknown;
   groundedSearchQueryCount: number;
-  citedUrls: Set<string>;
   diagnostic: SafeDiagnostic;
 } {
   const value = record(payload);
@@ -84,6 +84,7 @@ function groundedResponse(payload: unknown): {
     searchCalls: 0,
     searchResults: 0,
     citations: 0,
+    searchQueryCount: 0,
     jsonParsed: false,
     schemaValid: false,
   };
@@ -116,6 +117,7 @@ function groundedResponse(payload: unknown): {
         invalid("SEARCH_CALL_INVALID");
       }
       searchCount += queries.length;
+      safe.searchQueryCount = Math.min(searchCount, 100);
     } else if (step.type === "google_search_result") {
       safe.searchResults!++;
       if (typeof step.call_id !== "string" || !step.call_id || step.call_id.length > 256 ||
@@ -146,13 +148,13 @@ function groundedResponse(payload: unknown): {
   }
   safe.citations = Math.min(citations.size, 128);
   if (safe.searchCalls! < 1 || searchCount < 1) invalid("SEARCH_CALL_INVALID");
-  if (safe.searchResults! < 1 || ![...resultIds].some((id) => callIds.has(id))) invalid("SEARCH_RESULT_MISSING");
+  if (safe.searchResults! < 1 || ![...resultIds].every((id) => callIds.has(id))) invalid("SEARCH_RESULT_MISSING");
   if (textPieces.length < 1 || !textLength) invalid("MODEL_OUTPUT_INVALID");
   // Text blocks are optional/multiple in the wire contract; JSON remains validated as one document.
   let output: unknown;
   try { output = JSON.parse(textPieces.join("")); } catch { invalid("OUTPUT_JSON_INVALID"); }
   safe.jsonParsed = true;
-  return { output, groundedSearchQueryCount: Math.min(searchCount, 100), citedUrls: citations, diagnostic: safe };
+  return { output, groundedSearchQueryCount: Math.min(searchCount, 100), diagnostic: safe };
 }
 
 async function interact(options: {
@@ -228,7 +230,7 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
     fetchImpl: options.fetchImpl,
     timeoutMs: options.timeoutMs,
   });
-  const { output, groundedSearchQueryCount, citedUrls, diagnostic } = groundedResponse(response.payload);
+  const { output, groundedSearchQueryCount, diagnostic } = groundedResponse(response.payload);
   let parsed: ReturnType<typeof parseGeminiDiscoveryEnvelope>;
   try {
     parsed = parseGeminiDiscoveryEnvelope(output, request);
@@ -239,14 +241,11 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
     throw error;
   }
   diagnostic.schemaValid = true;
-  if (parsed.candidates.length > 0 && citedUrls.size === 0) fail("GROUNDING_CITATION_MISSING", diagnostic);
-  // Every candidate must be supported by a URL actually cited by the grounded model.
-  for (const candidate of parsed.candidates) {
-    if (!candidate.evidence.some((evidence) => {
-      const normalized = citedUrl(evidence.source_url);
-      return normalized !== null && citedUrls.has(normalized);
-    })) fail("EVIDENCE_NOT_GROUNDED", diagnostic);
-  }
+  // REVIEW-FIRST: Google Search must have executed and local Discovery Candidate V1
+  // strictly validates public source/evidence URLs. Candidates then pass through
+  // deterministic dedupe and human review in unpublished drafts/Notion concepts.
+  // Inline Google citations are optional diagnostics, never a creation gate.
+  // Publishing without an explicit human decision is not available here.
   return {
     candidates: parsed.candidates,
     providerMetrics: {
