@@ -1,3 +1,4 @@
+import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent } from "./admin-automation-events.ts";
 import {
   automationSearchQueryFingerprint,
   automationSearchResultsToCandidates,
@@ -1276,6 +1277,11 @@ async function runDiscoveryRoot(
 ): Promise<DiscoveryRunSummary> {
   const startedAt = new Date(claim.startedAt.getTime());
   const runId = claim.runId;
+  const automatic = schedulePolicy === "ADVANCE_SCHEDULE";
+  if (automatic) await safelyRecordAdminAutomationRunEvent({
+    database: options.database, system: "discovery", automationId: root.id, runId,
+    label: root.rootKey, status: "STARTED", actor: "AUTOMATION", scheduled: true, at: startedAt,
+  });
   const category = automationProductCategoryForRoot(root);
   const discoveryMode = automationProductModeForRoot(root);
   let candidateCount = 0;
@@ -1485,6 +1491,17 @@ async function runDiscoveryRoot(
     completedAt,
     schedulePolicy,
   }, options.database as AutomationDiscoveryDatabase);
+  if (automatic) await safelyRecordAdminAutomationRunEvent({
+    database: options.database, system: "discovery", automationId: root.id, runId,
+    label: root.rootKey,
+    status: completedAutomationRunStatus({
+      status, created: newEntityCount + reviewableCandidateCount,
+      updated: updateSuggestionCount,
+    }),
+    actor: "AUTOMATION", scheduled: true, at: completedAt,
+    checked: candidateCount, created: reviewableCandidateCount,
+    updated: updateSuggestionCount, skipped: duplicateCandidateCount, errors,
+  });
   const summary: DiscoveryRunSummary = {
     runId,
     rootId: root.id,

@@ -19,16 +19,30 @@ export async function runGeminiAutomation(input: {
   const id = await beginGeminiRun(input.database, {
     settingId: input.settingId, triggerType: input.triggerType ?? "TEST", model, at: now().toISOString(),
   });
+  if (input.triggerType === "SCHEDULED") {
+    await (await import("./admin-automation-events.ts")).safelyRecordAdminAutomationRunEvent({
+      database: input.database, system: "gemini", automationId: input.settingId, runId: id,
+      label: "Gemini", status: "STARTED", actor: "AUTOMATION", scheduled: true, at: now(),
+    });
+  }
   try {
     if (input.execute) {
       if (!input.client) throw new GeminiAutomationError("CONFIG_MISSING");
       await input.execute(input.client);
     }
     await finishGeminiRun(input.database, { id, status: "SUCCESS", at: now().toISOString() });
+    if (input.triggerType === "SCHEDULED") await (await import("./admin-automation-events.ts")).safelyRecordAdminAutomationRunEvent({
+      database: input.database, system: "gemini", automationId: input.settingId, runId: id,
+      label: "Gemini", status: "SUCCESS", actor: "AUTOMATION", scheduled: true, at: now(),
+    });
     return { id, status: "SUCCESS" as const };
   } catch (error) {
     const code = error instanceof GeminiAutomationError ? error.code : "PROVIDER_ERROR";
     await finishGeminiRun(input.database, { id, status: "FAILED", at: now().toISOString(), errorCode: code });
+    if (input.triggerType === "SCHEDULED") await (await import("./admin-automation-events.ts")).safelyRecordAdminAutomationRunEvent({
+      database: input.database, system: "gemini", automationId: input.settingId, runId: id,
+      label: "Gemini", status: "FAILED", actor: "AUTOMATION", scheduled: true, at: now(), errors: 1,
+    });
     return { id, status: "FAILED" as const, errorCode: code };
   }
 }

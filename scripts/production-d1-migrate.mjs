@@ -108,6 +108,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0113_gemini_automation_foundation.sql",
   "0114_gemini_dedupe.sql",
   "0115_gemini_notion_bridge.sql",
+  "0116_admin_automation_push.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([

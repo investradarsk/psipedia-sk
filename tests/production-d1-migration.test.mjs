@@ -131,6 +131,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0113_gemini_automation_foundation.sql",
     "0114_gemini_dedupe.sql",
     "0115_gemini_notion_bridge.sql",
+    "0116_admin_automation_push.sql",
   ]);
 });
 
@@ -662,7 +663,7 @@ test("post-0064 rollout scopes every supported target independently and excludes
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0116_future_migration.sql",
+    "0117_future_migration.sql",
   ];
   for (const targetMigration of SUPPORTED_PRODUCTION_TARGETS.slice(3)) {
     const result = selectMigrationsThrough(files, targetMigration);
@@ -690,14 +691,14 @@ test("PARTNER-H3 production rollout scopes exactly through 0070 and excludes fut
   const files = [
     ...Array.from({ length: 62 }, (_, index) => `${String(index).padStart(4, "0")}_migration.sql`),
     ...SUPPORTED_PRODUCTION_TARGETS,
-    "0115_future_migration.sql",
+    "0117_future_migration.sql",
   ];
   const result = selectMigrationsThrough(files, "0070_partner_multimethod_auth.sql");
   assert.equal(result.targetIndex, 70);
   assert.equal(result.selected.at(-1), "0070_partner_multimethod_auth.sql");
   assert.deepEqual(result.excludedFuture, [
     ...SUPPORTED_PRODUCTION_TARGETS.filter((name) => Number(name.slice(0, 4)) > 70),
-    "0115_future_migration.sql",
+    "0117_future_migration.sql",
   ]);
 });
 

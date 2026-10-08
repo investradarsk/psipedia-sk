@@ -75,6 +75,7 @@ export default async function AdminOperationsPage({ searchParams }: { searchPara
       </section>
 
       <AdminAttentionHistorySync cursor={cursor ?? ""} />
+      <p><Link href="/admin/operations/automaticke-udalosti">Automatické udalosti — história behov a push výsledkov →</Link></p>
       <div id="centrum-pozornosti">
         <AdminAttentionQueue
           key={JSON.stringify({ ...filters, cursor: cursor ?? "" })}

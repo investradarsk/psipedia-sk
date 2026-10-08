@@ -38,6 +38,7 @@ import {
   type AutomationD1Database,
 } from "./data-automation-store.ts";
 import { enqueuePersistentAutomationSourceIssueAdminNotification } from "./admin-notifications";
+import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent, type AutomationActor } from "./admin-automation-events.ts";
 import {
   linkAutomationFindingToCluster,
   resolveAutomationEntityCluster,
@@ -678,11 +679,17 @@ export async function processAutomationRecordForReview(input: {
 async function runSource(
   source: AutomationSource,
   options: DataAutomationSweepOptions,
+  actor: AutomationActor = "AUTOMATION",
 ): Promise<SourceRunSummary> {
   const startedAt = options.now ? new Date(options.now) : new Date();
   const providerNow = options.providerNow ?? (() => new Date());
   const detectedAt = startedAt.toISOString();
   const runId = await beginAutomationRun(source.id, detectedAt, options.database);
+  await safelyRecordAdminAutomationRunEvent({
+    database: options.database, system: "data", automationId: source.id, runId,
+    label: source.sourceKey, status: "STARTED", actor, scheduled: actor === "AUTOMATION",
+    at: startedAt,
+  });
   let checked = 0;
   let newFindings = 0;
   let updatedFindings = 0;
@@ -901,6 +908,14 @@ async function runSource(
     completedAt,
   }, options.database);
 
+  await safelyRecordAdminAutomationRunEvent({
+    database: options.database, system: "data", automationId: source.id, runId,
+    label: source.sourceKey,
+    status: completedAutomationRunStatus({ status, created: newFindings, updated: updatedFindings, draftCreated }),
+    actor, scheduled: actor === "AUTOMATION", at: completedAt,
+    checked, created: newFindings, updated: updatedFindings, errors,
+  });
+
   if (status === "FAILED") {
     try {
       await enqueuePersistentAutomationSourceIssueAdminNotification(options.database, source.id, completedAt);
@@ -1008,5 +1023,5 @@ export async function runAutomationSourceNow(
   if (!source) throw new Error("automation_source_not_found");
   if (!source.enabled) throw new Error("automation_source_disabled");
   if (source.reviewStatus !== "APPROVED") throw new Error("automation_source_review_required");
-  return runSource(source, options);
+  return runSource(source, options, "ADMIN");
 }

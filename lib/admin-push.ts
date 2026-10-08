@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { enqueueUncoveredAttentionAdminNotifications } from "@/lib/admin-notifications";
+import { enqueueAdminNotificationEvent, enqueueUncoveredAttentionAdminNotifications } from "@/lib/admin-notifications";
+import { adminPushCategoryForEvent, parsePushCategories, parseStoredPushCategories } from "@/lib/admin-automation-events";
 import { hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import {
   normalizeAdminNotificationPath,
@@ -59,12 +60,17 @@ type EventDeliveryRow = {
   body: string;
   target_url: string;
   tag: string;
+  event_type: string;
+  actor_type: string;
+  resource_type: string;
+  categories_json: string;
 };
 
 type ActiveSubscriptionRow = {
   id: number;
   admin_email: string;
   created_at: string;
+  categories_json: string;
 };
 
 const MAX_DEVICES_PER_ADMIN = 10;
@@ -170,6 +176,70 @@ export async function registerAdminPushSubscription(
   return { enabled: true, endpoint: clean.endpoint };
 }
 
+export async function updateAdminPushCategories(
+  adminEmail: string, endpointValue: string, input: unknown, options: RuntimeOptions = {},
+) {
+  const { database, now } = runtime(options);
+  const endpoint = new URL(endpointValue);
+  if (endpoint.protocol !== "https:") throw new Error("Neplatný Web Push endpoint.");
+  const categories = parsePushCategories(input);
+  const result = await database.prepare(`UPDATE admin_push_subscriptions
+    SET categories_json = ?, updated_at = ?
+    WHERE admin_email = ? AND endpoint = ? AND enabled = 1`)
+    .bind(JSON.stringify(categories), now.toISOString(), adminEmail.trim().toLowerCase(), endpoint.toString()).run();
+  if (!result.meta?.changes) throw new Error("Zariadenie nie je registrované.");
+  return { categories };
+}
+
+export async function enqueueAdminPushTest(
+  adminEmail: string, endpointValue: string, options: RuntimeOptions = {},
+) {
+  const { database, now } = runtime(options);
+  const endpoint = new URL(endpointValue);
+  if (endpoint.protocol !== "https:") throw new Error("Neplatný Web Push endpoint.");
+  const row = await database.prepare(`SELECT id FROM admin_push_subscriptions
+    WHERE admin_email = ? AND endpoint = ? AND enabled = 1 LIMIT 1`)
+    .bind(adminEmail.trim().toLowerCase(), endpoint.toString()).first<{ id: number }>();
+  if (!row) throw new Error("Zariadenie nie je registrované.");
+  const recent = await database.prepare(`SELECT id FROM admin_notification_events
+    WHERE event_type = 'admin_push_test' AND resource_ref = ? AND created_at >= ? LIMIT 1`)
+    .bind(String(row.id), new Date(now.getTime() - 60_000).toISOString()).first();
+  if (recent) return { queued: false, rateLimited: true };
+  const result = await enqueueAdminNotificationEvent(database, {
+    eventType: "admin_push_test", sourceType: "ADMIN_PUSH_TEST", resourceType: "PUSH_SUBSCRIPTION",
+    resourceRef: row.id, actorType: "ADMIN", actorRef: "test-request",
+    targetUrl: "/admin/nastavenia", title: "Psipedia — test upozornenia",
+    body: "Test systému upozornení. Doručenie do iPhonu závisí od systému iOS.",
+    tag: `admin-test-${row.id}-${now.getTime()}`,
+    dedupeKey: `admin-push-test/${row.id}/${Math.floor(now.getTime() / 60000)}`,
+  }, now);
+  return { queued: result.created, rateLimited: !result.created };
+}
+
+export async function getAdminPushDeviceReport(
+  adminEmail: string, endpointValue: string, options: RuntimeOptions = {},
+) {
+  const { database } = runtime(options);
+  const endpoint = new URL(endpointValue);
+  if (endpoint.protocol !== "https:") throw new Error("Neplatný Web Push endpoint.");
+  const subscription = await database.prepare(`SELECT id, categories_json FROM admin_push_subscriptions
+    WHERE admin_email = ? AND endpoint = ? AND enabled = 1 LIMIT 1`)
+    .bind(adminEmail.trim().toLowerCase(), endpoint.toString())
+    .first<{ id: number; categories_json: string }>();
+  if (!subscription) return { enabled: false, categories: [], deliveries: [] };
+  const rows = await database.prepare(`SELECT d.status, d.attempts, d.last_error, d.sent_at, d.created_at
+    FROM admin_push_event_deliveries d
+    WHERE d.subscription_id = ? ORDER BY d.id DESC LIMIT 10`).bind(subscription.id)
+    .all<{ status: string; attempts: number; last_error: string | null; sent_at: string | null; created_at: string }>();
+  return {
+    enabled: true, categories: parseStoredPushCategories(subscription.categories_json),
+    deliveries: rows.results.map((item) => ({
+      status: item.status === "pending" ? "queued" : item.status === "sent" ? "sent" : "failed",
+      attempts: item.attempts, error: item.last_error, sentAt: item.sent_at, queuedAt: item.created_at,
+    })),
+  };
+}
+
 export async function disableAdminPushSubscription(
   adminEmail: string,
   endpointValue: string,
@@ -200,13 +270,13 @@ export async function getAdminPushSubscriptionState(
   }
   if (endpoint.protocol !== "https:") return { enabled: false };
   const row = await database.prepare(
-    "SELECT id, enabled FROM admin_push_subscriptions WHERE admin_email = ? AND endpoint = ? LIMIT 1",
-  ).bind(adminEmail.trim().toLowerCase(), endpoint.toString()).first<{ id: number; enabled: number }>();
+    "SELECT id, enabled, categories_json FROM admin_push_subscriptions WHERE admin_email = ? AND endpoint = ? LIMIT 1",
+  ).bind(adminEmail.trim().toLowerCase(), endpoint.toString()).first<{ id: number; enabled: number; categories_json: string }>();
   if (!row) return { enabled: false };
   await database.prepare(
     "UPDATE admin_push_subscriptions SET last_seen_at = ?, updated_at = ? WHERE id = ?",
   ).bind(now.toISOString(), now.toISOString(), row.id).run();
-  return { enabled: Boolean(row.enabled) };
+  return { enabled: Boolean(row.enabled), categories: parseStoredPushCategories(row.categories_json) };
 }
 
 async function describeNotification(database: D1Database, resourceType: string, resourceId: number): Promise<WebPushPayload | null> {
@@ -260,7 +330,7 @@ async function adminActorRefForSubscription(email: string, hashKey: string | und
 }
 
 async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBindings, nowIso: string) {
-  const subscriptions = await database.prepare(`SELECT id, admin_email, created_at
+  const subscriptions = await database.prepare(`SELECT id, admin_email, created_at, categories_json
     FROM admin_push_subscriptions
     WHERE enabled = 1
     ORDER BY created_at ASC
@@ -268,30 +338,34 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
 
   for (const subscription of subscriptions.results) {
     const ownActorRef = await adminActorRefForSubscription(subscription.admin_email, bindings.PII_HASH_KEY);
-    const events = await database.prepare(`SELECT e.id
+    const permitted = new Set(parseStoredPushCategories(subscription.categories_json));
+    const events = await database.prepare(`SELECT e.id, e.event_type, e.actor_type, e.resource_type
       FROM admin_notification_events e
       WHERE e.created_at >= ?
         AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type='automation_source_issue')
+        AND (e.event_type <> 'admin_push_test' OR e.resource_ref = ?)
         AND NOT EXISTS (
           SELECT 1 FROM admin_push_event_deliveries d
           WHERE d.event_id = e.id AND d.subscription_id = ?
         )
         AND (
-          (? IS NULL AND e.actor_type <> 'ADMIN')
-          OR
-          (? IS NOT NULL AND NOT (e.actor_type = 'ADMIN' AND e.actor_ref = ?))
+          e.event_type = 'admin_push_test'
+          OR (? IS NULL AND e.actor_type <> 'ADMIN')
+          OR (? IS NOT NULL AND NOT (e.actor_type = 'ADMIN' AND e.actor_ref = ?))
         )
       ORDER BY e.created_at ASC, e.id ASC
       LIMIT 100`)
-      .bind(subscription.created_at, subscription.id, ownActorRef, ownActorRef, ownActorRef)
-      .all<{ id: number }>();
+      .bind(subscription.created_at, String(subscription.id), subscription.id, ownActorRef, ownActorRef, ownActorRef)
+      .all<{ id: number; event_type: string; actor_type: string; resource_type: string }>();
 
     for (const event of events.results) {
+      const category = event.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(event.event_type, event.resource_type) : null;
+      const muted = category !== null && !permitted.has(category);
       await database.prepare(`INSERT INTO admin_push_event_deliveries (
           event_id, subscription_id, status, attempts, created_at, updated_at
-        ) VALUES (?, ?, 'pending', 0, ?, ?)
+        ) VALUES (?, ?, ?, 0, ?, ?)
         ON CONFLICT(event_id, subscription_id) DO NOTHING`)
-        .bind(event.id, subscription.id, nowIso, nowIso).run();
+        .bind(event.id, subscription.id, muted ? "dead" : "pending", nowIso, nowIso).run();
     }
   }
 }
@@ -320,7 +394,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
 
   const eventRows = await resolved.database.prepare(`SELECT d.id, d.event_id, d.subscription_id,
       d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth,
-      e.title, e.body, e.target_url, e.tag
+      e.title, e.body, e.target_url, e.tag, e.event_type, e.actor_type, e.resource_type, s.categories_json
     FROM admin_push_event_deliveries d
     JOIN admin_push_subscriptions s ON s.id = d.subscription_id
     JOIN admin_notification_events e ON e.id = d.event_id
@@ -333,6 +407,14 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   summary.candidates += eventRows.results.length;
   for (const row of eventRows.results) {
     try {
+      const category = row.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(row.event_type, row.resource_type) : null;
+      if (category && !parseStoredPushCategories(row.categories_json).includes(category)) {
+        await resolved.database.prepare(`UPDATE admin_push_event_deliveries
+          SET status = 'dead', last_error = 'category_disabled', updated_at = ? WHERE id = ?`)
+          .bind(nowIso, row.id).run();
+        summary.dead += 1;
+        continue;
+      }
       const result = await sendWebPush(
         { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth } satisfies WebPushSubscription,
         {
