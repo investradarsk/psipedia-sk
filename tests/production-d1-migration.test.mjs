@@ -1449,7 +1449,7 @@ test("0116 migration history is exact, pending vs already applied, and refuses l
     latestIndex: 116, targetApplied: true,
   });
   assert.throws(() => validateProductionTargetHistory(pending.slice(0, -1), expected, target), /expected exactly 0115/);
-  assert.throws(() => validateProductionTargetHistory([...pending, "0116_other.sql"], expected, target), /history does not exactly match/);
+  assert.throws(() => validateProductionTargetHistory([...pending.slice(0, -1), "0115_other.sql"], expected, target), /history does not exactly match/);
   assert.throws(() => validateProductionTargetHistory(
     [...expected.slice(0, -2), expected.at(-1)], expected, target,
   ), /history does not exactly match/);
