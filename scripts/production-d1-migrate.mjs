@@ -105,6 +105,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0110_tavily_source_provider_usage.sql",
   "0111_tavily_provider_diagnostics.sql",
   "0112_tavily_transport_phase.sql",
+  "0113_gemini_automation_foundation.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1080,6 +1081,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     return {
       partial: AUTOMATION_SOURCE_PROVIDER_TRANSPORT_PHASE_COLUMNS.some((column) => sql.includes(column)),
     };
+  }
+  if (targetMigration === "0113_gemini_automation_foundation.sql") {
+    return { partial: ["gemini_automation_settings", "gemini_automation_runs", "idx_gemini_settings_due", "idx_gemini_runs_setting_started"].some((name) => names.has(name)) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }

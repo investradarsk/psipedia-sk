@@ -59,6 +59,8 @@ interface Env {
   NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
   NOTION_ESHOPS_DATA_SOURCE_ID?: string;
   TAVILY_API_KEY?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
     input(stream: ReadableStream): {
