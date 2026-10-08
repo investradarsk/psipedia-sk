@@ -475,23 +475,33 @@ test.describe("public services search layout", () => {
     expect(response?.status()).toBe(200);
 
     const form = page.locator(".directory-results form").first();
+    // Hydration can replace an early user edit or swallow the disclosure click.
+    await expect(form).toHaveAttribute("data-public-search-ready", "true");
     await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");
-    await form.getByRole("button", { name: /^Ďalšie filtre/ }).click();
+    const advanced = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    await advanced.click();
+    await expect(advanced).toHaveAttribute("aria-expanded", "true");
     await expect(form.locator('select[name="region"]')).toHaveValue("Bratislavský kraj");
     await expect(form.locator('select[name="city"]')).toHaveValue("Bratislava");
     await expect(form.locator('select[name="sort"]')).toHaveValue("name-asc");
 
+    // Submitting an unchanged URL lets waitForURL resolve before the GET navigation.
+    // Change only q so the URL transition is observable while the secondary filters persist.
+    await form.locator('input[name="q"]').fill("publikovana kontrola");
+    await expect(form.locator('input[name="q"]')).toHaveValue("publikovana kontrola");
     await Promise.all([
       page.waitForURL((url) =>
         url.pathname === "/adresar/veterinari" &&
-        url.searchParams.get("q") === "publikovana" &&
+        url.searchParams.get("q") === "publikovana kontrola" &&
         url.searchParams.get("region") === "Bratislavský kraj" &&
         url.searchParams.get("city") === "Bratislava" &&
-        url.searchParams.get("sort") === "name-asc"
+        url.searchParams.get("sort") === "name-asc",
+        { waitUntil: "domcontentloaded" }
       ),
       form.getByRole("button", { name: "Hľadať" }).click(),
     ]);
 
+    await expect(page.locator('.directory-results input[name="q"]').first()).toHaveValue("publikovana kontrola");
     await expectNoHorizontalOverflow(page, "combined services filters");
     await expectSeriousCriticalAxeClean(page, ".directory-results", "combined services filters");
 
@@ -502,4 +512,77 @@ test.describe("public services search layout", () => {
     await expectNoHorizontalOverflow(page, "services filters reset");
   });
 
+});
+
+
+test.describe("HELP-SERVICES-LAYOUT-V2 public flow", () => {
+  test("HELP-SERVICES-LAYOUT-V2 keeps search first on both landing and category pages", async ({ page }) => {
+    for (const path of ["/adresar", "/adresar/treneri"]) {
+      const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+      expect(response?.status()).toBe(200);
+
+      const hero = page.locator("[data-unified-section-hero]").first();
+      const form = page.locator('form[data-public-search-form="services"]');
+      const categories = page.locator("[data-directory-category-navigation]");
+      const heading = page.locator("#directory-results-heading");
+
+      await expect(hero).toBeVisible();
+      await expect(form).toHaveCount(1);
+      // Wait for React hydration: server-rendered visibility does not mean
+      // the disclosure toggle has an attached event handler yet.
+      await expect(form).toHaveAttribute("data-public-search-ready", "true");
+      await expect(form.locator('input[name="q"]')).toBeVisible();
+      await expect(categories).toBeVisible();
+      await expect(heading).toBeVisible();
+      await expect(page.locator("[data-section-hero-search]")).toHaveCount(0);
+
+      const correctOrder = await page.evaluate(() => {
+        const elements = [
+          document.querySelector("[data-unified-section-hero]"),
+          document.querySelector('form[data-public-search-form="services"]'),
+          document.querySelector("[data-directory-category-navigation]"),
+          document.querySelector("#directory-results-heading"),
+        ];
+        return elements.every((element, index) => (
+          element && (!index || Boolean(
+            elements[index - 1]!.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING
+          ))
+        ));
+      });
+      expect(correctOrder, `hero → search → categories → results order on ${path}`).toBe(true);
+
+      const advanced = form.locator('button[aria-expanded]');
+      await expect(advanced).toHaveAttribute("aria-expanded", "false");
+      await advanced.click();
+      await expect(advanced).toHaveAttribute("aria-expanded", "true");
+      await expect(form.locator('select[name="region"]')).toBeVisible();
+      await expect(form.getByRole("link", { name: "Zrušiť filtre" })).toHaveAttribute("href", path);
+      await expectNoHorizontalOverflow(page, path);
+      await expectSeriousCriticalAxeClean(page, ".directory-results", path);
+    }
+  });
+
+  test("HELP-SERVICES-LAYOUT-V2 uses adaptive 4/3/2/1 grids without clipped service cards", async ({ page }) => {
+    const response = await page.goto("/adresar/treneri", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const grid = page.locator("[data-directory-list]");
+    await expect(grid.locator("[data-directory-card]").first()).toBeVisible();
+
+    for (const [width, expectedColumns] of [[1440, 4], [1280, 3], [1024, 3], [900, 2], [430, 1], [390, 1]] as const) {
+      await page.setViewportSize({ width, height: 930 });
+      const columns = await grid.evaluate((element) => (
+        getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length
+      ));
+      expect(columns, `service cards at ${width}px`).toBe(expectedColumns);
+      await expectNoHorizontalOverflow(page, `services at ${width}px`);
+    }
+
+    await page.setViewportSize({ width: 1440, height: 930 });
+    const title = grid.locator("[data-directory-card] strong").first();
+    await title.evaluate((element) => {
+      element.textContent = "Mimoriadne dlhý názov služby s viacerými slovami a mimoriadnedlhymnezalomitelnymretazcom";
+    });
+    await expectNoHorizontalOverflow(page, "long service name");
+    await expect(grid.locator("[data-directory-card]").first()).toHaveAttribute("href", /\/adresar\/treneri\//);
+  });
 });

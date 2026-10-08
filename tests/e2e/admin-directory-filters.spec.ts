@@ -279,7 +279,11 @@ test.describe("admin directory v2", () => {
     }
 
     await page.goto("/admin/adresar?category=treneri&q=Directory+Admin+Editor+Fixture");
-    await page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click();
+    await Promise.all([
+      page.waitForURL((url) => url.pathname.startsWith("/admin/adresar/") && url.pathname !== "/admin/adresar"),
+      page.getByRole("link", { name: "Directory Admin Editor Fixture" }).click(),
+    ]);
+    await expect(page.getByRole("button", { name: "Pokročilé a SEO" })).toBeVisible();
     const editorOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(editorOverflow).toBeLessThanOrEqual(1);
     await page.getByRole("button", { name: "Pokročilé a SEO" }).click();
