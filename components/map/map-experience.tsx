@@ -672,19 +672,23 @@ export function MapExperience({
       ).toString();
       const saved = validMapReturnState(raw, filterKey);
       if (!saved) return;
-      setViewport(saved.viewport);
-      // Updating the parent viewport does not move an already mounted Google map.
-      // Reuse the renderer's existing camera-command path on return.
-      setRendererCommand((current) => ({
-        key: (current?.key ?? 0) + 1,
-        type: "item",
-        id: saved.selectedItemId ?? "map-return-camera",
-        latitude: saved.viewport.center.lat,
-        longitude: saved.viewport.center.lng,
-        zoom: saved.viewport.zoom,
-      }));
-      setSelectedItemId(saved.selectedItemId);
-      setSheetState(saved.selectedItemId ? "preview" : "peek");
+      // Deferring state updates to the next frame avoids cascading renders
+      // during hydration while preserving one-time, validated restoration.
+      const frame = window.requestAnimationFrame(() => {
+        setViewport(saved.viewport);
+        // Updating viewport state alone does not move an existing Google map.
+        setRendererCommand((current) => ({
+          key: (current?.key ?? 0) + 1,
+          type: "item",
+          id: saved.selectedItemId ?? "map-return-camera",
+          latitude: saved.viewport.center.lat,
+          longitude: saved.viewport.center.lng,
+          zoom: saved.viewport.zoom,
+        }));
+        setSelectedItemId(saved.selectedItemId);
+        setSheetState(saved.selectedItemId ? "preview" : "peek");
+      });
+      return () => window.cancelAnimationFrame(frame);
     } catch { /* Private browsing may disable sessionStorage. */ }
   }, []);
 
@@ -859,9 +863,12 @@ export function MapExperience({
   }, [mobileFiltersOpen, selectedItemId]);
 
   useEffect(() => {
-    if (!loading && (error || (response && response.meta.count === 0))) {
+    if (loading || (!error && (!response || response.meta.count !== 0))) return;
+    // Show actionable empty/error feedback in preview without blocking map gestures.
+    const frame = window.requestAnimationFrame(() => {
       setSheetState((state) => state === "peek" ? "preview" : state);
-    }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [loading, error, response]);
 
   const rendererStatusLabel = !effectiveRendererEnabled && !testRenderer
