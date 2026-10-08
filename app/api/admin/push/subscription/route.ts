@@ -2,6 +2,9 @@ import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import {
   disableAdminPushSubscription,
   getAdminPushSubscriptionState,
+  getAdminPushDeviceReport,
+  enqueueAdminPushTest,
+  updateAdminPushCategories,
   registerAdminPushSubscription,
 } from "@/lib/admin-push";
 
@@ -27,12 +30,26 @@ export async function POST(request: Request) {
       auth?: unknown;
       label?: unknown;
       platform?: unknown;
+      categories?: unknown;
     };
     if (body.action === "status") {
       if (typeof body.endpoint !== "string") {
         return Response.json({ error: "Chýba endpoint zariadenia." }, { status: 400 });
       }
       return Response.json(await getAdminPushSubscriptionState(user.email, body.endpoint));
+    }
+    if (body.action === "report" || body.action === "test" || body.action === "categories") {
+      if (typeof body.endpoint !== "string") {
+        return Response.json({ error: "Chýba endpoint zariadenia." }, { status: 400 });
+      }
+      if (body.action === "report") {
+        return Response.json(await getAdminPushDeviceReport(user.email, body.endpoint));
+      }
+      if (body.action === "categories") {
+        return Response.json(await updateAdminPushCategories(user.email, body.endpoint, body.categories));
+      }
+      const result = await enqueueAdminPushTest(user.email, body.endpoint);
+      return Response.json(result, { status: result.rateLimited ? 429 : 202 });
     }
     if (body.action !== "enable") {
       return Response.json({ error: "Neplatná push akcia." }, { status: 400 });
