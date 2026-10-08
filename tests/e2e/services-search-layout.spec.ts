@@ -353,16 +353,12 @@ test.describe("public services search layout", () => {
       await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
 
       const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
-      if (viewport.width <= 620) {
-        await expect(filterToggle).toBeVisible();
-        await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
-        await page.waitForLoadState("networkidle");
-        await expect(filterToggle).toBeEnabled();
-        await filterToggle.click();
-        await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
-      } else {
-        await expect(filterToggle).toBeHidden();
-      }
+      await expect(filterToggle).toBeVisible();
+      await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+      await page.waitForLoadState("networkidle");
+      await expect(filterToggle).toBeEnabled();
+      await filterToggle.click();
+      await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
 
       for (const fieldName of ["q", "category", "region", "district", "city"]) {
         await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} at ${viewport.width}px`).toBeVisible();
