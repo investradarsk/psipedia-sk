@@ -48,12 +48,12 @@ export type GeminiSignals = {
   phone: string; email: string;
 };
 
-/** The official website/contact field is identity; primary_url is evidence unless it equals website. */
+/** The official website/contact field is identity; primary_url is the fallback when an explicit website is absent. */
 export function geminiCandidateSignals(candidate: GeminiDiscoveryCandidateV1): GeminiSignals {
   return {
     name: normalizeGeminiName(candidate.name),
     city: normalizeGeminiCity(candidate.location.city),
-    website: normalizeGeminiWebsite(candidate.contacts.website),
+    website: normalizeGeminiWebsite(candidate.contacts.website ?? candidate.primary_url),
     phone: normalizeGeminiPhone(candidate.contacts.phone),
     email: normalizeGeminiEmail(candidate.contacts.email),
   };

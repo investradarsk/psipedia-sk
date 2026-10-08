@@ -1,5 +1,5 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
-import { createGeminiDiscoveryRequest, type GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
+import { createGeminiDiscoveryRequest, parseGeminiDiscoveryEnvelope, type GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
 import { readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import { geminiCandidateSignals, normalizeGeminiCity, normalizeGeminiEmail,
@@ -32,10 +32,10 @@ function result(status: GeminiDedupeStatus, reasons: string[], signals: string[]
 }
 function parsePublicContacts(raw: string): DirectoryImportData {
   try {
-    if (raw.length > 65536) return {};
+    if (raw.length > 65536) throw new Error("GEMINI_DEDUPE_CANONICAL_DATA_INVALID");
     const data: unknown = JSON.parse(raw);
     return data && typeof data === "object" && !Array.isArray(data) ? data as DirectoryImportData : {};
-  } catch { return {}; }
+  } catch { throw new Error("GEMINI_DEDUPE_CANONICAL_DATA_INVALID"); }
 }
 function rowSignals(row: DirectoryRow): GeminiSignals {
   const contacts = readDirectoryPublicContacts(parsePublicContacts(row.source_data_json ?? "{}"), row.website_url ?? "");
@@ -57,10 +57,7 @@ function compare(candidate: GeminiSignals, existing: GeminiSignals): { strength:
   if (samePhone) strong.push("PHONE_EXACT");
   if (sameEmail) strong.push("EMAIL_EXACT");
   // A shared homepage is not proof of one branch when cities explicitly conflict.
-  if (sameUrl && sameName && (!cityKnown || sameCity)) {
-    if (sameCity) strong.push("URL_NAME_CITY_EXACT");
-    else if (!cityKnown) return { strength: samePhone || sameEmail ? 2 : 1, reasons: strong.length ? strong : ["URL_NAME_LOCATION_UNKNOWN"], signals: ["url", "name"] };
-  }
+  if (sameUrl && sameName && (!cityKnown || sameCity)) strong.push("URL_NAME_EXACT");
   if (sameDomain && sameName && sameCity) strong.push("DOMAIN_NAME_CITY_EXACT");
   if (strong.length) return { strength: 2, reasons: strong, signals: strong.map((s) => s.split("_")[0].toLowerCase()) };
   const possible = [];
@@ -93,9 +90,11 @@ export async function checkGeminiCandidateDedupe(
   // Guard against use with an unparsed/raw provider shape; the only accepted
   // contract is the strict, validated Discovery Candidate V1.
   createGeminiDiscoveryRequest({ stableKey: input.stableKey, maxCandidates: 1 });
-  if (!input.candidate || typeof input.candidate.name !== "string" ||
-      input.candidate.location?.country !== "Slovakia" || !input.candidate.contacts ||
-      !Array.isArray(input.candidate.evidence)) throw new Error("GEMINI_DEDUPE_INVALID_CANDIDATE");
+  try {
+    const request = createGeminiDiscoveryRequest({ stableKey: input.stableKey, maxCandidates: 1 });
+    parseGeminiDiscoveryEnvelope({ schema_version: 1, category_key: request.stableKey,
+      candidates: [input.candidate] }, request);
+  } catch { throw new Error("GEMINI_DEDUPE_INVALID_CANDIDATE"); }
   if (input.section !== "directory") throw new Error("GEMINI_DEDUPE_POLICY_NOT_READY");
   const candidate = geminiCandidateSignals(input.candidate);
   if (!candidate.name) throw new Error("GEMINI_DEDUPE_INVALID_CANDIDATE");
