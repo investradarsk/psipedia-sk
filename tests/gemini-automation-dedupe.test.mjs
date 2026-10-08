@@ -72,7 +72,7 @@ test("safe +421 phone, email normalization and no guessed missing contact", () =
   assert.equal(normalizeGeminiEmail(" Info+Bratislava@Example.SK "), "info+bratislava@example.sk");
   assert.equal(normalizeGeminiEmail("info@example.sk"), "info@example.sk");
   assert.equal(normalizeGeminiEmail("bad-email"), "");
-  assert.equal(geminiRejectionIdentities(geminiCandidateSignals(candidate({contacts:
+  assert.equal(geminiRejectionIdentities(geminiCandidateSignals(candidate({primary_url: null, contacts:
     { phone: "1234", email: null, website: null }, location: { city: null }}))).length, 0);
 });
 test("canonical exact URL, domain+name+city, phone and email are strong", async (t) => {
@@ -152,7 +152,7 @@ test("name/city-only rejection fallback works but insufficient identity cannot p
   assert.equal(await rememberGeminiRejection(ctx.db, { stableKey: "directory.treneri", candidate: poor }), 1);
   assert.equal((await checkGeminiCandidateDedupe(ctx.db, scope(poor))).status, "REJECTED_BEFORE");
   await assert.rejects(rememberGeminiRejection(ctx.db, { stableKey: "directory.treneri",
-    candidate: candidate({ name: "Názov", location: { city: null }, contacts: { phone: null,email: null,website: null } }) }), /NO_REJECTION_IDENTITY/);
+    candidate: candidate({ name: "Názov", primary_url: null, location: { city: null }, contacts: { phone: null,email: null,website: null } }) }), /NO_REJECTION_IDENTITY/);
   ctx.close();
 });
 test("scope validation, unsupported event/help fail closed, bounded canonical lookup", async () => {
