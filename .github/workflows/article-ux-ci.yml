@@ -32,6 +32,7 @@ on:
       - "scripts/check-config-contract.mjs"
       - "tests/article-modern-reading-experience.test.mjs"
       - "tests/e2e/article-reading-experience.spec.ts"
+      - "tests/e2e/content-discovery-v3.spec.ts"
       - "package-lock.json"
       - "playwright.config.ts"
       - "vite.config.*"
@@ -120,10 +121,10 @@ jobs:
         run: node scripts/bootstrap-article-ux-e2e.mjs
 
       - name: ARTICLE-UX-1 Playwright, accessibility and screenshots — desktop
-        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts --project=desktop-chromium --workers=1 --retries=0
+        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts tests/e2e/content-discovery-v3.spec.ts --project=desktop-chromium --workers=1 --retries=0
 
       - name: ARTICLE-UX-1 Playwright, accessibility and screenshots — mobile
-        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts --project=mobile-chromium --workers=1 --retries=0
+        run: npm run e2e -- tests/e2e/article-reading-experience.spec.ts tests/e2e/content-discovery-v3.spec.ts --project=mobile-chromium --workers=1 --retries=0
 
       - name: Upload ARTICLE-UX-1 visual evidence
         if: always()
