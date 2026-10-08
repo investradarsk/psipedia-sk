@@ -1,4 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
+import { mkdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 const articlePath = "/aktivity/bikejoring-so-psom-kompletny-sprievodca-od-prveho-treningu-az-po-preteky-na-slovensku";
@@ -26,7 +27,11 @@ for (const width of [390, 1440]) {
     const overflow = await page.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
-    await page.screenshot({ path: testInfo.outputPath(`content-discovery-v3-${width}.png`), fullPage: false });
+    mkdirSync(".e2e-artifacts/article-ux-1", { recursive: true });
+    await page.screenshot({
+      path: `.e2e-artifacts/article-ux-1/content-discovery-v3-${testInfo.project.name}-${width}.png`,
+      fullPage: false,
+    });
     const results = await new AxeBuilder({ page }).include("[data-content-discovery-v3]")
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.filter((item) => item.impact === "serious" || item.impact === "critical")).toEqual([]);
