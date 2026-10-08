@@ -80,7 +80,9 @@ function urlValue(value: unknown, nullable = false): string | null {
       /^(localhost|.*\.localhost|.*\.local)$/i.test(parsed.hostname) ||
       /^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(parsed.hostname) ||
       /^\[?(::1|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:)/i.test(parsed.hostname)) return invalid();
-    return raw;
+    // URL serialization is deterministic (e.g. origin vs origin/, host casing).
+    // Do not infer new facts or remove query parameters/path segments.
+    return parsed.href;
   } catch { return invalid(); }
 }
 function nullableFields(value: unknown, keys: readonly string[], limits: Record<string, number>): Record<string, string | null> {
