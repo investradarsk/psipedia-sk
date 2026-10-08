@@ -897,3 +897,6 @@
   .contentHub { gap: 18px; }
   .contentHubPillar :global(.article-card) { max-width: 100%; }
 }
+
+/* CONTENT-HUB-CONTEXT-CTA-1: a compact feed item, never a parallel banner. */
+.contextualCtaItem { min-width: 0; }
