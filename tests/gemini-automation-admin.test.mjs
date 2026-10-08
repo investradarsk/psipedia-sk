@@ -160,7 +160,8 @@ test("I: history is stable newest-first and projects only allowlisted fields", a
   assert.deepEqual(runs.map((run) => run.id), [2, 1, 3]);
   assert.deepEqual(Object.keys(runs[0]).sort(), [
     "id", "stableKey", "section", "subcategory", "startedAt", "trigger", "status", "model",
-    "candidateCount", "duplicateCount", "conceptCount", "errorCode",
+    "requestCount", "groundedSearchQueryCount", "candidateCount", "duplicateCount",
+    "conceptCount", "errorCount", "completedAt", "errorCode",
   ].sort());
   assert.equal((await listRecentGeminiRuns(db, 1)).length, 1);
   assert.doesNotMatch(source("app/admin/automatizacie-gemini/page.tsx"), /raw_payload|raw_prompt|stack_trace/);

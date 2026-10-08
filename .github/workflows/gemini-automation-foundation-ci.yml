@@ -13,6 +13,8 @@ on:
       - "tests/gemini-automation-*.test.mjs"
       - "drizzle/0113_gemini_automation_foundation.sql"
       - "drizzle/0114_gemini_dedupe.sql"
+      - "drizzle/0115_gemini_notion_bridge.sql"
+      - "wrangler.jsonc"
       - "config/runtime-env.ts"
       - ".env.example"
       - "scripts/ci-scope.mjs"
@@ -39,6 +41,8 @@ jobs:
       - run: npm ci
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs
+      - name: Targeted Gemini admin lint coverage
+        run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Runtime secret contract
         run: npm run test:config
       - name: Migration safety

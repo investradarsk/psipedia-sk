@@ -33,3 +33,15 @@
 .historyTable tbody tr:last-child td { border-bottom: 0; }
 @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
 @media (max-width: 460px) { .card { padding: 15px; } .fields { grid-template-columns: 1fr; } .timestamps { gap: 10px; } }
+
+.pilot { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid #dbe7df; }
+.pilot strong { font-size: .95rem; }
+.pilot p { margin: 0; color: #52675c; font-size: .86rem; line-height: 1.5; }
+.pilotActions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pilotActions button { padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+.pilotActions button:disabled { opacity: .55; cursor: not-allowed; }
+.pilot .pilotError { color: #9c2525; }
+.pilotResult { border-top: 1px solid #dbe7df; padding-top: 12px; }
+.pilotMetrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin: 8px 0 0; }
+.pilotMetrics dt { color: #65786c; font-size: .8rem; }
+.pilotMetrics dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
