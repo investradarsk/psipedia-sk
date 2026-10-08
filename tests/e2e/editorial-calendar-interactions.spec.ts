@@ -139,7 +139,7 @@ test("calendar toolbar stays below sticky admin navigation while scrolling", asy
   const toolbar = calendar.locator('[class*="toolbar"]');
   const navigation = page.locator('[data-admin-sticky-nav]:visible');
   await expect(toolbar).toBeVisible();
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await toolbar.evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY + 220));
   await expect.poll(async () => {
     const navBox = await navigation.boundingBox();
     const toolbarBox = await toolbar.boundingBox();
