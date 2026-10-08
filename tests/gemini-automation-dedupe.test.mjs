@@ -179,3 +179,17 @@ test("migration constraints, CI scope and isolation invariants", () => {
   assert.ok(!/fetch\s*\(|\bpublish\s*\(|createManagedDirectoryProfile\s*\(|discoverGeminiCandidates\s*\(/.test(sources));
   ctx.close();
 });
+
+test("source-only primary URL changes cannot bypass name+city rejection memory", async () => {
+  const ctx = setup();
+  const original = candidate({ contacts: { phone: null, email: null, website: null } });
+  await rememberGeminiRejection(ctx.db, { stableKey: "directory.treneri", candidate: original });
+  const revised = candidate({
+    contacts: { phone: null, email: null, website: null },
+    primary_url: "https://other-evidence.sk/entry",
+    source_urls: ["https://other-evidence.sk/entry"],
+    evidence: [{ source_url: "https://other-evidence.sk/entry", fields: ["name"] }],
+  });
+  assert.equal((await checkGeminiCandidateDedupe(ctx.db, scope(revised))).status, "REJECTED_BEFORE");
+  ctx.close();
+});
