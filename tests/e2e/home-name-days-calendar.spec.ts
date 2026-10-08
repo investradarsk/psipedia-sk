@@ -30,7 +30,7 @@ test("native keyboard controls, Slovak months and December/January boundary", as
   await expect(page.locator('[data-name-day-selected-date="2027-01-01"]')).toBeVisible();
   await expect(page.locator('[data-name-day-selected-date="2027-01-01"]')).toContainText(/Psie meniny/);
   await page.getByRole("link", { name: "Prejsť na dnešný dátum" }).click();
-  await expect(page.locator('[data-name-day-date][aria-current="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-name-day-date][aria-current="date"]')).toHaveCount(1);
 });
 
 test("leap year, desktop/mobile viewport, focus, axe and visual captures", async ({ page }, testInfo) => {

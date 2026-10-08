@@ -20,3 +20,6 @@ Nové CSS aj kalendár sú lokálne v module, globálna navigácia a hlavička n
 
 ## Obmedzenia
 Ak kanonický dataset nemá publikované meno pre daný deň, UI zobrazuje prázdny stav; mená sa nevymýšľajú. Screenshoty vyžadujú spustený lokálny alebo PR testovací build. Merge je manuálny, auto-merge OFF.
+
+## Izolovaná PR vizuálna validácia
+Samostatný `.github/workflows/homepage-name-days-ci.yml` iba pre tento modul spúšťa NAME-DAY unit/integration suite a desktop/mobile Playwright na lokálnom D1 bez produkčného deployu. Výsledný Playwright report vrátane 390 px a 1440 px screenshotov publikuje ako GitHub Actions artifact.
