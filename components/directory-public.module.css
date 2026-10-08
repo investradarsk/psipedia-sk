@@ -1587,6 +1587,11 @@
   border-radius: 12px;
 }
 
+.categoryTiles :global([data-public-subcategory-item]) > span:first-child > img {
+  border-radius: 12px;
+  object-fit: cover;
+}
+
 .categoryTiles :global([data-public-subcategory-item]) > span:first-child > span {
   position: static;
   display: grid;
