@@ -81,7 +81,12 @@ test("Partner-specific header state cannot enter the shared public HTML cache", 
 test("Partner shell uses the measured sticky header height as shared scroll offset", () => {
   assert.match(header, /--psipedia-sticky-header-height/);
   assert.match(header, /new ResizeObserver\(update\)/);
-  assert.match(header, /header\.getBoundingClientRect\(\)\.height/);
+  // The fixed header offset is now the sum of its independent masthead and
+  // desktop navigation band; the open mobile menu must not inflate it.
+  assert.match(header, /masthead\?\.getBoundingClientRect\(\)\.height/);
+  assert.match(header, /desktopBand\?\.getBoundingClientRect\(\)\.height/);
+  assert.match(header, /mastheadHeight \+ bandHeight \+ borderHeight/);
+  assert.doesNotMatch(header, /Math\.ceil\(header\.getBoundingClientRect\(\)\.height\)/);
   assert.match(
     partnerCss,
     /scroll-margin-top: calc\(var\(--psipedia-sticky-header-height, 0px\) \+ 16px\)/,

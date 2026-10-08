@@ -555,3 +555,9 @@
     padding-right: max(12px, env(safe-area-inset-right, 0px));
   }
 }
+
+/* The shared header can overlap an admin sticky bar during public/admin route
+   transition tests. Keep brand-accent text WCAG AA even against that backdrop. */
+:global(.site-header) :global(.brand) > span:last-child > span {
+  color: #a43b29;
+}
