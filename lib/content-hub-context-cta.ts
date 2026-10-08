@@ -98,15 +98,18 @@ const canonical = (href: string) => href.split(/[?#]/, 1)[0].replace(/\/$/, "") 
  * Short feeds are free of promotion, except urgent veterinary navigation.
  * Sidebar/manual exclusions use the same canonical destinations as the registry.
  */
-export function resolveContentHubCta({
-  section, topic, visibleArticleCount, sidebarPromoKey, occupiedPromoKeys = [], occupiedHrefs = [],
-}: {
-  section: string; topic: string; visibleArticleCount: number;
+type ContextualHubActionInput = {
+  section: string;
+  topic: string;
   sidebarPromoKey?: ArticlePromoKey | null;
-  occupiedPromoKeys?: readonly ArticlePromoKey[]; occupiedHrefs?: readonly string[];
-}): ContentHubCtaDecision | null {
-  const rule = rules[`${section}/${topic}`];
-  if (!rule || visibleArticleCount < (rule.urgent ? 1 : 4)) return null;
+  occupiedPromoKeys?: readonly ArticlePromoKey[];
+  occupiedHrefs?: readonly string[];
+};
+
+/** Share the destination and deduplication policy across feeds and article endings. */
+function resolveRuleActions(rule: Rule, {
+  sidebarPromoKey, occupiedPromoKeys = [], occupiedHrefs = [],
+}: ContextualHubActionInput): ContentHubCtaAction[] {
   const excluded = new Set(occupiedPromoKeys);
   const taken = new Set(occupiedHrefs.map(canonical));
   if (sidebarPromoKey) {
@@ -120,11 +123,32 @@ export function resolveContentHubCta({
     const promoKey = "promoKey" in destination ? destination.promoKey : undefined;
     const href = hrefOf(destination);
     if (!href || (promoKey && excluded.has(promoKey)) || taken.has(canonical(href))) continue;
-    // Do not promote a secondary option into a different primary message.
+    // Never re-label a secondary destination as the primary next step.
     if (index > 0 && !actions.length) continue;
     actions.push({ label: destination.label, href, role: index ? "secondary" : "primary", ...(promoKey ? { promoKey } : {}) });
     taken.add(canonical(href));
   }
+  return actions;
+}
+
+/**
+ * A single, explicitly curated next step for an article ending. Unlike the
+ * feed CTA, it is not gated by article-count or inserted into the feed.
+ */
+export function resolveContentHubNextAction(input: ContextualHubActionInput): ContentHubCtaAction | null {
+  const rule = rules[`${input.section}/${input.topic}`];
+  return rule ? resolveRuleActions(rule, input)[0] ?? null : null;
+}
+
+/** Existing bounded inline-feed contract remains unchanged. */
+export function resolveContentHubCta({
+  section, topic, visibleArticleCount, sidebarPromoKey, occupiedPromoKeys = [], occupiedHrefs = [],
+}: ContextualHubActionInput & { visibleArticleCount: number }): ContentHubCtaDecision | null {
+  const rule = rules[`${section}/${topic}`];
+  if (!rule || visibleArticleCount < (rule.urgent ? 1 : 4)) return null;
+  const actions = resolveRuleActions(rule, {
+    section, topic, sidebarPromoKey, occupiedPromoKeys, occupiedHrefs,
+  });
   if (!actions.length) return null;
   return { key: rule.key, headline: rule.headline, lead: rule.lead, text: rule.text, actions,
     afterArticleCount: Math.min(3, visibleArticleCount) };

@@ -7,6 +7,7 @@ import { ArticleReadTracker } from "@/components/article-read-tracker";
 import { ArticleReadingProgress } from "@/components/article-reading-progress";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { ArticlePromo } from "@/components/article-promo";
+import { ArticleContinuation } from "@/components/article-continuation";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Breadcrumbs, MediaFrame } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
@@ -17,6 +18,7 @@ import { AdSlot } from "@/components/ad-slot";
 import type { Article } from "@/lib/content";
 import type { ArticleMagazineData } from "@/lib/article-magazine";
 import type { ArticleDiscoveryData } from "@/lib/article-discovery";
+import { resolveArticleContinuation } from "@/lib/article-continuation";
 import type { EditorialAuthorProfile } from "@/lib/editorial-authors";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection, portalSectionLabel, portalSubpageHref, type PortalSection } from "@/lib/portal";
@@ -100,6 +102,13 @@ export function ArticleDetail({
   const relatedItems = endRecommendationPool.filter((item, index, items) =>
     item.slug !== article.slug && items.findIndex((candidate) => candidate.slug === item.slug) === index
   ).slice(0, 3);
+  const continuation = resolveArticleContinuation({
+    article,
+    topicHref,
+    topicLabel,
+    sidebarPromoKey: discovery.promo?.promoKey,
+    relatedHrefs: relatedItems.map((item) => articleHref(item)),
+  });
   const hasPopularity = discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
   const showDiscoverySidebar = hasPopularity || Boolean(discovery.promo);
 
@@ -296,6 +305,8 @@ export function ArticleDetail({
           </div>
         </section>
       ) : null}
+
+      {continuation ? <ArticleContinuation next={continuation} /> : null}
     </main>
   );
 }
