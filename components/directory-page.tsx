@@ -18,7 +18,7 @@ import {
 } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import { DirectoryResults } from "@/components/directory-results";
-import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { getResolvedSectionVisual, getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./directory-public.module.css";
 
 function profileCountLabel(count: number) {
@@ -71,14 +71,31 @@ export async function DirectoryPage({
   const activeCount = active ? categoryCounts[active.slug] : undefined;
   const filtered = hasDirectoryFilters(filters);
 
+  // Preserve configured category imagery; compact tiles display it as a thumbnail.
+  const categoryVisualEntries = active ? [] : await Promise.all(
+    directoryCategories.map(async (category) => [
+      category.slug,
+      await getResolvedSectionVisual(`directory.${category.slug}`),
+    ] as const),
+  );
+  const categoryVisuals = new Map(categoryVisualEntries);
+
   const landingCategoryItems = directoryCategories.map((category) => {
     const count = categoryCounts[category.slug];
+    const visual = categoryVisuals.get(category.slug);
     return {
       href: directoryCategoryHref(category),
       title: category.label,
       description: category.description,
       meta: typeof count === "number" ? `${count} ${profileCountLabel(count)}` : undefined,
-      icon: categoryIcon(category.slug),
+      icon: visual ? undefined : categoryIcon(category.slug),
+      image: visual ? {
+        src: visual.imageUrl,
+        alt: visual.altText,
+        width: 640,
+        height: 360,
+        loading: "lazy" as const,
+      } : undefined,
     };
   });
 
