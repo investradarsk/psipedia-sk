@@ -27,11 +27,17 @@ export type GeminiPilotSummary = {
   errorCode?: GeminiFailureCode;
 };
 
+export type GeminiPilotGuardCode =
+  "PILOT_INVALID_SCOPE" | "PILOT_SETTING_NOT_SAVED" |
+  "PILOT_LIMIT_ZERO" | "PILOT_ALREADY_RUNNING";
+
 export class GeminiPilotGuardError extends Error {
-  constructor(
-    readonly code: "PILOT_INVALID_SCOPE" | "PILOT_SETTING_NOT_SAVED" |
-      "PILOT_LIMIT_ZERO" | "PILOT_ALREADY_RUNNING",
-  ) { super(code); this.name = "GeminiPilotGuardError"; }
+  readonly code: GeminiPilotGuardCode;
+  constructor(code: GeminiPilotGuardCode) {
+    super(code);
+    this.name = "GeminiPilotGuardError";
+    this.code = code;
+  }
 }
 
 /** Body is only an allowlisted stable key. Never accept prompts, models or budgets. */
