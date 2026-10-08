@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import styles from "./admin-pwa.module.css";
 
 type PushUiState =
@@ -419,7 +420,7 @@ export function AdminPwaSettings() {
                 {delivery.error && <> · {delivery.error}</>}
               </li>)}</ul>
             )}
-            <a href="/admin/operations/automaticke-udalosti">História automatických udalostí →</a>
+            <Link href="/admin/operations/automaticke-udalosti">História automatických udalostí →</Link>
           </>
         )}
         {pushState === "not-configured" && (
