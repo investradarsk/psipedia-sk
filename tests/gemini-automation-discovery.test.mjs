@@ -427,7 +427,7 @@ test("INVALID_RESPONSE has bounded phase-specific diagnostics and never changes 
       const [event, metadata] = logs.at(-1);
       assert.equal(event, "gemini_discovery_invalid_response");
       assert.equal(metadata.reason, reason);
-      assert.equal(metadata.schemaValid, false);
+      assert.equal(metadata.schemaValid, ["GROUNDING_CITATION_MISSING", "EVIDENCE_NOT_GROUNDED"].includes(reason));
       assert.deepEqual(Object.keys(metadata), [
         "reason", "status", "stepCount", "stepTypes", "modelOutputBlocks",
         "googleSearchCalls", "googleSearchResults", "citations", "jsonParsed", "schemaValid",
