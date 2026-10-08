@@ -128,6 +128,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0111_tavily_provider_diagnostics.sql",
     "0112_tavily_transport_phase.sql",
     "0113_gemini_automation_foundation.sql",
+    "0114_gemini_dedupe.sql",
   ]);
 });
 
@@ -1290,4 +1291,12 @@ test("0085 production history guard requires 0084 before Tavily root provisionin
     ),
     /expected exactly 0084/,
   );
+});
+
+
+test("GEMINI-DEDUPE-1 0114 refuses partial rejection memory drift", () => {
+  assert.deepEqual(targetSchemaObjects({ objects: [] }, "0114_gemini_dedupe.sql"), { partial: false });
+  for (const name of ["gemini_automation_rejections", "idx_gemini_rejections_scope_recent"]) {
+    assert.deepEqual(targetSchemaObjects({ objects: [{ name, type: "table", sql: "" }] }, "0114_gemini_dedupe.sql"), { partial: true });
+  }
 });

@@ -61,6 +61,7 @@ on:
           - 0111_tavily_provider_diagnostics.sql
           - 0112_tavily_transport_phase.sql
           - 0113_gemini_automation_foundation.sql
+          - 0114_gemini_dedupe.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true

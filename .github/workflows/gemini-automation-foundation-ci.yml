@@ -12,6 +12,7 @@ on:
       - "lib/gemini-automation-*.ts"
       - "tests/gemini-automation-*.test.mjs"
       - "drizzle/0113_gemini_automation_foundation.sql"
+      - "drizzle/0114_gemini_dedupe.sql"
       - "config/runtime-env.ts"
       - ".env.example"
       - "scripts/ci-scope.mjs"
