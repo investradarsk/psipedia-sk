@@ -41,6 +41,15 @@ export function normalizeGeminiEmail(value: string | null | undefined): string {
   const text = value.trim().toLowerCase();
   return text.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) ? text : "";
 }
+/** Shared listing/social hosts are not company-domain identities. Exact profile paths may still match. */
+const sharedHosts = new Set([
+  "facebook.com", "m.facebook.com", "instagram.com", "tiktok.com",
+  "youtube.com", "google.com", "maps.google.com", "maps.app.goo.gl",
+  "linktr.ee", "linkedin.com", "psipedia.sk", "zoznam.sk", "firmy.sk",
+]);
+export function isSharedGeminiDomain(domain: string): boolean {
+  return sharedHosts.has(domain.toLowerCase());
+}
 export type GeminiIdentityKind = "phone" | "email" | "url_name_city" | "domain_name_city" | "name_city";
 export type GeminiIdentity = { kind: GeminiIdentityKind; key: string };
 export type GeminiSignals = {
@@ -72,7 +81,8 @@ export function geminiRejectionIdentities(signals: GeminiSignals): GeminiIdentit
   if (signals.name && signals.website) {
     const suffix = "|" + signals.name + "|" + signals.city;
     identities.push({ kind: "url_name_city", key: signals.website.url + suffix });
-    identities.push({ kind: "domain_name_city", key: signals.website.domain + suffix });
+    if (!isSharedGeminiDomain(signals.website.domain))
+      identities.push({ kind: "domain_name_city", key: signals.website.domain + suffix });
   }
   if (identities.length === 0 && signals.name && signals.city) {
     identities.push({ kind: "name_city", key: signals.name + "|" + signals.city });
