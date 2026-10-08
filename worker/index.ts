@@ -1,3 +1,4 @@
+import { observeScheduledAutomation } from "../lib/admin-scheduled-observer";
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
@@ -138,6 +139,8 @@ interface ExecutionContext {
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
 const ADMIN_PUSH_CRON = "*/5 * * * *";
+const pushTaskEnabled = (value: string | undefined) => ["true", "1"].includes((value ?? "").trim().toLowerCase());
+
 
 function isFullHourlyScheduledSweep(controller: { cron?: string; scheduledTime?: number }) {
   // Keep one Cloudflare Cron Trigger: minute 00 runs the full hourly work,
@@ -274,7 +277,13 @@ const worker = {
           }));
           return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
         }),
-        runNotionDirectoryBootstrapSweep({ database: env.DB, bindings: env }).catch((error) => {
+        observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "directory-bootstrap", label: "Notion — adresár backfill",
+          active: pushTaskEnabled(env.NOTION_DIRECTORY_SYNC_ENABLED),
+          execute: () => runNotionDirectoryBootstrapSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.selected, created: r.bootstrapped, errors: r.failed }),
+        }).catch((error) => {
           console.error(JSON.stringify({
             event: "notion_directory_backfill_sweep",
             result: "failed",
@@ -282,7 +291,13 @@ const worker = {
           }));
           return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
         }),
-        runNotionEshopBootstrapSweep({ database: env.DB, bindings: env }).catch((error) => {
+        observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "eshop-bootstrap", label: "Notion — e-shopy backfill",
+          active: pushTaskEnabled(env.NOTION_ESHOP_SYNC_ENABLED),
+          execute: () => runNotionEshopBootstrapSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.selected, created: r.bootstrapped, errors: r.failed }),
+        }).catch((error) => {
           console.error(JSON.stringify({
             event: "notion_eshop_backfill_sweep",
             result: "failed",
@@ -320,12 +335,36 @@ const worker = {
         }));
         return { candidates: 0, sent: 0, failed: 1, expired: 0, skipped: 0 };
       }),
-      runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
-      runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
+      observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "articles", label: "Notion — články",
+          active: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
+          execute: () => runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
+        }),
+      observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "breeds", label: "Notion — plemená",
+          active: pushTaskEnabled(env.NOTION_BREED_SYNC_ENABLED),
+          execute: () => runNotionBreedSyncSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
+        }),
       notionEventsHelpEnabled
         ? Promise.resolve({ enabled: false, scanned: 0, created: 0, updated: 0, unchanged: 0, failed: 0, replacedByBidirectionalSync: true })
-        : runNotionEventSyncSweep({ database: env.DB, bindings: env }),
-      runNotionEventsHelpSyncSweep({ database: env.DB, bindings: env }).catch((error) => {
+        : observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "events", label: "Notion — podujatia",
+          active: pushTaskEnabled(env.NOTION_EVENT_SYNC_ENABLED) && !notionEventsHelpEnabled,
+          execute: () => runNotionEventSyncSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
+        }),
+      observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "events-help", label: "Notion — podujatia a pomoc",
+          active: notionEventsHelpEnabled,
+          execute: () => runNotionEventsHelpSyncSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.totals.scanned, created: r.totals.createdFromNotion + r.totals.createdInNotion, updated: r.totals.pulledFromNotion + r.totals.pushedToNotion, skipped: r.totals.unchanged, errors: r.totals.failed + r.totals.conflicts }),
+        }).catch((error) => {
         console.error(JSON.stringify({
           event: "notion_events_help_sync_sweep",
           result: "failed",
@@ -349,7 +388,13 @@ const worker = {
           },
         };
       }),
-      runNotionDirectorySyncSweep({ database: env.DB, bindings: env }).catch((error) => {
+      observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "directory", label: "Notion — adresár",
+          active: pushTaskEnabled(env.NOTION_DIRECTORY_SYNC_ENABLED),
+          execute: () => runNotionDirectorySyncSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.notionScanned, created: r.createdFromNotion + r.bootstrapped, updated: r.pulledFromNotion + r.pushedToNotion, skipped: r.unchanged, errors: r.failed }),
+        }).catch((error) => {
         console.error(JSON.stringify({
           event: "notion_directory_sync_sweep",
           result: "failed",
@@ -357,7 +402,13 @@ const worker = {
         }));
         return { enabled: true, schemaReady: false, notionScanned: 0, bootstrapped: 0, pulledFromNotion: 0, pushedToNotion: 0, unchanged: 0, failed: 1 };
       }),
-      runNotionEshopSyncSweep({ database: env.DB, bindings: env }).catch((error) => {
+      observeScheduledAutomation({
+          database: env.DB, scheduledTime: controller.scheduledTime,
+          system: "notion", automationId: "eshops", label: "Notion — e-shopy",
+          active: pushTaskEnabled(env.NOTION_ESHOP_SYNC_ENABLED),
+          execute: () => runNotionEshopSyncSweep({ database: env.DB, bindings: env }),
+          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.notionScanned, created: r.createdFromNotion + r.bootstrapped, updated: r.pulledFromNotion + r.pushedToNotion, skipped: r.unchanged, errors: r.failed }),
+        }).catch((error) => {
         console.error(JSON.stringify({
           event: "notion_eshop_sync_sweep",
           result: "failed",
