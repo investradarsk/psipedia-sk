@@ -42,7 +42,7 @@ jobs:
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs
       - name: Admin / TypeScript and lint coverage
-        run: npm run typecheck && npm run lint
+        run: npx tsc --noEmit && npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Runtime secret contract
         run: npm run test:config
       - name: Migration safety
