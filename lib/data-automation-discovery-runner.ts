@@ -1,4 +1,4 @@
-import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent } from "./admin-automation-events";
+import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent } from "./admin-automation-events.ts";
 import {
   automationSearchQueryFingerprint,
   automationSearchResultsToCandidates,
