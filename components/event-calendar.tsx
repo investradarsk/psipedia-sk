@@ -167,7 +167,8 @@ export function EventCalendar({
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (region) params.set("region", region);
-    if (month) params.set("mesiac", month);
+    // A month filter must not silently suppress every day after navigating to a different month.
+    if (month && targetMonth === month) params.set("mesiac", month);
     const timeParam = eventTimeFilterParam(initialTime);
     if (timeParam) params.set("termin", timeParam);
     if (targetMonth !== (month || todayMonth)) params.set("kalendar", targetMonth);
@@ -263,16 +264,32 @@ export function EventCalendar({
             </Link>
           ))}
         </div>
-        <div className={styles.resultCount} aria-live="polite">
+        <div className={styles.resultMeta}>
+          {hasActiveFilters ? <Link className={styles.clearActiveFilters} href={typePathname}>Vymazať filtre</Link> : null}
+          <div className={styles.resultCount} aria-live="polite">
           <strong>{filtered.length}</strong>
           <span>{filtered.length === 1 ? "podujatie" : "podujatí"}</span>
+          </div>
         </div>
       </div>
 
-      <section className={styles.monthCalendar} data-events-month-calendar aria-labelledby="events-calendar-title">
+      {(query || region || month) ? (
+        <p className={styles.filterSummary} aria-label="Aktívne filtre">
+          {query ? <span>Hľadanie: {query}</span> : null}
+          {region ? <span>Kraj: {region}</span> : null}
+          {month ? <span>Mesiac: {monthLabel(month)}</span> : null}
+        </p>
+      ) : null}
+
+      <nav className={styles.browseNavigation} aria-label="Prezeranie podujatí">
+        <a href="#events-calendar">Kalendár</a>
+        <a href="#events-list">Zoznam podujatí ↓</a>
+      </nav>
+
+      <section className={styles.monthCalendar} id="events-calendar" data-events-month-calendar aria-labelledby="events-calendar-title">
         <div className={styles.monthHeading}>
           <div>
-            <p className={styles.monthEyebrow}>Kalendár podujatí</p>
+            <p className={styles.monthEyebrow}>Vyberte si deň</p>
             <h2 id="events-calendar-title">{calendarMonthLabel(visibleMonth)}</h2>
           </div>
           <nav className={styles.monthNavigation} aria-label="Navigácia kalendára">
@@ -312,7 +329,7 @@ export function EventCalendar({
         {selectedDay ? (
           <section className={styles.dayDetail} id="vybrany-den" tabIndex={-1} aria-labelledby="selected-day-title" data-selected-day={selectedDay}>
             <div className={styles.dayDetailHeading}>
-              <h3 id="selected-day-title">{dateLabel(selectedDay)}</h3>
+              <div><p className={styles.selectedDayEyebrow}>Vybraný dátum</p><h3 id="selected-day-title">{dateLabel(selectedDay)}</h3></div>
               <Link href={calendarHref(visibleMonth)} aria-label="Zrušiť výber dňa">Zavrieť výber</Link>
             </div>
             {dailyEvents.length ? (
@@ -322,7 +339,7 @@ export function EventCalendar({
                     <div>
                       <Link href={eventHref(event)}>{event.title}</Link>
                       <span>{formatEventDate(event)}{event.startTime ? " · " + event.startTime : ""}</span>
-                      {(event.venue || event.city) ? <span>{[event.venue, event.city].filter(Boolean).join(" · ")}</span> : null}
+                      <span>{event.region === "Online" ? "Online podujatie" : [event.venue, event.city].filter(Boolean).join(" · ") || "Miesto bude upresnené"}</span>
                     </div>
                     {event.cancelled ? <strong>Zrušené</strong> : null}
                   </li>
@@ -337,8 +354,8 @@ export function EventCalendar({
         )}
       </section>
 
-      <section className={styles.upcomingSection} aria-labelledby="events-upcoming-heading">
-        <h2 id="events-upcoming-heading">{upcomingTitle}</h2>
+      <section className={styles.upcomingSection} id="events-list" aria-labelledby="events-upcoming-heading">
+        <div className={styles.listHeading}><h2 id="events-upcoming-heading">{upcomingTitle}</h2><a href="#events-calendar">↑ Späť ku kalendáru</a></div>
         {filtered.length ? (
           <div className={styles.eventList} data-event-list>
             {filtered.map((event) => <EventCard event={event} today={today} key={event.id} />)}
