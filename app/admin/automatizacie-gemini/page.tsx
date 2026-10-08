@@ -36,10 +36,14 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
               <th scope="col">Spustenie</th>
               <th scope="col">Stav</th>
               <th scope="col">Model</th>
+              <th scope="col">API volania</th>
+              <th scope="col">Google dotazy</th>
               <th scope="col">Kandidáti</th>
               <th scope="col">Duplicity</th>
               <th scope="col">Koncepty</th>
-              <th scope="col">Chyba</th>
+              <th scope="col">Chyby</th>
+              <th scope="col">Dokončenie</th>
+              <th scope="col">Kód chyby</th>
             </tr></thead>
             <tbody>{runs.map((run) => (
               <tr key={run.id}>
@@ -48,9 +52,13 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
                 <td>{run.trigger}</td>
                 <td>{run.status}</td>
                 <td>{run.model}</td>
+                <td>{run.requestCount}</td>
+                <td>{run.groundedSearchQueryCount}</td>
                 <td>{run.candidateCount}</td>
                 <td>{run.duplicateCount}</td>
                 <td>{run.conceptCount}</td>
+                <td>{run.errorCount}</td>
+                <td>{formatDate(run.completedAt)}</td>
                 <td>{run.errorCode ?? "—"}</td>
               </tr>
             ))}</tbody>
@@ -83,8 +91,8 @@ export default async function AdminGeminiAutomationPage() {
         Ukladanie je dočasne vypnuté.
       </p>}
       <p className={styles.notice}>
-        Zatiaľ ide iba o konfiguráciu. Zapnutie kategórie nespúšťa Gemini ani nevytvára koncepty.
-        Ďalší čas je orientačný pre budúce zapojenie plánovača.
+        Zapnutie kategórie je len nastavenie pre budúci plánovač. Jediné reálne spustenie je manuálny pilot
+        pre Tréneri / psie školy po potvrdení. Môže vytvoriť nepublikované koncepty.
       </p>
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} />
       <GeminiRunHistory runs={runs} />
