@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { calendarMonthDays, moveCalendarMonth, eventsForCalendarDay } from "../lib/event-calendar-view.ts";
 import {
   bratislavaDateKey,
   eventDateStatus,
@@ -92,4 +93,20 @@ test("homepage and event listing reuse the central event date implementation", (
   assert.match(eventsPage, /bratislavaDateKey\(\)/);
   assert.match(card, /eventDateStatus\(event, today\)/);
   assert.doesNotMatch(`${calendar}\n${eventsPage}\n${card}`, /new Date\(\).*startDate|toISOString\(\)\.slice\(0, 10\)/s);
+});
+
+test("EVENTS-CALENDAR-V1 uses Monday-first month cells and year-safe navigation", () => {
+  const days = calendarMonthDays("2026-10");
+  assert.equal(days[0].date, "2026-09-28");
+  assert.equal(days.at(-1).date, "2026-11-01");
+  assert.equal(days.filter((day) => day.inMonth).length, 31);
+  assert.equal(moveCalendarMonth("2026-12", 1), "2027-01");
+  assert.equal(moveCalendarMonth("2026-01", -1), "2025-12");
+});
+
+test("EVENTS-CALENDAR-V1 reuses inclusive local dates for multi-day event selection", () => {
+  const events = [{ id: 9, startDate: "2026-10-31", endDate: "2026-11-02" }];
+  assert.deepEqual(eventsForCalendarDay(events, "2026-11-01").map((event) => event.id), [9]);
+  assert.deepEqual(eventsForCalendarDay(events, "2026-11-02").map((event) => event.id), [9]);
+  assert.deepEqual(eventsForCalendarDay(events, "2026-11-03"), []);
 });
