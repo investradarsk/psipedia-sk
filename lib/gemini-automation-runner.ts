@@ -1,7 +1,6 @@
 import { resolveGeminiConfig } from "./gemini-automation-client.ts";
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 import { beginGeminiRun, finishGeminiRun, type GeminiD1 } from "./gemini-automation-store.ts";
-import { safelyRecordAdminAutomationRunEvent } from "./admin-automation-events";
 
 /** Foundation only: no cron, Notion, discovery, dedupe or publishing integration. */
 export async function runGeminiAutomation(input: {
@@ -21,7 +20,7 @@ export async function runGeminiAutomation(input: {
     settingId: input.settingId, triggerType: input.triggerType ?? "TEST", model, at: now().toISOString(),
   });
   if (input.triggerType === "SCHEDULED") {
-    await safelyRecordAdminAutomationRunEvent({
+    await (await import("./admin-automation-events.ts")).safelyRecordAdminAutomationRunEvent({
       database: input.database, system: "gemini", automationId: input.settingId, runId: id,
       label: "Gemini", status: "STARTED", actor: "AUTOMATION", scheduled: true, at: now(),
     });
@@ -32,7 +31,7 @@ export async function runGeminiAutomation(input: {
       await input.execute(input.client);
     }
     await finishGeminiRun(input.database, { id, status: "SUCCESS", at: now().toISOString() });
-    if (input.triggerType === "SCHEDULED") await safelyRecordAdminAutomationRunEvent({
+    if (input.triggerType === "SCHEDULED") await (await import("./admin-automation-events.ts")).safelyRecordAdminAutomationRunEvent({
       database: input.database, system: "gemini", automationId: input.settingId, runId: id,
       label: "Gemini", status: "SUCCESS", actor: "AUTOMATION", scheduled: true, at: now(),
     });
@@ -40,7 +39,7 @@ export async function runGeminiAutomation(input: {
   } catch (error) {
     const code = error instanceof GeminiAutomationError ? error.code : "PROVIDER_ERROR";
     await finishGeminiRun(input.database, { id, status: "FAILED", at: now().toISOString(), errorCode: code });
-    if (input.triggerType === "SCHEDULED") await safelyRecordAdminAutomationRunEvent({
+    if (input.triggerType === "SCHEDULED") await (await import("./admin-automation-events.ts")).safelyRecordAdminAutomationRunEvent({
       database: input.database, system: "gemini", automationId: input.settingId, runId: id,
       label: "Gemini", status: "FAILED", actor: "AUTOMATION", scheduled: true, at: now(), errors: 1,
     });
