@@ -107,6 +107,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0112_tavily_transport_phase.sql",
   "0113_gemini_automation_foundation.sql",
   "0114_gemini_dedupe.sql",
+  "0115_gemini_notion_bridge.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1090,6 +1091,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: ["gemini_automation_rejections", "idx_gemini_rejections_scope_recent",
       "sqlite_autoindex_gemini_automation_rejections_1"].some((name) => names.has(name)) };
   }
+  if (targetMigration === "0115_gemini_notion_bridge.sql") {
+    return { partial: ["gemini_automation_concepts", "idx_gemini_concepts_status", "idx_gemini_concepts_directory", "sqlite_autoindex_gemini_automation_concepts_1"].some((name) => names.has(name)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1815,6 +1819,20 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 111) assertAutomationSourceProviderDiagnosticsSchema(schema);
   if (migrationIndex(targetMigration) >= 112) assertAutomationSourceProviderTransportPhaseSchema(schema);
   if (migrationIndex(targetMigration) >= 114) assertGeminiRejectionSchema(schema);
+  if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
+}
+
+export function assertGeminiBridgeSchema(schema) {
+  const names = objectMap(schema.objects);
+  const table = names.get("gemini_automation_concepts");
+  invariant(table?.type === "table", "Missing Gemini bridge linkage table");
+  for (const name of ["idx_gemini_concepts_status", "idx_gemini_concepts_directory"])
+    invariant(names.get(name)?.type === "index", "Missing Gemini bridge index: "+name);
+  const sql = String(table.sql ?? "");
+  for (const field of ["stable_key","discovery_key","canonical_entity_type","canonical_entity_id","notion_page_id","status","source_urls_json"])
+    invariant(sql.includes(field), "Missing Gemini bridge field: "+field);
+  invariant(sql.includes("UNIQUE(stable_key, discovery_key)"), "Gemini bridge identity uniqueness missing");
+  invariant(sql.includes("UNIQUE(canonical_entity_type, canonical_entity_id)"), "Gemini bridge canonical uniqueness missing");
 }
 
 /** Dedupe migration verification: schema, scope, and uniqueness must survive production apply. */
