@@ -295,6 +295,7 @@ function MapResults({
   onSelectItem,
   onRetry,
   onClearFilters,
+  viewportZoom,
   sheetState,
   onToggleSheet,
   onSheetStateChange,
@@ -309,6 +310,7 @@ function MapResults({
   onSelectItem: (item: MapItem) => void;
   onRetry: () => void;
   onClearFilters: () => void;
+  viewportZoom: number;
   sheetState: MapSheetState;
   onToggleSheet: () => void;
   onSheetStateChange: (state: MapSheetState) => void;
@@ -328,7 +330,9 @@ function MapResults({
   const resultsGuidance = hasSelectedItem
     ? "Vybraný výsledok nájdeš nižšie."
     : hasGroupedClusters
-      ? "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
+      ? viewportZoom >= 20
+        ? "Na tomto priblížení zostávajú husté zhluky. Spresni filtre alebo vyhľadávanie."
+        : "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
       : items.length > 0
         ? "Vyber výsledok na mape alebo v zozname."
         : "Výsledky sa zobrazia podľa aktuálnej oblasti a filtrov.";
@@ -805,6 +809,12 @@ export function MapExperience({
 
   const selectCluster = useCallback((cluster: MapCluster) => {
     setSelectedItemId(null);
+    // At the maximum zoom clusters can still overlap. Offer actionable guidance
+    // rather than repeatedly issuing the same no-op camera command.
+    if (viewport.zoom >= 20) {
+      setSheetState("expanded");
+      return;
+    }
     setSheetState("peek");
     const target = mapClusterTarget(cluster, viewport.zoom);
     setRendererCommand((current) => ({
@@ -837,6 +847,12 @@ export function MapExperience({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [mobileFiltersOpen, selectedItemId]);
+
+  useEffect(() => {
+    if (!loading && (error || (response && response.meta.count === 0))) {
+      setSheetState((state) => state === "peek" ? "preview" : state);
+    }
+  }, [loading, error, response]);
 
   const rendererStatusLabel = !effectiveRendererEnabled && !testRenderer
     ? "Google Maps nie je nakonfigurovaný"
@@ -927,6 +943,7 @@ export function MapExperience({
           onSelectItem={selectItem}
           onRetry={() => setRetryNonce((value) => value + 1)}
           onClearFilters={clearFilters}
+          viewportZoom={viewport.zoom}
           sheetState={sheetState}
           onToggleSheet={() => setSheetState((value) => value === "expanded" ? "preview" : "expanded")}
           onSheetStateChange={setSheetState}
