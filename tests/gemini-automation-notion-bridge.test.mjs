@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { geminiBridgeDiscoveryKey, mapGeminiDirectoryCandidate, bridgeGeminiCandidateToNotion } from "../lib/gemini-automation-notion-bridge.ts";
 import { targetSchemaObjects, assertGeminiBridgeSchema } from "../scripts/production-d1-migrate.mjs";
+import { notionRequest } from "../lib/notion-sync-shared.ts";
 
 const candidate = {
   name: "Škola pre psov Nitra",
@@ -98,5 +99,40 @@ test("dedupe gate blocks duplicate, possible match and past rejection before can
       new RegExp("GEMINI_BRIDGE_DEDUPE_"+kind),
     );
     assert.equal(observed.some(sql=>/^INSERT/i.test(sql.trim())),false,kind);
+  }
+});
+
+test("bridge Notion creation uses one POST attempt even for retryable 429/503 responses", async () => {
+  const notionSource = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  assert.match(notionSource, /singleAttemptCreate: true/);
+  assert.match(notionSource, /createNotionPage\(input\.bindings, input\.dataSourceId, properties, input\.singleAttemptCreate === true\)/);
+  assert.match(notionSource, /retryTransient: !singleAttempt/);
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const status of [429, 503]) {
+      let requests = 0;
+      globalThis.fetch = async () => {
+        requests += 1;
+        return new Response(JSON.stringify({ message: "transient remote error" }), { status });
+      };
+      await assert.rejects(
+        notionRequest({ NOTION_API_TOKEN: "test-token" }, "/pages",
+          { method: "POST", body: "{}" }, { retryTransient: false }),
+        new RegExp("Notion API " + status),
+      );
+      assert.equal(requests, 1, "ambiguous remote create must never retry");
+    }
+    let requests = 0;
+    globalThis.fetch = async () => {
+      requests += 1;
+      if (requests === 1) return new Response("transient", { status: 503 });
+      return new Response('{"id":"ok"}', { status: 200 });
+    };
+    const normal = await notionRequest({ NOTION_API_TOKEN: "test-token" },
+      "/data_sources/id/query", { method: "POST", body: "{}" });
+    assert.equal(normal.id, "ok");
+    assert.equal(requests, 2, "existing retry behavior for idempotent Notion queries must be retained");
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
