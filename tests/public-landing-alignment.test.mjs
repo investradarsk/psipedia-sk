@@ -67,7 +67,7 @@ test("comparable category roots retain shared heading and canonical content shel
     assert.match(source, /PublicLandingSectionHeading/);
   }
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
-  assert.match(directory, /PublicLandingSectionHeading/);
+  assert.match(read("components/directory-category-overview.tsx"), /<h2 className=\{styles\.heading\}>/);
   assert.match(events, /PublicSubcategoryNavigator/);
   assert.match(events, /mode="landing"/);
   assert.match(directory, /PublicSubcategoryNavigator/);
@@ -108,7 +108,7 @@ test("lost-found hub is no longer a legacy page-hero route", () => {
 
 test("directory has one shared post-hero spacing and navigation contract", () => {
   assert.doesNotMatch(directoryCss, /\.discoveryHeading|\.sectionHeading|\.overviewHeading/);
-  assert.match(directory, /<div className=\{styles\.categorySwitcherWrap\}>/);
+  assert.match(directory, /<div className=\{styles\.categorySwitcherWrap\} data-directory-category-navigation>/);
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
   assert.match(directory, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
   assert.match(directoryCss, /SERVICES-PUBLIC-UX-1: foundation-driven directory landing/);
