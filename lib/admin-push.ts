@@ -62,6 +62,7 @@ type EventDeliveryRow = {
   tag: string;
   event_type: string;
   actor_type: string;
+  resource_type: string;
   categories_json: string;
 };
 
@@ -338,7 +339,7 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
   for (const subscription of subscriptions.results) {
     const ownActorRef = await adminActorRefForSubscription(subscription.admin_email, bindings.PII_HASH_KEY);
     const permitted = new Set(parseStoredPushCategories(subscription.categories_json));
-    const events = await database.prepare(`SELECT e.id, e.event_type, e.actor_type
+    const events = await database.prepare(`SELECT e.id, e.event_type, e.actor_type, e.resource_type
       FROM admin_notification_events e
       WHERE e.created_at >= ?
         AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type='automation_source_issue')
@@ -355,10 +356,10 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
       ORDER BY e.created_at ASC, e.id ASC
       LIMIT 100`)
       .bind(subscription.created_at, String(subscription.id), subscription.id, ownActorRef, ownActorRef, ownActorRef)
-      .all<{ id: number; event_type: string; actor_type: string }>();
+      .all<{ id: number; event_type: string; actor_type: string; resource_type: string }>();
 
     for (const event of events.results) {
-      const category = event.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(event.event_type) : null;
+      const category = event.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(event.event_type, event.resource_type) : null;
       const muted = category !== null && !permitted.has(category);
       await database.prepare(`INSERT INTO admin_push_event_deliveries (
           event_id, subscription_id, status, attempts, created_at, updated_at
@@ -393,7 +394,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
 
   const eventRows = await resolved.database.prepare(`SELECT d.id, d.event_id, d.subscription_id,
       d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth,
-      e.title, e.body, e.target_url, e.tag, e.event_type, e.actor_type, s.categories_json
+      e.title, e.body, e.target_url, e.tag, e.event_type, e.actor_type, e.resource_type, s.categories_json
     FROM admin_push_event_deliveries d
     JOIN admin_push_subscriptions s ON s.id = d.subscription_id
     JOIN admin_notification_events e ON e.id = d.event_id
@@ -406,7 +407,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   summary.candidates += eventRows.results.length;
   for (const row of eventRows.results) {
     try {
-      const category = row.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(row.event_type) : null;
+      const category = row.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(row.event_type, row.resource_type) : null;
       if (category && !parseStoredPushCategories(row.categories_json).includes(category)) {
         await resolved.database.prepare(`UPDATE admin_push_event_deliveries
           SET status = 'dead', last_error = 'category_disabled', updated_at = ? WHERE id = ?`)
