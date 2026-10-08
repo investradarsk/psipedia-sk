@@ -1,4 +1,4 @@
-import { observeScheduledAutomation } from "../lib/admin-scheduled-observer";
+import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
