@@ -673,6 +673,16 @@ export function MapExperience({
       const saved = validMapReturnState(raw, filterKey);
       if (!saved) return;
       setViewport(saved.viewport);
+      // Updating the parent viewport does not move an already mounted Google map.
+      // Reuse the renderer's existing camera-command path on return.
+      setRendererCommand((current) => ({
+        key: (current?.key ?? 0) + 1,
+        type: "item",
+        id: saved.selectedItemId ?? "map-return-camera",
+        latitude: saved.viewport.center.lat,
+        longitude: saved.viewport.center.lng,
+        zoom: saved.viewport.zoom,
+      }));
       setSelectedItemId(saved.selectedItemId);
       setSheetState(saved.selectedItemId ? "preview" : "peek");
     } catch { /* Private browsing may disable sessionStorage. */ }
