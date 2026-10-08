@@ -128,7 +128,6 @@ function Promo({ promo }: { promo: PromoBanner }) {
 
 export async function HelpOverview({
   sections,
-  totalActive: _totalActive,
 }: {
   sections: HelpOverviewSection[];
   totalActive: number;
