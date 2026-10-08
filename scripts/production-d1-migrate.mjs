@@ -415,6 +415,14 @@ export const ADMIN_NOTIFICATION_INDEXES = Object.freeze([
   "admin_push_event_deliveries_status_updated_idx",
 ]);
 
+// 0116 is additive: one existing subscription column, one receipt table, two explicit indexes.
+export const ADMIN_AUTOMATION_PUSH_INDEXES = Object.freeze([
+  "admin_notification_read_receipts_admin_idx",
+  "admin_notification_events_automation_history_idx",
+]);
+
+const ADMIN_AUTOMATION_PUSH_DEFAULT_CATEGORIES = '["RUN_STARTED","RUN_RESULTS","ERRORS","PUBLISH","IMPORT_SYNC"]';
+
 export const PARTNER_MEDIA_INDEXES = Object.freeze([
   "moderation_submissions_media_asset_unique",
 ]);
@@ -704,6 +712,9 @@ function schemaState(databaseName, configPath) {
   const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
   const automationDirectRefreshColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_direct_refresh_settings')");
+  const adminPushSubscriptionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_push_subscriptions')");
+  const adminNotificationReadReceiptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_notification_read_receipts')");
+  const adminNotificationReadReceiptForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('admin_notification_read_receipts')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
@@ -728,6 +739,9 @@ function schemaState(databaseName, configPath) {
     automationDiscoveryRunColumns,
     automationSourceColumns,
     automationDirectRefreshColumns,
+    adminPushSubscriptionColumns,
+    adminNotificationReadReceiptColumns,
+    adminNotificationReadReceiptForeignKeys,
     partnerPasswordCredentialForeignKeys,
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
@@ -1094,6 +1108,14 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0115_gemini_notion_bridge.sql") {
     return { partial: ["gemini_automation_concepts", "idx_gemini_concepts_status", "idx_gemini_concepts_directory", "sqlite_autoindex_gemini_automation_concepts_1"].some((name) => names.has(name)) };
+  }
+  if (targetMigration === "0116_admin_automation_push.sql") {
+    return {
+      partial: (schema.adminPushSubscriptionColumns ?? []).some((column) => String(column.name) === "categories_json")
+        || names.has("admin_notification_read_receipts")
+        || names.has("sqlite_autoindex_admin_notification_read_receipts_1")
+        || ADMIN_AUTOMATION_PUSH_INDEXES.some((index) => names.has(index)),
+    };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1477,6 +1499,63 @@ function assertAdminUniversalNotificationsSchema(schema) {
   invariant(deliveriesSql.includes("admin_notification_events") && deliveriesSql.includes("admin_push_subscriptions"), "admin_push_event_deliveries foreign-key signature is incomplete");
 }
 
+/** Validate the actual 0116 SQL signature, not merely names that could mask a partial migration. */
+export function assertAdminAutomationPushSchema(schema) {
+  const names = objectMap(schema.objects);
+  const categoryColumn = (schema.adminPushSubscriptionColumns ?? [])
+    .find((column) => String(column.name) === "categories_json");
+  invariant(categoryColumn, "Missing admin_push_subscriptions.categories_json (0116 ledger/schema drift)");
+  invariant(String(categoryColumn.type).toUpperCase() === "TEXT", "0116 categories_json type must be TEXT");
+  invariant(Number(categoryColumn.notnull) === 1, "0116 categories_json must be NOT NULL");
+  invariant(
+    String(categoryColumn.dflt_value) === `'${ADMIN_AUTOMATION_PUSH_DEFAULT_CATEGORIES}'`,
+    "0116 categories_json default differs from migration SQL",
+  );
+
+  const receipts = names.get("admin_notification_read_receipts");
+  invariant(receipts?.type === "table", "Missing admin_notification_read_receipts table (0116 ledger/schema drift)");
+  const fields = new Map((schema.adminNotificationReadReceiptColumns ?? []).map((column) => [String(column.name), column]));
+  for (const [name, type, primaryKeyOrder] of [
+    ["event_id", "INTEGER", 1],
+    ["admin_email", "TEXT", 2],
+    ["read_at", "TEXT", 0],
+  ]) {
+    const column = fields.get(name);
+    invariant(column && String(column.type).toUpperCase() === type
+      && Number(column.notnull) === 1 && Number(column.pk) === primaryKeyOrder,
+    `0116 receipt column/primary key mismatch: ${name}`);
+  }
+  invariant(fields.size === 3, "0116 receipt table has unexpected columns");
+  const receiptSql = String(receipts.sql ?? "").replace(/["`]/g, "").replace(/\s+/g, " ");
+  invariant(
+    /PRIMARY KEY\s*\(\s*event_id\s*,\s*admin_email\s*\)/i.test(receiptSql),
+    "0116 receipt composite primary key is missing",
+  );
+  invariant(
+    /event_id\s+INTEGER\s+NOT NULL\s+REFERENCES\s+admin_notification_events\s*\(\s*id\s*\)\s+ON DELETE CASCADE/i.test(receiptSql),
+    "0116 receipt event foreign-key declaration is missing",
+  );
+  invariant(
+    (schema.adminNotificationReadReceiptForeignKeys ?? []).some((fk) =>
+      String(fk.table) === "admin_notification_events"
+      && String(fk.from) === "event_id"
+      && String(fk.to) === "id"
+      && String(fk.on_delete).toUpperCase() === "CASCADE"),
+    "0116 receipt foreign-key metadata is missing",
+  );
+
+  for (const [index, table, columns] of [
+    ["admin_notification_read_receipts_admin_idx", "admin_notification_read_receipts", ["admin_email", "read_at"]],
+    ["admin_notification_events_automation_history_idx", "admin_notification_events", ["source_type", "actor_type", "id"]],
+  ]) {
+    const row = names.get(index);
+    invariant(row?.type === "index" && String(row.tbl_name) === table, `Missing or invalid 0116 index: ${index}`);
+    const indexSql = String(row.sql ?? "").replace(/["`]/g, "").replace(/\s+/g, " ");
+    const expected = new RegExp(`\\bON\\s+${table}\\s*\\(\\s*${columns.join("\\s*,\\s*")}\\s*\\)`, "i");
+    invariant(expected.test(indexSql), `0116 index columns do not match migration SQL: ${index}`);
+  }
+}
+
 function assertPartnerMediaPrerequisites(schema) {
   const names = objectMap(schema.objects);
   invariant(names.get("moderation_submissions")?.type === "table", "Missing moderation_submissions table for Partner Media");
@@ -1821,6 +1900,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 112) assertAutomationSourceProviderTransportPhaseSchema(schema);
   if (migrationIndex(targetMigration) >= 114) assertGeminiRejectionSchema(schema);
   if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
+  if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
 }
 
 export function assertGeminiBridgeSchema(schema) {
@@ -2064,6 +2144,11 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     if (targetIndex > 107) assertSectionHeroConfigSchema(schema);
     if (targetIndex > 108) assertNotionEventsHelpBidirectionalSchema(schema);
     if (targetIndex > 109) assertDynamicEntityIdentitySchema(schema);
+    if (targetIndex > 115) {
+      assertGeminiRejectionSchema(schema);
+      assertGeminiBridgeSchema(schema);
+      assertAdminUniversalNotificationsSchema(schema);
+    }
   } else {
     assertTargetSchema(schema, targetMigration);
   }
