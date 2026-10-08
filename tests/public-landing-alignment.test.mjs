@@ -60,12 +60,14 @@ test("shared landing heading owns typography and heading-to-content spacing", ()
   assert.match(layoutCss, /@media \(max-width: 700px\)[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*gap:\s*8px/);
 });
 
-test("all four comparable category landing roots use the same landing shell and shared heading", () => {
-  for (const source of [events, directory, helpOverview, reviews]) {
+test("comparable category roots retain shared heading and canonical content shells", () => {
+  for (const source of [events, helpOverview, reviews]) {
     assert.match(source, /PublicContentShell/);
     assert.match(source, /variant="landing"|variant=\{active \? "listing" : "landing"\}/);
     assert.match(source, /PublicLandingSectionHeading/);
   }
+  assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
+  assert.match(directory, /PublicLandingSectionHeading/);
   assert.match(events, /PublicSubcategoryNavigator/);
   assert.match(events, /mode="landing"/);
   assert.match(directory, /PublicSubcategoryNavigator/);
@@ -106,7 +108,7 @@ test("lost-found hub is no longer a legacy page-hero route", () => {
 
 test("directory has one shared post-hero spacing and navigation contract", () => {
   assert.doesNotMatch(directoryCss, /\.discoveryHeading|\.sectionHeading|\.overviewHeading/);
-  assert.match(directory, /<PublicContentShell variant="landing" className=\{styles\.categoryLanding\}>/);
+  assert.match(directory, /<div className=\{styles\.categoryLanding\}>/);
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
   assert.match(directory, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
   assert.match(directoryCss, /SERVICES-PUBLIC-UX-1: foundation-driven directory landing/);
@@ -193,4 +195,37 @@ test("SERVICES-PUBLIC-UX-1 keeps canonical category links and mobile foundation 
   assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
   assert.match(navigatorCss, /flex-wrap:\s*nowrap/);
   assert.match(navigatorCss, /min-height:\s*44px/);
+});
+
+
+test("HELP-SERVICES-LAYOUT-V2 puts one server-backed search before category navigation and results", () => {
+  const results = read("components/directory-results.tsx");
+  const filters = read("components/directory-filter-form.tsx");
+  assert.match(directory, /const categoryNavigation = \(/);
+  assert.match(directory, /<DirectoryResults[\s\S]*categoryNavigation=\{categoryNavigation\}/);
+  assert.match(results, /data-directory-search-first/);
+  const formPos = results.indexOf("<DirectoryFilterForm");
+  const navPos = results.indexOf("{categoryNavigation}");
+  const headingPos = results.indexOf('className="directory-result-heading"');
+  assert.ok(formPos >= 0 && navPos > formPos && headingPos > navPos);
+  assert.equal((results.match(/<DirectoryFilterForm/g) ?? []).length, 1);
+  assert.match(filters, /<PublicFilterDisclosure/);
+  assert.match(directory, /getSectionHeroVisual\(active \? `directory\.\$\{active\.slug\}` : "section\.adresar"\)/);
+  assert.doesNotMatch(directory, /getResolvedSectionVisual/);
+});
+
+test("HELP-SERVICES-LAYOUT-V2 keeps dense tiles and 4-3-2-1 grid responsive without altering routing", () => {
+  const cards = read("components/directory-card.tsx");
+  const results = read("components/directory-results.tsx");
+  assert.match(directory, /className=\{styles\.categoryTiles\}/);
+  assert.match(directoryCss, /\.categoryTiles :global\(\[data-public-subcategory-track\]\)/);
+  assert.match(directoryCss, /@media \(min-width: 1360px\)[\s\S]*repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(directoryCss, /@media \(min-width: 1024px\) and \(max-width: 1359px\)[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(directoryCss, /@media \(min-width: 700px\) and \(max-width: 1023px\)[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(directoryCss, /@media \(max-width: 699px\)[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(cards, /directoryProfileHref\(profile\)/);
+  assert.match(cards, /profile\.imageUrl &&/);
+  assert.match(cards, /overflow-wrap: anywhere|cardTitle/);
+  assert.match(results, /if \(page > 1\) params\.set\("page"/);
+  assert.match(results, /<Link href=\{basePath\}>Zrušiť filtre<\/Link>/);
 });
