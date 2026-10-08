@@ -29,7 +29,8 @@ type InvalidResponseReason =
   | "INTERACTION_SHAPE" | "INTERACTION_STATUS" | "STEPS_INVALID"
   | "SEARCH_CALL_INVALID" | "SEARCH_RESULT_INVALID" | "SEARCH_RESULT_MISSING"
   | "MODEL_OUTPUT_INVALID" | "OUTPUT_JSON_INVALID" | "DISCOVERY_SCHEMA_INVALID"
-  | "GROUNDING_CITATION_MISSING" | "EVIDENCE_NOT_GROUNDED" | "RESPONSE_TOO_LARGE";
+  | "GROUNDING_CITATION_MISSING" | "EVIDENCE_NOT_GROUNDED" | "RESPONSE_TOO_LARGE"
+  | "URL_CONTEXT_CALL_INVALID" | "URL_CONTEXT_RESULT_INVALID";
 type SafeDiagnostic = {
   status?: string;
   stepCount?: number;
@@ -38,11 +39,19 @@ type SafeDiagnostic = {
   searchCalls?: number;
   searchResults?: number;
   citations?: number;
+  urlCitationAnnotations?: number;
+  validCitationUrls?: number;
+  searchResultUrls?: number;
+  urlContextCalls?: number;
+  urlContextResults?: number;
+  successfulUrlContextUrls?: number;
+  groundedEvidenceMatches?: number;
+  searchQueryCount?: number;
   jsonParsed?: boolean;
   schemaValid?: boolean;
 };
 const KNOWN_STATUSES = new Set(["completed", "failed", "in_progress", "requires_action", "cancelled"]);
-const KNOWN_STEP_TYPES = new Set(["google_search_call", "google_search_result", "model_output", "thought", "user_input"]);
+const KNOWN_STEP_TYPES = new Set(["google_search_call", "google_search_result", "url_context_call", "url_context_result", "model_output", "thought", "user_input"]);
 
 /** Never log the provider payload, its text, URLs, queries, candidates, prompt or credentials. */
 function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
@@ -55,23 +64,44 @@ function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
     googleSearchCalls: safe.searchCalls ?? 0,
     googleSearchResults: safe.searchResults ?? 0,
     citations: safe.citations ?? 0,
+    urlCitationAnnotations: safe.urlCitationAnnotations ?? 0,
+    validCitationUrls: safe.validCitationUrls ?? 0,
+    searchResultUrls: safe.searchResultUrls ?? 0,
+    urlContextCalls: safe.urlContextCalls ?? 0,
+    urlContextResults: safe.urlContextResults ?? 0,
+    successfulUrlContextUrls: safe.successfulUrlContextUrls ?? 0,
+    groundedEvidenceMatches: safe.groundedEvidenceMatches ?? 0,
     jsonParsed: safe.jsonParsed ?? false,
     schemaValid: safe.schemaValid ?? false,
   });
-  throw new GeminiAutomationError("INVALID_RESPONSE");
+  throw new GeminiAutomationError("INVALID_RESPONSE", undefined, Math.min(100, Math.max(0, safe.searchQueryCount ?? 0)));
 }
+/** Normalize provider URLs only, never infer URLs from model-written sources or HTML. */
 function citedUrl(value: unknown): string | null {
-  if (typeof value !== "string" || value.length > 2048) return null;
+  if (typeof value !== "string" || !value.trim() || value.length > 2048) return null;
   try {
     const url = new URL(value);
-    if (!["http:", "https:"].includes(url.protocol) || !url.hostname || url.username || url.password) return null;
+    const host = url.hostname.toLowerCase();
+    if (!["http:", "https:"].includes(url.protocol) || !host || url.username || url.password ||
+      /^(localhost|.*\\.localhost|.*\\.local|.*\\.internal)$/i.test(host) ||
+      host.startsWith("[") || /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(host) &&
+        (() => {
+          const [a, b] = host.split(".").map(Number);
+          return a === 0 || a === 10 || a === 127 || a === 169 && b === 254 ||
+            a === 172 && b >= 16 && b <= 31 || a === 192 && b === 168 ||
+            a === 100 && b >= 64 && b <= 127 || a >= 224;
+        })()) return null;
     return url.href;
   } catch { return null; }
+}
+/** v1beta UrlCitation exposes 'url', not 'uri'. Do not accept undocumented aliases. */
+function citationUrl(annotation: UnknownRecord): string | null {
+  return annotation.type === "url_citation" ? citedUrl(annotation.url) : null;
 }
 function groundedResponse(payload: unknown): {
   output: unknown;
   groundedSearchQueryCount: number;
-  citedUrls: Set<string>;
+  groundedUrls: Set<string>;
   diagnostic: SafeDiagnostic;
 } {
   const value = record(payload);
@@ -84,6 +114,14 @@ function groundedResponse(payload: unknown): {
     searchCalls: 0,
     searchResults: 0,
     citations: 0,
+    urlCitationAnnotations: 0,
+    validCitationUrls: 0,
+    searchResultUrls: 0,
+    urlContextCalls: 0,
+    urlContextResults: 0,
+    successfulUrlContextUrls: 0,
+    groundedEvidenceMatches: 0,
+    searchQueryCount: 0,
     jsonParsed: false,
     schemaValid: false,
   };
@@ -92,6 +130,10 @@ function groundedResponse(payload: unknown): {
   if (!Array.isArray(value.steps) || value.steps.length > 80) invalid("STEPS_INVALID");
   const textPieces: string[] = [];
   const citations = new Set<string>();
+  // Correlate URL Context tool results only with provider-declared call arguments.
+  const contextCalls = new Map<string, Set<string>>();
+  const contextResults: Array<{ callId: string; entries: unknown[]; error: boolean }> = [];
+  const contextUrls = new Set<string>();
   const callIds = new Set<string>();
   const resultIds = new Set<string>();
   let searchCount = 0;
@@ -116,12 +158,33 @@ function groundedResponse(payload: unknown): {
         invalid("SEARCH_CALL_INVALID");
       }
       searchCount += queries.length;
+      safe.searchQueryCount = Math.min(searchCount, 100);
     } else if (step.type === "google_search_result") {
       safe.searchResults!++;
       if (typeof step.call_id !== "string" || !step.call_id || step.call_id.length > 256 ||
         step.is_error === true || !Array.isArray(step.result) || step.result.length > 100 ||
         step.result.some((item: unknown) => !record(item))) invalid("SEARCH_RESULT_INVALID");
       resultIds.add(step.call_id);
+      // Official GoogleSearchResultItem only documents search_suggestions HTML.
+      // It is not a verified source URL and MUST NOT be scraped for provenance.
+    } else if (step.type === "url_context_call") {
+      safe.urlContextCalls!++;
+      const args = record(step.arguments);
+      if (safe.urlContextCalls! > 30 || !args ||
+        typeof step.id !== "string" || !step.id || step.id.length > 256 ||
+        contextCalls.has(step.id) || !Array.isArray(args.urls) ||
+        args.urls.length < 1 || args.urls.length > 30) invalid("URL_CONTEXT_CALL_INVALID");
+      const requested = args.urls.map((url: unknown) => citedUrl(url));
+      if (requested.some((url: string | null) => url === null)) invalid("URL_CONTEXT_CALL_INVALID");
+      contextCalls.set(step.id, new Set(requested as string[]));
+    } else if (step.type === "url_context_result") {
+      safe.urlContextResults!++;
+      if (safe.urlContextResults! > 30 || typeof step.call_id !== "string" || !step.call_id ||
+        step.call_id.length > 256 || !Array.isArray(step.result) || step.result.length > 30 ||
+        step.result.some((item: unknown) => !record(item))) invalid("URL_CONTEXT_RESULT_INVALID");
+      contextResults.push({
+        callId: step.call_id, entries: step.result, error: step.is_error === true,
+      });
     } else if (step.type === "model_output") {
       if (!Array.isArray(step.content) || step.content.length > 32) invalid("MODEL_OUTPUT_INVALID");
       for (const content of step.content) {
@@ -137,7 +200,8 @@ function groundedResponse(payload: unknown): {
         for (const annotation of annotations) {
           const citation = record(annotation);
           if (citation?.type === "url_citation") {
-            const normalized = citedUrl(citation.url);
+            safe.urlCitationAnnotations = Math.min(128, safe.urlCitationAnnotations! + 1);
+            const normalized = citationUrl(citation);
             if (normalized) citations.add(normalized);
           }
         }
@@ -145,6 +209,19 @@ function groundedResponse(payload: unknown): {
     }
   }
   safe.citations = Math.min(citations.size, 128);
+  safe.validCitationUrls = Math.min(citations.size, 128);
+  for (const step of contextResults) {
+    const requested = contextCalls.get(step.callId);
+    if (!requested) invalid("URL_CONTEXT_RESULT_INVALID");
+    if (step.error) continue;
+    for (const item of step.entries) {
+      const result = record(item)!;
+      if (result.status !== "success") continue; // error / paywall / unsafe cannot authenticate
+      const normalized = citedUrl(result.url);
+      if (normalized && requested.has(normalized)) contextUrls.add(normalized);
+    }
+  }
+  safe.successfulUrlContextUrls = Math.min(contextUrls.size, 128);
   if (safe.searchCalls! < 1 || searchCount < 1) invalid("SEARCH_CALL_INVALID");
   if (safe.searchResults! < 1 || ![...resultIds].some((id) => callIds.has(id))) invalid("SEARCH_RESULT_MISSING");
   if (textPieces.length < 1 || !textLength) invalid("MODEL_OUTPUT_INVALID");
@@ -152,7 +229,8 @@ function groundedResponse(payload: unknown): {
   let output: unknown;
   try { output = JSON.parse(textPieces.join("")); } catch { invalid("OUTPUT_JSON_INVALID"); }
   safe.jsonParsed = true;
-  return { output, groundedSearchQueryCount: Math.min(searchCount, 100), citedUrls: citations, diagnostic: safe };
+  return { output, groundedSearchQueryCount: Math.min(searchCount, 100),
+    groundedUrls: new Set([...citations, ...contextUrls]), diagnostic: safe };
 }
 
 async function interact(options: {
@@ -179,7 +257,7 @@ async function interact(options: {
         body: JSON.stringify({
           model,
           input: options.prompt,
-          tools: [{ type: "google_search" }],
+          tools: [{ type: "google_search" }, { type: "url_context" }],
           response_format: { type: "text", mime_type: "application/json", schema: options.schema },
           store: false,
         }),
@@ -228,7 +306,7 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
     fetchImpl: options.fetchImpl,
     timeoutMs: options.timeoutMs,
   });
-  const { output, groundedSearchQueryCount, citedUrls, diagnostic } = groundedResponse(response.payload);
+  const { output, groundedSearchQueryCount, groundedUrls, diagnostic } = groundedResponse(response.payload);
   let parsed: ReturnType<typeof parseGeminiDiscoveryEnvelope>;
   try {
     parsed = parseGeminiDiscoveryEnvelope(output, request);
@@ -239,13 +317,15 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
     throw error;
   }
   diagnostic.schemaValid = true;
-  if (parsed.candidates.length > 0 && citedUrls.size === 0) fail("GROUNDING_CITATION_MISSING", diagnostic);
-  // Every candidate must be supported by a URL actually cited by the grounded model.
+  if (parsed.candidates.length > 0 && groundedUrls.size === 0) fail("GROUNDING_CITATION_MISSING", diagnostic);
+  // Neither source_urls nor model output JSON alone proves a URL was actually grounded.
   for (const candidate of parsed.candidates) {
-    if (!candidate.evidence.some((evidence) => {
+    const matches = candidate.evidence.filter((evidence) => {
       const normalized = citedUrl(evidence.source_url);
-      return normalized !== null && citedUrls.has(normalized);
-    })) fail("EVIDENCE_NOT_GROUNDED", diagnostic);
+      return normalized !== null && groundedUrls.has(normalized);
+    }).length;
+    if (!matches) fail("EVIDENCE_NOT_GROUNDED", diagnostic);
+    diagnostic.groundedEvidenceMatches = Math.min(100, diagnostic.groundedEvidenceMatches! + matches);
   }
   return {
     candidates: parsed.candidates,
