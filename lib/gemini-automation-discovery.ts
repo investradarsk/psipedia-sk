@@ -2,6 +2,7 @@ import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema, buildGemi
   parseGeminiDiscoveryEnvelope, type GeminiDiscoveryCandidateV1,
 } from "./gemini-automation-discovery-contract.ts";
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
+import type { GeminiCategoryExclusionContext } from "./gemini-automation-category-memory.ts";
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 
 const DISCOVERY_TIMEOUT_MS = 60_000;
@@ -14,6 +15,7 @@ type DiscoveryOptions = {
   maxCandidates: number;
   fetchImpl?: GeminiFetch;
   timeoutMs?: number;
+  knownContext?: GeminiCategoryExclusionContext;
 };
 
 /**
@@ -225,7 +227,7 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
   const request = createGeminiDiscoveryRequest({ stableKey: options.stableKey, maxCandidates: options.maxCandidates });
   const response = await interact({
     env: options.env,
-    prompt: buildGeminiDiscoveryPrompt(request),
+    prompt: buildGeminiDiscoveryPrompt(request, options.knownContext),
     schema: buildGeminiDiscoveryJsonSchema(request),
     fetchImpl: options.fetchImpl,
     timeoutMs: options.timeoutMs,
