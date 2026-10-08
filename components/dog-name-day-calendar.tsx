@@ -48,7 +48,7 @@ export function DogNameDayCalendar({
           const names = publishedNamesForCalendarDate(item.date, records);
           const todayFlag = item.date === today;
           const selected = item.date === view.selectedDay;
-          const accessibleName = (selected ? "Vybraný deň, " : "") + slovakNameDayDateLabel(item.date)
+          const accessibleName = (todayFlag ? "Dnes, " : "") + (selected ? "Vybraný deň, " : "") + slovakNameDayDateLabel(item.date)
             + (names.length ? ", meniny: " + names.join(", ") : ", bez evidovaných psích menín");
           return (
             <Link
@@ -58,7 +58,7 @@ export function DogNameDayCalendar({
               data-name-day-date={item.date}
               data-today={todayFlag ? "true" : undefined}
               data-selected={selected ? "true" : undefined}
-              aria-current={selected ? "true" : todayFlag ? "date" : undefined}
+              aria-current={todayFlag ? "date" : selected ? "true" : undefined}
               aria-label={accessibleName}
             >
               <span>{item.day}</span>

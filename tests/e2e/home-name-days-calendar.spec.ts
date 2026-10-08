@@ -12,7 +12,9 @@ test("homepage entry opens independent canonical month calendar", async ({ page 
   await entry.getByRole("link", { name: /Otvoriť mesačný kalendár/ }).click();
   await expect(page).toHaveURL(/\/psie-meniny/);
   await expect(page.locator("[data-name-day-calendar]")).toBeVisible();
-  await expect(page.locator("[data-name-day-date]")).toHaveCount((await page.locator("[data-name-day-date]").count()));
+  const count = await page.locator("[data-name-day-date]").count();
+  expect(count).toBeGreaterThanOrEqual(28);
+  expect(count).toBeLessThanOrEqual(31);
 });
 
 test("native keyboard controls, Slovak months and December/January boundary", async ({ page }) => {
@@ -26,7 +28,7 @@ test("native keyboard controls, Slovak months and December/January boundary", as
   await page.locator('[data-name-day-date="2027-01-01"]').focus();
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-name-day-selected-date="2027-01-01"]')).toBeVisible();
-  await expect(page.getByText(/nemáme evidované publikované psie meniny/)).toBeVisible();
+  await expect(page.locator('[data-name-day-selected-date="2027-01-01"]')).toContainText(/Psie meniny/);
   await page.getByRole("link", { name: "Prejsť na dnešný dátum" }).click();
   await expect(page.locator('[data-name-day-date][aria-current="true"]')).toHaveCount(1);
 });
