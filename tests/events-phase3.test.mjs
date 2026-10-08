@@ -9,13 +9,19 @@ const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.
 const eventCard = readFileSync(new URL("../components/event-card.tsx", import.meta.url), "utf8");
 const eventsCss = readFileSync(new URL("../components/events-public.module.css", import.meta.url), "utf8");
 const eventsLib = readFileSync(new URL("../lib/events.ts", import.meta.url), "utf8");
+const eventStore = readFileSync(new URL("../lib/event-store.ts", import.meta.url), "utf8");
 const adminEditor = readFileSync(new URL("../components/admin-event-editor.tsx", import.meta.url), "utf8");
 const sitemapSeo = readFileSync(new URL("../lib/sitemap-seo.ts", import.meta.url), "utf8");
 
 test("/podujatia remains the primary full event listing without mutating canonical records", () => {
   assert.match(portalPage, /slug === "podujatia" \? getPublishedEvents\(\)/);
   assert.match(portalPage, /slug === "podujatia"\) return <EventsPage/);
-  assert.match(eventsPage, /<EventCalendar events=\{events\} today=\{today\}/);
+  assert.match(portalPage, /slug === "podujatia" \? getPublishedEventsInMonth\(calendarMonth\)/);
+  assert.match(portalPage, /<EventsPage events=\{eventList\} calendarEvents=\{monthEvents \?\? \[\]\} initialCalendarMonth=\{calendarMonth\} initialDay=\{scalar\(rawSearchParams\.den\) \?\? ""\}/);
+  assert.match(eventsPage, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\} initialCalendarMonth=\{initialCalendarMonth\} initialDay=\{initialDay\} today=\{today\}/);
+  assert.match(eventsPage, /calendarEvents\?: DogEvent\[\]/);
+  assert.match(eventsPage, /initialCalendarMonth\?: string/);
+  assert.match(eventsPage, /initialDay\?: string/);
   assert.match(eventsPage, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(eventsPage, /createManagedEvent|updateManagedEvent|deleteManagedEvent/);
 });
@@ -98,9 +104,25 @@ test("admin and public event filters continue to share canonical eventTypes", ()
 test("legacy calendar URL stays a noindex canonical alias excluded from sitemap", () => {
   assert.match(contentPage, /slug === "kalendar"[\s\S]*canonical: "\/podujatia"/);
   assert.match(contentPage, /robots: \{ index: false, follow: true \}/);
-  assert.match(contentPage, /slug === "kalendar"\) \{[\s\S]*return <EventsPage events=\{await getPublishedEvents\(\)\}/);
+  assert.match(contentPage, /if \(section === "podujatia" && slug === "kalendar"\) \{\s*const rawSearchParams = await searchParams;/);
+  assert.match(contentPage, /const calendarMonth = resolveCalendarMonth\(eventMonthFilterFromParam\(rawSearchParams\.kalendar\), eventMonthFilterFromParam\(rawSearchParams\.mesiac\), bratislavaDateKey\(\)\)/);
+  assert.match(contentPage, /const \[events, calendarEvents\] = await Promise\.all\(\[getPublishedEvents\(\), getPublishedEventsInMonth\(calendarMonth\)\]\)/);
+  assert.match(contentPage, /return <EventsPage events=\{events\} calendarEvents=\{calendarEvents\} initialCalendarMonth=\{calendarMonth\} initialDay=\{scalar\(rawSearchParams\.den\) \?\? ""\}/);
   assert.doesNotMatch(contentPage, /permanentRedirect\("\/podujatia"\)/);
   assert.match(sitemapSeo, /"\/podujatia\/kalendar"/);
+});
+
+test("calendar data is month-scoped, publication-only and read-only", () => {
+  assert.match(eventStore, /export async function getPublishedEventsInMonth\(month: string\)/);
+  assert.match(eventStore, /if \(!\/\^20\\d\{2\}-\(\?:0\[1-9\]\|1\[0-2\]\)\$\/\.test\(month\)\) return \[\] as DogEvent\[\]/);
+  assert.match(eventStore, /const monthEnd = `\$\{month\}-\$\{String\(lastDay\)\.padStart\(2, "0"\)\}`/);
+  assert.match(eventStore, /status = 'published' AND start_date <= \? AND COALESCE\(end_date, start_date\) >= \?/);
+  assert.match(eventStore, /\.bind\(monthEnd, `\$\{month\}-01`\)\.all<EventRow>\(\)/);
+  assert.match(eventStore, /ORDER BY start_date ASC, start_time ASC, id ASC LIMIT 500/);
+  assert.doesNotMatch(eventStore.slice(eventStore.indexOf("export async function getPublishedEventsInMonth"), eventStore.indexOf("export async function getUpcomingEvents")), /\b(?:UPDATE|DELETE|INSERT)\s+managed_events\b|createManagedEvent|updateManagedEvent|deleteManagedEvent/);
+  assert.match(calendar, /const monthMatches = calendarEvents\.filter\(matchesFilters\)/);
+  assert.match(calendar, /eventsForCalendarDay\(monthMatches, selectedDay\)/);
+  assert.doesNotMatch(calendar, /\.push\(event\)|Object\.assign\(event|event\.(?:status|startDate|endDate)\s*=/);
 });
 
 test("event routes restore search and secondary filters from the URL", () => {
