@@ -505,7 +505,8 @@ test.describe("MAP-1D mobile", () => {
     await installMapApiMock(page);
     await page.goto("/mapa");
     const results = page.getByTestId("map-results-panel");
-    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
+    // Collapsed sheet keeps cards in the DOM for markers but hides their scroll list.
+    await expect(page.getByTestId("map-card-service:1")).toBeAttached();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
