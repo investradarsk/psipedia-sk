@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { enqueueAdminNotificationEvent, enqueueUncoveredAttentionAdminNotifications } from "@/lib/admin-notifications";
-import { adminPushCategoryForEvent, parsePushCategories, parseStoredPushCategories, type AdminPushCategory } from "@/lib/admin-automation-events";
+import { adminPushCategoryForEvent, parsePushCategories, parseStoredPushCategories } from "@/lib/admin-automation-events";
 import { hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import {
   normalizeAdminNotificationPath,
@@ -60,6 +60,9 @@ type EventDeliveryRow = {
   body: string;
   target_url: string;
   tag: string;
+  event_type: string;
+  actor_type: string;
+  categories_json: string;
 };
 
 type ActiveSubscriptionRow = {
@@ -390,7 +393,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
 
   const eventRows = await resolved.database.prepare(`SELECT d.id, d.event_id, d.subscription_id,
       d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth,
-      e.title, e.body, e.target_url, e.tag
+      e.title, e.body, e.target_url, e.tag, e.event_type, e.actor_type, s.categories_json
     FROM admin_push_event_deliveries d
     JOIN admin_push_subscriptions s ON s.id = d.subscription_id
     JOIN admin_notification_events e ON e.id = d.event_id
@@ -403,6 +406,14 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   summary.candidates += eventRows.results.length;
   for (const row of eventRows.results) {
     try {
+      const category = row.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(row.event_type) : null;
+      if (category && !parseStoredPushCategories(row.categories_json).includes(category)) {
+        await resolved.database.prepare(`UPDATE admin_push_event_deliveries
+          SET status = 'dead', last_error = 'category_disabled', updated_at = ? WHERE id = ?`)
+          .bind(nowIso, row.id).run();
+        summary.dead += 1;
+        continue;
+      }
       const result = await sendWebPush(
         { endpoint: row.endpoint, p256dh: row.p256dh, auth: row.auth } satisfies WebPushSubscription,
         {
