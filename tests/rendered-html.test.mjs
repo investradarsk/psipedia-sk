@@ -800,7 +800,11 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Adresár služieb/);
   assert.doesNotMatch(directoryHtml, /Služby pre psov na jednom mieste/);
-  assert.match(directoryHtml, /Vyber si kategóriu/);
+  // The compact services landing renders a category overview and full-list links.
+  assert.match(directoryHtml, /Služby podľa kategórie/);
+  assert.match(directoryHtml, /data-directory-category-overview/);
+  assert.match(directoryHtml, /Celá kategória/);
+  assert.match(directoryHtml, /href="\/adresar\/veterinari"/);
   assert.doesNotMatch(directoryHtml, /Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
   assert.match(directoryHtml, /Poskytujete služby pre psov/);
   assert.match(directoryHtml, /Fyzioterapia/);
