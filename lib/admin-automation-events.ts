@@ -56,7 +56,7 @@ export async function recordAdminAutomationRunEvent(input: AutomationEventInput)
     resourceRef: String(input.runId),
     actorType: "AUTOMATION",
     actorRef: `${input.system}/${input.automationId}`,
-    targetUrl: input.targetUrl ?? "/admin/operations/automaticke-udalosti",
+    targetUrl: input.targetUrl ?? `/admin/operations/automaticke-udalosti?system=${encodeURIComponent(input.system)}&run=${encodeURIComponent(String(input.runId))}&automation=${encodeURIComponent(String(input.automationId))}`,
     title: `Psipedia — ${input.label}`,
     body: counts ? `${intro[input.status]} ${counts}.` : intro[input.status],
     tag: `auto-${input.system}-${input.runId}-${stage}`,
