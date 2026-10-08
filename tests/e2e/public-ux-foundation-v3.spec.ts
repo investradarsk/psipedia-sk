@@ -1,9 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
+import { mkdirSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 // PUBLIC-UX-FOUNDATION-V3: validate the shared shell, not individual page redesigns.
 const widths = [320, 375, 390, 430, 768, 1280, 1440] as const;
 const routes = ["/steniatka", "/pomoc-psom", "/adresar"] as const;
+const VISUAL_ARTIFACT_DIR = process.env.PUBLIC_UX_FOUNDATION_V3_ARTIFACT_DIR ?? ".e2e-artifacts/public-ux-foundation-v3";
 
 async function assertNoDocumentOverflow(page: Page, context: string) {
   const actual = await page.evaluate(() => ({
@@ -54,8 +56,11 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
 
         // CI artifacts are post-change proofs. Before images require the pinned base SHA.
         if (route === "/steniatka" && (width === 390 || width === 1440)) {
+          mkdirSync(VISUAL_ARTIFACT_DIR, { recursive: true });
+          const screenshotPath = `${VISUAL_ARTIFACT_DIR}/after-steniatka-${width}.png`;
+          await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" });
           await testInfo.attach(`foundation-after-${width}`, {
-            body: await page.screenshot({ fullPage: true, animations: "disabled" }),
+            path: screenshotPath,
             contentType: "image/png",
           });
         }
