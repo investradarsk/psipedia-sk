@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const STORAGE_KEY = "psipedia:events:last-listing";
@@ -29,21 +30,26 @@ export function RememberEventsListing() {
 }
 
 export function EventsBackLink({ fallbackHref }: { fallbackHref: string }) {
-  const [href, setHref] = useState(fallbackHref);
+  const router = useRouter();
 
-  useEffect(() => {
+  function returnToListing(event: MouseEvent<HTMLAnchorElement>) {
+    // Preserve normal behavior for modified clicks, new tabs and inaccessible storage.
+    if (event.defaultPrevented || event.button !== 0
+      || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
     try {
       const stored = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) || "null");
       if (stored && validListingPath(stored.href)
         && Number.isFinite(stored.savedAt)
         && Date.now() - stored.savedAt >= 0
         && Date.now() - stored.savedAt < MAX_AGE_MS) {
-        setHref(stored.href);
+        event.preventDefault();
+        router.push(stored.href);
       }
     } catch {
-      // The server-rendered fallback link is always available.
+      // Follow the server-rendered category link if storage is disabled.
     }
-  }, []);
+  }
 
-  return <Link href={href}>← Späť na výsledky podujatí</Link>;
+  return <Link href={fallbackHref} onClick={returnToListing}>← Späť na výsledky podujatí</Link>;
 }
