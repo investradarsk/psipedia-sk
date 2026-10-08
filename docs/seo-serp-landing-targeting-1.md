@@ -4,7 +4,7 @@ Audit baseline: main 07730b521bfe5ff92f1d0cc8e9b0f9f5d17e2f17, 8. 10. 2026. Scop
 
 ## Zistenia (zdroj kódu a verejne extrahovaný HTML obsah)
 
-- Homepage: app/page.tsx poskytuje absolútny brand title, self-canonical cez buildPageMetadata, WebSite/Organization JSON-LD a H1 „Rozumej svojmu psovi“. Pôvodný opis META a úvodný hero text boli všeobecné. Service cards mali susedné prvky strong(category.label) a span(category.description) bez textového oddeľovača. Extrakcia verejnej homepage reálne produkovala „SalónyÚprava...Hotely a opatrovanieUbytovanie...“.
+- Homepage: app/page.tsx poskytuje absolútny brand title, self-canonical cez buildPageMetadata, WebSite/Organization JSON-LD v spoločnom app/layout.tsx a H1 „Rozumej svojmu psovi“. Pôvodný opis META a úvodný hero text boli všeobecné. Service cards mali susedné prvky strong(category.label) a span(category.description) bez textového oddeľovača. Extrakcia verejnej homepage reálne produkovala „SalónyÚprava...Hotely a opatrovanieUbytovanie...“.
 - Directory root: /adresar má vlastný buildListingPageMetadata, self-canonical, index/follow a CollectionPage/BreadcrumbList/ItemList schema. SSR ukážky kategórií sú linkované na existujúce URL. Nie je potrebný nový route.
 - Directory category: app/adresar/[category]/page.tsx generuje unikátne title a opis cez directoryCategoryListingMetadata. Na čistom URL má self-canonical, index/follow, CollectionPage + BreadcrumbList; filtrované dopyty zostávajú noindex/follow, stránkovanie podľa existujúcej politiky. Intro je v lib/directory.ts. Runtime getSectionHeroVisual však umožňoval admin-managed heroContent.title nahradiť H1 kratším labelom („Salóny“). V rámci tohto PR je iba na category landingoch H1 a úvod odvodený od jednoznačného SEO slovníka; ostatné nastavenia hero a vizuály ostávajú zachované.
 - Help root /pomoc-psom: špecifické metadata a CollectionPage/BreadcrumbList. Kategóriové stránky majú individuálne metadata. Katalóg adopcií, stratené/nájdené psy a kategórie pomoci sa nesmú zlievať do homepage. Legacy aliasy/redirecty ostali zachované.
@@ -37,7 +37,7 @@ Audit baseline: main 07730b521bfe5ff92f1d0cc8e9b0f9f5d17e2f17, 8. 10. 2026. Scop
 
 ## Scope a bezpečnostná hranica
 
-- Zmeny: site-level homepage description/lead, semantické oddeľovanie názvu a opisu služieb v SSR, viditeľnejší category-specific anchor, stabilný H1 a intro adresárových kategórií aj pri D1-managed hero texte; regresné testy.
+- Zmeny: site-level homepage description/lead, odstránenie druhej identickej site-identity JSON-LD schémy z homepage (jedna zostáva v app/layout.tsx), semantické oddeľovanie názvu a opisu služieb v SSR, viditeľnejší category-specific anchor, stabilný H1 a intro adresárových kategórií aj pri D1-managed hero texte; regresné testy.
 - Bez zásahu: robots.txt, canonical architektúra, sitemap, index/noindex politika, URL routing, profily, admin, produkčná D1, Cloudflare, SEO incident a Google Search Console. data-nosnippet nebol potrebný.
 - Riziko paralelnej práce: app/page.tsx a components/directory-page.tsx patria do verejných listingov; nie do detailu profilov, mapy ani admin navigácie. Pred merge preveriť zmenené súbory ďalších PR a dostupné CI.
 - Otvorené overenie: po nasadení overiť finálne SSR zdroje vrátane admin-managed H1 a sledovať SERP bez hromadných reindexácií. Výber výsledku aj snippetu určuje Google.

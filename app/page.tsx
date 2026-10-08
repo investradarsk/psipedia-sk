@@ -18,7 +18,7 @@ import { selectHomepageArticles } from "@/lib/homepage-content";
 import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
 import { getResolvedSectionVisual } from "@/lib/section-visual-store";
 import { AD_PLACEMENTS } from "@/lib/monetization";
-import { buildPageMetadata, buildSiteIdentityJsonLd, serializeJsonLd } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { CSSProperties } from "react";
@@ -82,12 +82,8 @@ export default async function Home() {
     "dalsie-sluzby": "/images/hero-labrador.webp",
   };
 
-  const schema = buildSiteIdentityJsonLd();
-
   return (
     <main id="obsah" className={styles.homeV2}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
-
       <section className="hero-section shell" data-home-hero>
         <div className="hero-card">
           <img className="hero-image" src={homeHero.imageUrl} alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />

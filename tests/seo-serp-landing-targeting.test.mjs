@@ -17,6 +17,9 @@ test("SEO-SERP homepage has a brand-level title, distinct metadata and an explan
   assert.match(source, /path: "\/"/);
   assert.match(source, /<h1>Rozumej svojmu psovi\./);
   assert.doesNotMatch(source, /data-nosnippet|noindex/i);
+  // The root layout already emits one site identity graph.
+  assert.match(read("app/layout.tsx"), /<StructuredData value=\{buildSiteIdentityJsonLd\(\)\}/);
+  assert.doesNotMatch(source, /buildSiteIdentityJsonLd|serializeJsonLd/);
 });
 
 test("SEO-SERP homepage category cards expose category-specific anchors with separated visible text", () => {
