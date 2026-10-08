@@ -16,6 +16,9 @@ const clock = () => new Date("2026-10-08T18:00:00.000Z");
 function fixture(savedMax = 5, save = true) {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(migration);
+  sqlite.exec(source("drizzle/0114_gemini_dedupe.sql"));
+  sqlite.exec(`CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL,
+    status TEXT NOT NULL, name TEXT NOT NULL, city TEXT, website_url TEXT)`);
   if (save) sqlite.prepare(`INSERT INTO gemini_automation_settings
     (stable_key,section,subcategory,enabled,cadence_minutes,max_new_concepts,next_run_at)
     VALUES ('directory.treneri','directory','treneri',0,1440,?,'2026-10-12T10:00:00Z')`).run(savedMax);
@@ -291,4 +294,31 @@ test("invalid provider query metrics cannot poison D1 audit counts", async () =>
       assert.equal(f.runs()[0].grounded_search_query_count, 0);
     } finally { f.close(); }
   }
+});
+
+test("run 2 excludes canonical draft inserted by NEW bridge in run 1; no Notion read", async () => {
+  const f = fixture(1);
+  const seen = [];
+  let bridgeCalls = 0;
+  try {
+    const deps = dependencies({
+      discovery: async ({ knownContext }) => {
+        seen.push(JSON.parse(knownContext.serialized));
+        return seen.length === 1 ? discovered(["Nová škola"]) : discovered([]);
+      },
+      bridge: async () => {
+        bridgeCalls++;
+        f.sqlite.prepare("INSERT INTO directory_profiles (category,status,name,city,website_url) VALUES (?,?,?,?,?)")
+          .run("treneri","draft","Nová škola","Nitra","https://nova-skola.sk");
+        return { created: true, conceptId: 9, canonicalEntityId: 10, notionPageId: "mocked-notion" };
+      },
+    });
+    assert.equal((await run(f, { dependencies: deps })).status, "SUCCESS");
+    assert.equal((await run(f, { dependencies: deps })).status, "SUCCESS");
+    assert.equal(bridgeCalls, 1);
+    assert.deepEqual(seen[0], []);
+    assert.ok(seen[1].some((v) => v.kind === "canonical" && v.name === "Nová škola"));
+    assert.equal(f.runs().length, 2);
+    assert.ok(f.runs().every((v) => v.request_count === 1));
+  } finally { f.close(); }
 });

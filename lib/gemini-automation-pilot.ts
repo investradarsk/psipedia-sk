@@ -1,4 +1,5 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { loadGeminiCategoryMemory } from "./gemini-automation-category-memory.ts";
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
 import { discoverGeminiCandidates } from "./gemini-automation-discovery.ts";
 import { checkGeminiCandidateDedupe, geminiDedupeCountsAsDuplicate } from "./gemini-automation-dedupe.ts";
@@ -111,11 +112,12 @@ export async function runGeminiDirectoryPilot(input: {
     const dedupe = input.dependencies?.dedupe ?? checkGeminiCandidateDedupe;
     const bridge = input.dependencies?.bridge ?? bridgeGeminiCandidateToNotion;
 
+    const knownContext = await loadGeminiCategoryMemory(input.database, GEMINI_PILOT_STABLE_KEY);
     // Exactly ONE invocation. No retry, no fallback, no enrichment request.
     requestCount = 1;
     const discovery = await discover({
       env: input.env, stableKey: GEMINI_PILOT_STABLE_KEY,
-      maxCandidates: effectiveMax, fetchImpl: input.fetchImpl,
+      maxCandidates: effectiveMax, fetchImpl: input.fetchImpl, knownContext,
     });
     summary.candidateCount = discovery.candidates.length;
     summary.groundedSearchQueryCount = discovery.providerMetrics.groundedSearchQueryCount;
