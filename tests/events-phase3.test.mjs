@@ -28,7 +28,11 @@ test("/podujatia remains the primary full event listing without mutating canonic
 
 test("Events 2.0 removes the random photo hero and keeps data above the fold", () => {
   assert.match(eventsPage, /Kalendár a databáza/);
-  assert.match(eventsPage, /activeCount/);
+  // UX-V2 intentionally removes the redundant hero count in favor of immediate calendar access.
+  assert.doesNotMatch(eventsPage, /metaSlot=\{/);
+  assert.doesNotMatch(eventsPage, /activeCount/);
+  assert.match(eventsPage, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\}/);
+  assert.ok(eventsPage.indexOf("<UnifiedSectionHero") < eventsPage.indexOf('className={styles.calendarSection}'));
   assert.match(eventsPage, /eventDateStatus\(event, today\)/);
   assert.match(eventsPage, /<UnifiedSectionHero/);
   assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo/);
