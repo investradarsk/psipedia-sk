@@ -35,7 +35,8 @@
   .dayButton { padding: .15rem; font-size: .8rem; flex-direction: column; }
   .weekday { padding: .25rem .05rem; font-size: .75rem; }
   .count { font-size: .65rem; }
-  .calendar { overflow: hidden; }
+  /* No clipping/scroll container: otherwise the sticky month toolbar stops working. */
+  .calendar { min-width: 0; }
   .toolbar { align-items: flex-start; }
   .monthNav h2 { font-size: 1.1rem; min-width: 8rem; }
   .filters { flex-wrap: wrap; }
