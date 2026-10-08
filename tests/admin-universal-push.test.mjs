@@ -221,8 +221,13 @@ test("one five-minute cron preserves hourly full work while allowing bounded aut
   assert.match(worker,/const adminPush = await runScheduledAdminPush\(env\)/);
 });
 
-test("settings explain broad alert coverage without per-category preferences",()=>{
+test("settings retain existing alerts and now allow real per-device automation preferences",()=>{
   const settings=read("components/admin-pwa-settings.tsx");
   assert.match(settings,/nových podaniach, Partner aktivitách a závažných problémoch automatizácií/);
-  assert.doesNotMatch(settings,/notificationCategories|per-category|kategóri.*upozornen/i);
+  assert.match(settings,/Kategórie upozornení pre toto zariadenie/);
+  assert.match(settings,/action: "categories"/);
+  assert.match(settings,/action: "test"/);
+  const push=read("lib/admin-push.ts");
+  assert.match(push,/parseStoredPushCategories/);
+  assert.match(push,/category_disabled/);
 });
