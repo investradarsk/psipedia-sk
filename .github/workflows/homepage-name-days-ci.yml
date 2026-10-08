@@ -41,6 +41,7 @@ jobs:
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      # Configure CI-only local PII keys — fake fixture values, never production credentials.
       - name: Configure isolated E2E bindings
         run: |
           cat > .dev.vars <<'EOF'
@@ -88,5 +89,5 @@ jobs:
         if: always()
         run: |
           if [ -f .e2e-artifacts/name-days-server.pid ]; then
-            kill "$(cat .e2e-artifacts/name-days-server.pid") 2>/dev/null || true
+            kill "$(cat .e2e-artifacts/name-days-server.pid)" 2>/dev/null || true
           fi
