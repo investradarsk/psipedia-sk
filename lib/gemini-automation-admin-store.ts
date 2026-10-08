@@ -14,9 +14,13 @@ export type GeminiRecentRun = {
   trigger: string;
   status: string;
   model: string;
+  requestCount: number;
+  groundedSearchQueryCount: number;
   candidateCount: number;
   duplicateCount: number;
   conceptCount: number;
+  errorCount: number;
+  completedAt: string | null;
   errorCode: string | null;
 };
 
@@ -65,8 +69,9 @@ export async function listRecentGeminiRuns(db: GeminiD1, limit = 30): Promise<Ge
   const bounded = Number.isSafeInteger(limit) ? Math.min(100, Math.max(1, limit)) : 30;
   const result = await db.prepare(`
     SELECT r.id, s.stable_key, s.section, s.subcategory, r.started_at,
-      r.trigger_type, r.status, r.model, r.candidate_count, r.duplicate_count,
-      r.concept_count, r.error_code
+      r.trigger_type, r.status, r.model, r.request_count, r.grounded_search_query_count,
+      r.candidate_count, r.duplicate_count, r.concept_count, r.error_count,
+      r.completed_at, r.error_code
     FROM gemini_automation_runs r
     JOIN gemini_automation_settings s ON s.id = r.setting_id
     ORDER BY r.started_at DESC, r.id DESC
@@ -74,14 +79,19 @@ export async function listRecentGeminiRuns(db: GeminiD1, limit = 30): Promise<Ge
   `).bind(bounded).all<{
     id: number; stable_key: string; section: string; subcategory: string;
     started_at: string; trigger_type: string; status: string; model: string;
-    candidate_count: number; duplicate_count: number; concept_count: number; error_code: string | null;
+    request_count: number; grounded_search_query_count: number;
+    candidate_count: number; duplicate_count: number; concept_count: number;
+    error_count: number; completed_at: string | null; error_code: string | null;
   }>();
   return (result.results ?? []).map((row) => ({
     id: row.id,
     stableKey: row.stable_key, section: row.section, subcategory: row.subcategory,
     startedAt: row.started_at, trigger: row.trigger_type, status: row.status,
-    model: row.model, candidateCount: row.candidate_count,
+    model: row.model, requestCount: row.request_count,
+    groundedSearchQueryCount: row.grounded_search_query_count,
+    candidateCount: row.candidate_count,
     duplicateCount: row.duplicate_count, conceptCount: row.concept_count,
+    errorCount: row.error_count, completedAt: row.completed_at,
     errorCode: row.error_code,
   }));
 }
