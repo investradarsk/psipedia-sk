@@ -151,7 +151,7 @@ test("SERVICES-PUBLIC-UX-1 removes repeated category decisions and duplicate loc
   assert.match(directory, /title: "Všetky služby"/);
   assert.match(directory, /current: active\?\.slug === category\.slug/);
   assert.equal((filters.match(/name="q"/g) ?? []).length, 1);
-  assert.match(filters, /placeholder="Názov služby alebo lokalita"/);
+  assert.match(filters, /placeholder="Názov služby, miesto, organizácia alebo plemeno"/);
   assert.match(filters, /aria-expanded=\{secondaryFiltersOpen\}/);
   assert.match(filters, /activeFilterCount/);
   assert.match(filters, /dependentSubmit\("region"\)/);
