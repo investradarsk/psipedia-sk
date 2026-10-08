@@ -75,7 +75,9 @@ test("event rows stay compact and date-first while using canonical preview image
   assert.match(eventCard, /endDateLabel\(event\)/);
   assert.match(eventCard, /Čas/);
   assert.match(eventCard, /Miesto/);
-  assert.match(eventCard, /Organizátor/);
+  // Cards intentionally show the essential facts only; organizer remains available in the detail.
+  assert.doesNotMatch(eventCard, /<strong>Organizátor<\\/strong>/);
+  assert.match(eventCard, /event\\.region === "Online"/);
   assert.match(eventCard, /data-event-status/);
   assert.match(eventCard, /event\.imageUrl \? styles\.eventCardWithImage/);
   assert.match(eventCard, /<img src=\{event\.imageUrl\} alt="" loading="lazy" decoding="async"/);
