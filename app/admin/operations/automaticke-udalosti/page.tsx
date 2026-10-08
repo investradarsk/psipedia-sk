@@ -22,6 +22,8 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   const params = await searchParams;
   const system = first(params.system);
   const status = first(params.status);
+  const run = first(params.run);
+  const automation = first(params.automation);
   const period = Number(first(params.period) || 30);
   const days = periods.includes(period as 7 | 30 | 90) ? period : 30;
   const cursor = Number(first(params.cursor));
@@ -31,6 +33,14 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   if (["data", "gemini", "discovery", "notion"].includes(system)) {
     conditions.push("e.resource_type = ?");
     argumentsList.push(system);
+  }
+  if (run && run.length <= 60) {
+    conditions.push("e.resource_ref = ?");
+    argumentsList.push(run);
+  }
+  if (automation && automation.length <= 120 && ["data", "gemini", "discovery", "notion"].includes(system)) {
+    conditions.push("e.actor_ref = ?");
+    argumentsList.push(`${system}/${automation}`);
   }
   if (statuses.includes(status as (typeof statuses)[number])) {
     conditions.push("e.event_type = ?");
@@ -53,6 +63,8 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   const next = new URLSearchParams();
   if (system) next.set("system", system);
   if (status) next.set("status", status);
+  if (run) next.set("run", run);
+  if (automation) next.set("automation", automation);
   next.set("period", String(days));
   if (rows.length) next.set("cursor", String(rows[rows.length - 1].id));
 
