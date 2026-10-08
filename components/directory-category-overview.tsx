@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { PageContainer } from "@/components/page-system";
-import { directoryCategoryHref, directoryProfileHref, type DirectoryCategory, type DirectoryCategorySlug, type PublicDirectoryProfile } from "@/lib/directory";
+import { directoryCategoryHref, directoryProfileHref, directoryCategories, type DirectoryCategorySlug, type PublicDirectoryProfile } from "@/lib/directory";
 import styles from "./directory-category-overview.module.css";
 
 export function DirectoryCategoryOverview({
   categories,
   previews,
 }: {
-  categories: readonly DirectoryCategory[];
+  categories: readonly (typeof directoryCategories)[number][];
   previews: Partial<Record<DirectoryCategorySlug, PublicDirectoryProfile[]>>;
 }) {
   return (
