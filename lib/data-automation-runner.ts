@@ -38,7 +38,7 @@ import {
   type AutomationD1Database,
 } from "./data-automation-store.ts";
 import { enqueuePersistentAutomationSourceIssueAdminNotification } from "./admin-notifications";
-import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent, type AutomationActor } from "./admin-automation-events";
+import { completedAutomationRunStatus, safelyRecordAdminAutomationRunEvent, type AutomationActor } from "./admin-automation-events.ts";
 import {
   linkAutomationFindingToCluster,
   resolveAutomationEntityCluster,
