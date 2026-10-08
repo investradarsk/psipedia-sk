@@ -2,7 +2,7 @@ import {
   completedAutomationRunStatus,
   safelyRecordAdminAutomationRunEvent,
   type AutomationRunStatus,
-} from "./admin-automation-events";
+} from "./admin-automation-events.ts";
 
 type Counts = {
   enabled?: boolean;
