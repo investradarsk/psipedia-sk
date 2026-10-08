@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS gemini_automation_concepts (
   canonical_entity_type TEXT NOT NULL CHECK (canonical_entity_type IN ('DIRECTORY','EVENT','HELP_ITEM')),
   canonical_entity_id INTEGER,
   notion_page_id TEXT,
-  status TEXT NOT NULL CHECK (status IN ('RESERVED','DRAFT_CREATED','NOTION_CREATING','NOTION_LINKED','NOTION_UNCERTAIN')),
+  status TEXT NOT NULL CHECK (status IN ('RESERVED','CREATING','DRAFT_CREATED','NOTION_CREATING','NOTION_LINKED','NOTION_UNCERTAIN')),
   primary_source_url TEXT,
   source_urls_json TEXT NOT NULL DEFAULT '[]',
   discovered_at TEXT NOT NULL,
