@@ -26,8 +26,8 @@ export default async function AdminAutomationHistory({ searchParams }: { searchP
   const days = periods.includes(period as 7 | 30 | 90) ? period : 30;
   const cursor = Number(first(params.cursor));
   const safeCursor = Number.isSafeInteger(cursor) && cursor > 0 ? cursor : null;
-  const conditions = ["e.source_type = 'AUTOMATION_RUN'", "e.actor_type = 'AUTOMATION'", "e.created_at >= ?"];
-  const argumentsList: (string | number)[] = [new Date(Date.now() - days * 86_400_000).toISOString()];
+  const conditions = ["e.source_type = 'AUTOMATION_RUN'", "e.actor_type = 'AUTOMATION'", "e.created_at >= strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)"];
+  const argumentsList: (string | number)[] = [`-${days} days`];
   if (["data", "gemini", "discovery", "notion"].includes(system)) {
     conditions.push("e.resource_type = ?");
     argumentsList.push(system);
