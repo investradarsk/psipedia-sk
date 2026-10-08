@@ -130,6 +130,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0112_tavily_transport_phase.sql",
     "0113_gemini_automation_foundation.sql",
     "0114_gemini_dedupe.sql",
+    "0115_gemini_notion_bridge.sql",
   ]);
 });
 
