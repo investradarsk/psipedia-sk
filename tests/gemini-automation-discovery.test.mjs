@@ -33,8 +33,8 @@ function mockResponse(value = envelope(), options = {}) {
     status: options.status || "completed",
     steps: [
       ...(options.search === false ? [] : [
-        { type: "google_search_call", arguments: { queries: ["Psia skola Slovensko", "treneri psov Nitra"] } },
-        { type: "google_search_result", result: [{ search_suggestions: "<not-persisted>" }] },
+        { type: "google_search_call", id: "gs_1", arguments: { queries: ["Psia skola Slovensko", "treneri psov Nitra"] } },
+        { type: "google_search_result", call_id: "gs_1", result: [{ search_suggestions: "<not-persisted>" }] },
       ]),
       { type: "model_output", content: [{
         type: "text",
@@ -324,4 +324,148 @@ test("T-W: pure discovery has no DB write, Notion/dedupe, scheduler or admin-run
     assert.equal(scopes.fullCore, false);
     assert.equal(scopes.automationBroad, false);
   }
+});
+
+
+/** Fixtures reflect the post-May-2026 Interactions steps contract:
+ * https://ai.google.dev/api/interactions-api and /api/interactions-api-v1
+ * No live Gemini requests are made by this suite. */
+const mockedInteraction = async (payload, onCall = () => {}) =>
+  discoverGeminiCandidates({
+    env, stableKey, maxCandidates: 3,
+    fetchImpl: async () => {
+      onCall();
+      return new Response(JSON.stringify(payload), { status: 200 });
+    },
+  });
+
+test("Interactions documented google_search_call arguments.queries and arguments.query both count", async () => {
+  const plural = mockResponse();
+  assert.equal((await mockedInteraction(plural)).providerMetrics.groundedSearchQueryCount, 2);
+  const singular = mockResponse();
+  singular.steps[0].arguments = { query: "treneri psov Nitra" };
+  assert.equal((await mockedInteraction(singular)).providerMetrics.groundedSearchQueryCount, 1);
+  for (const args of [
+    {}, { query: "" }, { query: "   " }, { query: "x".repeat(301) },
+    { query: 5 }, { queries: [] }, { queries: [""] },
+    { queries: ["valid", "  "] }, { queries: Array.from({ length: 31 }, () => "test") },
+    { queries: ["x".repeat(301)] }, { query: "valid", queries: ["also valid"] },
+    { queries: ["valid"], unrecognized: true },
+  ]) {
+    const invalid = mockResponse();
+    invalid.steps[0].arguments = args;
+    await assert.rejects(mockedInteraction(invalid), isInvalid);
+  }
+});
+
+test("google_search_result requires real matched successful result step, not its textual contents", async () => {
+  const valid = mockResponse();
+  assert.equal((await mockedInteraction(valid)).providerMetrics.candidateCount, 1);
+  const wrongId = mockResponse();
+  wrongId.steps[1].call_id = "search_call_not_present";
+  await assert.rejects(mockedInteraction(wrongId), isInvalid);
+  const noResult = mockResponse();
+  delete noResult.steps[1].result;
+  await assert.rejects(mockedInteraction(noResult), isInvalid);
+  const errorResult = mockResponse();
+  errorResult.steps[1].is_error = true;
+  await assert.rejects(mockedInteraction(errorResult), isInvalid);
+});
+
+test("structured JSON can span multiple model_output text blocks and annotations can be split", async () => {
+  const response = mockResponse();
+  const full = response.steps[2].content[0].text;
+  const midpoint = Math.floor(full.length / 2);
+  response.steps[2].content = [
+    { type: "text", text: full.slice(0, midpoint), annotations: [] },
+    { type: "text", text: full.slice(midpoint), annotations: [{ type: "url_citation", url }] },
+  ];
+  const result = await mockedInteraction(response);
+  assert.deepEqual(result.candidates, [candidate()]);
+});
+
+test("canonical equivalent absolute URLs match source evidence and citation without accepting alien sources", async () => {
+  const data = envelope();
+  data.candidates[0].primary_url = "https://example.sk";
+  data.candidates[0].source_urls = ["https://example.sk/", "https://example.sk", url];
+  data.candidates[0].evidence = [{ source_url: "https://example.sk", fields: ["name"] }];
+  const normalized = parseGeminiDiscoveryEnvelope(data, request());
+  assert.equal(normalized.candidates[0].primary_url, "https://example.sk/");
+  assert.deepEqual(normalized.candidates[0].source_urls, ["https://example.sk/", url]);
+  assert.deepEqual(normalized.candidates[0].evidence[0].source_url, "https://example.sk/");
+  const interaction = mockResponse(data, { citationUrl: "https://example.sk/" });
+  assert.equal((await mockedInteraction(interaction)).candidates.length, 1);
+  const alien = mockResponse(data, { citationUrl: "https://unrelated.sk/" });
+  await assert.rejects(mockedInteraction(alien), isInvalid);
+});
+
+test("INVALID_RESPONSE has bounded phase-specific diagnostics and never changes public error code", async () => {
+  const base = () => mockResponse();
+  const changed = (fn) => { const value = base(); fn(value); return value; };
+  const cases = [
+    ["INTERACTION_SHAPE", 9],
+    ["INTERACTION_STATUS", changed((v) => { v.status = "requires_action"; })],
+    ["STEPS_INVALID", changed((v) => { v.steps = [null]; })],
+    ["SEARCH_CALL_INVALID", changed((v) => { v.steps[0].arguments = { query: "" }; })],
+    ["SEARCH_RESULT_INVALID", changed((v) => { v.steps[1].result = false; })],
+    ["SEARCH_RESULT_MISSING", changed((v) => { v.steps.splice(1, 1); })],
+    ["MODEL_OUTPUT_INVALID", changed((v) => { v.steps[2].content = [{ type: "image", data: "private" }]; })],
+    ["OUTPUT_JSON_INVALID", changed((v) => { v.steps[2].content[0].text = "{not JSON"; })],
+    ["DISCOVERY_SCHEMA_INVALID", changed((v) => { v.steps[2].content[0].text = JSON.stringify({ schema_version: 1, category_key: stableKey, candidates: [{ ...candidate(), name: "" }] }); })],
+    ["GROUNDING_CITATION_MISSING", changed((v) => { v.steps[2].content[0].annotations = []; })],
+    ["EVIDENCE_NOT_GROUNDED", changed((v) => { v.steps[2].content[0].annotations = [{ type: "url_citation", url: "https://unrelated.sk" }]; })],
+    ["RESPONSE_TOO_LARGE", changed((v) => { v.steps[2].content[0].text = "z".repeat(100_001); })],
+  ];
+  const warn = console.warn;
+  const logs = [];
+  console.warn = (...args) => { logs.push(args); };
+  try {
+    for (const [reason, value] of cases) {
+      const before = logs.length;
+      await assert.rejects(mockedInteraction(value), isInvalid);
+      assert.equal(logs.length, before + 1, reason);
+      const [event, metadata] = logs.at(-1);
+      assert.equal(event, "gemini_discovery_invalid_response");
+      assert.equal(metadata.reason, reason);
+      assert.equal(metadata.schemaValid, false);
+      assert.deepEqual(Object.keys(metadata), [
+        "reason", "status", "stepCount", "stepTypes", "modelOutputBlocks",
+        "googleSearchCalls", "googleSearchResults", "citations", "jsonParsed", "schemaValid",
+      ]);
+      assert.ok(metadata.stepCount >= 0 && metadata.stepCount <= 81);
+      assert.ok(metadata.stepTypes.length <= 8);
+    }
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test("diagnostic logging strips provider body, prompt, search query, URL, candidate facts and API key", async () => {
+  const sentinel = "PRIVATE_SENTINEL_DO_NOT_LOG";
+  const response = mockResponse();
+  response.steps[0].arguments = { query: sentinel };
+  response.steps[1].result = [{ search_suggestions: sentinel, url: "https://private-host.sk/sensitive" }];
+  const fake = envelope();
+  fake.candidates[0].name = sentinel;
+  fake.candidates[0].contacts.email = "private@example.sk";
+  response.steps[2].content[0].text = JSON.stringify(fake);
+  response.steps[2].content[0].annotations = [{ type: "url_citation", url: "https://unrelated.sk/private" }];
+  const logs = [];
+  const warn = console.warn;
+  console.warn = (...args) => { logs.push(args); };
+  let providerRequests = 0;
+  try {
+    await assert.rejects(mockedInteraction(response, () => { providerRequests++; }), isInvalid);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(providerRequests, 1, "failed validation must not retry");
+  assert.equal(logs.length, 1);
+  const diagnostic = JSON.stringify(logs);
+  for (const forbidden of [sentinel, "private@example.sk", "private-host.sk", "unrelated.sk",
+    secret, "Search grounding", "source_urls", "candidate", "PRIVATE"]) {
+    assert.equal(diagnostic.includes(forbidden), false, forbidden);
+  }
+  const original = readFileSync(new URL("../lib/gemini-automation-discovery.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(original, /console\.(?:log|info|warn|error)\s*\([^\n]*(?:raw|response\.text|options\.prompt|candidate\.name)/);
 });
