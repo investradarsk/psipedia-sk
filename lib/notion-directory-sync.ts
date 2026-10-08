@@ -578,6 +578,7 @@ async function createNotionPage(
   bindings: NotionDirectorySyncBindings,
   dataSourceId: string,
   properties: Record<string, unknown>,
+  singleAttempt = false,
 ) {
   return notionRequest<NotionPage>(
     bindings,
@@ -589,6 +590,7 @@ async function createNotionPage(
         properties,
       }),
     },
+    { retryTransient: !singleAttempt },
   );
 }
 
@@ -611,6 +613,7 @@ async function writeProfileToNotion(input: {
   dataSourceId: string;
   profile: ManagedDirectoryProfile;
   pageId?: string | null;
+  singleAttemptCreate?: boolean;
 }) {
   const syncedAt = new Date().toISOString();
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", input.profile.id);
@@ -620,7 +623,7 @@ async function writeProfileToNotion(input: {
   const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
   const page = input.pageId
     ? await patchNotionPage(input.bindings, input.pageId, properties)
-    : await createNotionPage(input.bindings, input.dataSourceId, properties);
+    : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
 
   if (sourceImageUrl) {
     await upsertMediaSourceMonitor({
@@ -1080,6 +1083,55 @@ async function recoverMappingFromPage(input: {
     syncedAt: now,
   });
   return loadMappingByProfile(input.database, profileId);
+}
+
+/**
+ * Targeted directory write for Gemini bridge. Never bootstraps unrelated profiles.
+ * Search the existing Notion source by canonical Psipedia ID before any creation:
+ * this recovers a successful remote create whose local mapping commit failed.
+ *
+ * If a POST may have reached Notion but returned an error, the caller must not
+ * attempt another POST automatically; retry with allowCreate=false.
+ */
+export async function ensureDirectoryProfileInNotion(input: {
+  database: D1Database;
+  bindings: NotionDirectorySyncBindings;
+  profileId: number;
+  allowCreate: boolean;
+}) {
+  const dataSourceId = input.bindings.NOTION_DIRECTORY_DATA_SOURCE_ID?.trim();
+  if (!dataSourceId || !input.bindings.NOTION_API_TOKEN?.trim())
+    throw new Error("GEMINI_NOTION_CONFIG_MISSING");
+  if (!(await schemaReady(input.database))) throw new Error("GEMINI_NOTION_MAPPING_SCHEMA_MISSING");
+  const profile = await getManagedDirectoryProfileById(input.profileId, input.database);
+  if (!profile || profile.status !== "draft") throw new Error("GEMINI_NOTION_CANONICAL_DRAFT_MISSING");
+  const mapped = await loadMappingByProfile(input.database, profile.id);
+  if (mapped) return { notionPageId: mapped.notion_page_id, created: false };
+  // This query must complete successfully before a Notion create is permitted.
+  const response = await notionRequest<NotionQueryResponse>(
+    input.bindings, `/data_sources/${encodeURIComponent(dataSourceId)}/query`, {
+      method: "POST",
+      body: JSON.stringify({
+        filter: { property: "Psipedia ID", rich_text: { equals: String(profile.id) } },
+        page_size: 3,
+      }),
+    },
+  );
+  if (response.has_more || (response.results?.length ?? 0) > 1)
+    throw new Error("GEMINI_NOTION_AMBIGUOUS_REMOTE_MAPPING");
+  const existing = response.results?.[0];
+  if (existing) {
+    // Recover the canonical mapping using the existing serializer and hash path.
+    await writeProfileToNotion({ database: input.database, bindings: input.bindings,
+      dataSourceId, profile, pageId: existing.id });
+    return { notionPageId: existing.id, created: false };
+  }
+  if (!input.allowCreate) throw new Error("GEMINI_NOTION_REMOTE_CREATE_UNCERTAIN");
+  const page = await writeProfileToNotion({
+    database: input.database, bindings: input.bindings, dataSourceId, profile,
+    singleAttemptCreate: true,
+  });
+  return { notionPageId: page.id, created: true };
 }
 
 export async function runNotionDirectoryBootstrapSweep(input: {

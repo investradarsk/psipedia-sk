@@ -119,6 +119,7 @@ export async function notionRequest<T>(
   bindings: NotionSyncBindings,
   path: string,
   init: RequestInit = {},
+  options: { retryTransient?: boolean } = {},
 ): Promise<T> {
   const token = bindings.NOTION_API_TOKEN?.trim();
   if (!token) throw new Error("NOTION_API_TOKEN nie je nakonfigurovaný.");
@@ -141,7 +142,7 @@ export async function notionRequest<T>(
       // Keep the plain response body.
     }
 
-    if (attempt < NOTION_MAX_RETRIES && notionRetryableStatus(response.status)) {
+    if (options.retryTransient !== false && attempt < NOTION_MAX_RETRIES && notionRetryableStatus(response.status)) {
       await wait(notionRetryDelayMs(attempt, response.headers.get("retry-after")));
       continue;
     }
