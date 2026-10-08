@@ -25,13 +25,13 @@ export default async function PartnerLoginPage({ searchParams }: { searchParams:
     <main id="obsah" className="partner-shell">
       <section className="partner-auth-layout">
         <div className="partner-auth-copy">
-          <span className="eyebrow">Partner Psipedia</span>
+          <span className="eyebrow">Partner účet Psipedia.sk</span>
           <h1>Prihlásenie do Partner účtu</h1>
-          <p className="lead">{googleEnabled ? "Prihláste sa cez Google, heslom alebo jednorazovým odkazom na e-mail." : "Prihláste sa heslom alebo jednorazovým odkazom na e-mail."}</p>
-          <p className="partner-auth-help">Partner účet ešte nemáte? <Link href={returnTo ? `/partner/registracia?returnTo=${encodeURIComponent(returnTo)}` : "/partner/registracia"}>Začnite registráciu.</Link></p>
+          <p className="lead">Pre poskytovateľov služieb, organizácie, správcov profilov a organizátorov podujatí na Psipedii.</p>
+          <p className="partner-auth-help">Nemám Partner účet: <Link href={returnTo ? `/partner/registracia?returnTo=${encodeURIComponent(returnTo)}` : "/partner/registracia"}>Vytvoriť Partner účet</Link></p>
         </div>
         <div className="partner-auth-card">
-          <h2>Prihlásiť sa</h2>
+          <h2>Mám Partner účet</h2>
           {googleLink === "required" ? (
             <p className="partner-form-message is-success" role="status">
               Tento Google e-mail už patrí Partner účtu. Najprv sa prihláste do existujúceho účtu a potom Google bezpečne prepojíme.
