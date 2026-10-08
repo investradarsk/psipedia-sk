@@ -481,10 +481,13 @@ test.describe("public services search layout", () => {
     await expect(form.locator('select[name="city"]')).toHaveValue("Bratislava");
     await expect(form.locator('select[name="sort"]')).toHaveValue("name-asc");
 
+    // Submitting an unchanged URL lets waitForURL resolve before the GET navigation.
+    // Change only q so the URL transition is observable while the secondary filters persist.
+    await form.locator('input[name="q"]').fill("publikovana kontrola");
     await Promise.all([
       page.waitForURL((url) =>
         url.pathname === "/adresar/veterinari" &&
-        url.searchParams.get("q") === "publikovana" &&
+        url.searchParams.get("q") === "publikovana kontrola" &&
         url.searchParams.get("region") === "Bratislavský kraj" &&
         url.searchParams.get("city") === "Bratislava" &&
         url.searchParams.get("sort") === "name-asc"
@@ -492,6 +495,7 @@ test.describe("public services search layout", () => {
       form.getByRole("button", { name: "Hľadať" }).click(),
     ]);
 
+    await expect(page.locator('.directory-results input[name="q"]').first()).toHaveValue("publikovana kontrola");
     await expectNoHorizontalOverflow(page, "combined services filters");
     await expectSeriousCriticalAxeClean(page, ".directory-results", "combined services filters");
 
