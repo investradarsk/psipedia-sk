@@ -34,7 +34,10 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
         const response = await page.goto(route, { waitUntil: "domcontentloaded" });
         expect(response?.status(), `${route} at ${width}px`).toBeLessThan(400);
         await expect(page.locator("main#obsah")).toBeVisible();
-        await expect(page.getByRole("link", { name: "Psipedia.sk – domov" })).toBeVisible();
+        // The footer has the same accessible brand name. Assert only the
+        // canonical site-header logo, not the second footer link.
+        await expect(page.locator(".site-header [data-header-brand]")).toBeVisible();
+        await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
         await assertNoDocumentOverflow(page, `${route} at ${width}px`);
 
         if (width < 1200) {
@@ -75,7 +78,12 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
     for (const width of [320, 390, 768]) {
       await page.setViewportSize({ width, height: 640 });
       await page.goto("/steniatka");
-      const opener = page.getByRole("button", { name: "Otvoriť menu" });
+      // Wait for React effects to attach handlers after domcontentloaded.
+      await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
+      // The accessible label changes to 'Zavrieť menu' while open: locate by
+      // the stable aria-controls relationship rather than the transient name.
+      const opener = page.locator('.site-header button[aria-controls="mobile-menu"]:visible');
+      await expect(opener).toHaveAttribute("aria-label", "Otvoriť menu");
       await opener.click();
       const menu = page.locator("#mobile-menu");
       const nav = menu.locator(":scope > nav");
@@ -117,6 +125,7 @@ test.describe("PUBLIC-UX-FOUNDATION-V3 shared public shell", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/steniatka");
     const search = page.getByRole("button", { name: "Otvoriť vyhľadávanie" });
+    await expect(search).toHaveAttribute("data-search-ready", "true");
     await search.click();
     const dialog = page.getByRole("dialog", { name: "Vyhľadávanie" });
     await expect(dialog).toBeVisible();
