@@ -10,3 +10,5 @@ CREATE TABLE admin_notification_read_receipts (
 );
 CREATE INDEX admin_notification_read_receipts_admin_idx
   ON admin_notification_read_receipts (admin_email, read_at);
+CREATE INDEX admin_notification_events_automation_history_idx
+  ON admin_notification_events (source_type, actor_type, id);
