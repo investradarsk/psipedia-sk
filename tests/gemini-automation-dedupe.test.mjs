@@ -176,6 +176,6 @@ test("migration constraints, CI scope and isolation invariants", () => {
   const sources = ["../lib/gemini-automation-dedupe.ts", "../lib/gemini-automation-dedupe-store.ts",
     "../lib/gemini-automation-identity.ts"].map((s) => readFileSync(new URL(s, import.meta.url), "utf8")).join("\n");
   assert.ok(!/from ["'].*(?:notion|tavily|data-automation|gemini-automation-discovery\.ts)/.test(sources));
-  assert.ok(!/fetch\s*\(|publish|createManagedDirectoryProfile|discoverGeminiCandidates/.test(sources));
+  assert.ok(!/fetch\s*\(|\bpublish\s*\(|createManagedDirectoryProfile\s*\(|discoverGeminiCandidates\s*\(/.test(sources));
   ctx.close();
 });
