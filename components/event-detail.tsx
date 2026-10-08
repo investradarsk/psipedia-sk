@@ -2,6 +2,7 @@ import { EventMarkdown } from "@/components/event-markdown";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
+import { EventsBackLink } from "@/components/events-return-link";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
@@ -21,7 +22,8 @@ function eventLocationLines(event: DogEvent) {
   const raw = event.region === "Online"
     ? [event.venue, event.city, "Online"]
     : [event.venue, event.address, event.city, event.region];
-  return [...new Set(raw.map((value) => value.trim()).filter(Boolean))];
+  const lines = [...new Set(raw.map((value) => value.trim()).filter(Boolean))];
+  return lines.length ? lines : ["Miesto bude upresnené"];
 }
 
 export function EventDetail({
@@ -56,6 +58,7 @@ export function EventDetail({
           <Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span>{category && <><Link href={category.href}>{category.label}</Link><span>/</span></>}<span>{event.title}</span>
           </Breadcrumbs>
+          <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
 
           <div className={event.imageUrl ? styles.detailGrid : styles.detailGridNoImage}>
             <div className={styles.detailHeading}>
@@ -111,7 +114,7 @@ export function EventDetail({
         </PageContainer>
       </header>
 
-      {publicMap?.items.length ? (
+      {event.region !== "Online" && publicMap?.items.length ? (
         <PageContainer>
           <PublicLocationMap
             eyebrow="Miesto"
