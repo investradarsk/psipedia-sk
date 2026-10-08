@@ -1,5 +1,4 @@
-import { enqueueAdminNotificationEvent } from "./admin-notifications";
-import { isAutomaticPushActor } from "./admin-automation-push-policy";
+import { isAutomaticPushActor } from "./admin-automation-push-policy.ts";
 import type { AutomationActor, AutomationRunStatus } from "./admin-automation-push-policy";
 export {
   adminPushCategoryForEvent,
@@ -49,6 +48,7 @@ export async function recordAdminAutomationRunEvent(input: AutomationEventInput)
     SKIPPED: "Automatická kontrola bola preskočená.",
     CANCELLED: "Automatická kontrola bola zrušená.",
   };
+  const { enqueueAdminNotificationEvent } = await import("./admin-notifications.ts");
   return enqueueAdminNotificationEvent(input.database, {
     eventType: `automation_run_${stage}`,
     sourceType: "AUTOMATION_RUN",
