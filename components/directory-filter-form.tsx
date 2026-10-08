@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { SearchIcon } from "@/components/icons";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { directoryCategories, type DirectoryCategorySlug } from "@/lib/directory";
@@ -30,6 +30,11 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
 }) {
   const activeCategory = (category ?? filters.category) || "dalsie-sluzby";
   const formRef = useRef<HTMLFormElement>(null);
+  // Playwright must not click server-rendered controls before client hydration
+  // attaches React event handlers.
+  useEffect(() => {
+    formRef.current?.setAttribute("data-public-search-ready", "true");
+  }, []);
   const districtRef = useRef<HTMLSelectElement>(null);
   const cityRef = useRef<HTMLSelectElement>(null);
   const activeFilterCount = [
