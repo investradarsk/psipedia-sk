@@ -56,23 +56,35 @@ const candidateKeys = ["name", "primary_url", "source_urls", "description", "loc
 const locationKeys = ["country", "region", "district", "city", "address"];
 const contactKeys = ["phone", "email", "website", "facebook", "instagram"];
 
-function invalid(): never { throw new GeminiAutomationError("INVALID_RESPONSE"); }
-function asObject(value: unknown): RecordValue {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid();
+export type GeminiSchemaFailure =
+  "ENVELOPE" | "CATEGORY" | "CANDIDATE_STRUCTURE" | "NAME" | "SOURCE" |
+  "LOCATION" | "CONTACTS" | "CONFIDENCE" | "EVIDENCE";
+export class GeminiDiscoverySchemaError extends GeminiAutomationError {
+  readonly schemaFailure: GeminiSchemaFailure;
+  constructor(schemaFailure: GeminiSchemaFailure) {
+    super("INVALID_RESPONSE");
+    this.schemaFailure = schemaFailure;
+  }
+}
+function invalid(failure: GeminiSchemaFailure = "CANDIDATE_STRUCTURE"): never {
+  throw new GeminiDiscoverySchemaError(failure);
+}
+function asObject(value: unknown, failure: GeminiSchemaFailure = "CANDIDATE_STRUCTURE"): RecordValue {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid(failure);
   return value as RecordValue;
 }
-function exactKeys(value: RecordValue, keys: readonly string[]): void {
-  if (Object.keys(value).length !== keys.length || keys.some((key) => !Object.hasOwn(value, key))) invalid();
+function exactKeys(value: RecordValue, keys: readonly string[], failure: GeminiSchemaFailure = "CANDIDATE_STRUCTURE"): void {
+  if (Object.keys(value).length !== keys.length || keys.some((key) => !Object.hasOwn(value, key))) invalid(failure);
 }
-function stringValue(value: unknown, max: number, nullable = false): string | null {
+function stringValue(value: unknown, max: number, nullable = false, failure: GeminiSchemaFailure = "CANDIDATE_STRUCTURE"): string | null {
   if (nullable && value === null) return null;
-  if (typeof value !== "string") return invalid();
+  if (typeof value !== "string") return invalid(failure);
   const trimmed = value.trim();
-  if (!trimmed || trimmed.length > max || /[\u0000-\u001f\u007f]/.test(trimmed)) return invalid();
+  if (!trimmed || trimmed.length > max) return invalid(failure);
   return trimmed;
 }
-function urlValue(value: unknown, nullable = false): string | null {
-  const raw = stringValue(value, 2048, nullable);
+function urlValue(value: unknown, nullable = false, failure: GeminiSchemaFailure = "SOURCE"): string | null {
+  const raw = stringValue(value, 2048, nullable, failure);
   if (raw === null) return null;
   try {
     const parsed = new URL(raw);
@@ -91,16 +103,16 @@ function urlValue(value: unknown, nullable = false): string | null {
     if (!["https:", "http:"].includes(parsed.protocol) || !host ||
       parsed.username || parsed.password || privateIpv4 ||
       /^(localhost|.*\.(?:localhost|local|internal))$/i.test(host) ||
-      /^\[(?:::|::1|::ffff:|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/i.test(host)) return invalid();
+      /^\[(?:::|::1|::ffff:|f[cd][0-9a-f]{2}:|fe[89ab][0-9a-f]:)/i.test(host)) return invalid(failure);
     // URL serialization is deterministic (e.g. origin vs origin/, host casing).
     // Do not infer new facts or remove query parameters/path segments.
     return parsed.href;
-  } catch { return invalid(); }
+  } catch { return invalid(failure); }
 }
 function nullableFields(value: unknown, keys: readonly string[], limits: Record<string, number>): Record<string, string | null> {
-  const object = asObject(value);
-  exactKeys(object, keys);
-  return Object.fromEntries(keys.map((key) => [key, stringValue(object[key], limits[key], true)]));
+  const object = asObject(value, "CONTACTS");
+  exactKeys(object, keys, "CONTACTS");
+  return Object.fromEntries(keys.map((key) => [key, stringValue(object[key], limits[key], true, "CONTACTS")]));
 }
 
 export function createGeminiDiscoveryRequest(input: { stableKey: string; maxCandidates: number }): GeminiDiscoveryRequestV1 {
@@ -160,8 +172,9 @@ export function buildGeminiDiscoveryPrompt(request: GeminiDiscoveryRequestV1, kn
 /** The provider schema is advisory; parseGeminiDiscoveryEnvelope is the authoritative validator. */
 export function buildGeminiDiscoveryJsonSchema(request: GeminiDiscoveryRequestV1) {
   const item = authoritativeRequest(request);
-  const nullableString = { type: ["string", "null"] };
-  const nullableUrl = { type: ["string", "null"], description: "Absolute HTTP(S) URL or null" };
+  const nullableString = (maxLength: number) => ({ type: ["string", "null"], minLength: 1, maxLength });
+  const nullableUrl = { type: ["string", "null"], minLength: 1, maxLength: 2048,
+    description: "Absolute public HTTP(S) URL (not localhost/private) or null" };
   const object = (properties: Record<string, unknown>) => ({
     type: "object", properties, required: Object.keys(properties), additionalProperties: false,
   });
@@ -171,15 +184,15 @@ export function buildGeminiDiscoveryJsonSchema(request: GeminiDiscoveryRequestV1
     candidates: {
       type: "array", minItems: 0, maxItems: item.maxCandidates,
       items: object({
-        name: { type: "string", description: "Real public entity name, max 160 characters" },
+        name: { type: "string", minLength: 1, maxLength: 160, description: "Real non-empty public entity name" },
         primary_url: nullableUrl,
-        source_urls: { type: "array", minItems: 1, maxItems: GEMINI_DISCOVERY_MAX_SOURCES, items: { type: "string", description: "Public HTTP(S) source URL" } },
-        description: nullableString,
-        location: object({ country: { type: "string", enum: ["Slovakia"] }, region: nullableString, district: nullableString, city: nullableString, address: nullableString }),
-        contacts: object({ phone: nullableString, email: nullableString, website: nullableUrl, facebook: nullableUrl, instagram: nullableUrl }),
+        source_urls: { type: "array", minItems: 1, maxItems: GEMINI_DISCOVERY_MAX_SOURCES, items: { type: "string", minLength: 1, maxLength: 2048, description: "Public HTTP(S) source URL" } },
+        description: nullableString(600),
+        location: object({ country: { type: "string", enum: ["Slovakia"] }, region: nullableString(100), district: nullableString(100), city: nullableString(100), address: nullableString(240) }),
+        contacts: object({ phone: nullableString(60), email: nullableString(254), website: nullableUrl, facebook: nullableUrl, instagram: nullableUrl }),
         confidence: { type: "number", minimum: 0, maximum: 1 },
         evidence: { type: "array", minItems: 1, maxItems: GEMINI_DISCOVERY_MAX_EVIDENCE,
-          items: object({ source_url: { type: "string" }, fields: { type: "array", minItems: 1, maxItems: evidenceFields.length,
+          items: object({ source_url: { type: "string", minLength: 1, maxLength: 2048, description: "Public HTTP(S) URL" }, fields: { type: "array", minItems: 1, maxItems: evidenceFields.length,
             items: { type: "string", enum: [...evidenceFields] } } }) },
       }),
     },
@@ -188,51 +201,50 @@ export function buildGeminiDiscoveryJsonSchema(request: GeminiDiscoveryRequestV1
 
 export function parseGeminiDiscoveryEnvelope(value: unknown, request: GeminiDiscoveryRequestV1): GeminiDiscoveryEnvelopeV1 {
   const canonical = authoritativeRequest(request);
-  const envelope = asObject(value);
-  exactKeys(envelope, ["schema_version", "category_key", "candidates"]);
-  if (envelope.schema_version !== 1 || envelope.category_key !== canonical.stableKey ||
-    !Array.isArray(envelope.candidates) || envelope.candidates.length > canonical.maxCandidates) invalid();
+  const envelope = asObject(value, "ENVELOPE");
+  exactKeys(envelope, ["schema_version", "category_key", "candidates"], "ENVELOPE");
+  if (envelope.schema_version !== 1 || !Array.isArray(envelope.candidates) ||
+    envelope.candidates.length > canonical.maxCandidates) invalid("ENVELOPE");
+  if (envelope.category_key !== canonical.stableKey) invalid("CATEGORY");
   const candidates: GeminiDiscoveryCandidateV1[] = envelope.candidates.map((item: unknown) => {
     const raw = asObject(item);
     exactKeys(raw, candidateKeys);
-    const name = stringValue(raw.name, 160) as string;
+    const name = stringValue(raw.name, 160, false, "NAME") as string;
     const primary_url = urlValue(raw.primary_url, true);
     if (!Array.isArray(raw.source_urls) || raw.source_urls.length < 1 ||
-      raw.source_urls.length > GEMINI_DISCOVERY_MAX_SOURCES) invalid();
+      raw.source_urls.length > GEMINI_DISCOVERY_MAX_SOURCES) invalid("SOURCE");
     const source_urls = [...new Set(raw.source_urls.map((source: unknown) => urlValue(source) as string))];
-    if (primary_url && !source_urls.includes(primary_url)) invalid();
     const description = stringValue(raw.description, 600, true);
-    const loc = asObject(raw.location);
-    exactKeys(loc, locationKeys);
-    if (loc.country !== "Slovakia") invalid();
+    const loc = asObject(raw.location, "LOCATION");
+    exactKeys(loc, locationKeys, "LOCATION");
+    if (loc.country !== "Slovakia") invalid("LOCATION");
     const location = {
       country: "Slovakia" as const,
-      region: stringValue(loc.region, 100, true),
-      district: stringValue(loc.district, 100, true),
-      city: stringValue(loc.city, 100, true),
-      address: stringValue(loc.address, 240, true),
+      region: stringValue(loc.region, 100, true, "LOCATION"),
+      district: stringValue(loc.district, 100, true, "LOCATION"),
+      city: stringValue(loc.city, 100, true, "LOCATION"),
+      address: stringValue(loc.address, 240, true, "LOCATION"),
     };
     const rawContacts = nullableFields(raw.contacts, contactKeys,
       { phone: 60, email: 254, website: 2048, facebook: 2048, instagram: 2048 });
     const contacts = {
       phone: rawContacts.phone,
       email: rawContacts.email,
-      website: urlValue(rawContacts.website, true),
-      facebook: urlValue(rawContacts.facebook, true),
-      instagram: urlValue(rawContacts.instagram, true),
+      website: urlValue(rawContacts.website, true, "CONTACTS"),
+      facebook: urlValue(rawContacts.facebook, true, "CONTACTS"),
+      instagram: urlValue(rawContacts.instagram, true, "CONTACTS"),
     };
-    if (contacts.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contacts.email)) invalid();
     if (typeof raw.confidence !== "number" || !Number.isFinite(raw.confidence) ||
-      raw.confidence < 0 || raw.confidence > 1) invalid();
+      raw.confidence < 0 || raw.confidence > 1) invalid("CONFIDENCE");
     if (!Array.isArray(raw.evidence) || raw.evidence.length < 1 ||
-      raw.evidence.length > GEMINI_DISCOVERY_MAX_EVIDENCE) invalid();
+      raw.evidence.length > GEMINI_DISCOVERY_MAX_EVIDENCE) invalid("EVIDENCE");
     const evidence = raw.evidence.map((item: unknown) => {
-      const entry = asObject(item);
-      exactKeys(entry, ["source_url", "fields"]);
-      const source_url = urlValue(entry.source_url) as string;
-      if (!source_urls.includes(source_url) || !Array.isArray(entry.fields) ||
+      const entry = asObject(item, "EVIDENCE");
+      exactKeys(entry, ["source_url", "fields"], "EVIDENCE");
+      const source_url = urlValue(entry.source_url, false, "EVIDENCE") as string;
+      if (!Array.isArray(entry.fields) ||
         entry.fields.length < 1 || entry.fields.length > evidenceFields.length ||
-        entry.fields.some((field: unknown) => !evidenceFields.includes(field as (typeof evidenceFields)[number]))) invalid();
+        entry.fields.some((field: unknown) => !evidenceFields.includes(field as (typeof evidenceFields)[number]))) invalid("EVIDENCE");
       return { source_url, fields: [...new Set(entry.fields)] as GeminiDiscoveryCandidateV1["evidence"][number]["fields"] };
     });
     return { name, primary_url, source_urls, description, location, contacts, confidence: raw.confidence, evidence };
