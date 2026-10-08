@@ -18,6 +18,17 @@ type PushConfig = {
   publicKey: string | null;
 };
 
+type PushCategory = "RUN_STARTED" | "RUN_RESULTS" | "ERRORS" | "PUBLISH" | "IMPORT_SYNC";
+const categoryLabels: Record<PushCategory, string> = {
+  RUN_STARTED: "Spustenia automatizácií",
+  RUN_RESULTS: "Výsledky automatizácií",
+  ERRORS: "Chyby a upozornenia",
+  PUBLISH: "Automatické publikovanie",
+  IMPORT_SYNC: "Automatické importy a synchronizácie",
+};
+const defaultCategories = Object.keys(categoryLabels) as PushCategory[];
+type PushDelivery = { status: "queued" | "sent" | "failed"; attempts: number; error: string | null; queuedAt: string; sentAt: string | null };
+
 const ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal";
 
 function base64UrlToUint8Array(value: string) {
@@ -64,6 +75,9 @@ export function AdminPwaSettings() {
   const [busy, setBusy] = useState(false);
   const [analyticsBusy, setAnalyticsBusy] = useState(false);
   const [analyticsExcluded, setAnalyticsExcluded] = useState<boolean | null>(null);
+  const [categories, setCategories] = useState<PushCategory[]>(defaultCategories);
+  const [deliveries, setDeliveries] = useState<PushDelivery[]>([]);
+  const [deviceEndpoint, setDeviceEndpoint] = useState<string | null>(null);
 
   const inspect = useCallback(async () => {
     setMessage("");
@@ -116,8 +130,10 @@ export function AdminPwaSettings() {
       const subscription = await registration.pushManager.getSubscription();
       if (!subscription) {
         setPushState("disabled");
+        setDeviceEndpoint(null);
         return;
       }
+      setDeviceEndpoint(subscription.endpoint);
 
       const statusResponse = await fetch("/api/admin/push/subscription", {
         method: "POST",
@@ -125,8 +141,20 @@ export function AdminPwaSettings() {
         body: JSON.stringify({ action: "status", endpoint: subscription.endpoint }),
       });
       if (!statusResponse.ok) throw new Error("Stav zariadenia sa nepodarilo overiť.");
-      const status = await statusResponse.json() as { enabled?: boolean };
+      const status = await statusResponse.json() as { enabled?: boolean; categories?: PushCategory[] };
       setPushState(status.enabled ? "enabled" : "disabled");
+      if (status.enabled) {
+        setCategories(status.categories ?? defaultCategories);
+        const reportResponse = await fetch("/api/admin/push/subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "report", endpoint: subscription.endpoint }),
+        });
+        if (reportResponse.ok) {
+          const report = await reportResponse.json() as { deliveries?: PushDelivery[] };
+          setDeliveries(report.deliveries ?? []);
+        }
+      }
     } catch (error) {
       setPushState("error");
       setMessage(error instanceof Error ? error.message : "Stav upozornení sa nepodarilo zistiť.");
@@ -210,6 +238,8 @@ export function AdminPwaSettings() {
         throw new Error(body.error ?? "Zariadenie sa nepodarilo zaregistrovať.");
       }
       setPushState("enabled");
+      setDeviceEndpoint(subscription.endpoint);
+      setCategories(defaultCategories);
       setMessage("Upozornenia sú na tomto zariadení zapnuté.");
     } catch (error) {
       setPushState("error");
@@ -236,6 +266,8 @@ export function AdminPwaSettings() {
         await subscription.unsubscribe();
       }
       setPushState("disabled");
+      setDeviceEndpoint(null);
+      setDeliveries([]);
       setMessage("Upozornenia sú na tomto zariadení vypnuté.");
     } catch (error) {
       setPushState("error");
@@ -243,6 +275,42 @@ export function AdminPwaSettings() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function updateCategory(category: PushCategory, enabled: boolean) {
+    if (!deviceEndpoint || busy) return;
+    const next = enabled ? [...categories, category] : categories.filter((item) => item !== category);
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/push/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "categories", endpoint: deviceEndpoint, categories: next }),
+      });
+      if (!response.ok) throw new Error("Kategórie sa nepodarilo uložiť.");
+      setCategories(next);
+      setMessage("Nastavenia doručovania boli uložené.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Nastavenie sa nepodarilo uložiť.");
+    } finally { setBusy(false); }
+  }
+
+  async function sendTestNotification() {
+    if (!deviceEndpoint || busy) return;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/push/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test", endpoint: deviceEndpoint }),
+      });
+      setMessage(response.status === 429
+        ? "Test bol už nedávno zaradený. Skús znova neskôr."
+        : response.ok
+          ? "Test je zaradený vo fronte. Odoslanie na push službu sa overí v histórii doručení."
+          : "Test sa nepodarilo zaradiť do fronty.");
+    } catch { setMessage("Test sa nepodarilo zaradiť do fronty."); }
+    finally { setBusy(false); }
   }
 
   const stateLabel: Record<PushUiState, string> = {
@@ -330,7 +398,30 @@ export function AdminPwaSettings() {
             </button>
           )}
           <button type="button" onClick={() => void inspect()} disabled={busy}>Obnoviť stav</button>
+          {pushState === "enabled" && <button type="button" onClick={sendTestNotification} disabled={busy}>Odoslať testovaciu notifikáciu</button>}
         </div>
+        {pushState === "enabled" && (
+          <>
+            <h3>Kategórie upozornení pre toto zariadenie</h3>
+            <p>Uložené nastavenia ovplyvňujú skutočné doručenie automatických udalostí.</p>
+            <div>
+              {defaultCategories.map((category) => <label key={category} style={{ display: "block", marginBottom: "0.5rem" }}>
+                <input type="checkbox" checked={categories.includes(category)} disabled={busy}
+                  onChange={(event) => void updateCategory(category, event.target.checked)} />
+                {" "}{categoryLabels[category]}
+              </label>)}
+            </div>
+            <h3>Posledné doručenia</h3>
+            <p>„Odoslané“ znamená prijaté push bránou, nie potvrdené zobrazenie iPhonom.</p>
+            {deliveries.length === 0 ? <p>Žiadne záznamy o doručovaní.</p> : (
+              <ul>{deliveries.map((delivery, index) => <li key={index}>
+                {delivery.status === "queued" ? "Vo fronte" : delivery.status === "sent" ? "Odoslané" : "Chyba"} · {new Date(delivery.queuedAt).toLocaleString("sk-SK")}
+                {delivery.error && <> · {delivery.error}</>}
+              </li>)}</ul>
+            )}
+            <a href="/admin/operations/automaticke-udalosti">História automatických udalostí →</a>
+          </>
+        )}
         {pushState === "not-configured" && (
           <p className={styles.infoNote}>Aplikácia funguje normálne aj bez push. Produkčné VAPID kľúče zatiaľ nie sú aktívne.</p>
         )}
