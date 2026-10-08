@@ -120,7 +120,9 @@ test("F: first save inserts, second save updates same key, preserves immutable r
   assert.equal(second.nextRunAt, null);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM gemini_automation_settings").get().n, 1);
   const after = sqlite.prepare("SELECT id, last_run_at, created_at FROM gemini_automation_settings").get();
-  assert.deepEqual(after, { id: row.id, last_run_at: row.last_run_at, created_at: row.created_at });
+  assert.equal(after.id, row.id);
+  assert.equal(after.last_run_at, row.last_run_at);
+  assert.equal(after.created_at, row.created_at);
   sqlite.close();
 });
 
