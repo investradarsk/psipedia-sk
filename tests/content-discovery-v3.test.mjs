@@ -53,7 +53,7 @@ test("unmapped articles return to the existing topic, never a global map promo",
   assert.equal(next(fixture({ portalSubpage: undefined }), {
     topicHref: "/tema/vycvik", topicLabel: "Výcvik",
   })?.href, "/tema/vycvik");
-  assert.equal(next(fixture(), { topicHref: "/steniatka/sample" }), null);
+  assert.equal(next(fixture({ portalSubpage: "neznama-tema" }), { topicHref: "/steniatka/sample" }), null);
   assert.equal(next(fixture(), { topicHref: "https://example.com", relatedHrefs: ["/plemena/vyber-plemena"] }), null);
 });
 
