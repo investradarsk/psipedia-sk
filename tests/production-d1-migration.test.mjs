@@ -13,6 +13,7 @@ import {
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   assertAutomationGovernanceSchema,
+  assertGeminiRejectionSchema,
   assertAutomationSourceProviderDiagnosticsSchema,
   assertAutomationSourceProviderTransportPhaseSchema,
   assertDynamicEntityIdentitySchema,
@@ -1299,4 +1300,21 @@ test("GEMINI-DEDUPE-1 0114 refuses partial rejection memory drift", () => {
   for (const name of ["gemini_automation_rejections", "idx_gemini_rejections_scope_recent"]) {
     assert.deepEqual(targetSchemaObjects({ objects: [{ name, type: "table", sql: "" }] }, "0114_gemini_dedupe.sql"), { partial: true });
   }
+});
+
+test("GEMINI-DEDUPE-1 0114 verifies expected production table, index and unique hash guard", () => {
+  const sql = `CREATE TABLE gemini_automation_rejections (
+    stable_key TEXT NOT NULL, identity_kind TEXT NOT NULL, identity_hash TEXT NOT NULL CHECK(length(identity_hash) = 64),
+    candidate_name TEXT NOT NULL, reason_code TEXT, rejected_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE(stable_key, identity_kind, identity_hash)
+  )`;
+  const objects = [
+    { name: "gemini_automation_rejections", type: "table", sql },
+    { name: "idx_gemini_rejections_scope_recent", type: "index", sql: "" },
+  ];
+  assert.doesNotThrow(() => assertGeminiRejectionSchema({ objects }));
+  assert.throws(() => assertGeminiRejectionSchema({ objects: objects.slice(0, 1) }), /index/);
+  assert.throws(() => assertGeminiRejectionSchema({ objects: [
+    { ...objects[0], sql: sql.replace("UNIQUE(stable_key, identity_kind, identity_hash)", "") }, objects[1],
+  ] }), /uniqueness/);
 });
