@@ -176,7 +176,7 @@ test("public header exposes Partner login as a utility action without overflow",
     const mainNav=page.getByRole("navigation",{name:"Hlavná navigácia"});
     await expect(mainNav.getByRole("link",{name:"Partner účet"})).toHaveCount(0);
   }
-  await expect(page.locator('[data-partner-login-entry]')).toHaveCount(1);
+  await expect(page.locator('[data-partner-login-entry]:visible')).toHaveCount(1);
   await expectNoHorizontalOverflow(page);
 });
 
