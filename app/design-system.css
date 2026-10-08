@@ -203,7 +203,8 @@
 
 #mobile-menu.is-open {
   grid-template-rows: minmax(0, 1fr);
-  max-height: calc(100dvh - 68px);
+  /* Account for the real sticky header, optional name-day strip and iOS safe area. */
+  max-height: max(0px, calc(100dvh - var(--psipedia-mobile-menu-top, var(--psipedia-sticky-header-height, 68px)) - env(safe-area-inset-bottom, 0px)));
   overflow: hidden;
 }
 
@@ -215,6 +216,7 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
 }
 
 /* Portal flow: tabs and the first content block use one positive spacing token. */
@@ -544,7 +546,7 @@
   }
 
   .public-shell {
-    width: min(100% - 32px, 520px);
+    width: min(calc(100% - max(16px, env(safe-area-inset-left, 0px)) - max(16px, env(safe-area-inset-right, 0px))), 520px);
   }
 
   .section-tabs-inner {
@@ -562,6 +564,19 @@
   #mobile-menu a,
   #mobile-menu button {
     min-height: 44px;
+  }
+
+  /* Keep the search bottom sheet above the iOS home indicator and usable
+     when the dynamic viewport shrinks for browser chrome / keyboard. */
+  .search-modal {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .search-panel {
+    max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px));
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .event-detail-hero {

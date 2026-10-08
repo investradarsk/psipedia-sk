@@ -87,7 +87,7 @@
     "test:automation-schedule": "node --experimental-strip-types --test tests/automation-schedule.test.mjs tests/automation-schedule-integration.test.mjs",
     "test:automation-operations": "node --experimental-strip-types --test tests/automation-operations.test.mjs",
     "test:section-visuals": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/section-visuals.test.mjs",
-    "test:unified-section-hero": "node --test tests/unified-section-hero.test.mjs",
+    "test:unified-section-hero": "node --test tests/unified-section-hero.test.mjs tests/public-ux-foundation-v3.test.mjs",
     "test:section-hero-v2": "node --test tests/section-hero-v2.test.mjs",
     "test:public-landing-alignment": "node --test tests/public-landing-alignment.test.mjs",
     "test:breed-crawl-hierarchy": "node --test tests/breed-crawl-hierarchy.test.mjs",

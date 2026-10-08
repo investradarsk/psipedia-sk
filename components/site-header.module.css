@@ -510,3 +510,55 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* PUBLIC-UX-FOUNDATION-V3: prevent intrinsic brand width from pushing the
+   menu and utility controls outside the narrowest supported viewports. */
+@media (max-width: 390px) {
+  .masthead {
+    /* Match the 16px public/mobile navigation gutter at 320-390px. */
+    width: calc(100% - 32px);
+    column-gap: 2px;
+  }
+
+  .brandCluster,
+  .brandCluster :global(.brand) {
+    min-width: 0;
+  }
+
+  .brandCluster :global(.brand) {
+    gap: 5px;
+    font-size: 1.06rem;
+  }
+
+  .brandCluster :global(.brand-mark) {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+  }
+
+  :global(.site-header) :global(.header-actions) {
+    min-width: 0;
+    gap: 0;
+  }
+
+  :global(.site-header) :global(.header-actions) :global(.icon-button) {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding-inline: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .mobileNameDay {
+    flex-wrap: wrap;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+}
+
+/* The shared header can overlap an admin sticky bar during public/admin route
+   transition tests. Keep brand-accent text WCAG AA even against that backdrop. */
+:global(.site-header) :global(.brand) > span:last-child > span {
+  color: #a43b29;
+}
