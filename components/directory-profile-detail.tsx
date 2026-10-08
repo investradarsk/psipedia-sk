@@ -13,7 +13,7 @@ import {
   DetailParagraphs,
   DetailSection,
 } from "@/components/detail-primitives/detail-primitives";
-import { Breadcrumbs, MediaFrame } from "@/components/page-system";
+import { PublicProfileContentLayout, PublicProfileHero } from "@/components/public-profile/public-profile-hero";
 import { getDirectoryCategory } from "@/lib/directory";
 import { getDirectoryQuickFacts, type DirectoryDetailPresentation } from "@/lib/directory-detail-presentation";
 import type { PublicProfileReviewData } from "@/lib/profile-review-read";
@@ -88,57 +88,41 @@ export function DirectoryProfileDetail({
 
   return (
     <main id="obsah" className={styles.page}>
-      <header className={styles.hero}>
-        <div className={`shell ${styles.heroShell}`}>
-          <Breadcrumbs>
-            <Link href="/">Domov</Link>
-            <span>/</span>
-            <Link href="/adresar">Služby pre psov</Link>
-            <span>/</span>
-            <Link href={`/adresar/${presentation.category}`}>{category?.label}</Link>
-            <span>/</span>
-            <span>{presentation.name}</span>
-          </Breadcrumbs>
+      <PublicProfileHero
+        breadcrumbs={<>
+          <Link href="/">Domov</Link><span aria-hidden="true">/</span>
+          <Link href="/adresar">Služby pre psov</Link><span aria-hidden="true">/</span>
+          <Link href={"/adresar/" + presentation.category}>{category?.label}</Link>
+          <span aria-hidden="true">/</span><span aria-current="page">{presentation.name}</span>
+        </>}
+        typeLabel={category?.singular ?? category?.label ?? "Profil adresára"}
+        title={presentation.name}
+        lead={presentation.excerpt}
+        location={hasHeroLocation ? <>
+          {presentation.city ? <strong>{presentation.city}</strong> : null}
+          {presentation.district ? <span>okres {presentation.district}</span> : null}
+          {presentation.region ? <span>{presentation.region}</span> : null}
+        </> : null}
+        imageUrl={presentation.imageUrl}
+        imageAlt={"Fotografia služby " + presentation.name}
+        badges={[
+          ...(presentation.featured ? [{ label: "Odporúčame", tone: "featured" as const }] : []),
+          ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const }] : []),
+          ...(commercial?.promoted ? [{ label: commercial.sponsoredLabel ?? "Sponzorované", tone: "sponsored" as const }] : []),
+        ]}
+        actions={[
+          { label: "Poslať dopyt", href: "#kontakt", primary: true },
+          ...(presentation.phone ? [{ label: "Zavolať", href: presentation.phone.href }] : []),
+          ...(presentation.websiteUrl ? [{ label: "Web ↗", href: presentation.websiteUrl, external: true }] : []),
+          ...(!hasEmbeddedMap && presentation.navigationUrl ? [{ label: "Navigovať ↗", href: presentation.navigationUrl, external: true }] : []),
+        ]}
+      />
 
-          <div className={`${styles.heroGrid} ${presentation.imageUrl ? "" : styles.heroGridNoMedia}`}>
-            <div className={styles.heroCopy}>
-              <div className={styles.badges}>
-                <span className={styles.categoryBadge}>{category?.singular ?? category?.label}</span>
-                {presentation.featured && <span className={styles.featuredBadge}>Odporúčame</span>}
-                {commercial?.premium && <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span>}
-                {commercial?.promoted && <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span>}
-              </div>
-
-              <h1>{presentation.name}</h1>
-              {presentation.excerpt && <p className={styles.lead}>{presentation.excerpt}</p>}
-
-              {hasHeroLocation && (
-                <div className={styles.locationLine} aria-label="Lokalita a dostupnosť">
-                  <span className={styles.locationIcon} aria-hidden="true">●</span>
-                  {presentation.city && <strong>{presentation.city}</strong>}
-                  {presentation.district && <span>okres {presentation.district}</span>}
-                  {presentation.region && <span>{presentation.region}</span>}
-                </div>
-              )}
-
-              <div className={styles.heroActions}>
-                <a className={styles.primaryAction} href="#kontakt">Poslať dopyt</a>
-                {presentation.phone && <a className={styles.secondaryAction} href={presentation.phone.href}>Zavolať</a>}
-                {presentation.websiteUrl && <a className={styles.secondaryAction} href={presentation.websiteUrl} target="_blank" rel="noreferrer">Web ↗</a>}
-                {!hasEmbeddedMap && presentation.navigationUrl && <a className={styles.secondaryAction} href={presentation.navigationUrl} target="_blank" rel="noreferrer">Navigovať ↗</a>}
-              </div>
-            </div>
-
-            {presentation.imageUrl && (
-              <MediaFrame className={styles.heroMedia} variant="landscape">
-                <img src={presentation.imageUrl} alt={`Fotografia služby ${presentation.name}`} loading="eager" fetchPriority="high" decoding="async" />
-              </MediaFrame>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <section className={`shell ${styles.contentGrid}`}>
+      <PublicProfileContentLayout aside={<>
+          <DetailContactsCard title="Kontakt" contacts={contacts} />
+          <DetailFactsCard title="Praktické informácie" facts={practicalFacts} />
+          {!presentation.health && <DetailFactsCard title="Odborné údaje" facts={presentation.facts} />}
+      </>}>
         <article className={styles.article}>
           {quickFacts.length > 0 && (
             <section className={styles.quickFacts} aria-labelledby="directory-basic-information">
@@ -232,13 +216,7 @@ export function DirectoryProfileDetail({
             readError={reviewReadError}
           />
         </article>
-
-        <aside className={styles.sidebar} aria-label="Kontaktné a praktické informácie">
-          <DetailContactsCard title="Kontakt" contacts={contacts} />
-          <DetailFactsCard title="Praktické informácie" facts={practicalFacts} />
-          {!presentation.health && <DetailFactsCard title="Odborné údaje" facts={presentation.facts} />}
-        </aside>
-      </section>
+      </PublicProfileContentLayout>
 
       <section className={styles.contactSection} id="kontakt">
         <div className={`shell ${styles.contactShell}`}>
