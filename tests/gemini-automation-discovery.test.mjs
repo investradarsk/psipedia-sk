@@ -592,7 +592,7 @@ test("review-first contract accepts independent primary/evidence URLs and preser
   data.candidates[0].primary_url = "https://organization.sk/official";
   data.candidates[0].evidence = [{ source_url: "https://thirdparty.sk/external", fields: ["name"] }];
   data.candidates[0].contacts.email = "needs-human-review";
-  data.candidates[0].description = "Verejná škola psov. ".repeat(12);
+  data.candidates[0].description = "Verejná škola psov. ".repeat(12).trim();
   const parsed = parseGeminiDiscoveryEnvelope(data, request());
   assert.equal(parsed.candidates[0].primary_url, "https://organization.sk/official");
   assert.equal(parsed.candidates[0].evidence[0].source_url, "https://thirdparty.sk/external");
