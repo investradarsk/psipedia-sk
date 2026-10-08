@@ -71,3 +71,32 @@ test("non-directory type fails closed without database or external calls", async
   await assert.rejects(()=>bridgeGeminiCandidateToNotion({database:{},notion:{},
     stableKey:"events.vystavy",candidate}),/NOT_READY/);
 });
+
+
+test("dedupe gate blocks duplicate, possible match and past rejection before canonical creation", async () => {
+  for (const kind of ["DUPLICATE","POSSIBLE_DUPLICATE","REJECTED_BEFORE"]) {
+    const observed=[];
+    const db={ prepare(sql) { observed.push(sql); return {bind(){return {
+      async first() {
+        if (sql.includes("FROM gemini_automation_concepts")) return null;
+        if (sql.includes("FROM gemini_automation_rejections"))
+          return kind === "REJECTED_BEFORE" ? {identity_kind:"name_city",reason_code:"MANUAL_REJECT"} : null;
+        throw new Error("unexpected SELECT: "+sql);
+      },
+      async all() {
+        if (!sql.includes("FROM directory_profiles")) throw new Error("unexpected ALL");
+        return {results:[{
+          id:7, category:"treneri", status:"published", name:candidate.name, city:"Nitra",
+          website_url:kind==="POSSIBLE_DUPLICATE"?"https://elsewhere.sk/":candidate.contacts.website,
+          source_data_json:"{}",
+        }]};
+      },
+      async run(){throw new Error("canonical mutation forbidden for "+kind);}
+    };}};}};
+    await assert.rejects(
+      ()=>bridgeGeminiCandidateToNotion({database:db,notion:{},stableKey:"directory.treneri",candidate}),
+      new RegExp("GEMINI_BRIDGE_DEDUPE_"+kind),
+    );
+    assert.equal(observed.some(sql=>/^INSERT/i.test(sql.trim())),false,kind);
+  }
+});
