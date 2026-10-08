@@ -3,7 +3,7 @@ import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { createGeminiDiscoveryRequest, parseGeminiDiscoveryEnvelope, type GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
 import { checkGeminiCandidateDedupe } from "./gemini-automation-dedupe.ts";
 import { geminiCandidateSignals } from "./gemini-automation-identity.ts";
-import { ensureDirectoryProfileInNotion, type NotionDirectorySyncBindings } from "./notion-directory-sync.ts";
+import type { NotionDirectorySyncBindings } from "./notion-directory-sync.ts";
 
 type Concept = {
   id: number; stable_key: string; discovery_key: string; canonical_entity_type: "DIRECTORY";
@@ -145,6 +145,7 @@ export async function bridgeGeminiCandidateToNotion(input: GeminiConceptBridgeIn
   }
   if (row.status === "NOTION_LINKED") return snapshot(row,created);
   if (!row.canonical_entity_id) throw new Error("GEMINI_BRIDGE_CANONICAL_MISSING");
+  const { ensureDirectoryProfileInNotion } = await import("./notion-directory-sync.ts");
   if (row.status === "DRAFT_CREATED") {
     if (!await claim(db,row,"DRAFT_CREATED","NOTION_CREATING"))
       throw new Error("GEMINI_BRIDGE_CONCURRENT_OPERATION");
