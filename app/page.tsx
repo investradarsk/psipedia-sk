@@ -8,10 +8,10 @@ import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
 import { getBreedOfTheDay } from "@/lib/breed-store";
 import { directoryCategories, directoryCategoryHref, directoryProfileHref } from "@/lib/directory";
-import { getPublishedDirectoryProfiles } from "@/lib/directory-store";
-import { getUpcomingEvents } from "@/lib/event-store";
+import { getHomepageDirectoryProfilesWithImages } from "@/lib/directory-store";
+import { getHomepageUpcomingEventsWithImages } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
-import { getHighlightedHelpCases } from "@/lib/help-store";
+import { getHomepageHighlightedHelpCasesWithImages } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
 import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
@@ -38,10 +38,10 @@ export default async function Home() {
   const dayOfYear = dayOfYearInBratislava();
   const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians, homeHeroVisual] = await Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
-    getUpcomingEvents(3),
-    getHighlightedHelpCases(3),
+    getHomepageUpcomingEventsWithImages(3),
+    getHomepageHighlightedHelpCasesWithImages(3),
     getBreedOfTheDay(dayOfYear),
-    getPublishedDirectoryProfiles("veterinari", 3),
+    getHomepageDirectoryProfilesWithImages("veterinari", 3),
     getResolvedSectionVisual("home.hero"),
   ]);
   const homeHero = homeHeroVisual ?? {
@@ -115,7 +115,7 @@ export default async function Home() {
               <article className="home-event-item" key={event.id} data-home-event>
                 <Link href={eventHref(event)}>
                   <span className="home-event-media">
-                    {event.imageUrl ? <img src={event.imageUrl} alt="" loading="lazy" decoding="async" /> : <span className="home-event-placeholder" aria-hidden="true"><PawMark size={30} /></span>}
+                    <img src={event.imageUrl ?? undefined} alt={`Fotografia k podujatiu ${event.title}`} loading="lazy" decoding="async" />
                   </span>
                   <span className="home-event-copy">
                     <time dateTime={event.startDate}>{formatEventDate(event)}</time>
@@ -159,7 +159,7 @@ export default async function Home() {
             {veterinarians.map((profile) => (
               <article className="home-vet-item" key={profile.id}>
                 <Link href={directoryProfileHref(profile)}>
-                  {profile.imageUrl ? <img src={profile.imageUrl} alt="" loading="lazy" decoding="async" /> : <span className="home-vet-mark" aria-hidden="true">+</span>}
+                  <img src={profile.imageUrl ?? undefined} alt={`Fotografia profilu ${profile.name}`} width={50} height={50} loading="lazy" decoding="async" />
                   <span>
                     <strong>{profile.name}</strong>
                     <small>{profile.city}{profile.district ? ` · ${profile.district}` : ""}</small>
@@ -249,7 +249,7 @@ export default async function Home() {
               >
                 <Link href={helpCaseHref(item)}>
                   <span className="home-help-media">
-                    {item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" decoding="async" /> : <span className="home-help-placeholder" aria-hidden="true"><PawMark size={34} /></span>}
+                    <img src={item.imageUrl ?? undefined} alt={`Fotografia k výzve ${item.title}`} loading="lazy" decoding="async" />
                   </span>
                   <span className="home-help-copy">
                     <span className="home-help-meta">

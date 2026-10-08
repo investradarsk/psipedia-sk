@@ -15,6 +15,7 @@ import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 
 export type ManagedEventInput = {
   slug?: string;
@@ -266,6 +267,21 @@ export async function getPublishedEvents(limit = 250) {
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
   const result = await database.prepare("SELECT * FROM managed_events WHERE status = 'published' ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?").bind(safeLimit).all<EventRow>();
   return result.results.map(rowToEvent);
+}
+
+/** Homepage image cards only; the public event calendar keeps its full dataset. */
+export async function getHomepageUpcomingEventsWithImages(limit = 3) {
+  const database = getD1Binding();
+  if (!database) return [] as DogEvent[];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const today = bratislavaDateKey();
+  const result = await database.prepare(`
+    SELECT * FROM managed_events
+    WHERE status = 'published' AND cancelled = 0 AND COALESCE(end_date, start_date) >= ?
+      AND ${HOMEPAGE_REAL_IMAGE_SQL}
+    ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?
+  `).bind(today, safeLimit).all<EventRow>();
+  return result.results.map(rowToEvent).filter((event) => eventIsActive(event, today));
 }
 
 export async function getUpcomingEvents(limit = 2) {

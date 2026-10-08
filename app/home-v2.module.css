@@ -1633,3 +1633,23 @@
     grid-template-columns: 88px minmax(0, 1fr);
   }
 }
+
+/* HOME-CONTENT-QUALITY-1: sparse image-backed collections fill available width. */
+.homeV2 :global(.home-event-list) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+}
+
+.homeV2 :global(.home-vet-list) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+}
+
+.homeV2 :global(.home-help-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.homeV2 :global(.home-help-media img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
