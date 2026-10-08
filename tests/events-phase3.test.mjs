@@ -15,7 +15,7 @@ const sitemapSeo = readFileSync(new URL("../lib/sitemap-seo.ts", import.meta.url
 test("/podujatia remains the primary full event listing without mutating canonical records", () => {
   assert.match(portalPage, /slug === "podujatia" \? getPublishedEvents\(\)/);
   assert.match(portalPage, /slug === "podujatia"\) return <EventsPage/);
-  assert.match(eventsPage, /<EventCalendar events=\{events\} today=\{today\}/);
+  assert.match(eventsPage, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\} initialCalendarMonth=\{initialCalendarMonth\} initialDay=\{initialDay\} today=\{today\}/);
   assert.match(eventsPage, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(eventsPage, /createManagedEvent|updateManagedEvent|deleteManagedEvent/);
 });
@@ -98,7 +98,7 @@ test("admin and public event filters continue to share canonical eventTypes", ()
 test("legacy calendar URL stays a noindex canonical alias excluded from sitemap", () => {
   assert.match(contentPage, /slug === "kalendar"[\s\S]*canonical: "\/podujatia"/);
   assert.match(contentPage, /robots: \{ index: false, follow: true \}/);
-  assert.match(contentPage, /slug === "kalendar"\) \{[\s\S]*return <EventsPage events=\{await getPublishedEvents\(\)\}/);
+  assert.match(contentPage, /slug === "kalendar"\) \{[\s\S]*getPublishedEventsInMonth\(calendarMonth\)[\s\S]*return <EventsPage events=\{events\} calendarEvents=\{calendarEvents\} initialCalendarMonth=\{calendarMonth\}/);
   assert.doesNotMatch(contentPage, /permanentRedirect\("\/podujatia"\)/);
   assert.match(sitemapSeo, /"\/podujatia\/kalendar"/);
 });
