@@ -268,6 +268,20 @@ export async function getPublishedEvents(limit = 250) {
   return result.results.map(rowToEvent);
 }
 
+/** Published events overlapping one local calendar month; one bounded query, no per-day reads. */
+export async function getPublishedEventsInMonth(month: string) {
+  const database = getD1Binding();
+  if (!database) return [] as DogEvent[];
+  if (!/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) return [] as DogEvent[];
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0, 12)).getUTCDate();
+  const monthEnd = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const result = await database.prepare(
+    "SELECT * FROM managed_events WHERE status = 'published' AND start_date <= ? AND COALESCE(end_date, start_date) >= ? ORDER BY start_date ASC, start_time ASC, id ASC LIMIT 500",
+  ).bind(monthEnd, `${month}-01`).all<EventRow>();
+  return result.results.map(rowToEvent);
+}
+
 export async function getUpcomingEvents(limit = 2) {
   const database = getD1Binding();
   if (!database) return [] as DogEvent[];
