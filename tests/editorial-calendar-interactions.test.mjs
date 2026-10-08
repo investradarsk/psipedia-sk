@@ -48,6 +48,8 @@ test("save is server-authoritative, shows errors and supports month transfer", (
 });
 
 test("keyboard, focus return, desktop and mobile interaction contract", () => {
+  assert.match(calendar, /ref=\{calendarRoot\}/);
+  assert.match(calendar, /data-interactive/);
   assert.match(calendar, /ref=\{detailHeading\}/);
   assert.match(calendar, /origin.current\?\.isConnected/);
   assert.match(calendar, /event.key === "Escape"/);

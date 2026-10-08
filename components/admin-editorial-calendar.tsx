@@ -63,6 +63,7 @@ export function AdminEditorialCalendar({
   const [time, setTime] = useState("");
   const [saving, setSaving] = useState(false);
   const [refreshing, startRefresh] = useTransition();
+  const calendarRoot = useRef<HTMLElement | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const origin = useRef<HTMLElement | null>(null);
   const detailHeading = useRef<HTMLHeadingElement | null>(null);
@@ -70,6 +71,11 @@ export function AdminEditorialCalendar({
   const dateField = useRef<HTMLInputElement | null>(null);
   const saveLock = useRef(false);
 
+  // Expose readiness only after hydration so early browser clicks cannot
+  // silently precede React event-handler attachment.
+  useEffect(() => {
+    calendarRoot.current?.setAttribute("data-interactive", "true");
+  }, []);
   useEffect(() => () => activeRequest.current?.abort(), []);
   const activeArticleId = selectedArticle?.id;
   useEffect(() => {
@@ -198,7 +204,7 @@ export function AdminEditorialCalendar({
   const outsideMonth = Boolean(notice && scheduledMonth && !dateKey(scheduledMonth).startsWith(monthPrefix));
 
   return (
-    <section className={styles.calendar} aria-label="Redakčný kalendár">
+    <section ref={calendarRoot} className={styles.calendar} aria-label="Redakčný kalendár">
       <div className={styles.toolbar}>
         <nav id="editorial-calendar-month-nav" className={styles.monthNav} aria-label="Navigácia po mesiacoch">
           <Link href={monthUrl(year, month - 1)} aria-label="Predchádzajúci mesiac">←</Link>
@@ -232,7 +238,7 @@ export function AdminEditorialCalendar({
               </button>
               <div className={styles.dayEntries}><CalendarArticleEntries articles={articles.slice(0, 2)} onOpen={handleOpenArticle}
                 selectedId={selectedArticle?.id} loadingId={loadingId} /></div>
-              {articles.length > 2 && <button className={styles.more} type="button" onClick={() => setSelectedDay(key)}>+${articles.length - 2} ďalšie</button>}
+              {articles.length > 2 && <button className={styles.more} type="button" onClick={() => setSelectedDay(key)}>+{articles.length - 2} ďalšie</button>}
             </div>
           );
         })}
