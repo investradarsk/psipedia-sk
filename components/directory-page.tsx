@@ -71,6 +71,7 @@ export async function DirectoryPage({
   const activeCount = active ? categoryCounts[active.slug] : undefined;
   const filtered = hasDirectoryFilters(filters);
 
+  // Preserve configured category imagery; compact tiles display it as a thumbnail.
   const categoryVisualEntries = active ? [] : await Promise.all(
     directoryCategories.map(async (category) => [
       category.slug,
@@ -87,7 +88,7 @@ export async function DirectoryPage({
       title: category.label,
       description: category.description,
       meta: typeof count === "number" ? `${count} ${profileCountLabel(count)}` : undefined,
-      icon: categoryIcon(category.slug),
+      icon: visual ? undefined : categoryIcon(category.slug),
       image: visual ? {
         src: visual.imageUrl,
         alt: visual.altText,
@@ -110,6 +111,39 @@ export async function DirectoryPage({
       current: active?.slug === category.slug,
     })),
   ];
+
+  // Search stays first in the listing flow. Category navigation follows its filter disclosure.
+  const categoryNavigation = (
+    <>
+        {!active ? (
+          <div className={styles.categoryLanding}>
+            <div data-directory-category-navigation>
+              <PublicLandingSectionHeading
+                eyebrow="Kategórie služieb"
+                title="Vyber si kategóriu"
+                description="Prejdi priamo do služby, ktorú hľadáš. Vyber oblasť a otvor jej samostatný prehľad."
+                id="directory-categories-title"
+              />
+              <PublicSubcategoryNavigator
+                mode="landing"
+                items={landingCategoryItems}
+                label="Kategórie služieb"
+                className={styles.categoryTiles}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className={styles.categorySwitcherWrap} data-directory-category-navigation>
+            <PublicSubcategoryNavigator
+              mode="compact"
+              items={compactCategoryItems}
+              label="Prepnúť kategóriu služby"
+              className={styles.categorySwitcher}
+            />
+          </div>
+        )}
+    </>
+  );
 
   return (
     <main id="obsah" className={styles.page}>
@@ -141,33 +175,6 @@ export async function DirectoryPage({
           />
         </UnifiedSectionHeroShell>
 
-        {!active ? (
-          <PublicContentShell variant="landing" className={styles.categoryLanding}>
-            <div data-directory-category-navigation>
-              <PublicLandingSectionHeading
-                eyebrow="Kategórie služieb"
-                title="Vyber si kategóriu"
-                description="Prejdi priamo do služby, ktorú hľadáš. Na mobile môžeš kategórie pohodlne posúvať do strán."
-                id="directory-categories-title"
-              />
-              <PublicSubcategoryNavigator
-                mode="landing"
-                items={landingCategoryItems}
-                label="Kategórie služieb"
-              />
-            </div>
-          </PublicContentShell>
-        ) : (
-          <div className={styles.categorySwitcherWrap} data-directory-category-navigation>
-            <PublicSubcategoryNavigator
-              mode="compact"
-              items={compactCategoryItems}
-              label="Prepnúť kategóriu služby"
-              className={styles.categorySwitcher}
-            />
-          </div>
-        )}
-
         <section className={styles.resultsSection}>
           <PublicContentShell variant="listing" className={styles.resultsShell}>
             <DirectoryResults
@@ -177,6 +184,7 @@ export async function DirectoryPage({
               title={active ? active.resultsTitle : filtered ? "Výsledky vyhľadávania" : "Odporúčané služby"}
               category={active?.slug}
               showCategory={!active}
+              categoryNavigation={categoryNavigation}
             />
           </PublicContentShell>
         </section>
