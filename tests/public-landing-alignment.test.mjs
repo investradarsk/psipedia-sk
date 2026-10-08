@@ -141,6 +141,7 @@ test("SERVICES-PUBLIC-UX-1 removes repeated category decisions and duplicate loc
   const category = read("app/adresar/[category]/page.tsx");
   const filters = read("components/directory-filter-form.tsx");
   const filterCss = read("components/directory-filter-form.module.css");
+  const disclosure = read("components/public-filter-disclosure.tsx");
 
   assert.doesNotMatch(root, /getDirectoryCategoryPreviews/);
   assert.match(root, /listPublishedDirectoryProfiles\(\{ filters \}\)/);
@@ -151,13 +152,15 @@ test("SERVICES-PUBLIC-UX-1 removes repeated category decisions and duplicate loc
   assert.match(directory, /title: "Všetky služby"/);
   assert.match(directory, /current: active\?\.slug === category\.slug/);
   assert.equal((filters.match(/name="q"/g) ?? []).length, 1);
-  assert.match(filters, /placeholder="Názov služby alebo lokalita"/);
-  assert.match(filters, /aria-expanded=\{secondaryFiltersOpen\}/);
+  assert.match(filters, /placeholder="Názov služby, miesto, organizácia alebo plemeno"/);
+  assert.match(filters, /<PublicFilterDisclosure/);
+  assert.match(disclosure, /aria-expanded=\{open\}/);
+  assert.match(disclosure, /aria-controls=\{contentId\}/);
   assert.match(filters, /activeFilterCount/);
   assert.match(filters, /dependentSubmit\("region"\)/);
   assert.match(filters, /dependentSubmit\("district"\)/);
   assert.match(filters, /<Link href=\{basePath\}>Zrušiť filtre<\/Link>/);
-  assert.match(filterCss, /@media \(max-width: 620px\)[\s\S]*\.secondaryFilters\s*\{\s*display:\s*none/);
+  assert.match(filterCss, /\.secondaryFilters\s*\{\s*display:\s*none/);
   assert.match(filterCss, /\.secondaryFiltersOpen\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/);
   assert.match(category, /directoryCategoryListingMetadata/);
   assert.match(category, /resolveListingIndexPolicy/);

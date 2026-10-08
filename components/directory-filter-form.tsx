@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useRef, useState } from "react";
+import { useRef } from "react";
 import { SearchIcon } from "@/components/icons";
+import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { directoryCategories, type DirectoryCategorySlug } from "@/lib/directory";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import styles from "./directory-filter-form.module.css";
@@ -31,8 +32,6 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
   const formRef = useRef<HTMLFormElement>(null);
   const districtRef = useRef<HTMLSelectElement>(null);
   const cityRef = useRef<HTMLSelectElement>(null);
-  const [secondaryFiltersOpen, setSecondaryFiltersOpen] = useState(false);
-  const secondaryFiltersId = useId();
   const activeFilterCount = [
     showCategory ? filters.category : "",
     filters.region,
@@ -45,7 +44,6 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
     filters.profileType,
     filters.sort !== "recommended" ? filters.sort : "",
   ].filter(Boolean).length;
-  const activeFilterLabel = activeFilterCount === 1 ? "1 aktívny" : `${activeFilterCount} aktívne`;
 
   const dependentSubmit = (level: "region" | "district") => {
     if (level === "region" && districtRef.current) districtRef.current.value = "";
@@ -59,23 +57,24 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
       className={`directory-toolbar ${styles.toolbar}`}
       method="get"
       action={basePath}
-      onSubmit={() => setSecondaryFiltersOpen(false)}
+      data-public-search-form="services"
     >
-      <label className="directory-search"><span>Vyhľadávanie</span><div><SearchIcon size={19} /><input name="q" defaultValue={filters.query} placeholder="Názov služby alebo lokalita" /></div></label>
+      <label className="directory-search">
+        <span>Vyhľadávanie</span>
+        <div><SearchIcon size={19} /><input name="q" defaultValue={filters.query} placeholder="Názov služby, miesto, organizácia alebo plemeno" /></div>
+      </label>
 
-      <button
-        className={styles.toggle}
-        type="button"
-        aria-expanded={secondaryFiltersOpen}
-        aria-controls={secondaryFiltersId}
-        onClick={() => setSecondaryFiltersOpen((open) => !open)}
+      <div className="directory-filter-actions">
+        <button type="submit">Hľadať</button>
+        <Link href={basePath}>Zrušiť filtre</Link>
+      </div>
+
+      <PublicFilterDisclosure
+        activeCount={activeFilterCount}
+        buttonClassName={styles.toggle}
+        contentClassName={styles.secondaryFilters}
+        openContentClassName={styles.secondaryFiltersOpen}
       >
-        <span>Filtre</span>
-        {activeFilterCount > 0 && <span className={styles.activeCount}>{activeFilterLabel}</span>}
-        <span className={styles.toggleHint} aria-hidden="true">{secondaryFiltersOpen ? "Skryť" : "Zobraziť"}</span>
-      </button>
-
-      <div id={secondaryFiltersId} className={`${styles.secondaryFilters}${secondaryFiltersOpen ? ` ${styles.secondaryFiltersOpen}` : ""}`}>
         {showCategory && <label><span>Kategória</span><select name="category" defaultValue={filters.category}><option value="">Všetky služby</option>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></label>}
         <label><span>Kraj</span><select name="region" defaultValue={filters.region} onChange={() => dependentSubmit("region")}><option value="">Všetky kraje</option>{options.regions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
         <label><span>Okres</span><select ref={districtRef} name="district" defaultValue={filters.district} disabled={Boolean(filters.region) && options.districts.length === 0} onChange={() => dependentSubmit("district")}><option value="">Všetky okresy</option>{options.districts.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
@@ -86,9 +85,7 @@ export function DirectoryFilterForm({ filters, options, basePath, category, show
         {options.organizations.length > 0 && <label><span>Organizácia</span><select name="organization" defaultValue={filters.organization}><option value="">Všetky organizácie</option>{options.organizations.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>}
         {options.profileTypes.length > 0 && <label><span>Typ služby</span><select name="type" defaultValue={filters.profileType}><option value="">Všetky typy</option>{options.profileTypes.map((item) => <option value={item} key={item}>{item}</option>)}</select></label>}
         <label><span>Zoradenie</span><select name="sort" defaultValue={filters.sort}><option value="recommended">Odporúčané</option><option value="name-asc">Názov A–Z</option><option value="name-desc">Názov Z–A</option><option value="newest">Najnovšie</option></select></label>
-      </div>
-
-      <div className="directory-filter-actions"><button type="submit">Zobraziť výsledky</button><Link href={basePath}>Zrušiť filtre</Link></div>
+      </PublicFilterDisclosure>
     </form>
   );
 }

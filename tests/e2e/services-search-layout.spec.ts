@@ -38,8 +38,8 @@ test.describe("public services search layout", () => {
     await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
 
     const primarySearch = form.locator('input[name="q"]');
-    const filterToggle = form.getByRole("button", { name: /^Filtre/ });
-    const submit = form.getByRole("button", { name: "Zobraziť výsledky" });
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    const submit = form.getByRole("button", { name: "Hľadať" });
     const secondaryFields = form.locator('select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
 
     await expect(primarySearch).toBeVisible();
@@ -51,6 +51,7 @@ test.describe("public services search layout", () => {
     }
     await expect(submit).toBeVisible();
 
+    await expect(form).toBeVisible();
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
     expect(formBox!.x).toBeGreaterThanOrEqual(12);
@@ -87,7 +88,7 @@ test.describe("public services search layout", () => {
     });
   });
 
-  test("retains the desktop directory filter layout without overflow", async ({ page }, testInfo) => {
+  test("PUBLIC-SEARCH-SIMPLIFY-1 keeps the desktop services search compact without overflow", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop layout contract");
     await page.setViewportSize({ width: 1440, height: 900 });
 
@@ -97,66 +98,41 @@ test.describe("public services search layout", () => {
     const form = page.locator(".directory-results form").first();
     await expect(form).toBeVisible();
     await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
+    await expect(form.locator('input[name="q"]')).toBeVisible();
 
-    const requiredFields = form.locator('input[name="q"], select[name="category"], select[name="region"], select[name="district"], select[name="city"]');
-    await expect(requiredFields).toHaveCount(5);
-    for (const fieldName of ["q", "category", "region", "district", "city"]) {
-      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} desktop filter`).toBeVisible();
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    const submit = form.getByRole("button", { name: "Hľadať" });
+    await expect(filterToggle).toBeVisible();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(submit).toBeVisible();
+
+    for (const fieldName of ["category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} collapsed desktop filter`).toBeHidden();
     }
 
-    const filterToggle = form.getByRole("button", { name: /^Filtre/ });
-    const submit = form.getByRole("button", { name: "Zobraziť výsledky" });
-    await expect(filterToggle).toBeHidden();
-    await expect(submit).toBeVisible();
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
+    for (const fieldName of ["category", "region", "district", "city"]) {
+      await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} expanded desktop filter`).toBeVisible();
+    }
 
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
-    const fieldBoxes = await requiredFields.evaluateAll((elements) => elements.map((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        name: element.getAttribute("name") ?? element.tagName.toLowerCase(),
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      };
-    }));
-    const submitBox = await submit.boundingBox();
-    expect(submitBox).not.toBeNull();
-    const boxes = [
-      ...fieldBoxes,
-      {
-        name: "submit",
-        left: submitBox!.x,
-        right: submitBox!.x + submitBox!.width,
-        top: submitBox!.y,
-        bottom: submitBox!.y + submitBox!.height,
-        width: submitBox!.width,
-        height: submitBox!.height,
-      },
-    ];
-
-    for (const box of boxes) {
-      expect(box.width, `${box.name} width`).toBeGreaterThan(0);
-      expect(box.height, `${box.name} height`).toBeGreaterThan(0);
-      expect(box.left, `${box.name} left form bound`).toBeGreaterThanOrEqual(formBox!.x - 1);
-      expect(box.right, `${box.name} right form bound`).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
-      expect(box.top, `${box.name} top form bound`).toBeGreaterThanOrEqual(formBox!.y - 1);
-      expect(box.bottom, `${box.name} bottom form bound`).toBeLessThanOrEqual(formBox!.y + formBox!.height + 1);
-    }
-
-    for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
-      for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
-        const left = boxes[leftIndex]!;
-        const right = boxes[rightIndex]!;
-        const overlaps = left.left < right.right - 1
-          && left.right > right.left + 1
-          && left.top < right.bottom - 1
-          && left.bottom > right.top + 1;
-        expect(overlaps, `${left.name} overlaps ${right.name}`).toBe(false);
-      }
+    const visibleBoxes = await form.locator("input, select, button, a").evaluateAll((elements) => elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        return rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+      }));
+    for (const box of visibleBoxes) {
+      expect(box.left).toBeGreaterThanOrEqual(formBox!.x - 1);
+      expect(box.right).toBeLessThanOrEqual(formBox!.x + formBox!.width + 1);
+      expect(box.width).toBeGreaterThan(0);
+      expect(box.height).toBeGreaterThanOrEqual(44);
     }
 
     await expectNoHorizontalOverflow(page, "/adresar desktop");
@@ -171,7 +147,7 @@ test.describe("public services search layout", () => {
 
     const form = page.locator(".directory-results form").first();
     const primarySearch = form.locator('input[name="q"]');
-    const filterToggle = form.getByRole("button", { name: /^Filtre/ });
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
     const sort = form.locator('select[name="sort"]');
     const reset = form.getByRole("link", { name: "Zrušiť filtre" });
 
@@ -194,7 +170,7 @@ test.describe("public services search layout", () => {
     await sort.selectOption("name-asc");
     await Promise.all([
       page.waitForURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("sort") === "name-asc"),
-      form.getByRole("button", { name: "Zobraziť výsledky" }).click(),
+      form.getByRole("button", { name: "Hľadať" }).click(),
     ]);
     await expectDirectoryLocation(page, "/adresar/veterinari", "name-asc");
 
@@ -230,7 +206,7 @@ test.describe("public services search layout", () => {
     }
   });
 
-  test("UX-1C-B keeps desktop category filters visible without redesign", async ({ page }, testInfo) => {
+  test("PUBLIC-SEARCH-SIMPLIFY-1 keeps desktop secondary filters compact by default", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop filter UX contract");
     await page.setViewportSize({ width: 1440, height: 1000 });
     const response = await page.goto("/adresar/veterinari", { waitUntil: "domcontentloaded" });
@@ -238,9 +214,17 @@ test.describe("public services search layout", () => {
 
     const form = page.locator(".directory-results form").first();
     await expect(form.locator('input[name="q"]')).toBeVisible();
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    await expect(filterToggle).toBeVisible();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(form.locator('select[name="region"]')).toBeHidden();
+    await expect(form.locator('select[name="sort"]')).toBeHidden();
+    await page.waitForLoadState("networkidle");
+    await expect(filterToggle).toBeEnabled();
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
     await expect(form.locator('select[name="region"]')).toBeVisible();
     await expect(form.locator('select[name="sort"]')).toBeVisible();
-    await expect(form.getByRole("button", { name: /^Filtre/ })).toBeHidden();
     await expectNoHorizontalOverflow(page, "veterinari desktop");
     await expectSeriousCriticalAxeClean(page, ".directory-results", "veterinari desktop");
     await testInfo.attach("ux1cb-after-veterinari-desktop-1440", {
@@ -371,22 +355,18 @@ test.describe("public services search layout", () => {
       await expect(form).toBeVisible();
       await expect(page.locator("[data-section-hero-search]"), "Legacy hero search must stay removed").toHaveCount(0);
 
-      const filterToggle = form.getByRole("button", { name: /^Filtre/ });
-      if (viewport.width <= 620) {
-        await expect(filterToggle).toBeVisible();
-        await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
-        await page.waitForLoadState("networkidle");
-        await expect(filterToggle).toBeEnabled();
-        await filterToggle.click();
-        await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
-      } else {
-        await expect(filterToggle).toBeHidden();
-      }
+      const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+      await expect(filterToggle).toBeVisible();
+      await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
+      await page.waitForLoadState("networkidle");
+      await expect(filterToggle).toBeEnabled();
+      await filterToggle.click();
+      await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
 
       for (const fieldName of ["q", "category", "region", "district", "city"]) {
         await expect(form.locator(`[name="${fieldName}"]`), `${fieldName} at ${viewport.width}px`).toBeVisible();
       }
-      await expect(form.getByRole("button", { name: "Zobraziť výsledky" })).toBeVisible();
+      await expect(form.getByRole("button", { name: "Hľadať" })).toBeVisible();
 
       const formBox = await form.boundingBox();
       expect(formBox).not.toBeNull();
@@ -414,12 +394,12 @@ test.describe("public services search layout", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/adresar", { waitUntil: "domcontentloaded" });
     const form = page.locator(".directory-results form").first();
-    await form.getByRole("button", { name: /^Filtre/ }).click();
+    await form.getByRole("button", { name: /^Ďalšie filtre/ }).click();
     await form.locator('select[name="category"]').selectOption("veterinari");
     await form.locator('input[name="q"]').fill("publikovana");
     await Promise.all([
       page.waitForURL((url) => url.pathname === "/adresar" && url.searchParams.get("category") === "veterinari" && url.searchParams.get("q") === "publikovana"),
-      form.getByRole("button", { name: "Zobraziť výsledky" }).click(),
+      form.getByRole("button", { name: "Hľadať" }).click(),
     ]);
     await expect(form.locator('select[name="category"]')).toHaveValue("veterinari");
     await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");
@@ -433,9 +413,15 @@ test.describe("public services search layout", () => {
 
     const response = await page.goto("/adresar/veterinari", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
+    await page.waitForLoadState("networkidle");
 
     const form = page.locator(".directory-results form").first();
-    await form.getByRole("button", { name: /^Filtre/ }).click();
+    await expect(form).toBeVisible();
+    const filterToggle = form.getByRole("button", { name: /^Ďalšie filtre/ });
+    await expect(filterToggle).toBeVisible();
+    await expect(filterToggle).toBeEnabled();
+    await filterToggle.click();
+    await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
 
     const longValue = "VelmiDlhaLokalitaBezMedzierKtoraNesmieRozsiritSelectAniFormularMimoMobilnehoViewportu";
     const city = form.locator('select[name="city"]');
@@ -490,7 +476,7 @@ test.describe("public services search layout", () => {
 
     const form = page.locator(".directory-results form").first();
     await expect(form.locator('input[name="q"]')).toHaveValue("publikovana");
-    await form.getByRole("button", { name: /^Filtre/ }).click();
+    await form.getByRole("button", { name: /^Ďalšie filtre/ }).click();
     await expect(form.locator('select[name="region"]')).toHaveValue("Bratislavský kraj");
     await expect(form.locator('select[name="city"]')).toHaveValue("Bratislava");
     await expect(form.locator('select[name="sort"]')).toHaveValue("name-asc");
@@ -503,7 +489,7 @@ test.describe("public services search layout", () => {
         url.searchParams.get("city") === "Bratislava" &&
         url.searchParams.get("sort") === "name-asc"
       ),
-      form.getByRole("button", { name: "Zobraziť výsledky" }).click(),
+      form.getByRole("button", { name: "Hľadať" }).click(),
     ]);
 
     await expectNoHorizontalOverflow(page, "combined services filters");

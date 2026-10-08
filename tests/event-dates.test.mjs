@@ -69,10 +69,13 @@ test("event type navigation and time filters stay crawlable with the intended tr
   assert.match(eventsPage, /PublicSubcategoryNavigator/);
   assert.match(eventsPage, /mode="landing"/);
   assert.match(eventsPage, /mode="compact"/);
-  assert.match(calendar, /href=\{eventTimeFilterHref\(value, typePathname\)\}/);
-  assert.match(calendar, /const href = eventTimeFilterHref\(value, typePathname\)/);
-  assert.match(calendar, /history\.replaceState\(null, "", href\)/);
-  assert.doesNotMatch(calendar, /history\.pushState|eventTypePortalHref\(option\.value\)/);
+  assert.match(calendar, /href=\{timeHref\(value\)\}/);
+  assert.match(calendar, /function timeHref\(value: EventTimeFilter\)/);
+  assert.match(calendar, /if \(query\) params\.set\("q", query\)/);
+  assert.match(calendar, /if \(region\) params\.set\("region", region\)/);
+  assert.match(calendar, /if \(month\) params\.set\("mesiac", month\)/);
+  assert.match(calendar, /if \(timeParam\) params\.set\("termin", timeParam\)/);
+  assert.doesNotMatch(calendar, /history\.(?:pushState|replaceState)|eventTypePortalHref\(option\.value\)/);
 });
 
 test("homepage and event listing reuse the central event date implementation", () => {

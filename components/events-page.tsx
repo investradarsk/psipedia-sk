@@ -20,6 +20,7 @@ import {
   type DogEvent,
   type EventTimeFilter,
   type EventType,
+  type SlovakRegion,
 } from "@/lib/events";
 import type { PortalSection } from "@/lib/portal";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -52,12 +53,16 @@ export async function EventsPage({
   initialType = "Všetky",
   initialTime = "upcoming",
   initialQuery = "",
+  initialRegion = "",
+  initialMonth = "",
   section,
 }: {
   events: DogEvent[];
   initialType?: EventType | "Všetky";
   initialTime?: EventTimeFilter;
   initialQuery?: string;
+  initialRegion?: "" | SlovakRegion;
+  initialMonth?: string;
   section?: PortalSection;
 }) {
   const isMainListing = initialType === "Všetky";
@@ -163,7 +168,7 @@ export async function EventsPage({
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
-            <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} />
+            <EventCalendar events={events} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth} />
           </PublicContentShell>
         </section>
 

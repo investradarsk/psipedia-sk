@@ -106,14 +106,15 @@ test("internal discovery controls remain crawlable while directory pagination st
   const directoryResults = readFileSync(new URL("../components/directory-results.tsx", import.meta.url), "utf8");
   const relatedEntities = readFileSync(new URL("../components/related-entity-list.tsx", import.meta.url), "utf8");
 
-  assert.match(calendar, /href=\{eventTimeFilterHref\(value, typePathname\)\}/);
+  assert.match(calendar, /href=\{timeHref\(value\)\}/);
   assert.match(eventsPage, /<PublicSubcategoryNavigator[\s\S]*mode="landing"/);
   assert.match(eventsPage, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
   assert.match(eventsPage, /eventTypePortalHref\(eventType\)/);
   assert.doesNotMatch(calendar, /eventTypeFilters|selectType|className=\{styles\.typeBar\}/);
   assert.match(helpCategoryRoute, /rawSearchParams\.stav/);
-  assert.match(helpBrowser, /href=\{statusHref\(!activeOnly\)\}/);
-  assert.match(helpBrowser, /params\.set\("stav", "vsetky"\)/);
+  assert.match(helpBrowser, /name="stav"/);
+  assert.match(helpBrowser, /value="vsetky">Aj ukončené/);
+  assert.doesNotMatch(helpBrowser, /useState|window\.history/);
   assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page - 1\)\}>← Predchádzajúca<\/Link>/);
   assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page \+ 1\)\}>Ďalšia →<\/Link>/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
@@ -130,10 +131,12 @@ test("EVENTS-PUBLIC-UX-1 keeps one dominant type navigation and one local event 
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(page, /SectionHeroSearch|PublicCategoryTiles|searchSlot=/);
-  assert.equal((calendar.match(/<input/g) ?? []).length, 1);
+  assert.equal((calendar.match(/name="q"/g) ?? []).length, 1);
+  assert.match(calendar, /type="hidden" name="termin"/);
   assert.doesNotMatch(calendar, /eventTypeFilters|EVENT_SECTION_COPY|categoryOverview|selectType/);
-  assert.match(calendar, /aria-expanded=\{filtersOpen\}/);
-  assert.match(calendar, /id="event-secondary-filters"/);
+  assert.match(calendar, /<PublicFilterDisclosure/);
+  assert.match(calendar, /buttonClassName=\{styles\.filterToggle\}/);
+  assert.match(calendar, /contentClassName=\{styles\.secondaryFilters\}/);
   assert.match(calendar, /placeholder="Názov, mesto, miesto alebo organizátor"/);
   assert.match(css, /\.filterToggle[\s\S]*min-height:\s*44px/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.secondaryFilters[\s\S]*display:\s*none/);

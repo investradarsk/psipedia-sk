@@ -269,13 +269,32 @@ export function eventPortalCategory(eventType: EventType) {
   } satisfies Record<EventType, { href: string; label: string }>)[eventType];
 }
 
+export function eventSearchQueryFromParam(value: string | string[] | undefined) {
+  const parameter = Array.isArray(value) ? value[0] ?? "" : value ?? "";
+  return parameter.trim().slice(0, 120);
+}
+
+export function eventRegionFilterFromParam(value: string | string[] | undefined): "" | SlovakRegion {
+  const parameter = (Array.isArray(value) ? value[0] ?? "" : value ?? "").trim();
+  return (slovakRegions as readonly string[]).includes(parameter) ? parameter as SlovakRegion : "";
+}
+
+export function eventMonthFilterFromParam(value: string | string[] | undefined) {
+  const parameter = (Array.isArray(value) ? value[0] ?? "" : value ?? "").trim();
+  return /^\d{4}-(?:0[1-9]|1[0-2])$/.test(parameter) ? parameter : "";
+}
+
+export function eventTimeFilterParam(value: EventTimeFilter) {
+  if (value === "upcoming") return "";
+  return value === "current" ? "prebiehajuce" : value === "past" ? "ukoncene" : "vsetky";
+}
+
 export function eventTimeFilterFromParam(value: string | string[] | undefined): EventTimeFilter {
   const parameter = Array.isArray(value) ? value[0] : value;
   return ({ prebiehajuce: "current", ukoncene: "past", vsetky: "all" } as Partial<Record<string, EventTimeFilter>>)[parameter ?? ""] ?? "upcoming";
 }
 
 export function eventTimeFilterHref(value: EventTimeFilter, pathname = "/podujatia") {
-  if (value === "upcoming") return pathname;
-  const parameter = value === "current" ? "prebiehajuce" : value === "past" ? "ukoncene" : "vsetky";
-  return `${pathname}?termin=${parameter}`;
+  const parameter = eventTimeFilterParam(value);
+  return parameter ? `${pathname}?termin=${parameter}` : pathname;
 }
