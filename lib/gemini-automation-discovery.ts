@@ -1,5 +1,5 @@
 import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema, buildGeminiDiscoveryPrompt,
-  parseGeminiDiscoveryEnvelope, type GeminiDiscoveryCandidateV1,
+  parseGeminiDiscoveryEnvelope, GeminiDiscoverySchemaError, type GeminiDiscoveryCandidateV1,
 } from "./gemini-automation-discovery-contract.ts";
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
 import type { GeminiCategoryExclusionContext } from "./gemini-automation-category-memory.ts";
@@ -43,6 +43,7 @@ type SafeDiagnostic = {
   searchQueryCount?: number;
   jsonParsed?: boolean;
   schemaValid?: boolean;
+  schemaFailure?: string;
 };
 const KNOWN_STATUSES = new Set(["completed", "failed", "in_progress", "requires_action", "cancelled"]);
 const KNOWN_STEP_TYPES = new Set(["google_search_call", "google_search_result", "model_output", "thought", "user_input"]);
@@ -60,6 +61,7 @@ function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
     citations: safe.citations ?? 0,
     jsonParsed: safe.jsonParsed ?? false,
     schemaValid: safe.schemaValid ?? false,
+    schemaFailure: safe.schemaFailure ?? "NONE",
   });
   throw new GeminiAutomationError("INVALID_RESPONSE", undefined, Math.min(100, Math.max(0, safe.searchQueryCount ?? 0)));
 }
@@ -238,7 +240,8 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
     parsed = parseGeminiDiscoveryEnvelope(output, request);
   } catch (error) {
     if (error instanceof GeminiAutomationError && error.code === "INVALID_RESPONSE") {
-      fail("DISCOVERY_SCHEMA_INVALID", diagnostic);
+      fail("DISCOVERY_SCHEMA_INVALID", { ...diagnostic,
+        schemaFailure: error instanceof GeminiDiscoverySchemaError ? error.schemaFailure : "CANDIDATE_STRUCTURE" });
     }
     throw error;
   }
