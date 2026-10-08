@@ -218,6 +218,8 @@ test.describe("public services search layout", () => {
     await expect(filterToggle).toHaveAttribute("aria-expanded", "false");
     await expect(form.locator('select[name="region"]')).toBeHidden();
     await expect(form.locator('select[name="sort"]')).toBeHidden();
+    await page.waitForLoadState("networkidle");
+    await expect(filterToggle).toBeEnabled();
     await filterToggle.click();
     await expect(filterToggle).toHaveAttribute("aria-expanded", "true");
     await expect(form.locator('select[name="region"]')).toBeVisible();
