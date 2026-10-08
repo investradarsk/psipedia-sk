@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EventCard } from "@/components/event-card";
+import { EventBrowseMode } from "@/components/events-view-mode";
 import { SearchIcon } from "@/components/icons";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
@@ -281,11 +282,7 @@ export function EventCalendar({
         </p>
       ) : null}
 
-      <nav className={styles.browseNavigation} aria-label="Prezeranie podujatí">
-        <a href="#events-calendar">Kalendár</a>
-        <a href="#events-list">Zoznam podujatí ↓</a>
-      </nav>
-
+      <EventBrowseMode>
       <section className={styles.monthCalendar} id="events-calendar" data-events-month-calendar aria-labelledby="events-calendar-title">
         <div className={styles.monthHeading}>
           <div>
@@ -355,7 +352,7 @@ export function EventCalendar({
       </section>
 
       <section className={styles.upcomingSection} id="events-list" aria-labelledby="events-upcoming-heading">
-        <div className={styles.listHeading}><h2 id="events-upcoming-heading">{upcomingTitle}</h2><a href="#events-calendar">↑ Späť ku kalendáru</a></div>
+        <div className={styles.listHeading}><h2 id="events-upcoming-heading">{upcomingTitle}</h2></div>
         {filtered.length ? (
           <div className={styles.eventList} data-event-list>
             {filtered.map((event) => <EventCard event={event} today={today} key={event.id} />)}
@@ -368,6 +365,7 @@ export function EventCalendar({
           </div>
         )}
       </section>
+      </EventBrowseMode>
     </div>
   );
 }
