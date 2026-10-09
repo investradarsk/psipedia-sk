@@ -192,6 +192,9 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     const dialog = consentDialogRef.current;
     if (!dialog) return;
     if (!dialog.open) dialog.showModal();
+    // Browsers may initially focus the privacy-details link, which precedes
+    // the actions in DOM order. Always start on the explicit reject choice.
+    dialog.querySelector<HTMLButtonElement>(".cookie-consent__actions button")?.focus();
     return () => {
       if (dialog.open) dialog.close();
     };
