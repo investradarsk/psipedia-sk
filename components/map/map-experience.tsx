@@ -744,9 +744,6 @@ export function MapExperience({
     first?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
-      // A native top-layer dialog (e.g. first-visit cookie consent) takes
-      // precedence. Never dismiss or trap focus in the covered map dialog.
-      if (document.querySelector("dialog:modal")) return;
       if (event.key === "Escape") {
         event.preventDefault();
         setMobileFiltersOpen(false);
