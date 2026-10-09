@@ -53,7 +53,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     await overviewTrigger.click();
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
     await page.keyboard.press("Escape");
-    await expect(overviewTrigger).toBeFocused();
+    await expect(nav.locator("summary").filter({ hasText: "Prehľad" })).toBeFocused();
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toBeHidden();
     await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.locator(".site-footer")).toBeHidden();
