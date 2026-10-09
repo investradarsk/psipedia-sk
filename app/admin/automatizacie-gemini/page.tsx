@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminGeminiAutomationSettings } from "@/components/admin-gemini-automation-settings";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -94,6 +95,7 @@ export default async function AdminGeminiAutomationPage() {
         Zapnutie kategórie je len nastavenie pre budúci plánovač. Jediné reálne spustenie je manuálny pilot
         pre Tréneri / psie školy po potvrdení. Môže vytvoriť nepublikované koncepty.
       </p>
+      <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} />
       <GeminiRunHistory runs={runs} />
     </AdminShell>

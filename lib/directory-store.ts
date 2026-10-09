@@ -1358,21 +1358,23 @@ export async function archiveManagedDirectoryProfile(
   editorEmail: string,
   now = new Date(),
   databaseInput?: D1Database,
+  options: { draftOnly?: boolean } = {},
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
   const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
   if (existing.status === "archived") return existing;
+  if (options.draftOnly && existing.status !== "draft") throw new Error("GEMINI_DIRECTORY_DRAFT_ONLY");
   await ensureResourceForDirectoryProfile(id, database, now);
   const timestamp = now.toISOString();
   const row = await database.prepare(`
     UPDATE directory_profiles
     SET status='archived', published_at=NULL, archived_at=?, updated_at=?, updated_by=?
-    WHERE id=? AND status IN ('draft','published')
+    WHERE id=? AND status IN ('draft','published') AND (?=0 OR status='draft')
     RETURNING *
-  `).bind(timestamp, timestamp, editorEmail, id).first<DirectoryProfileRow>();
-  if (!row) throw new Error("Profil sa nepodarilo archivovať.");
+  `).bind(timestamp, timestamp, editorEmail, id, options.draftOnly ? 1 : 0).first<DirectoryProfileRow>();
+  if (!row) throw new Error(options.draftOnly ? "GEMINI_DIRECTORY_DRAFT_ONLY" : "Profil sa nepodarilo archivovať.");
   await reconcileGeoAfterSourceMutation({
     targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
   }, database);
