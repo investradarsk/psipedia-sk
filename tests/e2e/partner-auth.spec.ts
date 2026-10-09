@@ -242,6 +242,9 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   if(project==="mobile-chromium"){
     await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
     await page.goto("/adresar/veterinari/partner-e2e-veterina");
+    // The public profile now correctly blocks background clicks until the
+    // first-visit cookie dialog is explicitly resolved.
+    await dismissCookieConsent(page);
     await expect(page.getByRole("heading",{name:"Spravujete tento profil?"})).toBeVisible();
     const requestManagement=page.getByRole("link",{name:"Požiadať o správu profilu"});
     await expect(requestManagement).toHaveAttribute("href","/partner/prevziat-profil/DIRECTORY_PROFILE/990001");
