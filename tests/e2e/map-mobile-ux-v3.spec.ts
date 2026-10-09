@@ -125,6 +125,23 @@ test("PUBLIC-UX-V3 closeout: first-visit consent owns the modal layer before map
   await noHorizontalOverflow(page);
 });
 
+test("PUBLIC-UX-V3 closeout: cookie dialog fits 320px portrait and short landscape", async ({ page }) => {
+  await mockMap(page, false);
+  for (const viewport of [{ width: 320, height: 640 }, { width: 740, height: 360 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/mapa");
+    const consent = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
+    await expect(consent).toBeVisible();
+    const box = await consent.boundingBox();
+    expect(box, `cookie modal at ${viewport.width}x${viewport.height}`).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-1);
+    expect(box!.y).toBeGreaterThanOrEqual(-1);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
+    await noHorizontalOverflow(page);
+  }
+});
+
 test("MAP-MOBILE-UX-V3: 320px portrait and short landscape have no page overflow", async ({ page }) => {
   await mockMap(page);
   for (const viewport of [{ width: 320, height: 640 }, { width: 740, height: 360 }]) {
