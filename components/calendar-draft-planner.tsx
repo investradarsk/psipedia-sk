@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ManagedArticle, ManagedArticleSummary } from "@/lib/article-store";
-import { formatArticleLocalDateTime, parseArticleLocalDateTime } from "@/lib/article-schedule-time";
+import { parseArticleLocalDateTime } from "@/lib/article-schedule-time";
 import { ArticleBlocks } from "@/components/article-blocks";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import styles from "./admin-editorial-calendar.module.css";

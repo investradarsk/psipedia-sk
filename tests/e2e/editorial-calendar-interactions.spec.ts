@@ -36,7 +36,9 @@ async function openFromDay(page: Page, calendar: ReturnType<Page["getByRole"]>, 
   const dayButton = calendar.locator(`button[class*="dayButton"]:has(time[datetime="${date}"])`);
   await expect(dayButton).toBeVisible();
   await dayButton.click();
-  const dayDetail = calendar.locator('[aria-labelledby="calendar-day-detail"]');
+  const dayDetail = (page.viewportSize()?.width ?? 1280) > 720
+    ? calendar.locator('[class*="expandedDay"]')
+    : calendar.locator('[aria-labelledby="calendar-day-detail"]');
   await expect(dayDetail).toBeVisible();
   const entry = dayDetail.getByRole("button", { name: new RegExp(title) });
   await entry.click();
@@ -145,4 +147,37 @@ test("calendar toolbar stays below sticky admin navigation while scrolling", asy
     const toolbarBox = await toolbar.boundingBox();
     return !!navBox && !!toolbarBox && toolbarBox.y + 1 >= navBox.y + navBox.height;
   }).toBe(true);
+});
+
+
+test("plus opens searchable drafts, full preview and confirms a guarded schedule", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name.includes("mobile");
+  const id = mobile ? 974107 : 974106;
+  const title = mobile ? "CALENDAR E2E draft mobile" : "CALENDAR E2E draft desktop";
+  const target = new Date(Date.now() + 4 * 86_400_000);
+  const calendar = await calendarForMonth(page, target);
+  const key = await page.evaluate((stamp) => {
+    const d = new Date(stamp);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }, target.toISOString());
+  const day = calendar.locator('[class*="dayHeader"]', { has: calendar.locator('time[datetime="' + key + '"]') });
+  await day.getByRole("button", { name: /Pridať koncept na/ }).click();
+  const planner = page.getByRole("dialog", { name: /Pridať koncept/ });
+  await expect(planner).toBeVisible();
+  await planner.getByRole("searchbox", { name: "Hľadať medzi konceptmi" }).fill(title);
+  await expect(planner.getByRole("button", { name: new RegExp(title) })).toBeVisible();
+  await planner.getByRole("button", { name: new RegExp(title) }).click();
+  await expect(page.getByRole("dialog", { name: "Skontrolovať koncept" })).toBeVisible();
+  await expect(planner.getByRole("heading", { name: title })).toBeVisible();
+  await expect(planner.getByText("SEO údaje")).toBeVisible();
+  await expect(planner.getByRole("link", { name: "Upraviť koncept" })).toHaveAttribute("href", /calendarDay=/);
+  await expect(planner.getByLabel("Dátum publikovania")).toHaveValue(key);
+  await planner.getByRole("button", { name: "Potvrdiť plánovanie" }).click();
+  await expect(planner).toHaveCount(0);
+  await expect(calendar.getByRole("status")).toContainText("bol naplánovaný");
+  const result = await page.request.get("/api/admin/articles/" + id);
+  expect(result.ok()).toBe(true);
+  const { article } = await result.json();
+  expect(article.status).toBe("scheduled");
+  expect(Date.parse(article.publishedAt)).toBeGreaterThan(Date.now());
 });

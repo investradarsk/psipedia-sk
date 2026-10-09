@@ -334,7 +334,7 @@ export function AdminEditorialCalendar({
       {plannerNotice && <p className={styles.success} role="status" aria-live="polite">{plannerNotice}</p>}
       {plannerDay && <CalendarDraftPlanner
         key={`${plannerDay}-${plannerResumeId ?? "new"}`}
-        day={plannerDay} initialDraftId={plannerResumeId} initialTime={initialTime}
+        day={plannerDay} initialDraftId={plannerResumeId} initialTime={plannerResumeId ? initialTime : "09:00"}
         onClose={() => {
           setPlannerDay(null);
           requestAnimationFrame(() => {

@@ -49,3 +49,26 @@ test("rendering uses browser-local Date for same timezone semantics as editor", 
   assert.match(store, /Date\.UTC\(year, month - 1, -2\)/);
   assert.match(store, /Date\.UTC\(year, month, 3\)/);
 });
+
+test("calendar maps elapsed scheduled posts to effective published and offers review-first draft scheduling", () => {
+  const planner = read("components/calendar-draft-planner.tsx");
+  const store = read("lib/article-store.ts");
+  const api = read("app/api/admin/articles/route.ts");
+  const editor = read("components/admin-article-editor.tsx");
+  const editPage = read("app/admin/clanky/[id]/page.tsx");
+  assert.match(read("lib/editorial-calendar.ts"), /CASE WHEN status = 'scheduled' AND published_at <= \? THEN 'published'/);
+  assert.match(calendar, /effectiveArticleStatus/);
+  assert.match(calendar, /CalendarDraftPlanner/);
+  assert.match(calendar, /openDraftPicker/);
+  assert.match(calendar, /selectedDay === key \? articles\.length : 2/);
+  assert.match(planner, /status=draft/);
+  assert.match(planner, /ArticleBlocks/);
+  assert.match(planner, /EditorialRichText/);
+  assert.match(planner, /Potvrdiť plánovanie/);
+  assert.match(planner, /expectedUpdatedAt: selectedArticle\.updatedAt/);
+  assert.match(store, /existing\.status !== "draft"/);
+  assert.match(store, /schedulingPrecondition\.status === "draft"/);
+  assert.match(api, /status: url\.searchParams\.get\("status"\) === "draft"/);
+  assert.match(editPage, /calendarDay/);
+  assert.match(editor, /returnToCalendar && nextStatus === "draft"/);
+});

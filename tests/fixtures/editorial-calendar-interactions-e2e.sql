@@ -1,5 +1,5 @@
 -- Isolated E2E seed; timestamps stay in the future even as CI calendar dates advance.
-DELETE FROM managed_articles WHERE id IN (974101, 974102, 974103, 974104, 974105);
+DELETE FROM managed_articles WHERE id IN (974101, 974102, 974103, 974104, 974105, 974106, 974107);
 
 INSERT INTO managed_articles (
   id, slug, title, excerpt, category, portal_section, status, accent, author,
@@ -65,3 +65,26 @@ SELECT 974105, 'editorial-calendar-e2e-reschedule-mobile', 'CALENDAR E2E resched
   sections_json, sources_json, blocks_json, reading_minutes, created_at,
   updated_at, published_at, created_by, updated_by
 FROM managed_articles WHERE id = 974101;
+
+-- Two independent new drafts, one for each E2E viewport project.
+INSERT INTO managed_articles (
+  id, slug, title, excerpt, category, portal_section, status, accent, author,
+  intro, takeaway, sections_json, sources_json, blocks_json,
+  reading_minutes, created_at, updated_at, published_at, created_by, updated_by
+) VALUES
+(974106, 'editorial-calendar-e2e-draft-desktop', 'CALENDAR E2E draft desktop',
+ 'Kompletný koncept článku pripravený na kontrolu a naplánovanie z mesačného kalendára.',
+ 'Život so psom', 'clanky', 'draft', 'forest', 'Redakcia Psipedia',
+ 'Toto je dostatočne dlhý úvod článku určeného na bezpečné naplánovanie.',
+ 'Záver článku slúži na kontrolu náhľadu.',
+ '[{"heading":"Kontrola článku","paragraphs":["Úplný text článku pre kalendárovú kontrolu a plánovanie."],"bullets":[]}]',
+ '[]', '[]', 4, strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+ strftime('%Y-%m-%dT%H:%M:%fZ','now'), NULL, 'ci:editorial-calendar', 'ci:editorial-calendar'),
+(974107, 'editorial-calendar-e2e-draft-mobile', 'CALENDAR E2E draft mobile',
+ 'Kompletný mobilný koncept článku pripravený na kontrolu a naplánovanie z kalendára.',
+ 'Život so psom', 'clanky', 'draft', 'forest', 'Redakcia Psipedia',
+ 'Toto je dostatočne dlhý úvod článku pre kontrolu a naplánovanie cez mobil.',
+ 'Záver mobilného konceptu je pripravený na kontrolu.',
+ '[{"heading":"Mobilná kontrola","paragraphs":["Úplný text článku pre mobilný redakčný kalendár."],"bullets":[]}]',
+ '[]', '[]', 4, strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+ strftime('%Y-%m-%dT%H:%M:%fZ','now'), NULL, 'ci:editorial-calendar', 'ci:editorial-calendar');
