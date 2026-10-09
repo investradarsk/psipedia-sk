@@ -20,5 +20,13 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <div data-admin-workspace><a className="admin-skip-link" href="#obsah">Preskočiť na obsah</a>{children}<AdminPwaRegistration /></div>;
+  return (
+    <div data-admin-workspace>
+      <nav aria-label="Preskočenie na obsah">
+        <a className="admin-skip-link" href="#obsah">Preskočiť na obsah</a>
+      </nav>
+      {children}
+      <AdminPwaRegistration />
+    </div>
+  );
 }

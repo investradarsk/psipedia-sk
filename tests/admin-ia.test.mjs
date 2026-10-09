@@ -11,6 +11,13 @@ import { summarizeAdminAutomationReads } from "../lib/admin-automation-reliabili
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
+test("admin skip link is inside a navigation landmark and targets the admin main region", () => {
+  const layout = read("app/admin/layout.tsx");
+  const shell = read("components/admin-shell.tsx");
+  assert.match(layout, /<nav aria-label="Preskočenie na obsah">\s*<a className="admin-skip-link" href="#obsah">Preskočiť na obsah<\/a>\s*<\/nav>/);
+  assert.match(shell, /<main id="obsah"/);
+});
+
 test("admin navigation has at most seven task-oriented groups and keeps all canonical agendas reachable", () => {
   assert.ok(adminNavigationGroups.length <= 7);
   assert.deepEqual(adminNavigationGroups.map((group) => group.label), [
