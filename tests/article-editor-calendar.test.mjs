@@ -37,7 +37,8 @@ test("article editor uses the same publication field and never automatically sav
 test("calendar overlay is responsive with explicit keyboard focus and no hidden-submit button", () => {
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(css, /focus-visible/);
-  assert.match(widget, /opener\.current\?\.focus\(\)/);
+  assert.match(widget, /const returnFocus = opener\.current/);
+  assert.match(widget, /returnFocus\?\.focus\(\)/);
   assert.match(widget, /type="button"/);
   assert.match(widget, /Čas/);
 });
