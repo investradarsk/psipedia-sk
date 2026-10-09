@@ -10498,16 +10498,11 @@ h3 {
 }
 .cookie-consent {
   position: fixed;
-  z-index: 1000;
-  top: auto;
-  right: auto;
+  z-index: 79;
   left: 50%;
-  bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  bottom: 1.25rem;
   width: min(720px, calc(100% - 2rem));
-  max-height: calc(100dvh - 2.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-  margin: 0;
   transform: translateX(-50%);
-  overflow-y: auto;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 1.25rem;
@@ -10520,9 +10515,12 @@ h3 {
   color: #21382c;
 }
 
-.cookie-consent:not([open]) { display: none; }
-.cookie-consent::backdrop { background: rgba(13, 34, 27, .48); }
-body:has(.cookie-consent:modal) { overflow: hidden; }
+/* Keep the browsing consent panel non-modal; only the active map filter
+   owns the modal focus and pointer layer. Restore the panel after closing. */
+body:has([data-testid="map-filter-dialog"]) .cookie-consent {
+  visibility: hidden;
+  pointer-events: none;
+}
 
 .cookie-consent strong { display: block; margin-bottom: .35rem; font-size: 1.08rem; }
 .cookie-consent p { margin: 0; line-height: 1.55; }
@@ -10616,7 +10614,7 @@ body:has(.cookie-consent:modal) { overflow: hidden; }
 .footer-cookie-button:hover { text-decoration: underline; }
 
 @media (max-width: 680px) {
-  .cookie-consent { grid-template-columns: 1fr; bottom: max(.75rem, env(safe-area-inset-bottom, 0px)); padding: 1rem; }
+  .cookie-consent { grid-template-columns: 1fr; bottom: .75rem; padding: 1rem; }
   .cookie-consent__actions { min-width: 0; }
   .admin-section-item > header,
   .admin-subsection-heading { align-items: flex-start; flex-direction: column; }
