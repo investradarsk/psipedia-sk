@@ -66,7 +66,10 @@ async function captureProductionBaseline(page: Page, path: string, output: strin
       return;
     }
     await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined);
-    await page.screenshot({ path: output });
+    // Production can keep loading external images indefinitely. Baseline capture
+    // is best-effort evidence, not an assertion about the local article UX.
+    // Bound each screenshot so six captures cannot exhaust the test budget.
+    await page.screenshot({ path: output, timeout: 8_000, animations: "disabled" });
   } catch (error) {
     console.warn(
       `[article-ux] production baseline unavailable for ${path}: ${error instanceof Error ? error.message : String(error)}`,
