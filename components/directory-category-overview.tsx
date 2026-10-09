@@ -22,7 +22,9 @@ export function DirectoryCategoryOverview({
             <section className={styles.category} key={category.slug} aria-labelledby={`directory-preview-${category.slug}`}>
               <div className={styles.header}>
                 <div>
-                  <h3 id={`directory-preview-${category.slug}`}>{category.label}</h3>
+                  <h3 id={`directory-preview-${category.slug}`}>
+                    <Link href={directoryCategoryHref(category)}>{category.heroTitle}</Link>
+                  </h3>
                   <p>{category.description}</p>
                 </div>
                 <Link className={styles.all} href={directoryCategoryHref(category)}>

@@ -18,16 +18,20 @@ import { selectHomepageArticles } from "@/lib/homepage-content";
 import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
 import { getResolvedSectionVisual } from "@/lib/section-visual-store";
 import { AD_PLACEMENTS } from "@/lib/monetization";
-import { buildPageMetadata, buildSiteIdentityJsonLd, serializeJsonLd, SITE_DESCRIPTION } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import styles from "./home-v2.module.css";
 
+// Site-level positioning: the homepage is a portal, not the landing for individual services.
+const homepageSearchDescription =
+  "Psipedia.sk je slovenský portál o psoch: rady o zdraví a výcviku, atlas plemien, veterinári, psie salóny, podujatia a pomoc psom.";
+
 export const metadata: Metadata = {
   ...buildPageMetadata({
     title: "Psipedia.sk – rozumej svojmu psovi",
-    description: SITE_DESCRIPTION,
+    description: homepageSearchDescription,
     path: "/",
     image: "/images/hero-labrador.webp",
     imageAlt: "Čierny labrador na lúke",
@@ -78,12 +82,8 @@ export default async function Home() {
     "dalsie-sluzby": "/images/hero-labrador.webp",
   };
 
-  const schema = buildSiteIdentityJsonLd();
-
   return (
     <main id="obsah" className={styles.homeV2}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
-
       <section className="hero-section shell" data-home-hero>
         <div className="hero-card">
           <img className="hero-image" src={homeHero.imageUrl} alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />
@@ -91,7 +91,7 @@ export default async function Home() {
           <div className="hero-copy">
             <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>
             <h1>Rozumej svojmu psovi.<br /><em>Každý deň o trochu viac.</em></h1>
-            <p>Informácie, služby, podujatia a pomoc pre každodenný život so psom.</p>
+            <p>Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste.</p>
           </div>
         </div>
       </section>
@@ -205,8 +205,8 @@ export default async function Home() {
                 <span className="home-service-card-icon" aria-hidden="true">{category.icon}</span>
               </span>
               <span className="home-service-card-copy">
-                <strong>{category.label}</strong>
-                <span>{category.description}</span>
+                <strong>{category.heroTitle}</strong>
+                <span>{` — ${category.description}`}</span>
                 <span className="home-service-card-arrow" aria-hidden="true"><ArrowIcon size={20} /></span>
               </span>
             </Link>

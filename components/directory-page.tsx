@@ -49,6 +49,11 @@ export async function DirectoryPage({
 }) {
   const active = initialCategory === "all" ? null : getDirectoryCategory(initialCategory);
   const heroVisual = await getSectionHeroVisual(active ? `directory.${active.slug}` : "section.adresar");
+  // Managed visuals may override the H1/intro with short navigation labels (e.g. "Salóny").
+  // Keep canonical category intent explicit while preserving the visual, eyebrow, and CTA settings.
+  const seoHeroVisual = active
+    ? { ...heroVisual, heroContent: { ...heroVisual.heroContent, title: active.heroTitle, intro: active.intro } }
+    : heroVisual;
   const activeCount = active ? categoryCounts[active.slug] : undefined;
   const filtered = hasDirectoryFilters(filters);
   const showRootOverview = !active && !filtered && filters.page === 1;
@@ -99,7 +104,7 @@ export async function DirectoryPage({
             eyebrow={active ? active.singular : "Adresár služieb"}
             title={active?.heroTitle ?? "Služby pre psov"}
             intro={active?.intro ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
-            visual={heroVisual}
+            visual={seoHeroVisual}
             metaSlot={active && typeof activeCount === "number" ? `${activeCount} ${profileCountLabel(activeCount)}` : undefined}
           />
         </UnifiedSectionHeroShell>
