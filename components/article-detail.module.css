@@ -222,7 +222,7 @@
   min-width: 0;
   margin: 0;
   color: var(--ink-2);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 1.0625rem;
   line-height: 1.7;
 }
@@ -721,14 +721,35 @@
 
   .readingShell :global(.article-prose) {
     max-width: none;
-    font-size: 0.9375rem;
-    line-height: 1.72;
+    font-size: 1rem;
+    line-height: 1.7;
   }
 
   .readingShell :global(.article-prose .article-intro) {
     margin-bottom: 19px;
-    font-size: 0.95rem;
-    line-height: 1.7;
+    font-size: 1.02rem;
+    line-height: 1.65;
+  }
+
+  /* Editorial paragraphs remain flush-left on narrow viewports; desktop keeps justified prose. */
+  .readingShell :global(.article-intro p),
+  .readingShell :global(.article-intro li),
+  .readingShell :global(.article-intro blockquote),
+  .readingShell :global(.article-block-text p),
+  .readingShell :global(.article-block-text li),
+  .readingShell :global(.article-block-text blockquote),
+  .readingShell :global(.article-blocks > ul > li),
+  .readingShell :global(.article-blocks > ol > li),
+  .readingShell :global(.article-block-callout .article-block-rich-content p),
+  .readingShell :global(.article-block-callout .article-block-rich-content li),
+  .readingShell :global(.article-block-callout .article-block-rich-content blockquote),
+  .readingShell :global(.article-block-quote .article-block-rich-content p),
+  .readingShell :global(.article-block-quote .article-block-rich-content li),
+  .readingShell :global(.article-block-quote .article-block-rich-content blockquote) {
+    text-align: left;
+    text-align-last: auto;
+    -webkit-hyphens: none;
+    hyphens: none;
   }
 
   .readingShell :global(.takeaway-box) {

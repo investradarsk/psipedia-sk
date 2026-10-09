@@ -184,6 +184,8 @@ for (const articleCase of cases) {
       const image = document.querySelector<HTMLElement>(".article-hero-image");
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
+      const introParagraph = intro.querySelector<HTMLElement>("p");
+      const bodyParagraph = document.querySelector<HTMLElement>(".article-block-text p");
       const takeaway = document.querySelector<HTMLElement>(".takeaway-box")!;
       const header = document.querySelector<HTMLElement>("[data-article-reading-start]")!;
       const imageRect = image?.getBoundingClientRect();
@@ -194,6 +196,11 @@ for (const articleCase of cases) {
         imageRatio: imageRect ? imageRect.width / imageRect.height : null,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        proseFontFamily: getComputedStyle(prose).fontFamily,
+        introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
+        introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
+        bodyTextAlign: bodyParagraph ? getComputedStyle(bodyParagraph).textAlign : null,
+        bodyHyphens: bodyParagraph ? getComputedStyle(bodyParagraph).hyphens : null,
         proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
         introTop: intro.getBoundingClientRect().top,
         introBottom: intro.getBoundingClientRect().bottom,
@@ -218,8 +225,13 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(14.8);
-    expect(metrics.proseSize).toBeLessThanOrEqual(15.2);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseFontFamily).toMatch(/Avenir Next|Avenir|Segoe UI/);
+    expect(metrics.introTextAlign).toBe("left");
+    expect(metrics.introHyphens).toBe("none");
+    if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
+    if (metrics.bodyHyphens !== null) expect(metrics.bodyHyphens).toBe("none");
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.68);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.76);
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
@@ -374,6 +386,7 @@ for (const articleCase of cases) {
         noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
         sidebarTop: sidebarRect.top,
         sidebarRightOfHero: imageRect ? sidebarRect.left > imageRect.right : sidebarRect.left > prose.getBoundingClientRect().right,
+        proseFontFamily: getComputedStyle(prose).fontFamily,
         introTextAlign: getComputedStyle(introParagraph).textAlign,
         headingTextAlign: bodyHeading ? getComputedStyle(bodyHeading).textAlign : null,
         disclaimerTextAlign: getComputedStyle(disclaimer).textAlign,
@@ -408,6 +421,7 @@ for (const articleCase of cases) {
     if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(2);
     expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
+    expect(metrics.proseFontFamily).toMatch(/Avenir Next|Avenir|Segoe UI/);
     expect(metrics.introTextAlign).toBe("justify");
     expect(metrics.headingTextAlign).not.toBe("justify");
     expect(metrics.disclaimerTextAlign).not.toBe("justify");

@@ -191,6 +191,19 @@ test("ARTICLE-PUBLIC-LAYOUT-V3 scopes prose justification and lifts the desktop 
   assert.match(styles, /@media \(max-width: 1120px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
 });
 
+test("ARTICLE-PUBLIC-TYPOGRAPHY-V4 uses sans-serif prose and preserves mobile left alignment", () => {
+  const mobileStyles = styles.slice(
+    styles.indexOf("@media (max-width: 767px)"),
+    styles.indexOf("@media (max-width: 420px)"),
+  );
+  assert.match(styles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif/s);
+  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*1rem;[^}]*line-height:\s*1\.7/s);
+  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose \.article-intro\)[^{]*\{[^}]*font-size:\s*1\.02rem/s);
+  assert.match(mobileStyles, /\.readingShell :global\(\.article-intro p\)[\s\S]*\.readingShell :global\(\.article-block-text li\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*-webkit-hyphens:\s*none;\s*hyphens:\s*none;/);
+  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*justify;\s*text-align-last:\s*left;\s*hyphens:\s*auto;/);
+  assert.match(mobileStyles, /\.sidebar\s*\{\s*display:\s*none;/);
+});
+
 test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isolated reading progress contract", () => {
   assert.match(detail, /data-article-reading-start/);
   assert.match(detail, /data-article-reading-end/);
@@ -216,7 +229,7 @@ test("mobile article composition hides sidebar and keeps compact readable contro
   assert.match(styles, /@media \(max-width: 767px\)/);
   assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.sidebar\s*\{\s*display:\s*none/);
   assert.match(styles, /\.favoriteAction :global\(\.favorite-button\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*font-size:\s*0\.9375rem[\s\S]*line-height:\s*1\.72/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*font-size:\s*1rem[\s\S]*line-height:\s*1\.7/);
   assert.match(styles, /font-size:\s*clamp\(1\.65rem,\s*6\.8vw,\s*1\.95rem\)/);
   assert.match(styles, /article-block-sources\)[^{]*\{[^}]*font-size:\s*0\.9rem/s);
   assert.match(shareStyles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
