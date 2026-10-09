@@ -155,7 +155,15 @@ test("directory runtime uses canonical post-0062 archived_at lifecycle", async (
     directoryStore,
     /SET status='archived', published_at=NULL, archived_at=\?, updated_at=\?, updated_by=\?/,
   );
-  assert.match(directoryStore, /\.bind\(timestamp, timestamp, editorEmail, id\)/);
+  // The fifth bind enforces the draft-only guard without changing the canonical archive lifecycle.
+  assert.match(
+    directoryStore,
+    /WHERE id=\? AND status IN \('draft','published'\) AND \(\?=0 OR status='draft'\)/,
+  );
+  assert.match(
+    directoryStore,
+    /\.bind\(timestamp, timestamp, editorEmail, id, options\.draftOnly \? 1 : 0\)/,
+  );
 
   assert.match(
     directoryStore,
