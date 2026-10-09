@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import {
   listPendingGeminiDirectoryConcepts,
+  listPendingGeminiEventConcepts,
   getLinkedGeminiConcept,
   safeGeminiReviewUrl,
 } from "../lib/gemini-automation-concept-review.ts";
@@ -145,4 +146,39 @@ test("rejection requires an identity BEFORE archival; existing candidate path is
   assert.match(review, /\/admin\/adresar\//);
   assert.doesNotMatch(route, /publishManaged|GeminiClient|generateContent|createCanonicalDraft|ensureDirectoryProfileInNotion/);
   assert.doesNotMatch(source("app/admin/automatizacie-gemini/koncepty/page.tsx"), /runGemini/);
+});
+
+test("Events review queue reuses linked canonical drafts and filters published/rejected/uncertain",async()=>{
+  const sqlite=new DatabaseSync(":memory:");
+  try {
+    sqlite.exec(source("drizzle/0115_gemini_notion_bridge.sql"));
+    sqlite.exec(source("drizzle/0117_gemini_events_rejections.sql"));
+    sqlite.exec(`CREATE TABLE managed_events (
+      id INTEGER PRIMARY KEY,status TEXT NOT NULL,title TEXT NOT NULL,event_type TEXT NOT NULL,
+      start_date TEXT NOT NULL,start_time TEXT NOT NULL,end_date TEXT,end_time TEXT,
+      organizer TEXT NOT NULL,venue TEXT NOT NULL,city TEXT NOT NULL,region TEXT NOT NULL,
+      description TEXT NOT NULL,website_url TEXT,registration_url TEXT
+    )`);
+    const db={prepare(sql) {return {bind(...values) {
+      const stmt=sqlite.prepare(sql);
+      return {async first(){return stmt.get(...values)??null},
+        async all(){return {results:stmt.all(...values)}},async run(){return stmt.run(...values)}};
+    }};}};
+    const add=(id,{status="draft",bridge="NOTION_LINKED",rejected=false}={})=>{
+      sqlite.prepare("INSERT INTO managed_events VALUES (?,?,'Výstava psov','Výstava','2030-05-01','09:00',NULL,NULL,'Klub','Hala','Nitra','Nitriansky kraj','Verejná výstava psov s registráciou','https://klub.sk','https://klub.sk/register')")
+        .run(id,status);
+      sqlite.prepare("INSERT INTO gemini_automation_concepts (id,stable_key,discovery_key,canonical_entity_type,canonical_entity_id,notion_page_id,status,primary_source_url,source_urls_json,discovered_at,created_at,updated_at) VALUES (?,?,'key'||?,'EVENT',?,'page'||?,?,?,'[\"https://klub.sk\"]','2030-01-01','2030-01-01','2030-01-01')")
+        .run(id,"events.vystavy",id,id,id,bridge,"https://klub.sk");
+      if(rejected)sqlite.prepare("INSERT INTO gemini_automation_event_rejections (stable_key,identity_kind,identity_hash,canonical_event_id,concept_id,rejected_at,updated_at) VALUES ('events.vystavy','event_url_date',?, ?, ?,'2030-01-02','2030-01-02')")
+        .run("a".repeat(64),id,id);
+    };
+    add(1);add(2,{status:"published"});add(3,{rejected:true});add(4,{bridge:"NOTION_UNCERTAIN"});
+    const rows=await listPendingGeminiEventConcepts(db);
+    assert.deepEqual(rows.map(x=>x.canonicalEntityId),[1]);
+    assert.equal(rows[0].name,"Výstava psov");
+    assert.equal(rows[0].notionPageId,"page1.0");
+    assert.equal(rows[0].category,"Výstava");
+    assert.equal(rows[0].registrationUrl,"https://klub.sk/register");
+    assert.equal(rows[0].sourceUrls.length,1);
+  }finally{sqlite.close()}
 });

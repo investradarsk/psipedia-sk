@@ -7,13 +7,16 @@ on:
       - "app/admin/automatizacie-gemini/**"
       - "app/api/admin/gemini-automation/**"
       - "components/admin-gemini-automation*"
+      - "components/admin-gemini-event-concept-review.tsx"
       - "lib/admin-navigation.ts"
       - "components/admin-navigation.tsx"
       - "lib/gemini-automation-*.ts"
       - "tests/gemini-automation-*.test.mjs"
+      - "tests/gemini-events-*.test.mjs"
       - "drizzle/0113_gemini_automation_foundation.sql"
       - "drizzle/0114_gemini_dedupe.sql"
       - "drizzle/0115_gemini_notion_bridge.sql"
+      - "drizzle/0117_gemini_events_rejections.sql"
       - "wrangler.jsonc"
       - "config/runtime-env.ts"
       - ".env.example"
@@ -40,11 +43,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Gemini foundation focused tests (network mocked)
-        run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs
       - name: Targeted Gemini admin lint coverage
         run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Gemini review, rejection and canonical lifecycle lint
         run: npx eslint app/admin/automatizacie-gemini app/api/admin/gemini-automation components/admin-gemini-concept-review.tsx lib/gemini-automation-concept-review.ts lib/gemini-automation-dedupe-store.ts lib/directory-store.ts
+      - name: Gemini Event contract, canonical and review lint
+        run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts components/admin-gemini-event-concept-review.tsx
       - name: Production build and typecheck
         run: npm run build
       - name: Runtime secret contract

@@ -3,6 +3,7 @@ import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
 import { getLinkedGeminiConcept } from "@/lib/gemini-automation-concept-review";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { prepareGeminiCanonicalRejection, persistGeminiRejectionPlan } from "@/lib/gemini-automation-dedupe-store";
+import { rememberGeminiEventRejection } from "@/lib/gemini-automation-event-dedupe";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById } from "@/lib/directory-store";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,28 @@ export async function POST(request: Request, { params }: Props) {
     const database = requireGeminiAdminD1() as D1Database;
     const concept = await getLinkedGeminiConcept(database, id);
     if (!concept) return Response.json({ error: "Koncept sa nenašiel." }, { status: 404, headers: NO_STORE });
+    if (concept.canonical_entity_type === "EVENT") {
+      if (concept.status !== "NOTION_LINKED" || !concept.canonical_entity_id ||
+        getGeminiCatalogItem(concept.stable_key)?.section !== "events") {
+        return Response.json({error:"Tento Event koncept nie je možné odmietnuť."},{status:409,headers:NO_STORE});
+      }
+      const event = await database.prepare(
+        "SELECT id,title,organizer,start_date,end_date,city,venue,website_url AS event_url,registration_url,status "+
+        "FROM managed_events WHERE id=? LIMIT 1"
+      ).bind(concept.canonical_entity_id).first<{
+        id:number;title:string;organizer:string;start_date:string;end_date:string|null;
+        city:string;venue:string;event_url:string|null;registration_url:string|null;status:string;
+      }>();
+      if (!event) return Response.json({error:"Podujatie neexistuje."},{status:404,headers:NO_STORE});
+      if (event.status !== "draft") {
+        return Response.json({error:"Publikované podujatie nemožno odmietnuť cez Gemini."},{status:409,headers:NO_STORE});
+      }
+      // An Event rejection is NOT a cancellation or deletion. Keep canonical draft and Notion mapping.
+      const fingerprints = await rememberGeminiEventRejection(
+        database,concept.stable_key,event,event.id,concept.id,
+      );
+      return Response.json({rejected:true,archived:false,draftRetained:true,fingerprints},{headers:NO_STORE});
+    }
     if (concept.canonical_entity_type !== "DIRECTORY" ||
       concept.status !== "NOTION_LINKED" ||
       !concept.canonical_entity_id || !Number.isSafeInteger(concept.canonical_entity_id) ||
