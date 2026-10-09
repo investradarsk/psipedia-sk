@@ -464,7 +464,11 @@ test.describe("MAP-1D mobile", () => {
     await page.mouse.wheel(0, 420);
     await expect.poll(() => resultScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await resultScroll.evaluate((element) => { element.scrollTop = 0; });
+    // Scrolling/pointer movement in the list must not steal interactions
+    // from result cards. Collapse uses the dedicated sheet header/handle.
     await swipePointer(resultScroll, 120);
+    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await swipePointer(header, 120);
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     const map = page.getByTestId("map-test-renderer");
@@ -487,9 +491,9 @@ test.describe("MAP-1D mobile", () => {
     await page.getByLabel("Vyhľadávanie v mape").fill("");
     await expect(page.getByTestId("marker-service:1")).toBeVisible();
     await page.getByRole("button", { name: "Zmenšiť" }).click();
-    await expect(results).toHaveAttribute("data-sheet-state", "peek");
+    await expect(results).toHaveAttribute("data-sheet-state", "preview");
     await page.getByTestId("marker-service:1").click();
-    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await expect(results).toHaveAttribute("data-sheet-state", "preview");
     await expect(page.getByTestId("map-card-service:1")).toHaveAttribute("data-selected", "true");
     await page.screenshot({ path: ".e2e-artifacts/map-1d/mobile-selected.png", fullPage: true });
 
@@ -505,7 +509,8 @@ test.describe("MAP-1D mobile", () => {
     await installMapApiMock(page);
     await page.goto("/mapa");
     const results = page.getByTestId("map-results-panel");
-    await expect(page.getByTestId("map-card-service:1")).toBeVisible();
+    // Collapsed sheet keeps cards in the DOM for markers but hides their scroll list.
+    await expect(page.getByTestId("map-card-service:1")).toBeAttached();
 
     await page.getByLabel("Vyhľadávanie v mape").fill("singleton");
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
@@ -515,7 +520,7 @@ test.describe("MAP-1D mobile", () => {
     await expect(page.getByTestId("marker-event:3")).toBeVisible();
 
     await page.getByTestId("marker-event:3").click();
-    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await expect(results).toHaveAttribute("data-sheet-state", "preview");
     await expect(page.getByTestId("map-card-event:3")).toHaveAttribute("data-selected", "true");
     await expect(page.getByTestId("map-results-guidance")).toHaveText("Vybraný výsledok nájdeš nižšie.");
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);

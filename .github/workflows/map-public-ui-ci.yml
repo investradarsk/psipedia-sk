@@ -7,10 +7,12 @@ on:
       - "app/mapa/**"
       - "components/map/**"
       - "lib/map-public-ui.ts"
+      - "lib/map-mobile-ux.ts"
       - "docs/map-public-ui.md"
       - "scripts/map-ui-bundle-report.mjs"
       - "tests/map-public-ui*.test.mjs"
       - "tests/e2e/map-public-ui.spec.ts"
+      - "tests/e2e/map-mobile-ux-v3.spec.ts"
       - "tests/e2e/map-production-launch.spec.ts"
       - "package-lock.json"
       - ".github/workflows/map-public-ui-ci.yml"
@@ -109,6 +111,8 @@ jobs:
           echo "$headers" | grep -qi '^permissions-policy:.*geolocation=()'
       - name: MAP-1D desktop/mobile Playwright and screenshots
         run: npx playwright test tests/e2e/map-public-ui.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: MAP-MOBILE-UX-V3 responsive, sheet and filter Playwright
+        run: npx playwright test tests/e2e/map-mobile-ux-v3.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0
       - name: MAP-1E launch navigation and consent Playwright
         run: npx playwright test tests/e2e/map-production-launch.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0
       - name: Stop launch-enabled local app

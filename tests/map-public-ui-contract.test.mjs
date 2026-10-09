@@ -77,7 +77,7 @@ test("singleton clusters reuse public MapItems while multi clusters retain zoom 
   assert.match(experience, /cluster\.count === 1 && cluster\.singletonItem/);
   assert.match(experience, /cluster\.count !== 1 \|\| !cluster\.singletonItem/);
   assert.match(experience, /const singletonClusterItem = response\?\.mode === "clusters"/);
-  assert.match(experience, /selectItem\(item, !singletonClusterItem\)/);
+  assert.match(experience, /selectItem\(item, !singletonClusterItem, "preview"\)/);
 });
 
 test("map guidance and provider disclosure follow canonical client state", () => {
@@ -157,7 +157,7 @@ test("MAP-UX-1 external actions use coordinate helpers and keep approximate navi
 test("MAP-UX-1 controls keep mobile touch targets and Google attribution unobstructed", () => {
   assert.match(css, /\.mapTypeControl\s*\{/);
   assert.match(css, /\.mapTypeControl button[\s\S]*min-height:\s*36px/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.mapTypeControl button[\s\S]*min-height:\s*40px/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.mapTypeControl button[\s\S]*min-height:\s*44px/);
   assert.match(css, /\.cardFooter[\s\S]*flex-wrap:\s*wrap/);
   assert.doesNotMatch(css, /\.mapTypeControl[\s\S]{0,240}bottom:/);
 });

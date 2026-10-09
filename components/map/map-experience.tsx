@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "@/components/icons";
 import { traceMapDebug } from "@/lib/map-debug";
+import { MAP_RETURN_KEY, sheetStateAfterDrag, validMapReturnState, type MapSheetState } from "@/lib/map-mobile-ux";
 import { directoryCategories } from "@/lib/directory";
 import { eventTypes, slovakRegions } from "@/lib/events";
 import type { MapCluster, MapItem, MapResponse } from "@/lib/map-contract";
@@ -222,11 +223,13 @@ function MapResultCard({
   item,
   selected,
   onSelect,
+  onNavigateToProfile,
   cardRef,
 }: {
   item: MapItem;
   selected: boolean;
   onSelect: () => void;
+  onNavigateToProfile: (itemId: string) => void;
   cardRef: (element: HTMLElement | null) => void;
 }) {
   const approximate = isApproximateMapItem(item);
@@ -258,7 +261,7 @@ function MapResultCard({
         <p>{item.displayLocation || item.city || item.region || "Lokalita nie je uvedená"}</p>
       </button>
       <div className={styles.cardFooter}>
-        <Link className={styles.resultLink} href={item.href}>{linkLabel}</Link>
+        <Link className={styles.resultLink} href={item.href} onClick={() => onNavigateToProfile(item.id)}>{linkLabel}</Link>
         {googleMapsUrl ? (
           <a
             className={styles.externalMapLink}
@@ -292,9 +295,12 @@ function MapResults({
   onSelectItem,
   onRetry,
   onClearFilters,
+  viewportZoom,
   sheetState,
   onToggleSheet,
   onSheetStateChange,
+  onCloseSelection,
+  onNavigateToProfile,
   cardRefs,
 }: {
   response: MapResponse | null;
@@ -304,9 +310,12 @@ function MapResults({
   onSelectItem: (item: MapItem) => void;
   onRetry: () => void;
   onClearFilters: () => void;
-  sheetState: "peek" | "expanded";
+  viewportZoom: number;
+  sheetState: MapSheetState;
   onToggleSheet: () => void;
-  onSheetStateChange: (state: "peek" | "expanded") => void;
+  onSheetStateChange: (state: MapSheetState) => void;
+  onCloseSelection: () => void;
+  onNavigateToProfile: (itemId: string) => void;
   cardRefs: MutableRefObject<Map<string, HTMLElement>>;
 }) {
   const items = responseItems(response);
@@ -321,7 +330,9 @@ function MapResults({
   const resultsGuidance = hasSelectedItem
     ? "Vybraný výsledok nájdeš nižšie."
     : hasGroupedClusters
-      ? "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
+      ? viewportZoom >= 20
+        ? "Na tomto priblížení zostávajú husté zhluky. Spresni filtre alebo vyhľadávanie."
+        : "Priblíž mapu alebo vyber zhluk, aby sa zobrazili jednotlivé miesta."
       : items.length > 0
         ? "Vyber výsledok na mape alebo v zozname."
         : "Výsledky sa zobrazia podľa aktuálnej oblasti a filtrov.";
@@ -331,12 +342,9 @@ function MapResults({
   const dragRef = useRef<{
     pointerId: number;
     startY: number;
-    lastY: number;
     startTime: number;
-    startState: "peek" | "expanded";
+    startState: MapSheetState;
     maxTravel: number;
-    active: boolean;
-    source: "header" | "list";
   } | null>(null);
   const pointerCleanupRef = useRef<(() => void) | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
@@ -359,70 +367,48 @@ function MapResults({
     if (!drag || drag.pointerId !== event.pointerId) return;
 
     const delta = event.clientY - drag.startY;
-    drag.lastY = event.clientY;
-
-    if (drag.source === "list" && !drag.active) {
-      if ((scrollRef.current?.scrollTop ?? 0) > 0 || delta <= 8) return;
-      drag.active = true;
-      setDragging(true);
-    }
-    if (!drag.active) return;
-
     event.preventDefault();
     const nextOffset = drag.startState === "peek"
       ? Math.max(-drag.maxTravel, Math.min(0, delta))
-      : Math.min(drag.maxTravel, Math.max(0, delta));
+      : drag.startState === "expanded"
+        ? Math.min(drag.maxTravel, Math.max(0, delta))
+        : Math.max(-drag.maxTravel, Math.min(drag.maxTravel, delta));
     setDragOffset(nextOffset);
   };
 
   const endSheetDrag = (event: PointerEvent) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    if (!drag.active) {
-      resetSheetDrag();
-      return;
-    }
-
     const delta = event.clientY - drag.startY;
     const elapsed = Math.max(1, event.timeStamp - drag.startTime);
     const velocity = delta / elapsed;
-    const threshold = Math.min(96, Math.max(48, drag.maxTravel * 0.18));
-
-    if (drag.startState === "peek") {
-      onSheetStateChange(delta < -threshold || velocity < -0.45 ? "expanded" : "peek");
-    } else {
-      onSheetStateChange(delta > threshold || velocity > 0.45 ? "peek" : "expanded");
-    }
+    onSheetStateChange(sheetStateAfterDrag(drag.startState, delta, velocity, drag.maxTravel));
     resetSheetDrag();
   };
 
-  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
+  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
-    if (source === "list" && (sheetState !== "expanded" || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
+    // The header is the drag handle. Result cards and links must remain clickable,
+    // while touch/mouse gestures on the list retain native scroll behavior.
+    if (isInteractiveSheetTarget(event.target)) return;
 
     clearPointerListeners();
     const panelHeight = panelRef.current?.getBoundingClientRect().height ?? 0;
     dragRef.current = {
       pointerId: event.pointerId,
       startY: event.clientY,
-      lastY: event.clientY,
       startTime: event.timeStamp,
       startState: sheetState,
       maxTravel: Math.max(0, panelHeight - 132),
-      active: source === "header",
-      source,
     };
 
-    if (source === "header") setDragging(true);
-
+    setDragging(true);
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
       // Window listeners below keep the gesture robust if capture is unavailable.
     }
-
     const onMove = (nativeEvent: PointerEvent) => moveSheetDrag(nativeEvent);
     const onUp = (nativeEvent: PointerEvent) => endSheetDrag(nativeEvent);
     const onCancel = (nativeEvent: PointerEvent) => {
@@ -443,6 +429,15 @@ function MapResults({
     pointerCleanupRef.current = null;
   }, []);
 
+  useEffect(() => {
+    if (!selectedItemId || sheetState === "peek") return;
+    const container = scrollRef.current;
+    const card = cardRefs.current.get(selectedItemId);
+    if (!container || !card) return;
+    // Avoid scrollIntoView: it may scroll the whole document and hide the map.
+    container.scrollTop += card.getBoundingClientRect().top - container.getBoundingClientRect().top - 8;
+  }, [selectedItemId, sheetState, items.length, cardRefs]);
+
   const sheetStyle = { "--map-sheet-drag-y": `${dragOffset}px` } as CSSProperties;
 
   return (
@@ -458,13 +453,17 @@ function MapResults({
       <header
         className={styles.resultsHead}
         data-testid="map-sheet-header"
-        onPointerDown={(event) => beginSheetDrag(event, "header")}
+        onPointerDown={beginSheetDrag}
       >
         <span className={styles.sheetHandle} data-testid="map-sheet-handle" aria-hidden="true" />
         <div className={styles.resultsHeadTop}>
           <h2>{countLabel}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {loading ? <span className={styles.loadingDot} role="status" aria-label="Načítavam výsledky" /> : null}
+            {hasSelectedItem ? (
+              <button type="button" className={styles.sheetClose} onClick={onCloseSelection}
+                aria-label="Zavrieť detail vybraného miesta" data-testid="map-close-selection">×</button>
+            ) : null}
             <button
               type="button"
               className={styles.sheetToggle}
@@ -472,7 +471,7 @@ function MapResults({
               aria-expanded={sheetState === "expanded"}
               aria-controls="map-result-scroll"
             >
-              {sheetState === "expanded" ? "Zmenšiť" : "Výsledky"}
+              {sheetState === "expanded" ? "Zmenšiť" : sheetState === "preview" ? "Viac výsledkov" : "Výsledky"}
             </button>
           </div>
         </div>
@@ -484,7 +483,6 @@ function MapResults({
         className={styles.resultsScroll}
         id="map-result-scroll"
         data-testid="map-results-scroll"
-        onPointerDown={(event) => beginSheetDrag(event, "list")}
       >
         {error ? (
           <div className={styles.stateCard} role="alert" data-testid="map-api-error">
@@ -532,6 +530,7 @@ function MapResults({
                 selected={selectedItemId === item.id}
                 key={item.id}
                 onSelect={() => onSelectItem(item)}
+                onNavigateToProfile={onNavigateToProfile}
                 cardRef={(element) => {
                   if (element) cardRefs.current.set(item.id, element);
                   else cardRefs.current.delete(item.id);
@@ -594,7 +593,7 @@ export function MapExperience({
   );
   const [rendererCommand, setRendererCommand] = useState<MapRendererCommand | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
-  const [sheetState, setSheetState] = useState<"peek" | "expanded">("peek");
+  const [sheetState, setSheetState] = useState<MapSheetState>("peek");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(false);
   const [googleMapsConsent, setGoogleMapsConsentState] = useState(false);
@@ -637,6 +636,36 @@ export function MapExperience({
     read();
     window.addEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
     return () => window.removeEventListener(GOOGLE_MAPS_CONSENT_EVENT, read);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(MAP_RETURN_KEY);
+      if (!raw) return;
+      window.sessionStorage.removeItem(MAP_RETURN_KEY);
+      const filterKey = serializeMapUiFilters(
+        mapFiltersFromSearchParams(new URLSearchParams(window.location.search)),
+      ).toString();
+      const saved = validMapReturnState(raw, filterKey);
+      if (!saved) return;
+      // Deferring state updates to the next frame avoids cascading renders
+      // during hydration while preserving one-time, validated restoration.
+      const frame = window.requestAnimationFrame(() => {
+        setViewport(saved.viewport);
+        // Updating viewport state alone does not move an existing Google map.
+        setRendererCommand((current) => ({
+          key: (current?.key ?? 0) + 1,
+          type: "item",
+          id: saved.selectedItemId ?? "map-return-camera",
+          latitude: saved.viewport.center.lat,
+          longitude: saved.viewport.center.lng,
+          zoom: saved.viewport.zoom,
+        }));
+        setSelectedItemId(saved.selectedItemId);
+        setSheetState(saved.selectedItemId ? "preview" : "peek");
+      });
+      return () => window.cancelAnimationFrame(frame);
+    } catch { /* Private browsing may disable sessionStorage. */ }
   }, []);
 
   useEffect(() => {
@@ -736,13 +765,18 @@ export function MapExperience({
       }
     }
 
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = oldOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [mobileFiltersOpen]);
 
-  const selectItem = useCallback((item: MapItem, focusMap = true) => {
+  const selectItem = useCallback((item: MapItem, focusMap = true, nextSheet: MapSheetState = "expanded") => {
     setSelectedItemId(item.id);
-    setSheetState("expanded");
+    setSheetState(nextSheet);
     if (focusMap) {
       setRendererCommand((current) => ({
         key: (current?.key ?? 0) + 1,
@@ -753,9 +787,6 @@ export function MapExperience({
         zoom: Math.max(viewport.zoom, 13),
       }));
     }
-    window.requestAnimationFrame(() => {
-      cardRefs.current.get(item.id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    });
   }, [viewport.zoom]);
 
   const selectItemById = useCallback((id: string) => {
@@ -763,11 +794,18 @@ export function MapExperience({
     if (!item) return;
     const singletonClusterItem = response?.mode === "clusters"
       && response.clusters.some((cluster) => cluster.count === 1 && cluster.singletonItem?.id === id);
-    selectItem(item, !singletonClusterItem);
+    selectItem(item, !singletonClusterItem, "preview");
   }, [items, response, selectItem]);
 
   const selectCluster = useCallback((cluster: MapCluster) => {
     setSelectedItemId(null);
+    // At the maximum zoom clusters can still overlap. Offer actionable guidance
+    // rather than repeatedly issuing the same no-op camera command.
+    if (viewport.zoom >= 20) {
+      setSheetState("expanded");
+      return;
+    }
+    setSheetState("peek");
     const target = mapClusterTarget(cluster, viewport.zoom);
     setRendererCommand((current) => ({
       key: (current?.key ?? 0) + 1,
@@ -778,6 +816,36 @@ export function MapExperience({
       zoom: target.zoom,
     }));
   }, [viewport.zoom]);
+
+  const saveMapReturnContext = useCallback((itemId: string) => {
+    try {
+      window.sessionStorage.setItem(MAP_RETURN_KEY, JSON.stringify({
+        filtersKey: serializeMapUiFilters(filters).toString(),
+        viewport, selectedItemId: itemId, savedAt: Date.now(),
+      }));
+    } catch { /* The link remains usable without storage. */ }
+  }, [filters, viewport]);
+
+  useEffect(() => {
+    if (mobileFiltersOpen || !selectedItemId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedItemId(null);
+        setSheetState("peek");
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mobileFiltersOpen, selectedItemId]);
+
+  useEffect(() => {
+    if (loading || (!error && (!response || response.meta.count !== 0))) return;
+    // Show actionable empty/error feedback in preview without blocking map gestures.
+    const frame = window.requestAnimationFrame(() => {
+      setSheetState((state) => state === "peek" ? "preview" : state);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loading, error, response]);
 
   const rendererStatusLabel = !effectiveRendererEnabled && !testRenderer
     ? "Google Maps nie je nakonfigurovaný"
@@ -868,9 +936,12 @@ export function MapExperience({
           onSelectItem={selectItem}
           onRetry={() => setRetryNonce((value) => value + 1)}
           onClearFilters={clearFilters}
+          viewportZoom={viewport.zoom}
           sheetState={sheetState}
-          onToggleSheet={() => setSheetState((value) => value === "peek" ? "expanded" : "peek")}
+          onToggleSheet={() => setSheetState((value) => value === "expanded" ? "preview" : "expanded")}
           onSheetStateChange={setSheetState}
+          onCloseSelection={() => { setSelectedItemId(null); setSheetState("peek"); }}
+          onNavigateToProfile={saveMapReturnContext}
           cardRefs={cardRefs}
         />
 
