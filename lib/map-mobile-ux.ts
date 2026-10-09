@@ -5,13 +5,18 @@ export const MAP_RETURN_KEY = "psipedia-map-return-v3";
 
 export function sheetStateAfterDrag(state: MapSheetState, delta: number, velocity: number, travel: number): MapSheetState {
   const threshold = Math.min(96, Math.max(40, travel * 0.16));
+  // Preserve the established full-swipe gesture (120 px in existing map E2E)
+  // while reserving shorter intentional drags for the intermediate preview.
+  const fullSwipe = Math.min(112, Math.max(84, travel * 0.21));
   if (state === "peek") {
-    if (delta >= -threshold && velocity > -0.45) return "peek";
-    return delta < -120 || velocity < -0.95 ? "expanded" : "preview";
+    if (delta <= -fullSwipe || velocity <= -0.95) return "expanded";
+    if (delta < -threshold || velocity < -0.45) return "preview";
+    return "peek";
   }
   if (state === "expanded") {
-    if (delta <= threshold && velocity < 0.45) return "expanded";
-    return delta > 120 || velocity > 0.95 ? "peek" : "preview";
+    if (delta >= fullSwipe || velocity >= 0.95) return "peek";
+    if (delta > threshold || velocity > 0.45) return "preview";
+    return "expanded";
   }
   if (delta > threshold || velocity > 0.45) return "peek";
   if (delta < -threshold || velocity < -0.45) return "expanded";
