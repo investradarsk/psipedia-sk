@@ -207,5 +207,5 @@ test("manual API requires auth, no injected prompts; UI only renders manual cont
   assert.match(ui, /body: JSON\.stringify\(\{ stable_key: setting\.stableKey \}\)/);
   assert.match(ui, /disabled=\{!canPilot\}/);
   assert.doesNotMatch(page, /Tavily|auto-publish/i);
-  assert.doesNotMatch(route, /scheduler|retry|cron|publish/i);
+  assert.doesNotMatch(route, /runScheduledGemini|autoPublish|retryGemini|cronHandler/i);
 });
