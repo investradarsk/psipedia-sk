@@ -54,8 +54,15 @@ async function expectNoSeriousAccessibilityViolations(page: Page) {
   expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
 }
 
+// A production screenshot is optional evidence, not a reliable required-PR check.
+// External production navigation can hang the Playwright browser despite the
+// per-navigation timeout; local article assertions remain mandatory on PRs.
+function shouldCaptureProductionBaseline() {
+  return process.env.ARTICLE_UX_CAPTURE_PRODUCTION === "1" && process.env.GITHUB_EVENT_NAME !== "pull_request";
+}
+
 async function captureProductionBaseline(page: Page, path: string, output: string) {
-  if (process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1") return;
+  if (!shouldCaptureProductionBaseline()) return;
   try {
     const response = await page.goto(`https://psipedia.sk${path}`, {
       waitUntil: "domcontentloaded",
@@ -66,7 +73,10 @@ async function captureProductionBaseline(page: Page, path: string, output: strin
       return;
     }
     await page.waitForLoadState("load", { timeout: 5_000 }).catch(() => undefined);
-    await page.screenshot({ path: output });
+    // Production can keep loading external images indefinitely. Baseline capture
+    // is best-effort evidence, not an assertion about the local article UX.
+    // Bound each screenshot so six captures cannot exhaust the test budget.
+    await page.screenshot({ path: output, timeout: 8_000, animations: "disabled" });
   } catch (error) {
     console.warn(
       `[article-ux] production baseline unavailable for ${path}: ${error instanceof Error ? error.message : String(error)}`,
@@ -109,8 +119,8 @@ test.beforeEach(async ({ page, baseURL }) => {
 test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }, testInfo) => {
   // Six external production navigations can each consume the bounded 15s timeout.
   // Keep a separate budget for evidence collection without relaxing local UX assertions.
-  test.setTimeout(150_000);
-  test.skip(process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1", "Production capture is CI-only.");
+  test.setTimeout(240_000);
+  test.skip(!shouldCaptureProductionBaseline(), "External production screenshot capture is opt-in outside required PR CI; local article UX checks still run.");
   test.skip(testInfo.project.name !== "desktop-chromium", "Captured once with explicit desktop and mobile viewports.");
   for (const reference of productionReferenceCases) {
     await page.setViewportSize({ width: 1440, height: 900 });

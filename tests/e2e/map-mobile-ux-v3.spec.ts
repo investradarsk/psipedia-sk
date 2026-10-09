@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const ITEM = {
@@ -8,8 +9,10 @@ const ITEM = {
 };
 const BBOX = { north: 50, south: 47, east: 23, west: 16 };
 
-async function mockMap(page: Page) {
-  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+async function mockMap(page: Page, preseedConsent = true) {
+  if (preseedConsent) {
+    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  }
   await page.route("**/api/map?**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -71,6 +74,63 @@ test("MAP-MOBILE-UX-V3: iPhone 390px sheet, selection, close and filter dialog",
   await expect(dialog).toHaveCount(0);
   await expect(page).toHaveURL(/region=Nitriansky/);
   await noHorizontalOverflow(page);
+});
+
+test("PUBLIC-UX-V3 closeout: first-visit cookie panel never competes with the map filter modal", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockMap(page, false);
+  await page.goto("/mapa");
+  await expect(page.getByTestId("map-card-service:24")).toBeAttached();
+
+  const consent = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
+  const reject = consent.getByRole("button", { name: "Odmietnuť analytiku" });
+  await expect(consent).toBeVisible();
+  await expect(consent).not.toHaveAttribute("aria-modal", "true");
+  const baselineAxe = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const serious = baselineAxe.violations.filter(
+    (violation) => violation.impact === "serious" || violation.impact === "critical",
+  );
+  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
+
+  // An undecided analytics choice must not prevent using map controls.
+  const filterTrigger = page.getByRole("button", { name: /Ďalšie filtre/ });
+  await filterTrigger.click();
+  const filterDialog = page.getByTestId("map-filter-dialog");
+  await expect(filterDialog).toBeVisible();
+  await expect(filterDialog).toHaveAttribute("aria-modal", "true");
+  await expect(consent).toBeHidden();
+  await expect(filterDialog.getByRole("button", { name: "Zavrieť filtre" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(filterDialog.getByRole("button", { name: "Použiť filtre" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(filterDialog).toHaveCount(0);
+  await expect(filterTrigger).toBeFocused();
+  await expect(consent).toBeVisible();
+
+  // The privacy banner remains accessible and retains the undecided choice.
+  await reject.click();
+  await expect(consent).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("psipedia-cookie-consent"))).toBe("necessary");
+  await noHorizontalOverflow(page);
+});
+
+test("PUBLIC-UX-V3 closeout: cookie dialog fits 320px portrait and short landscape", async ({ page }) => {
+  await mockMap(page, false);
+  for (const viewport of [{ width: 320, height: 640 }, { width: 740, height: 360 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/mapa");
+    const consent = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
+    await expect(consent).toBeVisible();
+    const box = await consent.boundingBox();
+    expect(box, `cookie modal at ${viewport.width}x${viewport.height}`).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-1);
+    expect(box!.y).toBeGreaterThanOrEqual(-1);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
+    await noHorizontalOverflow(page);
+  }
 });
 
 test("MAP-MOBILE-UX-V3: 320px portrait and short landscape have no page overflow", async ({ page }) => {

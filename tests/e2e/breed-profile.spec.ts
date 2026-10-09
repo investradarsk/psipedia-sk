@@ -259,9 +259,15 @@ test("breed profile: sticky section navigation, no-crop media, useful cards and 
 
   const sportsLink = nav.getByRole("link", { name: "Športy", exact: true });
   if (await sportsLink.count()) {
-    await page.locator("#sporty").scrollIntoViewIfNeeded();
-    await page.waitForTimeout(250);
+    // Exercise the section link rather than scrollIntoViewIfNeeded(), which
+    // can be a no-op when the target is partly visible and leaves scrollspy
+    // state unchanged. A real anchor navigation must update hash/current.
+    await sportsLink.click();
+    await expect(page).toHaveURL(/#sporty$/);
     await expect(sportsLink).toHaveAttribute("aria-current", "location");
+    // Transitioning white text and green background together briefly drops
+    // below 4.5:1 on mobile; keep the active tab WCAG-AA contrast stable.
+    expect(await sportsLink.evaluate((node) => getComputedStyle(node).transitionProperty)).toBe("none");
   }
 
   for (const href of [

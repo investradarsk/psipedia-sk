@@ -199,7 +199,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   if (isAdminRoute || !ready || !isOpen) return null;
 
   return (
-    <section className="cookie-consent" role="dialog" aria-modal="true" aria-labelledby="cookie-consent-title">
+    <section className="cookie-consent" role="dialog" aria-labelledby="cookie-consent-title">
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>

@@ -12,6 +12,9 @@
 
 .nav :global(.section-tab) {
   min-height: 44px;
+  /* Avoid contrast failing during the white-on-green active-state animation:
+     both text and background must reach their accessible colors immediately. */
+  transition: none;
 }
 
 .nav :global(.section-tab[aria-current="location"]) {

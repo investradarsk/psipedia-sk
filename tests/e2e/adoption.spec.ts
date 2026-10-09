@@ -4,6 +4,11 @@ import { readFileSync } from "node:fs";
 
 const migrationManifest = JSON.parse(readFileSync("data/imports/adoptions-ready-2026-09-13.json", "utf8")) as { ready: Array<{ slug: string; dogName: string }> };
 
+test.beforeEach(async ({ page }) => {
+  // The catalogue journeys intentionally test adoption, not undecided cookies.
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+});
+
 const catalogPath = "/pomoc-psom/adopcia";
 const rexPath = `${catalogPath}/e2e-adoption-rex-active`;
 const nonPublicCanonicalPaths = [

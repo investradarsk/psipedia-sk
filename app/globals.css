@@ -10498,7 +10498,7 @@ h3 {
 }
 .cookie-consent {
   position: fixed;
-  z-index: 1000;
+  z-index: 79;
   left: 50%;
   bottom: 1.25rem;
   width: min(720px, calc(100% - 2rem));
@@ -10513,6 +10513,13 @@ h3 {
   background: #fffdf8;
   box-shadow: 0 18px 60px rgba(24, 43, 33, 0.22);
   color: #21382c;
+}
+
+/* Keep the browsing consent panel non-modal; only the active map filter
+   owns the modal focus and pointer layer. Restore the panel after closing. */
+body:has([data-testid="map-filter-dialog"]) .cookie-consent {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .cookie-consent strong { display: block; margin-bottom: .35rem; font-size: 1.08rem; }
