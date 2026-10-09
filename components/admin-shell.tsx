@@ -76,6 +76,7 @@ export function AdminShell({
             <span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small>
           </Link>
           <div className={styles.topbarActions}>
+            <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">← <span>Späť na web</span></Link>
             <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
             <div className="admin-account">
               <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
@@ -100,7 +101,7 @@ export function AdminShell({
 
         <footer className="admin-footer">
           <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
-          <a href="/" target="_blank" rel="noreferrer">Otvoriť Psipedia.sk ↗</a>
+
         </footer>
       </div>
     </main>

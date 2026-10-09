@@ -16,10 +16,11 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
   assert.deepEqual(adminNavigationGroups.map((group) => group.label), [
     "Prehľad",
     "Obsah",
-    "Portál",
-    "Komunita a partneri",
-    "Automatizácie a kvalita",
-    "Nastavenia a prevádzka",
+    "Adresár",
+    "Komunita",
+    "Automatizácie",
+    "Kvalita dát",
+    "Nastavenia",
   ]);
 
   const hrefs = adminNavigationItems.map((item) => item.href);
@@ -250,4 +251,18 @@ test("IA workstream adds no admin mutation API and does not alter auth boundarie
   assert.match(articles, /requireAdminPageUser\("\/admin\/clanky"\)/);
   assert.doesNotMatch(landing + articles, /fetch\(|method=["'](?:post|put|patch|delete)["']/i);
   assert.equal(existsSync(new URL("../app/api/admin/admin-ia-2", import.meta.url)), false);
+});
+
+test("ADMIN-NAVIGATION-V2 isolates chrome and uses semantic accessible menus", () => {
+  const adminLayout = read("app/admin/layout.tsx");
+  const chrome = read("app/admin/admin-workspace.css");
+  const nav = read("components/admin-navigation.tsx");
+  const navCss = read("components/admin-navigation.module.css");
+  assert.match(adminLayout, /data-admin-workspace/);
+  assert.match(chrome, /body:has\(\[data-admin-workspace\]\) > \.site-header/);
+  assert.match(chrome, /body:has\(\[data-admin-workspace\]\) > \.site-footer/);
+  assert.match(nav, /<details/);
+  assert.match(nav, /<summary/);
+  assert.match(navCss, /overflow:\s*visible/);
+  assert.doesNotMatch(navCss, /overflow-x:\s*auto/);
 });
