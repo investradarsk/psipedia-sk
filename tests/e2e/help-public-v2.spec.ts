@@ -1,6 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  // Help browsing E2E starts after an explicit privacy choice; first-visit
+  // modal accessibility is covered in the dedicated consent/map E2E.
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+});
+
 async function expectNoHorizontalOverflow(page: Page) {
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
