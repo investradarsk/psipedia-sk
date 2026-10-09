@@ -95,6 +95,27 @@ test("AI-CRAWLER-POLICY-1 preserves discovery access while blocking training-onl
   assert.equal(policy.host, SITE_URL);
 });
 
+test("missing public landings are included with canonical metadata and conditional map access", () => {
+  const source = fs.readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
+  const nameDays = fs.readFileSync(new URL("../app/psie-meniny/page.tsx", import.meta.url), "utf8");
+  const publicMap = fs.readFileSync(new URL("../app/mapa/page.tsx", import.meta.url), "utf8");
+
+  assert.ok(source.includes('sitemapEntry("/kontakt"'));
+  assert.ok(source.includes('sitemapEntry("/psie-meniny"'));
+  assert.ok(source.includes("isPublicMapIndexable()"));
+  assert.ok(source.includes('sitemapEntry("/mapa"'));
+  assert.ok(source.includes('sitemapEntry("/"'));
+  assert.ok(nameDays.includes("buildListingPageMetadata("));
+  assert.ok(nameDays.includes('path: "/psie-meniny"'));
+  assert.ok(nameDays.includes("searchParams: await searchParams"));
+  assert.ok(publicMap.includes("publicMapLaunchEnabled("));
+});
+
+test("News sitemap excludes noncanonical article URLs", () => {
+  const route = fs.readFileSync(new URL("../app/news-sitemap.xml/route.ts", import.meta.url), "utf8");
+  assert.ok(route.includes("isSelfCanonical(article.seo, articleHref(article))"));
+});
+
 test("News sitemap admits only publication dates from the last two days", () => {
   const now = Date.parse("2026-09-16T12:00:00.000Z");
   assert.equal(isNewsSitemapEligibleDate(new Date(now - NEWS_SITEMAP_WINDOW_MS), now), true);

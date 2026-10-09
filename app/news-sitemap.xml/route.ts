@@ -1,7 +1,7 @@
 import { getPublishedArticleIndex } from "@/lib/article-store";
 import { articleHref, articlePortalSection } from "@/lib/portal";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
-import { isNewsSitemapEligibleDate } from "@/lib/sitemap-seo";
+import { isNewsSitemapEligibleDate, isSelfCanonical } from "@/lib/sitemap-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,8 @@ export async function GET() {
   const now = Date.now();
   const articles = (await getPublishedArticleIndex(MAX_NEWS_ITEMS))
     .flatMap((article) => {
-      if (articlePortalSection(article) !== "novinky" || article.seo?.noindex || !article.title.trim()) return [];
+      if (articlePortalSection(article) !== "novinky" || !article.title.trim()) return [];
+      if (!isSelfCanonical(article.seo, articleHref(article))) return [];
       const published = publicationDate(article);
       const loc = canonicalArticleUrl(article);
       if (!published || !loc || !isNewsSitemapEligibleDate(published, now)) return [];
