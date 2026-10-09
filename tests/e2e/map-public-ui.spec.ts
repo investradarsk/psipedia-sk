@@ -257,6 +257,11 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    // These map interaction tests assume privacy choice is already settled.
+    // The first-visit modal is covered separately in map-mobile-ux-v3.spec.ts.
+    window.localStorage.setItem("psipedia-cookie-consent", "necessary");
+  });
   if (testInfo.title.includes("Google renderer is blocked before service-specific consent")) return;
   await page.addInitScript(() => {
     window.localStorage.setItem("psipedia-google-maps-consent", "granted");
