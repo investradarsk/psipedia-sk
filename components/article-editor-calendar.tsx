@@ -47,6 +47,7 @@ export function ArticleEditorCalendar({ value, articleId, onChoose, readOnly = f
   const [monthData, setMonthData] = useState<Snapshot | null>(null);
   const [valueData, setValueData] = useState<Snapshot | null>(null);
   const [retry, setRetry] = useState(0);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const opener = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -88,6 +89,7 @@ export function ArticleEditorCalendar({ value, articleId, onChoose, readOnly = f
     const container = dialog.current;
     if (!container) return;
     const originalOverflow = document.body.style.overflow;
+    const returnFocus = opener.current;
     document.body.style.overflow = "hidden";
     heading.current?.focus();
     const selectable = () => Array.from(container.querySelectorAll<HTMLElement>(
@@ -114,11 +116,12 @@ export function ArticleEditorCalendar({ value, articleId, onChoose, readOnly = f
       document.body.style.overflow = originalOverflow;
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("focusin", onFocusIn);
-      opener.current?.focus();
+      returnFocus?.focus();
     };
   }, [open]);
 
   function openCalendar() {
+    setCurrentTime(Date.now());
     setMonth(value.slice(0, 7) || localDateKey(new Date()).slice(0, 7));
     setSelectedDay(value.slice(0, 10) || localDateKey(new Date()));
     setOpen(true);
@@ -141,7 +144,7 @@ export function ArticleEditorCalendar({ value, articleId, onChoose, readOnly = f
   const candidateTime = value.slice(11, 16) || "09:00";
   const selectedValue = selectedDay + "T" + candidateTime;
   const candidateCollisions = availableDayItems.filter((item) => formatArticleLocalDateTime(item.publishedAt) === selectedValue);
-  const pastDate = new Date(selectedValue).getTime() <= Date.now();
+  const pastDate = new Date(selectedValue).getTime() <= currentTime;
 
   return (
     <>
