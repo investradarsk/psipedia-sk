@@ -89,7 +89,6 @@ test("strict dates/time and DST rejects invalid local times",()=>{
   assert.throws(()=>parse({end_date:"2030-04-30"}));
   assert.throws(()=>parse({end_date:"2030-05-01",end_time:"08:00"}));
   assert.throws(()=>parse({start_date:"2026-01-01"}));
-  assert.throws(()=>parse({start_date:"2026-10-08",end_date:"2026-10-12",start_time:null}));
   // Ongoing multi-day event is valid even if its start precedes today.
   assert.equal(parse({start_date:"2026-10-08",end_date:"2026-10-12",start_time:null}).end_date,"2026-10-12");
 });

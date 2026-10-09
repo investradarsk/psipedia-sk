@@ -109,6 +109,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0114_gemini_dedupe.sql",
   "0115_gemini_notion_bridge.sql",
   "0116_admin_automation_push.sql",
+  "0117_gemini_events_rejections.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1116,6 +1117,11 @@ export function targetSchemaObjects(schema, targetMigration) {
         || names.has("sqlite_autoindex_admin_notification_read_receipts_1")
         || ADMIN_AUTOMATION_PUSH_INDEXES.some((index) => names.has(index)),
     };
+  }
+  if (targetMigration === "0117_gemini_events_rejections.sql") {
+    return { partial: ["gemini_automation_event_rejections",
+      "idx_gemini_event_rejection_scope_recent", "idx_gemini_event_rejection_event",
+      "sqlite_autoindex_gemini_automation_event_rejections_1"].some(name => names.has(name)) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
