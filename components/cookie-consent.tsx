@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
@@ -134,7 +134,6 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
   const [isInternalTraffic, setIsInternalTraffic] = useState(false);
-  const consentDialogRef = useRef<HTMLDialogElement>(null);
 
   const openSettings = useCallback(() => setIsOpen(true), []);
 
@@ -185,21 +184,6 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     }
   }, [isAdminRoute, isInternalTraffic, isPartnerRoute, isReviewAuthRoute, pathname, ready, savedChoice]);
 
-  // A genuine native modal owns the top layer and makes other public dialogs
-  // (notably mobile map filters) inert until the visitor decides.
-  useEffect(() => {
-    if (!ready || !isOpen || isAdminRoute || isPartnerRoute || isReviewAuthRoute) return;
-    const dialog = consentDialogRef.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal();
-    // Browsers may initially focus the privacy-details link, which precedes
-    // the actions in DOM order. Always start on the explicit reject choice.
-    dialog.querySelector<HTMLButtonElement>(".cookie-consent__actions button")?.focus();
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  }, [ready, isOpen, isAdminRoute, isPartnerRoute, isReviewAuthRoute]);
-
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
     window.localStorage.setItem(CONSENT_KEY, choice);
@@ -215,31 +199,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   if (isAdminRoute || !ready || !isOpen) return null;
 
   return (
-    <dialog
-      ref={consentDialogRef}
-      className="cookie-consent"
-      aria-modal="true"
-      aria-labelledby="cookie-consent-title"
-      onCancel={(event) => event.preventDefault()}
-      onKeyDown={(event) => {
-        if (event.key !== "Tab") return;
-        // Chromium can briefly focus <body> after the final control in a
-        // native modal. Keep a deterministic keyboard loop within consent.
-        const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled])',
-        )).filter((element) => element.getClientRects().length > 0);
-        const first = controls[0];
-        const last = controls[controls.length - 1];
-        if (!first || !last) return;
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }}
-    >
+    <section className="cookie-consent" role="dialog" aria-labelledby="cookie-consent-title">
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>
@@ -248,11 +208,11 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
         {savedChoice && <small>Aktuálna voľba: {savedChoice === "advertising" ? "analytika a reklamné cookies" : savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
       </div>
       <div className="cookie-consent__actions">
-        <button type="button" className="button button--light" autoFocus onClick={() => saveChoice("necessary")}>Odmietnuť analytiku</button>
+        <button type="button" className="button button--light" onClick={() => saveChoice("necessary")}>Odmietnuť analytiku</button>
         <button type="button" className="button button--dark" onClick={() => saveChoice("analytics")}>Prijať analytiku</button>
         {advertisingEnabled ? <button type="button" className="button button--dark" onClick={() => saveChoice("advertising")}>Prijať analytiku a reklamné cookies</button> : null}
       </div>
-    </dialog>
+    </section>
   );
 }
 
