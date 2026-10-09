@@ -59,6 +59,13 @@ test("MAP-MOBILE-UX-V3: iPhone 390px sheet, selection, close and filter dialog",
   await page.getByRole("button", { name: /Ďalšie filtre/ }).click();
   const dialog = page.getByTestId("map-filter-dialog");
   await expect(dialog).toHaveAttribute("aria-modal", "true");
+  // The clickable backdrop is not part of the modal keyboard or accessibility tree.
+  const backdrop = page.getByTestId("map-filter-backdrop");
+  await expect(backdrop).toHaveAttribute("tabindex", "-1");
+  await expect(backdrop).toHaveAttribute("aria-hidden", "true");
+  await expect(dialog.getByRole("button", { name: "Zavrieť filtre" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Použiť filtre" })).toBeFocused();
   await dialog.getByRole("combobox", { name: "Kraj" }).selectOption({ label: "Nitriansky kraj" });
   await dialog.getByRole("button", { name: "Použiť filtre" }).click();
   await expect(dialog).toHaveCount(0);
