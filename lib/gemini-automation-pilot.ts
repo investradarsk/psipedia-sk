@@ -131,7 +131,7 @@ export async function runGeminiDirectoryCategory(input: {
     const dedupe = input.dependencies?.dedupe ?? checkGeminiCandidateDedupe;
     const bridge = input.dependencies?.bridge ?? bridgeGeminiCandidateToNotion;
 
-    const knownContext = await loadGeminiCategoryMemory(input.database, GEMINI_PILOT_STABLE_KEY);
+    const knownContext = await loadGeminiCategoryMemory(input.database, stableKey);
     // Exactly ONE invocation. No retry, no fallback, no enrichment request.
     requestCount = 1;
     const discovery = await discover({
