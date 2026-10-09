@@ -342,12 +342,9 @@ function MapResults({
   const dragRef = useRef<{
     pointerId: number;
     startY: number;
-    lastY: number;
     startTime: number;
     startState: MapSheetState;
     maxTravel: number;
-    active: boolean;
-    source: "header" | "list";
   } | null>(null);
   const pointerCleanupRef = useRef<(() => void) | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
@@ -370,15 +367,6 @@ function MapResults({
     if (!drag || drag.pointerId !== event.pointerId) return;
 
     const delta = event.clientY - drag.startY;
-    drag.lastY = event.clientY;
-
-    if (drag.source === "list" && !drag.active) {
-      if ((scrollRef.current?.scrollTop ?? 0) > 0 || delta <= 8) return;
-      drag.active = true;
-      setDragging(true);
-    }
-    if (!drag.active) return;
-
     event.preventDefault();
     const nextOffset = drag.startState === "peek"
       ? Math.max(-drag.maxTravel, Math.min(0, delta))
@@ -391,11 +379,6 @@ function MapResults({
   const endSheetDrag = (event: PointerEvent) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    if (!drag.active) {
-      resetSheetDrag();
-      return;
-    }
-
     const delta = event.clientY - drag.startY;
     const elapsed = Math.max(1, event.timeStamp - drag.startTime);
     const velocity = delta / elapsed;
@@ -403,42 +386,29 @@ function MapResults({
     resetSheetDrag();
   };
 
-  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
+  const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    // Header buttons are controls, not sheet handles. List buttons can still
-    // start a deliberate mouse drag, but do not capture until drag activation:
-    // capturing at pointerdown would swallow an ordinary card click.
-    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
-    // Native finger scrolling is never converted to a drag of the entire sheet.
-    if (source === "list" && (event.pointerType === "touch" || sheetState !== "expanded"
-      || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
+    // The header is the drag handle. Result cards and links must remain clickable,
+    // while touch/mouse gestures on the list retain native scroll behavior.
+    if (isInteractiveSheetTarget(event.target)) return;
 
     clearPointerListeners();
     const panelHeight = panelRef.current?.getBoundingClientRect().height ?? 0;
     dragRef.current = {
       pointerId: event.pointerId,
       startY: event.clientY,
-      lastY: event.clientY,
       startTime: event.timeStamp,
       startState: sheetState,
       maxTravel: Math.max(0, panelHeight - 132),
-      active: source === "header",
-      source,
     };
 
-    if (source === "header") setDragging(true);
-
-    if (source === "header") {
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      } catch {
-        // Window listeners below keep the gesture robust if capture is unavailable.
-      }
+    setDragging(true);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Window listeners below keep the gesture robust if capture is unavailable.
     }
-    // For the list, window listeners detect an intentional drag without stealing
-    // pointerup/click from result buttons and profile links.
-
     const onMove = (nativeEvent: PointerEvent) => moveSheetDrag(nativeEvent);
     const onUp = (nativeEvent: PointerEvent) => endSheetDrag(nativeEvent);
     const onCancel = (nativeEvent: PointerEvent) => {
@@ -483,7 +453,7 @@ function MapResults({
       <header
         className={styles.resultsHead}
         data-testid="map-sheet-header"
-        onPointerDown={(event) => beginSheetDrag(event, "header")}
+        onPointerDown={beginSheetDrag}
       >
         <span className={styles.sheetHandle} data-testid="map-sheet-handle" aria-hidden="true" />
         <div className={styles.resultsHeadTop}>
@@ -513,7 +483,6 @@ function MapResults({
         className={styles.resultsScroll}
         id="map-result-scroll"
         data-testid="map-results-scroll"
-        onPointerDown={(event) => beginSheetDrag(event, "list")}
       >
         {error ? (
           <div className={styles.stateCard} role="alert" data-testid="map-api-error">
