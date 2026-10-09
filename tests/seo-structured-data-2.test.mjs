@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import "./seo-serp-landing-targeting.test.mjs";
 
 import {
   ORGANIZATION_ID,
