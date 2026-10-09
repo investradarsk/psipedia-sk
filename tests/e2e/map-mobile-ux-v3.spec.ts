@@ -35,6 +35,9 @@ test("MAP-MOBILE-UX-V3: iPhone 390px sheet, selection, close and filter dialog",
   await page.setViewportSize({ width: 390, height: 844 });
   await mockMap(page);
   await page.goto("/mapa");
+  // Wait for a real client-side /api/map response; SSR already renders the sheet
+  // but a click before React hydration does not invoke its event handler.
+  await expect(page.getByTestId("map-card-service:24")).toBeAttached();
   const sheet = page.getByTestId("map-results-panel");
   await expect(sheet).toHaveAttribute("data-sheet-state", "peek");
   await expect(page.getByRole("heading", { name: "Mapa Psipedie" })).toBeVisible();
@@ -68,6 +71,7 @@ test("MAP-MOBILE-UX-V3: 320px portrait and short landscape have no page overflow
   for (const viewport of [{ width: 320, height: 640 }, { width: 740, height: 360 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/mapa");
+    await expect(page.getByTestId("map-card-service:24")).toBeAttached();
     await expect(page.getByTestId("map-results-panel")).toBeVisible();
     await noHorizontalOverflow(page);
     await page.getByTestId("map-results-panel").getByRole("button", { name: "Výsledky" }).click();
