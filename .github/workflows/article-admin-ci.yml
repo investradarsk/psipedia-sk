@@ -11,9 +11,11 @@ on:
       - "app/api/admin/uploads/**"
       - "components/admin-article-*"
       - "components/admin-editorial-calendar*"
+      - "components/article-editor-calendar*"
       - "lib/article-schedule-time.ts"
       - "lib/editorial-calendar.ts"
       - "tests/editorial-calendar*.test.mjs"
+      - "tests/article-editor-calendar.test.mjs"
       - "tests/e2e/editorial-calendar-interactions.spec.ts"
       - "tests/fixtures/editorial-calendar-interactions-e2e.sql"
       - "components/admin-editorial-author-*"
@@ -66,7 +68,7 @@ jobs:
         run: |
           npm run test:article-admin-editor
           node --experimental-strip-types --test tests/admin-article-search.test.mjs
-          node --experimental-strip-types --test tests/editorial-calendar.test.mjs tests/editorial-calendar-interactions.test.mjs
+          node --experimental-strip-types --test tests/editorial-calendar.test.mjs tests/editorial-calendar-interactions.test.mjs tests/article-editor-calendar.test.mjs
       - name: Lint
         run: npm run lint
       - name: Build
