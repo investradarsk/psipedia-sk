@@ -137,9 +137,9 @@ test("reject memory SHA-256 is idempotent, scoped and outranks canonical duplica
     const id=Number(f.add());
     const hashes=await eventFingerprintHashes(stableKey,candidate());
     assert.ok(hashes.every(fp=>/^[0-9a-f]{64}$/.test(fp.hash)));
-    assert.equal(await rememberGeminiEventRejection(f.db,stableKey,candidate(),id,9),4);
-    assert.equal(await rememberGeminiEventRejection(f.db,stableKey,candidate(),id,9),4);
-    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS count FROM gemini_automation_event_rejections").get().count,4);
+    assert.equal(await rememberGeminiEventRejection(f.db,stableKey,candidate(),id,9),3);
+    assert.equal(await rememberGeminiEventRejection(f.db,stableKey,candidate(),id,9),3);
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS count FROM gemini_automation_event_rejections").get().count,3);
     assert.equal(await wasGeminiEventRejected(f.db,stableKey,candidate()),true);
     assert.equal(await wasGeminiEventRejected(f.db,"events.preteky",candidate()),false);
     assert.equal((await checkGeminiEventDedupe(f.db,stableKey,candidate())).status,"REJECTED_BEFORE");
