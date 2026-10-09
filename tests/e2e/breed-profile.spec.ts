@@ -265,6 +265,9 @@ test("breed profile: sticky section navigation, no-crop media, useful cards and 
     await sportsLink.click();
     await expect(page).toHaveURL(/#sporty$/);
     await expect(sportsLink).toHaveAttribute("aria-current", "location");
+    // Transitioning white text and green background together briefly drops
+    // below 4.5:1 on mobile; keep the active tab WCAG-AA contrast stable.
+    expect(await sportsLink.evaluate((node) => getComputedStyle(node).transitionProperty)).toBe("none");
   }
 
   for (const href of [
