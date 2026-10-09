@@ -481,6 +481,20 @@ export async function createCanonicalFromNotion(
   );
 }
 
+/** One-way publication gate: Gemini-origin drafts are never published by Notion pull.
+ * An already manually published Event and all non-Gemini Events keep normal sync.
+ */
+export async function assertGeminiEventNotionPublicationAllowed(
+  database:D1Database,eventId:number,currentStatus:"draft"|"published",notionStatus:string,
+):Promise<void> {
+  if(currentStatus!=="draft" || eventStatusFromNotion(notionStatus)!=="published")return;
+  const origin=await database.prepare(
+    "SELECT id FROM gemini_automation_concepts WHERE canonical_entity_type='EVENT' "+
+    "AND canonical_entity_id=? LIMIT 1"
+  ).bind(eventId).first<{id:number}>();
+  if(origin)throw new Error("GEMINI_EVENT_NOTION_PUBLICATION_BLOCKED");
+}
+
 export async function applyNotionToCanonical(
   agenda: BidirectionalAgendaKey,
   entityId: number,
@@ -490,15 +504,9 @@ export async function applyNotionToCanonical(
   if (agenda === "events") {
     const existing = await getManagedEventById(entityId);
     if (!existing) throw new Error(`Podujatie #${entityId} neexistuje.`);
-    // Gemini-origin drafts can be published ONLY in Psipedia's canonical admin editor.
-    // Notion PULL, even when its status is "Publikované", must not bypass this gate.
-    if (existing.status === "draft" && eventStatusFromNotion(s(values["Stav"])) === "published") {
-      const origin = await database.prepare(
-        "SELECT id FROM gemini_automation_concepts WHERE canonical_entity_type='EVENT' "+
-        "AND canonical_entity_id=? LIMIT 1"
-      ).bind(entityId).first<{id:number}>();
-      if (origin) throw new Error("GEMINI_EVENT_NOTION_PUBLICATION_BLOCKED");
-    }
+    await assertGeminiEventNotionPublicationAllowed(
+      database,entityId,existing.status,s(values["Stav"]),
+    );
     const updated = await updateManagedEvent(
       entityId,
       eventInput(values, existing),
