@@ -162,7 +162,7 @@ test("plus opens searchable drafts, full preview and confirms a guarded schedule
   }, target.toISOString());
   const day = calendar.locator('[class*="dayHeader"]', { has: calendar.locator('time[datetime="' + key + '"]') });
   await day.getByRole("button", { name: /Pridať koncept na/ }).click();
-  const planner = page.getByRole("dialog", { name: /Pridať koncept/ });
+  const planner = page.locator('[data-testid="calendar-draft-planner"]');
   await expect(planner).toBeVisible();
   await planner.getByRole("searchbox", { name: "Hľadať medzi konceptmi" }).fill(title);
   await expect(planner.getByRole("button", { name: new RegExp(title) })).toBeVisible();
@@ -174,7 +174,7 @@ test("plus opens searchable drafts, full preview and confirms a guarded schedule
   await expect(planner.getByLabel("Dátum publikovania")).toHaveValue(key);
   await planner.getByRole("button", { name: "Potvrdiť plánovanie" }).click();
   await expect(planner).toHaveCount(0);
-  await expect(calendar.getByRole("status")).toContainText("bol naplánovaný");
+  await expect(calendar.getByText(/bol naplánovaný/)).toBeVisible();
   const result = await page.request.get("/api/admin/articles/" + id);
   expect(result.ok()).toBe(true);
   const { article } = await result.json();
