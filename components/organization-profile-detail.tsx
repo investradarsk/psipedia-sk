@@ -147,7 +147,7 @@ export function OrganizationProfileDetail({
         imageUrl={presentation.imageUrl}
         imageAlt={"Fotografia organizácie " + organization.name}
         badges={[
-          ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const }] : []),
+          ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const, title: "Platené rozšírenie profilu." }] : []),
           ...(commercial?.promoted ? [{ label: commercial.sponsoredLabel ?? "Sponzorované", tone: "sponsored" as const }] : []),
         ]}
         actions={[

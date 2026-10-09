@@ -12,6 +12,7 @@ export type PublicProfileAction = {
 export type PublicProfileBadge = {
   label: string;
   tone: "featured" | "premium" | "sponsored";
+  title?: string;
 };
 
 export function PublicProfileHero({
@@ -44,7 +45,7 @@ export function PublicProfileHero({
             <div className={styles.badges}>
               <span className={styles.typeBadge}>{typeLabel}</span>
               {badges.map((badge) => (
-                <span className={styles[badge.tone]} key={badge.tone + badge.label}>{badge.label}</span>
+                <span className={styles[badge.tone]} key={badge.tone + badge.label} title={badge.title} aria-label={badge.title ? `${badge.label} – ${badge.title}` : undefined}>{badge.label}</span>
               ))}
             </div>
             <h1>{title}</h1>

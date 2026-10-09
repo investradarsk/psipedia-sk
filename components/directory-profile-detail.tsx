@@ -107,7 +107,7 @@ export function DirectoryProfileDetail({
         imageAlt={"Fotografia služby " + presentation.name}
         badges={[
           ...(presentation.featured ? [{ label: "Odporúčame", tone: "featured" as const }] : []),
-          ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const }] : []),
+          ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const, title: "Platené rozšírenie profilu." }] : []),
           ...(commercial?.promoted ? [{ label: commercial.sponsoredLabel ?? "Sponzorované", tone: "sponsored" as const }] : []),
         ]}
         actions={[
