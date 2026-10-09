@@ -1,28 +1,33 @@
-.desktopNavigation {
-  flex-wrap: nowrap;
-  align-items: flex-end;
-  min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-gutter: stable;
+.desktopNavigation { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; overflow: visible !important; padding: 8px; }
+.desktopGroup { position: relative; flex: 0 1 auto; min-width: 0; }
+.groupTrigger {
+  display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0 12px;
+  border-radius: 10px; color: #315246; font-size: .82rem; font-weight: 850;
+  white-space: nowrap; cursor: pointer; list-style: none;
 }
-/* One-row sticky navigation prevents overlaying calendar interactions. */
-.desktopNavigation :global(.admin-nav-group),
-.desktopNavigation :global(.admin-nav-public) {
-  flex: 0 0 auto;
-  white-space: nowrap;
+.groupTrigger::-webkit-details-marker { display: none; }
+.groupTrigger::marker { content: ""; }
+.groupTrigger:hover, .desktopGroup[open] .groupTrigger { background: #e7eee8; }
+.groupTrigger[data-active="true"] { color: #fff; background: #174b38; }
+.groupTrigger[data-active="true"]:hover, .desktopGroup[open] .groupTrigger[data-active="true"] { background: #24684e; }
+.chevron { font-size: 1.1rem; line-height: 1; }
+.desktopGroup[open] .chevron { transform: rotate(180deg); }
+.desktopMenu {
+  position: absolute; z-index: 65; top: calc(100% + 8px); left: 0;
+  display: grid; gap: 3px; width: max-content; min-width: 210px;
+  max-width: min(290px, calc(100vw - 40px)); padding: 8px;
+  border: 1px solid #dce6df; border-radius: 14px; background: #fffdf9;
+  box-shadow: 0 16px 38px rgba(16,47,37,.2);
 }
-
-.desktopNavigation :global(.admin-nav-group > span) {
-  color: #5f7169;
+.desktopGroup:nth-last-child(-n+2) .desktopMenu { left: auto; right: 0; }
+.desktopMenu a {
+  display: flex; min-height: 44px; align-items: center; padding: 9px 12px;
+  border-radius: 9px; color: #315246; font-size: .82rem; font-weight: 750;
+  text-decoration: none; white-space: normal;
 }
-
-.desktopNavigation :global(a[aria-current="page"]) {
-  color: #fff;
-  background: #174b38;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
-}
-
+.desktopMenu a:hover, .desktopMenu a:focus-visible { background: #edf3ee; }
+.desktopMenu a[aria-current="page"] { color: #fff; background: #174b38; }
+.groupTrigger:focus-visible, .desktopMenu a:focus-visible { outline: 3px solid #b98730; outline-offset: 2px; }
 .mobileBar {
   display: none;
 }
@@ -223,7 +228,7 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .desktopNavigation {
     display: none !important;
   }
