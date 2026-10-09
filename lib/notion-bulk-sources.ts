@@ -2,7 +2,7 @@ import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 import type { EditableSeo } from "./content-seo.ts";
 import type { CanonicalSourceRecord, ReconciliationValue } from "./notion-bulk-reconciliation.ts";
 import { notionSeoSourceProperties } from "./notion-seo-contract.ts";
-import { notionGeoMirrorProperties } from "./notion-geo-mirror.ts";
+import { notionGeoMirrorProperties, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
 
 const SITE_URL = "https://psipedia.sk";
 
@@ -204,7 +204,7 @@ export async function loadNotionBulkEvents(database: D1Database) {
         forceNotRequired: /\bonline\b/i.test(s(row.venue)) || /\bonline\b/i.test(s(row.event_type)),
       }),
       ...notionSeoSourceProperties("events", seo, asset(seo.ogImage)),
-    }, ["Slug"]);
+    }, ["Slug", ...notionGeoMirrorFields]);
   });
 }
 
@@ -264,7 +264,7 @@ export async function loadNotionBulkOrganizations(database: D1Database) {
       ...notionGeoMirrorProperties(row),
       "Hlavný obrázok URL": asset(row.image_url),
       "Zdroj dát": s(row.source_url),
-    }, ["Slug"]);
+    }, ["Slug", ...notionGeoMirrorFields, "Adresa"]);
   });
 }
 
