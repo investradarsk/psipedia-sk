@@ -129,3 +129,43 @@ export async function getLinkedGeminiConcept(db: GeminiD1, id: number): Promise<
     "FROM gemini_automation_concepts WHERE id = ? LIMIT 1"
   ).bind(id).first<GeminiLinkedConcept>();
 }
+
+export type GeminiEventReviewConcept = {
+  id:number;stableKey:string;canonicalEntityId:number;notionPageId:string|null;
+  name:string;category:string;startDate:string;startTime:string;endDate:string|null;
+  endTime:string|null;organizer:string;venue:string;city:string;region:string;
+  description:string;website:string;registrationUrl:string;primarySourceUrl:string|null;
+  sourceUrls:string[];discoveredAt:string;
+};
+type EventReviewRow = {
+  concept_id:number;stable_key:string;canonical_entity_id:number;notion_page_id:string|null;
+  primary_source_url:string|null;source_urls_json:string;discovered_at:string;
+  title:string;event_type:string;start_date:string;start_time:string;end_date:string|null;
+  end_time:string|null;organizer:string;venue:string;city:string;region:string;
+  description:string;website_url:string|null;registration_url:string|null;
+};
+/** One canonical Event review queue; human publish still happens only in /admin/podujatia/[id]. */
+export async function listPendingGeminiEventConcepts(db:GeminiD1,limit=50):Promise<GeminiEventReviewConcept[]> {
+  const bounded=Number.isSafeInteger(limit)?Math.min(50,Math.max(1,limit)):50;
+  const rows=await db.prepare(
+    "SELECT c.id AS concept_id,c.stable_key,c.canonical_entity_id,c.notion_page_id, "+
+    "c.primary_source_url,c.source_urls_json,c.discovered_at, "+
+    "e.title,e.event_type,e.start_date,e.start_time,e.end_date,e.end_time,e.organizer, "+
+    "e.venue,e.city,e.region,e.description,e.website_url,e.registration_url "+
+    "FROM gemini_automation_concepts c JOIN managed_events e ON e.id=c.canonical_entity_id "+
+    "WHERE c.canonical_entity_type='EVENT' AND c.status='NOTION_LINKED' AND "+
+    "c.canonical_entity_id IS NOT NULL AND e.status='draft' AND "+
+    "NOT EXISTS(SELECT 1 FROM gemini_automation_event_rejections r WHERE "+
+    "r.concept_id=c.id OR (r.canonical_event_id=e.id AND r.stable_key=c.stable_key)) "+
+    "ORDER BY c.discovered_at DESC,c.id DESC LIMIT ?"
+  ).bind(bounded).all<EventReviewRow>();
+  return (rows.results??[]).map(row=>({
+    id:row.concept_id,stableKey:row.stable_key,canonicalEntityId:row.canonical_entity_id,
+    notionPageId:row.notion_page_id,name:row.title,category:row.event_type,startDate:row.start_date,
+    startTime:row.start_time,endDate:row.end_date,endTime:row.end_time,
+    organizer:row.organizer,venue:row.venue,city:row.city,region:row.region,
+    description:row.description,website:row.website_url??"",registrationUrl:row.registration_url??"",
+    primarySourceUrl:safeGeminiReviewUrl(row.primary_source_url),
+    sourceUrls:sourceUrls(row.primary_source_url,row.source_urls_json),discoveredAt:row.discovered_at,
+  }));
+}
