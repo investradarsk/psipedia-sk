@@ -92,8 +92,8 @@ export default async function AdminGeminiAutomationPage() {
         Ukladanie je dočasne vypnuté.
       </p>}
       <p className={styles.notice}>
-        Zapnutie kategórie je len nastavenie pre budúci plánovač. Jediné reálne spustenie je manuálny pilot
-        pre Tréneri / psie školy po potvrdení. Môže vytvoriť nepublikované koncepty.
+        Zapnutie kategórie je len nastavenie pre budúci plánovač. Manuálne Gemini spustenie je dostupné
+        pre kategórie Adresára po uložení a dvojitom potvrdení. Môže vytvoriť nepublikované koncepty.
       </p>
       <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} />
