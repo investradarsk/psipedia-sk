@@ -6,6 +6,7 @@ import type { GeminiCategoryExclusionContext } from "./gemini-automation-categor
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 
 const DISCOVERY_TIMEOUT_MS = 120_000;
+const GEMINI_DISCOVERY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
 type ProviderResult = { model: string; payload: unknown };
@@ -44,6 +45,7 @@ type SafeDiagnostic = {
   jsonParsed?: boolean;
   schemaValid?: boolean;
   schemaFailure?: string;
+  responseBytes?: number;
 };
 const KNOWN_STATUSES = new Set(["completed", "failed", "in_progress", "requires_action", "cancelled"]);
 const KNOWN_STEP_TYPES = new Set(["google_search_call", "google_search_result", "model_output", "thought", "user_input"]);
@@ -62,6 +64,7 @@ function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
     jsonParsed: safe.jsonParsed ?? false,
     schemaValid: safe.schemaValid ?? false,
     schemaFailure: safe.schemaFailure ?? "NONE",
+    ...(safe.responseBytes === undefined ? {} : { responseBytes: safe.responseBytes }),
   });
   throw new GeminiAutomationError("INVALID_RESPONSE", undefined, Math.min(100, Math.max(0, safe.searchQueryCount ?? 0)));
 }
@@ -195,9 +198,12 @@ async function interact(options: {
     if (response.status === 429) throw new GeminiAutomationError("RATE_LIMITED", response.status);
     if (!response.ok) throw new GeminiAutomationError("PROVIDER_ERROR", response.status);
     const length = Number(response.headers.get("content-length") || 0);
-    if (!Number.isFinite(length) || length > 512_000) fail("RESPONSE_TOO_LARGE");
+    if (!Number.isFinite(length) || length > GEMINI_DISCOVERY_MAX_RESPONSE_BYTES) {
+      fail("RESPONSE_TOO_LARGE", { responseBytes: Number.isSafeInteger(length) && length >= 0 ? length : undefined });
+    }
     const raw = await response.text();
-    if (raw.length > 512_000) fail("RESPONSE_TOO_LARGE");
+    const responseBytes = new TextEncoder().encode(raw).byteLength;
+    if (responseBytes > GEMINI_DISCOVERY_MAX_RESPONSE_BYTES) fail("RESPONSE_TOO_LARGE", { responseBytes });
     let payload: unknown;
     try { payload = JSON.parse(raw); } catch { fail("INTERACTION_SHAPE"); }
     return { model, payload };

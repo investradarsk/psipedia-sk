@@ -352,6 +352,114 @@ const mockedInteraction = async (payload, onCall = () => {}) =>
     },
   });
 
+/** Padding is only in unused Google Search result metadata; valid candidate schema stays unchanged. */
+function groundedBodyOfByteSize(targetBytes, character = "x") {
+  const payload = mockResponse();
+  payload.steps[1].result[0].provider_padding = "";
+  const remaining = targetBytes - Buffer.byteLength(JSON.stringify(payload), "utf8");
+  assert.ok(remaining >= 0, "fixture needs room for its schema");
+  const width = Buffer.byteLength(character, "utf8");
+  payload.steps[1].result[0].provider_padding =
+    character.repeat(Math.floor(remaining / width)) + "x".repeat(remaining % width);
+  const raw = JSON.stringify(payload);
+  assert.equal(Buffer.byteLength(raw, "utf8"), targetBytes);
+  return raw;
+}
+
+const maxDiscoveryResponseBytes = 2 * 1024 * 1024;
+
+test("global 2 MiB wire guard accepts valid grounded responses beyond 512 KB and up to the hard cap", async () => {
+  for (const [size, character, withLength] of [
+    [512_001, "x", true],
+    [maxDiscoveryResponseBytes - 1, "é", false],
+    [maxDiscoveryResponseBytes, "x", true],
+  ]) {
+    const raw = groundedBodyOfByteSize(size, character);
+    let calls = 0;
+    const result = await discoverGeminiCandidates({
+      env, stableKey, maxCandidates: 3,
+      fetchImpl: async () => {
+        calls++;
+        return new Response(raw, {
+          headers: withLength ? { "content-length": String(size) } : {},
+        });
+      },
+    });
+    assert.equal(calls, 1, "no second interaction");
+    assert.equal(result.providerMetrics.requestCount, 1);
+    assert.equal(result.providerMetrics.groundedSearchQueryCount, 2);
+    assert.deepEqual(result.candidates, [candidate()]);
+  }
+});
+
+test("oversized Content-Length fails before the response body is read, globally for all discovery categories", async () => {
+  const keys = [
+    stableKey,
+    geminiAutomationCatalog.find((entry) => entry.section === "events").stableKey,
+    geminiAutomationCatalog.find((entry) => entry.section === "help").stableKey,
+  ];
+  for (const key of keys) {
+    let calls = 0;
+    let reads = 0;
+    const logs = [];
+    const warn = console.warn;
+    console.warn = (...args) => logs.push(args);
+    try {
+      await assert.rejects(discoverGeminiCandidates({
+        env, stableKey: key, maxCandidates: 1,
+        fetchImpl: async () => {
+          calls++;
+          return {
+            ok: true, status: 200,
+            headers: new Headers({ "content-length": String(maxDiscoveryResponseBytes + 1) }),
+            text: async () => { reads++; throw Error("body should not be read"); },
+          };
+        },
+      }), isInvalid);
+    } finally {
+      console.warn = warn;
+    }
+    assert.equal(calls, 1, "must not retry");
+    assert.equal(reads, 0, "Content-Length must fail before reading the body");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0][1].reason, "RESPONSE_TOO_LARGE");
+    assert.equal(logs[0][1].responseBytes, maxDiscoveryResponseBytes + 1);
+    assert.equal(Number.isInteger(logs[0][1].responseBytes), true);
+  }
+});
+
+test("missing Content-Length still rejects oversized UTF-8 bodies without retry or unsafe diagnostics", async () => {
+  for (const character of ["x", "é"]) {
+    const bodyBytes = maxDiscoveryResponseBytes + 1;
+    const raw = groundedBodyOfByteSize(bodyBytes, character);
+    if (character === "é") assert.ok(raw.length < maxDiscoveryResponseBytes,
+      "raw.length must not be confused with UTF-8 byte length");
+    let calls = 0;
+    const logs = [];
+    const warn = console.warn;
+    console.warn = (...args) => logs.push(args);
+    try {
+      await assert.rejects(discoverGeminiCandidates({
+        env, stableKey, maxCandidates: 3,
+        fetchImpl: async () => {
+          calls++;
+          return new Response(raw); // No Content-Length header.
+        },
+      }), isInvalid);
+    } finally {
+      console.warn = warn;
+    }
+    assert.equal(calls, 1);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0][1].reason, "RESPONSE_TOO_LARGE");
+    assert.equal(logs[0][1].responseBytes, bodyBytes);
+    assert.equal(Number.isInteger(logs[0][1].responseBytes), true);
+    assert.equal(JSON.stringify(logs).includes("provider_padding"), false);
+    assert.equal(JSON.stringify(logs).includes("Psia skola Slovensko"), false);
+    assert.equal(JSON.stringify(logs).includes(secret), false);
+  }
+});
+
 test("Interactions documented google_search_call arguments.queries and arguments.query both count", async () => {
   const plural = mockResponse();
   assert.equal((await mockedInteraction(plural)).providerMetrics.groundedSearchQueryCount, 2);
