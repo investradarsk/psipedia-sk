@@ -249,7 +249,8 @@ test("mobile map keeps rendering and filtering local, 44px controls and a dismis
   assert.match(view, /onNavigateToProfile={saveMapReturnContext}/);
   assert.match(view, /onClick=\{\(\) => onNavigateToProfile\(item\.id\)\}/);
   assert.match(view, /data-testid="map-close-selection"/);
-  assert.match(view, /event\.pointerType === "touch"/);
+  assert.match(view, /onPointerDown=\{beginSheetDrag\}/);
+  assert.doesNotMatch(view, /onPointerDown=\{\(event\) => beginSheetDrag\(event, "list"\)\}/);
   assert.match(css, /data-sheet-state="preview"/);
   assert.match(css, /env\(safe-area-inset-bottom/);
   assert.match(css, /orientation: landscape/);
