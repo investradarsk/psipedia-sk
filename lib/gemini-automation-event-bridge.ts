@@ -1,5 +1,5 @@
 import { createManagedEvent, normalizeManagedEventInput, type ManagedEventInput } from "./event-store.ts";
-import { bratislavaDateKey, slovakRegions } from "./events.ts";
+import { slovakRegions } from "./events.ts";
 import { createGeminiEventRequest, parseGeminiEventEnvelope, type GeminiEventCandidateV1 } from "./gemini-automation-event-contract.ts";
 import { checkGeminiEventDedupe, eventTypeForStableKey } from "./gemini-automation-event-dedupe.ts";
 import { ensureManagedEventInNotion, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync.ts";

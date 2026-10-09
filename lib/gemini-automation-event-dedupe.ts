@@ -1,5 +1,4 @@
 import type { GeminiEventCandidateV1 } from "./gemini-automation-event-contract.ts";
-import { publicEventUrl } from "./gemini-automation-event-contract.ts";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { bratislavaDateKey, eventPortalCategory, eventTypes } from "./events.ts";
 import type { GeminiD1 } from "./gemini-automation-store.ts";
