@@ -406,7 +406,9 @@ function MapResults({
   const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
     if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
+    // Pointer capture on a sheet container would retarget the click away
+    // from nested buttons/links, preventing card selection or navigation.
+    if (isInteractiveSheetTarget(event.target)) return;
     // Native finger scrolling is never converted to a drag of the entire sheet.
     if (source === "list" && (event.pointerType === "touch" || sheetState !== "expanded"
       || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
