@@ -1005,6 +1005,9 @@ export function MapExperience({
           <button
             type="button"
             className={styles.mobileBackdrop}
+            data-testid="map-filter-backdrop"
+            tabIndex={-1}
+            aria-hidden="true"
             onClick={() => {
               setMobileFiltersOpen(false);
               window.setTimeout(() => filterTriggerRef.current?.focus(), 0);
