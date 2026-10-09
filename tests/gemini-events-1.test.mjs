@@ -161,21 +161,17 @@ test("provider integration is one shared request with Search grounding, structur
     const payload={status:"completed",steps:[
       {type:"google_search_call",id:"gs1",arguments:{queries:["vystavy psov slovensko"]}},
       {type:"google_search_result",call_id:"gs1",result:[{search_suggestions:"https://klub.example.sk"}]},
-      {type:"model_output",output:[{type:"text",text:JSON.stringify({
+      {type:"model_output",content:[{type:"text",text:JSON.stringify({
         schema_version:1,category_key:stableKey,candidates:[candidate()],
-      })}]},
+      }),annotations:[{type:"url_citation",url,title:"Klub"}]}]},
     ]};
     return new Response(JSON.stringify(payload),{status:200,headers:{"content-type":"application/json"}});
   };
-  try {
-    const result=await discoverGeminiEventCandidates({stableKey,maxCandidates:1,
-      env:{GEMINI_API_KEY:"test",GEMINI_MODEL:"gemini-3.8-flash"},fetchImpl});
-    assert.equal(result.candidates.length,1);
-    assert.equal(result.providerMetrics.requestCount,1);
-  }catch(error) {
-    // Other provider step-shape variants are already covered by the shared discovery tests.
-    if(responses.length!==1)throw error;
-  }
+  const result=await discoverGeminiEventCandidates({stableKey,maxCandidates:1,
+    env:{GEMINI_API_KEY:"test",GEMINI_MODEL:"gemini-3.8-flash"},fetchImpl});
+  assert.equal(result.candidates.length,1);
+  assert.equal(result.providerMetrics.requestCount,1);
+  assert.equal(result.providerMetrics.groundedSearchQueryCount,1);
   assert.equal(responses.length,1);
   assert.deepEqual(responses[0].tools,[{type:"google_search"}]);
   assert.equal(responses[0].store,false);
