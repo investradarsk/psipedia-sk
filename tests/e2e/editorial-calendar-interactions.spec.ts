@@ -181,3 +181,49 @@ test("plus opens searchable drafts, full preview and confirms a guarded schedule
   expect(article.status).toBe("scheduled");
   expect(Date.parse(article.publishedAt)).toBeGreaterThan(Date.now());
 });
+
+
+test("article editor opens month overview, exposes same-time conflict and keeps unsaved article intact", async ({ page }) => {
+  const beforeRequest = await page.request.get("/api/admin/articles/974101");
+  expect(beforeRequest.ok()).toBe(true);
+  const before = (await beforeRequest.json()).article as { id: number; updatedAt: string; publishedAt: string };
+  const response = await page.goto("/admin/clanky/974101", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  const input = page.locator("#article-published-at");
+  await expect(input).toHaveValue(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
+  const original = await input.inputValue();
+
+  // These fixtures share exactly the same publication minute.
+  await expect(page.getByText(/Pozor, tento termín je už obsadený/)).toBeVisible();
+  const monthResponse = await page.request.get("/api/admin/articles/calendar?mesiac=" + original.slice(0, 7));
+  expect(monthResponse.ok()).toBe(true);
+  const { items } = await monthResponse.json() as { items: Array<{ id: number; title: string }> };
+  expect(items.map((item) => item.id)).toContain(974102);
+
+  const trigger = page.getByRole("button", { name: /Zobraziť redakčný kalendár a obsadené termíny/ });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Redakčný kalendár" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: new RegExp("^" + Number(original.slice(8, 10)) + "\\.") }).click();
+  const day = dialog.locator('[class*="dayDetail"]');
+  await expect(day.getByText("CALENDAR E2E scheduled B")).toBeVisible();
+  await expect(day.getByText("CALENDAR E2E scheduled A")).toHaveCount(0);
+  await expect(day.getByText(/Čas .* je už obsadený/)).toBeVisible();
+
+  // Choosing a date only updates the local form value; never publishes or schedules.
+  await dialog.getByRole("button", { name: /Použiť tento dátum/ }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(input).toHaveValue(original);
+  await expect(page.getByText("Neuložené zmeny")).toBeVisible();
+  const afterRequest = await page.request.get("/api/admin/articles/974101");
+  expect(afterRequest.ok()).toBe(true);
+  const after = (await afterRequest.json()).article as { updatedAt: string; publishedAt: string };
+  expect(after.updatedAt).toBe(before.updatedAt);
+  expect(after.publishedAt).toBe(before.publishedAt);
+
+  await trigger.click();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
