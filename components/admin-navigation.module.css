@@ -19,6 +19,8 @@
   border: 1px solid #dce6df; border-radius: 14px; background: #fffdf9;
   box-shadow: 0 16px 38px rgba(16,47,37,.2);
 }
+/* A closed <details> must hide its panel even though author CSS sets display:grid. */
+.desktopGroup:not([open]) > .desktopMenu { display: none; }
 .desktopGroup:nth-last-child(-n+2) .desktopMenu { left: auto; right: 0; }
 .desktopMenu a {
   display: flex; min-height: 44px; align-items: center; padding: 9px 12px;

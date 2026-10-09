@@ -6,7 +6,7 @@ import { listEditorialCalendarItems, parseEditorialCalendarMonth } from "@/lib/e
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { mesiac?: string | string[] };
+type SearchParams = { mesiac?: string | string[]; den?: string | string[]; koncept?: string | string[]; cas?: string | string[] };
 
 export default async function AdminArticleCalendarPage({
   searchParams,
@@ -17,6 +17,10 @@ export default async function AdminArticleCalendarPage({
     typeof params.mesiac === "string" ? params.mesiac : undefined,
   );
   const articles = await listEditorialCalendarItems(year, month);
+  const day = typeof params.den === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.den) && params.den.startsWith(`${year}-${String(month).padStart(2, "0")}-`) ? params.den : undefined;
+  const id = typeof params.koncept === "string" ? Number(params.koncept) : NaN;
+  const resumeDraftId = day && Number.isSafeInteger(id) && id > 0 ? id : undefined;
+  const initialTime = typeof params.cas === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(params.cas) ? params.cas : "09:00";
   return (
     <AdminShell
       user={user}
@@ -28,7 +32,7 @@ export default async function AdminArticleCalendarPage({
         <Link className="admin-primary-action" href="/admin/novy">+ Nový obsah</Link>
       </>}
     >
-      <AdminEditorialCalendar key={`${year}-${month}`} year={year} month={month} items={articles} />
+      <AdminEditorialCalendar key={`${year}-${month}`} year={year} month={month} items={articles} initialDay={day} resumeDraftId={resumeDraftId} initialTime={initialTime} />
     </AdminShell>
   );
 }

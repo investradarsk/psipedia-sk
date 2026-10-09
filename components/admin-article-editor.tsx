@@ -57,6 +57,7 @@ export function AdminArticleEditor({
   managedSections = defaultPortalSections,
   topicOptions = [],
   promoUtcDay,
+  returnToCalendar,
 }: {
   article?: ManagedArticle;
   defaultPortalSection?: ArticlePortalSection;
@@ -65,6 +66,7 @@ export function AdminArticleEditor({
   managedSections?: Array<PortalSection & { visible?: boolean }>;
   topicOptions?: ArticleTopic[];
   promoUtcDay?: string;
+  returnToCalendar?: string;
 }) {
   const initialPortalSection = article?.portalSection ?? defaultPortalSection;
   const builtInSectionOptions = articlePortalSectionOptions.filter(
@@ -288,7 +290,10 @@ export function AdminArticleEditor({
       setEditorDirty(false);
       setMessage(nextStatus === "published" ? (portalSection === "novinky" ? "Novinka je publikovaná na webe." : "Článok je publikovaný na webe.") : nextStatus === "scheduled" ? "Publikovanie je naplánované." : "Koncept je bezpečne uložený.");
       focusResult();
-      if (!article) {
+      if (returnToCalendar && nextStatus === "draft") {
+        allowNavigationRef.current = true;
+        window.location.assign(returnToCalendar);
+      } else if (!article) {
         allowNavigationRef.current = true;
         window.location.assign(`/admin/clanky/${data.article.id}?vytvoreny=1`);
       }
@@ -314,7 +319,8 @@ export function AdminArticleEditor({
   function cancelEditing() {
     if (dirty && !window.confirm("Máš neuložené zmeny. Naozaj chceš opustiť editor bez uloženia?")) return;
     allowNavigationRef.current = true;
-    window.location.assign("/admin/clanky");
+    if (returnToCalendar) window.location.assign(returnToCalendar);
+    else window.location.assign("/admin/clanky");
   }
 
   function unpublish() {
@@ -325,6 +331,7 @@ export function AdminArticleEditor({
 
   return (
     <div className={`admin-editor ${previewOpen ? "has-preview" : ""}`}>
+      {returnToCalendar && <button type="button" className="admin-secondary-action" onClick={cancelEditing}>← Späť do kalendára</button>}
       <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
         <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora článku" />
         {qaIssues.length > 0 && (

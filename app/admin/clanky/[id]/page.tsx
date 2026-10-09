@@ -10,9 +10,9 @@ import { listManagedPortalSections } from "@/lib/section-store";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ calendarDay?: string; calendarTime?: string }> };
 
-export default async function EditArticlePage({ params }: Props) {
+export default async function EditArticlePage({ params, searchParams }: Props) {
   const { id } = await params;
   const numericId = Number.parseInt(id, 10);
   if (!Number.isSafeInteger(numericId) || numericId < 1) notFound();
@@ -25,6 +25,12 @@ export default async function EditArticlePage({ params }: Props) {
   ]);
   if (!article) notFound();
   const isNews = article.portalSection === "novinky";
+  const query = await searchParams;
+  const calendarDay = typeof query.calendarDay === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.calendarDay) ? query.calendarDay : null;
+  const calendarTime = typeof query.calendarTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(query.calendarTime) ? query.calendarTime : "09:00";
+  const returnToCalendar = calendarDay
+    ? `/admin/clanky/kalendar?mesiac=${calendarDay.slice(0, 7)}&den=${calendarDay}&koncept=${numericId}&cas=${encodeURIComponent(calendarTime)}`
+    : undefined;
 
   return (
     <AdminShell
@@ -33,7 +39,7 @@ export default async function EditArticlePage({ params }: Props) {
       title={`Upraviť ${isNews ? "novinku" : "článok"}`}
       description="Zmeny ulož ako koncept alebo ich rovno publikuj na verejnom webe."
     >
-      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} />
+      <AdminArticleEditor article={article} breedOptions={breedOptions} managedSections={managedSections} topicOptions={topicOptions} promoUtcDay={articlePromoUtcDay()} returnToCalendar={returnToCalendar} />
     </AdminShell>
   );
 }

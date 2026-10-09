@@ -18,14 +18,16 @@ export async function listEditorialCalendarItems(year: number, month: number): P
   const start = new Date(Date.UTC(year, month - 1, -2)).toISOString();
   const end = new Date(Date.UTC(year, month, 3)).toISOString();
   const rows = await database.prepare(`
-    SELECT id, title, status, published_at
+    SELECT id, title,
+      CASE WHEN status = 'scheduled' AND published_at <= ? THEN 'published' ELSE status END AS status,
+      published_at
     FROM managed_articles
     WHERE status IN ('published', 'scheduled')
       AND published_at IS NOT NULL
       AND published_at >= ?
       AND published_at < ?
     ORDER BY published_at ASC, id ASC
-  `).bind(start, end).all<{
+  `).bind(new Date().toISOString(), start, end).all<{
     id: number;
     title: string;
     status: string;

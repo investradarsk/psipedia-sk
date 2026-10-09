@@ -42,7 +42,7 @@ export type ArticleStatus = "draft" | "scheduled" | "published";
 
 export class ArticleRescheduleConflictError extends Error {
   constructor() {
-    super("Článok sa medzičasom zmenil alebo už nie je naplánovaný. Obnov detail a skús to znova.");
+    super("Článok sa medzičasom zmenil alebo už nie je dostupný na plánovanie. Obnov detail a skús to znova.");
     this.name = "ArticleRescheduleConflictError";
   }
 }
@@ -1030,7 +1030,7 @@ export async function updateManagedArticle(
   payload: ManagedArticleInput,
   editorEmail: string,
   existingArticle?: ManagedArticle,
-  schedulingPrecondition?: { updatedAt: string },
+  schedulingPrecondition?: { updatedAt: string; status?: "draft" | "scheduled" },
 ) {
   const database = requireD1Binding();
   await ensureArticleStore(database);
@@ -1057,7 +1057,7 @@ export async function updateManagedArticle(
       published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
       seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
       og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
-    WHERE id = ?${schedulingPrecondition ? " AND status = 'scheduled' AND updated_at = ?" : ""}
+    WHERE id = ?${schedulingPrecondition ? schedulingPrecondition.status === "draft" ? " AND status = 'draft' AND updated_at = ?" : " AND status = 'scheduled' AND updated_at = ?" : ""}
     RETURNING *
   `).bind(
     input.slug,
@@ -1128,7 +1128,8 @@ export async function rescheduleManagedArticle(
 ) {
   const existing = await getManagedArticleById(id);
   if (!existing) return null;
-  if (existing.status !== "scheduled" || existing.updatedAt !== expectedUpdatedAt) {
+  if ((existing.status !== "scheduled" && existing.status !== "draft") || existing.updatedAt !== expectedUpdatedAt ||
+    (existing.status === "scheduled" && existing.publishedAt && Date.parse(existing.publishedAt) <= Date.now())) {
     throw new ArticleRescheduleConflictError();
   }
   const payload: ManagedArticleInput = {
@@ -1171,6 +1172,9 @@ export async function rescheduleManagedArticle(
     status: "scheduled",
     publishedAt,
   };
+  if (existing.status === "draft") {
+    return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt, status: "draft" });
+  }
   return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt });
 }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import type { ManagedArticle } from "@/lib/article-store";
+import { CalendarDraftPlanner } from "@/components/calendar-draft-planner";
 import type { EditorialCalendarItem } from "@/lib/editorial-calendar";
 import { formatArticleLocalDateTime, parseArticleLocalDateTime } from "@/lib/article-schedule-time";
 import styles from "./admin-editorial-calendar.module.css";
@@ -21,6 +22,11 @@ function dateKey(date: Date) {
 function monthUrl(year: number, month: number) {
   const date = new Date(year, month - 1, 1);
   return `/admin/clanky/kalendar?mesiac=${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function effectiveArticleStatus(article: ManagedArticle): ManagedArticle["status"] {
+  return article.status === "scheduled" && article.publishedAt && Date.parse(article.publishedAt) <= Date.now()
+    ? "published" : article.status;
 }
 
 function statusLabel(status: EditorialCalendarItem["status"] | ManagedArticle["status"]) {
@@ -49,11 +55,14 @@ function CalendarArticleEntries({
 }
 
 export function AdminEditorialCalendar({
-  year, month, items,
-}: { year: number; month: number; items: EditorialCalendarItem[] }) {
+  year, month, items, initialDay, resumeDraftId, initialTime = "09:00",
+}: { year: number; month: number; items: EditorialCalendarItem[]; initialDay?: string; resumeDraftId?: number; initialTime?: string }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | "published" | "scheduled">("all");
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(initialDay ?? null);
+  const [plannerDay, setPlannerDay] = useState<string | null>(initialDay && resumeDraftId ? initialDay : null);
+  const [plannerResumeId, setPlannerResumeId] = useState<number | undefined>(resumeDraftId);
+  const [plannerNotice, setPlannerNotice] = useState("");
   const [selectedArticle, setSelectedArticle] = useState<ManagedArticle | null>(null);
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [requestedId, setRequestedId] = useState<number | null>(null);
@@ -206,7 +215,7 @@ export function AdminEditorialCalendar({
   }
 
   async function saveSchedule() {
-    if (saveLock.current || saving || refreshing || selectedArticle?.status !== "scheduled") return;
+    if (saveLock.current || saving || refreshing || selectedArticle?.status !== "scheduled" || effectiveArticleStatus(selectedArticle) === "published") return;
     setSaveError("");
     setNotice("");
     const publishedAt = parseArticleLocalDateTime(date, time);
@@ -245,6 +254,14 @@ export function AdminEditorialCalendar({
     }
   }
 
+  function openDraftPicker(day: string, element: HTMLButtonElement) {
+    origin.current = element;
+    setSelectedDay(day);
+    setPlannerNotice("");
+    setPlannerResumeId(undefined);
+    setPlannerDay(day);
+  }
+
   function handleOpenArticle(id: number, element: HTMLButtonElement) {
     origin.current = element;
     void openArticle(id);
@@ -280,15 +297,23 @@ export function AdminEditorialCalendar({
           const articles = grouped.get(key) ?? [];
           const dateLabel = new Intl.DateTimeFormat("sk-SK", { day: "numeric", month: "long", year: "numeric" }).format(new Date(year, month - 1, day));
           return (
-            <div key={key} className={`${styles.day} ${key === today ? styles.currentDay : ""}`}>
-              <button type="button" className={styles.dayButton} aria-label={`${dateLabel}, ${articles.length} článkov`}
-                aria-expanded={selectedDay === key} onClick={() => setSelectedDay(selectedDay === key ? null : key)}>
-                <time dateTime={key}>{day}</time>
-                {articles.length > 0 && <span className={styles.count}>{articles.length}</span>}
-              </button>
-              <div className={styles.dayEntries}><CalendarArticleEntries articles={articles.slice(0, 2)} onOpen={handleOpenArticle}
-                selectedId={selectedArticle?.id} loadingId={loadingId} /></div>
-              {articles.length > 2 && <button className={styles.more} type="button" onClick={() => setSelectedDay(key)}>+{articles.length - 2} ďalšie</button>}
+            <div key={key} className={`${styles.day} ${key === today ? styles.currentDay : ""} ${selectedDay === key ? styles.expandedDay : ""}`}>
+              <div className={styles.dayHeader}>
+                <button type="button" className={styles.dayButton} aria-label={`${dateLabel}, ${articles.length} článkov`}
+                  aria-expanded={selectedDay === key} onClick={() => setSelectedDay(selectedDay === key ? null : key)}>
+                  <time dateTime={key}>{day}</time>
+                  {articles.length > 0 && <span className={styles.count}>{articles.length}</span>}
+                </button>
+                <button type="button" className={styles.addButton} aria-label={`Pridať koncept na ${dateLabel}`}
+                  onClick={(event) => openDraftPicker(key, event.currentTarget)}>+</button>
+              </div>
+              <div className={styles.dayEntries}><CalendarArticleEntries
+                articles={articles.slice(0, selectedDay === key ? articles.length : 2)}
+                onOpen={handleOpenArticle} selectedId={selectedArticle?.id} loadingId={loadingId} /></div>
+              {articles.length > 2 && <button className={styles.more} type="button" aria-expanded={selectedDay === key}
+                onClick={() => setSelectedDay(selectedDay === key ? null : key)}>
+                {selectedDay === key ? "Zbaliť deň" : `+${articles.length - 2} ďalšie`}
+              </button>}
             </div>
           );
         })}
@@ -298,6 +323,7 @@ export function AdminEditorialCalendar({
           <div className={styles.detailHeading}>
             <h3 id="calendar-day-detail">{dateFormat.format(new Date(`${selectedDay}T12:00:00`))}</h3>
             <button type="button" onClick={() => setSelectedDay(null)}>Zavrieť detail dňa</button>
+            <button type="button" onClick={(event) => openDraftPicker(selectedDay, event.currentTarget)}>+ Pridať koncept</button>
           </div>
           {dayArticles.length
             ? <CalendarArticleEntries articles={dayArticles} onOpen={handleOpenArticle}
@@ -305,6 +331,24 @@ export function AdminEditorialCalendar({
             : <p>V tento deň nie sú žiadne články.</p>}
         </section>
       )}
+      {plannerNotice && <p className={styles.success} role="status" aria-live="polite">{plannerNotice}</p>}
+      {plannerDay && <CalendarDraftPlanner
+        key={`${plannerDay}-${plannerResumeId ?? "new"}`}
+        day={plannerDay} initialDraftId={plannerResumeId} initialTime={plannerResumeId ? initialTime : "09:00"}
+        onClose={() => {
+          setPlannerDay(null);
+          requestAnimationFrame(() => {
+            if (origin.current?.isConnected) origin.current.focus();
+            else document.getElementById("editorial-calendar-month-nav")?.querySelector<HTMLElement>("a")?.focus();
+          });
+        }}
+        onScheduled={(title) => {
+          setPlannerDay(null);
+          setPlannerResumeId(undefined);
+          setPlannerNotice(`Článok „${title}“ bol naplánovaný. Kalendár sa aktualizuje.`);
+          startRefresh(() => router.refresh());
+        }}
+      />}
       {requestedId !== null && typeof document !== "undefined" && createPortal(
         <div className={styles.modalBackdrop}>
           <section ref={articleDialog} className={styles.articleDetail} role="dialog" aria-modal="true" aria-labelledby="calendar-article-detail">
@@ -319,11 +363,11 @@ export function AdminEditorialCalendar({
           {selectedArticle && (
             <>
               <dl className={styles.articleMeta}>
-                <div><dt>Stav</dt><dd>{statusLabel(selectedArticle.status)}</dd></div>
+                <div><dt>Stav</dt><dd>{statusLabel(effectiveArticleStatus(selectedArticle))}</dd></div>
                 <div><dt>Publikovanie</dt><dd>{selectedArticle.publishedAt ? <time dateTime={selectedArticle.publishedAt}>{dateFormat.format(new Date(selectedArticle.publishedAt))}, {timeFormat.format(new Date(selectedArticle.publishedAt))}</time> : "Bez termínu"}</dd></div>
                 <div><dt>Sekcia</dt><dd>{selectedArticle.portalSection}{selectedArticle.topics.length ? ` · ${selectedArticle.topics.map((topic) => topic.label).join(", ")}` : ""}</dd></div>
               </dl>
-              {selectedArticle.status === "scheduled" && (
+              {selectedArticle.status === "scheduled" && effectiveArticleStatus(selectedArticle) !== "published" && (
                 <form className={styles.scheduleForm} onSubmit={(event) => { event.preventDefault(); void saveSchedule(); }}>
                   <div className={styles.scheduleFields}>
                     <label>Dátum publikovania
@@ -343,9 +387,9 @@ export function AdminEditorialCalendar({
                   </div>
                 </form>
               )}
-              {selectedArticle.status !== "scheduled" && (
+              {(selectedArticle.status !== "scheduled" || effectiveArticleStatus(selectedArticle) === "published") && (
                 <div className={styles.articleActions}>
-                  <p>{selectedArticle.status === "published" ? "Publikovaný článok: dátum a čas sú tu iba na čítanie." : "Plánovanie konceptu sa spravuje v editore."}</p>
+                  <p>{effectiveArticleStatus(selectedArticle) === "published" ? "Publikovaný článok: dátum a čas sú tu iba na čítanie." : "Plánovanie konceptu sa spravuje v editore."}</p>
                   <Link href={`/admin/clanky/${selectedArticle.id}`}>Otvoriť v editore</Link>
                 </div>
               )}
