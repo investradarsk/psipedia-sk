@@ -294,3 +294,48 @@ test.describe("organization location admin CRUD", () => {
     await expectNoSeriousAccessibilityViolations(page);
   });
 });
+
+test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserves donation and adoption", async ({ page }) => {
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width < 900 ? 844 : 900 });
+    const response = await page.goto("/organizacie/org-3b-e2e-kanonicka-organizacia", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const main = page.locator("main#obsah");
+    const hero = main.locator("[data-public-profile-hero]");
+    const sidebar = main.locator("[data-public-profile-sidebar]");
+    const body = main.locator("[data-public-profile-body]");
+    await expect(hero.getByRole("heading", { level: 1, name: "E2E Kanonická organizácia" })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Kontakty", exact: true })).toBeVisible();
+    await expect(main.locator("[data-fundraising-method]")).toHaveCount(3);
+    await expect(main.locator("[data-adoption-card]")).toHaveCount(2);
+    const primary = hero.locator("[data-profile-primary-action]");
+    await expect(primary).toHaveAttribute("href", "https://example.org/organization");
+    const buttonBox = await primary.boundingBox();
+    expect(buttonBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(buttonBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const asideBox = await sidebar.boundingBox();
+    const bodyBox = await body.boundingBox();
+    expect(asideBox).not.toBeNull();
+    expect(bodyBox).not.toBeNull();
+    if (width < 900) {
+      expect((asideBox?.y ?? 0) + (asideBox?.height ?? 0)).toBeLessThanOrEqual((bodyBox?.y ?? 0) + 2);
+    } else {
+      expect(asideBox?.x ?? 0).toBeGreaterThan(bodyBox?.x ?? 0);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    const accessibility = await new AxeBuilder({ page }).include("main#obsah")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/organizacie/org-2b-e2e-jedna-lokalita", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("[data-organization-location-summary]")).toContainText("Trnava");
+  await expect(page.locator("[data-fundraising-method]")).toHaveCount(1);
+  await page.goto("/organizacie/org-2b-e2e-bez-lokality", { waitUntil: "domcontentloaded" });
+  const empty = page.locator("main#obsah");
+  await expect(empty.locator("[data-organization-location-summary]")).toHaveCount(0);
+  await expect(empty.locator("[data-public-profile-media]")).toHaveCount(0);
+  await expect(empty.locator("[data-profile-primary-action]")).toHaveAttribute("href", "/organizacie");
+  await expect(empty.getByRole("heading", { name: "Kontakty", exact: true })).toHaveCount(0);
+});

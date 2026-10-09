@@ -173,3 +173,44 @@ test.describe("public services detail shell", () => {
   });
 
 });
+
+test("PUBLIC-PROFILE-UX-UNIFICATION-1: responsive service profile puts contacts first without hiding specialist data", async ({ page }) => {
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width < 900 ? 844 : 900 });
+    const response = await page.goto("/adresar/treneri/e2e-services-detail-long", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    const main = page.locator("main#obsah");
+    const hero = main.locator("[data-public-profile-hero]");
+    const aside = main.locator("[data-public-profile-sidebar]");
+    const body = main.locator("[data-public-profile-body]");
+    await expect(hero.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Služby", exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Kontakt", exact: true })).toBeVisible();
+    const action = hero.locator("[data-profile-primary-action]");
+    await expect(action).toHaveAttribute("href", "#kontakt");
+    const actionBox = await action.boundingBox();
+    expect(actionBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+    expect(actionBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const asideBox = await aside.boundingBox();
+    const bodyBox = await body.boundingBox();
+    expect(asideBox).not.toBeNull();
+    expect(bodyBox).not.toBeNull();
+    if (width < 900) {
+      expect((asideBox?.y ?? 0) + (asideBox?.height ?? 0)).toBeLessThanOrEqual((bodyBox?.y ?? 0) + 2);
+    } else {
+      expect(asideBox?.x ?? 0).toBeGreaterThan(bodyBox?.x ?? 0);
+    }
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
+    const accessibility = await new AxeBuilder({ page }).include("main#obsah")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/adresar/dalsie-sluzby/e2e-services-detail-minimum", { waitUntil: "domcontentloaded" });
+  const minimum = page.locator("main#obsah");
+  await expect(minimum.locator("[data-public-profile-media]")).toHaveCount(0);
+  await expect(minimum.getByRole("heading", { name: "Kontakt", exact: true })).toHaveCount(0);
+  await expect(minimum.locator("[data-profile-primary-action]")).toHaveAttribute("href", "#kontakt");
+});

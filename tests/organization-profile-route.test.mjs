@@ -16,10 +16,8 @@ test("organization route delegates exact slug lookup to ORG-3A and fails closed"
 
 test("profile shell uses shared page and DETAIL-1 primitives", () => {
   for (const primitive of [
-    "PageContainer",
-    "Breadcrumbs",
-    "SectionHero",
-    "DetailContentLayout",
+    "PublicProfileHero",
+    "PublicProfileContentLayout",
     "DetailActions",
     "DetailSection",
     "DetailParagraphs",
@@ -31,6 +29,8 @@ test("profile shell uses shared page and DETAIL-1 primitives", () => {
   assert.match(componentSource, /Domov/);
   assert.match(componentSource, /Organizácie/);
   assert.match(componentSource, /aria-current="page"/);
+  assert.match(componentSource, /presentation\.imageUrl/);
+  assert.match(componentSource, /primaryAction/);
 });
 
 test("profile presentation renders canonical related adoptions as public cards", () => {
@@ -72,4 +72,11 @@ test("profile renders fundraising only from the public composition contract", ()
     componentSource,
     /beneficiaryIdentity|beneficiary_identity|verifiedBy|verified_by|verificationSource|version|createdBy|updatedBy/i,
   );
+});
+
+test("organization profile retains reachable support anchors and validated contact presentation", () => {
+  assert.match(componentSource, /id="podpora"/);
+  assert.match(componentSource, /id="psy-na-adopciu"/);
+  assert.match(componentSource, /presentation\.contacts\.find/);
+  assert.match(componentSource, /presentation\.actions\[0\]/);
 });
