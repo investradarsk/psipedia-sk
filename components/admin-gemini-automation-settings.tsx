@@ -35,10 +35,10 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
   const [pilotResult, setPilotResult] = useState<PilotResult | null>(null);
   const requestLocked = useRef(false);
   const router = useRouter();
-  const isDirectory = setting.section === "directory";
+  const canManuallyRun = setting.section === "directory" || setting.section === "events";
   const unsavedChanges = setting.enabled !== enabled ||
     setting.cadenceMinutes !== Number(cadence) || setting.maxNewConcepts !== Number(maximum);
-  const canPilot = isDirectory && available && setting.saved && !unsavedChanges &&
+  const canPilot = canManuallyRun && available && setting.saved && !unsavedChanges &&
     Number(maximum) > 0 && !saving && !running;
   const id = "gemini-" + setting.stableKey.replaceAll(".", "-");
 
@@ -162,7 +162,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
-      {isDirectory && (
+      {canManuallyRun && (
         <div className={styles.pilot}>
           <strong>Manuálne spustenie Gemini</strong>
           <p>Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje.</p>
