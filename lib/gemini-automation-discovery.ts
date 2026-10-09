@@ -5,7 +5,7 @@ import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-clien
 import type { GeminiCategoryExclusionContext } from "./gemini-automation-category-memory.ts";
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 
-const DISCOVERY_TIMEOUT_MS = 60_000;
+const DISCOVERY_TIMEOUT_MS = 120_000;
 
 type UnknownRecord = Record<string, unknown>;
 type ProviderResult = { model: string; payload: unknown };

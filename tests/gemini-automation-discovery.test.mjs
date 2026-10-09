@@ -247,7 +247,7 @@ test("R-S: classified 401/403/429/5xx, network failure and timeout, all via inje
     }) }), (error) => error.code === "TIMEOUT");
 });
 
-test("grounded discovery default accepts response after simulated 13s, with one request and no real wait", async (t) => {
+test("grounded discovery default accepts response after simulated 90s, with one request and no real wait", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let calls = 0;
   let signal;
@@ -258,12 +258,12 @@ test("grounded discovery default accepts response after simulated 13s, with one 
       signal = init.signal;
       return new Promise((resolve, reject) => {
         signal.addEventListener("abort", () => reject(Error("unexpected abort")), { once: true });
-        setTimeout(() => resolve(new Response(JSON.stringify(mockResponse()))), 13_000);
+        setTimeout(() => resolve(new Response(JSON.stringify(mockResponse()))), 90_000);
       });
     },
   });
   assert.equal(calls, 1);
-  t.mock.timers.tick(12_999);
+  t.mock.timers.tick(89_999);
   assert.equal(signal.aborted, false);
   t.mock.timers.tick(1);
   const result = await pending;
@@ -274,17 +274,23 @@ test("grounded discovery default accepts response after simulated 13s, with one 
   assert.equal(calls, 1);
 });
 
-test("grounded discovery aborts at 60s for default and oversized override, never retries", async (t) => {
-  for (const [label, timeoutOption] of [
-    ["default", {}],
-    ["hard max", { timeoutMs: 120_000 }],
+test("global discovery timeout is 120s for Directory, Events and Help, caps caller overrides and never retries", async (t) => {
+  const directoryKey = stableKey;
+  const eventsKey = geminiAutomationCatalog.find((entry) => entry.section === "events").stableKey;
+  const helpKey = geminiAutomationCatalog.find((entry) => entry.section === "help").stableKey;
+  for (const [label, key, timeoutOption, expectedMs] of [
+    ["directory default", directoryKey, {}, 120_000],
+    ["events default", eventsKey, {}, 120_000],
+    ["help default", helpKey, {}, 120_000],
+    ["oversized caller override", directoryKey, { timeoutMs: 300_000 }, 120_000],
+    ["short explicit timeout for tests", directoryKey, { timeoutMs: 25 }, 25],
   ]) {
     await t.test(label, async (subtest) => {
       subtest.mock.timers.enable({ apis: ["setTimeout"] });
       let calls = 0;
       let signal;
       const pending = discoverGeminiCandidates({
-        env, stableKey, maxCandidates: 3, ...timeoutOption,
+        env, stableKey: key, maxCandidates: 3, ...timeoutOption,
         fetchImpl: async (_endpoint, init) => {
           calls++;
           signal = init.signal;
@@ -293,11 +299,11 @@ test("grounded discovery aborts at 60s for default and oversized override, never
           });
         },
       });
-      assert.equal(calls, 1);
-      subtest.mock.timers.tick(59_999);
-      assert.equal(signal.aborted, false);
+      assert.equal(calls, 1, "one Gemini request only");
+      subtest.mock.timers.tick(expectedMs - 1);
+      assert.equal(signal.aborted, false, "must preserve the full allotted discovery window");
       subtest.mock.timers.tick(1);
-      assert.equal(signal.aborted, true);
+      assert.equal(signal.aborted, true, "abort exactly at the configured cap");
       await assert.rejects(pending, (error) =>
         error instanceof GeminiAutomationError && error.code === "TIMEOUT");
       assert.equal(calls, 1, "TIMEOUT must never trigger a retry");
