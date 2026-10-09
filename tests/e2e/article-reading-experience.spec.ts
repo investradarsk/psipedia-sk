@@ -109,7 +109,7 @@ test.beforeEach(async ({ page, baseURL }) => {
 test("ARTICLE-VISUAL-1 captures requested production references on desktop and mobile", async ({ page }, testInfo) => {
   // Six external production navigations can each consume the bounded 15s timeout.
   // Keep a separate budget for evidence collection without relaxing local UX assertions.
-  test.setTimeout(150_000);
+  test.setTimeout(240_000);
   test.skip(process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1", "Production capture is CI-only.");
   test.skip(testInfo.project.name !== "desktop-chromium", "Captured once with explicit desktop and mobile viewports.");
   for (const reference of productionReferenceCases) {
