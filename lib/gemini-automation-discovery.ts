@@ -1,6 +1,7 @@
 import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema, buildGeminiDiscoveryPrompt,
   parseGeminiDiscoveryEnvelope, GeminiDiscoverySchemaError, type GeminiDiscoveryCandidateV1,
 } from "./gemini-automation-discovery-contract.ts";
+import { createGeminiEventRequest, buildGeminiEventJsonSchema, buildGeminiEventPrompt, parseGeminiEventEnvelope, type GeminiEventCandidateV1 } from "./gemini-automation-event-contract.ts";
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
 import type { GeminiCategoryExclusionContext } from "./gemini-automation-category-memory.ts";
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
@@ -266,4 +267,24 @@ export async function discoverGeminiCandidates(options: DiscoveryOptions): Promi
       candidateCount: parsed.candidates.length,
     },
   };
+}
+
+/** Same single-request 120s / 2 MiB provider path as Directory; no retry or fallback. */
+export async function discoverGeminiEventCandidates(options: DiscoveryOptions): Promise<{
+  candidates: GeminiEventCandidateV1[];
+  providerMetrics: {model:string;requestCount:1;groundedSearchQueryCount:number;candidateCount:number};
+}> {
+  const request=createGeminiEventRequest({stableKey:options.stableKey,maxCandidates:options.maxCandidates});
+  const response=await interact({env:options.env,prompt:buildGeminiEventPrompt(request,options.knownContext?.serialized ?? "[]"),
+    schema:buildGeminiEventJsonSchema(request),fetchImpl:options.fetchImpl,timeoutMs:options.timeoutMs});
+  const {output,groundedSearchQueryCount,diagnostic}=groundedResponse(response.payload);
+  let parsed:ReturnType<typeof parseGeminiEventEnvelope>;
+  try { parsed=parseGeminiEventEnvelope(output,request); }
+  catch(error) {
+    if(error instanceof GeminiAutomationError && error.code==="INVALID_RESPONSE")
+      fail("DISCOVERY_SCHEMA_INVALID",{...diagnostic,schemaFailure:"CANDIDATE_STRUCTURE"});
+    throw error;
+  }
+  return {candidates:parsed.candidates,providerMetrics:{model:response.model,requestCount:1,
+    groundedSearchQueryCount,candidateCount:parsed.candidates.length}};
 }
