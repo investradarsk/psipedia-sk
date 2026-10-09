@@ -368,8 +368,8 @@ export async function transitionManagedEventCancellation(
   return { id: Number(row.id), status: row.status, cancelled: Boolean(row.cancelled), updatedAt: row.updated_at };
 }
 
-export async function createManagedEvent(payload: ManagedEventInput, editorEmail: string) {
-  const database = requireD1Binding();
+export async function createManagedEvent(payload: ManagedEventInput, editorEmail: string, injectedDatabase?: D1Database) {
+  const database = requireD1Binding(injectedDatabase);
   await ensureEventStore(database);
   const input = normalizeManagedEventInput(payload);
   const now = new Date().toISOString();

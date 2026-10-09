@@ -1132,3 +1132,59 @@ export async function runNotionEventsHelpBootstrapSweep(input: {
     mode: "bootstrap",
   });
 }
+
+/** Targeted Gemini Event ensure. Reuses the same Event source serialization, target,
+ * schema, Notion transport, reconciliation hash and event_notion_sync mapping as the sweep.
+ * On uncertain POST recovery allowCreate=false NEVER sends a second create request.
+ */
+export async function ensureManagedEventInNotion(input: {
+  database:D1Database;bindings:NotionEventsHelpSyncBindings;eventId:number;allowCreate:boolean;
+}):Promise<{notionPageId:string}> {
+  if(!Number.isSafeInteger(input.eventId) || input.eventId<1) throw new Error("GEMINI_EVENT_INVALID_ID");
+  const definition=definitions.find(d=>d.key==="events")!;
+  const sources=await loadNotionBulkEvents(input.database);
+  const source=sources.find(s=>Number(s.id)===input.eventId);
+  if(!source) throw new Error("GEMINI_EVENT_CANONICAL_MISSING");
+  const target=await resolveNotionCanonicalTarget({
+    database:input.database,bindings:input.bindings as NotionEventsHelpSyncBindings & Record<string,unknown>,
+    definition:canonicalTargetDefinition(definition),allowCreate:false,persist:true,
+  });
+  if(!target.dataSourceId)throw new Error("GEMINI_EVENT_NOTION_TARGET_MISSING");
+  const dataSource=await fetchDataSource(input.bindings,target.dataSourceId);
+  const schema=dataSource.properties ?? {};
+  if(!["Názov","Psipedia ID","URL Psipedia"].every(name=>Boolean(schema[name])))
+    throw new Error("GEMINI_EVENT_NOTION_SCHEMA_INVALID");
+  const pages=await listAllPages(input.bindings,target.dataSourceId);
+  const mappings=await loadMappings(input.database,"events");
+  const existing=mappings.find(m=>Number(m.entity_id)===input.eventId);
+  const canonicalHash=await snapshotHash("events",editableSnapshot("events",source.properties,schema));
+  let page:NotionPage|undefined;
+  if(existing) {
+    page=pages.find(p=>p.id===existing.notion_page_id);
+    if(!page)throw new Error("GEMINI_EVENT_NOTION_MAPPING_STALE");
+  } else {
+    const matches=pages.filter(p=> {
+      const identity=identityPage(p);
+      return identity.psipediaId===source.id || identity.url===source.url;
+    });
+    if(matches.length>1)throw new Error("GEMINI_EVENT_NOTION_AMBIGUOUS");
+    page=matches[0];
+    if(page) {
+      const owner=mappings.find(m=>m.notion_page_id===page!.id);
+      if(owner && Number(owner.entity_id)!==input.eventId)
+        throw new Error("GEMINI_EVENT_NOTION_OWNERSHIP_CONFLICT");
+      const remoteHash=await snapshotHash("events",pageSnapshot("events",page,schema));
+      if(remoteHash!==canonicalHash)throw new Error("GEMINI_EVENT_NOTION_BASELINE_CONFLICT");
+    }
+  }
+  if(!page) {
+    if(!input.allowCreate)throw new Error("GEMINI_EVENT_NOTION_UNCERTAIN_NOT_RECOVERED");
+    page=await writeSourceToNotion({bindings:input.bindings,dataSourceId:target.dataSourceId,
+      source,schema});
+  }
+  const now=new Date().toISOString();
+  await saveMapping({database:input.database,agenda:"events",pageId:page.id,
+    entityId:input.eventId,hash:canonicalHash,notionLastEditedTime:page.last_edited_time??now,
+    psipediaUpdatedAt:await canonicalUpdatedAt("events",input.eventId,input.database),syncedAt:now});
+  return {notionPageId:page.id};
+}

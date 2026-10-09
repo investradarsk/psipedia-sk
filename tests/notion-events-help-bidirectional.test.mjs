@@ -17,6 +17,7 @@ import {
   adoptionStatusFromNotion,
   agendaEditableFields,
   eventStatusFromNotion,
+  assertGeminiEventNotionPublicationAllowed,
   helpStatusFromNotion,
   lostFoundStatusFromNotion,
   organizationStatusFromNotion,
@@ -580,4 +581,27 @@ test("Directory sync implementation is not rewritten by this workstream", async 
   assert.match(directory, /content_hash/);
   assert.match(directory, /notion_last_edited_time/);
   assert.match(directory, /psipedia_updated_at/);
+});
+
+test("P0 publication gate: Gemini draft cannot become published through Notion",async()=>{
+  const observed=[];
+  const db={prepare(sql) {
+    observed.push(sql);
+    return {bind(id) {
+      assert.equal(id,77);
+      return {first:async()=>({id:42})};
+    }};
+  }};
+  await assert.rejects(
+    ()=>assertGeminiEventNotionPublicationAllowed(db,77,"draft","Publikované"),
+    /GEMINI_EVENT_NOTION_PUBLICATION_BLOCKED/,
+  );
+  assert.equal(observed.length,1);
+  // Non-publishing Notion updates preserve legacy semantics without extra query.
+  await assertGeminiEventNotionPublicationAllowed(db,77,"draft","Koncept");
+  // Once manually published, normal bidirectional sync resumes.
+  await assertGeminiEventNotionPublicationAllowed(db,77,"published","Publikované");
+  assert.equal(observed.length,1);
+  const nonGemini={prepare:()=>({bind:()=>({first:async()=>null})})};
+  await assertGeminiEventNotionPublicationAllowed(nonGemini,77,"draft","Publikované");
 });
