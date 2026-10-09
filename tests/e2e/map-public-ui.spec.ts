@@ -464,7 +464,11 @@ test.describe("MAP-1D mobile", () => {
     await page.mouse.wheel(0, 420);
     await expect.poll(() => resultScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
     await resultScroll.evaluate((element) => { element.scrollTop = 0; });
+    // Scrolling/pointer movement in the list must not steal interactions
+    // from result cards. Collapse uses the dedicated sheet header/handle.
     await swipePointer(resultScroll, 120);
+    await expect(results).toHaveAttribute("data-sheet-state", "expanded");
+    await swipePointer(header, 120);
     await expect(results).toHaveAttribute("data-sheet-state", "peek");
 
     const map = page.getByTestId("map-test-renderer");
