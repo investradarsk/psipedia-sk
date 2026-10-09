@@ -975,6 +975,13 @@ async function changedProfileIds(database: D1Database) {
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
     WHERE COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
        OR (gp.updated_at IS NOT NULL AND gp.updated_at > dns.last_synced_at)
+       OR EXISTS (
+         SELECT 1 FROM moderation_events m
+         WHERE m.resource_type='GEO_POINT'
+           AND m.subject_id=CAST(gp.id AS TEXT)
+           AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+           AND m.created_at > dns.last_synced_at
+       )
     ORDER BY dp.updated_at ASC, dp.id ASC
     LIMIT ?
   `).bind(CHANGED_PROFILE_BATCH).all<{ id: number }>();
