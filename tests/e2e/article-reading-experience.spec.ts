@@ -54,8 +54,15 @@ async function expectNoSeriousAccessibilityViolations(page: Page) {
   expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
 }
 
+// A production screenshot is optional evidence, not a reliable required-PR check.
+// External production navigation can hang the Playwright browser despite the
+// per-navigation timeout; local article assertions remain mandatory on PRs.
+function shouldCaptureProductionBaseline() {
+  return process.env.ARTICLE_UX_CAPTURE_PRODUCTION === "1" && process.env.GITHUB_EVENT_NAME !== "pull_request";
+}
+
 async function captureProductionBaseline(page: Page, path: string, output: string) {
-  if (process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1") return;
+  if (!shouldCaptureProductionBaseline()) return;
   try {
     const response = await page.goto(`https://psipedia.sk${path}`, {
       waitUntil: "domcontentloaded",
@@ -113,7 +120,7 @@ test("ARTICLE-VISUAL-1 captures requested production references on desktop and m
   // Six external production navigations can each consume the bounded 15s timeout.
   // Keep a separate budget for evidence collection without relaxing local UX assertions.
   test.setTimeout(240_000);
-  test.skip(process.env.ARTICLE_UX_CAPTURE_PRODUCTION !== "1", "Production capture is CI-only.");
+  test.skip(!shouldCaptureProductionBaseline(), "External production screenshot capture is opt-in outside required PR CI; local article UX checks still run.");
   test.skip(testInfo.project.name !== "desktop-chromium", "Captured once with explicit desktop and mobile viewports.");
   for (const reference of productionReferenceCases) {
     await page.setViewportSize({ width: 1440, height: 900 });
