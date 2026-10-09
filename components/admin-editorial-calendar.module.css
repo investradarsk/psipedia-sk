@@ -77,3 +77,39 @@
   .articleActions > :is(a, button) { width: 100%; }
   .articleMeta dt { min-width: 5rem; }
 }
+
+/* Expand a selected desktop day inside its week, rather than clipping titles. */
+.day, .blank { height: auto; min-height: 9rem; }
+.dayHeader { display: flex; align-items: flex-start; gap: .15rem; }
+.dayHeader .dayButton { min-width: 0; flex: 1; }
+.addButton { flex: 0 0 auto; width: 30px; min-height: 30px; border: 1px solid #abc7b5; border-radius: .45rem; color: #145a40; background: #eef7ef; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
+.expandedDay { background: #f0f8f1; box-shadow: inset 0 0 0 2px #9fcab1; overflow: visible; }
+.expandedDay .entryTitle { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+@media (min-width: 721px) {
+  .detail { display: none; }
+}
+@media (max-width: 720px) {
+  .day, .blank { min-height: 3.7rem; height: auto; }
+  .dayHeader { align-items: center; flex-direction: column; }
+  .addButton { width: 25px; min-height: 25px; padding: 0; font-size: .95rem; }
+  .expandedDay { overflow: hidden; }
+}
+.draftSearch { display: grid; gap: .4rem; margin: .5rem 0 1rem; font-weight: 700; }
+.draftSearch input { width: 100%; padding: .8rem; border: 1px solid #b0c7b8; border-radius: .5rem; font: inherit; }
+.draftList { display: grid; gap: .5rem; }
+.draftOption { display: grid; gap: .35rem; width: 100%; padding: .85rem; border: 1px solid #d4e2d9; border-radius: .6rem; background: #f7faf8; color: #173a2c; text-align: left; font: inherit; cursor: pointer; }
+.draftOption:hover { border-color: #18835b; background: #edf6ee; }
+.draftOption span { font-size: .85rem; color: #526558; }
+.draftPagination { display: flex; justify-content: space-between; align-items: center; gap: .7rem; margin: 1rem 0; }
+.draftPagination button { min-height: 44px; padding: .6rem; border: 1px solid #acc8b6; border-radius: .5rem; background: white; cursor: pointer; }
+.draftPagination button:disabled { opacity: .5; cursor: default; }
+.draftPreview { margin: 1rem 0; padding: 1rem; max-width: 100%; overflow-wrap: anywhere; background: #f9fbf9; border: 1px solid #dae6dc; border-radius: .7rem; }
+.draftPreview h4 { margin: 1.25rem 0 .6rem; font-size: 1rem; }
+.draftPreview img { max-width: 100%; height: auto; border-radius: .6rem; }
+.draftPreview :is(p, ul, ol) { line-height: 1.65; }
+.draftPreview dt { font-weight: 700; }
+.draftPreview dd { margin: .2rem 0 .7rem; }
+.draftActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .7rem; margin-top: 1rem; }
+.draftActions :is(a, button) { display: inline-flex; align-items: center; justify-content: center; padding: .7rem 1rem; min-height: 44px; border: 1px solid #9dc4af; border-radius: .5rem; background: white; color: #185e43; font: inherit; text-decoration: none; cursor: pointer; }
+.draftActions .save { color: white; background: #185e43; font-weight: 700; }
+.draftActions :is(a, button):disabled { opacity: .55; cursor: progress; }

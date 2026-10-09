@@ -27,7 +27,7 @@ test("calendar supports authenticated, bounded month navigation and editor deep 
 });
 
 test("calendar supports filtering, overflow, day detail and keyboard-accessible controls", () => {
-  assert.match(calendar, /articles\.slice\(0, 2\)/);
+  assert.match(calendar, /articles\.slice\(0, selectedDay === key \? articles\.length : 2\)/);
   assert.match(calendar, /articles\.length - 2/);
   assert.match(calendar, /dayArticles/);
   assert.match(calendar, /aria-label=/);
