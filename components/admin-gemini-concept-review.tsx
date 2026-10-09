@@ -21,7 +21,7 @@ function Field({ label, value }: { label: string; value: string }) {
 function ExternalLink({ label, url }: { label: string; url: string }) {
   const href = safeGeminiReviewUrl(url);
   return href
-    ? <a href={href} target="_blank" rel="noopener noreferrer" className={styles.external}>{label} ↗</a>
+    ? <a href={href} target="_blank" rel="noopener noreferrer" className={styles.external}>{label}: {href} ↗</a>
     : null;
 }
 
