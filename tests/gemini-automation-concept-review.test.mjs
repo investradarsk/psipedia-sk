@@ -176,7 +176,7 @@ test("Events review queue reuses linked canonical drafts and filters published/r
     const rows=await listPendingGeminiEventConcepts(db);
     assert.deepEqual(rows.map(x=>x.canonicalEntityId),[1]);
     assert.equal(rows[0].name,"Výstava psov");
-    assert.equal(rows[0].notionPageId,"page1");
+    assert.equal(rows[0].notionPageId,"page1.0");
     assert.equal(rows[0].category,"Výstava");
     assert.equal(rows[0].registrationUrl,"https://klub.sk/register");
     assert.equal(rows[0].sourceUrls.length,1);
