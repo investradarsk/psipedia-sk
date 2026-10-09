@@ -8,11 +8,17 @@ export const GEMINI_EXCLUSION_MAX_CHARS = 10_000;
 type Hint = { kind: "canonical" | "rejected"; name: string; city: string | null; domain: string | null };
 export type GeminiCategoryExclusionContext = { serialized: string; count: number; truncated: boolean };
 
-// D1 names are public data, not instructions; do not put prompt-control characters in Search context.
+// D1 labels are untrusted data, never prompt instructions. Keep legitimate
+// names verbatim, but reject controls, markup delimiters and embedded URLs.
+// The prompt separately serializes accepted labels as JSON DATA, not instructions.
 function safeLabel(value: unknown, max: number): string | null {
-  if (typeof value !== "string") return null;
+  if (typeof value !== "string" || /[\p{C}\p{Zl}\p{Zp}]/u.test(value)) return null;
   const text = value.trim();
-  if (!text || text.length > max || !/^[\p{L}\p{N} .,'’&()+\/-]+$/u.test(text)) return null;
+  if (!text || text.length > max) return null;
+  // Supports combining marks, Unicode dashes and ordinary business punctuation.
+  // Deliberately excludes Markdown [], HTML <>, backticks and raw markup symbols.
+  if (!/^[\p{L}\p{M}\p{N} .,'’‘‚"„“”«»&()+\/:;!?\p{Pd}]+$/u.test(text)) return null;
+  if (/(?:\b[a-z][a-z0-9+.-]*:\/\/|\bwww\.)/iu.test(text)) return null;
   return text;
 }
 function websiteDomain(value: string | null): string | null {
