@@ -8,12 +8,11 @@ import { LocationIcon } from "@/components/help-public-icons";
 import {
   DetailActions,
   DetailContactsCard,
-  DetailContentLayout,
   DetailFactsCard,
   DetailParagraphs,
   DetailSection,
 } from "@/components/detail-primitives/detail-primitives";
-import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
+import { PublicProfileContentLayout, PublicProfileHero } from "@/components/public-profile/public-profile-hero";
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { PublicOrganizationComposition } from "@/lib/help-organization-store";
 import type { OrganizationPublicAdoption } from "@/lib/organization-adoption-store";
@@ -89,7 +88,6 @@ export function OrganizationProfileDetail({
 
   const aside = (
     <div className={styles.asideStack}>
-      <DetailFactsCard title="Základné informácie" facts={presentation.facts} />
       <DetailContactsCard
         title="Kontakty"
         contacts={presentation.contacts.map((contact) => ({
@@ -104,6 +102,7 @@ export function OrganizationProfileDetail({
           ),
         }))}
       />
+      <DetailFactsCard title="Základné informácie" facts={presentation.facts} />
       {presentation.actions.length > 0 ? (
         <DetailActions>
           {presentation.actions.map((action) => (
@@ -122,31 +121,48 @@ export function OrganizationProfileDetail({
     </div>
   );
 
+  const directContact = presentation.contacts.find((contact) =>
+    contact.label === "Telefón" || contact.label === "Email"
+  );
+  const primaryAction = presentation.actions[0]
+    ?? (directContact ? { label: directContact.label === "Telefón" ? "Zavolať" : "Napísať e-mail", href: directContact.href, external: false } : null);
+  const fallbackAction = fundraising.length > 0
+    ? { label: "Ako môžete pomôcť", href: "#podpora", external: false }
+    : adoptions.length > 0
+      ? { label: "Psy na adopciu", href: "#psy-na-adopciu", external: false }
+      : { label: "Ďalšie organizácie", href: "/organizacie", external: false };
+
   return (
     <main id="obsah" tabIndex={-1}>
-      <PageContainer className={styles.breadcrumbWrap}>
-        <Breadcrumbs label="Drobečková navigácia">
-          <Link className={styles.breadcrumbLink} href="/">Domov</Link>
-          <span aria-hidden="true">›</span>
-          <span>Organizácie</span>
-          <span aria-hidden="true">›</span>
+      <PublicProfileHero
+        breadcrumbs={<>
+          <Link href="/">Domov</Link><span aria-hidden="true">›</span>
+          <Link href="/organizacie">Organizácie</Link><span aria-hidden="true">›</span>
           <span aria-current="page">{organization.name}</span>
-        </Breadcrumbs>
-      </PageContainer>
+        </>}
+        typeLabel={presentation.facts.find((fact) => fact.label === "Typ organizácie")?.value ?? "Organizácia"}
+        title={organization.name}
+        lead={presentation.shortDescription}
+        location={presentation.location ? <span data-organization-location-summary><LocationIcon size={16} /> {presentation.location}</span> : null}
+        imageUrl={presentation.imageUrl}
+        imageAlt={"Fotografia organizácie " + organization.name}
+        badges={[
+          ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const, title: "Platené rozšírenie profilu." }] : []),
+          ...(commercial?.promoted ? [{ label: commercial.sponsoredLabel ?? "Sponzorované", tone: "sponsored" as const }] : []),
+        ]}
+        actions={[
+          { ...(primaryAction ?? fallbackAction), primary: true },
+          ...presentation.contacts
+            .filter((contact) => (contact.label === "Telefón" || contact.label === "Email") && contact.href !== primaryAction?.href)
+            .map((contact) => ({
+              label: contact.label === "Telefón" ? "Zavolať" : "Napísať e-mail",
+              href: contact.href,
+              external: false,
+            })),
+        ]}
+      />
 
-      <SectionHero className={styles.hero}>
-        <p className={styles.eyebrow}>Pomoc psom · organizácia</p>
-        {(commercial?.premium || commercial?.promoted) ? <div className={styles.commercialBadges}>
-          {commercial.premium ? <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span> : null}
-          {commercial.promoted ? <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span> : null}
-        </div> : null}
-        <h1>{organization.name}</h1>
-        {presentation.shortDescription ? <p className={styles.lead}>{presentation.shortDescription}</p> : null}
-        {presentation.location ? <p className={styles.location} data-organization-location-summary><LocationIcon size={16} /> {presentation.location}</p> : null}
-      </SectionHero>
-
-      <PageContainer className={styles.content}>
-        <DetailContentLayout aside={aside}>
+      <PublicProfileContentLayout aside={aside}>
           {publicMap?.items.length ? (
             <PublicLocationMap
               title="Poloha organizácie"
@@ -167,7 +183,7 @@ export function OrganizationProfileDetail({
 
           {fundraising.length > 0 ? (
             <DetailSection eyebrow="Podpora" title="Ako môžete pomôcť">
-              <div className={styles.fundraisingGrid} data-organization-fundraising>
+              <div id="podpora" className={styles.fundraisingGrid} data-organization-fundraising>
                 {fundraising.map((method) => (
                   <article
                     className={styles.fundraisingCard}
@@ -203,7 +219,7 @@ export function OrganizationProfileDetail({
 
           {adoptions.length > 0 ? (
             <DetailSection eyebrow="Adopcie" title="Psy na adopciu v tejto organizácii">
-              <div className={styles.adoptionGrid}>
+              <div id="psy-na-adopciu" className={styles.adoptionGrid}>
                 {adoptions.map((adoption) => (
                   <OrganizationAdoptionCard adoption={adoption} key={adoption.id} />
                 ))}
@@ -216,8 +232,7 @@ export function OrganizationProfileDetail({
             baseHref={`/organizacie/${organization.slug}`}
             readError={reviewReadError}
           />
-        </DetailContentLayout>
-      </PageContainer>
+      </PublicProfileContentLayout>
     </main>
   );
 }

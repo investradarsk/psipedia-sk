@@ -108,3 +108,17 @@
     scroll-margin-top: var(--admin-sticky-stack, 150px);
   }
 }
+
+.backToWeb {
+  display: inline-flex; min-height: 44px; align-items: center; justify-content: center;
+  gap: 5px; padding: 0 12px; border: 1px solid rgba(255,255,255,.2);
+  border-radius: 11px; color: #e7f0ea; font-size: .78rem; font-weight: 800;
+  text-decoration: none; white-space: nowrap;
+}
+.backToWeb:hover { background: rgba(255,255,255,.12); }
+.backToWeb:focus-visible { outline: 3px solid #f5c865; outline-offset: 2px; }
+@media (max-width: 760px) {
+  .backToWeb { padding: 0 10px; }
+  .backToWeb span { display: none; }
+  .topbarActions { gap: 5px; }
+}

@@ -45,7 +45,9 @@ test("ORGANIZATION public surface exposes canonical Organization identity, sameA
   const detail = read("../components/organization-profile-detail.tsx");
   const presentation = read("../lib/organization-profile-presentation.ts");
   const schema = read("../lib/organization-seo.ts");
-  assert.match(detail, /<h1>\{organization\.name\}<\/h1>/);
+  const sharedHero = read("../components/public-profile/public-profile-hero.tsx");
+  assert.match(detail, /title=\{organization\.name\}/);
+  assert.match(sharedHero, /<h1>\{title\}<\/h1>/);
   assert.match(detail, /DetailFactsCard title="Základné informácie"/);
   assert.match(presentation, /label: "Aktualizované"/);
   assert.match(schema, /"@type": "Organization"/);

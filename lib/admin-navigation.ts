@@ -11,78 +11,46 @@ export type AdminNavigationGroup = {
 };
 
 export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
-  {
-    label: "Prehľad",
-    items: [
-      { label: "Pracovný prehľad", href: "/admin", exact: true },
-      { label: "Upozornenia", href: "/admin/operations" },
-    ],
-  },
-  {
-    label: "Obsah",
-    items: [
-      { label: "Články", href: "/admin/clanky", matches: ["/admin/novy"] },
-      { label: "Recenzie a testy", href: "/admin/recenzie" },
-      { label: "Šteniatka", href: "/admin/steniatka" },
-      { label: "Plemená", href: "/admin/plemena" },
-      { label: "Sekcie", href: "/admin/sekcie" },
-      { label: "Psie meniny", href: "/admin/meniny" },
-    ],
-  },
-  {
-    label: "Portál",
-    items: [
-      {
-        label: "Služby pre psov",
-        href: "/admin/sluzby-pre-psov",
-        matches: ["/admin/adresar"],
-      },
-      { label: "Podujatia", href: "/admin/podujatia" },
-      {
-        label: "Pomoc psom",
-        href: "/admin/pomoc-psom",
-        matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"],
-      },
-    ],
-  },
-  {
-    label: "Komunita a partneri",
-    items: [
-      { label: "Profilové recenzie", href: "/admin/recenzie-profilov" },
-      { label: "Tipy", href: "/admin/tipy" },
-      { label: "Hodnotenia", href: "/admin/hodnotenia" },
-      { label: "Dopyty", href: "/admin/dopyty" },
-      { label: "Návrhy úprav", href: "/admin/adresar/navrhy" },
-      { label: "Partneri", href: "/admin/partners" },
-    ],
-  },
-  {
-    label: "Automatizácie a kvalita",
-    items: [
-      {
-        label: "Automatizácie",
-        href: "/admin/automatizacie",
-        matches: ["/admin/operations/automation"],
-      },
-      { label: "Automatizácie Gemini", href: "/admin/automatizacie-gemini" },
-      { label: "Kvalita údajov", href: "/admin/kvalita" },
-      { label: "Mapy", href: "/admin/mapy", matches: ["/admin/operations/geo"] },
-      {
-        label: "Nástroje",
-        href: "/admin/nastroje",
-        matches: ["/admin/import", "/admin/operations/outreach", "/admin/operations/possible-matches"],
-      },
-    ],
-  },
-  {
-    label: "Nastavenia a prevádzka",
-    items: [
-      { label: "Aplikácia", href: "/admin/nastavenia" },
-      { label: "Navigácia", href: "/admin/navigacia" },
-      { label: "Monetizácia", href: "/admin/monetizacia" },
-      { label: "Právne", href: "/admin/pravne" },
-    ],
-  },
+ { label: "Prehľad", items: [
+  { label: "Pracovný prehľad", href: "/admin", exact: true },
+  { label: "Upozornenia", href: "/admin/operations" },
+ ] },
+ { label: "Obsah", items: [
+  { label: "Články", href: "/admin/clanky", matches: ["/admin/novy"] },
+  { label: "Recenzie a testy", href: "/admin/recenzie" },
+  { label: "Šteniatka", href: "/admin/steniatka" },
+  { label: "Plemená", href: "/admin/plemena" },
+  { label: "Sekcie", href: "/admin/sekcie" },
+  { label: "Psie meniny", href: "/admin/meniny" },
+  { label: "Podujatia", href: "/admin/podujatia" },
+ ] },
+ { label: "Adresár", items: [
+  { label: "Služby pre psov", href: "/admin/sluzby-pre-psov", matches: ["/admin/adresar"] },
+  { label: "Pomoc psom", href: "/admin/pomoc-psom", matches: ["/admin/pomoc", "/admin/adopcie", "/admin/stratene-najdene", "/admin/organizacie"] },
+ ] },
+ { label: "Komunita", items: [
+  { label: "Profilové recenzie", href: "/admin/recenzie-profilov" },
+  { label: "Tipy", href: "/admin/tipy" },
+  { label: "Hodnotenia", href: "/admin/hodnotenia" },
+  { label: "Dopyty", href: "/admin/dopyty" },
+  { label: "Návrhy úprav", href: "/admin/adresar/navrhy" },
+  { label: "Partneri", href: "/admin/partners" },
+ ] },
+ { label: "Automatizácie", items: [
+  { label: "Automatizácie", href: "/admin/automatizacie", matches: ["/admin/operations/automation"] },
+  { label: "Automatizácie Gemini", href: "/admin/automatizacie-gemini" },
+ ] },
+ { label: "Kvalita dát", items: [
+  { label: "Kvalita údajov", href: "/admin/kvalita" },
+  { label: "Mapy", href: "/admin/mapy", matches: ["/admin/operations/geo"] },
+  { label: "Nástroje", href: "/admin/nastroje", matches: ["/admin/import", "/admin/operations/outreach", "/admin/operations/possible-matches"] },
+ ] },
+ { label: "Nastavenia", items: [
+  { label: "Aplikácia", href: "/admin/nastavenia" },
+  { label: "Navigácia", href: "/admin/navigacia" },
+  { label: "Monetizácia", href: "/admin/monetizacia" },
+  { label: "Právne", href: "/admin/pravne" },
+ ] },
 ] as const;
 
 export const adminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);

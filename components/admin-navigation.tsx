@@ -51,8 +51,32 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const active = findActiveAdminNavigationItem(pathname);
   const [openPath, setOpenPath] = useState<string | null>(null);
   const open = openPath === pathname;
+  const desktopRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeMenus = () => {
+      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => { item.open = false; });
+    };
+    const pointer = (event: PointerEvent) => {
+      if (!desktopRef.current?.contains(event.target as Node)) closeMenus();
+    };
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const expanded = desktopRef.current?.querySelector<HTMLDetailsElement>("details[open]");
+      if (!expanded) return;
+      event.preventDefault();
+      expanded.open = false;
+      expanded.querySelector<HTMLElement>("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", pointer);
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.removeEventListener("pointerdown", pointer);
+      document.removeEventListener("keydown", keyboard);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -98,16 +122,20 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
 
   return (
     <>
-      <nav
-        className={`${stickyClassName} admin-section-nav ${styles.desktopNavigation}`}
-        aria-label="Redakčné moduly"
-        data-admin-sticky-nav
-      >
-        <NavigationGroups />
-        <div className="admin-nav-public">
-          <Link href="/adresar" target="_blank" rel="noreferrer">Služby pre psov ↗</Link>
-          <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc psom ↗</Link>
-        </div>
+      <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sticky-nav>
+        {adminNavigationGroups.map((group, index) => (
+          <details key={group.label} name="admin-primary" className={styles.desktopGroup}>
+            <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
+              <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
+            </summary>
+            <div className={styles.desktopMenu} id={"admin-menu-" + index}>
+              {group.items.map((item) => {
+                const current = active?.href === item.href;
+                return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
+              })}
+            </div>
+          </details>
+        ))}
       </nav>
 
       <div className={`${stickyClassName} ${styles.mobileBar}`} data-admin-sticky-nav>
