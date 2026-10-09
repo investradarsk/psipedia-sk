@@ -406,9 +406,10 @@ function MapResults({
   const beginSheetDrag = (event: ReactPointerEvent<HTMLElement>, source: "header" | "list") => {
     if (typeof window === "undefined" || !window.matchMedia("(max-width: 760px)").matches) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    // Pointer capture on a sheet container would retarget the click away
-    // from nested buttons/links, preventing card selection or navigation.
-    if (isInteractiveSheetTarget(event.target)) return;
+    // Header buttons are controls, not sheet handles. List buttons can still
+    // start a deliberate mouse drag, but do not capture until drag activation:
+    // capturing at pointerdown would swallow an ordinary card click.
+    if (source === "header" && isInteractiveSheetTarget(event.target)) return;
     // Native finger scrolling is never converted to a drag of the entire sheet.
     if (source === "list" && (event.pointerType === "touch" || sheetState !== "expanded"
       || (scrollRef.current?.scrollTop ?? 0) > 0)) return;
@@ -428,11 +429,15 @@ function MapResults({
 
     if (source === "header") setDragging(true);
 
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // Window listeners below keep the gesture robust if capture is unavailable.
+    if (source === "header") {
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Window listeners below keep the gesture robust if capture is unavailable.
+      }
     }
+    // For the list, window listeners detect an intentional drag without stealing
+    // pointerup/click from result buttons and profile links.
 
     const onMove = (nativeEvent: PointerEvent) => moveSheetDrag(nativeEvent);
     const onUp = (nativeEvent: PointerEvent) => endSheetDrag(nativeEvent);
