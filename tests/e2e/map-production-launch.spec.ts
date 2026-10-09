@@ -10,6 +10,11 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.describe("MAP-1E launch navigation", () => {
+  test.beforeEach(async ({ page }) => {
+    // Public navigation/Maps-preference tests start after an explicit analytics refusal.
+    // The first-visit privacy modal itself is exercised in map-mobile-ux-v3.spec.ts.
+    await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  });
   test("desktop navigation exposes Mapa directly after services when launch flag is enabled", async ({ page, isMobile }) => {
     test.skip(isMobile, "Desktop launch navigation check");
     await page.goto("/");
