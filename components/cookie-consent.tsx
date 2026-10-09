@@ -218,6 +218,24 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
       aria-modal="true"
       aria-labelledby="cookie-consent-title"
       onCancel={(event) => event.preventDefault()}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        // Chromium can briefly focus <body> after the final control in a
+        // native modal. Keep a deterministic keyboard loop within consent.
+        const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled])',
+        )).filter((element) => element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
     >
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
