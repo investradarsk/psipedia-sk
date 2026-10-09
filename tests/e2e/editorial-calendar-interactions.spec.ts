@@ -160,7 +160,7 @@ test("plus opens searchable drafts, full preview and confirms a guarded schedule
     const d = new Date(stamp);
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }, target.toISOString());
-  const day = calendar.locator('[class*="dayHeader"]', { has: calendar.locator('time[datetime="' + key + '"]') });
+  const day = calendar.locator('[class*="dayHeader"]', { has: page.locator('time[datetime="' + key + '"]') });
   await day.getByRole("button", { name: /Pridať koncept na/ }).click();
   const planner = page.locator('[data-testid="calendar-draft-planner"]');
   await expect(planner).toBeVisible();
