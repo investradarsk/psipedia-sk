@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ConsentChoice } from "@/lib/monetization";
@@ -134,6 +134,7 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   const [isOpen, setIsOpen] = useState(false);
   const [savedChoice, setSavedChoice] = useState<ConsentChoice | null>(null);
   const [isInternalTraffic, setIsInternalTraffic] = useState(false);
+  const consentDialogRef = useRef<HTMLDialogElement>(null);
 
   const openSettings = useCallback(() => setIsOpen(true), []);
 
@@ -184,6 +185,18 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
     }
   }, [isAdminRoute, isInternalTraffic, isPartnerRoute, isReviewAuthRoute, pathname, ready, savedChoice]);
 
+  // A genuine native modal owns the top layer and makes other public dialogs
+  // (notably mobile map filters) inert until the visitor decides.
+  useEffect(() => {
+    if (!ready || !isOpen || isAdminRoute || isPartnerRoute || isReviewAuthRoute) return;
+    const dialog = consentDialogRef.current;
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, [ready, isOpen, isAdminRoute, isPartnerRoute, isReviewAuthRoute]);
+
   function saveChoice(choice: ConsentChoice) {
     const revokingAdvertising = savedChoice === "advertising" && choice !== "advertising";
     window.localStorage.setItem(CONSENT_KEY, choice);
@@ -199,7 +212,13 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
   if (isAdminRoute || !ready || !isOpen) return null;
 
   return (
-    <section className="cookie-consent" role="dialog" aria-modal="true" aria-labelledby="cookie-consent-title">
+    <dialog
+      ref={consentDialogRef}
+      className="cookie-consent"
+      aria-modal="true"
+      aria-labelledby="cookie-consent-title"
+      onCancel={(event) => event.preventDefault()}
+    >
       <div>
         <strong id="cookie-consent-title">Tvoje súkromie na Psipedii</strong>
         <p>
@@ -208,11 +227,11 @@ export function CookieConsent({ advertisingEnabled = false }: { advertisingEnabl
         {savedChoice && <small>Aktuálna voľba: {savedChoice === "advertising" ? "analytika a reklamné cookies" : savedChoice === "analytics" ? "povolená analytika" : "iba nevyhnutné údaje"}.</small>}
       </div>
       <div className="cookie-consent__actions">
-        <button type="button" className="button button--light" onClick={() => saveChoice("necessary")}>Odmietnuť analytiku</button>
+        <button type="button" className="button button--light" autoFocus onClick={() => saveChoice("necessary")}>Odmietnuť analytiku</button>
         <button type="button" className="button button--dark" onClick={() => saveChoice("analytics")}>Prijať analytiku</button>
         {advertisingEnabled ? <button type="button" className="button button--dark" onClick={() => saveChoice("advertising")}>Prijať analytiku a reklamné cookies</button> : null}
       </div>
-    </section>
+    </dialog>
   );
 }
 
