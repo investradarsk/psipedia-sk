@@ -20,12 +20,26 @@ import { articleHref, portalSubpageHref } from "@/lib/portal";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 import { listManagedPortalSectionsForSitemap } from "@/lib/section-store";
 import { SITE_URL } from "@/lib/seo";
+import { publicMapLaunchEnabled } from "@/config/runtime-env";
 import { assertSitemapEntityParity, type SitemapParityCandidate } from "@/lib/sitemap-parity";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
 import { loadSitemapStages, runSitemapStageSync } from "@/lib/sitemap-runtime";
 
 function absoluteSitemapUrl(path: string) {
   return `${SITE_URL}${path}`;
+}
+
+function isPublicMapIndexable() {
+  const bindings = env as unknown as {
+    PUBLIC_MAP_ENABLED?: string;
+    GOOGLE_MAPS_BROWSER_API_KEY?: string;
+    GOOGLE_MAPS_MAP_ID?: string;
+  };
+  return publicMapLaunchEnabled({
+    PUBLIC_MAP_ENABLED: bindings.PUBLIC_MAP_ENABLED ?? process.env.PUBLIC_MAP_ENABLED,
+    GOOGLE_MAPS_BROWSER_API_KEY: bindings.GOOGLE_MAPS_BROWSER_API_KEY ?? process.env.GOOGLE_MAPS_BROWSER_API_KEY,
+    GOOGLE_MAPS_MAP_ID: bindings.GOOGLE_MAPS_MAP_ID ?? process.env.GOOGLE_MAPS_MAP_ID,
+  });
 }
 
 function parityCandidate(input: SitemapParityCandidate) {
@@ -275,7 +289,12 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
     })));
 
   const landingEntries: MetadataRoute.Sitemap = runSitemapStageSync("build-landing-entries", () => [
-    sitemapEntry("", { lastModified: homepageModified, changeFrequency: "daily", priority: 1 }),
+    sitemapEntry("/", { lastModified: homepageModified, changeFrequency: "daily", priority: 1 }),
+    sitemapEntry("/kontakt", { changeFrequency: "monthly", priority: 0.5 }),
+    sitemapEntry("/psie-meniny", { changeFrequency: "monthly", priority: 0.65 }),
+    ...(isPublicMapIndexable()
+      ? [sitemapEntry("/mapa", { changeFrequency: "weekly", priority: 0.7 })]
+      : []),
     sitemapEntry("/clanky", { lastModified: latestArticles, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
     sitemapEntry("/plemena/vyber-plemena", { lastModified: latestBreeds, changeFrequency: "weekly", priority: 0.7 }),
