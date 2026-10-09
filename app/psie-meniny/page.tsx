@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { buildListingPageMetadata } from "@/lib/listing-seo";
 import { DogNameDayCalendar } from "@/components/dog-name-day-calendar";
 import { getPublishedDogNameDaysForMonth } from "@/lib/dog-name-day-store";
 import { resolveDogNameDayCalendar, todayInBratislava } from "@/lib/dog-name-day-calendar";
@@ -6,7 +8,20 @@ import styles from "@/components/dog-name-day-calendar.module.css";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { mesiac?: string | string[]; den?: string | string[] };
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<Metadata> {
+  return buildListingPageMetadata({
+    title: "Psie meniny – kalendár mien pre psov",
+    description: "Pozrite si kalendár psích menín na celý rok. Vyhľadajte, kedy má váš pes meniny, a preskúmajte mená podľa dňa a mesiaca.",
+    path: "/psie-meniny",
+    searchParams: await searchParams,
+  });
+}
 
 export default async function DogNameDaysPage({
   searchParams,
