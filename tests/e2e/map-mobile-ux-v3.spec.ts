@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const ITEM = {
@@ -85,6 +86,13 @@ test("PUBLIC-UX-V3 closeout: first-visit consent owns the modal layer before map
   expect(await consent.evaluate((element) => element.matches(":modal"))).toBe(true);
   const reject = consent.getByRole("button", { name: "Odmietnuť analytiku" });
   await expect(reject).toBeFocused();
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const serious = accessibility.violations.filter(
+    (violation) => violation.impact === "serious" || violation.impact === "critical",
+  );
+  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
   const filterTrigger = page.locator('button[aria-haspopup="dialog"]').filter({ hasText: "Ďalšie filtre" });
   await expect(filterTrigger).toHaveAttribute("aria-expanded", "false");
   for (let index = 0; index < 5; index += 1) {
