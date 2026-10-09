@@ -47,10 +47,10 @@ export function CalendarDraftPlanner({ day, initialDraftId, initialTime = "09:00
   useEffect(() => {
     if (step !== "pick") return;
     const controller = new AbortController();
-    setLoadingList(true);
-    setListError("");
-    setDrafts([]);
     const timer = window.setTimeout(async () => {
+      setLoadingList(true);
+      setListError("");
+      setDrafts([]);
       try {
         const url = "/api/admin/articles?status=draft&limit=20&page=" + page + "&query=" + encodeURIComponent(search.trim());
         const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
@@ -71,10 +71,11 @@ export function CalendarDraftPlanner({ day, initialDraftId, initialTime = "09:00
   useEffect(() => {
     if (step !== "review" || selectedId === null) return;
     const controller = new AbortController();
-    setSelectedArticle(null);
-    setDetailError("");
-    setLoadingArticle(true);
-    void (async () => {
+    const timer = window.setTimeout(() => {
+      setSelectedArticle(null);
+      setDetailError("");
+      setLoadingArticle(true);
+      void (async () => {
       try {
         const response = await fetch("/api/admin/articles/" + selectedId, { signal: controller.signal, cache: "no-store" });
         const result = await response.json() as DraftDetailResponse;
@@ -85,8 +86,9 @@ export function CalendarDraftPlanner({ day, initialDraftId, initialTime = "09:00
       } finally {
         if (!controller.signal.aborted) setLoadingArticle(false);
       }
-    })();
-    return () => controller.abort();
+      })();
+    }, 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [step, selectedId, reloadKey]);
 
   function backToPicker() {

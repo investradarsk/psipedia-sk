@@ -1172,7 +1172,10 @@ export async function rescheduleManagedArticle(
     status: "scheduled",
     publishedAt,
   };
-  return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt, status: existing.status });
+  if (existing.status === "draft") {
+    return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt, status: "draft" });
+  }
+  return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt });
 }
 
 export type ArticleContentQaAuditFinding = ArticleQaIssue & {
