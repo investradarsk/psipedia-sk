@@ -1,4 +1,5 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { directoryCategories } from "./directory.ts";
 import { loadGeminiCategoryMemory } from "./gemini-automation-category-memory.ts";
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
 import { discoverGeminiCandidates } from "./gemini-automation-discovery.ts";
@@ -11,7 +12,8 @@ import { GeminiAutomationError, type GeminiFailureCode, type GeminiRuntimeConfig
 import type { NotionDirectorySyncBindings } from "./notion-directory-sync.ts";
 
 export const GEMINI_PILOT_STABLE_KEY = "directory.treneri";
-export const GEMINI_PILOT_HARD_MAX = 5;
+export const GEMINI_DIRECTORY_HARD_MAX = 5;
+export const GEMINI_PILOT_HARD_MAX = GEMINI_DIRECTORY_HARD_MAX;
 const RUNNING_WINDOW_MS = 15 * 60 * 1000;
 
 export type GeminiPilotSummary = {
@@ -54,6 +56,25 @@ export function parseGeminiPilotBody(value: unknown): { stableKey: typeof GEMINI
   return { stableKey: GEMINI_PILOT_STABLE_KEY };
 }
 
+/** Only a server catalog directory stable key may enter the generic manual runner. */
+export function parseGeminiDirectoryRunBody(value: unknown): { stableKey: string } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
+  }
+  const object = value as Record<string, unknown>;
+  if (Object.keys(object).length !== 1 || !Object.hasOwn(object, "stable_key") ||
+    typeof object.stable_key !== "string") {
+    throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
+  }
+  const catalog = getGeminiCatalogItem(object.stable_key);
+  if (!catalog || catalog.section !== "directory" ||
+    catalog.stableKey !== "directory." + catalog.subcategory ||
+    !directoryCategories.some((category) => category.slug === catalog.subcategory)) {
+    throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
+  }
+  return { stableKey: catalog.stableKey };
+}
+
 type PilotDependencies = {
   discovery?: typeof discoverGeminiCandidates;
   dedupe?: typeof checkGeminiCandidateDedupe;
@@ -65,24 +86,22 @@ type PilotDependencies = {
  * injectable boundaries exist solely to test against fake provider/Notion.
  * This module intentionally never registers a scheduler or public route.
  */
-export async function runGeminiDirectoryPilot(input: {
+export async function runGeminiDirectoryCategory(input: {
   database: D1Database;
   env: GeminiRuntimeConfig & NotionDirectorySyncBindings;
-  stableKey: typeof GEMINI_PILOT_STABLE_KEY;
+  stableKey: string;
   now?: () => Date;
   fetchImpl?: GeminiFetch;
   dependencies?: PilotDependencies;
 }): Promise<GeminiPilotSummary> {
-  const catalog = getGeminiCatalogItem(GEMINI_PILOT_STABLE_KEY);
-  if (input.stableKey !== GEMINI_PILOT_STABLE_KEY ||
-    catalog?.section !== "directory" || catalog.subcategory !== "treneri") {
-    throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
-  }
+  // Re-check the category at execution, never trust the manual POST or injected dependencies.
+  const { stableKey } = parseGeminiDirectoryRunBody({ stable_key: input.stableKey });
+  const catalog = getGeminiCatalogItem(stableKey)!;
   const saved = await input.database.prepare(
     "SELECT id, max_new_concepts FROM gemini_automation_settings WHERE stable_key = ? LIMIT 1",
-  ).bind(GEMINI_PILOT_STABLE_KEY).first<{ id: number; max_new_concepts: number }>();
+  ).bind(stableKey).first<{ id: number; max_new_concepts: number }>();
   if (!saved) throw new GeminiPilotGuardError("PILOT_SETTING_NOT_SAVED");
-  const effectiveMax = Math.min(saved.max_new_concepts, GEMINI_PILOT_HARD_MAX);
+  const effectiveMax = Math.min(saved.max_new_concepts, GEMINI_DIRECTORY_HARD_MAX);
   if (!Number.isSafeInteger(effectiveMax) || effectiveMax <= 0) {
     throw new GeminiPilotGuardError("PILOT_LIMIT_ZERO");
   }
@@ -90,7 +109,7 @@ export async function runGeminiDirectoryPilot(input: {
   const started = now().toISOString();
   const model = input.env.GEMINI_MODEL?.trim() || "unconfigured";
   const runId = await beginGeminiManualPilotRun(input.database, {
-    settingId: saved.id, stableKey: GEMINI_PILOT_STABLE_KEY,
+    settingId: saved.id, stableKey,
     model, at: started,
     staleBefore: new Date(new Date(started).getTime() - RUNNING_WINDOW_MS).toISOString(),
   });
@@ -112,11 +131,11 @@ export async function runGeminiDirectoryPilot(input: {
     const dedupe = input.dependencies?.dedupe ?? checkGeminiCandidateDedupe;
     const bridge = input.dependencies?.bridge ?? bridgeGeminiCandidateToNotion;
 
-    const knownContext = await loadGeminiCategoryMemory(input.database, GEMINI_PILOT_STABLE_KEY);
+    const knownContext = await loadGeminiCategoryMemory(input.database, stableKey);
     // Exactly ONE invocation. No retry, no fallback, no enrichment request.
     requestCount = 1;
     const discovery = await discover({
-      env: input.env, stableKey: GEMINI_PILOT_STABLE_KEY,
+      env: input.env, stableKey,
       maxCandidates: effectiveMax, fetchImpl: input.fetchImpl, knownContext,
     });
     summary.candidateCount = discovery.candidates.length;
@@ -126,8 +145,8 @@ export async function runGeminiDirectoryPilot(input: {
 
     for (const candidate of discovery.candidates) {
       const decision = await dedupe(input.database, {
-        stableKey: GEMINI_PILOT_STABLE_KEY, section: "directory",
-        subcategory: "treneri", candidate,
+        stableKey, section: "directory",
+        subcategory: catalog.subcategory, candidate,
       });
       if (geminiDedupeCountsAsDuplicate(decision.status)) summary.duplicateCount++;
       if (decision.status === "POSSIBLE_DUPLICATE") summary.possibleDuplicateCount++;
@@ -136,7 +155,7 @@ export async function runGeminiDirectoryPilot(input: {
 
       const concept = await bridge({
         database: input.database, notion: input.env,
-        stableKey: GEMINI_PILOT_STABLE_KEY, candidate,
+        stableKey, candidate,
       });
       if (concept.created) {
         summary.conceptCount++;
@@ -176,4 +195,14 @@ export async function runGeminiDirectoryPilot(input: {
   // Manual completion never rewrites next_run_at or enables the future scheduler.
   await markGeminiSettingLastRun(input.database, saved.id, now().toISOString());
   return summary;
+}
+
+/** Backwards-compatible pilot entry point, always scoped to trainers. */
+export function runGeminiDirectoryPilot(
+  input: Parameters<typeof runGeminiDirectoryCategory>[0] & { stableKey: typeof GEMINI_PILOT_STABLE_KEY },
+): Promise<GeminiPilotSummary> {
+  if (input.stableKey !== GEMINI_PILOT_STABLE_KEY) {
+    throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
+  }
+  return runGeminiDirectoryCategory(input);
 }
