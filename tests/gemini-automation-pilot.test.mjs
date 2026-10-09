@@ -95,7 +95,7 @@ test("scope/auth/UI guards are restricted to manually confirmed administrator PO
   assert.match(route, /export async function POST\(request: Request\)/);
   assert.match(route, /await requireAdminMutation\(request\)/);
   assert.doesNotMatch(route, /export async function GET|queryParams.*pilot/);
-  assert.match(ui, /setting\.stableKey === "directory\.treneri"/);
+  assert.match(ui, /setting\.section === "directory"/);
   assert.match(ui, /setConfirming\(true\)/);
   assert.match(ui, /Potvrdiť a spustiť/);
   assert.match(ui, /requestLocked\.current/);

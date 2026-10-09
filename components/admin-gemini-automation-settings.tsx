@@ -35,10 +35,10 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
   const [pilotResult, setPilotResult] = useState<PilotResult | null>(null);
   const requestLocked = useRef(false);
   const router = useRouter();
-  const isPilot = setting.stableKey === "directory.treneri";
+  const isDirectory = setting.section === "directory";
   const unsavedChanges = setting.enabled !== enabled ||
     setting.cadenceMinutes !== Number(cadence) || setting.maxNewConcepts !== Number(maximum);
-  const canPilot = isPilot && available && setting.saved && !unsavedChanges &&
+  const canPilot = isDirectory && available && setting.saved && !unsavedChanges &&
     Number(maximum) > 0 && !saving && !running;
   const id = "gemini-" + setting.stableKey.replaceAll(".", "-");
 
@@ -93,21 +93,21 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
     setConfirming(false);
     setPilotError("");
     try {
-      const response = await fetch("/api/admin/gemini-automation/pilot", {
+      const response = await fetch("/api/admin/gemini-automation/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ stable_key: "directory.treneri" }),
+        body: JSON.stringify({ stable_key: setting.stableKey }),
       });
       const data = await response.json() as { error?: string; runId?: number; status?: string } & Partial<PilotResult>;
       if (!response.ok || data.status !== "SUCCESS") {
-        setPilotError(data.error ?? "Pilot zlyhal. Skontroluj históriu behov.");
+        setPilotError(data.error ?? "Gemini beh zlyhal. Skontroluj históriu behov.");
       } else {
         setPilotResult(data as PilotResult);
       }
       // Re-render server-side run history, without starting any other request.
       router.refresh();
-      const settingResponse = await fetch("/api/admin/gemini-automation?stable_key=directory.treneri", {
+      const settingResponse = await fetch("/api/admin/gemini-automation?stable_key=" + encodeURIComponent(setting.stableKey), {
         credentials: "same-origin", cache: "no-store",
       });
       if (settingResponse.ok) {
@@ -115,7 +115,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
         if (latest.setting) setSetting(latest.setting);
       }
     } catch {
-      setPilotError("Pilot sa nepodarilo dokončiť. Pred opakovaním skontroluj históriu behov.");
+      setPilotError("Gemini beh sa nepodarilo dokončiť. Pred opakovaním skontroluj históriu behov.");
     } finally {
       requestLocked.current = false;
       setRunning(false);
@@ -162,9 +162,9 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
-      {isPilot && (
+      {isDirectory && (
         <div className={styles.pilot}>
-          <strong>Manuálny Gemini pilot</strong>
+          <strong>Manuálne spustenie Gemini</strong>
           <p>Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje.</p>
           {!setting.saved && <p>Pred spustením najprv ulož nastavenia tejto karty.</p>}
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
@@ -172,7 +172,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
           <div className={styles.pilotActions}>
             <button type="button" className="admin-primary-action"
               disabled={!canPilot} onClick={onPilotClick}>
-              {running ? "Spúšťam pilot…" : confirming ? "Potvrdiť a spustiť" : "Spustiť pilot"}
+              {running ? "Spúšťam Gemini…" : confirming ? "Potvrdiť a spustiť" : "Spustiť Gemini"}
             </button>
             {confirming && (
               <button type="button" disabled={running} onClick={() => setConfirming(false)}>
@@ -182,7 +182,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
           </div>
           {pilotError && <p role="alert" className={styles.pilotError}>{pilotError}</p>}
           {pilotResult && <div role="status" className={styles.pilotResult}>
-            <strong>Pilot dokončený · run #{pilotResult.runId}</strong>
+            <strong>Gemini beh dokončený · run #{pilotResult.runId}</strong>
             <dl className={styles.pilotMetrics}>
               <div><dt>Kandidáti</dt><dd>{pilotResult.candidateCount}</dd></div>
               <div><dt>Duplicity</dt><dd>{pilotResult.duplicateCount}</dd></div>
