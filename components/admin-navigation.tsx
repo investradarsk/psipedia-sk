@@ -126,7 +126,7 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
         {adminNavigationGroups.map((group, index) => (
           <details key={group.label} name="admin-primary" className={styles.desktopGroup}>
             <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
-              {group.label}<span className={styles.chevron} aria-hidden="true">⌄</span>
+              <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
             <div className={styles.desktopMenu} id={"admin-menu-" + index}>
               {group.items.map((item) => {

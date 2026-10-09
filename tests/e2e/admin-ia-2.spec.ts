@@ -49,8 +49,12 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     await expect(nav).toHaveCSS("position", "sticky");
-    await nav.getByText("Prehľad", { exact: true }).click();
+    const overviewTrigger = nav.getByText("Prehľad", { exact: true });
+    await overviewTrigger.click();
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.keyboard.press("Escape");
+    await expect(overviewTrigger).toBeFocused();
+    await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toBeHidden();
     await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.locator(".site-footer")).toBeHidden();
     expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

@@ -56,10 +56,13 @@ test("alerts center, shared bell and active/history controls are accessible and 
   }
 
   const adminNavigation = page.getByRole("navigation", { name: "Redakčné moduly" });
+  if (!mobile) await adminNavigation.getByText("Prehľad", { exact: true }).click();
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toHaveAttribute("aria-current", "page");
+  if (!mobile) await adminNavigation.getByText("Kvalita dát", { exact: true }).click();
   await expect(adminNavigation.getByRole("link", { name: "Mapy", exact: true })).toHaveAttribute("href", "/admin/mapy");
   await expect(adminNavigation.getByRole("link", { name: "Nástroje", exact: true })).toHaveAttribute("href", "/admin/nastroje");
+  if (!mobile) await adminNavigation.getByText("Komunita", { exact: true }).click();
   await expect(adminNavigation.getByRole("link", { name: "Profilové recenzie", exact: true })).toHaveAttribute("href", "/admin/recenzie-profilov");
   await expect(adminNavigation.getByRole("link", { name: "Tipy", exact: true })).toHaveAttribute("href", "/admin/tipy");
   await expect(adminNavigation.getByRole("link", { name: "Hodnotenia", exact: true })).toHaveAttribute("href", "/admin/hodnotenia");
