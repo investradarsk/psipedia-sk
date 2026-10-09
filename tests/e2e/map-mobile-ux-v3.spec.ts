@@ -76,60 +76,43 @@ test("MAP-MOBILE-UX-V3: iPhone 390px sheet, selection, close and filter dialog",
   await noHorizontalOverflow(page);
 });
 
-test("PUBLIC-UX-V3 closeout: first-visit consent owns the modal layer before map filters", async ({ page }) => {
+test("PUBLIC-UX-V3 closeout: first-visit cookie panel never competes with the map filter modal", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockMap(page, false);
   await page.goto("/mapa");
+  await expect(page.getByTestId("map-card-service:24")).toBeAttached();
 
   const consent = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
-  await expect(consent).toBeVisible();
-  expect(await consent.evaluate((element) => element.matches(":modal"))).toBe(true);
   const reject = consent.getByRole("button", { name: "Odmietnuť analytiku" });
-  await expect(reject).toBeFocused();
-  const accessibility = await new AxeBuilder({ page })
+  await expect(consent).toBeVisible();
+  await expect(consent).not.toHaveAttribute("aria-modal", "true");
+  const baselineAxe = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
-  const serious = accessibility.violations.filter(
+  const serious = baselineAxe.violations.filter(
     (violation) => violation.impact === "serious" || violation.impact === "critical",
   );
   expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-  const filterTrigger = page.locator('button[aria-haspopup="dialog"]').filter({ hasText: "Ďalšie filtre" });
-  await expect(filterTrigger).toHaveAttribute("aria-expanded", "false");
-  for (let index = 0; index < 5; index += 1) {
-    await page.keyboard.press("Tab");
-    expect(await consent.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-  }
-  await page.keyboard.press("Escape");
-  await expect(consent).toBeVisible();
-  await expect(page.getByTestId("map-filter-dialog")).toHaveCount(0);
-  await reject.click();
-  await expect(consent).toHaveCount(0);
-  await expect(filterTrigger).toBeVisible();
 
+  // An undecided analytics choice must not prevent using map controls.
+  const filterTrigger = page.getByRole("button", { name: /Ďalšie filtre/ });
   await filterTrigger.click();
-  const filters = page.getByTestId("map-filter-dialog");
-  await expect(filters).toBeVisible();
-  await expect(filters.getByRole("button", { name: "Zavrieť filtre" })).toBeFocused();
-
-  // Reopening cookie settings while filters are visible must put the cookie
-  // dialog above them, without leaking Escape to the underlying map handler.
-  await page.evaluate(() => window.dispatchEvent(new Event("psipedia:open-cookie-settings")));
-  await expect(consent).toBeVisible();
-  expect(await consent.evaluate((element) => element.matches(":modal"))).toBe(true);
-  await expect(reject).toBeFocused();
+  const filterDialog = page.getByTestId("map-filter-dialog");
+  await expect(filterDialog).toBeVisible();
+  await expect(filterDialog).toHaveAttribute("aria-modal", "true");
+  await expect(consent).toBeHidden();
+  await expect(filterDialog.getByRole("button", { name: "Zavrieť filtre" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(filterDialog.getByRole("button", { name: "Použiť filtre" })).toBeFocused();
   await page.keyboard.press("Escape");
+  await expect(filterDialog).toHaveCount(0);
+  await expect(filterTrigger).toBeFocused();
   await expect(consent).toBeVisible();
-  await expect(filters).toBeVisible();
-  for (let index = 0; index < 4; index += 1) {
-    await page.keyboard.press("Tab");
-    expect(await consent.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-  }
+
+  // The privacy banner remains accessible and retains the undecided choice.
   await reject.click();
   await expect(consent).toHaveCount(0);
-  await expect(filters).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(filters).toHaveCount(0);
-  await expect(filterTrigger).toBeFocused();
+  expect(await page.evaluate(() => localStorage.getItem("psipedia-cookie-consent"))).toBe("necessary");
   await noHorizontalOverflow(page);
 });
 
