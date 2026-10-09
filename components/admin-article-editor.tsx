@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
+import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
 import { AdminActionButton, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
@@ -370,7 +371,13 @@ export function AdminArticleEditor({
         <section id="article-publish" tabIndex={-1} className="admin-form-card">
           <div className="admin-card-heading"><div><span>01</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
           <div className="admin-field-grid">
-            <div className="admin-field"><label htmlFor="article-published-at">Dátum a čas publikovania</label><input id="article-published-at" type="datetime-local" value={publishedAt} onChange={(event) => setPublishedAt(event.target.value)} /><small>Pri okamžitom publikovaní môže zostať prázdny.</small></div>
+            <div className="admin-field">
+              <label htmlFor="article-published-at">Dátum a čas publikovania</label>
+              <input id="article-published-at" type="datetime-local" value={publishedAt} onChange={(event) => setPublishedAt(event.target.value)} />
+              <small>Pri okamžitom publikovaní môže zostať prázdny.</small>
+              <ArticleEditorCalendar value={publishedAt} articleId={article?.id} readOnly={status === "published"}
+                onChoose={(nextDate) => { setPublishedAt(nextDate); setEditorDirty(true); }} />
+            </div>
             <div className="admin-field"><label htmlFor="article-updated-at">Dátum aktualizácie</label><input id="article-updated-at" type="date" value={contentUpdatedAt} onChange={(event) => setContentUpdatedAt(event.target.value)} /></div>
           </div>
           <label className="admin-check"><input type="checkbox" checked={showUpdated} onChange={(event) => setShowUpdated(event.target.checked)} /><span><strong>Zobraziť označenie Aktualizované</strong><small>Pri titulku sa zobrazí zvolený dátum aktualizácie.</small></span></label>
