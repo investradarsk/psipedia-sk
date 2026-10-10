@@ -36,6 +36,7 @@ import {
 } from "@/lib/media-source-monitor";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
+import { notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -867,13 +868,24 @@ async function applyNotionToProfile(input: {
     prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
   );
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
-  const needsFreshAddressVerification = (
-    addressChanged
-    || (desired.confirmedServiceLocation && current.serviceAddressConfirmation !== "CONFIRMED_SERVICE_LOCATION")
-  );
+  const safety = notionDirectoryUpdateSafety({
+    physicalAddressChanged: addressChanged,
+    notionConfirmedLocation: desired.confirmedServiceLocation,
+    canonicalConfirmedLocation: current.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION",
+    notionPublicPhone: desired.publicPhone,
+    canonicalPublicPhone: readDirectoryPublicContacts(current.importData, current.websiteUrl ?? "").phone,
+  });
+  if (safety.blocksConfirmedAddressDowngrade) {
+    throw new Error("REVIEW_REQUIRED: Potvrdenú prevádzku nemožno zrušiť iba neúplným Notion záznamom.");
+  }
+  if (safety.preserveUnchangedCanonicalPhone) {
+    // Do not revalidate or truncate pre-existing contact values when only
+    // unrelated editorial/location fields changed.
+    payload = { ...payload, publicPhone: undefined };
+  }
 
   let verified = null;
-  if (needsFreshAddressVerification) {
+  if (safety.verifyExactAddress) {
     const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
     verified = await verifyDirectoryCanonicalAddress({
       region: desired.region,
