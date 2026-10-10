@@ -31,7 +31,7 @@
     "test:seo-structured-data": "node --experimental-strip-types --test tests/seo-structured-data-2.test.mjs",
     "test:sitewide-ai-entity-surface": "node --experimental-strip-types --test tests/sitewide-ai-entity-surface.test.mjs tests/events-phase4.test.mjs tests/adoption-detail.test.mjs tests/organization-profile-presentation.test.mjs tests/organization-seo.test.mjs tests/seo-structured-data-2.test.mjs tests/directory-detail-presentation.test.mjs",
     "test:social-metadata-rendered": "node --experimental-loader ./tests/cloudflare-loader.mjs --test tests/social-metadata-rendered.test.mjs",
-    "test:homepage-media": "node --experimental-strip-types --test tests/homepage-media-quality.test.mjs",
+    "test:homepage-media": "node --experimental-strip-types --test tests/homepage-media-quality.test.mjs tests/responsive-media.test.mjs",
     "test:article-ux": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/content-hub-context-cta.test.mjs && node --experimental-strip-types --test tests/article-modern-reading-experience.test.mjs && node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-discovery.test.mjs && npm run test:article-hardening && npm run test:article-popularity && npm run test:content-discovery-v3",
     "test:article-hardening": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-hardening.test.mjs",
     "test:article-popularity": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/article-popularity.test.mjs",

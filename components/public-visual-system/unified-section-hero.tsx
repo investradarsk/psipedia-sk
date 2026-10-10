@@ -12,6 +12,7 @@ import {
 } from "@/lib/section-visual-contract";
 import type { SectionHeroConfig } from "@/lib/portal";
 import { PageContainer } from "@/components/page-system";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import styles from "./unified-section-hero.module.css";
 
 type VisualStyle = CSSProperties & Record<
@@ -119,7 +120,7 @@ export async function UnifiedSectionHero({
     >
       <div className={styles.visual} data-unified-section-hero-visual>
         <div className={styles.media} data-unified-section-hero-media>
-          <img className={styles.image} src={visual.imageUrl} alt={visual.altText} decoding="async" />
+          <img className={styles.image} src={visual.imageUrl} srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="100vw" alt={visual.altText} decoding="async" />
           <div className={styles.shade} aria-hidden="true" />
         </div>
 
