@@ -145,6 +145,7 @@ export function buildGeminiEventPrompt(req: GeminiEventRequestV1, context: strin
     "Every title, organizer and exact YYYY-MM-DD start_date must have source-linked evidence; location/online must also be evidenced.",
     "Do not return past/finished, cancelled, unverified or invented events. Today in Europe/Bratislava: "+bratislavaDateKey()+".",
     "No assumed times, end dates, venues, registrations, cities, regions, addresses or URLs. Unknown optional fields = null.",
+    "Return every Event Candidate V1 key; never omit candidate keys. Unknown nullable fields = null; all_day and cancelled must be booleans.",
     "Use strict HH:mm local time only when stated by source. For all_day=true both times must be null.",
     "Create factual Slovak description in this ONE request, without a later rewrite. At least 30 characters.",
     "Mark cancelled=true if a source clearly says cancelled, so such candidates can be rejected.",
@@ -160,23 +161,32 @@ export function buildGeminiEventPrompt(req: GeminiEventRequestV1, context: strin
 export function buildGeminiEventJsonSchema(req: GeminiEventRequestV1) {
   const allowed=createGeminiEventRequest(req);
   const s=()=>({type:["string","null"]});
-  const object=(p:Record<string,unknown>)=>({type:"object",properties:p,required:Object.keys(p),additionalProperties:false});
+  // Envelope/evidence retain their compact required shape. Candidate-specific
+  // provider guidance deliberately omits optional required/strict constraints:
+  // parseGeminiEventEnvelope is the authoritative, fail-closed validator.
+  const object=(p:Record<string,unknown>)=>({
+    type:"object",properties:p,required:Object.keys(p),additionalProperties:false,
+  });
+  const candidateProperties={
+    title:{type:"string"},organizer:{type:"string"},
+    start_date:{type:"string"},start_time:s(),
+    end_date:s(),end_time:s(),
+    all_day:{type:"boolean"},venue:s(),city:s(),region:s(),
+    online:{type:"boolean"},event_url:s(),registration_url:s(),
+    description:{type:"string"},cancelled:{type:"boolean"},
+    source_urls:{type:"array",items:{type:"string"}},
+    evidence:{type:"array",items:object({
+      source_url:{type:"string"},
+      fields:{type:"array",items:{type:"string"}},
+    })},
+  };
   return object({
     schema_version:{type:"integer",enum:[1]},
     category_key:{type:"string",enum:[allowed.stableKey]},
-    candidates:{type:"array",maxItems:allowed.maxCandidates,items:object({
-      title:{type:"string"},organizer:{type:"string"},
-      // Provider describes shape only; exact calendar dates are validated locally.
-      start_date:{type:"string"},start_time:s(),
-      end_date:s(),end_time:s(),
-      all_day:{type:"boolean"},venue:s(),city:s(),region:s(),
-      online:{type:"boolean"},event_url:s(),registration_url:s(),
-      description:{type:"string"},cancelled:{type:"boolean"},
-      source_urls:{type:"array",minItems:1,maxItems:8,items:{type:"string"}},
-      evidence:{type:"array",minItems:1,maxItems:8,items:object({
-        source_url:{type:"string"},
-        fields:{type:"array",minItems:1,maxItems:10,items:{type:"string",enum:[...EVIDENCE_FIELDS]}},
-      })},
-    })},
+    candidates:{type:"array",maxItems:allowed.maxCandidates,items:{
+      type:"object",
+      properties:candidateProperties,
+      required:["title","organizer","start_date","online","description","source_urls","evidence"],
+    }},
   });
 }

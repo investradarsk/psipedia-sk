@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createGeminiEventRequest, buildGeminiEventJsonSchema, parseGeminiEventEnvelope, strictEventDate, strictEventTime, validBratislavaWallClock } from "../lib/gemini-automation-event-contract.ts";
 import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema } from "../lib/gemini-automation-discovery-contract.ts";
 import { discoverGeminiEventCandidates, discoverGeminiCandidates } from "../lib/gemini-automation-discovery.ts";
@@ -19,8 +21,10 @@ function checkSubset(schema){
   assert.ok(providerKeys[type],"supported schema type");
   for(const key of Object.keys(schema))assert.ok(providerKeys[type].has(key),"unsupported "+type+"."+key);
   if(type==="object"){
-    assert.equal(schema.additionalProperties,false);
-    assert.deepEqual(Object.keys(schema.properties),schema.required);
+    assert.ok(schema.additionalProperties===false||schema.additionalProperties===undefined);
+    assert.ok(Array.isArray(schema.required));
+    assert.equal(new Set(schema.required).size,schema.required.length);
+    assert.ok(schema.required.every(k=>Object.hasOwn(schema.properties,k)));
     Object.values(schema.properties).forEach(checkSubset);
   }
   if(type==="array")checkSubset(schema.items);
@@ -28,7 +32,22 @@ function checkSubset(schema){
 test("Event provider schema uses Directory-compatible shape keywords",()=>{
   const schema=buildGeminiEventJsonSchema(createGeminiEventRequest({stableKey,maxCandidates:1}));
   checkSubset(schema);
-  const props=schema.properties.candidates.items.properties;
+  const candidate=schema.properties.candidates.items;
+  const props=candidate.properties;
+  const required=["title","organizer","start_date","online","description","source_urls","evidence"];
+  const optional=["start_time","end_date","end_time","all_day","venue","city","region","event_url","registration_url","cancelled"];
+  assert.deepEqual(candidate.required,required);
+  assert.equal(Object.hasOwn(candidate,"additionalProperties"),false);
+  assert.deepEqual(Object.keys(props).filter(k=>!required.includes(k)).sort(),optional.sort());
+  assert.deepEqual(schema.required,["schema_version","category_key","candidates"]);
+  assert.equal(schema.additionalProperties,false);
+  assert.deepEqual(props.source_urls,{type:"array",items:{type:"string"}});
+  assert.deepEqual(props.evidence,{type:"array",items:{
+    type:"object",properties:{
+      source_url:{type:"string"},
+      fields:{type:"array",items:{type:"string"}},
+    },required:["source_url","fields"],additionalProperties:false,
+  }});
   assert.deepEqual(props.start_date,{type:"string"});
   for(const field of ["start_time","end_date","end_time","venue","city","region","event_url","registration_url"])
     assert.deepEqual(props[field],{type:["string","null"]});
@@ -87,6 +106,9 @@ test("Directory discovery remains unchanged with a grounded mock response",async
   const request=createGeminiDiscoveryRequest({stableKey:directoryKey,maxCandidates:1});
   const dirSchema=buildGeminiDiscoveryJsonSchema(request);
   assert.equal(dirSchema.properties.candidates.items.properties.name.maxLength,160);
+  // Full production-positive-control Directory provider schema baseline, unchanged by this Event-only PR.
+  assert.equal(createHash("sha256").update(JSON.stringify(dirSchema)).digest("hex"),
+    "5392204dd64cefca0845489ebb15b8b83f42ef221c5ccb538310e551c16dd7fb");
   let calls=0;
   const result=await discoverGeminiCandidates({
     env,stableKey:directoryKey,maxCandidates:1,
@@ -268,6 +290,27 @@ test("runtime remains strict for Event dates, times, DST, history, evidence, can
   const parse=patch=>parseGeminiEventEnvelope({schema_version:1,category_key:stableKey,
     candidates:[{...candidate,...patch}]},req,"2026-10-10").candidates[0];
   assert.equal(parse({}).start_date,"2026-11-20");
+  const parseFull=full=>parseGeminiEventEnvelope({schema_version:1,category_key:stableKey,
+    candidates:[full]},req,"2026-10-10");
+  // Provider-optional keys are NOT optional to the local Event Candidate V1 contract.
+  for(const field of ["start_time","end_date","end_time","all_day","venue","city","region",
+    "event_url","registration_url","cancelled"]){
+    const missing={...candidate};delete missing[field];
+    assert.throws(()=>parseFull(missing),e=>e.code==="INVALID_RESPONSE",field);
+  }
+  assert.throws(()=>parse({unexpected_key:"unsafe"}),e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({evidence:[{source_url:url,fields:["title","organizer","start_date","city","invented"]}]}),
+    e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({evidence:[{source_url:url,fields:["title","organizer","start_date","city"],extra:"unsafe"}]}),
+    e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({source_urls:[]}),e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({source_urls:Array(9).fill(url)}),e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({evidence:[]}),e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({evidence:Array(9).fill({source_url:url,fields:["title","organizer","start_date","city"]})}),
+    e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({evidence:[{source_url:url,fields:["title","organizer","start_date"]}]}),
+    e=>e.code==="INVALID_RESPONSE");
+  assert.throws(()=>parse({all_day:true,start_time:"09:00"}),e=>e.code==="INVALID_RESPONSE");
   assert.equal(strictEventDate("2026-11-20"),"2026-11-20");
   assert.equal(strictEventTime("23:59"),"23:59");
   assert.equal(validBratislavaWallClock("2027-03-28","02:30"),false);
@@ -321,4 +364,11 @@ test("full outgoing Directory/Event Interactions requests differ only in prompt 
   assert.deepEqual(withoutDifferences(e),withoutDifferences(d));
   assert.notDeepEqual(e.response_format.schema,d.response_format.schema);
   assert.notEqual(e.input,d.input);
+  assert.deepEqual(d.response_format.schema,
+    buildGeminiDiscoveryJsonSchema(createGeminiDiscoveryRequest({stableKey:"directory.treneri",maxCandidates:1})));
+});
+test("shared provider timeout and response boundary remain at production defaults",()=>{
+  const discoverySource=readFileSync(new URL("../lib/gemini-automation-discovery.ts",import.meta.url),"utf8");
+  assert.match(discoverySource,/const DISCOVERY_TIMEOUT_MS = 120_000;/);
+  assert.match(discoverySource,/const GEMINI_DISCOVERY_MAX_RESPONSE_BYTES = 2 \* 1024 \* 1024;/);
 });
