@@ -109,6 +109,7 @@ export type NotionAgendaSyncSummary = {
   reviewQueue: NotionReviewQueue;
   /** Number of obsolete conflict flags safely cleared after identical snapshots. */
   resolvedConflictFlags: number;
+  staleConflictCandidates: number;
 };
 
 export type NotionEventsHelpSyncSummary = {
@@ -128,6 +129,7 @@ export type NotionEventsHelpSyncSummary = {
     conflicts: number;
     failed: number;
     resolvedConflictFlags: number;
+    staleConflictCandidates: number;
     reviewRequired: number;
   };
 };
@@ -543,6 +545,7 @@ function emptyAgenda(definition: AgendaDefinition, isEnabled: boolean, ready: bo
     conflictDetails: [],
     reviewQueue: emptyNotionReviewQueue(),
     resolvedConflictFlags: 0,
+    staleConflictCandidates: 0,
   };
 }
 
@@ -629,6 +632,11 @@ async function syncAgenda(input: {
       const identity = matchCanonicalIdentity(source.id, source.url, identities);
       if (identity.kind === "CONFLICT") {
         summary.conflicts += 1;
+        appendNotionReview(summary.reviewQueue, {
+          entityId, notionPageId: identity.pageIds[0] ?? null, reason: "IDENTITY_CONFLICT",
+          fields: ["Psipedia ID", "URL Psipedia"], baselineAvailable: false,
+          notionChanged: null, psipediaChanged: null,
+        });
         if (input.mode === "sync") {
           for (const pageId of identity.pageIds) {
             await markConflict({
@@ -646,6 +654,11 @@ async function syncAgenda(input: {
         const existingPageMapping = mappingByPage.get(identity.page.id);
         if (existingPageMapping && Number(existingPageMapping.entity_id) !== entityId) {
           summary.conflicts += 1;
+          appendNotionReview(summary.reviewQueue, {
+            entityId, notionPageId: identity.page.id, reason: "MAPPING_CONFLICT",
+            fields: ["Psipedia ID"], baselineAvailable: false,
+            notionChanged: null, psipediaChanged: null,
+          });
           if (input.mode === "sync") {
             await markConflict({
               bindings: input.bindings,
@@ -752,6 +765,10 @@ async function syncAgenda(input: {
     const page = pagesById.get(mapping.notion_page_id);
     if (!page) {
       summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId, notionPageId: mapping.notion_page_id, reason: "MAPPING_CONFLICT",
+        fields: [], baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+      });
       continue;
     }
 
@@ -759,6 +776,10 @@ async function syncAgenda(input: {
       const pageIdentity = identityPage(page);
       if (pageIdentity.psipediaId && pageIdentity.psipediaId !== source.id) {
         summary.conflicts += 1;
+        appendNotionReview(summary.reviewQueue, {
+          entityId, notionPageId: page.id, reason: "IDENTITY_CONFLICT",
+          fields: ["Psipedia ID"], baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+        });
         if (input.mode === "sync") {
           await markConflict({
             bindings: input.bindings,
@@ -771,6 +792,10 @@ async function syncAgenda(input: {
       }
       if (pageIdentity.url && pageIdentity.url !== source.url) {
         summary.conflicts += 1;
+        appendNotionReview(summary.reviewQueue, {
+          entityId, notionPageId: page.id, reason: "IDENTITY_CONFLICT",
+          fields: ["URL Psipedia"], baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+        });
         if (input.mode === "sync") {
           await markConflict({
             bindings: input.bindings,
@@ -838,6 +863,11 @@ async function syncAgenda(input: {
       if (!mapping.psipedia_updated_at) {
         if (notionHash !== canonicalHash) {
           summary.conflicts += 1;
+          appendNotionReview(summary.reviewQueue, {
+            entityId, notionPageId: page.id, reason: "LEGACY_BASELINE_MISMATCH",
+            fields: differingAgendaSnapshotFields(input.definition.key, sourceSnapshot, notionSnapshot),
+            baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+          });
           if (input.mode === "sync") {
             await markConflict({
               bindings: input.bindings,
@@ -906,8 +936,8 @@ async function syncAgenda(input: {
           syncStatus: clean(pageProperty(page, "Sync stav")),
           syncError: clean(pageProperty(page, "Sync chyba")),
         })) {
-          summary.resolvedConflictFlags += 1;
-          if (input.mode !== "dry-run") {
+          summary.staleConflictCandidates += 1;
+          if (input.mode === "sync") {
             const syncedAt = new Date().toISOString();
             const written = await patchPage(input.bindings, page.id, encodeProperties({
               "Sync stav": "Synchronizované",
@@ -924,6 +954,7 @@ async function syncAgenda(input: {
               psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
               syncedAt,
             });
+            summary.resolvedConflictFlags += 1;
           }
           continue;
         }
@@ -1056,6 +1087,11 @@ async function syncAgenda(input: {
     const duplicate = sourceDuplicateCandidate(page, input.definition, sources);
     if (duplicate) {
       summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id, reason: "DUPLICATE_CONFLICT",
+        fields: ["Slug", "URL Psipedia"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
+      });
       if (input.mode === "sync") {
         await markConflict({
           bindings: input.bindings,
@@ -1167,6 +1203,7 @@ function totals(agendas: NotionAgendaSyncSummary[]) {
     acc.conflicts += agenda.conflicts;
     acc.failed += agenda.failed;
     acc.resolvedConflictFlags += agenda.resolvedConflictFlags;
+    acc.staleConflictCandidates += agenda.staleConflictCandidates;
     acc.reviewRequired += agenda.reviewQueue.total;
     return acc;
   }, {
@@ -1181,6 +1218,7 @@ function totals(agendas: NotionAgendaSyncSummary[]) {
     conflicts: 0,
     failed: 0,
     resolvedConflictFlags: 0,
+    staleConflictCandidates: 0,
     reviewRequired: 0,
   });
 }
