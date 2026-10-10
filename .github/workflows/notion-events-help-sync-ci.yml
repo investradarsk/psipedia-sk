@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "lib/notion-events-help-*.ts"
+      - "lib/notion-data-quality-audit.ts"
+      - "lib/notion-data-quality-recovery.ts"
+      - "app/api/admin/notion-data-quality-audit/**"
+      - "tests/notion-data-quality-recovery.test.mjs"
       - "lib/notion-bidirectional-reconciliation.ts"
       - "lib/notion-canonical-target.ts"
       - "lib/notion-bulk-backfill.ts"
