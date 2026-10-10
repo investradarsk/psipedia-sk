@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { notionDirectoryUpdateSafety } from "../lib/notion-directory-update-safety.ts";
 
 const syncSource = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
 const workerSource = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
@@ -200,4 +201,56 @@ test("directory mirror runs full bidirectional sync hourly and bootstrap-only ba
   assert.match(boundedFiveMinuteBranch, /cadence: "five_minute"/);
   assert.match(wranglerSource, /"NOTION_DIRECTORY_SYNC_ENABLED": "true"/);
   assert.match(wranglerSource, /"NOTION_DIRECTORY_DATA_SOURCE_ID": "84e0664c-ca47-405f-9d54-31b20287bc8c"/);
+});
+
+test("unconfirmed service-area edits never request provider exact verification", () => {
+  const policy = notionDirectoryUpdateSafety({
+    physicalAddressChanged: true,
+    notionConfirmedLocation: false,
+    canonicalConfirmedLocation: false,
+    notionPublicPhone: "",
+    canonicalPublicPhone: "",
+  });
+  assert.equal(policy.verifyExactAddress, false);
+  assert.equal(policy.blocksConfirmedAddressDowngrade, false);
+});
+
+test("only explicitly confirmed new or changed exact service addresses are verified", () => {
+  const base = {
+    physicalAddressChanged: false,
+    notionConfirmedLocation: true,
+    canonicalConfirmedLocation: true,
+    notionPublicPhone: "unchanged value",
+    canonicalPublicPhone: "unchanged value",
+  };
+  assert.equal(notionDirectoryUpdateSafety(base).verifyExactAddress, false);
+  assert.equal(notionDirectoryUpdateSafety({ ...base, physicalAddressChanged: true }).verifyExactAddress, true);
+  assert.equal(notionDirectoryUpdateSafety({ ...base, canonicalConfirmedLocation: false }).verifyExactAddress, true);
+});
+
+test("an unconfirmed Notion row cannot deconfirm existing canonical exact place", () => {
+  const result = notionDirectoryUpdateSafety({
+    physicalAddressChanged: true,
+    notionConfirmedLocation: false,
+    canonicalConfirmedLocation: true,
+    notionPublicPhone: "",
+    canonicalPublicPhone: "",
+  });
+  assert.equal(result.blocksConfirmedAddressDowngrade, true);
+  assert.equal(result.verifyExactAddress, false);
+});
+
+test("legacy multi-value contact stays untouched during unrelated edits", () => {
+  const legacy = "entry A; entry B";
+  const base = {
+    physicalAddressChanged: false,
+    notionConfirmedLocation: false,
+    canonicalConfirmedLocation: false,
+    notionPublicPhone: legacy,
+    canonicalPublicPhone: legacy,
+  };
+  assert.equal(notionDirectoryUpdateSafety(base).preserveUnchangedCanonicalPhone, true);
+  assert.equal(notionDirectoryUpdateSafety({ ...base, notionPublicPhone: "replacement" }).preserveUnchangedCanonicalPhone, false);
+  assert.match(syncSource, /if \(safety\.verifyExactAddress\)/);
+  assert.match(syncSource, /publicPhone: undefined/);
 });
