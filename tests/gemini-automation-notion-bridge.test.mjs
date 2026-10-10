@@ -163,6 +163,11 @@ test("lifecycle: a fresh Gemini concept creates exactly one unpublished canonica
     assert.equal(again.canonicalEntityId, first.canonicalEntityId);
     assert.equal(again.notionPageId, first.notionPageId);
     assert.equal(postCount, 1);
+    const anchor = sqlite.prepare("SELECT id,entity_type,directory_profile_id FROM partner_resources").get();
+    assert.equal(anchor.id,"directory-profile-1");
+    assert.equal(anchor.entity_type,"DIRECTORY_PROFILE");
+    assert.equal(anchor.directory_profile_id,1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM partner_resources").get().n,1);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 1);
     assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status, "NOTION_LINKED");
   } finally { delete globalThis.__geminiNotionBridgeTestHook; sqlite.close(); }
@@ -225,6 +230,11 @@ async function lifecycleHarness() {
     district TEXT, search_text TEXT, created_at TEXT, updated_at TEXT, published_at TEXT,
     created_by TEXT, updated_by TEXT
   )`);
+  sqlite.exec(`CREATE TABLE partner_resources (
+    id TEXT PRIMARY KEY, entity_type TEXT NOT NULL,
+    directory_profile_id INTEGER UNIQUE, help_organization_id INTEGER,
+    managed_event_id INTEGER, created_at TEXT, updated_at TEXT
+  )`);
   const db = { prepare(sql) {
     return { bind(...values) {
       const stmt = sqlite.prepare(sql);
@@ -237,3 +247,49 @@ async function lifecycleHarness() {
   } };
   return { bridge, db, sqlite };
 }
+
+test("recovery from existing import_key self-heals anchor without duplicate profile", async () => {
+  const {bridge,db,sqlite}=await lifecycleHarness();
+  const key=await geminiBridgeDiscoveryKey("directory.treneri",candidate);
+  const input={database:db,notion:{},stableKey:"directory.treneri",candidate};
+  sqlite.prepare("INSERT INTO directory_profiles (id,name,category,status,city,website_url,import_key) VALUES (1,?,?,?,?,?,?)")
+    .run(candidate.name,"treneri","draft","Nitra",candidate.contacts.website,"gemini:"+key);
+  sqlite.prepare("INSERT INTO gemini_automation_concepts (stable_key,discovery_key,canonical_entity_type,status,discovered_at,created_at,updated_at) VALUES (?,?,'DIRECTORY','CREATING',?,?,?)")
+    .run("directory.treneri",key,"now","now","2000-01-01T00:00:00.000Z");
+  globalThis.__geminiNotionBridgeTestHook=async ({profileId})=>{
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM partner_resources WHERE directory_profile_id=?").get(profileId).n,1);
+    return {notionPageId:"recovered",created:true};
+  };
+  try {
+    const result=await bridge(input);
+    assert.equal(result.created,false);
+    assert.equal(result.status,"NOTION_LINKED");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n,1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM partner_resources").get().n,1);
+    await bridge(input);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM partner_resources").get().n,1);
+  }finally{delete globalThis.__geminiNotionBridgeTestHook;sqlite.close();}
+});
+
+test("anchor failure is fail-closed before DRAFT_CREATED or Notion",async()=>{
+  const {bridge,db,sqlite}=await lifecycleHarness();
+  const failing={prepare(sql){
+    if(sql.includes("INSERT OR IGNORE INTO partner_resources"))return {bind(){return {async run(){throw Error("ANCHOR_FAILURE")}}}};
+    return db.prepare(sql);
+  }};
+  let notionCalls=0;
+  globalThis.__geminiNotionBridgeTestHook=async()=>{notionCalls++;throw Error("Notion must not be called")};
+  try{
+    await assert.rejects(bridge({database:failing,notion:{},stableKey:"directory.treneri",candidate}),/ANCHOR_FAILURE/);
+    assert.equal(notionCalls,0);
+    assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status,"CREATING");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n,1);
+    const key=await geminiBridgeDiscoveryKey("directory.treneri",candidate);
+    sqlite.prepare("UPDATE gemini_automation_concepts SET updated_at=? WHERE discovery_key=?").run("2000-01-01T00:00:00.000Z",key);
+    globalThis.__geminiNotionBridgeTestHook=async()=>({notionPageId:"recovered-after-anchor-failure",created:true});
+    const recovered=await bridge({database:db,notion:{},stableKey:"directory.treneri",candidate});
+    assert.equal(recovered.created,false);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n,1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM partner_resources").get().n,1);
+  }finally{delete globalThis.__geminiNotionBridgeTestHook;sqlite.close();}
+});

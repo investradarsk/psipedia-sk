@@ -1,3 +1,4 @@
+import { ensureResourceForManagedEvent } from "./canonical-resource.ts";
 import { createManagedEvent, normalizeManagedEventInput, type ManagedEventInput } from "./event-store.ts";
 import { slovakRegions } from "./events.ts";
 import { createGeminiEventRequest, parseGeminiEventEnvelope, type GeminiEventCandidateV1 } from "./gemini-automation-event-contract.ts";
@@ -90,10 +91,14 @@ export async function bridgeGeminiEventToNotion(input:{
       id=(await createManagedEvent(payload,ACTOR,db)).id;
       created=true;
     }
+    // Cover both freshly created events and recovery by deterministic slug.
+    await ensureResourceForManagedEvent(id, db);
     await update(db,row.id,"DRAFT_CREATED",id,null);
     row=await getConcept(db,input.stableKey,key);
   }
   if(!row)throw new Error("GEMINI_EVENT_BRIDGE_LINKAGE_FAILED");
+  // Self-heal an existing canonical event before any Notion transition.
+  if(row.canonical_entity_id)await ensureResourceForManagedEvent(row.canonical_entity_id,db);
   if(row.status==="NOTION_LINKED")return snapshot(row,created);
   if(!row.canonical_entity_id)throw new Error("GEMINI_EVENT_CANONICAL_MISSING");
   if(row.status==="DRAFT_CREATED") {
