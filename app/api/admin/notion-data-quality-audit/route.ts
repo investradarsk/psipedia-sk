@@ -17,7 +17,16 @@ type QueryResponse = {
   next_cursor?: string | null;
 };
 
-const ALLOWED = new Set<NotionAuditAgenda>(["directory", "events", "organizations"]);
+const ALLOWED = new Set<NotionAuditAgenda>([
+  "directory", "events", "organizations", "adoptions", "help-cases", "lost-found",
+]);
+
+const sourceDefinitions = {
+  organizations: { label: "Organizácie", titleProperty: "Názov" },
+  adoptions: { label: "Adopcie", titleProperty: "Meno" },
+  "help-cases": { label: "Pomoc psom", titleProperty: "Názov" },
+  "lost-found": { label: "Stratené a nájdené", titleProperty: "Názov" },
+} as const;
 
 /**
  * Read-only, admin-only Notion diagnostic. Exactly one Notion page of at most
@@ -37,7 +46,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Neplatné JSON telo." }, { status: 400 });
   }
   if (!ALLOWED.has(body.agenda as NotionAuditAgenda) || body.mode !== "dry-run") {
-    return Response.json({ error: "Vyber agenda=directory/events/organizations a mode=dry-run." }, { status: 400 });
+    return Response.json({ error: "Vyber platnú kategóriu a mode=dry-run." }, { status: 400 });
   }
   if (body.cursor !== undefined && (typeof body.cursor !== "string" || body.cursor.length > 500 || !body.cursor)) {
     return Response.json({ error: "Neplatný stránkovací kurzor." }, { status: 400 });
@@ -51,15 +60,16 @@ export async function POST(request: Request) {
         ? bindings.NOTION_EVENTS_DATA_SOURCE_ID?.trim()
         : undefined;
 
-    if (agenda === "organizations") {
+    if (agenda !== "directory" && agenda !== "events") {
+      const definition = sourceDefinitions[agenda];
       const target = await resolveNotionCanonicalTarget({
         database: bindings.DB,
         bindings: bindings as RuntimeBindings & Record<string, unknown>,
         definition: {
-          key: "organizations",
-          label: "Organizácie",
-          targetTitle: "Organizácie",
-          titleProperty: "Názov",
+          key: agenda,
+          label: definition.label,
+          targetTitle: definition.label,
+          titleProperty: definition.titleProperty,
         },
         allowCreate: false,
         persist: false,
