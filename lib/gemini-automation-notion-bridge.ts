@@ -1,3 +1,4 @@
+import { ensureResourceForDirectoryProfile } from "./canonical-resource.ts";
 import { createCanonicalDraft, type CanonicalDraftInput } from "./canonical-draft-service.ts";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { createGeminiDiscoveryRequest, parseGeminiDiscoveryEnvelope, type GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
@@ -139,10 +140,15 @@ export async function bridgeGeminiCandidateToNotion(input: GeminiConceptBridgeIn
       )).canonicalEntityId;
       created = true;
     }
+    // The canonical entity must have a resource anchor before advancing the concept.
+    // Recovery via import_key must self-heal the same missing anchor.
+    await ensureResourceForDirectoryProfile(id, db);
     await updateConcept(db,row.id,"DRAFT_CREATED",id,null);
     row = await getConcept(db,input.stableKey,key);
     if (!row) throw new Error("GEMINI_BRIDGE_LINKAGE_WRITE_FAILED");
   }
+  // Also protect concepts whose canonical ID was already persisted by an earlier run.
+  if (row.canonical_entity_id) await ensureResourceForDirectoryProfile(row.canonical_entity_id, db);
   if (row.status === "NOTION_LINKED") return snapshot(row,created);
   if (!row.canonical_entity_id) throw new Error("GEMINI_BRIDGE_CANONICAL_MISSING");
   const { ensureDirectoryProfileInNotion } = await import("./notion-directory-sync.ts");
