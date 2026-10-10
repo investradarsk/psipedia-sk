@@ -30,6 +30,12 @@ import {
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
 import {
+  appendNotionReview,
+  canClearResolvedNotionConflict,
+  emptyNotionReviewQueue,
+  type NotionReviewQueue,
+} from "./notion-data-quality-recovery.ts";
+import {
   notionSeoSchemaExtensionFields,
   notionSeoSchemaExtensionIsDefault,
 } from "./notion-seo-contract.ts";
@@ -99,6 +105,10 @@ export type NotionAgendaSyncSummary = {
     reason: string;
     fields: string[];
   }>;
+  /** Value-free list of the first 100 conflicts for human review; no automatic winner. */
+  reviewQueue: NotionReviewQueue;
+  /** Number of obsolete conflict flags safely cleared after identical snapshots. */
+  resolvedConflictFlags: number;
 };
 
 export type NotionEventsHelpSyncSummary = {
@@ -117,6 +127,8 @@ export type NotionEventsHelpSyncSummary = {
     unchanged: number;
     conflicts: number;
     failed: number;
+    resolvedConflictFlags: number;
+    reviewRequired: number;
   };
 };
 
@@ -529,6 +541,8 @@ function emptyAgenda(definition: AgendaDefinition, isEnabled: boolean, ready: bo
     failed: 0,
     errors: [],
     conflictDetails: [],
+    reviewQueue: emptyNotionReviewQueue(),
+    resolvedConflictFlags: 0,
   };
 }
 
@@ -654,11 +668,17 @@ async function syncAgenda(input: {
             notionSnapshot,
           );
           summary.conflicts += 1;
-          summary.conflictDetails.push({
-            entityId,
-            notionPageId: page.id,
-            reason: "BACKFILL_BASELINE_MISMATCH",
-            fields,
+          if (summary.conflictDetails.length < 100) {
+            summary.conflictDetails.push({
+              entityId,
+              notionPageId: page.id,
+              reason: "BACKFILL_BASELINE_MISMATCH",
+              fields,
+            });
+          }
+          appendNotionReview(summary.reviewQueue, {
+            entityId, notionPageId: page.id, reason: "BACKFILL_BASELINE_MISMATCH",
+            fields, baselineAvailable: false, notionChanged: null, psipediaChanged: null,
           });
           if (input.mode === "sync") {
             await markConflict({
@@ -854,12 +874,24 @@ async function syncAgenda(input: {
 
       if (decision.decision === "CONFLICT") {
         summary.conflicts += 1;
-        if (input.mode === "sync") {
+        const fields = differingAgendaSnapshotFields(
+          input.definition.key, sourceSnapshot, notionSnapshot,
+        );
+        appendNotionReview(summary.reviewQueue, {
+          entityId, notionPageId: page.id, reason: "BIDIRECTIONAL_CONFLICT",
+          fields, baselineAvailable: true,
+          notionChanged: decision.notionChanged, psipediaChanged: decision.psipediaChanged,
+        });
+        const conflictMessage = "CONFLICT: Od posledného úspešného syncu sa zmenil Notion aj canonical Psipedia.";
+        if (input.mode === "sync" && (
+          clean(pageProperty(page, "Sync chyba")) !== conflictMessage
+          || clean(pageProperty(page, "Sync stav")) !== "Chyba"
+        )) {
           await markConflict({
             bindings: input.bindings,
             pageId: page.id,
             schema,
-            message: "Od posledného úspešného syncu sa zmenil Notion aj canonical Psipedia.",
+            message: conflictMessage.slice("CONFLICT: ".length),
           });
         }
         continue;
@@ -867,6 +899,34 @@ async function syncAgenda(input: {
 
       if (decision.decision === "UNCHANGED") {
         summary.unchanged += 1;
+        // A prior conflict must not remain sticky once BOTH current editorial
+        // snapshots are equal. Never clear another kind of validation failure.
+        if (canClearResolvedNotionConflict({
+          canonicalHash, notionHash,
+          syncStatus: clean(pageProperty(page, "Sync stav")),
+          syncError: clean(pageProperty(page, "Sync chyba")),
+        })) {
+          summary.resolvedConflictFlags += 1;
+          if (input.mode !== "dry-run") {
+            const syncedAt = new Date().toISOString();
+            const written = await patchPage(input.bindings, page.id, encodeProperties({
+              "Sync stav": "Synchronizované",
+              "Sync chyba": "",
+              "Posledný sync": syncedAt,
+            }, schema));
+            await saveMapping({
+              database: input.database,
+              agenda: input.definition.key,
+              pageId: page.id,
+              entityId,
+              hash: canonicalHash,
+              notionLastEditedTime: written.last_edited_time ?? syncedAt,
+              psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
+              syncedAt,
+            });
+          }
+          continue;
+        }
         if (input.mode !== "dry-run" && pageIdentity.psipediaId !== source.id) {
           const written = await writeSourceToNotion({
             bindings: input.bindings,
@@ -1106,6 +1166,8 @@ function totals(agendas: NotionAgendaSyncSummary[]) {
     acc.unchanged += agenda.unchanged;
     acc.conflicts += agenda.conflicts;
     acc.failed += agenda.failed;
+    acc.resolvedConflictFlags += agenda.resolvedConflictFlags;
+    acc.reviewRequired += agenda.reviewQueue.total;
     return acc;
   }, {
     scanned: 0,
@@ -1118,6 +1180,8 @@ function totals(agendas: NotionAgendaSyncSummary[]) {
     unchanged: 0,
     conflicts: 0,
     failed: 0,
+    resolvedConflictFlags: 0,
+    reviewRequired: 0,
   });
 }
 
