@@ -124,3 +124,28 @@ test("admin endpoint is access-controlled, dry-run-only and paginated at 100", a
   assert.doesNotMatch(source, /method: "PUT"/);
   assert.doesNotMatch(source, /\.run\(\)/);
 });
+
+test("Notion audit is available for all six operational non-breed agendas", async () => {
+  const summary = await readFile(new URL("../lib/notion-data-quality-audit.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/admin/notion-data-quality-audit/route.ts", import.meta.url), "utf8");
+  for (const kind of ["directory", "events", "organizations", "adoptions", "help-cases", "lost-found"]) {
+    assert.ok(summary.includes('"' + kind + '"'), "missing audit category: " + kind);
+    assert.ok(route.includes('"' + kind + '"'), "missing endpoint category: " + kind);
+  }
+  assert.doesNotMatch(route, /allowCreate: true/);
+  assert.doesNotMatch(route, /persist: true/);
+});
+
+test("Notion audit user interface requires admin login, does not mutate content and supports cursors", async () => {
+  const page = await readFile(new URL("../app/admin/nastroje/notion-audit/page.tsx", import.meta.url), "utf8");
+  const client = await readFile(new URL("../components/admin-notion-data-quality-audit.tsx", import.meta.url), "utf8");
+  const tools = await readFile(new URL("../app/admin/nastroje/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /requireAdminPageUser\("/);
+  assert.match(tools, /href="\/admin\/nastroje\/notion-audit"/);
+  assert.match(client, /mode: "dry-run"/);
+  assert.match(client, /Skontrolovať ďalších 100/);
+  assert.match(client, /credentials: "same-origin"/);
+  assert.match(client, /nextCursor/);
+  assert.match(client, /navigator\.clipboard\.writeText/);
+  assert.doesNotMatch(client, /\/api\/admin\/notion-events-help-sync/);
+});

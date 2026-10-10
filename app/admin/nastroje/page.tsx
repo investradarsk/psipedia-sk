@@ -21,6 +21,13 @@ export default async function AdminTechnicalToolsPage() {
           <span className={styles.hubOpen}>Otvoriť import →</span>
         </Link>
 
+        <Link className={styles.hubCard} href="/admin/nastroje/notion-audit">
+          <span className={styles.hubKicker}>NOTION · KVALITA DÁT</span>
+          <h2>Kontrola údajov v Notione</h2>
+          <p>Prehľad chýb, konfliktov a lokalít po 100 záznamoch. Bez zmien v databázach.</p>
+          <span className={styles.hubOpen}>Otvoriť kontrolu Notionu →</span>
+        </Link>
+
         <Link className={styles.hubCard} href="/admin/nastroje/geo">
           <span className={styles.hubKicker}>GEO</span>
           <h2>GEO nástroje</h2>

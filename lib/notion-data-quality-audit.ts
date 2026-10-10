@@ -1,6 +1,6 @@
 import { classifyDirectorySyncError } from "./notion-data-quality-recovery.ts";
 
-export type NotionAuditAgenda = "directory" | "events" | "organizations";
+export type NotionAuditAgenda = "directory" | "events" | "organizations" | "adoptions" | "help-cases" | "lost-found";
 
 type NotionProperty = Record<string, unknown>;
 export type NotionAuditPage = {
