@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AdminPwaRegistration } from "@/components/admin-pwa-registration";
+import "./admin-legacy-scoped.css";
 import "./admin-workspace.css";
 
 export const viewport: Viewport = { themeColor: "#174b38" };
