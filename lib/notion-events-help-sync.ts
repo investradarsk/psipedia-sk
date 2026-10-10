@@ -28,6 +28,7 @@ import {
   resolveNotionCanonicalTarget,
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
+import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
 import {
   notionSeoSchemaExtensionFields,
   notionSeoSchemaExtensionIsDefault,
@@ -82,6 +83,7 @@ export type NotionAgendaSyncSummary = {
   createdInNotion: number;
   pulledFromNotion: number;
   pushedToNotion: number;
+  geoMirrorUpdates: number;
   unchanged: number;
   conflicts: number;
   failed: number;
@@ -111,6 +113,7 @@ export type NotionEventsHelpSyncSummary = {
     createdInNotion: number;
     pulledFromNotion: number;
     pushedToNotion: number;
+    geoMirrorUpdates: number;
     unchanged: number;
     conflicts: number;
     failed: number;
@@ -520,6 +523,7 @@ function emptyAgenda(definition: AgendaDefinition, isEnabled: boolean, ready: bo
     createdInNotion: 0,
     pulledFromNotion: 0,
     pushedToNotion: 0,
+    geoMirrorUpdates: 0,
     unchanged: 0,
     conflicts: 0,
     failed: 0,
@@ -1053,6 +1057,40 @@ async function syncAgenda(input: {
     }
   }
 
+  // Canonical GEO is a read-only Notion mirror, deliberately excluded from
+  // bidirectional editableSnapshot/content_hash so a new Google match cannot
+  // manufacture a Notion-vs-Psipedia conflict. Mapped rows are matched by
+  // canonical Psipedia ID, never title or slug.
+  if (input.definition.key === "events" || input.definition.key === "organizations") {
+    const liveMappings = input.mode === "sync" ? await loadMappings(input.database, input.definition.key) : mappings;
+    for (const mapping of liveMappings) {
+      const source = sourcesById.get(Number(mapping.entity_id));
+      const page = pagesById.get(mapping.notion_page_id);
+      if (!source || !page) continue;
+      const fields = [
+        ...notionGeoMirrorFields,
+        ...(input.definition.key === "organizations" ? ["Adresa"] : []),
+      ].filter((name) => Boolean(schema[name]) && Object.hasOwn(source.properties, name));
+      if (!fields.length) continue;
+      const desired = Object.fromEntries(fields.map((name) => [name, source.properties[name]])) as Record<string, ReconciliationValue>;
+      const current = Object.fromEntries(fields.map((name) => [name, pageProperty(page, name)])) as Record<string, ReconciliationValue>;
+      const changes = notionGeoMirrorChanges(desired, current, input.definition.key);
+      if (!Object.keys(changes).length) continue;
+      summary.geoMirrorUpdates += 1;
+      if (input.mode !== "sync") continue;
+      try {
+        await patchPage(input.bindings, mapping.notion_page_id, encodeProperties(changes, schema));
+      } catch (error) {
+        logFailure(summary, {
+          entityId: Number(mapping.entity_id),
+          notionPageId: mapping.notion_page_id,
+          operation: "geo_mirror",
+          error,
+        });
+      }
+    }
+  }
+
   return summary;
 }
 
@@ -1064,6 +1102,7 @@ function totals(agendas: NotionAgendaSyncSummary[]) {
     acc.createdInNotion += agenda.createdInNotion;
     acc.pulledFromNotion += agenda.pulledFromNotion;
     acc.pushedToNotion += agenda.pushedToNotion;
+    acc.geoMirrorUpdates += agenda.geoMirrorUpdates;
     acc.unchanged += agenda.unchanged;
     acc.conflicts += agenda.conflicts;
     acc.failed += agenda.failed;
@@ -1075,6 +1114,7 @@ function totals(agendas: NotionAgendaSyncSummary[]) {
     createdInNotion: 0,
     pulledFromNotion: 0,
     pushedToNotion: 0,
+    geoMirrorUpdates: 0,
     unchanged: 0,
     conflicts: 0,
     failed: 0,

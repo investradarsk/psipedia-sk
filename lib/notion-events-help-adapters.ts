@@ -1,5 +1,6 @@
 import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
 import { mergeNotionSeo, notionSeoEditableFields } from "./notion-seo-contract.ts";
+import { notionGeoMirrorProperties } from "./notion-geo-mirror.ts";
 import {
   createManagedEvent,
   getManagedEventById,
@@ -180,6 +181,54 @@ function eventInput(
   };
 }
 
+type ProtectedGeoTarget = "MANAGED_EVENT" | "ORGANIZATION_LOCATION";
+
+/**
+ * Google Places selection belongs to the Psipedia administrator. Editorial
+ * edits in Notion must not invalidate its canonical location fingerprint.
+ */
+async function hasCurrentGooglePlace(
+  database: D1Database,
+  target: ProtectedGeoTarget,
+  targetId: number,
+) {
+  const column = target === "MANAGED_EVENT" ? "managed_event_id" : "organization_location_id";
+  const point = await database.prepare(`
+    SELECT geocode_status AS geo_status, public_visibility AS geo_public_visibility,
+      latitude AS geo_latitude, longitude AS geo_longitude,
+      google_place_id AS geo_google_place_id,
+      source_fingerprint AS geo_source_fingerprint,
+      google_place_source_fingerprint AS geo_google_place_source_fingerprint
+    FROM geo_points WHERE target_type=? AND ${column}=? LIMIT 1
+  `).bind(target, targetId).first<Record<string, unknown>>();
+  return point ? notionGeoMirrorProperties(point)["Google miesto aktuálne"] === true : false;
+}
+
+function canonicalOrganizationLocationForNotion<T extends { role: string; isPrimary: boolean; sortOrder: number; id: number }>(
+  locations: T[],
+) {
+  return [...locations].sort((a, b) =>
+    Number(b.role === "SITE") - Number(a.role === "SITE")
+    || Number(b.isPrimary) - Number(a.isPrimary)
+    || a.sortOrder - b.sortOrder || a.id - b.id
+  )[0] ?? null;
+}
+
+async function assertOrganizationPlaceNotOverwritten(
+  database: D1Database,
+  organizationId: number,
+  values: Record<string, ReconciliationValue>,
+) {
+  const locations = await listOrganizationLocationsAdmin(organizationId, database);
+  const current = canonicalOrganizationLocationForNotion(locations);
+  if (!current || !(await hasCurrentGooglePlace(database, "ORGANIZATION_LOCATION", current.id))) return;
+  if (current.city !== s(values["Mesto"])
+    || current.district !== s(values["Okres"])
+    || current.region !== s(values["Kraj"])) {
+    throw new Error("GOOGLE_PLACE_LOCATION_LOCKED: Zmena mesta/okresu/kraja v Notione by prepísala potvrdené Google Maps miesto. Uprav adresu v Psipedii.");
+  }
+}
+
 async function organizationLocationFromNotion(
   database: D1Database,
   organizationId: number,
@@ -191,7 +240,7 @@ async function organizationLocationFromNotion(
     region: s(values["Kraj"]),
   };
   const locations = await listOrganizationLocationsAdmin(organizationId, database);
-  const current = locations.find((item) => item.isPrimary) ?? locations[0] ?? null;
+  const current = canonicalOrganizationLocationForNotion(locations);
   if (!current) {
     if (!(desired.city || desired.district || desired.region)) return;
     await createOrganizationLocationFromAdmin(organizationId, {
@@ -507,6 +556,15 @@ export async function applyNotionToCanonical(
     await assertGeminiEventNotionPublicationAllowed(
       database,entityId,existing.status,s(values["Stav"]),
     );
+    const locationEdited = (
+      s(values["Adresa"]) !== (existing.address ?? "")
+      || s(values["Miesto"]) !== (existing.venue ?? "")
+      || s(values["Mesto"]) !== (existing.city ?? "")
+      || s(values["Kraj"]) !== (existing.region ?? "")
+    );
+    if (locationEdited && await hasCurrentGooglePlace(database, "MANAGED_EVENT", entityId)) {
+      throw new Error("GOOGLE_PLACE_LOCATION_LOCKED: Potvrdenú adresu podujatia treba upraviť v Psipedii, nie cez Notion.");
+    }
     const updated = await updateManagedEvent(
       entityId,
       eventInput(values, existing),
@@ -520,6 +578,7 @@ export async function applyNotionToCanonical(
     let existing = await getOrganizationPublicationAdminById(entityId, database);
     if (!existing) throw new Error(`Organizácia #${entityId} neexistuje.`);
     const desiredStatus = organizationStatusFromNotion(s(values["Stav"]));
+    await assertOrganizationPlaceNotOverwritten(database, entityId, values);
 
     if (existing.status === "ARCHIVED" && desiredStatus !== "ARCHIVED") {
       const restored = await reconcileOrganizationStatus(entityId, "DRAFT", database);
