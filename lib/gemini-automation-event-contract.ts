@@ -166,9 +166,9 @@ export function buildGeminiEventJsonSchema(req: GeminiEventRequestV1) {
     category_key:{type:"string",enum:[allowed.stableKey]},
     candidates:{type:"array",maxItems:allowed.maxCandidates,items:object({
       title:{type:"string"},organizer:{type:"string"},
-      start_date:{type:"string",format:"date"},start_time:s(),
-      // Nullable date formats vary by provider; runtime still validates every non-null end date.
-      end_date:{type:["string","null"],description:"YYYY-MM-DD calendar date or null"},end_time:s(),
+      // Provider describes shape only; exact calendar dates are validated locally.
+      start_date:{type:"string"},start_time:s(),
+      end_date:s(),end_time:s(),
       all_day:{type:"boolean"},venue:s(),city:s(),region:s(),
       online:{type:"boolean"},event_url:s(),registration_url:s(),
       description:{type:"string"},cancelled:{type:"boolean"},

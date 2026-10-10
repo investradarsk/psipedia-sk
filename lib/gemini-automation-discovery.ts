@@ -165,6 +165,46 @@ function groundedResponse(payload: unknown): {
   return { output, groundedSearchQueryCount: Math.min(searchCount, 100), diagnostic: safe };
 }
 
+
+/** On HTTP 400 inspect at most 4 KiB of JSON, return only allowlisted RPC status.
+ * Provider-controlled message/details/URLs/candidates are never logged.
+ */
+const SAFE_GOOGLE_ERROR_STATUSES = new Set([
+  "INVALID_ARGUMENT", "FAILED_PRECONDITION", "OUT_OF_RANGE", "UNAUTHENTICATED",
+  "PERMISSION_DENIED", "NOT_FOUND", "ALREADY_EXISTS", "RESOURCE_EXHAUSTED",
+  "CANCELLED", "ABORTED", "DEADLINE_EXCEEDED", "INTERNAL", "UNAVAILABLE",
+  "DATA_LOSS", "UNKNOWN", "UNIMPLEMENTED",
+]);
+async function safeHttp400ProviderStatus(response: Response): Promise<string | null> {
+  if (response.status !== 400 || !/^application\/json(?:\s*;|$)/i.test((response.headers.get("content-type") ?? "").trim())) return null;
+  const declared = response.headers.get("content-length");
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > 4096)) return null;
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > 4096) { await reader.cancel(); return null; }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const providerError = record(record(JSON.parse(new TextDecoder().decode(bytes)))?.error);
+    const status = providerError?.status;
+    return typeof status === "string" && SAFE_GOOGLE_ERROR_STATUSES.has(status) ? status : null;
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function interact(options: {
   env: GeminiRuntimeConfig;
   prompt: string;
@@ -198,8 +238,12 @@ async function interact(options: {
     if (response.status === 401 || response.status === 403) throw new GeminiAutomationError("AUTH_FAILED", response.status);
     if (response.status === 429) throw new GeminiAutomationError("RATE_LIMITED", response.status);
     if (!response.ok) {
-      // Only the numeric status: never inspect or log provider response bodies.
-      console.warn("gemini_discovery_provider_error", { status: response.status });
+      const providerStatus = await safeHttp400ProviderStatus(response);
+      if (controller.signal.aborted) throw new GeminiAutomationError("TIMEOUT");
+      console.warn("gemini_discovery_provider_error", {
+        httpStatus: response.status,
+        ...(providerStatus === null ? {} : { providerStatus }),
+      });
       throw new GeminiAutomationError("PROVIDER_ERROR", response.status);
     }
     const length = Number(response.headers.get("content-length") || 0);
