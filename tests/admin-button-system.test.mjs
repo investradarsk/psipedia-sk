@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
 test("admin action containers share one accessible button system", () => {
-  const css = read("app/globals.css");
+  const css = read("app/admin/admin-legacy-scoped.css");
 
   assert.match(css, /ADMIN-BUTTONS-1: unified admin action controls/);
   assert.match(css, /\.admin-form-actions,/);
