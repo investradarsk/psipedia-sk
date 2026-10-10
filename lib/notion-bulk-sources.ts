@@ -2,6 +2,7 @@ import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 import type { EditableSeo } from "./content-seo.ts";
 import type { CanonicalSourceRecord, ReconciliationValue } from "./notion-bulk-reconciliation.ts";
 import { notionSeoSourceProperties } from "./notion-seo-contract.ts";
+import { notionGeoMirrorProperties, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
 
 const SITE_URL = "https://psipedia.sk";
 
@@ -153,8 +154,27 @@ export async function loadNotionBulkServices(database: D1Database) {
 
 export async function loadNotionBulkEvents(database: D1Database) {
   const sourceRows = await rows(database, `SELECT id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
-    organizer,description,practical_info,website_url,registration_url,image_url,cancelled,seo_json
-    FROM managed_events ORDER BY id ASC`);
+    organizer,description,practical_info,website_url,registration_url,image_url,cancelled,seo_json,
+    geo.geo_point_id,geo.geo_status,geo.geo_public_visibility,geo.geo_public_precision,
+    geo.geo_latitude,geo.geo_longitude,geo.geo_provider,geo.geo_google_place_id,
+    geo.geo_source_fingerprint,geo.geo_google_place_source_fingerprint,
+    (SELECT m.action FROM moderation_events m
+       WHERE m.resource_type = 'GEO_POINT' AND m.subject_id = CAST(geo.geo_point_id AS TEXT)
+         AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+       ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS google_maps_action
+    FROM managed_events
+    LEFT JOIN (
+      SELECT geo.id AS geo_point_id,
+  geo.managed_event_id AS geo_target_id, geo.organization_location_id AS geo_org_target_id,
+  geo.geocode_status AS geo_status, geo.public_visibility AS geo_public_visibility,
+  geo.public_precision AS geo_public_precision,
+  geo.latitude AS geo_latitude, geo.longitude AS geo_longitude,
+  geo.provider AS geo_provider, geo.google_place_id AS geo_google_place_id,
+  geo.source_fingerprint AS geo_source_fingerprint,
+  geo.google_place_source_fingerprint AS geo_google_place_source_fingerprint
+      FROM geo_points geo WHERE geo.target_type = 'MANAGED_EVENT'
+    ) geo ON geo.geo_target_id = managed_events.id
+    ORDER BY managed_events.id ASC`);
 
   return sourceRows.map((row) => {
     const seo = (jsonObject(row.seo_json) ?? {}) as EditableSeo;
@@ -180,19 +200,48 @@ export async function loadNotionBulkEvents(database: D1Database) {
       "Registrácia": s(row.registration_url),
       "Hlavný obrázok URL": asset(row.image_url),
       "Zrušené": b(row.cancelled),
+      ...notionGeoMirrorProperties(row, {
+        forceNotRequired: /\bonline\b/i.test(s(row.venue)) || /\bonline\b/i.test(s(row.event_type)),
+      }),
       ...notionSeoSourceProperties("events", seo, asset(seo.ogImage)),
-    }, ["Slug"]);
+    }, ["Slug", ...notionGeoMirrorFields]);
   });
 }
 
 export async function loadNotionBulkOrganizations(database: D1Database) {
   const sourceRows = await rows(database, `SELECT o.id,o.name,o.slug,o.legal_name,o.registration_number,o.type,o.status,o.short_description,o.description,
     o.website_url,o.facebook_url,o.instagram_url,
-    COALESCE(NULLIF((SELECT l.city FROM organization_locations l WHERE l.organization_id=o.id ORDER BY l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1),''),o.city) AS city,
-    COALESCE(NULLIF((SELECT l.district FROM organization_locations l WHERE l.organization_id=o.id ORDER BY l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1),''),o.district) AS district,
-    COALESCE(NULLIF((SELECT l.region FROM organization_locations l WHERE l.organization_id=o.id ORDER BY l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1),''),o.region) AS region,
-    o.image_url,o.source_url
-    FROM help_organizations o ORDER BY o.id ASC`);
+    COALESCE(NULLIF(loc.city,''),o.city) AS city,
+    COALESCE(NULLIF(loc.district,''),o.district) AS district,
+    COALESCE(NULLIF(loc.region,''),o.region) AS region,
+    o.image_url,o.source_url,
+    CASE WHEN loc.role='SITE' AND geo.geo_status='RESOLVED' AND geo.geo_public_visibility='EXACT_PUBLIC'
+      THEN loc.address ELSE '' END AS canonical_public_address,
+    geo.geo_point_id,geo.geo_status,geo.geo_public_visibility,geo.geo_public_precision,
+    geo.geo_latitude,geo.geo_longitude,geo.geo_provider,geo.geo_google_place_id,
+    geo.geo_source_fingerprint,geo.geo_google_place_source_fingerprint,
+    (SELECT m.action FROM moderation_events m
+       WHERE m.resource_type = 'HELP_ORGANIZATION' AND m.subject_id = CAST(o.id AS TEXT)
+         AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+       ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS google_maps_action
+    FROM help_organizations o
+    LEFT JOIN organization_locations loc ON loc.id = (
+      SELECT l.id FROM organization_locations l WHERE l.organization_id=o.id
+      ORDER BY CASE WHEN l.role='SITE' THEN 0 ELSE 1 END,
+        l.is_primary DESC,l.sort_order ASC,l.id ASC LIMIT 1
+    )
+    LEFT JOIN (
+      SELECT geo.id AS geo_point_id,
+  geo.managed_event_id AS geo_target_id, geo.organization_location_id AS geo_org_target_id,
+  geo.geocode_status AS geo_status, geo.public_visibility AS geo_public_visibility,
+  geo.public_precision AS geo_public_precision,
+  geo.latitude AS geo_latitude, geo.longitude AS geo_longitude,
+  geo.provider AS geo_provider, geo.google_place_id AS geo_google_place_id,
+  geo.source_fingerprint AS geo_source_fingerprint,
+  geo.google_place_source_fingerprint AS geo_google_place_source_fingerprint
+      FROM geo_points geo WHERE geo.target_type = 'ORGANIZATION_LOCATION'
+    ) geo ON geo.geo_org_target_id = loc.id
+    ORDER BY o.id ASC`);
 
   return sourceRows.map((row) => {
     const url = `${SITE_URL}/organizacie/${s(row.slug)}`;
@@ -211,9 +260,11 @@ export async function loadNotionBulkOrganizations(database: D1Database) {
       "Mesto": s(row.city),
       "Okres": s(row.district),
       "Kraj": s(row.region),
+      ...(s(row.canonical_public_address) ? { "Adresa": s(row.canonical_public_address) } : {}),
+      ...notionGeoMirrorProperties(row),
       "Hlavný obrázok URL": asset(row.image_url),
       "Zdroj dát": s(row.source_url),
-    }, ["Slug"]);
+    }, ["Slug", ...notionGeoMirrorFields, "Adresa"]);
   });
 }
 

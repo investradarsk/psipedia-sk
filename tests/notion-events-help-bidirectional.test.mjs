@@ -553,10 +553,12 @@ test("domain adapters use existing canonical write APIs instead of direct table 
   assert.doesNotMatch(source, /DELETE FROM/);
 });
 
-test("organization Notion snapshot resolves child primary location without making child organizations", async () => {
+test("organization Notion snapshot prefers canonical public SITE and falls back deterministically", async () => {
   const source = await readFile(new URL("../lib/notion-bulk-sources.ts", import.meta.url), "utf8");
   assert.match(source, /FROM organization_locations l WHERE l\.organization_id=o\.id/);
-  assert.match(source, /ORDER BY l\.is_primary DESC,l\.sort_order ASC,l\.id ASC/);
+  assert.match(source, /ORDER BY CASE WHEN l\.role='SITE' THEN 0 ELSE 1 END,/);
+  assert.match(source, /l\.is_primary DESC,l\.sort_order ASC,l\.id ASC/);
+  assert.match(source, /geo\.geo_public_visibility='EXACT_PUBLIC'/);
   assert.doesNotMatch(source, /FROM organization_locations ORDER BY id ASC/);
 });
 

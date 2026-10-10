@@ -72,6 +72,7 @@ type GeoMirrorRow = {
   source_fingerprint: string | null;
   google_place_id: string | null;
   google_place_source_fingerprint: string | null;
+  google_maps_action: string | null;
   updated_at: string | null;
 };
 
@@ -416,7 +417,12 @@ function date(value: string | null | undefined) {
 async function loadGeoMirror(database: D1Database, profileId: number) {
   return database.prepare(`
     SELECT geocode_status, latitude, longitude, provider, source_fingerprint,
-           google_place_id, google_place_source_fingerprint, updated_at
+           google_place_id, google_place_source_fingerprint, updated_at,
+           (SELECT m.action FROM moderation_events m
+            WHERE m.resource_type = 'GEO_POINT'
+              AND m.subject_id = CAST(geo_points.id AS TEXT)
+              AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+            ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS google_maps_action
     FROM geo_points
     WHERE directory_profile_id = ?
     LIMIT 1
@@ -490,6 +496,7 @@ function notionProfileProperties(
     "GEO provider": richText(geo?.provider ?? ""),
     "Google Place ID": richText(geo?.google_place_id ?? ""),
     "Google miesto aktuálne": checkbox(googleCurrent),
+    "Google Maps netreba": checkbox(geo?.google_maps_action === "GOOGLE_MAPS_NOT_REQUIRED"),
     "Google Maps cieľ": richText(googleCurrent ? "PLACE" : geo?.geocode_status === "RESOLVED" ? "COORDINATES" : ""),
     "Obrázok Psipedia": url(absoluteAsset(profile.imageUrl)),
     "Obrázok key": richText(profile.imageKey ?? ""),
@@ -968,6 +975,13 @@ async function changedProfileIds(database: D1Database) {
     LEFT JOIN geo_points gp ON gp.directory_profile_id = dp.id
     WHERE COALESCE(dns.psipedia_updated_at, '') <> dp.updated_at
        OR (gp.updated_at IS NOT NULL AND gp.updated_at > dns.last_synced_at)
+       OR EXISTS (
+         SELECT 1 FROM moderation_events m
+         WHERE m.resource_type='GEO_POINT'
+           AND m.subject_id=CAST(gp.id AS TEXT)
+           AND m.action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+           AND m.created_at > dns.last_synced_at
+       )
     ORDER BY dp.updated_at ASC, dp.id ASC
     LIMIT ?
   `).bind(CHANGED_PROFILE_BATCH).all<{ id: number }>();
