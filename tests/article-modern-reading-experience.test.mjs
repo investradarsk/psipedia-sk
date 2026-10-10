@@ -163,15 +163,15 @@ test("article header follows compact editorial hierarchy and aligns with the rea
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
 });
 test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
-  assert.match(styles, /--article-reading-width:\s*760px/);
+  assert.match(styles, /--article-reading-width:\s*720px/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
-  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*var\(--cream\)/);
+  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/);
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
 });
 
-test("ARTICLE-PUBLIC-LAYOUT-V3 scopes prose justification and lifts the desktop discovery rail", () => {
+test("ARTICLE-READING-WHITE-1 uses left-aligned prose and lifts the desktop discovery rail", () => {
   const layout = indexOfOrFail(detail, "data-article-layout", "shared article layout is missing");
   const mainColumn = indexOfOrFail(detail, "className={styles.articleMainColumn}", "article main column is missing");
   const header = indexOfOrFail(detail, "data-article-reading-start", "article header reading marker is missing");
@@ -181,8 +181,8 @@ test("ARTICLE-PUBLIC-LAYOUT-V3 scopes prose justification and lifts the desktop 
 
   assert.match(styles, /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
   assert.match(styles, /\.sidebar[\s\S]*align-self:\s*stretch/);
-  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*var\(--cream\)/);
-  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*justify[\s\S]*text-align-last:\s*left[\s\S]*hyphens:\s*auto/);
+  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/);
+  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left[\s\S]*text-align-last:\s*auto[\s\S]*hyphens:\s*none/);
   assert.match(styles, /\.readingShell :global\(\.article-block-text li\)/);
   assert.match(styles, /\.readingShell :global\(\.article-block-quote \.article-block-rich-content blockquote\)/);
   assert.doesNotMatch(styles, /\.title h1[^{]*\{[^}]*text-align:\s*justify/s);
@@ -191,16 +191,16 @@ test("ARTICLE-PUBLIC-LAYOUT-V3 scopes prose justification and lifts the desktop 
   assert.match(styles, /@media \(max-width: 1120px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
 });
 
-test("ARTICLE-PUBLIC-TYPOGRAPHY-V4 uses sans-serif prose and preserves mobile left alignment", () => {
+test("ARTICLE-READING-WHITE-1 keeps sans-serif, 18px text and flush-left mobile paragraphs", () => {
   const mobileStyles = styles.slice(
     styles.indexOf("@media (max-width: 767px)"),
     styles.indexOf("@media (max-width: 420px)"),
   );
   assert.match(styles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif/s);
-  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*1rem;[^}]*line-height:\s*1\.7/s);
-  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose \.article-intro\)[^{]*\{[^}]*font-size:\s*1\.02rem/s);
+  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*18px;[^}]*line-height:\s*1\.65/s);
+  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose \.article-intro\)[^{]*\{[^}]*font-size:\s*1em/s);
   assert.match(mobileStyles, /\.readingShell :global\(\.article-intro p\)[\s\S]*\.readingShell :global\(\.article-block-text li\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*-webkit-hyphens:\s*none;\s*hyphens:\s*none;/);
-  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*justify;\s*text-align-last:\s*left;\s*hyphens:\s*auto;/);
+  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*hyphens:\s*none;/);
   assert.match(mobileStyles, /\.sidebar\s*\{\s*display:\s*none;/);
 });
 
@@ -229,7 +229,7 @@ test("mobile article composition hides sidebar and keeps compact readable contro
   assert.match(styles, /@media \(max-width: 767px\)/);
   assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.sidebar\s*\{\s*display:\s*none/);
   assert.match(styles, /\.favoriteAction :global\(\.favorite-button\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*font-size:\s*1rem[\s\S]*line-height:\s*1\.7/);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*font-size:\s*18px[\s\S]*line-height:\s*1\.65/);
   assert.match(styles, /font-size:\s*clamp\(1\.65rem,\s*6\.8vw,\s*1\.95rem\)/);
   assert.match(styles, /article-block-sources\)[^{]*\{[^}]*font-size:\s*0\.9rem/s);
   assert.match(shareStyles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
@@ -384,4 +384,14 @@ test("ARTICLE-CARDS-1 reuses shared article presentation on homepage and only ad
   assert.doesNotMatch(searchPage, /<PublicArticleListItem/);
   assert.match(searchStyles, /\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*128px minmax\(0, 1fr\)/);
   assert.match(searchStyles, /@media \(max-width: 620px\)[\s\S]*?\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*88px minmax\(0, 1fr\)/);
+});
+
+
+test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article pages", () => {
+  assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*#fff;/s);
+  assert.match(styles, /--article-reading-width:\s*720px/);
+  assert.match(styles, /\.readingShell :global\(\.article-prose\)\s*\{[^}]*color:\s*#242424;[^}]*font-size:\s*18px;[^}]*line-height:\s*1\.65;/s);
+  assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*color:\s*inherit;[^}]*font-size:\s*1em;/s);
+  assert.match(styles, /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.7rem;/s);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.5rem;/s);
 });

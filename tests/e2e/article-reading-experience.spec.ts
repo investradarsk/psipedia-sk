@@ -196,6 +196,8 @@ for (const articleCase of cases) {
         imageRatio: imageRect ? imageRect.width / imageRect.height : null,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
+        bodyColor: getComputedStyle(prose).color,
         proseFontFamily: getComputedStyle(prose).fontFamily,
         introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
         introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
@@ -225,15 +227,17 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
+    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
     expect(metrics.proseFontFamily).toMatch(/Avenir Next|Avenir|Segoe UI/);
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
     if (metrics.bodyHyphens !== null) expect(metrics.bodyHyphens).toBe("none");
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.68);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.76);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.62);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.68);
     expect(metrics.introTop).toBeLessThan(metrics.takeawayTop);
 
     if (articleCase.id === "bikejoring") {
@@ -382,6 +386,8 @@ for (const articleCase of cases) {
         proseLeft: prose.getBoundingClientRect().left,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
+        canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
+        bodyColor: getComputedStyle(prose).color,
         proseLineHeight: Number.parseFloat(getComputedStyle(prose).lineHeight),
         noImageGap: prose.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
         sidebarTop: sidebarRect.top,
@@ -399,10 +405,10 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
       expect(metrics.imageHeight).not.toBeNull();
-      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(425);
-      expect(metrics.imageHeight!).toBeLessThanOrEqual(430);
-      expect(metrics.imageWidth).toBeGreaterThanOrEqual(758);
-      expect(metrics.imageWidth).toBeLessThanOrEqual(762);
+      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(403);
+      expect(metrics.imageHeight!).toBeLessThanOrEqual(407);
+      expect(metrics.imageWidth).toBeGreaterThanOrEqual(718);
+      expect(metrics.imageWidth).toBeLessThanOrEqual(722);
       expect(metrics.imageRatio).not.toBeNull();
       expect(metrics.imageRatio!).toBeGreaterThan(1.74);
       expect(metrics.imageRatio!).toBeLessThan(1.81);
@@ -411,18 +417,20 @@ for (const articleCase of cases) {
       expect(metrics.imageRatio).toBeNull();
       expect(metrics.noImageGap).toBeLessThanOrEqual(40);
     }
-    expect(metrics.proseWidth).toBeGreaterThanOrEqual(739);
-    expect(metrics.proseWidth).toBeLessThanOrEqual(761);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(17.1);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.67);
-    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.73);
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(718);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(722);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.62);
+    expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.68);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
     if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(2);
     expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
+    expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
+    expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
     expect(metrics.proseFontFamily).toMatch(/Avenir Next|Avenir|Segoe UI/);
-    expect(metrics.introTextAlign).toBe("justify");
+    expect(metrics.introTextAlign).toBe("left");
     expect(metrics.headingTextAlign).not.toBe("justify");
     expect(metrics.disclaimerTextAlign).not.toBe("justify");
 
