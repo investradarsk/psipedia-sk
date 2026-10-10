@@ -197,7 +197,11 @@ async function interact(options: {
       });
     if (response.status === 401 || response.status === 403) throw new GeminiAutomationError("AUTH_FAILED", response.status);
     if (response.status === 429) throw new GeminiAutomationError("RATE_LIMITED", response.status);
-    if (!response.ok) throw new GeminiAutomationError("PROVIDER_ERROR", response.status);
+    if (!response.ok) {
+      // Only the numeric status: never inspect or log provider response bodies.
+      console.warn("gemini_discovery_provider_error", { status: response.status });
+      throw new GeminiAutomationError("PROVIDER_ERROR", response.status);
+    }
     const length = Number(response.headers.get("content-length") || 0);
     if (!Number.isFinite(length) || length > GEMINI_DISCOVERY_MAX_RESPONSE_BYTES) {
       fail("RESPONSE_TOO_LARGE", { responseBytes: Number.isSafeInteger(length) && length >= 0 ? length : undefined });
@@ -213,6 +217,8 @@ async function interact(options: {
     if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
       throw new GeminiAutomationError("TIMEOUT");
     }
+    // No HTTP response exists. Never log the exception, request, prompt or headers.
+    console.warn("gemini_discovery_provider_error", { reason: "NETWORK_ERROR" });
     throw new GeminiAutomationError("PROVIDER_ERROR");
   } finally {
     clearTimeout(timeout);
