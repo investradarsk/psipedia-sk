@@ -153,22 +153,28 @@ export function buildGeminiEventPrompt(req: GeminiEventRequestV1, context: strin
     "Return schema_version=1, category_key="+canonical.stableKey+" and strict structured JSON.",
   ].join("\n");
 }
+/** Provider schema is advisory: only the documented Gemini Interactions JSON Schema subset.
+ * parseGeminiEventEnvelope / strictEventDate remain the authoritative validators.
+ * Reference: https://ai.google.dev/gemini-api/docs/structured-output
+ */
 export function buildGeminiEventJsonSchema(req: GeminiEventRequestV1) {
   const allowed=createGeminiEventRequest(req);
-  const s=(maxLength:number)=>({type:["string","null"],minLength:1,maxLength});
+  const s=()=>({type:["string","null"]});
   const object=(p:Record<string,unknown>)=>({type:"object",properties:p,required:Object.keys(p),additionalProperties:false});
   return object({
     schema_version:{type:"integer",enum:[1]},
     category_key:{type:"string",enum:[allowed.stableKey]},
     candidates:{type:"array",maxItems:allowed.maxCandidates,items:object({
-      title:{type:"string",minLength:1,maxLength:160},organizer:{type:"string",minLength:1,maxLength:160},
-      start_date:{type:"string",pattern:"^\\d{4}-\\d{2}-\\d{2}$"},start_time:s(5),
-      end_date:s(10),end_time:s(5),all_day:{type:"boolean"},venue:s(200),city:s(120),region:s(100),
-      online:{type:"boolean"},event_url:s(2048),registration_url:s(2048),
-      description:{type:"string",minLength:30,maxLength:3000},cancelled:{type:"boolean"},
-      source_urls:{type:"array",minItems:1,maxItems:8,items:{type:"string",minLength:1,maxLength:2048}},
+      title:{type:"string"},organizer:{type:"string"},
+      start_date:{type:"string",format:"date"},start_time:s(),
+      // Nullable date formats vary by provider; runtime still validates every non-null end date.
+      end_date:{type:["string","null"],description:"YYYY-MM-DD calendar date or null"},end_time:s(),
+      all_day:{type:"boolean"},venue:s(),city:s(),region:s(),
+      online:{type:"boolean"},event_url:s(),registration_url:s(),
+      description:{type:"string"},cancelled:{type:"boolean"},
+      source_urls:{type:"array",minItems:1,maxItems:8,items:{type:"string"}},
       evidence:{type:"array",minItems:1,maxItems:8,items:object({
-        source_url:{type:"string",minLength:1,maxLength:2048},
+        source_url:{type:"string"},
         fields:{type:"array",minItems:1,maxItems:10,items:{type:"string",enum:[...EVIDENCE_FIELDS]}},
       })},
     })},
