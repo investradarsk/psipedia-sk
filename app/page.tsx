@@ -22,7 +22,7 @@ import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { Suspense, type CSSProperties } from "react";
 import styles from "./home-v2.module.css";
 
 // Site-level positioning: the homepage is a portal, not the landing for individual services.
@@ -40,16 +40,22 @@ export const metadata: Metadata = {
   title: { absolute: "Psipedia.sk – rozumej svojmu psovi" },
 };
 
-export default async function Home() {
+// Kick off independent below-the-fold reads immediately, but do not make the
+// hero and search wait for them. This lets React stream the above-fold HTML.
+function loadHomepageBelowFoldData() {
   const dayOfYear = dayOfYearInBratislava();
-  const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians, homeHeroVisual] = await Promise.all([
+  return Promise.all([
     getPublishedArticleSummaries({ limit: 120 }),
     getHomepageUpcomingEventsWithImages(3),
     getHomepageHighlightedHelpCasesWithImages(3),
     getBreedOfTheDay(dayOfYear),
     getHomepageDirectoryProfilesWithImages("veterinari", 3),
-    getResolvedSectionVisual("home.hero"),
   ]);
+}
+
+export default async function Home() {
+  const deferredData = loadHomepageBelowFoldData();
+  const homeHeroVisual = await getResolvedSectionVisual("home.hero");
   const homeHero = homeHeroVisual ?? {
     imageUrl: "/images/hero-labrador.webp",
     altText: "Čierny labrador beží po rannej lúke",
@@ -64,6 +70,35 @@ export default async function Home() {
     "--section-visual-mobile-y": sectionVisualPositionPercent(homeHero.mobileCrop.y),
     "--section-visual-mobile-zoom": homeHero.mobileCrop.zoom,
   } as CSSProperties & Record<string, string | number>;
+
+  return (
+    <main id="obsah" className={styles.homeV2}>
+      <section className="hero-section shell" data-home-hero>
+        <div className="hero-card">
+          <img className="hero-image" src={homeHero.imageUrl} srcSet={responsiveMediaSrcSet(homeHero.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="100vw" alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />
+          <div className="hero-shade" />
+          <div className="hero-copy">
+            <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>
+            <h1>Rozumej svojmu psovi.<br /><em>Každý deň o trochu viac.</em></h1>
+            <p>Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste.</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="shell home-search-shell" data-home-search>
+        <HomePortalSearch />
+      </div>
+
+
+      <Suspense fallback={null}>
+        <HomeDeferredSections data={deferredData} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function HomeDeferredSections({ data }: { data: ReturnType<typeof loadHomepageBelowFoldData> }) {
+  const [publishedArticles, nextEvents, activeHelpCases, breedOfTheDay, veterinarians] = await data;
   const articleSelection = selectHomepageArticles(publishedArticles, { latestLimit: 5, sectionLimit: 5, backfillSectionsFromLatest: true });
   const homepageServiceSlugs: string[] = [
     "treneri",
@@ -84,23 +119,7 @@ export default async function Home() {
   };
 
   return (
-    <main id="obsah" className={styles.homeV2}>
-      <section className="hero-section shell" data-home-hero>
-        <div className="hero-card">
-          <img className="hero-image" src={homeHero.imageUrl} srcSet={responsiveMediaSrcSet(homeHero.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="100vw" alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />
-          <div className="hero-shade" />
-          <div className="hero-copy">
-            <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>
-            <h1>Rozumej svojmu psovi.<br /><em>Každý deň o trochu viac.</em></h1>
-            <p>Psipedia.sk je slovenský portál o psoch – rady, služby, podujatia a pomoc na jednom mieste.</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="shell home-search-shell" data-home-search>
-        <HomePortalSearch />
-      </div>
-
+    <>
       <HomeLatestArticles articles={articleSelection.latest} />
 
       <section className="section shell home-events-section" data-home-events aria-labelledby="home-events-title">
@@ -318,6 +337,6 @@ export default async function Home() {
       </section>
 
       <AdSlot placementId={AD_PLACEMENTS.HOME_BOTTOM.id} />
-    </main>
+    </>
   );
 }
