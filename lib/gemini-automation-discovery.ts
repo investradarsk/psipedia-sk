@@ -166,20 +166,69 @@ function groundedResponse(payload: unknown): {
 }
 
 
-/** On HTTP 400 inspect at most 4 KiB of JSON, return only allowlisted RPC status.
- * Provider-controlled message/details/URLs/candidates are never logged.
+/**
+ * Interactions API HTTP 400 errors use error.code (not the older Google RPC
+ * error.status). Raw provider text is only inspected transiently in memory.
+ * https://ai.google.dev/gemini-api/docs/api-errors
  */
-const SAFE_GOOGLE_ERROR_STATUSES = new Set([
-  "INVALID_ARGUMENT", "FAILED_PRECONDITION", "OUT_OF_RANGE", "UNAUTHENTICATED",
-  "PERMISSION_DENIED", "NOT_FOUND", "ALREADY_EXISTS", "RESOURCE_EXHAUSTED",
-  "CANCELLED", "ABORTED", "DEADLINE_EXCEEDED", "INTERNAL", "UNAVAILABLE",
-  "DATA_LOSS", "UNKNOWN", "UNIMPLEMENTED",
+const GEMINI_ERROR_BODY_READ_CAP = 64 * 1024;
+const SAFE_INTERACTIONS_ERROR_CODES = new Set([
+  "invalid_request", "failed_precondition", "parameter_unknown", "out_of_range",
+  "authentication", "payment_required", "permission_denied", "not_found",
+  "model_not_found", "already_exists", "aborted", "rate_limit_exceeded",
+  "quota_exceeded", "too_many_requests", "cancelled", "api_error",
+  "unimplemented", "service_unavailable", "deadline_exceeded",
 ]);
-async function safeHttp400ProviderStatus(response: Response): Promise<string | null> {
-  if (response.status !== 400 || !/^application\/json(?:\s*;|$)/i.test((response.headers.get("content-type") ?? "").trim())) return null;
+
+type SafeProviderArea = "RESPONSE_FORMAT" | "SCHEMA" | "TOOLS" | "INPUT" | "MODEL" | "OTHER";
+type SafeProviderErrorDiagnostic = {
+  providerCode?: string;
+  providerArea?: SafeProviderArea;
+  fieldPath?: string;
+  errorBodyTooLarge?: true;
+};
+
+function classifyProviderArea(message: string): SafeProviderArea {
+  if (/\bresponse_format\b/i.test(message)) return "RESPONSE_FORMAT";
+  if (/\b(?:json[\s_-]*schema|schema)\b/i.test(message)) return "SCHEMA";
+  if (/\b(?:tools?|google_search)\b/i.test(message)) return "TOOLS";
+  if (/\binput\b/i.test(message)) return "INPUT";
+  if (/\bmodel\b/i.test(message)) return "MODEL";
+  return "OTHER";
+}
+
+/**
+ * Capture only a structurally valid request field path, never the field value.
+ * Qualified request roots prevent arbitrary words in provider messages from
+ * being mistaken for request paths. Reject partial matches of unsafe paths.
+ */
+function safeProviderFieldPath(message: string): string | undefined {
+  const paths = /(?:^|[\s"'(])((?:response_format|tools|input|model)(?:(?:\.[A-Za-z_][A-Za-z0-9_-]*)|(?:\[[0-9]{1,3}\])){1,24})/g;
+  for (const match of message.matchAll(paths)) {
+    const candidate = match[1];
+    const following = message[(match.index ?? 0) + match[0].length] ?? "";
+    if (candidate.length > 256 || !/^[A-Za-z0-9_.\[\]-]+$/.test(candidate)) continue;
+    // Do not accept an otherwise valid prefix of a malformed or sensitive path.
+    if (following && /[A-Za-z0-9_.\[\]\/@\\=-]/.test(following)) continue;
+    return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * Never log/persist the error body or human-readable provider message.
+ * Content-length is advisory: independently enforce the byte cap while
+ * streaming so missing/false length headers cannot bypass it.
+ */
+async function safeHttp400ProviderDiagnostics(response: Response): Promise<SafeProviderErrorDiagnostic> {
+  if (response.status !== 400 ||
+      !/^application\/json(?:\s*;|$)/i.test((response.headers.get("content-type") ?? "").trim())) return {};
   const declared = response.headers.get("content-length");
-  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > 4096)) return null;
-  if (!response.body) return null;
+  if (declared !== null) {
+    if (!/^\d+$/.test(declared)) return {};
+    if (Number(declared) > GEMINI_ERROR_BODY_READ_CAP) return { errorBodyTooLarge: true };
+  }
+  if (!response.body) return {};
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -189,17 +238,33 @@ async function safeHttp400ProviderStatus(response: Response): Promise<string | n
       if (done) break;
       if (!value) continue;
       total += value.byteLength;
-      if (total > 4096) { await reader.cancel(); return null; }
+      if (total > GEMINI_ERROR_BODY_READ_CAP) {
+        await reader.cancel();
+        return { errorBodyTooLarge: true };
+      }
       chunks.push(value);
     }
     const bytes = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-    const providerError = record(record(JSON.parse(new TextDecoder().decode(bytes)))?.error);
-    const status = providerError?.status;
-    return typeof status === "string" && SAFE_GOOGLE_ERROR_STATUSES.has(status) ? status : null;
+    const parsed = record(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)));
+    const providerError = record(parsed?.error);
+    const code = providerError?.code;
+    const message = providerError?.message;
+    const providerCode = typeof code === "string" && SAFE_INTERACTIONS_ERROR_CODES.has(code)
+      ? code : undefined;
+    if (typeof message !== "string") {
+      return providerCode ? { providerCode } : {};
+    }
+    const fieldPath = safeProviderFieldPath(message);
+    return {
+      ...(providerCode ? { providerCode } : {}),
+      providerArea: classifyProviderArea(message),
+      ...(fieldPath ? { fieldPath } : {}),
+    };
   } catch {
-    return null;
+    // Bad JSON, invalid UTF-8 and read errors yield only numeric HTTP status.
+    return {};
   } finally {
     reader.releaseLock();
   }
@@ -238,11 +303,11 @@ async function interact(options: {
     if (response.status === 401 || response.status === 403) throw new GeminiAutomationError("AUTH_FAILED", response.status);
     if (response.status === 429) throw new GeminiAutomationError("RATE_LIMITED", response.status);
     if (!response.ok) {
-      const providerStatus = await safeHttp400ProviderStatus(response);
+      const providerDiagnostic = await safeHttp400ProviderDiagnostics(response);
       if (controller.signal.aborted) throw new GeminiAutomationError("TIMEOUT");
       console.warn("gemini_discovery_provider_error", {
         httpStatus: response.status,
-        ...(providerStatus === null ? {} : { providerStatus }),
+        ...providerDiagnostic,
       });
       throw new GeminiAutomationError("PROVIDER_ERROR", response.status);
     }
