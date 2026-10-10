@@ -283,6 +283,7 @@ test("anchor failure is fail-closed before DRAFT_CREATED or Notion",async()=>{
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n,1);
     const key=await geminiBridgeDiscoveryKey("directory.treneri",candidate);
     sqlite.prepare("UPDATE gemini_automation_concepts SET updated_at=? WHERE discovery_key=?").run("2000-01-01T00:00:00.000Z",key);
+    globalThis.__geminiNotionBridgeTestHook=async()=>({notionPageId:"recovered-after-anchor-failure",created:true});
     const recovered=await bridge({database:db,notion:{},stableKey:"directory.treneri",candidate});
     assert.equal(recovered.created,false);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n,1);
