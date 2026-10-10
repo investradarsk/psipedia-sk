@@ -76,7 +76,9 @@ test("homepage breed-of-the-day validates images in bounded batches", () => {
   const loader = breedStore.match(/export async function getBreedOfTheDay[\s\S]*?export async function listPublishedBreeds/)?.[0] ?? "";
   assert.match(loader, /candidates\.slice\(offset,offset\+8\)/);
   assert.match(loader, /withAvailableBreedImages\(batch,env\)/);
-  assert.match(loader, /if\(row\)return/);
+  assert.match(loader, /if\(selected\)break/);
+  assert.match(loader, /fallback\?\?=checked\[0\]/);
+  assert.match(loader, /const row=selected\?\?fallback/);
   assert.doesNotMatch(loader, /withAvailableBreedImages\(candidates\.map/);
   assert.doesNotMatch(loader, /\|\|checked\[0\]/);
 });
