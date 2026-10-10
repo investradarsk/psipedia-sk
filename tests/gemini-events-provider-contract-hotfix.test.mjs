@@ -185,6 +185,7 @@ test("unsafe paths are discarded, not silently logged as safe prefixes",async()=
     "response_format.schema.properties.candidates/SECRET_PROVIDER_RESPONSE",
     "response_format.schema.properties.candidates[0].$unsafe",
     "response_format.schema.properties.candidates@private",
+    "response_format.schema.properties.candidates$private",
     "response_format.schema.properties.candidates."+("x".repeat(300)),
   ]){
     const warnings=await failedEventRun(async()=>json400("invalid_request",
