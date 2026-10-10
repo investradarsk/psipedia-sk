@@ -129,25 +129,130 @@ test("Event provider JSON schema has no Event-only validation keywords",()=>{
   assert.equal(schemaKeywords(e).has("pattern"),false);
   assert.ok(schemaKeywords(d).has("maxLength"));
 });
-test("HTTP 400 exposes allowlisted providerStatus, never message or details",async()=>{
-  const body={error:{code:400,status:"INVALID_ARGUMENT",message:"SECRET_PROVIDER_RESPONSE",
-    details:[{query:"SECRET_PROMPT_QUERY_SENTINEL"}]}};
-  const warnings=await failedEventRun(async()=>new Response(JSON.stringify(body),{
-    status:400,headers:{"content-type":"application/json"}}),"PROVIDER_ERROR",{status:400});
-  assert.deepEqual(warnings,[["gemini_discovery_provider_error",{httpStatus:400,providerStatus:"INVALID_ARGUMENT"}]]);
+function json400(code,message,extra={}){
+  return new Response(JSON.stringify({error:{code,message,...extra}}),{
+    status:400,headers:{"content-type":"application/json"},
+  });
+}
+test("HTTP 400 Interactions invalid_request logs allowlisted error.code and safe field path",async()=>{
+  const warnings=await failedEventRun(async()=>json400("invalid_request",
+    "Invalid field response_format.schema.properties.candidates.items"),"PROVIDER_ERROR",{status:400});
+  assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+    httpStatus:400,providerCode:"invalid_request",providerArea:"RESPONSE_FORMAT",
+    fieldPath:"response_format.schema.properties.candidates.items",
+  }]]);
 });
-test("HTTP 400 falls back to numeric status for unsafe, oversized or non-JSON bodies",async()=>{
-  const cases=[
-    [JSON.stringify({error:{status:"SECRET_PROVIDER_RESPONSE"}}),"application/json"],
-    ["not-json SECRET_PROVIDER_RESPONSE","application/json"],
-    [JSON.stringify({error:{status:"INVALID_ARGUMENT"}}),"text/plain"],
-    [JSON.stringify({error:{status:"INVALID_ARGUMENT"}})+" ".repeat(5000),"application/json"],
-  ];
-  for(const [body,type] of cases){
-    const warnings=await failedEventRun(async()=>new Response(body,{status:400,
-      headers:{"content-type":type}}),"PROVIDER_ERROR",{status:400});
-    assert.deepEqual(warnings,[["gemini_discovery_provider_error",{httpStatus:400}]]);
+test("failed_precondition and parameter_unknown expose only Interactions codes and fixed area",async()=>{
+  const billing=await failedEventRun(async()=>json400("failed_precondition",
+    "Billing prerequisite not met; SECRET_PROVIDER_RESPONSE"),"PROVIDER_ERROR",{status:400});
+  assert.deepEqual(billing,[["gemini_discovery_provider_error",{
+    httpStatus:400,providerCode:"failed_precondition",providerArea:"OTHER",
+  }]]);
+  const tools=await failedEventRun(async()=>json400("parameter_unknown",
+    "Unknown tools[0].type parameter; SECRET_PROVIDER_RESPONSE"),"PROVIDER_ERROR",{status:400});
+  assert.deepEqual(tools,[["gemini_discovery_provider_error",{
+    httpStatus:400,providerCode:"parameter_unknown",providerArea:"TOOLS",fieldPath:"tools[0].type",
+  }]]);
+});
+test("only fixed providerArea enum values are logged for schema, input and model errors",async()=>{
+  for(const [message,area] of [
+    ["JSON schema malformed; SECRET_PROVIDER_RESPONSE","SCHEMA"],
+    ["Invalid input: SECRET_PROVIDER_RESPONSE","INPUT"],
+    ["Unsupported model: SECRET_PROVIDER_RESPONSE","MODEL"],
+  ]){
+    const warnings=await failedEventRun(async()=>json400("invalid_request",message),
+      "PROVIDER_ERROR",{status:400});
+    assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+      httpStatus:400,providerCode:"invalid_request",providerArea:area,
+    }]]);
   }
+});
+test("raw provider error.message, nested details, sensitive and random values never reach logs",async()=>{
+  const marker="SENSITIVE_RANDOM_6bCwXaP_VERY_PRIVATE";
+  const warnings=await failedEventRun(async()=>json400("invalid_request",
+    "Invalid input value "+marker+"; SECRET_PROVIDER_RESPONSE",{
+      details:{schema_fragment:{secret:marker},request_field_value:marker},
+    }),"PROVIDER_ERROR",{status:400});
+  const diagnostic=JSON.stringify(warnings);
+  for(const forbidden of [marker,"SECRET_PROVIDER_RESPONSE","schema_fragment","request_field_value","details"])
+    assert.equal(diagnostic.includes(forbidden),false,forbidden);
+  assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+    httpStatus:400,providerCode:"invalid_request",providerArea:"INPUT",
+  }]]);
+});
+test("unsafe paths are discarded, not silently logged as safe prefixes",async()=>{
+  for(const unsafe of [
+    "response_format.schema.properties.candidates/SECRET_PROVIDER_RESPONSE",
+    "response_format.schema.properties.candidates[0].$unsafe",
+    "response_format.schema.properties.candidates@private",
+    "response_format.schema.properties.candidates."+("x".repeat(300)),
+  ]){
+    const warnings=await failedEventRun(async()=>json400("invalid_request",
+      "Invalid field "+unsafe),"PROVIDER_ERROR",{status:400});
+    assert.equal(Object.hasOwn(warnings[0][1],"fieldPath"),false,unsafe.slice(0,50));
+    assert.equal(JSON.stringify(warnings).includes("SECRET_PROVIDER_RESPONSE"),false);
+  }
+});
+test("JSON error bodies above old 4 KiB and below 64 KiB retain provider code",async()=>{
+  const warnings=await failedEventRun(async()=>json400("invalid_request",
+    "schema invalid "+("Z".repeat(7000))),"PROVIDER_ERROR",{status:400});
+  assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+    httpStatus:400,providerCode:"invalid_request",providerArea:"SCHEMA",
+  }]]);
+});
+test("JSON error bodies above 64 KiB are discarded and expose only errorBodyTooLarge",async()=>{
+  const long=JSON.stringify({error:{code:"invalid_request",
+    message:"SECRET_PROVIDER_RESPONSE"+("Z".repeat(70*1024))}});
+  for(const makeResponse of [
+    ()=>new Response(long,{status:400,headers:{
+      "content-type":"application/json","content-length":String(Buffer.byteLength(long)),
+    }}),
+    ()=>new Response(new ReadableStream({start(controller){
+      controller.enqueue(new TextEncoder().encode(long));controller.close();
+    }}),{status:400,headers:{"content-type":"application/json"}}),
+  ]){
+    const warnings=await failedEventRun(async()=>makeResponse(),"PROVIDER_ERROR",{status:400});
+    assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+      httpStatus:400,errorBodyTooLarge:true,
+    }]]);
+  }
+});
+test("HTTP 400 untrusted code/status, non-JSON, and invalid JSON never leak raw provider body",async()=>{
+  const cases=[
+    new Response(JSON.stringify({error:{code:"USER_SECRET",status:"INVALID_ARGUMENT",
+      message:"SECRET_PROVIDER_RESPONSE"}}),{status:400,headers:{"content-type":"application/json"}}),
+    new Response(JSON.stringify({error:{status:"INVALID_ARGUMENT"}}),{
+      status:400,headers:{"content-type":"application/json"}}),
+    new Response("{bad JSON SECRET_PROVIDER_RESPONSE",{
+      status:400,headers:{"content-type":"application/json"}}),
+    new Response(JSON.stringify({error:{code:"invalid_request",message:"SECRET_PROVIDER_RESPONSE"}}),{
+      status:400,headers:{"content-type":"text/plain"}}),
+  ];
+  for(const response of cases){
+    const warnings=await failedEventRun(async()=>response,"PROVIDER_ERROR",{status:400});
+    assert.equal(JSON.stringify(warnings).includes("SECRET_PROVIDER_RESPONSE"),false);
+    assert.equal(JSON.stringify(warnings).includes("INVALID_ARGUMENT"),false);
+    if(response===cases[0]){
+      assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+        httpStatus:400,providerArea:"OTHER",
+      }]]);
+    }else{
+      assert.deepEqual(warnings,[["gemini_discovery_provider_error",{httpStatus:400}]]);
+    }
+  }
+});
+test("Directory HTTP 400 shares the same safe provider parser",async()=>{
+  const warnings=[];
+  const previous=console.warn;console.warn=(...args)=>warnings.push(args);
+  try{
+    await assert.rejects(discoverGeminiCandidates({env,stableKey:"directory.treneri",maxCandidates:1,
+      fetchImpl:async()=>json400("parameter_unknown","Unknown tools[0].type")}),
+      e=>e.code==="PROVIDER_ERROR"&&e.httpStatus===400);
+  }finally{console.warn=previous;}
+  assert.deepEqual(warnings,[["gemini_discovery_provider_error",{
+    httpStatus:400,providerCode:"parameter_unknown",providerArea:"TOOLS",
+    fieldPath:"tools[0].type",
+  }]]);
 });
 test("runtime remains strict for Event dates, times, DST, history, evidence, cancellation and null optionals",()=>{
   const req=createGeminiEventRequest({stableKey,maxCandidates:1});
