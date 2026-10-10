@@ -17,6 +17,7 @@ import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
 import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
 import { getResolvedSectionVisual } from "@/lib/section-visual-store";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
@@ -86,7 +87,7 @@ export default async function Home() {
     <main id="obsah" className={styles.homeV2}>
       <section className="hero-section shell" data-home-hero>
         <div className="hero-card">
-          <img className="hero-image" src={homeHero.imageUrl} alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />
+          <img className="hero-image" src={homeHero.imageUrl} srcSet={responsiveMediaSrcSet(homeHero.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="100vw" alt={homeHero.altText} style={homeHeroStyle} fetchPriority="high" decoding="async" />
           <div className="hero-shade" />
           <div className="hero-copy">
             <span className="hero-kicker"><SparkIcon size={17} /> Slovenský portál pre psí život</span>
@@ -116,7 +117,7 @@ export default async function Home() {
               <article className="home-event-item" key={event.id} data-home-event>
                 <Link href={eventHref(event)}>
                   <span className="home-event-media">
-                    <img src={event.imageUrl ?? undefined} alt={`Fotografia k podujatiu ${event.title}`} loading="lazy" decoding="async" />
+                    <img src={event.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(event.imageUrl, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, (max-width: 980px) 50vw, 30vw" alt={`Fotografia k podujatiu ${event.title}`} loading="lazy" decoding="async" />
                   </span>
                   <span className="home-event-copy">
                     <time dateTime={event.startDate}>{formatEventDate(event)}</time>
@@ -160,7 +161,7 @@ export default async function Home() {
             {veterinarians.map((profile) => (
               <article className="home-vet-item" key={profile.id}>
                 <Link href={directoryProfileHref(profile)}>
-                  <img src={profile.imageUrl ?? undefined} alt={`Fotografia profilu ${profile.name}`} width={50} height={50} loading="lazy" decoding="async" />
+                  <img src={profile.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="50px" alt={`Fotografia profilu ${profile.name}`} width={50} height={50} loading="lazy" decoding="async" />
                   <span>
                     <strong>{profile.name}</strong>
                     <small>{profile.city}{profile.district ? ` · ${profile.district}` : ""}</small>
@@ -250,7 +251,7 @@ export default async function Home() {
               >
                 <Link href={helpCaseHref(item)}>
                   <span className="home-help-media">
-                    <img src={item.imageUrl ?? undefined} alt={`Fotografia k výzve ${item.title}`} loading="lazy" decoding="async" />
+                    <img src={item.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(item.imageUrl, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, (max-width: 980px) 50vw, 33vw" alt={`Fotografia k výzve ${item.title}`} loading="lazy" decoding="async" />
                   </span>
                   <span className="home-help-copy">
                     <span className="home-help-meta">
