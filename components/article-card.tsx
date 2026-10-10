@@ -5,6 +5,7 @@ import { articleHref, portalSectionLabel, articlePortalSection } from "@/lib/por
 import { ArticleListItem } from "./article-list-item";
 import { PawMark } from "./icons";
 import { FavoriteButton } from "./favorite-button";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 
 export type ArticleCardVariant = "featured" | "grid" | "compact";
 
@@ -76,6 +77,8 @@ export function ArticleCard({
         {article.image ? (
           <img
             src={article.image}
+            srcSet={responsiveMediaSrcSet(article.image, [320, 480, 640, 768, 960, 1280])}
+            sizes={resolvedVariant === "featured" ? "(max-width: 980px) 100vw, 55vw" : "(max-width: 620px) 100vw, 33vw"}
             alt={imageAlt}
             loading={imagePriority ? "eager" : "lazy"}
             fetchPriority={imagePriority ? "high" : "auto"}

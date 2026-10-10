@@ -114,7 +114,8 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   assert.match(contract, /date\?: ReactNode/);
   assert.match(contract, /image\?: \{ src: string; alt: string \}/);
   assert.match(contract, /image \? \(/);
-  assert.match(contract, /<img src=\{image\.src\} alt=\{image\.alt\}/);
+  assert.match(contract, /<img src=\{image\.src\}[^>]* alt=\{image\.alt\}/);
+  assert.match(contract, /srcSet=\{responsiveMediaSrcSet\(image\.src,/);
   assert.match(contract, /date \? <span aria-hidden="true">·<\/span> : null/);
   assert.match(contract, /date \? \(dateTime \? <time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);
   assert.doesNotMatch(contract, /excerpt|readTime|actionLabel/);
