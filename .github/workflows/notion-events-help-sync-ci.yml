@@ -18,6 +18,7 @@ on:
       - "lib/notion-bulk-sources.ts"
       - "lib/notion-geo-mirror.ts"
       - "lib/notion-directory-sync.ts"
+      - "lib/notion-directory-update-safety.ts"
       - "tests/notion-geo-mirror.test.mjs"
       - "app/api/admin/notion-events-help-sync/**"
       - "worker/index.ts"
