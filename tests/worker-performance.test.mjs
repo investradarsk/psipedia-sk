@@ -73,10 +73,10 @@ test("breed detail uses a selective canonical query and avoids runtime image HEA
 
 
 test("homepage breed-of-the-day validates images in bounded batches", () => {
-  const loader = breedStore.match(/export async function getBreedOfTheDay[\\s\\S]*?export async function listPublishedBreeds/)?.[0] ?? "";
-  assert.match(loader, /candidates\\.slice\\(offset,offset\\+8\\)/);
-  assert.match(loader, /withAvailableBreedImages\\(batch,env\\)/);
-  assert.match(loader, /if\\(row\\)return/);
-  assert.doesNotMatch(loader, /withAvailableBreedImages\\(candidates\\.map/);
-  assert.doesNotMatch(loader, /\\|\\|checked\\[0\\]/);
+  const loader = breedStore.match(/export async function getBreedOfTheDay[\s\S]*?export async function listPublishedBreeds/)?.[0] ?? "";
+  assert.match(loader, /candidates\.slice\(offset,offset\+8\)/);
+  assert.match(loader, /withAvailableBreedImages\(batch,env\)/);
+  assert.match(loader, /if\(row\)return/);
+  assert.doesNotMatch(loader, /withAvailableBreedImages\(candidates\.map/);
+  assert.doesNotMatch(loader, /\|\|checked\[0\]/);
 });
