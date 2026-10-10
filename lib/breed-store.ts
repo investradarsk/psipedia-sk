@@ -205,8 +205,19 @@ export async function getBreedOfTheDay(dayOfYear:number):Promise<BreedOfTheDayIt
     // This small projection avoids loading the FCI standard for the homepage.
     const result=await database.prepare(`SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,size,energy,trainability,intro FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name,id`).all<BreedOfTheDayRow>();
     const candidates=rotateBreeds<BreedOfTheDayRow>(result.results,dayOfYear);
-    const checked=await withAvailableBreedImages(candidates.map(row=>({...row,image:row.image_url})),env);
-    const row=checked.find(candidate=>candidate.image)||checked[0];
+    // The first image-backed candidate wins. Check only bounded batches instead of
+    // inspecting every breed's image on every homepage render.
+    let fallback: (BreedOfTheDayRow & {image:string})|undefined;
+    let selected: (BreedOfTheDayRow & {image:string})|undefined;
+    for (let offset=0;offset<candidates.length;offset+=8){
+      const batch=candidates.slice(offset,offset+8).map(row=>({...row,image:row.image_url}));
+      const checked=await withAvailableBreedImages(batch,env);
+      fallback??=checked[0];
+      selected=checked.find(candidate=>candidate.image);
+      if(selected)break;
+    }
+    // Preserve the established no-image fallback contract if every asset is missing.
+    const row=selected??fallback;
     return row?{slug:row.slug,name:row.name,image:row.image,fciGroup:row.fci_group,fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),size:publicBreedSize(row.size),energy:row.energy,trainability:row.trainability,intro:row.intro}:null;
   }catch(error){console.error('breed_of_the_day_unavailable',error);return null;}
 }
