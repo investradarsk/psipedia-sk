@@ -163,8 +163,11 @@ test("lifecycle: a fresh Gemini concept creates exactly one unpublished canonica
     assert.equal(again.canonicalEntityId, first.canonicalEntityId);
     assert.equal(again.notionPageId, first.notionPageId);
     assert.equal(postCount, 1);
-    assert.deepEqual(sqlite.prepare("SELECT id,entity_type,directory_profile_id FROM partner_resources").all(),
-      [{id:"directory-profile-1",entity_type:"DIRECTORY_PROFILE",directory_profile_id:1}]);
+    const anchor = sqlite.prepare("SELECT id,entity_type,directory_profile_id FROM partner_resources").get();
+    assert.equal(anchor.id,"directory-profile-1");
+    assert.equal(anchor.entity_type,"DIRECTORY_PROFILE");
+    assert.equal(anchor.directory_profile_id,1);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM partner_resources").get().n,1);
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 1);
     assert.equal(sqlite.prepare("SELECT status FROM gemini_automation_concepts").get().status, "NOTION_LINKED");
   } finally { delete globalThis.__geminiNotionBridgeTestHook; sqlite.close(); }
