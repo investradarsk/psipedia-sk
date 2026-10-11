@@ -999,7 +999,10 @@ test("renders the functional event calendar and type view", async () => {
   assert.equal(calendar.status, 200);
   const calendarHtml = await calendar.text();
   assert.match(calendarHtml, /Kalendár podujatí/);
-  assert.match(calendarHtml, /Názov, mesto, miesto alebo organizátor/);
+  // The local event search is now owned by the main Events landing, not the calendar alias.
+  const landing = await worker.fetch(new Request("http://localhost/podujatia", { headers: { accept: "text/html" } }), bindings, context);
+  assert.equal(landing.status, 200);
+  assert.match(await landing.text(), /Názov podujatia, mesto, miesto alebo organizátor/);
   assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=ukoncene"[^>]*>Ukončené<\/a>/);
   assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=vsetky"[^>]*>Všetky<\/a>/);
   assert.match(calendarHtml, /Prvé podujatia pripravujeme/);
