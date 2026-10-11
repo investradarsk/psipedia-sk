@@ -48,7 +48,7 @@ function groundedPayload(output) {
 function parse(output) {
   return parseGeminiEventEnvelope(output,request,"2026-10-10");
 }
-async function assertSafeRejection(output, expected, field, index = 0) {
+async function assertSafeRejection(output, expected, field, index) {
   const invalid = error => error?.code === "INVALID_RESPONSE";
   assert.throws(() => parse(output),invalid,"authoritative parser must still reject");
   const classification = classifyGeminiEventValidationFailure(output,request,"2026-10-10");
