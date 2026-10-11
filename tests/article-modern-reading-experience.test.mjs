@@ -148,7 +148,7 @@ test("editor-authored related blocks stay in body flow while sources remain at t
 test("article header follows compact editorial hierarchy and aligns with the reading grid", () => {
   const kicker = indexOfOrFail(detail, "className={styles.kicker}", "category kicker is missing");
   const title = indexOfOrFail(detail, "<h1>{article.title}</h1>", "headline is missing");
-  const excerpt = indexOfOrFail(detail, "<p className={styles.standfirst}>{article.excerpt}</p>", "perex is missing");
+  const excerpt = indexOfOrFail(detail, "<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>", "perex is missing");
   const meta = indexOfOrFail(detail, "className={styles.metaActions}", "metadata actions are missing");
   const favorite = indexOfOrFail(detail, "<FavoriteButton slug={article.slug} />", "favorite is missing");
   const compactShare = indexOfOrFail(detail, "url={canonical} compact", "compact header share is missing");
