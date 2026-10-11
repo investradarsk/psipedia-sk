@@ -17,12 +17,13 @@ export type ImageDisplayProps = ImageProps & {
   legacyFocusX?: number | null;
   legacyFocusY?: number | null;
   className?: string;
+  imageClassName?: string;
 };
 
 /** One renderer for the live editor and every public article image slot. */
 export function ImageDisplay({
   src, alt, context, config, legacyMode, legacyFocusX, legacyFocusY,
-  className, style, ...imageProps
+  className, imageClassName, style, ...imageProps
 }: ImageDisplayProps) {
   const [autoFit, setAutoFit] = useState<{ src: string; fit: "cover" | "contain" } | null>(null);
   const settings = config ?? (context === "thumbnail" ? legacyArticleThumbnail(legacyMode, legacyFocusX, legacyFocusY) : legacyArticleDetail(legacyMode, legacyFocusX, legacyFocusY))
@@ -38,7 +39,7 @@ export function ImageDisplay({
     <span className={[styles.frame, natural && styles.natural, className].filter(Boolean).join(" ")}
       data-image-display={natural ? "natural" : blur ? "blur" : "crop"}>
       {natural ? (
-        <img {...imageProps} src={src} alt={alt} className={styles.naturalPhoto}
+        <img {...imageProps} src={src} alt={alt} className={[styles.naturalPhoto, imageClassName].filter(Boolean).join(" ")}
           style={style} draggable={false} />
       ) : (
         <>
@@ -47,7 +48,7 @@ export function ImageDisplay({
           <SmartCardImage {...imageProps} src={src} alt={alt} roleHint="article" mode={fitMode}
             focusX={focus.x} focusY={focus.y}
             onResolvedFit={(fit) => setAutoFit((current) => current?.src === src && current.fit === fit ? current : { src, fit })}
-            className={styles.photo} draggable={false}
+            className={[styles.photo, imageClassName].filter(Boolean).join(" ")} draggable={false}
             style={{ ...style, ...cropTransform }} />
         </>
       )}

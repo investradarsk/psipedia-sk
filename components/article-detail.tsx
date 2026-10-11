@@ -204,7 +204,7 @@ export function ArticleDetail({
           {article.image ? (
             <figure className={styles.heroFigure}>
               <div className={`${styles.heroMedia} ${(!detailImageConfig || detailImageConfig.mode === "natural") ? styles.heroNatural : ""}`}>
-                <ImageDisplay context="detail" config={detailImageConfig} src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+                <ImageDisplay context="detail" config={detailImageConfig} imageClassName="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
               </div>
               {showImageMeta ? (
                 <figcaption className={styles.heroImageMeta}>
