@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { EventCard } from "@/components/event-card";
-import { EventBrowseMode } from "@/components/events-view-mode";
+import type { CSSProperties, ReactNode } from "react";
+import { eventTypePresentation } from "@/lib/event-type-presentation";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
   calendarMonthDays,
+  calendarDaySummary,
   calendarMonthLabel,
   calendarWeekdays,
   eventsForCalendarDay,
@@ -15,6 +17,7 @@ import {
   eventHref,
   eventTimeFilterParam,
   eventTypePortalHref,
+  eventTypes,
   formatEventDate,
   slovakRegions,
   type DogEvent,
@@ -99,6 +102,7 @@ export function EventCalendar({
   initialMonth = "",
   initialCalendarMonth = "",
   initialDay = "",
+  afterCalendar,
 }: {
   events: DogEvent[];
   calendarEvents?: DogEvent[];
@@ -110,6 +114,7 @@ export function EventCalendar({
   initialMonth?: string;
   initialCalendarMonth?: string;
   initialDay?: string;
+  afterCalendar?: ReactNode;
 }) {
   const query = initialQuery.trim().slice(0, 120);
   const region = initialRegion;
@@ -158,7 +163,7 @@ export function EventCalendar({
   const filtered = events.filter(matchesFilters).sort((left, right) => compareEvents(left, right, today));
   const monthMatches = calendarEvents.filter(matchesFilters);
   const dailyEvents = selectedDay ? eventsForCalendarDay(monthMatches, selectedDay) : [];
-  const eventCounts = new Map(days.map((day) => [day.date, day.inMonth ? eventsForCalendarDay(monthMatches, day.date).length : 0]));
+  const daySummaries = new Map(days.filter((day) => day.inMonth).map((day) => [day.date, calendarDaySummary(monthMatches, day.date)]));
 
   const activeSecondaryCount = Number(Boolean(region)) + Number(Boolean(month));
   const hasActiveFilters = Boolean(query || region || month || initialTime !== "upcoming");
@@ -269,7 +274,7 @@ export function EventCalendar({
         </p>
       ) : null}
 
-      <EventBrowseMode>
+      <div className={styles.calendarLayout} data-events-calendar-layout>
       <section className={styles.monthCalendar} id="events-calendar" data-events-month-calendar aria-labelledby="events-calendar-title">
         <div className={styles.monthHeading}>
           <div>
@@ -286,7 +291,7 @@ export function EventCalendar({
         <div className={styles.monthGrid} role="group" aria-label={"Dni kalendára " + calendarMonthLabel(visibleMonth)}>
           {calendarWeekdays.map((name) => <span className={styles.weekday} key={name}>{name}</span>)}
           {days.map((day) => {
-            const count = eventCounts.get(day.date) ?? 0;
+            const { count = 0, types = [] } = daySummaries.get(day.date) ?? {};
             const dayName = dateLabel(day.date);
             const active = selectedDay === day.date;
             const todayFlag = day.date === today;
@@ -301,10 +306,18 @@ export function EventCalendar({
                 data-today={todayFlag ? "true" : undefined}
                 data-count={count}
                 aria-current={todayFlag ? "date" : undefined}
-                aria-label={(active ? "Vybraný deň " : "") + dayName + (count ? ", " + count + " podujatí" : ", bez podujatí")}
+                aria-label={(active ? "Vybraný deň " : "") + dayName + (count ? ", " + count + " podujatí, " + types.map((type) => eventTypePresentation[type].label).join(", ") : ", bez podujatí")}
               >
+                <span className={styles.dayHeading}>
                 <span className={styles.monthDayNumber}>{day.day}</span>
                 {count > 0 ? <span className={styles.monthDayCount} aria-hidden="true">{count}</span> : null}
+                </span>
+                {types.length ? (
+                  <span className={styles.dayIndicators} aria-hidden="true">
+                    {types.slice(0, 4).map((type) => <span key={type} className={styles.typeDot} data-event-type={type} style={{ "--event-type-color": eventTypePresentation[type].color } as CSSProperties} />)}
+                    {types.length > 4 ? <span className={styles.moreTypes}>+{types.length - 4}</span> : null}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -338,6 +351,20 @@ export function EventCalendar({
         )}
       </section>
 
+      <nav className={styles.calendarLegend} aria-label="Kategórie podujatí" data-events-legend>
+        {eventTypes.map((type) => {
+          const presentation = eventTypePresentation[type];
+          const href = eventTypePortalHref(type);
+          if (!href) return null;
+          return <Link key={type} href={href + timeHref(initialTime).slice(typePathname.length)} aria-current={initialType === type ? "page" : undefined}>
+            <span className={styles.typeDot} aria-hidden="true" data-event-type={type} style={{ "--event-type-color": presentation.color } as CSSProperties} />
+            {presentation.label}
+          </Link>;
+        })}
+      </nav>
+      </div>
+      {afterCalendar}
+
       <section className={styles.upcomingSection} id="events-list" aria-labelledby="events-upcoming-heading">
         <div className={styles.listHeading}><h2 id="events-upcoming-heading">{upcomingTitle}</h2></div>
         {filtered.length ? (
@@ -352,7 +379,6 @@ export function EventCalendar({
           </div>
         )}
       </section>
-      </EventBrowseMode>
     </div>
   );
 }
