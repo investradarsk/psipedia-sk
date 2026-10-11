@@ -22,8 +22,9 @@ import {
 } from "@/lib/portal";
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
-import { SmartCardImage } from "@/components/smart-card-image";
-import type { SmartImageMode } from "@/lib/smart-image";
+import { ImageDisplay } from "@/components/image-display";
+import { ImageDisplayEditor } from "@/components/image-display-editor";
+import { legacyArticleThumbnail, type ImageDisplayConfig } from "@/lib/image-display";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import type { ArticleQaIssue } from "@/lib/article-content-qa";
 import type { ArticleTopic } from "@/lib/article-topics";
@@ -107,10 +108,9 @@ export function AdminArticleEditor({
   const [takeawayRichText, setTakeawayRichText] = useState(article?.takeawayRichText ?? legacyRichTextToDocument(article?.takeaway ?? ""));
   const [imageUrl, setImageUrl] = useState(article?.image ?? "");
   const [imageKey, setImageKey] = useState(article?.imageKey ?? "");
-  const [imageDisplay, setImageDisplay] = useState<SmartImageMode>(article?.imageDisplay ?? "auto");
-  const [customImageFocus, setCustomImageFocus] = useState(article?.imageFocusX != null && article?.imageFocusY != null);
-  const [imageFocusX, setImageFocusX] = useState(article?.imageFocusX ?? 50);
-  const [imageFocusY, setImageFocusY] = useState(article?.imageFocusY ?? 28);
+  const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(article?.thumbnailImageDisplay ?? legacyArticleThumbnail(article?.imageDisplay, article?.imageFocusX, article?.imageFocusY));
+  const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(article?.detailImageDisplay ?? null);
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [imageAlt, setImageAlt] = useState(article?.imageAlt ?? "");
   const [imageCaption, setImageCaption] = useState(article?.imageCaption ?? "");
   const [imageCredit, setImageCredit] = useState(article?.imageCredit ?? "");
@@ -193,8 +193,8 @@ export function AdminArticleEditor({
       const data = await uploadAdminImage(file, "articles");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
-      setImageDisplay("auto");
-      setCustomImageFocus(false);
+      setThumbnailImageDisplay(null);
+      setDetailImageDisplay(null);
       setEditorDirty(true);
       setMessage(adminImageUploadMessage(data, "Ulož článok, aby sa zmena zachovala."));
     } catch (uploadError) {
@@ -247,9 +247,11 @@ export function AdminArticleEditor({
       takeawayRichText,
       imageUrl: imageUrl || null,
       imageKey: imageKey || null,
-      imageDisplay,
-      imageFocusX: customImageFocus ? imageFocusX : null,
-      imageFocusY: customImageFocus ? imageFocusY : null,
+      imageDisplay: "auto" as const,
+      imageFocusX: null,
+      imageFocusY: null,
+      thumbnailImageDisplay,
+      detailImageDisplay,
       imageAlt: imageAlt || null,
       imageCaption: imageCaption || null,
       imageCredit: imageCredit || null,
@@ -508,6 +510,8 @@ export function AdminArticleEditor({
               {imageUrl && <button type="button" onClick={() => {
                 setImageUrl("");
                 setImageKey("");
+                setThumbnailImageDisplay(null);
+                setDetailImageDisplay(null);
                 setImageAlt("");
                 setImageCaption("");
                 setImageCredit("");
@@ -517,49 +521,10 @@ export function AdminArticleEditor({
               <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
             </div>
           </div>
-          {imageUrl && (
-            <div className="admin-field-grid" data-article-image-presentation>
-              <div className="admin-field admin-field--full">
-                <label htmlFor="article-image-display">Zobrazenie titulného obrázka</label>
-                <select id="article-image-display" value={imageDisplay} onChange={(event) => { setImageDisplay(event.target.value as SmartImageMode); setEditorDirty(true); }}>
-                  <option value="auto">Automaticky (odporúčané)</option>
-                  <option value="cover">Vyplniť kartu (fotografia)</option>
-                  <option value="contain">Celý obrázok (logo/plagát)</option>
-                </select>
-                <small>Automatika uprednostní hornú časť fotografie a pri neprimeranom orezaní zobrazí celý obrázok.</small>
-              </div>
-              <div className="admin-field admin-field--full">
-                <label>
-                  <input type="checkbox" checked={customImageFocus} onChange={(event) => { setCustomImageFocus(event.target.checked); setEditorDirty(true); }} />
-                  Ručne nastaviť bod výrezu
-                </label>
-              </div>
-              {customImageFocus && <>
-                <div className="admin-field">
-                  <label htmlFor="article-image-focus-x">Vodorovný bod: {imageFocusX} %</label>
-                  <input id="article-image-focus-x" type="range" min={0} max={100} step={1} value={imageFocusX} onChange={(event) => { setImageFocusX(Number(event.target.value)); setEditorDirty(true); }} />
-                </div>
-                <div className="admin-field">
-                  <label htmlFor="article-image-focus-y">Zvislý bod: {imageFocusY} %</label>
-                  <input id="article-image-focus-y" type="range" min={0} max={100} step={1} value={imageFocusY} onChange={(event) => { setImageFocusY(Number(event.target.value)); setEditorDirty(true); }} />
-                </div>
-              </>}
-              <div className="admin-field admin-field--full">
-                <span>Ukážka výrezu na karte (16 : 9)</span>
-                <div style={{ width: "min(100%, 440px)", aspectRatio: "16 / 9", overflow: "hidden", borderRadius: 12, background: "#edf0e8" }}>
-                  <SmartCardImage
-                    roleHint="article"
-                    mode={imageDisplay}
-                    focusX={customImageFocus ? imageFocusX : null}
-                    focusY={customImageFocus ? imageFocusY : null}
-                    src={imageUrl}
-                    alt="Ukážka výrezu titulného obrázka"
-                    style={{ display: "block", width: "100%", height: "100%" }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          {imageUrl && <div className="admin-field" data-article-image-presentation>
+            <button type="button" className="admin-secondary-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>
+            <small>Náhľadové karty a detail článku majú nezávislé nastavenia.</small>
+          </div>}
           <div className="admin-field-grid">
             <div className="admin-field admin-field--full">
               <label htmlFor="article-image-alt">ALT text</label>
@@ -637,7 +602,7 @@ export function AdminArticleEditor({
             <span className="eyebrow">{portalSectionLabel(portalSection)} · {portalSection === "novinky" ? getNewsCategory(newsCategory)?.shortLabel : category}</span>
             <h1 className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť názov článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{title || "Názov tvojho článku"}</h1>
             <p className={`admin-preview-excerpt ${navStyles.previewTarget}`} role="button" tabIndex={0} aria-label="Upraviť perex článku" onClick={() => navigatePreview("article-basics", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-basics", true); } }}>{excerpt || "Tu sa zobrazí krátky úvod z karty článku."}</p>
-            {imageUrl && <div className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť titulnú fotografiu" onClick={() => navigatePreview("article-media", true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigatePreview("article-media", true); } }}><img className="admin-preview-image" src={imageUrl} alt={imageAlt || title} /></div>}
+            {imageUrl && <div className={navStyles.previewTarget} role="button" tabIndex={0} aria-label="Upraviť titulnú fotografiu" onClick={() => setImageEditorOpen(true)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setImageEditorOpen(true); } }}><div style={{ aspectRatio: detailImageDisplay?.mode === "crop" || detailImageDisplay?.mode === "blur" ? "16 / 9" : undefined }}><ImageDisplay context="detail" config={detailImageDisplay} src={imageUrl} alt={imageAlt || title} loading="lazy" /></div></div>}
             {imageUrl && (imageCaption || imageCredit) ? (
               <p className="admin-preview-image-meta">
                 {imageCaption}
@@ -651,6 +616,17 @@ export function AdminArticleEditor({
           </article>
         </aside>
       )}
+      {imageEditorOpen && imageUrl && <ImageDisplayEditor
+        src={imageUrl} alt={imageAlt || title} title={title} excerpt={excerpt}
+        thumbnail={thumbnailImageDisplay} detail={detailImageDisplay}
+        onCancel={() => setImageEditorOpen(false)}
+        onSave={(nextThumbnail, nextDetail) => {
+          setThumbnailImageDisplay(nextThumbnail);
+          setDetailImageDisplay(nextDetail);
+          setImageEditorOpen(false);
+          setEditorDirty(true);
+        }}
+      />}
     </div>
   );
 }
