@@ -1,10 +1,10 @@
-import { eventTypePresentation } from '@/lib/event-type-presentation';
+import { eventTypePresentation, getEventOwnImage } from '@/lib/event-type-presentation';
 import type { CSSProperties } from 'react';
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
 import styles from "./events-public.module.css";
-import { SmartCardImage } from "@/components/smart-card-image";
+import { EventImage } from "@/components/event-image";
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MÁJ", "JÚN", "JÚL", "AUG", "SEP", "OKT", "NOV", "DEC"];
 
@@ -30,6 +30,7 @@ function eventLocation(event: DogEvent) {
 }
 
 export function EventCard({ event, today, variant }: { event: DogEvent; today?: string; variant?: "grid" }) {
+  const ownImage = getEventOwnImage(event.imageUrl);
   const day = Number(event.startDate.slice(8, 10));
   const month = MONTHS[Number(event.startDate.slice(5, 7)) - 1] || event.startDate.slice(5, 7);
   const dateStatus = eventDateStatus(event, today);
@@ -38,10 +39,10 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
   const endLabel = endDateLabel(event);
   const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Ukončené" : null;
 
-  if (variant === 'grid') return <article className={styles.gridCard} data-event-card data-event-has-image={event.imageUrl ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
+  if (variant === 'grid') return <article className={styles.gridCard} data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
     <Link href={eventHref(event)} className={styles.gridCardLink}>
       <div className={styles.gridMedia}>
-        {event.imageUrl ? <SmartCardImage src={event.imageUrl} mode={event.imageDisplay} alt="" loading="lazy" decoding="async"/> : <span className={styles.neutralMedia} aria-hidden="true">Podujatie</span>}
+        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} alt="" loading="lazy" decoding="async"/>
         <time className={styles.gridDate} dateTime={event.startDate}>{day}. {month}</time>
       </div>
       <div className={styles.gridBody}>
@@ -58,10 +59,10 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
     <article
       className={[
         event.cancelled ? styles.cancelledCard : styles.eventCard,
-        event.imageUrl ? styles.eventCardWithImage : "",
+        styles.eventCardWithImage,
       ].filter(Boolean).join(" ")}
       data-event-card
-      data-event-has-image={event.imageUrl ? "true" : "false"}
+      data-event-has-image={ownImage ? "true" : "false"}
       data-event-status={event.cancelled ? "cancelled" : dateStatus}
     >
       <time className={styles.dateBlock} dateTime={event.startDate} aria-label={formatEventDate(event)}>
@@ -70,11 +71,9 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
         {endLabel && <small>{endLabel}</small>}
       </time>
 
-      {event.imageUrl ? (
-        <span className={styles.cardMedia} aria-hidden="true">
-          <SmartCardImage src={event.imageUrl} mode={event.imageDisplay} alt="" loading="lazy" decoding="async" />
-        </span>
-      ) : null}
+      <span className={styles.cardMedia} aria-hidden="true">
+        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} alt="" loading="lazy" decoding="async" />
+      </span>
 
       <div className={styles.cardBody}>
         <div className={styles.cardMeta}>
