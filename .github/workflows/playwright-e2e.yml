@@ -87,6 +87,12 @@ jobs:
       - name: Bounded PR build and global safety contracts
         if: github.event_name == 'pull_request' && steps.required-scope.outputs.bounded_core == 'true'
         run: npm run test:config && npm run test:deploy-safety && npm run build
+      - name: Changed package test scripts
+        if: github.event_name == 'pull_request' && steps.required-scope.outputs.package_test_scripts_only == 'true' && steps.required-scope.outputs.full_core != 'true'
+        env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci-scope.mjs --run-changed-package-tests
       - name: Adoption unit/integration suite
         if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || contains(steps.required-scope.outputs.scopes, 'HELP')
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-catalog.test.mjs tests/adoption-detail.test.mjs tests/adoption-sitemap-integration.test.mjs tests/adoption-admin-list.test.mjs tests/adoption-admin-editor.test.mjs
