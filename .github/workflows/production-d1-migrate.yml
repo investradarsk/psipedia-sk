@@ -66,6 +66,7 @@ on:
           - 0116_admin_automation_push.sql
           - 0117_gemini_events_rejections.sql
           - 0118_event_image_display.sql
+          - 0119_article_image_presentation.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -152,6 +153,7 @@ jobs:
             0116_admin_automation_push.sql) expected_confirmation="APPLY-0116-psipedia-sk-db" ;;
             0117_gemini_events_rejections.sql) expected_confirmation="APPLY-0117-psipedia-sk-db" ;;
             0118_event_image_display.sql) expected_confirmation="APPLY-0118-psipedia-sk-db" ;;
+            0119_article_image_presentation.sql) expected_confirmation="APPLY-0119-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
