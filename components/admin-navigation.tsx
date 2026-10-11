@@ -50,8 +50,6 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
   const [openPath, setOpenPath] = useState<string | null>(null);
-  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; label: string } | null>(null);
-  const selectedDesktopGroup = expandedDesktopGroup?.pathname === pathname ? expandedDesktopGroup.label : null;
   const open = openPath === pathname;
   const desktopRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -59,8 +57,12 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
 
   useEffect(() => {
     const closeMenus = () => {
-      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => { item.open = false; });
-      setExpandedDesktopGroup(null);
+      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => {
+        // Close the native disclosure and hide its popup synchronously.
+        item.open = false;
+        const popup = item.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+        if (popup) popup.style.display = "none";
+      });
     };
     const pointer = (event: PointerEvent) => {
       if (!desktopRef.current?.contains(event.target as Node)) closeMenus();
@@ -71,9 +73,11 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       if (!expanded) return;
       event.preventDefault();
       event.stopPropagation();
-      // Native details owns its open attribute; React owns the visible popup contents.
       expanded.open = false;
-      setExpandedDesktopGroup(null);
+      // Explicitly hide on Escape: author CSS otherwise overrides details'
+      // browser-specific content hiding behavior in some Chromium builds.
+      const popup = expanded.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+      if (popup) popup.style.display = "none";
       expanded.querySelector<HTMLElement>("summary")?.focus();
     };
     document.addEventListener("pointerdown", pointer);
@@ -135,28 +139,19 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
             name="admin-primary"
             className={styles.desktopGroup}
             onToggle={(event) => {
-              const isOpen = event.currentTarget.open;
-              setExpandedDesktopGroup((current) =>
-                isOpen
-                  ? { pathname, label: group.label }
-                  : current?.pathname === pathname && current.label === group.label ? null : current,
-              );
+              const popup = event.currentTarget.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+              if (popup) popup.style.display = event.currentTarget.open ? "grid" : "none";
             }}
           >
-            <summary
-              className={styles.groupTrigger}
-              data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}
-            >
+            <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
-            {selectedDesktopGroup === group.label ? (
-              <div className={styles.desktopMenu} id={"admin-menu-" + index}>
-                {group.items.map((item) => {
-                  const current = active?.href === item.href;
-                  return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
-                })}
-              </div>
-            ) : null}
+            <div className={styles.desktopMenu} id={"admin-menu-" + index} data-admin-desktop-popup style={{ display: "none" }}>
+              {group.items.map((item) => {
+                const current = active?.href === item.href;
+                return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
+              })}
+            </div>
           </details>
         ))}
       </nav>
