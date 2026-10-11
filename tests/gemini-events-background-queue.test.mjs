@@ -118,7 +118,7 @@ test("Cron is manual-queue-only and scheduler stays disabled by default",()=>{
   const worker=readFileSync(new URL("../worker/index.ts",import.meta.url),"utf8");
   const route=readFileSync(new URL("../app/api/admin/gemini-automation/run/route.ts",import.meta.url),"utf8");
   const wrangler=readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8");
-  const migration=readFileSync(new URL("../drizzle/0118_gemini_manual_background_jobs.sql",import.meta.url),"utf8");
+  const migration=readFileSync(new URL("../drizzle/0119_gemini_manual_background_jobs.sql",import.meta.url),"utf8");
   assert.match(worker,/geminiManualBackgroundEnabled\(env\)/);
   assert.match(worker,/runGeminiManualBackgroundSweep/);
   assert.match(route,/status:202/);

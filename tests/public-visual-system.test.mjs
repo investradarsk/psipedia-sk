@@ -192,7 +192,7 @@ test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
 test("PUBLIC-POLISH-2 event cards consume canonical preview images and keep an image-free fallback layout", () => {
   assert.match(eventCard, /event\.imageUrl \? styles\.eventCardWithImage/);
   assert.match(eventCard, /data-event-has-image=\{event\.imageUrl \? "true" : "false"\}/);
-  assert.match(eventCard, /<img src=\{event\.imageUrl\} alt="" loading="lazy" decoding="async"/);
+  assert.match(eventCard, /<SmartCardImage src=\{event\.imageUrl\} mode=\{event\.imageDisplay\} alt="" loading="lazy" decoding="async"/);
   assert.match(eventStyles, /\.cardMedia\s*\{[^}]*border-radius:\s*0/s);
   assert.match(eventStyles, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/s);
 });
@@ -289,4 +289,15 @@ test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing 
   assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*--public-space-functional:\s*20px[\s\S]*--public-space-section:\s*32px/);
   assert.match(hero, /const hasTools = Boolean\(resolvedSearch \|\| resolvedCta \|\| metaSlot \|\| config\.metaLabel \|\| quickLinks\.length\)/);
   assert.match(hero, /\{hasTools \? \([\s\S]*data-unified-section-hero-tools[\s\S]*\) : null\}/);
+});
+
+test("mobile public gutters remain 16px and swipe-only grip stays out of keyboard tab order", () => {
+  assert.match(designSystem, /max\(12px, env\(safe-area-inset-left, 0px\)\)/);
+  assert.match(designSystem, /max\(12px, env\(safe-area-inset-right, 0px\)\)/);
+  const editorialStyles = read("components/editorial-section.module.css");
+  assert.match(editorialStyles, /\.foundation :global\(\.public-shell\)/);
+  assert.match(editorialStyles, /max\(16px, env\(safe-area-inset-left, 0px\)\)/);
+  assert.match(editorialStyles, /max\(16px, env\(safe-area-inset-right, 0px\)\)/);
+  assert.match(siteHeader, /tabIndex=\{-1\}\s+data-menu-dismiss-grip/);
+  assert.ok(siteHeader.includes('button:not([disabled]):not([tabindex="-1"])'));
 });

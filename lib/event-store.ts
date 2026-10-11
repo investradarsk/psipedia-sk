@@ -16,6 +16,7 @@ import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
+import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
 
 export type ManagedEventInput = {
   slug?: string;
@@ -38,6 +39,7 @@ export type ManagedEventInput = {
   registrationUrl?: string | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  imageDisplay?: SmartImageMode;
   cancelled?: boolean;
   seo?: EditableSeo;
 };
@@ -66,6 +68,7 @@ type EventRow = {
   registration_url: string | null;
   image_url: string | null;
   image_key: string | null;
+  image_display?: string;
   cancelled: number;
   created_at: string;
   updated_at: string;
@@ -136,6 +139,7 @@ function rowToEvent(row: EventRow): DogEvent {
     registrationUrl: row.registration_url,
     imageUrl: row.image_url,
     imageKey: row.image_key,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
     cancelled: Boolean(row.cancelled),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -256,6 +260,7 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     registrationUrl: normalizeUrl(payload.registrationUrl, "Odkaz na registráciu"),
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
+    imageDisplay: normalizeSmartImageMode(payload.imageDisplay),
     cancelled: Boolean(payload.cancelled),
     seo: cleanEditableSeo(payload.seo),
   };
@@ -377,15 +382,15 @@ export async function createManagedEvent(payload: ManagedEventInput, editorEmail
     INSERT INTO managed_events (
       slug, title, excerpt, event_type, status, start_date, start_time, end_date, end_time,
       venue, city, region, address, organizer, description, practical_info,
-      website_url, registration_url, image_url, image_key, cancelled, seo_json,
+      website_url, registration_url, image_url, image_key, image_display, cancelled, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
     input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
-    input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
+    input.imageDisplay, input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, now, input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<EventRow>();
   if (!row) throw new Error("Podujatie sa nepodarilo vytvoriť.");
   const event = rowToEvent(row);
@@ -405,13 +410,14 @@ export async function updateManagedEvent(id: number, payload: ManagedEventInput,
     UPDATE managed_events SET
       slug = ?, title = ?, excerpt = ?, event_type = ?, status = ?, start_date = ?, start_time = ?,
       end_date = ?, end_time = ?, venue = ?, city = ?, region = ?, address = ?, organizer = ?,
-      description = ?, practical_info = ?, website_url = ?, registration_url = ?, image_url = ?, image_key = ?,
+      description = ?, practical_info = ?, website_url = ?, registration_url = ?, image_url = ?, image_key = ?, image_display = ?,
       cancelled = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? RETURNING *
   `).bind(
     input.slug, input.title, input.excerpt, input.eventType, input.status, input.startDate, input.startTime,
     input.endDate, input.endTime, input.venue, input.city, input.region, input.address, input.organizer,
     input.description, input.practicalInfo, input.websiteUrl, input.registrationUrl, input.imageUrl, input.imageKey,
+    payload.imageDisplay === undefined ? existing.imageDisplay ?? "auto" : input.imageDisplay,
     input.cancelled ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
   ).first<EventRow>();
   if (!row) return null;

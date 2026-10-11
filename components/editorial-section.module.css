@@ -901,8 +901,8 @@
 /* CONTENT-HUB-CONTEXT-CTA-1: a compact feed item, never a parallel banner. */
 .contextualCtaItem { min-width: 0; }
 
-/* Editorial landing/topic axes match the 16px site header; article prose keeps the
-   shared 12px public mobile gutter through design-system.css. */
+/* Editorial landing/topic routes use the navigation's 16px axis on narrow
+   screens; article-reading surfaces keep the shared, wider 12px public shell. */
 @media (max-width: 620px) {
   .foundation :global(.public-shell) {
     width: min(calc(100% - max(16px, env(safe-area-inset-left, 0px)) - max(16px, env(safe-area-inset-right, 0px))), 520px);
