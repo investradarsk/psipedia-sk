@@ -139,8 +139,8 @@ export function SiteHeader({
       const current = window.location.pathname + window.location.search;
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
-      if (previous && previous !== current) router.push(previous);
-      else if (current !== "/") router.push("/");
+      if (previous && previous !== current) router.replace(previous);
+      else if (current !== "/") router.replace("/");
     }
     function onTouchCancel() {
       start = null;
@@ -321,67 +321,55 @@ export function SiteHeader({
     };
   }, [menuOpen]);
 
-  // Touch scrolling is native on Chrome and iOS. React onTouchEnd alone is
-  // unreliable here: overscroll can fire touchcancel instead of touchend.
-  // Intercept only a clear downward pull that STARTED at the top of the menu.
+  // The content list keeps native scrolling. Only the visibly marked grabber
+  // owns drawer dismissal so ordinary attempts to browse don't close the menu.
   useEffect(() => {
     if (!menuOpen) return;
     const menu = mobileMenuRef.current;
-    const nav = menu?.querySelector("nav");
-    const header = headerRef.current;
-    if (!menu || !nav || !header) return;
-    // The drawer stays mounted between openings; never reopen at an old scroll
-    // offset where a downward gesture would be interpreted as list scrolling.
+    const nav = menu?.querySelector<HTMLElement>("nav");
+    const grip = menu?.querySelector<HTMLButtonElement>("[data-menu-dismiss-grip]");
+    if (!nav || !grip) return;
     nav.scrollTop = 0;
+    let startY: number | null = null;
+    let distance = 0;
 
-    let origin: { x: number; y: number; time: number } | null = null;
-    const closeMenu = () => {
-      origin = null;
-      setOpenMobileMenu(null);
-      setMenuOpen(false);
+    const reset = () => {
+      startY = null;
+      distance = 0;
+      nav.style.transition = "transform 180ms ease";
+      nav.style.transform = "";
     };
     function onStart(event: globalThis.TouchEvent) {
-      origin = null;
       if (event.touches.length !== 1) return;
-      // Scroll the long list normally. Swiping the sticky header can still
-      // dismiss the menu even when its contents are scrolled.
-      if (menu.contains(event.target as Node) && nav!.scrollTop > 2) return;
-      const touch = event.touches[0];
-      origin = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      startY = event.touches[0].clientY;
+      distance = 0;
+      nav!.style.transition = "none";
     }
     function onMove(event: globalThis.TouchEvent) {
-      if (!origin || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      const down = touch.clientY - origin.y;
-      const across = Math.abs(touch.clientX - origin.x);
-      if (down <= 6 || down < across * 1.35
-        || (menu.contains(event.target as Node) && nav!.scrollTop > 2)) return;
-      // Prevent Chrome's pull-to-refresh / native overscroll from cancelling
-      // the gesture before the finger is lifted.
+      if (startY === null || event.touches.length !== 1) return;
+      distance = Math.max(0, Math.min(180, event.touches[0].clientY - startY));
       if (event.cancelable) event.preventDefault();
-      if (down >= 65 && Date.now() - origin.time < 1300) closeMenu();
+      nav!.style.transform = "translate3d(0," + distance + "px,0)";
     }
-    function onEnd(event: globalThis.TouchEvent) {
-      if (!origin || event.changedTouches.length !== 1) { origin = null; return; }
-      const touch = event.changedTouches[0];
-      const down = touch.clientY - origin.y;
-      const across = Math.abs(touch.clientX - origin.x);
-      const valid = down >= 65 && down > across * 1.35
-        && (!menu.contains(event.target as Node) || nav!.scrollTop <= 2)
-        && Date.now() - origin.time < 1300;
-      origin = null;
-      if (valid) closeMenu();
+    function onEnd() {
+      const close = startY !== null && distance >= 60;
+      reset();
+      if (close) {
+        setOpenMobileMenu(null);
+        setMenuOpen(false);
+      }
     }
-    function onCancel() { origin = null; }
-    header.addEventListener("touchstart", onStart, { passive: true });
-    header.addEventListener("touchmove", onMove, { passive: false });
-    header.addEventListener("touchend", onEnd, { passive: true });
-    header.addEventListener("touchcancel", onCancel, { passive: true });
+    grip.addEventListener("touchstart", onStart, { passive: true });
+    grip.addEventListener("touchmove", onMove, { passive: false });
+    grip.addEventListener("touchend", onEnd, { passive: true });
+    grip.addEventListener("touchcancel", reset, { passive: true });
     return () => {
-      header.removeEventListener("touchstart", onStart);
-      header.removeEventListener("touchmove", onMove);
-      header.removeEventListener("touchend", onEnd);
-      header.removeEventListener("touchcancel", onCancel);
+      grip.removeEventListener("touchstart", onStart);
+      grip.removeEventListener("touchmove", onMove);
+      grip.removeEventListener("touchend", onEnd);
+      grip.removeEventListener("touchcancel", reset);
+      nav.style.transition = "";
+      nav.style.transform = "";
     };
   }, [menuOpen]);
 
@@ -485,6 +473,13 @@ export function SiteHeader({
     setSearchOpen(true);
   }
 
+  function goBackWithinSite() {
+    const current = window.location.pathname + window.location.search;
+    const trail = internalTrailRef.current;
+    const previous = trail.length > 1 ? trail[trail.length - 2] : null;
+    router.replace(previous && previous !== current ? previous : "/");
+  }
+
   function menuButton(className: string) {
     return (
       <button
@@ -522,7 +517,22 @@ export function SiteHeader({
 
       <header className="site-header" ref={headerRef}>
         <div className={`header-inner shell public-shell ${styles.masthead}`} data-header-masthead>
-          {menuButton(styles.mobileLeftTrigger)}
+          <div className={styles.mobileNavControls}>
+            {menuButton(styles.mobileLeftTrigger)}
+            {pathname !== "/" && (
+              <button
+                type="button"
+                className={styles.backNavButton}
+                onClick={goBackWithinSite}
+                aria-label="Späť na predchádzajúcu stránku Psipedie"
+                title="Späť v Psipedii"
+              >
+                <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 12H5m7-7-7 7 7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className={styles.brandCluster}>
             <Link href="/" className="brand" aria-label="Psipedia.sk – domov" data-header-brand>
               <span className="brand-mark"><PawMark size={29} /></span>
@@ -599,6 +609,16 @@ export function SiteHeader({
 
         <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
+            <button
+              type="button"
+              className={styles.menuDismissGrip}
+              data-menu-dismiss-grip
+              onClick={() => { setOpenMobileMenu(null); setMenuOpen(false); }}
+              aria-label="Zavrieť navigačné menu"
+              title="Potiahni nadol alebo klepni pre zatvorenie"
+            >
+              <span aria-hidden="true" />
+            </button>
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
                 <div className="mobile-nav-parent">
@@ -632,6 +652,15 @@ export function SiteHeader({
         </div>
         <NavigationProgress />
       </header>
+
+      {menuOpen && (
+        <button
+          type="button"
+          className={styles.mobileMenuBackdrop}
+          onClick={() => { setOpenMobileMenu(null); setMenuOpen(false); }}
+          aria-label="Zavrieť navigáciu klepnutím mimo menu"
+        />
+      )}
 
       {searchOpen && (
         <div ref={searchDialogRef} className="search-modal" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
