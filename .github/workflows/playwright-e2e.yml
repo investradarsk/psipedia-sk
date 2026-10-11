@@ -195,10 +195,12 @@ jobs:
         run: node scripts/bootstrap-phase5-e2e.mjs sections-only
       - name: Seed isolated local calendar redesign fixtures
         run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/events-calendar-redesign.sql
-      - name: PODUJATIA-REDESIGN-1 hero and event search — desktop and mobile
+      - name: Seed local event listing pagination fixture
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/events-listing-redesign.sql
+      - name: PODUJATIA-REDESIGN-1–3 hero, calendar and filtered listing — desktop and mobile
         env:
           E2E_BASE_URL: http://localhost:5173
-        run: npm run e2e -- tests/e2e/events-hero-search.spec.ts tests/e2e/events-calendar-redesign.spec.ts --workers=1 --retries=0
+        run: npm run e2e -- tests/e2e/events-hero-search.spec.ts tests/e2e/events-calendar-redesign.spec.ts tests/e2e/events-listing-redesign.spec.ts --workers=1 --retries=0
       - name: Public navigation Playwright — desktop and mobile
         env:
           E2E_BASE_URL: http://localhost:5173

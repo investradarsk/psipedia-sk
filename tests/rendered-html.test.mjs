@@ -1005,7 +1005,7 @@ test("renders the functional event calendar and type view", async () => {
   assert.match(await landing.text(), /Názov podujatia, mesto, miesto alebo organizátor/);
   assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=ukoncene"[^>]*>Ukončené<\/a>/);
   assert.match(calendarHtml, /<a[^>]*href="\/podujatia\?termin=vsetky"[^>]*>Všetky<\/a>/);
-  assert.match(calendarHtml, /Prvé podujatia pripravujeme/);
+  assert.match(calendarHtml, /Nenašli sme zhodu/);
 
   const shows = await worker.fetch(new Request("http://localhost/podujatia/vystavy", { headers: { accept: "text/html" } }), bindings, context);
   assert.equal(shows.status, 200);

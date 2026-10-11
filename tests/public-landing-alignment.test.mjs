@@ -68,9 +68,10 @@ test("comparable category roots retain shared heading and canonical content shel
   }
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
   assert.match(read("components/directory-category-overview.tsx"), /<h2 className=\{styles\.heading\}>/);
-  assert.match(events, /PublicSubcategoryNavigator/);
+  assert.doesNotMatch(events, /PublicSubcategoryNavigator/);
+  assert.match(read("components/event-listing-results.tsx"), /Typ podujatia/);
   assert.doesNotMatch(events, /mode="landing"|PublicLandingSectionHeading/);
-  assert.match(events, /mode="compact"/);
+  assert.match(read("components/event-listing-results.tsx"), /eventTypes/);
   assert.match(read("components/event-calendar.tsx"), /data-events-legend/);
   assert.match(directory, /PublicSubcategoryNavigator/);
   assert.doesNotMatch(directory, /mode="landing"/);
