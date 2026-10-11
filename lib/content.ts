@@ -23,6 +23,10 @@ export type ArticleSeo = {
 };
 
 export type Article = {
+  /** Card photo presentation; absent values use safe automatic defaults. */
+  imageDisplay?: import("./smart-image").SmartImageMode;
+  imageFocusX?: number | null;
+  imageFocusY?: number | null;
   slug: string;
   title: string;
   excerpt: string;
