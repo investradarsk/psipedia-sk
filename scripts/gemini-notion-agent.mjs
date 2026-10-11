@@ -4,6 +4,7 @@
  * Notion Free API is the sole database; writes are drafts only.
  */
 import { createHmac } from "node:crypto";
+import { notionCategoryValue } from "./gemini-notion-category.mjs";
 
 const env = process.env;
 const jobId = Number(env.AGENT_JOB_ID);
@@ -30,7 +31,9 @@ function category() {
   const dataSourceId = ids[section];
   if (!dataSourceId || !/^[a-f0-9-]{32,36}$/i.test(dataSourceId))
     throw Error("NOTION_DATA_SOURCE_MISSING");
-  return { section, subcategory, dataSourceId };
+  const categoryValue = notionCategoryValue(section, subcategory);
+  if (!categoryValue) throw Error("INVALID_CATEGORY");
+  return { section, subcategory, categoryValue, dataSourceId };
 }
 
 async function notion(path, method = "GET", body) {
@@ -159,9 +162,9 @@ async function createDraft(args, snapshot, target) {
   const values = {
     "Názov": name,
     "Mesto": city,
-    "Kategória": target.subcategory,
-    "Typ podujatia": target.subcategory,
-    "Typ": target.subcategory,
+    "Kategória": target.categoryValue,
+    "Typ podujatia": target.categoryValue,
+    "Typ": target.categoryValue,
     "Web": website || (target.section === "events" ? source : ""),
     "Zdroj dát": source,
     "Zdroj URL": source,
@@ -255,7 +258,7 @@ async function runAgent() {
   const target = category();
   const snapshot = await notionSnapshot(target.dataSourceId);
   const instruction = "Si autonómny odborný výskumný pracovník Psipedia.sk. " +
-    "Kategória: " + stableKey + ". Slovensko. Nájdite maximálne " + maxNew +
+    "Kategória: " + target.categoryValue + " (" + stableKey + "). Slovensko. Nájdite maximálne " + maxNew +
     " nových relevantných subjektov / podujatí / prípadov pomoci. " +
     "NAJPRV zavolaj search_notion a skontroluj aktuálne záznamy. " +
     "Potom používaj Google Search na získanie aktuálnych verejných dôkazov. " +
