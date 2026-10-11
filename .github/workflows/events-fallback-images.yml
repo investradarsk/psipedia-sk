@@ -72,7 +72,7 @@ jobs:
       - name: Start isolated local app and create local D1 storage
         run: |
           mkdir -p .e2e-artifacts/events-final
-          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/events-final/server.log 2>&1 &
+          nohup ./node_modules/.bin/vite --host 127.0.0.1 > .e2e-artifacts/events-final/server.log 2>&1 &
           echo $! > .e2e-artifacts/events-final/server.pid
           ready=0
           for attempt in $(seq 1 60); do
@@ -85,6 +85,29 @@ jobs:
           test "$ready" = 1
       - name: Existing schema and deterministic fixtures in local D1 only
         run: node tests/helpers/events-final-local-fixtures.mjs
+      # The initial readiness request creates the isolated D1 storage before
+      # fixtures are present. Restart after the bootstrap to clear Vite's cached
+      # missing-table overlay rather than hiding real browser errors.
+      - name: Restart isolated app after local D1 schema bootstrap
+        run: |
+          kill "$(cat .e2e-artifacts/events-final/server.pid)"
+          for attempt in $(seq 1 30); do
+            if ! curl --silent --max-time 2 http://localhost:5173/images/events/defaults/vystavy.webp > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          nohup ./node_modules/.bin/vite --host 127.0.0.1 > .e2e-artifacts/events-final/server-after-seed.log 2>&1 &
+          echo $! > .e2e-artifacts/events-final/server.pid
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --max-time 3 http://localhost:5173/podujatia > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
       - name: Events hero, calendar, filtering and final acceptance
         run: npm run e2e -- tests/e2e/events-hero-search.spec.ts tests/e2e/events-calendar-redesign.spec.ts tests/e2e/events-listing-redesign.spec.ts --workers=1 --retries=0
       - name: Stop isolated app
