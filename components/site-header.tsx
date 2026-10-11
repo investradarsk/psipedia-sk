@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { FormEvent, TouchEvent as ReactTouchEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
 import { BookmarkIcon, ChevronDownIcon, CloseIcon, MenuIcon, PawMark, SearchIcon } from "./icons";
@@ -34,10 +34,13 @@ export function SiteHeader({
   const searchDialogRef = useRef<HTMLDivElement>(null);
   const searchReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const menuPullStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const internalTrailRef = useRef<string[]>([]);
   const menuReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const suppressMenuFocus = useRef(false);
   const pathname = usePathname();
+  const router = useRouter();
   const partnerHref = partnerAuthenticated ? "/partner" : "/partner/prihlasenie";
   const partnerLabel = "Partner účet";
   const nav = useMemo(() => {
@@ -81,6 +84,64 @@ export function SiteHeader({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [pathname]);
+
+  // Maintain a page trail strictly within Psipedia. Browser history may also
+  // contain the external website that led the visitor here.
+  useEffect(() => {
+    const route = window.location.pathname + window.location.search;
+    const trail = internalTrailRef.current;
+    if (trail[trail.length - 1] === route) return;
+    const previousIndex = trail.lastIndexOf(route);
+    if (previousIndex !== -1) trail.splice(previousIndex + 1);
+    else trail.push(route);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (menuOpen || searchOpen) return;
+
+    let start: { x: number; y: number; time: number } | null = null;
+    function onTouchStart(event: globalThis.TouchEvent) {
+      start = null;
+      if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px) and (pointer: coarse)").matches) return;
+      const touch = event.touches[0];
+      // Leave the system edges to Safari and iOS: the inward swipe starts
+      // within the right half of the page rather than in a browser gesture zone.
+      if (touch.clientX < window.innerWidth * 0.55 || touch.clientX > window.innerWidth - 16) return;
+      const target = event.target;
+      if (!(target instanceof Element) || target.closest(
+        '#mobile-menu, .search-modal, [role="dialog"], [role="slider"], input, textarea, select, button, [contenteditable="true"], .gm-style, .leaflet-container, .maplibregl-map, .swiper, [data-no-swipe-back]',
+      )) return;
+      // Don't steal horizontal carousels, maps, or scrollable tables.
+      for (let node: Element | null = target; node; node = node.parentElement) {
+        const style = window.getComputedStyle(node);
+        if (/auto|scroll/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 8) return;
+      }
+      start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+    }
+    function onTouchEnd(event: globalThis.TouchEvent) {
+      const origin = start;
+      start = null;
+      if (!origin || event.changedTouches.length !== 1) return;
+      const touch = event.changedTouches[0];
+      const left = origin.x - touch.clientX;
+      const vertical = Math.abs(touch.clientY - origin.y);
+      if (left < 90 || vertical > Math.min(65, left * 0.42) || Date.now() - origin.time > 850) return;
+      const current = window.location.pathname + window.location.search;
+      const trail = internalTrailRef.current;
+      const previous = trail.length > 1 ? trail[trail.length - 2] : null;
+      if (previous && previous !== current) router.push(previous);
+      else if (current !== "/") router.push("/");
+    }
+    function onTouchCancel() { start = null; }
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
+    document.addEventListener("touchcancel", onTouchCancel, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("touchcancel", onTouchCancel);
+    };
+  }, [menuOpen, pathname, router, searchOpen]);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
@@ -339,6 +400,29 @@ export function SiteHeader({
     setSearchOpen(true);
   }
 
+  function onMenuPullStart(event: ReactTouchEvent<HTMLDivElement>) {
+    menuPullStartRef.current = null;
+    const nav = mobileMenuRef.current?.querySelector("nav");
+    if (event.touches.length !== 1 || !nav || nav.scrollTop > 1) return;
+    const touch = event.touches[0];
+    menuPullStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+  }
+
+  function onMenuPullEnd(event: ReactTouchEvent<HTMLDivElement>) {
+    const origin = menuPullStartRef.current;
+    menuPullStartRef.current = null;
+    if (!origin || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const down = touch.clientY - origin.y;
+    const horizontal = Math.abs(touch.clientX - origin.x);
+    // Only dismiss a deliberate downward pull from the top. A swipe up
+    // must continue scrolling the long menu and expanded submenus normally.
+    if (down < 75 || down < horizontal * 1.5 || Date.now() - origin.time > 900) return;
+    if ((mobileMenuRef.current?.querySelector("nav")?.scrollTop ?? 0) > 1) return;
+    setOpenMobileMenu(null);
+    setMenuOpen(false);
+  }
+
   function menuButton(className: string) {
     return (
       <button
@@ -451,7 +535,8 @@ export function SiteHeader({
           </nav>
         </div>
 
-        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
+        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}
+          onTouchStart={onMenuPullStart} onTouchEnd={onMenuPullEnd} onTouchCancel={() => { menuPullStartRef.current = null; }}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
