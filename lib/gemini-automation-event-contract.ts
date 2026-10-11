@@ -5,6 +5,8 @@ import { GeminiAutomationError } from "./gemini-automation-types.ts";
 export const GEMINI_EVENT_CONTRACT_VERSION = 1;
 export const GEMINI_EVENT_HARD_MAX = 5;
 const FIELDS = ["title","organizer","start_date","start_time","end_date","end_time","all_day","venue","city","region","online","event_url","registration_url","description","source_urls","evidence","cancelled"] as const;
+// Provider-optional facts may be omitted. Missing is not evidence of any factual value.
+const NULLABLE_OPTIONAL_FIELDS = ["start_time","end_date","end_time","venue","city","region","event_url","registration_url"] as const;
 const EVIDENCE_FIELDS = ["title","organizer","start_date","city","venue","online","event_url","registration_url","description","cancelled"] as const;
 export type EventEvidenceField = (typeof EVIDENCE_FIELDS)[number];
 export type GeminiEventCandidateV1 = {
@@ -92,7 +94,13 @@ export function parseGeminiEventEnvelope(raw: unknown, req: GeminiEventRequestV1
   if (envelope.schema_version !== 1 || envelope.category_key !== allowed.stableKey ||
     !Array.isArray(envelope.candidates) || envelope.candidates.length > allowed.maxCandidates) invalid();
   const candidates = envelope.candidates.map((value: unknown) => {
-    const v=obj(value);
+    const supplied=obj(value);
+    // Reject unknown fields before normalization; never discard provider data silently.
+    if (Object.keys(supplied).some(key => !FIELDS.includes(key as (typeof FIELDS)[number]))) invalid();
+    const v: Record<string,unknown> = {...supplied};
+    for (const key of NULLABLE_OPTIONAL_FIELDS) {
+      if (!Object.hasOwn(v,key)) v[key]=null;
+    }
     exact(v,FIELDS);
     const title=str(v.title,160) as string;
     const organizer=str(v.organizer,160) as string;
@@ -186,7 +194,7 @@ export function buildGeminiEventJsonSchema(req: GeminiEventRequestV1) {
     candidates:{type:"array",maxItems:allowed.maxCandidates,items:{
       type:"object",
       properties:candidateProperties,
-      required:["title","organizer","start_date","online","description","source_urls","evidence"],
+      required:["title","organizer","start_date","all_day","online","description","source_urls","evidence","cancelled"],
     }},
   });
 }
