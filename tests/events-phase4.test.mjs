@@ -131,13 +131,15 @@ test("EVENTS-PUBLIC-UX-1 keeps one dominant type navigation and one local event 
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(page, /SectionHeroSearch|PublicCategoryTiles|searchSlot=/);
+  assert.equal((page.match(/<HomePortalSearch/g) ?? []).length, 1);
+  assert.match(page, /searchScope="events"/);
   assert.equal((calendar.match(/name="q"/g) ?? []).length, 1);
   assert.match(calendar, /type="hidden" name="termin"/);
   assert.doesNotMatch(calendar, /eventTypeFilters|EVENT_SECTION_COPY|categoryOverview|selectType/);
   assert.match(calendar, /<PublicFilterDisclosure/);
   assert.match(calendar, /buttonClassName=\{styles\.filterToggle\}/);
   assert.match(calendar, /contentClassName=\{styles\.secondaryFilters\}/);
-  assert.match(calendar, /placeholder="Názov, mesto, miesto alebo organizátor"/);
+  assert.match(page, /placeholder="Názov podujatia, mesto, miesto alebo organizátor\.\.\."/);
   assert.match(css, /\.filterToggle[\s\S]*min-height:\s*44px/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.secondaryFilters[\s\S]*display:\s*none/);
   assert.match(css, /\.secondaryFiltersOpen[\s\S]*display:\s*grid/);
