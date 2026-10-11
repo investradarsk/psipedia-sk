@@ -135,6 +135,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0116_admin_automation_push.sql",
     "0117_gemini_events_rejections.sql",
     "0118_event_image_display.sql",
+    "0119_article_image_presentation.sql",
   ]);
 });
 
