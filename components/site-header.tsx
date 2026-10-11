@@ -301,22 +301,25 @@ export function SiteHeader({
     // Measure the actual menu entry point without locking document scrolling.
     const root = document.documentElement;
     const masthead = headerRef.current?.querySelector<HTMLElement>("[data-header-masthead]");
-    const initialScrollY = window.scrollY;
     const update = () => {
-      if (Math.abs(window.scrollY - initialScrollY) > 12) {
-        setOpenMobileMenu(null);
-        setMenuOpen(false);
-        return;
-      }
+      // Browser scrollIntoView may scroll the document while selecting a link
+      // in the drawer. Do not treat that incidental repositioning as dismissal.
       const bottom = masthead?.getBoundingClientRect().bottom ?? 68;
       root.style.setProperty("--psipedia-mobile-menu-top", `${Math.ceil(Math.max(0, bottom))}px`);
     };
+    function closeOnOutsideWheel(event: WheelEvent) {
+      if (mobileMenuRef.current?.contains(event.target as Node)) return;
+      setOpenMobileMenu(null);
+      setMenuOpen(false);
+    }
     update();
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
+    document.addEventListener("wheel", closeOnOutsideWheel, { passive: true });
     return () => {
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      document.removeEventListener("wheel", closeOnOutsideWheel);
       root.style.removeProperty("--psipedia-mobile-menu-top");
     };
   }, [menuOpen]);
@@ -380,7 +383,7 @@ export function SiteHeader({
     if (!menu || !trigger) return;
 
     function focusableMenuItems() {
-      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
         .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
     }
 
@@ -612,6 +615,7 @@ export function SiteHeader({
             <button
               type="button"
               className={styles.menuDismissGrip}
+              tabIndex={-1}
               data-menu-dismiss-grip
               onClick={() => { setOpenMobileMenu(null); setMenuOpen(false); }}
               aria-label="Zavrieť navigačné menu"

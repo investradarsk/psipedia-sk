@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
 import styles from "./events-public.module.css";
+import { SmartCardImage } from "@/components/smart-card-image";
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MÁJ", "JÚN", "JÚL", "AUG", "SEP", "OKT", "NOV", "DEC"];
 
@@ -53,7 +54,7 @@ export function EventCard({ event, today }: { event: DogEvent; today?: string })
 
       {event.imageUrl ? (
         <span className={styles.cardMedia} aria-hidden="true">
-          <img src={event.imageUrl} alt="" loading="lazy" decoding="async" />
+          <SmartCardImage src={event.imageUrl} mode={event.imageDisplay} alt="" loading="lazy" decoding="async" />
         </span>
       ) : null}
 

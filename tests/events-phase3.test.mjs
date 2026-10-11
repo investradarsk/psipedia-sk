@@ -84,7 +84,7 @@ test("event rows stay compact and date-first while using canonical preview image
   assert.match(eventCard, /event\.region === "Online"/);
   assert.match(eventCard, /data-event-status/);
   assert.match(eventCard, /event\.imageUrl \? styles\.eventCardWithImage/);
-  assert.match(eventCard, /<img src=\{event\.imageUrl\} alt="" loading="lazy" decoding="async"/);
+  assert.match(eventCard, /<SmartCardImage src=\{event\.imageUrl\} mode=\{event\.imageDisplay\} alt="" loading="lazy" decoding="async"/);
   assert.doesNotMatch(eventCard, /PawMark/);
   assert.match(eventsCss, /grid-template-columns:\s*78px minmax\(0, 1fr\) auto/);
   assert.match(eventsCss, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { directoryProfileHref, getDirectoryCategory, type PublicDirectoryProfile } from "@/lib/directory";
 import styles from "./directory-public.module.css";
+import { SmartCardImage } from "@/components/smart-card-image";
 
 export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) {
   const category = getDirectoryCategory(profile.category);
@@ -20,7 +21,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
     >
       <span className={`${styles.cardInner}${profile.imageUrl ? ` ${styles.cardWithImage}` : ""}`}>
         {profile.imageUrl && (
-          <img className={styles.cardImage} src={profile.imageUrl} alt="" loading="lazy" decoding="async" />
+          <SmartCardImage className={styles.cardImage} src={profile.imageUrl} alt="" loading="lazy" decoding="async" />
         )}
         <span className={styles.cardCopy}>
           <span className={styles.cardTopline}>
