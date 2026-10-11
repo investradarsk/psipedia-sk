@@ -123,7 +123,7 @@ export function SiteHeader({
       const left = start.x - touch.clientX;
       const vertical = Math.abs(start.y - touch.clientY);
       // Claim only a clear inward left swipe; vertical scrolling remains native.
-      if (left > 22 && vertical < left * 0.38 && event.cancelable) event.preventDefault();
+      if (left > 8 && vertical < left * 0.38 && event.cancelable) event.preventDefault();
     }
     function onTouchEnd(event: globalThis.TouchEvent) {
       const origin = start;
@@ -342,7 +342,7 @@ export function SiteHeader({
       const touch = event.touches[0];
       const down = touch.clientY - origin.y;
       const across = Math.abs(touch.clientX - origin.x);
-      if (down <= 14 || down < across * 1.35 || nav!.scrollTop > 2) return;
+      if (down <= 6 || down < across * 1.35 || nav!.scrollTop > 2) return;
       // Prevent Chrome's pull-to-refresh / native overscroll from cancelling
       // the gesture before the finger is lifted.
       if (event.cancelable) event.preventDefault();
