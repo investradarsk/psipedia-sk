@@ -222,7 +222,7 @@ export function ArticleDetail({
 
           <div className={styles.readingShell}>
             <article className="article-prose" data-article-reading-end>
-              <p className={styles.standfirst}>{article.excerpt}</p>
+              <p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>
             <EditorialRichText className="article-intro" document={introDocument} keyPrefix="article-intro" />
             {showTakeaway ? <aside className="takeaway-box" aria-label="To najdôležitejšie"><strong>To najdôležitejšie</strong><EditorialRichText document={takeawayDocument} keyPrefix="article-takeaway" /></aside> : null}
             {showTableOfContents ? (
