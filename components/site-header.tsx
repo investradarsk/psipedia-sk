@@ -380,7 +380,7 @@ export function SiteHeader({
     if (!menu || !trigger) return;
 
     function focusableMenuItems() {
-      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
         .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
     }
 
@@ -612,6 +612,7 @@ export function SiteHeader({
             <button
               type="button"
               className={styles.menuDismissGrip}
+              tabIndex={-1}
               data-menu-dismiss-grip
               onClick={() => { setOpenMobileMenu(null); setMenuOpen(false); }}
               aria-label="Zavrieť navigačné menu"
