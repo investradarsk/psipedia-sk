@@ -104,6 +104,10 @@
 }
 
 @media (max-width: 620px) {
+  .heading {
+    margin-bottom: 12px;
+  }
+
   .plain,
   .landing,
   .listing {
