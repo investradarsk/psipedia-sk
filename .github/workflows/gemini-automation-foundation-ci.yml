@@ -12,6 +12,11 @@ on:
       - "components/admin-navigation.tsx"
       - "lib/gemini-automation-*.ts"
       - "lib/gemini-external-agent.ts"
+      - "scripts/gemini-notion-agent.mjs"
+      - "app/api/internal/gemini-agent/**"
+      - ".github/workflows/gemini-notion-agent.yml"
+      - "tests/gemini-external-agent.test.mjs"
+      - "lib/gemini-external-agent.ts"
       - "app/api/internal/gemini-agent/**"
       - "scripts/gemini-notion-agent.mjs"
       - ".github/workflows/gemini-notion-agent.yml"
@@ -49,6 +54,12 @@ jobs:
       - run: npm ci
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
+      - name: External Gemini agent contracts (no network or paid API)
+        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs
+      - name: External worker syntax
+        run: node --check scripts/gemini-notion-agent.mjs
+      - name: External worker lint
+        run: npx eslint lib/gemini-external-agent.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs
       - name: Targeted Gemini admin lint coverage
         run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Gemini review, rejection and canonical lifecycle lint
