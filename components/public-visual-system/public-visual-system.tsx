@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactElement, ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { SmartCardImage } from "@/components/smart-card-image";
+import type { SmartImageMode } from "@/lib/smart-image";
 import styles from "./public-visual-system.module.css";
 
 function cx(...values: Array<string | false | null | undefined>) {
@@ -85,7 +87,7 @@ export function PublicSectionHeader({
   actions?: ReactNode;
   meta?: ReactNode;
   visual?: ReactNode;
-  image?: { src: string; alt: string };
+  image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null };
   className?: string;
 }) {
   const sideVisual = image ? (
@@ -254,7 +256,7 @@ export function PublicArticleListItem({
   topic: ReactNode;
   date?: ReactNode;
   dateTime?: string;
-  image?: { src: string; alt: string };
+  image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null };
   className?: string;
   listItem?: boolean;
 }) {
@@ -262,7 +264,7 @@ export function PublicArticleListItem({
     <Link className={cx(styles.articleListItem, image && styles.articleListItemWithImage, className)} href={href} role={listItem ? "listitem" : undefined} data-article-list-item>
       {image ? (
         <span className={styles.articleListMedia} data-article-image>
-          <img src={image.src} srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480])} sizes="(max-width: 620px) 90px, 112px" alt={image.alt} loading="lazy" decoding="async" />
+          <SmartCardImage roleHint="article" mode={image.mode} focusX={image.focusX} focusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [160, 320, 480])} sizes="(max-width: 620px) 90px, 112px" alt={image.alt} loading="lazy" decoding="async" />
         </span>
       ) : null}
       <span className={styles.articleListCopy}>
@@ -292,13 +294,13 @@ export function PublicContentListItem({
   eyebrow?: ReactNode;
   excerpt?: ReactNode;
   meta?: ReactNode;
-  image?: { src: string; alt: string };
+  image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null };
   actionLabel?: string;
   className?: string;
 }) {
   return (
     <Link className={cx(styles.contentItem, image && styles.contentItemWithImage, className)} href={href} role="listitem">
-      {image ? <span className={styles.contentMedia}><img src={image.src} srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, 33vw" alt={image.alt} loading="lazy" decoding="async" /></span> : null}
+      {image ? <span className={styles.contentMedia}><SmartCardImage roleHint="article" mode={image.mode} focusX={image.focusX} focusY={image.focusY} src={image.src} srcSet={responsiveMediaSrcSet(image.src, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, 33vw" alt={image.alt} loading="lazy" decoding="async" /></span> : null}
       <span className={styles.contentCopy}>
         {eyebrow ? <span className={styles.itemEyebrow}>{eyebrow}</span> : null}
         <strong className={styles.contentTitle}>{title}</strong>
