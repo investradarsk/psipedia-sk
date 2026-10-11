@@ -15,6 +15,7 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "onLoad"> & {
   roleHint?: SmartImageRole;
   focusX?: number | null;
   focusY?: number | null;
+  onResolvedFit?: (fit: SmartImageFit) => void;
 };
 
 /** Inspect a small canvas sample. Cross-origin images without CORS use dimension-based fallback. */
@@ -48,6 +49,7 @@ export function SmartCardImage({
   roleHint = "generic",
   focusX = null,
   focusY = null,
+  onResolvedFit,
   src,
   style,
   ...rest
@@ -78,6 +80,7 @@ export function SmartCardImage({
       ? "contain" : nextFit;
     setAnalyzed((previous) => previous?.src === key && previous.fit === next
       ? previous : { src: key, fit: next });
+    onResolvedFit?.(next);
   }
 
   return <img
