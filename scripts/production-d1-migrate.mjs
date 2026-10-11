@@ -110,6 +110,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0115_gemini_notion_bridge.sql",
   "0116_admin_automation_push.sql",
   "0117_gemini_events_rejections.sql",
+  "0118_gemini_manual_background_jobs.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1123,6 +1124,11 @@ export function targetSchemaObjects(schema, targetMigration) {
       "idx_gemini_event_rejection_scope_recent", "idx_gemini_event_rejection_event",
       "sqlite_autoindex_gemini_automation_event_rejections_1"].some(name => names.has(name)) };
   }
+  if (targetMigration === "0118_gemini_manual_background_jobs.sql") {
+    return { partial: ["gemini_manual_background_jobs","idx_gemini_manual_queue",
+      "idx_gemini_manual_active_category","idx_gemini_manual_only_one_active"]
+      .some(name=>names.has(name)) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1907,8 +1913,21 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 114) assertGeminiRejectionSchema(schema);
   if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
   if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
+  if (migrationIndex(targetMigration) >= 118) assertGeminiManualQueueSchema(schema);
 }
 
+/** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
+export function assertGeminiManualQueueSchema(schema) {
+  const names=objectMap(schema.objects);
+  const table=names.get("gemini_manual_background_jobs");
+  invariant(table?.type==="table","Missing Gemini manual queue table");
+  for(const key of ["idx_gemini_manual_queue","idx_gemini_manual_active_category",
+    "idx_gemini_manual_only_one_active"])
+    invariant(names.get(key)?.type==="index","Missing Gemini queue index: "+key);
+  const sql=String(table.sql??"");
+  for(const column of ["setting_id","stable_key","status","run_id","error_code","claimed_at","completed_at"])
+    invariant(sql.includes(column),"Missing Gemini queue column: "+column);
+}
 export function assertGeminiBridgeSchema(schema) {
   const names = objectMap(schema.objects);
   const table = names.get("gemini_automation_concepts");
