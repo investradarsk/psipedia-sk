@@ -71,6 +71,8 @@ jobs:
           node --experimental-strip-types --test tests/editorial-calendar.test.mjs tests/editorial-calendar-interactions.test.mjs tests/article-editor-calendar.test.mjs
       - name: Lint
         run: npm run lint
+      - name: Typecheck
+        run: npx tsc --noEmit --incremental false
       - name: Build
         run: npm run build
       - name: Configure CI-only local PII keys
