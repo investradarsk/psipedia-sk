@@ -58,7 +58,7 @@ test("detail exposes real event fields before optional media and never renders e
   assert.match(detail, /event\.organizer &&/);
   assert.match(detail, /event\.description &&/);
   assert.match(detail, /event\.practicalInfo &&/);
-  assert.match(detail, /event\.imageUrl && \([\s\S]*data-event-image/);
+  assert.match(detail, /data-event-image[\s\S]*<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\}/);
   assert.doesNotMatch(detail, /PawMark|Program|Poplatky|Podmienky účasti/);
 });
 
