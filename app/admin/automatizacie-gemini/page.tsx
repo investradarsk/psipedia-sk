@@ -11,6 +11,7 @@ import {
   type GeminiRecentRun,
 } from "@/lib/gemini-automation-admin-store";
 import {geminiManualBackgroundEnabled,listGeminiManualBackgroundJobs,type GeminiQueuedJob} from "@/lib/gemini-automation-background-queue";
+import { externalAgentEnabled } from "@/lib/gemini-external-agent";
 import styles from "@/components/admin-gemini-automation.module.css";
 
 export const dynamic = "force-dynamic";
@@ -92,12 +93,14 @@ export default async function AdminGeminiAutomationPage() {
   let settings = geminiSettingViews([]);
   let runs: GeminiRecentRun[] = [];
   let queuedJobs:GeminiQueuedJob[]=[];
+  const externalEnabled = externalAgentEnabled(env);
   const backgroundEnabled=geminiManualBackgroundEnabled(env as unknown as {GEMINI_ASYNC_MANUAL_ENABLED?:string});
+  const showQueue = externalEnabled || backgroundEnabled;
   let ready = true;
   try {
     const db = requireGeminiAdminD1();
     [settings, runs] = await Promise.all([listGeminiSettings(db), listRecentGeminiRuns(db)]);
-    if(backgroundEnabled) queuedJobs=await listGeminiManualBackgroundJobs(db);
+    if(showQueue) queuedJobs=await listGeminiManualBackgroundJobs(db);
   } catch {
     ready = false;
   }
@@ -113,12 +116,15 @@ export default async function AdminGeminiAutomationPage() {
         Ukladanie je dočasne vypnuté.
       </p>}
       <p className={styles.notice}>
-        Zapnutie kategórie je len nastavenie pre budúci plánovač. Manuálne Gemini spustenie je dostupné
-        pre kategórie Adresára a Podujatí po uložení a dvojitom potvrdení. Pomoc psom zatiaľ čaká na vlastný Gemini bridge. Žiadne koncepty sa nepublikujú automaticky.
+        {externalEnabled
+          ? "Samostatný GitHub pracovník pre Gemini + Notion je zapnutý. Tu nastavíš frekvenciu, kategóriu a počet konceptov. Platené volania podliehajú ďalšiemu vypínaču priamo v GitHube. Výsledky uvidíš v histórii."
+          : "Externý GitHub pracovník zatiaľ nie je aktivovaný. Uloženie nastavenia samo nespúšťa platené vyhľadávanie; starý manuálny režim zostáva oddelený."}
       </p>
-      <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>
-      <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} />
-      {backgroundEnabled && <GeminiQueueHistory jobs={queuedJobs} />}
+      {externalEnabled
+        ? <p>Nové externé koncepty sú uložené priamo v Notione; počty nájdeš nižšie v histórii behov.</p>
+        : <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>}
+      <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} externalEnabled={externalEnabled} />
+      {showQueue && <GeminiQueueHistory jobs={queuedJobs} />}
       <GeminiRunHistory runs={runs} />
     </AdminShell>
   );
