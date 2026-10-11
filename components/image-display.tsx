@@ -2,6 +2,7 @@
 
 import { useState, type ImgHTMLAttributes } from "react";
 import { SmartCardImage } from "@/components/smart-card-image";
+import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL, legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig, type ImageDisplayContext } from "@/lib/image-display";
 import type { SmartImageMode } from "@/lib/smart-image";
 import styles from "./image-display.module.css";
@@ -41,7 +42,7 @@ export function ImageDisplay({
           style={style} draggable={false} />
       ) : (
         <>
-          {blur && <img aria-hidden="true" alt="" src={src} srcSet={imageProps.srcSet} sizes={imageProps.sizes}
+          {blur && <img aria-hidden="true" alt="" src={src} srcSet={imageProps.srcSet ?? responsiveMediaSrcSet(src, [320, 640, 960])} sizes={imageProps.sizes ?? "100vw"}
             loading={imageProps.loading ?? "lazy"} decoding="async" className={styles.blurBackground} draggable={false} />}
           <SmartCardImage {...imageProps} src={src} alt={alt} roleHint="article" mode={fitMode}
             focusX={focus.x} focusY={focus.y}

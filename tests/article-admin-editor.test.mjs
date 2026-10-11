@@ -7,6 +7,7 @@ import {
   slugifyEditorialAuthorName,
 } from "../lib/editorial-authors.ts";
 import { normalizeEditorialExternalVideo } from "../lib/editorial-video.ts";
+import { normalizeImageDisplayConfig, readImageDisplayConfig, legacyArticleThumbnail, legacyArticleDetail, DEFAULT_DETAIL, DEFAULT_THUMBNAIL } from "../lib/image-display.ts";
 
 test("ARTICLE-ADMIN author profile input is bounded, typed and avatar-safe", () => {
   const normalized = normalizeEditorialAuthorProfileInput({
@@ -180,4 +181,62 @@ test("ADMIN-ARTICLE-EDITOR-NAV-1 uses canonical block IDs for keyboard-accessibl
   assert.match(styles, /scroll-margin-top:/);
   assert.match(styles, /:focus-visible/);
   assert.match(styles, /targetHighlight/);
+});
+
+
+test("IMAGE-EDITOR-1 validates two independent rendering contracts and clamps unsafe numeric values", () => {
+  const thumb = normalizeImageDisplayConfig({ mode: "blur", x: -30, y: 130, zoom: 999 }, "thumbnail");
+  assert.deepEqual(thumb, { mode: "blur", x: 0, y: 100, zoom: 2.5 });
+  const detail = normalizeImageDisplayConfig({ mode: "natural", x: 50, y: 50, zoom: 1 }, "detail");
+  assert.deepEqual(detail, DEFAULT_DETAIL);
+  assert.notDeepEqual(thumb, detail);
+  assert.equal(normalizeImageDisplayConfig(undefined, "thumbnail"), null);
+  assert.deepEqual(DEFAULT_THUMBNAIL, { mode: "auto", x: 50, y: 28, zoom: 1 });
+  assert.throws(() => normalizeImageDisplayConfig({ mode: "natural", x: 50, y: 50, zoom: 1 }, "thumbnail"), /režim/);
+  assert.throws(() => normalizeImageDisplayConfig({ mode: "auto", x: 50, y: 50, zoom: 1 }, "detail"), /režim/);
+  assert.throws(() => normalizeImageDisplayConfig({ mode: "blur", x: NaN, y: 0, zoom: 1 }, "thumbnail"), /konečné čísla/);
+  assert.throws(() => normalizeImageDisplayConfig({ mode: "crop", x: "0", y: 30, zoom: 1 }, "thumbnail"), /konečné čísla/);
+  assert.equal(readImageDisplayConfig('{"mode":"weird","x":1,"y":1,"zoom":1}', "detail"), null);
+  assert.equal(readImageDisplayConfig("{broken", "detail"), null);
+  assert.deepEqual(readImageDisplayConfig(JSON.stringify(thumb), "thumbnail"), thumb);
+});
+
+test("IMAGE-EDITOR-1 preserves 0120 legacy crop settings and original picture identifiers", () => {
+  assert.deepEqual(legacyArticleThumbnail("cover", 32, 21), { mode: "crop", x: 32, y: 21, zoom: 1 });
+  assert.deepEqual(legacyArticleThumbnail("contain", null, null), { mode: "blur", x: 50, y: 28, zoom: 1 });
+  assert.deepEqual(legacyArticleDetail("cover", 32, 21), { mode: "crop", x: 32, y: 21, zoom: 1 });
+  assert.equal(legacyArticleDetail("auto", null, null), null);
+  assert.deepEqual(legacyArticleDetail("auto", 52, 19), { mode: "crop", x: 52, y: 19, zoom: 1 });
+  const migration = readFileSync("drizzle/0121_article_image_display_config.sql", "utf8");
+  const store = readFileSync("lib/article-store.ts", "utf8");
+  assert.match(migration, /ADD COLUMN thumbnail_display_json TEXT/);
+  assert.match(migration, /ADD COLUMN detail_display_json TEXT/);
+  assert.doesNotMatch(migration, /UPDATE|DELETE|DROP|image_url|image_key/i);
+  assert.match(store, /payload.thumbnailImageDisplay === undefined \? existing.thumbnailImageDisplay/);
+  assert.match(store, /payload.detailImageDisplay === undefined \? existing.detailImageDisplay/);
+  assert.match(store, /readImageDisplayConfig\(row.detail_display_json, "detail"\)/);
+  assert.match(store, /readImageDisplayConfig\(row.thumbnail_display_json, "thumbnail"\)/);
+});
+
+test("IMAGE-EDITOR-1 modal stages independent changes and reuses public image renderer", () => {
+  const editor = readFileSync("components/image-display-editor.tsx", "utf8");
+  const article = readFileSync("components/admin-article-editor.tsx", "utf8");
+  const detail = readFileSync("components/article-detail.tsx", "utf8");
+  const image = readFileSync("components/image-display.tsx", "utf8");
+  assert.match(editor, /role="tablist"/);
+  assert.match(editor, /draftThumbnail/);
+  assert.match(editor, /draftDetail/);
+  assert.match(editor, /onPointerDown/);
+  assert.match(editor, /onPointerMove/);
+  assert.match(editor, /ArrowLeft/);
+  assert.match(editor, /onSave\(draftThumbnail, draftDetail\)/);
+  assert.match(editor, /Obnoviť predvolené/);
+  assert.match(editor, /onCancel/);
+  assert.match(article, /thumbnailImageDisplay,/);
+  assert.match(article, /detailImageDisplay,/);
+  assert.match(article, /Upraviť zobrazenie/);
+  assert.match(detail, /<ImageDisplay/);
+  assert.match(image, /<SmartCardImage/);
+  assert.match(image, /blurBackground/);
+  assert.match(image, /naturalPhoto/);
 });

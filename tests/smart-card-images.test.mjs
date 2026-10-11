@@ -39,3 +39,13 @@ test("all article image surfaces use the shared smart crop with optional persist
   assert.match(read("components/admin-article-editor.tsx"), /<ImageDisplayEditor/);
   assert.match(read("lib/article-store.ts"), /image_focus_y = \?/);
 });
+
+
+test("IMAGE-EDITOR-1 applies unified photo rendering in homepage and magazine article lists", () => {
+  for (const path of ["components/article-card.tsx", "components/article-detail.tsx", "components/public-visual-system/public-visual-system.tsx"]) {
+    assert.match(read(path), /<ImageDisplay/);
+  }
+  assert.match(read("components/article-card.tsx"), /config={article.thumbnailImageDisplay}/);
+  assert.match(read("components/article-list-item.tsx"), /config: article.thumbnailImageDisplay/);
+  assert.match(read("components/article-detail.tsx"), /config={detailImageConfig}/);
+});

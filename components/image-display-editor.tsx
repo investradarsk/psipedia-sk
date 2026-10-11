@@ -37,6 +37,7 @@ export function ImageDisplayEditor({ src, alt, title, excerpt, thumbnail, detail
   }
 
   useEffect(() => {
+    const previousActive = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     dialog.current?.focus();
@@ -50,7 +51,7 @@ export function ImageDisplayEditor({ src, alt, title, excerpt, thumbnail, detail
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
     document.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", onKeyDown); };
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", onKeyDown); previousActive?.focus({ preventScroll: true }); };
   }, [onCancel]);
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
