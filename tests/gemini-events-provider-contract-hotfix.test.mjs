@@ -45,7 +45,10 @@ test("Event provider schema uses Directory-compatible shape keywords",()=>{
   assert.deepEqual(props.evidence,{type:"array",items:{
     type:"object",properties:{
       source_url:{type:"string"},
-      fields:{type:"array",items:{type:"string"}},
+      fields:{type:"array",items:{type:"string",enum:[
+        "title","organizer","start_date","city","venue","online","event_url",
+        "registration_url","description","cancelled",
+      ]}},
     },required:["source_url","fields"],additionalProperties:false,
   }});
   assert.deepEqual(props.start_date,{type:"string"});
