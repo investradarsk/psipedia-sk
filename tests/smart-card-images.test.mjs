@@ -19,7 +19,8 @@ test("admin can persist only supported fitting modes", () => {
   assert.throws(() => normalizeSmartImageMode("bad"), /nie je platný/);
 });
 test("homepage, events, directory and help use smart cards", () => {
-  for(const f of ["app/page.tsx","components/event-card.tsx","components/event-detail.tsx","components/directory-card.tsx","components/help-card.tsx"]) assert.ok(read(f).includes("<SmartCardImage"),f);
+  for(const f of ["app/page.tsx","components/directory-card.tsx","components/help-card.tsx"]) assert.ok(read(f).includes("<SmartCardImage"),f);
+  for(const f of ["components/event-card.tsx","components/event-detail.tsx"]) assert.ok(read(f).includes("<EventImage"), f);
   assert.ok(read("app/page.tsx").includes("mode={event.imageDisplay}"));
 });
 test("manual override roundtrip and migration default", () => {
