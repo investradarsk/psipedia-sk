@@ -25,6 +25,7 @@ test("ordinary admin save serializes managed items only", () => {
 test("desktop admin group state closes predictably on Escape and outside interactions", async () => {
   const source = await readFile(new URL("../components/admin-navigation.tsx", import.meta.url), "utf8");
   assert.match(source, /open=\{selectedDesktopGroup === group\.label\}/);
+  assert.match(source, /\{selectedDesktopGroup === group\.label \? \(\s*<div className=\{styles\.desktopMenu\}/);
   assert.match(source, /event\.preventDefault\(\);[\s\S]*setExpandedDesktopGroup/);
   assert.match(source, /setExpandedDesktopGroup\(null\);\s*expanded\.querySelector/);
   assert.doesNotMatch(source, /expanded\.open = false/);
