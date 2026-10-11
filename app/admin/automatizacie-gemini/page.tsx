@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { env } from "cloudflare:workers";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminGeminiAutomationSettings } from "@/components/admin-gemini-automation-settings";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -9,6 +10,7 @@ import {
   listGeminiSettings, listRecentGeminiRuns,
   type GeminiRecentRun,
 } from "@/lib/gemini-automation-admin-store";
+import {geminiManualBackgroundEnabled,listGeminiManualBackgroundJobs,type GeminiQueuedJob} from "@/lib/gemini-automation-background-queue";
 import styles from "@/components/admin-gemini-automation.module.css";
 
 export const dynamic = "force-dynamic";
@@ -69,14 +71,33 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
   );
 }
 
+function GeminiQueueHistory({jobs}:{jobs:GeminiQueuedJob[]}) {
+  return <section className={styles.history} aria-label="Gemini úlohy na pozadí">
+    <h2>Úlohy na pozadí</h2>
+    {!jobs.length ? <p className={styles.empty}>Zatiaľ žiadne úlohy na pozadí.</p> :
+      <div className={styles.tableScroll}><table className={styles.historyTable}>
+        <thead><tr><th>ID</th><th>Podkategória</th><th>Stav</th><th>Vytvorené</th><th>Beh</th><th>Chyba</th></tr></thead>
+        <tbody>{jobs.map(job=><tr key={job.id}>
+          <td>{job.id}</td>
+          <td>{geminiAutomationCatalog.find(category=>category.stableKey===job.stable_key)?.label??job.stable_key}</td>
+          <td>{job.status}</td><td>{formatDate(job.created_at)}</td>
+          <td>{job.run_id??"—"}</td><td>{job.error_code??"—"}</td>
+        </tr>)}</tbody>
+      </table></div>}
+    <p>Ak úloha zostane v stave RUNNING po neočakávanom prerušení, vyžaduje manuálnu diagnostiku. Systém nikdy nezačne platené opakovanie automaticky.</p>
+  </section>;
+}
 export default async function AdminGeminiAutomationPage() {
   const user = await requireAdminPageUser("/admin/automatizacie-gemini");
   let settings = geminiSettingViews([]);
   let runs: GeminiRecentRun[] = [];
+  let queuedJobs:GeminiQueuedJob[]=[];
+  const backgroundEnabled=geminiManualBackgroundEnabled(env as unknown as {GEMINI_ASYNC_MANUAL_ENABLED?:string});
   let ready = true;
   try {
     const db = requireGeminiAdminD1();
     [settings, runs] = await Promise.all([listGeminiSettings(db), listRecentGeminiRuns(db)]);
+    if(backgroundEnabled) queuedJobs=await listGeminiManualBackgroundJobs(db);
   } catch {
     ready = false;
   }
@@ -93,10 +114,11 @@ export default async function AdminGeminiAutomationPage() {
       </p>}
       <p className={styles.notice}>
         Zapnutie kategórie je len nastavenie pre budúci plánovač. Manuálne Gemini spustenie je dostupné
-        pre kategórie Adresára po uložení a dvojitom potvrdení. Môže vytvoriť nepublikované koncepty.
+        pre kategórie Adresára a Podujatí po uložení a dvojitom potvrdení. Pomoc psom zatiaľ čaká na vlastný Gemini bridge. Žiadne koncepty sa nepublikujú automaticky.
       </p>
       <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} />
+      {backgroundEnabled && <GeminiQueueHistory jobs={queuedJobs} />}
       <GeminiRunHistory runs={runs} />
     </AdminShell>
   );

@@ -1,4 +1,7 @@
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
+import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
+import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
+import {runGeminiEventCategory} from "../lib/gemini-automation-event-runner.ts";
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
@@ -62,6 +65,7 @@ interface Env {
   TAVILY_API_KEY?: string;
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
+  GEMINI_ASYNC_MANUAL_ENABLED?:string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -250,7 +254,7 @@ const worker = {
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
     if (!isFullHourlyScheduledSweep(controller)) {
-      const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill, notionEshopBackfill] = await Promise.all([
+      const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill, notionEshopBackfill, geminiManualQueue] = await Promise.all([
         runScheduledAdminPush(env),
         runDataAutomationSweep({
           database: env.DB,
@@ -305,7 +309,13 @@ const worker = {
           }));
           return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
         }),
+        geminiManualBackgroundEnabled(env)
+          ? runGeminiManualBackgroundSweep({database:env.DB,env,executeDirectory:runGeminiDirectoryCategory,executeEvent:runGeminiEventCategory}).catch(() => ({
+              claimed:0,processed:0,succeeded:0,failed:1,blocked:0,
+            }))
+          : Promise.resolve({claimed:0,processed:0,succeeded:0,failed:0,blocked:0}),
       ]);
+      console.info(JSON.stringify({event:"gemini_manual_background_queue_sweep",...geminiManualQueue}));
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
       console.info(JSON.stringify({ event: "data_automation_sweep", cadence: "five_minute_due_check", ...dataAutomation }));
       console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));

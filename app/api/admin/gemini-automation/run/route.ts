@@ -5,6 +5,7 @@ import {
   GeminiPilotGuardError, parseGeminiDirectoryRunBody, runGeminiDirectoryCategory,
 } from "@/lib/gemini-automation-pilot";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import {enqueueGeminiManualBackgroundJob,geminiManualBackgroundEnabled,GeminiQueueGuardError} from "@/lib/gemini-automation-background-queue";
 import { parseGeminiEventRunBody, runGeminiEventCategory } from "@/lib/gemini-automation-event-runner";
 import type { NotionEventsHelpSyncBindings } from "@/lib/notion-events-help-sync";
 import type { GeminiRuntimeConfig } from "@/lib/gemini-automation-types";
@@ -27,6 +28,14 @@ export async function POST(request: Request) {
     const catalog = typeof key === "string" ? getGeminiCatalogItem(key) : null;
     if (!catalog) throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
     const database = requireGeminiAdminD1() as D1Database;
+    if (geminiManualBackgroundEnabled(env as unknown as {GEMINI_ASYNC_MANUAL_ENABLED?:string})) {
+      const queued=await enqueueGeminiManualBackgroundJob({
+        database,
+        env: env as unknown as GeminiRuntimeConfig & NotionEventsHelpSyncBindings & NotionDirectorySyncBindings,
+        stableKey: key as string,
+      });
+      return Response.json(queued,{status:202,headers:NO_STORE});
+    }
     const result = catalog.section === "events"
       ? await runGeminiEventCategory({
           database, env: env as unknown as GeminiRuntimeConfig & NotionEventsHelpSyncBindings,
@@ -44,12 +53,12 @@ export async function POST(request: Request) {
     }
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
-    if (error instanceof GeminiPilotGuardError) {
+    if (error instanceof GeminiPilotGuardError || error instanceof GeminiQueueGuardError) {
       const messages = {
         PILOT_INVALID_SCOPE: "Manuálne spustenie je povolené len pre existujúce kategórie Adresára a Podujatí.",
         PILOT_SETTING_NOT_SAVED: "Najprv ulož nastavenia tejto kategórie.",
         PILOT_LIMIT_ZERO: "Maximálny počet konceptov je 0. Zmeň a ulož nastavenie.",
-        PILOT_ALREADY_RUNNING: "Táto kategória už beží. Ďalšie spustenie je zablokované.",
+        PILOT_ALREADY_RUNNING: "Ďalšie Gemini vyhľadávanie už čaká alebo beží. Po dokončení môžeš spustiť nové.",
       };
       return Response.json({ error: messages[error.code], code: error.code }, {
         status: error.code === "PILOT_INVALID_SCOPE" ? 400 : 409, headers: NO_STORE,

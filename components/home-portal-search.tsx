@@ -1,34 +1,66 @@
 import Link from "next/link";
 import { SearchIcon } from "@/components/icons";
 
-export function HomePortalSearch() {
+export function HomePortalSearch({
+  action = "/hladat",
+  id = "home-search",
+  label = "Hľadať na Psipedii",
+  panelLabel = "Vyhľadávanie na Psipedii",
+  eyebrow = "Čo potrebuješ vyriešiť?",
+  title = "Jedno miesto pre celý život so psom",
+  placeholder = "Skús „šteniatko“, „labrador“, „tréner“...",
+  buttonLabel = "Nájsť všetko",
+  defaultValue = "",
+  allowEmpty = false,
+  hidden = [],
+  shortcuts = [
+    { href: "/adresar", label: "Služby" },
+    { href: "/plemena", label: "Plemená" },
+    { href: "/podujatia", label: "Podujatia" },
+    { href: "/pomoc-psom", label: "Pomoc psom" },
+  ],
+  searchScope,
+}: {
+  action?: string;
+  id?: string;
+  label?: string;
+  panelLabel?: string;
+  eyebrow?: string;
+  title?: string;
+  placeholder?: string;
+  buttonLabel?: string;
+  defaultValue?: string;
+  allowEmpty?: boolean;
+  hidden?: Array<{ name: string; value: string }>;
+  shortcuts?: Array<{ href: string; label: string }>;
+  searchScope?: string;
+} = {}) {
   return (
-    <section className="home-search-panel" aria-label="Vyhľadávanie na Psipedii">
+    <section className="home-search-panel" aria-label={panelLabel}>
       <div className="home-search-copy">
-        <span>Čo potrebuješ vyriešiť?</span>
-        <strong>Jedno miesto pre celý život so psom</strong>
+        <span>{eyebrow}</span>
+        <strong>{title}</strong>
       </div>
       <div className="home-search-main">
-        <form action="/hladat" method="get" className="home-search-form" role="search">
+        <form action={action} method="get" className="home-search-form" role="search" data-public-search-form={searchScope}>
+          {hidden.map((field) => <input type="hidden" name={field.name} value={field.value} key={field.name} />)}
           <SearchIcon size={23} />
-          <label className="sr-only" htmlFor="home-search">Hľadať na Psipedii</label>
+          <label className="sr-only" htmlFor={id}>{label}</label>
           <input
-            id="home-search"
+            id={id}
             name="q"
-            placeholder="Skús „šteniatko“, „labrador“, „tréner“..."
+            placeholder={placeholder}
+            defaultValue={defaultValue}
             autoComplete="off"
-            minLength={2}
+            minLength={allowEmpty ? undefined : 2}
             maxLength={120}
-            required
+            required={!allowEmpty}
           />
-          <button type="submit">Nájsť všetko</button>
+          <button type="submit">{buttonLabel}</button>
         </form>
         <div className="home-search-shortcuts" aria-label="Rýchle vstupy">
           <span>Rýchlo:</span>
-          <Link href="/adresar">Služby</Link>
-          <Link href="/plemena">Plemená</Link>
-          <Link href="/podujatia">Podujatia</Link>
-          <Link href="/pomoc-psom">Pomoc psom</Link>
+          {shortcuts.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
         </div>
       </div>
     </section>

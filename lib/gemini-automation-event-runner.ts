@@ -25,7 +25,7 @@ type Dependencies={
 };
 export async function runGeminiEventCategory(input:{
   database:D1Database;env:GeminiRuntimeConfig & NotionEventsHelpSyncBindings;
-  stableKey:string;now?:()=>Date;fetchImpl?:GeminiFetch;dependencies?:Dependencies;
+  stableKey:string;now?:()=>Date;fetchImpl?:GeminiFetch;timeoutMs?:number;dependencies?:Dependencies;
 }):Promise<GeminiPilotSummary> {
   const {stableKey}=parseGeminiEventRunBody({stable_key:input.stableKey});
   const setting=await input.database.prepare(
@@ -51,7 +51,7 @@ export async function runGeminiEventCategory(input:{
     // One provider interaction only. No model rewrite, retry or alternate search transport.
     requestCount=1;
     const found=await (input.dependencies?.discovery??discoverGeminiEventCandidates)({
-      env:input.env,stableKey,maxCandidates:maximum,fetchImpl:input.fetchImpl,knownContext:memory,
+      env:input.env,stableKey,maxCandidates:maximum,fetchImpl:input.fetchImpl,knownContext:memory,timeoutMs:input.timeoutMs,
     });
     summary.candidateCount=found.candidates.length;
     summary.groundedSearchQueryCount=found.providerMetrics.groundedSearchQueryCount;

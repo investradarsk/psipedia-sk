@@ -111,7 +111,8 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0116_admin_automation_push.sql",
   "0117_gemini_events_rejections.sql",
   "0118_event_image_display.sql",
-  "0119_article_image_presentation.sql",
+  "0119_gemini_manual_background_jobs.sql",
+  "0120_article_image_presentation.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1132,7 +1133,12 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0118_event_image_display.sql") {
     return { partial: (schema.managedEventColumns ?? []).some(column => String(column.name) === "image_display") };
   }
-  if (targetMigration === "0119_article_image_presentation.sql") {
+  if (targetMigration === "0119_gemini_manual_background_jobs.sql") {
+    return { partial: ["gemini_manual_background_jobs","idx_gemini_manual_queue",
+      "idx_gemini_manual_active_category","idx_gemini_manual_only_one_active"]
+      .some(name=>names.has(name)) };
+  }
+  if (targetMigration === "0120_article_image_presentation.sql") {
     return { partial: (schema.managedArticleColumns ?? []).some(column =>
       ["image_display", "image_focus_x", "image_focus_y"].includes(String(column.name))) };
   }
@@ -1948,9 +1954,22 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
   if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
   if (migrationIndex(targetMigration) >= 118) assertEventImageDisplaySchema(schema);
-  if (migrationIndex(targetMigration) >= 119) assertArticleImagePresentationSchema(schema);
+  if (migrationIndex(targetMigration) >= 119) assertGeminiManualQueueSchema(schema);
+  if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
 }
 
+/** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
+export function assertGeminiManualQueueSchema(schema) {
+  const names=objectMap(schema.objects);
+  const table=names.get("gemini_manual_background_jobs");
+  invariant(table?.type==="table","Missing Gemini manual queue table");
+  for(const key of ["idx_gemini_manual_queue","idx_gemini_manual_active_category",
+    "idx_gemini_manual_only_one_active"])
+    invariant(names.get(key)?.type==="index","Missing Gemini queue index: "+key);
+  const sql=String(table.sql??"");
+  for(const column of ["setting_id","stable_key","status","run_id","error_code","claimed_at","completed_at"])
+    invariant(sql.includes(column),"Missing Gemini queue column: "+column);
+}
 export function assertGeminiBridgeSchema(schema) {
   const names = objectMap(schema.objects);
   const table = names.get("gemini_automation_concepts");

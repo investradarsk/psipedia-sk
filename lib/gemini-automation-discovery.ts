@@ -8,6 +8,7 @@ import type { GeminiCategoryExclusionContext } from "./gemini-automation-categor
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 
 const DISCOVERY_TIMEOUT_MS = 120_000;
+const DISCOVERY_MAX_BACKGROUND_TIMEOUT_MS = 300_000;
 const GEMINI_DISCOVERY_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
@@ -354,7 +355,7 @@ async function interact(options: {
   if (!/^gemini-3(?:[.-]|$)/.test(model)) throw new GeminiAutomationError("CONFIG_MISSING");
   // Grounded Google Search + structured output can take longer than simple generation.
   // This single-request budget is discovery-only; no retries or fallback.
-  const timeoutMs = Math.min(DISCOVERY_TIMEOUT_MS, Math.max(1, Math.trunc(options.timeoutMs ?? DISCOVERY_TIMEOUT_MS)));
+  const timeoutMs = Math.min(DISCOVERY_MAX_BACKGROUND_TIMEOUT_MS, Math.max(1, Math.trunc(options.timeoutMs ?? DISCOVERY_TIMEOUT_MS)));
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
