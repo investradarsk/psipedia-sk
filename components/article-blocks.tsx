@@ -132,7 +132,7 @@ export function ArticleBlocks({ blocks, preview = false, promoUtcDay, onNavigate
         if (block.type === "warning") return block.content ? <aside className="article-block-callout article-block-callout--warning" key={block.id}><strong>Dôležité upozornenie</strong><EditorialRichText className="article-block-rich-content" document={block.richText ?? legacyRichTextToDocument(block.content)} keyPrefix={block.id} /></aside> : null;
         if (block.type === "quote") return block.content ? <blockquote className="article-block-quote" key={block.id}><EditorialRichText className="article-block-rich-content" document={block.richText ?? legacyRichTextToDocument(block.content)} keyPrefix={block.id} />{block.attribution && <cite>{block.attribution}</cite>}</blockquote> : null;
         if (block.type === "table") return block.headers.length ? (
-          <div className="article-block-table-wrap" key={block.id} tabIndex={0}>
+          <div className="article-block-table-wrap" data-columns={block.headers.length} key={block.id} tabIndex={0}>
             <table><thead><tr>{block.headers.map((header, index) => <th key={index} scope="col">{richText(header)}</th>)}</tr></thead>
               <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{block.headers.map((_, cellIndex) => <td key={cellIndex}>{richText(row[cellIndex] ?? "")}</td>)}</tr>)}</tbody>
             </table>
