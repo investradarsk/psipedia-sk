@@ -107,8 +107,8 @@ test("internal discovery controls remain crawlable while directory pagination st
   const relatedEntities = readFileSync(new URL("../components/related-entity-list.tsx", import.meta.url), "utf8");
 
   assert.match(calendar, /href=\{timeHref\(value\)\}/);
-  assert.match(eventsPage, /<PublicSubcategoryNavigator[\s\S]*mode="landing"/);
-  assert.match(eventsPage, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
+  assert.match(eventsPage, /<HomePortalSearch[\s\S]*shortcuts=\{searchShortcuts\}/);
+  assert.match(eventsPage, /!isMainListing \? \(\s*<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
   assert.match(eventsPage, /eventTypePortalHref\(eventType\)/);
   assert.doesNotMatch(calendar, /eventTypeFilters|selectType|className=\{styles\.typeBar\}/);
   assert.match(helpCategoryRoute, /rawSearchParams\.stav/);
@@ -125,9 +125,10 @@ test("EVENTS-PUBLIC-UX-1 keeps one dominant type navigation and one local event 
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../components/events-public.module.css", import.meta.url), "utf8");
 
-  assert.match(page, /PublicSubcategoryNavigator/);
-  assert.match(page, /mode="landing"/);
+  assert.match(page, /<HomePortalSearch[\s\S]*shortcuts=\{searchShortcuts\}/);
+  assert.match(page, /!isMainListing \? \(\s*<PublicSubcategoryNavigator/);
   assert.match(page, /mode="compact"/);
+  assert.doesNotMatch(page, /mode="landing"/);
   assert.match(page, /PublicContextBanner/);
   assert.match(page, /ctaHref="\/podujatia\/pridat-podujatie"/);
   assert.doesNotMatch(page, /SectionHeroSearch|PublicCategoryTiles|searchSlot=/);

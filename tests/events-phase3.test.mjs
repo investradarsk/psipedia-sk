@@ -60,7 +60,8 @@ test("event filters keep canonical page type, regions, date status, search and r
 test("root event types are page-owned and the calendar does not repeat them in overview groups", () => {
   assert.match(eventsPage, /eventTypes\.flatMap/);
   assert.match(eventsPage, /PublicSubcategoryNavigator/);
-  assert.match(eventsPage, /mode="landing"/);
+  assert.match(eventsPage, /!isMainListing \? \(\s*<PublicSubcategoryNavigator/);
+  assert.match(eventsPage, /mode="compact"/);
   assert.match(calendar, /className=\{styles\.eventList\} data-event-list/);
   assert.doesNotMatch(calendar, /items\.slice\(0, 5\)|data-event-category-overview|data-event-category=\{group\.eventType\}|Všetky výstavy|Všetky tréningy/);
 });
