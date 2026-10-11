@@ -17,3 +17,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_gemini_manual_active_category
   WHERE status IN ('QUEUED', 'RUNNING');
 CREATE INDEX IF NOT EXISTS idx_gemini_manual_queue
   ON gemini_manual_background_jobs(status, id);
+-- A hard DB invariant prevents parallel paid requests across all categories.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gemini_manual_only_one_active
+  ON gemini_manual_background_jobs ((1))
+  WHERE status IN ('QUEUED', 'RUNNING');
