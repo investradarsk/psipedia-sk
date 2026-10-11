@@ -107,6 +107,7 @@ test("E-F: Interactions API uses only built-in Google Search and strict JSON sch
       assert.equal(init.body.includes(secret), false);
       assert.equal(body.model, env.GEMINI_MODEL);
       assert.equal(body.store, false);
+      assert.equal(Object.hasOwn(body, "generation_config"), false);
       assert.deepEqual(body.tools, [{ type: "google_search" }]);
       assert.equal(body.response_format.type, "text");
       assert.equal(body.response_format.mime_type, "application/json");
