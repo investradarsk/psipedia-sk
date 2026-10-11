@@ -224,16 +224,16 @@
   margin: 0;
   color: #242424;
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  font-size: 17px;
-  line-height: 1.65;
+  font-size: 16px;
+  line-height: 1.55;
 }
 
 .readingShell :global(.article-prose .article-intro) {
-  gap: 11px;
-  margin-bottom: 23px;
+  gap: 9px;
+  margin-bottom: 20px;
   color: inherit;
   font-size: 1em;
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
 .readingShell :global(.article-intro p),
@@ -343,7 +343,7 @@
 
 .readingShell :global(.article-block-text),
 .readingShell :global(.article-block-rich-content) {
-  gap: 0.95em;
+  gap: 0.7em;
 }
 
 .readingShell :global(.article-blocks > ul),
@@ -746,14 +746,14 @@
 
   .readingShell :global(.article-prose) {
     max-width: none;
-    font-size: 17px;
-    line-height: 1.65;
+    font-size: 16px;
+    line-height: 1.55;
   }
 
   .readingShell :global(.article-prose .article-intro) {
-    margin-bottom: 19px;
+    margin-bottom: 17px;
     font-size: 1em;
-    line-height: 1.65;
+    line-height: 1.55;
   }
 
   /* Editorial paragraphs remain flush-left on narrow viewports; desktop keeps justified prose. */
