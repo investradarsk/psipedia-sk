@@ -160,7 +160,7 @@ test("real Chrome touch: an upward swipe keeps the long menu available", async (
 test("real Chrome touch: inward left swipe returns to the previous internal route", async ({ page }) => {
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\\/o-nas$/);
+  await expect(page).toHaveURL(/\\/starostlivost$/);
   // Browser-level touch on a clear area, outside horizontal carousels.
   await page.evaluate(() => {
     const zone = document.createElement("div");
