@@ -193,10 +193,12 @@ jobs:
           E2E_BASE_URL: http://localhost:5173
           PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
         run: node scripts/bootstrap-phase5-e2e.mjs sections-only
+      - name: Seed isolated local calendar redesign fixtures
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/events-calendar-redesign.sql
       - name: PODUJATIA-REDESIGN-1 hero and event search — desktop and mobile
         env:
           E2E_BASE_URL: http://localhost:5173
-        run: npm run e2e -- tests/e2e/events-hero-search.spec.ts --workers=1 --retries=0
+        run: npm run e2e -- tests/e2e/events-hero-search.spec.ts tests/e2e/events-calendar-redesign.spec.ts --workers=1 --retries=0
       - name: Public navigation Playwright — desktop and mobile
         env:
           E2E_BASE_URL: http://localhost:5173

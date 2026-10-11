@@ -488,12 +488,6 @@
   padding: 8px 14px;
 }
 
-.organizerSection {
-  padding: 18px 0 30px;
-  border-top: 1px solid var(--ps-border-soft);
-  background: var(--ps-surface);
-}
-
 .organizerRow {
   display: flex;
   align-items: center;
@@ -922,10 +916,6 @@
   font-size: 1rem;
 }
 
-.organizerSection {
-  background: var(--cream);
-}
-
 .detailHeader {
   background: var(--paper);
 }
@@ -988,9 +978,6 @@
 
 
 /* EVENTS-PUBLIC-UX-1: one event-type navigation, one local search and compact mobile filters. */
-.landingCategories {
-  min-width: 0;
-}
 
 .typeNavigator {
   padding-top: 24px;
@@ -1054,12 +1041,6 @@
 .resetFilters:hover {
   border-color: var(--forest);
   color: var(--forest);
-}
-
-.organizerSection {
-  padding: 0 0 30px;
-  border-top: 0;
-  background: transparent;
 }
 
 @media (max-width: 900px) {
@@ -1129,10 +1110,6 @@
   .timeChip,
   .activeTimeChip {
     flex: 0 0 auto;
-  }
-
-  .organizerSection {
-    padding-bottom: 24px;
   }
 }
 
@@ -1518,7 +1495,6 @@
 }
 
 .clearActiveFilters,
-.browseNavigation button,
 .listHeading a,
 .returnBar a {
   display: inline-flex;
@@ -1553,26 +1529,6 @@
   border-radius: 999px;
   background: var(--ps-surface);
   overflow-wrap: anywhere;
-}
-
-.browseNavigation {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.browseNavigation button {
-  padding: 8px 13px;
-  border: 1px solid var(--ps-border-strong);
-  background: var(--ps-surface-raised);
-}
-
-.browseNavigation button[aria-pressed="true"] {
-  color: #fff;
-  border-color: var(--forest);
-  background: var(--forest);
 }
 
 .monthCalendar,
@@ -1624,7 +1580,6 @@
   padding: 0 2px;
 }
 
-.browseNavigation button:focus-visible,
 .clearActiveFilters:focus-visible,
 .listHeading a:focus-visible,
 .returnBar a:focus-visible {
@@ -1677,10 +1632,6 @@
 
   .resultMeta {
     justify-content: space-between;
-  }
-
-  .browseNavigation {
-    margin-bottom: 10px;
   }
 
   .monthCalendar {
@@ -1768,31 +1719,6 @@
   .listHeading {
     align-items: flex-start;
   }
-}
-
-/* On very small screens, retain full-size day hit areas inside the calendar
-   instead of overflowing the entire document horizontally. */
-@media (max-width: 380px) {
-  .monthCalendar {
-    overflow-x: auto;
-  }
-
-  .monthGrid {
-    min-width: 330px;
-  }
-}
-
-/* A real presentation switch, while the server HTML shows both sections by default. */
-.browseNavigation button {
-  font: inherit;
-  font-size: .82rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.browseMode[data-events-browse-mode="calendar"] .upcomingSection,
-.browseMode[data-events-browse-mode="list"] .monthCalendar {
-  display: none;
 }
 
 /* PODUJATIA-REDESIGN-1: homepage proportions, scoped to the events landing. */
@@ -1947,4 +1873,170 @@
 
 .homeHero [data-section-hero-breadcrumbs] :is(nav, a, span) {
   color: inherit;
+}
+
+/* PODUJATIA-REDESIGN-2: compact monthly discovery with a shared type legend. */
+.calendarLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 240px);
+  gap: 16px;
+  align-items: start;
+}
+
+.calendarLayout .monthCalendar {
+  padding: 14px;
+}
+
+.calendarLayout .monthDay,
+.calendarLayout .outsideDay {
+  height: 58px;
+  min-height: 58px;
+  padding: 5px;
+}
+
+.calendarLayout .monthDay {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.dayHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.dayIndicators {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 9px;
+}
+
+.typeDot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--event-type-color);
+}
+
+.moreTypes {
+  font-size: .6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.calendarLegend {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--ps-border-soft);
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-surface-raised);
+}
+
+.calendarLegend a {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 9px;
+  color: var(--forest-dark);
+  font-size: .85rem;
+  font-weight: 750;
+}
+
+.calendarLegend .typeDot {
+  width: 10px;
+  height: 10px;
+}
+
+.calendarLegend a:hover,
+.calendarLegend a[aria-current="page"] {
+  background: var(--sage-light);
+}
+
+.calendarLegend a:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.calendarOrganizer {
+  margin: 16px 0;
+}
+
+@media (max-width: 760px) {
+  .calendarLayout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .calendarLegend {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .calendarLayout .monthCalendar {
+    padding: 8px;
+  }
+
+  .calendarLayout .monthDay,
+  .calendarLayout .outsideDay {
+    height: 52px;
+    min-height: 52px;
+    padding: 3px 1px;
+  }
+
+  .dayHeading {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .dayIndicators {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    height: 16px;
+  }
+
+  .dayIndicators .typeDot {
+    width: 5px;
+    height: 5px;
+  }
+
+  .calendarLegend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .dayHeading {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 1px;
+  }
+
+  .calendarLayout .monthDayNumber {
+    font-size: .7rem;
+    line-height: 18px;
+  }
+
+  .calendarLayout .monthDayCount {
+    min-width: 14px;
+    min-height: 16px;
+    padding: 1px;
+    font-size: .58rem;
+  }
+
+  .calendarLayout .monthDay[data-today="true"] .monthDayNumber {
+    width: 16px;
+    height: 18px;
+  }
 }

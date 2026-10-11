@@ -45,3 +45,11 @@ export function eventOverlapsDay(event: Pick<DogEvent, "startDate" | "endDate">,
 export function eventsForCalendarDay<T extends Pick<DogEvent, "startDate" | "endDate">>(events: T[], day: string): T[] {
   return events.filter((event) => eventOverlapsDay(event, day));
 }
+
+
+/** Call with the same published, filtered month read used by the calendar. */
+export function calendarDaySummary(events: Array<Pick<DogEvent, "startDate" | "endDate" | "eventType">>, day: string) {
+  const matches = eventsForCalendarDay(events, day);
+  const presentTypes = new Set(matches.map((event) => event.eventType));
+  return { count: matches.length, types: [...presentTypes] };
+}
