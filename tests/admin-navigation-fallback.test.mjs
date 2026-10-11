@@ -21,3 +21,11 @@ test("ordinary admin save serializes managed items only", () => {
   assert.match(editorSource, /body: JSON\.stringify\(\{ items \}\)/);
   assert.doesNotMatch(editorSource, /JSON\.stringify\(\{[^}]*automaticChildren/);
 });
+
+test("desktop admin group state closes predictably on Escape and outside interactions", async () => {
+  const source = await readFile(new URL("../components/admin-navigation.tsx", import.meta.url), "utf8");
+  assert.match(source, /open=\{expandedDesktopGroup === group\.label\}/);
+  assert.match(source, /event\.preventDefault\(\);\s*setExpandedDesktopGroup/);
+  assert.match(source, /setExpandedDesktopGroup\(null\);\s*expanded\.querySelector/);
+  assert.doesNotMatch(source, /expanded\.open = false/);
+});
