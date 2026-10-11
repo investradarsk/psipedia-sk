@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { createGeminiEventRequest, buildGeminiEventJsonSchema, parseGeminiEventEnvelope, strictEventDate, strictEventTime, validBratislavaWallClock } from "../lib/gemini-automation-event-contract.ts";
+import { createGeminiEventRequest, buildGeminiEventJsonSchema, buildGeminiEventPrompt, parseGeminiEventEnvelope, strictEventDate, strictEventTime, validBratislavaWallClock } from "../lib/gemini-automation-event-contract.ts";
 import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema } from "../lib/gemini-automation-discovery-contract.ts";
 import { discoverGeminiEventCandidates, discoverGeminiCandidates } from "../lib/gemini-automation-discovery.ts";
 
@@ -45,7 +45,10 @@ test("Event provider schema uses Directory-compatible shape keywords",()=>{
   assert.deepEqual(props.evidence,{type:"array",items:{
     type:"object",properties:{
       source_url:{type:"string"},
-      fields:{type:"array",items:{type:"string"}},
+      fields:{type:"array",items:{type:"string",enum:[
+        "title","organizer","start_date","city","venue","online","event_url",
+        "registration_url","description","cancelled",
+      ]}},
     },required:["source_url","fields"],additionalProperties:false,
   }});
   assert.deepEqual(props.start_date,{type:"string"});
@@ -371,4 +374,128 @@ test("shared provider timeout and response boundary remain at production default
   const discoverySource=readFileSync(new URL("../lib/gemini-automation-discovery.ts",import.meta.url),"utf8");
   assert.match(discoverySource,/const DISCOVERY_TIMEOUT_MS = 120_000;/);
   assert.match(discoverySource,/const GEMINI_DISCOVERY_MAX_RESPONSE_BYTES = 2 \* 1024 \* 1024;/);
+});
+
+
+// GEMINI-EVENTS-EVIDENCE-FIELDS-CONTRACT-HOTFIX: provider guidance must not
+// broaden, silently normalize, or override authoritative local evidence checks.
+const exactEventEvidenceFields=[
+  "title","organizer","start_date","city","venue","online","event_url",
+  "registration_url","description","cancelled",
+];
+const evidenceUrl="https://klub.example.sk/SECRET_EVIDENCE_SOURCE";
+const evidenceFixture=(online=false)=>({
+  title:"Výstava psov",organizer:"Kynologický klub",start_date:"2099-11-20",
+  start_time:null,end_date:null,end_time:null,all_day:true,
+  venue:online?null:"Výstavisko",city:online?null:"Nitra",region:null,
+  online,event_url:null,registration_url:"https://registracia.example.sk/psov",
+  description:"Oficiálne podujatie pre chovateľov a vystavovateľov psov na Slovensku.",
+  source_urls:[evidenceUrl],
+  evidence:[{source_url:evidenceUrl,fields:["title","organizer","start_date",online?"online":"city"]}],
+  cancelled:false,
+});
+const eventRequest=createGeminiEventRequest({stableKey,maxCandidates:1});
+function parseEvidenceCandidate(candidate){
+  return parseGeminiEventEnvelope({
+    schema_version:1,category_key:stableKey,candidates:[candidate],
+  },eventRequest,"2026-10-10").candidates[0];
+}
+test("Event evidence fields schema has exactly the local strict allowlist, including order",()=>{
+  const schema=buildGeminiEventJsonSchema(eventRequest);
+  const items=schema.properties.candidates.items.properties.evidence.items.properties.fields.items;
+  assert.deepEqual(items,{type:"string",enum:exactEventEvidenceFields});
+  assert.equal(new Set(items.enum).size,exactEventEvidenceFields.length);
+  checkSubset(schema);
+  assert.deepEqual(schema.properties.candidates.items.properties.evidence.items.required,
+    ["source_url","fields"]);
+  assert.equal(schema.properties.candidates.items.properties.evidence.items.additionalProperties,false);
+});
+test("source-linked evidence fields and mandatory facts remain accepted for offline and online events",()=>{
+  const offline=evidenceFixture();
+  offline.evidence[0].fields.push("venue","registration_url","description");
+  assert.deepEqual(parseEvidenceCandidate(offline).evidence[0].fields,offline.evidence[0].fields);
+  const online=evidenceFixture(true);
+  assert.equal(parseEvidenceCandidate(online).online,true);
+  for(const field of ["title","organizer","start_date","city"]){
+    const patch=evidenceFixture();
+    patch.evidence[0].fields=patch.evidence[0].fields.filter(f=>f!==field);
+    assert.throws(()=>parseEvidenceCandidate(patch),e=>e.code==="INVALID_RESPONSE",field);
+  }
+  const noLocation=evidenceFixture();
+  noLocation.evidence[0].fields=["title","organizer","start_date"];
+  assert.throws(()=>parseEvidenceCandidate(noLocation),e=>e.code==="INVALID_RESPONSE");
+  const noOnlineProof=evidenceFixture(true);
+  noOnlineProof.evidence[0].fields=["title","organizer","start_date"];
+  assert.throws(()=>parseEvidenceCandidate(noOnlineProof),e=>e.code==="INVALID_RESPONSE");
+});
+test("unknown, empty, malformed and unsupported evidence always fail closed",()=>{
+  const patches=[
+    ["name"],["region"],["start_time"],["source_url"],["fields"],["invented"],
+    [""],[null],[42],[], "title", null,
+  ];
+  for(const fields of patches){
+    const candidate=evidenceFixture();
+    candidate.evidence=[{source_url:evidenceUrl,fields}];
+    assert.throws(()=>parseEvidenceCandidate(candidate),e=>e.code==="INVALID_RESPONSE",
+      JSON.stringify(fields));
+  }
+  for(const evidence of [[],null,[{source_url:evidenceUrl}],
+    [{source_url:evidenceUrl,fields:["title","organizer","start_date","city","invented"]}],
+    [{source_url:"https://other.example.sk/",fields:["title","organizer","start_date","city"]}]]){
+    const candidate={...evidenceFixture(),evidence};
+    assert.throws(()=>parseEvidenceCandidate(candidate),e=>e.code==="INVALID_RESPONSE");
+  }
+});
+test("Event prompt enumerates only the evidence allowlist and forbids unsupported claims",()=>{
+  const prompt=buildGeminiEventPrompt(eventRequest,"[]");
+  assert.ok(prompt.includes(exactEventEvidenceFields.join(", ")));
+  assert.match(prompt,/linked source actually supports that fact/);
+  assert.match(prompt,/never invent, infer or relabel evidence/);
+  assert.match(prompt,/title, organizer and exact YYYY-MM-DD start_date must have source-linked evidence/);
+});
+test("one mocked Gemini Event request includes exact enum and safe validation diagnostics",async()=>{
+  const warnings=[],infos=[];
+  const prevWarn=console.warn, prevInfo=console.info;
+  let requests=0;
+  const valid=evidenceFixture();
+  const responseFor=candidate=>new Response(JSON.stringify({
+    status:"completed",steps:[
+      {type:"google_search_call",id:"gs",arguments:{queries:["SECRET_SEARCH_QUERY"]}},
+      {type:"google_search_result",call_id:"gs",result:[]},
+      {type:"model_output",content:[{type:"text",text:JSON.stringify({
+        schema_version:1,category_key:stableKey,candidates:[candidate],
+      })}]},
+    ],
+  }),{status:200});
+  const fetchImpl=async(_url,init)=>{
+    requests++;
+    const body=JSON.parse(init.body);
+    assert.deepEqual(body.tools,[{type:"google_search"}]);
+    assert.equal(body.store,false);
+    const schema=body.response_format.schema;
+    const items=schema.properties.candidates.items.properties.evidence.items.properties.fields.items;
+    assert.deepEqual(items,{type:"string",enum:exactEventEvidenceFields});
+    return responseFor(requests===1?valid:{...valid,evidence:[
+      {source_url:evidenceUrl,fields:["title","organizer","start_date","city","SECRET_INVALID_FIELD"]},
+    ]});
+  };
+  console.warn=(...v)=>warnings.push(v);
+  console.info=(...v)=>infos.push(v);
+  try{
+    const success=await discoverGeminiEventCandidates({env,stableKey,maxCandidates:1,fetchImpl});
+    assert.equal(success.candidates.length,1);
+    await assert.rejects(discoverGeminiEventCandidates({env,stableKey,maxCandidates:1,fetchImpl}),
+      e=>e.code==="INVALID_RESPONSE");
+  }finally{
+    console.warn=prevWarn;console.info=prevInfo;
+  }
+  assert.equal(requests,2,"one mock request per attempt; no retry");
+  assert.equal(warnings.length,1);
+  assert.equal(warnings[0][0],"gemini_discovery_invalid_response");
+  assert.equal(warnings[0][1].schemaFailure,"EVIDENCE_INVALID");
+  assert.equal(warnings[0][1].schemaField,"fields");
+  assert.equal(warnings[0][1].candidateIndex,0);
+  assert.equal(infos.filter(([name])=>name==="gemini_event_discovery_timing").length,2);
+  for(const secret of ["SECRET_SEARCH_QUERY","SECRET_INVALID_FIELD","SECRET_EVIDENCE_SOURCE","SECRET_TEST_KEY"])
+    assert.equal(JSON.stringify({warnings,infos}).includes(secret),false,secret);
 });
