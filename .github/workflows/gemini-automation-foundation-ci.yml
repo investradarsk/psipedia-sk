@@ -11,6 +11,16 @@ on:
       - "lib/admin-navigation.ts"
       - "components/admin-navigation.tsx"
       - "lib/gemini-automation-*.ts"
+      - "lib/gemini-external-agent.ts"
+      - "scripts/gemini-notion-agent.mjs"
+      - "app/api/internal/gemini-agent/**"
+      - ".github/workflows/gemini-notion-agent.yml"
+      - "tests/gemini-external-agent.test.mjs"
+      - "lib/gemini-external-agent.ts"
+      - "app/api/internal/gemini-agent/**"
+      - "scripts/gemini-notion-agent.mjs"
+      - ".github/workflows/gemini-notion-agent.yml"
+      - "tests/gemini-external-agent.test.mjs"
       - "tests/gemini-automation-*.test.mjs"
       - "tests/gemini-events-*.test.mjs"
       - "drizzle/0113_gemini_automation_foundation.sql"
@@ -43,13 +53,21 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Gemini foundation focused tests (network mocked)
-        run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
+      - name: External Gemini agent contracts (no network or paid API)
+        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs
+      - name: External worker syntax
+        run: node --check scripts/gemini-notion-agent.mjs
+      - name: External worker lint
+        run: npx eslint lib/gemini-external-agent.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs
       - name: Targeted Gemini admin lint coverage
         run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Gemini review, rejection and canonical lifecycle lint
         run: npx eslint app/admin/automatizacie-gemini app/api/admin/gemini-automation components/admin-gemini-concept-review.tsx lib/gemini-automation-concept-review.ts lib/gemini-automation-dedupe-store.ts lib/directory-store.ts
       - name: Gemini Event contract, canonical and review lint
         run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts components/admin-gemini-event-concept-review.tsx
+      - name: Agent JavaScript syntax (without executing or billing)
+        run: node --check scripts/gemini-notion-agent.mjs
       - name: Production build and typecheck
         run: npm run build
       - name: Runtime secret contract
