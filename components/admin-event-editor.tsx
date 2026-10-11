@@ -12,6 +12,8 @@ import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import { eventSeoFallback } from "@/lib/content-seo";
 import styles from "./admin-event-editor.module.css";
+import type { SmartImageMode } from "@/lib/smart-image";
+import { SmartCardImage } from "@/components/smart-card-image";
 
 function slugify(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90);
@@ -38,6 +40,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   const [registrationUrl, setRegistrationUrl] = useState(event?.registrationUrl ?? "");
   const [imageUrl, setImageUrl] = useState(event?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(event?.imageKey ?? "");
+  const [imageDisplay, setImageDisplay] = useState<SmartImageMode>(event?.imageDisplay ?? "auto");
   const [cancelled, setCancelled] = useState(event?.cancelled ?? false);
   const [status, setStatus] = useState<EventStatus>(event?.status ?? "draft");
   const [seo, setSeo] = useState(event?.seo ?? {});
@@ -91,7 +94,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       const response = await fetch(event ? `/api/admin/events/${event.id}` : "/api/admin/events", {
         method: event ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, cancelled, seo }),
+        body: JSON.stringify({ title, slug, excerpt, eventType, status: nextStatus, startDate, startTime, endDate: endDate || null, endTime: endTime || null, venue, city, region, address, organizer, description, practicalInfo, websiteUrl: websiteUrl || null, registrationUrl: registrationUrl || null, imageUrl: imageUrl || null, imageKey: imageKey || null, imageDisplay: imageDisplay, cancelled, seo }),
       });
       const data = await response.json() as { event?: DogEvent; error?: string };
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
@@ -157,17 +160,26 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             </div>
             <div className="admin-field"><label htmlFor="event-slug">Adresa podujatia</label><div className="admin-slug-input"><span>psipedia.sk/podujatia/</span><input id="event-slug" value={slug} onChange={(input) => { setSlugEdited(true); setSlug(slugify(input.target.value)); }} placeholder="adresa-podujatia" required /></div></div>
             <div className="admin-upload-row">
-              <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <img src={imageUrl} alt="Náhľad fotografie podujatia" /> : <span>📅</span>}</div>
+              <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <SmartCardImage src={imageUrl} mode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
               <div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 16 : 9, najviac 8 MB.</small></div>
             </div>
-            <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
+            <div className="admin-field">
+               <label htmlFor="event-image-display">Zobrazenie obrázka na kartách</label>
+               <select id="event-image-display" value={imageDisplay} onChange={(input) => setImageDisplay(input.target.value as SmartImageMode)}>
+                 <option value="auto">Automaticky (odporúčané)</option>
+                 <option value="cover">Vyplniť kartu – fotografia</option>
+                 <option value="contain">Zobraziť celý – logo alebo plagát</option>
+               </select>
+               <small>Automatika posudzuje proporcie a pozadie. Pôvodný obrázok sa nemení.</small>
+             </div>
+             <label className="admin-event-cancelled"><input type="checkbox" checked={cancelled} onChange={(input) => setCancelled(input.target.checked)} /><span><strong>Podujatie je zrušené</strong><small>Na verejnej stránke sa zobrazí výrazné upozornenie.</small></span></label>
           </section>
           <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/podujatia/${slug}`} fallbackTitle={eventSeoFallback(title||"Názov podujatia",eventType,city).title} fallbackDescription={eventSeoFallback(title||"Názov podujatia",eventType,city).description}/>
         </div>
 
         <aside className="admin-event-preview">
           <span className={`admin-eyebrow ${styles.previewEyebrow}`}>Živý súhrn</span>
-          <div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>📅</span>}</div>
+          <div className="admin-event-preview-visual">{imageUrl ? <SmartCardImage src={imageUrl} mode={imageDisplay} alt="" /> : <span>📅</span>}</div>
           <span className="eyebrow">{eventType}{cancelled ? " · Zrušené" : ""}</span>
           <h2>{title || "Názov podujatia"}</h2>
           <p>{excerpt || "Krátky popis podujatia sa zobrazí tu."}</p>

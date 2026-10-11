@@ -17,6 +17,7 @@ export const slovakRegions = [
 export type SlovakRegion = (typeof slovakRegions)[number];
 
 export type EventStatus = "draft" | "published";
+import type { SmartImageMode } from "./smart-image";
 
 export type DogEvent = {
   id: number;
@@ -40,6 +41,7 @@ export type DogEvent = {
   registrationUrl: string | null;
   imageUrl: string | null;
   imageKey: string | null;
+  imageDisplay?: SmartImageMode;
   cancelled: boolean;
   createdAt: string;
   updatedAt: string;

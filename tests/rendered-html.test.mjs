@@ -283,7 +283,7 @@ test("renders the portal homepage", async () => {
 
 test("homepage event cards render canonical approved images without a fallback", async () => {
   const now = new Date().toISOString();
-  // Use future events so the fixture remains valid after October 2026.
+  // A fixed 2026 date would become a past event and disappear from homepage selection.
   const upcomingDate = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
   const followingDate = new Date(Date.now() + 8 * 86_400_000).toISOString().slice(0, 10);
   const eventRows = [

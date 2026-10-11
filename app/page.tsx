@@ -18,6 +18,7 @@ import { selectHomepageArticles } from "@/lib/homepage-content";
 import { sectionVisualPositionPercent } from "@/lib/section-visual-contract";
 import { getResolvedSectionVisual } from "@/lib/section-visual-store";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { SmartCardImage } from "@/components/smart-card-image";
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import { buildPageMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
@@ -117,7 +118,7 @@ export default async function Home() {
               <article className="home-event-item" key={event.id} data-home-event>
                 <Link href={eventHref(event)}>
                   <span className="home-event-media">
-                    <img src={event.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(event.imageUrl, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, (max-width: 980px) 50vw, 30vw" alt={`Fotografia k podujatiu ${event.title}`} loading="lazy" decoding="async" />
+                    <SmartCardImage src={event.imageUrl ?? undefined} mode={event.imageDisplay} srcSet={responsiveMediaSrcSet(event.imageUrl, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, (max-width: 980px) 50vw, 30vw" alt={`Obrázok k podujatiu ${event.title}`} loading="lazy" decoding="async" />
                   </span>
                   <span className="home-event-copy">
                     <time dateTime={event.startDate}>{formatEventDate(event)}</time>
@@ -161,7 +162,7 @@ export default async function Home() {
             {veterinarians.map((profile) => (
               <article className="home-vet-item" key={profile.id}>
                 <Link href={directoryProfileHref(profile)}>
-                  <img src={profile.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="50px" alt={`Fotografia profilu ${profile.name}`} width={50} height={50} loading="lazy" decoding="async" />
+                  <SmartCardImage src={profile.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(profile.imageUrl, [160, 320])} sizes="50px" alt={`Obrázok profilu ${profile.name}`} width={50} height={50} loading="lazy" decoding="async" />
                   <span>
                     <strong>{profile.name}</strong>
                     <small>{profile.city}{profile.district ? ` · ${profile.district}` : ""}</small>
@@ -251,7 +252,7 @@ export default async function Home() {
               >
                 <Link href={helpCaseHref(item)}>
                   <span className="home-help-media">
-                    <img src={item.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(item.imageUrl, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, (max-width: 980px) 50vw, 33vw" alt={`Fotografia k výzve ${item.title}`} loading="lazy" decoding="async" />
+                    <SmartCardImage src={item.imageUrl ?? undefined} srcSet={responsiveMediaSrcSet(item.imageUrl, [320, 480, 640, 768, 960])} sizes="(max-width: 620px) 100vw, (max-width: 980px) 50vw, 33vw" alt={`Obrázok k výzve ${item.title}`} loading="lazy" decoding="async" />
                   </span>
                   <span className="home-help-copy">
                     <span className="home-help-meta">
