@@ -414,3 +414,17 @@ test("ARTICLE-READING-COMPACT-3 reduces only prose and paragraph spacing without
   assert.match(styles, /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s);
   assert.match(styles, /\.readingShell :global\(\.article-block-table-wrap\[data-columns="2"\] table\)\s*\{[^}]*table-layout:\s*fixed;/s);
 });
+
+
+test("ARTICLE-READING-PEREX-4 applies perex typography and wider mobile gutters only to ordinary prose", () => {
+  const scopedText = styles.slice(styles.indexOf("/* Use the perex's calm typeface"), styles.indexOf(".readingShell :global(.takeaway-box)"));
+  assert.match(scopedText, /\.article-intro > p\)/);
+  assert.match(scopedText, /\.article-block-text > p\)/);
+  assert.match(scopedText, /\.article-blocks > ul\)/);
+  assert.match(scopedText, /color:\s*#424a46;/);
+  assert.match(scopedText, /font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;/);
+  assert.doesNotMatch(scopedText, /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
+  const mobile = styles.slice(styles.indexOf("@media (max-width: 767px)"), styles.indexOf("@media (max-width: 420px)"));
+  assert.match(mobile, /\.article-block-text > p\)[\s\S]*margin-inline:\s*-8px;/);
+  assert.doesNotMatch(mobile.slice(mobile.indexOf("/* Extend only ordinary paragraphs"), mobile.indexOf("/* Editorial paragraphs remain")), /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
+});
