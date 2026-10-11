@@ -227,11 +227,11 @@ for (const articleCase of cases) {
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
     expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(17.1);
     expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
     expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
-    expect(metrics.proseFontFamily).toMatch(/Avenir Next|Avenir|Segoe UI/);
+    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
@@ -419,8 +419,8 @@ for (const articleCase of cases) {
     }
     expect(metrics.proseWidth).toBeGreaterThanOrEqual(718);
     expect(metrics.proseWidth).toBeLessThanOrEqual(722);
-    expect(metrics.proseSize).toBeGreaterThanOrEqual(17.9);
-    expect(metrics.proseSize).toBeLessThanOrEqual(18.1);
+    expect(metrics.proseSize).toBeGreaterThanOrEqual(16.9);
+    expect(metrics.proseSize).toBeLessThanOrEqual(17.1);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.62);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.68);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
@@ -429,7 +429,7 @@ for (const articleCase of cases) {
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
     expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
     expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
-    expect(metrics.proseFontFamily).toMatch(/Avenir Next|Avenir|Segoe UI/);
+    expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.headingTextAlign).not.toBe("justify");
     expect(metrics.disclaimerTextAlign).not.toBe("justify");
