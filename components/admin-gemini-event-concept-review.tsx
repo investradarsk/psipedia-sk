@@ -9,7 +9,14 @@ import styles from "./admin-gemini-concept-review.module.css";
 
 function ExternalLink({label,url}:{label:string;url:string}) {
   const href=safeGeminiReviewUrl(url);
-  return href?<a href={href} target="_blank" rel="noopener noreferrer" className={styles.external}>{label}: {href} ↗</a>:null;
+  if (!href) return null;
+  const destination=new URL(href);
+  const host=destination.hostname.replace(/^www\\./,"");
+  const isGroundingRedirect=host==="vertexaisearch.cloud.google.com" &&
+    destination.pathname.startsWith("/grounding-api-redirect");
+  return <a href={href} target="_blank" rel="noopener noreferrer" className={styles.external}>
+    {label}: {host}{isGroundingRedirect?" (Google presmerovanie – overiť pôvodný zdroj)":" ↗"}
+  </a>;
 }
 const format=(value:string)=> {
   const date=new Date(value);
