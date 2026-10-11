@@ -120,6 +120,11 @@ export default async function AdminGeminiAutomationPage() {
           ? "Samostatný GitHub pracovník pre Gemini + Notion je zapnutý. Tu nastavíš frekvenciu, kategóriu a počet konceptov. Platené volania podliehajú ďalšiemu vypínaču priamo v GitHube. Výsledky uvidíš v histórii."
           : "Externý GitHub pracovník zatiaľ nie je aktivovaný. Uloženie nastavenia samo nespúšťa platené vyhľadávanie; starý manuálny režim zostáva oddelený."}
       </p>
+      {externalEnabled && runs.some(run => run.status === "SUCCESS" && run.conceptCount > 0) && (
+        <p role="status" className={styles.notice}>
+          Gemini vytvorilo {runs.find(run => run.status === "SUCCESS" && run.conceptCount > 0)?.conceptCount} nových konceptov pri poslednom úspešnom behu s novými výsledkami.
+        </p>
+      )}
       {externalEnabled
         ? <p>Nové externé koncepty sú uložené priamo v Notione; počty nájdeš nižšie v histórii behov.</p>
         : <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>}
