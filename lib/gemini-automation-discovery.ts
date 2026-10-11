@@ -3,6 +3,7 @@ import { createGeminiDiscoveryRequest, buildGeminiDiscoveryJsonSchema, buildGemi
 } from "./gemini-automation-discovery-contract.ts";
 import { createGeminiEventRequest, buildGeminiEventJsonSchema, buildGeminiEventPrompt, parseGeminiEventEnvelope, type GeminiEventCandidateV1 } from "./gemini-automation-event-contract.ts";
 import { resolveGeminiConfig, type GeminiFetch } from "./gemini-automation-client.ts";
+import { classifyGeminiEventValidationFailure, type SafeEventValidationDiagnostic } from "./gemini-automation-event-diagnostics.ts";
 import type { GeminiCategoryExclusionContext } from "./gemini-automation-category-memory.ts";
 import { GeminiAutomationError, type GeminiRuntimeConfig } from "./gemini-automation-types.ts";
 
@@ -46,6 +47,8 @@ type SafeDiagnostic = {
   jsonParsed?: boolean;
   schemaValid?: boolean;
   schemaFailure?: string;
+  schemaField?: SafeEventValidationDiagnostic["schemaField"];
+  candidateIndex?: number;
   responseBytes?: number;
 };
 const KNOWN_STATUSES = new Set(["completed", "failed", "in_progress", "requires_action", "cancelled"]);
@@ -65,6 +68,8 @@ function fail(reason: InvalidResponseReason, safe: SafeDiagnostic = {}): never {
     jsonParsed: safe.jsonParsed ?? false,
     schemaValid: safe.schemaValid ?? false,
     schemaFailure: safe.schemaFailure ?? "NONE",
+    ...(safe.schemaField === undefined ? {} : { schemaField: safe.schemaField }),
+    ...(safe.candidateIndex === undefined ? {} : { candidateIndex: safe.candidateIndex }),
     ...(safe.responseBytes === undefined ? {} : { responseBytes: safe.responseBytes }),
   });
   throw new GeminiAutomationError("INVALID_RESPONSE", undefined, Math.min(100, Math.max(0, safe.searchQueryCount ?? 0)));
@@ -399,7 +404,7 @@ export async function discoverGeminiEventCandidates(options: DiscoveryOptions): 
   try { parsed=parseGeminiEventEnvelope(output,request); }
   catch(error) {
     if(error instanceof GeminiAutomationError && error.code==="INVALID_RESPONSE")
-      fail("DISCOVERY_SCHEMA_INVALID",{...diagnostic,schemaFailure:"CANDIDATE_STRUCTURE"});
+      fail("DISCOVERY_SCHEMA_INVALID",{...diagnostic,...classifyGeminiEventValidationFailure(output,request)});
     throw error;
   }
   return {candidates:parsed.candidates,providerMetrics:{model:response.model,requestCount:1,
