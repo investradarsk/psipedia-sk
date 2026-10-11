@@ -392,8 +392,8 @@ test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article 
   assert.match(styles, /--article-reading-width:\s*720px/);
   assert.match(styles, /\.readingShell :global\(\.article-prose\)\s*\{[^}]*color:\s*#242424;[^}]*font-size:\s*17px;[^}]*line-height:\s*1\.65;/s);
   assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*color:\s*inherit;[^}]*font-size:\s*1em;/s);
-  assert.match(styles, /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.7rem;/s);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.5rem;/s);
+  assert.match(styles, /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.58rem;/s);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.43rem;/s);
 });
 
 
