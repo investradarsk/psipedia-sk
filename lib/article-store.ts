@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { cache } from "react";
+import { normalizeSmartImageMode, normalizeImageFocus, type SmartImageMode } from "@/lib/smart-image";
 import { articles as seedArticles, type Article, type ArticleSection, type ArticleSource } from "@/lib/content";
 import {
   getPortalSubpage,
@@ -80,6 +81,9 @@ export type ManagedArticleSummary = Pick<
   | "status"
   | "accent"
   | "image"
+  | "imageDisplay"
+  | "imageFocusX"
+  | "imageFocusY"
   | "updatedAt"
 >;
 
@@ -122,6 +126,9 @@ export type ManagedArticleInput = {
   sources?: ArticleSource[];
   imageUrl?: string | null;
   imageKey?: string | null;
+  imageDisplay?: SmartImageMode;
+  imageFocusX?: number | null;
+  imageFocusY?: number | null;
   imageAlt?: string | null;
   imageCaption?: string | null;
   imageCredit?: string | null;
@@ -165,6 +172,9 @@ type ArticleRow = {
   blocks_json: string;
   image_url: string | null;
   image_key: string | null;
+  image_display: string;
+  image_focus_x: number | null;
+  image_focus_y: number | null;
   image_alt: string | null;
   image_caption: string | null;
   image_credit: string | null;
@@ -200,7 +210,10 @@ type ArticleSummaryRow = {
   status: string;
   accent: string;
   image_url: string | null;
-  updated_at: string;
+  updated_at: string;  image_display: string;
+  image_focus_x: number | null;
+  image_focus_y: number | null;
+
   published_at: string;
   reading_minutes: number;
 };
@@ -220,7 +233,10 @@ type HomepageArticleRow = {
   accent: string;
   image_url: string | null;
   reading_minutes: number;
-  published_at: string;
+  published_at: string;  image_display: string;
+  image_focus_x: number | null;
+  image_focus_y: number | null;
+
 };
 
 type ArticleCountRow = {
@@ -334,6 +350,9 @@ function rowToManagedArticle(row: ArticleRow, relatedBreedIds: number[] = [], to
     updatedDateIso: (row.content_updated_at || updatedAt).slice(0, 10),
     readTime: `${row.reading_minutes} min`,
     image: row.image_url ?? undefined,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
+    imageFocusX: row.image_focus_x ?? null,
+    imageFocusY: row.image_focus_y ?? null,
     imageAlt: row.image_alt || undefined,
     imageCaption: row.image_caption || undefined,
     imageCredit: row.image_credit || undefined,
@@ -386,6 +405,9 @@ function rowToManagedArticleSummary(row: ArticleSummaryRow): ManagedArticleSumma
     status: row.status === "published" ? "published" : row.status === "scheduled" ? "scheduled" : "draft",
     accent: row.accent as Article["accent"],
     image: row.image_url ?? undefined,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
+    imageFocusX: row.image_focus_x ?? null,
+    imageFocusY: row.image_focus_y ?? null,
     updatedAt: row.updated_at,
   };
 }
@@ -406,6 +428,9 @@ function rowToPublishedArticleSummary(row: ArticleSummaryRow): Article {
     updatedDateIso: (row.updated_at || publishedAt).slice(0, 10),
     readTime: `${row.reading_minutes} min`,
     image: row.image_url ?? undefined,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
+    imageFocusX: row.image_focus_x ?? null,
+    imageFocusY: row.image_focus_y ?? null,
     accent: row.accent as Article["accent"],
     author: "Redakcia Psipedia",
     intro: "",
@@ -436,6 +461,9 @@ function rowToHomepageArticle(row: HomepageArticleRow): Article {
     updatedDateIso: publishedAt.slice(0, 10),
     readTime: `${row.reading_minutes} min`,
     image: row.image_url ?? undefined,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
+    imageFocusX: row.image_focus_x ?? null,
+    imageFocusY: row.image_focus_y ?? null,
     accent: row.accent as Article["accent"],
     author: "Redakcia Psipedia",
     intro: "",
@@ -610,6 +638,9 @@ async function normalizeInput(
   }
 
   const imageUrl = payload.imageUrl?.trim() || null;
+  const imageDisplay = normalizeSmartImageMode(payload.imageDisplay);
+  const imageFocusX = normalizeImageFocus(payload.imageFocusX);
+  const imageFocusY = normalizeImageFocus(payload.imageFocusY);
   const imageAlt = payload.imageAlt?.trim().slice(0, 400) || null;
   const imageCaption = payload.imageCaption?.trim().slice(0, 600) || null;
   const imageCredit = payload.imageCredit?.trim().slice(0, 240) || null;
@@ -663,6 +694,9 @@ async function normalizeInput(
     blocks,
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
+    imageDisplay,
+    imageFocusX,
+    imageFocusY,
     imageAlt,
     imageCaption,
     imageCredit,
@@ -685,7 +719,7 @@ async function normalizeInput(
 }
 
 const PUBLIC_ARTICLE_SUMMARY_COLUMNS = `slug, title, excerpt, category, portal_section, portal_subpage,
-  news_category, accent, image_url, reading_minutes, published_at, updated_at`;
+  news_category, accent, image_url, image_display, image_focus_x, image_focus_y, reading_minutes, published_at, updated_at`;
 
 export async function getPublishedArticleSummaries(options: {
   portalSection?: ArticlePortalSection;
@@ -778,7 +812,7 @@ export async function getHomepageArticles(): Promise<Article[]> {
   await ensureArticleStore(database);
   const result = await database.prepare(`
     WITH ranked AS (
-      SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url,
+      SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url, image_display, image_focus_x, image_focus_y,
         reading_minutes, published_at,
         ROW_NUMBER() OVER (
           PARTITION BY CASE WHEN portal_section = 'novinky' THEN 0 ELSE 1 END
@@ -787,7 +821,7 @@ export async function getHomepageArticles(): Promise<Article[]> {
       FROM managed_articles
       WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
     )
-    SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url,
+    SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url, image_display, image_focus_x, image_focus_y,
       reading_minutes, published_at
     FROM ranked
     WHERE homepage_rank <= 3
@@ -808,7 +842,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<PublishedArtic
   const row = await database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
       status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json,
-      image_url, image_key, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
+      image_url, image_key, image_display, image_focus_x, image_focus_y, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
       updated_by, content_updated_at, show_updated_label, seo_title, meta_description,
       canonical_url, noindex, focus_keyword, og_title, og_description, og_image_url, og_image_key
       FROM managed_articles
@@ -917,7 +951,7 @@ export async function listManagedArticleSummaries(options: {
   const page = Math.min(filteredQuery.page, totalPages);
   const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection);
   const listResult = await database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at
+    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, image_display, image_focus_x, image_focus_y, updated_at
     FROM managed_articles
     ${pageQuery.where}
     ORDER BY ${pageQuery.orderBy}
@@ -963,12 +997,12 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
   const articleStatement = database.prepare(`
     INSERT INTO managed_articles (
       slug, title, excerpt, category, portal_section, portal_subpage, news_category, status, accent, author, author_profile_id,
-      intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key,
+      intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json, image_url, image_key, image_display, image_focus_x, image_focus_y,
       image_alt, image_caption, image_credit, image_credit_url,
       reading_minutes, created_at, updated_at, published_at, created_by, updated_by,
       content_updated_at, show_updated_label, seo_title, meta_description, canonical_url, noindex,
       focus_keyword, og_title, og_description, og_image_url, og_image_key
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).bind(
     input.slug,
@@ -991,6 +1025,9 @@ export async function createManagedArticle(payload: ManagedArticleInput, editorE
     JSON.stringify(input.blocks),
     input.imageUrl,
     input.imageKey,
+    input.imageDisplay,
+    input.imageFocusX,
+    input.imageFocusY,
     input.imageAlt,
     input.imageCaption,
     input.imageCredit,
@@ -1053,7 +1090,7 @@ export async function updateManagedArticle(
     UPDATE managed_articles SET
       slug = ?, title = ?, excerpt = ?, category = ?, portal_section = ?, portal_subpage = ?, news_category = ?, status = ?, accent = ?,
       author = ?, author_profile_id = ?, intro = ?, intro_rich_text_json = ?, takeaway = ?, takeaway_rich_text_json = ?, sections_json = ?, sources_json = ?, blocks_json = ?,
-      image_url = ?, image_key = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, updated_at = ?,
+      image_url = ?, image_key = ?, image_display = ?, image_focus_x = ?, image_focus_y = ?, image_alt = ?, image_caption = ?, image_credit = ?, image_credit_url = ?, reading_minutes = ?, updated_at = ?,
       published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
       seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
       og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
@@ -1080,6 +1117,9 @@ export async function updateManagedArticle(
     JSON.stringify(input.blocks),
     input.imageUrl,
     input.imageKey,
+    payload.imageDisplay === undefined ? existing.imageDisplay ?? "auto" : input.imageDisplay,
+    payload.imageFocusX === undefined ? existing.imageFocusX ?? null : input.imageFocusX,
+    payload.imageFocusY === undefined ? existing.imageFocusY ?? null : input.imageFocusY,
     imageAlt,
     imageCaption,
     imageCredit,
@@ -1152,6 +1192,9 @@ export async function rescheduleManagedArticle(
     blocks: existing.blocks,
     imageUrl: existing.image ?? null,
     imageKey: existing.imageKey,
+    imageDisplay: existing.imageDisplay,
+    imageFocusX: existing.imageFocusX,
+    imageFocusY: existing.imageFocusY,
     imageAlt: existing.imageAlt ?? null,
     imageCaption: existing.imageCaption ?? null,
     imageCredit: existing.imageCredit ?? null,
