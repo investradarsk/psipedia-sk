@@ -203,6 +203,9 @@ for (const articleCase of cases) {
         readingColor: introParagraph ? getComputedStyle(introParagraph).color : null,
         readingMargin: introParagraph ? Number.parseFloat(getComputedStyle(introParagraph).marginLeft) : null,
         readingExtraWidth: introParagraph ? introParagraph.getBoundingClientRect().width - intro.getBoundingClientRect().width : null,
+        titleLeft: h1.getBoundingClientRect().left,
+        readingLeft: introParagraph ? introParagraph.getBoundingClientRect().left : null,
+        firstSectionHeadingLeft: document.querySelector<HTMLElement>(".article-blocks h2")?.getBoundingClientRect().left ?? null,
         introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
         introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
         bodyTextAlign: bodyParagraph ? getComputedStyle(bodyParagraph).textAlign : null,
@@ -237,10 +240,15 @@ for (const articleCase of cases) {
     expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
     expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
     expect(metrics.readingFontFamily).toMatch(/Avenir Next|Avenir/);
-    expect(metrics.readingColor).toBe("rgb(66, 74, 70)");
-    expect(metrics.readingMargin).toBe(-8);
-    expect(metrics.readingExtraWidth).toBeGreaterThanOrEqual(15.5);
-    expect(metrics.readingExtraWidth).toBeLessThanOrEqual(16.5);
+    expect(metrics.readingColor).toBe("rgb(52, 59, 55)");
+    expect(metrics.readingMargin).toBe(0);
+    expect(Math.abs(metrics.readingExtraWidth ?? 100)).toBeLessThanOrEqual(1);
+    expect(metrics.titleLeft).toBeGreaterThanOrEqual(11);
+    expect(metrics.titleLeft).toBeLessThanOrEqual(13);
+    expect(Math.abs((metrics.readingLeft ?? 100) - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    if (metrics.firstSectionHeadingLeft !== null) {
+      expect(Math.abs(metrics.firstSectionHeadingLeft - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    }
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
