@@ -37,7 +37,7 @@ async function notion(path, method = "GET", body) {
   const response = await fetch("https://api.notion.com/v1" + path, {
     method,
     headers: {
-      Authorization: "Bearer " + env.NOTION_API_TOKEN,
+      Authorization: "Bearer " + env.AGENT_NOTION_ACCESS_TOKEN,
       "Notion-Version": NOTION_VERSION,
       "Content-Type": "application/json",
     },
@@ -223,7 +223,7 @@ async function gemini(payload) {
   metrics.request_count++;
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
-    headers: { "x-goog-api-key": env.GEMINI_API_KEY, "Content-Type": "application/json" },
+    headers: { "x-goog-api-key": env.AGENT_GEMINI_ACCESS_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ model: env.GEMINI_MODEL || "gemini-3.8-flash", tools, ...payload }),
     signal: AbortSignal.timeout(90000),
   });
@@ -237,7 +237,7 @@ async function gemini(payload) {
 
 async function runAgent() {
   if (env.GEMINI_AGENT_PAID_ENABLED !== "true") throw Error("PAID_NOT_ENABLED");
-  if (!env.GEMINI_API_KEY || !env.NOTION_API_TOKEN) throw Error("AGENT_SECRETS_MISSING");
+  if (!env.AGENT_GEMINI_ACCESS_KEY || !env.AGENT_NOTION_ACCESS_TOKEN) throw Error("AGENT_SECRETS_MISSING");
   if (!Number.isSafeInteger(jobId) || jobId < 1 ||
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
