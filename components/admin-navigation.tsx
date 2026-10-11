@@ -58,7 +58,10 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const closeMenus = () => setExpandedDesktopGroup(null);
+    const closeMenus = () => {
+      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => { item.open = false; });
+      setExpandedDesktopGroup(null);
+    };
     const pointer = (event: PointerEvent) => {
       if (!desktopRef.current?.contains(event.target as Node)) closeMenus();
     };
@@ -68,8 +71,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       if (!expanded) return;
       event.preventDefault();
       event.stopPropagation();
-      // Keep the rendered open state under React control; imperatively setting
-      // details.open could leave a visible popup after focus returns to summary.
+      // Native details owns its open attribute; React owns the visible popup contents.
+      expanded.open = false;
       setExpandedDesktopGroup(null);
       expanded.querySelector<HTMLElement>("summary")?.focus();
     };
@@ -127,17 +130,22 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
     <>
       <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sticky-nav>
         {adminNavigationGroups.map((group, index) => (
-          <details key={group.label} name="admin-primary" open={selectedDesktopGroup === group.label} className={styles.desktopGroup}>
+          <details
+            key={group.label}
+            name="admin-primary"
+            className={styles.desktopGroup}
+            onToggle={(event) => {
+              const isOpen = event.currentTarget.open;
+              setExpandedDesktopGroup((current) =>
+                isOpen
+                  ? { pathname, label: group.label }
+                  : current?.pathname === pathname && current.label === group.label ? null : current,
+              );
+            }}
+          >
             <summary
               className={styles.groupTrigger}
               data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}
-              onClick={(event) => {
-                // Prevent native <details> toggling from racing a React update.
-                event.preventDefault();
-                setExpandedDesktopGroup((current) =>
-                  current?.pathname === pathname && current.label === group.label ? null : { pathname, label: group.label },
-                );
-              }}
             >
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
