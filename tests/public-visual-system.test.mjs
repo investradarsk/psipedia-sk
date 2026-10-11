@@ -292,8 +292,12 @@ test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing 
 });
 
 test("mobile public gutters remain 16px and swipe-only grip stays out of keyboard tab order", () => {
-  assert.match(designSystem, /max\(16px, env\(safe-area-inset-left, 0px\)\)/);
-  assert.match(designSystem, /max\(16px, env\(safe-area-inset-right, 0px\)\)/);
+  assert.match(designSystem, /max\(12px, env\(safe-area-inset-left, 0px\)\)/);
+  assert.match(designSystem, /max\(12px, env\(safe-area-inset-right, 0px\)\)/);
+  const editorialStyles = read("components/editorial-section.module.css");
+  assert.match(editorialStyles, /\.foundation :global\(\.public-shell\)/);
+  assert.match(editorialStyles, /max\(16px, env\(safe-area-inset-left, 0px\)\)/);
+  assert.match(editorialStyles, /max\(16px, env\(safe-area-inset-right, 0px\)\)/);
   assert.match(siteHeader, /tabIndex=\{-1\}\s+data-menu-dismiss-grip/);
   assert.ok(siteHeader.includes('button:not([disabled]):not([tabindex="-1"])'));
 });
