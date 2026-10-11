@@ -576,6 +576,15 @@
   gap: 2px;
   grid-column: 1;
 }
+
+/* The mobile-only control wrapper has no visible buttons on desktop. Remove
+   its grid item entirely so the logo and utilities stay in the first row. */
+@media (min-width: 1200px) {
+  .mobileNavControls {
+    display: none;
+  }
+}
+
 .backNavButton,
 .menuDismissGrip,
 .mobileMenuBackdrop {
