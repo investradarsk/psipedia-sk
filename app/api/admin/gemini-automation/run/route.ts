@@ -5,7 +5,7 @@ import {
   GeminiPilotGuardError, parseGeminiDirectoryRunBody, runGeminiDirectoryCategory,
 } from "@/lib/gemini-automation-pilot";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
-import {enqueueGeminiManualBackgroundJob,geminiManualBackgroundEnabled} from "@/lib/gemini-automation-background-queue";
+import {enqueueGeminiManualBackgroundJob,geminiManualBackgroundEnabled,GeminiQueueGuardError} from "@/lib/gemini-automation-background-queue";
 import { parseGeminiEventRunBody, runGeminiEventCategory } from "@/lib/gemini-automation-event-runner";
 import type { NotionEventsHelpSyncBindings } from "@/lib/notion-events-help-sync";
 import type { GeminiRuntimeConfig } from "@/lib/gemini-automation-types";
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     }
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
-    if (error instanceof GeminiPilotGuardError) {
+    if (error instanceof GeminiPilotGuardError || error instanceof GeminiQueueGuardError) {
       const messages = {
         PILOT_INVALID_SCOPE: "Manuálne spustenie je povolené len pre existujúce kategórie Adresára a Podujatí.",
         PILOT_SETTING_NOT_SAVED: "Najprv ulož nastavenia tejto kategórie.",
