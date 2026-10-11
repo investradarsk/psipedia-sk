@@ -641,3 +641,17 @@
     transition-duration: 0ms !important;
   }
 }
+
+
+/* Leave room for back, menu and utility actions on 320px phones. */
+@media (max-width: 360px) {
+  .mobileNavControls { gap: 0; }
+  .backNavButton { width: 32px; min-width: 32px; }
+  .mobileLeftTrigger { min-width: 40px; width: 40px; }
+  .brandCluster :global(.brand) { gap: 4px; font-size: .93rem; }
+  .brandCluster :global(.brand-mark) {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+}
