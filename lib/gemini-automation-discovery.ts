@@ -277,12 +277,76 @@ async function safeHttp400ProviderDiagnostics(response: Response): Promise<SafeP
   }
 }
 
+/**
+ * Event-only provider timing. Phases describe observable local HTTP/parse work,
+ * never internal Gemini Search or model generation. Emit only fixed labels,
+ * bounded integer durations, safe HTTP status and booleans.
+ */
+type EventPhase =
+  | "EVENT_PREFLIGHT" | "WAITING_RESPONSE" | "RESPONSE_HEADERS" | "READING_BODY"
+  | "PARSING_RESPONSE" | "VALIDATING_EVENT";
+type EventOutcome = "COMPLETED" | "TIMEOUT" | "NETWORK_ERROR" | "HTTP_ERROR" | "INVALID_RESPONSE";
+function createEventTimingProbe() {
+  const clock = () => typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now() : Date.now();
+  const boundedMs = (ms: number) => Number.isFinite(ms)
+    ? Math.max(0, Math.min(180_000, Math.round(ms))) : 0;
+  const started = clock();
+  let phase: EventPhase = "EVENT_PREFLIGHT";
+  let phaseStarted = started;
+  let headersReceived = false;
+  let httpStatus: number | undefined;
+  let abortTriggered = false;
+  let networkError = false;
+  let finished = false;
+  const durations: Partial<Record<EventPhase, number>> = {};
+  const transition = (next: EventPhase) => {
+    if (finished || phase === next) return;
+    durations[phase] = boundedMs((durations[phase] ?? 0) + clock() - phaseStarted);
+    phase = next;
+    phaseStarted = clock();
+  };
+  return {
+    transition,
+    markHeaders(status: number) {
+      headersReceived = true;
+      if (Number.isInteger(status) && status >= 100 && status <= 599) httpStatus = status;
+      transition("RESPONSE_HEADERS");
+    },
+    markAbort() { abortTriggered = true; },
+    markNetworkError() { networkError = true; },
+    hasNetworkError() { return networkError; },
+    finish(outcome: EventOutcome) {
+      if (finished) return;
+      const failurePhase = phase;
+      const elapsedMs = boundedMs(clock() - started);
+      durations[phase] = boundedMs((durations[phase] ?? 0) + clock() - phaseStarted);
+      finished = true;
+      console.info("gemini_event_discovery_timing", {
+        phase: outcome,
+        ...(outcome === "COMPLETED" ? {} : { failurePhase }),
+        elapsedMs,
+        preflightMs: durations.EVENT_PREFLIGHT ?? 0,
+        waitingResponseMs: durations.WAITING_RESPONSE ?? 0,
+        readingBodyMs: durations.READING_BODY ?? 0,
+        parsingResponseMs: durations.PARSING_RESPONSE ?? 0,
+        validatingEventMs: durations.VALIDATING_EVENT ?? 0,
+        responseHeadersReceived: headersReceived,
+        abortTriggered,
+        ...(httpStatus === undefined ? {} : { httpStatus }),
+      });
+    },
+  };
+}
+type EventTimingProbe = ReturnType<typeof createEventTimingProbe>;
+
 async function interact(options: {
   env: GeminiRuntimeConfig;
   prompt: string;
   schema: unknown;
   fetchImpl?: GeminiFetch;
   timeoutMs?: number;
+  eventTiming?: EventTimingProbe;
 }): Promise<ProviderResult> {
   const { key, model } = resolveGeminiConfig(options.env);
   // Structured output + built-in Search is a Gemini 3-series capability.
@@ -292,8 +356,12 @@ async function interact(options: {
   // This single-request budget is discovery-only; no retries or fallback.
   const timeoutMs = Math.min(DISCOVERY_TIMEOUT_MS, Math.max(1, Math.trunc(options.timeoutMs ?? DISCOVERY_TIMEOUT_MS)));
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => {
+    controller.abort();
+    options.eventTiming?.markAbort();
+  }, timeoutMs);
   try {
+    options.eventTiming?.transition("WAITING_RESPONSE");
     const response = await (options.fetchImpl ?? fetch)(
       "https://generativelanguage.googleapis.com/v1beta/interactions", {
         method: "POST",
@@ -307,9 +375,11 @@ async function interact(options: {
         }),
         signal: controller.signal,
       });
+    options.eventTiming?.markHeaders(response.status);
     if (response.status === 401 || response.status === 403) throw new GeminiAutomationError("AUTH_FAILED", response.status);
     if (response.status === 429) throw new GeminiAutomationError("RATE_LIMITED", response.status);
     if (!response.ok) {
+      if (response.status === 400) options.eventTiming?.transition("READING_BODY");
       const providerDiagnostic = await safeHttp400ProviderDiagnostics(response);
       if (controller.signal.aborted) throw new GeminiAutomationError("TIMEOUT");
       console.warn("gemini_discovery_provider_error", {
@@ -322,7 +392,10 @@ async function interact(options: {
     if (!Number.isFinite(length) || length > GEMINI_DISCOVERY_MAX_RESPONSE_BYTES) {
       fail("RESPONSE_TOO_LARGE", { responseBytes: Number.isSafeInteger(length) && length >= 0 ? length : undefined });
     }
+    options.eventTiming?.transition("READING_BODY");
     const raw = await response.text();
+    if (options.eventTiming && controller.signal.aborted) throw new GeminiAutomationError("TIMEOUT");
+    options.eventTiming?.transition("PARSING_RESPONSE");
     const responseBytes = new TextEncoder().encode(raw).byteLength;
     if (responseBytes > GEMINI_DISCOVERY_MAX_RESPONSE_BYTES) fail("RESPONSE_TOO_LARGE", { responseBytes });
     let payload: unknown;
@@ -334,6 +407,7 @@ async function interact(options: {
       throw new GeminiAutomationError("TIMEOUT");
     }
     // No HTTP response exists. Never log the exception, request, prompt or headers.
+    options.eventTiming?.markNetworkError();
     console.warn("gemini_discovery_provider_error", { reason: "NETWORK_ERROR" });
     throw new GeminiAutomationError("PROVIDER_ERROR");
   } finally {
@@ -396,17 +470,30 @@ export async function discoverGeminiEventCandidates(options: DiscoveryOptions): 
   candidates: GeminiEventCandidateV1[];
   providerMetrics: {model:string;requestCount:1;groundedSearchQueryCount:number;candidateCount:number};
 }> {
-  const request=createGeminiEventRequest({stableKey:options.stableKey,maxCandidates:options.maxCandidates});
-  const response=await interact({env:options.env,prompt:buildGeminiEventPrompt(request,options.knownContext?.serialized ?? "[]"),
-    schema:buildGeminiEventJsonSchema(request),fetchImpl:options.fetchImpl,timeoutMs:options.timeoutMs});
-  const {output,groundedSearchQueryCount,diagnostic}=groundedResponse(response.payload);
-  let parsed:ReturnType<typeof parseGeminiEventEnvelope>;
-  try { parsed=parseGeminiEventEnvelope(output,request); }
-  catch(error) {
-    if(error instanceof GeminiAutomationError && error.code==="INVALID_RESPONSE")
-      fail("DISCOVERY_SCHEMA_INVALID",{...diagnostic,...classifyGeminiEventValidationFailure(output,request)});
+  const timing = createEventTimingProbe();
+  try {
+    const request=createGeminiEventRequest({stableKey:options.stableKey,maxCandidates:options.maxCandidates});
+    const response=await interact({env:options.env,prompt:buildGeminiEventPrompt(request,options.knownContext?.serialized ?? "[]"),
+      schema:buildGeminiEventJsonSchema(request),fetchImpl:options.fetchImpl,timeoutMs:options.timeoutMs,
+      eventTiming:timing});
+    timing.transition("VALIDATING_EVENT");
+    const {output,groundedSearchQueryCount,diagnostic}=groundedResponse(response.payload);
+    let parsed:ReturnType<typeof parseGeminiEventEnvelope>;
+    try { parsed=parseGeminiEventEnvelope(output,request); }
+    catch(error) {
+      if(error instanceof GeminiAutomationError && error.code==="INVALID_RESPONSE")
+        fail("DISCOVERY_SCHEMA_INVALID",{...diagnostic,...classifyGeminiEventValidationFailure(output,request)});
+      throw error;
+    }
+    timing.finish("COMPLETED");
+    return {candidates:parsed.candidates,providerMetrics:{model:response.model,requestCount:1,
+      groundedSearchQueryCount,candidateCount:parsed.candidates.length}};
+  } catch (error) {
+    const outcome: EventOutcome = timing.hasNetworkError() ? "NETWORK_ERROR"
+      : error instanceof GeminiAutomationError && error.code === "TIMEOUT" ? "TIMEOUT"
+      : error instanceof GeminiAutomationError && ["PROVIDER_ERROR","AUTH_FAILED","RATE_LIMITED"].includes(error.code)
+        ? "HTTP_ERROR" : "INVALID_RESPONSE";
+    timing.finish(outcome);
     throw error;
   }
-  return {candidates:parsed.candidates,providerMetrics:{model:response.model,requestCount:1,
-    groundedSearchQueryCount,candidateCount:parsed.candidates.length}};
 }
