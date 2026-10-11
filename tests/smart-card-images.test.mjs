@@ -37,5 +37,5 @@ test("all article image surfaces use the shared smart crop with optional persist
   assert.match(read("components/smart-card-image.tsx"), /avoidSevereArticleCrop/);
   assert.match(read("components/smart-card-image.tsx"), /objectPosition/);
   assert.match(read("components/admin-article-editor.tsx"), /article-image-focus-y/);
-  assert.match(read("lib/article-store.ts"), /image_focus_y = \\?/);
+  assert.match(read("lib/article-store.ts"), /image_focus_y = \?/);
 });
