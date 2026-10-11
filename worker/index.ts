@@ -1,5 +1,6 @@
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
 import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
+import { externalAgentEnabled, sweepExternalGemini } from "../lib/gemini-external-agent.ts";
 import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
 import {runGeminiEventCategory} from "../lib/gemini-automation-event-runner.ts";
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
@@ -66,6 +67,9 @@ interface Env {
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
   GEMINI_ASYNC_MANUAL_ENABLED?:string;
+  GEMINI_EXTERNAL_AGENT_ENABLED?: string;
+  GITHUB_ACTIONS_DISPATCH_TOKEN?: string;
+  GEMINI_AGENT_CALLBACK_SECRET?: string;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   IMAGES: {
     input(stream: ReadableStream): {
@@ -253,6 +257,14 @@ const worker = {
   },
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
+    // Dispatch only. Paid Gemini/Notion research NEVER runs inside this Worker.
+    // This feature flag is intentionally absent from wrangler.jsonc.
+    if (externalAgentEnabled(env)) {
+      const result = await sweepExternalGemini({
+        db: env.DB, env, now: new Date(controller.scheduledTime ?? Date.now()),
+      }).catch(() => ({ dispatched: 0, reason: "SWEEP_ERROR" }));
+      console.info(JSON.stringify({ event: "gemini_external_dispatch", ...result }));
+    }
     if (!isFullHourlyScheduledSweep(controller)) {
       const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill, notionEshopBackfill, geminiManualQueue] = await Promise.all([
         runScheduledAdminPush(env),
@@ -309,7 +321,7 @@ const worker = {
           }));
           return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
         }),
-        geminiManualBackgroundEnabled(env)
+        geminiManualBackgroundEnabled(env) && !externalAgentEnabled(env)
           ? runGeminiManualBackgroundSweep({database:env.DB,env,executeDirectory:runGeminiDirectoryCategory,executeEvent:runGeminiEventCategory}).catch(() => ({
               claimed:0,processed:0,succeeded:0,failed:1,blocked:0,
             }))
