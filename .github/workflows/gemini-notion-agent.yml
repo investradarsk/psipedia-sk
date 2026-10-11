@@ -1,0 +1,49 @@
+name: Gemini Notion agent (external)
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "Existing Psipedia job ID"
+        required: true
+        type: string
+      stable_key:
+        description: "Category stable key"
+        required: true
+        type: string
+      max_new_concepts:
+        description: "Hard cap 5"
+        required: true
+        type: string
+      trigger_type:
+        description: "MANUAL or SCHEDULED"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: gemini-notion-external-agent
+  cancel-in-progress: false
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run Gemini Notion agent
+        env:
+          GEMINI_AGENT_PAID_ENABLED: ${{ vars.GEMINI_AGENT_PAID_ENABLED }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_AGENT_API_KEY }}
+          GEMINI_MODEL: gemini-3.8-flash
+          NOTION_API_TOKEN: ${{ secrets.GEMINI_AGENT_NOTION_TOKEN }}
+          NOTION_DIRECTORY_DATA_SOURCE_ID: ${{ vars.NOTION_DIRECTORY_DATA_SOURCE_ID }}
+          NOTION_EVENTS_DATA_SOURCE_ID: ${{ vars.NOTION_EVENTS_DATA_SOURCE_ID }}
+          NOTION_HELP_DATA_SOURCE_ID: ${{ vars.NOTION_HELP_DATA_SOURCE_ID }}
+          PSIPEDIA_AGENT_CALLBACK_SECRET: ${{ secrets.PSIPEDIA_AGENT_CALLBACK_SECRET }}
+          PSIPEDIA_AGENT_CALLBACK_URL: https://psipedia.sk/api/internal/gemini-agent/callback
+          AGENT_JOB_ID: ${{ inputs.job_id }}
+          AGENT_STABLE_KEY: ${{ inputs.stable_key }}
+          AGENT_MAX_NEW_CONCEPTS: ${{ inputs.max_new_concepts }}
+        run: node scripts/gemini-notion-agent.mjs
