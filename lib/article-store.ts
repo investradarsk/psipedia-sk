@@ -973,7 +973,7 @@ export async function listManagedArticleSummaries(options: {
   const page = Math.min(filteredQuery.page, totalPages);
   const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection);
   const listResult = await database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, ${await articleImageProjection(database)}, updated_at
+    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at
     FROM managed_articles
     ${pageQuery.where}
     ORDER BY ${pageQuery.orderBy}
