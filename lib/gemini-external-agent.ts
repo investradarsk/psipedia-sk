@@ -9,8 +9,12 @@ export const externalAgentEnabled = (env: GeminiExternalEnv) =>
   ["1", "true"].includes((env.GEMINI_EXTERNAL_AGENT_ENABLED ?? "").trim().toLowerCase());
 
 export class ExternalAgentError extends Error {
-  constructor(readonly code: "DISABLED" | "CONFIG" | "CATEGORY" | "SETTING" |
-    "LIMIT" | "BUDGET" | "BUSY" | "DISPATCH") { super(code); }
+  readonly code: "DISABLED" | "CONFIG" | "CATEGORY" | "SETTING" |
+    "LIMIT" | "BUDGET" | "BUSY" | "DISPATCH";
+  constructor(code: ExternalAgentError["code"]) {
+    super(code);
+    this.code = code;
+  }
 }
 type Setting = { id: number; max_new_concepts: number; cadence_minutes: number };
 const DISPATCH_URL = "https://api.github.com/repos/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml/dispatches";
