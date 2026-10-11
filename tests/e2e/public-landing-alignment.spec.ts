@@ -166,6 +166,10 @@ test("PUBLIC-LANDING-ALIGNMENT keeps canonical geometry and screenshot coverage 
           const grid = geometry.grid!;
 
           expect(Math.abs(content.x - heroShell.x), label + ": content left follows hero shell").toBeLessThanOrEqual(2);
+          if (viewport.width <= 620) {
+            expect(Math.abs(content.x - 12), label + ": homepage mobile left gutter").toBeLessThanOrEqual(1);
+            expect(Math.abs((viewport.width - content.x - content.width) - 12), label + ": homepage mobile right gutter").toBeLessThanOrEqual(1);
+          }
           expect(Math.abs((content.x + content.width) - (heroShell.x + heroShell.width)), label + ": content right follows hero shell").toBeLessThanOrEqual(2);
           expect(Math.abs(h2.x - content.x), label + ": H2 left follows canonical axis").toBeLessThanOrEqual(2);
           expect(Math.abs(grid.x - content.x), label + ": grid left follows canonical axis").toBeLessThanOrEqual(2);
@@ -178,7 +182,7 @@ test("PUBLIC-LANDING-ALIGNMENT keeps canonical geometry and screenshot coverage 
           expect(Math.abs(eyebrowToH2 - 5), label + ": canonical eyebrow-to-H2 gap").toBeLessThanOrEqual(2);
 
           const headingToGrid = grid.y - (heading.y + heading.height);
-          expect(Math.abs(headingToGrid - 16), label + ": canonical heading-to-content gap").toBeLessThanOrEqual(2);
+          expect(Math.abs(headingToGrid - (viewport.width <= 620 ? 12 : 16)), label + ": canonical heading-to-content gap").toBeLessThanOrEqual(2);
           expect(grid.columns, label + ": category-grid columns").toBe(expectedColumns(viewport.width));
 
           if (!referenceHeading) {
