@@ -23,7 +23,7 @@ async function touchSwipe(page: Page, selector: string, start: [number, number],
 
 test.beforeEach(async ({ page, baseURL, isMobile }) => {
   test.skip(!isMobile, "Single-finger navigation gestures are mobile-only");
-  expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\\.0\\.0\\.1)$/);
+  expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\.0\.0\.1)$/);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
   await page.goto("/");
@@ -37,11 +37,17 @@ test("pulling down dismisses the menu but upward scrolling and an already-scroll
   await open.click();
   await expect(menu).toHaveClass(/is-open/);
 
+  const puppyToggle = nav.locator('[aria-controls="mobile-submenu-steniatka"]');
+  await puppyToggle.click();
+  await expect(puppyToggle).toHaveAttribute("aria-expanded", "true");
+  await page.waitForTimeout(250);
+
   await touchSwipe(page, "#mobile-menu > nav", [250, 290], [250, 160]);
   await expect(menu).toHaveClass(/is-open/);
 
   // A downward swipe in the middle of a scrolled list is not a dismiss gesture.
   await nav.evaluate((element) => { element.scrollTop = 120; });
+  await expect.poll(() => nav.evaluate((element) => element.scrollTop)).toBeGreaterThan(20);
   await touchSwipe(page, "#mobile-menu > nav", [250, 220], [250, 355]);
   await expect(menu).toHaveClass(/is-open/);
 
@@ -55,23 +61,23 @@ test("leftward content swipe returns to the previous Psipedia page without leavi
   // The link must run through client-side routing, as do the article cards.
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\\/starostlivost$/);
+  await expect(page).toHaveURL(/\/starostlivost$/);
   await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
 
   await touchSwipe(page, "main", [315, 400], [190, 406]);
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
   // On the home page another swipe must not navigate to an external referrer.
   await touchSwipe(page, "main", [315, 400], [190, 406]);
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("vertical article scroll and horizontal scrolling areas do not trigger in-site navigation", async ({ page }) => {
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\\/starostlivost$/);
+  await expect(page).toHaveURL(/\/starostlivost$/);
 
   await touchSwipe(page, "main", [310, 400], [270, 270]);
-  await expect(page).toHaveURL(/\\/starostlivost$/);
+  await expect(page).toHaveURL(/\/starostlivost$/);
 
   await page.locator("main").first().evaluate((main) => {
     const scroller = document.createElement("div");
@@ -84,12 +90,12 @@ test("vertical article scroll and horizontal scrolling areas do not trigger in-s
     main.prepend(scroller);
   });
   await touchSwipe(page, "#swipe-gesture-scroll-test", [315, 400], [190, 400]);
-  await expect(page).toHaveURL(/\\/starostlivost$/);
+  await expect(page).toHaveURL(/\/starostlivost$/);
 });
 
 test("direct entry falls back to Psipedia home rather than browser history", async ({ page }) => {
   await page.goto("/o-nas");
   await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
   await touchSwipe(page, "main", [315, 400], [190, 405]);
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
 });
