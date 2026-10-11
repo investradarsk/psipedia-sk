@@ -45,3 +45,13 @@ test("admin-only extracted CSS blocks preserve closed, balanced braces and no pu
   assert.equal(depth, 0, "Unclosed admin CSS rule");
   assert.doesNotMatch(css, /(^|\n)\s*(?:\.hero-card|\.cookie-consent|\.event-detail-layout|\.article-card-media)\b/);
 });
+
+
+test("desktop site header has no empty mobile-controls grid row", () => {
+  const css = read("components/site-header.module.css");
+  const header = read("components/site-header.tsx");
+  assert.match(header, /className=\{styles\.mobileNavControls\}/);
+  assert.match(css, /\.mobileNavControls\s*\{\s*display:\s*flex;/);
+  assert.match(css, /@media \(min-width:\s*1200px\)\s*\{\s*\.mobileNavControls\s*\{\s*display:\s*none;/);
+  assert.match(css, /\.masthead:global\(\.header-inner\)\s*\{\s*min-height:\s*60px;/);
+});
