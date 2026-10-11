@@ -1,11 +1,23 @@
 "use client";
 
 import { useState, type ImgHTMLAttributes, type SyntheticEvent } from "react";
-import { inferSmartImageFit, type SmartImageFit, type SmartImageMode } from "@/lib/smart-image";
+import {
+  articleFocalPosition,
+  avoidSevereArticleCrop,
+  inferSmartImageFit,
+  type SmartImageFit,
+  type SmartImageMode,
+  type SmartImageRole,
+} from "@/lib/smart-image";
 
-type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "onLoad"> & { mode?: SmartImageMode };
+type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "onLoad"> & {
+  mode?: SmartImageMode;
+  roleHint?: SmartImageRole;
+  focusX?: number | null;
+  focusY?: number | null;
+};
 
-/** Inspect a tiny browser-rendered sample; safe dimension fallback for CORS-blocked sources. */
+/** Inspect a small canvas sample. Cross-origin images without CORS use dimension-based fallback. */
 function sampleLightBackground(image: HTMLImageElement): number | undefined {
   try {
     const canvas = document.createElement("canvas");
@@ -22,28 +34,57 @@ function sampleLightBackground(image: HTMLImageElement): number | undefined {
     }
     return paper / 1600;
   } catch {
-    // Images from remote sites may taint the canvas. Do not add network calls.
     return undefined;
   }
 }
 
-/** Inline fit takes precedence over legacy CSS cover; card dimensions remain unchanged. */
-export function SmartCardImage({ mode = "auto", src, style, ...rest }: Props) {
+/**
+ * Article images prefer a top-biased crop rather than cutting heads at center.
+ * Extreme mismatches become "contain" to avoid losing substantial photo content.
+ * This does not claim AI face detection; editors may override fit and focal position.
+ */
+export function SmartCardImage({
+  mode = "auto",
+  roleHint = "generic",
+  focusX = null,
+  focusY = null,
+  src,
+  style,
+  ...rest
+}: Props) {
   const [analyzed, setAnalyzed] = useState<{ src: string; fit: SmartImageFit } | null>(null);
   const key = typeof src === "string" ? src : "";
-  const fit: SmartImageFit = mode !== "auto" ? mode : analyzed?.src === key ? analyzed.fit : "contain";
+  const initialFit: SmartImageFit = roleHint === "article" ? "cover" : "contain";
+  const fit: SmartImageFit = mode !== "auto" ? mode : analyzed?.src === key ? analyzed.fit : initialFit;
+  const focus = roleHint === "article" ? articleFocalPosition({ focusX, focusY }) : {
+    x: focusX ?? 50,
+    y: focusY ?? 50,
+  };
 
   function onLoad(event: SyntheticEvent<HTMLImageElement>) {
     if (mode !== "auto") return;
     const image = event.currentTarget;
-    const next = inferSmartImageFit({
+    const sourceRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
+    const parent = image.parentElement;
+    const slotRatio = parent && parent.clientHeight > 0
+      ? parent.clientWidth / parent.clientHeight : 16 / 9;
+    const nextFit = inferSmartImageFit({
       width: image.naturalWidth,
       height: image.naturalHeight,
       src: key,
       lightBackgroundShare: sampleLightBackground(image),
     });
-    setAnalyzed((prev) => prev?.src === key && prev.fit === next ? prev : { src: key, fit: next });
+    const next = roleHint === "article" && nextFit === "cover" && avoidSevereArticleCrop(sourceRatio, slotRatio)
+      ? "contain" : nextFit;
+    setAnalyzed((previous) => previous?.src === key && previous.fit === next
+      ? previous : { src: key, fit: next });
   }
 
-  return <img {...rest} src={src} onLoad={onLoad} style={{ ...style, objectFit: fit }} data-smart-image-fit={fit} />;
+  return <img
+    {...rest}
+    src={src}
+    onLoad={onLoad}
+    data-smart-image-fit={fit}
+    style={{ ...style, objectFit: fit, objectPosition: `${focus.x}% ${focus.y}%` }}
+  />;
 }
