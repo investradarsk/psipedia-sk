@@ -50,7 +50,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
   const [openPath, setOpenPath] = useState<string | null>(null);
-  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<string | null>(null);
+  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; label: string } | null>(null);
+  const selectedDesktopGroup = expandedDesktopGroup?.pathname === pathname ? expandedDesktopGroup.label : null;
   const open = openPath === pathname;
   const desktopRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -78,10 +79,6 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       document.removeEventListener("pointerdown", pointer);
       document.removeEventListener("keydown", keyboard);
     };
-  }, [pathname]);
-
-  useEffect(() => {
-    setExpandedDesktopGroup(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -130,14 +127,16 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
     <>
       <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sticky-nav>
         {adminNavigationGroups.map((group, index) => (
-          <details key={group.label} name="admin-primary" open={expandedDesktopGroup === group.label} className={styles.desktopGroup}>
+          <details key={group.label} name="admin-primary" open={selectedDesktopGroup === group.label} className={styles.desktopGroup}>
             <summary
               className={styles.groupTrigger}
               data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}
               onClick={(event) => {
                 // Prevent native <details> toggling from racing a React update.
                 event.preventDefault();
-                setExpandedDesktopGroup((current) => current === group.label ? null : group.label);
+                setExpandedDesktopGroup((current) =>
+                  current?.pathname === pathname && current.label === group.label ? null : { pathname, label: group.label },
+                );
               }}
             >
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
