@@ -290,3 +290,10 @@ test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing 
   assert.match(hero, /const hasTools = Boolean\(resolvedSearch \|\| resolvedCta \|\| metaSlot \|\| config\.metaLabel \|\| quickLinks\.length\)/);
   assert.match(hero, /\{hasTools \? \([\s\S]*data-unified-section-hero-tools[\s\S]*\) : null\}/);
 });
+
+test("mobile public gutters remain 16px and swipe-only grip stays out of keyboard tab order", () => {
+  assert.match(designSystem, /max\(16px, env\(safe-area-inset-left, 0px\)\)/);
+  assert.match(designSystem, /max\(16px, env\(safe-area-inset-right, 0px\)\)/);
+  assert.match(siteHeader, /tabIndex=\{-1\}\s+data-menu-dismiss-grip/);
+  assert.ok(siteHeader.includes('button:not([disabled]):not([tabindex="-1"])'));
+});
