@@ -29,8 +29,16 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
     if (page > 1) next.set("strana", String(page));
     return `${pathname}?${next.toString()}#events-list`;
   }
-  const active = [f.query, f.region, f.month, f.from, f.to, f.city,
-    f.type === "Všetky" ? "" : eventTypePresentation[f.type].label].filter(Boolean);
+  const active = [
+    f.query && `Hľadať: ${f.query}`,
+    f.region && `Kraj: ${f.region}`,
+    f.month && `Mesiac: ${f.month}`,
+    f.from && `Od: ${f.from}`,
+    f.to && `Do: ${f.to}`,
+    f.city && `Lokalita: ${f.city}`,
+    f.type === "Všetky" ? "" : `Typ: ${eventTypePresentation[f.type].label}`,
+    f.time === "current" ? "Obdobie: Prebiehajúce" : f.time === "past" ? "Obdobie: Ukončené" : "",
+  ].filter(Boolean);
   const pages = [...new Set([1, listing.page - 1, listing.page, listing.page + 1, listing.pages])]
     .filter(page => page >= 1 && page <= listing.pages).sort((a, b) => a - b);
 
@@ -47,7 +55,7 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
             <h2>Filtrovať podujatia</h2>
             <Link href="/podujatia">Vymazať filtre</Link>
           </div>
-          <form method="get" action={pathname} data-event-filters>
+          <form method="get" action={`${pathname}#events-list`} data-event-filters>
             {hidden(["region", "od", "do", "mesto", "mesiac"])}
             <label>Dátum od<input type="date" name="od" defaultValue={f.from} /></label>
             <label>Dátum do<input type="date" name="do" defaultValue={f.to} /></label>
@@ -78,7 +86,7 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
       <section className={styles.upcomingSection} id="events-list" aria-labelledby="events-upcoming-heading">
         <div className={styles.listHeading}>
           <div><h2 id="events-upcoming-heading">{title}</h2><p>{listing.total} podujatí</p></div>
-          <form method="get" action={pathname}>
+          <form method="get" action={`${pathname}#events-list`}>
             {hidden(["zoradenie"])}
             <label>Zoradenie
               <select aria-label="Zoradenie" name="zoradenie" defaultValue={f.sort}>

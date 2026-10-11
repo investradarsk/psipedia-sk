@@ -2066,7 +2066,6 @@
 .gridCardLink:focus-visible { outline:3px solid #287fca; outline-offset:-3px; }
 .gridMedia { position:relative; aspect-ratio:16/10; background:#e8ece4; overflow:hidden; }
 .gridMedia img { display:block; width:100%; height:100%; }
-.neutralMedia { display:grid; place-items:center; height:100%; color:#466051; background:linear-gradient(135deg,#e5ebe0,#f5f2e7); font-size:1rem; }
 .gridDate { position:absolute; top:10px; left:10px; padding:6px 9px; border-radius:6px; background:#ffffffed; color:#173f35; font-size:.8rem; font-weight:800; }
 .gridBody { padding:14px; }
 .gridBody h3 { font-size:1.05rem; line-height:1.4; color:#173f35; margin:12px 0; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
@@ -2083,4 +2082,65 @@
 /* Illustrations keep their original framing; uploaded photographs retain 4:3. */
 .detailVisual:has([data-event-image-source="fallback"]) {
   aspect-ratio: 16 / 10;
+}
+
+/* Final events polish: compact organizer CTA, readable state and unobscured anchors. */
+.relatedList .eventCardWithImage,
+.relatedList .cancelledCard.eventCardWithImage {
+  grid-template-columns: 72px 128px minmax(0, 1fr) auto;
+}
+
+@media (max-width: 760px) {
+  .relatedList .eventCardWithImage,
+  .relatedList .cancelledCard.eventCardWithImage {
+    grid-template-columns: 70px minmax(0, 1fr) 82px;
+  }
+}
+
+@media (max-width: 520px) {
+  .relatedList .eventCardWithImage,
+  .relatedList .cancelledCard.eventCardWithImage {
+    grid-template-columns: 62px minmax(0, 1fr) 68px;
+  }
+}
+
+.calendarOrganizer [data-public-context-banner] {
+  padding: 24px;
+  border-radius: var(--ps-radius-card);
+}
+.calendarOrganizer [data-public-context-banner] > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 24px;
+  align-items: center;
+  max-width: none;
+  padding: 0;
+}
+.calendarOrganizer [data-public-context-banner] > div > :not(a) {
+  grid-column: 1;
+  margin: 0;
+}
+.calendarOrganizer [data-public-context-banner] h2 {
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+}
+.calendarOrganizer [data-public-context-banner] > div > a {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  justify-self: end;
+  margin: 0;
+}
+.monthCalendar, .upcomingSection, .dayDetail {
+  scroll-margin-top: 126px;
+}
+.sidebarContent :is(input, select, button, a):focus-visible,
+.listHeading :is(select, button):focus-visible,
+.pagination a:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .calendarOrganizer [data-public-context-banner] { padding: 20px; }
+  .calendarOrganizer [data-public-context-banner] > div { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .calendarOrganizer [data-public-context-banner] > div > a { grid-column: 1; grid-row: auto; justify-self: start; }
+  .monthCalendar, .upcomingSection, .dayDetail { scroll-margin-top: 104px; }
 }
