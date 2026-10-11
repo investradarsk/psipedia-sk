@@ -243,6 +243,15 @@ export function isTestScriptOnlyPackageChange(baseManifest, headManifest) {
   }
 }
 
+export function changedPackageTestScriptNames(baseManifest, headManifest) {
+  if (!isTestScriptOnlyPackageChange(baseManifest, headManifest)) return [];
+  const before = typeof baseManifest === "string" ? JSON.parse(baseManifest) : baseManifest;
+  const after = typeof headManifest === "string" ? JSON.parse(headManifest) : headManifest;
+  return Object.keys(after.scripts).filter((key) =>
+    key.startsWith("test:") && before.scripts?.[key] !== after.scripts[key]
+  ).sort();
+}
+
 export function packageTestScriptsOnlyBetweenGit({
   baseSha = process.env.CI_SCOPE_BASE_SHA,
   headSha = process.env.CI_SCOPE_HEAD_SHA,
@@ -366,6 +375,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const packageTestScriptsOnly = files.includes("package.json") && filesIndex < 0 && packageTestScriptsOnlyBetweenGit();
   const result = classifyChangedFiles(files, { packageTestScriptsOnly });
 
-  if (githubOutput) writeGithubOutput(result, result.files);
+  if (args.includes("--run-changed-package-tests")) {
+    const baseSha = process.env.CI_SCOPE_BASE_SHA;
+    const headSha = process.env.CI_SCOPE_HEAD_SHA;
+    if (!baseSha || !headSha) throw new Error("Base and head SHA required to run changed test scripts");
+    const before = execFileSync("git", ["show", `${baseSha}:package.json`], { encoding: "utf8" });
+    const after = execFileSync("git", ["show", `${headSha}:package.json`], { encoding: "utf8" });
+    const changed = changedPackageTestScriptNames(before, after);
+    if (!changed.length) throw new Error("No safe changed test scripts detected; refusing to skip full validation");
+    for (const name of changed) {
+      process.stdout.write(`Running changed npm test command: ${name}\n`);
+      execFileSync("npm", ["run", name], { stdio: "inherit" });
+    }
+  } else if (githubOutput) writeGithubOutput(result, result.files);
   else process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }
