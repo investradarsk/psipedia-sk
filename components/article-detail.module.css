@@ -1,7 +1,7 @@
 .modernArticle {
-  --article-reading-width: 720px;
-  --article-sidebar-width: 300px;
-  --article-layout-gap: clamp(42px, 5vw, 72px);
+  --article-reading-width: 800px;
+  --article-sidebar-width: 290px;
+  --article-layout-gap: clamp(20px, 2vw, 30px);
   min-width: 0;
   background: #fff;
 }
@@ -23,7 +23,7 @@
 .modernArticle .hero {
   width: 100%;
   margin: 0;
-  padding: 14px 0 18px;
+  padding: 14px 0 0;
 }
 
 .hero :global(.article-breadcrumbs) {
@@ -36,7 +36,7 @@
   width: 100%;
   max-width: var(--article-reading-width);
   min-width: 0;
-  gap: 16px;
+  gap: 14px;
   margin: 0;
 }
 
@@ -57,8 +57,8 @@
 }
 
 .title h1 {
-  max-width: 32ch;
-  margin: 0 0 14px;
+  max-width: none;
+  margin: 0;
   font-size: clamp(2rem, 3.2vw, 2.7rem);
   font-weight: 500;
   line-height: 1.06;
@@ -66,14 +66,6 @@
   text-wrap: balance;
 }
 
-.title > p {
-  max-width: 68ch;
-  margin: 0;
-  color: #4f5653;
-  font-size: 1.02rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
 
 .metaActions {
   display: flex;
@@ -81,7 +73,7 @@
   align-items: end;
   justify-content: space-between;
   flex-wrap: wrap;
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .bylineWrap {
@@ -167,7 +159,6 @@
   position: relative;
   min-width: 0;
   min-height: 0;
-  max-height: 430px;
   aspect-ratio: 16 / 9;
   border-radius: 16px;
 }
@@ -181,7 +172,6 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  max-height: 430px;
   border-radius: 16px;
   object-fit: cover;
 }
@@ -214,7 +204,7 @@
   width: 100%;
   max-width: var(--article-reading-width);
   margin: 0;
-  padding: 18px 0 72px;
+  padding: 16px 0 72px;
 }
 
 .readingShell :global(.article-prose) {
@@ -226,6 +216,16 @@
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
   font-size: 16px;
   line-height: 1.55;
+}
+
+.readingShell .standfirst {
+  margin: 0 0 18px;
+  color: #34483e;
+  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 550;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .readingShell :global(.article-prose .article-intro) {
@@ -621,7 +621,7 @@
   border-top: 1px solid rgba(23, 75, 56, 0.16);
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1199px) {
   .articleLayout {
     grid-template-columns: minmax(0, var(--article-reading-width));
     gap: 48px;
@@ -693,9 +693,10 @@
     text-wrap: pretty;
   }
 
-  .title > p {
-    font-size: 0.95rem;
-    line-height: 1.43;
+  .readingShell .standfirst {
+    margin-bottom: 14px;
+    font-size: 1rem;
+    line-height: 1.48;
   }
 
   .metaActions {
