@@ -34,8 +34,8 @@ test("Event provider schema uses Directory-compatible shape keywords",()=>{
   checkSubset(schema);
   const candidate=schema.properties.candidates.items;
   const props=candidate.properties;
-  const required=["title","organizer","start_date","online","description","source_urls","evidence"];
-  const optional=["start_time","end_date","end_time","all_day","venue","city","region","event_url","registration_url","cancelled"];
+  const required=["title","organizer","start_date","all_day","online","description","source_urls","evidence","cancelled"];
+  const optional=["start_time","end_date","end_time","venue","city","region","event_url","registration_url"];
   assert.deepEqual(candidate.required,required);
   assert.equal(Object.hasOwn(candidate,"additionalProperties"),false);
   assert.deepEqual(Object.keys(props).filter(k=>!required.includes(k)).sort(),optional.sort());
@@ -292,9 +292,9 @@ test("runtime remains strict for Event dates, times, DST, history, evidence, can
   assert.equal(parse({}).start_date,"2026-11-20");
   const parseFull=full=>parseGeminiEventEnvelope({schema_version:1,category_key:stableKey,
     candidates:[full]},req,"2026-10-10");
-  // Provider-optional keys are NOT optional to the local Event Candidate V1 contract.
-  for(const field of ["start_time","end_date","end_time","all_day","venue","city","region",
-    "event_url","registration_url","cancelled"]){
+  // Semantic and evidence-bearing required fields still fail closed when omitted.
+  for(const field of ["title","organizer","start_date","all_day","online","description",
+    "source_urls","evidence","cancelled"]){
     const missing={...candidate};delete missing[field];
     assert.throws(()=>parseFull(missing),e=>e.code==="INVALID_RESPONSE",field);
   }
