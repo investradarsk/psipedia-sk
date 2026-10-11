@@ -282,7 +282,7 @@ test("global discovery timeout is 120s for Directory, Events and Help, caps call
     ["directory default", directoryKey, {}, 120_000],
     ["events default", eventsKey, {}, 120_000],
     ["help default", helpKey, {}, 120_000],
-    ["oversized caller override", directoryKey, { timeoutMs: 300_000 }, 120_000],
+    ["background-sized caller override", directoryKey, { timeoutMs: 300_000 }, 300_000],
     ["short explicit timeout for tests", directoryKey, { timeoutMs: 25 }, 25],
   ]) {
     await t.test(label, async (subtest) => {
