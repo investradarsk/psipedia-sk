@@ -58,10 +58,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   useEffect(() => {
     const closeMenus = () => {
       desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => {
-        // Close the native disclosure and hide its popup synchronously.
+        // CSS follows native disclosure state without an inline display override.
         item.open = false;
-        const popup = item.querySelector<HTMLElement>("[data-admin-desktop-popup]");
-        if (popup) popup.style.display = "none";
       });
     };
     const pointer = (event: PointerEvent) => {
@@ -74,10 +72,6 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       event.preventDefault();
       event.stopPropagation();
       expanded.open = false;
-      // Explicitly hide on Escape: author CSS otherwise overrides details'
-      // browser-specific content hiding behavior in some Chromium builds.
-      const popup = expanded.querySelector<HTMLElement>("[data-admin-desktop-popup]");
-      if (popup) popup.style.display = "none";
       expanded.querySelector<HTMLElement>("summary")?.focus();
     };
     document.addEventListener("pointerdown", pointer);
@@ -138,15 +132,12 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
             key={group.label}
             name="admin-primary"
             className={styles.desktopGroup}
-            onToggle={(event) => {
-              const popup = event.currentTarget.querySelector<HTMLElement>("[data-admin-desktop-popup]");
-              if (popup) popup.style.display = event.currentTarget.open ? "grid" : "none";
-            }}
+            // Native details + CSS [open] avoid toggle-event race conditions.
           >
             <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
-            <div className={styles.desktopMenu} id={"admin-menu-" + index} data-admin-desktop-popup style={{ display: "none" }}>
+            <div className={styles.desktopMenu} id={"admin-menu-" + index} data-admin-desktop-popup>
               {group.items.map((item) => {
                 const current = active?.href === item.href;
                 return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
