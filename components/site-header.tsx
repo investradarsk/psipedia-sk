@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, TouchEvent as ReactTouchEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { NavigationItem } from "@/lib/navigation";
 import { portalSections } from "@/lib/portal";
@@ -34,7 +34,6 @@ export function SiteHeader({
   const searchDialogRef = useRef<HTMLDivElement>(null);
   const searchReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const menuPullStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const internalTrailRef = useRef<string[]>([]);
   const menuReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -102,11 +101,11 @@ export function SiteHeader({
     let start: { x: number; y: number; time: number } | null = null;
     function onTouchStart(event: globalThis.TouchEvent) {
       start = null;
-      if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px) and (pointer: coarse)").matches) return;
+      if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px)").matches) return;
       const touch = event.touches[0];
-      // Leave the system edges to Safari and iOS: the inward swipe starts
-      // within the right half of the page rather than in a browser gesture zone.
-      if (touch.clientX < window.innerWidth * 0.55 || touch.clientX > window.innerWidth - 16) return;
+      // Do not compete with the browser\'s left/right edge gestures. Chrome
+      // may own those gestures before any page touch events arrive.
+      if (touch.clientX < Math.max(28, window.innerWidth * 0.32) || touch.clientX > window.innerWidth - 8) return;
       const target = event.target;
       if (!(target instanceof Element) || target.closest(
         '#mobile-menu, .search-modal, [role="dialog"], [role="slider"], input, textarea, select, button, [contenteditable="true"], .gm-style, .leaflet-container, .maplibregl-map, .swiper, [data-no-swipe-back]',
@@ -118,6 +117,14 @@ export function SiteHeader({
       }
       start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
     }
+    function onTouchMove(event: globalThis.TouchEvent) {
+      if (!start || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const left = start.x - touch.clientX;
+      const vertical = Math.abs(start.y - touch.clientY);
+      // Claim only a clear inward left swipe; vertical scrolling remains native.
+      if (left > 22 && vertical < left * 0.38 && event.cancelable) event.preventDefault();
+    }
     function onTouchEnd(event: globalThis.TouchEvent) {
       const origin = start;
       start = null;
@@ -125,7 +132,7 @@ export function SiteHeader({
       const touch = event.changedTouches[0];
       const left = origin.x - touch.clientX;
       const vertical = Math.abs(touch.clientY - origin.y);
-      if (left < 90 || vertical > Math.min(65, left * 0.42) || Date.now() - origin.time > 850) return;
+      if (left < 85 || vertical > Math.min(65, left * 0.38) || Date.now() - origin.time > 1100) return;
       const current = window.location.pathname + window.location.search;
       const trail = internalTrailRef.current;
       const previous = trail.length > 1 ? trail[trail.length - 2] : null;
@@ -134,10 +141,12 @@ export function SiteHeader({
     }
     function onTouchCancel() { start = null; }
     document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
       document.removeEventListener("touchcancel", onTouchCancel);
     };
@@ -197,6 +206,7 @@ export function SiteHeader({
       if (!headerRef.current?.contains(event.target as Node)) {
         setOpenDesktopMenu(null);
         setOpenMobileMenu(null);
+        setMenuOpen(false);
       }
     }
     function onKeyDown(event: KeyboardEvent) {
@@ -286,7 +296,13 @@ export function SiteHeader({
     // Measure the actual menu entry point without locking document scrolling.
     const root = document.documentElement;
     const masthead = headerRef.current?.querySelector<HTMLElement>("[data-header-masthead]");
+    const initialScrollY = window.scrollY;
     const update = () => {
+      if (Math.abs(window.scrollY - initialScrollY) > 12) {
+        setOpenMobileMenu(null);
+        setMenuOpen(false);
+        return;
+      }
       const bottom = masthead?.getBoundingClientRect().bottom ?? 68;
       root.style.setProperty("--psipedia-mobile-menu-top", `${Math.ceil(Math.max(0, bottom))}px`);
     };
@@ -297,6 +313,61 @@ export function SiteHeader({
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       root.style.removeProperty("--psipedia-mobile-menu-top");
+    };
+  }, [menuOpen]);
+
+  // Touch scrolling is native on Chrome and iOS. React onTouchEnd alone is
+  // unreliable here: overscroll can fire touchcancel instead of touchend.
+  // Intercept only a clear downward pull that STARTED at the top of the menu.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const menu = mobileMenuRef.current;
+    const nav = menu?.querySelector("nav");
+    if (!menu || !nav) return;
+
+    let origin: { x: number; y: number; time: number } | null = null;
+    const closeMenu = () => {
+      origin = null;
+      setOpenMobileMenu(null);
+      setMenuOpen(false);
+    };
+    function onStart(event: globalThis.TouchEvent) {
+      origin = null;
+      if (event.touches.length !== 1 || nav!.scrollTop > 2) return;
+      const touch = event.touches[0];
+      origin = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+    }
+    function onMove(event: globalThis.TouchEvent) {
+      if (!origin || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const down = touch.clientY - origin.y;
+      const across = Math.abs(touch.clientX - origin.x);
+      if (down <= 14 || down < across * 1.35 || nav!.scrollTop > 2) return;
+      // Prevent Chrome's pull-to-refresh / native overscroll from cancelling
+      // the gesture before the finger is lifted.
+      if (event.cancelable) event.preventDefault();
+      if (down >= 65 && Date.now() - origin.time < 1300) closeMenu();
+    }
+    function onEnd(event: globalThis.TouchEvent) {
+      if (!origin || event.changedTouches.length !== 1) { origin = null; return; }
+      const touch = event.changedTouches[0];
+      const down = touch.clientY - origin.y;
+      const across = Math.abs(touch.clientX - origin.x);
+      const valid = down >= 65 && down > across * 1.35
+        && nav!.scrollTop <= 2 && Date.now() - origin.time < 1300;
+      origin = null;
+      if (valid) closeMenu();
+    }
+    function onCancel() { origin = null; }
+    menu.addEventListener("touchstart", onStart, { passive: true });
+    menu.addEventListener("touchmove", onMove, { passive: false });
+    menu.addEventListener("touchend", onEnd, { passive: true });
+    menu.addEventListener("touchcancel", onCancel, { passive: true });
+    return () => {
+      menu.removeEventListener("touchstart", onStart);
+      menu.removeEventListener("touchmove", onMove);
+      menu.removeEventListener("touchend", onEnd);
+      menu.removeEventListener("touchcancel", onCancel);
     };
   }, [menuOpen]);
 
@@ -398,29 +469,6 @@ export function SiteHeader({
     if (trigger) searchReturnFocusRef.current = trigger;
     setMenuOpen(false);
     setSearchOpen(true);
-  }
-
-  function onMenuPullStart(event: ReactTouchEvent<HTMLDivElement>) {
-    menuPullStartRef.current = null;
-    const nav = mobileMenuRef.current?.querySelector("nav");
-    if (event.touches.length !== 1 || !nav || nav.scrollTop > 1) return;
-    const touch = event.touches[0];
-    menuPullStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-  }
-
-  function onMenuPullEnd(event: ReactTouchEvent<HTMLDivElement>) {
-    const origin = menuPullStartRef.current;
-    menuPullStartRef.current = null;
-    if (!origin || event.changedTouches.length !== 1) return;
-    const touch = event.changedTouches[0];
-    const down = touch.clientY - origin.y;
-    const horizontal = Math.abs(touch.clientX - origin.x);
-    // Only dismiss a deliberate downward pull from the top. A swipe up
-    // must continue scrolling the long menu and expanded submenus normally.
-    if (down < 75 || down < horizontal * 1.5 || Date.now() - origin.time > 900) return;
-    if ((mobileMenuRef.current?.querySelector("nav")?.scrollTop ?? 0) > 1) return;
-    setOpenMobileMenu(null);
-    setMenuOpen(false);
   }
 
   function menuButton(className: string) {
@@ -535,8 +583,7 @@ export function SiteHeader({
           </nav>
         </div>
 
-        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}
-          onTouchStart={onMenuPullStart} onTouchEnd={onMenuPullEnd} onTouchCancel={() => { menuPullStartRef.current = null; }}>
+        <div ref={mobileMenuRef} id="mobile-menu" className={`mobile-menu ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen} inert={!menuOpen}>
           <nav className="shell public-shell" aria-label="Mobilná navigácia">
             {nav.map((item) => (
               <div className={`mobile-nav-group ${openMobileMenu === item.id ? "is-open" : ""}`} key={item.id}>
