@@ -51,7 +51,7 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.match(calendar, /initialType === "Všetky" \|\| event\.eventType === initialType/);
   assert.match(calendar, /Nenašli sme zhodu/);
   assert.match(calendar, /method="get"/);
-  assert.match(calendar, /data-public-search-form="events"/);
+  assert.match(eventsPage, /<HomePortalSearch[\s\S]*searchScope="events"/);
   assert.match(calendar, /<PublicFilterDisclosure/);
   assert.doesNotMatch(calendar, /useState|useMemo|window\.history/);
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
@@ -94,7 +94,7 @@ test("events keep shared public primitives while event-specific styles stay scop
   assert.match(eventsPage, /Breadcrumbs, PageContainer/);
   assert.match(eventsPage, /<PageContainer/);
   assert.match(calendar, /PublicFilterDisclosure/);
-  assert.match(calendar, /<form[\s\S]*className=\{styles\.toolbar\}[\s\S]*method="get"/);
+  assert.match(calendar, /<form[\s\S]*className=\{\[styles\.toolbar, styles\.filtersToolbar\]\.join\(" "\)\}[\s\S]*method="get"/);
   assert.match(eventsPage, /events-public\.module\.css/);
   assert.match(eventCard, /events-public\.module\.css/);
 });
