@@ -72,7 +72,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
       } else {
         setSetting(data.setting);
         setConfirming(false);
-        setMessage(externalEnabled ? "Nastavenia uložené. GitHub plánovač ich použije pri ďalšom termíne." : "Nastavenia uložené. Automatizácia sa zatiaľ nespúšťa.");
+        setMessage(externalEnabled ? "Nastavenia uložené. Plánovač Psipedie ich použije pri ďalšom termíne." : "Nastavenia uložené. Automatizácia sa zatiaľ nespúšťa.");
       }
     } catch {
       setMessage("Ukladanie zlyhalo. Skús to znova.");
@@ -173,7 +173,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
           <p>{externalEnabled ? "GitHub Actions · maximálne 5 konceptov · zápis iba do Notionu · vyžaduje zvlášť povolené platené volania na GitHube." : "Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje."}</p>
           {!setting.saved && <p>Pred spustením najprv ulož nastavenia tejto karty.</p>}
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
-          {confirming && <p role="alert">Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty.</p>}
+          {confirming && <p role="alert">{externalEnabled ? "Potvrď odoslanie do GitHub Actions. Ak je platený režim na GitHube povolený, Gemini môže vykonať viacero platených API volaní a vytvoriť koncepty priamo v Notione." : "Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty."}</p>}
           <div className={styles.pilotActions}>
             <button type="button" className="admin-primary-action"
               disabled={!canPilot} onClick={onPilotClick}>
