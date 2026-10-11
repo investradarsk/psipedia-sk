@@ -112,6 +112,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0117_gemini_events_rejections.sql",
   "0118_event_image_display.sql",
   "0119_gemini_manual_background_jobs.sql",
+  "0120_article_image_presentation.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -703,6 +704,7 @@ function schemaState(databaseName, configPath) {
   const columns = d1Execute(databaseName, configPath, "PRAGMA table_info('directory_profiles')");
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
   const managedEventColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_events')");
+  const managedArticleColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_articles')");
   const partnerAccountColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_accounts')");
   const partnerSessionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_management_sessions')");
   const partnerAccessTokenColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_access_tokens')");
@@ -731,6 +733,7 @@ function schemaState(databaseName, configPath) {
     columns,
     eventNotionSyncColumns,
     managedEventColumns,
+    managedArticleColumns,
     partnerAccountColumns,
     partnerSessionColumns,
     partnerAccessTokenColumns,
@@ -1134,6 +1137,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: ["gemini_manual_background_jobs","idx_gemini_manual_queue",
       "idx_gemini_manual_active_category","idx_gemini_manual_only_one_active"]
       .some(name=>names.has(name)) };
+  }
+  if (targetMigration === "0120_article_image_presentation.sql") {
+    return { partial: (schema.managedArticleColumns ?? []).some(column =>
+      ["image_display", "image_focus_x", "image_focus_y"].includes(String(column.name))) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1885,6 +1892,21 @@ function assertEventImageDisplaySchema(schema) {
     "managed_events.image_display allowed modes must be constrained");
 }
 
+function assertArticleImagePresentationSchema(schema) {
+  const columns = schema.managedArticleColumns ?? [];
+  for (const field of ["image_display", "image_focus_x", "image_focus_y"]) {
+    invariant(columns.some(column => String(column.name) === field), `managed_articles.${field} missing`);
+  }
+  const display = columns.find(column => String(column.name) === "image_display");
+  invariant(String(display?.dflt_value).replaceAll("'", "") === "auto",
+    "managed_articles.image_display must default to auto");
+  const sql = String(objectMap(schema.objects).get("managed_articles")?.sql ?? "");
+  invariant(sql.includes("image_display IN ('auto', 'cover', 'contain')"), "Missing article image mode constraint");
+  for (const name of ["image_focus_x", "image_focus_y"]) {
+    invariant(sql.includes(`${name} BETWEEN 0 AND 100`), `Missing ${name} range constraint`);
+  }
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1933,6 +1955,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
   if (migrationIndex(targetMigration) >= 118) assertEventImageDisplaySchema(schema);
   if (migrationIndex(targetMigration) >= 119) assertGeminiManualQueueSchema(schema);
+  if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */

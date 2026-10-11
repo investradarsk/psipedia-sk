@@ -21,3 +21,14 @@ test("ordinary admin save serializes managed items only", () => {
   assert.match(editorSource, /body: JSON\.stringify\(\{ items \}\)/);
   assert.doesNotMatch(editorSource, /JSON\.stringify\(\{[^}]*automaticChildren/);
 });
+
+test("desktop admin disclosure opens natively and closes with explicit popup hiding", async () => {
+  const source = await readFile(new URL("../components/admin-navigation.tsx", import.meta.url), "utf8");
+  assert.match(source, /<details[\s\S]*name="admin-primary"/);
+  assert.match(source, /onToggle=\{\(event\) => \{/);
+  assert.match(source, /popup\.style\.display = event\.currentTarget\.open \? "grid" : "none"/);
+  assert.match(source, /data-admin-desktop-popup style=\{\{ display: "none" \}\}/);
+  assert.match(source, /expanded\.open = false/);
+  assert.match(source, /popup\.style\.display = "none"/);
+  assert.doesNotMatch(source, /preventDefault\(\);[\s\S]*setExpandedDesktopGroup/);
+});

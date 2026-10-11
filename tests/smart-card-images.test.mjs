@@ -27,3 +27,15 @@ test("manual override roundtrip and migration default", () => {
   assert.ok(read("lib/event-store.ts").includes("image_display = ?"));
   assert.ok(read("drizzle/0118_event_image_display.sql").includes("DEFAULT 'auto'"));
 });
+
+test("all article image surfaces use the shared smart crop with optional persisted focal point", () => {
+  for (const path of [
+    "components/article-card.tsx",
+    "components/article-detail.tsx",
+    "components/public-visual-system/public-visual-system.tsx",
+  ]) assert.match(read(path), /<SmartCardImage/, path);
+  assert.match(read("components/smart-card-image.tsx"), /avoidSevereArticleCrop/);
+  assert.match(read("components/smart-card-image.tsx"), /objectPosition/);
+  assert.match(read("components/admin-article-editor.tsx"), /article-image-focus-y/);
+  assert.match(read("lib/article-store.ts"), /image_focus_y = \?/);
+});
