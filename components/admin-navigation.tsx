@@ -57,7 +57,12 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
 
   useEffect(() => {
     const closeMenus = () => {
-      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => { item.open = false; });
+      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => {
+        // Close the native disclosure and hide its popup synchronously.
+        item.open = false;
+        const popup = item.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+        if (popup) popup.style.display = "none";
+      });
     };
     const pointer = (event: PointerEvent) => {
       if (!desktopRef.current?.contains(event.target as Node)) closeMenus();
@@ -67,7 +72,12 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       const expanded = desktopRef.current?.querySelector<HTMLDetailsElement>("details[open]");
       if (!expanded) return;
       event.preventDefault();
+      event.stopPropagation();
       expanded.open = false;
+      // Explicitly hide on Escape: author CSS otherwise overrides details'
+      // browser-specific content hiding behavior in some Chromium builds.
+      const popup = expanded.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+      if (popup) popup.style.display = "none";
       expanded.querySelector<HTMLElement>("summary")?.focus();
     };
     document.addEventListener("pointerdown", pointer);
@@ -124,11 +134,19 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
     <>
       <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sticky-nav>
         {adminNavigationGroups.map((group, index) => (
-          <details key={group.label} name="admin-primary" className={styles.desktopGroup}>
+          <details
+            key={group.label}
+            name="admin-primary"
+            className={styles.desktopGroup}
+            onToggle={(event) => {
+              const popup = event.currentTarget.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+              if (popup) popup.style.display = event.currentTarget.open ? "grid" : "none";
+            }}
+          >
             <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
-            <div className={styles.desktopMenu} id={"admin-menu-" + index}>
+            <div className={styles.desktopMenu} id={"admin-menu-" + index} data-admin-desktop-popup style={{ display: "none" }}>
               {group.items.map((item) => {
                 const current = active?.href === item.href;
                 return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;

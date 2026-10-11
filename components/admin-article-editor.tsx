@@ -22,6 +22,8 @@ import {
 } from "@/lib/portal";
 import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/news";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { SmartCardImage } from "@/components/smart-card-image";
+import type { SmartImageMode } from "@/lib/smart-image";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import type { ArticleQaIssue } from "@/lib/article-content-qa";
 import type { ArticleTopic } from "@/lib/article-topics";
@@ -105,6 +107,10 @@ export function AdminArticleEditor({
   const [takeawayRichText, setTakeawayRichText] = useState(article?.takeawayRichText ?? legacyRichTextToDocument(article?.takeaway ?? ""));
   const [imageUrl, setImageUrl] = useState(article?.image ?? "");
   const [imageKey, setImageKey] = useState(article?.imageKey ?? "");
+  const [imageDisplay, setImageDisplay] = useState<SmartImageMode>(article?.imageDisplay ?? "auto");
+  const [customImageFocus, setCustomImageFocus] = useState(article?.imageFocusX != null && article?.imageFocusY != null);
+  const [imageFocusX, setImageFocusX] = useState(article?.imageFocusX ?? 50);
+  const [imageFocusY, setImageFocusY] = useState(article?.imageFocusY ?? 28);
   const [imageAlt, setImageAlt] = useState(article?.imageAlt ?? "");
   const [imageCaption, setImageCaption] = useState(article?.imageCaption ?? "");
   const [imageCredit, setImageCredit] = useState(article?.imageCredit ?? "");
@@ -187,6 +193,8 @@ export function AdminArticleEditor({
       const data = await uploadAdminImage(file, "articles");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
+      setImageDisplay("auto");
+      setCustomImageFocus(false);
       setEditorDirty(true);
       setMessage(adminImageUploadMessage(data, "Ulož článok, aby sa zmena zachovala."));
     } catch (uploadError) {
@@ -239,6 +247,9 @@ export function AdminArticleEditor({
       takeawayRichText,
       imageUrl: imageUrl || null,
       imageKey: imageKey || null,
+      imageDisplay,
+      imageFocusX: customImageFocus ? imageFocusX : null,
+      imageFocusY: customImageFocus ? imageFocusY : null,
       imageAlt: imageAlt || null,
       imageCaption: imageCaption || null,
       imageCredit: imageCredit || null,
@@ -506,6 +517,49 @@ export function AdminArticleEditor({
               <small>Odporúčaný pomer 16 : 9 a šírka aspoň 1200 px.</small>
             </div>
           </div>
+          {imageUrl && (
+            <div className="admin-field-grid" data-article-image-presentation>
+              <div className="admin-field admin-field--full">
+                <label htmlFor="article-image-display">Zobrazenie titulného obrázka</label>
+                <select id="article-image-display" value={imageDisplay} onChange={(event) => { setImageDisplay(event.target.value as SmartImageMode); setEditorDirty(true); }}>
+                  <option value="auto">Automaticky (odporúčané)</option>
+                  <option value="cover">Vyplniť kartu (fotografia)</option>
+                  <option value="contain">Celý obrázok (logo/plagát)</option>
+                </select>
+                <small>Automatika uprednostní hornú časť fotografie a pri neprimeranom orezaní zobrazí celý obrázok.</small>
+              </div>
+              <div className="admin-field admin-field--full">
+                <label>
+                  <input type="checkbox" checked={customImageFocus} onChange={(event) => { setCustomImageFocus(event.target.checked); setEditorDirty(true); }} />
+                  Ručne nastaviť bod výrezu
+                </label>
+              </div>
+              {customImageFocus && <>
+                <div className="admin-field">
+                  <label htmlFor="article-image-focus-x">Vodorovný bod: {imageFocusX} %</label>
+                  <input id="article-image-focus-x" type="range" min={0} max={100} step={1} value={imageFocusX} onChange={(event) => { setImageFocusX(Number(event.target.value)); setEditorDirty(true); }} />
+                </div>
+                <div className="admin-field">
+                  <label htmlFor="article-image-focus-y">Zvislý bod: {imageFocusY} %</label>
+                  <input id="article-image-focus-y" type="range" min={0} max={100} step={1} value={imageFocusY} onChange={(event) => { setImageFocusY(Number(event.target.value)); setEditorDirty(true); }} />
+                </div>
+              </>}
+              <div className="admin-field admin-field--full">
+                <span>Ukážka výrezu na karte (16 : 9)</span>
+                <div style={{ width: "min(100%, 440px)", aspectRatio: "16 / 9", overflow: "hidden", borderRadius: 12, background: "#edf0e8" }}>
+                  <SmartCardImage
+                    roleHint="article"
+                    mode={imageDisplay}
+                    focusX={customImageFocus ? imageFocusX : null}
+                    focusY={customImageFocus ? imageFocusY : null}
+                    src={imageUrl}
+                    alt="Ukážka výrezu titulného obrázka"
+                    style={{ display: "block", width: "100%", height: "100%" }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           <div className="admin-field-grid">
             <div className="admin-field admin-field--full">
               <label htmlFor="article-image-alt">ALT text</label>

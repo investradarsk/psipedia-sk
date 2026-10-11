@@ -28,6 +28,7 @@ import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/edit
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./article-detail.module.css";
+import { SmartCardImage } from "@/components/smart-card-image";
 
 function safeExternalImageCreditUrl(value?: string) {
   if (!value) return undefined;
@@ -200,7 +201,7 @@ export function ArticleDetail({
           {article.image ? (
             <figure className={styles.heroFigure}>
               <MediaFrame className={styles.heroMedia} variant="article">
-                <img className="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+                <SmartCardImage roleHint="article" mode={article.imageDisplay} focusX={article.imageFocusX} focusY={article.imageFocusY} className="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
               </MediaFrame>
               {showImageMeta ? (
                 <figcaption className={styles.heroImageMeta}>

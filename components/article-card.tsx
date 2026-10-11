@@ -6,6 +6,7 @@ import { ArticleListItem } from "./article-list-item";
 import { PawMark } from "./icons";
 import { FavoriteButton } from "./favorite-button";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
+import { SmartCardImage } from "@/components/smart-card-image";
 
 export type ArticleCardVariant = "featured" | "grid" | "compact";
 
@@ -75,7 +76,11 @@ export function ArticleCard({
         aria-label={`${resolvedActionLabel}: ${article.title}`}
       >
         {article.image ? (
-          <img
+          <SmartCardImage
+            roleHint="article"
+            mode={article.imageDisplay}
+            focusX={article.imageFocusX}
+            focusY={article.imageFocusY}
             src={article.image}
             srcSet={responsiveMediaSrcSet(article.image, [320, 480, 640, 768, 960, 1280])}
             sizes={resolvedVariant === "featured" ? "(max-width: 980px) 100vw, 55vw" : "(max-width: 620px) 100vw, 33vw"}
