@@ -33,7 +33,7 @@ test("Events 2.0 removes the random photo hero and keeps data above the fold", (
   assert.doesNotMatch(eventsPage, /activeCount/);
   assert.match(eventsPage, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\}/);
   assert.ok(eventsPage.indexOf("<UnifiedSectionHero") < eventsPage.indexOf('className={styles.calendarSection}'));
-  assert.match(eventsPage, /eventDateStatus\(event, today\)/);
+  assert.match(calendar, /eventDateStatus\(event, today\)/);
   assert.match(eventsPage, /<UnifiedSectionHero/);
   assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo/);
   assert.match(eventsPage, /getSectionHeroVisual\(isMainListing \|\| !categorySlug \? "section\.podujatia" : `events\.\$\{categorySlug\}`\)/);
