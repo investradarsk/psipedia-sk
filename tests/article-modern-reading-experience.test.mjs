@@ -410,13 +410,13 @@ test("ARTICLE-READING-EDITORIAL-2 keeps original editor blocks and makes two-col
 test("ARTICLE-READING-COMPACT-3 reduces only prose and paragraph spacing without changing editorial blocks", () => {
   assert.match(styles, /\.readingShell :global\(\.article-block-text\),\s*\.readingShell :global\(\.article-block-rich-content\)\s*\{\s*gap:\s*0\.7em;/);
   assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*gap:\s*9px;[^}]*margin-bottom:\s*20px;[^}]*line-height:\s*1\.55;/s);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*margin-bottom:\s*17px;[^}]*line-height:\s*1\.55;/s);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*margin-bottom:\s*14px;[^}]*line-height:\s*1\.55;/s);
   assert.match(styles, /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s);
   assert.match(styles, /\.readingShell :global\(\.article-block-table-wrap\[data-columns="2"\] table\)\s*\{[^}]*table-layout:\s*fixed;/s);
 });
 
 
-test("ARTICLE-READING-PEREX-4 applies perex typography and wider mobile gutters only to ordinary prose", () => {
+test("ARTICLE-READING-PEREX-4 keeps perex typography with aligned mobile prose", () => {
   const scopedText = styles.slice(styles.indexOf("/* Use the perex's calm typeface"), styles.indexOf(".readingShell :global(.takeaway-box)"));
   assert.match(scopedText, /\.article-intro > p\)/);
   assert.match(scopedText, /\.article-block-text > p\)/);
@@ -425,8 +425,8 @@ test("ARTICLE-READING-PEREX-4 applies perex typography and wider mobile gutters 
   assert.match(scopedText, /font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;/);
   assert.doesNotMatch(scopedText, /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
   const mobile = styles.slice(styles.indexOf("@media (max-width: 767px)"), styles.indexOf("@media (max-width: 420px)"));
-  assert.match(mobile, /\.article-block-text > p\)[\s\S]*margin-inline:\s*-8px;/);
-  assert.doesNotMatch(mobile.slice(mobile.indexOf("/* Extend only ordinary paragraphs"), mobile.indexOf("/* Editorial paragraphs remain")), /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
+  assert.match(mobile, /\.article-block-text > p\)[\s\S]*margin-inline:\s*0;/);
+  assert.doesNotMatch(mobile.slice(mobile.indexOf("/* The canonical mobile shell"), mobile.indexOf("/* Editorial paragraphs remain")), /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
 });
 
 
