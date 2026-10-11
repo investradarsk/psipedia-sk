@@ -26,14 +26,15 @@ test("/podujatia remains the primary full event listing without mutating canonic
   assert.doesNotMatch(eventsPage, /createManagedEvent|updateManagedEvent|deleteManagedEvent/);
 });
 
-test("Events 2.0 removes the random photo hero and keeps data above the fold", () => {
+test("Events 2.0 presents calendar after managed hero, with shared date filtering", () => {
   assert.match(eventsPage, /Kalendár a databáza/);
   // UX-V2 intentionally removes the redundant hero count in favor of immediate calendar access.
   assert.doesNotMatch(eventsPage, /metaSlot=\{/);
   assert.doesNotMatch(eventsPage, /activeCount/);
   assert.match(eventsPage, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\}/);
   assert.ok(eventsPage.indexOf("<UnifiedSectionHero") < eventsPage.indexOf('className={styles.calendarSection}'));
-  assert.match(eventsPage, /eventDateStatus\(event, today\)/);
+  assert.match(calendar, /eventDateStatus\(event, today\)/);
+  assert.match(calendar, /const timeMatches = initialTime === "all"/);
   assert.match(eventsPage, /<UnifiedSectionHero/);
   assert.doesNotMatch(eventsPage, /<SectionHero\b|heroImage|event-calendar-hero--photo/);
   assert.match(eventsPage, /getSectionHeroVisual\(isMainListing \|\| !categorySlug \? "section\.podujatia" : `events\.\$\{categorySlug\}`\)/);
@@ -51,16 +52,20 @@ test("event filters keep canonical page type, regions, date status, search and r
   assert.match(calendar, /initialType === "Všetky" \|\| event\.eventType === initialType/);
   assert.match(calendar, /Nenašli sme zhodu/);
   assert.match(calendar, /method="get"/);
-  assert.match(calendar, /data-public-search-form="events"/);
+  assert.match(eventsPage, /<HomePortalSearch[\s\S]*searchScope="events"/);
   assert.match(calendar, /<PublicFilterDisclosure/);
   assert.doesNotMatch(calendar, /useState|useMemo|window\.history/);
   assert.doesNotMatch(calendar, /eventTypeFilters\.map|const eventTypes\s*=/);
 });
 
-test("root event types are page-owned and the calendar does not repeat them in overview groups", () => {
+test("event categories link from search shortcuts and calendar legend without duplicate overview cards", () => {
   assert.match(eventsPage, /eventTypes\.flatMap/);
   assert.match(eventsPage, /PublicSubcategoryNavigator/);
-  assert.match(eventsPage, /mode="landing"/);
+  assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
+  assert.match(eventsPage, /mode="compact"/);
+  assert.match(calendar, /data-events-legend/);
+  assert.match(calendar, /eventTypes\.map\(\(type\) => \{/);
+  assert.match(calendar, /eventTypePortalHref\(type\)/);
   assert.match(calendar, /className=\{styles\.eventList\} data-event-list/);
   assert.doesNotMatch(calendar, /items\.slice\(0, 5\)|data-event-category-overview|data-event-category=\{group\.eventType\}|Všetky výstavy|Všetky tréningy/);
 });
@@ -94,7 +99,7 @@ test("events keep shared public primitives while event-specific styles stay scop
   assert.match(eventsPage, /Breadcrumbs, PageContainer/);
   assert.match(eventsPage, /<PageContainer/);
   assert.match(calendar, /PublicFilterDisclosure/);
-  assert.match(calendar, /<form[\s\S]*className=\{styles\.toolbar\}[\s\S]*method="get"/);
+  assert.match(calendar, /<form[\s\S]*className=\{\[styles\.toolbar, styles\.filtersToolbar\]\.join\(" "\)\}[\s\S]*method="get"/);
   assert.match(eventsPage, /events-public\.module\.css/);
   assert.match(eventCard, /events-public\.module\.css/);
 });
