@@ -23,7 +23,7 @@
 .modernArticle .hero {
   width: 100%;
   margin: 0;
-  padding: 26px 0 18px;
+  padding: 14px 0 18px;
 }
 
 .hero :global(.article-breadcrumbs) {
