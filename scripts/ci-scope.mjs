@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-export const CI_SCOPE_VERSION = 4;
+export const CI_SCOPE_VERSION = 5;
 
 const RULES = {
   ADMIN: [
@@ -218,11 +218,59 @@ function isCiControlFile(file) {
   return CI_CONTROL_RE.test(file);
 }
 
-export function classifyChangedFiles(inputFiles) {
+// Only explicitly test-prefixed npm scripts may bypass dependency-level regression.
+// Any other package change (including install/build/lifecycle scripts) remains fail-closed.
+export function isTestScriptOnlyPackageChange(baseManifest, headManifest) {
+  try {
+    const before = typeof baseManifest === "string" ? JSON.parse(baseManifest) : baseManifest;
+    const after = typeof headManifest === "string" ? JSON.parse(headManifest) : headManifest;
+    if (!before || !after || typeof before !== "object" || typeof after !== "object" ||
+        Array.isArray(before) || Array.isArray(after)) return false;
+
+    const { scripts: beforeScripts = {}, ...beforeRest } = before;
+    const { scripts: afterScripts = {}, ...afterRest } = after;
+    if (JSON.stringify(beforeRest) !== JSON.stringify(afterRest)) return false;
+    if (!beforeScripts || !afterScripts || typeof beforeScripts !== "object" ||
+        typeof afterScripts !== "object" || Array.isArray(beforeScripts) || Array.isArray(afterScripts)) return false;
+
+    const keys = new Set([...Object.keys(beforeScripts), ...Object.keys(afterScripts)]);
+    const changed = [...keys].filter((key) => beforeScripts[key] !== afterScripts[key]);
+    return changed.length > 0 && changed.every((key) =>
+      key.startsWith("test:") && typeof afterScripts[key] === "string"
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function changedPackageTestScriptNames(baseManifest, headManifest) {
+  if (!isTestScriptOnlyPackageChange(baseManifest, headManifest)) return [];
+  const before = typeof baseManifest === "string" ? JSON.parse(baseManifest) : baseManifest;
+  const after = typeof headManifest === "string" ? JSON.parse(headManifest) : headManifest;
+  return Object.keys(after.scripts).filter((key) =>
+    key.startsWith("test:") && before.scripts?.[key] !== after.scripts[key]
+  ).sort();
+}
+
+export function packageTestScriptsOnlyBetweenGit({
+  baseSha = process.env.CI_SCOPE_BASE_SHA,
+  headSha = process.env.CI_SCOPE_HEAD_SHA,
+} = {}) {
+  if (!baseSha || !headSha) return false;
+  try {
+    const before = execFileSync("git", ["show", `${baseSha}:package.json`], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const after = execFileSync("git", ["show", `${headSha}:package.json`], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return isTestScriptOnlyPackageChange(before, after);
+  } catch {
+    return false; // Missing revisions or invalid JSON must trigger full regression.
+  }
+}
+
+export function classifyChangedFiles(inputFiles, { packageTestScriptsOnly = false } = {}) {
   const files = normalizeFiles(inputFiles);
   const docsOnly = files.length > 0 && files.every(isDocsOnlyFile);
   const dependency = files.some((file) =>
-    file === "package.json" ||
+    (file === "package.json" && !packageTestScriptsOnly) ||
     file === "package-lock.json" ||
     file === ".nvmrc" ||
     file === ".node-version" ||
@@ -258,6 +306,7 @@ export function classifyChangedFiles(inputFiles) {
     runtimeChanged,
     docsOnly,
     dependency,
+    packageTestScriptsOnly: files.includes("package.json") && packageTestScriptsOnly,
     workflowOnly,
     ciControl,
     ciControlOnly,
@@ -301,6 +350,7 @@ function writeGithubOutput(result, files) {
     `bounded_core=${result.boundedCore}`,
     `runtime_changed=${result.runtimeChanged}`,
     `dependency=${result.dependency}`,
+    `package_test_scripts_only=${result.packageTestScriptsOnly}`,
     `ci_control=${result.ciControl}`,
     `automation_broad=${result.automationBroad}`,
     `automation_admin_e2e=${result.automationAdminE2e}`,
@@ -322,8 +372,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const githubOutput = args.includes("--github-output");
   const filesIndex = args.indexOf("--files");
   const files = filesIndex >= 0 ? args.slice(filesIndex + 1) : changedFilesFromGit();
-  const result = classifyChangedFiles(files);
+  const packageTestScriptsOnly = files.includes("package.json") && filesIndex < 0 && packageTestScriptsOnlyBetweenGit();
+  const result = classifyChangedFiles(files, { packageTestScriptsOnly });
 
-  if (githubOutput) writeGithubOutput(result, result.files);
+  if (args.includes("--run-changed-package-tests")) {
+    const baseSha = process.env.CI_SCOPE_BASE_SHA;
+    const headSha = process.env.CI_SCOPE_HEAD_SHA;
+    if (!baseSha || !headSha) throw new Error("Base and head SHA required to run changed test scripts");
+    const before = execFileSync("git", ["show", `${baseSha}:package.json`], { encoding: "utf8" });
+    const after = execFileSync("git", ["show", `${headSha}:package.json`], { encoding: "utf8" });
+    const changed = changedPackageTestScriptNames(before, after);
+    if (!changed.length) throw new Error("No safe changed test scripts detected; refusing to skip full validation");
+    for (const name of changed) {
+      process.stdout.write(`Running changed npm test command: ${name}\n`);
+      execFileSync("npm", ["run", name], { stdio: "inherit" });
+    }
+  } else if (githubOutput) writeGithubOutput(result, result.files);
   else process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }

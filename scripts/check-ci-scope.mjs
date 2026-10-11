@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { classifyChangedFiles, focusedPrE2eFlags } from "./ci-scope.mjs";
+import { classifyChangedFiles, focusedPrE2eFlags, isTestScriptOnlyPackageChange, changedPackageTestScriptNames } from "./ci-scope.mjs";
 
 const workflowDir = ".github/workflows";
 const workflowFiles = readdirSync(workflowDir).filter((name) => /\.ya?ml$/.test(name)).sort();
@@ -368,6 +368,43 @@ assert.ok(pr580.scopes.includes("ENTITY_SURFACES"));
 assert.equal(pr580.fullCore, true);
 assert.ok(!pr580.scopes.includes("NOTION"));
 
+// Scenario L — changing only a feature test command is not a dependency update.
+// This mirrors PR #750 where the only package.json delta was test:events-public-ux.
+const packageBefore = {
+  name: "psipedia-sk",
+  scripts: { build: "node build.mjs", "test:events-public-ux": "node --test tests/events.test.mjs" },
+  dependencies: { next: "16.2.6" },
+};
+const packageAfter = {
+  ...packageBefore,
+  scripts: { ...packageBefore.scripts, "test:events-public-ux": "node --test tests/events.test.mjs tests/event-listing.test.mjs" },
+};
+assert.equal(isTestScriptOnlyPackageChange(packageBefore, packageAfter), true);
+assert.deepEqual(changedPackageTestScriptNames(packageBefore, packageAfter), ["test:events-public-ux"]);
+const scriptOnly = classifyChangedFiles(["package.json"], { packageTestScriptsOnly: true });
+assert.equal(scriptOnly.dependency, false);
+assert.equal(scriptOnly.fullCore, false);
+assert.equal(scriptOnly.boundedCore, true);
+assert.equal(scriptOnly.validationMode, "bounded");
+assert.equal(prWorkflowWouldRun("ai-internal-discovery-click-value-ci.yml", ["package.json"]), false);
+assert.equal(prWorkflowWouldRun("sitewide-ai-entity-surface-ci.yml", ["package.json"]), false);
+
+// Scenario M — dependencies, build hooks, malformed manifests and locks fail closed.
+assert.equal(isTestScriptOnlyPackageChange(packageBefore, {
+  ...packageAfter, dependencies: { next: "16.3.0" },
+}), false);
+assert.equal(isTestScriptOnlyPackageChange(packageBefore, {
+  ...packageBefore, scripts: { ...packageBefore.scripts, build: "node different-build.mjs" },
+}), false);
+assert.equal(isTestScriptOnlyPackageChange(packageBefore, "{not-valid-json"), false);
+assert.deepEqual(changedPackageTestScriptNames(packageBefore, "{not-valid-json"), []);
+const scriptWithLock = classifyChangedFiles(["package.json", "package-lock.json"], { packageTestScriptsOnly: true });
+assert.equal(scriptWithLock.dependency, true);
+assert.equal(scriptWithLock.fullCore, true);
+assert.equal(classifyChangedFiles(["package.json"]).fullCore, true);
+
+assert.ok(required.includes("name: Changed package test scripts"));
+assert.ok(required.includes("run: node scripts/ci-scope.mjs --run-changed-package-tests"));
 console.log(
   `CI scope guard OK: ${workflowFiles.length} workflows audited; required checks stable; scenarios A-K and full-coverage contracts pass.`,
 );
