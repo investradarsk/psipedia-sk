@@ -50,15 +50,14 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
   const [openPath, setOpenPath] = useState<string | null>(null);
+  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<string | null>(null);
   const open = openPath === pathname;
   const desktopRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const closeMenus = () => {
-      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => { item.open = false; });
-    };
+    const closeMenus = () => setExpandedDesktopGroup(null);
     const pointer = (event: PointerEvent) => {
       if (!desktopRef.current?.contains(event.target as Node)) closeMenus();
     };
@@ -67,7 +66,10 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       const expanded = desktopRef.current?.querySelector<HTMLDetailsElement>("details[open]");
       if (!expanded) return;
       event.preventDefault();
-      expanded.open = false;
+      event.stopPropagation();
+      // Keep the rendered open state under React control; imperatively setting
+      // details.open could leave a visible popup after focus returns to summary.
+      setExpandedDesktopGroup(null);
       expanded.querySelector<HTMLElement>("summary")?.focus();
     };
     document.addEventListener("pointerdown", pointer);
@@ -76,6 +78,10 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       document.removeEventListener("pointerdown", pointer);
       document.removeEventListener("keydown", keyboard);
     };
+  }, [pathname]);
+
+  useEffect(() => {
+    setExpandedDesktopGroup(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -124,8 +130,16 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
     <>
       <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sticky-nav>
         {adminNavigationGroups.map((group, index) => (
-          <details key={group.label} name="admin-primary" className={styles.desktopGroup}>
-            <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
+          <details key={group.label} name="admin-primary" open={expandedDesktopGroup === group.label} className={styles.desktopGroup}>
+            <summary
+              className={styles.groupTrigger}
+              data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}
+              onClick={(event) => {
+                // Prevent native <details> toggling from racing a React update.
+                event.preventDefault();
+                setExpandedDesktopGroup((current) => current === group.label ? null : group.label);
+              }}
+            >
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
             <div className={styles.desktopMenu} id={"admin-menu-" + index}>
