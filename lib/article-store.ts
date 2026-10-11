@@ -719,7 +719,29 @@ async function normalizeInput(
 }
 
 const PUBLIC_ARTICLE_SUMMARY_COLUMNS = `slug, title, excerpt, category, portal_section, portal_subpage,
-  news_category, accent, image_url, image_display, image_focus_x, image_focus_y, reading_minutes, published_at, updated_at`;
+  news_category, accent, image_url, reading_minutes, published_at, updated_at`;
+
+/** Public read compatibility with pre-migration 0119 D1 and isolated test fixtures. */
+const articleImageProjectionCache = new WeakMap<D1Database, string>();
+const DEFAULT_IMAGE_PROJECTION = "'auto' AS image_display, NULL AS image_focus_x, NULL AS image_focus_y";
+async function articleImageProjection(database: D1Database): Promise<string> {
+  const previous = articleImageProjectionCache.get(database);
+  if (previous) return previous;
+  let projection = DEFAULT_IMAGE_PROJECTION;
+  try {
+    const columns = await database.prepare("PRAGMA table_info('managed_articles')").all<{ name: string }>();
+    const available = new Set((columns.results ?? []).map(column => column.name));
+    if (["image_display", "image_focus_x", "image_focus_y"].every(name => available.has(name))) {
+      projection = "image_display, image_focus_x, image_focus_y";
+    }
+  } catch {
+    // An old fixture or a staged production rollout may not have the new columns.
+  }
+  articleImageProjectionCache.set(database, projection);
+  return projection;
+}
+
+
 
 export async function getPublishedArticleSummaries(options: {
   portalSection?: ArticlePortalSection;
@@ -744,7 +766,7 @@ export async function getPublishedArticleSummaries(options: {
     bindings.push(options.category);
   }
   const result = await database
-    .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}
+    .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
       FROM managed_articles
       WHERE ${conditions.join(" AND ")}
       ORDER BY published_at DESC, updated_at DESC, id DESC
@@ -774,7 +796,7 @@ export async function getAllPublishedArticleSummaries(options: {
     bindings.push(options.category);
   }
   const result = await database
-    .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}
+    .prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
       FROM managed_articles
       WHERE ${conditions.join(" AND ")}
       ORDER BY published_at DESC, updated_at DESC, id DESC`)
@@ -792,7 +814,7 @@ export async function getPublishedArticleIndex(limit = 2000): Promise<Article[]>
   const safeLimit = Math.max(1, Math.min(5000, Math.trunc(limit)));
   const database = getD1Binding();
   if (!database) return seedArticles.slice(0, safeLimit);
-  const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, noindex, canonical_url
+  const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}, noindex, canonical_url
     FROM managed_articles
     WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
     ORDER BY published_at DESC, updated_at DESC, id DESC
@@ -812,7 +834,7 @@ export async function getHomepageArticles(): Promise<Article[]> {
   await ensureArticleStore(database);
   const result = await database.prepare(`
     WITH ranked AS (
-      SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url, image_display, image_focus_x, image_focus_y,
+      SELECT slug, title, excerpt, category, portal_section, news_category, accent, image_url, ${await articleImageProjection(database)},
         reading_minutes, published_at,
         ROW_NUMBER() OVER (
           PARTITION BY CASE WHEN portal_section = 'novinky' THEN 0 ELSE 1 END
@@ -842,7 +864,7 @@ const getPublishedArticleUncached = async (slug: string): Promise<PublishedArtic
   const row = await database
     .prepare(`SELECT id, slug, title, excerpt, category, portal_section, portal_subpage, news_category,
       status, accent, author, author_profile_id, intro, intro_rich_text_json, takeaway, takeaway_rich_text_json, sections_json, sources_json, blocks_json,
-      image_url, image_key, image_display, image_focus_x, image_focus_y, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
+      image_url, image_key, ${await articleImageProjection(database)}, image_alt, image_caption, image_credit, image_credit_url, reading_minutes, created_at, updated_at, published_at, created_by,
       updated_by, content_updated_at, show_updated_label, seo_title, meta_description,
       canonical_url, noindex, focus_keyword, og_title, og_description, og_image_url, og_image_key
       FROM managed_articles
@@ -886,7 +908,7 @@ export async function getRelatedPublishedArticles(article: Article, limit = 3): 
     ].slice(0, safeLimit);
   }
   const now = new Date().toISOString();
-  const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}
+  const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}
     FROM managed_articles
     WHERE slug <> ?
       AND (status = 'published' OR (status = 'scheduled' AND published_at <= ?))
@@ -951,7 +973,7 @@ export async function listManagedArticleSummaries(options: {
   const page = Math.min(filteredQuery.page, totalPages);
   const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection);
   const listResult = await database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, image_display, image_focus_x, image_focus_y, updated_at
+    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, ${await articleImageProjection(database)}, updated_at
     FROM managed_articles
     ${pageQuery.where}
     ORDER BY ${pageQuery.orderBy}
