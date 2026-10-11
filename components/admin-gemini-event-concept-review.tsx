@@ -11,7 +11,7 @@ function ExternalLink({label,url}:{label:string;url:string}) {
   const href=safeGeminiReviewUrl(url);
   if (!href) return null;
   const destination=new URL(href);
-  const host=destination.hostname.replace(/^www\\./,"");
+  const host=destination.hostname.replace(/^www\./,"");
   const isGroundingRedirect=host==="vertexaisearch.cloud.google.com" &&
     destination.pathname.startsWith("/grounding-api-redirect");
   return <a href={href} target="_blank" rel="noopener noreferrer" className={styles.external}>
