@@ -22,7 +22,7 @@ type PilotResult = {
   groundedSearchQueryCount: number; model: string;
 };
 
-function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView; available: boolean }) {
+function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: GeminiSettingView; available: boolean; externalEnabled: boolean }) {
   const [setting, setSetting] = useState(initial);
   const [enabled, setEnabled] = useState(initial.enabled);
   const [cadence, setCadence] = useState(String(initial.cadenceMinutes));
@@ -36,7 +36,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
   const [pilotResult, setPilotResult] = useState<PilotResult | null>(null);
   const requestLocked = useRef(false);
   const router = useRouter();
-  const canManuallyRun = setting.section === "directory" || setting.section === "events";
+  const canManuallyRun = externalEnabled || setting.section === "directory" || setting.section === "events";
   const unsavedChanges = setting.enabled !== enabled ||
     setting.cadenceMinutes !== Number(cadence) || setting.maxNewConcepts !== Number(maximum);
   const canPilot = canManuallyRun && available && setting.saved && !unsavedChanges &&
@@ -72,7 +72,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
       } else {
         setSetting(data.setting);
         setConfirming(false);
-        setMessage("Nastavenia uložené. Automatizácia sa zatiaľ nespúšťa.");
+        setMessage(externalEnabled ? "Nastavenia uložené. GitHub plánovač ich použije pri ďalšom termíne." : "Nastavenia uložené. Automatizácia sa zatiaľ nespúšťa.");
       }
     } catch {
       setMessage("Ukladanie zlyhalo. Skús to znova.");
@@ -104,7 +104,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
       });
       const data = await response.json() as { error?: string; runId?: number; status?: string;jobId?:number } & Partial<PilotResult>;
       if (response.ok && data.status === "QUEUED" && Number.isInteger(data.jobId)) {
-        setQueuedMessage("Gemini úloha #"+data.jobId+" je zaradená na spracovanie na pozadí. Môžeš opustiť stránku; stav bude v histórii úloh.");
+        setQueuedMessage("Gemini úloha #"+data.jobId+" bola odoslaná " + (externalEnabled ? "na GitHub" : "na pozadie") + ". Stav uvidíš v histórii úloh.");
       } else if (!response.ok || data.status !== "SUCCESS") {
         setPilotError(data.error ?? "Gemini beh zlyhal. Skontroluj históriu behov.");
       } else {
@@ -139,7 +139,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
           checked={enabled} disabled={!available || saving || running}
           onChange={(event) => setEnabled(event.target.checked)}
         />
-        Zapnuté pre budúci plánovač
+        {externalEnabled ? "Automatické spúšťanie cez GitHub" : "Zapnuté pre budúci plánovač"}
       </label>
       <div className={styles.fields}>
         <label htmlFor={id + "-cadence"}>
@@ -169,8 +169,8 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
       </div>
       {canManuallyRun && (
         <div className={styles.pilot}>
-          <strong>Manuálne spustenie Gemini</strong>
-          <p>Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje.</p>
+          <strong>{externalEnabled ? "Spustiť externého Gemini pracovníka" : "Manuálne spustenie Gemini"}</strong>
+          <p>{externalEnabled ? "GitHub Actions · maximálne 5 konceptov · zápis iba do Notionu · vyžaduje zvlášť povolené platené volania na GitHube." : "Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje."}</p>
           {!setting.saved && <p>Pred spustením najprv ulož nastavenia tejto karty.</p>}
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
           {confirming && <p role="alert">Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty.</p>}
@@ -205,10 +205,11 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
   );
 }
 
-export function AdminGeminiAutomationSettings({ sections, settings, available }: {
+export function AdminGeminiAutomationSettings({ sections, settings, available, externalEnabled }: {
   sections: readonly { key: GeminiSectionKey; label: string }[];
   settings: readonly GeminiSettingView[];
   available: boolean;
+  externalEnabled: boolean;
 }) {
   return (
     <div className={styles.sections}>
@@ -220,7 +221,7 @@ export function AdminGeminiAutomationSettings({ sections, settings, available }:
           </div>
           <div className={styles.grid}>
             {settings.filter((item) => item.section === section.key).map((setting) =>
-              <GeminiSettingsCard key={setting.stableKey} initial={setting} available={available} />)}
+              <GeminiSettingsCard key={setting.stableKey} initial={setting} available={available} externalEnabled={externalEnabled} />)}
           </div>
         </section>
       ))}
