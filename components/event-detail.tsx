@@ -2,6 +2,7 @@ import { EventMarkdown } from "@/components/event-markdown";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
+import { SmartCardImage } from "@/components/smart-card-image";
 import { EventsBackLink } from "@/components/events-return-link";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
@@ -107,7 +108,7 @@ export function EventDetail({
 
             {event.imageUrl && (
               <figure className={styles.detailVisual} data-event-image>
-                <img src={event.imageUrl} alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
+                <SmartCardImage src={event.imageUrl} mode={event.imageDisplay} alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
               </figure>
             )}
           </div>
