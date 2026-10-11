@@ -192,7 +192,7 @@ test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
 test("PUBLIC-POLISH-2 event cards consume canonical preview images and keep an image-free fallback layout", () => {
   assert.match(eventCard, /event\.imageUrl \? styles\.eventCardWithImage/);
   assert.match(eventCard, /data-event-has-image=\{event\.imageUrl \? "true" : "false"\}/);
-  assert.match(eventCard, /<img src=\{event\.imageUrl\} alt="" loading="lazy" decoding="async"/);
+  assert.match(eventCard, /<SmartCardImage src=\{event\.imageUrl\} mode=\{event\.imageDisplay\} alt="" loading="lazy" decoding="async"/);
   assert.match(eventStyles, /\.cardMedia\s*\{[^}]*border-radius:\s*0/s);
   assert.match(eventStyles, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/s);
 });
