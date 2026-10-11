@@ -147,6 +147,9 @@ async function createDraft(args, snapshot, target) {
   const source = httpsUrl(args.source_url);
   const website = httpsUrl(args.website_url);
   if (!name || !source) return { status: "rejected", reason: "name_and_https_source_required" };
+  if (target.section === "events" && !/^\d{4}-\d{2}-\d{2}$/.test(trim(args.start_date, 10))) {
+    return { status: "rejected", reason: "verified_event_date_required" };
+  }
   if (isDuplicate(snapshot.rows, name, city, website, source)) {
     metrics.duplicate_count++;
     return { status: "duplicate" };
@@ -306,7 +309,7 @@ try {
 }
 try {
   await callback(failure ? "FAILED" : "SUCCESS",
-    failure ? (/^[A-Z_]{1,45}$/.test(failure) ? failure : "AGENT_FAILED") : null);
+    failure ? (/^[A-Z0-9_]{1,45}$/.test(failure) ? failure : "AGENT_FAILED") : null);
 } catch (error) {
   console.error("Callback failed:", error instanceof Error ? error.message : "CALLBACK_FAILED");
   process.exitCode = 1;
