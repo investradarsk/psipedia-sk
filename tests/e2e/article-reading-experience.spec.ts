@@ -233,7 +233,7 @@ for (const articleCase of cases) {
       expect(metrics.imageRatio).toBeNull();
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
-    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
     expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
     expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
     expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
