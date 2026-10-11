@@ -114,7 +114,7 @@ test("directory uses the same queue; unknown outcome never triggers automatic re
   assert.equal(again.claimed,0);
 });
 
-test("Cron is manual-queue-only and scheduler stays disabled by default",()=>{
+test("Cron consumes only manually queued Gemini jobs when opt-in is enabled",()=>{
   const worker=readFileSync(new URL("../worker/index.ts",import.meta.url),"utf8");
   const route=readFileSync(new URL("../app/api/admin/gemini-automation/run/route.ts",import.meta.url),"utf8");
   const wrangler=readFileSync(new URL("../wrangler.jsonc",import.meta.url),"utf8");
@@ -122,7 +122,10 @@ test("Cron is manual-queue-only and scheduler stays disabled by default",()=>{
   assert.match(worker,/geminiManualBackgroundEnabled\(env\)/);
   assert.match(worker,/runGeminiManualBackgroundSweep/);
   assert.match(route,/status:202/);
-  assert.match(wrangler,/"GEMINI_ASYNC_MANUAL_ENABLED": "false"/);
+  assert.match(wrangler,/"GEMINI_ASYNC_MANUAL_ENABLED": "true"/);
+  assert.match(worker,/geminiManualBackgroundEnabled\(env\)/);
+  assert.match(route,/enqueueGeminiManualBackgroundJob/);
+  assert.doesNotMatch(worker,/enqueueGeminiManualBackgroundJob/);
   assert.match(migration,/idx_gemini_manual_only_one_active/);
   assert.match(migration,/CREATE TABLE IF NOT EXISTS gemini_manual_background_jobs/);
 });

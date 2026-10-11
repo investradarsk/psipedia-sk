@@ -68,8 +68,9 @@ test("event type navigation and time filters stay crawlable with the intended tr
   const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
   assert.match(eventsPage, /eventTypePortalHref\(eventType\)/);
   assert.match(eventsPage, /PublicSubcategoryNavigator/);
-  assert.match(eventsPage, /<HomePortalSearch[\s\S]*shortcuts=\{searchShortcuts\}/);
-  assert.match(eventsPage, /!isMainListing \? \(\s*<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
+  assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
+  assert.match(eventsPage, /eventTypePortalHref\(type\)/);
+  assert.match(eventsPage, /mode="compact"/);
   assert.match(calendar, /href=\{timeHref\(value\)\}/);
   assert.match(calendar, /function timeHref\(value: EventTimeFilter\)/);
   assert.match(calendar, /if \(query\) params\.set\("q", query\)/);
