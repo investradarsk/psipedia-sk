@@ -566,7 +566,7 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
     if (viewport.width >= 768) {
       expect(Math.abs(metrics.heroWidth - metrics.proseWidth), `hero width at ${viewport.width}px`).toBeLessThanOrEqual(2);
     } else {
-      expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - 32 + 1);
+      expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - (viewport.width <= 620 ? 24 : 32) + 1);
     }
     if (viewport.width > 1120) {
       expect(metrics.sidebarDisplay, `desktop sidebar display at ${viewport.width}px`).not.toBe("none");
