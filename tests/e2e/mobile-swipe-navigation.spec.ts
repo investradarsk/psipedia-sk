@@ -191,7 +191,7 @@ test("mobile back button is in-site and falls back to home on direct entry", asy
   await page.goto("/o-nas");
   await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
   await page.getByRole("button", { name: "Späť na predchádzajúcu stránku Psipedie" }).click();
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("real Chrome touch: inward left swipe returns to the previous internal route", async ({ page }) => {
