@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ImageDisplay } from "@/components/image-display";
 import {
   DEFAULT_DETAIL, DEFAULT_THUMBNAIL,
@@ -73,7 +73,7 @@ export function ImageDisplayEditor({ src, alt, title, excerpt, thumbnail, detail
     if (drag.current?.pointerId === event.pointerId) drag.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }
-  function onPreviewKey(event: React.KeyboardEvent<HTMLDivElement>) {
+  function onPreviewKey(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (natural) return;
     const directions: Record<string, [number, number]> = {
       ArrowLeft: [-2, 0], ArrowRight: [2, 0], ArrowUp: [0, -2], ArrowDown: [0, 2],

@@ -51,6 +51,21 @@ export function readImageDisplayConfig(value: unknown, context: ImageDisplayCont
 }
 
 /** The 0120 focal-point contract remains readable until the editor intentionally replaces it. */
+/** Preserve old card/hero preferences for existing articles when no new detail override exists. */
+export function legacyArticleDetail(
+  mode?: SmartImageMode,
+  focusX?: number | null,
+  focusY?: number | null,
+): ImageDisplayConfig | null {
+  if ((mode == null || mode === "auto") && focusX == null && focusY == null) return null;
+  return {
+    mode: mode === "contain" ? "blur" : "crop",
+    x: focusX ?? 50,
+    y: focusY ?? 28,
+    zoom: 1,
+  };
+}
+
 export function legacyArticleThumbnail(
   mode?: SmartImageMode,
   focusX?: number | null,

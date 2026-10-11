@@ -24,7 +24,7 @@ import { getNewsCategory, newsCategories, type NewsCategorySlug } from "@/lib/ne
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
 import { ImageDisplayEditor } from "@/components/image-display-editor";
-import { legacyArticleThumbnail, type ImageDisplayConfig } from "@/lib/image-display";
+import { legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig } from "@/lib/image-display";
 import { legacyRichTextToDocument } from "@/lib/editorial-content";
 import type { ArticleQaIssue } from "@/lib/article-content-qa";
 import type { ArticleTopic } from "@/lib/article-topics";
@@ -109,7 +109,7 @@ export function AdminArticleEditor({
   const [imageUrl, setImageUrl] = useState(article?.image ?? "");
   const [imageKey, setImageKey] = useState(article?.imageKey ?? "");
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(article?.thumbnailImageDisplay ?? legacyArticleThumbnail(article?.imageDisplay, article?.imageFocusX, article?.imageFocusY));
-  const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(article?.detailImageDisplay ?? null);
+  const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(article?.detailImageDisplay ?? legacyArticleDetail(article?.imageDisplay, article?.imageFocusX, article?.imageFocusY));
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [imageAlt, setImageAlt] = useState(article?.imageAlt ?? "");
   const [imageCaption, setImageCaption] = useState(article?.imageCaption ?? "");

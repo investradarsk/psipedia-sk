@@ -29,6 +29,7 @@ import { AD_PLACEMENTS } from "@/lib/monetization";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./article-detail.module.css";
 import { ImageDisplay } from "@/components/image-display";
+import { legacyArticleDetail } from "@/lib/image-display";
 
 function safeExternalImageCreditUrl(value?: string) {
   if (!value) return undefined;
@@ -110,6 +111,8 @@ export function ArticleDetail({
     sidebarPromoKey: discovery.promo?.promoKey,
     relatedHrefs: relatedItems.map((item) => articleHref(item)),
   });
+  const legacyDetailConfig = legacyArticleDetail(article.imageDisplay, article.imageFocusX, article.imageFocusY);
+  const detailImageConfig = article.detailImageDisplay ?? legacyDetailConfig;
   const hasPopularity = discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
   const showDiscoverySidebar = hasPopularity || Boolean(discovery.promo);
 
@@ -200,8 +203,8 @@ export function ArticleDetail({
           </div>
           {article.image ? (
             <figure className={styles.heroFigure}>
-              <div className={`${styles.heroMedia} ${(!article.detailImageDisplay || article.detailImageDisplay.mode === "natural") ? styles.heroNatural : ""}`}>
-                <ImageDisplay context="detail" config={article.detailImageDisplay} src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+              <div className={`${styles.heroMedia} ${(!detailImageConfig || detailImageConfig.mode === "natural") ? styles.heroNatural : ""}`}>
+                <ImageDisplay context="detail" config={detailImageConfig} src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
               </div>
               {showImageMeta ? (
                 <figcaption className={styles.heroImageMeta}>

@@ -2,7 +2,7 @@
 
 import { useState, type ImgHTMLAttributes } from "react";
 import { SmartCardImage } from "@/components/smart-card-image";
-import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL, legacyArticleThumbnail, type ImageDisplayConfig, type ImageDisplayContext } from "@/lib/image-display";
+import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL, legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig, type ImageDisplayContext } from "@/lib/image-display";
 import type { SmartImageMode } from "@/lib/smart-image";
 import styles from "./image-display.module.css";
 
@@ -24,7 +24,7 @@ export function ImageDisplay({
   className, style, ...imageProps
 }: ImageDisplayProps) {
   const [autoFit, setAutoFit] = useState<{ src: string; fit: "cover" | "contain" } | null>(null);
-  const settings = config ?? (context === "thumbnail" ? legacyArticleThumbnail(legacyMode, legacyFocusX, legacyFocusY) : null)
+  const settings = config ?? (context === "thumbnail" ? legacyArticleThumbnail(legacyMode, legacyFocusX, legacyFocusY) : legacyArticleDetail(legacyMode, legacyFocusX, legacyFocusY))
     ?? (context === "thumbnail" ? DEFAULT_THUMBNAIL : DEFAULT_DETAIL);
   const natural = context === "detail" && settings.mode === "natural";
   const blur = settings.mode === "blur" || (settings.mode === "auto" && autoFit?.src === src && autoFit.fit === "contain");

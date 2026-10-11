@@ -30,7 +30,7 @@
 .panel { min-height: 0; overflow-y: auto; padding: 15px 22px; background: #f3f7f4; }
 .card { max-width: 490px; margin: 0 auto; }
 .card h3 { margin: 5px 0; }
-.interactive { position: relative; }
+.interactive { position: relative; aspect-ratio: 16/9 !important; }
 .dragSurface { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; overflow: hidden; outline-offset: -3px; }
 .dragSurface:active { cursor: grabbing; }
 .dragSurface:focus-visible { outline: 3px solid #2e7958; }
