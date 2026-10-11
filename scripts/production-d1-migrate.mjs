@@ -110,6 +110,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0115_gemini_notion_bridge.sql",
   "0116_admin_automation_push.sql",
   "0117_gemini_events_rejections.sql",
+  "0118_event_image_display.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -700,6 +701,7 @@ export function assertTavilyEventCadenceState(row) {
 function schemaState(databaseName, configPath) {
   const columns = d1Execute(databaseName, configPath, "PRAGMA table_info('directory_profiles')");
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
+  const managedEventColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_events')");
   const partnerAccountColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_accounts')");
   const partnerSessionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_management_sessions')");
   const partnerAccessTokenColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_access_tokens')");
@@ -727,6 +729,7 @@ function schemaState(databaseName, configPath) {
   return {
     columns,
     eventNotionSyncColumns,
+    managedEventColumns,
     partnerAccountColumns,
     partnerSessionColumns,
     partnerAccessTokenColumns,
@@ -1122,6 +1125,9 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: ["gemini_automation_event_rejections",
       "idx_gemini_event_rejection_scope_recent", "idx_gemini_event_rejection_event",
       "sqlite_autoindex_gemini_automation_event_rejections_1"].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0118_event_image_display.sql") {
+    return { partial: (schema.managedEventColumns ?? []).some(column => String(column.name) === "image_display") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1861,6 +1867,18 @@ export function assertDynamicEntityIdentitySchema(schema) {
   }
 }
 
+function assertEventImageDisplaySchema(schema) {
+  const columns = schema.managedEventColumns ?? [];
+  const column = columns.find(item => String(item.name) === "image_display");
+  invariant(column, "managed_events.image_display column is missing");
+  invariant(String(column.type).toUpperCase() === "TEXT" && Number(column.notnull) === 1,
+    "managed_events.image_display must be non-null TEXT");
+  invariant(String(column.dflt_value).replaceAll("'", "") === "auto", "managed_events.image_display default must be auto");
+  const table = objectMap(schema.objects).get("managed_events");
+  invariant(String(table?.sql ?? "").includes("image_display IN ('auto', 'cover', 'contain')"),
+    "managed_events.image_display allowed modes must be constrained");
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1907,6 +1925,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 114) assertGeminiRejectionSchema(schema);
   if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
   if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
+  if (migrationIndex(targetMigration) >= 118) assertEventImageDisplaySchema(schema);
 }
 
 export function assertGeminiBridgeSchema(schema) {
