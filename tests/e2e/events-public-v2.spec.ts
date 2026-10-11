@@ -9,15 +9,16 @@ test.beforeEach(async ({ page }) => {
 
 test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", async ({ page }) => {
   await page.goto("/podujatia");
+  await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
   await expect(page.getByRole("heading", { level: 1, name: "Podujatia" })).toBeVisible();
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(1);
   await expect(page.locator("[data-event-filters]")).toHaveCount(1);
   await expect(page.locator("[data-unified-section-hero] input")).toHaveCount(0);
   await expect(page.locator('[data-public-search-form="events"]')).toHaveCount(1);
-  await expect(page.getByPlaceholder("Názov, mesto, miesto alebo organizátor")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveCount(1);
 
-  const search = page.getByPlaceholder("Názov, mesto, miesto alebo organizátor");
+  const search = page.getByRole("textbox", { name: "Hľadať podujatia", exact: true });
   const firstCard = page.locator("[data-event-card]").first();
   if (await firstCard.count()) {
     const title = (await firstCard.locator("h3").innerText()).trim();
@@ -32,6 +33,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
   }
 
   await page.goto("/podujatia");
+  await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL(/termin=ukoncene/);
   await page.getByRole("link", { name: "Najbližšie", exact: true }).click();
@@ -44,12 +46,13 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
 
 test("PUBLIC-SEARCH-SIMPLIFY-1 event filters preserve URL state and safe fallbacks", async ({ page }) => {
   await page.goto("/podujatia?q=pes&region=Nitriansky%20kraj&mesiac=2026-10&termin=vsetky");
+  await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
   const toggle = page.getByRole("button", { name: /^Ďalšie filtre/ });
   await expect(toggle).toContainText("2 aktívne");
   await toggle.click();
   await expect(page.getByLabel("Kraj")).toHaveValue("Nitriansky kraj");
-  await expect(page.getByLabel("Mesiac")).toHaveValue("2026-10");
+  await expect(page.getByRole("combobox", { name: /^Mesiac/ })).toHaveValue("2026-10");
 
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL((url) =>
@@ -61,16 +64,18 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event filters preserve URL state and safe fallbac
   );
 
   await page.goto("/podujatia?region=neplatny&mesiac=2026-99&termin=neplatny&q=test");
+  await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
   const invalidToggle = page.getByRole("button", { name: /^Ďalšie filtre/ });
   await invalidToggle.click();
   await expect(page.getByLabel("Kraj")).toHaveValue("");
-  await expect(page.getByLabel("Mesiac")).toHaveValue("");
+  await expect(page.getByRole("combobox", { name: /^Mesiac/ })).toHaveValue("");
   await expect(page.getByRole("link", { name: "Najbližšie", exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByPlaceholder("Názov, mesto, miesto alebo organizátor")).toHaveValue("test");
+  await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveValue("test");
 });
 
 test("PUBLIC-SEARCH-SIMPLIFY-1 event type pages keep canonical navigation and one search", async ({ page }) => {
   await page.goto("/podujatia/vystavy");
+  await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
   const compact = page.locator("[data-public-subcategory-mode=compact]");
   await expect(compact).toHaveCount(1);
@@ -78,7 +83,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event type pages keep canonical navigation and on
   await expect(compact.getByRole("link", { name: "Výstavy", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);
   await expect(page.locator('[data-public-search-form="events"]')).toHaveCount(1);
-  await expect(page.getByPlaceholder("Názov, mesto, miesto alebo organizátor")).toHaveCount(1);
+  await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveCount(1);
 
   await compact.getByRole("link", { name: "Semináre", exact: true }).click();
   await expect(page).toHaveURL(/\/podujatia\/seminare(?:\?|$)/);
@@ -88,9 +93,9 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event disclosure is compact without horizontal ov
   for (const width of [390, 430, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/podujatia");
+    await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
-    const search = page.getByPlaceholder("Názov, mesto, miesto alebo organizátor");
-    const searchBox = await search.boundingBox();
+    const searchBox = await page.locator('[data-public-search-form="events"]').boundingBox();
     expect(searchBox, `search should have a measurable box at ${width}px`).not.toBeNull();
     expect(searchBox!.height).toBeGreaterThanOrEqual(44);
 
@@ -98,13 +103,13 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event disclosure is compact without horizontal ov
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(page.getByLabel("Kraj")).not.toBeVisible();
-    await expect(page.getByLabel("Mesiac")).not.toBeVisible();
+    await expect(page.getByRole("combobox", { name: /^Mesiac/ })).not.toBeVisible();
 
     await toggle.focus();
     await page.keyboard.press("Enter");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByLabel("Kraj")).toBeVisible();
-    await expect(page.getByLabel("Mesiac")).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /^Mesiac/ })).toBeVisible();
 
     const dimensions = await page.evaluate(() => ({
       scroll: document.documentElement.scrollWidth,
@@ -117,6 +122,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event disclosure is compact without horizontal ov
 test("PUBLIC-SEARCH-SIMPLIFY-1 events stay Axe-clean at 390px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/podujatia");
+  await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
   await page.getByRole("button", { name: /^Ďalšie filtre/ }).click();
 
   const accessibility = await new AxeBuilder({ page })
