@@ -121,6 +121,7 @@ test("mocked shared Interactions path sends exactly one grounded request without
     assert.equal(body.model,"gemini-3.8-flash");
     assert.deepEqual(body.tools,[{type:"google_search"}]);
     assert.equal(body.store,false);
+    assert.deepEqual(body.generation_config,{thinking_level:"low"});
     assert.match(body.input,/STOP searching and return it/);
     assert.equal(body.response_format.schema.properties.candidates.maxItems,1);
     return new Response(JSON.stringify({
