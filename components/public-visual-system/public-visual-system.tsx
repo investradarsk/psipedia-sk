@@ -87,7 +87,7 @@ export function PublicSectionHeader({
   actions?: ReactNode;
   meta?: ReactNode;
   visual?: ReactNode;
-  image?: { src: string; alt: string; mode?: SmartImageMode; focusX?: number | null; focusY?: number | null };
+  image?: { src: string; alt: string };
   className?: string;
 }) {
   const sideVisual = image ? (
