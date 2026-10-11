@@ -131,7 +131,7 @@ export function parseGeminiEventEnvelope(raw: unknown, req: GeminiEventRequestV1
     if (!Array.isArray(v.source_urls) || v.source_urls.length < 1 || v.source_urls.length > 8) invalid();
     const source_urls=[...new Set(v.source_urls.map((url: unknown) => publicEventUrl(url) as string))];
     if (source_urls.some(url =>
-      new URL(url).hostname.replace(/^www\\./,"") === "psipedia.sk" || isGeminiGroundingRedirectUrl(url))) invalid();
+      new URL(url).hostname.replace(/^www\./,"") === "psipedia.sk" || isGeminiGroundingRedirectUrl(url))) invalid();
     if (!Array.isArray(v.evidence) || v.evidence.length < 1 || v.evidence.length > 8) invalid();
     const evidence = v.evidence.map((item: unknown) => {
       const e=obj(item); exact(e,["source_url","fields"]);
