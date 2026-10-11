@@ -104,8 +104,10 @@ function chooseProperty(schema, value) {
     try { return new URL(value).protocol === "https:" ? { url: value } : null; }
     catch { return null; }
   }
-  if (schema.type === "select" && (schema.select?.options ?? []).some((x) => x.name === value))
-    return { select: { name: value } };
+  if (schema.type === "select") {
+    const match = (schema.select?.options ?? []).find((x) => normalize(x.name) === normalize(value));
+    if (match) return { select: { name: match.name } };
+  }
   if (schema.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value))
     return { date: { start: value } };
   return null;
@@ -158,7 +160,9 @@ async function createDraft(args, snapshot, target) {
     "Názov": name,
     "Mesto": city,
     "Kategória": target.subcategory,
-    "Web": website || source,
+    "Typ podujatia": target.subcategory,
+    "Typ": target.subcategory,
+    "Web": website || (target.section === "events" ? source : ""),
     "Zdroj dát": source,
     "Zdroj URL": source,
     "Popis": trim(args.description, 1600),
