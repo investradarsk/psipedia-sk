@@ -249,3 +249,11 @@ test("DIRECTORY-HELP-LANDINGS-V3 shows curated profiles only on the unfiltered r
   assert.match(helpCss, /\.overviewPromo \{ min-height: 180px; \}/);
   assert.match(helpCss, /\.overviewCategoryGrid \{ display: flex; flex-wrap: wrap;/);
 });
+
+
+test("PUBLIC-MOBILE-GUTTER-1 uses the homepage 12px gutter for all PageContainer public routes", () => {
+  const ds = read("app/design-system.css");
+  assert.match(ds, /\.public-shell\s*\{[^}]*max\(12px, env\(safe-area-inset-left, 0px\)\)[^}]*max\(12px, env\(safe-area-inset-right, 0px\)\)/s);
+  assert.match(ds, /--ps-space-stack:\s*16px;/);
+  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*?\.heading\s*\{\s*margin-bottom:\s*12px;/);
+});
