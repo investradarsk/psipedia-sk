@@ -283,6 +283,8 @@ test("renders the portal homepage", async () => {
 
 test("homepage event cards render canonical approved images without a fallback", async () => {
   const now = "2026-09-19T20:00:00.000Z";
+  // This fixture must stay upcoming; a fixed October 2026 date expired on 11 October.
+  const futureEventDate = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
   const eventRows = [
     {
       id: 301,
@@ -291,7 +293,7 @@ test("homepage event cards render canonical approved images without a fallback",
       excerpt: "Testovacie podujatie s obrázkom pre homepage.",
       event_type: "Výstava",
       status: "published",
-      start_date: "2026-10-10",
+      start_date: futureEventDate,
       start_time: "10:00",
       end_date: null,
       end_time: null,
@@ -321,7 +323,7 @@ test("homepage event cards render canonical approved images without a fallback",
       excerpt: "Testovacie podujatie bez obrázka pre homepage.",
       event_type: "Tréning",
       status: "published",
-      start_date: "2026-10-11",
+      start_date: futureEventDate,
       start_time: "09:00",
       end_date: null,
       end_time: null,
