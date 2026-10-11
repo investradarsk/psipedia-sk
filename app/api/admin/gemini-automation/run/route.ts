@@ -67,6 +67,7 @@ export async function POST(request: Request) {
         CATEGORY: "Neznáma podkategória.",
         SETTING: "Najprv ulož nastavenia podkategórie.",
         LIMIT: "Maximálny počet konceptov musí byť väčší než nula.",
+        BUDGET: "Mesačný limit 10 Gemini úloh bol dosiahnutý. Automatické platené spustenie je zablokované.",
         BUSY: "Ďalšia Gemini úloha už beží. Najprv skontroluj jej výsledok.",
         DISPATCH: "Spustenie na GitHube nie je potvrdené. Pred opakovaním over úlohu v histórii.",
       };
