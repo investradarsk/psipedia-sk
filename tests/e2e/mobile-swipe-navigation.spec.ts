@@ -139,7 +139,7 @@ test("real Chrome touch: pulling down closes the menu and does not trigger pull-
   const y = Math.round(rect!.y + Math.min(135, rect!.height * 0.35));
   await chromeFingerSwipe(page, [x, y], [x, y + 115]);
   await expect(menu).not.toHaveClass(/is-open/);
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("real Chrome touch: an upward swipe keeps the long menu available", async ({ page }) => {
@@ -176,7 +176,7 @@ test("real Chrome touch: swiping the fixed header closes a previously scrolled m
 test("real Chrome touch: inward left swipe returns to the previous internal route", async ({ page }) => {
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
-  await expect(page).toHaveURL(/\\/starostlivost$/);
+  await expect(page).toHaveURL(/\/starostlivost$/);
   // Browser-level touch on a clear area, outside horizontal carousels.
   await page.evaluate(() => {
     const zone = document.createElement("div");
@@ -188,6 +188,6 @@ test("real Chrome touch: inward left swipe returns to the previous internal rout
     document.body.append(zone);
   });
   await chromeFingerSwipe(page, [280, 380], [125, 380]);
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
