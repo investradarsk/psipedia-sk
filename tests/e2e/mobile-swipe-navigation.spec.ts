@@ -157,6 +157,22 @@ test("real Chrome touch: an upward swipe keeps the long menu available", async (
   await expect(nav.locator('[aria-controls="mobile-submenu-steniatka"]')).toHaveAttribute("aria-expanded", "true");
 });
 
+test("real Chrome touch: swiping the fixed header closes a previously scrolled menu", async ({ page }) => {
+  const menu = page.locator("#mobile-menu");
+  const nav = menu.locator(":scope > nav");
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await nav.locator('[aria-controls="mobile-submenu-steniatka"]').click();
+  await page.waitForTimeout(260);
+  await nav.evaluate((element) => { element.scrollTop = 130; });
+  await expect.poll(() => nav.evaluate((element) => element.scrollTop)).toBeGreaterThan(20);
+  const rect = await page.locator("[data-header-masthead]").boundingBox();
+  expect(rect).not.toBeNull();
+  const x = Math.round(rect!.x + rect!.width * 0.5);
+  const y = Math.round(rect!.y + rect!.height / 2);
+  await chromeFingerSwipe(page, [x, y], [x, y + 115]);
+  await expect(menu).not.toHaveClass(/is-open/);
+});
+
 test("real Chrome touch: inward left swipe returns to the previous internal route", async ({ page }) => {
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
