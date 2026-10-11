@@ -380,7 +380,7 @@ export function SiteHeader({
     if (!menu || !trigger) return;
 
     function focusableMenuItems() {
-      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+      return Array.from(menu!.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([data-menu-dismiss-grip])'))
         .filter((element) => element.offsetParent !== null && !element.closest("[inert]"));
     }
 
@@ -613,6 +613,7 @@ export function SiteHeader({
               type="button"
               className={styles.menuDismissGrip}
               data-menu-dismiss-grip
+              tabIndex={-1}
               onClick={() => { setOpenMobileMenu(null); setMenuOpen(false); }}
               aria-label="Zavrieť navigačné menu"
               title="Potiahni nadol alebo klepni pre zatvorenie"
