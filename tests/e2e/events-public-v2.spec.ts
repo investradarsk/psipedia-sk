@@ -12,7 +12,7 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
 
   await expect(page.getByRole("heading", { level: 1, name: "Podujatia" })).toBeVisible();
-  await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(1);
+  await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);
   await expect(page.locator("[data-event-filters]")).toHaveCount(1);
   await expect(page.locator("[data-unified-section-hero] input")).toHaveCount(0);
   await expect(page.locator('[data-public-search-form="events"]')).toHaveCount(1);

@@ -61,7 +61,7 @@ test("shared landing heading owns typography and heading-to-content spacing", ()
 });
 
 test("comparable category roots retain shared heading and canonical content shells", () => {
-  for (const source of [events, helpOverview, reviews]) {
+  for (const source of [helpOverview, reviews]) {
     assert.match(source, /PublicContentShell/);
     assert.match(source, /variant="landing"|variant=\{active \? "listing" : "landing"\}/);
     assert.match(source, /PublicLandingSectionHeading/);
@@ -69,7 +69,9 @@ test("comparable category roots retain shared heading and canonical content shel
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
   assert.match(read("components/directory-category-overview.tsx"), /<h2 className=\{styles\.heading\}>/);
   assert.match(events, /PublicSubcategoryNavigator/);
-  assert.match(events, /mode="landing"/);
+  assert.doesNotMatch(events, /mode="landing"|PublicLandingSectionHeading/);
+  assert.match(events, /mode="compact"/);
+  assert.match(read("components/event-calendar.tsx"), /data-events-legend/);
   assert.match(directory, /PublicSubcategoryNavigator/);
   assert.doesNotMatch(directory, /mode="landing"/);
   assert.match(reviews, /PublicCategoryTiles/);

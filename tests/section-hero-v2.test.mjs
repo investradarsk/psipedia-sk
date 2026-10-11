@@ -101,7 +101,8 @@ test("CTA and quick link URLs fail closed and CTA variants are constrained", () 
 test("events keep the safe managed CTA default while the public listing uses one organizer CTA", () => {
   assert.match(portal, /slug: "podujatia"[\s\S]*ctaLabel: "\+ Pridať podujatie"[\s\S]*ctaVariant: "accent"/);
   assert.doesNotMatch(events, /Rýchle vstupy používajú existujúce verejné kategórie/);
-  assert.match(events, /Vyberte typ alebo rovno pokračujte do kalendára a hľadajte podľa názvu, termínu či lokality/);
+  assert.doesNotMatch(events, /Vyberte si, čo vás zaujíma|landingCategories/);
+  assert.match(events, /afterCalendar=\{/);
   assert.match(events, /ctaEnabled:\s*false/);
   assert.match(events, /<PublicContextBanner[\s\S]*ctaHref="\/podujatia\/pridat-podujatie"/);
 });
