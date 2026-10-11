@@ -15,6 +15,16 @@ async function touchSwipe(page: Page, selector: string, start: [number, number],
       bubbles: true, touches: [down], targetTouches: [down], changedTouches: [down],
     }));
     const up = touch(end as [number, number]);
+    for (let step = 1; step <= 6; step++) {
+      const portion = step / 6;
+      const point = touch([
+        Math.round(start[0] + (end[0] - start[0]) * portion),
+        Math.round(start[1] + (end[1] - start[1]) * portion),
+      ]);
+      element.dispatchEvent(new TouchEvent("touchmove", {
+        bubbles: true, cancelable: true, touches: [point], targetTouches: [point], changedTouches: [point],
+      }));
+    }
     element.dispatchEvent(new TouchEvent("touchend", {
       bubbles: true, touches: [], targetTouches: [], changedTouches: [up],
     }));
@@ -57,7 +67,7 @@ test.beforeEach(async ({ page, baseURL, isMobile }) => {
   await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
 });
 
-test("pulling down dismisses the menu but upward scrolling and an already-scrolled menu remain open", async ({ page }) => {
+test("pulling the visible grip dismisses the menu while content scrolling stays native", async ({ page }) => {
   const open = page.getByRole("button", { name: "Otvoriť menu", exact: true });
   const menu = page.locator("#mobile-menu");
   const nav = menu.locator(":scope > nav");
@@ -78,8 +88,11 @@ test("pulling down dismisses the menu but upward scrolling and an already-scroll
   await touchSwipe(page, "#mobile-menu > nav", [250, 220], [250, 355]);
   await expect(menu).toHaveClass(/is-open/);
 
+  // A downward touch on the list does not accidentally close the drawer.
   await nav.evaluate((element) => { element.scrollTop = 0; });
   await touchSwipe(page, "#mobile-menu > nav", [250, 220], [250, 345]);
+  await expect(menu).toHaveClass(/is-open/);
+  await touchSwipe(page, "[data-menu-dismiss-grip]", [250, 100], [250, 235]);
   await expect(menu).not.toHaveClass(/is-open/);
   await expect(open).toHaveAttribute("aria-expanded", "false");
 });
@@ -127,16 +140,16 @@ test("direct entry falls back to Psipedia home rather than browser history", asy
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("real Chrome touch: pulling down closes the menu and does not trigger pull-to-refresh", async ({ page }) => {
+test("real Chrome touch: dragging the marked grip closes the menu", async ({ page }) => {
   const menu = page.locator("#mobile-menu");
   const nav = menu.locator(":scope > nav");
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
   await expect(menu).toHaveClass(/is-open/);
   await page.waitForTimeout(260);
-  const rect = await nav.boundingBox();
+  const rect = await menu.locator("[data-menu-dismiss-grip]").boundingBox();
   expect(rect).not.toBeNull();
-  const x = Math.round(rect!.x + rect!.width * 0.63);
-  const y = Math.round(rect!.y + Math.min(135, rect!.height * 0.35));
+  const x = Math.round(rect!.x + rect!.width * 0.50);
+  const y = Math.round(rect!.y + rect!.height * 0.50);
   await chromeFingerSwipe(page, [x, y], [x, y + 115]);
   await expect(menu).not.toHaveClass(/is-open/);
   await expect(page).toHaveURL(/\/$/);
@@ -157,7 +170,7 @@ test("real Chrome touch: an upward swipe keeps the long menu available", async (
   await expect(nav.locator('[aria-controls="mobile-submenu-steniatka"]')).toHaveAttribute("aria-expanded", "true");
 });
 
-test("real Chrome touch: swiping the fixed header closes a previously scrolled menu", async ({ page }) => {
+test("scrolling the menu never dismisses it; tapping the backdrop does", async ({ page }) => {
   const menu = page.locator("#mobile-menu");
   const nav = menu.locator(":scope > nav");
   await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
@@ -165,12 +178,16 @@ test("real Chrome touch: swiping the fixed header closes a previously scrolled m
   await page.waitForTimeout(260);
   await nav.evaluate((element) => { element.scrollTop = 130; });
   await expect.poll(() => nav.evaluate((element) => element.scrollTop)).toBeGreaterThan(20);
-  const rect = await page.locator("[data-header-masthead]").boundingBox();
-  expect(rect).not.toBeNull();
-  const x = Math.round(rect!.x + rect!.width * 0.5);
-  const y = Math.round(rect!.y + rect!.height / 2);
-  await chromeFingerSwipe(page, [x, y], [x, y + 115]);
+  await expect(menu).toHaveClass(/is-open/);
+  await page.locator("button[aria-label='Zavrieť navigáciu klepnutím mimo menu']").click({ position: { x: 12, y: 550 } });
   await expect(menu).not.toHaveClass(/is-open/);
+});
+
+test("mobile back button is in-site and falls back to home on direct entry", async ({ page }) => {
+  await page.goto("/o-nas");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await page.getByRole("button", { name: "Späť na predchádzajúcu stránku Psipedie" }).click();
+  await expect(page).toHaveURL(/\\/$/);
 });
 
 test("real Chrome touch: inward left swipe returns to the previous internal route", async ({ page }) => {
