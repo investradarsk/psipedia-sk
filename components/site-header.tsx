@@ -328,7 +328,11 @@ export function SiteHeader({
     if (!menuOpen) return;
     const menu = mobileMenuRef.current;
     const nav = menu?.querySelector("nav");
-    if (!menu || !nav) return;
+    const header = headerRef.current;
+    if (!menu || !nav || !header) return;
+    // The drawer stays mounted between openings; never reopen at an old scroll
+    // offset where a downward gesture would be interpreted as list scrolling.
+    nav.scrollTop = 0;
 
     let origin: { x: number; y: number; time: number } | null = null;
     const closeMenu = () => {
@@ -338,7 +342,10 @@ export function SiteHeader({
     };
     function onStart(event: globalThis.TouchEvent) {
       origin = null;
-      if (event.touches.length !== 1 || nav!.scrollTop > 2) return;
+      if (event.touches.length !== 1) return;
+      // Scroll the long list normally. Swiping the sticky header can still
+      // dismiss the menu even when its contents are scrolled.
+      if (menu.contains(event.target as Node) && nav!.scrollTop > 2) return;
       const touch = event.touches[0];
       origin = { x: touch.clientX, y: touch.clientY, time: Date.now() };
     }
@@ -347,7 +354,8 @@ export function SiteHeader({
       const touch = event.touches[0];
       const down = touch.clientY - origin.y;
       const across = Math.abs(touch.clientX - origin.x);
-      if (down <= 6 || down < across * 1.35 || nav!.scrollTop > 2) return;
+      if (down <= 6 || down < across * 1.35
+        || (menu.contains(event.target as Node) && nav!.scrollTop > 2)) return;
       // Prevent Chrome's pull-to-refresh / native overscroll from cancelling
       // the gesture before the finger is lifted.
       if (event.cancelable) event.preventDefault();
@@ -359,20 +367,21 @@ export function SiteHeader({
       const down = touch.clientY - origin.y;
       const across = Math.abs(touch.clientX - origin.x);
       const valid = down >= 65 && down > across * 1.35
-        && nav!.scrollTop <= 2 && Date.now() - origin.time < 1300;
+        && (!menu.contains(event.target as Node) || nav!.scrollTop <= 2)
+        && Date.now() - origin.time < 1300;
       origin = null;
       if (valid) closeMenu();
     }
     function onCancel() { origin = null; }
-    menu.addEventListener("touchstart", onStart, { passive: true });
-    menu.addEventListener("touchmove", onMove, { passive: false });
-    menu.addEventListener("touchend", onEnd, { passive: true });
-    menu.addEventListener("touchcancel", onCancel, { passive: true });
+    header.addEventListener("touchstart", onStart, { passive: true });
+    header.addEventListener("touchmove", onMove, { passive: false });
+    header.addEventListener("touchend", onEnd, { passive: true });
+    header.addEventListener("touchcancel", onCancel, { passive: true });
     return () => {
-      menu.removeEventListener("touchstart", onStart);
-      menu.removeEventListener("touchmove", onMove);
-      menu.removeEventListener("touchend", onEnd);
-      menu.removeEventListener("touchcancel", onCancel);
+      header.removeEventListener("touchstart", onStart);
+      header.removeEventListener("touchmove", onMove);
+      header.removeEventListener("touchend", onEnd);
+      header.removeEventListener("touchcancel", onCancel);
     };
   }, [menuOpen]);
 
