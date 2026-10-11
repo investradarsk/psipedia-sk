@@ -176,6 +176,18 @@ async function createDraft(args, snapshot, target) {
     const encoded = chooseProperty(snapshot.properties[key], value);
     if (encoded) properties[key] = encoded;
   }
+  // Fail closed if the configured category cannot be recorded in Notion.
+  const categoryField = target.section === "events" ? "Typ podujatia" : "Kategória";
+  if (snapshot.properties[categoryField] && !properties[categoryField]) {
+    return { status: "rejected", reason: "notion_category_option_missing" };
+  }
+  // Keep an evidence URL even when a source URL property is absent.
+  if (!properties["Zdroj dát"] && !properties["Zdroj URL"] &&
+      snapshot.properties["Popis"]?.type === "rich_text") {
+    properties["Popis"] = { rich_text: textValue(
+      (trim(args.description, 1400) + "\nZdroj: " + source).trim()
+    ) };
+  }
   properties[snapshot.statusName] = snapshot.properties[snapshot.statusName].type === "status"
     ? { status: { name: snapshot.draft } } : { select: { name: snapshot.draft } };
   const created = await notion("/pages", "POST", {
