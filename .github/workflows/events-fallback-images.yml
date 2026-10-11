@@ -1,0 +1,50 @@
+name: Event fallback artwork
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'components/event-image.tsx'
+      - 'components/event-card.tsx'
+      - 'components/event-detail.tsx'
+      - 'components/events-public.module.css'
+      - 'lib/event-type-presentation.ts'
+      - 'public/images/events/defaults/**'
+      - 'tests/event-fallback-images.test.mjs'
+      - 'tests/e2e/events-fallback-images.spec.ts'
+      - 'tests/events-fallback.playwright.config.ts'
+      - 'tests/helpers/events-fallback-preview.*'
+      - 'tests/helpers/events-preview-*'
+      - '.github/workflows/events-fallback-images.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: event-fallback-artwork-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  artwork:
+    name: Event artwork SSR, desktop and mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Category mappings and server-rendered image priority
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-fallback-images.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: Real event components with in-memory test data only
+        run: npx playwright test --config tests/events-fallback.playwright.config.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: event-fallback-artwork-evidence
+          path: outputs/redesign4/
+          retention-days: 7

@@ -2,7 +2,7 @@ import { EventMarkdown } from "@/components/event-markdown";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { EventCard } from "@/components/event-card";
-import { SmartCardImage } from "@/components/smart-card-image";
+import { EventImage } from "@/components/event-image";
 import { EventsBackLink } from "@/components/events-return-link";
 import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
@@ -61,7 +61,7 @@ export function EventDetail({
           </Breadcrumbs>
           <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
 
-          <div className={event.imageUrl ? styles.detailGrid : styles.detailGridNoImage}>
+          <div className={styles.detailGrid}>
             <div className={styles.detailHeading}>
               <div className={styles.detailTags}>
                 {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
@@ -106,11 +106,9 @@ export function EventDetail({
               )}
             </div>
 
-            {event.imageUrl && (
-              <figure className={styles.detailVisual} data-event-image>
-                <SmartCardImage src={event.imageUrl} mode={event.imageDisplay} alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
-              </figure>
-            )}
+            <figure className={styles.detailVisual} data-event-image>
+              <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
+            </figure>
           </div>
         </PageContainer>
       </header>
