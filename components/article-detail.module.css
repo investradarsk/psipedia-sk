@@ -261,6 +261,20 @@
   overflow-wrap: anywhere;
 }
 
+/* Use the perex's calm typeface for ordinary reading text, without recoloring
+   headings, callouts, tables or other editor components. */
+.readingShell :global(.article-intro > p),
+.readingShell :global(.article-intro > ul),
+.readingShell :global(.article-intro > ol),
+.readingShell :global(.article-block-text > p),
+.readingShell :global(.article-block-text > ul),
+.readingShell :global(.article-block-text > ol),
+.readingShell :global(.article-blocks > ul),
+.readingShell :global(.article-blocks > ol) {
+  color: #424a46;
+  font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
 .readingShell :global(.takeaway-box) {
   margin: 25px 0 31px;
   padding: 16px 19px;
@@ -754,6 +768,19 @@
     margin-bottom: 17px;
     font-size: 1em;
     line-height: 1.55;
+  }
+
+  /* Extend only ordinary paragraphs and lists by 8px per side.
+     Article titles, section headings, promo, warning and tables keep their axis. */
+  .readingShell :global(.article-intro > p),
+  .readingShell :global(.article-intro > ul),
+  .readingShell :global(.article-intro > ol),
+  .readingShell :global(.article-block-text > p),
+  .readingShell :global(.article-block-text > ul),
+  .readingShell :global(.article-block-text > ol),
+  .readingShell :global(.article-blocks > ul),
+  .readingShell :global(.article-blocks > ol) {
+    margin-inline: -8px;
   }
 
   /* Editorial paragraphs remain flush-left on narrow viewports; desktop keeps justified prose. */
