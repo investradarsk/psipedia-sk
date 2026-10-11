@@ -28,7 +28,9 @@ test("desktop admin disclosure uses native open state and CSS-only popup visibil
   assert.match(source, /<details[\s\S]*name="admin-primary"/);
   assert.match(source, /data-admin-desktop-popup/);
   assert.match(source, /expanded\.open = false/);
-  assert.match(css, /\.desktopGroup:not\(\[open\]\) > \.desktopMenu \{ display: none; \}/);
-  assert.doesNotMatch(source, /onToggle=|popup\.style\.display|data-admin-desktop-popup style=/);
+  assert.match(css, /\.desktopGroup:not\(\[open\]\) > \.desktopMenu \{ display: none !important; \}/);
+  assert.match(source, /popup\.style\.display = "none"/);
+  assert.match(source, /popup\.style\.display = disclosure\.open \? "none" : "grid"/);
+  assert.doesNotMatch(source, /onToggle=|data-admin-desktop-popup style=/);
   assert.doesNotMatch(source, /preventDefault\(\);[\s\S]*setExpandedDesktopGroup/);
 });

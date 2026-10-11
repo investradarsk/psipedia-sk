@@ -58,8 +58,10 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   useEffect(() => {
     const closeMenus = () => {
       desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => {
-        // CSS follows native disclosure state without an inline display override.
+        // Keep panel hidden immediately, including while native toggle settles.
         item.open = false;
+        const popup = item.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+        if (popup) popup.style.display = "none";
       });
     };
     const pointer = (event: PointerEvent) => {
@@ -72,6 +74,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
       event.preventDefault();
       event.stopPropagation();
       expanded.open = false;
+      const popup = expanded.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+      if (popup) popup.style.display = "none";
       expanded.querySelector<HTMLElement>("summary")?.focus();
     };
     document.addEventListener("pointerdown", pointer);
@@ -133,7 +137,17 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
             name="admin-primary"
             className={styles.desktopGroup}
           >
-            <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
+            <summary
+              className={styles.groupTrigger}
+              data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}
+              onClick={(event) => {
+                // Summary click runs before the browser updates details.open.
+                // This also restores a panel previously hidden synchronously by Escape.
+                const disclosure = event.currentTarget.parentElement as HTMLDetailsElement;
+                const popup = disclosure.querySelector<HTMLElement>("[data-admin-desktop-popup]");
+                if (popup) popup.style.display = disclosure.open ? "none" : "grid";
+              }}
+            >
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
             <div className={styles.desktopMenu} id={"admin-menu-" + index} data-admin-desktop-popup>
