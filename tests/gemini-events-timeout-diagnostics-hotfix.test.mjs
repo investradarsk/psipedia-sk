@@ -53,7 +53,11 @@ async function capture(run) {
   assert.equal(timing.length, infos.length, "Event info logs must be fixed timing telemetry only");
   assert.equal(timing.length, 1, "exactly one timing record per Event attempt");
   const payload = timing[0][1];
-  assert.deepEqual(Object.keys(payload).sort(), Object.keys(payload).sort());
+  assert.deepEqual(Object.keys(payload).sort(), [
+    "abortTriggered","elapsedMs","failurePhase","httpStatus","parsingResponseMs",
+    "phase","preflightMs","readingBodyMs","responseHeadersReceived",
+    "validatingEventMs","waitingResponseMs",
+  ].filter(key => key in payload).sort());
   assert.ok(["COMPLETED","TIMEOUT","NETWORK_ERROR","HTTP_ERROR","INVALID_RESPONSE"].includes(payload.phase));
   for (const key of ["elapsedMs","preflightMs","waitingResponseMs","readingBodyMs","parsingResponseMs","validatingEventMs"]) {
     assert.ok(Number.isSafeInteger(payload[key]) && payload[key] >= 0 && payload[key] <= 180_000, key);
@@ -106,17 +110,18 @@ test("Event timeout after HTTP headers while reading response body", async t => 
   const result = await capture(async () => {
     const pending = mocked({ timeoutMs: 120_000, fetchImpl: async (_url, init) => {
       requests++;
-      const stream = new ReadableStream({
-        start(controller) {
-          init.signal.addEventListener("abort", () =>
-            controller.error(new Error("SECRET_BODY")), { once: true });
-        },
-        pull() {
+      // A minimal fetch Response double signals the exact body.read boundary.
+      // Its read rejects on abort, matching the real fetch body's semantics.
+      return {
+        status: 200, ok: true, headers: new Headers(),
+        text() {
           bodyRead();
-          return new Promise(() => {});
+          return new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () =>
+              reject(new Error("SECRET_BODY")), { once: true });
+          });
         },
-      });
-      return new Response(stream, { status: 200 });
+      };
     } });
     await bodyReadPromise;
     t.mock.timers.tick(120_000);
