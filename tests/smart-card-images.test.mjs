@@ -33,9 +33,9 @@ test("all article image surfaces use the shared smart crop with optional persist
     "components/article-card.tsx",
     "components/article-detail.tsx",
     "components/public-visual-system/public-visual-system.tsx",
-  ]) assert.match(read(path), /<SmartCardImage/, path);
+  ]) assert.match(read(path), /<ImageDisplay/, path);
   assert.match(read("components/smart-card-image.tsx"), /avoidSevereArticleCrop/);
   assert.match(read("components/smart-card-image.tsx"), /objectPosition/);
-  assert.match(read("components/admin-article-editor.tsx"), /article-image-focus-y/);
+  assert.match(read("components/admin-article-editor.tsx"), /<ImageDisplayEditor/);
   assert.match(read("lib/article-store.ts"), /image_focus_y = \?/);
 });

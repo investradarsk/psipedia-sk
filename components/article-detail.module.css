@@ -937,3 +937,6 @@
 .heroMedia :global(.article-hero-placeholder) {
   border-radius: 0;
 }
+
+/* IMAGE-EDITOR-1: natural images take intrinsic height. */
+.modernArticle .heroMedia.heroNatural { aspect-ratio: auto; background: transparent; }
