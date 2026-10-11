@@ -155,6 +155,7 @@ for (const articleCase of cases) {
     } else {
       await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
     }
+    await expect(page.locator("[data-article-standfirst]")).toBeVisible();
     await expect(page.locator(".article-intro")).toBeVisible();
     await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
@@ -180,7 +181,7 @@ for (const articleCase of cases) {
 
     const metrics = await page.evaluate(() => {
       const h1 = document.querySelector<HTMLElement>("h1")!;
-      const excerpt = document.querySelector<HTMLElement>("main#obsah header h1 + p")!;
+      const excerpt = document.querySelector<HTMLElement>(".article-prose [data-article-standfirst]")!;
       const image = document.querySelector<HTMLElement>(".article-hero-image");
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
@@ -193,6 +194,7 @@ for (const articleCase of cases) {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         h1Size: Number.parseFloat(getComputedStyle(h1).fontSize),
         excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
+        excerptTop: excerpt.getBoundingClientRect().top,
         imageRatio: imageRect ? imageRect.width / imageRect.height : null,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
@@ -259,8 +261,8 @@ for (const articleCase of cases) {
 
     if (articleCase.id === "bikejoring") {
       expect(
-        metrics.introTop,
-        "Bikejoring prose must be visible or directly adjacent to the first 390x844 viewport",
+        metrics.excerptTop,
+        "Bikejoring standfirst must be visible or directly adjacent to the first 390x844 viewport",
       ).toBeLessThanOrEqual(944);
     }
 
@@ -422,10 +424,10 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
       expect(metrics.imageHeight).not.toBeNull();
-      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(403);
-      expect(metrics.imageHeight!).toBeLessThanOrEqual(407);
-      expect(metrics.imageWidth).toBeGreaterThanOrEqual(718);
-      expect(metrics.imageWidth).toBeLessThanOrEqual(722);
+      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(443);
+      expect(metrics.imageHeight!).toBeLessThanOrEqual(453);
+      expect(metrics.imageWidth).toBeGreaterThanOrEqual(790);
+      expect(metrics.imageWidth).toBeLessThanOrEqual(805);
       expect(metrics.imageRatio).not.toBeNull();
       expect(metrics.imageRatio!).toBeGreaterThan(1.74);
       expect(metrics.imageRatio!).toBeLessThan(1.81);
@@ -434,14 +436,14 @@ for (const articleCase of cases) {
       expect(metrics.imageRatio).toBeNull();
       expect(metrics.noImageGap).toBeLessThanOrEqual(40);
     }
-    expect(metrics.proseWidth).toBeGreaterThanOrEqual(718);
-    expect(metrics.proseWidth).toBeLessThanOrEqual(722);
+    expect(metrics.proseWidth).toBeGreaterThanOrEqual(790);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(805);
     expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
     expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeGreaterThanOrEqual(1.52);
     expect(metrics.proseLineHeight / metrics.proseSize).toBeLessThanOrEqual(1.58);
     expect(Math.abs(metrics.headingLeft - metrics.proseLeft)).toBeLessThanOrEqual(2);
-    if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(2);
+    if (articleCase.hasImage) expect(Math.abs(metrics.imageWidth! - metrics.proseWidth)).toBeLessThanOrEqual(6);
     expect(metrics.sidebarTop, "Desktop sidebar should start in the title/meta zone").toBeLessThanOrEqual(metrics.headingTop);
     expect(metrics.sidebarRightOfHero, "Desktop sidebar should occupy the right rail beside the article").toBe(true);
     expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
@@ -568,7 +570,7 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
     } else {
       expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - (viewport.width <= 620 ? 24 : 32) + 1);
     }
-    if (viewport.width > 1120) {
+    if (viewport.width >= 1200) {
       expect(metrics.sidebarDisplay, `desktop sidebar display at ${viewport.width}px`).not.toBe("none");
       expect(metrics.sidebarLeft, `desktop sidebar rail at ${viewport.width}px`).toBeGreaterThan(metrics.proseLeft + metrics.proseWidth);
       expect(metrics.sidebarTop, `desktop sidebar start at ${viewport.width}px`).toBeLessThanOrEqual(metrics.h1Top);

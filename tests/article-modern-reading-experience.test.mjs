@@ -148,22 +148,26 @@ test("editor-authored related blocks stay in body flow while sources remain at t
 test("article header follows compact editorial hierarchy and aligns with the reading grid", () => {
   const kicker = indexOfOrFail(detail, "className={styles.kicker}", "category kicker is missing");
   const title = indexOfOrFail(detail, "<h1>{article.title}</h1>", "headline is missing");
-  const excerpt = indexOfOrFail(detail, "<p>{article.excerpt}</p>", "perex is missing");
+  const excerpt = indexOfOrFail(detail, "<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>", "perex is missing");
   const meta = indexOfOrFail(detail, "className={styles.metaActions}", "metadata actions are missing");
   const favorite = indexOfOrFail(detail, "<FavoriteButton slug={article.slug} />", "favorite is missing");
   const compactShare = indexOfOrFail(detail, "url={canonical} compact", "compact header share is missing");
   const figure = indexOfOrFail(detail, "className={styles.heroFigure}", "hero figure is missing");
-  assert.ok(kicker < title && title < excerpt && excerpt < meta && meta < favorite && favorite < compactShare && compactShare < figure);
+  const articleBody = indexOfOrFail(detail, 'className="article-prose" data-article-reading-end', "article body is missing");
+  assert.ok(kicker < title && title < meta && meta < favorite && favorite < compactShare && compactShare < figure && figure < articleBody && articleBody < excerpt);
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
-  assert.match(styles, /\.title h1[\s\S]*max-width:\s*32ch/);
-  assert.match(styles, /--article-layout-gap:\s*clamp\(42px,\s*5vw,\s*72px\)/);
+  assert.match(styles, /\.title h1\s*\{[^}]*max-width:\s*none/);
+  assert.match(styles, /--article-layout-gap:\s*clamp\(20px,\s*2vw,\s*30px\)/);
   assert.match(styles, /\.heroGrid[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.title[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
   assert.match(styles, /\.modernArticle \.heroMedia[\s\S]*aspect-ratio:\s*16 \/ 9/);
 });
-test("desktop magazine layout keeps a readable 70/30 composition and truthful sticky sidebar", () => {
-  assert.match(styles, /--article-reading-width:\s*720px/);
+test("desktop magazine layout widens the reading column and keeps a truthful sticky sidebar", () => {
+  assert.match(styles, /--article-sidebar-width:\s*290px/);
+  assert.match(styles, /\.readingShell \.standfirst\s*\{[^}]*margin:\s*0 0 18px/);
+  assert.doesNotMatch(detail, /<h1>\{article\.title\}<\/h1>\s*<p>\{article\.excerpt\}<\/p>/);
+  assert.match(styles, /--article-reading-width:\s*800px/);
   assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
   assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/);
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
@@ -188,7 +192,7 @@ test("ARTICLE-READING-WHITE-1 uses left-aligned prose and lifts the desktop disc
   assert.doesNotMatch(styles, /\.title h1[^{]*\{[^}]*text-align:\s*justify/s);
   assert.doesNotMatch(styles, /\.articleMeta[^{]*\{[^}]*text-align:\s*justify/s);
   assert.doesNotMatch(styles, /\.article-disclaimer\)[^{]*\{[^}]*text-align:\s*justify/s);
-  assert.match(styles, /@media \(max-width: 1120px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
+  assert.match(styles, /@media \(max-width: 1199px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
 });
 
 test("ARTICLE-READING-WHITE-1 keeps compact sans-serif text and flush-left mobile paragraphs", () => {
@@ -389,7 +393,7 @@ test("ARTICLE-CARDS-1 reuses shared article presentation on homepage and only ad
 
 test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article pages", () => {
   assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*#fff;/s);
-  assert.match(styles, /--article-reading-width:\s*720px/);
+  assert.match(styles, /--article-reading-width:\s*800px/);
   assert.match(styles, /\.readingShell :global\(\.article-prose\)\s*\{[^}]*color:\s*#242424;[^}]*font-size:\s*16px;[^}]*line-height:\s*1\.55;/s);
   assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*color:\s*inherit;[^}]*font-size:\s*1em;/s);
   assert.match(styles, /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.58rem;/s);

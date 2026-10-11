@@ -101,7 +101,7 @@ test("secondary article recommendation reads are fail-soft and no dead mid-relat
 
 test("long titles, links, source labels and popularity items cannot force page-level horizontal overflow", () => {
   assert.match(detailStyles, /\.title h1[\s\S]*?overflow-wrap:\s*anywhere/);
-  assert.match(detailStyles, /\.title > p[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(detailStyles, /\.readingShell \.standfirst\s*\{[^}]*overflow-wrap:\s*anywhere/);
   assert.match(detailStyles, /article-blocks a\)[\s\S]*?overflow-wrap:\s*anywhere/);
   assert.match(detailStyles, /article-block-sources li\)[\s\S]*?overflow-wrap:\s*anywhere/);
   assert.match(popularityStyles, /\.list a[\s\S]*?min-width:\s*0/);
