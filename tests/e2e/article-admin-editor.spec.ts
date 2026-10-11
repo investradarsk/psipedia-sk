@@ -272,6 +272,53 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(page.getByRole("button", { name: "Stiahnuť z webu" })).toBeVisible();
   });
 
+  test("IMAGE-EDITOR-1 independently persists thumbnail blur and detail crop, with cancel and reset", async ({ page }, testInfo) => {
+    const id = testInfo.project.name.includes("mobile") ? 972002 : 972001;
+    await page.goto(`/admin/clanky/${id}`, { waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    await page.getByRole("button", { name: "Upraviť zobrazenie" }).click();
+    const modal = page.getByRole("dialog", { name: "Upraviť zobrazenie obrázka" });
+    await expect(modal).toBeVisible();
+
+    await modal.getByRole("combobox").selectOption("blur");
+    await modal.getByRole("slider").fill("1.35");
+
+    await modal.getByRole("tab", { name: "Detail článku" }).click();
+    await modal.getByRole("combobox").selectOption("crop");
+    await modal.getByRole("slider").fill("1.2");
+    await modal.getByRole("tab", { name: "Náhľad" }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("blur");
+
+    // Live renderer is shared; keyboard arrow moves the focal point.
+    const photo = modal.locator('[data-image-display="blur"] img').last();
+    const before = await photo.evaluate((image) => (image as HTMLImageElement).style.objectPosition);
+    await modal.getByLabel("Pozícia obrázka, šípky posúvajú výrez").focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect.poll(() => photo.evaluate((image) => (image as HTMLImageElement).style.objectPosition)).not.toBe(before);
+
+    await modal.getByRole("button", { name: "Uložiť zobrazenie" }).click();
+    await expect(modal).toBeHidden();
+    await page.getByRole("button", { name: "Uložiť koncept" }).click();
+    await expect(page.getByText("Koncept je bezpečne uložený.")).toBeVisible();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForEditor(page);
+    await page.getByRole("button", { name: "Upraviť zobrazenie" }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("blur");
+    await expect(modal.getByRole("slider")).toHaveValue("1.35");
+    await modal.getByRole("tab", { name: "Detail článku" }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("crop");
+    await expect(modal.getByRole("slider")).toHaveValue("1.2");
+
+    await modal.getByRole("button", { name: "Obnoviť predvolené" }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("natural");
+    await modal.getByRole("button", { name: "Zrušiť" }).click();
+    await page.getByRole("button", { name: "Upraviť zobrazenie" }).click();
+    await modal.getByRole("tab", { name: "Detail článku" }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("crop");
+    await modal.getByRole("button", { name: "Zrušiť" }).click();
+  });
+
   test("toolbar is keyboard reachable, axe-clean and does not overflow at 390px-class mobile width", async ({ page }, testInfo) => {
     await page.goto("/admin/novy?sekcia=clanky", { waitUntil: "domcontentloaded" });
     await waitForEditor(page);
