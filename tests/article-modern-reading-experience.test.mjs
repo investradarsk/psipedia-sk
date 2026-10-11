@@ -410,21 +410,35 @@ test("ARTICLE-READING-EDITORIAL-2 keeps original editor blocks and makes two-col
 test("ARTICLE-READING-COMPACT-3 reduces only prose and paragraph spacing without changing editorial blocks", () => {
   assert.match(styles, /\.readingShell :global\(\.article-block-text\),\s*\.readingShell :global\(\.article-block-rich-content\)\s*\{\s*gap:\s*0\.7em;/);
   assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*gap:\s*9px;[^}]*margin-bottom:\s*20px;[^}]*line-height:\s*1\.55;/s);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*margin-bottom:\s*17px;[^}]*line-height:\s*1\.55;/s);
+  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*margin-bottom:\s*14px;[^}]*line-height:\s*1\.55;/s);
   assert.match(styles, /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s);
   assert.match(styles, /\.readingShell :global\(\.article-block-table-wrap\[data-columns="2"\] table\)\s*\{[^}]*table-layout:\s*fixed;/s);
 });
 
 
-test("ARTICLE-READING-PEREX-4 applies perex typography and wider mobile gutters only to ordinary prose", () => {
+test("ARTICLE-READING-PEREX-4 keeps perex typography with aligned mobile prose", () => {
   const scopedText = styles.slice(styles.indexOf("/* Use the perex's calm typeface"), styles.indexOf(".readingShell :global(.takeaway-box)"));
   assert.match(scopedText, /\.article-intro > p\)/);
   assert.match(scopedText, /\.article-block-text > p\)/);
   assert.match(scopedText, /\.article-blocks > ul\)/);
-  assert.match(scopedText, /color:\s*#424a46;/);
+  assert.match(scopedText, /color:\s*#343b37;/);
   assert.match(scopedText, /font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;/);
   assert.doesNotMatch(scopedText, /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
   const mobile = styles.slice(styles.indexOf("@media (max-width: 767px)"), styles.indexOf("@media (max-width: 420px)"));
-  assert.match(mobile, /\.article-block-text > p\)[\s\S]*margin-inline:\s*-8px;/);
-  assert.doesNotMatch(mobile.slice(mobile.indexOf("/* Extend only ordinary paragraphs"), mobile.indexOf("/* Editorial paragraphs remain")), /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
+  assert.match(mobile, /\.article-block-text > p\)[\s\S]*margin-inline:\s*0;/);
+  assert.doesNotMatch(mobile.slice(mobile.indexOf("/* The canonical mobile shell"), mobile.indexOf("/* Editorial paragraphs remain")), /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
+});
+
+
+test("PUBLIC-MOBILE-GUTTER-1 keeps titles and prose aligned with the homepage mobile axis", () => {
+  const designSystem = readFileSync("app/design-system.css", "utf8");
+  const mobile = styles.slice(styles.indexOf("@media (max-width: 767px)"), styles.indexOf("@media (max-width: 420px)"));
+  assert.match(designSystem, /\.public-shell\s*\{[^}]*max\(12px, env\(safe-area-inset-left, 0px\)\)[^}]*max\(12px, env\(safe-area-inset-right, 0px\)\)/s);
+  assert.match(mobile, /\.articleLayout\s*\{[^}]*padding-inline:\s*0;/s);
+  assert.match(mobile, /\.article-intro > p\)[\s\S]*?margin-inline:\s*0;/);
+  assert.match(mobile, /\.readingShell :global\(\.article-blocks\)\s*\{\s*gap:\s*10px;/);
+  assert.match(mobile, /\.readingShell :global\(\.article-block-text\)\s*\{\s*gap:\s*0\.55em;/);
+  assert.match(mobile, /\.article-blocks h2\)\s*\{[^}]*margin-top:\s*0\.38em;[^}]*margin-bottom:\s*0;/s);
+  assert.match(styles, /color:\s*#343b37;/);
+  assert.doesNotMatch(mobile, /margin-inline:\s*-8px;/);
 });

@@ -271,7 +271,7 @@
 .readingShell :global(.article-block-text > ol),
 .readingShell :global(.article-blocks > ul),
 .readingShell :global(.article-blocks > ol) {
-  color: #424a46;
+  color: #343b37;
   font-family: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
@@ -756,6 +756,7 @@
   .articleLayout {
     grid-template-columns: minmax(0, 1fr);
     gap: 40px;
+    padding-inline: 0;
   }
 
   .readingShell :global(.article-prose) {
@@ -765,13 +766,22 @@
   }
 
   .readingShell :global(.article-prose .article-intro) {
-    margin-bottom: 17px;
+    gap: 7px;
+    margin-bottom: 14px;
     font-size: 1em;
     line-height: 1.55;
   }
 
-  /* Extend only ordinary paragraphs and lists by 8px per side.
-     Article titles, section headings, promo, warning and tables keep their axis. */
+  .readingShell :global(.article-blocks) {
+    gap: 10px;
+  }
+
+  .readingShell :global(.article-block-text) {
+    gap: 0.55em;
+  }
+
+  /* The canonical mobile shell is now wide enough for ordinary prose.
+     Reset the old paragraph-only bleed so headings, body and tables share one axis. */
   .readingShell :global(.article-intro > p),
   .readingShell :global(.article-intro > ul),
   .readingShell :global(.article-intro > ol),
@@ -780,7 +790,7 @@
   .readingShell :global(.article-block-text > ol),
   .readingShell :global(.article-blocks > ul),
   .readingShell :global(.article-blocks > ol) {
-    margin-inline: -8px;
+    margin-inline: 0;
   }
 
   /* Editorial paragraphs remain flush-left on narrow viewports; desktop keeps justified prose. */
@@ -818,14 +828,16 @@
   }
 
   .readingShell :global(.article-blocks h2) {
-    margin-top: 0.62em;
+    margin-top: 0.38em;
+    margin-bottom: 0;
     scroll-margin-top: calc(var(--psipedia-sticky-header-height, 120px) + 16px);
     font-size: 1.43rem;
     line-height: 1.3;
   }
 
   .readingShell :global(.article-blocks h3) {
-    margin-top: 0.6em;
+    margin-top: 0.38em;
+    margin-bottom: 0;
     scroll-margin-top: calc(var(--psipedia-sticky-header-height, 120px) + 16px);
     font-size: 1.22rem;
   }

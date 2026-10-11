@@ -203,6 +203,9 @@ for (const articleCase of cases) {
         readingColor: introParagraph ? getComputedStyle(introParagraph).color : null,
         readingMargin: introParagraph ? Number.parseFloat(getComputedStyle(introParagraph).marginLeft) : null,
         readingExtraWidth: introParagraph ? introParagraph.getBoundingClientRect().width - intro.getBoundingClientRect().width : null,
+        titleLeft: h1.getBoundingClientRect().left,
+        readingLeft: introParagraph ? introParagraph.getBoundingClientRect().left : null,
+        firstSectionHeadingLeft: document.querySelector<HTMLElement>(".article-blocks h2")?.getBoundingClientRect().left ?? null,
         introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
         introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
         bodyTextAlign: bodyParagraph ? getComputedStyle(bodyParagraph).textAlign : null,
@@ -230,17 +233,22 @@ for (const articleCase of cases) {
       expect(metrics.imageRatio).toBeNull();
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
     }
-    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 32 + 1);
+    expect(metrics.proseWidth).toBeLessThanOrEqual(390 - 24 + 1);
     expect(metrics.proseSize).toBeGreaterThanOrEqual(15.9);
     expect(metrics.proseSize).toBeLessThanOrEqual(16.1);
     expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
     expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
     expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
     expect(metrics.readingFontFamily).toMatch(/Avenir Next|Avenir/);
-    expect(metrics.readingColor).toBe("rgb(66, 74, 70)");
-    expect(metrics.readingMargin).toBe(-8);
-    expect(metrics.readingExtraWidth).toBeGreaterThanOrEqual(15.5);
-    expect(metrics.readingExtraWidth).toBeLessThanOrEqual(16.5);
+    expect(metrics.readingColor).toBe("rgb(52, 59, 55)");
+    expect(metrics.readingMargin).toBe(0);
+    expect(Math.abs(metrics.readingExtraWidth ?? 100)).toBeLessThanOrEqual(1);
+    expect(metrics.titleLeft).toBeGreaterThanOrEqual(11);
+    expect(metrics.titleLeft).toBeLessThanOrEqual(13);
+    expect(Math.abs((metrics.readingLeft ?? 100) - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    if (metrics.firstSectionHeadingLeft !== null) {
+      expect(Math.abs(metrics.firstSectionHeadingLeft - metrics.titleLeft)).toBeLessThanOrEqual(1);
+    }
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
@@ -558,7 +566,7 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 breakpoint matrix keeps the article axis stab
     if (viewport.width >= 768) {
       expect(Math.abs(metrics.heroWidth - metrics.proseWidth), `hero width at ${viewport.width}px`).toBeLessThanOrEqual(2);
     } else {
-      expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - 32 + 1);
+      expect(metrics.heroWidth).toBeLessThanOrEqual(viewport.width - (viewport.width <= 620 ? 24 : 32) + 1);
     }
     if (viewport.width > 1120) {
       expect(metrics.sidebarDisplay, `desktop sidebar display at ${viewport.width}px`).not.toBe("none");
