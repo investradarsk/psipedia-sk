@@ -179,7 +179,11 @@ test("scrolling the menu never dismisses it; tapping the backdrop does", async (
   await nav.evaluate((element) => { element.scrollTop = 130; });
   await expect.poll(() => nav.evaluate((element) => element.scrollTop)).toBeGreaterThan(20);
   await expect(menu).toHaveClass(/is-open/);
-  await page.locator("button[aria-label='Zavrieť navigáciu klepnutím mimo menu']").click({ position: { x: 12, y: 550 } });
+  // After collapsing a long submenu, there is visible space below the drawer
+  // for the overlay; dragging the list itself must not close the menu.
+  await nav.locator('[aria-controls="mobile-submenu-steniatka"]').click();
+  await nav.evaluate((element) => { element.scrollTop = 0; });
+  await page.locator("button[aria-label='Zavrieť navigáciu klepnutím mimo menu']").click({ position: { x: 12, y: 820 } });
   await expect(menu).not.toHaveClass(/is-open/);
 });
 
