@@ -26,9 +26,10 @@ test("events hero has the approved copy and a single event-only GET search", asy
   await page.getByRole("link", { name: "Ukončené", exact: true }).click();
   await expect(page).toHaveURL(url => url.searchParams.get("q") === "pes" && url.searchParams.get("termin") === "ukoncene");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
-  await page.getByRole("button", { name: /^Ďalšie filtre/ }).click();
+  const toggle = page.locator("summary").filter({ hasText: "Filtrovať" });
+  if (await toggle.isVisible()) await toggle.click();
   await page.getByRole("combobox", { name: "Kraj", exact: true }).selectOption("Nitriansky kraj");
-  await page.getByRole("button", { name: "Použiť filtre" }).click();
+  await page.getByRole("button", { name: "Zobraziť výsledky" }).click();
   await expect(page).toHaveURL(url => url.searchParams.get("q") === "pes" && url.searchParams.get("region") === "Nitriansky kraj");
   await page.getByRole("textbox", { name: "Hľadať podujatia", exact: true }).fill("");
   await search.getByRole("button", { name: "Hľadať", exact: true }).click();

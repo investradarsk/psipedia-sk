@@ -66,11 +66,11 @@ test("event time filters keep stable shareable URLs for crawlable archive anchor
 test("event type navigation and time filters stay crawlable with the intended transition model", () => {
   const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
   const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
-  assert.match(eventsPage, /eventTypePortalHref\(eventType\)/);
-  assert.match(eventsPage, /PublicSubcategoryNavigator/);
+  assert.match(eventsPage, /eventTypePortalHref\(type\)/);
+  assert.doesNotMatch(eventsPage, /PublicSubcategoryNavigator/);
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
   assert.match(eventsPage, /eventTypePortalHref\(type\)/);
-  assert.match(eventsPage, /mode="compact"/);
+  assert.match(calendar, /data-events-legend/);
   assert.match(calendar, /href=\{timeHref\(value\)\}/);
   assert.match(calendar, /function timeHref\(value: EventTimeFilter\)/);
   assert.match(calendar, /if \(query\) params\.set\("q", query\)/);
@@ -87,10 +87,11 @@ test("homepage and event listing reuse the central event date implementation", (
   const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
   const card = readFileSync(new URL("../components/event-card.tsx", import.meta.url), "utf8");
   assert.match(homepage, /getHomepageUpcomingEventsWithImages\(3\)/);
-  assert.match(portal, /getPublishedEvents\(\)/);
+  assert.match(portal, /getPublishedEventListing\(parseEventListing/);
   assert.match(portal, /slug === "podujatia"\) return <EventsPage/);
-  assert.match(calendar, /eventDateStatus\(event, today\)/);
-  assert.match(calendar, /dateStatus === "current"/);
+  assert.match(card, /eventDateStatus\(event, today\)/);
+  const filters = readFileSync(new URL("../lib/event-listing.ts", import.meta.url), "utf8");
+  assert.match(filters, /f\.time === 'current'/);
   assert.match(eventsPage, /bratislavaDateKey\(\)/);
   assert.match(card, /eventDateStatus\(event, today\)/);
   assert.doesNotMatch(`${calendar}\n${eventsPage}\n${card}`, /new Date\(\).*startDate|toISOString\(\)\.slice\(0, 10\)/s);

@@ -39,15 +39,16 @@ test("Services keep the existing server-backed query contract behind one primary
 
 test("Events use URL-backed server rendering instead of client dataset filtering", () => {
   assert.doesNotMatch(events, /"use client"|useState|useMemo|window\.history/);
-  assert.match(events, /method="get"/);
-  assert.match(events, /data-public-search-form="events"/);
-  assert.match(events, /name="q"/);
-  assert.match(events, /name="region"/);
-  assert.match(events, /name="mesiac"/);
-  assert.match(events, /name="termin"/);
-  assert.match(events, /<PublicFilterDisclosure/);
+  const results = read("components/event-listing-results.tsx");
+  const page = read("components/events-page.tsx");
+  assert.match(results, /method="get"/);
+  assert.match(page, /searchScope="events"/);
+  assert.match(results, /name="region"/);
+  assert.match(results, /name="mesiac"/);
+  assert.match(results, /eventListingParams/);
+  assert.match(results, /<details/);
   assert.match(events, /function timeHref/);
-  assert.match(events, /Zobraziť celý zoznam/);
+  assert.match(results, /Vymazať filtre/);
   assert.match(eventsLib, /eventSearchQueryFromParam/);
   assert.match(eventsLib, /eventRegionFilterFromParam/);
   assert.match(eventsLib, /eventMonthFilterFromParam/);

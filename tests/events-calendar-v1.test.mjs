@@ -61,11 +61,11 @@ test("one published-only bounded read powers calendar while listing remains cano
   assert.match(store, /export async function getPublishedEventsInMonth/);
   assert.match(store, /WHERE status = 'published' AND start_date <= \? AND COALESCE\(end_date, start_date\) >= \?/);
   assert.match(store, /ORDER BY start_date ASC, start_time ASC, id ASC LIMIT 500/);
-  assert.match(root, /getPublishedEventsInMonth\(calendarMonth\)/);
-  assert.match(type, /getPublishedEventsInMonth\(calendarMonth\)/);
-  assert.match(page, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\}/);
-  assert.match(calendar, /event\.status !== "published"/);
-  assert.match(calendar, /const monthMatches = calendarEvents\.filter\(matchesFilters\)/);
+  assert.match(root, /getPublicEventCalendar\(parseEventListing/);
+  assert.match(type, /getPublicEventCalendar\(parseEventListing/);
+  assert.match(page, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/);
+  assert.match(read("lib/event-listing.ts"), /status = 'published'/);
+  assert.match(calendar, /const monthMatches = calendarEvents;/);
   assert.doesNotMatch(calendar, /"use client"|useState|window\.history/);
 });
 
@@ -74,15 +74,16 @@ test("hero precedes one search and calendar, with a banner before the listing", 
   const calendar = read("components/event-calendar.tsx");
   assert.ok(page.indexOf("<UnifiedSectionHero") < page.indexOf("styles.calendarSection"));
   assert.doesNotMatch(page, /landingCategories|eventLandingIcon|eventLandingFallbackImage/);
-  assert.ok(calendar.indexOf("{afterCalendar}") < calendar.indexOf("styles.upcomingSection"));
-  assert.equal((calendar.match(/name="q"/g) ?? []).length, 1);
-  assert.match(calendar, /<PublicFilterDisclosure/);
+  assert.ok(calendar.indexOf("{afterCalendar}") < calendar.indexOf("<EventListingResults"));
+  assert.equal((page.match(/id="events-search"/g) ?? []).length, 1);
+  assert.doesNotMatch(calendar, /<PublicFilterDisclosure|Použiť filtre/);
+  assert.match(read("components/event-listing-results.tsx"), /data-event-filters/);
   assert.match(calendar, /data-events-month-calendar/);
   assert.match(calendar, /data-selected-day=\{selectedDay\}/);
   assert.match(calendar, /aria-current=\{todayFlag \? "date" : undefined\}/);
   assert.match(calendar, /href=\{eventHref\(event\)\}/);
-  assert.match(calendar, /data-event-list/);
-  assert.match(calendar, /initialTime === "upcoming" && dateStatus !== "past"/);
+  assert.match(read("components/event-listing-results.tsx"), /data-event-list/);
+  assert.match(read("lib/event-listing.ts"), /f\.time\s*===\s*'upcoming'/);
   assert.match(calendar, /if \(query\) params\.set\("q", query\)/);
   assert.match(calendar, /if \(region\) params\.set\("region", region\)/);
   assert.match(calendar, /if \(month\) params\.set\("mesiac", month\)/);

@@ -1,3 +1,4 @@
+import { eventListingParams, type EventListingFilters } from '@/lib/event-listing';
 import Link from "next/link";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import homeStyles from "@/app/home-v2.module.css";
@@ -9,7 +10,6 @@ import {
   PublicContextBanner,
   PublicContentShell,
   PublicFoundation,
-  PublicSubcategoryNavigator,
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
@@ -31,7 +31,10 @@ import styles from "./events-public.module.css";
 
 export async function EventsPage({
   events,
+  filters,
+  listing,
   calendarEvents = [],
+  calendarSummaries,
   initialCalendarMonth = "",
   initialDay = "",
   initialType = "Všetky",
@@ -41,7 +44,10 @@ export async function EventsPage({
   initialMonth = "",
 }: {
   events: DogEvent[];
+  filters?: EventListingFilters;
+  listing?: {total:number;page:number;pages:number};
   calendarEvents?: DogEvent[];
+  calendarSummaries?: {date:string;count:number;types:EventType[]}[];
   initialCalendarMonth?: string;
   initialDay?: string;
   initialType?: EventType | "Všetky";
@@ -85,26 +91,20 @@ export async function EventsPage({
     { name: "mesiac", value: initialMonth },
     { name: "kalendar", value: visibleMonth !== (initialMonth || today.slice(0, 7)) ? visibleMonth : "" },
     { name: "den", value: selectedDay },
+    ...Object.entries({od: filters?.from, do: filters?.to, mesto: filters?.city, zoradenie: filters?.sort}).map(([name,value]) => ({name,value: value ?? ""})),
   ].filter((field) => Boolean(field.value));
   const searchShortcuts = eventTypes.filter((type) => type !== "Iné").flatMap((type) => {
     const href = eventTypePortalHref(type);
-    return href ? [{ href, label: eventTypePresentation[type].label }] : [];
+    const params = filters ? eventListingParams(filters) : new URLSearchParams();
+    if (selectedDay) params.set("den", selectedDay);
+    if (visibleMonth !== (initialMonth || today.slice(0,7))) params.set("kalendar", visibleMonth);
+    return href ? [{ href: href + (params.size ? "?" + params.toString() : ""), label: eventTypePresentation[type].label }] : [];
   });
-  const compactNavigation = [
-    { href: "/podujatia", title: "Všetky podujatia", current: isMainListing },
-    ...eventTypes.flatMap((eventType) => {
-      const href = eventTypePortalHref(eventType);
-      return href ? [{
-        href,
-        title: eventTypePresentation[eventType].label,
-        current: initialType === eventType,
-      }] : [];
-    }),
-  ];
+
 
   return (
     <main id="obsah">
-      <RememberEventsListing key={[initialCalendarMonth, initialDay, initialType, initialTime, initialQuery, initialRegion, initialMonth].join("|")} />
+      <RememberEventsListing key={[initialCalendarMonth, initialDay, initialType, initialTime, initialQuery, initialRegion, initialMonth, filters?.from, filters?.to, filters?.city, filters?.sort, listing?.page].join("|")} />
       <PublicFoundation className={styles.foundation}>
         <div className={homeStyles.homeV2}>
           <UnifiedSectionHeroShell className={isMainListing ? styles.homeHeroShell : styles.heroShell}>
@@ -141,7 +141,7 @@ export async function EventsPage({
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">
           <PublicContentShell variant="listing">
-            <EventCalendar events={events} calendarEvents={calendarEvents} initialCalendarMonth={initialCalendarMonth} initialDay={initialDay} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth}
+            <EventCalendar filters={filters} listing={listing} events={events} calendarEvents={calendarEvents} calendarSummaries={calendarSummaries} initialCalendarMonth={initialCalendarMonth} initialDay={initialDay} today={today} initialType={initialType} initialTime={initialTime} initialQuery={initialQuery} initialRegion={initialRegion} initialMonth={initialMonth}
               afterCalendar={
                 <section className={styles.calendarOrganizer} aria-label="Pre organizátorov">
                   <PublicContextBanner
@@ -158,14 +158,7 @@ export async function EventsPage({
           </PublicContentShell>
         </section>
 
-        {!isMainListing ? (
-          <PublicSubcategoryNavigator
-            items={compactNavigation}
-            label="Typy podujatí"
-            mode="compact"
-            className={styles.typeNavigator}
-          />
-        ) : null}
+
 
 
       </PublicFoundation>
