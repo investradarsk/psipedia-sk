@@ -69,11 +69,12 @@ test("one published-only bounded read powers calendar while listing remains cano
   assert.doesNotMatch(calendar, /"use client"|useState|window\.history/);
 });
 
-test("hero precedes one search and calendar, with upcoming list and category navigator below", () => {
+test("hero precedes one search and calendar, with a banner before the listing", () => {
   const page = read("components/events-page.tsx");
   const calendar = read("components/event-calendar.tsx");
   assert.ok(page.indexOf("<UnifiedSectionHero") < page.indexOf("styles.calendarSection"));
-  assert.ok(page.indexOf("styles.calendarSection") < page.indexOf("styles.landingCategories"));
+  assert.doesNotMatch(page, /landingCategories|eventLandingIcon|eventLandingFallbackImage/);
+  assert.ok(calendar.indexOf("{afterCalendar}") < calendar.indexOf("styles.upcomingSection"));
   assert.equal((calendar.match(/name="q"/g) ?? []).length, 1);
   assert.match(calendar, /<PublicFilterDisclosure/);
   assert.match(calendar, /data-events-month-calendar/);
@@ -87,4 +88,16 @@ test("hero precedes one search and calendar, with upcoming list and category nav
   assert.match(calendar, /if \(month\) params\.set\("mesiac", month\)/);
   assert.match(calendar, /params\.set\("kalendar", targetMonth\)/);
   assert.match(calendar, /params\.set\("den", day\)/);
+});
+
+test("day indicators count events, deduplicate types and cover inclusive multi-day bounds", async () => {
+  const { calendarDaySummary } = await import("../lib/event-calendar-view.ts");
+  const events = [
+    { eventType: "Výstava", startDate: "2026-10-15", endDate: null },
+    { eventType: "Výstava", startDate: "2026-10-15", endDate: "2026-10-16" },
+    ...["Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"].map(eventType => ({ eventType, startDate: "2026-10-15", endDate: null })),
+  ];
+  assert.deepEqual(calendarDaySummary(events, "2026-10-15"), { count: 7, types: ["Výstava", "Preteky", "Seminár", "Tréning", "Stretnutie", "Iné"] });
+  assert.deepEqual(calendarDaySummary(events, "2026-10-16"), { count: 1, types: ["Výstava"] });
+  assert.deepEqual(calendarDaySummary(events, "2026-10-17"), { count: 0, types: [] });
 });
