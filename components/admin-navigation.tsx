@@ -132,7 +132,6 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
             key={group.label}
             name="admin-primary"
             className={styles.desktopGroup}
-            // Native details + CSS [open] avoid toggle-event race conditions.
           >
             <summary className={styles.groupTrigger} data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}>
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
