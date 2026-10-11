@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: false }, { status: 415 });
   try {
     const result = await completeExternalGemini({
-      db: requireGeminiAdminD1(),
+      db: requireGeminiAdminD1() as D1Database,
       env: env as unknown as Parameters<typeof completeExternalGemini>[0]["env"],
       body: await request.text(),
       signature: request.headers.get("x-psipedia-signature"),
