@@ -199,6 +199,10 @@ for (const articleCase of cases) {
         canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
         bodyColor: getComputedStyle(prose).color,
         proseFontFamily: getComputedStyle(prose).fontFamily,
+        readingFontFamily: introParagraph ? getComputedStyle(introParagraph).fontFamily : null,
+        readingColor: introParagraph ? getComputedStyle(introParagraph).color : null,
+        readingMargin: introParagraph ? Number.parseFloat(getComputedStyle(introParagraph).marginLeft) : null,
+        readingExtraWidth: introParagraph ? introParagraph.getBoundingClientRect().width - intro.getBoundingClientRect().width : null,
         introTextAlign: introParagraph ? getComputedStyle(introParagraph).textAlign : null,
         introHyphens: introParagraph ? getComputedStyle(introParagraph).hyphens : null,
         bodyTextAlign: bodyParagraph ? getComputedStyle(bodyParagraph).textAlign : null,
@@ -232,6 +236,11 @@ for (const articleCase of cases) {
     expect(metrics.canvasColor).toBe("rgb(255, 255, 255)");
     expect(metrics.bodyColor).toBe("rgb(36, 36, 36)");
     expect(metrics.proseFontFamily).toMatch(/Arial|Helvetica/);
+    expect(metrics.readingFontFamily).toMatch(/Avenir Next|Avenir/);
+    expect(metrics.readingColor).toBe("rgb(66, 74, 70)");
+    expect(metrics.readingMargin).toBe(-8);
+    expect(metrics.readingExtraWidth).toBeGreaterThanOrEqual(15.5);
+    expect(metrics.readingExtraWidth).toBeLessThanOrEqual(16.5);
     expect(metrics.introTextAlign).toBe("left");
     expect(metrics.introHyphens).toBe("none");
     if (metrics.bodyTextAlign !== null) expect(metrics.bodyTextAlign).toBe("left");
