@@ -141,12 +141,14 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
             >
               <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
             </summary>
-            <div className={styles.desktopMenu} id={"admin-menu-" + index}>
-              {group.items.map((item) => {
-                const current = active?.href === item.href;
-                return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
-              })}
-            </div>
+            {selectedDesktopGroup === group.label ? (
+              <div className={styles.desktopMenu} id={"admin-menu-" + index}>
+                {group.items.map((item) => {
+                  const current = active?.href === item.href;
+                  return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
+                })}
+              </div>
+            ) : null}
           </details>
         ))}
       </nav>
