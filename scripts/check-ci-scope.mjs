@@ -403,7 +403,8 @@ assert.equal(scriptWithLock.dependency, true);
 assert.equal(scriptWithLock.fullCore, true);
 assert.equal(classifyChangedFiles(["package.json"]).fullCore, true);
 
-assert.match(required, /name: Changed package test scripts[\\s\\S]*run: node scripts\\/ci-scope\\.mjs --run-changed-package-tests/);
+assert.ok(required.includes("name: Changed package test scripts"));
+assert.ok(required.includes("run: node scripts/ci-scope.mjs --run-changed-package-tests"));
 console.log(
   `CI scope guard OK: ${workflowFiles.length} workflows audited; required checks stable; scenarios A-K and full-coverage contracts pass.`,
 );
