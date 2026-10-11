@@ -1,0 +1,95 @@
+import { expect, test, type Page } from "@playwright/test";
+
+// Simulate a single-finger gesture using actual DOM Touch events so React's
+// delegated menu handlers and the document-level back gesture both run.
+async function touchSwipe(page: Page, selector: string, start: [number, number], end: [number, number]) {
+  await page.locator(selector).first().evaluate((element, { start, end }) => {
+    const touch = (coords: [number, number]) => new Touch({
+      identifier: 1,
+      target: element,
+      clientX: coords[0],
+      clientY: coords[1],
+    });
+    const down = touch(start as [number, number]);
+    element.dispatchEvent(new TouchEvent("touchstart", {
+      bubbles: true, touches: [down], targetTouches: [down], changedTouches: [down],
+    }));
+    const up = touch(end as [number, number]);
+    element.dispatchEvent(new TouchEvent("touchend", {
+      bubbles: true, touches: [], targetTouches: [], changedTouches: [up],
+    }));
+  }, { start, end });
+}
+
+test.beforeEach(async ({ page, baseURL, isMobile }) => {
+  test.skip(!isMobile, "Single-finger navigation gestures are mobile-only");
+  expect(new URL(baseURL!).hostname).toMatch(/^(localhost|127\\.0\\.0\\.1)$/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+  await page.goto("/");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+});
+
+test("pulling down dismisses the menu but upward scrolling and an already-scrolled menu remain open", async ({ page }) => {
+  const open = page.getByRole("button", { name: "Otvoriť menu", exact: true });
+  const menu = page.locator("#mobile-menu");
+  const nav = menu.locator(":scope > nav");
+  await open.click();
+  await expect(menu).toHaveClass(/is-open/);
+
+  await touchSwipe(page, "#mobile-menu > nav", [250, 290], [250, 160]);
+  await expect(menu).toHaveClass(/is-open/);
+
+  // A downward swipe in the middle of a scrolled list is not a dismiss gesture.
+  await nav.evaluate((element) => { element.scrollTop = 120; });
+  await touchSwipe(page, "#mobile-menu > nav", [250, 220], [250, 355]);
+  await expect(menu).toHaveClass(/is-open/);
+
+  await nav.evaluate((element) => { element.scrollTop = 0; });
+  await touchSwipe(page, "#mobile-menu > nav", [250, 220], [250, 345]);
+  await expect(menu).not.toHaveClass(/is-open/);
+  await expect(open).toHaveAttribute("aria-expanded", "false");
+});
+
+test("leftward content swipe returns to the previous Psipedia page without leaving the site", async ({ page }) => {
+  // The link must run through client-side routing, as do the article cards.
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\\/starostlivost$/);
+  await expect(page.locator("#mobile-menu")).not.toHaveClass(/is-open/);
+
+  await touchSwipe(page, "main", [315, 400], [190, 406]);
+  await expect(page).toHaveURL(/\\/$/);
+  // On the home page another swipe must not navigate to an external referrer.
+  await touchSwipe(page, "main", [315, 400], [190, 406]);
+  await expect(page).toHaveURL(/\\/$/);
+});
+
+test("vertical article scroll and horizontal scrolling areas do not trigger in-site navigation", async ({ page }) => {
+  await page.getByRole("button", { name: "Otvoriť menu", exact: true }).click();
+  await page.locator('#mobile-menu a[href="/starostlivost"]').first().click();
+  await expect(page).toHaveURL(/\\/starostlivost$/);
+
+  await touchSwipe(page, "main", [310, 400], [270, 270]);
+  await expect(page).toHaveURL(/\\/starostlivost$/);
+
+  await page.locator("main").first().evaluate((main) => {
+    const scroller = document.createElement("div");
+    scroller.id = "swipe-gesture-scroll-test";
+    Object.assign(scroller.style, { overflowX: "auto", width: "100px", height: "40px" });
+    const wide = document.createElement("div");
+    wide.style.width = "500px";
+    wide.textContent = "Vodorovná navigácia";
+    scroller.append(wide);
+    main.prepend(scroller);
+  });
+  await touchSwipe(page, "#swipe-gesture-scroll-test", [315, 400], [190, 400]);
+  await expect(page).toHaveURL(/\\/starostlivost$/);
+});
+
+test("direct entry falls back to Psipedia home rather than browser history", async ({ page }) => {
+  await page.goto("/o-nas");
+  await page.waitForFunction(() => Boolean((window as unknown as { __VINEXT_HYDRATED_AT?: number }).__VINEXT_HYDRATED_AT));
+  await touchSwipe(page, "main", [315, 400], [190, 405]);
+  await expect(page).toHaveURL(/\\/$/);
+});
