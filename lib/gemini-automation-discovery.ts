@@ -347,6 +347,7 @@ async function interact(options: {
   fetchImpl?: GeminiFetch;
   timeoutMs?: number;
   eventTiming?: EventTimingProbe;
+  thinkingLevel?: "low";
 }): Promise<ProviderResult> {
   const { key, model } = resolveGeminiConfig(options.env);
   // Structured output + built-in Search is a Gemini 3-series capability.
@@ -372,6 +373,7 @@ async function interact(options: {
           tools: [{ type: "google_search" }],
           response_format: { type: "text", mime_type: "application/json", schema: options.schema },
           store: false,
+          ...(options.thinkingLevel ? { generation_config: { thinking_level: options.thinkingLevel } } : {}),
         }),
         signal: controller.signal,
       });
@@ -475,7 +477,7 @@ export async function discoverGeminiEventCandidates(options: DiscoveryOptions): 
     const request=createGeminiEventRequest({stableKey:options.stableKey,maxCandidates:options.maxCandidates});
     const response=await interact({env:options.env,prompt:buildGeminiEventPrompt(request,options.knownContext?.serialized ?? "[]"),
       schema:buildGeminiEventJsonSchema(request),fetchImpl:options.fetchImpl,timeoutMs:options.timeoutMs,
-      eventTiming:timing});
+      eventTiming:timing,thinkingLevel:"low"});
     timing.transition("VALIDATING_EVENT");
     const {output,groundedSearchQueryCount,diagnostic}=groundedResponse(response.payload);
     let parsed:ReturnType<typeof parseGeminiEventEnvelope>;
