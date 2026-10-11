@@ -155,6 +155,7 @@ for (const articleCase of cases) {
     } else {
       await expect(page.locator(".article-hero-image, .article-hero-placeholder")).toHaveCount(0);
     }
+    await expect(page.locator("[data-article-standfirst]")).toBeVisible();
     await expect(page.locator(".article-intro")).toBeVisible();
     await expect(page.getByText("To najdôležitejšie", { exact: true })).toBeVisible();
     await expect(page.locator(".article-aside")).toHaveCount(0);
@@ -180,7 +181,7 @@ for (const articleCase of cases) {
 
     const metrics = await page.evaluate(() => {
       const h1 = document.querySelector<HTMLElement>("h1")!;
-      const excerpt = document.querySelector<HTMLElement>(".article-prose .standfirst")!;
+      const excerpt = document.querySelector<HTMLElement>(".article-prose [data-article-standfirst]")!;
       const image = document.querySelector<HTMLElement>(".article-hero-image");
       const prose = document.querySelector<HTMLElement>(".article-prose")!;
       const intro = document.querySelector<HTMLElement>(".article-intro")!;
