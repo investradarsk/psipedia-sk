@@ -19,7 +19,7 @@ Konkrétne Notion ID pre Pomoc psom zatiaľ musí byť doplnené a oprávnené k
 - Jedna aktívna úloha globálne: existujúci čiastočný unique index v 0119.
 - Externé úlohy dostávajú status RUNNING hneď pri rezervácii; starý Cron runner vyberá iba QUEUED. V externom režime je starý Cron runner navyše vypnutý.
 - Nejednoznačný stav odpovede GitHub dispatch zostane RUNNING a blokuje nové úlohy, kým ho človek nepreverí. Bez automatického opakovania platených požiadaviek.
-- Maximálne 5 konceptov na beh a 8 volaní Gemini Interactions v agentovi.
+- Maximálne 5 konceptov na beh a najviac 9 požiadaviek Gemini Interactions (počiatočná + 8 nadväzujúcich). Konzervatívna poistka najviac 10 zaradených Gemini úloh mesačne v spoločnej fronte; nejde o priamy finančný limit.
 - Číta sa celá cieľová Notion data source; neúplné načítanie sa odmietne. Kontrola duplicít a vyplnenie polí prebieha výhradne v agentovi.
 - Nové stránky môžu mať iba existujúci draft status (Koncept, Nápad, Na kontrolu, Ready). Vyžaduje sa verejný HTTPS zdroj; agent nikdy nezverejňuje.
 - Neopakovať Notion POST /pages po neistom výsledku; pred opätovným spustením sa musí skontrolovať Notion.
@@ -31,6 +31,6 @@ Google Search s custom functions v Gemini je stále Preview. Kompatibilitu so sk
 
 Pevný rozpočtový strop 5 EUR nie je v tomto kóde presne vynútiteľný: po zapnutí nastavte kvóty / billing upozornenia u poskytovateľa a sledujte spotrebu. Žiadny platený test nesmie začať pred výslovným súhlasom.
 
-Nastavovanie zostáva na /admin/automatizacie-gemini. GitHub workflow nemá plánovaný trigger, iba workflow_dispatch. Notion koncepty sa môžu existujúcou synchronizáciou dostať do D1, ale nesmú byť automaticky publikované. Oznámenie v tomto rozsahu je v admin histórii; iPhone push a Notion-origin webhook neboli implementované.
+Nastavovanie zostáva na /admin/automatizacie-gemini. GitHub workflow nemá plánovaný trigger, iba workflow_dispatch. Notion koncepty sa môžu existujúcou synchronizáciou dostať do D1, ale nesmú byť automaticky publikované. Oznámenie o výsledku sa ukladá do existujúceho systému admin upozornení a história zobrazuje počty; Notion-origin webhook a odkazy na každú novú stránku nie sú súčasťou tejto fázy. Odoslanie do iPhone push závisí od nastavenia už existujúcej služby administrátorských upozornení.
 
 Pred akoukoľvek aktiváciou: preveriť staré QUEUED/RUNNING joby v 0119; overiť offline testy a build; povoliť iba jeden kontrolovaný beh s max 1 konceptom; overiť presnú schému Notion, účtovanie a stav histórie. Nemergovať ani nenasadzovať bez schválenia.
