@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { EventCard } from "@/components/event-card";
 import { EventBrowseMode } from "@/components/events-view-mode";
-import { SearchIcon } from "@/components/icons";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import {
   calendarMonthDays,
@@ -197,31 +196,19 @@ export function EventCalendar({
   return (
     <div className={styles.calendar}>
       <form
-        className={styles.toolbar}
+        className={[styles.toolbar, styles.filtersToolbar].join(" ")}
         method="get"
         action={typePathname}
         data-event-filters
-        data-public-search-form="events"
       >
         {eventTimeFilterParam(initialTime) ? (
           <input type="hidden" name="termin" value={eventTimeFilterParam(initialTime)} />
         ) : null}
         {visibleMonth !== (month || todayMonth) ? <input type="hidden" name="kalendar" value={visibleMonth} /> : null}
 
-        <label className={styles.searchControl}>
-          <span>Hľadať</span>
-          <span className={styles.searchInput}>
-            <SearchIcon size={20} />
-            <input
-              name="q"
-              defaultValue={query}
-              maxLength={120}
-              placeholder="Názov, mesto, miesto alebo organizátor"
-            />
-          </span>
-        </label>
-
-        <button className={styles.searchSubmit} type="submit">Hľadať</button>
+        {query ? <input type="hidden" name="q" value={query} /> : null}
+        {selectedDay ? <input type="hidden" name="den" value={selectedDay} /> : null}
+        <button className={styles.searchSubmit} type="submit">Použiť filtre</button>
 
         <PublicFilterDisclosure
           activeCount={activeSecondaryCount}
