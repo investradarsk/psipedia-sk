@@ -1,7 +1,7 @@
 import {getGeminiCatalogItem} from "./gemini-automation-catalog.ts";
 import {resolveGeminiConfig} from "./gemini-automation-client.ts";
-import {runGeminiDirectoryCategory,GeminiPilotGuardError} from "./gemini-automation-pilot.ts";
-import {runGeminiEventCategory} from "./gemini-automation-event-runner.ts";
+import type {runGeminiDirectoryCategory} from "./gemini-automation-pilot.ts";
+import type {runGeminiEventCategory} from "./gemini-automation-event-runner.ts";
 import type {GeminiRuntimeConfig} from "./gemini-automation-types.ts";
 import type {NotionEventsHelpSyncBindings} from "./notion-events-help-sync.ts";
 import type {NotionDirectorySyncBindings} from "./notion-directory-sync.ts";
@@ -11,6 +11,10 @@ import type {NotionDirectorySyncBindings} from "./notion-directory-sync.ts";
  * accepted from authenticated admin POSTs; NEVER schedule new paid searches.
  * A job with uncertain outcome stays RUNNING until an operator investigates.
  */
+export class GeminiQueueGuardError extends Error {
+  readonly code:"PILOT_INVALID_SCOPE"|"PILOT_SETTING_NOT_SAVED"|"PILOT_LIMIT_ZERO"|"PILOT_ALREADY_RUNNING";
+  constructor(code:GeminiQueueGuardError["code"]) {super(code);this.code=code;}
+}
 export const GEMINI_BACKGROUND_TIMEOUT_MS=300_000;
 export type GeminiQueueStatus="QUEUED"|"RUNNING"|"SUCCESS"|"FAILED";
 export type GeminiQueuedJob={
@@ -38,20 +42,20 @@ export async function enqueueGeminiManualBackgroundJob(input:{
   const category=getGeminiCatalogItem(stableKey);
   // Help has no safe Gemini discovery/bridge yet. Fail closed rather than silently misroute.
   if(!category || !["directory","events"].includes(category.section))
-    throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
+    throw new GeminiQueueGuardError("PILOT_INVALID_SCOPE");
   resolveGeminiConfig(input.env);
   const setting=await db.prepare(
     "SELECT id,max_new_concepts FROM gemini_automation_settings WHERE stable_key=? LIMIT 1"
   ).bind(stableKey).first<{id:number;max_new_concepts:number}>();
-  if(!setting)throw new GeminiPilotGuardError("PILOT_SETTING_NOT_SAVED");
-  if(setting.max_new_concepts<=0)throw new GeminiPilotGuardError("PILOT_LIMIT_ZERO");
+  if(!setting)throw new GeminiQueueGuardError("PILOT_SETTING_NOT_SAVED");
+  if(setting.max_new_concepts<=0)throw new GeminiQueueGuardError("PILOT_LIMIT_ZERO");
   // Exactly one active or pending background job globally. Fail closed on collisions.
   const result=await db.prepare(
     "INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status) "+
     "SELECT ?,?,'QUEUED' WHERE NOT EXISTS ("+
     "SELECT 1 FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING'))"
   ).bind(setting.id,stableKey).run();
-  if((result.meta.changes??0)!==1)throw new GeminiPilotGuardError("PILOT_ALREADY_RUNNING");
+  if((result.meta.changes??0)!==1)throw new GeminiQueueGuardError("PILOT_ALREADY_RUNNING");
   const jobId=Number(result.meta.last_row_id);
   if(!Number.isSafeInteger(jobId)||jobId<=0)throw new Error("GEMINI_QUEUE_ID_INVALID");
   return {jobId,status:"QUEUED"};
@@ -61,6 +65,14 @@ export type GeminiQueueSweepSummary={
   claimed:number;processed:number;succeeded:number;failed:number;blocked:number;
 };
 
+function requireEventExecutor(fn:typeof runGeminiEventCategory|undefined) {
+  if(!fn)throw Error("GEMINI_EVENT_QUEUE_EXECUTOR_MISSING");
+  return fn;
+}
+function requireDirectoryExecutor(fn:typeof runGeminiDirectoryCategory|undefined) {
+  if(!fn)throw Error("GEMINI_DIRECTORY_QUEUE_EXECUTOR_MISSING");
+  return fn;
+}
 /** At most one provider request per Cron invocation, with NO retry after uncertain errors. */
 export async function runGeminiManualBackgroundSweep(input:{
   database:D1Database;env:QueueEnv;
@@ -88,10 +100,10 @@ export async function runGeminiManualBackgroundSweep(input:{
   try {
     if(!category||!["directory","events"].includes(category.section))throw new Error("GEMINI_QUEUE_UNSUPPORTED_CATEGORY");
     const run=category.section==="events"
-      ? await (input.executeEvent??runGeminiEventCategory)({
+      ? await requireEventExecutor(input.executeEvent)({
           database:db,env:input.env,stableKey:job.stable_key,timeoutMs:GEMINI_BACKGROUND_TIMEOUT_MS,
         })
-      : await (input.executeDirectory??runGeminiDirectoryCategory)({
+      : await requireDirectoryExecutor(input.executeDirectory)({
           database:db,env:input.env,stableKey:job.stable_key,timeoutMs:GEMINI_BACKGROUND_TIMEOUT_MS,
         });
     summary.processed=1;
