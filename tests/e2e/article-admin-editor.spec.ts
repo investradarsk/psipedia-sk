@@ -281,11 +281,13 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await expect(modal).toBeVisible();
 
     await modal.getByRole("combobox").selectOption("blur");
-    await modal.getByRole("slider").fill("1.35");
+    await modal.getByRole("slider").press("Home");
+    for (let step = 0; step < 7; step++) await modal.getByRole("slider").press("ArrowRight");
 
     await modal.getByRole("tab", { name: "Detail článku" }).click();
     await modal.getByRole("combobox").selectOption("crop");
-    await modal.getByRole("slider").fill("1.2");
+    await modal.getByRole("slider").press("Home");
+    for (let step = 0; step < 4; step++) await modal.getByRole("slider").press("ArrowRight");
     await modal.getByRole("tab", { name: "Náhľad" }).click();
     await expect(modal.getByRole("combobox")).toHaveValue("blur");
 
