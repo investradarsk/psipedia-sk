@@ -92,6 +92,7 @@ export async function runGeminiDirectoryCategory(input: {
   stableKey: string;
   now?: () => Date;
   fetchImpl?: GeminiFetch;
+  timeoutMs?:number;
   dependencies?: PilotDependencies;
 }): Promise<GeminiPilotSummary> {
   // Re-check the category at execution, never trust the manual POST or injected dependencies.
@@ -136,7 +137,7 @@ export async function runGeminiDirectoryCategory(input: {
     requestCount = 1;
     const discovery = await discover({
       env: input.env, stableKey,
-      maxCandidates: effectiveMax, fetchImpl: input.fetchImpl, knownContext,
+      maxCandidates: effectiveMax, fetchImpl: input.fetchImpl, knownContext,timeoutMs:input.timeoutMs,
     });
     summary.candidateCount = discovery.candidates.length;
     summary.groundedSearchQueryCount = discovery.providerMetrics.groundedSearchQueryCount;
