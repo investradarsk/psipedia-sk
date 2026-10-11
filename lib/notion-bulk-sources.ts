@@ -152,9 +152,22 @@ export async function loadNotionBulkServices(database: D1Database) {
   });
 }
 
+/** Avoid copying transient grounding redirects or untrusted schemes into Notion source metadata. */
+function isUsableGeminiSource(value: string): boolean {
+  if (!value || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password &&
+      url.hostname.toLowerCase() !== "vertexaisearch.cloud.google.com";
+  } catch { return false; }
+}
 export async function loadNotionBulkEvents(database: D1Database) {
   const sourceRows = await rows(database, `SELECT id,slug,title,excerpt,event_type,status,start_date,start_time,end_date,end_time,venue,city,region,address,
     organizer,description,practical_info,website_url,registration_url,image_url,cancelled,seo_json,
+    (SELECT c.primary_source_url FROM gemini_automation_concepts c
+       WHERE c.canonical_entity_type = 'EVENT' AND c.canonical_entity_id = managed_events.id
+         AND c.status IN ('DRAFT_CREATED','NOTION_CREATING','NOTION_LINKED')
+       ORDER BY c.id DESC LIMIT 1) AS gemini_primary_source_url,
     geo.geo_point_id,geo.geo_status,geo.geo_public_visibility,geo.geo_public_precision,
     geo.geo_latitude,geo.geo_longitude,geo.geo_provider,geo.geo_google_place_id,
     geo.geo_source_fingerprint,geo.geo_google_place_source_fingerprint,
@@ -198,6 +211,9 @@ export async function loadNotionBulkEvents(database: D1Database) {
       "Praktické info": s(row.practical_info),
       "Web": s(row.website_url),
       "Registrácia": s(row.registration_url),
+      // Gemini evidence is an optional read-only audit field, not an editable sync baseline.
+      ...(isUsableGeminiSource(s(row.gemini_primary_source_url))
+        ? { "Zdroj dát": s(row.gemini_primary_source_url) } : {}),
       "Hlavný obrázok URL": asset(row.image_url),
       "Zrušené": b(row.cancelled),
       ...notionGeoMirrorProperties(row, {
