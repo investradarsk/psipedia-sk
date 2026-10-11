@@ -10,7 +10,7 @@ export const externalAgentEnabled = (env: GeminiExternalEnv) =>
 
 export class ExternalAgentError extends Error {
   constructor(readonly code: "DISABLED" | "CONFIG" | "CATEGORY" | "SETTING" |
-    "LIMIT" | "BUSY" | "DISPATCH") { super(code); }
+    "LIMIT" | "BUDGET" | "BUSY" | "DISPATCH") { super(code); }
 }
 type Setting = { id: number; max_new_concepts: number; cadence_minutes: number };
 const DISPATCH_URL = "https://api.github.com/repos/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml/dispatches";
@@ -29,6 +29,16 @@ export async function dispatchExternalGemini(input: {
   ).bind(stableKey).first<Setting>();
   if (!setting) throw new ExternalAgentError("SETTING");
   if (setting.max_new_concepts <= 0) throw new ExternalAgentError("LIMIT");
+  // Fail-closed monthly request fuse, including legacy manual queue entries.
+  // Conservative 10 dispatches/month; actual spend must ALSO be limited at Google.
+  const beginning = new Date(input.now ?? new Date());
+  beginning.setUTCDate(1);
+  beginning.setUTCHours(0, 0, 0, 0);
+  const usage = await db.prepare(
+    "SELECT COUNT(*) AS total FROM gemini_manual_background_jobs WHERE created_at >= ?"
+  ).bind(beginning.toISOString()).first<{ total: number }>();
+  if ((usage?.total ?? 0) >= 10) throw new ExternalAgentError("BUDGET");
+
   const now = input.now ?? new Date();
   const startedAt = now.toISOString();
   const marker = trigger === "SCHEDULED" ? "EXT_SCHEDULED" : "EXT_MANUAL";
@@ -138,7 +148,7 @@ export async function completeExternalGemini(input: {
     !Number.isSafeInteger(duplicates) || Number(duplicates) < 0 || Number(duplicates) > 1000 ||
     !Number.isSafeInteger(requests) || Number(requests) < 0 || Number(requests) > 12 ||
     !Number.isSafeInteger(searches) || Number(searches) < 0 || Number(searches) > 100 ||
-    (code != null && (typeof code !== "string" || !/^[A-Z_]{1,45}$/.test(code))))
+    (code != null && (typeof code !== "string" || !/^[A-Z0-9_]{1,45}$/.test(code))))
     return { status: 400, ok: false };
   const job = await input.db.prepare(
     "SELECT id,setting_id,error_code,stable_key,status FROM gemini_manual_background_jobs WHERE id=?"
@@ -167,5 +177,25 @@ export async function completeExternalGemini(input: {
   await input.db.prepare(
     "UPDATE gemini_automation_settings SET last_run_at=? WHERE id=?"
   ).bind(now, job.setting_id).run();
+  // Native Psipedia admin notice: this is metadata only, no candidate processing.
+  try {
+    const { enqueueAutomationActionAdminNotification } = await import("./admin-notifications.ts");
+    const label = getGeminiCatalogItem(job.stable_key)?.label ?? job.stable_key;
+    await enqueueAutomationActionAdminNotification(input.db, {
+      eventType: status === "SUCCESS" ? "automation_run_success" : "automation_run_failed",
+      resourceType: "gemini_external",
+      resourceRef: jobId,
+      targetUrl: "/admin/automatizacie-gemini",
+      title: status === "SUCCESS"
+        ? "Gemini — " + label : "Gemini — úloha zlyhala",
+      body: status === "SUCCESS"
+        ? "Gemini vytvorilo " + count + " nových konceptov. Skontroluj ich v Notione."
+        : "Externá úloha zlyhala. Skontroluj históriu behov.",
+      tag: "gemini-external-" + jobId,
+      dedupeKey: "gemini-external/" + jobId + "/" + status,
+    });
+  } catch {
+    // Failure to enqueue a notification cannot repeat external paid research.
+  }
   return { status: 200, ok: true };
 }
