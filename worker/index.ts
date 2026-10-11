@@ -1,5 +1,7 @@
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
 import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
+import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
+import {runGeminiEventCategory} from "../lib/gemini-automation-event-runner.ts";
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
@@ -308,7 +310,7 @@ const worker = {
           return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
         }),
         geminiManualBackgroundEnabled(env)
-          ? runGeminiManualBackgroundSweep({database:env.DB,env}).catch(() => ({
+          ? runGeminiManualBackgroundSweep({database:env.DB,env,executeDirectory:runGeminiDirectoryCategory,executeEvent:runGeminiEventCategory}).catch(() => ({
               claimed:0,processed:0,succeeded:0,failed:1,blocked:0,
             }))
           : Promise.resolve({claimed:0,processed:0,succeeded:0,failed:0,blocked:0}),
