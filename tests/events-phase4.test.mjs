@@ -137,7 +137,7 @@ test("EVENTS-PUBLIC-UX-1 keeps one dominant type navigation and one local event 
   assert.match(calendar, /<PublicFilterDisclosure/);
   assert.match(calendar, /buttonClassName=\{styles\.filterToggle\}/);
   assert.match(calendar, /contentClassName=\{styles\.secondaryFilters\}/);
-  assert.match(calendar, /placeholder="Názov, mesto, miesto alebo organizátor"/);
+  assert.match(calendar, /placeholder="Názov podujatia, mesto, miesto alebo organizátor\.\.\."/);
   assert.match(css, /\.filterToggle[\s\S]*min-height:\s*44px/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.secondaryFilters[\s\S]*display:\s*none/);
   assert.match(css, /\.secondaryFiltersOpen[\s\S]*display:\s*grid/);
