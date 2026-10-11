@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ImgHTMLAttributes, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type ImgHTMLAttributes, type SyntheticEvent } from "react";
 import {
   articleFocalPosition,
   avoidSevereArticleCrop,
@@ -55,6 +55,9 @@ export function SmartCardImage({
   ...rest
 }: Props) {
   const [analyzed, setAnalyzed] = useState<{ src: string; fit: SmartImageFit } | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const resolvedFitCallback = useRef(onResolvedFit);
+  useEffect(() => { resolvedFitCallback.current = onResolvedFit; }, [onResolvedFit]);
   const key = typeof src === "string" ? src : "";
   const initialFit: SmartImageFit = roleHint === "article" ? "cover" : "contain";
   const fit: SmartImageFit = mode !== "auto" ? mode : analyzed?.src === key ? analyzed.fit : initialFit;
@@ -63,9 +66,8 @@ export function SmartCardImage({
     y: focusY ?? 50,
   };
 
-  function onLoad(event: SyntheticEvent<HTMLImageElement>) {
-    if (mode !== "auto") return;
-    const image = event.currentTarget;
+  function resolveLoadedImage(image: HTMLImageElement) {
+    if (mode !== "auto" || !image.naturalWidth || !image.naturalHeight) return;
     const sourceRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
     const parent = image.parentElement;
     const slotRatio = parent && parent.clientHeight > 0
@@ -80,11 +82,21 @@ export function SmartCardImage({
       ? "contain" : nextFit;
     setAnalyzed((previous) => previous?.src === key && previous.fit === next
       ? previous : { src: key, fit: next });
-    onResolvedFit?.(next);
+    resolvedFitCallback.current?.(next);
   }
+
+  // A cached photo may have loaded before client hydration and never fire React onLoad.
+  useEffect(() => {
+    if (imageRef.current?.complete) resolveLoadedImage(imageRef.current);
+    // The source and presentation role fully determine the natural fit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, mode, roleHint]);
+
+  function onLoad(event: SyntheticEvent<HTMLImageElement>) { resolveLoadedImage(event.currentTarget); }
 
   return <img
     {...rest}
+    ref={imageRef}
     src={src}
     onLoad={onLoad}
     data-smart-image-fit={fit}
