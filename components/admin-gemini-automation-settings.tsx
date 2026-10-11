@@ -32,6 +32,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
   const [confirming, setConfirming] = useState(false);
   const [running, setRunning] = useState(false);
   const [pilotError, setPilotError] = useState("");
+  const [queuedMessage,setQueuedMessage] = useState("");
   const [pilotResult, setPilotResult] = useState<PilotResult | null>(null);
   const requestLocked = useRef(false);
   const router = useRouter();
@@ -86,10 +87,12 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
       setConfirming(true);
       setPilotError("");
       setPilotResult(null);
+      setQueuedMessage("");
       return;
     }
     requestLocked.current = true;
     setRunning(true);
+    setQueuedMessage("");
     setConfirming(false);
     setPilotError("");
     try {
@@ -100,7 +103,9 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
         body: JSON.stringify({ stable_key: setting.stableKey }),
       });
       const data = await response.json() as { error?: string; runId?: number; status?: string } & Partial<PilotResult>;
-      if (!response.ok || data.status !== "SUCCESS") {
+      if (response.ok && data.status === "QUEUED" && Number.isInteger((data as {jobId?:number}).jobId)) {
+        setQueuedMessage("Gemini úloha #"+(data as {jobId:number}).jobId+" je zaradená na spracovanie na pozadí. Môžeš opustiť stránku; stav bude v histórii úloh.");
+      } else if (!response.ok || data.status !== "SUCCESS") {
         setPilotError(data.error ?? "Gemini beh zlyhal. Skontroluj históriu behov.");
       } else {
         setPilotResult(data as PilotResult);
@@ -181,6 +186,7 @@ function GeminiSettingsCard({ initial, available }: { initial: GeminiSettingView
             )}
           </div>
           {pilotError && <p role="alert" className={styles.pilotError}>{pilotError}</p>}
+          {queuedMessage && <p role="status" className={styles.success}>{queuedMessage}</p>}
           {pilotResult && <div role="status" className={styles.pilotResult}>
             <strong>Gemini beh dokončený · run #{pilotResult.runId}</strong>
             <dl className={styles.pilotMetrics}>
