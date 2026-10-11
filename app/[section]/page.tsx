@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+import { parseEventListing, eventTypeSelectionRedirect } from '@/lib/event-listing';
+import { getPublishedEventListing, getPublicEventCalendar } from '@/lib/event-store';
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -6,7 +9,6 @@ import { EventsPage as EventsListingPage } from "@/components/events-page";
 import { PortalHub } from "@/components/portal-hub";
 import { ReviewsHub, normalizeReviewsHubView } from "@/components/reviews-hub";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
-import { getPublishedEvents, getPublishedEventsInMonth } from "@/lib/event-store";
 import { listPublishedEshops } from "@/lib/eshop-ratings";
 import { bratislavaDateKey, eventHref, eventMonthFilterFromParam, eventRegionFilterFromParam, eventSearchQueryFromParam, eventTimeFilterFromParam } from "@/lib/events";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
@@ -76,16 +78,18 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   const { section: slug } = await params;
   if (slug === "novinky") permanentRedirect("/clanky");
   const rawSearchParams = await searchParams;
+  const typeRedirect = slug === 'podujatia' ? eventTypeSelectionRedirect(rawSearchParams) : null;
+  if (typeRedirect) redirect(typeRedirect);
   const calendarMonth = resolveCalendarMonth(eventMonthFilterFromParam(rawSearchParams.kalendar), eventMonthFilterFromParam(rawSearchParams.mesiac), bratislavaDateKey());
   const [section, allSections, articles, events, monthEvents] = await Promise.all([
     getManagedPortalSection(slug),
     listManagedPortalSections(),
     slug === "podujatia" ? Promise.resolve([]) : getPublishedArticleSummaries({ portalSection: slug as ArticlePortalSection, limit: 120 }),
-    slug === "podujatia" ? getPublishedEvents() : Promise.resolve(undefined),
-    slug === "podujatia" ? getPublishedEventsInMonth(calendarMonth) : Promise.resolve(undefined),
+    slug === "podujatia" ? getPublishedEventListing(parseEventListing(rawSearchParams)) : Promise.resolve(undefined),
+    slug === "podujatia" ? getPublicEventCalendar(parseEventListing(rawSearchParams), calendarMonth, scalar(rawSearchParams.den) ?? '') : Promise.resolve(undefined),
   ]);
   if (!section?.visible) notFound();
-  const eventList = events ?? [];
+  const eventList = events?.events ?? [];
   const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams);
   const eventSchema = slug !== "podujatia" || listingPolicy.kind !== "clean" ? null : buildCollectionPageJsonLd({
     name: section.label,
@@ -117,6 +121,6 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
     ]);
     return <ReviewsHub section={section} articles={articles} profileReviews={profileReviews} eshops={eshops} view={normalizeReviewsHubView(scalar(rawSearchParams.typ))} />;
   }
-  if (slug === "podujatia") return <EventsPage events={eventList} calendarEvents={monthEvents ?? []} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
-  return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events} />;
+  if (slug === "podujatia") return <EventsPage listing={events} filters={parseEventListing(rawSearchParams)} events={eventList} calendarEvents={monthEvents?.events ?? []} calendarSummaries={monthEvents?.summaries} initialCalendarMonth={calendarMonth} initialDay={scalar(rawSearchParams.den) ?? ""} section={section} schema={eventSchema} initialTime={eventTimeFilterFromParam(rawSearchParams.termin)} initialQuery={eventSearchQueryFromParam(rawSearchParams.q)} initialRegion={eventRegionFilterFromParam(rawSearchParams.region)} initialMonth={eventMonthFilterFromParam(rawSearchParams.mesiac)} />;
+  return <PortalHub section={section} allSections={allSections.filter((item) => item.visible)} articles={articles} events={events?.events} />;
 }

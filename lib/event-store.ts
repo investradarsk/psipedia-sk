@@ -1,3 +1,4 @@
+import { eventListingSql, EVENT_PAGE_SIZE, type EventListingFilters } from './event-listing';
 import { bulkEventUpdateSql, validateBulkEvents } from "./admin-events";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
@@ -264,6 +265,37 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     cancelled: Boolean(payload.cancelled),
     seo: cleanEditableSeo(payload.seo),
   };
+}
+
+/** Complete public count and bounded page; no legacy 250-row preselection. */
+export async function getPublishedEventListing(filters: EventListingFilters): Promise<{events:DogEvent[];total:number;page:number;pages:number}> {
+  const database = getD1Binding();
+  if (!database) return { events: [] as DogEvent[], total: 0, page: 1, pages: 1 };
+  const sql = eventListingSql(filters);
+  const count = await database.prepare(`SELECT COUNT(*) AS total FROM managed_events WHERE ${sql.where}`).bind(...sql.values).first<{total: number}>();
+  const total = count?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / EVENT_PAGE_SIZE));
+  const page = Math.min(filters.page, pages);
+  const result = await database.prepare(`SELECT * FROM managed_events WHERE ${sql.where} ORDER BY ${sql.order} LIMIT ? OFFSET ?`).bind(...sql.values, EVENT_PAGE_SIZE, (page - 1) * EVENT_PAGE_SIZE).all<EventRow>();
+  return { events: result.results.map(rowToEvent), total, page, pages };
+}
+
+/** At most 31 × 6 aggregate rows and 12 day previews, regardless of list page. */
+export async function getPublicEventCalendar(filters: EventListingFilters, month: string, day: string): Promise<{events:DogEvent[];summaries:{date:string;count:number;types:EventType[]}[]}> {
+  const database = getD1Binding();
+  const empty = {events: [] as DogEvent[], summaries: [] as {date:string;count:number;types:DogEvent['eventType'][]}[]};
+  if (!database || !/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) return empty;
+  const sql = eventListingSql(filters);
+  const start = `${month}-01`;
+  const [year, number] = month.split('-').map(Number);
+  const end = `${month}-${String(new Date(Date.UTC(year, number, 0)).getUTCDate()).padStart(2,'0')}`;
+  const rows = await database.prepare(`WITH RECURSIVE days(day) AS (SELECT ? UNION ALL SELECT date(day, '+1 day') FROM days WHERE day < ?) SELECT days.day AS date, event_type AS type, COUNT(*) AS count FROM days JOIN managed_events ON start_date <= days.day AND COALESCE(NULLIF(end_date,''),start_date) >= days.day WHERE ${sql.where} GROUP BY days.day, event_type`).bind(start,end,...sql.values).all<{date:string;type:DogEvent['eventType'];count:number}>();
+  const summaries = new Map<string, {date:string;count:number;types:DogEvent['eventType'][]}>();
+  for(const row of rows.results) { const summary: {date:string;count:number;types:EventType[]} = summaries.get(row.date) ?? {date:row.date,count:0,types:[]}; summary.count+=row.count; summary.types.push(row.type); summaries.set(row.date,summary); }
+  for (const summary of summaries.values()) summary.types.sort((a,b)=>eventTypes.indexOf(a)-eventTypes.indexOf(b));
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(day) || day < start || day > end) return {events:empty.events,summaries:[...summaries.values()]};
+  const result = await database.prepare(`SELECT * FROM managed_events WHERE ${sql.where} AND start_date <= ? AND COALESCE(NULLIF(end_date,''),start_date) >= ? ORDER BY ${sql.order} LIMIT 12`).bind(...sql.values,day,day).all<EventRow>();
+  return {events:result.results.map(rowToEvent),summaries:[...summaries.values()]};
 }
 
 export async function getPublishedEvents(limit = 250) {

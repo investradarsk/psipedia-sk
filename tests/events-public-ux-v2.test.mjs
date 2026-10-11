@@ -9,15 +9,15 @@ test("EVENTS-PUBLIC-UX-V2 retains one published-data calendar and crawlable list
   const calendar = source("components/event-calendar.tsx");
   const route = source("app/[section]/page.tsx");
 
-  assert.match(page, /<EventCalendar events=\{events\} calendarEvents=\{calendarEvents\}/);
-  assert.match(calendar, /const monthMatches = calendarEvents\.filter\(matchesFilters\)/);
+  assert.match(page, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarEvents=\{calendarEvents\}/);
+  assert.match(calendar, /const monthMatches = calendarEvents;/);
   assert.match(calendar, /data-events-month-calendar/);
   assert.match(calendar, /id="events-calendar"/);
-  assert.match(calendar, /id="events-list"/);
+  assert.match(source("components/event-listing-results.tsx"), /id="events-list"/);
   assert.doesNotMatch(calendar, /EventBrowseMode|useState/);
   assert.match(calendar, /data-events-legend/);
   assert.match(calendar, /href=\{eventHref\(event\)\}/);
-  assert.match(route, /getPublishedEventsInMonth\(calendarMonth\)/);
+  assert.match(route, /getPublicEventCalendar\(parseEventListing/);
   assert.doesNotMatch(calendar, /"use client"|window\.history|useState/);
 });
 
@@ -26,13 +26,14 @@ test("month navigation drops an obsolete month filter, preserving search and reg
 
   assert.match(calendar, /if \(query\) params\.set\("q", query\)/);
   assert.match(calendar, /if \(region\) params\.set\("region", region\)/);
-  assert.match(calendar, /if \(month && targetMonth === month\) params\.set\("mesiac", month\)/);
+  assert.match(calendar, /if \(month && targetMonth !== month\) params\.delete\("mesiac"\)/);
   assert.match(calendar, /params\.set\("kalendar", targetMonth\)/);
   assert.match(calendar, /params\.set\("den", day\)/);
   assert.match(calendar, /href=\{timeHref\(value\)\}/);
-  assert.match(calendar, /<PublicFilterDisclosure/);
-  assert.match(calendar, /Vymazať filtre/);
-  assert.match(calendar, /className=\{styles\.filterSummary\}/);
+  assert.doesNotMatch(calendar, /<PublicFilterDisclosure|Použiť filtre/);
+  assert.match(source("components/event-listing-results.tsx"), /mobileFilters/);
+  assert.match(source("components/event-listing-results.tsx"), /Vymazať filtre/);
+  assert.match(source("components/event-listing-results.tsx"), /className=\{styles\.filterSummary\}/);
 });
 
 test("mobile cards and details keep online events accurate and provide a listing return", () => {

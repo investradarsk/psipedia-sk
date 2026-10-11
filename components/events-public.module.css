@@ -2040,3 +2040,42 @@
     height: 18px;
   }
 }
+
+/* Public listing only: related/detail cards keep their existing presentation. */
+.listingLayout { display:grid; grid-template-columns:250px minmax(0,1fr); gap:24px; margin-top:24px; align-items:start; }
+.filterSidebar { min-width:0; padding:18px; background:white; border:1px solid #dfe5dd; border-radius:16px; }
+.mobileFilters > summary { display:none; }
+.mobileFilters:not([open]) + .sidebarContent { display:block; }
+.sidebarHeading h2 { font-size:1.1rem; color:#173f35; margin:0 0 8px; }
+.sidebarHeading a { font-size:.8rem; }
+.sidebarContent form { display:grid; gap:14px; margin-top:20px; }
+.sidebarContent label, .listHeading form label { display:grid; gap:6px; font-size:.85rem; font-weight:600; }
+.sidebarContent input:not([type=radio]), .sidebarContent select, .listHeading select { width:100%; min-width:0; min-height:44px; border:1px solid #cbd6cc; border-radius:8px; background:white; padding:8px; font:inherit; }
+.sidebarContent fieldset { border:0; padding:0; margin:0; min-width:0; }
+.sidebarContent legend { font-weight:700; margin-bottom:6px; }
+.sidebarContent .typeChoice { display:flex; align-items:center; gap:8px; min-height:44px; }
+.typeChoice input { width:18px; height:18px; accent-color:#205443; }
+.sidebarContent button, .listHeading button { min-height:44px; border:0; border-radius:8px; padding:10px 14px; background:#205443; color:white; font:inherit; cursor:pointer; }
+.listingLayout .upcomingSection { margin:0; min-width:0; }
+.listingLayout .listHeading { display:flex; justify-content:space-between; align-items:start; gap:16px; flex-wrap:wrap; }
+.listHeading form { display:flex; gap:8px; align-items:end; max-width:100%; }
+.cardGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.gridCard { min-width:0; background:white; border:1px solid #dfe5dd; border-radius:14px; overflow:hidden; box-shadow:0 3px 10px #173f3509; }
+.gridCardLink { display:flex; flex-direction:column; height:100%; color:inherit; text-decoration:none; }
+.gridCardLink:hover h3 { text-decoration:underline; }
+.gridCardLink:focus-visible { outline:3px solid #287fca; outline-offset:-3px; }
+.gridMedia { position:relative; aspect-ratio:16/10; background:#e8ece4; overflow:hidden; }
+.gridMedia img { display:block; width:100%; height:100%; }
+.neutralMedia { display:grid; place-items:center; height:100%; color:#466051; background:linear-gradient(135deg,#e5ebe0,#f5f2e7); font-size:1rem; }
+.gridDate { position:absolute; top:10px; left:10px; padding:6px 9px; border-radius:6px; background:#ffffffed; color:#173f35; font-size:.8rem; font-weight:800; }
+.gridBody { padding:14px; }
+.gridBody h3 { font-size:1.05rem; line-height:1.4; color:#173f35; margin:12px 0; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.gridBody p { font-size:.82rem; line-height:1.5; margin:5px 0; overflow-wrap:anywhere; }
+.gridBody .cardMeta .gridType { border-left:4px solid var(--event-type-color); padding:3px 7px; background:#f2f4ee; border-radius:4px; font-size:.75rem; }
+.gridBody .cardMeta { flex-wrap:wrap; gap:6px; }
+.pagination { display:flex; flex-wrap:wrap; gap:8px; margin-top:24px; }
+.pagination a { display:grid; place-items:center; min-width:44px; min-height:44px; padding:8px; border:1px solid #cbd6cc; border-radius:8px; background:white; color:#173f35; }
+.pagination a[aria-current=page] { color:white; background:#205443; }
+@media(max-width:1199px) { .cardGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:900px) { .listingLayout { grid-template-columns:220px minmax(0,1fr); gap:16px; } .cardGrid { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:760px) { .listingLayout { grid-template-columns:minmax(0,1fr); } .mobileFilters > summary { display:list-item; min-height:44px; cursor:pointer; font-weight:700; } .mobileFilters:not([open]) + .sidebarContent { display:none; } .sidebarHeading { margin-top:12px; } .cardGrid { grid-template-columns:minmax(0,1fr); } }

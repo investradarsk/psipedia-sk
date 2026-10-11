@@ -97,7 +97,7 @@
     "test:internal-discovery": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/internal-discovery.test.mjs",
     "test:public-search-simplify": "node --test tests/public-search-simplify.test.mjs",
     "test:content-discovery-v3": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/content-discovery-v3.test.mjs",
-    "test:events-public-ux": "node --experimental-strip-types --test tests/events-calendar-v1.test.mjs tests/events-public-ux-v2.test.mjs"
+    "test:events-public-ux": "node --experimental-strip-types --test tests/events-calendar-v1.test.mjs tests/events-public-ux-v2.test.mjs && node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/event-listing.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
