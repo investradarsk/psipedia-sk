@@ -100,6 +100,7 @@ export function SiteHeader({
 
     let start: { x: number; y: number; time: number } | null = null;
     function onTouchStart(event: globalThis.TouchEvent) {
+      document.removeEventListener("touchmove", onTouchMove);
       start = null;
       if (event.touches.length !== 1 || !window.matchMedia("(max-width: 767px)").matches) return;
       const touch = event.touches[0];
@@ -116,6 +117,7 @@ export function SiteHeader({
         if (/auto|scroll/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 8) return;
       }
       start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
     }
     function onTouchMove(event: globalThis.TouchEvent) {
       if (!start || event.touches.length !== 1) return;
@@ -126,6 +128,7 @@ export function SiteHeader({
       if (left > 8 && vertical < left * 0.38 && event.cancelable) event.preventDefault();
     }
     function onTouchEnd(event: globalThis.TouchEvent) {
+      document.removeEventListener("touchmove", onTouchMove);
       const origin = start;
       start = null;
       if (!origin || event.changedTouches.length !== 1) return;
@@ -139,9 +142,11 @@ export function SiteHeader({
       if (previous && previous !== current) router.push(previous);
       else if (current !== "/") router.push("/");
     }
-    function onTouchCancel() { start = null; }
+    function onTouchCancel() {
+      start = null;
+      document.removeEventListener("touchmove", onTouchMove);
+    }
     document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     document.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return () => {
