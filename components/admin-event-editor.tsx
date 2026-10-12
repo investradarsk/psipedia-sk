@@ -165,7 +165,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             </div>
             <div className="admin-field"><label htmlFor="event-slug">Adresa podujatia</label><div className="admin-slug-input"><span>psipedia.sk/podujatia/</span><input id="event-slug" value={slug} onChange={(input) => { setSlugEdited(true); setSlug(slugify(input.target.value)); }} placeholder="adresa-podujatia" required /></div></div>
             <div className="admin-upload-row">
-              <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
+              <div className="admin-upload-preview admin-upload-preview--coral">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="Náhľad obrázka podujatia" /> : <span>📅</span>}</div>
               <div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <button type="button" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</button>}<small>Odporúčaný pomer 16 : 9, najviac 8 MB.</small></div>
             </div>
             {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
@@ -176,7 +176,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
 
         <aside className="admin-event-preview">
           <span className={`admin-eyebrow ${styles.previewEyebrow}`}>Živý súhrn</span>
-          <div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="" /> : <span>📅</span>}</div>
+          <div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" src={imageUrl} config={thumbnailImageDisplay} legacyMode={imageDisplay} alt="" /> : <span>📅</span>}</div>
           <span className="eyebrow">{eventType}{cancelled ? " · Zrušené" : ""}</span>
           <h2>{title || "Názov podujatia"}</h2>
           <p>{excerpt || "Krátky popis podujatia sa zobrazí tu."}</p>
