@@ -67,3 +67,9 @@
 .guideHorizontal { left: 0; right: 0; top: 50%; height: 1px; box-shadow: 0 -1px 0 #172d24, 0 1px 0 #172d24; background: rgba(255,255,255,.95); }
 .centerPoint { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; transform: translate(-50%, -50%); background: white; border: 2px solid #193e2d; border-radius: 50%; box-shadow: 0 0 0 1px white; }
 .centered .centerPoint { background: #30b473; box-shadow: 0 0 0 3px rgba(255,255,255,.85); }
+
+/* Directory cards show a 72×72 thumbnail alongside text, rather than an article hero. */
+.compactCard { display: flex !important; align-items: center; gap: 12px; padding: 12px; }
+.compactMedia { width: 72px !important; height: 72px !important; flex: 0 0 72px; overflow: hidden; border-radius: 10px; }
+.compactCard :global(.article-card-body) { flex: 1; min-width: 0; padding: 0 !important; }
+.compactCard :global(.article-card-excerpt) { display: none; }
