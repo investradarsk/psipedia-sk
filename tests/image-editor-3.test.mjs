@@ -15,6 +15,10 @@ test("IMAGE-EDITOR-3: landscape, portrait and square respect the actual card asp
   assert.equal(automaticThumbnailFit(1000, 1000, 4 / 3), "cover");
   assert.equal(automaticThumbnailFit(900, 1600, 4 / 3), "contain");
   assert.equal(automaticThumbnailFit(1800, 1100, 8 / 5), "cover");
+  // Light-background artwork should preserve the complete original image.
+  assert.equal(automaticThumbnailFit(1000, 600, 8 / 5, 0.9), "contain");
+  assert.equal(automaticThumbnailFit(1000, 600, 8 / 5, 0.1), "cover");
+  assert.equal(automaticThumbnailFit(1000, 600, 8 / 5, undefined), "cover");
   assert.equal(automaticThumbnailFit(3000, 600, 16 / 9), "contain");
   assert.equal(automaticThumbnailFit(0, 600, 16 / 9), "cover");
   assert.equal(automaticThumbnailFit(1200, 0, 16 / 9), "cover");
@@ -33,7 +37,7 @@ test("IMAGE-EDITOR-3: manual crop/blur/position/zoom remains normalized and inde
 test("IMAGE-EDITOR-3: shared renderer uses loaded dimensions and responds to changed src", () => {
   const source = read("components/image-display.tsx");
   const smart = read("components/smart-card-image.tsx");
-  assert.match(source, /automaticThumbnailFit\(width, height, frameRatio\)/);
+  assert.match(source, /automaticThumbnailFit\(width, height, frameRatio, lightBackgroundShare\)/);
   assert.match(source, /autoFit\?\.src === src/);
   assert.match(source, /settings\.mode === "auto"/);
   assert.match(source, /settings\.mode === "blur"/);
@@ -43,6 +47,9 @@ test("IMAGE-EDITOR-3: shared renderer uses loaded dimensions and responds to cha
   assert.match(smart, /image\.naturalHeight/);
   assert.match(smart, /parent\.clientWidth \/ parent\.clientHeight/);
   assert.match(smart, /if \(imageRef\.current\?\.complete\)/);
+  assert.match(smart, /lightShareCache/);
+  assert.match(smart, /sampleLightBackground\(image\)/);
+  assert.match(source, /lightBackgroundShare/);
   assert.doesNotMatch(read("lib/image-display.ts").match(/export function automaticThumbnailFit[\s\S]*?\n}/)?.[0] ?? "", /src|url|filename|canvas/i);
 });
 
