@@ -30,7 +30,7 @@ test('six renderable category illustrations and stable mixed cards',async({page}
 });
 test('current props switch photo, removal, type and failed photo without losing imageDisplay',async({page})=>{
   await page.goto('/');
-  const image=page.locator('[data-live-image] img');
+  const image=page.locator('[data-live-image] img:not([aria-hidden="true"])');
   await expect(image).toHaveAttribute('src',/vystavy.webp/);
   await page.getByRole('button',{name:'Nahrať fotografiu',exact:true}).click();
   await expect(image).toHaveAttribute('data-event-image-source','real');
@@ -50,7 +50,7 @@ test('current props switch photo, removal, type and failed photo without losing 
 test('detail fallback and own photo remain responsive and accessible',async({page},info)=>{
   for(const own of [false,true]) {
     await page.goto('/?view=detail'+(own?'&photo=1':''));
-    const image=page.locator('[data-event-image] img');
+    const image=page.locator('[data-event-image] img:not([aria-hidden="true"])');
     await expect(image).toHaveAttribute('data-event-image-source',own?'real':'fallback');
     if(own) await expect(image).toHaveAttribute('data-smart-image-fit','contain');
     else await expect(image).toHaveAttribute('alt',/Ilustračný obrázok/);
