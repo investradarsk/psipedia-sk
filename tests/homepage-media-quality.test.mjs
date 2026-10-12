@@ -65,12 +65,15 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
 });
 
 test("homepage image-backed cards cannot render placeholder nodes; empty states keep category CTAs", async () => {
-  const [page, editorial, css] = await Promise.all([
+  const [page, editorial, css, articleSelection, publicStyles] = await Promise.all([
     repoFile("app/page.tsx"), repoFile("components/home-editorial.tsx"), repoFile("app/home-v2.module.css"),
+    repoFile("lib/homepage-content.ts"), repoFile("components/public-visual-system/public-visual-system.module.css"),
   ]);
   for (const token of ["home-event-placeholder", "home-vet-mark", "home-help-placeholder"]) assert.doesNotMatch(page, new RegExp(token));
   for (const selector of ["data-home-events-empty", "data-home-veterinarians-empty", "data-home-help-empty", "data-home-section-cta"]) assert.match(page, new RegExp(selector));
   assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage/);
+  assert.match(articleSelection, /articles\.filter\(\(article\) => Boolean\(article\.image\?\.trim\(\)\)\)/);
+  assert.match(publicStyles, /\.articleListMedia\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
   for (const selector of ["home-event-list", "home-vet-list", "home-help-grid"]) {
     assert.match(css, new RegExp(`\\.${selector}\\)[\\s\\S]*?repeat\\(auto-fit, minmax`));
   }
