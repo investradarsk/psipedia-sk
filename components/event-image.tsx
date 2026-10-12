@@ -2,7 +2,8 @@
 
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { useState, type ImgHTMLAttributes } from "react";
-import { SmartCardImage } from "@/components/smart-card-image";
+import { ImageDisplay } from "@/components/image-display";
+import type { ImageDisplayConfig, ImageDisplayContext } from "@/lib/image-display";
 import { getEventFallbackImage, getEventFallbackSrcSet, getEventOwnImage, eventTypePresentation } from "@/lib/event-type-presentation";
 import type { EventType } from "@/lib/events";
 import type { SmartImageMode } from "@/lib/smart-image";
@@ -11,10 +12,12 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "srcSet" | "onErr
   imageUrl: string | null;
   eventType: EventType;
   mode?: SmartImageMode;
+  context?: ImageDisplayContext;
+  config?: ImageDisplayConfig | null;
 };
 
 /** Event-only failure handling. The initial image is selected during SSR. */
-export function EventImage({ imageUrl, eventType, mode, alt, ...props }: Props) {
+export function EventImage({ imageUrl, eventType, mode, context = "thumbnail", config, alt, ...props }: Props) {
   const ownImage = getEventOwnImage(imageUrl);
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const real = Boolean(ownImage && failedSource !== ownImage);
@@ -34,7 +37,7 @@ export function EventImage({ imageUrl, eventType, mode, alt, ...props }: Props) 
       }
     },
   };
-  return real ? <SmartCardImage {...imageProps} mode={mode} /> : (
+  return real ? <ImageDisplay {...imageProps} src={src} alt={imageProps.alt ?? ""} context={context} config={config} legacyMode={mode} /> : (
     // Optimized local artwork intentionally skips smart image analysis.
     // eslint-disable-next-line @next/next/no-img-element
     <img {...imageProps} srcSet={getEventFallbackSrcSet(eventType)} sizes={props.sizes ?? "(max-width: 760px) calc(100vw - 32px), (max-width: 1199px) 50vw, 33vw"} alt={imageProps.alt} style={{ ...props.style, objectFit: "cover" }} />
