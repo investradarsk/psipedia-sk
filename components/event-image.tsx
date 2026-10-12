@@ -37,7 +37,7 @@ export function EventImage({ imageUrl, eventType, mode, context = "thumbnail", c
       }
     },
   };
-  return real ? <ImageDisplay {...imageProps} src={src} alt={imageProps.alt ?? ""} context={context} config={config} legacyMode={mode} /> : (
+  return real ? <ImageDisplay roleHint="generic" {...imageProps} src={src} alt={imageProps.alt ?? ""} context={context} config={config} legacyMode={mode} /> : (
     // Optimized local artwork intentionally skips smart image analysis.
     // eslint-disable-next-line @next/next/no-img-element
     <img {...imageProps} srcSet={getEventFallbackSrcSet(eventType)} sizes={props.sizes ?? "(max-width: 760px) calc(100vw - 32px), (max-width: 1199px) 50vw, 33vw"} alt={imageProps.alt} style={{ ...props.style, objectFit: "cover" }} />
