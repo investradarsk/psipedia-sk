@@ -77,7 +77,7 @@ test('responsive grid, accessible mobile disclosure, full-card links and smart i
     await page.goto(target + '&zoradenie=najblizsie');
     await expect(page.locator('[data-event-card] a a')).toHaveCount(0);
     await expect(page.locator('[data-event-card]').first().locator('a')).toHaveCount(1);
-    await expect(page.locator('[data-event-card]').first().locator('img')).toHaveAttribute('data-smart-image-fit', 'contain');
+    await expect(page.locator('[data-event-card]').first().locator('img[data-event-image-source]')).toHaveAttribute('data-smart-image-fit', 'contain');
     await expect(page.locator('[data-event-card][data-event-status=cancelled]')).toContainText('Zrušené');
     await expect(page.locator('[data-event-card][data-event-has-image="false"]')).toHaveCount(11);
     for (const card of await page.locator('[data-event-card]').all()) {
@@ -90,7 +90,7 @@ test('responsive grid, accessible mobile disclosure, full-card links and smart i
     }
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
-    await page.locator('[data-event-card]').first().locator('img').click();
+    await page.locator('[data-event-card]').first().locator('img[data-event-image-source]').click();
     await expect(page).toHaveURL(/\/podujatia\/listing-phase3-0$/);
     await expect(page.getByRole('heading',{level:1})).toContainText('Phase3 ŽILINSKÁ výstava 000');
 });
@@ -144,8 +144,8 @@ test.describe('final events acceptance', () => {
     }
     await page.goto(finalTarget+'&zoradenie=najblizsie');
     const fixtureCard = (title:string) => page.locator('[data-event-card]').filter({has:page.getByRole('heading',{name:title,exact:true})});
-    await expect(fixtureCard('Finalaudit Preteky 1').locator('img')).toHaveAttribute('data-smart-image-fit','contain');
-    await expect(fixtureCard('Finalaudit Seminár 2').locator('img')).toHaveAttribute('data-smart-image-fit','contain');
+    await expect(fixtureCard('Finalaudit Preteky 1').locator('img[data-event-image-source]')).toHaveAttribute('data-smart-image-fit','contain');
+    await expect(fixtureCard('Finalaudit Seminár 2').locator('img[data-event-image-source]')).toHaveAttribute('data-smart-image-fit','contain');
     await expect(fixtureCard('Finalaudit Preteky 7')).toContainText('Online podujatie');
     await expect(page.getByRole('heading',{name:/Mimoriadne dlhý názov kynologického stretnutia/})).toBeVisible();
     const axe=await new AxeBuilder({page}).analyze();expect(axe.violations.filter(v=>['serious','critical'].includes(v.impact??''))).toEqual([]);
@@ -175,13 +175,13 @@ test.describe('final events acceptance', () => {
       // The return URL is stored by a client-side effect; wait for hydration.
       await expect.poll(()=>page.evaluate(()=>{try{return JSON.parse(sessionStorage.getItem('psipedia:events:last-listing')||'null')?.href ?? null;}catch{return null;}}))
         .toBe(before.pathname+before.search+before.hash);
-      await page.locator('[data-event-card]').first().getByRole('link').click();await expect(page.locator('[data-event-image] img')).toBeVisible();
+      await page.locator('[data-event-card]').first().getByRole('link').click();await expect(page.locator('[data-event-image] img[data-event-image-source]')).toBeVisible();
       await expect(page.locator('.site-header [data-search-ready]')).toHaveAttribute('data-search-ready','true');
       await page.getByRole('link',{name:'← Späť na výsledky podujatí',exact:true}).click();
       await expect(page).toHaveURL(url=>url.pathname===before.pathname&&url.search===before.search);
     }
-    await page.goto(finalTarget);await page.locator('[data-event-card]').first().getByRole('link').click();await expect(page.locator('[data-event-image] img')).toHaveAttribute('data-event-image-source','real');
-    await page.goto('/podujatia/final-audit-4');await expect(page.locator('[data-event-image] img')).toHaveAttribute('data-event-image-source','fallback');
+    await page.goto(finalTarget);await page.locator('[data-event-card]').first().getByRole('link').click();await expect(page.locator('[data-event-image] img[data-event-image-source]')).toHaveAttribute('data-event-image-source','real');
+    await page.goto('/podujatia/final-audit-4');await expect(page.locator('[data-event-image] img[data-event-image-source]')).toHaveAttribute('data-event-image-source','fallback');
     const related = page.locator('section[aria-labelledby="event-related-title"] [data-event-card]');
     await expect(related).toHaveCount(3);
     const geometry = await related.evaluateAll(cards => cards.map(card => ({
