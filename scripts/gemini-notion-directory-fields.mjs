@@ -31,7 +31,7 @@ const officialImageUrl = (candidate, websiteUrl) => {
   const official = new URL(website).hostname.replace(/^www\./, "");
   const host = asset.hostname.replace(/^www\./, "");
   if (host !== official && !host.endsWith("." + official)) return "";
-  if (!/\.(?:png|jpe?g|webp|gif|svg)(?:$|[?#])/i.test(image)) return "";
+  if (!/\.(?:png|jpe?g|webp|avif|gif|svg)(?:$|[?#])/i.test(image)) return "";
   return image;
 };
 const validEmail = (value) => {
@@ -57,11 +57,15 @@ export function directoryProfileValues(args) {
   const website = safeUrl(args.website_url);
   const logo = officialImageUrl(args.logo_url, website);
   const photo = officialImageUrl(args.image_url, website);
+  // Main-image ingestion supports only raster images. An SVG/GIF logo belongs
+  // in Logo URL but must not be forwarded as a cover to the R2 image pipeline.
+  const usableLogoCover = /\.(?:png|jpe?g|webp|avif)(?:$|[?#])/i.test(logo) ? logo : "";
+  const mainImage = /\.(?:png|jpe?g|webp|avif)(?:$|[?#])/i.test(photo) ? photo : usableLogoCover;
   const values = {
     "Logo URL": logo,
-    "Hlavný obrázok URL": photo || logo,
-    "Zdroj obrázka": photo || logo ? website : "",
-    "Alt text obrázka": photo ? safeText(args.image_alt, 200) : (logo ? "Logo " + safeText(args.name, 140) : ""),
+    "Hlavný obrázok URL": mainImage,
+    "Zdroj obrázka": mainImage ? website : "",
+    "Alt text obrázka": mainImage === photo && photo ? safeText(args.image_alt, 200) || safeText(args.name, 140) : (mainImage ? "Logo " + safeText(args.name, 140) : ""),
     "Telefón": validPhone(args.phone),
     "E-mail": validEmail(args.email),
     "Adresa": safeText(args.address, 250),
