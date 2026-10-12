@@ -1491,7 +1491,7 @@ test("IMAGE-EDITOR-2 0122 preflight recognizes clean and all partial column stat
       const partial = { ...empty, objects: [], [key]: [{ name, type: "TEXT", notnull: 0 }] };
       const result = targetSchemaObjects(partial, target);
       assert.deepEqual(result, { partial: true }, `0122 failed to detect ${key}.${name}`);
-      assert.throws(() => assertPendingTargetSchemaClean(target, result), /possible partial\\/manual drift/);
+      assert.throws(() => assertPendingTargetSchemaClean(target, result), /possible partial/);
     }
   }
 });
@@ -1531,5 +1531,5 @@ test("IMAGE-EDITOR-2 0122 SQL migration is additive and covers all entity tables
       assert.match(sql, new RegExp(`ALTER TABLE ${table} ADD COLUMN ${name} TEXT;`));
     }
   }
-  assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|UPDATE\\s+/i);
+  assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
 });
