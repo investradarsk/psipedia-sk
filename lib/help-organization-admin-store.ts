@@ -1,4 +1,4 @@
-import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
+import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import {
