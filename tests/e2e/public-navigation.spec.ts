@@ -377,7 +377,7 @@ test("PortalHub landing navigation and PortalTopic compact tabs share gutters wi
       }
       const breadcrumbBox = await measuredBox(breadcrumbs, `${route.path}: breadcrumbs`);
       // Homepage-style photography deliberately uses a 20px *inside-image*
-      // text safe-zone on mobile; navigation/content shells retain 16px.
+      // text safe-zone on mobile; public navigation/content shells use 12px.
       const heroVisual = headerContainer.locator("[data-unified-section-hero-visual]");
       if (await heroVisual.count()) {
         const photoBox = await measuredBox(heroVisual, `${route.path}: photographic hero`);
