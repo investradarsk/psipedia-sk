@@ -2,11 +2,18 @@ import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 
 export type GeminiExternalEnv = {
   GEMINI_EXTERNAL_AGENT_ENABLED?: string;
+  GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED?: string;
   GITHUB_ACTIONS_DISPATCH_TOKEN?: string;
   GEMINI_AGENT_CALLBACK_SECRET?: string;
 };
 export const externalAgentEnabled = (env: GeminiExternalEnv) =>
   ["1", "true"].includes((env.GEMINI_EXTERNAL_AGENT_ENABLED ?? "").trim().toLowerCase());
+
+// Opt-in independently of the manual external worker. No scheduled paid jobs
+// can dispatch simply because the first manual test was enabled.
+export const externalAgentScheduledEnabled = (env: GeminiExternalEnv) =>
+  externalAgentEnabled(env) &&
+  ["1", "true"].includes((env.GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED ?? "").trim().toLowerCase());
 
 export class ExternalAgentError extends Error {
   readonly code: "DISABLED" | "CONFIG" | "CATEGORY" | "SETTING" |
@@ -24,7 +31,9 @@ export async function dispatchExternalGemini(input: {
   trigger: "MANUAL" | "SCHEDULED"; now?: Date;
 }): Promise<{ jobId: number; status: "QUEUED" }> {
   const { db, env, stableKey, trigger } = input;
-  if (!externalAgentEnabled(env)) throw new ExternalAgentError("DISABLED");
+  if (!externalAgentEnabled(env) ||
+      (trigger === "SCHEDULED" && !externalAgentScheduledEnabled(env)))
+    throw new ExternalAgentError("DISABLED");
   if (!env.GITHUB_ACTIONS_DISPATCH_TOKEN || !env.GEMINI_AGENT_CALLBACK_SECRET)
     throw new ExternalAgentError("CONFIG");
   if (!getGeminiCatalogItem(stableKey)) throw new ExternalAgentError("CATEGORY");
@@ -105,6 +114,8 @@ export async function sweepExternalGemini(input: {
   db: D1Database; env: GeminiExternalEnv; now?: Date;
 }): Promise<{ dispatched: number; reason?: string }> {
   if (!externalAgentEnabled(input.env)) return { dispatched: 0, reason: "DISABLED" };
+  if (!externalAgentScheduledEnabled(input.env))
+    return { dispatched: 0, reason: "SCHEDULE_DISABLED" };
   const now = input.now ?? new Date();
   const due = await input.db.prepare(
     "SELECT stable_key FROM gemini_automation_settings WHERE enabled=1 " +

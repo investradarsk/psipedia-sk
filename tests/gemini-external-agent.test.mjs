@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
+import { eventTypeFromPortalSlug } from "../lib/events.ts";
+import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
+import { readFileSync } from "node:fs";
 import {
-  externalAgentEnabled, ExternalAgentError, dispatchExternalGemini,
+  externalAgentEnabled, externalAgentScheduledEnabled, ExternalAgentError, dispatchExternalGemini,
   sweepExternalGemini, completeExternalGemini,
 } from "../lib/gemini-external-agent.ts";
 
@@ -126,3 +129,73 @@ test("callback rejects missing signature, then accepts exactly one signed comple
   assert.equal(runs[0][10], 2);
   assert.equal((await completeExternalGemini({ db, env: config, body, signature })).status, 409);
 });
+
+test("manual external opt-in never starts a scheduled job without separate consent", async () => {
+  const { db, queries } = fakeDb();
+  const env = {
+    GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+    GITHUB_ACTIONS_DISPATCH_TOKEN: "github-test-secret",
+    GEMINI_AGENT_CALLBACK_SECRET: "hmac-test-secret",
+  };
+  assert.equal(externalAgentEnabled(env), true);
+  assert.equal(externalAgentScheduledEnabled(env), false);
+  assert.deepEqual(await sweepExternalGemini({ db, env }), {
+    dispatched: 0, reason: "SCHEDULE_DISABLED",
+  });
+  assert.equal(queries.length, 0, "No database job should be reserved");
+  await assert.rejects(
+    dispatchExternalGemini({ db, env, stableKey: "directory.veterinari", trigger: "SCHEDULED" }),
+    (error) => error instanceof ExternalAgentError && error.code === "DISABLED",
+  );
+  assert.equal(queries.length, 0);
+  assert.equal(externalAgentScheduledEnabled({
+    ...env, GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "true",
+  }), true);
+  assert.equal(externalAgentScheduledEnabled({
+    ...env, GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "false",
+  }), false);
+  assert.equal(externalAgentScheduledEnabled({
+    GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "true",
+  }), false, "Schedule alone must never enable the external worker");
+});
+
+test("explicit scheduled opt-in dispatches only one bounded job", async () => {
+  const { db, getJob } = fakeDb();
+  const originalFetch = globalThis.fetch;
+  let dispatches = 0;
+  globalThis.fetch = async () => {
+    dispatches++;
+    return new Response(null, { status: 204 });
+  };
+  try {
+    const result = await sweepExternalGemini({ db, env: {
+      GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+      GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "true",
+      GITHUB_ACTIONS_DISPATCH_TOKEN: "github-test-secret",
+      GEMINI_AGENT_CALLBACK_SECRET: "hmac-test-secret",
+    }, now: new Date("2026-10-12T01:00:00.000Z") });
+    assert.deepEqual(result, { dispatched: 1 });
+    assert.equal(dispatches, 1);
+    assert.equal(getJob().error_code, "EXT_SCHEDULED");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Notion category values preserve directory slugs and canonical singular event types", () => {
+  for (const item of geminiAutomationCatalog) {
+    const expected = item.section === "events"
+      ? eventTypeFromPortalSlug(item.subcategory) : item.subcategory;
+    assert.ok(expected, "Unknown catalog type: " + item.stableKey);
+    assert.equal(notionCategoryValue(item.section, item.subcategory), expected, item.stableKey);
+  }
+  assert.equal(notionCategoryValue("events", "vystavy"), "Výstava");
+  assert.equal(notionCategoryValue("directory", "veterinari"), "veterinari");
+  assert.equal(notionCategoryValue("events", "unknown"), null);
+  assert.equal(notionCategoryValue("events", "../../secret"), null);
+  const worker = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  assert.match(worker, /notionCategoryValue\(section, subcategory\)/);
+  assert.match(worker, /"Typ podujatia": target\.categoryValue/);
+  assert.match(worker, /"Kategória": target\.categoryValue/);
+});
+
