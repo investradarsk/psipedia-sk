@@ -393,14 +393,18 @@ test("@production events listing, detail and past/upcoming separation work", asy
   await expect(page.locator("h1")).toBeVisible();
   await expect(page.locator("[data-event-list], [data-event-category-overview]")).toBeVisible();
 
-  // The events redesign renders cards within the public list without the
-  // legacy data-event-card hook. Scope to the list, not the calendar links.
-  const eventLinks = async () => page.locator('[data-event-list] h3 a[href^="/podujatia/"], main h3 a[href^="/podujatia/"]').evaluateAll((links) => [
-    ...new Set(links
-      .filter((link) => Boolean(link.getClientRects().length))
-      .map((link) => link.getAttribute("href"))
-      .filter((href): href is string => Boolean(href) && new RegExp("^/podujatia/[^/?#]+$").test(href!))),
-  ]);
+  // Grid cards wrap their heading inside the detail link, whereas list cards
+  // link from the heading. Use the shared card hook and exclude calendar links.
+  const eventCards = page.locator("[data-event-list] [data-event-card]");
+  const eventLinks = async () => {
+    await expect(eventCards.first(), "Event results have no visible cards").toBeVisible();
+    return eventCards.locator('a[href^="/podujatia/"]').evaluateAll((links) => [
+      ...new Set(links
+        .filter((link) => Boolean(link.getClientRects().length))
+        .map((link) => link.getAttribute("href"))
+        .filter((href): href is string => href !== null && /^\/podujatia\/[^/?#]+$/.test(href))),
+    ]);
+  };
 
   const upcomingLinks = await eventLinks();
   expect(upcomingLinks.length, "Upcoming event listing is empty despite the rendered listing").toBeGreaterThan(0);
