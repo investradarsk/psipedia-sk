@@ -42,7 +42,7 @@ export const ADOPTION_NOINDEX_STALE_DAYS = 45;
 export const ADOPTION_PAGE_SIZE = 24;
 export const ADOPTION_ADMIN_PAGE_SIZE = 40;
 
-import { normalizeImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
+import { normalizeImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 
 export type AdoptionDog = {
   id: number;
