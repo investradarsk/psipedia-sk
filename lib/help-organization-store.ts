@@ -1,4 +1,4 @@
-import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
+import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
 import {
