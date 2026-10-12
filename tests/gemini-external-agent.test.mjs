@@ -4,6 +4,7 @@ import { createHmac } from "node:crypto";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { eventTypeFromPortalSlug } from "../lib/events.ts";
 import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
+import { directoryProfileValues, hasMinimumVeterinarianContact } from "../scripts/gemini-notion-directory-fields.mjs";
 import { readFileSync } from "node:fs";
 import {
   externalAgentEnabled, externalAgentScheduledEnabled, ExternalAgentError, dispatchExternalGemini,
@@ -199,3 +200,87 @@ test("Notion category values preserve directory slugs and canonical singular eve
   assert.match(worker, /"Kategória": target\.categoryValue/);
 });
 
+
+test("directory draft preserves verified public contacts and separate official logo/cover URLs", () => {
+  const fields = directoryProfileValues({
+    name: "AmyVet – Veterinárna klinika Sereď",
+    website_url: "https://www.amyvet.sk/",
+    phone: "+421 914 434 141",
+    email: "info@amyvet.sk",
+    address: "Starý Most 3075/13, 926 01 Sereď",
+    street: "Starý Most",
+    house_number: "3075/13",
+    postal_code: "92601",
+    district: "Galanta",
+    region: "Trnavský kraj",
+    facebook_url: "https://www.facebook.com/amyvet/",
+    instagram_url: "https://www.instagram.com/amyvet/",
+    services: "Veterinárna diagnostika",
+    logo_url: "https://www.amyvet.sk/images/logo.png",
+    image_url: "https://amyvet.sk/images/clinic.webp",
+    image_alt: "Veterinárna klinika",
+  });
+  assert.equal(fields["Telefón"], "+421 914 434 141");
+  assert.equal(fields["E-mail"], "info@amyvet.sk");
+  assert.equal(fields["PSČ"], "926 01");
+  assert.equal(fields["Číslo domu"], "3075/13");
+  assert.equal(fields["Logo URL"], "https://www.amyvet.sk/images/logo.png");
+  assert.equal(fields["Hlavný obrázok URL"], "https://amyvet.sk/images/clinic.webp");
+  assert.equal(fields["Zdroj obrázka"], "https://www.amyvet.sk/");
+  assert.equal(fields["Alt text obrázka"], "Veterinárna klinika");
+  assert.equal(fields["Kraj"], "Trnavský kraj");
+  assert.equal(fields["Facebook"], "https://www.facebook.com/amyvet/");
+  assert.equal(hasMinimumVeterinarianContact({
+    "Telefón": { phone_number: fields["Telefón"] },
+    "E-mail": { email: fields["E-mail"] },
+  }), true);
+});
+
+test("directory worker rejects unverified off-site logos and malformed contacts", () => {
+  const fields = directoryProfileValues({
+    website_url: "https://amyvet.sk",
+    phone: "fake", email: "not-an-email", postal_code: "12345678",
+    facebook_url: "https://facebook.com.attacker.com/amyvet",
+    logo_url: "https://search.example.com/images/some-logo.png",
+    image_url: "https://cdn.third-party.example/unknown-photo.jpg",
+    address: "",
+  });
+  assert.equal(fields["Logo URL"], undefined);
+  assert.equal(fields["Hlavný obrázok URL"], undefined);
+  assert.equal(fields["Zdroj obrázka"], undefined);
+  assert.equal(fields["Telefón"], undefined);
+  assert.equal(fields["E-mail"], undefined);
+  assert.equal(fields["Facebook"], undefined);
+  assert.equal(fields["PSČ"], undefined);
+  assert.equal(hasMinimumVeterinarianContact(fields), false);
+  assert.equal(Object.hasOwn(fields, "Interný e-mail"), false);
+  assert.equal(Object.hasOwn(fields, "Psipedia stav"), false);
+});
+
+test("vector logos can be saved independently without being sent to raster image ingestion", () => {
+  const fields = directoryProfileValues({
+    name: "Clinic",
+    website_url: "https://example.com",
+    logo_url: "https://example.com/static/logo.svg",
+  });
+  assert.equal(fields["Logo URL"], "https://example.com/static/logo.svg");
+  assert.equal(fields["Hlavný obrázok URL"], undefined);
+  assert.equal(fields["Alt text obrázka"], undefined);
+  const fallback = directoryProfileValues({
+    name: "Clinic", website_url: "https://example.com",
+    logo_url: "https://example.com/logo.png",
+  });
+  assert.equal(fallback["Hlavný obrázok URL"], fallback["Logo URL"]);
+  assert.equal(fallback["Alt text obrázka"], "Logo Clinic");
+});
+
+test("Gemini worker offers actual Notion email/phone encoders and gates empty veterinary drafts", () => {
+  const source = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  assert.match(source, /if \(schema.type === "email"\) return \{ email: value \}/);
+  assert.match(source, /if \(schema.type === "phone_number"\) return \{ phone_number: value \}/);
+  assert.match(source, /directoryProfileValues\(args\)/);
+  assert.match(source, /hasMinimumVeterinarianContact\(properties\)/);
+  assert.match(source, /logo_url: \{ type: "string"/);
+  assert.match(source, /image_url: \{ type: "string"/);
+  assert.match(source, /"insufficient_verified_contact_details"/);
+});

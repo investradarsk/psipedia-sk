@@ -26,6 +26,14 @@ Konkrétne Notion ID pre Pomoc psom zatiaľ musí byť doplnené a oprávnené k
 - Neopakovať Notion POST /pages po neistom výsledku; pred opätovným spustením sa musí skontrolovať Notion.
 - Callback je HMAC SHA-256 s obmedzenými číselnými údajmi a je platný iba raz počas RUNNING jobu.
 
+## Kvalita nových adresárových konceptov
+
+Samostatný pracovník pri nových profiloch služieb cielene dohľadáva **verejné kontaktné a profilové údaje** z primárnych zdrojov: telefón, e-mail, úplnú adresu (ulica, číslo, PSČ), okres, kraj, Facebook/Instagram, služby a doložené kvalifikácie. Pre veterinárov odmieta vytvoriť poloprázdny koncept, ak po validácii Notion polí nie sú dostupné aspoň dva z troch typov údajov: telefón, e-mail, úplná adresa. Neoverené hodnoty zostávajú prázdne. Nemení sa schvaľovanie, status ani publikovanie.
+
+Existujúca Notion **Adresár** data source má oddelené URL polia **`Logo URL`** (nové, manuálne pridané 12. 10. 2026) a **`Hlavný obrázok URL`** (používa ho štandardná Psipedia synchronizácia pre hlavný obrázok). Gemini zapisuje iba **priame HTTPS URL obrázkov z domény oficiálneho webu subjektu** s rozpoznateľnou obrazovou príponou. Uprednostňuje titulnú fotografiu pre hlavný obrázok; ak neexistuje, môže použiť overené rastrové logo. SVG/GIF logo sa uchová iba v samostatnom poli `Logo URL`, nie ako hlavný obrázok pre aktuálnu R2 konverziu. Pri hlavnom obrázku sa dopĺňa zdroj webu a alt text. Samostatná synchronizácia loga na verejný web nie je súčasťou tejto opravy.
+
+Tento kvalitativny kontrakt sa uplatní **len na nové externé Gemini koncepty** po merge a produkčnom nasadení; existujúce záznamy vrátane prvého testovacieho konceptu AmyVet sa samy spätne nedoplnia. Nie je to povolenie na automatický beh a nie je potrebná D1 migrácia.
+
 ## Dôležité obmedzenia a akceptácia
 
 Google Search s custom functions v Gemini je stále Preview. Kompatibilitu so skutočnou schémou Notion a modelom gemini-3.8-flash treba potvrdiť kontrolovaným live testom až po výslovnom povolení.
