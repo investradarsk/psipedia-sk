@@ -16,3 +16,6 @@
 }
 
 .headerActions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.headerActions>a{white-space:nowrap}@media(max-width:600px){.headerActions{align-items:stretch;flex-direction:column}.headerActions>a{width:100%;justify-content:center;text-align:center}}
+
+/* IMAGE-EDITOR-3: auto/natural detail preserves portrait proportions. */
+.detailImage:has([data-image-display="natural"]) { aspect-ratio: auto; overflow: visible; background: transparent; }
