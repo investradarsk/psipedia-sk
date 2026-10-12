@@ -26,7 +26,7 @@ function Facts({ items }: { items: Fact[] }) {
 }
 
 function DetailImage({ dog }: { dog: PublicAdoptionDetailDog }) {
-  if (dog.mainImage) return <ImageDisplay context="detail" config={dog.detailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} />;
+  if (dog.mainImage) return <ImageDisplay roleHint="generic" context="detail" config={dog.detailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} />;
   return <div className={styles.detailImageFallback} aria-hidden="true"><span /></div>;
 }
 
