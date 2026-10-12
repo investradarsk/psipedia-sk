@@ -376,7 +376,15 @@ test("PortalHub landing navigation and PortalTopic compact tabs share gutters wi
         expect(Math.abs(viewportWidth - (measured.x + measured.width) - 16), `${route.path}: ${label} right gutter`).toBeLessThanOrEqual(1);
       }
       const breadcrumbBox = await measuredBox(breadcrumbs, `${route.path}: breadcrumbs`);
-      expect(Math.abs(breadcrumbBox.x - 16), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
+      // Homepage-style photography deliberately uses a 20px *inside-image*
+      // text safe-zone on mobile; navigation/content shells retain 16px.
+      const heroVisual = headerContainer.locator("[data-unified-section-hero-visual]");
+      if (await heroVisual.count()) {
+        const photoBox = await measuredBox(heroVisual, `${route.path}: photographic hero`);
+        expect(Math.abs(breadcrumbBox.x - photoBox.x - 20), `${route.path}: photo-overlay breadcrumb safe zone`).toBeLessThanOrEqual(1);
+      } else {
+        expect(Math.abs(breadcrumbBox.x - 16), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
+      }
     } else {
       expect(headerPublicBox.width, `${route.path}: desktop header container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
       expect(navigationTrackBox.width, `${route.path}: desktop subcategory navigation exceeds 1180px`).toBeLessThanOrEqual(1180.5);
