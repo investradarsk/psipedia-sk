@@ -1,0 +1,3359 @@
+{
+  "sourceSHA": "5e4c249e048574a4fd1e889f6715a6d920a130d5",
+  "scenario": "local production artifact, D1 binding omitted, default visuals/seed articles, no network/CPU throttling, Chromium cold browser cache, CDP transferred bytes",
+  "samples": [
+    {
+      "route": "/",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 348,
+        "x": 130,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 620,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "36px 0px 42px 46px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.2px",
+      "overflow": 0,
+      "ttfb": 28.600000001490116,
+      "htmlBytes": 18155,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 133779,
+      "cssBytes": 140230,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 348,
+        "x": 130,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 620,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "36px 0px 42px 46px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.2px",
+      "overflow": 0,
+      "ttfb": 11.599999994039536,
+      "htmlBytes": 18155,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 133788,
+      "cssBytes": 140236,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 348,
+        "x": 130,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 620,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "36px 0px 42px 46px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.2px",
+      "overflow": 0,
+      "ttfb": 6.5,
+      "htmlBytes": 18155,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 133789,
+      "cssBytes": 140236,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/novinky",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 41.5,
+      "htmlBytes": 16953,
+      "lcp": 396,
+      "cls": 0,
+      "javascriptBytes": 144742,
+      "cssBytes": 145088,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/novinky",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 5.399999998509884,
+      "htmlBytes": 16953,
+      "lcp": 332,
+      "cls": 0,
+      "javascriptBytes": 144725,
+      "cssBytes": 145074,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/novinky",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 5.799999997019768,
+      "htmlBytes": 16953,
+      "lcp": 340,
+      "cls": 0,
+      "javascriptBytes": 144650,
+      "cssBytes": 145052,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/plemena",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 45.79999999701977,
+      "htmlBytes": 22640,
+      "lcp": 436,
+      "cls": 0.004848589275763032,
+      "javascriptBytes": 134343,
+      "cssBytes": 139586,
+      "imageBytes": 566362
+    },
+    {
+      "route": "/plemena",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 9.199999995529652,
+      "htmlBytes": 22640,
+      "lcp": 320,
+      "cls": 0,
+      "javascriptBytes": 134300,
+      "cssBytes": 139598,
+      "imageBytes": 566362
+    },
+    {
+      "route": "/plemena",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 7.600000001490116,
+      "htmlBytes": 22640,
+      "lcp": 428,
+      "cls": 0,
+      "javascriptBytes": 134305,
+      "cssBytes": 139591,
+      "imageBytes": 566362
+    },
+    {
+      "route": "/steniatka",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 28.799999997019768,
+      "htmlBytes": 16470,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132669,
+      "cssBytes": 140218,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/steniatka",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 39.80000000447035,
+      "htmlBytes": 16470,
+      "lcp": 384,
+      "cls": 0,
+      "javascriptBytes": 132639,
+      "cssBytes": 140218,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/steniatka",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 5.9000000059604645,
+      "htmlBytes": 16470,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132641,
+      "cssBytes": 140230,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/starostlivost",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 44.5,
+      "htmlBytes": 16238,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132681,
+      "cssBytes": 140236,
+      "imageBytes": 324603
+    },
+    {
+      "route": "/starostlivost",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 7.5,
+      "htmlBytes": 16238,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132685,
+      "cssBytes": 140236,
+      "imageBytes": 324603
+    },
+    {
+      "route": "/starostlivost",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 5.300000004470348,
+      "htmlBytes": 16238,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132663,
+      "cssBytes": 140236,
+      "imageBytes": 324603
+    },
+    {
+      "route": "/aktivity",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 19.30000000447035,
+      "htmlBytes": 14889,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 129568,
+      "cssBytes": 139592,
+      "imageBytes": 329907
+    },
+    {
+      "route": "/aktivity",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 5.600000001490116,
+      "htmlBytes": 14889,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 129564,
+      "cssBytes": 139598,
+      "imageBytes": 329907
+    },
+    {
+      "route": "/aktivity",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 8.799999997019768,
+      "htmlBytes": 14889,
+      "lcp": 312,
+      "cls": 0,
+      "javascriptBytes": 129570,
+      "cssBytes": 139598,
+      "imageBytes": 329907
+    },
+    {
+      "route": "/adresar",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 26.399999998509884,
+      "htmlBytes": 14082,
+      "lcp": 284,
+      "cls": 0,
+      "javascriptBytes": 133400,
+      "cssBytes": 140674,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 3.600000001490116,
+      "htmlBytes": 14082,
+      "lcp": 340,
+      "cls": 0,
+      "javascriptBytes": 133372,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 9.800000004470348,
+      "htmlBytes": 14082,
+      "lcp": 272,
+      "cls": 0,
+      "javascriptBytes": 133342,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 351.640625,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 21.80000000447035,
+      "htmlBytes": 10989,
+      "lcp": 320,
+      "cls": 0,
+      "javascriptBytes": 133377,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 351.640625,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 8.699999995529652,
+      "htmlBytes": 10989,
+      "lcp": 324,
+      "cls": 0,
+      "javascriptBytes": 133371,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 384,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 351.640625,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 6.700000002980232,
+      "htmlBytes": 10989,
+      "lcp": 284,
+      "cls": 0,
+      "javascriptBytes": 133347,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 348,
+        "x": 130,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 620,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "36px 0px 42px 46px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.2px",
+      "overflow": 0,
+      "ttfb": 42,
+      "htmlBytes": 15549,
+      "lcp": 304,
+      "cls": 0,
+      "javascriptBytes": 129812,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 348,
+        "x": 130,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 620,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "36px 0px 42px 46px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.2px",
+      "overflow": 0,
+      "ttfb": 5.5,
+      "htmlBytes": 15549,
+      "lcp": 308,
+      "cls": 0,
+      "javascriptBytes": 129826,
+      "cssBytes": 139592,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 348,
+        "x": 130,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 620,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "36px 0px 42px 46px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.2px",
+      "overflow": 0,
+      "ttfb": 17.100000001490116,
+      "htmlBytes": 15549,
+      "lcp": 456,
+      "cls": 0,
+      "javascriptBytes": 129812,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 480.765625,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 33,
+      "htmlBytes": 15206,
+      "lcp": 324,
+      "cls": 0,
+      "javascriptBytes": 128886,
+      "cssBytes": 139598,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 480.765625,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 6.300000004470348,
+      "htmlBytes": 15206,
+      "lcp": 412,
+      "cls": 0,
+      "javascriptBytes": 128905,
+      "cssBytes": 139598,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 480.765625,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 6.600000001490116,
+      "htmlBytes": 15206,
+      "lcp": 260,
+      "cls": 0,
+      "javascriptBytes": 128899,
+      "cssBytes": 139597,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/recenzie",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 31.299999997019768,
+      "htmlBytes": 14810,
+      "lcp": 376,
+      "cls": 0,
+      "javascriptBytes": 128917,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/recenzie",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 6,
+      "htmlBytes": 14810,
+      "lcp": 276,
+      "cls": 0,
+      "javascriptBytes": 128893,
+      "cssBytes": 139592,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/recenzie",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 1180,
+        "height": 330,
+        "x": 130,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 1180,
+        "height": 449,
+        "x": 130,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 720,
+        "height": 330,
+        "x": 130,
+        "radius": "0px",
+        "padding": "44px 48px",
+        "maxWidth": "none"
+      },
+      "titleFont": "59.04px",
+      "overflow": 0,
+      "ttfb": 5.299999997019768,
+      "htmlBytes": 14810,
+      "lcp": 412,
+      "cls": 0,
+      "javascriptBytes": 128893,
+      "cssBytes": 139592,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/mapa",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 1180,
+        "height": 143.234375,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "47.52px",
+      "overflow": 0,
+      "ttfb": 28.100000001490116,
+      "htmlBytes": 8880,
+      "lcp": 328,
+      "cls": 0,
+      "javascriptBytes": 146369,
+      "cssBytes": 144597,
+      "imageBytes": 0
+    },
+    {
+      "route": "/mapa",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 1180,
+        "height": 143.234375,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "47.52px",
+      "overflow": 0,
+      "ttfb": 8.200000002980232,
+      "htmlBytes": 8880,
+      "lcp": 436,
+      "cls": 0,
+      "javascriptBytes": 146415,
+      "cssBytes": 144597,
+      "imageBytes": 0
+    },
+    {
+      "route": "/mapa",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 1180,
+        "height": 143.234375,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "47.52px",
+      "overflow": 0,
+      "ttfb": 5.100000001490116,
+      "htmlBytes": 8880,
+      "lcp": 404,
+      "cls": 0,
+      "javascriptBytes": 146440,
+      "cssBytes": 144579,
+      "imageBytes": 0
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 1440,
+      "run": 0,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 1180,
+        "height": 2465.484375,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px 16px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "43.2px",
+      "overflow": 0,
+      "ttfb": 34.29999999701977,
+      "htmlBytes": 15937,
+      "lcp": 392,
+      "cls": 0,
+      "javascriptBytes": 147089,
+      "cssBytes": 149569,
+      "imageBytes": 59215
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 1440,
+      "run": 1,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 1180,
+        "height": 2465.484375,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px 16px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "43.2px",
+      "overflow": 0,
+      "ttfb": 6.100000001490116,
+      "htmlBytes": 15937,
+      "lcp": 356,
+      "cls": 0,
+      "javascriptBytes": 147090,
+      "cssBytes": 149575,
+      "imageBytes": 59215
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 1440,
+      "run": 2,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 1180,
+        "height": 2465.484375,
+        "x": 130,
+        "radius": "0px",
+        "padding": "0px 16px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "43.2px",
+      "overflow": 0,
+      "ttfb": 8.399999998509884,
+      "htmlBytes": 15937,
+      "lcp": 336,
+      "cls": 0,
+      "javascriptBytes": 147081,
+      "cssBytes": 149553,
+      "imageBytes": 59215
+    },
+    {
+      "route": "/",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 330,
+        "x": 44,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 348,
+        "x": 44,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 557.59375,
+        "height": 330,
+        "x": 44,
+        "radius": "0px",
+        "padding": "32px 0px 42px 32px",
+        "maxWidth": "none"
+      },
+      "titleFont": "52px",
+      "overflow": 0,
+      "ttfb": 5.700000002980232,
+      "htmlBytes": 18155,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 133797,
+      "cssBytes": 140236,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/novinky",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 314,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 5.899999998509884,
+      "htmlBytes": 16953,
+      "lcp": 296,
+      "cls": 0,
+      "javascriptBytes": 144672,
+      "cssBytes": 145088,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/plemena",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 314,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 6.899999998509884,
+      "htmlBytes": 22640,
+      "lcp": 248,
+      "cls": 0,
+      "javascriptBytes": 134321,
+      "cssBytes": 139564,
+      "imageBytes": 391129
+    },
+    {
+      "route": "/steniatka",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 379,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 6,
+      "htmlBytes": 16470,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132660,
+      "cssBytes": 140235,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/starostlivost",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 379,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 8.100000001490116,
+      "htmlBytes": 16238,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132633,
+      "cssBytes": 140218,
+      "imageBytes": 194059
+    },
+    {
+      "route": "/aktivity",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 379,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 6.700000002980232,
+      "htmlBytes": 14889,
+      "lcp": 224,
+      "cls": 0,
+      "javascriptBytes": 129586,
+      "cssBytes": 139598,
+      "imageBytes": 228907
+    },
+    {
+      "route": "/adresar",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 314,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 4.5999999940395355,
+      "htmlBytes": 14082,
+      "lcp": 244,
+      "cls": 0,
+      "javascriptBytes": 133376,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 314,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 290.3125,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 13.5,
+      "htmlBytes": 10989,
+      "lcp": 312,
+      "cls": 0,
+      "javascriptBytes": 133360,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 330,
+        "x": 44,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 348,
+        "x": 44,
+        "radius": "0px",
+        "padding": "18px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 557.59375,
+        "height": 330,
+        "x": 44,
+        "radius": "0px",
+        "padding": "32px 0px 42px 32px",
+        "maxWidth": "none"
+      },
+      "titleFont": "52px",
+      "overflow": 0,
+      "ttfb": 8.600000001490116,
+      "htmlBytes": 15549,
+      "lcp": 280,
+      "cls": 0,
+      "javascriptBytes": 129777,
+      "cssBytes": 139586,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 410.765625,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 276.859375,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 6.700000002980232,
+      "htmlBytes": 15206,
+      "lcp": 280,
+      "cls": 0,
+      "javascriptBytes": 128887,
+      "cssBytes": 139575,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/recenzie",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 680,
+        "height": 260,
+        "x": 44,
+        "radius": "24px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 680,
+        "height": 379,
+        "x": 44,
+        "radius": "0px",
+        "padding": "22px 0px 32px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 435.1875,
+        "height": 260,
+        "x": 44,
+        "radius": "0px",
+        "padding": "29.184px 30.72px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.2px",
+      "overflow": 0,
+      "ttfb": 5.0999999940395355,
+      "htmlBytes": 14810,
+      "lcp": 228,
+      "cls": 0,
+      "javascriptBytes": 128886,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/mapa",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 680,
+        "height": 207.234375,
+        "x": 44,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "32px",
+      "overflow": 0,
+      "ttfb": 5.799999997019768,
+      "htmlBytes": 8880,
+      "lcp": 272,
+      "cls": 0,
+      "javascriptBytes": 146418,
+      "cssBytes": 144597,
+      "imageBytes": 0
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 768,
+      "run": 0,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 680,
+        "height": 2565.28125,
+        "x": 44,
+        "radius": "0px",
+        "padding": "0px 16px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "32px",
+      "overflow": 0,
+      "ttfb": 5.199999995529652,
+      "htmlBytes": 15937,
+      "lcp": 308,
+      "cls": 0,
+      "javascriptBytes": 147072,
+      "cssBytes": 149552,
+      "imageBytes": 59215
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 390,
+        "height": 318,
+        "x": 0,
+        "radius": "20px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 390,
+        "height": 330,
+        "x": 0,
+        "radius": "0px",
+        "padding": "12px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 390,
+        "height": 318,
+        "x": 0,
+        "radius": "0px",
+        "padding": "28px 20px 30px",
+        "maxWidth": "none"
+      },
+      "titleFont": "40.56px",
+      "overflow": 0,
+      "ttfb": 3.899999998509884,
+      "htmlBytes": 18155,
+      "lcp": 284,
+      "cls": 0,
+      "javascriptBytes": 133821,
+      "cssBytes": 140236,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 390,
+        "height": 318,
+        "x": 0,
+        "radius": "20px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 390,
+        "height": 330,
+        "x": 0,
+        "radius": "0px",
+        "padding": "12px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 390,
+        "height": 318,
+        "x": 0,
+        "radius": "0px",
+        "padding": "28px 20px 30px",
+        "maxWidth": "none"
+      },
+      "titleFont": "40.56px",
+      "overflow": 0,
+      "ttfb": 7,
+      "htmlBytes": 18155,
+      "lcp": 292,
+      "cls": 0,
+      "javascriptBytes": 133780,
+      "cssBytes": 140235,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 390,
+        "height": 318,
+        "x": 0,
+        "radius": "20px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 390,
+        "height": 330,
+        "x": 0,
+        "radius": "0px",
+        "padding": "12px 0px 0px",
+        "maxWidth": "none"
+      },
+      "copy": {
+        "width": 390,
+        "height": 318,
+        "x": 0,
+        "radius": "0px",
+        "padding": "28px 20px 30px",
+        "maxWidth": "none"
+      },
+      "titleFont": "40.56px",
+      "overflow": 0,
+      "ttfb": 43.70000000298023,
+      "htmlBytes": 18155,
+      "lcp": 320,
+      "cls": 0,
+      "javascriptBytes": 133772,
+      "cssBytes": 140223,
+      "imageBytes": 372005
+    },
+    {
+      "route": "/novinky",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 329.234375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 365.234375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 166.984375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 3.899999998509884,
+      "htmlBytes": 16953,
+      "lcp": 256,
+      "cls": 0,
+      "javascriptBytes": 144760,
+      "cssBytes": 145088,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/novinky",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 329.234375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 365.234375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 166.984375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5.899999998509884,
+      "htmlBytes": 16953,
+      "lcp": 236,
+      "cls": 0,
+      "javascriptBytes": 144716,
+      "cssBytes": 145082,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/novinky",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 329.234375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 365.234375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 166.984375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 17.399999998509884,
+      "htmlBytes": 16953,
+      "lcp": 264,
+      "cls": 0,
+      "javascriptBytes": 144700,
+      "cssBytes": 145058,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/plemena",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 330.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 366.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 168.609375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 10.700000002980232,
+      "htmlBytes": 22640,
+      "lcp": 276,
+      "cls": 0,
+      "javascriptBytes": 134281,
+      "cssBytes": 139586,
+      "imageBytes": 315840
+    },
+    {
+      "route": "/plemena",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 330.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 366.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 168.609375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5,
+      "htmlBytes": 22640,
+      "lcp": 236,
+      "cls": 0,
+      "javascriptBytes": 134328,
+      "cssBytes": 139586,
+      "imageBytes": 315840
+    },
+    {
+      "route": "/plemena",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 330.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 366.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 168.609375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 38.899999998509884,
+      "htmlBytes": 22640,
+      "lcp": 244,
+      "cls": 0,
+      "javascriptBytes": 134289,
+      "cssBytes": 139598,
+      "imageBytes": 315840
+    },
+    {
+      "route": "/steniatka",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 351.78125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 537.78125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 189.53125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 6.0999999940395355,
+      "htmlBytes": 16470,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132681,
+      "cssBytes": 140236,
+      "imageBytes": 153278
+    },
+    {
+      "route": "/steniatka",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 351.78125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 537.78125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 189.53125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5.600000001490116,
+      "htmlBytes": 16470,
+      "lcp": 292,
+      "cls": 0,
+      "javascriptBytes": 132639,
+      "cssBytes": 140218,
+      "imageBytes": 153278
+    },
+    {
+      "route": "/steniatka",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 351.78125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 537.78125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 189.53125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 8.600000001490116,
+      "htmlBytes": 16470,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132646,
+      "cssBytes": 140235,
+      "imageBytes": 153278
+    },
+    {
+      "route": "/starostlivost",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 330.859375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 516.859375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 168.609375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5,
+      "htmlBytes": 16238,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132643,
+      "cssBytes": 140236,
+      "imageBytes": 194059
+    },
+    {
+      "route": "/starostlivost",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 330.859375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 516.859375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 168.609375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5.799999997019768,
+      "htmlBytes": 16238,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 132671,
+      "cssBytes": 140218,
+      "imageBytes": 194059
+    },
+    {
+      "route": "/starostlivost",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 330.859375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 516.859375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 168.609375,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 11.200000002980232,
+      "htmlBytes": 16238,
+      "lcp": 224,
+      "cls": 0,
+      "javascriptBytes": 132651,
+      "cssBytes": 140218,
+      "imageBytes": 194059
+    },
+    {
+      "route": "/aktivity",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 372.703125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 558.703125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 210.453125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 6.399999998509884,
+      "htmlBytes": 14889,
+      "lcp": 200,
+      "cls": 0,
+      "javascriptBytes": 129522,
+      "cssBytes": 139586,
+      "imageBytes": 134844
+    },
+    {
+      "route": "/aktivity",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 372.703125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 558.703125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 210.453125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 6.200000002980232,
+      "htmlBytes": 14889,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 129554,
+      "cssBytes": 139586,
+      "imageBytes": 134844
+    },
+    {
+      "route": "/aktivity",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 358,
+        "height": 372.703125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 358,
+        "height": 558.703125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 358,
+        "height": 210.453125,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5.199999995529652,
+      "htmlBytes": 14889,
+      "lcp": 0,
+      "cls": 0,
+      "javascriptBytes": 129569,
+      "cssBytes": 139598,
+      "imageBytes": 134844
+    },
+    {
+      "route": "/adresar",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 351.78125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 387.78125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 189.53125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 4.600000001490116,
+      "htmlBytes": 14082,
+      "lcp": 244,
+      "cls": 0,
+      "javascriptBytes": 133368,
+      "cssBytes": 140674,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 351.78125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 387.78125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 189.53125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5.200000002980232,
+      "htmlBytes": 14082,
+      "lcp": 240,
+      "cls": 0,
+      "javascriptBytes": 133370,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 351.78125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 387.78125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 189.53125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5,
+      "htmlBytes": 14082,
+      "lcp": 224,
+      "cls": 0,
+      "javascriptBytes": 133375,
+      "cssBytes": 140686,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 387.21875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 423.21875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 224.96875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 7.300000004470348,
+      "htmlBytes": 10989,
+      "lcp": 208,
+      "cls": 0,
+      "javascriptBytes": 133369,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 387.21875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 423.21875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 224.96875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 6,
+      "htmlBytes": 10989,
+      "lcp": 208,
+      "cls": 0,
+      "javascriptBytes": 133349,
+      "cssBytes": 140674,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/adresar/veterinari",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 387.21875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 423.21875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 224.96875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 4.9000000059604645,
+      "htmlBytes": 10989,
+      "lcp": 200,
+      "cls": 0,
+      "javascriptBytes": 133387,
+      "cssBytes": 140692,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 318,
+        "x": 12,
+        "radius": "20px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 330,
+        "x": 12,
+        "radius": "0px",
+        "padding": "12px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 318,
+        "x": 12,
+        "radius": "0px",
+        "padding": "28px 20px 30px",
+        "maxWidth": "none"
+      },
+      "titleFont": "40.56px",
+      "overflow": 0,
+      "ttfb": 5.600000001490116,
+      "htmlBytes": 15549,
+      "lcp": 244,
+      "cls": 0,
+      "javascriptBytes": 129799,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 318,
+        "x": 12,
+        "radius": "20px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 330,
+        "x": 12,
+        "radius": "0px",
+        "padding": "12px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 318,
+        "x": 12,
+        "radius": "0px",
+        "padding": "28px 20px 30px",
+        "maxWidth": "none"
+      },
+      "titleFont": "40.56px",
+      "overflow": 0,
+      "ttfb": 5.299999997019768,
+      "htmlBytes": 15549,
+      "lcp": 272,
+      "cls": 0,
+      "javascriptBytes": 129811,
+      "cssBytes": 139586,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/podujatia",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 318,
+        "x": 12,
+        "radius": "20px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 330,
+        "x": 12,
+        "radius": "0px",
+        "padding": "12px 0px 0px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 318,
+        "x": 12,
+        "radius": "0px",
+        "padding": "28px 20px 30px",
+        "maxWidth": "none"
+      },
+      "titleFont": "40.56px",
+      "overflow": 0,
+      "ttfb": 6.399999998509884,
+      "htmlBytes": 15549,
+      "lcp": 248,
+      "cls": 0,
+      "javascriptBytes": 129792,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 372.703125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 644.46875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 210.453125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 8.399999998509884,
+      "htmlBytes": 15206,
+      "lcp": 280,
+      "cls": 0,
+      "javascriptBytes": 128891,
+      "cssBytes": 139598,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 372.703125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 644.46875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 210.453125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5,
+      "htmlBytes": 15206,
+      "lcp": 276,
+      "cls": 0,
+      "javascriptBytes": 128879,
+      "cssBytes": 139598,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/pomoc-psom",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 372.703125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 644.46875,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 210.453125,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 6.100000001490116,
+      "htmlBytes": 15206,
+      "lcp": 248,
+      "cls": 0,
+      "javascriptBytes": 128873,
+      "cssBytes": 139591,
+      "imageBytes": 288122
+    },
+    {
+      "route": "/recenzie",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 330.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 516.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 168.609375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 6,
+      "htmlBytes": 14810,
+      "lcp": 252,
+      "cls": 0,
+      "javascriptBytes": 128884,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/recenzie",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 330.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 516.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 168.609375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 5.4000000059604645,
+      "htmlBytes": 14810,
+      "lcp": 260,
+      "cls": 0,
+      "javascriptBytes": 128875,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/recenzie",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": {
+        "width": 366,
+        "height": 330.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "shell": {
+        "width": 366,
+        "height": 516.859375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "14px 0px 22px",
+        "maxWidth": "1180px"
+      },
+      "copy": {
+        "width": 366,
+        "height": 168.609375,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "titleFont": "35.1px",
+      "overflow": 0,
+      "ttfb": 4.399999998509884,
+      "htmlBytes": 14810,
+      "lcp": 256,
+      "cls": 0,
+      "javascriptBytes": 128916,
+      "cssBytes": 139598,
+      "imageBytes": 94063
+    },
+    {
+      "route": "/mapa",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 358,
+        "height": 63.640625,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "25.6px",
+      "overflow": 0,
+      "ttfb": 5.100000001490116,
+      "htmlBytes": 8880,
+      "lcp": 232,
+      "cls": 0.0007968248850009705,
+      "javascriptBytes": 146434,
+      "cssBytes": 144579,
+      "imageBytes": 0
+    },
+    {
+      "route": "/mapa",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 358,
+        "height": 63.640625,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "25.6px",
+      "overflow": 0,
+      "ttfb": 5.700000002980232,
+      "htmlBytes": 8880,
+      "lcp": 248,
+      "cls": 0.0007968248850009705,
+      "javascriptBytes": 146385,
+      "cssBytes": 144585,
+      "imageBytes": 0
+    },
+    {
+      "route": "/mapa",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 358,
+        "height": 63.640625,
+        "x": 16,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "1180px"
+      },
+      "copy": null,
+      "titleFont": "25.6px",
+      "overflow": 0,
+      "ttfb": 5.800000004470348,
+      "htmlBytes": 8880,
+      "lcp": 228,
+      "cls": 0.0007968248850009705,
+      "javascriptBytes": 146414,
+      "cssBytes": 144574,
+      "imageBytes": 0
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 390,
+      "run": 0,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 366,
+        "height": 2483.25,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "26.52px",
+      "overflow": 0,
+      "ttfb": 6.700000002980232,
+      "htmlBytes": 15937,
+      "lcp": 296,
+      "cls": 0,
+      "javascriptBytes": 147142,
+      "cssBytes": 149575,
+      "imageBytes": 59215
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 390,
+      "run": 1,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 366,
+        "height": 2483.25,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "26.52px",
+      "overflow": 0,
+      "ttfb": 5.399999998509884,
+      "htmlBytes": 15937,
+      "lcp": 336,
+      "cls": 0,
+      "javascriptBytes": 147089,
+      "cssBytes": 149569,
+      "imageBytes": 59215
+    },
+    {
+      "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+      "width": 390,
+      "run": 2,
+      "status": 200,
+      "hero": null,
+      "shell": {
+        "width": 366,
+        "height": 2483.25,
+        "x": 12,
+        "radius": "0px",
+        "padding": "0px",
+        "maxWidth": "none"
+      },
+      "copy": null,
+      "titleFont": "26.52px",
+      "overflow": 0,
+      "ttfb": 4.300000004470348,
+      "htmlBytes": 15937,
+      "lcp": 256,
+      "cls": 0,
+      "javascriptBytes": 147083,
+      "cssBytes": 149567,
+      "imageBytes": 59215
+    }
+  ]
+}
