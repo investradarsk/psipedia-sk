@@ -15,6 +15,7 @@ import styles from "./admin-event-editor.module.css";
 import type { SmartImageMode } from "@/lib/smart-image";
 import { ImageDisplay } from "@/components/image-display";
 import { ImageDisplayEditor } from "@/components/image-display-editor";
+import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL } from "@/lib/image-display";
 import { legacyArticleThumbnail, type ImageDisplayConfig } from "@/lib/image-display";
 
 function slugify(value: string) {
@@ -186,8 +187,13 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Podujatie"} title={title} excerpt={excerpt}
         entityLabel="podujatia" thumbnailAspectRatio="8 / 5" thumbnail={thumbnailImageDisplay ?? legacyArticleThumbnail(imageDisplay)}
-        detail={detailImageDisplay ?? {mode: imageDisplay === "contain" ? "blur" : "crop", x:50, y:50, zoom:1}} onCancel={() => setImageEditorOpen(false)}
-        onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
+        detail={detailImageDisplay ?? (imageDisplay === "auto" ? null : {mode: imageDisplay === "contain" ? "blur" : "crop", x:50, y:50, zoom:1})} onCancel={() => setImageEditorOpen(false)}
+        onSave={(thumbnail, detail) => {
+          // Explicit automatic values suppress any legacy cover/contain fallback after Reset.
+          setThumbnailImageDisplay(thumbnail ?? (imageDisplay === "auto" ? null : DEFAULT_THUMBNAIL));
+          setDetailImageDisplay(detail ?? (imageDisplay === "auto" ? null : DEFAULT_DETAIL));
+          setImageEditorOpen(false);
+        }} />}
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}
       <div className="admin-editor-actions">
         <div><Link href="/admin/podujatia">← Späť na podujatia</Link></div>
