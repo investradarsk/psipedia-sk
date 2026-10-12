@@ -57,8 +57,8 @@ export function ImageDisplay({
             alt="" aria-hidden="true" draggable={false} />}
           <SmartCardImage {...imageProps} src={src} alt={alt} roleHint={roleHint} mode={fitMode}
             focusX={settings.x} focusY={settings.y}
-            onImageDimensions={settings.mode === "auto" ? ({ width, height, frameRatio }) => {
-              const fit = automaticThumbnailFit(width, height, frameRatio);
+            onImageDimensions={settings.mode === "auto" ? ({ width, height, frameRatio, lightBackgroundShare }) => {
+              const fit = automaticThumbnailFit(width, height, frameRatio, lightBackgroundShare);
               setAutoFit((current) => current?.src === src && current.fit === fit ? current : { src, fit });
             } : undefined}
             className={[styles.photo, imageClassName].filter(Boolean).join(" ")} draggable={false}
