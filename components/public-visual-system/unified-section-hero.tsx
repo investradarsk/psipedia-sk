@@ -25,6 +25,8 @@ type VisualStyle = CSSProperties & Record<
   string | number
 >;
 
+export type UnifiedSectionHeroVariant = "homepage-style" | "compact" | "task";
+
 type SearchElementProps = {
   placeholder?: string;
   buttonLabel?: string;
@@ -89,6 +91,7 @@ export async function UnifiedSectionHero({
   ctaSlot,
   metaSlot,
   className,
+  variant = "homepage-style",
 }: {
   breadcrumbs?: ReactNode;
   eyebrow?: ReactNode;
@@ -99,6 +102,7 @@ export async function UnifiedSectionHero({
   ctaSlot?: ReactNode;
   metaSlot?: ReactNode;
   className?: string;
+  variant?: UnifiedSectionHeroVariant;
 }) {
   const managedTitle = visual.heroContent?.title || title;
   const managedEyebrow = visual.heroContent?.eyebrow || eyebrow;
@@ -115,12 +119,13 @@ export async function UnifiedSectionHero({
       className={[styles.hero, className].filter(Boolean).join(" ")}
       style={visualStyle(visual)}
       data-unified-section-hero
+      data-hero-variant={variant}
       data-section-visual-key={visual.visualKey}
       data-section-visual-source={visual.source}
     >
       <div className={styles.visual} data-unified-section-hero-visual>
         <div className={styles.media} data-unified-section-hero-media>
-          <img className={styles.image} src={visual.imageUrl} srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="100vw" alt={visual.altText} decoding="async" />
+          <img className={styles.image} src={visual.imageUrl} srcSet={responsiveMediaSrcSet(visual.imageUrl, [640, 960, 1280, 1600, 1920])} sizes="(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px" alt={visual.altText} decoding="async" fetchPriority={variant === "homepage-style" ? "high" : undefined} />
           <div className={styles.shade} aria-hidden="true" />
         </div>
 
