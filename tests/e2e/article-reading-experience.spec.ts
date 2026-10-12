@@ -196,6 +196,8 @@ for (const articleCase of cases) {
         excerptClipping: excerpt.scrollHeight - excerpt.clientHeight,
         excerptTop: excerpt.getBoundingClientRect().top,
         imageRatio: imageRect ? imageRect.width / imageRect.height : null,
+        imageNaturalRatio: image instanceof HTMLImageElement && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : null,
+        imageMode: image?.closest("[data-image-display]")?.getAttribute("data-image-display") ?? null,
         proseWidth: prose.getBoundingClientRect().width,
         proseSize: Number.parseFloat(getComputedStyle(prose).fontSize),
         canvasColor: getComputedStyle(document.querySelector<HTMLElement>('main#obsah')!).backgroundColor,
@@ -229,8 +231,14 @@ for (const articleCase of cases) {
     expect(metrics.excerptClipping, "The mobile perex must be fully visible").toBeLessThanOrEqual(1);
     if (articleCase.hasImage) {
       expect(metrics.imageRatio).not.toBeNull();
-      expect(metrics.imageRatio!).toBeGreaterThan(1.74);
-      expect(metrics.imageRatio!).toBeLessThan(1.81);
+      if (metrics.imageMode === "natural") {
+        // Intrinsic image ratio is preserved rather than forcing a 16:9 crop.
+        expect(metrics.imageNaturalRatio).toBeGreaterThan(0);
+        expect(Math.abs(metrics.imageRatio! - metrics.imageNaturalRatio!)).toBeLessThan(0.03);
+      } else {
+        expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+        expect(metrics.imageRatio!).toBeLessThan(1.81);
+      }
     } else {
       expect(metrics.imageRatio).toBeNull();
       expect(metrics.noImageGap).toBeLessThanOrEqual(32);
@@ -400,6 +408,8 @@ for (const articleCase of cases) {
         imageHeight: imageRect?.height ?? null,
         imageWidth: imageRect?.width ?? null,
         imageRatio: imageRect ? imageRect.width / imageRect.height : null,
+        imageNaturalRatio: image instanceof HTMLImageElement && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : null,
+        imageMode: image?.closest("[data-image-display]")?.getAttribute("data-image-display") ?? null,
         headingLeft: headingRect.left,
         headingTop: headingRect.top,
         proseLeft: prose.getBoundingClientRect().left,
@@ -424,13 +434,24 @@ for (const articleCase of cases) {
     expect(metrics.h1Size).toBeLessThanOrEqual(44.5);
     if (articleCase.hasImage) {
       expect(metrics.imageHeight).not.toBeNull();
-      expect(metrics.imageHeight!).toBeGreaterThanOrEqual(443);
-      expect(metrics.imageHeight!).toBeLessThanOrEqual(453);
-      expect(metrics.imageWidth).toBeGreaterThanOrEqual(790);
-      expect(metrics.imageWidth).toBeLessThanOrEqual(805);
       expect(metrics.imageRatio).not.toBeNull();
-      expect(metrics.imageRatio!).toBeGreaterThan(1.74);
-      expect(metrics.imageRatio!).toBeLessThan(1.81);
+      if (metrics.imageMode === "natural") {
+        // Uncropped photographs keep their real aspect ratio, constrained to article width.
+        expect(metrics.imageNaturalRatio).toBeGreaterThan(0);
+        expect(Math.abs(metrics.imageRatio! - metrics.imageNaturalRatio!)).toBeLessThan(0.03);
+        expect(metrics.imageHeight!).toBeGreaterThan(0);
+        expect(metrics.imageHeight!).toBeLessThanOrEqual(680);
+        expect(metrics.imageWidth!).toBeGreaterThan(0);
+        expect(metrics.imageWidth!).toBeLessThanOrEqual(805);
+      } else {
+        // Crop/blur modes retain the intentional 16:9 hero geometry.
+        expect(metrics.imageHeight!).toBeGreaterThanOrEqual(443);
+        expect(metrics.imageHeight!).toBeLessThanOrEqual(453);
+        expect(metrics.imageWidth).toBeGreaterThanOrEqual(790);
+        expect(metrics.imageWidth).toBeLessThanOrEqual(805);
+        expect(metrics.imageRatio!).toBeGreaterThan(1.74);
+        expect(metrics.imageRatio!).toBeLessThan(1.81);
+      }
     } else {
       expect(metrics.imageHeight).toBeNull();
       expect(metrics.imageRatio).toBeNull();

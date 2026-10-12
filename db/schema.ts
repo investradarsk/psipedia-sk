@@ -46,6 +46,8 @@ export const managedArticles = sqliteTable(
     blocksJson: text("blocks_json").notNull().default("[]"),
     imageUrl: text("image_url"),
     imageKey: text("image_key"),
+    thumbnailDisplayJson: text("thumbnail_display_json"),
+    detailDisplayJson: text("detail_display_json"),
     imageAlt: text("image_alt"),
     imageCaption: text("image_caption"),
     imageCredit: text("image_credit"),

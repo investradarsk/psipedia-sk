@@ -41,14 +41,23 @@ test("manual override roundtrip and migration default", () => {
   assert.ok(read("drizzle/0118_event_image_display.sql").includes("DEFAULT 'auto'"));
 });
 
-test("all article image surfaces use the shared smart crop with optional persisted focal point", () => {
+test("all article image surfaces use shared non-destructive rendering with legacy focal compatibility", () => {
   for (const path of [
     "components/article-card.tsx",
     "components/article-detail.tsx",
     "components/public-visual-system/public-visual-system.tsx",
-  ]) assert.match(read(path), /<SmartCardImage/, path);
+  ]) assert.match(read(path), /<ImageDisplay/, path);
   assert.match(read("components/smart-card-image.tsx"), /avoidSevereArticleCrop/);
   assert.match(read("components/smart-card-image.tsx"), /objectPosition/);
-  assert.match(read("components/admin-article-editor.tsx"), /article-image-focus-y/);
+  assert.match(read("components/admin-article-editor.tsx"), /<ImageDisplayEditor/);
   assert.match(read("lib/article-store.ts"), /image_focus_y = \?/);
+});
+
+test("IMAGE-EDITOR-1 renders article thumbnails and detail using independently saved configurations", () => {
+  for (const path of ["components/article-card.tsx", "components/article-detail.tsx", "components/public-visual-system/public-visual-system.tsx"]) {
+    assert.match(read(path), /<ImageDisplay/, path);
+  }
+  assert.match(read("components/article-card.tsx"), /config=\{article\.thumbnailImageDisplay\}/);
+  assert.match(read("components/article-list-item.tsx"), /config: article\.thumbnailImageDisplay/);
+  assert.match(read("components/article-detail.tsx"), /config=\{detailImageConfig\}/);
 });

@@ -32,7 +32,7 @@ export function ArticleListItem({
       topic={topicLabel ?? articleTopicLabel(article)}
       date={date}
       dateTime={dateTime}
-      image={article.image ? { src: article.image, alt: imageAlt, mode: article.imageDisplay, focusX: article.imageFocusX, focusY: article.imageFocusY } : undefined}
+      image={article.image ? { src: article.image, alt: imageAlt, mode: article.imageDisplay, focusX: article.imageFocusX, focusY: article.imageFocusY, config: article.thumbnailImageDisplay } : undefined}
       className={className}
       listItem={listItem}
     />

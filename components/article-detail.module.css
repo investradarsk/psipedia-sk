@@ -937,3 +937,20 @@
 .heroMedia :global(.article-hero-placeholder) {
   border-radius: 0;
 }
+
+/* IMAGE-EDITOR-1: natural images take intrinsic height. */
+.modernArticle .heroMedia.heroNatural { aspect-ratio: auto; background: transparent; }
+
+/* Keep the legacy hero image hook for reading-layout consumers without
+   allowing old global crop rules to override an intrinsic-size photo. */
+.modernArticle .heroMedia.heroNatural :global(.article-hero-image) {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(680px, 78vh);
+  aspect-ratio: auto;
+  object-fit: contain;
+  border-radius: 0;
+}

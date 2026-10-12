@@ -9,7 +9,7 @@ import { ArticlePopularitySidebar } from "@/components/article-popularity-sideba
 import { ArticlePromo } from "@/components/article-promo";
 import { ArticleContinuation } from "@/components/article-continuation";
 import { FavoriteButton } from "@/components/favorite-button";
-import { Breadcrumbs, MediaFrame } from "@/components/page-system";
+import { Breadcrumbs } from "@/components/page-system";
 import { PublicContentList } from "@/components/public-visual-system";
 import { ArticleListItem } from "@/components/article-list-item";
 import { ShareButton } from "@/components/share-button";
@@ -28,7 +28,8 @@ import { editorialRichTextPlainText, legacyRichTextToDocument } from "@/lib/edit
 import { AD_PLACEMENTS } from "@/lib/monetization";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 import styles from "./article-detail.module.css";
-import { SmartCardImage } from "@/components/smart-card-image";
+import { ImageDisplay } from "@/components/image-display";
+import { legacyArticleDetail } from "@/lib/image-display";
 
 function safeExternalImageCreditUrl(value?: string) {
   if (!value) return undefined;
@@ -110,6 +111,8 @@ export function ArticleDetail({
     sidebarPromoKey: discovery.promo?.promoKey,
     relatedHrefs: relatedItems.map((item) => articleHref(item)),
   });
+  const legacyDetailConfig = legacyArticleDetail(article.imageDisplay, article.imageFocusX, article.imageFocusY);
+  const detailImageConfig = article.detailImageDisplay ?? legacyDetailConfig;
   const hasPopularity = discovery.popularity["24h"].length > 0 || discovery.popularity["7d"].length > 0;
   const showDiscoverySidebar = hasPopularity || Boolean(discovery.promo);
 
@@ -200,9 +203,9 @@ export function ArticleDetail({
           </div>
           {article.image ? (
             <figure className={styles.heroFigure}>
-              <MediaFrame className={styles.heroMedia} variant="article">
-                <SmartCardImage roleHint="article" mode={article.imageDisplay} focusX={article.imageFocusX} focusY={article.imageFocusY} className="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
-              </MediaFrame>
+              <div className={`${styles.heroMedia} ${(!detailImageConfig || detailImageConfig.mode === "natural") ? styles.heroNatural : ""}`}>
+                <ImageDisplay context="detail" config={detailImageConfig} imageClassName="article-hero-image" src={article.image} alt={article.imageAlt || article.title} loading="eager" fetchPriority="high" decoding="async" />
+              </div>
               {showImageMeta ? (
                 <figcaption className={styles.heroImageMeta}>
                   {article.imageCaption ? <span>{article.imageCaption}</span> : null}

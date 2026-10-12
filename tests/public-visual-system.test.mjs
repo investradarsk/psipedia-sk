@@ -112,16 +112,16 @@ test("article list contract keeps text minimal while allowing an optional thumbn
   assert.match(contract, /title: ReactNode/);
   assert.match(contract, /topic: ReactNode/);
   assert.match(contract, /date\?: ReactNode/);
-  assert.match(contract, /image\?: \{ src: string; alt: string; mode\?: SmartImageMode; focusX\?: number \| null; focusY\?: number \| null \}/);
+  assert.match(contract, /image\?: \{ src: string; alt: string; mode\?: SmartImageMode; focusX\?: number \| null; focusY\?: number \| null; config\?: ImageDisplayConfig \| null \}/);
   assert.match(contract, /image \? \(/);
-  assert.match(contract, /<SmartCardImage roleHint="article" mode=\{image\.mode\} focusX=\{image\.focusX\} focusY=\{image\.focusY\} src=\{image\.src\}/);
+  assert.match(contract, /<ImageDisplay context="thumbnail" config=\{image\.config\} legacyMode=\{image\.mode\} legacyFocusX=\{image\.focusX\} legacyFocusY=\{image\.focusY\} src=\{image\.src\}/);
   assert.match(contract, /srcSet=\{responsiveMediaSrcSet\(image\.src,/);
   assert.match(contract, /date \? <span aria-hidden="true">·<\/span> : null/);
   assert.match(contract, /date \? \(dateTime \? <time dateTime=\{dateTime\} data-article-date>\{date\}<\/time>/);
   assert.doesNotMatch(contract, /excerpt|readTime|actionLabel/);
   assert.match(styles, /\.articleListItemWithImage\s*\{[^}]*grid-template-columns:\s*132px minmax\(0, 1fr\)/s);
   assert.match(styles, /\.articleListMedia img\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
-  assert.match(articleListItem, /image=\{article\.image \? \{ src: article\.image, alt: imageAlt, mode: article\.imageDisplay, focusX: article\.imageFocusX, focusY: article\.imageFocusY \} : undefined\}/);
+  assert.match(articleListItem, /image=\{article\.image \? \{ src: article\.image, alt: imageAlt, mode: article\.imageDisplay, focusX: article\.imageFocusX, focusY: article\.imageFocusY, config: article\.thumbnailImageDisplay \} : undefined\}/);
 });
 
 test("BRAND-1 keeps semantic palette aliases and HEADER-NAV-2 preserves the public navigation contract", () => {

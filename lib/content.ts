@@ -27,6 +27,8 @@ export type Article = {
   imageDisplay?: import("./smart-image").SmartImageMode;
   imageFocusX?: number | null;
   imageFocusY?: number | null;
+  thumbnailImageDisplay?: import("./image-display").ImageDisplayConfig | null;
+  detailImageDisplay?: import("./image-display").ImageDisplayConfig | null;
   slug: string;
   title: string;
   excerpt: string;

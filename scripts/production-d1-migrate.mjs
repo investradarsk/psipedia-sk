@@ -113,6 +113,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0118_event_image_display.sql",
   "0119_gemini_manual_background_jobs.sql",
   "0120_article_image_presentation.sql",
+  "0121_article_image_display_config.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1142,6 +1143,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: (schema.managedArticleColumns ?? []).some(column =>
       ["image_display", "image_focus_x", "image_focus_y"].includes(String(column.name))) };
   }
+  if (targetMigration === "0121_article_image_display_config.sql") {
+    return { partial: (schema.managedArticleColumns ?? []).some(column =>
+      ["thumbnail_display_json", "detail_display_json"].includes(String(column.name))) };
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
 
@@ -1907,6 +1912,16 @@ function assertArticleImagePresentationSchema(schema) {
   }
 }
 
+function assertArticleImageDisplayConfigSchema(schema) {
+  const columns = schema.managedArticleColumns ?? [];
+  for (const name of ["thumbnail_display_json", "detail_display_json"]) {
+    const field = columns.find(column => String(column.name) === name);
+    invariant(field, `managed_articles.${name} missing`);
+    invariant(String(field.type).toUpperCase() === "TEXT" && Number(field.notnull) === 0,
+      `managed_articles.${name} must be nullable TEXT`);
+  }
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1956,6 +1971,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 118) assertEventImageDisplaySchema(schema);
   if (migrationIndex(targetMigration) >= 119) assertGeminiManualQueueSchema(schema);
   if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
+  if (migrationIndex(targetMigration) >= 121) assertArticleImageDisplayConfigSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */

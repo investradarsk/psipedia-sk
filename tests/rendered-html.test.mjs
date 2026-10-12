@@ -136,7 +136,7 @@ function createAdminMockDatabase() {
     if (/COUNT\(\*\) AS total/i.test(normalized) && /FROM directory_profiles/i.test(normalized)) {
       return [{ total: 1, published: 1, draft: 0 }];
     }
-    if (/SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, updated_at FROM managed_articles/i.test(normalized)) {
+    if (/SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, .*updated_at FROM managed_articles/i.test(normalized)) {
       return [{
         id: articleRow.id,
         slug: articleRow.slug,

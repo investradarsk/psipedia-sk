@@ -54,3 +54,6 @@ INSERT INTO managed_articles (
   'ci:article-admin',
   'ci:article-admin'
 );
+
+-- IMAGE-EDITOR-1: reuse isolated legacy article rows for desktop/mobile roundtrip without remote media uploads.
+UPDATE managed_articles SET image_url = '/images/hero-labrador.webp' WHERE id IN (972001, 972002);
