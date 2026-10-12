@@ -42,6 +42,8 @@ export const ADOPTION_NOINDEX_STALE_DAYS = 45;
 export const ADOPTION_PAGE_SIZE = 24;
 export const ADOPTION_ADMIN_PAGE_SIZE = 40;
 
+import { normalizeImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
+
 export type AdoptionDog = {
   id: number;
   name: string;
@@ -64,6 +66,8 @@ export type AdoptionDog = {
   organizationName: string;
   organizationSlug: string | null;
   mainImage: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   gallery: string[];
   shortDescription: string;
   description: string;
@@ -114,6 +118,8 @@ export type ManagedAdoptionInput = Partial<{
   organizationName: string;
   organizationSlug: string | null;
   mainImage: string | null;
+  thumbnailImageDisplay: ImageDisplayConfig | null;
+  detailImageDisplay: ImageDisplayConfig | null;
   gallery: string[] | string;
   shortDescription: string;
   description: string;
@@ -159,6 +165,8 @@ export type NormalizedAdoptionInput = {
   organizationName: string;
   organizationSlug: string | null;
   mainImage: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   gallery: string[];
   shortDescription: string;
   description: string;
@@ -400,6 +408,8 @@ export function normalizeAdoptionInput(payload: ManagedAdoptionInput): Normalize
     organizationName: normalizeAdoptionText(payload.organizationName),
     organizationSlug: normalizeAdoptionNullableText(payload.organizationSlug),
     mainImage: normalizeUrl(payload.mainImage, "Hlavná fotografia"),
+    thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
+    detailImageDisplay: normalizeImageDisplayConfig(payload.detailImageDisplay, "detail"),
     gallery: normalizeGallery(payload.gallery),
     shortDescription: normalizeAdoptionText(payload.shortDescription),
     description: normalizeAdoptionText(payload.description),
