@@ -91,6 +91,7 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
     let referenceVisualHeight: number | null = null;
     let referenceRootHeroOffsetFromHeader: number | null = null;
     let referenceRootHeroWidth: number | null = null;
+    let referenceRootClientWidth: number | null = null;
     try {
       for (const route of ROUTES) {
         const label = viewport.label + " " + route.path;
@@ -127,16 +128,24 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
             return {
               heroOffsetFromHeader: heroRect.y - (headerRect.y + headerRect.height),
               heroWidth: heroRect.width,
+              clientWidth: document.documentElement.clientWidth,
             };
           });
           expect(rootGeometry, label + ": root hero/header geometry").not.toBeNull();
           if (referenceRootHeroOffsetFromHeader === null) referenceRootHeroOffsetFromHeader = rootGeometry!.heroOffsetFromHeader;
           if (referenceRootHeroWidth === null) referenceRootHeroWidth = rootGeometry!.heroWidth;
+          if (referenceRootClientWidth === null) referenceRootClientWidth = rootGeometry!.clientWidth;
           expect(
             Math.abs(rootGeometry!.heroOffsetFromHeader - referenceRootHeroOffsetFromHeader),
             label + ": canonical root hero offset below shared header",
           ).toBeLessThanOrEqual(2);
-          expect(Math.abs(rootGeometry!.heroWidth - referenceRootHeroWidth), label + ": canonical root hero width").toBeLessThanOrEqual(2);
+          // A real 320px browser can reserve scrollbar width for the long
+          // article listing. Compare the responsive gutter, not raw widths
+          // measured against different available document widths.
+          expect(
+            Math.abs((rootGeometry!.clientWidth - rootGeometry!.heroWidth) - (referenceRootClientWidth! - referenceRootHeroWidth)),
+            label + ": consistent responsive root hero gutter",
+          ).toBeLessThanOrEqual(2);
         }
 
         const sideInset = (overflow.clientWidth - heroBox!.width) / 2;
@@ -329,8 +338,14 @@ test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async (
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBe(200);
     const hero = page.locator("[data-unified-section-hero]");
-    await hero.locator("input[name=q]").fill(query);
-    return hero.locator("form").evaluate((form) => {
+    // Directory search is correctly positioned below the hero. The other
+    // subcategory forms live in the shared hero's tools panel.
+    const form = path.startsWith("/adresar/")
+      ? page.locator('[data-public-search-form="services"]')
+      : page.locator("[data-unified-section-hero] form");
+    await expect(form, path + ": canonical search form").toHaveCount(1);
+    await form.locator('input[name="q"]').fill(query);
+    return form.evaluate((form) => {
       const element = form as HTMLFormElement;
       const target = new URL(element.action || window.location.pathname, window.location.origin);
       const data = new FormData(element);
