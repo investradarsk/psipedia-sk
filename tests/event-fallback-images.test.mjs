@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { hasHomepageRealImage, HOMEPAGE_REAL_IMAGE_SQL } from '../lib/homepage-media.ts';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { getEventFallbackImage, getEventOwnImage, eventTypePresentation } from '../lib/event-type-presentation.ts';
+import { getEventFallbackImage, getEventFallbackSrcSet, getEventOwnImage, eventTypePresentation } from '../lib/event-type-presentation.ts';
 import { EventImage } from '../components/event-image.tsx';
 
 for (const [type, name] of Object.entries({Výstava:'vystavy',Preteky:'preteky',Seminár:'seminare',Tréning:'treningy',Stretnutie:'stretnutia',Iné:'ostatne'})) {
@@ -22,6 +22,14 @@ for (const [type, name] of Object.entries({Výstava:'vystavy',Preteky:'preteky',
     assert.match(html,/alt="Ilustračný obrázok/);
     assert.doesNotMatch(html,/data-smart-image-fit/);
     assert.equal(eventTypePresentation[type].fallbackImage,path);
+    assert.equal(getEventFallbackSrcSet(type), `${path.replace('.webp','-640.webp')} 640w, ${path.replace('.webp','-960.webp')} 960w, ${path} 1280w`);
+    for(const width of [640,960]) {
+      const file='public'+path.replace('.webp',`-${width}.webp`);
+      assert.ok(existsSync(file));
+      assert.equal(readFileSync(file).toString('ascii',8,12),'WEBP');
+    }
+    assert.match(html,/srcSet=/);
+    assert.match(html,/sizes=/);
   });
 }
 test('own photograph takes precedence, retains imageDisplay, removal and type changes derive from current data', () => {
@@ -34,6 +42,9 @@ test('own photograph takes precedence, retains imageDisplay, removal and type ch
   assert.match(render(null),/vystavy.webp/);
   assert.match(render(null,'Tréning'),/treningy.webp/);
   assert.match(render('  '),/vystavy.webp/);
+  const canonical=render('/media/event-photo.webp');
+  assert.match(canonical,/srcSet=/);
+  assert.match(canonical,/event-photo.webp\?w=320/);
 });
 test('unsafe or invalid photo URLs select the fallback during SSR',()=>{
   for(const value of [null,'','  ','javascript:alert(1)','data:image/png;base64,x','//external.test/x','https://user:secret@example.test/x','relative.jpg','/bad\\path','/bad\npath']) assert.equal(getEventOwnImage(value),null);

@@ -88,7 +88,7 @@ test("event rows stay compact and date-first with an image presentation slot", (
   assert.match(eventCard, /event\.region === "Online"/);
   assert.match(eventCard, /data-event-status/);
   assert.match(eventCard, /styles\.eventCardWithImage/);
-  assert.match(eventCard, /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\} alt="" loading="lazy" decoding="async"/);
+  assert.match(eventCard, /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\} sizes="[^"]+" alt="" loading="lazy" decoding="async"/);
   assert.doesNotMatch(eventCard, /PawMark/);
   assert.match(eventsCss, /grid-template-columns:\s*78px minmax\(0, 1fr\) auto/);
   assert.match(eventsCss, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/);
@@ -98,7 +98,7 @@ test("events keep shared public primitives while event-specific styles stay scop
   assert.match(eventsPage, /Breadcrumbs, PageContainer/);
   assert.match(eventsPage, /<PageContainer/);
   assert.match(listing, /<details/);
-  assert.match(listing, /<form method="get" action=\{pathname\}/);
+  assert.match(listing, /<form method="get" action=\{`\$\{pathname\}#events-list`\}/);
   assert.match(eventsPage, /events-public\.module\.css/);
   assert.match(eventCard, /events-public\.module\.css/);
 });
