@@ -48,6 +48,7 @@ function DogCard({ dog }: { dog: AdoptionPublicDog }) {
       name={dog.name}
       status={dog.status}
       mainImage={dog.mainImage}
+      imageConfig={dog.thumbnailImageDisplay}
     />
     <div className={styles.cardBody}>
       {(dog.city || dog.region) && <p className={styles.location}>{[dog.city, dog.region].filter(Boolean).join(" · ")}</p>}
