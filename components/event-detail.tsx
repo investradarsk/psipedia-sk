@@ -107,7 +107,7 @@ export function EventDetail({
             </div>
 
             <figure className={styles.detailVisual} data-event-image>
-              <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
+              <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
             </figure>
           </div>
         </PageContainer>

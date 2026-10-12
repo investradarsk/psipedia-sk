@@ -50,6 +50,10 @@ test("compact calendar uses six canonical legend links and real unique day indic
 
 test("DOM order is calendar, selected-day detail, one banner, then the unchanged listing", async ({ page }) => {
   await page.locator('[data-calendar-date="2026-10-15"]').click();
+  // Calendar days are real navigation links. Wait for the server-rendered selected day,
+  // not only static sections already present on the previous page.
+  await expect(page.locator('[data-selected-day="2026-10-15"]')).toBeVisible();
+  await expect(page.locator('[data-calendar-date="2026-10-15"]')).toHaveAttribute("data-selected", "true");
   await expect(page.getByRole("group", { name: "Spôsob prezerania podujatí" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Vyberte si, čo vás zaujíma" })).toHaveCount(0);
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);

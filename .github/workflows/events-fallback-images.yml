@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'components/event-listing-results.tsx'
+      - 'components/event-calendar.tsx'
+      - 'components/events-page.tsx'
       - 'components/event-image.tsx'
       - 'components/event-card.tsx'
       - 'components/event-detail.tsx'
@@ -12,6 +15,8 @@ on:
       - 'public/images/events/defaults/**'
       - 'tests/event-fallback-images.test.mjs'
       - 'tests/e2e/events-fallback-images.spec.ts'
+      - 'tests/e2e/events-listing-redesign.spec.ts'
+      - 'tests/helpers/events-final-local-fixtures.mjs'
       - 'tests/events-fallback.playwright.config.ts'
       - 'tests/helpers/events-fallback-preview.*'
       - 'tests/helpers/events-preview-*'
@@ -47,4 +52,75 @@ jobs:
         with:
           name: event-fallback-artwork-evidence
           path: outputs/redesign4/
+          retention-days: 7
+
+  public-events:
+    name: Events final acceptance — real routes desktop and mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated local app and create local D1 storage
+        run: |
+          mkdir -p .e2e-artifacts/events-final
+          nohup ./node_modules/.bin/vite --host 127.0.0.1 > .e2e-artifacts/events-final/server.log 2>&1 &
+          echo $! > .e2e-artifacts/events-final/server.pid
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --silent --max-time 2 http://localhost:5173/podujatia > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+      - name: Existing schema and deterministic fixtures in local D1 only
+        run: node tests/helpers/events-final-local-fixtures.mjs
+      # The initial readiness request creates the isolated D1 storage before
+      # fixtures are present. Restart after the bootstrap to clear Vite's cached
+      # missing-table overlay rather than hiding real browser errors.
+      - name: Restart isolated app after local D1 schema bootstrap
+        run: |
+          kill "$(cat .e2e-artifacts/events-final/server.pid)"
+          for attempt in $(seq 1 30); do
+            if ! curl --silent --max-time 2 http://localhost:5173/images/events/defaults/vystavy.webp > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          nohup ./node_modules/.bin/vite --host 127.0.0.1 > .e2e-artifacts/events-final/server-after-seed.log 2>&1 &
+          echo $! > .e2e-artifacts/events-final/server.pid
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --max-time 3 http://localhost:5173/podujatia > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+      - name: Events hero, calendar, filtering and final acceptance
+        run: npm run e2e -- tests/e2e/events-hero-search.spec.ts tests/e2e/events-calendar-redesign.spec.ts tests/e2e/events-listing-redesign.spec.ts --workers=1 --retries=0
+      - name: Stop isolated app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/events-final/server.pid ]; then
+            kill "$(cat .e2e-artifacts/events-final/server.pid)" 2>/dev/null || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: events-final-route-evidence
+          path: |
+            .e2e-artifacts/events-final/
+            test-results/
           retention-days: 7

@@ -19,8 +19,20 @@ test("admin can persist only supported fitting modes", () => {
   assert.throws(() => normalizeSmartImageMode("bad"), /nie je platný/);
 });
 test("homepage, events, directory and help use smart cards", () => {
-  for(const f of ["app/page.tsx","components/directory-card.tsx","components/help-card.tsx"]) assert.ok(read(f).includes("<SmartCardImage"),f);
-  for(const f of ["components/event-card.tsx","components/event-detail.tsx"]) assert.ok(read(f).includes("<EventImage"), f);
+  for (const path of ["app/page.tsx", "components/directory-card.tsx", "components/help-card.tsx"]) {
+    assert.ok(read(path).includes("<SmartCardImage"), path);
+  }
+  // EventImage wraps SmartCardImage for a real photo, and renders a category
+  // fallback when the event has no image. Both paths preserve the crop control.
+  for (const path of ["components/event-card.tsx", "components/event-detail.tsx"]) {
+    const source = read(path);
+    if (source.includes("<EventImage")) {
+      assert.match(source, /<EventImage[^>]*mode=\{event\.imageDisplay\}/, path);
+      assert.match(read("components/event-image.tsx"), /real \? <SmartCardImage/);
+    } else {
+      assert.match(source, /<SmartCardImage[^>]*mode=\{event\.imageDisplay\}/, path);
+    }
+  }
   assert.ok(read("app/page.tsx").includes("mode={event.imageDisplay}"));
 });
 test("manual override roundtrip and migration default", () => {
@@ -29,7 +41,7 @@ test("manual override roundtrip and migration default", () => {
   assert.ok(read("drizzle/0118_event_image_display.sql").includes("DEFAULT 'auto'"));
 });
 
-test("all article image surfaces use the shared smart crop with optional persisted focal point", () => {
+test("all article image surfaces use shared non-destructive rendering with legacy focal compatibility", () => {
   for (const path of [
     "components/article-card.tsx",
     "components/article-detail.tsx",
@@ -41,12 +53,11 @@ test("all article image surfaces use the shared smart crop with optional persist
   assert.match(read("lib/article-store.ts"), /image_focus_y = \?/);
 });
 
-
-test("IMAGE-EDITOR-1 applies unified photo rendering in homepage and magazine article lists", () => {
+test("IMAGE-EDITOR-1 renders article thumbnails and detail using independently saved configurations", () => {
   for (const path of ["components/article-card.tsx", "components/article-detail.tsx", "components/public-visual-system/public-visual-system.tsx"]) {
-    assert.match(read(path), /<ImageDisplay/);
+    assert.match(read(path), /<ImageDisplay/, path);
   }
-  assert.match(read("components/article-card.tsx"), /config={article.thumbnailImageDisplay}/);
-  assert.match(read("components/article-list-item.tsx"), /config: article.thumbnailImageDisplay/);
-  assert.match(read("components/article-detail.tsx"), /config={detailImageConfig}/);
+  assert.match(read("components/article-card.tsx"), /config=\{article\.thumbnailImageDisplay\}/);
+  assert.match(read("components/article-list-item.tsx"), /config: article\.thumbnailImageDisplay/);
+  assert.match(read("components/article-detail.tsx"), /config=\{detailImageConfig\}/);
 });

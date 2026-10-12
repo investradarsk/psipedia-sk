@@ -24,3 +24,9 @@ export function getEventOwnImage(imageUrl: string | null | undefined): string | 
     return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? value : null;
   } catch { return null; }
 }
+
+/** Static, optimized variants keep fallback artwork off the image transform API. */
+export function getEventFallbackSrcSet(eventType: EventType): string {
+  const path = getEventFallbackImage(eventType);
+  return `${path.replace(".webp", "-640.webp")} 640w, ${path.replace(".webp", "-960.webp")} 960w, ${path} 1280w`;
+}
