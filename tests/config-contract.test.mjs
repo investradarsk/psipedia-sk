@@ -206,6 +206,17 @@ test("production LOST/FOUND submission flag is deployment-persistent", async () 
   assert.equal(wrangler.vars?.LOST_FOUND_SUBMISSIONS_ENABLED, "true");
 });
 
+test("production Gemini external agent config survives deployments without enabling scheduled runs", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+  const { vars } = JSON.parse(source);
+  assert.equal(vars.GEMINI_EXTERNAL_AGENT_ENABLED, "true");
+  assert.notEqual(vars.GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED, "true");
+  // External agent credentials must remain Cloudflare Secrets, never Wrangler vars.
+  assert.equal("GITHUB_ACTIONS_DISPATCH_TOKEN" in vars, false);
+  assert.equal("GEMINI_AGENT_CALLBACK_SECRET" in vars, false);
+});
+
 test("local Cloudflare tooling target is explicit and tied to the resolved toolchain", async () => {
   const result = await auditConfigurationContract();
   assert.equal(result.compatibilityDate, "2026-08-23");
