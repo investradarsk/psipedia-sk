@@ -89,7 +89,7 @@ export function HelpDetailShell({
             </div>
           </div>
           <div className={styles.visual}>
-            {item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay ?? { mode: "crop", x: 50, y: 50, zoom: 1 }} src={item.imageUrl} alt={imageAlt} /> : <FallbackVisual />}
+            {item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} /> : <FallbackVisual />}
           </div>
         </div>
       </div>
