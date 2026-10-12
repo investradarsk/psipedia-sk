@@ -22,6 +22,7 @@ import {
   assertPartnerAuthPreserved,
   requiresExactPartnerAuthPreservation,
   assertPendingTargetSchemaClean,
+  assertEntityImageDisplaySchema,
   buildScopedWranglerConfig,
   selectMigrationsThrough,
   targetSchemaObjects,
@@ -1470,4 +1471,65 @@ test("IMAGE-EDITOR-1 D1 preflight detects partially applied JSON presentation mi
     objects: [],
     managedArticleColumns: [{ name: "image_display" }],
   }, "0121_article_image_display_config.sql"), { partial: false });
+});
+
+test("IMAGE-EDITOR-2 0122 preflight recognizes clean and all partial column states", () => {
+  const target = "0122_entity_image_display_config.sql";
+  const tables = [
+    "managedEventColumns",
+    "columns",
+    "helpCaseColumns",
+    "helpOrganizationColumns",
+    "adoptionDogColumns",
+    "lostFoundDogReportColumns",
+  ];
+  const fields = ["thumbnail_display_json", "detail_display_json"];
+  const empty = Object.fromEntries(tables.map(key => [key, []]));
+  assert.deepEqual(targetSchemaObjects({ ...empty, objects: [] }, target), { partial: false });
+  for (const key of tables) {
+    for (const name of fields) {
+      const partial = { ...empty, objects: [], [key]: [{ name, type: "TEXT", notnull: 0 }] };
+      const result = targetSchemaObjects(partial, target);
+      assert.deepEqual(result, { partial: true }, `0122 failed to detect ${key}.${name}`);
+      assert.throws(() => assertPendingTargetSchemaClean(target, result), /possible partial/);
+    }
+  }
+});
+
+test("IMAGE-EDITOR-2 0122 postflight enforces both nullable TEXT fields on every entity", () => {
+  const tables = [
+    ["managedEventColumns", "managed_events"],
+    ["columns", "directory_profiles"],
+    ["helpCaseColumns", "help_cases"],
+    ["helpOrganizationColumns", "help_organizations"],
+    ["adoptionDogColumns", "adoption_dogs"],
+    ["lostFoundDogReportColumns", "lost_found_dog_reports"],
+  ];
+  const valid = Object.fromEntries(tables.map(([key]) => [key,
+    ["thumbnail_display_json", "detail_display_json"].map(name => ({ name, type: "TEXT", notnull: 0 })),
+  ]));
+  assert.doesNotThrow(() => assertEntityImageDisplaySchema(valid));
+  for (const [key, table] of tables) {
+    for (const name of ["thumbnail_display_json", "detail_display_json"]) {
+      const missing = { ...valid, [key]: valid[key].filter(column => column.name !== name) };
+      assert.throws(() => assertEntityImageDisplaySchema(missing), new RegExp(`${table}\\.${name} missing`));
+      const nonNullable = { ...valid, [key]: valid[key].map(column => column.name === name
+        ? { ...column, notnull: 1 } : column) };
+      assert.throws(() => assertEntityImageDisplaySchema(nonNullable), /must be nullable TEXT/);
+      const wrongType = { ...valid, [key]: valid[key].map(column => column.name === name
+        ? { ...column, type: "INTEGER" } : column) };
+      assert.throws(() => assertEntityImageDisplaySchema(wrongType), /must be nullable TEXT/);
+    }
+  }
+});
+
+test("IMAGE-EDITOR-2 0122 SQL migration is additive and covers all entity tables", async () => {
+  const sql = await readFile(path.join(repoRoot, "drizzle/0122_entity_image_display_config.sql"), "utf8");
+  for (const table of ["managed_events", "directory_profiles", "help_cases", "help_organizations",
+    "adoption_dogs", "lost_found_dog_reports"]) {
+    for (const name of ["thumbnail_display_json", "detail_display_json"]) {
+      assert.match(sql, new RegExp(`ALTER TABLE ${table} ADD COLUMN ${name} TEXT;`));
+    }
+  }
+  assert.doesNotMatch(sql, /DROP TABLE|DELETE FROM|UPDATE\s+/i);
 });
