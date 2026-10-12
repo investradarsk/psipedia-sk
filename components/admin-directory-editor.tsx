@@ -12,6 +12,7 @@ import {
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
+import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
@@ -120,47 +121,57 @@ function QualityResolutionField({
   );
 }
 
-export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { profile?: ManagedDirectoryProfile; automationSuggestions?: CanonicalUpdateSuggestion[] }) {
-  const [name, setName] = useState(profile?.name ?? "");
-  const [slug, setSlug] = useState(profile?.slug ?? "");
-  const [slugEdited, setSlugEdited] = useState(Boolean(profile));
-  const [category, setCategory] = useState<DirectoryCategorySlug>(profile?.category ?? "treneri");
-  const [excerpt, setExcerpt] = useState(profile?.excerpt ?? "");
-  const [description, setDescription] = useState(profile?.description ?? "");
-  const [services, setServices] = useState(profile?.services.join("\n") ?? "");
-  const [qualifications, setQualifications] = useState(profile?.qualifications.join("\n") ?? "");
-  const [city, setCity] = useState(profile?.city ?? "");
-  const [district, setDistrict] = useState(profile?.district ?? "");
-  const [region, setRegion] = useState(profile?.region ?? "");
-  const [publicAddress, setPublicAddress] = useState(profile?.address ?? "");
-  const [postalCode, setPostalCode] = useState(profile?.postalCode ?? "");
-  const [street, setStreet] = useState(profile?.street ?? "");
-  const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? "");
-  const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? "");
+export function AdminDirectoryEditor({
+  profile, notionDraft, onNotionSaved, automationSuggestions = [],
+}: {
+  profile?: ManagedDirectoryProfile;
+  notionDraft?: GeminiDirectoryDraft;
+  onNotionSaved?: () => void;
+  automationSuggestions?: CanonicalUpdateSuggestion[];
+}) {
+  const [notionVersion, setNotionVersion] = useState(notionDraft?.lastEditedAt ?? "");
+  const [publishConfirming, setPublishConfirming] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(notionDraft?.logoUrl ?? "");
+  const [name, setName] = useState(profile?.name ?? notionDraft?.name ?? "");
+  const [slug, setSlug] = useState(profile?.slug ?? notionDraft?.slug ?? (notionDraft?.name ? slugify(notionDraft.name) : ""));
+  const [slugEdited, setSlugEdited] = useState(Boolean(profile || notionDraft?.slug));
+  const [category, setCategory] = useState<DirectoryCategorySlug>(profile?.category ?? (notionDraft?.category as DirectoryCategorySlug | undefined) ?? "treneri");
+  const [excerpt, setExcerpt] = useState(profile?.excerpt ?? notionDraft?.summary ?? "");
+  const [description, setDescription] = useState(profile?.description ?? notionDraft?.description ?? "");
+  const [services, setServices] = useState(profile?.services.join("\n") ?? notionDraft?.services ?? "");
+  const [qualifications, setQualifications] = useState(profile?.qualifications.join("\n") ?? notionDraft?.qualifications ?? "");
+  const [city, setCity] = useState(profile?.city ?? notionDraft?.city ?? "");
+  const [district, setDistrict] = useState(profile?.district ?? notionDraft?.district ?? "");
+  const [region, setRegion] = useState(profile?.region ?? notionDraft?.region ?? "");
+  const [publicAddress, setPublicAddress] = useState(profile?.address ?? notionDraft?.address ?? "");
+  const [postalCode, setPostalCode] = useState(profile?.postalCode ?? notionDraft?.postalCode ?? "");
+  const [street, setStreet] = useState(profile?.street ?? notionDraft?.street ?? "");
+  const [houseNumber, setHouseNumber] = useState(profile?.houseNumber ?? notionDraft?.houseNumber ?? "");
+  const [addressFormat, setAddressFormat] = useState<DirectoryAddressFormat | "">(profile?.addressFormat ?? (notionDraft?.addressFormat as DirectoryAddressFormat | "") ?? "");
   const [addressProviderResultId, setAddressProviderResultId] = useState("");
   const [numberlessLocalityConfirmed, setNumberlessLocalityConfirmed] = useState(false);
-  const [priceNote, setPriceNote] = useState(profile?.priceNote ?? "");
+  const [priceNote, setPriceNote] = useState(profile?.priceNote ?? notionDraft?.priceNote ?? "");
   const contacts = readDirectoryPublicContacts(profile?.importData, profile?.websiteUrl ?? "");
-  const [websiteUrl, setWebsiteUrl] = useState(contacts.website);
-  const [publicPhone, setPublicPhone] = useState(contacts.phone);
-  const [publicEmail, setPublicEmail] = useState(contacts.email);
-  const [facebookUrl, setFacebookUrl] = useState(contacts.facebook);
-  const [instagramUrl, setInstagramUrl] = useState(contacts.instagram);
-  const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? "");
-  const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? "");
-  const [imageKey, setImageKey] = useState(profile?.imageKey ?? "");
+  const [websiteUrl, setWebsiteUrl] = useState(profile ? contacts.website : notionDraft?.website ?? "");
+  const [publicPhone, setPublicPhone] = useState(profile ? contacts.phone : notionDraft?.phone ?? "");
+  const [publicEmail, setPublicEmail] = useState(profile ? contacts.email : notionDraft?.email ?? "");
+  const [facebookUrl, setFacebookUrl] = useState(profile ? contacts.facebook : notionDraft?.facebook ?? "");
+  const [instagramUrl, setInstagramUrl] = useState(profile ? contacts.instagram : notionDraft?.instagram ?? "");
+  const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? notionDraft?.internalEmail ?? "");
+  const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? notionDraft?.imageUrl ?? "");
+  const [imageKey, setImageKey] = useState(profile?.imageKey ?? notionDraft?.imageKey ?? "");
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
-  const [qualityResolutions, setQualityResolutions] = useState<DirectoryQualityResolutionInput>(() => qualityResolutionInput(profile));
+  const [qualityResolutions, setQualityResolutions] = useState<DirectoryQualityResolutionInput>(() => profile ? qualityResolutionInput(profile) : notionDraft?.qualityResolutions ?? qualityResolutionInput());
   const [qualityCheckedAt, setQualityCheckedAt] = useState<Partial<Record<DirectoryQualityField, string>>>(() => qualityCheckedAtInput(profile));
   const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
   const [reviewedAt, setReviewedAt] = useState(profile?.reviewedAt ?? "");
   const [reviewSaving, setReviewSaving] = useState(false);
-  const [verified, setVerified] = useState(profile?.verified ?? false);
-  const [featured, setFeatured] = useState(profile?.featured ?? false);
+  const [verified, setVerified] = useState(profile?.verified ?? notionDraft?.verified ?? false);
+  const [featured, setFeatured] = useState(profile?.featured ?? notionDraft?.featured ?? false);
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
-  const [seo, setSeo] = useState(profile?.seo ?? {});
+  const [seo, setSeo] = useState(profile?.seo ?? notionDraft?.seo ?? {});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
@@ -226,6 +237,50 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   async function save(nextStatus: DirectoryProfileStatus) {
     setSaving(true); setError(""); setMessage("");
     try {
+      if (notionDraft) {
+        // Notion remains the source for this unsynced draft. The canonical D1
+        // editor endpoint must not create a second profile on a draft save.
+        const response = await fetch(
+          "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(notionDraft.id), {
+            method: "PUT", headers: { "content-type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              lastEditedAt: notionVersion,
+              name, slug, category, excerpt, description,
+              services: listFromText(services), qualifications: listFromText(qualifications),
+              address: publicAddress, city, district, region, postalCode, street,
+              houseNumber, addressFormat, priceNote, websiteUrl,
+              publicPhone, publicEmail, facebookUrl, instagramUrl, internalEmail,
+              imageUrl, imageKey, logoUrl, qualityResolutions, verified, featured,
+              seo: {
+                title: seo.title ?? "", description: seo.description ?? "",
+                focusKeyword: seo.focusKeyword ?? "", canonicalUrl: seo.canonicalUrl ?? "",
+                ogTitle: seo.ogTitle ?? "", ogDescription: seo.ogDescription ?? "",
+                ogImage: seo.ogImage ?? "", noindex: seo.noindex === true,
+              },
+            }),
+          },
+        );
+        const data = await response.json() as { draft?: GeminiDirectoryDraft; error?: string };
+        if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo uložiť v Notione.");
+        setNotionVersion(data.draft.lastEditedAt);
+        if (nextStatus === "published") {
+          const approval = await fetch(
+            "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(notionDraft.id) + "/publish",
+            { method: "POST", credentials: "same-origin" },
+          );
+          const result = await approval.json() as { status?: string; error?: string };
+          if (!approval.ok || result.status !== "PENDING_SYNC")
+            throw new Error(result.error || "Koncept sa uložil, ale nebol schválený na publikovanie.");
+          setStatus("published");
+          setMessage("Publikovanie schválené. Profil čaká na synchronizáciu Notion → Psipedia.");
+        } else {
+          setMessage("Koncept je uložený priamo v Notione. Zostáva neverejný.");
+        }
+        setPublishConfirming(false);
+        onNotionSaved?.();
+        return;
+      }
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
@@ -542,7 +597,8 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
             <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
-            {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
+            {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
+            {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>
             {!imageUrl ? (
               <QualityResolutionField
                 field="image"
@@ -582,7 +638,19 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       </AdminDrawer>
 
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
-      <div className="admin-editor-actions"><div><Link href="/admin/adresar">← Späť na adresár</Link></div><div>{status === "published" && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}<AdminActionButton variant="neutral" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton><AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton></div></div>
+      <div className="admin-editor-actions">
+        <div>{notionDraft ? <span>Koncept Gemini · Notion</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
+        {notionDraft && publishConfirming && <p role="alert">Po potvrdení sa uložený koncept schváli na publikovanie. Verejný profil vznikne až pri úspešnej synchronizácii.</p>}
+        <div>
+          {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
+          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
+          {notionDraft && publishConfirming && <AdminActionButton variant="neutral" disabled={saving} onClick={() => setPublishConfirming(false)}>Zrušiť</AdminActionButton>}
+          <AdminActionButton variant="primary" disabled={saving || uploading || status === "published"} onClick={() => {
+            if (notionDraft && !publishConfirming) { setPublishConfirming(true); return; }
+            void save("published");
+          }}>{saving ? "Ukladám…" : notionDraft ? publishConfirming ? "Áno, publikovať" : "Publikovať profil" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>
+        </div>
+      </div>
     </form>
   );
 }
