@@ -85,6 +85,6 @@ test("IMAGE-EDITOR-2 SQL column/placeholder counts remain in sync for fixed INSE
     const re = new RegExp("INSERT INTO " + table + " \\(\\s*([\\s\\S]*?)\\) VALUES \\(\\s*([?,\\s]+)\\)");
     const match = sql.match(re);
     assert.ok(match, file);
-    assert.equal(match[1].split(",").length, (match[2].match(/\\?/g) ?? []).length, file);
+    assert.equal(match[1].split(",").length, (match[2].match(/\?/g) ?? []).length, file);
   }
 });
