@@ -73,3 +73,6 @@
   .actions { grid-template-columns: minmax(0, 1fr); }
   .primaryAction { grid-column: auto; }
 }
+
+/* IMAGE-EDITOR-3: auto/natural detail preserves portrait proportions. */
+.media:has([data-image-display="natural"]) { height: auto; max-height: none; aspect-ratio: auto; overflow: visible; background: transparent; }
