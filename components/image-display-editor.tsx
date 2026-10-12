@@ -131,7 +131,7 @@ export function ImageDisplayEditor({
               <div className={`article-card-media ${styles.interactive}`} style={{ aspectRatio: thumbnailAspectRatio }} role="group" aria-label="Presuň fotografiu potiahnutím alebo šípkami">
                 <div className={styles.dragSurface} tabIndex={0} aria-label="Pozícia obrázka, šípky posúvajú výrez"
                   onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onKeyDown={onPreviewKey} onBlur={() => hideGuides()}>
-                  <ImageDisplay context="thumbnail" src={src} alt={alt} config={current} loading="eager" />
+                  <ImageDisplay roleHint={entityLabel === "článku" ? "article" : "generic"} context="thumbnail" src={src} alt={alt} config={current} loading="eager" />
                   {guidesVisible && <div className={`${styles.guides} ${isCentered ? styles.centered : ""}`} aria-hidden="true"><span className={styles.guideVertical}/><span className={styles.guideHorizontal}/><span className={styles.centerPoint}/></div>}
                 </div>
               </div>
@@ -146,7 +146,7 @@ export function ImageDisplayEditor({
               <div className={[styles.detailSlot, natural && styles.naturalSlot].filter(Boolean).join(" ")} style={natural ? undefined : { aspectRatio: detailAspectRatio }}>
                 <div className={styles.dragSurface} tabIndex={natural ? -1 : 0} aria-label="Pozícia hlavného obrázka"
                   onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onKeyDown={onPreviewKey} onBlur={() => hideGuides()}>
-                  <ImageDisplay context="detail" src={src} alt={alt} config={current} loading="eager" />
+                  <ImageDisplay roleHint={entityLabel === "článku" ? "article" : "generic"} context="detail" src={src} alt={alt} config={current} loading="eager" />
                   {!natural && guidesVisible && <div className={`${styles.guides} ${isCentered ? styles.centered : ""}`} aria-hidden="true"><span className={styles.guideVertical}/><span className={styles.guideHorizontal}/><span className={styles.centerPoint}/></div>}
                 </div>
               </div>
