@@ -16,7 +16,7 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "onLoad"> & {
   focusX?: number | null;
   focusY?: number | null;
   onResolvedFit?: (fit: SmartImageFit) => void;
-  onImageDimensions?: (size: { width: number; height: number; frameRatio: number }) => void;
+  onImageDimensions?: (size: { width: number; height: number; frameRatio: number; lightBackgroundShare?: number }) => void;
 };
 
 /** Inspect a small canvas sample. Cross-origin images without CORS use dimension-based fallback. */
@@ -58,6 +58,7 @@ export function SmartCardImage({
 }: Props) {
   const [analyzed, setAnalyzed] = useState<{ src: string; fit: SmartImageFit } | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const lightShareCache = useRef<{ src: string; width: number; height: number; value: number | undefined } | null>(null);
   const resolvedFitCallback = useRef(onResolvedFit);
   const dimensionsCallback = useRef(onImageDimensions);
   useEffect(() => { resolvedFitCallback.current = onResolvedFit; }, [onResolvedFit]);
@@ -76,13 +77,27 @@ export function SmartCardImage({
     const parent = image.parentElement;
     const slotRatio = parent && parent.clientHeight > 0
       ? parent.clientWidth / parent.clientHeight : 16 / 9;
-    dimensionsCallback.current?.({ width: image.naturalWidth, height: image.naturalHeight, frameRatio: slotRatio });
+    // Preserve the legacy bright-background artwork heuristic for automatic cards only.
+    // Cache the existing 40x40 sample; mode updates must not resample the same image.
+    let lightBackgroundShare: number | undefined;
+    if (mode === "auto" || dimensionsCallback.current) {
+      const cached = lightShareCache.current;
+      if (cached?.src === key && cached.width === image.naturalWidth && cached.height === image.naturalHeight) {
+        lightBackgroundShare = cached.value;
+      } else {
+        lightBackgroundShare = sampleLightBackground(image);
+        lightShareCache.current = { src: key, width: image.naturalWidth, height: image.naturalHeight, value: lightBackgroundShare };
+      }
+    }
+    dimensionsCallback.current?.({
+      width: image.naturalWidth, height: image.naturalHeight, frameRatio: slotRatio, lightBackgroundShare,
+    });
     if (mode !== "auto") return;
     const nextFit = inferSmartImageFit({
       width: image.naturalWidth,
       height: image.naturalHeight,
       src: key,
-      lightBackgroundShare: sampleLightBackground(image),
+      lightBackgroundShare,
     });
     const next = roleHint === "article" && nextFit === "cover" && avoidSevereArticleCrop(sourceRatio, slotRatio)
       ? "contain" : nextFit;
