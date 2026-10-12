@@ -18,7 +18,7 @@ export function AdoptionCardMedia({ href, name, status, mainImage, imageConfig }
   return (
     <Link className={styles.visual} href={href} aria-label={`Zobraziť profil ${name}`}>
       {mainImage ? (
-        <ImageDisplay context="thumbnail" config={imageConfig} src={mainImage} alt={`${name} – pes na adopciu`} loading="lazy" decoding="async" data-adoption-media="image" />
+        <ImageDisplay roleHint="generic" context="thumbnail" config={imageConfig} src={mainImage} alt={`${name} – pes na adopciu`} loading="lazy" decoding="async" data-adoption-media="image" />
       ) : (
         <div className={styles.imageFallback} aria-hidden="true" data-adoption-media="fallback">
           <span />
