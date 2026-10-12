@@ -113,7 +113,7 @@ export async function EventsPage({
                 <Link href="/">Domov</Link><span>/</span>
                 {isMainListing ? <span>Podujatia</span> : <><Link href="/podujatia">Podujatia</Link><span>/</span><span>{copy.title}</span></>}
               </Breadcrumbs>}
-              className={isMainListing ? styles.homeHero : undefined}
+              variant="homepage-style"
               eyebrow={isMainListing ? "KALENDÁR PSÍCH PODUJATÍ" : "Kalendár a databáza"}
               title={title}
               intro={description}
