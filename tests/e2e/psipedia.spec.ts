@@ -329,6 +329,21 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     );
     await expect(leadArticleMeta, `Homepage section ${item.id} should expose featured article metadata`).toHaveCount(1);
     await expect(leadArticleMeta).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
+
+    const compactRows = layout.locator("[data-article-list-item]");
+    const rowCount = await compactRows.count();
+    if (rowCount) {
+      const media = compactRows.locator("[data-article-image]");
+      await expect(media, `${item.id}: every homepage compact article must have a thumbnail`).toHaveCount(rowCount);
+      const dimensions = await media.evaluateAll((elements) => elements.map((element) => {
+        const { width, height } = element.getBoundingClientRect();
+        return { width, height };
+      }));
+      expect(
+        dimensions.every(({ width, height }) => width >= 60 && height >= 50),
+        `${item.id}: homepage article thumbnails have collapsed: ${JSON.stringify(dimensions)}`,
+      ).toBe(true);
+    }
   }
   const breedSection = page.locator(".home-breed-day-section");
   await expect(breedSection).toBeVisible();
