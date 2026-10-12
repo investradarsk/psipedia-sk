@@ -20,6 +20,7 @@ type Props = {
   onCancel: () => void;
   entityLabel?: string;
   thumbnailAspectRatio?: string;
+  thumbnailLayout?: "standard" | "compact";
   detailAspectRatio?: string;
   thumbnailLabel?: string;
   saveNotice?: string;
@@ -29,7 +30,7 @@ const clamp = (value: number) => Math.max(0, Math.min(100, value));
 
 export function ImageDisplayEditor({
   src, alt, title, excerpt, thumbnail, detail, onSave, onCancel,
-  entityLabel = "článku", thumbnailLabel, thumbnailAspectRatio = "16 / 9",
+  entityLabel = "článku", thumbnailLabel, thumbnailAspectRatio = "16 / 9", thumbnailLayout = "standard",
   detailAspectRatio = "16 / 9", saveNotice,
 }: Props) {
   const [tab, setTab] = useState<Context>("thumbnail");
@@ -127,8 +128,8 @@ export function ImageDisplayEditor({
         </div>
         <div id="image-panel" role="tabpanel" aria-labelledby={tab === "thumbnail" ? "image-tab-thumbnail" : "image-tab-detail"} className={styles.panel}>
           {tab === "thumbnail" ? (
-            <div className={`article-card article-card--forest article-card--grid ${styles.card}`}>
-              <div className={`article-card-media ${styles.interactive}`} style={{ aspectRatio: thumbnailAspectRatio }} role="group" aria-label="Presuň fotografiu potiahnutím alebo šípkami">
+            <div className={`article-card article-card--forest article-card--grid ${styles.card} ${thumbnailLayout === "compact" ? styles.compactCard : ""}`}>
+              <div className={`article-card-media ${styles.interactive} ${thumbnailLayout === "compact" ? styles.compactMedia : ""}`} style={{ aspectRatio: thumbnailAspectRatio }} role="group" aria-label="Presuň fotografiu potiahnutím alebo šípkami">
                 <div className={styles.dragSurface} tabIndex={0} aria-label="Pozícia obrázka, šípky posúvajú výrez"
                   onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onKeyDown={onPreviewKey} onBlur={() => hideGuides()}>
                   <ImageDisplay roleHint={entityLabel === "článku" ? "article" : "generic"} context="thumbnail" src={src} alt={alt} config={current} loading="eager" />
