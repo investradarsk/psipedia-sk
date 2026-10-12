@@ -145,6 +145,7 @@ export function OrganizationProfileDetail({
         lead={presentation.shortDescription}
         location={presentation.location ? <span data-organization-location-summary><LocationIcon size={16} /> {presentation.location}</span> : null}
         imageUrl={presentation.imageUrl}
+        imageConfig={presentation.detailImageDisplay}
         imageAlt={"Fotografia organizácie " + organization.name}
         badges={[
           ...(commercial?.premium ? [{ label: "Premium profil", tone: "premium" as const, title: "Platené rozšírenie profilu." }] : []),
