@@ -384,7 +384,7 @@ test("@production events listing, detail and past/upcoming separation work", asy
     ...new Set(links
       .filter((link) => Boolean(link.getClientRects().length))
       .map((link) => link.getAttribute("href"))
-      .filter((href): href is string => Boolean(href) && /^\\/podujatia\\/[^/?#]+$/.test(href!))),
+      .filter((href): href is string => Boolean(href) && new RegExp("^/podujatia/[^/?#]+$").test(href!))),
   ]);
 
   const upcomingLinks = await eventLinks();
