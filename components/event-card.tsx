@@ -42,7 +42,7 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
   if (variant === 'grid') return <article className={styles.gridCard} data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
     <Link href={eventHref(event)} className={styles.gridCardLink}>
       <div className={styles.gridMedia}>
-        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 900px) calc(100vw - 284px), (max-width: 1199px) calc((100vw - 334px) / 2), (max-width: 1279px) calc((100vw - 354px) / 3), 290px" alt="" loading="lazy" decoding="async"/>
+        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} config={event.thumbnailImageDisplay} config={event.thumbnailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 900px) calc(100vw - 284px), (max-width: 1199px) calc((100vw - 334px) / 2), (max-width: 1279px) calc((100vw - 354px) / 3), 290px" alt="" loading="lazy" decoding="async"/>
         <time className={styles.gridDate} dateTime={event.startDate}>{day}. {month}</time>
       </div>
       <div className={styles.gridBody}>
