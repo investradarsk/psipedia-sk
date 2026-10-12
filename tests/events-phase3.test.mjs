@@ -88,7 +88,7 @@ test("event rows stay compact and date-first with an image presentation slot", (
   assert.match(eventCard, /event\.region === "Online"/);
   assert.match(eventCard, /data-event-status/);
   assert.match(eventCard, /styles\.eventCardWithImage/);
-  assert.match(eventCard, /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\} sizes="[^"]+" alt="" loading="lazy" decoding="async"/);
+  assert.match(eventCard, /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\} config=\{event\.thumbnailImageDisplay\} sizes="[^"]+" alt="" loading="lazy" decoding="async"/);
   assert.doesNotMatch(eventCard, /PawMark/);
   assert.match(eventsCss, /grid-template-columns:\s*78px minmax\(0, 1fr\) auto/);
   assert.match(eventsCss, /\.eventCardWithImage[\s\S]*grid-template-columns:\s*78px 128px minmax\(0, 1fr\) auto/);

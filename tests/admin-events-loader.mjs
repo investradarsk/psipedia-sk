@@ -13,6 +13,8 @@ export async function resolve(specifier, context, nextResolve) {
   return cloudflareResolve(specifier, context, nextResolve);
 }
 export async function load(url, context, nextLoad) {
+  // Server-rendered component tests import CSS modules without a bundler.
+  if (url.endsWith(".module.css")) return { format: "module", shortCircuit: true, source: "export default new Proxy({}, { get: (_, name) => typeof name === 'string' ? name : undefined });" };
   if (url.endsWith('.tsx')) return { format: 'module', shortCircuit: true, source: ts.transpileModule(readFileSync(new URL(url), 'utf8'), { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText };
   return nextLoad(url, context);
 }

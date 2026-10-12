@@ -18,27 +18,41 @@ test("admin can persist only supported fitting modes", () => {
   assert.equal(normalizeSmartImageMode("contain"), "contain");
   assert.throws(() => normalizeSmartImageMode("bad"), /nie je platný/);
 });
-test("homepage, events, directory and help use smart cards", () => {
-  for (const path of ["app/page.tsx", "components/directory-card.tsx", "components/help-card.tsx"]) {
-    assert.ok(read(path).includes("<SmartCardImage"), path);
+test("homepage and entity cards use the shared smart image renderer", () => {
+  // Homepage still owns direct SmartCardImage instances. Other entities route
+  // through ImageDisplay, which delegates real photographs to SmartCardImage.
+  assert.match(read("app/page.tsx"), /<SmartCardImage/);
+  for (const path of ["components/directory-card.tsx", "components/help-card.tsx"]) {
+    assert.match(read(path), /<ImageDisplay[^>]*context="thumbnail"[^>]*config=/, path);
   }
-  // EventImage wraps SmartCardImage for a real photo, and renders a category
-  // fallback when the event has no image. Both paths preserve the crop control.
+  const renderer = read("components/image-display.tsx");
+  assert.match(renderer, /<SmartCardImage/);
+  assert.match(renderer, /legacyMode/);
+  const eventImage = read("components/event-image.tsx");
+  assert.match(eventImage, /real \? <ImageDisplay/);
+  assert.match(eventImage, /legacyMode=\{mode\}/);
+  assert.match(eventImage, /getEventFallbackImage\(eventType\)/);
   for (const path of ["components/event-card.tsx", "components/event-detail.tsx"]) {
-    const source = read(path);
-    if (source.includes("<EventImage")) {
-      assert.match(source, /<EventImage[^>]*mode=\{event\.imageDisplay\}/, path);
-      assert.match(read("components/event-image.tsx"), /real \? <SmartCardImage/);
-    } else {
-      assert.match(source, /<SmartCardImage[^>]*mode=\{event\.imageDisplay\}/, path);
-    }
+    assert.match(read(path), /<EventImage[^>]*mode=\{event\.imageDisplay\}/, path);
   }
+  assert.match(read("components/event-card.tsx"), /config=\{event\.thumbnailImageDisplay\}/);
+  assert.match(read("components/event-detail.tsx"), /config=\{event\.detailImageDisplay\}/);
   assert.ok(read("app/page.tsx").includes("mode={event.imageDisplay}"));
 });
-test("manual override roundtrip and migration default", () => {
-  assert.ok(read("components/admin-event-editor.tsx").includes("value={imageDisplay}"));
-  assert.ok(read("lib/event-store.ts").includes("image_display = ?"));
-  assert.ok(read("drizzle/0118_event_image_display.sql").includes("DEFAULT 'auto'"));
+test("legacy event image mode survives roundtrip alongside independent new overrides", () => {
+  const editor = read("components/admin-event-editor.tsx");
+  const store = read("lib/event-store.ts");
+  assert.match(editor, /event\?\.imageDisplay \?\? "auto"/);
+  assert.match(editor, /<ImageDisplayEditor/);
+  assert.match(editor, /thumbnailImageDisplay, detailImageDisplay/);
+  assert.match(editor, /imageDisplay: imageDisplay/);
+  assert.match(store, /image_display = \?/);
+  assert.match(store, /thumbnail_display_json = \?, detail_display_json = \?/);
+  assert.match(store, /payload\.imageDisplay === undefined \? existing\.imageDisplay/);
+  assert.match(read("drizzle/0118_event_image_display.sql"), /DEFAULT 'auto'/);
+  const migration = read("drizzle/0122_entity_image_display_config.sql");
+  assert.match(migration, /ALTER TABLE managed_events ADD COLUMN thumbnail_display_json TEXT/);
+  assert.match(migration, /ALTER TABLE managed_events ADD COLUMN detail_display_json TEXT/);
 });
 
 test("all article image surfaces use shared non-destructive rendering with legacy focal compatibility", () => {

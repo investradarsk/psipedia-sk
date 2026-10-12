@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useMemo, useState, useSyncExternalStore } from "react";
 import { AdminActionButton, AdminEditorSection, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { ImageDisplay } from "@/components/image-display";
+import { ImageDisplayEditor } from "@/components/image-display-editor";
 import { organizationAdminInputFromCandidate, type OrganizationAdminInput } from "@/lib/help-organization-admin-input";
 import type { OrganizationPublicationAdminItem } from "@/lib/help-organization-admin-store";
 import { organizationPublicationTypes } from "@/lib/help-organization-publication";
@@ -36,6 +38,8 @@ function blankInput(): OrganizationAdminInput {
     instagramUrl: null,
     imageUrl: null,
     imageKey: null,
+    thumbnailImageDisplay: null,
+    detailImageDisplay: null,
     sourceUrl: null,
   };
 }
@@ -55,6 +59,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(organization?.updatedAt ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const archived = organization?.status === "ARCHIVED" || Boolean(organization?.archivedAt);
@@ -77,7 +82,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     setUploading(true); setError(""); setMessage("");
     try {
       const data = await uploadAdminImage(file, "help");
-      patch({ imageUrl: data.imageUrl, imageKey: data.imageKey });
+      patch({ imageUrl: data.imageUrl, imageKey: data.imageKey, thumbnailImageDisplay: null, detailImageDisplay: null });
       setMessage(adminImageUploadMessage(data, organization ? "Ulož zmeny organizácie." : "Vytvor organizáciu."));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Obrázok sa nepodarilo nahrať.");
@@ -153,17 +158,21 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       <AdminEditorSection id="organization-media" className="admin-form-card">
         <div className="admin-card-heading"><div><span>04</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
         <div className="admin-upload-row">
-          <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <img src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
+          <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
           <div className="admin-upload-actions">
             <label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={editingDisabled || uploading} />{uploading ? "Nahrávam…" : draft.imageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>
-            {draft.imageUrl && <AdminActionButton variant="neutral" disabled={editingDisabled || uploading} onClick={() => patch({ imageUrl: null, imageKey: null })}>Odstrániť obrázok</AdminActionButton>}
+            {draft.imageUrl && <AdminActionButton variant="neutral" disabled={editingDisabled || uploading} onClick={() => patch({ imageUrl: null, imageKey: null, thumbnailImageDisplay: null, detailImageDisplay: null })}>Odstrániť obrázok</AdminActionButton>}
             <small>JPG, PNG, WebP alebo AVIF, najviac 8 MB.</small>
+            {draft.imageUrl && <button type="button" className="admin-upload-button" disabled={editingDisabled} onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
           </div>
         </div>
         <div className="admin-field"><label htmlFor="organization-source">Zdroj / referencia</label><input id="organization-source" type="url" inputMode="url" value={text(draft.sourceUrl)} disabled={editingDisabled} onChange={(event) => patch({ sourceUrl: event.target.value || null })} /></div>
       </AdminEditorSection>
     </div>
 
+    {imageEditorOpen && draft.imageUrl && <ImageDisplayEditor src={draft.imageUrl} alt={draft.name || "Organizácia"} title={draft.name} excerpt={draft.shortDescription} entityLabel="organizácie" thumbnailAspectRatio="4 / 3"
+       thumbnail={draft.thumbnailImageDisplay ?? null} detail={draft.detailImageDisplay ?? null} onCancel={() => setImageEditorOpen(false)}
+       onSave={(thumbnail, detail) => { patch({ thumbnailImageDisplay: thumbnail, detailImageDisplay: detail }); setImageEditorOpen(false); }} />}
     {message && <p className="admin-message" role="status">{message}</p>}
     {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
     <div className="admin-editor-actions">

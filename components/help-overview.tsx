@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ImageDisplay } from "@/components/image-display";
+import type { ImageDisplayConfig } from "@/lib/image-display";
 import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
@@ -20,6 +22,7 @@ export type HelpOverviewItem = {
   href: string;
   title: string;
   imageUrl: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
   eyebrow: string;
   meta: string;
   excerpt: string;
@@ -86,7 +89,7 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
     <article className={styles.overviewCard} data-help-overview-card>
       <Link className={styles.overviewMedia} href={item.href} aria-label={`Otvoriť: ${item.title}`}>
         {item.imageUrl ? (
-          <img src={item.imageUrl} alt="" loading="lazy" decoding="async" />
+          <ImageDisplay roleHint="generic" context="thumbnail" config={item.thumbnailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={item.imageUrl} alt="" loading="lazy" decoding="async" />
         ) : (
           <span className={styles.overviewMediaFallback} aria-hidden="true"><PawMark size={34} /></span>
         )}

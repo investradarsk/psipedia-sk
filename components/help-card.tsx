@@ -10,7 +10,7 @@ import {
   type HelpCase,
 } from "@/lib/help";
 import styles from "./help-public.module.css";
-import { SmartCardImage } from "@/components/smart-card-image";
+import { ImageDisplay } from "@/components/image-display";
 
 export function HelpCard({ item }: { item: HelpCase }) {
   const category = getHelpCategory(item.category);
@@ -22,7 +22,7 @@ export function HelpCard({ item }: { item: HelpCase }) {
   return (
     <article data-help-card className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
       <Link className={styles.media} href={detailHref} aria-label={"Otvoriť " + item.title}>
-        {item.imageUrl ? <SmartCardImage src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PawMark size={38} /></span>}
+        {item.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={item.thumbnailImageDisplay} src={item.imageUrl} alt={item.dogName ? item.dogName + " – " + item.title : item.title} loading="lazy" decoding="async" /> : <span className={styles.mediaFallback} aria-hidden="true"><PawMark size={38} /></span>}
         <span className={styles.badges}>
           {item.resolved ? <b className={[styles.badge, styles.badgeResolved].join(" ")}>Vyriešené</b> : item.urgent ? <b className={[styles.badge, styles.badgeUrgent].join(" ")}>Urgentné</b> : null}
         </span>

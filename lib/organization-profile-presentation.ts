@@ -1,4 +1,5 @@
 import type { PublicHelpOrganization } from "./help-organization-store.ts";
+import type { ImageDisplayConfig } from "./image-display.ts";
 import { validateFundraisingUrl } from "./organization-fundraising-contract.ts";
 import type { PublicOrganizationFundraisingMethod } from "./organization-fundraising-public.ts";
 
@@ -43,6 +44,7 @@ export type OrganizationProfilePresentation = {
   location: string | null;
   locations: OrganizationProfileLocation[];
   imageUrl: string | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   facts: OrganizationProfileFact[];
   contacts: OrganizationProfileContact[];
   actions: OrganizationProfileAction[];
@@ -244,6 +246,7 @@ export function buildOrganizationProfilePresentation(
     location: singleLocationParts.length ? singleLocationParts.join(" · ") : null,
     locations,
     imageUrl: mediaUrl(organization.imageUrl),
+    detailImageDisplay: organization.detailImageDisplay,
     facts,
     contacts,
     actions,

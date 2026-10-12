@@ -1,3 +1,4 @@
+import { ImageDisplay } from "@/components/image-display";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
@@ -88,7 +89,7 @@ export function HelpDetailShell({
             </div>
           </div>
           <div className={styles.visual}>
-            {item.imageUrl ? <img src={item.imageUrl} alt={imageAlt} /> : <FallbackVisual />}
+            {item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay ?? { mode: "crop", x: 50, y: 50, zoom: 1 }} src={item.imageUrl} alt={imageAlt} /> : <FallbackVisual />}
           </div>
         </div>
       </div>

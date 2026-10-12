@@ -1,3 +1,4 @@
+import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
 import {
@@ -59,6 +60,8 @@ export type PublicHelpOrganization = {
   countryCode: string;
   locations: PublicOrganizationLocation[];
   imageUrl: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   sourceUrl: string | null;
   publishedAt: string;
   lastVerifiedAt: string | null;
@@ -87,6 +90,7 @@ export type PublicOrganizationIndexItem = {
   city: string;
   region: string;
   imageUrl: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
   websiteUrl: string | null;
   publicEmail: string | null;
   publicPhone: string | null;
@@ -115,6 +119,8 @@ type PublicOrganizationRow = {
   region: string;
   country_code: string;
   image_url: string | null;
+  thumbnail_display_json?: string | null;
+  detail_display_json?: string | null;
   source_url: string | null;
   published_at: string;
   last_verified_at: string | null;
@@ -150,6 +156,7 @@ type PublicOrganizationIndexRow = {
   city: string;
   region: string;
   image_url: string | null;
+  thumbnail_display_json?: string | null;
   website_url: string | null;
   public_email: string | null;
   public_phone: string | null;
@@ -170,7 +177,7 @@ export const PUBLIC_ORGANIZATION_PREDICATE =
 
 const PUBLIC_ORGANIZATION_SELECT = `o.id, o.name, o.slug, o.legal_name, o.registration_number, o.type, o.status,
   o.short_description, o.description, o.public_email, o.public_phone, o.website_url, o.facebook_url,
-  o.instagram_url, o.city, o.district, o.region, o.country_code, o.image_url, o.source_url,
+  o.instagram_url, o.city, o.district, o.region, o.country_code, o.image_url, o.thumbnail_display_json, o.detail_display_json, o.source_url,
   o.published_at, o.last_verified_at, o.updated_at, o.directory_profile_id`;
 
 export function buildPublicOrganizationBySlugQuery(slug: string) {
@@ -224,7 +231,7 @@ export function buildPublishedOrganizationIndexQuery(limit = 250) {
         ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
         LIMIT 1
       ), o.region) AS region,
-      o.image_url, o.website_url, o.public_email, o.public_phone,
+      o.image_url, o.thumbnail_display_json, o.website_url, o.public_email, o.public_phone,
       o.published_at, o.last_verified_at, o.updated_at
       FROM help_organizations o
       WHERE ${PUBLIC_ORGANIZATION_PREDICATE}
@@ -248,7 +255,7 @@ export function buildPublishedOrganizationHubQuery() {
       ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
       LIMIT 1
     ), o.region) AS region,
-    o.image_url, o.website_url, o.public_email, o.public_phone,
+    o.image_url, o.thumbnail_display_json, o.website_url, o.public_email, o.public_phone,
     o.published_at, o.last_verified_at, o.updated_at
     FROM help_organizations o
     WHERE ${PUBLIC_ORGANIZATION_PREDICATE}
@@ -372,6 +379,8 @@ function toPublicOrganization(
     countryCode: primaryLocation?.countryCode ?? row.country_code,
     locations,
     imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     sourceUrl: row.source_url,
     publishedAt: row.published_at,
     lastVerifiedAt: row.last_verified_at,
@@ -424,6 +433,7 @@ export async function listPublishedOrganizations(
     city: row.city,
     region: row.region,
     imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     websiteUrl: row.website_url,
     publicEmail: row.public_email,
     publicPhone: row.public_phone,
@@ -448,6 +458,7 @@ export async function listPublishedOrganizationsForHub(
     city: row.city,
     region: row.region,
     imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     websiteUrl: row.website_url,
     publicEmail: row.public_email,
     publicPhone: row.public_phone,

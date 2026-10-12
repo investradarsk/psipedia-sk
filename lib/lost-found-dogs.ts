@@ -15,6 +15,8 @@ export type { LostFoundStatus };
 
 export type BreedOption = { id: number; name: string; slug: string };
 
+import type { ImageDisplayConfig } from "./image-display.ts";
+
 export type PublicDogReport = {
   id: number;
   type: DogReportType;
@@ -34,6 +36,8 @@ export type PublicDogReport = {
   collarDescription: string;
   chipped: ChipState;
   mainImage: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   gallery: string[];
   eventDate: string;
   lastSeenDateTime: string | null;

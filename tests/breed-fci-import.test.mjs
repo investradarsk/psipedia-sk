@@ -63,6 +63,7 @@ function database() {
   applyMigration(sqlite,"../drizzle/0034_adoption_dogs_foundation.sql");
   applyMigration(sqlite,"../drizzle/0036_help_organizations_foundation.sql");
   applyMigration(sqlite,"../drizzle/0040_organization_locations_foundation.sql");
+  applyMigration(sqlite,"../drizzle/0122_entity_image_display_config.sql");
   return {sqlite,d1:createD1Adapter(sqlite)};
 }
 

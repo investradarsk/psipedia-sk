@@ -142,6 +142,8 @@ const legacyDirectoryCategories = [
 
 export const allDirectoryCategories = [...directoryCategories, ...legacyDirectoryCategories] as const;
 export type DirectoryCategorySlug = (typeof allDirectoryCategories)[number]["slug"];
+import type { ImageDisplayConfig } from "./image-display.ts";
+
 export type DirectoryProfileStatus = "draft" | "published" | "archived";
 export type DirectoryInquiryStatus = "new" | "read" | "resolved";
 export type DirectoryProfileChangeRequestStatus = "new" | "approved" | "rejected";
@@ -187,6 +189,8 @@ export type PublicDirectoryProfile = {
   priceNote: string;
   websiteUrl: string | null;
   imageUrl: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
   featured: boolean;
   updatedAt: string;

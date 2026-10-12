@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ImageDisplay } from "@/components/image-display";
+import type { ImageDisplayConfig } from "@/lib/image-display";
 
 import { adoptionDetailStatusLabels } from "@/lib/adoption-detail";
 import type { AdoptionPublicStatus } from "@/lib/adoption";
@@ -9,19 +11,14 @@ type AdoptionCardMediaProps = {
   name: string;
   status: AdoptionPublicStatus;
   mainImage: string | null;
+  imageConfig?: ImageDisplayConfig | null;
 };
 
-export function AdoptionCardMedia({ href, name, status, mainImage }: AdoptionCardMediaProps) {
+export function AdoptionCardMedia({ href, name, status, mainImage, imageConfig }: AdoptionCardMediaProps) {
   return (
     <Link className={styles.visual} href={href} aria-label={`Zobraziť profil ${name}`}>
       {mainImage ? (
-        <img
-          src={mainImage}
-          alt={`${name} – pes na adopciu`}
-          loading="lazy"
-          decoding="async"
-          data-adoption-media="image"
-        />
+        <ImageDisplay roleHint="generic" context="thumbnail" config={imageConfig} src={mainImage} alt={`${name} – pes na adopciu`} loading="lazy" decoding="async" data-adoption-media="image" />
       ) : (
         <div className={styles.imageFallback} aria-hidden="true" data-adoption-media="fallback">
           <span />

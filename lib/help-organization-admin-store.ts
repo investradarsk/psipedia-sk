@@ -1,3 +1,4 @@
+import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 import { env } from "cloudflare:workers";
 import type { AdoptionD1Database } from "./adoption-store.ts";
 import {
@@ -37,6 +38,8 @@ type OrganizationPublicationRow = {
   country_code: string;
   image_url: string | null;
   image_key: string | null;
+  thumbnail_display_json?: string | null;
+  detail_display_json?: string | null;
   source_url: string | null;
   directory_profile_id: number | null;
   published_at: string | null;
@@ -53,6 +56,8 @@ type OrganizationPublicationRow = {
 export type OrganizationPublicationAdminItem = OrganizationPublicationCandidate & {
   preflight: OrganizationPublicationPreflight;
   imageKey: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   directoryProfileId: number | null;
   locationCount: number;
   fundraisingCount: number;
@@ -76,7 +81,7 @@ const resolvedRegion = `COALESCE(NULLIF((SELECT l.region FROM organization_locat
 
 const ORGANIZATION_PUBLICATION_SELECT = `o.id, o.name, o.slug, o.legal_name, o.registration_number, o.type, o.status,
   o.short_description, o.description, o.public_email, o.public_phone, o.website_url, o.facebook_url, o.instagram_url,
-  o.city, o.district, o.region, o.country_code, o.image_url, o.image_key, o.source_url, o.directory_profile_id,
+  o.city, o.district, o.region, o.country_code, o.image_url, o.image_key, o.thumbnail_display_json, o.detail_display_json, o.source_url, o.directory_profile_id,
   o.published_at, o.last_verified_at, o.archived_at, o.updated_at,
   (SELECT COUNT(*) FROM organization_locations lc WHERE lc.organization_id = o.id) AS location_count,
   (SELECT COUNT(*) FROM organization_fundraising_methods fm WHERE fm.organization_id = o.id AND fm.archived_at IS NULL) AS fundraising_count,
@@ -138,6 +143,8 @@ function withPreflight(row: OrganizationPublicationRow): OrganizationPublication
     ...candidate,
     preflight: buildOrganizationPublicationPreflight(candidate),
     imageKey: row.image_key,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     directoryProfileId: row.directory_profile_id === null ? null : Number(row.directory_profile_id),
     locationCount: Number(row.location_count ?? 0),
     fundraisingCount: Number(row.fundraising_count ?? 0),

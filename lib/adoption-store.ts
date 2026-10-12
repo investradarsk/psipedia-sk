@@ -1,3 +1,4 @@
+import { readImageDisplayConfig } from "./image-display.ts";
 import { canonicalBreedIdsSql } from "./breed-canonical.ts";
 import { env } from "cloudflare:workers";
 import {
@@ -70,7 +71,7 @@ type AdoptionDogRow = {
   breed_name: string; breed_slug: string | null; breed_profile_name: string | null; breed_mix: number; color: string;
   region: string; district: string; city: string; organization_id: number | null; organization_name: string;
   organization_slug: string | null; canonical_organization_name: string | null; canonical_organization_slug: string | null;
-  main_image: string | null; gallery_json: string; short_description: string;
+  main_image: string | null; thumbnail_display_json?: string | null; detail_display_json?: string | null; gallery_json: string; short_description: string;
   description: string; temperament: string; activity_level: string; suitable_for_children: string; suitable_for_dogs: string;
   suitable_for_cats: string; suitable_for_other_animals: string; apartment_suitable: number | null;
   beginner_suitable: number | null; needs_experienced_owner: number; vaccination_status: string; chipped: number | null;
@@ -104,7 +105,7 @@ const PUBLIC_SELECT = `SELECT d.*, b.slug AS breed_slug, b.name AS breed_profile
 const AGE_MONTHS_SQL = `COALESCE(d.approximate_age_months, CAST((julianday('now') - julianday(d.birth_date)) / 30.4375 AS INTEGER))`;
 const MUTABLE_COLUMNS = [
   "name", "slug", "status", "sex", "birth_date", "approximate_age_months", "size", "weight", "breed_id", "breed_name",
-  "breed_mix", "color", "region", "district", "city", "organization_id", "organization_name", "organization_slug", "main_image",
+  "breed_mix", "color", "region", "district", "city", "organization_id", "organization_name", "organization_slug", "main_image", "thumbnail_display_json", "detail_display_json",
   "gallery_json", "short_description", "description", "temperament", "activity_level", "suitable_for_children", "suitable_for_dogs",
   "suitable_for_cats", "suitable_for_other_animals", "apartment_suitable", "beginner_suitable", "needs_experienced_owner",
   "vaccination_status", "chipped", "neutered", "health_notes", "special_needs", "adoption_requirements", "external_source_url",
@@ -141,7 +142,8 @@ function rowToDog(row: AdoptionDogRow): AdoptionDog {
     breedId: row.breed_id, breedName: normalizeAdoptionText(row.breed_profile_name) || row.breed_name,
     breedSlug: normalizeAdoptionText(row.breed_slug) || null, breedMix: Boolean(row.breed_mix), color: row.color, region,
     district: row.district, city: row.city, organizationId: row.organization_id, organizationName,
-    organizationSlug, mainImage: row.main_image, gallery: parseGallery(row.gallery_json),
+    organizationSlug, mainImage: row.main_image,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"), detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"), gallery: parseGallery(row.gallery_json),
     shortDescription: row.short_description, description: row.description, temperament: row.temperament,
     activityLevel: normalizeRowChoice(row.activity_level, adoptionActivityLevels, "UNKNOWN") as AdoptionActivityLevel,
     suitableForChildren: normalizeRowChoice(row.suitable_for_children, adoptionCompatibilityValues, "UNKNOWN") as AdoptionCompatibility,
@@ -165,7 +167,7 @@ function dogToInput(dog: AdoptionDog): ManagedAdoptionInput {
     approximateAgeMonths: dog.approximateAgeMonths, size: dog.size, weight: dog.weight, breedId: dog.breedId,
     breedName: dog.breedName, breedMix: dog.breedMix, color: dog.color, region: dog.region, district: dog.district, city: dog.city,
     organizationId: dog.organizationId, organizationName: dog.organizationName, organizationSlug: dog.organizationSlug,
-    mainImage: dog.mainImage, gallery: dog.gallery, shortDescription: dog.shortDescription, description: dog.description,
+    mainImage: dog.mainImage, thumbnailImageDisplay: dog.thumbnailImageDisplay ?? null, detailImageDisplay: dog.detailImageDisplay ?? null, gallery: dog.gallery, shortDescription: dog.shortDescription, description: dog.description,
     temperament: dog.temperament, activityLevel: dog.activityLevel, suitableForChildren: dog.suitableForChildren,
     suitableForDogs: dog.suitableForDogs, suitableForCats: dog.suitableForCats, suitableForOtherAnimals: dog.suitableForOtherAnimals,
     apartmentSuitable: dog.apartmentSuitable, beginnerSuitable: dog.beginnerSuitable, needsExperiencedOwner: dog.needsExperiencedOwner,
@@ -220,7 +222,9 @@ function writeValues(input: PreparedAdoptionWrite) {
   return [
     input.name, input.slug, input.status, input.sex, input.birthDate, input.approximateAgeMonths, input.size, input.weight,
     input.breedId, input.breedName, input.breedMix ? 1 : 0, input.color, input.region, input.district, input.city,
-    input.organizationId, input.organizationName, input.organizationSlug, input.mainImage, JSON.stringify(input.gallery),
+    input.organizationId, input.organizationName, input.organizationSlug, input.mainImage,
+    input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
+    input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, JSON.stringify(input.gallery),
     input.shortDescription, input.description, input.temperament, input.activityLevel, input.suitableForChildren, input.suitableForDogs,
     input.suitableForCats, input.suitableForOtherAnimals, input.apartmentSuitable === null ? null : input.apartmentSuitable ? 1 : 0,
     input.beginnerSuitable === null ? null : input.beginnerSuitable ? 1 : 0, input.needsExperiencedOwner ? 1 : 0,
@@ -248,6 +252,10 @@ export async function prepareAdoptionWritePayload(
         organizationSlug: organization.organizationSlug,
       };
   const normalized = normalizeAdoptionInput(canonicalInput);
+  if (existing && existing.mainImage !== normalized.mainImage) {
+    if (payload.thumbnailImageDisplay === undefined) normalized.thumbnailImageDisplay = null;
+    if (payload.detailImageDisplay === undefined) normalized.detailImageDisplay = null;
+  }
   if (existing) assertAdoptionStatusTransition(existing.status, normalized.status);
   if (!existing && (normalized.status === "ADOPTED" || normalized.status === "ARCHIVED")) {
     throw new Error("Nový adopčný profil musí začať ako koncept alebo verejný stav.");

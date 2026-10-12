@@ -23,6 +23,9 @@ import {
   type DirectoryAddressFormat,
 } from "@/lib/directory-service-address";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { ImageDisplay } from "@/components/image-display";
+import { ImageDisplayEditor } from "@/components/image-display-editor";
+import type { ImageDisplayConfig } from "@/lib/image-display";
 import { directorySeoFallback } from "@/lib/content-seo";
 import {
   directoryQualityFields,
@@ -146,6 +149,9 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
   const [internalEmail, setInternalEmail] = useState(profile?.internalEmail ?? "");
   const [imageUrl, setImageUrl] = useState(profile?.imageUrl ?? "");
   const [imageKey, setImageKey] = useState(profile?.imageKey ?? "");
+  const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.thumbnailImageDisplay ?? null);
+  const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(profile?.detailImageDisplay ?? null);
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [qualityResolutions, setQualityResolutions] = useState<DirectoryQualityResolutionInput>(() => qualityResolutionInput(profile));
   const [qualityCheckedAt, setQualityCheckedAt] = useState<Partial<Record<DirectoryQualityField, string>>>(() => qualityCheckedAtInput(profile));
   const [reviewed, setReviewed] = useState(profile?.reviewed ?? false);
@@ -188,6 +194,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
       const data = await uploadAdminImage(file, "directory");
       setImageUrl(data.imageUrl);
       setImageKey(data.imageKey);
+      setThumbnailImageDisplay(null); setDetailImageDisplay(null);
       clearQualityResolution("image");
       setMessage(adminImageUploadMessage(data, "Ulož profil."));
     } catch (uploadError) {
@@ -235,6 +242,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
           publicPhone, publicEmail, facebookUrl, instagramUrl,
           internalEmail: internalEmail || null,
           imageUrl: imageUrl || null, imageKey: imageKey || null,
+          thumbnailImageDisplay, detailImageDisplay,
           qualityResolutions,
           verified, featured, seo,
         }),
@@ -533,7 +541,8 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
 
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <img src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            {imageUrl && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {!imageUrl ? (
               <QualityResolutionField
                 field="image"
@@ -550,12 +559,15 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
         </div>
 
         <aside className="admin-event-preview admin-directory-preview">
-          <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <img src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
+          <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
           <span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overený" : ""}</span><h2>{name || "Názov profilu"}</h2><p>{excerpt || "Krátky popis profilu sa zobrazí tu."}</p>
           <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (addressEvaluation.state === "COMPLETE" ? "Kompletná" : addressEvaluation.state)}</dd></div></dl>
         </aside>
       </div>
 
+      {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={name || "Profil"} title={name} excerpt={excerpt} entityLabel="profilu služby" thumbnailAspectRatio="1 / 1" thumbnailLayout="compact"
+         thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
+         onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
       <AdminDrawer
         open={advancedOpen}
         title="Pokročilé nastavenia"

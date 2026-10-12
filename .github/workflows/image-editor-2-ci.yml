@@ -1,0 +1,42 @@
+name: IMAGE-EDITOR-2 focused checks
+
+on:
+  pull_request:
+    paths:
+      - "components/image-display*"
+      - "components/admin-*-editor*"
+      - "components/event-image.tsx"
+      - "components/directory-card.tsx"
+      - "components/help-card.tsx"
+      - "components/adoption-card-media.tsx"
+      - "components/lost-found-dogs-page.tsx"
+      - "components/lost-found-dog-detail.tsx"
+      - "lib/image-display.ts"
+      - "lib/*-store.ts"
+      - "lib/adoption.ts"
+      - "drizzle/0122_entity_image_display_config.sql"
+      - "scripts/production-d1-migrate.mjs"
+      - "tests/image-editor-2.test.mjs"
+      - "package.json"
+      - ".github/workflows/image-editor-2-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-regression:
+    name: Image display and D1 migration contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+      - name: Shared renderer and six entity integration checks
+        run: npm run test:image-editor-2
+      - name: Migration numbering and safety
+        run: npm run db:check-migrations
+      - name: Production D1 migration target tests
+        run: node --test tests/production-d1-migration.test.mjs tests/migration-safety.test.mjs

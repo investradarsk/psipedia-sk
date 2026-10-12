@@ -14,6 +14,7 @@ import {
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
+import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 import {
   listPublishedOrganizations,
   type PublicOrganizationIndexItem,
@@ -42,6 +43,8 @@ export type ManagedHelpCaseInput = {
   raisedAmount?: number | string | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   verified?: boolean;
   urgent?: boolean;
   resolved?: boolean;
@@ -88,6 +91,8 @@ type HelpCaseRow = {
   raised_amount: number | null;
   image_url: string | null;
   image_key: string | null;
+  thumbnail_display_json?: string | null;
+  detail_display_json?: string | null;
   verified: number;
   urgent: number;
   resolved: number;
@@ -157,6 +162,8 @@ function rowToHelpCase(row: HelpCaseRow): HelpCase {
     raisedAmount: row.raised_amount,
     imageUrl: row.image_url,
     imageKey: row.image_key,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     verified: Boolean(row.verified),
     urgent: Boolean(row.urgent),
     resolved: Boolean(row.resolved),
@@ -320,6 +327,8 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
     raisedAmount,
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
+    thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
+    detailImageDisplay: normalizeImageDisplayConfig(payload.detailImageDisplay, "detail"),
     verified,
     urgent: Boolean(payload.urgent),
     resolved: Boolean(payload.resolved),
@@ -451,14 +460,16 @@ export async function createManagedHelpCase(payload: ManagedHelpCaseInput, edito
     INSERT INTO help_cases (
       slug, title, category, status, excerpt, description, organization, dog_name, breed, age_note,
       city, region, location_note, reported_date, deadline_date, action_label, action_url, contact_note,
-      goal_amount, raised_amount, image_url, image_key, verified, urgent, resolved, seo_json,
+      goal_amount, raised_amount, image_url, image_key, thumbnail_display_json, detail_display_json, verified, urgent, resolved, seo_json,
       created_at, updated_at, published_at, created_by, updated_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
   `).bind(
     input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
     input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
     input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
-    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey, input.verified ? 1 : 0,
+    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey,
+    input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null,
+    input.verified ? 1 : 0,
     input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, now,
     input.status === "published" ? now : null, editorEmail, editorEmail,
   ).first<HelpCaseRow>();
@@ -480,13 +491,16 @@ export async function updateManagedHelpCase(id: number, payload: ManagedHelpCase
       slug = ?, title = ?, category = ?, status = ?, excerpt = ?, description = ?, organization = ?,
       dog_name = ?, breed = ?, age_note = ?, city = ?, region = ?, location_note = ?, reported_date = ?,
       deadline_date = ?, action_label = ?, action_url = ?, contact_note = ?, goal_amount = ?, raised_amount = ?,
-      image_url = ?, image_key = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
+      image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, verified = ?, urgent = ?, resolved = ?, seo_json = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ? AND ${HELP_ADMIN_DOMAIN_SQL} RETURNING *
   `).bind(
     input.slug, input.title, input.category, input.status, input.excerpt, input.description, input.organization,
     input.dogName, input.breed, input.ageNote, input.city, input.region, input.locationNote,
     input.reportedDate, input.deadlineDate, input.actionLabel, input.actionUrl, input.contactNote,
-    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey, input.verified ? 1 : 0,
+    input.goalAmount, input.raisedAmount, input.imageUrl, input.imageKey,
+    JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
+    JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
+    input.verified ? 1 : 0,
     input.urgent ? 1 : 0, input.resolved ? 1 : 0, JSON.stringify(input.seo), now, publishedAt, editorEmail, id,
   ).first<HelpCaseRow>();
   return row ? rowToHelpCase(row) : null;

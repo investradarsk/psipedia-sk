@@ -22,7 +22,7 @@ type RunResult = { meta?: { changes?: number }; changes?: number };
 
 const MUTABLE_COLUMNS = [
   "name", "slug", "status", "sex", "birth_date", "approximate_age_months", "size", "weight", "breed_id", "breed_name",
-  "breed_mix", "color", "region", "district", "city", "organization_id", "organization_name", "organization_slug", "main_image",
+  "breed_mix", "color", "region", "district", "city", "organization_id", "organization_name", "organization_slug", "main_image", "thumbnail_display_json", "detail_display_json",
   "gallery_json", "short_description", "description", "temperament", "activity_level", "suitable_for_children", "suitable_for_dogs",
   "suitable_for_cats", "suitable_for_other_animals", "apartment_suitable", "beginner_suitable", "needs_experienced_owner",
   "vaccination_status", "chipped", "neutered", "health_notes", "special_needs", "adoption_requirements", "external_source_url",
@@ -40,7 +40,9 @@ function writeValues(input: PreparedAdoptionWrite) {
   return [
     input.name, input.slug, input.status, input.sex, input.birthDate, input.approximateAgeMonths, input.size, input.weight,
     input.breedId, input.breedName, input.breedMix ? 1 : 0, input.color, input.region, input.district, input.city,
-    input.organizationId, input.organizationName, input.organizationSlug, input.mainImage, JSON.stringify(input.gallery),
+    input.organizationId, input.organizationName, input.organizationSlug, input.mainImage,
+    input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null,
+    input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, JSON.stringify(input.gallery),
     input.shortDescription, input.description, input.temperament, input.activityLevel, input.suitableForChildren, input.suitableForDogs,
     input.suitableForCats, input.suitableForOtherAnimals, input.apartmentSuitable === null ? null : input.apartmentSuitable ? 1 : 0,
     input.beginnerSuitable === null ? null : input.beginnerSuitable ? 1 : 0, input.needsExperiencedOwner ? 1 : 0,

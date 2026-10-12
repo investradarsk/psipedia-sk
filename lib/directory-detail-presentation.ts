@@ -1,4 +1,5 @@
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
+import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
@@ -26,6 +27,7 @@ export type DirectoryDetailPresentation = {
   address: string;
   priceNote: string;
   imageUrl: string | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
   featured: boolean;
   description: string | null;
@@ -192,6 +194,7 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     address: publicAddress,
     priceNote: profile.priceNote,
     imageUrl: profile.imageUrl,
+    detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,
     featured: profile.featured,
     description,
