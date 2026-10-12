@@ -1,6 +1,6 @@
 import { adoptionPublicStatuses, type AdoptionPublicStatus } from "./adoption.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
-import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
+import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 
 export type OrganizationPublicAdoption = {
   id: number;
