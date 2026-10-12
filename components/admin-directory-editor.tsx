@@ -12,6 +12,7 @@ import {
 import { AdminSeoFields } from "@/components/admin-seo-fields";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
+import type { ArticleSeo } from "@/lib/content";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
@@ -171,7 +172,7 @@ export function AdminDirectoryEditor({
   const [verified, setVerified] = useState(profile?.verified ?? notionDraft?.verified ?? false);
   const [featured, setFeatured] = useState(profile?.featured ?? notionDraft?.featured ?? false);
   const [status, setStatus] = useState<DirectoryProfileStatus>(profile?.status ?? "draft");
-  const [seo, setSeo] = useState(profile?.seo ?? notionDraft?.seo ?? {});
+  const [seo, setSeo] = useState<ArticleSeo>(profile?.seo ?? notionDraft?.seo ?? {});
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [saving, setSaving] = useState(false);
@@ -645,7 +646,7 @@ export function AdminDirectoryEditor({
           {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
           <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
           {notionDraft && publishConfirming && <AdminActionButton variant="neutral" disabled={saving} onClick={() => setPublishConfirming(false)}>Zrušiť</AdminActionButton>}
-          <AdminActionButton variant="primary" disabled={saving || uploading || status === "published"} onClick={() => {
+          <AdminActionButton variant="primary" disabled={saving || uploading || (Boolean(notionDraft) && status === "published")} onClick={() => {
             if (notionDraft && !publishConfirming) { setPublishConfirming(true); return; }
             void save("published");
           }}>{saving ? "Ukladám…" : notionDraft ? publishConfirming ? "Áno, publikovať" : "Publikovať profil" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>
