@@ -12,8 +12,8 @@ type Context = "thumbnail" | "detail";
 type Props = {
   src: string;
   alt: string;
-  title: string;
-  excerpt: string;
+  title?: string;
+  excerpt?: string;
   thumbnail: ImageDisplayConfig | null;
   detail: ImageDisplayConfig | null;
   onSave: (thumbnail: ImageDisplayConfig | null, detail: ImageDisplayConfig | null) => void;
