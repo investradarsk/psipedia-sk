@@ -4,7 +4,7 @@ import { useState, type ImgHTMLAttributes } from "react";
 import { SmartCardImage } from "@/components/smart-card-image";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL, legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig, type ImageDisplayContext } from "@/lib/image-display";
-import type { SmartImageMode } from "@/lib/smart-image";
+import type { SmartImageMode, SmartImageRole } from "@/lib/smart-image";
 import styles from "./image-display.module.css";
 
 type ImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "alt" | "onLoad">;
@@ -14,6 +14,7 @@ export type ImageDisplayProps = ImageProps & {
   context: ImageDisplayContext;
   config?: ImageDisplayConfig | null;
   legacyMode?: SmartImageMode;
+  roleHint?: SmartImageRole;
   legacyFocusX?: number | null;
   legacyFocusY?: number | null;
   className?: string;
@@ -22,7 +23,7 @@ export type ImageDisplayProps = ImageProps & {
 
 /** One renderer for the live editor and every public article image slot. */
 export function ImageDisplay({
-  src, alt, context, config, legacyMode, legacyFocusX, legacyFocusY,
+  src, alt, context, config, legacyMode, legacyFocusX, legacyFocusY, roleHint = "article",
   className, imageClassName, style, ...imageProps
 }: ImageDisplayProps) {
   const [autoFit, setAutoFit] = useState<{ src: string; fit: "cover" | "contain" } | null>(null);
@@ -45,7 +46,7 @@ export function ImageDisplay({
         <>
           {blur && <img aria-hidden="true" alt="" src={src} srcSet={imageProps.srcSet ?? responsiveMediaSrcSet(src, [320, 640, 960])} sizes={imageProps.sizes ?? "100vw"}
             loading={imageProps.loading ?? "lazy"} decoding="async" className={styles.blurBackground} draggable={false} />}
-          <SmartCardImage {...imageProps} src={src} alt={alt} roleHint="article" mode={fitMode}
+          <SmartCardImage {...imageProps} src={src} alt={alt} roleHint={roleHint} mode={fitMode}
             focusX={focus.x} focusY={focus.y}
             onResolvedFit={(fit) => setAutoFit((current) => current?.src === src && current.fit === fit ? current : { src, fit })}
             className={[styles.photo, imageClassName].filter(Boolean).join(" ")} draggable={false}
