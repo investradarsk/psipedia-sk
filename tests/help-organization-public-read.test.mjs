@@ -236,9 +236,9 @@ test("public model is an explicit allowlist and omits internal/provenance and st
   const database = createDatabase({ organizations: [organization()], locations: [location()] });
   const result = await getPublicOrganizationBySlug("psia-nadej", database);
   assert.deepEqual(Object.keys(result).sort(), [
-    "city", "countryCode", "description", "directory", "district", "facebookUrl", "id", "imageUrl",
+    "city", "countryCode", "description", "detailImageDisplay", "directory", "district", "facebookUrl", "id", "imageUrl",
     "instagramUrl", "lastVerifiedAt", "legalName", "locations", "name", "publicEmail", "publicPhone", "publishedAt",
-    "region", "registrationNumber", "shortDescription", "slug", "sourceUrl", "type", "updatedAt", "websiteUrl",
+    "region", "registrationNumber", "shortDescription", "slug", "sourceUrl", "thumbnailImageDisplay", "type", "updatedAt", "websiteUrl",
   ].sort());
   for (const forbidden of ["importKey", "sourceDataJson", "createdBy", "updatedBy", "imageKey", "address"]) {
     assert.equal(Object.hasOwn(result, forbidden), false, forbidden);
