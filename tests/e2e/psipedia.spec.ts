@@ -308,7 +308,10 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     // Test only rendered rows, and scroll lazy-loaded images into view before checking.
     const imagedSecondary = page.locator("[data-home-article-secondary] [data-article-list-item]:visible:has([data-article-image]:visible)");
     for (let index = 0; index < await imagedSecondary.count(); index += 1) {
-      const image = imagedSecondary.nth(index).locator("[data-article-image] img");
+      // The image editor can render an aria-hidden blurred background image.
+      // Assert the foreground thumbnail only; the decorative image is not content.
+      const image = imagedSecondary.nth(index).locator('[data-article-image] img:not([aria-hidden="true"])');
+      await expect(image, "A rendered homepage row has exactly one content thumbnail").toHaveCount(1);
       await image.scrollIntoViewIfNeeded();
       await expect(image, "A rendered homepage article thumbnail must be visible").toBeVisible();
       await expect.poll(
