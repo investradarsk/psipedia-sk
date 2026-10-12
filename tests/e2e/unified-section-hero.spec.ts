@@ -45,8 +45,25 @@ async function makePage(browser: Browser, viewport: { width: number; height: num
 }
 
 async function openHero(page: Page, path: string, visualKey: string, label: string) {
-  const response = await page.goto(path, { waitUntil: "domcontentloaded" });
-  expect(response?.status(), label + ": " + path).toBe(200);
+  // Cloudflare preview can occasionally return an isolated 5xx during a
+  // many-route matrix. A bounded retry distinguishes transient infrastructure
+  // errors from an actual reproducible server regression: after 3 attempts
+  // the test still FAILS, with status and response context in the CI log.
+  const transientStatuses = new Set([500, 502, 503, 504]);
+  let status = 0;
+  let errorBody = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+    status = response?.status() ?? 0;
+    if (!transientStatuses.has(status)) break;
+    errorBody = (await response?.text().catch(() => "") ?? "").slice(0, 800);
+    console.warn("[unified-hero-preview-http]", JSON.stringify({
+      label, path, status, attempt, maxAttempts: 3,
+      responseSample: errorBody,
+    }));
+    if (attempt < 3) await page.waitForTimeout(500 * attempt);
+  }
+  expect(status, label + ": " + path + (errorBody ? " | preview response: " + errorBody : "")).toBe(200);
   const hero = page.locator("[data-unified-section-hero]").first();
   await expect(hero, label + ": " + path + " unified hero").toBeVisible();
   await expect(hero).toHaveAttribute("data-section-visual-key", visualKey);
