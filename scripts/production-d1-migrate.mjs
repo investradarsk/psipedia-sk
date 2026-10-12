@@ -114,6 +114,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0119_gemini_manual_background_jobs.sql",
   "0120_article_image_presentation.sql",
   "0121_article_image_display_config.sql",
+  "0122_entity_image_display_config.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
