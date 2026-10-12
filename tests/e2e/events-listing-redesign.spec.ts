@@ -144,8 +144,14 @@ test.describe('final events acceptance', () => {
     }
     await page.goto(finalTarget+'&zoradenie=najblizsie');
     const fixtureCard = (title:string) => page.locator('[data-event-card]').filter({has:page.getByRole('heading',{name:title,exact:true})});
-    await expect(fixtureCard('Finalaudit Preteky 1').locator('img[data-event-image-source]')).toHaveAttribute('data-smart-image-fit','contain');
-    await expect(fixtureCard('Finalaudit Seminár 2').locator('img[data-event-image-source]')).toHaveAttribute('data-smart-image-fit','contain');
+    // These cards may be below the mobile fold. Trigger native lazy loading before
+    // asserting the client-side fit, which depends on decoded image dimensions.
+    for (const title of ['Finalaudit Preteky 1', 'Finalaudit Seminár 2']) {
+      const image = fixtureCard(title).locator('img[data-event-image-source]');
+      await image.scrollIntoViewIfNeeded();
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+      await expect(image).toHaveAttribute('data-smart-image-fit', 'contain');
+    }
     await expect(fixtureCard('Finalaudit Preteky 7')).toContainText('Online podujatie');
     await expect(page.getByRole('heading',{name:/Mimoriadne dlhý názov kynologického stretnutia/})).toBeVisible();
     const axe=await new AxeBuilder({page}).analyze();expect(axe.violations.filter(v=>['serious','critical'].includes(v.impact??''))).toEqual([]);
