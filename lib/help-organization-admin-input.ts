@@ -1,4 +1,5 @@
 import { isOrganizationPublicationType, type OrganizationPublicationCandidate } from "./help-organization-publication.ts";
+import { normalizeImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
 
 export type OrganizationAdminInput = {
   name: string;
@@ -15,6 +16,8 @@ export type OrganizationAdminInput = {
   instagramUrl: string | null;
   imageUrl: string | null;
   imageKey: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   sourceUrl: string | null;
 };
 
@@ -126,12 +129,14 @@ export function parseOrganizationAdminInput(value: unknown): OrganizationAdminIn
     instagramUrl: nullableUrl(object, "instagramUrl", "Instagram"),
     imageUrl,
     imageKey,
+    thumbnailImageDisplay: normalizeImageDisplayConfig(object.thumbnailImageDisplay, "thumbnail"),
+    detailImageDisplay: normalizeImageDisplayConfig(object.detailImageDisplay, "detail"),
     sourceUrl: nullableUrl(object, "sourceUrl", "Zdroj"),
   };
 }
 
 export function organizationAdminInputFromCandidate(
-  organization: OrganizationPublicationCandidate & { imageKey?: string | null },
+  organization: OrganizationPublicationCandidate & { imageKey?: string | null; thumbnailImageDisplay?: ImageDisplayConfig | null; detailImageDisplay?: ImageDisplayConfig | null },
 ): OrganizationAdminInput {
   return {
     name: organization.name,
@@ -148,6 +153,8 @@ export function organizationAdminInputFromCandidate(
     instagramUrl: organization.instagramUrl,
     imageUrl: organization.imageUrl,
     imageKey: organization.imageKey ?? null,
+    thumbnailImageDisplay: organization.thumbnailImageDisplay ?? null,
+    detailImageDisplay: organization.detailImageDisplay ?? null,
     sourceUrl: organization.sourceUrl,
   };
 }
