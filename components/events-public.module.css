@@ -1722,7 +1722,9 @@
 }
 
 /* Event search controls remain local; photo hero geometry is shared. */
-.homeHeroShell { padding-bottom: 0; }
+/* The standalone Events search panel intentionally overlaps the photograph.
+   Match homepage's shared 18px mobile/25px desktop overlap, without a local hero renderer. */
+.homeHeroShell.homeHeroShell { padding-bottom: 0; }
 .categorySearchShell { padding-bottom: 4px; }
 .filtersToolbar.filtersToolbar { grid-template-columns: auto auto; justify-content: start; }
 .filtersToolbar .secondaryFiltersOpen { grid-column: 1 / -1; }
