@@ -52,6 +52,8 @@ const legacyHelpCategories = [
 
 export const allHelpCategories = [...helpCategories, ...legacyHelpCategories] as const;
 export type HelpCategorySlug = (typeof allHelpCategories)[number]["slug"];
+import type { ImageDisplayConfig } from "./image-display";
+
 export type HelpCaseStatus = "draft" | "published";
 
 export type HelpCase = {
@@ -78,6 +80,8 @@ export type HelpCase = {
   raisedAmount: number | null;
   imageUrl: string | null;
   imageKey: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
   urgent: boolean;
   resolved: boolean;
