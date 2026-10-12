@@ -77,7 +77,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
     <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
 
     <section className={styles.detailHero} aria-labelledby={`dog-report-${report.id}`}>
-      <div className={styles.detailImage}>{report.mainImage ? <ImageDisplay context="detail" config={report.detailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} /> : <DetailImageFallback />}</div>
+      <div className={styles.detailImage}>{report.mainImage ? <ImageDisplay roleHint="generic" context="detail" config={report.detailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} /> : <DetailImageFallback />}</div>
       <div className={styles.detailIntro}>
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
         <h1 id={`dog-report-${report.id}`}>{report.dogName || report.breed || "Pes bez známeho mena"}</h1>
