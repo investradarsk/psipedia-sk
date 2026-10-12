@@ -6,6 +6,7 @@ import type { GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import { geminiCadenceOptions } from "@/lib/gemini-automation-catalog";
 import type { GeminiSettingView } from "@/lib/gemini-automation-admin-settings";
 import styles from "./admin-gemini-automation.module.css";
+import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -167,6 +168,9 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
+      {externalEnabled && setting.section === "directory" && (
+        <AdminGeminiNotionDrafts stableKey={setting.stableKey} />
+      )}
       {canManuallyRun && (
         <div className={styles.pilot}>
           <strong>{externalEnabled ? "Spustiť externého Gemini pracovníka" : "Manuálne spustenie Gemini"}</strong>
