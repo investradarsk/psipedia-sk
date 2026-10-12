@@ -23,10 +23,10 @@
 }
 .frame .blurBackground {
   z-index: 0;
-  background-size: cover;
-  background-position: center;
-  filter: blur(24px) saturate(.83);
-  transform: scale(1.14);
+  object-fit: cover;
+  object-position: center;
+  filter: blur(18px) saturate(.83);
+  transform: scale(1.09);
   pointer-events: none;
 }
 .frame.natural {
