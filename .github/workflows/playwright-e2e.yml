@@ -18,8 +18,7 @@ permissions:
 
 jobs:
   pr-scope:
-    name: Detect PR E2E scope
-    if: github.event_name == 'pull_request'
+    name: Detect CI event scope
     runs-on: ubuntu-latest
     outputs:
       admin_events: ${{ steps.scope.outputs.admin_events }}
@@ -31,6 +30,7 @@ jobs:
       dependency: ${{ steps.scope.outputs.dependency }}
       ci_control: ${{ steps.scope.outputs.ci_control }}
       scopes: ${{ steps.scope.outputs.scopes }}
+      production_smoke: ${{ steps.scope.outputs.production_smoke }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,8 +41,9 @@ jobs:
       - id: scope
         name: Detect changed feature areas
         env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_SCOPE_EVENT_NAME: ${{ github.event_name }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-scope.mjs --github-output
 
   validate:
@@ -68,37 +69,63 @@ jobs:
           cache: npm
       - id: required-scope
         name: Resolve required-check scope
-        if: github.event_name == 'pull_request'
         env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_SCOPE_EVENT_NAME: ${{ github.event_name }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-scope.mjs --github-output
       - name: Validate CI scope policy
         run: node scripts/check-ci-scope.mjs
       - name: Install dependencies
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
+        if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm ci
       - name: Lint
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
+        if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
         run: npm run lint
       - name: Full unit and integration regression
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true'
+        if: steps.required-scope.outputs.full_core == 'true'
         run: npm test
       - name: Bounded PR build and global safety contracts
-        if: github.event_name == 'pull_request' && steps.required-scope.outputs.bounded_core == 'true'
+        if: steps.required-scope.outputs.bounded_core == 'true'
         run: npm run test:config && npm run test:deploy-safety && npm run build
       - name: Changed package test scripts
-        if: github.event_name == 'pull_request' && steps.required-scope.outputs.package_test_scripts_only == 'true' && steps.required-scope.outputs.full_core != 'true'
+        if: steps.required-scope.outputs.package_test_scripts_only == 'true' && steps.required-scope.outputs.full_core != 'true'
         env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_SCOPE_EVENT_NAME: ${{ github.event_name }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-scope.mjs --run-changed-package-tests
       - name: Adoption unit/integration suite
-        if: github.event_name != 'pull_request' || steps.required-scope.outputs.full_core == 'true' || contains(steps.required-scope.outputs.scopes, 'HELP')
+        if: steps.required-scope.outputs.full_core == 'true' || contains(steps.required-scope.outputs.scopes, 'HELP')
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/adoption-foundation.test.mjs tests/adoption-catalog.test.mjs tests/adoption-detail.test.mjs tests/adoption-sitemap-integration.test.mjs tests/adoption-admin-list.test.mjs tests/adoption-admin-editor.test.mjs
+      - name: Shared visual contracts
+        if: steps.required-scope.outputs.bounded_core == 'true' && contains(steps.required-scope.outputs.scopes, 'VISUAL')
+        run: npm run test:unified-section-hero && npm run test:section-hero-v2 && npm run test:public-landing-alignment && npm run test:public-css-scope
       - name: Fast required-status path
-        if: github.event_name == 'pull_request' && steps.required-scope.outputs.full_core != 'true' && steps.required-scope.outputs.bounded_core != 'true'
+        if: steps.required-scope.outputs.full_core != 'true' && steps.required-scope.outputs.bounded_core != 'true'
         run: echo "No runtime product source changed; required status preserved without dependency install."
+      - name: Record validated build revision
+        if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
+        run: |
+          git rev-parse HEAD > ci-build-revision.txt
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          writeFileSync('ci-build-fingerprint.txt', (await fingerprintDirectory('dist')).fingerprint);
+          NODE
+      - name: Upload validated build for this run
+        if: steps.required-scope.outputs.full_core == 'true' || steps.required-scope.outputs.bounded_core == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: |
+            dist/
+            ci-build-revision.txt
+            ci-build-fingerprint.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 2
       - name: SEO-RECOVERY-1 focused metadata and sitemap regressions
         if: github.event_name == 'pull_request' && github.head_ref == 'codex/seo-recovery-1' && steps.required-scope.outputs.core == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
@@ -108,12 +135,8 @@ jobs:
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      (
-        github.event_name == 'workflow_dispatch' ||
-        github.event_name == 'schedule' ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-        (github.event_name == 'pull_request' && needs.pr-scope.outputs.full_core == 'true')
-      )
+      needs.pr-scope.result == 'success' &&
+      needs.pr-scope.outputs.full_core == 'true'
     needs: [validate, pr-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -129,8 +152,21 @@ jobs:
         run: npm ci
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
-      - name: Build PR code
-        run: npm run build
+      - name: Reuse validated build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: .
+      - name: Verify build revision and deployment artifact
+        run: |
+          test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"
+          npm run validate:deploy-artifact
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          const expected = readFileSync('ci-build-fingerprint.txt', 'utf8').trim();
+          if ((await fingerprintDirectory('dist')).fingerprint !== expected) throw new Error('Validated build fingerprint mismatch');
+          NODE
       - name: Configure CI-only local PII keys
         run: |
           cat > .dev.vars <<'EOF'
@@ -398,7 +434,7 @@ jobs:
 
   admin-events-e2e:
     name: Admin Events — desktop and mobile
-    if: github.event_name == 'pull_request' && needs.pr-scope.outputs.admin_events == 'true'
+    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.pr-scope.outputs.admin_events == 'true'
     needs: [validate, pr-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -455,7 +491,7 @@ jobs:
 
   search-e2e:
     name: SEARCH-1 local desktop/mobile E2E
-    if: github.event_name == 'pull_request' && needs.pr-scope.outputs.search == 'true'
+    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.pr-scope.outputs.search == 'true'
     needs: [validate, pr-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -470,8 +506,21 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Build SEARCH-1 PR code
-        run: npm run build
+      - name: Reuse validated build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: .
+      - name: Verify build revision and deployment artifact
+        run: |
+          test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"
+          npm run validate:deploy-artifact
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          const expected = readFileSync('ci-build-fingerprint.txt', 'utf8').trim();
+          if ((await fingerprintDirectory('dist')).fingerprint !== expected) throw new Error('Validated build fingerprint mismatch');
+          NODE
       - name: Apply schema to isolated local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
@@ -516,7 +565,7 @@ jobs:
 
   directory-e2e:
     name: Directory PR E2E — desktop and mobile
-    if: github.event_name == 'pull_request' && needs.pr-scope.outputs.directory == 'true'
+    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.pr-scope.outputs.directory == 'true' && needs.pr-scope.outputs.full_core != 'true'
     needs: [validate, pr-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -531,8 +580,21 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Build directory PR code
-        run: npm run build
+      - name: Reuse validated build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: .
+      - name: Verify build revision and deployment artifact
+        run: |
+          test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"
+          npm run validate:deploy-artifact
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { fingerprintDirectory } from './scripts/validate-deploy-artifact.mjs';
+          const expected = readFileSync('ci-build-fingerprint.txt', 'utf8').trim();
+          if ((await fingerprintDirectory('dist')).fingerprint !== expected) throw new Error('Validated build fingerprint mismatch');
+          NODE
       - name: Configure CI-only local PII keys
         run: |
           cat > .dev.vars <<'EOF'
@@ -591,8 +653,8 @@ jobs:
 
   production-smoke:
     name: Playwright production smoke (${{ matrix.label }})
-    needs: validate
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [validate, pr-scope]
+    if: always() && needs.validate.result == 'success' && needs.pr-scope.result == 'success' && needs.pr-scope.outputs.production_smoke == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:

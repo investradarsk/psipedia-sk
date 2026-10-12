@@ -20,7 +20,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - id: scope
+        name: Classify main push before updating branches
+        env:
+          CI_SCOPE_EVENT_NAME: ${{ github.event_name }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.before }}
+          CI_SCOPE_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci-scope.mjs --github-output
       - name: Update branches and release approval-gated CI
+        if: steps.scope.outputs.docs_only != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
