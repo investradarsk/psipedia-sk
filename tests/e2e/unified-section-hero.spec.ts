@@ -299,6 +299,26 @@ test("UNIFIED-SECTION-HERO intro paragraphs use only canonical margins", async (
   });
 });
 
+test("GLOBAL-HERO-UNIFY long veterinarian heading remains visible at 200% text size", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  const response = await page.goto("/adresar/veterinari", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  await page.evaluate(() => document.fonts.ready);
+  const geometry = await page.evaluate(() => {
+    const visual = document.querySelector<HTMLElement>("[data-unified-section-hero-visual]")!.getBoundingClientRect();
+    const title = document.querySelector<HTMLElement>("[data-section-hero-title]")!.getBoundingClientRect();
+    const intro = document.querySelector<HTMLElement>("[data-section-hero-intro]")!.getBoundingClientRect();
+    return {
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      titleBottom: title.bottom, introBottom: intro.bottom, visualBottom: visual.bottom,
+    };
+  });
+  expect(geometry.overflow, "200% text reflow must not create horizontal overflow").toBeLessThanOrEqual(1);
+  expect(geometry.titleBottom, "heading must not be clipped").toBeLessThanOrEqual(geometry.visualBottom + 1);
+  expect(geometry.introBottom, "intro must not be clipped").toBeLessThanOrEqual(geometry.visualBottom + 1);
+});
+
 test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 390, height: 844 });
