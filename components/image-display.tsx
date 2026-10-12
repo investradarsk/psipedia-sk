@@ -44,7 +44,7 @@ export function ImageDisplay({
       ) : (
         <>
           {blur && <span aria-hidden="true" className={styles.blurBackground}
-            style={{ backgroundImage: `url(${JSON.stringify(src)})` }} />}}
+            style={{ backgroundImage: `url(${JSON.stringify(src)})` }} />}
           <SmartCardImage {...imageProps} src={src} alt={alt} roleHint={roleHint} mode={fitMode}
             focusX={focus.x} focusY={focus.y}
             onResolvedFit={(fit) => setAutoFit((current) => current?.src === src && current.fit === fit ? current : { src, fit })}
