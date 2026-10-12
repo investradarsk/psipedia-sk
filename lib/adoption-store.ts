@@ -1,4 +1,4 @@
-import { readImageDisplayConfig } from "./image-display";
+import { readImageDisplayConfig } from "./image-display.ts";
 import { canonicalBreedIdsSql } from "./breed-canonical.ts";
 import { env } from "cloudflare:workers";
 import {
