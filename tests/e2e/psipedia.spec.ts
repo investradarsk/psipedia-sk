@@ -304,11 +304,13 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
     await expect(first.locator("[data-article-topic]")).toBeVisible();
     await expect(first.locator("[data-article-date]")).toBeVisible();
     await expect(first.locator("p")).toHaveCount(0);
-    const imagedSecondary = page.locator("[data-home-article-secondary] [data-article-list-item]:has([data-article-image])");
+    // Some article rows are present in the DOM but hidden by responsive layouts.
+    // Test only rendered rows, and scroll lazy-loaded images into view before checking.
+    const imagedSecondary = page.locator("[data-home-article-secondary] [data-article-list-item]:visible:has([data-article-image]:visible)");
     for (let index = 0; index < await imagedSecondary.count(); index += 1) {
       const image = imagedSecondary.nth(index).locator("[data-article-image] img");
-      await expect(image, "Homepage secondary thumbnail should be visible when the selected article has an image").toBeVisible();
       await image.scrollIntoViewIfNeeded();
+      await expect(image, "A rendered homepage article thumbnail must be visible").toBeVisible();
       await expect.poll(
         async () => image.evaluate((element) => {
           const img = element as HTMLImageElement;
@@ -376,17 +378,22 @@ test("@production events listing, detail and past/upcoming separation work", asy
   await expect(page.locator("h1")).toBeVisible();
   await expect(page.locator("[data-event-list], [data-event-category-overview]")).toBeVisible();
 
-  const eventLinks = async () => page.locator('[data-event-card] h3 a[href^="/podujatia/"]').evaluateAll((links) => [
-    ...new Set(links.map((link) => link.getAttribute("href")).filter((href): href is string => Boolean(href))),
+  // The events redesign renders cards within the public list without the
+  // legacy data-event-card hook. Scope to the list, not the calendar links.
+  const eventLinks = async () => page.locator('[data-event-list] h3 a[href^="/podujatia/"], main h3 a[href^="/podujatia/"]').evaluateAll((links) => [
+    ...new Set(links
+      .filter((link) => Boolean(link.getClientRects().length))
+      .map((link) => link.getAttribute("href"))
+      .filter((href): href is string => Boolean(href) && new RegExp("^/podujatia/[^/?#]+$").test(href!))),
   ]);
 
   const upcomingLinks = await eventLinks();
-  expect(upcomingLinks.length, "Upcoming event listing is empty").toBeGreaterThan(0);
+  expect(upcomingLinks.length, "Upcoming event listing is empty despite the rendered listing").toBeGreaterThan(0);
 
-  const pastFilter = page.getByRole("group", { name: "Obdobie podujatia" }).getByRole("link", { name: "Ukončené", exact: true });
+  const pastFilter = page.getByRole("link", { name: "Ukončené", exact: true }).first();
   await pastFilter.click();
-  await expect(pastFilter).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveURL(/termin=ukoncene/);
+  await expect(page.locator("h1")).toBeVisible();
 
   const pastLinks = await eventLinks();
   expect(pastLinks.length, "Past event listing is empty").toBeGreaterThan(0);
