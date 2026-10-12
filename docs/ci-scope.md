@@ -30,3 +30,13 @@ node scripts/check-ci-scope.mjs
 ```
 
 The guard also simulates the requested article, Maps admin, Notion, visual CSS, migration, dependency, docs-only and workflow-YAML scenarios plus the changed-file shapes of PR #579 and #580.
+
+## HARDENING-3: event ranges and post-merge ownership
+
+The same scope engine now handles PR base/head and PUSH before/after with full history and commit/ancestor validation. Invalid, missing, zero or non-ancestor PUSH revisions fail closed to full validation. Manual dispatch and schedule explicitly retain full regression and production smoke. Docs-only main pushes follow the fast required-status path and do not update auto-merge branches.
+
+The required validation owns the build artifact for its exact checkout and workflow run. Full, directory and search E2E verify the downloaded revision, dist fingerprint and deploy-artifact contract instead of rebuilding. The full E2E suite owns the identical directory and public-event specs on broad changes; artwork and non-overlapping admin tests remain independent.
+
+Security-critical auth/PII/resource-access modules retain full checks. Main production smoke runs for product/dependency/migration changes or unknown ranges, and always on dispatch/schedule; docs, CI-control-only and test-only changes do not trigger it. No cross-head success reuse is inferred from an incremental docs commit in a mixed PR.
+
+[Confirmed incidents, all-workflow matrix, measured costs and estimated savings](ci-scope-hardening-3.md).

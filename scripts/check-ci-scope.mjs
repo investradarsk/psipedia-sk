@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { classifyChangedFiles, focusedPrE2eFlags, isTestScriptOnlyPackageChange, changedPackageTestScriptNames } from "./ci-scope.mjs";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { evaluateCondition, workflowConditions } from "./ci-scope-conditions.mjs";
+import { classifyChangedFiles, focusedPrE2eFlags, isTestScriptOnlyPackageChange, changedPackageTestScriptNames, resolveChangedFiles, productionSmokeRequired } from "./ci-scope.mjs";
 
 const workflowDir = ".github/workflows";
 const workflowFiles = readdirSync(workflowDir).filter((name) => /\.ya?ml$/.test(name)).sort();
@@ -408,3 +411,150 @@ assert.ok(required.includes("run: node scripts/ci-scope.mjs --run-changed-packag
 console.log(
   `CI scope guard OK: ${workflowFiles.length} workflows audited; required checks stable; scenarios A-K and full-coverage contracts pass.`,
 );
+
+// HARDENING-3: evaluate the actual YAML expressions, not a mirrored ideal policy.
+const jobs = workflowConditions(required);
+const job = (id) => { const found = jobs.find((item) => item.id === id); assert.ok(found, `Missing job ${id}`); return found; };
+const namedStep = (name) => { const found = job("validate").steps.find((step) => step.name === name); assert.ok(found, `Missing step ${name}`); return found; };
+function simulation(files, eventName = "pull_request", options = {}) {
+  const result = classifyChangedFiles(files, options);
+  const flags = focusedPrE2eFlags(result);
+  const outputs = {
+    full_core: String(result.fullCore), bounded_core: String(result.boundedCore),
+    package_test_scripts_only: String(result.packageTestScriptsOnly), docs_only: String(result.docsOnly),
+    core: String(result.core), scopes: result.scopes.join(","),
+    admin_events: String(flags.adminEvents), directory: String(flags.directory), search: String(flags.search),
+    production_smoke: String(productionSmokeRequired(result, {eventName, ref: "refs/heads/main"})),
+  };
+  const context = {
+    github: {event_name: eventName, ref: "refs/heads/main", head_ref: "test/fixture"},
+    steps: {"required-scope": {outputs}, scope: {outputs}},
+    needs: {validate: {result: options.validateResult || "success"}, "pr-scope": {result: "success", outputs}, scope: {outputs}},
+  };
+  const runs = (id) => evaluateCondition(job(id).condition, context);
+  const stepRuns = (name) => evaluateCondition(namedStep(name).condition, context);
+  const auto = workflowConditions(workflows.get("auto-update-automerge-prs.yml"))[0].steps.find((step) => step.name === "Update branches and release approval-gated CI");
+  assert.ok(auto);
+  const events = workflowConditions(workflows.get("events-fallback-images.yml")).find((j) => j.id === "public-events");
+  return {result, context, runs, stepRuns,
+    update: evaluateCondition(auto.condition, context), eventRoutes: evaluateCondition(events.condition, context)};
+}
+const docsPr = simulation(["docs/audit.md"]);
+const docsPush = simulation(["docs/audit.md"], "push");
+for (const item of [docsPr, docsPush]) {
+  for (const name of ["Install dependencies", "Lint", "Full unit and integration regression", "Bounded PR build and global safety contracts", "Adoption unit/integration suite"]) assert.equal(item.stepRuns(name), false, `Docs must skip ${name}`);
+  for (const id of ["pull-request-e2e", "production-smoke", "directory-e2e", "search-e2e", "admin-events-e2e"]) assert.equal(item.runs(id), false, `Docs must skip ${id}`);
+  assert.equal(item.stepRuns("Fast required-status path"), true);
+  assert.equal(item.update, false);
+}
+const cases = [
+  ["section-css", ["components/events-public.module.css"], false],
+  ["directory-component", ["components/directory-card.tsx"], false],
+  ["shared-hero", ["components/public-visual-system/unified-section-hero.tsx"], false],
+  ["admin-editor", ["components/admin-article-editor.tsx"], false],
+  ["test-script", ["package.json"], false, {packageTestScriptsOnly: true}],
+  ["dependency", ["package-lock.json"], true],
+  ["migration", ["drizzle/0122_entity_image_display_config.sql"], true],
+  ["shared-runtime", ["worker/index.ts"], true],
+  ["cross-domain-762", ["components/event-image.tsx", "components/directory-card.tsx", "components/admin-directory-editor.tsx", "components/help-card.tsx", "drizzle/0122_entity_image_display_config.sql", "package.json"], true],
+  ["CI-YAML-only", [".github/workflows/playwright-e2e.yml"], false],
+  ["unknown-push-range", [], true],
+];
+for (const [label, files, full, options] of cases) for (const event of ["pull_request", "push"]) {
+  const item = simulation(files, event, options);
+  assert.equal(item.stepRuns("Full unit and integration regression"), full, label);
+  assert.equal(item.runs("pull-request-e2e"), full, label);
+  assert.equal(item.stepRuns("Install dependencies"), full || item.result.boundedCore, label);
+  assert.equal(item.stepRuns("Bounded PR build and global safety contracts"), item.result.boundedCore, label);
+  assert.equal(item.runs("production-smoke"), event === "push" && productionSmokeRequired(item.result, {eventName:event,ref:"refs/heads/main"}), label);
+}
+for (const file of ["lib/pii-crypto.ts", "lib/partner-auth.ts", "lib/resource-access.ts"]) assert.equal(simulation([file]).stepRuns("Full unit and integration regression"), true, `Security ${file}`);
+assert.equal(simulation(["components/directory-card.tsx"]).runs("directory-e2e"), true);
+const broadDirectory = simulation(["components/directory-card.tsx", "drizzle/test.sql"]);
+assert.equal(broadDirectory.runs("directory-e2e"), false);
+assert.equal(broadDirectory.eventRoutes, false);
+const failedBroad = simulation(["package-lock.json"], "pull_request", {validateResult:"failure"});
+assert.equal(failedBroad.stepRuns("Full unit and integration regression"), true);
+assert.equal(failedBroad.runs("pull-request-e2e"), false, "A failing validation must not be bypassed");
+for (const event of ["schedule", "workflow_dispatch"]) {
+  const resolved = resolveChangedFiles({eventName:event});
+  const item = simulation(resolved.files, event);
+  assert.equal(item.stepRuns("Full unit and integration regression"), true);
+  assert.equal(item.runs("pull-request-e2e"), true);
+  assert.equal(item.runs("production-smoke"), true);
+  assert.equal(item.update, true);
+  assert.equal(item.eventRoutes, event === "workflow_dispatch");
+}
+assert.equal(productionSmokeRequired(classifyChangedFiles(["components/event-card.tsx"]), {eventName:"push",ref:"refs/heads/topic"}), false);
+
+// Actual disposable Git histories cover squash, merge commit, multi-commit push,
+// missing/shallow commits, zero revisions and a divergent force-push.
+const history = mkdtempSync(join(tmpdir(), "ci-scope-history-"));
+try {
+  const git = (args) => execFileSync("git", args, {cwd:history,encoding:"utf8",stdio:["ignore","pipe","pipe"]});
+  git(["init", "-b", "main"]); git(["config", "user.name", "Scope Test"]); git(["config", "user.email", "scope@example.invalid"]);
+  const commit = (file) => { writeFileSync(join(history,file),file);git(["add", file]);git(["commit", "-m", file]);return git(["rev-parse","HEAD"]).trim(); };
+  const base = commit("README.md");
+  const squash = commit("AUDIT.md");
+  assert.equal(classifyChangedFiles(resolveChangedFiles({eventName:"push",baseSha:base,headSha:squash,git}).files).docsOnly, true);
+  const runtime = commit("runtime.ts"); const head = commit("NEXT.md");
+  assert.deepEqual(resolveChangedFiles({eventName:"push",baseSha:base,headSha:head,git}).files, ["AUDIT.md","NEXT.md","runtime.ts"]);
+  git(["checkout","-b","docs",head]);commit("MERGE.md");git(["checkout","main"]);git(["merge","--no-ff","docs","-m","merge docs"]);
+  const merged = git(["rev-parse","HEAD"]).trim();
+  assert.deepEqual(resolveChangedFiles({eventName:"push",baseSha:head,headSha:merged,git}).files,["MERGE.md"]);
+  for (const before of [undefined,"0".repeat(40),"bad-sha","f".repeat(40)]) {
+    const range = resolveChangedFiles({eventName:"push",baseSha:before,headSha:head,git});
+    assert.equal(range.trusted,false);assert.equal(classifyChangedFiles(range.files).fullCore,true);
+  }
+  git(["checkout","-b","diverged",base]);const diverged=commit("FORCE.md");
+  assert.equal(resolveChangedFiles({eventName:"push",baseSha:runtime,headSha:diverged,git}).trusted,false);
+  assert.equal(resolveChangedFiles({eventName:"pull_request",baseSha:runtime,headSha:diverged,git}).trusted,true);
+  assert.equal(resolveChangedFiles({eventName:"push",baseSha:base,headSha:head,git:()=>{throw new Error("shallow checkout");}}).trusted,false);
+} finally { rmSync(history,{recursive:true,force:true}); }
+
+// Guard reuse and exact E2E ownership, not merely the scope boolean.
+assert.ok(!job("pull-request-e2e").block.includes("run: npm run build"));
+assert.ok(job("pull-request-e2e").block.includes("actions/download-artifact@v4"));
+assert.ok(job("pull-request-e2e").block.includes('test "$(cat ci-build-revision.txt)" = "$(git rev-parse HEAD)"'));
+assert.ok(job("validate").block.includes("actions/upload-artifact@v4"));
+assert.ok(job("validate").block.includes("include-hidden-files: true"));
+for (const spec of ["admin-directory-filters", "services-detail-shell", "services-search-layout", "events-hero-search", "events-calendar-redesign", "events-listing-redesign"]) assert.ok(job("pull-request-e2e").block.includes(`tests/e2e/${spec}.spec.ts`), `Full E2E must retain ${spec}`);
+const autoSource = workflows.get("auto-update-automerge-prs.yml");
+for (const protection of ["expected_head_sha", "action_required", "/approve", "auto_merge", "dirty)", "workflow_dispatch:"]) assert.ok(autoSource.includes(protection));
+
+
+assert.equal(simulation(["components/public-visual-system/unified-section-hero.tsx"]).stepRuns("Shared visual contracts"), true);
+assert.equal(simulation(["components/admin-article-editor.tsx"]).stepRuns("Shared visual contracts"), false);
+for (const id of ["search-e2e", "directory-e2e"]) {
+  assert.ok(!job(id).block.includes("run: npm run build"), `${id} must reuse its required build`);
+  assert.ok(job(id).block.includes("actions/download-artifact@v4"));
+  assert.ok(job(id).block.includes("npm run validate:deploy-artifact"));
+}
+assert.equal(simulation(["components/directory-card.tsx"]).stepRuns("Upload validated build for this run"), true);
+assert.equal(docsPush.stepRuns("Upload validated build for this run"), false);
+
+for (const id of ["pull-request-e2e", "search-e2e", "directory-e2e"]) assert.ok(job(id).block.includes("Validated build fingerprint mismatch"));
+
+for (const event of ["pull_request", "push", "schedule", "workflow_dispatch"]) {
+  const item = simulation(["docs/audit.md"], event);
+  assert.equal(item.runs("pr-scope"), true, "Scope detection must run for every supported event");
+  assert.equal(item.stepRuns("Resolve required-check scope"), true);
+}
+assert.ok(job("pr-scope").block.includes("github.event.before"));
+assert.ok(job("validate").block.includes("github.event.before"));
+assert.ok(autoSource.includes("github.event.before"));
+
+
+assert.equal(simulation(["app/README.md"], "push").runs("production-smoke"), false);
+for (const file of ["public/robots.txt", "app/page.mdx"]) {
+  const item = simulation([file], "push");
+  assert.equal(item.result.docsOnly, false, `${file} is product source`);
+  assert.equal(item.runs("production-smoke"), true);
+  assert.equal(item.stepRuns("Install dependencies"), true);
+}
+
+
+const failedPush = simulation(["worker/index.ts"], "push", {validateResult:"failure"});
+assert.equal(failedPush.runs("production-smoke"), false);
+assert.equal(failedPush.runs("pull-request-e2e"), false);
+console.log("HARDENING-3 PASS: 14 required scenarios, actual YAML job/step conditions, production/manual/schedule, security, artifact/E2E ownership and real Git range failures.");
