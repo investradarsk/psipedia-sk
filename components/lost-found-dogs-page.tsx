@@ -110,7 +110,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
 
       <div className={styles.summary}><h2>{dogReportTypeLabel(type)}</h2><p>{result.total} aktívnych hlásení</p></div>
       {result.items.length ? <div className={styles.grid}>{result.items.map((report) => <article className={styles.card} key={report.id}>
-        <div className={styles.visual}>{report.mainImage ? <ImageDisplay context="thumbnail" config={report.thumbnailImageDisplay} src={report.mainImage} alt={report.dogName ? dogReportTypeShortLabel(type) + " pes " + report.dogName : dogReportTypeLabel(type)} loading="lazy" decoding="async" /> : <span className={styles.visualFallback} aria-hidden="true"><PawMark size={38} /></span>}</div>
+        <div className={styles.visual}>{report.mainImage ? <ImageDisplay roleHint="generic" context="thumbnail" config={report.thumbnailImageDisplay} src={report.mainImage} alt={report.dogName ? dogReportTypeShortLabel(type) + " pes " + report.dogName : dogReportTypeLabel(type)} loading="lazy" decoding="async" /> : <span className={styles.visualFallback} aria-hidden="true"><PawMark size={38} /></span>}</div>
         <div className={styles.cardBody}><div className={styles.badges}><span className={[styles.badge, type === "LOST" ? styles.lost : styles.found].join(" ")}>{dogReportTypeLabel(type)}</span>{report.breed && <span className={styles.badge}>{report.breed}</span>}</div>
           <h3>{report.dogName || report.breed || "Pes bez známeho mena"}</h3>
           <div className={styles.meta}>
