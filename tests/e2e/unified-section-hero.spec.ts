@@ -304,7 +304,7 @@ test("GLOBAL-HERO-UNIFY long veterinarian heading remains visible at 200% text s
   const response = await page.goto("/adresar/veterinari", { waitUntil: "domcontentloaded" });
   expect(response?.status()).toBe(200);
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
-  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(async () => { await document.fonts.ready; });
   const geometry = await page.evaluate(() => {
     const visual = document.querySelector<HTMLElement>("[data-unified-section-hero-visual]")!.getBoundingClientRect();
     const title = document.querySelector<HTMLElement>("[data-section-hero-title]")!.getBoundingClientRect();
@@ -317,6 +317,8 @@ test("GLOBAL-HERO-UNIFY long veterinarian heading remains visible at 200% text s
   expect(geometry.overflow, "200% text reflow must not create horizontal overflow").toBeLessThanOrEqual(1);
   expect(geometry.titleBottom, "heading must not be clipped").toBeLessThanOrEqual(geometry.visualBottom + 1);
   expect(geometry.introBottom, "intro must not be clipped").toBeLessThanOrEqual(geometry.visualBottom + 1);
+  mkdirSync(ARTIFACT_DIR, { recursive: true });
+  await page.locator("[data-unified-section-hero]").screenshot({ path: join(ARTIFACT_DIR, "veterinari-text-200.png") });
 });
 
 test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async ({ page }) => {
