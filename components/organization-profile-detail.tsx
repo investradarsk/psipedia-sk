@@ -54,6 +54,7 @@ function OrganizationAdoptionCard({ adoption }: { adoption: OrganizationPublicAd
         name={adoption.name}
         status={adoption.status}
         mainImage={adoption.mainImage}
+        imageConfig={adoption.thumbnailImageDisplay}
       />
       <div className={styles.adoptionCardBody}>
         {adoption.city ? <p className={styles.adoptionLocation}>{adoption.city}</p> : null}
