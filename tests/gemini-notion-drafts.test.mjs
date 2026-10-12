@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   getGeminiDirectoryDraft, listGeminiDirectoryDrafts,
-  approveGeminiDirectoryDraft, GeminiNotionReviewError,
+  approveGeminiDirectoryDraft, saveGeminiDirectoryDraft, GeminiNotionReviewError,
   GEMINI_NOTION_CREATOR,
 } from "../lib/gemini-notion-directory-review.ts";
 
@@ -17,6 +17,7 @@ function page(overrides = {}) {
     id, url: "https://www.notion.so/" + id.replaceAll("-", ""),
     parent: { type: "data_source_id", data_source_id: ds },
     created_time: "2026-10-12T20:07:00Z",
+    last_edited_time: "2026-10-12T20:44:28Z",
     properties: {
       "Názov": { type: "title", title: [{ plain_text: "AmyVet" }] },
       "Kategória": text("veterinari"),
@@ -119,4 +120,100 @@ test("only directory catalog keys are valid and new worker tags its drafts", asy
   assert.match(screen, /<AdminGeminiNotionDrafts stableKey=\{setting.stableKey\}/);
   const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   assert.match(sync, /status: desired\.status === "published" \? "published" : "draft"/);
+});
+
+
+const fullDraftInput = {
+  lastEditedAt: "2026-10-12T20:44:28Z",
+  name: "AmyVet – veterinárna klinika Sereď",
+  slug: "amyvet-sered",
+  category: "veterinari",
+  excerpt: "Upravený krátky text",
+  description: "Upravený obsah\\nDruhý odsek",
+  services: ["Vakcinácia", "Chirurgia"],
+  qualifications: ["MVDr."],
+  region: "Trnavský kraj", district: "Galanta", city: "Sereď",
+  address: "Starý Most 3075/13", postalCode: "926 01",
+  street: "Starý Most", houseNumber: "3075/13", addressFormat: "STREET",
+  priceNote: "", websiteUrl: "https://www.amyvet.sk",
+  publicPhone: "+421 914 434 141", publicEmail: "info@amyvet.sk",
+  facebookUrl: "", instagramUrl: "", internalEmail: "",
+  imageUrl: "", imageKey: "", logoUrl: "https://www.amyvet.sk/logo.png",
+  qualityResolutions: { phone: "", email: "", website: "", image: "", address: "" },
+  verified: false, featured: false,
+  seo: { title: "AmyVet", description: "Veterinárna klinika", focusKeyword: "veterinár Sereď",
+    canonicalUrl: "", ogTitle: "", ogDescription: "", ogImage: "", noindex: false },
+};
+
+test("full directory editor saves Notion-only draft without changing publication or identity", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  let lastEditedTime = "2026-10-12T20:44:28Z";
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    if (init.method === "PATCH") {
+      lastEditedTime = "2026-10-12T23:20:00Z";
+      return json(page());
+    }
+    return json({ ...page(), last_edited_time: lastEditedTime });
+  };
+  try {
+    const result = await saveGeminiDirectoryDraft(env, id, fullDraftInput);
+    assert.equal(result.name, "AmyVet");
+    assert.equal(result.lastEditedAt, "2026-10-12T23:20:00Z");
+    assert.equal(calls.length, 3);
+    assert.match(calls[1].url, new RegExp("/pages/" + id + "$"));
+    const patch = JSON.parse(calls[1].init.body).properties;
+    assert.equal(patch["Názov"].title[0].text.content, fullDraftInput.name);
+    assert.equal(patch["E-mail"].email, "info@amyvet.sk");
+    assert.equal(patch["Telefón"].phone_number, "+421 914 434 141");
+    assert.equal(patch["Logo URL"].url, "https://www.amyvet.sk/logo.png");
+    assert.equal(patch["Adresa"].rich_text[0].text.content, "Starý Most 3075/13");
+    assert.equal(patch["SEO title"].rich_text[0].text.content, "AmyVet");
+    assert.equal(patch["Služby"].rich_text[0].text.content, "Vakcinácia\\nChirurgia");
+    for (const forbidden of ["Stav", "Psipedia stav", "Psipedia ID", "Vytvoril", "Sync hash"]) {
+      assert.ok(!(forbidden in patch), "Draft edit must not write " + forbidden);
+    }
+    assert.equal(result.psipediaStatus, "Koncept");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("stale Notion drafts and foreign records cannot be modified", async () => {
+  const originalFetch = globalThis.fetch;
+  for (const props of [
+    { "Vytvoril": text("Redaktor") },
+    { "Psipedia ID": text("123") },
+    { "Psipedia stav": select("Publikované") },
+  ]) {
+    let patches = 0;
+    globalThis.fetch = async (_url, init = {}) => {
+      if (init.method === "PATCH") patches++;
+      return json(page(props));
+    };
+    try {
+      await assert.rejects(saveGeminiDirectoryDraft(env, id, fullDraftInput),
+        (error) => error instanceof GeminiNotionReviewError);
+      assert.equal(patches, 0);
+    } finally { globalThis.fetch = originalFetch; }
+  }
+  let patches = 0;
+  globalThis.fetch = async (_url, init = {}) => {
+    if (init.method === "PATCH") patches++;
+    return json({ ...page(), last_edited_time: "2026-10-12T23:30:00Z" });
+  };
+  try {
+    await assert.rejects(saveGeminiDirectoryDraft(env, id, fullDraftInput), { code: "CONFLICT" });
+    assert.equal(patches, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("Gemini concept modal uses the existing directory editor and keeps publication deliberate", () => {
+  const list = readFileSync(new URL("../components/admin-gemini-notion-drafts.tsx", import.meta.url), "utf8");
+  const editor = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/admin/gemini-automation/notion-drafts/[id]/route.ts", import.meta.url), "utf8");
+  assert.match(list, /<AdminModalDialog/);
+  assert.match(list, /<AdminDirectoryEditor/);
+  assert.match(editor, /if \(notionDraft && !publishConfirming\)/);
+  assert.match(editor, /method: "PUT"/);
+  assert.match(route, /requireAdminMutation\(request\)/);
 });
