@@ -19,7 +19,20 @@ test("admin can persist only supported fitting modes", () => {
   assert.throws(() => normalizeSmartImageMode("bad"), /nie je platný/);
 });
 test("homepage, events, directory and help use smart cards", () => {
-  for(const f of ["app/page.tsx","components/event-card.tsx","components/event-detail.tsx","components/directory-card.tsx","components/help-card.tsx"]) assert.ok(read(f).includes("<SmartCardImage"),f);
+  for (const path of ["app/page.tsx", "components/directory-card.tsx", "components/help-card.tsx"]) {
+    assert.ok(read(path).includes("<SmartCardImage"), path);
+  }
+  // EventImage wraps SmartCardImage for a real photo, and renders a category
+  // fallback when the event has no image. Both paths preserve the crop control.
+  for (const path of ["components/event-card.tsx", "components/event-detail.tsx"]) {
+    const source = read(path);
+    if (source.includes("<EventImage")) {
+      assert.match(source, /<EventImage[^>]*mode=\{event\.imageDisplay\}/, path);
+      assert.match(read("components/event-image.tsx"), /real \? <SmartCardImage/);
+    } else {
+      assert.match(source, /<SmartCardImage[^>]*mode=\{event\.imageDisplay\}/, path);
+    }
+  }
   assert.ok(read("app/page.tsx").includes("mode={event.imageDisplay}"));
 });
 test("manual override roundtrip and migration default", () => {

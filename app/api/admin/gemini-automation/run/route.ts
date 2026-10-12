@@ -5,6 +5,7 @@ import {
   GeminiPilotGuardError, parseGeminiDirectoryRunBody, runGeminiDirectoryCategory,
 } from "@/lib/gemini-automation-pilot";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import { dispatchExternalGemini, externalAgentEnabled, ExternalAgentError } from "@/lib/gemini-external-agent";
 import {enqueueGeminiManualBackgroundJob,geminiManualBackgroundEnabled,GeminiQueueGuardError} from "@/lib/gemini-automation-background-queue";
 import { parseGeminiEventRunBody, runGeminiEventCategory } from "@/lib/gemini-automation-event-runner";
 import type { NotionEventsHelpSyncBindings } from "@/lib/notion-events-help-sync";
@@ -28,6 +29,12 @@ export async function POST(request: Request) {
     const catalog = typeof key === "string" ? getGeminiCatalogItem(key) : null;
     if (!catalog) throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
     const database = requireGeminiAdminD1() as D1Database;
+    if (externalAgentEnabled(env)) {
+      const queued = await dispatchExternalGemini({
+        db: database, env, stableKey: key as string, trigger: "MANUAL",
+      });
+      return Response.json(queued, { status: 202, headers: NO_STORE });
+    }
     if (geminiManualBackgroundEnabled(env as unknown as {GEMINI_ASYNC_MANUAL_ENABLED?:string})) {
       const queued=await enqueueGeminiManualBackgroundJob({
         database,
@@ -53,6 +60,21 @@ export async function POST(request: Request) {
     }
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
+    if (error instanceof ExternalAgentError) {
+      const messages = {
+        DISABLED: "Externý Gemini pracovník nie je zapnutý.",
+        CONFIG: "Chýba bezpečná konfigurácia GitHub Actions alebo callbacku.",
+        CATEGORY: "Neznáma podkategória.",
+        SETTING: "Najprv ulož nastavenia podkategórie.",
+        LIMIT: "Maximálny počet konceptov musí byť väčší než nula.",
+        BUDGET: "Mesačný limit 10 Gemini úloh bol dosiahnutý. Automatické platené spustenie je zablokované.",
+        BUSY: "Ďalšia Gemini úloha už beží. Najprv skontroluj jej výsledok.",
+        DISPATCH: "Spustenie na GitHube nie je potvrdené. Pred opakovaním over úlohu v histórii.",
+      };
+      return Response.json({ error: messages[error.code], code: "EXTERNAL_" + error.code }, {
+        status: error.code === "CATEGORY" ? 400 : 409, headers: NO_STORE,
+      });
+    }
     if (error instanceof GeminiPilotGuardError || error instanceof GeminiQueueGuardError) {
       const messages = {
         PILOT_INVALID_SCOPE: "Manuálne spustenie je povolené len pre existujúce kategórie Adresára a Podujatí.",
