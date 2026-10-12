@@ -60,3 +60,26 @@
 .notionDraftList strong { font-size: .9rem; color: #163c2c; }
 .notionDraftList span { color: #52675c; font-size: .8rem; }
 .notionDraftList a { color: #174b38; font-size: .86rem; font-weight: 700; }
+
+.notionDraftList .notionOpenDraft {
+  border: 0;
+  background: transparent;
+  color: #174b38;
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  padding: 6px 0;
+}
+.notionDraftList .notionOpenDraft:hover { text-decoration: underline; }
+.notionDraftList .notionOpenDraft:focus-visible { outline: 3px solid #f0bc58; outline-offset: 3px; }
+.notionEditorDialog {
+  width: min(1180px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+@media (max-width: 620px) {
+  .notionEditorDialog { width: calc(100vw - 12px); max-width: calc(100vw - 12px); max-height: calc(100dvh - 12px); }
+}

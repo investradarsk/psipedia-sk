@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
+import { AdminModalDialog } from "@/components/admin-interaction-system";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import styles from "./admin-gemini-automation.module.css";
 
@@ -11,6 +12,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedDraft, setSelectedDraft] = useState<GeminiDirectoryDraft | null>(null);
 
   async function load() {
     if (loading) return;
@@ -64,9 +66,9 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
                       <span>{[draft.city, draft.editorialState === "Publikované"
                         ? "Čaká na synchronizáciu" : "Na kontrolu"].filter(Boolean).join(" · ")}</span>
                     </div>
-                    <Link href={"/admin/automatizacie-gemini/notion-koncepty/" + draft.id}>
-                      Otvoriť →
-                    </Link>
+                    <button type="button" className={styles.notionOpenDraft} onClick={() => setSelectedDraft(draft)}>
+                      Otvoriť editor →
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -74,6 +76,21 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
           )}
         </div>
       )}
+      <AdminModalDialog
+        open={Boolean(selectedDraft)}
+        title={selectedDraft ? "Upraviť profil · " + selectedDraft.name : "Koncept Gemini"}
+        description="Plnohodnotný editor Adresára. Uloženie upraví originálny Notion koncept; bez potvrdenia nebude verejný."
+        onClose={() => setSelectedDraft(null)}
+        className={styles.notionEditorDialog}
+      >
+        {selectedDraft && (
+          <AdminDirectoryEditor
+            key={selectedDraft.id}
+            notionDraft={selectedDraft}
+            onNotionSaved={() => { setSelectedDraft(null); void load(); }}
+          />
+        )}
+      </AdminModalDialog>
     </section>
   );
 }
