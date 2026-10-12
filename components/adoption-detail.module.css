@@ -5,3 +5,6 @@
 .detailGallery img {
   border-radius: 0;
 }
+
+/* IMAGE-EDITOR-3: auto/natural detail preserves portrait proportions. */
+.detailVisual:has([data-image-display="natural"]) { aspect-ratio: auto; overflow: visible; background: transparent; }
