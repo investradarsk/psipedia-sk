@@ -170,7 +170,7 @@ test("full directory editor saves Notion-only draft without changing publication
     assert.equal(patch["Logo URL"].url, "https://www.amyvet.sk/logo.png");
     assert.equal(patch["Adresa"].rich_text[0].text.content, "Starý Most 3075/13");
     assert.equal(patch["SEO title"].rich_text[0].text.content, "AmyVet");
-    assert.equal(patch["Služby"].rich_text[0].text.content, "Vakcinácia\\nChirurgia");
+    assert.equal(patch["Služby"].rich_text[0].text.content, "Vakcinácia\nChirurgia");
     for (const forbidden of ["Stav", "Psipedia stav", "Psipedia ID", "Vytvoril", "Sync hash"]) {
       assert.ok(!(forbidden in patch), "Draft edit must not write " + forbidden);
     }
