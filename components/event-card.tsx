@@ -72,7 +72,7 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
       </time>
 
       <span className={styles.cardMedia} aria-hidden="true">
-        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} sizes="(max-width: 520px) 68px, (max-width: 760px) 82px, 128px" alt="" loading="lazy" decoding="async" />
+        <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} config={event.thumbnailImageDisplay} sizes="(max-width: 520px) 68px, (max-width: 760px) 82px, 128px" alt="" loading="lazy" decoding="async" />
       </span>
 
       <div className={styles.cardBody}>
