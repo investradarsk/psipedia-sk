@@ -142,7 +142,7 @@ const legacyDirectoryCategories = [
 
 export const allDirectoryCategories = [...directoryCategories, ...legacyDirectoryCategories] as const;
 export type DirectoryCategorySlug = (typeof allDirectoryCategories)[number]["slug"];
-import type { ImageDisplayConfig } from "./image-display";
+import type { ImageDisplayConfig } from "./image-display.ts";
 
 export type DirectoryProfileStatus = "draft" | "published" | "archived";
 export type DirectoryInquiryStatus = "new" | "read" | "resolved";
