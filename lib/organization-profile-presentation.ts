@@ -1,5 +1,5 @@
 import type { PublicHelpOrganization } from "./help-organization-store.ts";
-import type { ImageDisplayConfig } from "./image-display";
+import type { ImageDisplayConfig } from "./image-display.ts";
 import { validateFundraisingUrl } from "./organization-fundraising-contract.ts";
 import type { PublicOrganizationFundraisingMethod } from "./organization-fundraising-public.ts";
 
