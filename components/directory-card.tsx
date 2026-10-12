@@ -21,7 +21,7 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
     >
       <span className={`${styles.cardInner}${profile.imageUrl ? ` ${styles.cardWithImage}` : ""}`}>
         {profile.imageUrl && (
-          <span className={styles.cardImage}><ImageDisplay context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /></span>
+          <span className={styles.cardImage}><ImageDisplay roleHint="generic" context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /></span>
         )}
         <span className={styles.cardCopy}>
           <span className={styles.cardTopline}>
