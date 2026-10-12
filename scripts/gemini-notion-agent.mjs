@@ -5,6 +5,7 @@
  */
 import { createHmac } from "node:crypto";
 import { notionCategoryValue } from "./gemini-notion-category.mjs";
+import { directoryProfileValues, hasMinimumVeterinarianContact } from "./gemini-notion-directory-fields.mjs";
 
 const env = process.env;
 const jobId = Number(env.AGENT_JOB_ID);
@@ -107,6 +108,8 @@ function chooseProperty(schema, value) {
     try { return new URL(value).protocol === "https:" ? { url: value } : null; }
     catch { return null; }
   }
+  if (schema.type === "email") return { email: value };
+  if (schema.type === "phone_number") return { phone_number: value };
   if (schema.type === "select") {
     const match = (schema.select?.options ?? []).find((x) => normalize(x.name) === normalize(value));
     if (match) return { select: { name: match.name } };
@@ -173,6 +176,7 @@ async function createDraft(args, snapshot, target) {
     "Miesto": trim(args.venue, 200),
     "Začiatok": trim(args.start_date, 10),
     "Kontakt": trim(args.contact, 300),
+    ...(target.section === "directory" ? directoryProfileValues(args) : {}),
   };
   const properties = {};
   for (const [key, value] of Object.entries(values)) {
@@ -183,6 +187,12 @@ async function createDraft(args, snapshot, target) {
   const categoryField = target.section === "events" ? "Typ podujatia" : "Kategória";
   if (snapshot.properties[categoryField] && !properties[categoryField]) {
     return { status: "rejected", reason: "notion_category_option_missing" };
+  }
+  // Require usable, directly verified contact details for veterinarians.
+  // Otherwise the agent would create another nearly empty profile.
+  if (target.section === "directory" && target.subcategory === "veterinari" &&
+      !hasMinimumVeterinarianContact(properties)) {
+    return { status: "rejected", reason: "insufficient_verified_contact_details" };
   }
   // Keep an evidence URL even when a source URL property is absent.
   if (!properties["Zdroj dát"] && !properties["Zdroj URL"] &&
@@ -229,6 +239,21 @@ const tools = [
         venue: { type: "string" },
         start_date: { type: "string", description: "Event date YYYY-MM-DD, if verified." },
         contact: { type: "string" },
+        phone: { type: "string", description: "Verified public business phone from primary source (e.g. +421...). Never guess." },
+        email: { type: "string", description: "Verified public business email. No personal/internal emails." },
+        address: { type: "string", description: "Verified full public visitor address, including street and house number where available." },
+        street: { type: "string" },
+        house_number: { type: "string" },
+        postal_code: { type: "string" },
+        district: { type: "string" },
+        region: { type: "string" },
+        facebook_url: { type: "string", description: "Verified official Facebook profile URL." },
+        instagram_url: { type: "string", description: "Verified official Instagram profile URL." },
+        services: { type: "string", description: "Specific publicly evidenced business services." },
+        qualifications: { type: "string", description: "Only publicly evidenced qualifications/certifications." },
+        logo_url: { type: "string", description: "Direct HTTPS link to the official organisation logo image file on its own website, ending .png/.jpg/.jpeg/.webp/.gif/.svg. Not a page or Google image URL. Leave empty if unverified." },
+        image_url: { type: "string", description: "Direct HTTPS link to an official cover photograph image file on organisation website; not a search result or page." },
+        image_alt: { type: "string", description: "Truthful alt text for the verified cover photo." },
       }, required: ["name", "source_url"],
     },
   },
@@ -263,6 +288,13 @@ async function runAgent() {
     "NAJPRV zavolaj search_notion a skontroluj aktuálne záznamy. " +
     "Potom používaj Google Search na získanie aktuálnych verejných dôkazov. " +
     "Každú položku over z dôveryhodného primárneho zdroja, nevymýšľaj údaje. " +
+    "Pri firemných profiloch cielene otvor oficiálny web aj podstránku Kontakt: over telefón, e-mail, " +
+    "ulicu, číslo domu, PSČ, okres, kraj, služby, sociálne siete a kvalifikácie. " +
+    "Nájdi aj priamu HTTPS URL oficiálneho loga a vhodnej titulnej fotografie na doméne prevádzky. " +
+    "Logo a fotografie nikdy nevymýšľaj a nepreberaj neoverené obrázky z cudzích stránok. " +
+    "Ak sa niektorý údaj nedá overiť, nechaj ho prázdny. " +
+    "Pre veterinára vytvor koncept iba vtedy, ak sú overené aspoň dva kontaktné/adresné údaje " +
+    "(telefón, verejný e-mail, úplná adresa). Inak hľadaj ďalej. " +
     "Nové a dostatočne doložené položky zapisuj výhradne cez create_notion_draft. " +
     "Ak nevieš overiť zdroj alebo je možná duplicita, nezapisuj. " +
     "Žiadne publikovanie. Koniec po dosiahnutí limitu alebo vyčerpaní vierohodných výsledkov.";
