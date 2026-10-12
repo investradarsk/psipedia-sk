@@ -16,6 +16,7 @@ type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "onLoad"> & {
   focusX?: number | null;
   focusY?: number | null;
   onResolvedFit?: (fit: SmartImageFit) => void;
+  onImageDimensions?: (size: { width: number; height: number; frameRatio: number }) => void;
 };
 
 /** Inspect a small canvas sample. Cross-origin images without CORS use dimension-based fallback. */
@@ -50,6 +51,7 @@ export function SmartCardImage({
   focusX = null,
   focusY = null,
   onResolvedFit,
+  onImageDimensions,
   src,
   style,
   ...rest
@@ -57,7 +59,9 @@ export function SmartCardImage({
   const [analyzed, setAnalyzed] = useState<{ src: string; fit: SmartImageFit } | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const resolvedFitCallback = useRef(onResolvedFit);
+  const dimensionsCallback = useRef(onImageDimensions);
   useEffect(() => { resolvedFitCallback.current = onResolvedFit; }, [onResolvedFit]);
+  useEffect(() => { dimensionsCallback.current = onImageDimensions; }, [onImageDimensions]);
   const key = typeof src === "string" ? src : "";
   const initialFit: SmartImageFit = roleHint === "article" ? "cover" : "contain";
   const fit: SmartImageFit = mode !== "auto" ? mode : analyzed?.src === key ? analyzed.fit : initialFit;
@@ -67,11 +71,13 @@ export function SmartCardImage({
   };
 
   function resolveLoadedImage(image: HTMLImageElement) {
-    if (mode !== "auto" || !image.naturalWidth || !image.naturalHeight) return;
+    if (!image.naturalWidth || !image.naturalHeight) return;
     const sourceRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
     const parent = image.parentElement;
     const slotRatio = parent && parent.clientHeight > 0
       ? parent.clientWidth / parent.clientHeight : 16 / 9;
+    dimensionsCallback.current?.({ width: image.naturalWidth, height: image.naturalHeight, frameRatio: slotRatio });
+    if (mode !== "auto") return;
     const nextFit = inferSmartImageFit({
       width: image.naturalWidth,
       height: image.naturalHeight,
