@@ -126,7 +126,7 @@ export default async function AdminGeminiAutomationPage() {
         </p>
       )}
       {externalEnabled
-        ? <p>Nové externé koncepty sú uložené priamo v Notione; počty nájdeš nižšie v histórii behov.</p>
+        ? <p>Nové externé koncepty služieb nájdeš priamo pod kartami jednotlivých kategórií. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
         : <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>}
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} externalEnabled={externalEnabled} />
       {showQueue && <GeminiQueueHistory jobs={queuedJobs} />}

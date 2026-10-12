@@ -12,6 +12,9 @@ on:
       - "components/admin-navigation.tsx"
       - "lib/gemini-automation-*.ts"
       - "lib/gemini-external-agent.ts"
+      - "lib/gemini-notion-directory-review.ts"
+      - "components/admin-gemini-notion-*.tsx"
+      - "tests/gemini-notion-drafts.test.mjs"
       - "scripts/gemini-notion-agent.mjs"
       - "app/api/internal/gemini-agent/**"
       - ".github/workflows/gemini-notion-agent.yml"
@@ -56,6 +59,8 @@ jobs:
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
         run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs
+      - name: Notion category review contracts (mocked, no paid calls)
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/notion-directory-sync.test.mjs
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint

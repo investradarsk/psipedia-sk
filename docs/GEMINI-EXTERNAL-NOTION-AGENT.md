@@ -43,3 +43,34 @@ Pevný rozpočtový strop 5 EUR nie je v tomto kóde presne vynútiteľný: po z
 Nastavovanie zostáva na /admin/automatizacie-gemini. GitHub workflow nemá plánovaný trigger, iba workflow_dispatch. Notion koncepty sa môžu existujúcou synchronizáciou dostať do D1, ale nesmú byť automaticky publikované. Oznámenie o výsledku sa ukladá do existujúceho systému admin upozornení a história zobrazuje počty; Notion-origin webhook a odkazy na každú novú stránku nie sú súčasťou tejto fázy. Odoslanie do iPhone push závisí od nastavenia už existujúcej služby administrátorských upozornení.
 
 Pred akoukoľvek aktiváciou: preveriť staré QUEUED/RUNNING joby v 0119; overiť offline testy a build; povoliť iba jeden kontrolovaný manuálny beh s max 1 konceptom; `GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED` musí byť false/unset aj po zapnutí manuálneho režimu; overiť presnú schému Notion, účtovanie a stav histórie. Následná automatizácia vyžaduje osobitné explicitné povolenie druhej poistky. Nemergovať ani nenasadzovať bez schválenia.
+
+
+## Kontrola a publikovanie nových konceptov priamo v administrácii
+
+Nový externý pracovník pri vytvorení **adresárového** profilu v Notione zapíše
+`Vytvoril = Gemini automatizácia`. Tento pôvod slúži ako explicitné označenie
+konceptu a neudeľuje žiadne právo na automatickú publikáciu.
+
+V `/admin/automatizacie-gemini` má každá karta služieb rozbaľovací blok
+**Koncepty z automatizácie**. Jeho obsah sa na požiadanie administrátora
+načíta **priamo z Notion data source** (kategória + pôvod), bez čakania na
+hodinové zrkadlenie do D1. Každá položka otvorí vlastný admin náhľad,
+odkaz na editáciu originálu v Notione a explicitné dvojstupňové potvrdenie
+publikovania. Verejne overiteľné údaje sa nemenia samotným náhľadom.
+
+Tlačidlo publikovania iba nastaví v konkrétnom Notion zázname
+`Stav = Publikované` a `Psipedia stav = Publikované`.
+Až následný hodinový `runNotionDirectorySyncSweep` vytvorí/zmení kanonický
+profil v D1 a na verejnom webe; nie je to okamžité nasadenie, a preto
+rozhranie hlási **Čaká na synchronizáciu**. Neexistuje automatické
+publikovanie pri vytvorení Gemini konceptu. Nové Notion záznamy s
+`Stav = Ready` a `Psipedia stav = Koncept` sa po importovaní do
+adresára ukladajú ako kanonické koncepty, nie ako publikované profily.
+Ručný editor `/admin/adresar/[id]` zostáva kanonickou cestou pre
+ďalšie úpravy po synchronizácii.
+
+Endpointy sú len pre autentifikovaného administrátora; znovu načítajú
+identitu, kategóriu, Notion data source, pôvod a stav konceptu pred
+zápisom. Zmeny metadát, tokeny a vyhľadávanie sú stále oddelené od
+publikovania. Prvé známe testovacie AmyVet bolo manuálne označené
+ako Gemini koncept, bez zmeny jeho nepublikovaného stavu.

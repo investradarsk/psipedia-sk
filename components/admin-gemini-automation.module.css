@@ -45,3 +45,18 @@
 .pilotMetrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin: 8px 0 0; }
 .pilotMetrics dt { color: #65786c; font-size: .8rem; }
 .pilotMetrics dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+
+.notionDrafts { padding-top: 14px; border-top: 1px solid #dbe7df; min-width: 0; }
+.notionDraftsHeader { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.notionDraftsHeader button { background: transparent; border: 0; color: #174b38; font: inherit; font-weight: 700; cursor: pointer; padding: 7px 0; text-align: left; }
+.notionDraftsHeader button:disabled { opacity: .55; cursor: not-allowed; }
+.notionDraftsBody { display: grid; gap: 12px; margin-top: 10px; }
+.notionDraftsBody p { margin: 0; color: #52675c; font-size: .86rem; line-height: 1.5; }
+.notionDraftsBody .notionDraftsError { color: #9c2525; }
+.notionDraftList { padding: 0; margin: 0; list-style: none; display: grid; gap: 8px; }
+.notionDraftList li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; background: #f6f9f7; border: 1px solid #e5ece7; border-radius: 9px; }
+.notionDraftList li div { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.notionDraftList strong { font-size: .9rem; color: #163c2c; }
+.notionDraftList span { color: #52675c; font-size: .8rem; }
+.notionDraftList a { color: #174b38; font-size: .86rem; font-weight: 700; }
