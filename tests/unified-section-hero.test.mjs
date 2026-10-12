@@ -37,16 +37,16 @@ test("one canonical UnifiedSectionHero contract owns the section header", () => 
   assert.match(unified, /<h1 data-section-hero-title>/);
 });
 
-test("desktop keeps the persisted 16:7 crop while using a lower public height", () => {
+test("desktop and mobile preview geometry match the homepage hero", () => {
   assert.match(unifiedCss, /object-position:\s*var\(--section-visual-desktop-x/);
   assert.match(unifiedCss, /--section-visual-desktop-y/);
   assert.match(unifiedCss, /--section-visual-desktop-zoom/);
-  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
+  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_DESKTOP_ASPECT = \[118, 33\]/);
 });
 
 test("canonical hero shell owns landing geometry and mobile edge-to-edge media", () => {
-  assert.match(unifiedCss, /\.shell\s*\{[\s\S]*padding-top:\s*22px[\s\S]*padding-bottom:\s*32px/);
-  assert.match(unifiedCss, /@media \(max-width: 767px\)[\s\S]*\.shell\s*\{[\s\S]*padding-top:\s*14px[\s\S]*padding-bottom:\s*22px/);
+  assert.match(unifiedCss, /\.shell\s*\{[\s\S]*padding-top:\s*18px[\s\S]*padding-bottom:\s*24px/);
+  assert.match(unifiedCss, /@media \(max-width: 620px\)[\s\S]*\.shell\s*\{[\s\S]*padding-top:\s*12px[\s\S]*padding-bottom:\s*22px/);
   assert.match(unifiedCss, /width:\s*100dvw/);
   assert.match(unifiedCss, /border-radius:\s*0/);
   assert.match(unifiedCss, /\.hero \.intro > p\s*\{[\s\S]*margin:\s*0/);
@@ -57,12 +57,12 @@ test("canonical hero shell owns landing geometry and mobile edge-to-edge media",
   }
 });
 
-test("mobile is a standalone low 16:6 media block with no overlay", () => {
-  assert.match(unifiedCss, /@media \(max-width: 767px\)/);
-  assert.match(unifiedCss, /\.copy\s*\{[\s\S]*order:\s*1/);
-  assert.match(unifiedCss, /\.media\s*\{[\s\S]*position:\s*relative[\s\S]*order:\s*2[\s\S]*aspect-ratio:\s*16 \/ 6/);
-  assert.match(unifiedCss, /\.shade\s*\{\s*display:\s*none/);
-  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[16, 6\]/);
+test("mobile overlay uses full-bleed photo, 20px radius and persisted crop", () => {
+  assert.match(unifiedCss, /@media \(max-width: 620px\)/);
+  assert.match(unifiedCss, /width:\s*100dvw/);
+  assert.match(unifiedCss, /border-radius:\s*20px/);
+  assert.match(unifiedCss, /\.copy\s*\{[^}]*justify-content:\s*flex-end/s);
+  assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[65, 53\]/);
 });
 
 test("desktop and mobile independently consume X Y zoom", () => {
@@ -72,10 +72,10 @@ test("desktop and mobile independently consume X Y zoom", () => {
   ]) assert.match(unified + unifiedCss, new RegExp(token));
 });
 
-test("mobile admin preview has no text search CTA safe zone", () => {
-  assert.doesNotMatch(adminVisuals, /styles\.mobileSafeZone/);
+test("mobile preview shows the same text-overlay safe zone as the public hero", () => {
+  assert.match(adminVisuals, /styles\.mobileSafeZone/);
   assert.match(adminVisuals, /mode === "desktop"[\s\S]*styles\.desktopSafeZone/);
-  assert.match(adminVisuals, /mode === "desktop"[\s\S]*"16 : 7"[\s\S]*"16 : 6"/);
+  assert.match(adminVisuals, /mode === "desktop"[\s\S]*"1180 : 330"[\s\S]*"390 : 318"/);
 });
 
 test("main editorial sections use canonical hero and section visual keys", () => {
