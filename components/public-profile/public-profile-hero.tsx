@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { Breadcrumbs } from "@/components/page-system";
+import { ImageDisplay } from "@/components/image-display";
+import type { ImageDisplayConfig } from "@/lib/image-display";
 import styles from "./public-profile.module.css";
 
 export type PublicProfileAction = {
@@ -23,6 +25,7 @@ export function PublicProfileHero({
   location,
   imageUrl,
   imageAlt,
+  imageConfig,
   badges = [],
   actions = [],
 }: {
@@ -33,6 +36,7 @@ export function PublicProfileHero({
   location?: ReactNode;
   imageUrl?: string | null;
   imageAlt?: string;
+  imageConfig?: ImageDisplayConfig | null;
   badges?: PublicProfileBadge[];
   actions?: PublicProfileAction[];
 }) {
@@ -70,7 +74,7 @@ export function PublicProfileHero({
           </div>
           {imageUrl ? (
             <div className={styles.media} data-public-profile-media>
-              <img src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" />
+              <ImageDisplay context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" />
             </div>
           ) : null}
         </div>
