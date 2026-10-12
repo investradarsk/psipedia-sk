@@ -15,7 +15,7 @@ export type { LostFoundStatus };
 
 export type BreedOption = { id: number; name: string; slug: string };
 
-import type { ImageDisplayConfig } from "./image-display";
+import type { ImageDisplayConfig } from "./image-display.ts";
 
 export type PublicDogReport = {
   id: number;
