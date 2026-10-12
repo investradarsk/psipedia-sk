@@ -44,7 +44,8 @@ function createDatabase() {
       status TEXT NOT NULL DEFAULT 'draft', excerpt TEXT NOT NULL, description TEXT NOT NULL,
       services_json TEXT NOT NULL DEFAULT '[]', qualifications_json TEXT NOT NULL DEFAULT '[]', city TEXT NOT NULL,
       district TEXT NOT NULL DEFAULT '', region TEXT NOT NULL, address TEXT NOT NULL DEFAULT '', online INTEGER NOT NULL DEFAULT 0,
-      price_note TEXT NOT NULL DEFAULT '', website_url TEXT, internal_email TEXT, image_url TEXT, image_key TEXT, import_key TEXT,
+      price_note TEXT NOT NULL DEFAULT '', website_url TEXT, internal_email TEXT, image_url TEXT, image_key TEXT,
+      thumbnail_display_json TEXT, detail_display_json TEXT, import_key TEXT,
       source_data_json TEXT NOT NULL DEFAULT '{}', search_text TEXT NOT NULL DEFAULT '', verified INTEGER NOT NULL DEFAULT 0,
       featured INTEGER NOT NULL DEFAULT 0, seo_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       published_at TEXT, archived_at TEXT, created_by TEXT NOT NULL, updated_by TEXT NOT NULL
