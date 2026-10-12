@@ -105,6 +105,8 @@ function createClubDatabase() {
       internal_email TEXT,
       image_url TEXT,
       image_key TEXT,
+      thumbnail_display_json TEXT,
+      detail_display_json TEXT,
       import_key TEXT,
       source_data_json TEXT NOT NULL DEFAULT '{}',
       verified INTEGER NOT NULL DEFAULT 0,
