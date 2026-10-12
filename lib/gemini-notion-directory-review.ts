@@ -48,8 +48,10 @@ type DirectoryQueryResult = {
 };
 
 export class GeminiNotionReviewError extends Error {
-  constructor(public readonly code: "CATEGORY" | "ID" | "NOT_FOUND" | "STATE" | "CONFIG") {
+  readonly code: "CATEGORY" | "ID" | "NOT_FOUND" | "STATE" | "CONFIG";
+  constructor(code: GeminiNotionReviewError["code"]) {
     super(code);
+    this.code = code;
   }
 }
 
