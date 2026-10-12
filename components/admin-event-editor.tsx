@@ -186,7 +186,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Podujatie"} title={title} excerpt={excerpt}
         entityLabel="podujatia" thumbnailAspectRatio="8 / 5" thumbnail={thumbnailImageDisplay ?? legacyArticleThumbnail(imageDisplay)}
-        detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
+        detail={detailImageDisplay ?? {mode: imageDisplay === "contain" ? "blur" : "crop", x:50, y:50, zoom:1}} onCancel={() => setImageEditorOpen(false)}
         onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}
       <div className="admin-editor-actions">
