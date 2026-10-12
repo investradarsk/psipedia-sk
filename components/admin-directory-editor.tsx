@@ -565,7 +565,7 @@ export function AdminDirectoryEditor({ profile, automationSuggestions = [] }: { 
         </aside>
       </div>
 
-      {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={name || "Profil"} title={name} excerpt={excerpt} entityLabel="profilu služby" thumbnailAspectRatio="4 / 3"
+      {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={name || "Profil"} title={name} excerpt={excerpt} entityLabel="profilu služby" thumbnailAspectRatio="1 / 1" thumbnailLayout="compact"
          thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
          onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
       <AdminDrawer
