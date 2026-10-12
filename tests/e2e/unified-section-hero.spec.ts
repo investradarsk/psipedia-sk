@@ -131,6 +131,23 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
               clientWidth: document.documentElement.clientWidth,
             };
           });
+          if (viewport.width === 320 && (route.slug === "steniatka" || route.slug === "novinky")) {
+            const debug = await opened.page.evaluate(() => {
+              const shell = document.querySelector<HTMLElement>("[data-unified-section-hero-shell]")!;
+              const main = shell.closest("main")!;
+              const rect = (element: Element) => {
+                const r = element.getBoundingClientRect();
+                const c = getComputedStyle(element);
+                return { x: r.x, width: r.width, client: element.clientWidth, box: c.boxSizing, cssWidth: c.width, padding: c.padding, className: element.className, max: c.maxWidth };
+              };
+              return {
+                window: {inner: innerWidth, client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth},
+                shell: rect(shell), main: rect(main), body: rect(document.body), html: rect(document.documentElement),
+                parent: rect(shell.parentElement!), token: getComputedStyle(shell).getPropertyValue("--ps-content-max"),
+              };
+            });
+            console.log("[GLOBAL-HERO-GEOMETRY] " + label + " " + JSON.stringify(debug));
+          }
           expect(rootGeometry, label + ": root hero/header geometry").not.toBeNull();
           if (referenceRootHeroOffsetFromHeader === null) referenceRootHeroOffsetFromHeader = rootGeometry!.heroOffsetFromHeader;
           if (referenceRootHeroWidth === null) referenceRootHeroWidth = rootGeometry!.heroWidth;
