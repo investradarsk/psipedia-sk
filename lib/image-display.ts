@@ -13,14 +13,18 @@ export type ImageDisplayConfig = {
   zoom: number;
 };
 
-/** Choose a thumbnail's default from intrinsic dimensions and its actual frame.
- * Uses neither filenames nor additional network/canvas processing.
+/** Choose a thumbnail's default from intrinsic dimensions and actual card geometry.
+ * Reuse the existing small light-background sample to preserve posters/logos.
+ * A missing sample (e.g. cross-origin images without CORS) safely falls back to dimensions.
  */
-export function automaticThumbnailFit(width: number, height: number, frameRatio: number): "cover" | "contain" {
+export function automaticThumbnailFit(
+  width: number, height: number, frameRatio: number, lightBackgroundShare?: number,
+): "cover" | "contain" {
   if (!(width > 0 && height > 0 && frameRatio > 0)) return "cover";
   const sourceRatio = width / height;
   if (sourceRatio < 1 && frameRatio > 1.2) return "contain";
   if (frameRatio / sourceRatio > 1.56 || sourceRatio / frameRatio > 1.82) return "contain";
+  if ((lightBackgroundShare ?? 0) >= 0.4) return "contain";
   return "cover";
 }
 
