@@ -707,6 +707,10 @@ function schemaState(databaseName, configPath) {
   const eventNotionSyncColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('event_notion_sync')");
   const managedEventColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_events')");
   const managedArticleColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('managed_articles')");
+  const helpCaseColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('help_cases')");
+  const helpOrganizationColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('help_organizations')");
+  const adoptionDogColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('adoption_dogs')");
+  const lostFoundDogReportColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('lost_found_dog_reports')");
   const partnerAccountColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('partner_accounts')");
   const partnerSessionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_management_sessions')");
   const partnerAccessTokenColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('resource_access_tokens')");
@@ -736,6 +740,10 @@ function schemaState(databaseName, configPath) {
     eventNotionSyncColumns,
     managedEventColumns,
     managedArticleColumns,
+    helpCaseColumns,
+    helpOrganizationColumns,
+    adoptionDogColumns,
+    lostFoundDogReportColumns,
     partnerAccountColumns,
     partnerSessionColumns,
     partnerAccessTokenColumns,
@@ -784,6 +792,17 @@ function assertFoundationSchema(schema) {
   );
 }
 
+
+const ENTITY_IMAGE_DISPLAY_SCHEMA_TABLES = Object.freeze([
+  ["managed_events", "managedEventColumns"],
+  ["directory_profiles", "columns"],
+  ["help_cases", "helpCaseColumns"],
+  ["help_organizations", "helpOrganizationColumns"],
+  ["adoption_dogs", "adoptionDogColumns"],
+  ["lost_found_dog_reports", "lostFoundDogReportColumns"],
+]);
+
+const ENTITY_IMAGE_DISPLAY_FIELDS = Object.freeze(["thumbnail_display_json", "detail_display_json"]);
 
 export function targetSchemaObjects(schema, targetMigration) {
   const names = objectMap(schema.objects);
@@ -1147,6 +1166,12 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0121_article_image_display_config.sql") {
     return { partial: (schema.managedArticleColumns ?? []).some(column =>
       ["thumbnail_display_json", "detail_display_json"].includes(String(column.name))) };
+  }
+  if (targetMigration === "0122_entity_image_display_config.sql") {
+    return {
+      partial: ENTITY_IMAGE_DISPLAY_SCHEMA_TABLES.some(([, columnsKey]) =>
+        (schema[columnsKey] ?? []).some(column => ENTITY_IMAGE_DISPLAY_FIELDS.includes(String(column.name)))),
+    };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1923,6 +1948,18 @@ function assertArticleImageDisplayConfigSchema(schema) {
   }
 }
 
+export function assertEntityImageDisplaySchema(schema) {
+  for (const [tableName, columnsKey] of ENTITY_IMAGE_DISPLAY_SCHEMA_TABLES) {
+    const columns = schema[columnsKey] ?? [];
+    for (const fieldName of ENTITY_IMAGE_DISPLAY_FIELDS) {
+      const column = columns.find(item => String(item.name) === fieldName);
+      invariant(column, `${tableName}.${fieldName} missing`);
+      invariant(String(column.type).toUpperCase() === "TEXT" && Number(column.notnull) === 0,
+        `${tableName}.${fieldName} must be nullable TEXT`);
+    }
+  }
+}
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -1973,6 +2010,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 119) assertGeminiManualQueueSchema(schema);
   if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
   if (migrationIndex(targetMigration) >= 121) assertArticleImageDisplayConfigSchema(schema);
+  if (migrationIndex(targetMigration) >= 122) assertEntityImageDisplaySchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
