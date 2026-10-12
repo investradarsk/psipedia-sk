@@ -158,7 +158,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       <AdminEditorSection id="organization-media" className="admin-form-card">
         <div className="admin-card-heading"><div><span>04</span><div><h2>Obrázok a zdroj</h2><p>Re-use existujúceho admin image upload backendu; nevzniká nový media systém.</p></div></div></div>
         <div className="admin-upload-row">
-          <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
+          <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
           <div className="admin-upload-actions">
             <label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={editingDisabled || uploading} />{uploading ? "Nahrávam…" : draft.imageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>
             {draft.imageUrl && <AdminActionButton variant="neutral" disabled={editingDisabled || uploading} onClick={() => patch({ imageUrl: null, imageKey: null, thumbnailImageDisplay: null, detailImageDisplay: null })}>Odstrániť obrázok</AdminActionButton>}
