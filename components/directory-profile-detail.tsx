@@ -104,6 +104,7 @@ export function DirectoryProfileDetail({
           {presentation.region ? <span>{presentation.region}</span> : null}
         </> : null}
         imageUrl={presentation.imageUrl}
+        imageConfig={presentation.detailImageDisplay}
         imageAlt={"Fotografia služby " + presentation.name}
         badges={[
           ...(presentation.featured ? [{ label: "Odporúčame", tone: "featured" as const }] : []),
