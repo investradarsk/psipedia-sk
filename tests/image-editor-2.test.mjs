@@ -55,7 +55,7 @@ test("IMAGE-EDITOR-2 six admin editors share the same dialog and persist both co
     assert.match(contents, /thumbnailImageDisplay/, file);
     assert.match(contents, /detailImageDisplay/, file);
     assert.match(contents, /onSave=/, file);
-    assert.match(contents, /Upraviť zobrazenie/, file);
+    assert.match(file.includes("admin-adoption-editor.tsx") ? read("components/admin-adoption-editor-details.tsx") : contents, /Upraviť zobrazenie/, file);
   }
 });
 test("IMAGE-EDITOR-2 public cards and detail components consume the same renderer", () => {
