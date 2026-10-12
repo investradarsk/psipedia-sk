@@ -176,6 +176,7 @@ async function createDraft(args, snapshot, target) {
     "Miesto": trim(args.venue, 200),
     "Začiatok": trim(args.start_date, 10),
     "Kontakt": trim(args.contact, 300),
+    ...(target.section === "directory" ? { "Vytvoril": "Gemini automatizácia" } : {}),
     ...(target.section === "directory" ? directoryProfileValues(args) : {}),
   };
   const properties = {};
