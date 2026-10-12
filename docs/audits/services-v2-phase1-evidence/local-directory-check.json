@@ -1,0 +1,79 @@
+{
+  "before": "c1ca08b7e884b14e95cf6bcf9678ebe1563366cdf0503e2a79eab57cfa3f3320",
+  "after": "c1ca08b7e884b14e95cf6bcf9678ebe1563366cdf0503e2a79eab57cfa3f3320",
+  "unchanged": true,
+  "reports": [
+    {
+      "route": "/adresar",
+      "width": 1440,
+      "status": 200,
+      "file": "local-directory-1-1440.png",
+      "h1": "Služby pre psov",
+      "cards": 0,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar/kynologicke-kluby",
+      "width": 1440,
+      "status": 200,
+      "file": "local-directory-2-1440.png",
+      "h1": "Kynologické kluby",
+      "cards": 24,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar/kynologicke-kluby?page=2",
+      "width": 1440,
+      "status": 200,
+      "file": "local-directory-3-1440.png",
+      "h1": "Kynologické kluby",
+      "cards": 24,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar/kynologicke-kluby/miestny-kynologicky-klub-banska-bystrica-salkova-banska-bystrica",
+      "width": 1440,
+      "status": 200,
+      "file": "local-directory-4-1440.png",
+      "h1": "Miestny kynologický klub Banská Bystrica – Šalková",
+      "cards": 0,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar",
+      "width": 390,
+      "status": 200,
+      "file": "local-directory-1-390.png",
+      "h1": "Služby pre psov",
+      "cards": 0,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar/kynologicke-kluby",
+      "width": 390,
+      "status": 200,
+      "file": "local-directory-2-390.png",
+      "h1": "Kynologické kluby",
+      "cards": 24,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar/kynologicke-kluby?page=2",
+      "width": 390,
+      "status": 200,
+      "file": "local-directory-3-390.png",
+      "h1": "Kynologické kluby",
+      "cards": 24,
+      "overflow": 0
+    },
+    {
+      "route": "/adresar/kynologicke-kluby/miestny-kynologicky-klub-banska-bystrica-salkova-banska-bystrica",
+      "width": 390,
+      "status": 200,
+      "file": "local-directory-4-390.png",
+      "h1": "Miestny kynologický klub Banská Bystrica – Šalková",
+      "cards": 0,
+      "overflow": 0
+    }
+  ]
+}
