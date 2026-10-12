@@ -11,6 +11,7 @@ import {
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
 import { StructuredData } from "@/components/structured-data";
+import { ImageDisplay } from "@/components/image-display";
 import type { AdoptionD1Database } from "@/lib/adoption-store";
 import { listPublishedOrganizationsForHub } from "@/lib/help-organization-store";
 import { buildCollectionPageJsonLd } from "@/lib/listing-seo";
@@ -116,7 +117,7 @@ export default async function OrganizationsHubPage() {
                       <article className={styles.card} key={organization.id} data-organization-hub-card>
                         <Link className={styles.media} href={href} aria-label={`Otvoriť profil organizácie ${organization.name}`}>
                           {organization.imageUrl ? (
-                            <img src={organization.imageUrl} alt="" loading="lazy" decoding="async" />
+                            <ImageDisplay roleHint="generic" context="thumbnail" config={organization.thumbnailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={organization.imageUrl} alt="" loading="lazy" decoding="async" />
                           ) : (
                             <span className={styles.mediaFallback} aria-hidden="true"><PawMark size={36} /></span>
                           )}
