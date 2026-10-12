@@ -1,5 +1,6 @@
 import { adoptionPublicStatuses, type AdoptionPublicStatus } from "./adoption.ts";
 import type { AdoptionD1Database } from "./adoption-store.ts";
+import { readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
 
 export type OrganizationPublicAdoption = {
   id: number;
@@ -11,6 +12,7 @@ export type OrganizationPublicAdoption = {
   organizationSlug: string | null;
   city: string;
   mainImage: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
   publishedAt: string | null;
   updatedAt: string;
 };
@@ -25,6 +27,7 @@ type OrganizationPublicAdoptionRow = {
   organization_slug: string | null;
   city: string;
   main_image: string | null;
+  thumbnail_display_json?: string | null;
   published_at: string | null;
   updated_at: string;
 };
@@ -38,7 +41,7 @@ export function buildOrganizationPublicAdoptionsQuery(organizationId: number, li
   const safeLimit = Math.max(1, Math.min(ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT, Math.trunc(limit) || ORGANIZATION_PUBLIC_ADOPTIONS_LIMIT));
   return {
     sql: `SELECT d.id, d.name, d.slug, d.status, d.organization_id, d.organization_name, d.organization_slug,
-      d.city, d.main_image, d.published_at, d.updated_at
+      d.city, d.main_image, d.thumbnail_display_json, d.published_at, d.updated_at
       FROM adoption_dogs d
       WHERE d.organization_id = ? AND d.status IN (${statusPlaceholders})
       ORDER BY ${ORGANIZATION_PUBLIC_ADOPTIONS_ORDER}
@@ -66,6 +69,7 @@ export async function listPublicAdoptionsByOrganizationId(
     organizationSlug: row.organization_slug,
     city: row.city,
     mainImage: row.main_image,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     publishedAt: row.published_at,
     updatedAt: row.updated_at,
   }));
