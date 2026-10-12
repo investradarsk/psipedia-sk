@@ -434,11 +434,11 @@
 }
 
 .desktopPreview {
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 118 / 33;
 }
 
 .mobilePreview {
-  aspect-ratio: 16 / 6;
+  aspect-ratio: 65 / 53;
 }
 
 .desktopPreview > img,
@@ -679,3 +679,20 @@
     width: 100%;
   }
 }
+
+/* Text-on-photo preview for the actual 390 × 318 mobile layout. */
+.mobileSafeZone {
+  position: absolute;
+  z-index: 2;
+  right: 4%;
+  bottom: 8%;
+  left: 4%;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  color: #fff;
+  background: linear-gradient(0deg, rgba(8, 34, 25, .83), rgba(8, 34, 25, .2));
+  pointer-events: none;
+}
+.mobileSafeZone span { font-size: .66rem; font-weight: 900; letter-spacing: .08em; }
+.mobileSafeZone small { font-size: .65rem; }
