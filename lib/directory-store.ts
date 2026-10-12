@@ -37,6 +37,7 @@ import {
 } from "@/lib/directory-profile-metadata";
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
+import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import {
   directoryAddressFormats,
@@ -75,6 +76,8 @@ export type ManagedDirectoryProfileInput = {
   internalEmail?: string | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   qualityResolutions?: DirectoryQualityResolutionInput;
   qualityCheckedAt?: string;
   verified?: boolean;
@@ -164,6 +167,8 @@ type DirectoryProfileRow = {
   internal_email: string | null;
   image_url: string | null;
   image_key: string | null;
+  thumbnail_display_json?: string | null;
+  detail_display_json?: string | null;
   import_key: string | null;
   source_data_json: string;
   search_text: string;
@@ -443,7 +448,7 @@ function directorySearchText(input: {
 const DIRECTORY_PROFILE_COLUMNS = `
   id, slug, name, category, status, excerpt, description, services_json, qualifications_json,
   city, district, region, address, online, price_note, website_url, internal_email, image_url,
-  image_key, import_key, source_data_json, search_text, verified, featured, seo_json,
+  image_key, thumbnail_display_json, detail_display_json, import_key, source_data_json, search_text, verified, featured, seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
 
@@ -451,6 +456,7 @@ const DIRECTORY_CARD_COLUMNS = `
   id, slug, name, category, status, excerpt, '' AS description, services_json,
   '[]' AS qualifications_json, city, district, region, '' AS address, online,
   price_note, website_url, NULL AS internal_email, image_url, NULL AS image_key,
+  thumbnail_display_json, detail_display_json,
   import_key, '{}' AS source_data_json, search_text, verified, featured, '{}' AS seo_json,
   created_at, updated_at, published_at, archived_at, created_by, updated_by
 `;
@@ -528,6 +534,8 @@ function rowToPublicProfile(row: DirectoryProfileRow): PublicDirectoryProfile {
     priceNote: row.price_note,
     websiteUrl: row.website_url,
     imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     verified: Boolean(row.verified),
     featured: Boolean(row.featured),
     updatedAt: row.updated_at,
@@ -857,6 +865,8 @@ export function normalizeManagedDirectoryProfileInput(
     internalEmail: normalizeEmail(payload.internalEmail),
     imageUrl,
     imageKey: payload.imageKey?.trim() || null,
+    thumbnailImageDisplay: normalizeImageDisplayConfig(payload.thumbnailImageDisplay, "thumbnail"),
+    detailImageDisplay: normalizeImageDisplayConfig(payload.detailImageDisplay, "detail"),
     verified: Boolean(payload.verified),
     featured: Boolean(payload.featured),
     seo: cleanEditableSeo(payload.seo),
@@ -876,14 +886,14 @@ export function buildManagedDirectoryProfileCreateStatement(
 ) {
   const columns = `slug, name, category, status, excerpt, description, services_json, qualifications_json,
     city, district, region, address, postal_code, street, house_number, address_format, service_address_confirmation,
-    online, price_note, website_url, internal_email, image_url, image_key,
+    online, price_note, website_url, internal_email, image_url, image_key, thumbnail_display_json, detail_display_json,
     source_data_json, verified, featured, seo_json, search_text, created_at, updated_at, published_at, created_by, updated_by`;
   const commonValues = [
     input.slug, input.name, input.category, input.excerpt, input.description,
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
     0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
+    input.imageUrl, input.imageKey, input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
     JSON.stringify(input.seo), input.searchText,
   ];
   if (!guard) {
@@ -892,7 +902,7 @@ export function buildManagedDirectoryProfileCreateStatement(
       JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
       input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
       0, input.priceNote, input.websiteUrl, input.internalEmail,
-      input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
+      input.imageUrl, input.imageKey, input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0,
       JSON.stringify(input.seo), input.searchText, nowIso, nowIso, input.status === "published" ? nowIso : null, editorEmail, editorEmail,
     ];
     return database.prepare(`INSERT INTO directory_profiles (${columns})
@@ -901,7 +911,7 @@ export function buildManagedDirectoryProfileCreateStatement(
   const guardedValues = [...commonValues, nowIso, nowIso, editorEmail, editorEmail];
   const guardedSelectValues = [
     "?", "?", "?", "'draft'",
-    ...Array.from({ length: 26 }, () => "?"),
+    ...Array.from({ length: 28 }, () => "?"),
     "NULL", "?", "?",
   ].join(", ");
   return database.prepare(`INSERT INTO directory_profiles (${columns})
@@ -1219,7 +1229,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
     JSON.stringify(input.services), JSON.stringify(input.qualifications), input.city, input.district, input.region,
     input.address, input.postalCode, input.street, input.houseNumber, input.addressFormat, input.serviceAddressConfirmation,
     0, input.priceNote, input.websiteUrl, input.internalEmail,
-    input.imageUrl, input.imageKey, JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
+    input.imageUrl, input.imageKey,
+    JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
+    JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
+    JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
     now, publishedAt, editorEmail, id,
     ...(guard?.expectedUpdatedAt ? [guard.expectedUpdatedAt] : []),
     ...(guard?.automationAddressReview
@@ -1231,7 +1244,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
-      internal_email = ?, image_url = ?, image_key = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
+      internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
     WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
   `).bind(...bindings);
 }
