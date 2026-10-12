@@ -16,6 +16,7 @@ import {
 } from "@/lib/adoption-detail";
 import type { AdoptionPublicOrganizationLink } from "@/lib/adoption-store";
 import styles from "./adoption-detail.module.css";
+import { ImageDisplay } from "@/components/image-display";
 
 type Fact = { label: string; value: string };
 
@@ -25,7 +26,7 @@ function Facts({ items }: { items: Fact[] }) {
 }
 
 function DetailImage({ dog }: { dog: PublicAdoptionDetailDog }) {
-  if (dog.mainImage) return <img src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} />;
+  if (dog.mainImage) return <ImageDisplay context="detail" config={dog.detailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} />;
   return <div className={styles.detailImageFallback} aria-hidden="true"><span /></div>;
 }
 
