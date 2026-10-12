@@ -52,7 +52,7 @@ const legacyHelpCategories = [
 
 export const allHelpCategories = [...helpCategories, ...legacyHelpCategories] as const;
 export type HelpCategorySlug = (typeof allHelpCategories)[number]["slug"];
-import type { ImageDisplayConfig } from "./image-display";
+import type { ImageDisplayConfig } from "./image-display.ts";
 
 export type HelpCaseStatus = "draft" | "published";
 
