@@ -1,5 +1,5 @@
 import { isOrganizationPublicationType, type OrganizationPublicationCandidate } from "./help-organization-publication.ts";
-import { normalizeImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
+import { normalizeImageDisplayConfig, type ImageDisplayConfig } from "./image-display.ts";
 
 export type OrganizationAdminInput = {
   name: string;
