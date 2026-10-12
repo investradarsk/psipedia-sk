@@ -73,5 +73,5 @@ test("invalid filters remain bounded and search stays escaped", async ({ page })
   const search = page.locator('[data-public-search-form="events"]');
   await expect(search.locator('input[name="region"], input[name="mesiac"], input[name="den"], input[name="termin"]')).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Najbližšie", exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(page.locator('[data-unified-section-hero] img')).toHaveAttribute("sizes", "100vw");
+  await expect(page.locator('[data-unified-section-hero] img')).toHaveAttribute("sizes", "(max-width: 620px) 100vw, (max-width: 1228px) calc(100vw - 48px), 1180px");
 });
