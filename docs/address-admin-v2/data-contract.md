@@ -1,6 +1,8 @@
 # Jednotný interný adresný kontrakt — návrh
 
-Návrh pre ďalšie fázy, nie nový runtime model tohto PR.
+Návrh pre ďalšie fázy. Interná validačná vrstva fázy 2 je popísaná v
+[implementačnom kontrakte](contract-implementation.md); existujúce runtime zápisy
+a verejné modely zatiaľ zostávajú nezmenené.
 Východisko a odlišnosti: [audit](audit.md). Public komponenty, filtre, SEO,
 mapa a existujúce legacy `address` hodnoty zostávajú počas rollout kompatibilné.
 
