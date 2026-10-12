@@ -1,0 +1,2337 @@
+{
+  "baseSHA": "c021caadd8b0bfd7f14efe0590d5a700ccf7f993",
+  "workflowMatrix": [
+    {
+      "workflow": "address-enrichment-ci.yml",
+      "name": "Address enrichment controlled canary",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/api/admin/address-enrichment/**",
+            "app/admin/nastroje/address-enrichment/**",
+            "components/admin-address-enrichment-canary.tsx",
+            "lib/address-enrichment*.ts",
+            "tests/address-enrichment.test.mjs",
+            ".github/workflows/address-enrichment-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "admin-article-bulk-e2e.yml",
+      "name": "ADMIN-2E Article Bulk Execution",
+      "events": {
+        "workflow_dispatch": null,
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/api/admin/bulk/**",
+            "components/admin-bulk-selection.tsx",
+            "components/admin-help-dashboard.tsx",
+            "components/admin-event-dashboard.tsx",
+            "components/admin-directory-dashboard.tsx",
+            "components/admin-organization-publication-dashboard.tsx",
+            "components/admin-organization-publication.module.css",
+            "app/api/admin/organizations/bulk/**",
+            "lib/admin-bulk/**",
+            "tests/admin-bulk-*.test.mjs",
+            "tests/e2e/admin-article-bulk-execution.spec.ts",
+            "tests/fixtures/article-admin-bulk-e2e.sql",
+            ".github/workflows/admin-article-bulk-e2e.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "admin-ia-2.yml",
+      "name": "ADMIN-IA-2 admin navigation and workspace",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/page.tsx",
+            "app/admin/clanky/**",
+            "components/admin-shell.tsx",
+            "components/admin-shell.module.css",
+            "components/admin-navigation.tsx",
+            "components/admin-navigation.module.css",
+            "components/admin-workspace-dashboard.tsx",
+            "components/admin-workspace-dashboard.module.css",
+            "components/admin-dashboard.tsx",
+            "components/admin-article-editor.tsx",
+            "lib/admin-navigation.ts",
+            "lib/admin-dashboard-store.ts",
+            "tests/admin-ia.test.mjs",
+            "tests/e2e/admin-ia-2.spec.ts",
+            "tests/e2e/admin-operations.spec.ts",
+            ".github/workflows/admin-ia-2.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "admin-operations-ci.yml",
+      "name": "Admin Operations attention queue",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/operations/**",
+            "app/admin/nastroje/**",
+            "app/admin/automatizacie/page.tsx",
+            "app/admin/organizacie/**",
+            "app/api/admin/organizations/**",
+            "components/admin-attention-queue*",
+            "components/admin-organization-publication-dashboard.tsx",
+            "components/admin-shell.tsx",
+            "lib/admin-attention-queue*",
+            "lib/help-organization-admin-store.ts",
+            "lib/help-organization-admin-write.ts",
+            "lib/help-organization-publication.ts",
+            "tests/admin-attention-queue.test.mjs",
+            "tests/admin-ia.test.mjs",
+            "tests/help-organization-publication.test.mjs",
+            "tests/e2e/admin-operations.spec.ts",
+            "tests/fixtures/admin-attention-pagination-e2e.sql",
+            "tests/e2e/admin-organization-publication.spec.ts",
+            ".github/workflows/admin-operations-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "admin-puppy-coverage-ci.yml",
+      "name": "Admin Sections and Puppy Coverage",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/sekcie/**",
+            "app/admin/steniatka/**",
+            "components/admin-section-editor*",
+            "components/admin-puppy-coverage*",
+            "lib/section-store.ts",
+            "lib/puppy-coverage*",
+            "tests/admin-sections-v2.test.mjs",
+            "tests/admin-puppy-coverage.test.mjs",
+            "tests/e2e/admin-sections-v2.spec.ts",
+            "tests/e2e/admin-puppy-coverage.spec.ts",
+            ".github/workflows/admin-puppy-coverage-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "admin-pwa-ci.yml",
+      "name": "ADMIN-PWA-1",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/layout.tsx",
+            "app/admin/nastavenia/**",
+            "app/api/admin/push/**",
+            "app/layout.tsx",
+            "app/manifest.ts",
+            "components/admin-pwa*",
+            "components/admin-shell.tsx",
+            "lib/admin-push.ts",
+            "lib/admin-web-push.ts",
+            "public/pwa/**",
+            "public/sw.js",
+            "drizzle/*admin_pwa*",
+            "tests/admin-pwa.test.mjs",
+            "tests/e2e/admin-pwa.spec.ts",
+            ".github/workflows/admin-pwa-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "admin-runtime-1.yml",
+      "name": "ADMIN-RUNTIME-1 admin runtime safety",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/kvalita/**",
+            "components/admin-data-quality-dashboard.tsx",
+            "lib/data-quality-store.ts",
+            "lib/media-source-monitor.ts",
+            "lib/admin-automation-reliability.ts",
+            "tests/admin-runtime-1.test.mjs",
+            "tests/e2e/admin-runtime-1.spec.ts",
+            ".github/workflows/admin-runtime-1.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "ai-internal-discovery-click-value-ci.yml",
+      "name": "AI-INTERNAL-DISCOVERY-CLICK-VALUE-1 validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/sitemap.ts",
+            "app/plemena/[slug]/page.tsx",
+            "app/adresar/[category]/[slug]/page.tsx",
+            "app/adresar/[category]/mesto/[locationSlug]/page.tsx",
+            "app/adresar/[category]/okres/[locationSlug]/page.tsx",
+            "app/adresar/[category]/kraj/[locationSlug]/page.tsx",
+            "app/adresar/chovatelske-stanice/kraj/[regionSlug]/page.tsx",
+            "app/adresar/chovatelske-stanice/plemeno/[breedSlug]/page.tsx",
+            "app/adresar/chovatelske-stanice/plemeno/[breedSlug]/kraj/[regionSlug]/page.tsx",
+            "components/article-detail.tsx",
+            "components/directory-profile-detail.tsx",
+            "components/directory-location-landing.tsx",
+            "components/breeding-station-landing.tsx",
+            "components/organization-profile-detail.tsx",
+            "components/event-detail.tsx",
+            "components/adoption-detail.tsx",
+            "components/lost-found-dog-detail.tsx",
+            "components/help-details/**",
+            "components/related-entity-list.tsx",
+            "components/related-entity-list.module.css",
+            "components/structured-data.tsx",
+            "lib/internal-discovery.ts",
+            "lib/slovak-location-landings.ts",
+            "lib/breeding-station-landings.ts",
+            "lib/breeding-station-sitemap.ts",
+            "lib/directory-location-landings.ts",
+            "lib/directory-location-sitemap.ts",
+            "lib/directory-profile-schema.ts",
+            "lib/directory-profile-metadata.ts",
+            "lib/directory-sitemap.ts",
+            "lib/article-discovery.ts",
+            "lib/entity-sitemap.ts",
+            "lib/sitemap-parity.ts",
+            "lib/sitemap-runtime.ts",
+            "lib/sitemap-seo.ts",
+            "lib/ai-referral.ts",
+            "lib/breed-store.ts",
+            "lib/adoption-store.ts",
+            "tests/internal-discovery.test.mjs",
+            "tests/breeding-station-ai-landings.test.mjs",
+            "tests/directory-ai-landings-scale.test.mjs",
+            "tests/article-discovery.test.mjs",
+            "tests/sitewide-ai-entity-surface.test.mjs",
+            "tests/seo-structured-data-2.test.mjs",
+            "tests/rendered-html.test.mjs",
+            "tests/sitemap-seo.test.mjs",
+            "tests/ai-referral.test.mjs",
+            "tests/e2e/internal-discovery.spec.ts",
+            "tests/e2e/ai-discovery-hardening.spec.ts",
+            "scripts/bootstrap-internal-discovery-e2e.mjs",
+            "scripts/bootstrap-breed-e2e.mjs",
+            "scripts/bootstrap-adoption-e2e.mjs",
+            "scripts/bootstrap-adoption-staging-ci.mjs",
+            "scripts/bootstrap-admin-events-e2e.mjs",
+            "tests/fixtures/help-detail-e2e.sql",
+            "tests/fixtures/directory-admin-e2e.sql",
+            "tests/fixtures/lost-found-e2e.sql",
+            "tests/fixtures/organization-profile-e2e.sql",
+            "package-lock.json",
+            "playwright.config.ts",
+            "vite.config.ts",
+            "tsconfig.json",
+            ".github/workflows/ai-internal-discovery-click-value-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "ai-referral-measurement-ci.yml",
+      "name": "AI-REFERRAL-MEASUREMENT-1 validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "components/cookie-consent.tsx",
+            "lib/ai-referral.ts",
+            "tests/ai-referral.test.mjs",
+            "docs/ai-referral-measurement.md",
+            "package.json",
+            "package-lock.json",
+            ".github/workflows/ai-referral-measurement-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Historické branch-gated joby; na #762 skipped, explicitné preview kontrakty"
+    },
+    {
+      "workflow": "article-admin-ci.yml",
+      "name": "ARTICLE-ADMIN editor",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/clanky/**",
+            "app/admin/novy/**",
+            "app/api/admin/articles/**",
+            "app/api/admin/editorial-authors/**",
+            "app/api/admin/uploads/**",
+            "components/admin-article-*",
+            "components/admin-editorial-calendar*",
+            "components/article-editor-calendar*",
+            "lib/article-schedule-time.ts",
+            "lib/editorial-calendar.ts",
+            "tests/editorial-calendar*.test.mjs",
+            "tests/article-editor-calendar.test.mjs",
+            "tests/e2e/editorial-calendar-interactions.spec.ts",
+            "tests/fixtures/editorial-calendar-interactions-e2e.sql",
+            "components/admin-editorial-author-*",
+            "components/admin-rich-text-editor*",
+            "lib/article-store.ts",
+            "lib/article-admin-query.ts",
+            "lib/admin-list-query.ts",
+            "lib/editorial-authors.ts",
+            "lib/admin-image-upload.ts",
+            "tests/article-admin-editor.test.mjs",
+            "tests/admin-article-search.test.mjs",
+            "tests/e2e/article-admin-editor.spec.ts",
+            "tests/e2e/admin-article-search.spec.ts",
+            "tests/fixtures/article-admin-editor-e2e.sql",
+            "tests/fixtures/admin-article-search-e2e.sql",
+            ".github/workflows/article-admin-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "article-ux-ci.yml",
+      "name": "ARTICLE-UX-1 focused validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/layout.tsx",
+            "app/*.css",
+            "app/\\[section\\]/\\[slug\\]/page.tsx",
+            "app/clanky/**",
+            "app/api/admin/articles/**",
+            "app/api/admin/sections/**",
+            "components/article-*",
+            "components/favorite-button.tsx",
+            "components/share-button.tsx",
+            "components/icons.tsx",
+            "components/page-system.tsx",
+            "components/site-header*",
+            "components/site-footer*",
+            "components/cookie-consent*",
+            "lib/article-*",
+            "lib/content.ts",
+            "lib/content-seo.ts",
+            "lib/news.ts",
+            "lib/portal.ts",
+            "lib/section-store.ts",
+            "lib/seo.ts",
+            "lib/navigation-store.ts",
+            "scripts/bootstrap-article-ux-e2e.mjs",
+            "scripts/build-verified.sh",
+            "scripts/check-config-contract.mjs",
+            "tests/article-modern-reading-experience.test.mjs",
+            "tests/e2e/article-reading-experience.spec.ts",
+            "tests/e2e/content-discovery-v3.spec.ts",
+            "package-lock.json",
+            "playwright.config.ts",
+            "vite.config.*",
+            "tsconfig.json",
+            ".github/workflows/article-ux-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "auto-update-automerge-prs.yml",
+      "name": "Auto-update auto-merge PRs",
+      "events": {
+        "push": {
+          "branches": [
+            "main"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [],
+      "costEstimate": "nízka",
+      "reason": "Relevantné auto-merge aktualizácie/approval; docs skip"
+    },
+    {
+      "workflow": "automation-cleanup-legacy.yml",
+      "name": "Automation Legacy Cleanup",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "mode": {
+              "description": "Preview is read-only. Apply requires explicit confirmation.",
+              "required": true,
+              "type": "choice",
+              "default": "preview",
+              "options": [
+                "preview",
+                "apply"
+              ]
+            },
+            "confirmation": {
+              "description": "For apply type CLEAN-AUTOMATION-LEGACY-psipedia-sk-db",
+              "required": false,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "automation-detach-drafts.yml",
+      "name": "Automation Draft Detach",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "mode": {
+              "description": "Preview is read-only. Apply requires explicit confirmation.",
+              "required": true,
+              "type": "choice",
+              "default": "preview",
+              "options": [
+                "preview",
+                "apply"
+              ]
+            },
+            "confirmation": {
+              "description": "For apply type DETACH-AUTOMATION-DRAFTS-psipedia-sk-db",
+              "required": false,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "automation-finalize-v1.yml",
+      "name": "Automation V1 Finalize",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "confirmation": {
+              "description": "Type FINALIZE-AUTOMATION-V1-psipedia-sk-db",
+              "required": true,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "automation-source-ux-reset.yml",
+      "name": "AUTOMATION Source UX Reset",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "mode": {
+              "description": "Preview is strictly read-only. Apply deletes automation operational data.",
+              "required": true,
+              "type": "choice",
+              "default": "preview",
+              "options": [
+                "preview",
+                "apply"
+              ]
+            },
+            "confirmation": {
+              "description": "For apply type RESET AUTOMATION DATA",
+              "required": false,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "breeds-admin-ci.yml",
+      "name": "BREEDS-ADMIN Plemená Admin 2.0",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/plemena/**",
+            "app/api/admin/breeds/**",
+            "components/admin-breed-*",
+            "lib/admin-breeds.ts",
+            "lib/breed-store.ts",
+            "tests/breed-admin-v2.test.mjs",
+            "tests/e2e/breeds-admin-v2.spec.ts",
+            "tests/fixtures/breeds-admin-v2-e2e.sql",
+            ".github/workflows/breeds-admin-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "category-visual-ci.yml",
+      "name": "CATEGORY-VISUAL-1 preview validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/plemena/**",
+            "components/directory-page.tsx",
+            "components/directory-public.module.css",
+            "components/editorial-section*",
+            "components/events-page.tsx",
+            "components/events-public.module.css",
+            "components/help-overview.tsx",
+            "components/help-public.module.css",
+            "components/news-hub*",
+            "components/reviews-hub*",
+            "components/public-visual-system/**",
+            "components/portal-section-tabs*",
+            "tests/category-visual.test.mjs",
+            "tests/e2e/category-visual.spec.ts",
+            ".github/workflows/category-visual-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Historické branch-gated joby; na #762 skipped, explicitné preview kontrakty"
+    },
+    {
+      "workflow": "clean-d1-migration-validation.yml",
+      "name": "Clean D1 migration validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "drizzle/**",
+            "db/**",
+            "data/imports/adoptions-ready-2026-09-13.json",
+            "scripts/check-migration-safety.mjs",
+            "scripts/validate-clean-d1.mjs",
+            "scripts/production-d1-migrate.mjs",
+            "tests/production-d1-migration.test.mjs",
+            ".github/workflows/production-d1-migrate.yml",
+            "package-lock.json",
+            "migration-safety.baseline.json",
+            ".github/workflows/clean-d1-migration-validation.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "db:validate-clean"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "content-relations-1.yml",
+      "name": "CONTENT-RELATIONS-1",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/[section]/[slug]/page.tsx",
+            "app/clanky/[slug]/page.tsx",
+            "app/plemena/[slug]/page.tsx",
+            "app/adresar/[category]/[slug]/page.tsx",
+            "components/article-detail.tsx",
+            "components/directory-profile-detail.tsx",
+            "components/organization-profile-detail.tsx",
+            "components/related-entity-list.tsx",
+            "components/related-entity-list.module.css",
+            "lib/content-relations.ts",
+            "lib/breed-canonical.ts",
+            "lib/breed-store.ts",
+            "lib/help-organization-store.ts",
+            "lib/organization-adoption-store.ts",
+            "tests/content-relations.test.mjs",
+            "tests/organization-adoption-relation.test.mjs",
+            "tests/e2e/content-relations-1.spec.ts",
+            "tests/fixtures/content-relations-1-e2e.sql",
+            ".github/workflows/content-relations-1.yml",
+            "package-lock.json",
+            "playwright.config.ts",
+            "vite.config.*",
+            "tsconfig.json"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "data-automation-ci.yml",
+      "name": "Data automation foundation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/operations/**",
+            "app/api/admin/automation-findings/**",
+            "components/admin-automation-finding-review.tsx",
+            "lib/data-automation.ts",
+            "lib/data-automation-apply.ts",
+            "lib/data-automation-canonical-apply.ts",
+            "lib/data-automation-clustering.ts",
+            "lib/data-automation-capability-registry.ts",
+            "lib/data-automation-draft-mapper.ts",
+            "lib/data-automation-enrichment-normalize.ts",
+            "lib/data-automation-enrichment-template.ts",
+            "lib/data-automation-http-policy.ts",
+            "lib/data-automation-governance.ts",
+            "lib/data-automation-identity.ts",
+            "lib/data-automation-dynamic-identity.ts",
+            "lib/data-automation-ingestion-receipts.ts",
+            "lib/data-automation-lifecycle.ts",
+            "lib/data-automation-lifecycle-apply.ts",
+            "lib/data-automation-lifecycle-store.ts",
+            "lib/data-automation-matching.ts",
+            "lib/data-automation-runner.ts",
+            "lib/data-automation-source-provisioning.ts",
+            "lib/data-automation-source-scoped-extraction.ts",
+            "lib/data-automation-source-store.ts",
+            "lib/data-automation-store.ts",
+            "lib/data-automation-generic-source-extractor.ts",
+            "lib/automation-record-suppressions.ts",
+            "lib/canonical-draft-delete.ts",
+            "lib/admin-attention-queue*.ts",
+            "lib/editorial-email.ts",
+            "lib/editorial-notifications.ts",
+            "worker/index.ts",
+            "drizzle/0050_data_automation_foundation.sql",
+            "drizzle/0055_data_automation_apply.sql",
+            "drizzle/0056_scheduled_source_discovery.sql",
+            "drizzle/0057_automation_background_run_lock.sql",
+            "drizzle/0073_automation_multisource_entity_resolution.sql",
+            "drizzle/0075_automation_zsk_event_source.sql",
+            "drizzle/0076_automation_non_event_entity_resolution_foundation.sql",
+            "drizzle/0079_automation_agility_event_source.sql",
+            "drizzle/0080_automation_canonical_apply.sql",
+            "drizzle/0084_automation_governance_registry.sql",
+            "drizzle/0052_data_automation_sources_discovery.sql",
+            "drizzle/0078_automation_possible_match_reviews.sql",
+            "drizzle/0081_automation_mushing_event_source.sql",
+            "drizzle/0082_automation_discovery_candidate_evidence.sql",
+            "drizzle/0083_automation_search_budgets.sql",
+            "drizzle/0085_automation_tavily_discovery_root.sql",
+            "drizzle/0086_automation_tavily_event_cadence.sql",
+            "drizzle/0087_automation_tavily_help_roots.sql",
+            "drizzle/0088_automation_tavily_organization_root.sql",
+            "drizzle/0089_automation_tavily_directory_roots.sql",
+            "drizzle/0091_automation_detach_drafts.sql",
+            "drizzle/0092_automation_product_model.sql",
+            "drizzle/0093_automation_address_review.sql",
+            "drizzle/0094_canonical_draft_delete.sql",
+            "drizzle/0095_automation_calendar_schedule.sql",
+            "drizzle/0096_automation_update_field_reviews.sql",
+            "drizzle/0097_automation_operations_metrics.sql",
+            "tests/data-automation.test.mjs",
+            "tests/data-automation-governance.test.mjs",
+            "tests/data-automation-apply.test.mjs",
+            "tests/data-automation-background-run.test.mjs",
+            "tests/data-automation-clustering.test.mjs",
+            "tests/data-automation-dynamic-identity.test.mjs",
+            "tests/data-automation-generic-source-extractor.test.mjs",
+            "tests/data-automation-lifecycle.test.mjs",
+            "tests/automation-detach-drafts.test.mjs",
+            "tests/automation-cleanup-legacy.test.mjs",
+            "tests/automation-finalize-v1.test.mjs",
+            "scripts/automation-detach-drafts.mjs",
+            "scripts/automation-cleanup-legacy.mjs",
+            ".github/workflows/automation-finalize-v1.yml",
+            "tests/g5-canonical-apply.test.mjs",
+            "tests/fixtures/data-automation/**",
+            "tests/admin-attention-queue.test.mjs",
+            ".github/workflows/data-automation-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "data-automation-v2-ci.yml",
+      "name": "Data automation source management",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/operations/automation/**",
+            "app/admin/automatizacie/**",
+            "app/api/admin/automation-sources/**",
+            "app/api/admin/automation-source-candidates/**",
+            "app/api/admin/automation-lifecycle/**",
+            "components/admin-automation-source-*.tsx",
+            "components/admin-automation-lifecycle-*.tsx",
+            "lib/admin-automation-api.ts",
+            "lib/data-automation*.ts",
+            "drizzle/0052_data_automation_sources_discovery.sql",
+            "drizzle/0056_scheduled_source_discovery.sql",
+            "drizzle/0057_automation_background_run_lock.sql",
+            "drizzle/0073_automation_multisource_entity_resolution.sql",
+            "drizzle/0075_automation_zsk_event_source.sql",
+            "drizzle/0076_automation_non_event_entity_resolution_foundation.sql",
+            "drizzle/0079_automation_agility_event_source.sql",
+            "drizzle/0080_automation_canonical_apply.sql",
+            "drizzle/0084_automation_governance_registry.sql",
+            "drizzle/0085_automation_tavily_discovery_root.sql",
+            "drizzle/0092_automation_product_model.sql",
+            "drizzle/0093_automation_address_review.sql",
+            "drizzle/0094_canonical_draft_delete.sql",
+            "drizzle/0096_automation_update_field_reviews.sql",
+            "lib/canonical-draft-delete.ts",
+            "lib/automation-record-suppressions.ts",
+            "components/admin-canonical-draft-delete.tsx",
+            "app/api/admin/canonical-drafts/**",
+            "drizzle/0050_data_automation_foundation.sql",
+            "drizzle/0055_data_automation_apply.sql",
+            "drizzle/0078_automation_possible_match_reviews.sql",
+            "drizzle/0081_automation_mushing_event_source.sql",
+            "drizzle/0082_automation_discovery_candidate_evidence.sql",
+            "drizzle/0083_automation_search_budgets.sql",
+            "drizzle/0086_automation_tavily_event_cadence.sql",
+            "drizzle/0087_automation_tavily_help_roots.sql",
+            "drizzle/0088_automation_tavily_organization_root.sql",
+            "drizzle/0089_automation_tavily_directory_roots.sql",
+            "drizzle/0091_automation_detach_drafts.sql",
+            "drizzle/0095_automation_calendar_schedule.sql",
+            "drizzle/0097_automation_operations_metrics.sql",
+            "tests/canonical-draft-delete.test.mjs",
+            "tests/data-automation*.test.mjs",
+            "tests/data-automation-governance.test.mjs",
+            "tests/tavily-canary-control.test.mjs",
+            "tests/automation-admin-v2-ux.test.mjs",
+            "tests/g4-possible-review-decisions.test.mjs",
+            "tests/g5-canonical-apply.test.mjs",
+            "tests/automation-cluster-admin-integration.test.mjs",
+            "tests/data-automation-tavily-source-scoped.test.mjs",
+            "tests/data-automation-tavily-strategy-chain.test.mjs",
+            "tests/data-automation-source-provider-usage.test.mjs",
+            "tests/data-automation-event-source-pilot.test.mjs",
+            "tests/data-automation-adoption-source-pilot.test.mjs",
+            "tests/data-automation-foster-source-pilot.test.mjs",
+            "tests/data-automation-foster-d1-e2e.test.mjs",
+            "tests/data-automation-lost-found-source-pilot.test.mjs",
+            "tests/data-automation-lost-found-d1-e2e.test.mjs",
+            "scripts/automation-source-ux-reset.mjs",
+            "tests/automation-source-ux-reset.test.mjs",
+            "tests/automation-update-review.test.mjs",
+            "tests/admin-auto-ux-2.test.mjs",
+            "tests/fixtures/data-automation/**",
+            "tests/e2e/data-automation-v2.spec.ts",
+            "tests/e2e/canonical-draft-delete.spec.ts",
+            "tests/fixtures/canonical-draft-delete-e2e.sql",
+            ".github/workflows/data-automation-v2-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "events-fallback-images.yml",
+      "name": "Event fallback artwork",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "components/event-listing-results.tsx",
+            "components/event-calendar.tsx",
+            "components/events-page.tsx",
+            "components/event-image.tsx",
+            "components/event-card.tsx",
+            "components/event-detail.tsx",
+            "components/events-public.module.css",
+            "lib/event-type-presentation.ts",
+            "public/images/events/defaults/**",
+            "tests/event-fallback-images.test.mjs",
+            "tests/e2e/events-fallback-images.spec.ts",
+            "tests/e2e/events-listing-redesign.spec.ts",
+            "tests/helpers/events-final-local-fixtures.mjs",
+            "tests/events-fallback.playwright.config.ts",
+            "tests/helpers/events-fallback-preview.*",
+            "tests/helpers/events-preview-*",
+            ".github/workflows/events-fallback-images.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Samostatná artwork regresia; full E2E vlastní duplicate routy"
+    },
+    {
+      "workflow": "gemini-automation-foundation-ci.yml",
+      "name": "Gemini automation foundation contracts",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/automatizacie-gemini/**",
+            "app/api/admin/gemini-automation/**",
+            "components/admin-gemini-automation*",
+            "components/admin-gemini-event-concept-review.tsx",
+            "lib/admin-navigation.ts",
+            "components/admin-navigation.tsx",
+            "lib/gemini-automation-*.ts",
+            "lib/gemini-external-agent.ts",
+            "scripts/gemini-notion-agent.mjs",
+            "app/api/internal/gemini-agent/**",
+            ".github/workflows/gemini-notion-agent.yml",
+            "tests/gemini-external-agent.test.mjs",
+            "lib/gemini-external-agent.ts",
+            "app/api/internal/gemini-agent/**",
+            "scripts/gemini-notion-agent.mjs",
+            ".github/workflows/gemini-notion-agent.yml",
+            "tests/gemini-external-agent.test.mjs",
+            "tests/gemini-automation-*.test.mjs",
+            "tests/gemini-events-*.test.mjs",
+            "drizzle/0113_gemini_automation_foundation.sql",
+            "drizzle/0114_gemini_dedupe.sql",
+            "drizzle/0115_gemini_notion_bridge.sql",
+            "drizzle/0117_gemini_events_rejections.sql",
+            "wrangler.jsonc",
+            "config/runtime-env.ts",
+            ".env.example",
+            "scripts/ci-scope.mjs",
+            ".github/workflows/gemini-automation-foundation-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "gemini-notion-agent.yml",
+      "name": "Gemini Notion agent (external)",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "job_id": {
+              "description": "Existing Psipedia job ID",
+              "required": true,
+              "type": "string"
+            },
+            "stable_key": {
+              "description": "Category stable key",
+              "required": true,
+              "type": "string"
+            },
+            "max_new_concepts": {
+              "description": "Hard cap 5",
+              "required": true,
+              "type": "string"
+            },
+            "trigger_type": {
+              "description": "MANUAL or SCHEDULED",
+              "required": true,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [],
+      "costEstimate": "nízka",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "homepage-name-days-ci.yml",
+      "name": "HOMEPAGE-UX-ENHANCEMENTS-1 name-day calendar",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/page.tsx",
+            "app/psie-meniny/**",
+            "components/*dog-name-day*",
+            "lib/dog-name-day*",
+            "tests/dog-name-day*",
+            "tests/e2e/name-days.spec.ts",
+            "tests/e2e/home-name-days-calendar.spec.ts",
+            ".github/workflows/homepage-name-days-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "image-editor-2-ci.yml",
+      "name": "IMAGE-EDITOR-2 focused checks",
+      "events": {
+        "pull_request": {
+          "paths": [
+            "components/image-display*",
+            "components/admin-*-editor*",
+            "components/event-image.tsx",
+            "components/directory-card.tsx",
+            "components/help-card.tsx",
+            "components/adoption-card-media.tsx",
+            "components/lost-found-dogs-page.tsx",
+            "components/lost-found-dog-detail.tsx",
+            "lib/image-display.ts",
+            "lib/*-store.ts",
+            "lib/adoption.ts",
+            "drizzle/0122_entity_image_display_config.sql",
+            "scripts/production-d1-migrate.mjs",
+            "tests/image-editor-2.test.mjs",
+            "package.json",
+            ".github/workflows/image-editor-2-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [],
+      "costEstimate": "nízka",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "map-data-row-level-export.yml",
+      "name": "MAP Data Row-Level Audit Export",
+      "events": {
+        "pull_request": {
+          "paths": [
+            "scripts/map-data-row-level-export.mjs",
+            "tests/map-data-row-level-export.test.mjs",
+            ".github/workflows/map-data-row-level-export.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci"
+      ],
+      "costEstimate": "nízka",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "map-geo-foundation-ci.yml",
+      "name": "MAP-1B Geo Foundation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "db/geo-schema.ts",
+            "db/index.ts",
+            "drizzle/0064_geo_foundation.sql",
+            "lib/geo*.ts",
+            "app/admin/operations/geo/**",
+            "app/admin/operations/page.tsx",
+            "app/admin/adresar/[id]/page.tsx",
+            "app/admin/podujatia/[id]/page.tsx",
+            "app/api/admin/geo/**",
+            "app/api/admin/directory/[id]/route.ts",
+            "app/api/admin/events/[id]/route.ts",
+            "app/api/admin/organizations/[id]/locations/[locationId]/route.ts",
+            "components/admin-geo-*",
+            "components/admin-organization-locations.tsx",
+            "lib/admin-attention-queue*",
+            "scripts/geo-production-inventory.sql",
+            "scripts/validate-clean-d1.mjs",
+            "tests/geo-foundation.test.mjs",
+            "tests/directory-address-policy.test.mjs",
+            "tests/directory-online-removal.test.mjs",
+            "tests/admin-attention-queue.test.mjs",
+            "tests/e2e/admin-geo-foundation.spec.ts",
+            "docs/geo-foundation.md",
+            "package-lock.json",
+            ".github/workflows/map-geo-foundation-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "map-production-launch-ci.yml",
+      "name": "MAP-1E Launch Hardening",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            ".github/workflows/production-d1-migrate.yml",
+            ".github/workflows/map-production-readiness.yml",
+            ".github/workflows/map-production-launch-ci.yml",
+            "scripts/production-d1-migrate.mjs",
+            "scripts/map-production-readiness.mjs",
+            "scripts/map-production-privacy-smoke.mjs",
+            "app/mapa/**",
+            "components/map/**",
+            "lib/geo-operations.ts",
+            "app/api/admin/geo/operations/route.ts",
+            "lib/navigation-store.ts",
+            "lib/google-maps-consent.ts",
+            "lib/map-query.ts",
+            "components/google-maps-consent-controls.tsx",
+            "app/cookies/page.tsx",
+            "app/sukromie/page.tsx",
+            "app/podmienky-pouzivania/page.tsx",
+            "tests/map-production-launch.test.mjs",
+            "tests/config-contract.test.mjs",
+            "tests/production-d1-migration.test.mjs",
+            "docs/map-production-launch.md",
+            "docs/PRODUCTION-D1-MIGRATIONS.md",
+            "package-lock.json"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "map-production-live-audit.yml",
+      "name": "MAP V1 Live Production Audit",
+      "events": {
+        "push": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            ".github/workflows/map-production-live-audit.yml",
+            "tests/e2e/map-production-live.spec.ts",
+            "lib/map-query.ts",
+            "components/map/**",
+            "app/mapa/**",
+            "app/api/map/**",
+            "lib/google-maps-consent.ts",
+            "components/google-maps-consent-controls.tsx",
+            "lib/navigation-store.ts",
+            "config/runtime-env.ts",
+            "wrangler.jsonc"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "map-production-readiness.yml",
+      "name": "MAP-1E Production Readiness",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "confirmation": {
+              "description": "Type AUDIT-MAP-psipedia-sk-db exactly",
+              "required": true,
+              "type": "string"
+            },
+            "real_google_smoke_confirmed": {
+              "description": "Confirm a real Google Maps browser smoke passed on production",
+              "required": true,
+              "type": "boolean",
+              "default": false
+            },
+            "attribution_review_confirmed": {
+              "description": "Confirm provider/Google attribution requirements were reviewed",
+              "required": true,
+              "type": "boolean",
+              "default": false
+            },
+            "consent_privacy_review_confirmed": {
+              "description": "Confirm consent/privacy launch review was completed",
+              "required": true,
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "map-public-ui-ci.yml",
+      "name": "MAP-1D Public Map UI",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/mapa/**",
+            "components/map/**",
+            "lib/map-public-ui.ts",
+            "lib/map-mobile-ux.ts",
+            "docs/map-public-ui.md",
+            "scripts/map-ui-bundle-report.mjs",
+            "tests/map-public-ui*.test.mjs",
+            "tests/e2e/map-public-ui.spec.ts",
+            "tests/e2e/map-mobile-ux-v3.spec.ts",
+            "tests/e2e/map-production-launch.spec.ts",
+            "package-lock.json",
+            ".github/workflows/map-public-ui-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "map-read-api-ci.yml",
+      "name": "MAP-1C Map Read API",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/api/map/**",
+            "app/adresar/**",
+            "app/organizacie/**",
+            "app/[section]/**",
+            "components/map/**",
+            "components/directory-profile-detail.tsx",
+            "components/organization-profile-detail.tsx",
+            "components/event-detail.tsx",
+            "lib/map-*.ts",
+            "lib/public-map-runtime.ts",
+            "lib/directory-store.ts",
+            "tests/map-read-api*.test.mjs",
+            "tests/e2e/map-read-api.spec.ts",
+            "tests/e2e/public-detail-maps.spec.ts",
+            "tests/fixtures/map-read-api-e2e.sql",
+            "tests/public-location-map-contract.test.mjs",
+            "docs/map-read-api.md",
+            "package-lock.json",
+            ".github/workflows/map-read-api-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "notion-article-sync-ci.yml",
+      "name": "NOTION-SYNC focused validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "lib/notion-article-sync.ts",
+            "lib/article-subsection-taxonomy.ts",
+            "lib/notion-breed-sync.ts",
+            "lib/notion-event-sync.ts",
+            "lib/notion-directory-sync.ts",
+            "lib/notion-sync-shared.ts",
+            "app/api/admin/notion-sync/**",
+            "app/api/admin/notion-breeds-sync/**",
+            "app/api/admin/notion-events-sync/**",
+            "app/api/admin/breeds/[id]/route.ts",
+            "app/api/admin/events/[id]/route.ts",
+            "app/api/admin/events/bulk/route.ts",
+            "drizzle/0044_notion_article_sync.sql",
+            "drizzle/0045_notion_breed_sync.sql",
+            "drizzle/0047_notion_event_sync.sql",
+            "drizzle/0098_directory_notion_bidirectional_sync.sql",
+            "drizzle/0099_media_source_quality.sql",
+            "lib/media-source-monitor.ts",
+            "lib/data-quality-store.ts",
+            "app/admin/kvalita/**",
+            "app/api/admin/data-quality/**",
+            "components/admin-data-quality-dashboard.tsx",
+            "tests/media-source-quality.test.mjs",
+            "tests/notion-article-sync.test.mjs",
+            "tests/notion-breed-sync.test.mjs",
+            "tests/notion-event-sync.test.mjs",
+            "tests/notion-directory-sync.test.mjs",
+            "tests/config-contract.test.mjs",
+            "scripts/check-config-contract.mjs",
+            "scripts/check-migration-safety.mjs",
+            "migration-safety.baseline.json",
+            "package-lock.json",
+            ".github/workflows/notion-article-sync-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "notion-events-help-sync-ci.yml",
+      "name": "NOTION-BIDIRECTIONAL events help validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "lib/notion-events-help-*.ts",
+            "lib/notion-data-quality-audit.ts",
+            "lib/notion-data-quality-recovery.ts",
+            "app/api/admin/notion-data-quality-audit/**",
+            "app/admin/nastroje/notion-audit/**",
+            "app/admin/nastroje/page.tsx",
+            "components/admin-notion-data-quality-audit*",
+            "tests/notion-data-quality-recovery.test.mjs",
+            "lib/notion-bidirectional-reconciliation.ts",
+            "lib/notion-canonical-target.ts",
+            "lib/notion-bulk-backfill.ts",
+            "lib/notion-bulk-sources.ts",
+            "lib/notion-geo-mirror.ts",
+            "lib/notion-directory-sync.ts",
+            "lib/notion-directory-update-safety.ts",
+            "tests/notion-geo-mirror.test.mjs",
+            "app/api/admin/notion-events-help-sync/**",
+            "worker/index.ts",
+            "drizzle/0108_notion_events_help_bidirectional_sync.sql",
+            "tests/notion-events-help-bidirectional.test.mjs",
+            "package-lock.json",
+            ".github/workflows/notion-events-help-sync-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint"
+      ],
+      "costEstimate": "stredná",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "organization-profile-e2e.yml",
+      "name": "Organization profile E2E",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/layout.tsx",
+            "app/*.css",
+            "app/organizacie/**",
+            "components/organization-profile-*",
+            "components/adoption-card-media.tsx",
+            "components/detail-primitives/**",
+            "components/page-system.tsx",
+            "components/site-header*",
+            "components/site-footer*",
+            "components/cookie-consent*",
+            "lib/help-organization-store.ts",
+            "lib/organization-adoption-store.ts",
+            "lib/organization-profile-presentation.ts",
+            "lib/organization-seo.ts",
+            "lib/adoption.ts",
+            "lib/adoption-store.ts",
+            "lib/adoption-detail.ts",
+            "lib/seo.ts",
+            "lib/navigation-store.ts",
+            "db/adoption-schema.ts",
+            "db/foundation-schema.ts",
+            "drizzle/0034_adoption_dogs_foundation.sql",
+            "drizzle/0036_help_organizations_foundation.sql",
+            "drizzle/0038_adoption_staging_data.sql",
+            "drizzle/0039_activate_canonical_adoptions.sql",
+            "drizzle/0040_organization_locations_foundation.sql",
+            "drizzle/0041_organization_fundraising_methods.sql",
+            "drizzle/0042_adoption_organization_relation_hardening.sql",
+            "drizzle/0064_geo_foundation.sql",
+            "drizzle/0074_directory_service_address.sql",
+            "drizzle/0077_directory_geo_provider_result_id.sql",
+            "drizzle/0090_geo_google_place_identity.sql",
+            "scripts/bootstrap-adoption-staging-ci.mjs",
+            "tests/e2e/organization-profile.spec.ts",
+            "tests/fixtures/organization-profile-e2e.sql",
+            "tests/organization-profile-presentation.test.mjs",
+            "tests/organization-profile-route.test.mjs",
+            "package-lock.json",
+            "playwright.config.ts",
+            "vite.config.*",
+            "tsconfig.json",
+            ".github/workflows/organization-profile-e2e.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "outreach-ci.yml",
+      "name": "OUTREACH-1 controlled outreach foundation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/operations/outreach/**",
+            "app/api/admin/outreach/**",
+            "app/api/outreach/**",
+            "app/overenie-profilu/**",
+            "app/odhlasenie-osloveni/**",
+            "components/admin-outreach*.tsx",
+            "components/outreach-*.tsx",
+            "lib/outreach*.ts",
+            "drizzle/0053_outreach_foundation.sql",
+            "tests/outreach-foundation.test.mjs",
+            "tests/e2e/outreach.spec.ts",
+            "tests/fixtures/outreach-e2e.sql",
+            ".github/workflows/outreach-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "partner-auth-ci.yml",
+      "name": "Partner platform security and UX",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/partner/**",
+            "app/api/partner/**",
+            "app/admin/partners/**",
+            "app/adresar/[category]/[slug]/page.tsx",
+            "app/organizacie/[slug]/page.tsx",
+            "app/api/admin/partners/**",
+            "components/partner-*",
+            "components/admin-partner-*",
+            "components/site-header.tsx",
+            "components/site-header.module.css",
+            "components/directory-profile-detail.tsx",
+            "components/organization-profile-detail.tsx",
+            "components/cookie-consent.tsx",
+            "components/programmatic-ad-loader.tsx",
+            "db/partner-schema.ts",
+            "db/index.ts",
+            "drizzle/0059_partner_auth_foundation.sql",
+            "drizzle/0060_partner_memberships_admin.sql",
+            "drizzle/0061_partner_commercial_interests.sql",
+            "drizzle/0063_partner_claims_verification.sql",
+            "drizzle/0065_partner_profile_changes.sql",
+            "drizzle/0066_partner_new_profile_submissions.sql",
+            "drizzle/0067_partner_events.sql",
+            "drizzle/0068_partner_commercial_activation.sql",
+            "drizzle/0070_partner_multimethod_auth.sql",
+            "lib/partner-*",
+            "lib/private-media.ts",
+            "lib/moderation-store.ts",
+            "lib/moderation-transition.ts",
+            "lib/admin-attention-queue.ts",
+            "lib/admin-attention-queue-store.ts",
+            "lib/pii-crypto.ts",
+            "lib/rate-limit.ts",
+            "lib/resource-access.ts",
+            "lib/resource-access-store.ts",
+            "lib/turnstile.ts",
+            "tests/partner-auth-foundation.test.mjs",
+            "tests/moderation-atomicity.test.mjs",
+            "tests/partner-multimethod-auth.test.mjs",
+            "tests/partner-memberships-admin.test.mjs",
+            "tests/partner-commercial-interest.test.mjs",
+            "tests/partner-commercial-agreements.test.mjs",
+            "tests/partner-claims-verification.test.mjs",
+            "tests/partner-profile-changes.test.mjs",
+            "tests/partner-new-profile.test.mjs",
+            "tests/partner-events.test.mjs",
+            "tests/partner-media.test.mjs",
+            "tests/e2e/partner-auth.spec.ts",
+            "tests/fixtures/partner-auth-e2e.sql",
+            ".github/workflows/partner-auth-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "playwright-e2e.yml",
+      "name": "Playwright E2E and production smoke",
+      "events": {
+        "workflow_dispatch": null,
+        "pull_request": {
+          "branches": [
+            "main"
+          ]
+        },
+        "push": {
+          "branches": [
+            "main",
+            "codex/lost-found-dogs"
+          ]
+        },
+        "schedule": [
+          {
+            "cron": "17 5 * * *"
+          }
+        ]
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "npm test",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Required status, full/feature výber, runtime production smoke"
+    },
+    {
+      "workflow": "production-d1-backlog-verify.yml",
+      "name": "Production D1 Backlog Verification",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "confirmation": {
+              "description": "Type VERIFY-0061-psipedia-sk-db exactly",
+              "required": true,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "production-d1-backlog.yml",
+      "name": "Production D1 Backlog 0058-0061",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "confirmation": {
+              "description": "Type APPLY-0058-0061-psipedia-sk-db exactly",
+              "required": true,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "production-d1-history-audit.yml",
+      "name": "Production D1 History Audit",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "confirmation": {
+              "description": "Type AUDIT-0058-0061-psipedia-sk-db exactly",
+              "required": true,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci"
+      ],
+      "costEstimate": "nízka",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "production-d1-migrate.yml",
+      "name": "Production D1 Migrate",
+      "events": {
+        "workflow_dispatch": {
+          "inputs": {
+            "target_migration": {
+              "description": "Canonical migration to apply",
+              "required": true,
+              "type": "choice",
+              "default": "0062_profile_reviews_foundation.sql",
+              "options": [
+                "0062_profile_reviews_foundation.sql",
+                "0063_partner_claims_verification.sql",
+                "0064_geo_foundation.sql",
+                "0065_partner_profile_changes.sql",
+                "0066_partner_new_profile_submissions.sql",
+                "0067_partner_events.sql",
+                "0068_partner_commercial_activation.sql",
+                "0069_partner_auth_onboarding_hardening.sql",
+                "0070_partner_multimethod_auth.sql",
+                "0071_admin_universal_notifications.sql",
+                "0072_partner_media_uploads.sql",
+                "0073_automation_multisource_entity_resolution.sql",
+                "0074_directory_service_address.sql",
+                "0075_automation_zsk_event_source.sql",
+                "0076_automation_non_event_entity_resolution_foundation.sql",
+                "0077_directory_geo_provider_result_id.sql",
+                "0078_automation_possible_match_reviews.sql",
+                "0079_automation_agility_event_source.sql",
+                "0080_automation_canonical_apply.sql",
+                "0081_automation_mushing_event_source.sql",
+                "0082_automation_discovery_candidate_evidence.sql",
+                "0083_automation_search_budgets.sql",
+                "0084_automation_governance_registry.sql",
+                "0085_automation_tavily_discovery_root.sql",
+                "0086_automation_tavily_event_cadence.sql",
+                "0087_automation_tavily_help_roots.sql",
+                "0088_automation_tavily_organization_root.sql",
+                "0089_automation_tavily_directory_roots.sql",
+                "0090_geo_google_place_identity.sql",
+                "0091_automation_detach_drafts.sql",
+                "0092_automation_product_model.sql",
+                "0093_automation_address_review.sql",
+                "0094_canonical_draft_delete.sql",
+                "0095_automation_calendar_schedule.sql",
+                "0096_automation_update_field_reviews.sql",
+                "0097_automation_operations_metrics.sql",
+                "0098_directory_notion_bidirectional_sync.sql",
+                "0099_media_source_quality.sql",
+                "0100_eshop_ratings.sql",
+                "0101_eshop_profile_presentation.sql",
+                "0102_eshop_notion_sync.sql",
+                "0103_admin_entity_reviews.sql",
+                "0104_article_topics.sql",
+                "0105_article_popularity.sql",
+                "0106_section_visuals.sql",
+                "0107_section_hero_config.sql",
+                "0108_notion_events_help_bidirectional_sync.sql",
+                "0109_dynamic_entity_identity_indexes.sql",
+                "0110_tavily_source_provider_usage.sql",
+                "0111_tavily_provider_diagnostics.sql",
+                "0112_tavily_transport_phase.sql",
+                "0113_gemini_automation_foundation.sql",
+                "0114_gemini_dedupe.sql",
+                "0115_gemini_notion_bridge.sql",
+                "0116_admin_automation_push.sql",
+                "0117_gemini_events_rejections.sql",
+                "0118_event_image_display.sql",
+                "0119_gemini_manual_background_jobs.sql",
+                "0120_article_image_presentation.sql",
+                "0121_article_image_display_config.sql",
+                "0122_entity_image_display_config.sql"
+              ]
+            },
+            "confirmation": {
+              "description": "Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)",
+              "required": true,
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Explicitná údržba/export/produkčná ochrana; nemení sa"
+    },
+    {
+      "workflow": "profile-review-admin-ci.yml",
+      "name": "REVIEWS-3 Admin Moderation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/admin/recenzie-profilov/**",
+            "app/api/admin/profile-reviews/**",
+            "components/admin-profile-review-actions.tsx",
+            "components/admin-shell.tsx",
+            "lib/admin-auth.ts",
+            "lib/admin-attention-queue.ts",
+            "lib/admin-attention-queue-store.ts",
+            "lib/profile-review-admin.ts",
+            "lib/profile-review-admin-transition.ts",
+            "lib/profile-review-domain.ts",
+            "lib/profile-review-read.ts",
+            "tests/profile-review-admin.test.mjs",
+            "tests/admin-attention-queue.test.mjs",
+            "tests/e2e/profile-review-admin.spec.ts",
+            "tests/fixtures/profile-review-admin-e2e.sql",
+            ".github/workflows/profile-review-admin-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "profile-review-submission-ci.yml",
+      "name": "REVIEWS-2B Review Submission",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/recenzia/**",
+            "app/api/review-author/reviews/**",
+            "components/profile-review-section.tsx",
+            "components/profile-review-submission-form.tsx",
+            "components/profile-review-submission-form.module.css",
+            "lib/profile-review-domain.ts",
+            "lib/profile-review-read.ts",
+            "lib/profile-review-submission.ts",
+            "lib/review-author-auth.ts",
+            "lib/review-author-auth-store.ts",
+            "lib/review-author-return-to.ts",
+            "lib/review-author-security.ts",
+            "lib/submission-feature-flags.ts",
+            "lib/submission-security.ts",
+            "lib/turnstile.ts",
+            "lib/rate-limit.ts",
+            "tests/profile-review-submission.test.mjs",
+            "tests/review-author-auth.test.mjs",
+            "tests/profile-review-read.test.mjs",
+            "tests/e2e/profile-review-submission.spec.ts",
+            "tests/e2e/review-author-auth.spec.ts",
+            "tests/fixtures/profile-review-submission-e2e.sql",
+            ".github/workflows/profile-review-submission-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "profile-reviews-public-ci.yml",
+      "name": "REVIEWS-1B Public Read UI",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "lib/profile-review-read.ts",
+            "lib/profile-review-domain.ts",
+            "components/profile-review-section.tsx",
+            "components/profile-review-section.module.css",
+            "components/directory-profile-detail.tsx",
+            "components/organization-profile-detail.tsx",
+            "app/adresar/[category]/[slug]/page.tsx",
+            "app/organizacie/[slug]/page.tsx",
+            "tests/profile-review-read.test.mjs",
+            "tests/e2e/profile-reviews-public.spec.ts",
+            "tests/fixtures/profile-reviews-e2e.sql",
+            ".github/workflows/profile-reviews-public-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "review-author-auth-ci.yml",
+      "name": "REVIEWS-2A Review Author Authentication",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/recenzia/**",
+            "app/api/review-author/**",
+            "components/review-author-*",
+            "components/profile-review-section.tsx",
+            "components/profile-review-section.module.css",
+            "components/cookie-consent.tsx",
+            "components/programmatic-ad-loader.tsx",
+            "lib/review-author-*",
+            "lib/resource-access.ts",
+            "lib/resource-access-store.ts",
+            "lib/pii-crypto.ts",
+            "lib/rate-limit.ts",
+            "lib/turnstile.ts",
+            "tests/review-author-auth.test.mjs",
+            "tests/e2e/review-author-auth.spec.ts",
+            "tests/fixtures/review-author-auth-e2e.sql",
+            ".github/workflows/review-author-auth-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "db:validate-clean",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "section-hero-v2-ci.yml",
+      "name": "SECTION-HERO-V2 validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "components/public-visual-system/**",
+            "components/admin-section-visuals.tsx",
+            "components/admin-section-visuals.module.css",
+            "components/editorial-section*",
+            "components/portal-hub*",
+            "components/portal-topic*",
+            "components/directory-page*",
+            "components/events-page*",
+            "components/help-overview*",
+            "components/help-page*",
+            "components/help-browser*",
+            "components/lost-found-dogs.module.css",
+            "components/adoption-catalog*",
+            "components/lost-found-dogs-page*",
+            "components/reviews-hub*",
+            "app/page.tsx",
+            "app/clanky/page.tsx",
+            "app/hladat/page.tsx",
+            "app/plemena/page.tsx",
+            "app/pomoc-psom/**",
+            "app/globals.css",
+            "app/[section]/page.tsx",
+            "app/[section]/[slug]/page.tsx",
+            "lib/portal.ts",
+            "lib/portal-search.ts",
+            "lib/section-store.ts",
+            "lib/section-visual-contract.ts",
+            "lib/section-visual-store.ts",
+            "drizzle/0107_section_hero_config.sql",
+            "tests/section-hero-v2.test.mjs",
+            "tests/unified-section-hero.test.mjs",
+            "tests/e2e/unified-section-hero.spec.ts",
+            "tests/public-landing-alignment.test.mjs",
+            "tests/e2e/public-landing-alignment.spec.ts",
+            "package-lock.json",
+            "scripts/production-d1-migrate.mjs",
+            ".github/workflows/production-d1-migrate.yml",
+            ".github/workflows/section-hero-v2-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "npm test",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Historické branch-gated joby; na #762 skipped, explicitné preview kontrakty"
+    },
+    {
+      "workflow": "sitewide-ai-entity-surface-ci.yml",
+      "name": "SITEWIDE-AI-ENTITY-SURFACE-1 validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/sitemap.ts",
+            "app/[section]/[slug]/page.tsx",
+            "app/plemena/[slug]/page.tsx",
+            "app/pomoc-psom/adopcia/[slug]/page.tsx",
+            "app/pomoc-psom/[category]/[slug]/page.tsx",
+            "app/adresar/[category]/[slug]/page.tsx",
+            "app/organizacie/[slug]/page.tsx",
+            "components/article-detail.tsx",
+            "components/event-detail.tsx",
+            "components/organization-profile-detail.tsx",
+            "components/adoption-detail.tsx",
+            "components/lost-found-dog-detail.tsx",
+            "components/directory-profile-detail.tsx",
+            "components/help-details/**",
+            "components/detail-primitives/**",
+            "components/structured-data.tsx",
+            "lib/event-schema.ts",
+            "lib/organization-profile-presentation.ts",
+            "lib/organization-seo.ts",
+            "lib/adoption-detail.ts",
+            "lib/directory-detail-presentation.ts",
+            "lib/directory-profile-metadata.ts",
+            "lib/directory-profile-schema.ts",
+            "lib/article-seo.ts",
+            "lib/content-seo.ts",
+            "lib/seo.ts",
+            "lib/canonical-resource.ts",
+            "lib/sitemap-parity.ts",
+            "lib/sitemap-runtime.ts",
+            "lib/sitemap-seo.ts",
+            "lib/entity-sitemap.ts",
+            "lib/organization-sitemap.ts",
+            "lib/adoption-sitemap.ts",
+            "tests/sitewide-ai-entity-surface.test.mjs",
+            "tests/events-phase4.test.mjs",
+            "tests/adoption-detail.test.mjs",
+            "tests/organization-profile-presentation.test.mjs",
+            "tests/organization-seo.test.mjs",
+            "tests/seo-structured-data-2.test.mjs",
+            "tests/directory-detail-presentation.test.mjs",
+            "tests/sitemap-seo.test.mjs",
+            "tests/rendered-html.test.mjs",
+            "tests/social-metadata.test.mjs",
+            "tests/social-metadata-rendered.test.mjs",
+            "tests/e2e/event-detail-phase4.spec.ts",
+            "tests/e2e/adoption.spec.ts",
+            "tests/e2e/breed-profile.spec.ts",
+            "tests/e2e/lost-found-dogs.spec.ts",
+            "tests/e2e/help-detail-primitives.spec.ts",
+            "scripts/bootstrap-admin-events-e2e.mjs",
+            "scripts/bootstrap-breed-e2e.mjs",
+            "scripts/bootstrap-adoption-e2e.mjs",
+            "scripts/bootstrap-adoption-staging-ci.mjs",
+            "tests/fixtures/lost-found-e2e.sql",
+            "tests/fixtures/help-detail-e2e.sql",
+            "package-lock.json",
+            "playwright.config.ts",
+            "vite.config.ts",
+            "tsconfig.json",
+            ".github/workflows/sitewide-ai-entity-surface-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "submission-foundation-ci.yml",
+      "name": "Submission foundation security tests",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "app/api/admin/moderation/**",
+            "db/foundation-schema.ts",
+            "drizzle/0029_submission_moderation_security_foundation.sql",
+            "lib/audit-identity.ts",
+            "lib/moderation-store.ts",
+            "lib/pii-crypto.ts",
+            "lib/private-media.ts",
+            "lib/rate-limit.ts",
+            "lib/resource-access.ts",
+            "lib/resource-access-store.ts",
+            "lib/submission-feature-flags.ts",
+            "lib/submission-security.ts",
+            "lib/turnstile.ts",
+            "tests/submission-foundation.test.mjs",
+            ".github/workflows/submission-foundation-ci.yml"
+          ]
+        },
+        "workflow_dispatch": null
+      },
+      "operations": [
+        "npm ci",
+        "npm run lint"
+      ],
+      "costEstimate": "nízka",
+      "reason": "Doménové kontrakty, fixture/security izolácia"
+    },
+    {
+      "workflow": "unified-section-hero-ci.yml",
+      "name": "UNIFIED-SECTION-HERO-1 validation",
+      "events": {
+        "pull_request": {
+          "branches": [
+            "main"
+          ],
+          "paths": [
+            "components/public-visual-system/**",
+            "components/admin-section-visuals.tsx",
+            "components/admin-section-visuals.module.css",
+            "components/editorial-section*",
+            "components/portal-hub*",
+            "components/portal-topic*",
+            "components/directory-page*",
+            "components/events-page*",
+            "components/help-overview*",
+            "components/help-page*",
+            "components/adoption-catalog*",
+            "components/lost-found-dogs-page*",
+            "components/reviews-hub*",
+            "app/page.tsx",
+            "app/clanky/page.tsx",
+            "app/hladat/page.tsx",
+            "app/plemena/page.tsx",
+            "app/[section]/page.tsx",
+            "app/[section]/[slug]/page.tsx",
+            "lib/portal.ts",
+            "lib/portal-search.ts",
+            "lib/section-store.ts",
+            "lib/section-visual-contract.ts",
+            "lib/section-visual-store.ts",
+            "drizzle/0107_section_hero_config.sql",
+            "tests/section-hero-v2.test.mjs",
+            "tests/unified-section-hero.test.mjs",
+            "tests/e2e/unified-section-hero.spec.ts",
+            "package-lock.json",
+            ".github/workflows/unified-section-hero-ci.yml"
+          ]
+        }
+      },
+      "operations": [
+        "npm ci",
+        "npm run build",
+        "npm run lint",
+        "npm test",
+        "playwright"
+      ],
+      "costEstimate": "vysoká",
+      "reason": "Historické branch-gated joby; na #762 skipped, explicitné preview kontrakty"
+    }
+  ],
+  "nominalCostModel": [
+    {
+      "name": "764 PR",
+      "before": {
+        "runs": 1,
+        "heavy": 0,
+        "skipped": 9,
+        "explicitBuilds": 0,
+        "npmCi": 0,
+        "lint": 0,
+        "unknown": []
+      },
+      "after": {
+        "runs": 1,
+        "heavy": 0,
+        "skipped": 9,
+        "explicitBuilds": 0,
+        "npmCi": 0,
+        "lint": 0,
+        "unknown": []
+      }
+    },
+    {
+      "name": "764 merge",
+      "before": {
+        "runs": 2,
+        "heavy": 4,
+        "skipped": 8,
+        "explicitBuilds": 2,
+        "npmCi": 4,
+        "lint": 1,
+        "unknown": []
+      },
+      "after": {
+        "runs": 2,
+        "heavy": 0,
+        "skipped": 9,
+        "explicitBuilds": 0,
+        "npmCi": 0,
+        "lint": 0,
+        "unknown": []
+      }
+    },
+    {
+      "name": "762 PR",
+      "before": {
+        "runs": 17,
+        "heavy": 19,
+        "skipped": 13,
+        "explicitBuilds": 15,
+        "npmCi": 19,
+        "lint": 8,
+        "unknown": []
+      },
+      "after": {
+        "runs": 17,
+        "heavy": 17,
+        "skipped": 15,
+        "explicitBuilds": 13,
+        "npmCi": 17,
+        "lint": 8,
+        "unknown": []
+      }
+    },
+    {
+      "name": "directory PR",
+      "before": {
+        "runs": 2,
+        "heavy": 2,
+        "skipped": 8,
+        "explicitBuilds": 2,
+        "npmCi": 2,
+        "lint": 1,
+        "unknown": []
+      },
+      "after": {
+        "runs": 2,
+        "heavy": 2,
+        "skipped": 8,
+        "explicitBuilds": 1,
+        "npmCi": 2,
+        "lint": 1,
+        "unknown": []
+      }
+    },
+    {
+      "name": "directory push",
+      "before": {
+        "runs": 2,
+        "heavy": 4,
+        "skipped": 8,
+        "explicitBuilds": 2,
+        "npmCi": 4,
+        "lint": 1,
+        "unknown": []
+      },
+      "after": {
+        "runs": 2,
+        "heavy": 4,
+        "skipped": 7,
+        "explicitBuilds": 1,
+        "npmCi": 4,
+        "lint": 1,
+        "unknown": []
+      }
+    },
+    {
+      "name": "migration PR",
+      "before": {
+        "runs": 3,
+        "heavy": 3,
+        "skipped": 8,
+        "explicitBuilds": 2,
+        "npmCi": 3,
+        "lint": 1,
+        "unknown": []
+      },
+      "after": {
+        "runs": 3,
+        "heavy": 3,
+        "skipped": 8,
+        "explicitBuilds": 1,
+        "npmCi": 3,
+        "lint": 1,
+        "unknown": []
+      }
+    },
+    {
+      "name": "migration push",
+      "before": {
+        "runs": 2,
+        "heavy": 4,
+        "skipped": 8,
+        "explicitBuilds": 2,
+        "npmCi": 4,
+        "lint": 1,
+        "unknown": []
+      },
+      "after": {
+        "runs": 2,
+        "heavy": 4,
+        "skipped": 7,
+        "explicitBuilds": 1,
+        "npmCi": 4,
+        "lint": 1,
+        "unknown": []
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-export const CI_SCOPE_VERSION = 5;
+export const CI_SCOPE_VERSION = 6;
 
 const RULES = {
   ADMIN: [
@@ -189,6 +189,7 @@ const RULES = {
     /^\.github\/workflows\/sitewide-ai-entity-surface-ci\.yml$/,
   ],
   SHARED_CORE: [
+    /^lib\/(?:auth|admin-auth|partner-auth(?:-store)?|pii-crypto|private-media|resource-access|turnstile|rate-limit)\.ts$/,
     /^app\/(?:layout\.tsx|globals\.css)$/,
     /^worker\/index\.ts$/,
     /^db\/index\.ts$/,
@@ -205,10 +206,12 @@ function normalizeFiles(files) {
 }
 
 function isDocsOnlyFile(file) {
+  // Served text and executable MDX routes are product changes, not documentation.
+  if (file.startsWith("public/") || /^app\/(?:.*\/)?(?:page|layout)\.mdx$/.test(file)) return false;
   return DOC_RE.test(file) || /\.(?:md|mdx|txt)$/i.test(file);
 }
 
-const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope|check-ci-scope)\.mjs$)/;
+const CI_CONTROL_RE = /^(?:\.github\/workflows\/|scripts\/(?:ci-scope(?:-conditions)?|check-ci-scope)\.mjs$)/;
 
 const AUTOMATION_BROAD_RE = /^(?:lib\/(?:data-automation(?:\.ts|-apply\.ts|-canonical-apply\.ts|-store\.ts|-runner\.ts|-governance\.ts|-identity\.ts|-dynamic-identity\.ts|-matching\.ts|-clustering\.ts|-capability-registry\.ts|-draft-mapper\.ts|-enrichment-normalize\.ts|-enrichment-template\.ts|-http-policy\.ts|-source-store\.ts|-source-provisioning\.ts|-source-scoped-extraction\.ts|-generic-source-extractor\.ts|-ingestion-receipts\.ts|-lifecycle(?:-apply|-store)?\.ts)|automation-record-suppressions\.ts|canonical-draft-delete\.ts)|drizzle\/(?:0050|0052|0055|0056|0057|0073|0075|0076|0078|0079|0080|0081|0082|0083|0084|0085|0086|0087|0088|0089|0091|0092|0093|0094|0095|0096|0097)_|tests\/fixtures\/data-automation\/|\.github\/workflows\/data-automation-(?:ci|v2-ci)\.yml$)/;
 
@@ -319,13 +322,50 @@ export function classifyChangedFiles(inputFiles, { packageTestScriptsOnly = fals
   };
 }
 
-export function changedFilesFromGit({ baseSha = process.env.CI_SCOPE_BASE_SHA, headSha = process.env.CI_SCOPE_HEAD_SHA } = {}) {
-  if (!baseSha || !headSha) return [];
-  const output = execFileSync("git", ["diff", "--name-only", baseSha, headSha], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "inherit"],
-  });
-  return normalizeFiles(output.split(/\r?\n/));
+/** Resolve the event's complete range; missing/non-ancestor PUSH history fails closed. */
+export function resolveChangedFiles({
+  eventName = process.env.CI_SCOPE_EVENT_NAME || process.env.GITHUB_EVENT_NAME,
+  baseSha = process.env.CI_SCOPE_BASE_SHA,
+  headSha = process.env.CI_SCOPE_HEAD_SHA,
+  git = (args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
+} = {}) {
+  const broad = (reason) => ({ files: [], trusted: false, reason, eventName, baseSha, headSha });
+  if (["workflow_dispatch", "schedule"].includes(eventName)) return broad("explicit-full-validation");
+  if (eventName && !["push", "pull_request"].includes(eventName)) return broad("unsupported-event");
+  const valid = (sha) => typeof sha === "string" && /^[a-f0-9]{40,64}$/i.test(sha) && !/^0+$/.test(sha);
+  if (!valid(baseSha) || !valid(headSha)) return broad("missing-or-invalid-revision");
+  try {
+    git(["cat-file", "-e", `${baseSha}^{commit}`]);
+    git(["cat-file", "-e", `${headSha}^{commit}`]);
+    if (eventName === "push") git(["merge-base", "--is-ancestor", baseSha, headSha]);
+    const output = git(["diff", "--name-only", "-z", baseSha, headSha]);
+    const files = normalizeFiles(output.split("\0"));
+    // An empty diff is not evidence for skipping checks (reruns/ambiguous events).
+    if (!files.length) return broad("empty-range");
+    return { files, trusted: true, reason: "complete-event-range", eventName, baseSha, headSha };
+  } catch {
+    return broad("unavailable-or-non-ancestor-history");
+  }
+}
+
+export function changedFilesFromGit(options = {}) {
+  return resolveChangedFiles(options).files;
+}
+
+export function productionSmokeRequired(result, {
+  eventName = process.env.CI_SCOPE_EVENT_NAME || process.env.GITHUB_EVENT_NAME,
+  ref = process.env.GITHUB_REF,
+} = {}) {
+  if (["workflow_dispatch", "schedule"].includes(eventName)) return true;
+  if (eventName !== "push" || ref !== "refs/heads/main") return false;
+  if (result.docsOnly) return false;
+  if (!result.files.length) return true; // Unknown range: never skip production smoke.
+  return result.files.some((file) =>
+    /^(?:app|components|lib|public|config|db|worker|drizzle)\//.test(file) ||
+    /^(?:package-lock\.json|\.nvmrc|\.node-version|wrangler\.jsonc|vite\.config\.ts)$/.test(file) ||
+    (file === "package.json" && !result.packageTestScriptsOnly) ||
+    /^scripts\/(?:build-verified\.sh|sites-env\.sh|production-d1-migrate\.mjs)$/.test(file)
+  );
 }
 
 export function focusedPrE2eFlags(result, files = result.files) {
@@ -362,6 +402,7 @@ function writeGithubOutput(result, files) {
     `directory=${directory}`,
     `scopes=${result.scopes.join(",")}`,
     `docs_only=${result.docsOnly}`,
+    `production_smoke=${productionSmokeRequired(result)}`,
     `validation_mode=${result.validationMode}`,
     "",
   ].join("\n"));
@@ -371,7 +412,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const githubOutput = args.includes("--github-output");
   const filesIndex = args.indexOf("--files");
-  const files = filesIndex >= 0 ? args.slice(filesIndex + 1) : changedFilesFromGit();
+  const range = filesIndex >= 0 ? null : resolveChangedFiles();
+  const files = filesIndex >= 0 ? args.slice(filesIndex + 1) : range.files;
+  if (range && !range.trusted) process.stderr.write(`CI scope: full safety fallback (${range.reason})\n`);
   const packageTestScriptsOnly = files.includes("package.json") && filesIndex < 0 && packageTestScriptsOnlyBetweenGit();
   const result = classifyChangedFiles(files, { packageTestScriptsOnly });
 
