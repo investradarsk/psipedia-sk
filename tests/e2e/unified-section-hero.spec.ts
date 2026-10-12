@@ -28,9 +28,11 @@ const ROUTES = [
 const ROOT_ROUTE_SLUGS = new Set(["steniatka", "starostlivost", "aktivity", "novinky", "plemena", "adresar", "podujatia", "pomoc", "recenzie"]);
 
 const VIEWPORTS = [
+  { label: "mobile-320", width: 320, height: 720 },
   { label: "mobile-390", width: 390, height: 844 },
   { label: "mobile-430", width: 430, height: 932 },
   { label: "tablet-768", width: 768, height: 1024 },
+  { label: "desktop-1180", width: 1180, height: 900 },
   { label: "desktop-1280", width: 1280, height: 800 },
   { label: "desktop-1440", width: 1440, height: 900 },
   { label: "desktop-1920", width: 1920, height: 1080 },
@@ -78,7 +80,7 @@ async function openHero(page: Page, path: string, visualKey: string, label: stri
   return hero;
 }
 
-test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobile overlay or horizontal overflow", async ({ browser }) => {
+test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at every breakpoint or horizontal overflow", async ({ browser }) => {
   test.setTimeout(15 * 60 * 1000);
   expect(PREVIEW_URL).toMatch(/^https:\/\//);
   mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -143,7 +145,7 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
 
         if (viewport.width >= 768) {
           if (referenceVisualHeight === null) referenceVisualHeight = visualBox!.height;
-          expect(Math.abs(visualBox!.height - referenceVisualHeight), label + ": canonical desktop visual height").toBeLessThanOrEqual(2);
+          expect(visualBox!.height, label + ": desktop minimum height; long text may grow").toBeGreaterThanOrEqual(329);
         }
 
         const breadcrumbs = hero.locator("[data-section-hero-breadcrumbs]");
@@ -166,69 +168,50 @@ test("UNIFIED-SECTION-HERO visual audit covers required breakpoints without mobi
         });
 
         if (copyGeometry.breadcrumbs && copyGeometry.eyebrow) {
-          const expectedGap = viewport.width <= 767 ? 10 : 12;
+          const expectedGap = viewport.width <= 620 ? 10 : 12;
           expect(
             Math.abs(copyGeometry.eyebrow.y - (copyGeometry.breadcrumbs.y + copyGeometry.breadcrumbs.height) - expectedGap),
             label + ": breadcrumb→eyebrow gap",
           ).toBeLessThanOrEqual(2);
         }
         if (copyGeometry.eyebrow && copyGeometry.title) {
-          const expectedGap = viewport.width <= 767 ? 7 : 8;
+          const expectedGap = 10;
           expect(
             Math.abs(copyGeometry.title.y - (copyGeometry.eyebrow.y + copyGeometry.eyebrow.height) - expectedGap),
             label + ": eyebrow→H1 gap",
           ).toBeLessThanOrEqual(2);
         }
         if (copyGeometry.title && copyGeometry.intro) {
-          const expectedGap = viewport.width <= 767 ? 9 : 12;
+          const expectedGap = viewport.width <= 620 ? 10 : 12;
           expect(
             Math.abs(copyGeometry.intro.y - (copyGeometry.title.y + copyGeometry.title.height) - expectedGap),
             label + ": H1→intro gap",
           ).toBeLessThanOrEqual(2);
         }
 
-        if (viewport.width <= 430) {
-          await expect.poll(async () => hero.evaluate((root) => {
-            const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
-            const copyElement = root.querySelector<HTMLElement>("[data-unified-section-hero-copy]");
-            if (!mediaElement || !copyElement) return -999;
-            const mediaRect = mediaElement.getBoundingClientRect();
-            const copyRect = copyElement.getBoundingClientRect();
-            return mediaRect.y - (copyRect.y + copyRect.height);
-          }), { message: label + ": copy must end before image", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
-
-          const mediaBox = await media.boundingBox();
-          expect(mediaBox, label + ": media box").not.toBeNull();
-          expect(Math.abs(mediaBox!.x), label + ": mobile media left edge").toBeLessThanOrEqual(1);
-          expect(Math.abs((mediaBox!.x + mediaBox!.width) - overflow.clientWidth), label + ": mobile media right edge").toBeLessThanOrEqual(1);
-          const mediaRadius = await media.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
-          expect(mediaRadius, label + ": mobile media radius").toBe("0px");
-          const ratio = mediaBox!.width / mediaBox!.height;
-          expect(ratio, label + ": mobile media should be low 16:6").toBeGreaterThan(2.62);
-          expect(ratio, label + ": mobile media should be low 16:6").toBeLessThan(2.72);
-
-          if (await intro.count()) {
-            const introMediaGap = await hero.evaluate((root) => {
-              const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
-              const introElement = root.querySelector<HTMLElement>("[data-section-hero-intro]");
-              if (!mediaElement || !introElement) return null;
-              const mediaRect = mediaElement.getBoundingClientRect();
-              const introRect = introElement.getBoundingClientRect();
-              return mediaRect.y - (introRect.y + introRect.height);
-            });
-            expect(introMediaGap, label + ": intro/image geometry").not.toBeNull();
-            expect(Math.abs(introMediaGap! - 16), label + ": intro→image gap").toBeLessThanOrEqual(2);
-          }
-
+        if (viewport.width <= 620) {
+          const bounds = await hero.evaluate((root) => {
+            const box = (selector: string) => root.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
+            return {
+              visual: box("[data-unified-section-hero-visual]"),
+              media: box("[data-unified-section-hero-media]"),
+              copy: box("[data-unified-section-hero-copy]"),
+              title: box("[data-section-hero-title]"),
+            };
+          });
+          expect(bounds.visual, label + ": mobile visual").not.toBeNull();
+          expect(bounds.media, label + ": mobile photo").not.toBeNull();
+          expect(bounds.copy, label + ": mobile copy").not.toBeNull();
+          expect(Math.abs(bounds.visual!.left), label + ": mobile visual left edge").toBeLessThanOrEqual(1);
+          expect(Math.abs(bounds.visual!.right - overflow.clientWidth), label + ": mobile visual right edge").toBeLessThanOrEqual(1);
+          expect(bounds.visual!.height, label + ": mobile hero fits long text").toBeGreaterThanOrEqual(317);
+          expect(bounds.title!.bottom, label + ": title stays inside photo").toBeLessThanOrEqual(bounds.visual!.bottom + 1);
+          expect(bounds.copy!.top, label + ": text overlays image").toBeGreaterThanOrEqual(bounds.media!.top - 1);
+          const radius = await visual.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
+          expect(radius, label + ": mobile homepage radius").toBe("20px");
           if (await tools.count()) {
-            await expect.poll(async () => hero.evaluate((root) => {
-              const mediaElement = root.querySelector<HTMLElement>("[data-unified-section-hero-media]");
-              const toolsElement = root.querySelector<HTMLElement>("[data-unified-section-hero-tools]");
-              if (!mediaElement || !toolsElement) return -999;
-              const mediaRect = mediaElement.getBoundingClientRect();
-              const toolsRect = toolsElement.getBoundingClientRect();
-              return toolsRect.y - (mediaRect.y + mediaRect.height);
-            }), { message: label + ": image must end before tools", timeout: 5000 }).toBeGreaterThanOrEqual(-1);
+            const toolsBox = await tools.boundingBox();
+            expect(toolsBox!.y, label + ": tools are anchored after the visual").toBeGreaterThanOrEqual(bounds.visual!.bottom - 26);
           }
         } else {
           const desktopGeometry = await hero.evaluate((root) => {
