@@ -19,9 +19,10 @@ test("admin can persist only supported fitting modes", () => {
   assert.throws(() => normalizeSmartImageMode("bad"), /nie je platný/);
 });
 test("homepage and entity cards use the shared smart image renderer", () => {
-  // Homepage still owns direct SmartCardImage instances. Other entities route
-  // through ImageDisplay, which delegates real photographs to SmartCardImage.
-  assert.match(read("app/page.tsx"), /<SmartCardImage/);
+  // Homepage is integrated in the same display contract as all other entities.
+  // The low-level SmartCardImage remains the internal image element.
+  assert.match(read("app/page.tsx"), /<ImageDisplay/);
+  assert.match(read("app/page.tsx"), /<EventImage/);
   for (const path of ["components/directory-card.tsx", "components/help-card.tsx"]) {
     assert.match(read(path), /<ImageDisplay[^>]*context="thumbnail"[^>]*config=/, path);
   }
