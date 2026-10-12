@@ -2,7 +2,11 @@
 
 import { useState, type ImgHTMLAttributes } from "react";
 import { SmartCardImage } from "@/components/smart-card-image";
-import { DEFAULT_DETAIL, DEFAULT_THUMBNAIL, legacyArticleThumbnail, legacyArticleDetail, type ImageDisplayConfig, type ImageDisplayContext } from "@/lib/image-display";
+import {
+  DEFAULT_DETAIL, DEFAULT_THUMBNAIL, automaticThumbnailFit,
+  legacyArticleThumbnail, legacyArticleDetail,
+  type ImageDisplayConfig, type ImageDisplayContext,
+} from "@/lib/image-display";
 import type { SmartImageMode, SmartImageRole } from "@/lib/smart-image";
 import styles from "./image-display.module.css";
 
@@ -20,20 +24,25 @@ export type ImageDisplayProps = ImageProps & {
   imageClassName?: string;
 };
 
-/** One renderer for the live editor and every public article image slot. */
+/** Non-destructive renderer shared by the live editor and public image slots. */
 export function ImageDisplay({
   src, alt, context, config, legacyMode, legacyFocusX, legacyFocusY, roleHint = "article",
   className, imageClassName, style, ...imageProps
 }: ImageDisplayProps) {
   const [autoFit, setAutoFit] = useState<{ src: string; fit: "cover" | "contain" } | null>(null);
-  const settings = config ?? (context === "thumbnail" ? legacyArticleThumbnail(legacyMode, legacyFocusX, legacyFocusY) : legacyArticleDetail(legacyMode, legacyFocusX, legacyFocusY))
+  const settings = config ?? (context === "thumbnail"
+    ? legacyArticleThumbnail(legacyMode, legacyFocusX, legacyFocusY)
+    : legacyArticleDetail(legacyMode, legacyFocusX, legacyFocusY))
     ?? (context === "thumbnail" ? DEFAULT_THUMBNAIL : DEFAULT_DETAIL);
   const natural = context === "detail" && settings.mode === "natural";
-  const blur = settings.mode === "blur" || (settings.mode === "auto" && autoFit?.src === src && autoFit.fit === "contain");
-  const focus = { x: settings.x, y: settings.y };
-  const position = `${focus.x}% ${focus.y}%`;
+  // Dimension detection is intentionally performed after image load; SSR renders the
+  // same stable crop frame as the initial client render, avoiding hydration mismatch.
+  const resolvedFit = autoFit?.src === src ? autoFit.fit : "cover";
+  const blur = settings.mode === "blur" || (settings.mode === "auto" && resolvedFit === "contain");
+  const position = `${settings.x}% ${settings.y}%`;
   const cropTransform = { transform: `scale(${settings.zoom})`, transformOrigin: position };
-  const fitMode: SmartImageMode = settings.mode === "auto" ? "auto" : settings.mode === "crop" ? "cover" : "contain";
+  const fitMode: SmartImageMode = settings.mode === "auto" ? resolvedFit
+    : settings.mode === "crop" ? "cover" : "contain";
 
   return (
     <span className={[styles.frame, natural && styles.natural, className].filter(Boolean).join(" ")}
@@ -43,11 +52,15 @@ export function ImageDisplay({
           style={style} draggable={false} />
       ) : (
         <>
-          {blur && <span aria-hidden="true" className={styles.blurBackground}
-            style={{ backgroundImage: `url(${JSON.stringify(src)})` }} />}
+          {blur && <img className={styles.blurBackground} src={src} srcSet={imageProps.srcSet}
+            sizes={imageProps.sizes} loading={imageProps.loading} decoding={imageProps.decoding}
+            alt="" aria-hidden="true" draggable={false} />}
           <SmartCardImage {...imageProps} src={src} alt={alt} roleHint={roleHint} mode={fitMode}
-            focusX={focus.x} focusY={focus.y}
-            onResolvedFit={(fit) => setAutoFit((current) => current?.src === src && current.fit === fit ? current : { src, fit })}
+            focusX={settings.x} focusY={settings.y}
+            onImageDimensions={settings.mode === "auto" ? ({ width, height, frameRatio }) => {
+              const fit = automaticThumbnailFit(width, height, frameRatio);
+              setAutoFit((current) => current?.src === src && current.fit === fit ? current : { src, fit });
+            } : undefined}
             className={[styles.photo, imageClassName].filter(Boolean).join(" ")} draggable={false}
             style={{ ...style, ...cropTransform }} />
         </>
