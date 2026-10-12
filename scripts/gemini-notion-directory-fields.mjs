@@ -19,6 +19,21 @@ const socialUrl = (value, host) => {
   const parsed = new URL(url);
   return parsed.hostname === host || parsed.hostname.endsWith("." + host) ? url : "";
 };
+// For a logo or cover, only use direct HTTPS image URLs served by the
+// organisation's own domain. A search result, page URL or arbitrary third-party
+// image is not evidence of the actual image file. Remote image ingestion retains
+// its separate safety/format checks in the existing Notion sync pipeline.
+const officialImageUrl = (candidate, websiteUrl) => {
+  const image = safeUrl(candidate);
+  const website = safeUrl(websiteUrl);
+  if (!image || !website) return "";
+  const asset = new URL(image);
+  const official = new URL(website).hostname.replace(/^www\./, "");
+  const host = asset.hostname.replace(/^www\./, "");
+  if (host !== official && !host.endsWith("." + official)) return "";
+  if (!/\.(?:png|jpe?g|webp|gif|svg)(?:$|[?#])/i.test(image)) return "";
+  return image;
+};
 const validEmail = (value) => {
   const email = safeText(value, 254);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
@@ -39,7 +54,14 @@ const validHouseNumber = (value) => {
 };
 
 export function directoryProfileValues(args) {
+  const website = safeUrl(args.website_url);
+  const logo = officialImageUrl(args.logo_url, website);
+  const photo = officialImageUrl(args.image_url, website);
   const values = {
+    "Logo URL": logo,
+    "Hlavný obrázok URL": photo || logo,
+    "Zdroj obrázka": photo || logo ? website : "",
+    "Alt text obrázka": photo ? safeText(args.image_alt, 200) : (logo ? "Logo " + safeText(args.name, 140) : ""),
     "Telefón": validPhone(args.phone),
     "E-mail": validEmail(args.email),
     "Adresa": safeText(args.address, 250),
