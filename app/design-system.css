@@ -550,13 +550,6 @@
     width: min(calc(100% - max(12px, env(safe-area-inset-left, 0px)) - max(12px, env(safe-area-inset-right, 0px))), 520px);
   }
 
-  /* PageContainer composes .shell and .public-shell. Give that combination
-     one stable gutter irrespective of CSS chunk injection order: individual
-     routes must not fall back to the earlier 16px .shell mobile gutter. */
-  .shell.public-shell {
-    width: min(calc(100% - max(12px, env(safe-area-inset-left, 0px)) - max(12px, env(safe-area-inset-right, 0px))), 520px);
-  }
-
   .section-tabs-inner {
     gap: 6px;
     padding-block: 9px;
