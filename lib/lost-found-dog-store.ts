@@ -1,3 +1,4 @@
+import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "./image-display";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { assertLostFoundStatusTransition, defaultLostFoundExpiresAt, effectiveLostFoundStatus, expiredArchiveThreshold, LOST_FOUND_STATUSES, type LostFoundStatus } from "@/lib/lost-found-lifecycle.js";
@@ -45,6 +46,8 @@ type ReportRow = {
   collar_description: string;
   chipped: string;
   main_image: string | null;
+  thumbnail_display_json?: string | null;
+  detail_display_json?: string | null;
   main_image_key?: string | null;
   gallery_json: string;
   event_date: string;
@@ -93,6 +96,8 @@ export type ManagedDogReportInput = {
   chipped?: string;
   mainImage?: string | null;
   mainImageKey?: string | null;
+  thumbnailImageDisplay?: ImageDisplayConfig | null;
+  detailImageDisplay?: ImageDisplayConfig | null;
   gallery?: string[];
   eventDate?: string;
   lastSeenDateTime?: string | null;
@@ -175,6 +180,8 @@ function rowToPublic(row: ReportRow): PublicDogReport {
     collarDescription: row.collar_description,
     chipped: oneOf(row.chipped, chipStates, "UNKNOWN"),
     mainImage: row.main_image,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    detailImageDisplay: readImageDisplayConfig(row.detail_display_json, "detail"),
     gallery: safeGallery(row.gallery_json),
     eventDate: row.event_date,
     lastSeenDateTime: row.last_seen_date_time,
@@ -227,7 +234,7 @@ const publicSelect = `
   r.id, r.type, r.status, r.slug, r.dog_name, r.sex, r.breed_id, r.breed, r.breed_unknown,
   CASE WHEN b.status = 'published' THEN b.slug ELSE NULL END AS breed_slug,
   r.color, r.approximate_age, r.size, r.description, r.distinguishing_marks, r.collar_description,
-  r.chipped, r.main_image, r.gallery_json, r.event_date, r.last_seen_date_time,
+  r.chipped, r.main_image, r.thumbnail_display_json, r.detail_display_json, r.gallery_json, r.event_date, r.last_seen_date_time,
   r.region, r.district, r.city, r.location_description, r.public_latitude, r.public_longitude,
   r.public_location_precision, r.public_contact_note, r.source, r.source_url,
   r.updated_at, r.published_at, r.expires_at, r.resolved_at`;
@@ -367,11 +374,13 @@ export async function createAdminDogReport(input: ManagedDogReportInput, actor: 
 
   const result = await database.prepare(`INSERT INTO lost_found_dog_reports (
     type,status,slug,dog_name,sex,breed_id,breed,breed_unknown,color,approximate_age,size,description,distinguishing_marks,collar_description,chipped,
-    main_image,main_image_key,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
+    main_image,main_image_key,thumbnail_display_json,detail_display_json,gallery_json,event_date,last_seen_date_time,region,district,city,location_description,public_latitude,public_longitude,public_location_precision,
     public_contact_note,source,source_url,search_text,duplicate_of_id,duplicate_reason,created_at,updated_at,published_at,expires_at,resolved_at,archived_at
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
     clean.type, "DRAFT", clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
-    clean.mainImage, clean.mainImageKey, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
+    clean.mainImage, clean.mainImageKey,
+    clean.thumbnailImageDisplay ? JSON.stringify(clean.thumbnailImageDisplay) : null,
+    clean.detailImageDisplay ? JSON.stringify(clean.detailImageDisplay) : null, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
     clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, null, "", now, now, null, null, null, null
   ).run();
   const reportId = Number(result.meta.last_row_id);
@@ -462,10 +471,12 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
 
   const publicUpdate = database.prepare(`UPDATE lost_found_dog_reports SET
     type=?,status=?,slug=?,dog_name=?,sex=?,breed_id=?,breed=?,breed_unknown=?,color=?,approximate_age=?,size=?,description=?,distinguishing_marks=?,collar_description=?,chipped=?,
-    main_image=?,main_image_key=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
+    main_image=?,main_image_key=?,thumbnail_display_json=?,detail_display_json=?,gallery_json=?,event_date=?,last_seen_date_time=?,region=?,district=?,city=?,location_description=?,public_latitude=?,public_longitude=?,public_location_precision=?,
     public_contact_note=?,source=?,source_url=?,search_text=?,duplicate_of_id=?,duplicate_reason=?,updated_at=?,published_at=?,expires_at=?,resolved_at=?,archived_at=? WHERE id=?`).bind(
     clean.type, clean.status, clean.slug, clean.dogName, clean.sex, clean.breedId, clean.breed, clean.breedUnknown ? 1 : 0, clean.color, clean.approximateAge, clean.size, clean.description, clean.distinguishingMarks, clean.collarDescription, clean.chipped,
-    clean.mainImage, clean.mainImageKey, JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
+    clean.mainImage, clean.mainImageKey,
+    JSON.stringify(input.thumbnailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.thumbnailImageDisplay ?? null : clean.thumbnailImageDisplay ?? null),
+    JSON.stringify(input.detailImageDisplay === undefined && clean.mainImage === existing.mainImage ? existing.detailImageDisplay ?? null : clean.detailImageDisplay ?? null), JSON.stringify(clean.gallery), clean.eventDate, clean.lastSeenDateTime, clean.region, clean.district, clean.city, clean.locationDescription, clean.publicLatitude, clean.publicLongitude, clean.publicLocationPrecision,
     clean.publicContactNote, clean.source, clean.sourceUrl, clean.searchText, existing.duplicateOfId, existing.duplicateReason,
     now, lifecycle.publishedAt, lifecycle.expiresAt, lifecycle.resolvedAt, lifecycle.archivedAt, id
   );
@@ -585,7 +596,9 @@ async function cleanInput(database: D1Database, input: ManagedDogReportInput) {
     size: oneOf(input.size, dogSizes, "UNKNOWN") as DogSize,
     description, distinguishingMarks: cleanText(input.distinguishingMarks, 1200), collarDescription: cleanText(input.collarDescription, 700),
     chipped: oneOf(input.chipped, chipStates, "UNKNOWN") as ChipState,
-    mainImage, mainImageKey: cleanNullable(input.mainImageKey, 500), gallery,
+    mainImage, mainImageKey: cleanNullable(input.mainImageKey, 500),
+    thumbnailImageDisplay: normalizeImageDisplayConfig(input.thumbnailImageDisplay, "thumbnail"),
+    detailImageDisplay: normalizeImageDisplayConfig(input.detailImageDisplay, "detail"), gallery,
     eventDate, lastSeenDateTime, region, district, city, locationDescription: cleanText(input.locationDescription, 1000),
     publicLatitude, publicLongitude, publicLocationPrecision: oneOf(input.publicLocationPrecision, publicLocationPrecisions, "MUNICIPALITY") as PublicLocationPrecision,
     contactName: cleanNullable(input.contactName, 160), contactPhone, contactEmail,
