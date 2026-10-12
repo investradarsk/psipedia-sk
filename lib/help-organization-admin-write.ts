@@ -95,7 +95,7 @@ export function buildOrganizationCreateStatement(
     short_description, description, public_email, public_phone,
     website_url, facebook_url, instagram_url,
     address, city, district, region, country_code,
-    image_url, image_key, directory_profile_id, import_key, source_url,
+    image_url, image_key, thumbnail_display_json, detail_display_json, directory_profile_id, import_key, source_url,
     source_data_json, seo_json, published_at, last_verified_at, archived_at,
     created_at, updated_at, created_by, updated_by`;
   const values = [
@@ -103,16 +103,16 @@ export function buildOrganizationCreateStatement(
     input.shortDescription, input.description, input.publicEmail, input.publicPhone,
     input.websiteUrl, input.facebookUrl, input.instagramUrl,
     "", "", "", "", "SK",
-    input.imageUrl, input.imageKey, null, null, input.sourceUrl,
+    input.imageUrl, input.imageKey, input.thumbnailImageDisplay ? JSON.stringify(input.thumbnailImageDisplay) : null, input.detailImageDisplay ? JSON.stringify(input.detailImageDisplay) : null, null, null, input.sourceUrl,
     "{}", "{}", null, null, null,
     timestamp, timestamp, editorEmail, editorEmail,
   ];
   if (!guard) {
     return database.prepare(`INSERT INTO help_organizations (${columns})
-      VALUES (?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(...values);
+      VALUES (?, ?, ?, ?, ?, 'DRAFT', ${Array.from({ length: values.length - 5 }, () => '?').join(', ')})`).bind(...values);
   }
   return database.prepare(`INSERT INTO help_organizations (${columns})
-    SELECT ?, ?, ?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    SELECT ?, ?, ?, ?, ?, 'DRAFT', ${Array.from({ length: values.length - 5 }, () => '?').join(', ')}
     WHERE EXISTS(
       SELECT 1 FROM moderation_submissions
       WHERE id=? AND status='APPROVED' AND reviewed_at=? AND reviewed_by=?
@@ -165,14 +165,17 @@ export async function updateOrganizationFromAdmin(
       SET name = ?, slug = ?, legal_name = ?, registration_number = ?, type = ?,
         short_description = ?, description = ?, public_email = ?, public_phone = ?,
         website_url = ?, facebook_url = ?, instagram_url = ?,
-        image_url = ?, image_key = ?, source_url = ?,
+        image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_url = ?,
         updated_at = ?, updated_by = ?
       WHERE id = ? AND updated_at = ? AND archived_at IS NULL
     `).bind(
       input.name, input.slug, input.legalName, input.registrationNumber, input.type,
       input.shortDescription, input.description, input.publicEmail, input.publicPhone,
       input.websiteUrl, input.facebookUrl, input.instagramUrl,
-      input.imageUrl, input.imageKey, input.sourceUrl,
+      input.imageUrl, input.imageKey,
+      JSON.stringify(input.imageUrl === existing.imageUrl && !(payload && typeof payload === 'object' && 'thumbnailImageDisplay' in payload) ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
+      JSON.stringify(input.imageUrl === existing.imageUrl && !(payload && typeof payload === 'object' && 'detailImageDisplay' in payload) ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
+      input.sourceUrl,
       timestamp, editorEmail, id, expectedUpdatedAt,
     ).run() as RunResult;
     const changes = Number(result.meta?.changes ?? result.changes ?? 0);
