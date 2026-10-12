@@ -3,7 +3,18 @@ name: IMAGE-EDITOR-2 focused checks
 on:
   pull_request:
     paths:
+      - "app/page.tsx"
       - "components/image-display*"
+      - "components/smart-card-image.tsx"
+      - "components/public-profile/public-profile*"
+      - "components/help-details/help-detail*"
+      - "components/adoption-detail*"
+      - "components/lost-found-dogs.module.css"
+      - "components/events-public.module.css"
+      - "components/article-card.tsx"
+      - "components/admin-event-editor.tsx"
+      - "tests/image-editor-3.test.mjs"
+      - "tests/smart-card-images.test.mjs"
       - "components/admin-*-editor*"
       - "components/event-image.tsx"
       - "components/directory-card.tsx"
@@ -36,6 +47,8 @@ jobs:
           node-version: "22.13.0"
       - name: Shared renderer and six entity integration checks
         run: npm run test:image-editor-2
+      - name: Automatic image presentation and homepage contracts
+        run: node --experimental-strip-types --test tests/image-editor-3.test.mjs tests/smart-card-images.test.mjs
       - name: Migration numbering and safety
         run: npm run db:check-migrations
       - name: Production D1 migration target tests

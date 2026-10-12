@@ -74,7 +74,7 @@ export function PublicProfileHero({
           </div>
           {imageUrl ? (
             <div className={styles.media} data-public-profile-media style={imageConfig?.mode === "natural" ? { height: "auto", maxHeight: "none" } : undefined}>
-              <ImageDisplay roleHint="generic" context="detail" config={imageConfig ?? {mode:"crop",x:50,y:50,zoom:1}} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" />
+              <ImageDisplay roleHint="generic" context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" />
             </div>
           ) : null}
         </div>
