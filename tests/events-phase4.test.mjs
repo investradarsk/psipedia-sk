@@ -117,8 +117,8 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.match(helpBrowser, /name="stav"/);
   assert.match(helpBrowser, /value="vsetky">Aj ukončené/);
   assert.doesNotMatch(helpBrowser, /useState|window\.history/);
-  assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page - 1\)\}>← Predchádzajúca<\/Link>/);
-  assert.match(directoryResults, /<Link href=\{pageHref\(basePath, filters, result\.page \+ 1\)\}>Ďalšia →<\/Link>/);
+  assert.match(directoryResults, /<Link href=\{directoryPageHref\(basePath, filters, result\.page - 1\)\} rel="prev">← Predchádzajúca<\/Link>/);
+  assert.match(directoryResults, /<Link href=\{directoryPageHref\(basePath, filters, result\.page \+ 1\)\} rel="next">Ďalšia →<\/Link>/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
