@@ -126,6 +126,12 @@ export function previewGoogleAddressChange(input: GoogleAddressPreviewInput): Go
       conflicts.push({ code, fields, reason });
     }
   };
+  // A no-op address diff can still trigger a GEO/visibility write in the later confirmation flow.
+  // Keep the high-priority GEO/privacy locks even for explicit same-Place re-confirmation.
+  if (snapshot.geo.manualOverride) add("MANUAL_GEO_LOCKED", conflictReasons.MANUAL_GEO_LOCKED);
+  if (snapshot.geo.explicitPrivate || snapshot.geo.publicVisibility === "HIDDEN") {
+    add("PRIVATE_LOCATION_LOCKED", conflictReasons.PRIVATE_LOCATION_LOCKED);
+  }
   const selected = readCandidate(input.candidate);
   if (!selected) add("INVALID_GOOGLE_CANDIDATE", "Chýbajú štruktúrované Google údaje alebo majú neplatný typ.");
 
