@@ -5,7 +5,7 @@
 import {
   directoryFilterRegistry,
   normalizeDirectoryFilterValue,
-} from "./directory-filter-contract";
+} from "@/lib/directory-filter-contract";
 
 type SourceRecord = Record<string, unknown>;
 const registeredKeys = new Map(directoryFilterRegistry.map((filter) => [filter.d1.key, filter]));
