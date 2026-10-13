@@ -373,3 +373,25 @@ test("DIRECTORY-AI-PROFILE-SURFACE-1 public component renders semantic quick fac
   assert.match(component, /<time dateTime=\{fact\.dateTime\}>/);
   assert.doesNotMatch(component, />Overené</);
 });
+
+
+test("presentation exposes real opening hours only when imported; it never guesses a timetable", () => {
+  const veterinary = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    importData: { "Ordinačné hodiny": "Po–Pi 9:00–17:00" },
+  }));
+  assert.equal(veterinary.openingHours, "Po–Pi 9:00–17:00");
+
+  const salon = getDirectoryDetailPresentation(profile({
+    category: "salony-a-sluzby",
+    importData: { "Otváracie hodiny": "Ut–So podľa objednávky" },
+  }));
+  assert.equal(salon.openingHours, "Ut–So podľa objednávky");
+
+  const unknown = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    importData: { "Ordinačné hodiny": "Neoverené" },
+  }));
+  assert.equal(unknown.openingHours, null);
+  assert.equal(getDirectoryDetailPresentation(profile({ importData: {} })).openingHours, null);
+});
