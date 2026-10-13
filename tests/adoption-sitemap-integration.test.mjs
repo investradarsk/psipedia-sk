@@ -111,9 +111,12 @@ test("public help, homepage and portal search no longer source legacy adoption r
   assert.match(helpStore, /status = 'published' AND category NOT IN \('adopcia', 'utulky'\)/);
   assert.match(helpStore, /category === "adopcia"\) return \[\]/);
   assert.match(helpStore, /category NOT IN \('adopcia', 'utulky'\) AND resolved = 0/);
-  assert.match(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
-  assert.match(helpRoot, /adopcia: adoptions\.pagination\.total/);
-  assert.match(helpRoot, /adoptions\.items\.slice\(0, 6\)\.map\(adoptionPreview\)/);
+  const landingStore = read("../lib/help-landing-store.ts");
+  assert.match(helpRoot, /getHelpLandingSnapshot\(\)/);
+  assert.match(helpRoot, /adopcia: adoptions\.count/);
+  assert.match(helpRoot, /adopcia: adoptions\.items\.map\(adoptionPreview\)/);
+  assert.match(landingStore, /FROM adoption_dogs d WHERE d\.status IN \('ACTIVE','RESERVED'\)/);
+  assert.doesNotMatch(helpRoot, /getPublicAdoptions\(\{ page: 1 \}\)/);
   assert.match(helpRoot, /<StructuredData value=\{schema\}/);
   assert.match(helpRoot, /<HelpOverview sections=\{sections\} totalActive=\{totalActive\}/);
 
