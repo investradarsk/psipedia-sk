@@ -148,17 +148,12 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
       form.getByRole("button",{name:"Použiť filtre"}).click(),
     ]);
     await expect(page.locator(filterForm+' select[name="sort"]')).toHaveValue("name-asc");
-    const disclosure = page.locator(filterPanel);
-    await expect(disclosure.locator("summary")).toContainText("(1)");
-    // After a GET navigation, the native details element can be open from
-    // server HTML or closed after hydration. Open it only when necessary;
-    // blindly clicking summary can close it and hide the reset action.
-    await expect(page.locator(filterForm)).toHaveAttribute("data-public-search-ready", "true");
-    if (await disclosure.getAttribute("open") === null) {
-      await disclosure.locator("summary").click();
-    }
-    await expect(disclosure).toHaveAttribute("open", "");
-    const reset = page.locator(filterForm+' a[href="/adresar/veterinari"]');
+    await expect(page.locator(filterPanel + " summary")).toContainText("(1)");
+    // Use the same hydrated native-details opening contract that passed
+    // in the combined GET filter scenario. The SSR open attribute is not
+    // reliable until the mobile client has initialized its disclosure.
+    const resetForm = await openMobileFilters(page);
+    const reset = resetForm.getByRole("link", { name: "Zrušiť filtre" });
     await expect(reset).toBeVisible();
     await reset.click();
     await expect(page).toHaveURL(/\/adresar\/veterinari$/);
