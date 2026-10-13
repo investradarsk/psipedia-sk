@@ -789,7 +789,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const trainersHtml = await trainers.text();
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Psí tréneri a psie školy/);
-  assert.match(trainersHtml, /Názov služby, miesto, organizácia alebo plemeno/);
+  assert.match(trainersHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
   assert.match(trainersHtml, /Mesto\/obec/);
   assert.match(trainersHtml, /Zoradenie/);
   assert.match(trainersHtml, /Nenašli sme zhodu/);
@@ -811,7 +811,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.doesNotMatch(directoryHtml, /Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
   assert.match(directoryHtml, /Poskytujete služby pre psov/);
   assert.match(directoryHtml, /Fyzioterapia/);
-  assert.match(directoryHtml, /Názov služby, miesto, organizácia alebo plemeno/);
+  assert.match(directoryHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
   assert.doesNotMatch(directoryHtml, /directory-hero--photo/);
   assert.doesNotMatch(directoryHtml, /Profily v adresári/);
 
