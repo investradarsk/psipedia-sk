@@ -208,7 +208,10 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     ]);
     await expect(page.locator(searchForm+' input[name="q"]')).toHaveValue("publikovana kontrola");
     await expectNoHorizontalOverflow(page,"combined search");
-    await page.locator(filterPanel+" summary").click();
+    // Navigation remounts a collapsed mobile disclosure. Do not click the
+    // hidden reset link until hydration completes and the native panel opens.
+    await openMobileFilters(page);
+    await expect(page.locator(filterForm+' a[href="/adresar/veterinari"]')).toBeVisible();
     await page.locator(filterForm+' a[href="/adresar/veterinari"]').click();
     await expect(page.locator(searchForm+' input[name="q"]')).toHaveValue("");
   });
