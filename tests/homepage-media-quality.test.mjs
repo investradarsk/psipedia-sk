@@ -70,7 +70,8 @@ test("homepage image-backed cards cannot render placeholder nodes; empty states 
     repoFile("lib/homepage-content.ts"), repoFile("components/public-visual-system/public-visual-system.module.css"),
   ]);
   for (const token of ["home-event-placeholder", "home-vet-mark", "home-help-placeholder"]) assert.doesNotMatch(page, new RegExp(token));
-  for (const selector of ["data-home-events-empty", "data-home-veterinarians-empty", "data-home-help-empty", "data-home-section-cta"]) assert.match(page, new RegExp(selector));
+  for (const selector of ["data-home-events-empty", "data-home-veterinarians-empty", "data-home-help-empty"]) assert.match(page, new RegExp(selector));
+  assert.match(editorial, /data-home-section-cta/);
   assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage/);
   assert.match(articleSelection, /articles\.filter\(\(article\) => Boolean\(article\.image\?\.trim\(\)\)\)/);
   assert.match(publicStyles, /\.articleListMedia\s*\{[^}]*aspect-ratio:\s*4 \/ 3/s);
