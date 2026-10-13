@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PATHS, modePlan, median, extractLab, summarizeRuns, toCsv, comparisons, probePage, probeException, queryCrux, diagnoseLighthouse, shouldRetryLighthouse } from '../scripts/web-perf-observability.mjs';
+import { mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { PATHS, modePlan, median, extractLab, summarizeRuns, toCsv, comparisons, probePage, probeException, queryCrux, diagnoseLighthouse, shouldRetryLighthouse, safeReportUrl, runLighthouse } from '../scripts/web-perf-observability.mjs';
 
 test('bounded workloads, never user-supplied URLs', () => {
   assert.equal(PATHS.length, 8);
@@ -229,4 +232,50 @@ test('One HTTP/HTML probe per eight fixed Quick paths, including /pomoc-psom', (
   assert.ok(PATHS.includes('/pomoc-psom'));
   assert.equal(modePlan('quick').paths.length * 2, 16);
   assert.equal(modePlan('weekly').paths.length * 2, 4);
+});
+
+test('fixed public URLs never leak arbitrary Lighthouse redirect query parameters', () => {
+  assert.equal(safeReportUrl('https://psipedia.sk/'), 'https://psipedia.sk/');
+  assert.equal(safeReportUrl('https://psipedia.sk/pomoc-psom'), 'https://psipedia.sk/pomoc-psom');
+  assert.equal(safeReportUrl('https://psipedia.sk/?token=secret'), null);
+  assert.equal(safeReportUrl('https://psipedia.sk/private/path'), null);
+  assert.equal(safeReportUrl('https://example.org/'), null);
+});
+
+test('offline simulated Lighthouse wrapper: valid zero, invalid report and sanitized error', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'psipedia-web-perf-'));
+  const base = join(folder, 'home-desktop-1');
+  const audits = { 'first-contentful-paint': { score: 0, scoreDisplayMode: 'numeric' } };
+  const makeSpawn = (lhr) => (_bin, args, options) => {
+    assert.ok(args.includes('--preset=desktop'));
+    assert.ok(options.timeout <= 120_000);
+    writeFileSync(`${base}.report.json`, JSON.stringify(lhr));
+    return { status: 0, error: null, signal: null };
+  };
+  try {
+    const valid = runLighthouse('stub', 'https://psipedia.sk/', 'desktop', base,
+      makeSpawn({ categories: { performance: { score: 0 } }, audits,
+        finalUrl: 'https://psipedia.sk/?cookie=secret', lighthouseVersion: '12.8.2',
+        fetchTime: '2026-10-13T21:00:00Z' }));
+    assert.equal(valid.ok, true);
+    assert.equal(valid.lab.score, 0);
+    const report = JSON.parse(readFileSync(`${base}.report.json`, 'utf8'));
+    assert.equal(report.final_url, null);
+    assert.doesNotMatch(JSON.stringify(report), /cookie=secret/);
+
+    const bad = runLighthouse('stub', 'https://psipedia.sk/', 'desktop', base,
+      makeSpawn({ categories: { performance: { score: null } }, audits,
+        runtimeError: { code: 'ERRORED_DOCUMENT_REQUEST', message: 'cookie=secret' } }));
+    assert.equal(bad.ok, false);
+    assert.equal(bad.error, 'LH_NAVIGATION_FAILED');
+    assert.equal(bad.diagnostic.runtime_error_code, 'ERRORED_DOCUMENT_REQUEST');
+    assert.equal(existsSync(`${base}.report.json`), false);
+    assert.doesNotMatch(JSON.stringify(bad), /cookie=secret/);
+    const missing = runLighthouse('stub', 'https://psipedia.sk/', 'desktop', base,
+      () => ({ status: 1, error: null, signal: null }));
+    assert.equal(missing.error, 'LH_CLI_NONZERO_EXIT');
+    assert.equal(missing.ok, false);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 });
