@@ -92,14 +92,14 @@ assert.match(onBlock(required), /\n  pull_request:/, "required workflow must alw
 assert.doesNotMatch(onBlock(required), /\n    paths(?:-ignore)?:/, "required workflow must not use top-level PR path filtering");
 assert.match(required, /node scripts\/ci-scope\.mjs --github-output/);
 assert.match(required, /node scripts\/check-ci-scope\.mjs/);
-assert.match(required, /full_core:\s*\$\{\{\s*steps\.scope\.outputs\.full_core\s*\}\}/);
-assert.match(required, /bounded_core:\s*\$\{\{\s*steps\.scope\.outputs\.bounded_core\s*\}\}/);
+assert.match(required, /full_core:\s*\$\{\{\s*steps\.required-scope\.outputs\.full_core\s*\}\}/);
+assert.match(required, /bounded_core:\s*\$\{\{\s*steps\.required-scope\.outputs\.bounded_core\s*\}\}/);
 assert.match(required, /steps\.required-scope\.outputs\.full_core == 'true'/);
 assert.match(required, /steps\.required-scope\.outputs\.bounded_core == 'true'/);
 assert.match(required, /github\.event_name == 'workflow_dispatch'/, "full E2E must remain manual");
 assert.match(required, /github\.event_name == 'schedule'/, "full E2E must remain nightly");
 assert.match(required, /name:\s*Directory PR E2E — desktop and mobile/);
-assert.match(required, /needs\.pr-scope\.outputs\.directory == 'true'/);
+assert.match(required, /needs\.validate\.outputs\.directory == 'true'/);
 for (const spec of ["admin-directory-filters.spec.ts", "services-detail-shell.spec.ts", "services-search-layout.spec.ts"]) {
   assert.ok(required.includes(`tests/e2e/${spec}`), `directory PR E2E must execute ${spec}`);
 }
@@ -310,7 +310,7 @@ const playwrightControl = classifyChangedFiles(playwrightControlFiles);
 assert.equal(playwrightControl.validationMode, "ci-control");
 assert.deepEqual(
   focusedPrE2eFlags(playwrightControl, playwrightControlFiles),
-  { adminEvents: false, search: false, directory: false },
+  { adminEvents: false, search: false, directory: false, seoRecovery: false, sitemapDiagnostic: false, lostFound: false },
 );
 
 for (const file of [
@@ -435,12 +435,13 @@ function simulation(files, eventName = "pull_request", options = {}) {
     package_test_scripts_only: String(result.packageTestScriptsOnly), docs_only: String(result.docsOnly),
     core: String(result.core), scopes: result.scopes.join(","),
     admin_events: String(flags.adminEvents), directory: String(flags.directory), search: String(flags.search),
+    seo_recovery: String(flags.seoRecovery), sitemap_diagnostic: String(flags.sitemapDiagnostic), lost_found: String(flags.lostFound),
     production_smoke: String(productionSmokeRequired(result, {eventName, ref: "refs/heads/main"})),
   };
   const context = {
     github: {event_name: eventName, ref: "refs/heads/main", head_ref: "test/fixture"},
     steps: {"required-scope": {outputs}, scope: {outputs}},
-    needs: {validate: {result: options.validateResult || "success"}, "pr-scope": {result: "success", outputs}, scope: {outputs}},
+    needs: {validate: {result: options.validateResult || "success", outputs}, scope: {outputs}},
   };
   const runs = (id) => evaluateCondition(job(id).condition, context);
   const stepRuns = (name) => evaluateCondition(namedStep(name).condition, context);
@@ -549,10 +550,9 @@ for (const id of ["pull-request-e2e", "search-e2e", "directory-e2e"]) assert.ok(
 
 for (const event of ["pull_request", "push", "schedule", "workflow_dispatch"]) {
   const item = simulation(["docs/audit.md"], event);
-  assert.equal(item.runs("pr-scope"), true, "Scope detection must run for every supported event");
+  assert.equal(jobs.some((candidate) => candidate.id === "pr-scope"), false, "No redundant scope job");
   assert.equal(item.stepRuns("Resolve required-check scope"), true);
 }
-assert.ok(job("pr-scope").block.includes("github.event.before"));
 assert.ok(job("validate").block.includes("github.event.before"));
 assert.ok(autoSource.includes("github.event.before"));
 
@@ -570,3 +570,58 @@ const failedPush = simulation(["worker/index.ts"], "push", {validateResult:"fail
 assert.equal(failedPush.runs("production-smoke"), false);
 assert.equal(failedPush.runs("pull-request-e2e"), false);
 console.log("HARDENING-3 PASS: 14 required scenarios, actual YAML job/step conditions, production/manual/schedule, security, artifact/E2E ownership and real Git range failures.");
+
+ 
+// HARDENING-4 — evaluate real YAML predicates against representative change sets.
+assert.equal(jobs.filter((item) => item.id === "validate").length, 1);
+assert.ok(!jobs.some((item) => item.id === "pr-scope"));
+assert.ok(job("validate").block.includes("outputs:"));
+assert.ok(job("validate").block.includes("steps.required-scope.outputs.sitemap_diagnostic"));
+assert.doesNotMatch(required, /github\.head_ref/, "No feature-branch-specific gating");
+for (const id of ["admin-events-e2e", "search-e2e", "directory-e2e"]) {
+  assert.ok(job(id).condition.includes("github.event_name == 'pull_request'"), id);
+  assert.ok(!job(id).condition.includes("github.event_name == 'push'"), id);
+  assert.ok(job(id).block.includes("needs: validate"), id);
+}
+for (const id of ["pull-request-e2e", "production-smoke"]) {
+  assert.ok(job(id).block.includes("needs.validate.outputs"), id);
+  assert.ok(job(id).block.includes("needs.validate.result == 'success'"), id);
+}
+const coverage4 = [
+  ["map", ["components/map/public-location-map.tsx"], ["MAPS"], ["map-public-ui-ci.yml"]],
+  ["profiles", ["components/directory-profile-detail.tsx"], ["DIRECTORY_SERVICES", "ENTITY_SURFACES"], ["sitewide-ai-entity-surface-ci.yml"]],
+  ["homepage", ["app/page.tsx"], [], ["homepage-name-days-ci.yml"]],
+  ["articles", ["components/article-detail.tsx"], ["ARTICLES"], ["article-ux-ci.yml"]],
+  ["notion-sync", ["lib/notion-article-sync.ts"], ["NOTION"], ["notion-article-sync-ci.yml"]],
+  ["admin", ["components/admin-article-editor.tsx"], ["ADMIN", "ARTICLES"], ["article-admin-ci.yml"]],
+  ["documentation", ["README.md", "docs/ci-usage.md"], [], []],
+  ["production-migration", ["drizzle/0125_live_schema.sql"], ["DATABASE_MIGRATIONS"], ["clean-d1-migration-validation.yml"]],
+];
+for (const [label, files, expectedScopes, relevantWorkflows] of coverage4) {
+  const pr = simulation(files, "pull_request");
+  for (const scope of expectedScopes) assert.ok(pr.result.scopes.includes(scope), `${label}: ${scope}`);
+  for (const wf of relevantWorkflows) assert.equal(prWorkflowWouldRun(wf, files), true, `${label}: ${wf}`);
+  assert.equal(pr.stepRuns("Resolve required-check scope"), true, label);
+  if (label === "documentation") assert.equal(pr.stepRuns("Install dependencies"), false);
+  if (label === "production-migration") assert.equal(pr.stepRuns("Full unit and integration regression"), true);
+}
+for (const [name, file, jobName] of [
+  ["sitemap", "app/sitemap.ts", "sitemap-production-diagnostic"],
+  ["seo", "lib/seo-metadata.ts", "seo-recovery-e2e"],
+  ["lost-found", "lib/lost-found-store.ts", "lost-found-public-e2e"],
+]) {
+  assert.equal(simulation([file]).runs(jobName), true, `${name} change must exercise ${jobName}`);
+  assert.equal(simulation(["docs/audit.md"]).runs(jobName), false, `${name} docs skip`);
+}
+assert.equal(simulation(["lib/seo-metadata.ts"]).runs("sitemap-production-diagnostic"), false);
+for (const file of ["components/directory-card.tsx", "app/hladat/page.tsx", "app/admin/events/page.tsx"]) {
+  const push = simulation([file], "push");
+  for (const jobName of ["directory-e2e", "search-e2e", "admin-events-e2e"]) {
+    assert.equal(push.runs(jobName), false, `${jobName}: no post-merge rerun`);
+  }
+  assert.equal(push.runs("production-smoke"), true, "Production smoke must remain active");
+}
+assert.ok(job("pull-request-e2e").block.includes("tests/e2e/public-ux-foundation-v3.spec.ts"));
+assert.ok(job("lost-found-public-e2e").block.includes("tests/e2e/lost-found-dogs.spec.ts"));
+console.log("HARDENING-4 PASS: branch-neutral focused PR suites, 8 domain scenarios, post-merge smoke.");
+
