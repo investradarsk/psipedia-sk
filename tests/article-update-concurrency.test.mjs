@@ -24,7 +24,7 @@ const routePut = sliceFunction(api, "export async function PUT(", "/**\n * Calen
 const tick = String.fromCharCode(96);
 const marker = "const articleStatement = database.prepare(" + tick;
 const sql = update.slice(update.indexOf(marker) + marker.length, update.indexOf(tick + ").bind(", update.indexOf(marker)));
-const columns = sql.slice(sql.indexOf(" SET ") + 5, sql.indexOf("WHERE id = ?"))
+const columns = sql.slice(sql.indexOf("SET") + 3, sql.indexOf("WHERE id = ?"))
   .split(",").map((piece) => {
     const match = /^([a-z_]+)\s*=\s*\?$/.exec(piece.trim());
     assert.ok(match, "Invalid production UPDATE assignment: " + piece);
