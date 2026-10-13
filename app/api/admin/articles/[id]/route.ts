@@ -6,6 +6,7 @@ import {
   updateManagedArticle,
   rescheduleManagedArticle,
   ArticleRescheduleConflictError,
+  ArticleUpdateConflictError,
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
@@ -36,7 +37,7 @@ function updateErrorResponse(error: unknown) {
     return Response.json({ error: error.message, issues: error.issues }, { status: 422 });
   }
   const message = error instanceof Error ? error.message : "Nastala neočakávaná chyba.";
-  const status = error instanceof ArticleRescheduleConflictError || isArticleSlugConflict(error) ? 409 : 400;
+  const status = error instanceof ArticleRescheduleConflictError || error instanceof ArticleUpdateConflictError || isArticleSlugConflict(error) ? 409 : 400;
   return Response.json(
     { error: isArticleSlugConflict(error) ? "Túto adresu už používa iný článok." : message },
     { status },
@@ -73,8 +74,8 @@ export async function PUT(request: Request, { params }: RouteProps) {
     if (!before) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
     const payload = (await request.json()) as ManagedArticleInput & { expectedUpdatedAt?: unknown };
     // Reject a stale editor tab rather than silently overwriting a newer Notion import.
-    if (payload.expectedUpdatedAt !== undefined &&
-        (typeof payload.expectedUpdatedAt !== "string" || payload.expectedUpdatedAt !== before.updatedAt)) {
+    if (typeof payload.expectedUpdatedAt !== "string" || !payload.expectedUpdatedAt ||
+        payload.expectedUpdatedAt !== before.updatedAt) {
       return Response.json(
         { error: "Článok sa medzičasom zmenil. Obnov editor a skontroluj nové údaje pred uložením." },
         { status: 409 },
@@ -94,7 +95,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
         ? before.portalSubpage
         : payload.portalSubpage,
     };
-    const article = await updateManagedArticle(id, updatePayload, user.email, before);
+    const article = await updateManagedArticle(id, updatePayload, user.email, before, { updatedAt: payload.expectedUpdatedAt });
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
     // Notion-imported hero and OG images often share one R2 object.

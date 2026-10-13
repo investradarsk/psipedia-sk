@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./article-update-concurrency.test.mjs";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { preservedEditorArticleMetadata } from "../components/admin-article-editor-preserve.ts";
