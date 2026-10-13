@@ -34,7 +34,7 @@ test("full Google address yields a complete diff with normalized Slovak locality
   assert.equal(result.googleConfirmation, "NONE");
   assert.equal(result.validation.completeness, "COMPLETE");
   assert.equal(result.proposedAddress.region, "Prešovský kraj");
-  assert.equal(result.proposedAddress.postalCode, "08001");
+  assert.equal(result.proposedAddress.postalCode, "080 01");
   assert.equal(result.validation.address.postalCode, "080 01");
   assert.equal(result.proposedAddress.houseNumber, "1127/21");
   assert.equal(result.proposedAddress.addressFormat, "STREET");
@@ -144,6 +144,21 @@ test("manual GEO override and explicit private/HIDDEN locations are blocked", ()
     [adaptAddressGeo({ ...anchor, googlePlaceId: null, publicVisibility: "HIDDEN" }), "PRIVATE_LOCATION_LOCKED"],
   ]) {
     const result = previewGoogleAddressChange({ snapshot: directory({}, geo), candidate: candidate() });
+    assert.ok(result.conflicts.some((issue) => issue.code === code));
+    assert.equal(result.readyForAuthorization, false);
+  }
+});
+test("even an identical Google re-confirm cannot override manual GEO or explicit privacy", () => {
+  for (const [geo, code] of [
+    [adaptAddressGeo({ ...anchor, manualOverride: true }), "MANUAL_GEO_LOCKED"],
+    [adaptAddressGeo(anchor, true), "PRIVATE_LOCATION_LOCKED"],
+    [adaptAddressGeo({ ...anchor, publicVisibility: "HIDDEN" }), "PRIVATE_LOCATION_LOCKED"],
+  ]) {
+    const result = previewGoogleAddressChange({
+      snapshot: directory({ ...full }, geo),
+      candidate: candidate(), intent: "ADMIN_RECONFIRM",
+    });
+    assert.equal(result.changes.length, 0);
     assert.ok(result.conflicts.some((issue) => issue.code === code));
     assert.equal(result.readyForAuthorization, false);
   }
