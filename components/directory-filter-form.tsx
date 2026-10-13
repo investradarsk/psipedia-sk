@@ -40,6 +40,7 @@ export function DirectoryFilterForm({
     formRef.current?.setAttribute("data-public-search-ready", "true");
   }, []);
 
+  const serviceCategory = (category ?? filters.category) || "dalsie-sluzby";
   const activeCount = [
     filters.query, filters.region, filters.district, filters.city,
     filters.service, filters.breed, filters.fciGroup, filters.organization,
@@ -79,7 +80,7 @@ export function DirectoryFilterForm({
           <option value="">Všetky mestá a obce</option>{options.cities.map((item) => <option value={item} key={item}>{item}</option>)}
         </select></label>
         {options.services.length > 0 &&
-          <label><span>{serviceLabels[category ?? filters.category] ?? "Služba / zameranie"}</span><select name="service" defaultValue={filters.service}>
+          <label><span>{serviceLabels[serviceCategory] ?? "Služba / zameranie"}</span><select name="service" defaultValue={filters.service}>
             <option value="">Všetky služby</option>{options.services.map((item) => <option value={item} key={item}>{item}</option>)}
           </select></label>}
         {options.breeds.length > 0 &&
