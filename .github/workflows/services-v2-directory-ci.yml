@@ -83,7 +83,8 @@ jobs:
               preview_url="$(printf '%s' "${payload}" | node -e '
                 let str="";process.stdin.on("data",d=>str+=d).on("end",()=>{
                   const a=JSON.parse(str).check_runs||[];const x=a.find(y=>y.name==="Workers Builds: psipedia-sk");
-                  process.stdout.write((x?.output?.summary||"").match(/Preview URL:\\s*(https:\\/\\/[^\\s]+)/)?.[1]||"");
+                  const previewLine=(x?.output?.summary||"").split("Preview URL:")[1]||"";
+                  process.stdout.write(previewLine.trim().split(String.fromCharCode(10))[0].trim());
                 });
               ')"
               if [ -n "${preview_url}" ]; then break; fi
