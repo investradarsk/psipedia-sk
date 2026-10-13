@@ -4,23 +4,58 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "app/api/map/**"
-      - "app/adresar/**"
-      - "app/organizacie/**"
-      - "app/[section]/**"
-      - "components/map/**"
-      - "components/directory-profile-detail.tsx"
-      - "components/organization-profile-detail.tsx"
-      - "components/event-detail.tsx"
-      - "lib/map-*.ts"
-      - "lib/public-map-runtime.ts"
-      - "lib/directory-store.ts"
-      - "tests/map-read-api*.test.mjs"
-      - "tests/e2e/map-read-api.spec.ts"
-      - "tests/e2e/public-detail-maps.spec.ts"
-      - "tests/fixtures/map-read-api-e2e.sql"
-      - "tests/public-location-map-contract.test.mjs"
-      - ".github/workflows/map-read-api-ci.yml"
+      - 'app/api/map/**'
+      - 'app/mapa/**'
+      - 'app/adresar/\[category\]/\[slug\]/page.tsx'
+      - 'app/organizacie/\[slug\]/page.tsx'
+      - 'app/\[section\]/\[slug\]/page.tsx'
+      - 'components/map/**'
+      - 'components/directory-profile-detail.tsx'
+      - 'components/directory-profile-detail.module.css'
+      - 'components/organization-profile-detail.tsx'
+      - 'components/organization-profile-detail.module.css'
+      - 'components/event-detail.tsx'
+      - 'components/directory-page.tsx'
+      - 'components/directory-filter-form.tsx'
+      - 'components/public-profile/**'
+      - 'components/detail-primitives/**'
+      - 'lib/map-*.ts'
+      - 'lib/public-map-runtime.ts'
+      - 'lib/google-maps-consent.ts'
+      - 'lib/geo*.ts'
+      - 'lib/directory-service-address.ts'
+      - 'lib/directory-address-*.ts'
+      - 'lib/directory-exact-geo-*.ts'
+      - 'lib/admin-address-*.ts'
+      - 'lib/directory-store.ts'
+      - 'lib/directory-profile-metadata.ts'
+      - 'lib/directory-detail-presentation.ts'
+      - 'lib/directory-query.ts'
+      - 'lib/directory.ts'
+      - 'lib/events.ts'
+      - 'lib/event-store.ts'
+      - 'lib/help-organization-store.ts'
+      - 'lib/organization-location-admin*.ts'
+      - 'lib/organization-google-maps-workflow.ts'
+      - 'lib/organization-profile-presentation.ts'
+      - 'lib/slovakia-locations.ts'
+      - 'lib/rate-limit.ts'
+      - 'config/runtime-env.ts'
+      - 'worker/index.ts'
+      - 'db/geo-schema.ts'
+      - 'db/help-organization-schema.ts'
+      - 'db/schema.ts'
+      - 'drizzle/**'
+      - 'wrangler.jsonc'
+      - 'scripts/validate-clean-d1.mjs'
+      - 'scripts/check-migration-safety.mjs'
+      - 'tests/map-*.test.mjs'
+      - 'tests/geo-*.test.mjs'
+      - 'tests/public-location-map-contract.test.mjs'
+      - 'tests/e2e/map-*.spec.ts'
+      - 'tests/e2e/public-detail-maps.spec.ts'
+      - 'tests/fixtures/map-read-api-e2e.sql'
+      - '.github/workflows/map-read-api-ci.yml'
   workflow_dispatch:
 
 concurrency:
@@ -55,6 +90,8 @@ jobs:
         with:
           node-version: 24.18.0
           cache: npm
+      - name: Verify MAP-1C trigger matrix
+        run: node --test tests/map-read-api-trigger.test.mjs
       - run: npm ci
       - name: Migration safety
         run: npm run test:migration-safety
