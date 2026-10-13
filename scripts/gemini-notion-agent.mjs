@@ -220,8 +220,19 @@ async function createDraft(args, snapshot, target) {
       (trim(args.description, 1400) + "\nZdroj: " + source).trim()
     ) };
   }
-  properties[snapshot.statusName] = snapshot.properties[snapshot.statusName].type === "status"
-    ? { status: { name: snapshot.draft } } : { select: { name: snapshot.draft } };
+  // Notion workspaces may have two distinct publication gates. Set BOTH to
+  // explicit draft values; never inherit a potentially published default.
+  for (const statusKey of ["Psipedia stav", "Stav"]) {
+    const schema = snapshot.properties[statusKey];
+    if (!schema) continue;
+    if (!["select", "status"].includes(schema.type)) throw Error("NOTION_DRAFT_SCHEMA_INVALID");
+    const options = schema[schema.type]?.options ?? [];
+    const draftName = ["Koncept", "Nápad", "Na kontrolu", "Ready"]
+      .find(name => options.some(option => option.name === name));
+    if (!draftName) throw Error("NOTION_DRAFT_OPTION_MISSING");
+    properties[statusKey] = schema.type === "status"
+      ? { status: { name: draftName } } : { select: { name: draftName } };
+  }
   const created = await notion("/pages", "POST", {
     parent: { type: "data_source_id", data_source_id: target.dataSourceId },
     properties,
