@@ -1,4 +1,5 @@
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const editorialAuthorProfiles = sqliteTable(
   "editorial_author_profiles",
@@ -129,8 +130,13 @@ export const managedEvents = sqliteTable(
     endTime: text("end_time"),
     venue: text("venue").notNull().default(""),
     city: text("city").notNull(),
+    district: text("district").notNull().default(""),
     region: text("region").notNull(),
     address: text("address").notNull().default(""),
+    postalCode: text("postal_code").notNull().default(""),
+    street: text("street").notNull().default(""),
+    houseNumber: text("house_number").notNull().default(""),
+    addressFormat: text("address_format").notNull().default(""),
     organizer: text("organizer").notNull(),
     description: text("description").notNull(),
     practicalInfo: text("practical_info").notNull().default(""),
@@ -147,6 +153,7 @@ export const managedEvents = sqliteTable(
     updatedBy: text("updated_by").notNull(),
   },
   (table) => [
+    check("managed_events_address_format_check", sql`${table.addressFormat} IN ('', 'STREET', 'MUNICIPALITY_NUMBER')`),
     uniqueIndex("managed_events_slug_unique").on(table.slug),
     index("managed_events_public_date_idx").on(table.status, table.startDate, table.startTime),
     index("managed_events_type_region_idx").on(table.eventType, table.region, table.startDate),

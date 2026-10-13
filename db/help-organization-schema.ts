@@ -62,6 +62,10 @@ export const organizationLocations = sqliteTable(
     role: text("role").notNull().default("UNSPECIFIED"),
     label: text("label").notNull().default(""),
     address: text("address").notNull().default(""),
+    postalCode: text("postal_code").notNull().default(""),
+    street: text("street").notNull().default(""),
+    houseNumber: text("house_number").notNull().default(""),
+    addressFormat: text("address_format").notNull().default(""),
     city: text("city").notNull().default(""),
     district: text("district").notNull().default(""),
     region: text("region").notNull().default(""),
@@ -70,6 +74,7 @@ export const organizationLocations = sqliteTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [
+    check("organization_locations_address_format_check", sql`${table.addressFormat} IN ('', 'STREET', 'MUNICIPALITY_NUMBER')`),
     check(
       "organization_locations_role_check",
       sql`${table.role} IN ('UNSPECIFIED', 'SITE', 'LEGAL_SEAT', 'SERVICE_AREA')`,
