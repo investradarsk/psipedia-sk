@@ -22,6 +22,8 @@ const properties = {
   "Zdroj dát": { type: "url" },
   "Mesto": { type: "rich_text" },
   "Web": { type: "url" },
+  "Telefón": { type: "phone_number" },
+  "E-mail": { type: "email" },
   "Vytvoril": { type: "rich_text" },
 };
 globalThis.fetch = async (url, options = {}) => {
