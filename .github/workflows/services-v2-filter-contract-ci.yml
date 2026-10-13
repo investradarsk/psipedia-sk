@@ -1,0 +1,30 @@
+name: SERVICES-V2 Filter contracts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/directory-filter-contract.ts"
+      - "tests/directory-filter-contract.test.mjs"
+      - "scripts/directory-filter-dry-run.mjs"
+      - "lib/directory.ts"
+      - ".github/workflows/services-v2-filter-contract-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: services-v2-filter-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  filter-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+      - name: Focused registry and offline dry-run contracts
+        run: node --experimental-strip-types --test tests/directory-filter-contract.test.mjs
