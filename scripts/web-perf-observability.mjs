@@ -17,9 +17,9 @@ export const PATHS = Object.freeze([
 ]);
 const WEEKLY_PATHS = ['/', '/adresar/veterinari'];
 const DEVICES = ['mobile', 'desktop'];
-const ALLOWED_HEADERS = ['cache-control', 'cdn-cache-control', 'cf-cache-status', 'age', 'x-cache', 'content-type'];
+const ALLOWED_HEADERS = ['cache-control', 'cdn-cache-control', 'cf-cache-status', 'age', 'x-cache', 'x-psipedia-cache', 'cloudflare-cdn-cache-control', 'content-type'];
 const NUMERIC_FIELDS = ['score', 'lcp_ms', 'cls', 'ttfb_ms', 'tbt_ms', 'js_transfer_bytes', 'css_transfer_bytes', 'image_transfer_bytes'];
-const CSV_COLUMNS = ['path', 'device', 'http_status', 'final_url', 'cf_cache_status', 'runs', 'successful_runs', ...NUMERIC_FIELDS, 'lcp_element', 'field_inp_p75_ms', 'field_scope', 'field_status'];
+const CSV_COLUMNS = ['path', 'device', 'http_status', 'final_url', 'cf_cache_status', 'psipedia_cache_status', 'runs', 'successful_runs', ...NUMERIC_FIELDS, 'lcp_element', 'field_inp_p75_ms', 'field_scope', 'field_status'];
 
 export function modePlan(mode) {
   if (mode === 'weekly') return { paths: WEEKLY_PATHS, repeats: 1 };
@@ -117,7 +117,7 @@ export function toCsv(rows) {
     const v = value == null ? '' : String(value);
     return /[",\r\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v;
   };
-  return [CSV_COLUMNS.join(','), ...rows.map((row) => CSV_COLUMNS.map((key) => cell(key === 'cf_cache_status' ? row.cache_headers?.['cf-cache-status'] : row[key])).join(','))].join('\n') + '\n';
+  return [CSV_COLUMNS.join(','), ...rows.map((row) => CSV_COLUMNS.map((key) => cell(key === 'cf_cache_status' ? row.cache_headers?.['cf-cache-status'] : key === 'psipedia_cache_status' ? row.cache_headers?.['x-psipedia-cache'] : row[key])).join(','))].join('\n') + '\n';
 }
 
 export async function probePage(url, fetcher = fetch) {
