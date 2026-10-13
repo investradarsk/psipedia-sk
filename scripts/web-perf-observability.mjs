@@ -320,9 +320,21 @@ export async function main(argv = process.argv.slice(2)) {
         const slug = path === '/' ? 'home' : path.slice(1).replaceAll('/', '--');
         const base = join(dir, `${slug}-${device}-${i}`);
         console.log(`Lighthouse ${path} ${device} ${i}/${plan.repeats}`);
-        const result = runLighthouse(bin, url, device, base);
-        attempts.push({ repeat: i, ...result });
-        runs.push({ path, device, repeat: i, ok: result.ok, elapsed_ms: result.elapsed_ms, lab: result.lab ?? null, error: result.error ?? null });
+        let result = runLighthouse(bin, url, device, base);
+        // A missing score is not a usable measurement. Retry once in manual Quick
+        // mode only; do not add hidden 42-run baseline or weekly overhead.
+        let invocations = 1;
+        let first_error = null;
+        if (mode === 'quick' && !result.ok && result.error === 'Missing performance score') {
+          first_error = result.error;
+          console.warn(`Lighthouse incomplete ${path} ${device}: ${first_error}; retrying once`);
+          const next = runLighthouse(bin, url, device, base);
+          result = { ...next, elapsed_ms: result.elapsed_ms + next.elapsed_ms };
+          invocations = 2;
+        }
+        attempts.push({ repeat: i, ...result, invocations, first_error });
+        runs.push({ path, device, repeat: i, ok: result.ok, elapsed_ms: result.elapsed_ms,
+          invocations, first_error, lab: result.lab ?? null, error: result.error ?? null });
       }
       rows.push(summarizeRuns(path, device, probe, attempts, field));
     }
@@ -330,6 +342,7 @@ export async function main(argv = process.argv.slice(2)) {
   manifest.completed_at = new Date().toISOString();
   manifest.wall_time_seconds = Math.round((Date.now() - started.valueOf()) / 1000);
   manifest.actual_lighthouse_runs = runs.length;
+  manifest.lighthouse_invocations = runs.reduce((total, r) => total + r.invocations, 0);
   manifest.successful_lighthouse_runs = runs.filter((r) => r.ok).length;
   manifest.lighthouse_elapsed_seconds = Math.round(runs.reduce((sum, r) => sum + r.elapsed_ms, 0) / 1000);
   manifest.failed_urls = probes.filter((p) => !p.ok).map((p) => p.path);
@@ -339,7 +352,9 @@ export async function main(argv = process.argv.slice(2)) {
   writeFileSync(join(dir, 'summary.csv'), toCsv(rows));
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   console.log(`Report: ${dir}; success ${manifest.successful_lighthouse_runs}/${manifest.actual_lighthouse_runs}; elapsed ${manifest.wall_time_seconds}s`);
-  if (manifest.failed_urls.length || manifest.failed_runs.length || !manifest.actual_lighthouse_runs) process.exitCode = 1;
+  if (manifest.failed_urls.length || manifest.failed_runs.length ||
+    manifest.actual_lighthouse_runs !== manifest.planned_lighthouse_runs ||
+    manifest.successful_lighthouse_runs !== manifest.planned_lighthouse_runs) process.exitCode = 1;
   return summary;
 }
 
