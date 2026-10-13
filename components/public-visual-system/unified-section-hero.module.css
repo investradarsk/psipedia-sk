@@ -1,7 +1,7 @@
 .shell {
   min-width: 0;
-  padding-top: 18px;
-  padding-bottom: 24px;
+  padding-top: clamp(14px, 1.8vw, 20px);
+  padding-bottom: 16px;
 }
 
 .hero {
@@ -17,9 +17,9 @@
   isolation: isolate;
   display: grid;
   min-width: 0;
-  min-height: 330px;
+  min-height: 336px;
   overflow: hidden;
-  border-radius: 0;
+  border-radius: var(--ps-radius-card, 22px);
   color: #fff;
   background: #17352b;
   box-shadow: var(--shadow-lg);
@@ -60,7 +60,7 @@
   display: flex;
   min-width: 0;
   width: min(620px, 62%);
-  min-height: 330px;
+  min-height: 336px;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
@@ -125,9 +125,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px 14px;
-  width: calc(100% - 48px);
-  margin: -25px auto 0;
-  padding: 15px 17px;
+  width: min(100%, 780px);
+  margin: 14px auto 0;
+  padding: 14px 16px;
   border: 1px solid rgba(23, 53, 43, .11);
   border-radius: 18px;
   background: #fff;
@@ -291,7 +291,7 @@
 }
 
 @media (max-width: 620px) {
-  .shell { padding-top: 12px; padding-bottom: 22px; }
+  .shell { padding-top: 0; padding-bottom: 12px; }
 
   /* Only the photo goes full-bleed; content/tools retain the canonical gutter. */
   .visual {
@@ -299,7 +299,7 @@
     max-width: 100dvw;
     min-height: 318px;
     margin-inline: calc((100% - 100dvw) / 2);
-    border-radius: 20px;
+    border-radius: 0;
   }
   .copy { width: 100%; min-height: 318px; justify-content: flex-end; padding: 28px 20px 30px; }
   .image {
@@ -312,7 +312,7 @@
   .eyebrow { font-size: .61rem; }
   .copy h1 { font-size: clamp(2.15rem, 10.4vw, 2.7rem); }
   .intro { max-width: 340px; margin-top: 10px; font-size: .86rem; line-height: 1.45; }
-  .tools { grid-template-columns: 1fr; width: 100%; margin: -18px 0 0; padding: 13px; border-radius: 16px; box-shadow: 0 8px 22px rgba(23,53,43,.08); }
+  .tools { grid-template-columns: 1fr; width: 100%; margin: 12px auto 0; padding: 13px; border-radius: 16px; box-shadow: 0 8px 22px rgba(23,53,43,.08); }
   .cta { justify-content: stretch; }
   .managedCta { width: 100%; }
   .meta, .quickLinks { grid-column: auto; }

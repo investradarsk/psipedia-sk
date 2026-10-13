@@ -120,7 +120,7 @@ export async function EventsPage({
               visual={heroVisualForPage}
             />
           </UnifiedSectionHeroShell>
-          <PageContainer className={isMainListing ? "home-search-shell" : styles.categorySearchShell}>
+          <PageContainer className={isMainListing ? `home-search-shell ${styles.categorySearchShell}` : styles.categorySearchShell}>
             <HomePortalSearch
               action={categoryHref ?? "/podujatia"}
               id="events-search"
