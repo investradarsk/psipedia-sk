@@ -1,0 +1,79 @@
+name: WEB-PERF Observability (read-only Lighthouse)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'weekly: 2 URLs x 2 devices x 1; quick: 7 x 2 x 1; baseline: 7 x 2 x 3'
+        type: choice
+        required: true
+        default: quick
+        options: [weekly, quick, baseline]
+  schedule:
+    # Mondays at 04:17 UTC; bounded to four Lighthouse runs.
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-perf-observability
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Public site measurements (not a PR check)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      CRUX_API_KEY: ${{ secrets.CRUX_API_KEY }}
+    steps:
+      - name: Checkout measured source revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Record source revision
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "requested_mode=${{ github.event.inputs.mode || 'weekly' }}"
+          echo "github_sha=${{ github.sha }}"
+          echo "checkout_sha=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+      - name: Set up Node (no project build or npm ci)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Use preinstalled Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          if [[ -z "$CHROME_PATH" ]]; then
+            echo '::error::Runner has no preinstalled Google Chrome; see docs/web-perf-observability.md for local fallback.'
+            exit 1
+          fi
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          "$CHROME_PATH" --version
+      - name: Install pinned standalone Lighthouse only
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/web-perf-lighthouse" --no-save --no-audit --no-fund --ignore-scripts --package-lock=false lighthouse@12.8.2
+          echo "LIGHTHOUSE_BIN=$RUNNER_TEMP/web-perf-lighthouse/node_modules/.bin/lighthouse" >> "$GITHUB_ENV"
+      - name: Verify measurement tests
+        run: node --test tests/web-perf-observability.test.mjs
+      - name: Measure live public pages, sequentially
+        shell: bash
+        env:
+          MEASURE_MODE: ${{ github.event_name == 'schedule' && 'weekly' || inputs.mode || 'quick' }}
+        run: |
+          set -euo pipefail
+          node scripts/web-perf-observability.mjs --mode "$MEASURE_MODE" --out reports/web-perf --bin "$LIGHTHOUSE_BIN"
+      - name: Upload JSON/CSV and sanitized Lighthouse HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-perf-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/web-perf/
+          if-no-files-found: warn
+          retention-days: 14
