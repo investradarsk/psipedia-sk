@@ -12,7 +12,7 @@ After this PR is merged into `main`, open **Actions → WEB-PERF Observability (
 | `quick` | 8 | 2 | 1 | **16** | Manual default |
 | `baseline` | 8 | 2 | 3 | **48** | Manual explicit opt-in |
 
-Only one workflow execution runs at a time. `schedule` is weekly, never on push or PR. The schedule runs from the default branch after merge, so it cannot run from an unmerged PR. The runner performs all measurements sequentially, no concurrency against the public site. Timeout is 55 minutes. A failing URL is recorded as unavailable, not quietly replaced by Lighthouse error-page scores. The job returns nonzero on any invalid URL or measurement failure, but uploads completed artifacts.
+Only one measurement workflow execution runs at a time. The measurement job is weekly or manually dispatched only; a path-scoped pull request runs **only** the lightweight offline Node diagnostic tests (no Chrome setup, Lighthouse, HTTP probes, or production calls). There is no automatic Lighthouse measurement on push or PR. The schedule runs from the default branch after merge, so it cannot run from an unmerged PR. The runner performs all measurements sequentially, no concurrency against the public site. Timeout is 55 minutes. A failing URL is recorded as unavailable, not quietly replaced by Lighthouse error-page scores. The job returns nonzero on any invalid URL or measurement failure, but uploads completed artifacts.
 
 Full routes: `/`, `/adresar`, `/adresar/veterinari`, `/adresar/treneri`, `/adresar/veterinari/ab-vet-piestany`, `/podujatia`, `/pomoc-psom`, `/clanky/nasli-ste-tulaveho-psa-co-robit`.
 
@@ -127,4 +127,4 @@ control Quick merely to improve the result. Download `web-perf-<run>-1` and chec
 runtime code and five audit statuses. Compare the Chrome/Lighthouse versions
 recorded in the manifest. Keep the report failed and the score null until an
 actual valid Performance score is obtained. Scheduled weekly sampling remains
-2 URLs × 2 devices; no automatic baseline or expanded cron.
+2 URLs × 2 devices; no automatic baseline or expanded cron. The separate PR-only test job executes `node --test tests/web-perf-observability.test.mjs` without launching measurement processes.
