@@ -12,6 +12,8 @@ import {
   PARTNER_MULTIMETHOD_AUTH_INDEXES,
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
+  PREPARED_PRODUCTION_TARGETS,
+  prepareScopedMigration,
   assertAutomationGovernanceSchema,
   assertGeminiRejectionSchema,
   assertAdminAutomationPushSchema,
@@ -660,11 +662,15 @@ test("DISCOVERY-2C-E production verifier pins immutable Tavily config but allows
   }), /query cooldown must be 2880 minutes/);
 });
 
-test("production D1 target allowlist tracks every canonical migration from 0062 onward", async () => {
+test("production D1 targets account for every canonical migration, including unactivated prepared SQL", async () => {
   const canonicalTargets = (await readdir(path.join(repoRoot, "drizzle")))
     .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
     .sort();
-  assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS, canonicalTargets);
+  assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS].sort(), canonicalTargets);
+  for (const target of PREPARED_PRODUCTION_TARGETS) {
+    assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), false);
+    await assert.rejects(prepareScopedMigration({ targetMigration: target }), /Unsupported production migration target/);
+  }
 });
 
 test("post-0064 rollout scopes every supported target independently and excludes future migrations", () => {
