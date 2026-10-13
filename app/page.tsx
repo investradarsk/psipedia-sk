@@ -51,7 +51,10 @@ export default async function Home() {
     getBreedOfTheDay(dayOfYear),
     getHomepageDirectoryProfilesWithImages("veterinari", 3),
     getResolvedSectionVisual("home.hero"),
-    listFeaturedBreeds(6),
+    listFeaturedBreeds(6).catch((error) => {
+      console.error("homepage_featured_breeds_unavailable", error);
+      return [];
+    }),
   ]);
   const homeHero = homeHeroVisual ?? {
     imageUrl: "/images/hero-labrador.webp",
