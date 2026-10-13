@@ -53,14 +53,17 @@ test("Help category navigation routes canonical modules without emoji UI", () =>
   assert.doesNotMatch(icons, emojiUi);
 });
 
-test("Help landing counts come from canonical adoption and lost-found stores", () => {
-  assert.match(rootRoute, /getPublicAdoptions/);
-  assert.match(rootRoute, /listPublicDogReports\("LOST"/);
-  assert.match(rootRoute, /listPublicDogReports\("FOUND"/);
-  assert.match(rootRoute, /"stratene-a-najdene": lost\.total \+ found\.total/);
-  assert.match(rootRoute, /adopcia: adoptions\.pagination\.total/);
+test("Help landing counts and limited previews come from canonical public read predicates", () => {
+  const landingRead = read("lib/help-landing-store.ts");
+  assert.match(rootRoute, /getHelpLandingSnapshot\(\)/);
+  assert.match(rootRoute, /adopcia: adoptions\.count/);
+  assert.match(rootRoute, /"stratene-a-najdene": reports\.counts\.LOST \+ reports\.counts\.FOUND/);
   assert.match(rootRoute, /slice\(0, 6\)/);
   assert.match(rootRoute, /return "\/pomoc-psom\/stratene-a-najdene"/);
+  assert.match(landingRead, /d\.status IN \('ACTIVE','RESERVED'\)/);
+  assert.match(landingRead, /r\.status = 'ACTIVE'/);
+  assert.match(landingRead, /h\.status = 'published'/);
+  assert.match(landingRead, /PUBLIC_ORGANIZATION_PREDICATE/);
 });
 
 test("generic Help browser does not merge dedicated adoption or lost-found domains", () => {
