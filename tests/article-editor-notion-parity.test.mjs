@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { preservedEditorArticleMetadata } from "../components/admin-article-editor-preserve.ts";
+import { orphanedArticleMediaKeys } from "../lib/article-media-key-preservation.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const editor = read("components/admin-article-editor.tsx");
@@ -131,4 +132,23 @@ test("ARTICLE-EDITOR-NOTION-PARITY-1 rich block/photo/SEO payload is not replace
   assert.match(editor, /method: article \? "PUT" : "POST"/);
   assert.match(editor, /originalAreaHidden && <option/);
   assert.doesNotMatch(editor, /onSubmit=\{[^\n]*void save\("published"\)/);
+});
+
+
+test("ARTICLE-EDITOR-NOTION-PARITY-1 shared Notion hero/OG R2 key is never deleted while referenced", () => {
+  const old = "articles/2026/notion-shared.webp";
+  const freshHero = "articles/2026/replacement.webp";
+  const freshOg = "articles/2026/og-new.webp";
+  const block = "articles/2026/inline.webp";
+
+  assert.deepEqual(orphanedArticleMediaKeys([old, old], [freshHero, old]), []);
+  assert.deepEqual(orphanedArticleMediaKeys([old, old], [old, freshOg]), []);
+  assert.deepEqual(orphanedArticleMediaKeys([old, old], [freshHero, freshOg]), [old]);
+  assert.deepEqual(orphanedArticleMediaKeys([old, old, block], [old, null, block]), []);
+  assert.deepEqual(orphanedArticleMediaKeys([old, old, block], [old, null]), [block]);
+  assert.deepEqual(orphanedArticleMediaKeys([null, "", old, old], [null]), [old]);
+
+  assert.match(api, /orphanedArticleMediaKeys\(/);
+  assert.match(api, /\[before\.imageKey, before\.ogImageKey, \.\.\.articleBlockImageKeys/);
+  assert.match(api, /\[article\.imageKey, article\.ogImageKey, \.\.\.articleBlockImageKeys/);
 });

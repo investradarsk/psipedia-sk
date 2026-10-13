@@ -10,6 +10,7 @@ import {
 } from "@/lib/article-store";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { articleBlockImageKeys } from "@/lib/article-blocks";
+import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
@@ -96,36 +97,12 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const article = await updateManagedArticle(id, updatePayload, user.email, before);
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
-    if (before.imageKey && before.imageKey !== article.imageKey) {
-      const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
-      if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
-    }
-    if (before.ogImageKey && before.ogImageKey !== article.ogImageKey) {
-      const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
-      if (bucket) await bucket.delete(before.ogImageKey).catch(() => undefined);
-    }
-
-    if (before.status !== "published" && article.status === "published") {
-      const bindings = env as unknown as ArticleRouteBindings;
-      if (bindings.DB) {
-        try {
-          await writeBackPublishedArticleToNotion({
-            database: bindings.DB,
-            bindings,
-            article,
-          });
-        } catch (error) {
-          console.error(JSON.stringify({
-            event: "notion_article_publish_writeback_failed",
-            articleId: article.id,
-            error: error instanceof Error ? error.message : String(error),
-          }));
-        }
-      }
-    }
-
-    const currentKeys = new Set(articleBlockImageKeys(article.blocks ?? []));
-    const removedKeys = articleBlockImageKeys(before.blocks ?? []).filter((key) => !currentKeys.has(key));
+    // Notion-imported hero and OG images often share one R2 object.
+    // Delete only keys that neither the resulting hero, OG nor any block uses.
+    const removedKeys = orphanedArticleMediaKeys(
+      [before.imageKey, before.ogImageKey, ...articleBlockImageKeys(before.blocks ?? [])],
+      [article.imageKey, article.ogImageKey, ...articleBlockImageKeys(article.blocks ?? [])],
+    );
     const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
     if (bucket && removedKeys.length) {
       await Promise.all(removedKeys.map((key) => bucket.delete(key).catch(() => undefined)));
