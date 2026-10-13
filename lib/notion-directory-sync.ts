@@ -1,3 +1,5 @@
+import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
+import { sameDirectoryIdentity, pageDirectoryIdentities } from "../scripts/gemini-notion-identity.mjs";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import {
   archiveManagedDirectoryProfile,
@@ -629,6 +631,7 @@ async function writeProfileToNotion(input: {
   const hash = await snapshotHash(profileSnapshot(input.profile, sourceImageUrl));
   const geo = await loadGeoMirror(input.database, input.profile.id);
   const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
+  if (input.pageId) delete (properties as Partial<typeof properties>)["Vytvoril"];
   const page = input.pageId
     ? await patchNotionPage(input.bindings, input.pageId, properties)
     : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
@@ -765,8 +768,12 @@ function newProfileInput(
 function notionProfileReadyForCreate(page: NotionPage) {
   if (propertyText(page, "Psipedia ID")) return false;
   const editorialState = propertyText(page, "Stav");
+  if (propertyText(page, "Vytvoril") === "Gemini automatizácia")
+    return editorialState === "Publikované" && propertyText(page, "Psipedia stav") === "Publikované";
   return editorialState === "Ready" || editorialState === "Publikované";
 }
+
+class GeminiCanonicalDuplicateError extends Error {}
 
 async function createProfileFromNotion(input: {
   database: D1Database;
@@ -774,6 +781,13 @@ async function createProfileFromNotion(input: {
   page: NotionPage;
 }) {
   const desired = notionSnapshot(input.page);
+  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
+    const known = await input.database.prepare(
+      "SELECT name, city, website_url AS website FROM directory_profiles",
+    ).all<{ name: string; city: string; website: string }>();
+    if ((known.results ?? []).some(row => pageDirectoryIdentities(input.page).some(identity => sameDirectoryIdentity(identity, row))))
+      throw new GeminiCanonicalDuplicateError("Gemini koncept zodpovedá existujúcemu profilu; vyžaduje manuálne posúdenie duplicity.");
+  }
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
@@ -1239,12 +1253,29 @@ export async function runNotionDirectorySyncSweep(input: {
   const pages = await recentNotionPages(input.bindings, dataSourceId);
   summary.notionScanned = pages.length;
 
-  for (const page of pages) {
+  for (const candidate of pages) {
+    let page = candidate;
+    let release: (() => Promise<void>) | null = null;
+    let releaseImport: (() => Promise<void>) | null = null;
     try {
+      if (propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+        // Rejected/not-yet-approved Notion-only records cannot recover a mapping
+        // or create/modify a canonical profile.
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page)) continue;
+        release = await acquireGeminiNotionLock(input.database, page.id);
+        if (!release) continue;
+        page = await fetchNotionPage(input.bindings, page.id);
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page)) continue;
+      }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
       if (!mapping && notionProfileReadyForCreate(page)) {
+        if (propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+          // Serialize canonical duplicate-check + INSERT across different Notion IDs.
+          releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
+          if (!releaseImport) continue;
+        }
         const creation = await createProfileFromNotion({
           database: input.database,
           bindings: input.bindings,
@@ -1346,6 +1377,15 @@ export async function runNotionDirectorySyncSweep(input: {
     } catch (error) {
       summary.failed += 1;
       await markPageError(input.bindings, page.id, error);
+      // Preserve an uncertain import lock for explicit reconciliation. Never
+      // create a second profile after a lost response or mapping failure.
+      if (!(error instanceof GeminiCanonicalDuplicateError)) {
+        release = null;
+        releaseImport = null;
+      }
+    } finally {
+      if (releaseImport) await releaseImport();
+      if (release) await release();
     }
   }
 
