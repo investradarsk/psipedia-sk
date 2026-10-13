@@ -88,6 +88,14 @@ test("offline uncertain Notion POST is never retried and is reported as FAILED",
   assert.doesNotMatch(run.stderr, /SIMULATED_POST_TIMEOUT/);
 });
 
+test("offline Notion publish-only status option fails before any draft POST", () => {
+  const run = runOffline("unsafe_status_default");
+  assert.equal(run.exitCode, 1);
+  assert.equal(run.callback.status, "FAILED");
+  assert.equal(run.callback.error_code, "NOTION_DRAFT_OPTION_MISSING");
+  assert.deepEqual(run.counts, { geminiCalls: 3, notionPosts: 0, callbacks: 1 });
+});
+
 test("offline failed callback is attempted only once and leaves job for operator recovery", () => {
   const run = runOffline("callback_503");
   assert.equal(run.exitCode, 1);
