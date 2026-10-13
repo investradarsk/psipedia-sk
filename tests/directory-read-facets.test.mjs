@@ -25,7 +25,7 @@ const regions = ["Nitriansky kraj", "Trnavský kraj", "Bratislavský kraj", "Ži
 const districts = ["Nitra", "Trnava", "Bratislava I", "Žilina"];
 const cities = ["Nitra", "Trnava", "Bratislava", "Žilina"];
 const serviceNames = ["Vyšetrenie", "Výcvik", "Kúpanie", "Opatrovanie"];
-const breeds = ["Labrador", "Border kólia", "Špic", "  ", "Akita"];
+const breeds = ["Labrador", "Border kólia", "\uE000", "😀", "Akita"];
 
 function fixture(size = 1100) {
   const sqlite = new DatabaseSync(":memory:");
@@ -44,7 +44,7 @@ function fixture(size = 1100) {
     insert.run(
       id, "Profil " + id, id % 13 === 0 ? "draft" : "published",
       categories[id % categories.length], regions[r], id % 8 === 0 ? "" : districts[r],
-      cities[r], JSON.stringify(id % 17 === 0 ? [] : [serviceNames[id % 4], serviceNames[(id + 1) % 4]]),
+      id % 23 === 0 ? " " + cities[r] : cities[r], JSON.stringify(id % 17 === 0 ? [] : [serviceNames[id % 4], serviceNames[(id + 1) % 4]]),
       JSON.stringify(data), id % 6 === 0 ? "nitra" : "sluzby",
       id % 9 === 0 ? 1 : 0, "2026-10-" + String(1 + id % 12).padStart(2, "0"),
     );
@@ -218,6 +218,13 @@ test("empty dataset, duplicate values, fallback district, NULL and category scop
       assert.equal(after.total, 0);
     }
   } finally { close(); }
+});
+
+test("facet decoding keeps SQLite BINARY order and raw location whitespace duplicates", () => {
+  assert.deepEqual(
+    parseDirectoryFacetValues(JSON.stringify(["😀", "Nitra", " Nitra", null, " ", "\uE000"])),
+    ["Nitra", "Nitra", "\uE000", "😀"],
+  );
 });
 
 test("option scans shrink from eight to three without touching publication or pagination contracts", () => {
