@@ -1,4 +1,9 @@
 import { env } from "cloudflare:workers";
+import {
+  directoryLocationFacetStatement,
+  directorySourceFacetStatement,
+  parseDirectoryFacetValues,
+} from "@/lib/directory-read-facets";
 import { cache } from "react";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
@@ -979,45 +984,40 @@ export async function listPublishedDirectoryProfiles(options: {
   addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
   addSourceFacet(options.filters.profileType, DIRECTORY_SOURCE_FACETS.profileType);
 
-  const locationWhere = (level: "region" | "district" | "city") => {
-    const clauses = [...baseClauses];
-    const bindings = [...baseBindings];
-    if ((level === "district" || level === "city") && options.filters.region) {
-      clauses.push("(region = ? OR region = ?)");
-      bindings.push(options.filters.region, options.filters.region.replace(/ kraj$/, ""));
-    }
-    if (level === "city" && options.filters.district) {
-      clauses.push(`COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') = ?`);
-      bindings.push(options.filters.district);
-    }
-    return { sql: clauses.join(" AND "), bindings };
-  };
-  const regionWhere = locationWhere("region");
-  const districtWhere = locationWhere("district");
-  const cityWhere = locationWhere("city");
+  // The three location options share the active non-location WHERE, but
+  // their cascading region/district scopes remain independent.
+  const locationStatement = directoryLocationFacetStatement(
+    database, baseClauses.join(" AND "), baseBindings,
+    options.filters.region, options.filters.district,
+  );
   const facetWhere = category ? "status = 'published' AND category = ?" : "status = 'published'";
   const facetBindings = category ? [category] : [];
-  const facetQuery = (expression: string) => database.prepare(`SELECT DISTINCT trim(CAST(${expression} AS TEXT)) AS value FROM directory_profiles WHERE ${facetWhere} AND trim(CAST(${expression} AS TEXT)) <> '' ORDER BY value`).bind(...facetBindings);
-  const serviceQuery = database.prepare(`
+  const serviceStatement = database.prepare(`
     SELECT DISTINCT trim(CAST(service_item.value AS TEXT)) AS value
     FROM directory_profiles, json_each(directory_profiles.services_json) service_item
     WHERE ${facetWhere} AND trim(CAST(service_item.value AS TEXT)) <> ''
     ORDER BY value
   `).bind(...facetBindings);
-  const optionResults = await database.batch([
-    database.prepare(`SELECT DISTINCT region AS value FROM directory_profiles WHERE ${regionWhere.sql} AND region <> '' ORDER BY region`).bind(...regionWhere.bindings),
-    database.prepare(`SELECT DISTINCT COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') AS value FROM directory_profiles WHERE ${districtWhere.sql} AND COALESCE(NULLIF(district, ''), json_extract(source_data_json, '$."Okres"'), '') <> '' ORDER BY value`).bind(...districtWhere.bindings),
-    database.prepare(`SELECT DISTINCT city AS value FROM directory_profiles WHERE ${cityWhere.sql} AND city <> '' ORDER BY city`).bind(...cityWhere.bindings),
-    serviceQuery,
-    facetQuery(DIRECTORY_SOURCE_FACETS.breed),
-    facetQuery(DIRECTORY_SOURCE_FACETS.fciGroup),
-    facetQuery(DIRECTORY_SOURCE_FACETS.organization),
-    facetQuery(DIRECTORY_SOURCE_FACETS.profileType),
-  ]);
+  const sourceStatement = directorySourceFacetStatement(
+    database, facetWhere, facetBindings, {
+      breeds: DIRECTORY_SOURCE_FACETS.breed,
+      fciGroups: DIRECTORY_SOURCE_FACETS.fciGroup,
+      organizations: DIRECTORY_SOURCE_FACETS.organization,
+      profileTypes: DIRECTORY_SOURCE_FACETS.profileType,
+    },
+  );
+  // One D1 batch: 3 statements rather than 8 for identical option scopes.
+  const optionResults = await database.batch([locationStatement, serviceStatement, sourceStatement]);
+  const locationFacets = (optionResults[0].results as Array<{
+    regions: string; districts: string; cities: string;
+  }>)[0];
+  const sourceFacets = (optionResults[2].results as Array<{
+    breeds: string; fciGroups: string; organizations: string; profileTypes: string;
+  }>)[0];
   const values = (result: D1Result<unknown>) => (result.results as Array<{ value?: string }>).map((row) => row.value?.trim() ?? "").filter(Boolean);
-  const regions = [...new Set(values(optionResults[0]).map((region) => normalizeDirectoryRegion(region)).filter((region): region is SlovakRegion => Boolean(region)))];
-  const districts = values(optionResults[1]);
-  const cities = values(optionResults[2]);
+  const regions = [...new Set(parseDirectoryFacetValues(locationFacets?.regions).map((region) => normalizeDirectoryRegion(region)).filter((region): region is SlovakRegion => Boolean(region)))];
+  const districts = parseDirectoryFacetValues(locationFacets?.districts);
+  const cities = parseDirectoryFacetValues(locationFacets?.cities);
   const region = regions.includes(options.filters.region as SlovakRegion) ? options.filters.region : "";
   const district = (!options.filters.region || region) && districts.includes(options.filters.district) ? options.filters.district : "";
   const city = (!options.filters.district || district) && cities.includes(options.filters.city) ? options.filters.city : "";
@@ -1052,11 +1052,11 @@ export async function listPublishedDirectoryProfiles(options: {
       regions,
       districts,
       cities,
-      services: values(optionResults[3]),
-      breeds: values(optionResults[4]),
-      fciGroups: values(optionResults[5]),
-      organizations: values(optionResults[6]),
-      profileTypes: values(optionResults[7]),
+      services: values(optionResults[1]),
+      breeds: parseDirectoryFacetValues(sourceFacets?.breeds),
+      fciGroups: parseDirectoryFacetValues(sourceFacets?.fciGroups),
+      organizations: parseDirectoryFacetValues(sourceFacets?.organizations),
+      profileTypes: parseDirectoryFacetValues(sourceFacets?.profileTypes),
     },
   };
 }
