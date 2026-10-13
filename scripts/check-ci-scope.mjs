@@ -310,7 +310,7 @@ const playwrightControl = classifyChangedFiles(playwrightControlFiles);
 assert.equal(playwrightControl.validationMode, "ci-control");
 assert.deepEqual(
   focusedPrE2eFlags(playwrightControl, playwrightControlFiles),
-  { adminEvents: false, search: false, directory: false },
+  { adminEvents: false, search: false, directory: false, seoRecovery: false, sitemapDiagnostic: false, lostFound: false },
 );
 
 for (const file of [
