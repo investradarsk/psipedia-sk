@@ -20,8 +20,6 @@ on:
       - "tests/e2e/public-detail-maps.spec.ts"
       - "tests/fixtures/map-read-api-e2e.sql"
       - "tests/public-location-map-contract.test.mjs"
-      - "docs/map-read-api.md"
-      - "package-lock.json"
       - ".github/workflows/map-read-api-ci.yml"
   workflow_dispatch:
 

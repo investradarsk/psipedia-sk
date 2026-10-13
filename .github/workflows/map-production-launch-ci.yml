@@ -24,9 +24,6 @@ on:
       - "tests/map-production-launch.test.mjs"
       - "tests/config-contract.test.mjs"
       - "tests/production-d1-migration.test.mjs"
-      - "docs/map-production-launch.md"
-      - "docs/PRODUCTION-D1-MIGRATIONS.md"
-      - "package-lock.json"
   workflow_dispatch:
 
 concurrency:

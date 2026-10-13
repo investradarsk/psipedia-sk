@@ -23,7 +23,6 @@ on:
       - "tests/e2e/content-relations-1.spec.ts"
       - "tests/fixtures/content-relations-1-e2e.sql"
       - ".github/workflows/content-relations-1.yml"
-      - "package-lock.json"
       - "playwright.config.ts"
       - "vite.config.*"
       - "tsconfig.json"
