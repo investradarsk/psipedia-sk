@@ -19,6 +19,7 @@ const properties = {
   "Názov": { type: "title" },
   "Kategória": { type: "rich_text" },
   "Psipedia stav": { type: "select", select: { options: [{ name: "Koncept" }] } },
+  "Stav": { type: "select", select: { options: [{ name: "Na kontrolu" }, { name: "Publikované" }] } },
   "Zdroj dát": { type: "url" },
   "Mesto": { type: "rich_text" },
   "Web": { type: "url" },
@@ -98,7 +99,7 @@ globalThis.fetch = async (url, options = {}) => {
       const body = JSON.parse(options.body);
       if (body.parent?.data_source_id !== ds ||
           body.properties?.["Psipedia stav"]?.select?.name !== "Koncept" ||
-          body.properties?.["Stav"]?.select?.name === "Publikované")
+          body.properties?.["Stav"]?.select?.name !== "Na kontrolu")
         throw Error("NOT_DRAFT_ONLY");
       if (scenario === "notion_uncertain") throw Error("SIMULATED_POST_TIMEOUT");
       return json({ id: "mock-notion-page", properties: body.properties });
