@@ -1,3 +1,4 @@
+import { directoryDuplicate } from "./gemini-notion-identity.mjs";
 /**
  * Independent Gemini research worker. Runs ONLY inside GitHub Actions.
  * No Psipedia database logic or Cloudflare runtime required.
@@ -145,6 +146,7 @@ function notionSearch(rows, query) {
     title: pageText(page, "Názov"),
     city: pageText(page, "Mesto"),
     website: pageText(page, "Web"),
+    state: pageText(page, "Stav"),
   }));
 }
 
@@ -158,7 +160,12 @@ async function createDraft(args, snapshot, target) {
   if (target.section === "events" && !/^\d{4}-\d{2}-\d{2}$/.test(trim(args.start_date, 10))) {
     return { status: "rejected", reason: "verified_event_date_required" };
   }
-  if (isDuplicate(snapshot.rows, name, city, website, source)) {
+  if (target.section === "directory") {
+    const fresh = await notionSnapshot(target.dataSourceId);
+    snapshot.rows = fresh.rows;
+  }
+  if (target.section === "directory" ? directoryDuplicate(snapshot.rows, { name, city, website, source, phone: args.phone, email: args.email })
+    : isDuplicate(snapshot.rows, name, city, website, source)) {
     metrics.duplicate_count++;
     return { status: "duplicate" };
   }

@@ -1,7 +1,9 @@
 "use client";
 
+import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
+
 import Link from "next/link";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import {
   AdminActionButton,
   AdminDrawer,
@@ -37,6 +39,10 @@ import {
   type DirectoryQualityResolutionStatus,
 } from "@/lib/directory-profile-metadata";
 import styles from "./admin-directory-editor.module.css";
+
+function NotionDraftFields({ enabled, disabled, children }: { enabled: boolean; disabled: boolean; children: ReactNode }) {
+  return enabled ? <fieldset disabled={disabled} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "grid", gap: "1rem" }}>{children}</fieldset> : <>{children}</>;
+}
 
 const editorSections = [
   { id: "directory-main", label: "Hlavné" },
@@ -130,6 +136,10 @@ export function AdminDirectoryEditor({
   onNotionSaved?: () => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
+  const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
+  const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const notionReadOnly = Boolean(notionDraft && !["NEW", "IN_PROGRESS"].includes(reviewState ?? ""));
   const [notionVersion, setNotionVersion] = useState(notionDraft?.lastEditedAt ?? "");
   const [publishConfirming, setPublishConfirming] = useState(false);
   const [logoUrl, setLogoUrl] = useState(notionDraft?.logoUrl ?? "");
@@ -235,7 +245,26 @@ export function AdminDirectoryEditor({
     }
   }
 
+  async function reviewNotion() {
+    if (!notionDraft || !reviewConfirm || saving) return;
+    setSaving(true); setError("");
+    try {
+      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(notionDraft.id), {
+        method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: reviewConfirm, confirm: true, lastEditedAt: notionVersion, reason: rejectionReason }),
+      });
+      const data = await response.json() as { draft?: GeminiDirectoryDraft; error?: string };
+      if (!response.ok || !data.draft) throw new Error(data.error || "Zmenu sa nepodarilo potvrdiť. Obnov zoznam pred opakovaním.");
+      setReviewState(data.draft.reviewState); setNotionVersion(data.draft.lastEditedAt);
+      setReviewConfirm(null); setPublishConfirming(false);
+      setMessage(reviewConfirm === "reject" ? "Koncept bol odmietnutý." : "Koncept bol obnovený bez publikovania.");
+      if (onNotionSaved) onNotionSaved(); else window.location.reload();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Zmena zlyhala."); }
+    finally { setSaving(false); }
+  }
+
   async function save(nextStatus: DirectoryProfileStatus) {
+    if (saving || notionReadOnly) return;
     setSaving(true); setError(""); setMessage("");
     try {
       if (notionDraft) {
@@ -265,15 +294,18 @@ export function AdminDirectoryEditor({
         const data = await response.json() as { draft?: GeminiDirectoryDraft; error?: string };
         if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo uložiť v Notione.");
         setNotionVersion(data.draft.lastEditedAt);
+        setReviewState(data.draft.reviewState);
         if (nextStatus === "published") {
           const approval = await fetch(
             "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(notionDraft.id) + "/publish",
-            { method: "POST", credentials: "same-origin" },
+            { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ confirm: true, lastEditedAt: data.draft.lastEditedAt }) },
           );
           const result = await approval.json() as { status?: string; error?: string };
           if (!approval.ok || result.status !== "PENDING_SYNC")
             throw new Error(result.error || "Koncept sa uložil, ale nebol schválený na publikovanie.");
           setStatus("published");
+          setReviewState("APPROVED");
           setMessage("Publikovanie schválené. Profil čaká na synchronizáciu Notion → Psipedia.");
         } else {
           setMessage("Koncept je uložený priamo v Notione. Zostáva neverejný.");
@@ -425,6 +457,8 @@ export function AdminDirectoryEditor({
   const categoryInfo = getDirectoryCategory(category);
   return (
     <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+      <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
+
       <div className={styles.editorTopline}>
         <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
         <div className={styles.toplineActions}>
@@ -638,15 +672,28 @@ export function AdminDirectoryEditor({
         </div>
       </AdminDrawer>
 
+      </NotionDraftFields>
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · Notion</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
+        {notionDraft && !notionDraft.psipediaId && (
+          <div>
+            {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
+              setPublishConfirming(false); setReviewConfirm(reviewState === "REJECTED" ? "restore" : "reject");
+            }}>{reviewState === "REJECTED" ? "Obnoviť koncept" : "Odmietnuť koncept"}</AdminActionButton> : <>
+              <p role="alert">{reviewConfirm === "reject" ? "Odmietnuť tento koncept? Gemini ho nebude znova navrhovať." : "Obnoviť koncept na úpravy? Nebude publikovaný."}</p>
+              {reviewConfirm === "reject" && <label>Dôvod odmietnutia (voliteľný)<textarea maxLength={1500} value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} /></label>}
+              <AdminActionButton variant="secondary" disabled={saving} onClick={() => void reviewNotion()}>{reviewConfirm === "reject" ? "Áno, odmietnuť" : "Áno, obnoviť"}</AdminActionButton>
+              <AdminActionButton variant="neutral" disabled={saving} onClick={() => setReviewConfirm(null)}>Zrušiť</AdminActionButton>
+            </>}
+          </div>
+        )}
         {notionDraft && publishConfirming && <p role="alert">Po potvrdení sa uložený koncept schváli na publikovanie. Verejný profil vznikne až pri úspešnej synchronizácii.</p>}
         <div>
           {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
-          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
+          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
           {notionDraft && publishConfirming && <AdminActionButton variant="neutral" disabled={saving} onClick={() => setPublishConfirming(false)}>Zrušiť</AdminActionButton>}
-          <AdminActionButton variant="primary" disabled={saving || uploading || (Boolean(notionDraft) && status === "published")} onClick={() => {
+          <AdminActionButton variant="primary" disabled={saving || uploading || notionReadOnly || Boolean(reviewConfirm) || (Boolean(notionDraft) && status === "published")} onClick={() => {
             if (notionDraft && !publishConfirming) { setPublishConfirming(true); return; }
             void save("published");
           }}>{saving ? "Ukladám…" : notionDraft ? publishConfirming ? "Áno, publikovať" : "Publikovať profil" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>

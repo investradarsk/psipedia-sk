@@ -12,7 +12,11 @@ on:
       - "components/admin-navigation.tsx"
       - "lib/gemini-automation-*.ts"
       - "lib/gemini-external-agent.ts"
-      - "lib/gemini-notion-directory-review.ts"
+      - "lib/gemini-notion-*.ts"
+      - "lib/notion-directory-sync.ts"
+      - "scripts/gemini-notion-identity.mjs"
+      - "tests/gemini-notion-*.test.mjs"
+      - "drizzle/0124_gemini_notion_review_locks.sql"
       - "components/admin-gemini-notion-*.tsx"
       - "tests/gemini-notion-drafts.test.mjs"
       - "scripts/gemini-notion-agent.mjs"
@@ -60,7 +64,13 @@ jobs:
       - name: External Gemini agent contracts (no network or paid API)
         run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/notion-directory-sync.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
+      - name: Gemini review API authorization
+        run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
+      - name: Install Chromium for isolated admin UI test
+        run: npx playwright install --with-deps chromium
+      - name: Gemini modal desktop and mobile (mocked API only)
+        run: node --test tests/gemini-notion-review-ui.test.mjs
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint
