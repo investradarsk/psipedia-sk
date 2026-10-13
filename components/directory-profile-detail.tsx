@@ -201,7 +201,7 @@ export function DirectoryProfileDetail({
 
         {publicMap?.items.length ? (
           <PublicLocationMap
-            title="Mapa a navigácia"
+            title="Kde nás nájdete"
             items={publicMap.items}
             attribution={publicMap.attribution}
             googleApiKey={publicMap.googleApiKey}

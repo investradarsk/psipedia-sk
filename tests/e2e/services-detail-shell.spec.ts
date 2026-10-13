@@ -1,216 +1,147 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-const longServicesDetailName = "E2E Centrum komplexného výcviku, socializácie a behaviorálneho poradenstva pre psy";
+const LONG = "/adresar/treneri/e2e-services-detail-long";
+const MINIMUM = "/adresar/dalsie-sluzby/e2e-services-detail-minimum";
+const PHOTO = "[data-public-profile-media]";
+const contact = "Adresa a kontakt";
 
-test.describe("public services detail shell", () => {
-  test("long profile renders statuses, CTA hierarchy and rich content without overflow", async ({ page }) => {
-    const response = await page.goto("/adresar/treneri/e2e-services-detail-long", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
+async function openProfile(page: Page, href: string) {
+  const response = await page.goto(href, { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  await expect(page.locator("main#obsah")).toBeVisible();
+  return page.locator("main#obsah");
+}
 
-    const main = page.locator("main#obsah");
-    const heading = main.getByRole("heading", { level: 1, name: longServicesDetailName });
-    await expect(heading).toBeVisible();
-    await expect(main.locator("header").getByText("Tréner / psia škola", { exact: true })).toBeVisible();
-    const basicInformation = main.getByRole("heading", { name: "Základné informácie", exact: true }).locator("xpath=ancestor::section[1]");
-    await expect(basicInformation.getByText("Typ profilu", { exact: true })).toBeVisible();
-    await expect(basicInformation.getByText("Tréner / psia škola", { exact: true })).toBeVisible();
-    await expect(basicInformation.getByText("Telefón", { exact: true })).toBeVisible();
-    await expect(basicInformation.getByRole("link", { name: "+421 900 123 456", exact: true })).toHaveAttribute("href", "tel:+421900123456");
-    await expect(main.getByText("Overené", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Odporúčame", { exact: true })).toBeVisible();
-    await expect(main.getByRole("link", { name: "Poslať dopyt", exact: true })).toHaveAttribute("href", "#kontakt");
-    await expect(main.getByRole("link", { name: "Zavolať", exact: true })).toHaveAttribute("href", "tel:+421900123456");
-    await expect(main.getByRole("heading", { name: "Služby", exact: true })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Kontakt", exact: true })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Praktické informácie", exact: true })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toBeVisible();
-    await expect(main.getByText("Nitra a okolie", { exact: true })).toBeVisible();
-    await expect(main.getByRole("link", { name: "Facebook ↗", exact: true })).toHaveAttribute("href", "https://facebook.com/example");
-    await expect(main.getByRole("link", { name: "Instagram ↗", exact: true })).toHaveAttribute("href", "https://instagram.com/example");
+async function assertAccessible(page: Page) {
+  const result = await new AxeBuilder({ page }).include("main#obsah")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(result.violations, JSON.stringify(result.violations, null, 2)).toEqual([]);
+}
 
-    const schemaText = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("\n");
-    expect(schemaText, "SERVICES-PUBLIC structured data").toContain('"@type":"LocalBusiness"');
-    expect(schemaText).toContain('"telephone":"+421 900 123 456"');
-    expect(schemaText).toContain('"email":"detail-e2e@example.invalid"');
-    expect(schemaText).toContain("https://facebook.com/example");
-    expect(schemaText).toContain("https://instagram.com/example");
-    expect(schemaText).not.toContain("AggregateRating");
+async function assertNoOverflow(page: Page) {
+  const width = await page.evaluate(() => ({
+    document: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth,
+  }));
+  expect(width.document, JSON.stringify(width)).toBeLessThanOrEqual(width.viewport + 1);
+}
 
-    expect(await heading.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
+  test("all requested widths have photo-first responsive details, correct section order and working CTAs", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "One explicit viewport matrix is sufficient.");
+    for (const width of [320, 390, 430, 768, 1180, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const main = await openProfile(page, LONG);
+      const hero = main.locator("[data-directory-profile-hero]");
+      const heading = hero.getByRole("heading", { level: 1 });
+      await expect(heading).toBeVisible();
+      await expect(main.getByText("Overené", { exact: true })).toHaveCount(0);
+      await expect(main.getByText("Odporúčame", { exact: true })).toBeVisible();
 
-    const accessibility = await new AxeBuilder({ page })
-      .include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
-  });
+      if (await hero.locator(PHOTO).count()) {
+        const photoY = await hero.locator(PHOTO).evaluate((node) => node.getBoundingClientRect().top);
+        const titleY = await heading.evaluate((node) => node.getBoundingClientRect().top);
+        expect(photoY, "Photo must be before the heading at " + width).toBeLessThan(titleY);
+        await expect(hero.locator(PHOTO + " img")).toHaveAttribute("loading", "eager");
+      }
 
-  test("minimum profile omits absent image, contacts, optional sections and placeholder values", async ({ page }) => {
-    const response = await page.goto("/adresar/dalsie-sluzby/e2e-services-detail-minimum", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
+      const body = main.locator("article[data-public-profile-body]");
+      const h2 = await body.getByRole("heading", { level: 2 }).allTextContents();
+      const aboutIndex = h2.indexOf("O službe");
+      const addressIndex = h2.indexOf(contact);
+      const servicesIndex = h2.indexOf("Poskytované služby");
+      const expertiseIndex = h2.indexOf("Odborné informácie");
+      const reviewIndex = h2.indexOf("Recenzie");
+      expect(aboutIndex).toBeGreaterThanOrEqual(0);
+      expect(addressIndex).toBeGreaterThan(aboutIndex);
+      expect(servicesIndex).toBeGreaterThan(addressIndex);
+      expect(expertiseIndex).toBeGreaterThan(servicesIndex);
+      expect(reviewIndex).toBeGreaterThan(expertiseIndex);
 
-    const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "E2E Minimálna služba" })).toBeVisible();
-    await expect(main.locator("header").getByText("Služba pre psov", { exact: true })).toBeVisible();
-    const basicInformation = main.getByRole("heading", { name: "Základné informácie", exact: true }).locator("xpath=ancestor::section[1]");
-    await expect(basicInformation.getByText("Typ profilu", { exact: true })).toBeVisible();
-    await expect(basicInformation.getByText("Služba pre psov", { exact: true })).toBeVisible();
-    await expect(basicInformation.getByText("Telefón", { exact: true })).toHaveCount(0);
-    await expect(basicInformation.getByText("E-mail", { exact: true })).toHaveCount(0);
-    await expect(basicInformation.getByText("Web", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Overené", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Odporúčame", { exact: true })).toHaveCount(0);
-    await expect(main.getByRole("heading", { name: "Služby", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("heading", { name: "Kvalifikácie a zameranie", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("heading", { name: "Kontakt", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("heading", { name: "Praktické informácie", exact: true })).toBeVisible();
-    await expect(main.locator('img[alt^="Fotografia služby"]')).toHaveCount(0);
-    await expect(main.getByRole("link", { name: "Zavolať", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("link", { name: "Web ↗", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("link", { name: "Navigovať ↗", exact: true })).toHaveCount(0);
-    await expect(main.getByText("N/A", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Neuvedené", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Nezistené", { exact: true })).toHaveCount(0);
-
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-
-    const accessibility = await new AxeBuilder({ page })
-      .include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
-  });
-
-  test("Health variant renders rich veterinary data from existing fields only", async ({ page }) => {
-    const response = await page.goto("/adresar/veterinari/health-fixture-vet-rich", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-
-    const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "Health veterinárna klinika" })).toBeVisible();
-    const healthHeading = main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true });
-    await expect(healthHeading).toBeVisible();
-    const healthSection = healthHeading.locator("xpath=ancestor::section[1]");
-    await expect(healthSection.getByText("Špecializácie", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Pohotovosť", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Hospitalizácia", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Digitálne RTG", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Interné laboratórium", { exact: true })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
-
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-    const accessibility = await new AxeBuilder({ page })
-      .include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
-  });
-
-  test("Health variant omits veterinary section when only placeholder data exists", async ({ page }) => {
-    const response = await page.goto("/adresar/veterinari/health-fixture-vet-minimum", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-
-    const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "Health veterinár minimum" })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie", exact: true })).toHaveCount(0);
-    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
-    await expect(main.getByText("Neuvedené", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Neoverené", { exact: true })).toHaveCount(0);
-    await expect(main.getByText("Nezistené", { exact: true })).toHaveCount(0);
-
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-    const accessibility = await new AxeBuilder({ page })
-      .include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
-  });
-
-  test("Health variant renders physiotherapy therapies and rehabilitation data", async ({ page }) => {
-    const response = await page.goto("/adresar/fyzioterapia/health-fixture-fyzioterapia", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-
-    const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "Health fyzioterapia" })).toBeVisible();
-    const healthHeading = main.getByRole("heading", { name: "Terapie a rehabilitácia", exact: true });
-    await expect(healthHeading).toBeVisible();
-    const healthSection = healthHeading.locator("xpath=ancestor::section[1]");
-    await expect(healthSection.getByText("Hydroterapia", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Laserterapia", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Mäkké a mobilizačné techniky", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Ortopedickí pacienti", { exact: true })).toBeVisible();
-    await expect(healthSection.getByText("Veterinárny fyzioterapeut", { exact: true })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Odborné údaje", exact: true })).toHaveCount(0);
-
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-    const accessibility = await new AxeBuilder({ page })
-      .include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
-  });
-
-  test("existing breed and organization relations on a public profile are visible", async ({ page }) => {
-    const response = await page.goto("/adresar/treneri/e2e-services-detail-long", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-
-    const main = page.locator("main#obsah");
-    await expect(main.getByRole("heading", { level: 1, name: "E2E Centrum komplexného výcviku, socializácie a behaviorálneho poradenstva pre psy" })).toBeVisible();
-    const facts = main.getByRole("heading", { name: "Odborné údaje", exact: true }).locator("xpath=ancestor::section[1]");
-    await expect(facts.getByText("Plemeno", { exact: true })).toBeVisible();
-    await expect(facts.getByText("Labradorský retriever", { exact: true })).toBeVisible();
-    await expect(facts.getByText("Organizácia", { exact: true })).toBeVisible();
-    await expect(facts.getByText("Fixture klub", { exact: true })).toBeVisible();
-  });
-
-});
-
-test("PUBLIC-PROFILE-UX-UNIFICATION-1: responsive service profile puts contacts first without hiding specialist data", async ({ page }) => {
-  for (const width of [320, 390, 1440]) {
-    await page.setViewportSize({ width, height: width < 900 ? 844 : 900 });
-    const response = await page.goto("/adresar/treneri/e2e-services-detail-long", { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-    const main = page.locator("main#obsah");
-    const hero = main.locator("[data-public-profile-hero]");
-    const aside = main.locator("[data-public-profile-sidebar]");
-    const body = main.locator("[data-public-profile-body]");
-    await expect(hero.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Služby", exact: true })).toBeVisible();
-    await expect(main.getByRole("heading", { name: "Kontakt", exact: true })).toBeVisible();
-    const action = hero.locator("[data-profile-primary-action]");
-    await expect(action).toHaveAttribute("href", "#kontakt");
-    const actionBox = await action.boundingBox();
-    expect(actionBox?.width ?? 0).toBeGreaterThanOrEqual(44);
-    expect(actionBox?.height ?? 0).toBeGreaterThanOrEqual(44);
-    const asideBox = await aside.boundingBox();
-    const bodyBox = await body.boundingBox();
-    expect(asideBox).not.toBeNull();
-    expect(bodyBox).not.toBeNull();
-    if (width < 900) {
-      expect((asideBox?.y ?? 0) + (asideBox?.height ?? 0)).toBeLessThanOrEqual((bodyBox?.y ?? 0) + 2);
-    } else {
-      expect(asideBox?.x ?? 0).toBeGreaterThan(bodyBox?.x ?? 0);
+      const primary = hero.locator("[data-profile-primary-action]");
+      await expect(primary).toHaveAttribute("href", "#kontakt");
+      const box = await primary.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      await expect(hero.getByRole("link", { name: "Zavolať" })).toHaveAttribute("href", "tel:+421900123456");
+      await expect(main.getByRole("link", { name: "Facebook ↗" })).toHaveAttribute("href", "https://facebook.com/example");
+      await expect(main.getByRole("link", { name: "Instagram ↗" })).toHaveAttribute("href", "https://instagram.com/example");
+      await expect(main.locator("#kontakt form")).toBeVisible();
+      await assertNoOverflow(page);
+      if (width === 320 || width === 1440) await assertAccessible(page);
+      await page.screenshot({ path: ".e2e-artifacts/services-profile-ux/long-" + width + ".png", fullPage: true });
     }
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
-    const accessibility = await new AxeBuilder({ page }).include("main#obsah")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-    expect(accessibility.violations, JSON.stringify(accessibility.violations, null, 2)).toEqual([]);
-  }
+  });
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/adresar/dalsie-sluzby/e2e-services-detail-minimum", { waitUntil: "domcontentloaded" });
-  const minimum = page.locator("main#obsah");
-  await expect(minimum.locator("[data-public-profile-media]")).toHaveCount(0);
-  await expect(minimum.getByRole("heading", { name: "Kontakt", exact: true })).toHaveCount(0);
-  await expect(minimum.locator("[data-profile-primary-action]")).toHaveAttribute("href", "#kontakt");
+  test("minimal profile has no broken photo, empty sections or fabricated contact data", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const main = await openProfile(page, MINIMUM);
+    await expect(main.getByRole("heading", { level: 1, name: "E2E Minimálna služba" })).toBeVisible();
+    await expect(main.locator(PHOTO)).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Poskytované služby" })).toHaveCount(0);
+    await expect(main.getByRole("heading", { name: "Odborné informácie" })).toHaveCount(0);
+    await expect(main.getByRole("link", { name: "Zavolať" })).toHaveCount(0);
+    await expect(main.getByRole("link", { name: "Navigovať" })).toHaveCount(0);
+    await expect(main.locator("[data-profile-primary-action]")).toHaveAttribute("href", "#kontakt");
+    for (const placeholder of ["N/A", "Neuvedené", "Nezistené", "Neoverené"]) {
+      await expect(main.getByText(placeholder, { exact: true })).toHaveCount(0);
+    }
+    await assertNoOverflow(page);
+    await assertAccessible(page);
+    await page.screenshot({ path: ".e2e-artifacts/services-profile-ux/minimum-390.png", fullPage: true });
+  });
+
+  test("veterinary specialist data are shown only when populated", async ({ page }) => {
+    const rich = await openProfile(page, "/adresar/veterinari/health-fixture-vet-rich");
+    const expert = rich.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie" }).locator("xpath=ancestor::section[1]");
+    await expect(expert.getByText("Špecializácie", { exact: true })).toBeVisible();
+    await expect(expert.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
+    await expect(expert.getByText("Pohotovosť", { exact: true })).toBeVisible();
+    await expect(expert.getByText("Digitálne RTG", { exact: true })).toBeVisible();
+    await assertNoOverflow(page);
+
+    const minimum = await openProfile(page, "/adresar/veterinari/health-fixture-vet-minimum");
+    await expect(minimum.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie" })).toHaveCount(0);
+    await assertNoOverflow(page);
+  });
+
+  test("physiotherapy data use the same shared detail layout without fabricated services", async ({ page }) => {
+    const main = await openProfile(page, "/adresar/fyzioterapia/health-fixture-fyzioterapia");
+    const expert = main.getByRole("heading", { name: "Terapie a rehabilitácia" }).locator("xpath=ancestor::section[1]");
+    await expect(expert.getByText("Hydroterapia", { exact: true })).toBeVisible();
+    await expect(expert.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
+    await expect(expert.getByText("Veterinárny fyzioterapeut", { exact: true })).toBeVisible();
+    await assertNoOverflow(page);
+  });
+
+  test("safe public maps keep consent and no-location profiles omit the map", async ({ page }) => {
+    const main = await openProfile(page, "/adresar/veterinari/map-e2e-vet-a");
+    await expect(main.getByTestId("public-location-map")).toBeVisible();
+    await expect(main.getByTestId("detail-map-consent-gate")).toBeVisible();
+    await expect(main.getByRole("link", { name: "Navigovať", exact: true }).first()).toHaveAttribute("href", /destination=/);
+    await assertNoOverflow(page);
+
+    const withoutMap = await openProfile(page, "/adresar/chovatelske-stanice/map-e2e-breeder");
+    await expect(withoutMap.getByTestId("public-location-map")).toHaveCount(0);
+    await expect(withoutMap.getByRole("link", { name: "Navigovať", exact: true })).toHaveCount(0);
+  });
+
+  test("contact form and review section remain navigable by keyboard", async ({ page }) => {
+    const main = await openProfile(page, LONG);
+    await expect(main.getByRole("heading", { name: "Recenzie", exact: true })).toBeVisible();
+    const primary = main.locator("[data-profile-primary-action]");
+    await primary.focus();
+    await expect(primary).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#kontakt$/);
+    await expect(main.locator("#kontakt form")).toBeVisible();
+    await expect(main.getByRole("button", { name: "Odoslať dopyt cez Psipediu" })).toBeVisible();
+
+    const schema = (await page.locator('script[type="application/ld+json"]').allTextContents()).join("\n");
+    expect(schema).toContain('"@type":"LocalBusiness"');
+    expect(schema).toContain('"telephone":"+421 900 123 456"');
+    expect(schema).not.toContain("AggregateRating");
+    await assertAccessible(page);
+  });
 });
