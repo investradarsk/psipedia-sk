@@ -70,6 +70,7 @@ function createHarness(status, injectConcurrentWrite = null) {
     const row = sqlite.prepare("SELECT * FROM managed_articles WHERE id = 7").get();
     return {
       id: 7, updatedAt: row.updated_at, status: row.status, title: row.title,
+      publishedAt: row.published_at ?? null,
       authorProfileId: null, imageKey: row.image_key, ogImageKey: row.og_image_key,
       portalSection: "clanky", portalSubpage: null, imageDisplay: "auto",
       imageFocusX: null, imageFocusY: null, sections: [], sources: [],
