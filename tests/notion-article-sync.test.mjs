@@ -72,7 +72,7 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
     isStartHeading: (value) => ["článok — draft", "osnova článku"].includes(value.toLowerCase()),
     isStopHeading: (value) => value.toLowerCase() === "seo",
     isAdminManifestHeading: (value) => value.toLowerCase() === "psipedia bloky",
-    normalizeText: (value) => value.replace(/\\s+/g, " ").trim(),
+    normalizeText: (value) => value.replace(/\s+/g, " ").trim(),
   }, { timeout: 500 });
   const paragraph = (text) => ({ type: "paragraph", text });
   const heading = (text) => ({ type: "heading_2", text });
@@ -94,13 +94,13 @@ test("markerless Editorial Hub articles keep complete prose without importing ad
 });
 
 test("Notion retry cannot overwrite a manually edited or concurrently updated Admin draft", () => {
-  assert.match(syncSource, /if \\(existing\\.updatedBy !== SYNC_ACTOR\\)/);
+  assert.match(syncSource, /if \(existing\.updatedBy !== SYNC_ACTOR\)/);
   assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
-  assert.match(syncSource, /updateManagedArticle\\(existing\\.id, prepared\\.payload, SYNC_ACTOR, existing, \\{ updatedAt: existing\\.updatedAt, status: "draft" \\}\\)/);
-  assert.match(articleStoreSource, /WHERE id = \\?\\$\\{schedulingPrecondition/);
-  assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \\?/);
-  assert.match(syncSource, /if \\(!updated\\) \\{/);
-  assert.match(syncSource, /cleanupImageKeys\\(bindings\\.BUCKET, \\[prepared\\.uploadedKey\\]\\)/);
+  assert.match(syncSource, /updateManagedArticle\(existing\.id, prepared\.payload, SYNC_ACTOR, existing, \{ updatedAt: existing\.updatedAt, status: "draft" \}\)/);
+  assert.match(articleStoreSource, /WHERE id = \?\$\{schedulingPrecondition/);
+  assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \?/);
+  assert.match(syncSource, /if \(!updated\) \{/);
+  assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
 });
 
 test("canonical Notion subsection mapping is explicit and sourced from public portal taxonomy", () => {
