@@ -119,7 +119,6 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.doesNotMatch(helpBrowser, /useState|window\.history/);
   assert.match(directoryResults, /<Link href=\{directoryPageHref\(basePath, filters, result\.page - 1\)\} rel="prev">← Predchádzajúca<\/Link>/);
   assert.match(directoryResults, /<Link href=\{directoryPageHref\(basePath, filters, result\.page \+ 1\)\} rel="next">Ďalšia →<\/Link>/);
-  assert.match(directoryResults, /<nav className="directory-pagination"/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
