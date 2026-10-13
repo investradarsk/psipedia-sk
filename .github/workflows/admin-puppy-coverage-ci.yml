@@ -11,6 +11,7 @@ on:
       - "lib/section-store.ts"
       - "lib/puppy-coverage*"
       - "tests/admin-sections-v2.test.mjs"
+      - "tests/section-public-readonly.test.mjs"
       - "tests/admin-puppy-coverage.test.mjs"
       - "tests/e2e/admin-sections-v2.spec.ts"
       - "tests/e2e/admin-puppy-coverage.spec.ts"
@@ -50,6 +51,8 @@ jobs:
         run: npm run test:migration-safety
       - name: Focused SECTION-ADMIN tests
         run: node --experimental-strip-types --test tests/admin-sections-v2.test.mjs tests/admin-puppy-coverage.test.mjs
+      - name: Public section D1 read-only regressions
+        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/section-public-readonly.test.mjs
       - name: Lint
         run: npm run lint
       - name: Production build
