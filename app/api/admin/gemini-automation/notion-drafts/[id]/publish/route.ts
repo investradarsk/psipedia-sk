@@ -13,12 +13,15 @@ export async function POST(request: Request, { params }: Props) {
   if (auth.response) return auth.response;
   const { id } = await params;
   try {
-    const result = await approveGeminiDirectoryDraft(env, id);
+    const body = await request.json();
+    if (body?.confirm !== true || typeof body.lastEditedAt !== "string")
+      return Response.json({ error: "Vyžaduje sa potvrdenie a aktuálna verzia konceptu." }, { status: 400, headers: NO_STORE });
+    const result = await approveGeminiDirectoryDraft(env, id, body.lastEditedAt, auth.user.email);
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
     if (error instanceof GeminiNotionReviewError) {
       const status = error.code === "ID" ? 400 :
-        error.code === "NOT_FOUND" ? 404 : error.code === "STATE" ? 409 : 503;
+        error.code === "NOT_FOUND" ? 404 : error.code === "STATE" || error.code === "CONFLICT" || error.code === "LOCKED" ? 409 : 503;
       return Response.json({
         error: error.code === "STATE"
           ? "Koncept už bol schválený, zmenený alebo nemá potrebný verejný zdroj."

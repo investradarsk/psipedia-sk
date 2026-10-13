@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
-export function AdminGeminiNotionPublish({ id, alreadyApproved }: {
+export function AdminGeminiNotionPublish({ id, alreadyApproved, lastEditedAt }: {
   id: string;
+  lastEditedAt: string;
   alreadyApproved: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -18,7 +19,8 @@ export function AdminGeminiNotionPublish({ id, alreadyApproved }: {
     try {
       const response = await fetch(
         "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(id) + "/publish",
-        { method: "POST", credentials: "same-origin" },
+        { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ confirm: true, lastEditedAt }) },
       );
       const data = await response.json() as { status?: string; error?: string };
       if (!response.ok || data.status !== "PENDING_SYNC") {

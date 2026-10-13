@@ -1,5 +1,7 @@
 "use client";
 
+import { geminiReviewLabels, geminiReviewCounts, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
+import type { ManagedDirectoryProfile } from "@/lib/directory";
 import { useState } from "react";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminModalDialog } from "@/components/admin-interaction-system";
@@ -7,6 +9,9 @@ import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review"
 import styles from "./admin-gemini-automation.module.css";
 
 export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
+  const [filter, setFilter] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
+  const [canonicalProfile, setCanonicalProfile] = useState<ManagedDirectoryProfile | null>(null);
+  const [opening, setOpening] = useState(false);
   const [open, setOpen] = useState(false);
   const [drafts, setDrafts] = useState<GeminiDirectoryDraft[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -36,6 +41,27 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     }
   }
 
+  const counts = geminiReviewCounts(drafts);
+  const visible = drafts.filter(draft => filter === "ALL" || (filter === "ACTIVE"
+    ? ["NEW", "IN_PROGRESS", "APPROVED"].includes(draft.reviewState) : draft.reviewState === filter));
+  async function openDraft(draft: GeminiDirectoryDraft) {
+    if (opening) return;
+    setOpening(true); setError("");
+    try {
+      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id), { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo otvoriť.");
+      if (data.draft.psipediaId) {
+        const canonical = await fetch("/api/admin/directory/" + encodeURIComponent(data.draft.psipediaId), { cache: "no-store" });
+        const profile = await canonical.json();
+        if (!canonical.ok || !profile.profile) throw new Error(profile.error || "Profil sa nepodarilo načítať.");
+        setCanonicalProfile(profile.profile);
+      } else setCanonicalProfile(null);
+      setSelectedDraft(data.draft);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Načítanie zlyhalo."); }
+    finally { setOpening(false); }
+  }
+
   return (
     <section className={styles.notionDrafts} aria-label="Koncepty vytvorené automatizáciou">
       <div className={styles.notionDraftsHeader}>
@@ -57,16 +83,22 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
           {loaded && !drafts.length && <p>V tejto kategórii zatiaľ nie sú nové koncepty Gemini na kontrolu.</p>}
           {loaded && drafts.length > 0 && (
             <>
-              <p>{drafts.length} konceptov · aktuálne údaje priamo z Notionu</p>
+              <p>{Object.entries(geminiReviewLabels).map(([key, label]) => `${label}: ${counts[key as GeminiReviewState]}`).join(" · ")}</p>
+              <label>Stav konceptu <select value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
+                <option value="ACTIVE">Aktívne koncepty</option><option value="ALL">Všetky</option>
+                {Object.entries(geminiReviewLabels).map(([key, label]) => <option key={key} value={key}>{label} ({counts[key as GeminiReviewState]})</option>)}
+              </select></label>
+              {!visible.length && <p>Tomuto filtru nezodpovedá žiadny koncept.</p>}
               <ul className={styles.notionDraftList}>
-                {drafts.map((draft) => (
+                {visible.map((draft) => (
                   <li key={draft.id}>
                     <div>
                       <strong>{draft.name}</strong>
-                      <span>{[draft.city, draft.editorialState === "Publikované"
-                        ? "Čaká na synchronizáciu" : "Na kontrolu"].filter(Boolean).join(" · ")}</span>
+                      <span>{[draft.city, geminiReviewLabels[draft.reviewState], draft.reviewState === "APPROVED" ? "Čaká na synchronizáciu" : ""].filter(Boolean).join(" · ")}</span>
+                      {draft.reviewState === "APPROVED" && draft.syncError && <span role="status">Synchronizácia: {draft.syncError}</span>}
+                      {draft.reviewState === "REJECTED" && <span>Dôvod: {draft.rejectionReason || "Bez uvedenia dôvodu"}</span>}
                     </div>
-                    <button type="button" className={styles.notionOpenDraft} onClick={() => setSelectedDraft(draft)}>
+                    <button type="button" className={styles.notionOpenDraft} disabled={opening} onClick={() => void openDraft(draft)}>
                       Otvoriť editor →
                     </button>
                   </li>
@@ -86,7 +118,8 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         {selectedDraft && (
           <AdminDirectoryEditor
             key={selectedDraft.id}
-            notionDraft={selectedDraft}
+            profile={canonicalProfile ?? undefined}
+            notionDraft={canonicalProfile ? undefined : selectedDraft}
             onNotionSaved={() => { setSelectedDraft(null); void load(); }}
           />
         )}

@@ -1,3 +1,4 @@
+import { getManagedDirectoryProfileById } from "@/lib/directory-store";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { env } from "cloudflare:workers";
@@ -19,6 +20,7 @@ export default async function GeminiNotionConceptPage({ params }: Props) {
     if (error instanceof GeminiNotionReviewError && ["ID", "NOT_FOUND"].includes(error.code)) notFound();
     throw error;
   }
+  const canonical = draft.psipediaId ? await getManagedDirectoryProfileById(Number(draft.psipediaId)) : null;
   return <AdminShell
     user={user}
     eyebrow="Koncept Gemini · Notion"
@@ -26,6 +28,6 @@ export default async function GeminiNotionConceptPage({ params }: Props) {
     description="Rovnaký editor ako v Adresári. Uloženie aktualizuje iba tento koncept v Notione a samo nič nepublikuje."
     actions={<Link href="/admin/automatizacie-gemini">← Späť na koncepty Gemini</Link>}
   >
-    <AdminDirectoryEditor notionDraft={draft} />
+    <AdminDirectoryEditor key={draft.lastEditedAt} profile={canonical ?? undefined} notionDraft={canonical ? undefined : draft} />
   </AdminShell>;
 }
