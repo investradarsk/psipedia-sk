@@ -64,7 +64,10 @@ export function prepareGeneralDirectorySourceImport(
     }
     // Preserve the original generic import's safe scalar-only data contract.
     // Null is missing data, not a delete request. Nested imports are not supported.
-    if (value !== null && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")) {
+    if (
+      value !== null
+      && (typeof value === "number" || typeof value === "boolean" || (typeof value === "string" && Boolean(value.trim())))
+    ) {
       merged[key] = value;
     }
   }
