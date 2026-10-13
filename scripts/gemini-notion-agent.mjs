@@ -1,4 +1,5 @@
 import { directoryDuplicate } from "./gemini-notion-identity.mjs";
+import { GEMINI_REQUEST_LIMIT, geminiHttpCode, inspectInteraction } from "./gemini-interactions-contract.mjs";
 /**
  * Independent Gemini research worker. Runs ONLY inside GitHub Actions.
  * No Psipedia database logic or Cloudflare runtime required.
@@ -14,7 +15,7 @@ const stableKey = env.AGENT_STABLE_KEY ?? "";
 const maxNew = Math.min(5, Number(env.AGENT_MAX_NEW_CONCEPTS));
 const metrics = { concept_count: 0, duplicate_count: 0, request_count: 0, search_count: 0 };
 const pageIds = [];
-const AGENT_TURNS_LIMIT = 8;
+const AGENT_TURNS_LIMIT = 7; // Seven continuations after research + first function turn = nine requests.
 const NOTION_VERSION = "2025-09-03";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const normalize = (s) => String(s ?? "").normalize("NFKD").toLowerCase()
@@ -39,23 +40,33 @@ function category() {
 }
 
 async function notion(path, method = "GET", body) {
-  const response = await fetch("https://api.notion.com/v1" + path, {
-    method,
-    headers: {
-      Authorization: "Bearer " + env.AGENT_NOTION_ACCESS_TOKEN,
-      "Notion-Version": NOTION_VERSION,
-      "Content-Type": "application/json",
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.timeout(20000),
-  });
-  // Do not retry POST /pages: an interrupted response may already have created the page.
-  if (!response.ok) {
-    const code = response.status;
-    if (code === 429) throw Error("NOTION_RATE_LIMIT");
-    throw Error("NOTION_HTTP_" + code);
+  const isCreate = path === "/pages" && method === "POST";
+  let response;
+  try {
+    response = await fetch("https://api.notion.com/v1" + path, {
+      method,
+      headers: {
+        Authorization: "Bearer " + env.AGENT_NOTION_ACCESS_TOKEN,
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch {
+    // A timed-out/aborted create may have succeeded. Never automatically POST again.
+    throw Error(isCreate ? "NOTION_CREATE_UNCERTAIN" : "NOTION_NETWORK_ERROR");
   }
-  return response.json();
+  if (!response.ok) {
+    if (isCreate && response.status >= 500) throw Error("NOTION_CREATE_UNCERTAIN");
+    if (response.status === 429) throw Error("NOTION_RATE_LIMIT");
+    throw Error("NOTION_HTTP_" + response.status);
+  }
+  try {
+    return await response.json();
+  } catch {
+    throw Error(isCreate ? "NOTION_CREATE_UNCERTAIN" : "NOTION_INVALID_RESPONSE");
+  }
 }
 
 function pageText(page, propertyName) {
@@ -209,8 +220,19 @@ async function createDraft(args, snapshot, target) {
       (trim(args.description, 1400) + "\nZdroj: " + source).trim()
     ) };
   }
-  properties[snapshot.statusName] = snapshot.properties[snapshot.statusName].type === "status"
-    ? { status: { name: snapshot.draft } } : { select: { name: snapshot.draft } };
+  // Notion workspaces may have two distinct publication gates. Set BOTH to
+  // explicit draft values; never inherit a potentially published default.
+  for (const statusKey of ["Psipedia stav", "Stav"]) {
+    const schema = snapshot.properties[statusKey];
+    if (!schema) continue;
+    if (!["select", "status"].includes(schema.type)) throw Error("NOTION_DRAFT_SCHEMA_INVALID");
+    const options = schema[schema.type]?.options ?? [];
+    const draftName = ["Koncept", "Nápad", "Na kontrolu", "Ready"]
+      .find(name => options.some(option => option.name === name));
+    if (!draftName) throw Error("NOTION_DRAFT_OPTION_MISSING");
+    properties[statusKey] = schema.type === "status"
+      ? { status: { name: draftName } } : { select: { name: draftName } };
+  }
   const created = await notion("/pages", "POST", {
     parent: { type: "data_source_id", data_source_id: target.dataSourceId },
     properties,
@@ -267,19 +289,40 @@ const tools = [
   },
 ];
 
-async function gemini(payload) {
+// Interactions REST v1beta: turn-scoped tools must be supplied on every call.
+// Split Google Search from custom functions to avoid the provider's Preview
+// mixed-tool TOOLS/timeout failure. previous_interaction_id retains grounded context.
+const searchTools = [{ type: "google_search" }];
+const functionTools = tools.filter(tool => tool.type === "function");
+
+async function gemini(payload, phase) {
+  if (metrics.request_count >= GEMINI_REQUEST_LIMIT) throw Error("GEMINI_REQUEST_LIMIT");
   metrics.request_count++;
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: { "x-goog-api-key": env.AGENT_GEMINI_ACCESS_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: env.GEMINI_MODEL || "gemini-3.8-flash", tools, ...payload }),
-    signal: AbortSignal.timeout(90000),
-  });
-  if (!response.ok) throw Error("GEMINI_HTTP_" + response.status);
-  const interaction = await response.json();
-  metrics.search_count += (interaction.steps ?? []).filter((step) =>
-    step.type === "google_search_call").length;
-  if (!interaction.id || !Array.isArray(interaction.steps)) throw Error("GEMINI_INVALID_STEPS");
+  let response;
+  try {
+    response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      headers: { "x-goog-api-key": env.AGENT_GEMINI_ACCESS_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: env.GEMINI_MODEL || "gemini-3.8-flash", ...payload }),
+      signal: AbortSignal.timeout(phase === "research" ? 150000 : 90000),
+    });
+  } catch (error) {
+    throw Error(error?.name === "TimeoutError" || error?.name === "AbortError"
+      ? "GEMINI_TIMEOUT" : "GEMINI_NETWORK_ERROR");
+  }
+  if (!response.ok) {
+    let providerError = null;
+    if (response.status === 400) {
+      try { providerError = JSON.parse((await response.text()).slice(0, 4096)); }
+      catch { /* HTTP status alone is sufficient for diagnostics. */ }
+    }
+    throw Error(geminiHttpCode(response.status, providerError));
+  }
+  let interaction;
+  try { interaction = await response.json(); }
+  catch { throw Error("GEMINI_INVALID_JSON"); }
+  const inspected = inspectInteraction(interaction, phase);
+  metrics.search_count += inspected.searches;
   return interaction;
 }
 
@@ -290,49 +333,56 @@ async function runAgent() {
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
   const snapshot = await notionSnapshot(target.dataSourceId);
-  const instruction = "Si autonómny odborný výskumný pracovník Psipedia.sk. " +
-    "Kategória: " + target.categoryValue + " (" + stableKey + "). Slovensko. Nájdite maximálne " + maxNew +
-    " nových relevantných subjektov / podujatí / prípadov pomoci. " +
-    "NAJPRV zavolaj search_notion a skontroluj aktuálne záznamy. " +
-    "Potom používaj Google Search na získanie aktuálnych verejných dôkazov. " +
-    "Každú položku over z dôveryhodného primárneho zdroja, nevymýšľaj údaje. " +
-    "Pri firemných profiloch cielene otvor oficiálny web aj podstránku Kontakt: over telefón, e-mail, " +
-    "ulicu, číslo domu, PSČ, okres, kraj, služby, sociálne siete a kvalifikácie. " +
-    "Nájdi aj priamu HTTPS URL oficiálneho loga a vhodnej titulnej fotografie na doméne prevádzky. " +
-    "Logo a fotografie nikdy nevymýšľaj a nepreberaj neoverené obrázky z cudzích stránok. " +
-    "Ak sa niektorý údaj nedá overiť, nechaj ho prázdny. " +
-    "Pre veterinára vytvor koncept iba vtedy, ak sú overené aspoň dva kontaktné/adresné údaje " +
-    "(telefón, verejný e-mail, úplná adresa). Inak hľadaj ďalej. " +
-    "Nové a dostatočne doložené položky zapisuj výhradne cez create_notion_draft. " +
-    "Ak nevieš overiť zdroj alebo je možná duplicita, nezapisuj. " +
-    "Žiadne publikovanie. Koniec po dosiahnutí limitu alebo vyčerpaní vierohodných výsledkov.";
-  let response = await gemini({ input: instruction });
+  const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. " +
+    "Kategória: " + target.categoryValue + " (" + stableKey + "), Slovensko. " +
+    "Použi teraz Google Search a nájdi maximálne " + maxNew +
+    " NOVÝCH relevantných subjektov / podujatí / prípadov pomoci. " +
+    "Pre každý vyhľadaj verejný primárny HTTPS zdroj, oficiálny web aj sekciu Kontakt. " +
+    "Zisti doložený názov, obec, adresu, kontakty, služby, dátum podujatia a prípustné verejné fotografie. " +
+    "Nič nevymýšľaj. Predlož len overiteľné odkazy a stručné dôkazy, " +
+    "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam.";
+  const research = await gemini({ input: researchInstruction, tools: searchTools }, "research");
+
+  const instruction = "Pokračuj v tomto existujúcom overenom prieskume. " +
+    "NAJPRV zavolaj search_notion, pozri existujúce záznamy a až po prijatí jeho výsledku " +
+    "môžeš použiť create_notion_draft. Vytvor maximálne " + maxNew + " KONCEPTOV. " +
+    "Používaj výhradne konkrétne doložené verejné fakty a HTTPS zdroje z prieskumu. " +
+    "Pri adresári vyplň overené telefóny, e-maily, úplnú adresu, PSČ, okres, kraj, služby, " +
+    "kvalifikácie, Facebook/Instagram a priame HTTPS URL obrázkov iba z oficiálneho webu. " +
+    "Pri veterinároch požaduj minimálne dva z: telefón, verejný e-mail, úplná adresa. " +
+    "Nevytváraj neúplné záznamy ani možné duplicity. Nikdy nepublikuj. " +
+    "Ak podklady nestačia, skonči bez zápisu.";
+  let response = await gemini({
+    input: instruction, previous_interaction_id: research.id, tools: functionTools,
+  }, "functions");
   let notionSearched = false;
-  for (let turn = 0; turn < AGENT_TURNS_LIMIT; turn++) {
-    const calls = response.steps.filter((step) => step.type === "function_call");
-    if (!calls.length) {
-      if (response.status === "requires_action") throw Error("GEMINI_EMPTY_TOOL_CALL");
-      return;
-    }
+  for (let turn = 0; turn <= AGENT_TURNS_LIMIT; turn++) {
+    const { calls, status } = inspectInteraction(response, "functions");
+    if (status === "completed") return;
+    // Do not make an unacknowledged Notion write at the request limit.
+    if (turn === AGENT_TURNS_LIMIT) throw Error("AGENT_TURN_LIMIT");
     const results = [];
+    const searchedBeforeTurn = notionSearched;
     for (const call of calls) {
-      const args = call.arguments ?? {};
+      const args = call.arguments;
       let toolResult;
       if (call.name === "search_notion") {
         notionSearched = true;
         toolResult = { total: snapshot.rows.length, matches: notionSearch(snapshot.rows, args.query) };
       } else if (call.name === "create_notion_draft") {
-        toolResult = notionSearched
+        toolResult = searchedBeforeTurn
           ? await createDraft(args, snapshot, target)
           : { status: "rejected", reason: "search_notion_required_first" };
-      } else throw Error("UNKNOWN_TOOL_CALL");
+      } else throw Error("GEMINI_INVALID_TOOL_CALL");
       results.push({
         type: "function_result", name: call.name, call_id: call.id,
         result: [{ type: "text", text: JSON.stringify(toolResult) }],
       });
     }
     if (metrics.concept_count >= maxNew) return;
-    response = await gemini({ input: results, previous_interaction_id: response.id });
+    response = await gemini({
+      input: results, previous_interaction_id: response.id, tools: functionTools,
+    }, "functions");
   }
   throw Error("AGENT_TURN_LIMIT");
 }
@@ -364,13 +414,14 @@ try {
 } catch (error) {
   // Never print prompt, secrets, private Notion records or raw provider responses.
   failure = error instanceof Error ? error.message : "AGENT_FAILED";
-  console.error("Agent failed:", /^[A-Z0-9_]+$/.test(failure) ? failure : "AGENT_FAILED");
+  console.error("Agent failed:", /^[A-Z0-9_]{1,45}$/.test(failure) ? failure : "AGENT_FAILED", JSON.stringify(metrics));
 }
 try {
   await callback(failure ? "FAILED" : "SUCCESS",
     failure ? (/^[A-Z0-9_]{1,45}$/.test(failure) ? failure : "AGENT_FAILED") : null);
 } catch (error) {
-  console.error("Callback failed:", error instanceof Error ? error.message : "CALLBACK_FAILED");
+  const diagnostic = error instanceof Error ? error.message : "";
+  console.error("Callback failed:", /^CALLBACK_[A-Z0-9_]{1,36}$/.test(diagnostic) ? diagnostic : "CALLBACK_FAILED");
   process.exitCode = 1;
 }
 if (failure) process.exitCode = 1;
