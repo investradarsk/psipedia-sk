@@ -8,6 +8,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
+// Reviewed SQL prepared for local rehearsal only. Activation requires a separate
+// rollout change with production pre/postflight assertions and workflow approval.
+// These targets are intentionally NOT accepted by prepareScopedMigration/apply.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
+  "0123_event_organization_structured_address.sql",
+]);
+
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
   "review_auth_notification_outbox",
