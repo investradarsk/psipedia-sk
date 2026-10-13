@@ -10,14 +10,18 @@ import styles from "./directory-public.module.css";
 /** Reuses canonical category links; the extra affordance reveals the same track. */
 export function DirectoryCategoryNavigation({ items }: { items: PublicSubcategoryItem[] }) {
   const [expanded, setExpanded] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(true);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const navId = useId();
 
   useEffect(() => {
     const track = wrapperRef.current?.querySelector<HTMLElement>("[data-public-subcategory-track]");
     if (!track) return;
-    const refresh = () => setHasOverflow(track.scrollWidth > track.clientWidth + 2);
+    // Keep the control mounted while the expanded track wraps: otherwise
+    // its focus would be lost when the label switches to "Zbaliť".
+    const refresh = () => setHasOverflow(expanded || track.scrollWidth > track.clientWidth + 2);
+    setHydrated(true);
     refresh();
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(refresh) : null;
     if (observer) observer.observe(track);
@@ -34,7 +38,7 @@ export function DirectoryCategoryNavigation({ items }: { items: PublicSubcategor
     >
       <div className={styles.categoryNavTop}>
         <span>Vyber kategóriu</span>
-        {hasOverflow || expanded ? (
+        {hydrated && (hasOverflow || expanded) ? (
           <button type="button" className={styles.categoryMore}
             aria-expanded={expanded} aria-controls={navId}
             onClick={() => setExpanded((value) => !value)}>
