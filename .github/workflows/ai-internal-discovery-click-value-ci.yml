@@ -62,7 +62,6 @@ on:
       - "tests/fixtures/directory-admin-e2e.sql"
       - "tests/fixtures/lost-found-e2e.sql"
       - "tests/fixtures/organization-profile-e2e.sql"
-      - "package-lock.json"
       - "playwright.config.ts"
       - "vite.config.ts"
       - "tsconfig.json"
