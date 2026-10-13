@@ -185,7 +185,7 @@ const productionContracts = {
   "production-d1-backlog.yml": ["workflow_dispatch:"],
   "production-d1-backlog-verify.yml": ["workflow_dispatch:"],
   "production-d1-history-audit.yml": ["workflow_dispatch:"],
-  "auto-update-automerge-prs.yml": ["push:", "workflow_dispatch:"],
+  "auto-update-automerge-prs.yml": ["workflow_dispatch:"],
 };
 for (const [name, events] of Object.entries(productionContracts)) {
   const source = workflows.get(name);
@@ -193,6 +193,8 @@ for (const [name, events] of Object.entries(productionContracts)) {
   const trigger = onBlock(source);
   for (const event of events) assert.ok(trigger.includes(event), `${name}: lost ${event} trigger`);
 }
+// Manual Update branch/auto-merge recovery is intentionally opt-in: never run on main pushes.
+assert.doesNotMatch(onBlock(workflows.get("auto-update-automerge-prs.yml")), /\n  push:/, "auto-update helper must not run after every main push");
 
 // Scenario A — PR #652-like Tavily/direct-entity parser change.
 const scenarioAFiles = [
