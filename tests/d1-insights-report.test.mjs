@@ -88,3 +88,16 @@ test("CLI writes only sanitized JSON and prints aggregate Markdown", () => {
   assert.ok(!readFileSync(output, "utf8").includes("Some Patient Name"));
   assert.ok(!result.stdout.includes("Some Patient Name"));
 });
+
+test("empty export never reports synthetic zeros or fictitious top queries", () => {
+  const report = createReport([]);
+  assert.equal(report.summary.executions, null);
+  assert.equal(report.summary.duration_ms.total, null);
+  assert.equal(report.by_category[0].rows_read.total, null);
+  assert.deepEqual(report.top_by_duration_ms, []);
+  assert.match(renderMarkdown(report), /nezískané/);
+});
+
+test("rejects fractional query execution counts", () => {
+  assert.throws(() => createReport([{ query: "SELECT 1", numberOfTimesRun: 1.5 }]), /Invalid execution count/);
+});
