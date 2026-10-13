@@ -789,7 +789,7 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const trainersHtml = await trainers.text();
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Psí tréneri a psie školy/);
-  assert.match(trainersHtml, /Názov služby, miesto, organizácia alebo plemeno/);
+  assert.match(trainersHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
   assert.match(trainersHtml, /Mesto\/obec/);
   assert.match(trainersHtml, /Zoradenie/);
   assert.match(trainersHtml, /Nenašli sme zhodu/);
@@ -803,16 +803,19 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Adresár služieb/);
   assert.doesNotMatch(directoryHtml, /Služby pre psov na jednom mieste/);
-  // The compact services landing renders a category overview and full-list links.
-  assert.match(directoryHtml, /Služby podľa kategórie/);
-  assert.match(directoryHtml, /data-directory-category-overview/);
-  assert.match(directoryHtml, /Celá kategória/);
+  // The unified services landing uses one search and accessible category links,
+  // with the current filtered results immediately below.
+  assert.match(directoryHtml, /data-directory-main-search/);
+  assert.match(directoryHtml, /data-directory-results/);
+  assert.match(directoryHtml, /data-directory-columns/);
   assert.match(directoryHtml, /href="\/adresar\/veterinari"/);
-  assert.doesNotMatch(directoryHtml, /Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
-  assert.match(directoryHtml, /Poskytujete služby pre psov/);
+  assert.match(directoryHtml, /data-directory-map-cta/);
+  assert.match(directoryHtml, /data-directory-provider-cta/);
+  assert.match(directoryHtml, /Poskytuješ služby pre psov/);
   assert.match(directoryHtml, /Fyzioterapia/);
-  assert.match(directoryHtml, /Názov služby, miesto, organizácia alebo plemeno/);
-  assert.doesNotMatch(directoryHtml, /directory-hero--photo/);
+  assert.match(directoryHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
+  assert.doesNotMatch(directoryHtml, /Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
+    assert.doesNotMatch(directoryHtml, /directory-hero--photo/);
   assert.doesNotMatch(directoryHtml, /Profily v adresári/);
 
   const legacySchools = await worker.fetch(new Request("http://localhost/adresar/psie-skoly", { headers: { accept: "text/html" }, redirect: "manual" }), bindings, context);
