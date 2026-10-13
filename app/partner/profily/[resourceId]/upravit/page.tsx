@@ -38,6 +38,7 @@ export default async function Page({ params }: { params: Promise<{ resourceId: s
           values={editor.values}
           baseRevision={editor.baseRevision}
           resourceType={editor.resource.entityType}
+          directoryCategory={editor.resource.directoryCategory}
           currentImageUrl={editor.resource.imageUrl}
         />
       </section>

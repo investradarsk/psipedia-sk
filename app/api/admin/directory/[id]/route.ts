@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { DIRECTORY_FILTER_CONTRACT_VERSION, mergeDirectoryFilterValues, serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
@@ -136,6 +137,40 @@ export async function PATCH(request: Request, { params }: Props) {
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
   try {
     const body = await request.json() as { action?: unknown; reviewed?: unknown };
+    if (body.action === "set-category-filters") {
+      const patch = (body as { filterPatch?: unknown }).filterPatch;
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+        return Response.json({ error: "Neplatný balík filtrov." }, { status: 400 });
+      }
+      const requested = patch as { category?: unknown; contractVersion?: unknown; updates?: unknown };
+      if (requested.contractVersion !== DIRECTORY_FILTER_CONTRACT_VERSION
+        || typeof requested.category !== "string"
+        || !(serviceFilterCategories as readonly string[]).includes(requested.category)
+        || !requested.updates || typeof requested.updates !== "object" || Array.isArray(requested.updates)
+        || Object.keys(requested.updates).length > 21) {
+        return Response.json({ error: "Neplatná kategória, verzia alebo hodnoty filtrov." }, { status: 400 });
+      }
+      const db = (env as unknown as { DB?: D1Database }).DB;
+      if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+      const row = await db.prepare("SELECT category,status,source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1")
+        .bind(id).first<{ category: string; status: string; source_data_json: string }>();
+      if (!row) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+      if (row.status === "archived") return Response.json({ error: "Archivovaný profil nie je možné upravovať." }, { status: 409 });
+      if (row.category !== requested.category) {
+        return Response.json({ error: "Kategória profilu sa zmenila. Obnovte stránku." }, { status: 409 });
+      }
+      // This helper validates every registry ID and value, rejects out-of-category keys,
+      // and retains arbitrary legacy metadata. Never write the client's full JSON snapshot.
+      const next = mergeDirectoryFilterValues(row.source_data_json, row.category as ServiceFilterCategory, requested.updates as Record<string, unknown>);
+      if (Object.keys(requested.updates).length) {
+        const updated = await db.prepare(`UPDATE directory_profiles
+          SET source_data_json=?1,updated_at=?2,updated_by=?3
+          WHERE id=?4 AND category=?5 AND source_data_json=?6 RETURNING id`)
+          .bind(next, new Date().toISOString(), user.email, id, row.category, row.source_data_json).first<{ id: number }>();
+        if (!updated) return Response.json({ error: "Údaje profilu sa medzičasom zmenili. Obnovte stránku." }, { status: 409 });
+      }
+      return Response.json({ profile: await getManagedDirectoryProfileById(id) });
+    }
     if (body.action === "set-reviewed") {
       if (typeof body.reviewed !== "boolean") {
         return Response.json({ error: "Stav kontroly musí byť true alebo false." }, { status: 400 });
