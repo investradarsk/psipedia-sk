@@ -83,10 +83,19 @@ function buildRecord(row) {
   const sql = row.query ?? row.sql ?? row.dimensions?.query;
   if (typeof sql !== "string" || !sql.trim()) throw new Error("Insights record is missing query text; cannot group accurately.");
   const identity = describeSql(sql);
+  const rawExecutions = row.numberOfTimesRun ?? row.executions ?? row.count;
+  if (typeof rawExecutions === "number" && (!Number.isSafeInteger(rawExecutions) || rawExecutions < 0)) {
+    throw new Error("Invalid execution count.");
+  }
   const executions = pick(row, ["numberOfTimesRun", "executions", "count"]) ?? pick(row.count && typeof row.count === "object" ? row.count : {}, ["count", "value"]);
   return { ...identity, executions, duration: extractMetric(row, "duration", executions), read: extractMetric(row, "read", executions), written: extractMetric(row, "written", executions) };
 }
 function aggregate(items, identity = {}) {
+  // A ranking with no matching query rows does not prove that the database executed zero queries.
+  if (items.length === 0) {
+    const missing = { total: null, average: null, basis: null };
+    return { ...identity, executions: null, duration_ms: { ...missing }, rows_read: { ...missing }, rows_written: { ...missing }, input_records: 0 };
+  }
   const sums = { executions: 0, duration: 0, read: 0, written: 0 };
   const complete = { executions: items.length > 0, duration: items.length > 0, read: items.length > 0, written: items.length > 0 };
   const derived = { duration: false, read: false, written: false };
