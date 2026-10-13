@@ -174,6 +174,9 @@ export function previewGoogleAddressChange(input: GoogleAddressPreviewInput): Go
       ? rawProposal[field] : validation.address[field];
     if (!equivalent(field, before, after)) changes.push({ field, before, after });
   }
+  // Show canonical proposed values, but preserve unchanged legacy text exactly.
+  const proposedAddress: InternalAddress = { ...currentAddress };
+  for (const change of changes) Object.assign(proposedAddress, { [change.field]: change.after });
   const unchangedFields = addressFields.filter((field) => !changes.some((change) => change.field === field));
   const plan = planInternalAddressPatch(snapshot, patch, {
     missingOnly: intent === "MISSING_ONLY",
@@ -212,7 +215,7 @@ export function previewGoogleAddressChange(input: GoogleAddressPreviewInput): Go
     && (changes.length > 0 || intent === "ADMIN_RECONFIRM");
   return {
     target: { ...snapshot.target }, intent, currentAddress,
-    proposedAddress: { ...rawProposal },
+    proposedAddress,
     changes, unchangedFields, missingGoogleComponents,
     validation, googleConfirmation, candidatePlaceId: selected?.placeId ?? null,
     conflicts, reviewReasons: conflicts.map((conflict) => conflict.reason),
