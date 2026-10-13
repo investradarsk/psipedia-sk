@@ -2,7 +2,7 @@
 
 **Baseline:** `main` `4b40d17a80446e805e359c1bcec1260f731d5450` (PR #764/#778/#786 merged). **Scope:** contract + offline audit utility + isolated tests only. No D1/Notion/admin/public writes, migrations, backfill or faceted UI.
 
-## Source inventory / provenance (static audit — NOT live D1 or live Notion)
+## Source inventory / provenance (static code audit + live READ-ONLY Notion schema, NOT live D1/row audit)
 
 | Source | Existing shape | Reliable structured? | Phase-4 disposition |
 | --- | --- | --- | --- |
@@ -21,7 +21,14 @@ Current public GET filters (`q/category/region/district/city/service/breed/fci/o
 2. General import in `app/api/admin/import/route.ts` reconstitutes `source_data_json` from submitted top-level primitive fields and **replaces** `source_data_json` on upsert of draft profiles. A future facet stored solely in source JSON may be erased if absent from another import payload. Published profiles are skipped by `buildGeneralImportPlan`, not proof of retention for all states.
 3. `notion-directory-sync.ts` hashes the `EditableDirectorySnapshot` field whitelist; proposed facets are not in snapshot, property projection or the hash. D1-only facet edits cannot reliably trigger a Notion push; Notion cannot round-trip them. Both-direction concurrent edits may conflict and must not use last-writer-wins for new fields.
 4. `safeImportData` is a filter and does not validate the proposed registry schema; it also excludes boolean primitives. Notion checkbox false is not a trustworthy explicit 'no'. Do not wire a checkbox without a separate explicit provenance mechanism.
-5. Since no live D1 reader is attached to this implementation and no live Notion schema query was executed, **per-category counts, real value distributions, production backfill eligibility and existing live properties are UNKNOWN**. The prior phase-1 local audit recorded 248 published kynological-club profiles; that was a partial **local** dataset, not a production sample. The phase-4 report must not turn this into production coverage.
+5. A live read-only Notion schema fetch **was** performed (see below), but Notion row queries require a higher plan and no D1 production reader is attached. **Per-category counts, real value distributions, production backfill eligibility and existing D1 facet-key values remain UNKNOWN.** The prior phase-1 local audit recorded 248 published kynological-club profiles; that was a partial **local** dataset, not a production sample. The phase-4 report must not turn this into production coverage.
+
+## Verified Notion schema (read-only, 13 October 2026)
+
+- Database: [Adresár](https://app.notion.com/p/fbaad6872adf4784b22c4290c3580c93), data source `collection://84e0664c-ca47-405f-9d54-31b20287bc8c`.
+- The fetched **live** schema contains **72 properties**. `Kategória`, `Služby`, `Kvalifikácie` are **text** properties; `Psipedia stav` is a **select**. `Online` remains a checkbox in the Notion schema, but is not a valid implicit NO or proposed category facet.
+- **Zero** property names start with `Filter ·` or `Facet`; all 21 proposed Notion select properties are **not provisioned**. Do not enable writes or sync projection before an explicitly approved schema phase.
+- This confirms **schema names/types**, **not populated row values**, validation of any 21 candidate values, profile counts, or cross-system conflicts. `query_data_sources` was unavailable on the connected plan, so no Notion row sampling took place.
 
 ## Registry contract
 
