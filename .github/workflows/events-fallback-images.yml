@@ -73,9 +73,9 @@ jobs:
           retention-days: 7
 
   public-events:
-    # Full required E2E already runs these exact three specs with the same fixtures.
+    # The broad suite is nightly/manual; PR events must retain focused browser coverage.
     needs: scope
-    if: github.event_name == 'workflow_dispatch' || needs.scope.outputs.full_core != 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     name: Events final acceptance — real routes desktop and mobile
     runs-on: ubuntu-latest
     timeout-minutes: 15

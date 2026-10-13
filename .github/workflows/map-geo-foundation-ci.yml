@@ -26,8 +26,6 @@ on:
       - "tests/directory-online-removal.test.mjs"
       - "tests/admin-attention-queue.test.mjs"
       - "tests/e2e/admin-geo-foundation.spec.ts"
-      - "docs/geo-foundation.md"
-      - "package-lock.json"
       - ".github/workflows/map-geo-foundation-ci.yml"
   workflow_dispatch:
 

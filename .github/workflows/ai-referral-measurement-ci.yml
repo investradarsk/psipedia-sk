@@ -7,9 +7,7 @@ on:
       - "components/cookie-consent.tsx"
       - "lib/ai-referral.ts"
       - "tests/ai-referral.test.mjs"
-      - "docs/ai-referral-measurement.md"
       - "package.json"
-      - "package-lock.json"
       - ".github/workflows/ai-referral-measurement-ci.yml"
 
 permissions:
