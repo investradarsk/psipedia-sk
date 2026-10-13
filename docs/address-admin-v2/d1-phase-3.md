@@ -121,3 +121,22 @@ samostatne autorizovanom deployi; stĺpce ponechať. Nevykonať DROP, obnovu tab
 ani vymazanie migration ledgeru. V tomto PR nová runtime write cesta neexistuje,
 preto rollback aplikácie nemusí meniť dáta. Ak budú neskôr v poliach nové hodnoty,
 ponechať ich a riešiť prípadnú opravu osobitným auditovaným patchom, nie backfillom.
+
+## Aktualizácia po CI a posune main
+
+Vetva bola synchronizovaná s `4c742c27af86ea5b06e304943fd93d7689375093`
+(merged Notion fáza 4, PR #789); jej dokumentácia zostala zachovaná.
+Pôvodné CI D1/clean-chain/build kontroly prešli, všeobecný npm regression krok
+zlyhal. Detailný GitHub job log bol z prostredia neprístupný (HTTP 403).
+
+Lokálne sa reprodukovalo zlyhanie v `tests/event-listing.test.mjs`: po konci
+fixture podujatí 2026-10-12 predvolené správne radenie minulých udalostí zmenilo
+poradie ID, hoci pagination test očakával stále vzostupné poradie. Test teraz
+používa explicitné `najblizsie` radenie a overuje rovnakú pagination/calendar
+fixture pri hodinách 2026-10-11, 2026-10-13 a 2027-01-01. Runtime ani verejné
+radenie sa nemení; samostatný default-order test stále kontroluje pôvodné pravidlá.
+
+Po synchronizácii prešli regresné testové skupiny z npm test spustené postupne
+bez opakovania už overeného buildu, vrátane opraveného event-listing testu;
+107 migračných/deploy kontrol tiež prešlo znova. Artifact validation a lint
+opraveného testu prešli. Nové CI sa nečaká a produkčné apply/deploy sa nevykonáva.

@@ -32,7 +32,8 @@ test('default order respects current/upcoming/cancelled ranks and newest complet
   assert.deepEqual(query({termin:'prebiehajuce'}),[1,3]);
   db.close();
 });
-test('actual public D1 reads clamp pages and count all 601 events independently for the calendar', async () => {
+test('actual public D1 reads clamp pages and count all 601 events independently for the calendar', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-11T12:00:00Z') });
   const {env} = await import('cloudflare:workers');
   const db = new DatabaseSync(':memory:');
   db.exec(database.prepare("SELECT sql FROM sqlite_master WHERE name='managed_events'").get().sql);
@@ -42,11 +43,16 @@ test('actual public D1 reads clamp pages and count all 601 events independently 
   env.DB = {prepare(sql) {const statement=db.prepare(sql);return {bind(...params){return {first:async()=>statement.get(...params),all:async()=>({results:statement.all(...params)})};}};}};
   try {
     const {getPublishedEventListing,getPublicEventCalendar} = await import('../lib/event-store.ts');
-    const filters = parseEventListing({q:'zilinska',termin:'vsetky',strana:'9999999'});
+    // Pagination must not depend on whether the wall clock is before or after the fixture end date.
+    // Default current/past ordering is covered separately with an explicit date above.
+    const filters = parseEventListing({q:'zilinska',termin:'vsetky',zoradenie:'najblizsie',strana:'9999999'});
+    for (const now of ['2026-10-11T12:00:00Z', '2026-10-13T12:00:00Z', '2027-01-01T12:00:00Z']) {
+    t.mock.timers.setTime(Date.parse(now));
     const listing = await getPublishedEventListing(filters);
     assert.equal(listing.total,601);assert.equal(listing.page,51);assert.equal(listing.pages,51);assert.deepEqual(listing.events.map(event=>event.id),[601]);
     const calendar = await getPublicEventCalendar(filters,'2026-10','2026-10-11');
     assert.deepEqual(calendar.summaries.map(summary=>summary.count),[601,601,601]);assert.equal(calendar.events.length,12);assert.deepEqual(calendar.summaries[0].types,['Výstava']);
+    }
   } finally {env.DB=previous;db.close();}
 });
 test('combined search stays below the D1 SQL statement size limit', () => {
