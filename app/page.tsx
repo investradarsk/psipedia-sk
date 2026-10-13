@@ -188,7 +188,7 @@ export default async function Home() {
         actionLabel="Všetko o šteniatkach"
         testId="steniatka"
         sidebar={
-          <HomeMagazineSidebar title="Plemeno dňa" href="/plemena" actionLabel="Prejsť do atlasu">
+          <HomeMagazineSidebar title={breedOfTheDay?.image?.trim() ? "Plemeno dňa" : "Atlas plemien"} href="/plemena" actionLabel="Prejsť do atlasu">
             {breedOfTheDay?.image?.trim() ? (
               <Link className="home-side-breed" href={`/plemena/${breedOfTheDay.slug}`} data-home-breed>
                 <BreedPhoto src={breedOfTheDay.image} alt={`${breedOfTheDay.name} – plemeno dňa`} sizes="(max-width: 900px) 55vw, 320px" loading="lazy" decoding="async" />
