@@ -1,0 +1,72 @@
+name: Production D1 0123-0124 Read-only Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-0123-0124-psipedia-sk-db exactly (READ ONLY)
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Read-only ledger and schema preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+    steps:
+      - name: Require main and explicit audit authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          confirmation="$(node -e 'const fs=require("fs"); const e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,"utf8")); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$confirmation" = "AUDIT-0123-0124-psipedia-sk-db"
+      - name: Checkout dispatched main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Require dispatched revision still matches main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Static migration safety
+        run: npm run db:check-migrations
+      - name: Isolated classifier tests
+        run: node --test tests/production-d1-0123-0124-preflight.test.mjs
+      - name: Load canonical account and require protected token
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          account_id="$(node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("config/cloudflare-resources.json","utf8")); process.stdout.write(r.account_id || "")')"
+          test -n "$account_id"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account_id" >> "$GITHUB_ENV"
+      - name: Remote D1 read-only preflight
+        run: node scripts/production-d1-0123-0124-preflight.mjs
+      - name: Upload read-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-0123-0124-preflight-${{ github.run_id }}
+          path: .production-d1-0123-0124-preflight/report.json
+          if-no-files-found: warn
+          retention-days: 30
