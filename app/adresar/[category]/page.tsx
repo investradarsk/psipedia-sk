@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
 import { StructuredData } from "@/components/structured-data";
 import { directoryCategories, directoryCategoryListingMetadata, getDirectoryCategory } from "@/lib/directory";
-import { getDirectoryCategoryCounts, listPublishedDirectoryProfiles, parseDirectoryFilters } from "@/lib/directory-store";
+import { listPublishedDirectoryProfiles, parseDirectoryFilters } from "@/lib/directory-store";
+import { directoryEmptyQueryRedirect } from "@/lib/directory-query";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +35,9 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   if (category.slug === "psie-skoly") permanentRedirect("/adresar/treneri");
   const rawSearchParams = await searchParams;
   const filters = parseDirectoryFilters(rawSearchParams);
-  const [result, categoryCounts] = await Promise.all([
-    listPublishedDirectoryProfiles({ category: category.slug, filters }),
-    getDirectoryCategoryCounts(),
-  ]);
+  const cleanedUrl = directoryEmptyQueryRedirect(`/adresar/${category.slug}`, rawSearchParams, filters);
+  if (cleanedUrl) redirect(cleanedUrl);
+  const result = await listPublishedDirectoryProfiles({ category: category.slug, filters });
   const policy = resolveListingIndexPolicy(`/adresar/${category.slug}`, rawSearchParams, { indexPagination: true });
   const schema = policy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: category.heroTitle,
@@ -53,5 +53,5 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
       path: `/adresar/${profile.category}/${profile.slug}`,
     })),
   });
-  return <>{schema && <StructuredData value={schema} />}<DirectoryPage result={result} filters={filters} categoryCounts={categoryCounts} initialCategory={category.slug} /></>;
+  return <>{schema && <StructuredData value={schema} />}<DirectoryPage result={result} filters={filters} initialCategory={category.slug} /></>;
 }
