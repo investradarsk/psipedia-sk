@@ -8,6 +8,11 @@ on:
       - "tests/directory-filter-contract.test.mjs"
       - "scripts/directory-filter-dry-run.mjs"
       - "lib/directory.ts"
+      - "lib/directory-category-filter-editor.ts"
+      - "components/directory-category-filter-fields.tsx"
+      - "components/directory-category-filter-fields.module.css"
+      - "tests/directory-category-filter-editor.test.mjs"
+      - "tests/directory-category-filter-editor-loader.mjs"
       - ".github/workflows/services-v2-filter-contract-ci.yml"
 
 permissions:
@@ -27,4 +32,6 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Focused registry and offline dry-run contracts
-        run: node --experimental-strip-types --test tests/directory-filter-contract.test.mjs
+        run: |
+          node --experimental-strip-types --test tests/directory-filter-contract.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/directory-category-filter-editor-loader.mjs --test tests/directory-category-filter-editor.test.mjs

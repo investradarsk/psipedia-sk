@@ -1,0 +1,25 @@
+.section {
+  display: grid; gap: 1rem; min-width: 0;
+  padding: clamp(1rem, 2vw, 1.4rem);
+  border: 1px solid #dae4dd; border-radius: 1rem;
+  background: #fff; color: #173d31;
+}
+.heading { display: grid; gap: .35rem; min-width: 0; }
+.heading h3 { margin: 0; font-size: 1.1rem; line-height: 1.35; }
+.heading p { margin: 0; color: #526d60; font-size: .9rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; min-width: 0; }
+.field { display: grid; align-content: start; gap: .4rem; min-width: 0; }
+.label { font-size: .9rem; font-weight: 650; }
+.select {
+  width: 100%; min-width: 0; min-height: 44px; padding: .6rem .8rem;
+  border-radius: .7rem; border: 1px solid #9dafaa;
+  background: #fff; color: #183e32; font: inherit; font-size: .94rem;
+}
+.select:focus-visible { outline: 3px solid #187b5a; outline-offset: 2px; }
+.select:disabled { opacity: .6; cursor: not-allowed; }
+.hint, .warning { display: block; font-size: .79rem; line-height: 1.45; color: #597367; }
+.warning { color: #8b3529; font-weight: 600; }
+@media (max-width: 660px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .section { padding: 1rem; }
+}
