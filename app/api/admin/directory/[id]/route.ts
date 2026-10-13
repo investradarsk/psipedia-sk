@@ -40,8 +40,23 @@ export async function PUT(request: Request, { params }: Props) {
   const user = await getAdminApiUser(); if (!user) return unauthorizedAdminResponse();
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
   try {
-    const before = await getManagedDirectoryProfileById(id);
-    if (!before) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+    const projected = await getManagedDirectoryProfileById(id);
+    if (!projected) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+    // ManagedDirectoryProfile.importData intentionally projects only primitives.
+    // Passing that projection to the normal store save would silently discard
+    // nested legacy metadata. Supply the full stored JSON as its merge baseline.
+    const db = (env as unknown as { DB?: D1Database }).DB;
+    if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
+    const raw = await db.prepare("SELECT source_data_json FROM directory_profiles WHERE id=?1 LIMIT 1")
+      .bind(id).first<{ source_data_json: string }>();
+    if (!raw) return Response.json({ error: "Profil sa nenašiel." }, { status: 404 });
+    let completeSource: unknown;
+    try { completeSource = JSON.parse(raw.source_data_json); }
+    catch { return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 }); }
+    if (!completeSource || typeof completeSource !== "object" || Array.isArray(completeSource)) {
+      return Response.json({ error: "Pôvodné metadáta profilu nie sú platné; ukladanie je zablokované." }, { status: 409 });
+    }
+    const before = { ...projected, importData: completeSource as typeof projected.importData };
     const rawBody = await request.json() as ManagedDirectoryProfileInput & { numberlessLocalityConfirmed?: unknown };
     const { numberlessLocalityConfirmed: rawNumberlessLocalityConfirmed, ...body } = rawBody;
     const numberlessLocalityConfirmed = rawNumberlessLocalityConfirmed === true;
