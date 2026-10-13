@@ -23,7 +23,10 @@ function finiteNonnegative(value) {
 function pick(object, names) {
   for (const name of names) {
     if (Object.prototype.hasOwnProperty.call(object, name) && object[name] !== null && object[name] !== undefined) {
-      return finiteNonnegative(object[name]);
+      if (name === "count" && typeof object[name] === "object") continue;
+      const parsed = finiteNonnegative(object[name]);
+      if (parsed === null) throw new Error("Invalid numeric Insights metric.");
+      return parsed;
     }
   }
   return null;
@@ -85,7 +88,7 @@ function buildRecord(row) {
 }
 function aggregate(items, identity = {}) {
   const sums = { executions: 0, duration: 0, read: 0, written: 0 };
-  const complete = { executions: true, duration: true, read: true, written: true };
+  const complete = { executions: items.length > 0, duration: items.length > 0, read: items.length > 0, written: items.length > 0 };
   const derived = { duration: false, read: false, written: false };
   for (const item of items) {
     if (item.executions === null) complete.executions = false;

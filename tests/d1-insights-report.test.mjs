@@ -38,7 +38,8 @@ test("missing values are null rather than zero, while reported zero remains zero
   assert.equal(report.summary.rows_read.total, null);
   assert.equal(report.summary.rows_written.total, 0);
   assert.equal(report.summary.rows_written.average, 0);
-  assert.equal(report.by_category[0].executions, 0);
+  assert.equal(report.by_category[0].executions, null);
+  assert.equal(report.by_category[0].rows_read.total, null);
 });
 
 test("derives when only average and count are available and marks its provenance", () => {
