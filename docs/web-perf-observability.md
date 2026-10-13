@@ -63,3 +63,20 @@ The command requires outbound HTTPS to the public website and working Chrome. If
 3. Compare Lighthouse LCP/CLS/TBT/score and TTFB, cache header differences, and transfer sizes; inspect the LCP selector/HTML to connect regressions to a concrete element. Do not call a lab score or TBT a Core Web Vitals field pass/fail.
 4. If CrUX is enabled and populated, inspect it **separately**; short-term Lighthouse changes may not appear in the rolling field window.
 5. Flag any invalid URL, non-200 response, Lighthouse runtime error, missing TTFB/LCP selector, or changed runner/Chrome version as a comparability caveat rather than silently papering over it.
+
+## HOTFIX-1 — handling the failed 2026-10-13 Quick run
+
+First run: https://github.com/investradarsk/psipedia-sk/actions/runs/38463568663
+Artifact: `web-perf-38463568663-1`, workflow checkout `091e7c718ac92cff4b08df06519844fa59bbb555`.
+
+The actual artifact shows:
+- 14 planned Quick page/device slots; only 8 launched because three URL probes returned `status: null`; 7 Lighthouse scores were valid.
+- `/adresar/veterinari`, `/adresar/veterinari/ab-vet-piestany`, and `/clanky/nasli-ste-tulaveho-psa-co-robit` had `HTTP probe failed` without recorded error type/cause. All three returned public HTML when separately checked, so a persistent 404/500 is not evidenced.
+- Homepage desktop Lighthouse returned `Missing performance score` (the 8th launched slot). Its sanitized incomplete Lighthouse JSON was deleted, so the reason it lacked a score cannot be determined retrospectively.
+- The old probe awaited `response.body.cancel()` inside the same `try` as `fetch()`. A stream cancellation exception could incorrectly erase an already-received HTTP status. The old catch hid errors and `error.cause`; thus **we cannot establish whether the three original failures were DNS, TLS, connection resets, body cancellation, or other network exceptions**.
+
+The fix snapshots HTTP status and allowlisted headers before cancelling the unread response body. Any cancellation error becomes a non-fatal, sanitized `stream_warning`. Only transport-level TypeError/AbortError/TimeoutError and recognized transient transport error codes are retried, **once** with a short delay. HTTP 404, HTTP 500, non-HTML, off-origin and permanent TLS/DNS failures are never retried. Detailed, sanitized `probes[].diagnostics` include attempt number, error category, safe Node/Undici code, status and elapsed milliseconds; no raw exception messages or response bodies. CSV adds `probe_attempts`, `probe_error`, `probe_error_code`.
+
+Quick mode retries a `Missing performance score` Lighthouse result once, since it is not a valid measurement. `manifest.lighthouse_invocations` captures any extra CLI invocation; `actual_lighthouse_runs` continues to count logical page/device slots. Neither weekly nor baseline repeats Lighthouse. A nonzero exit code and artifact upload remain mandatory when any probe or attempted Lighthouse measurement fails, or fewer than the planned 14 slots are completed.
+
+**Run after hotfix merge:** choose `quick` manually. Do not run `baseline` merely to validate this fix. Review `probes[].diagnostics`, `manifest.actual_lighthouse_runs == 14`, `manifest.successful_lighthouse_runs == 14`, `manifest.lighthouse_invocations` and `manifest.failed_urls`. No new automatic PR-triggered measurement has been added.
