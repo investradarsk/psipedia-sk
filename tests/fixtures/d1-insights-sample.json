@@ -1,0 +1,37 @@
+[
+  {
+    "query": "SELECT * FROM directory_profiles WHERE city = 'Some Patient Name' AND id = 19 -- TokenSECRET",
+    "numberOfTimesRun": 5,
+    "totalDurationMs": 30,
+    "avgDurationMs": 6,
+    "totalRowsRead": 800,
+    "totalRowsWritten": 0
+  },
+  {
+    "query": "SELECT * FROM directory_profiles WHERE city = 'Jane' AND id = 27 -- TokenSECRET",
+    "numberOfTimesRun": 5,
+    "totalDurationMs": 20,
+    "avgDurationMs": 4,
+    "totalRowsRead": 500,
+    "totalRowsWritten": 0
+  },
+  {
+    "query": "WITH days AS (SELECT 1) SELECT * FROM managed_events WHERE id = 17",
+    "numberOfTimesRun": 3,
+    "totalDurationMs": 8,
+    "totalRowsRead": 60,
+    "totalRowsWritten": 0
+  },
+  {
+    "query": "UPDATE managed_events SET status='published' WHERE id=24",
+    "numberOfTimesRun": 2,
+    "totalDurationMs": 4,
+    "totalRowsRead": 5,
+    "totalRowsWritten": 0
+  },
+  {
+    "query": "SELECT * FROM managed_articles WHERE contact = 'profile@email.test' AND name='sensitive_name'",
+    "totalDurationMs": 7,
+    "totalRowsRead": 30
+  }
+]
