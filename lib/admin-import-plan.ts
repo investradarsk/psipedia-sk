@@ -1,4 +1,5 @@
 import { isDirectoryCategory } from "@/lib/directory";
+import { prepareGeneralDirectorySourceImport } from "@/lib/directory-import-preservation";
 import { normalizeDirectoryRegion } from "@/lib/directory-store";
 import { allHelpCategories } from "@/lib/help";
 import { slovakRegions } from "@/lib/events";
@@ -48,6 +49,7 @@ export type GeneralImportPlan = {
     legal: ImportAction[];
   };
   preview: GeneralImportPreview;
+  profileSources: Array<{ existingSourceJson: string | null; existingUpdatedAt: string | null; mergedSourceJson: string } | null>;
 };
 
 const MAX_RECORDS_PER_SECTION = 5_000;
@@ -144,7 +146,7 @@ export function normalizeGeneralImportPayload(value: unknown): GeneralImportPayl
 }
 
 type StatusRow = { slug: string; status: string };
-type ProfileRow = { import_key: string | null; category: string; slug: string; status: string };
+type ProfileRow = { import_key: string | null; category: string; slug: string; status: string; source_data_json: string; updated_at: string };
 type LegalRow = { id: number };
 
 function emptyDomain(received: number): ImportDomainPreview {
@@ -215,7 +217,7 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
       ? database.prepare("SELECT slug,status FROM managed_events").all<StatusRow>()
       : Promise.resolve({ results: [] as StatusRow[] }),
     payload.profiles.length
-      ? database.prepare("SELECT import_key,category,slug,status FROM directory_profiles").all<ProfileRow>()
+      ? database.prepare("SELECT import_key,category,slug,status,source_data_json,updated_at FROM directory_profiles").all<ProfileRow>()
       : Promise.resolve({ results: [] as ProfileRow[] }),
     payload.legal
       ? database.prepare("SELECT id FROM legal_settings WHERE id=1").all<LegalRow>()
@@ -276,6 +278,8 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
   });
 
   const profileKeys = new Set<string>();
+  const profileSlugs = new Set<string>();
+  const profileSources: GeneralImportPlan["profileSources"] = [];
   payload.profiles.forEach((row, index) => {
     try {
       const identity = validateProfile(row, payload.profileCategory);
@@ -286,11 +290,25 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
       if (identity.importKey && existingBySlug && existingByImportKey !== existingBySlug) {
         throw new Error("importKey nesedí s existujúcim category+slug; záznam sa nesmie prepísať nejednoznačne");
       }
-      const existingStatus = identity.importKey ? existingByImportKey?.status : existingBySlug?.status;
-      const result = duplicateAwareAction(key, profileKeys, existingStatus, `Profil riadok ${index + 1}`);
+      if (existingByImportKey && (existingByImportKey.category !== identity.category || existingByImportKey.slug !== identity.slug)) {
+        throw new Error("importKey patrí inému category+slug; zmena identity vyžaduje samostatné schválenie");
+      }
+      if (profileSlugs.has(slugKey)) {
+        throw new Error("duplicitná kombinácia category+slug vo vstupnom súbore");
+      }
+      profileSlugs.add(slugKey);
+      const existing = existingByImportKey ?? existingBySlug;
+      const mergedSourceJson = prepareGeneralDirectorySourceImport(row, identity.category, existing?.source_data_json ?? null);
+      profileSources.push({
+        existingSourceJson: existing?.source_data_json ?? null,
+        existingUpdatedAt: existing?.updated_at ?? null,
+        mergedSourceJson,
+      });
+      const result = duplicateAwareAction(key, profileKeys, existing?.status, `Profil riadok ${index + 1}`);
       actions.profiles.push(result.action);
       applyAction(domains.profiles, result.action, result.error);
     } catch (error) {
+      profileSources.push(null);
       actions.profiles.push("rejected");
       applyAction(domains.profiles, "rejected", `Profil riadok ${index + 1}: ${error instanceof Error ? error.message : "neplatný záznam"}`);
     }
@@ -336,5 +354,5 @@ export async function buildGeneralImportPlan(database: D1Database, rawPayload: u
     },
   };
 
-  return { payload, actions, preview };
+  return { payload, actions, preview, profileSources };
 }
