@@ -1,6 +1,7 @@
 import type { AdoptionDog } from "./adoption.ts";
-import { normalizeAdoptionText } from "./adoption.ts";
+import { adoptionRegions, normalizeAdoptionText } from "./adoption.ts";
 import type { HelpCase } from "./help.ts";
+import { slovakRegions } from "./events.ts";
 import { getD1Binding } from "./help-store.ts";
 import { PUBLIC_ORGANIZATION_PREDICATE } from "./help-organization-store.ts";
 import { cleanPublicOrganizationCopy } from "./public-integrity.ts";
@@ -48,7 +49,7 @@ type GenericRow = {
 type OrganizationRow = {
   id: number; slug: string; name: string; short_description: string;
   city: string; region: string; image_url: string | null;
-  thumbnail_display_json: string | null; category_total: number; preview_rank: number;
+  category_total: number; preview_rank: number;
 };
 type AdoptionRow = {
   id: number; slug: string; name: string; status: "ACTIVE" | "RESERVED";
@@ -101,7 +102,7 @@ export const HELP_LANDING_ORGANIZATIONS_SQL = [
   " COALESCE((SELECT l.region FROM organization_locations l WHERE l.organization_id = o.id",
   " ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END,",
   " l.is_primary DESC, l.sort_order ASC, l.id ASC LIMIT 1), o.region) AS region,",
-  " o.image_url, o.thumbnail_display_json, ranked.category_total, ranked.preview_rank",
+  " o.image_url, ranked.category_total, ranked.preview_rank",
   " FROM ranked JOIN help_organizations o ON o.id = ranked.id",
   " WHERE ranked.preview_rank <= ? ORDER BY ranked.preview_rank ASC",
 ].join("\n");
@@ -168,7 +169,8 @@ export async function getHelpLandingSnapshot(
     empty.generic.items.push({
       id: row.id, slug: row.slug, title: row.title, category: row.category,
       excerpt: row.excerpt, organization: row.organization, city: row.city,
-      region: row.region as HelpCase["region"], imageUrl: row.image_url,
+      region: (slovakRegions as readonly string[]).includes(row.region)
+        ? row.region as HelpCase["region"] : "Online", imageUrl: row.image_url,
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
       urgent: Boolean(row.urgent),
     });
@@ -179,8 +181,8 @@ export async function getHelpLandingSnapshot(
       id: row.id, slug: row.slug, title: row.name, category: "utulky",
       excerpt: cleanPublicOrganizationCopy(row.short_description),
       organization: row.name, city: row.city,
-      region: row.region as HelpCase["region"], imageUrl: row.image_url,
-      thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+      region: (slovakRegions as readonly string[]).includes(row.region)
+        ? row.region as HelpCase["region"] : "Online", imageUrl: row.image_url,
       urgent: false,
     });
   }
@@ -192,7 +194,8 @@ export async function getHelpLandingSnapshot(
       thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
       organizationName: row.organization_id === null
         ? row.organization_name : normalizeAdoptionText(row.canonical_organization_name),
-      city: row.city, region: row.region as AdoptionDog["region"],
+      city: row.city, region: (adoptionRegions as readonly string[]).includes(row.region)
+        ? row.region as AdoptionDog["region"] : "",
       shortDescription: row.short_description,
     });
   }
