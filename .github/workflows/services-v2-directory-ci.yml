@@ -8,9 +8,6 @@ on:
       - "components/directory-**"
       - "components/section-hero-search.tsx"
       - "lib/directory-query.ts"
-      - "lib/directory-filter-contract.ts"
-      - "tests/directory-filter-contract.test.mjs"
-      - "scripts/directory-filter-dry-run.mjs"
       - "tests/directory-unified-layout.test.mjs"
       - "tests/e2e/directory-unified-layout.spec.ts"
       - "tests/public-landing-alignment.test.mjs"
@@ -117,15 +114,3 @@ jobs:
             test-results/playwright/
             playwright-report/
           if-no-files-found: ignore
-
-  filter-contracts:
-    if: github.head_ref == 'feat/psipedia-services-v2-phase4-filter-registry'
-    runs-on: ubuntu-latest
-    timeout-minutes: 7
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.0
-      - name: Focused filter-registry and dry-run contracts
-        run: node --experimental-strip-types --test tests/directory-filter-contract.test.mjs

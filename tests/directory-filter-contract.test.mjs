@@ -108,3 +108,21 @@ test("new fields stay disconnected from public filter GET and live Notion/import
   assert.doesNotMatch(notion, /_psipedia_filter_v1_/);
   assert.doesNotMatch(importer, /_psipedia_filter_v1_/);
 });
+
+test("CI only runs filter contracts for relevant paths regardless of PR branch name", () => {
+  const workflow = readFileSync(".github/workflows/services-v2-filter-contract-ci.yml", "utf8");
+  const directoryLayoutWorkflow = readFileSync(".github/workflows/services-v2-directory-ci.yml", "utf8");
+  assert.match(workflow, /pull_request:/);
+  for (const path of [
+    "lib/directory-filter-contract.ts",
+    "tests/directory-filter-contract.test.mjs",
+    "scripts/directory-filter-dry-run.mjs",
+    "lib/directory.ts",
+    ".github/workflows/services-v2-filter-contract-ci.yml",
+  ]) {
+    assert.ok(workflow.includes(`      - "${path}"`), `missing scoped PR trigger: ${path}`);
+  }
+  assert.match(workflow, /node --experimental-strip-types --test tests\/directory-filter-contract\.test\.mjs/);
+  assert.doesNotMatch(workflow, /github\.head_ref|github\.ref_name|github\.event\.pull_request\.head\.ref/);
+  assert.doesNotMatch(directoryLayoutWorkflow, /lib\/directory-filter-contract\.ts|filter-contracts:/);
+});
