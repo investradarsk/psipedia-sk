@@ -35,7 +35,7 @@ test("Notion query automatically scans Ready articles in the exact data source",
 
 test("Ready sync requires an explicit send opt-in, even for a page returned by a stale query", () => {
   const start = syncSource.indexOf("function validateSyncGate(");
-  const end = syncSource.indexOf("\nasync function notionRequest(", start);
+  const end = syncSource.indexOf("\nasync function notionRequest<", start);
   assert.ok(start >= 0 && end > start, "sync gate source must be available");
   const functionSource = syncSource.slice(start, end).replace("page: NotionPage", "page").trim();
   const validate = runInNewContext(`(${functionSource})`, {
