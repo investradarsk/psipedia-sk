@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -16,19 +17,50 @@ test("Ready Notion articles auto-flow into Psipedia as draft only", () => {
   assert.match(syncSource, /status: "draft"/);
   assert.match(syncSource, /existing\.status !== "draft"/);
   assert.doesNotMatch(syncSource, /status: "published"/);
-  assert.doesNotMatch(syncSource, /Odoslať na Psipedia/);
+  assert.match(syncSource, /checkboxProperty\(page, "Odoslať na Psipedia"\)/);
   assert.doesNotMatch(syncSource, /Zdroje overené/);
   assert.doesNotMatch(syncSource, /Obsah skontrolovaný/);
   assert.doesNotMatch(syncSource, /SEO skontrolované/);
 });
 
 test("Notion query automatically scans Ready articles in the exact data source", () => {
-  assert.match(syncSource, /filter: \{ property: "Stav", select: \{ equals: "Ready" \} \}/);
+  assert.match(syncSource, /filter:\s*\{\s*and:\s*\[/);
+  assert.match(syncSource, /\{ property: "Stav", select: \{ equals: "Ready" \} \}/);
+  assert.match(syncSource, /\{ property: "Odoslať na Psipedia", checkbox: \{ equals: true \} \}/);
   assert.match(syncSource, /last_edited_time/);
   assert.match(syncSource, /NOTION_ARTICLES_DATA_SOURCE_ID/);
   assert.match(syncSource, /\/data_sources\/\$\{encodeURIComponent\(dataSourceId\)\}\/query/);
 });
 
+
+test("Ready sync requires an explicit send opt-in, even for a page returned by a stale query", () => {
+  const start = syncSource.indexOf("function validateSyncGate(");
+  const end = syncSource.indexOf("\nasync function notionRequest(", start);
+  assert.ok(start >= 0 && end > start, "sync gate source must be available");
+  const functionSource = syncSource.slice(start, end).replace("page: NotionPage", "page").trim();
+  const validate = runInNewContext(`(${functionSource})`, {
+    selectProperty: (page, name) => name === "Stav" ? page.state : "",
+    checkboxProperty: (page, name) => name === "Odoslať na Psipedia" && page.send === true,
+  }, { timeout: 500 });
+
+  assert.doesNotThrow(() => validate({ state: "Ready", send: true }));
+  assert.throws(() => validate({ state: "Ready", send: false }), /Odoslať na Psipedia/);
+  assert.throws(() => validate({ state: "Ready" }), /Odoslať na Psipedia/);
+  assert.throws(() => validate({ state: "Draft", send: true }), /nie je v stave Ready/);
+});
+
+test("retry is idempotent, protects non-drafts and preserves Admin-owned promo blocks", () => {
+  assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
+  assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
+  assert.match(syncSource, /if \(mapping\.content_hash === contentHash\)/);
+  assert.match(syncSource, /return "unchanged"/);
+  assert.match(syncSource, /ON CONFLICT\(notion_page_id\) DO UPDATE SET/);
+  assert.match(syncSource, /if \(existing\.status !== "draft"\)/);
+  assert.match(syncSource, /Automatická synchronizácia ho nebude prepisovať ani odpublikovávať/);
+  assert.match(syncSource, /preserveArticlePromoBlocks\(existing\.blocks \?\? \[\], basePayload\.blocks \?\? \[\]\)/);
+  assert.match(syncSource, /catch \(error\) \{[\s\S]*?isArticleSlugConflict\(error\)/);
+  assert.match(syncSource, /await updateNotionSyncState\(bindings, page\.id, \{[\s\S]*?state: "Synchronizované"/);
+});
 
 test("canonical Notion subsection mapping is explicit and sourced from public portal taxonomy", () => {
   assert.match(syncSource, /selectProperty\(page, "Podsekcia"\)/);
