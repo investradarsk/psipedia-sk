@@ -13,6 +13,7 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // These targets are intentionally NOT accepted by prepareScopedMigration/apply.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
   "0123_event_organization_structured_address.sql",
+  "0124_gemini_notion_review_locks.sql",
 ]);
 
 export const REVIEW_TABLES = Object.freeze([

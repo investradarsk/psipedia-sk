@@ -1,3 +1,5 @@
+import { geminiReviewState, type GeminiReviewState } from "./gemini-notion-review-state";
+import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import type { DirectoryQualityResolutionInput, DirectoryQualityResolutionStatus } from "@/lib/directory-profile-metadata";
 import {
@@ -9,11 +11,16 @@ import {
 export const GEMINI_NOTION_CREATOR = "Gemini automatizácia";
 
 export type GeminiNotionReviewEnv = {
+  DB?: D1Database;
   NOTION_API_TOKEN?: string;
   NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
 };
 
 export type GeminiDirectoryDraft = {
+  reviewState: GeminiReviewState;
+  syncError: string;
+  rejectionReason: string;
+  notes: string;
   id: string;
   name: string;
   category: string;
@@ -66,7 +73,7 @@ type DirectoryQueryResult = {
 };
 
 export class GeminiNotionReviewError extends Error {
-  readonly code: "CATEGORY" | "ID" | "NOT_FOUND" | "STATE" | "CONFIG" | "CONFLICT";
+  readonly code: "CATEGORY" | "ID" | "NOT_FOUND" | "STATE" | "CONFIG" | "CONFLICT" | "LOCKED";
   constructor(code: GeminiNotionReviewError["code"]) {
     super(code);
     this.code = code;
@@ -91,8 +98,7 @@ export function notionDraftText(page: NotionPage, key: string) {
 export function isExternalGeminiDirectoryDraft(page: DirectoryNotionPage, dataSourceId: string) {
   return page.parent?.data_source_id === dataSourceId &&
     notionRichTextProperty(page, "Vytvoril") === GEMINI_NOTION_CREATOR &&
-    !!notionTitleProperty(page, "Názov") &&
-    !notionDraftText(page, "Psipedia ID");
+    !!notionTitleProperty(page, "Názov");
 }
 
 const notionQualityValues: Record<string, DirectoryQualityResolutionStatus> = {
@@ -117,7 +123,18 @@ function notionCheckbox(page: NotionPage, key: string) {
 }
 function renderDraft(page: DirectoryNotionPage): GeminiDirectoryDraft {
   const name = notionTitleProperty(page, "Názov");
+  const notes = notionPreservedText(page, "Poznámky");
+  const audit = reviewAudit(notes);
+  const lastRejection = audit.findLast(event => event.action === "REJECT");
   return {
+    notes,
+    syncError: notionDraftText(page, "Sync chyba"),
+    rejectionReason: lastRejection?.reason ?? "",
+    reviewState: geminiReviewState({
+      editorialState: notionSelectProperty(page, "Stav"),
+      psipediaStatus: notionSelectProperty(page, "Psipedia stav"),
+      psipediaId: notionDraftText(page, "Psipedia ID"), reviewed: audit.length > 0,
+    }),
     id: page.id,
     name,
     category: notionDraftText(page, "Kategória"),
@@ -187,8 +204,8 @@ export async function listGeminiDirectoryDrafts(
   const dataSourceId = requireDirectoryId(env);
   const drafts: GeminiDirectoryDraft[] = [];
   let cursor: string | null = null;
-  for (let batch = 0; batch < 3; batch++) {
-    const result = await notionRequest<DirectoryQueryResult>(env,
+  for (let batch = 0; batch < 40; batch++) {
+    const result: DirectoryQueryResult = await notionRequest<DirectoryQueryResult>(env,
       "/data_sources/" + encodeURIComponent(dataSourceId) + "/query", {
         method: "POST",
         body: JSON.stringify({
@@ -203,15 +220,15 @@ export async function listGeminiDirectoryDrafts(
       });
     for (const page of result.results ?? []) {
       if (isExternalGeminiDirectoryDraft(page, dataSourceId) &&
-          notionDraftText(page, "Kategória") === category.subcategory &&
-          notionSelectProperty(page, "Psipedia stav") === "Koncept") {
+          notionDraftText(page, "Kategória") === category.subcategory) {
         drafts.push(renderDraft(page));
       }
     }
-    if (!result.has_more || !result.next_cursor) break;
+    if (!result.has_more) return enrichCanonical(env, drafts);
+    if (!result.next_cursor) throw new GeminiNotionReviewError("CONFIG");
     cursor = result.next_cursor;
   }
-  return drafts;
+  throw new GeminiNotionReviewError("CONFIG"); // Never show incomplete counts.
 }
 
 export async function getGeminiDirectoryDraft(
@@ -229,32 +246,130 @@ export async function getGeminiDirectoryDraft(
   const draft = renderDraft(page);
   if (!validGeminiDirectoryCategory("directory." + draft.category))
     throw new GeminiNotionReviewError("NOT_FOUND");
-  return draft;
+  return (await enrichCanonical(env, [draft]))[0];
 }
 
 /** Only a verified admin click queues a specific Notion draft for hourly
  * canonical synchronization. Gemini itself cannot invoke this mutation.
  */
 export async function approveGeminiDirectoryDraft(
-  env: GeminiNotionReviewEnv, id: string,
+  env: GeminiNotionReviewEnv, id: string, revision: string, actor: string,
 ) {
-  const draft = await getGeminiDirectoryDraft(env, id);
-  if (draft.psipediaStatus !== "Koncept" ||
-      !["", "Nápad", "Na kontrolu", "Ready"].includes(draft.editorialState)) {
-    throw new GeminiNotionReviewError("STATE");
-  }
-  if (!draft.source.startsWith("https://") || !draft.website.startsWith("https://"))
-    throw new GeminiNotionReviewError("STATE");
-  await notionRequest(env, "/pages/" + encodeURIComponent(draft.id), {
-    method: "PATCH",
-    body: JSON.stringify({
-      properties: {
-        "Stav": { select: { name: "Publikované" } },
-        "Psipedia stav": { select: { name: "Publikované" } },
-      },
-    }),
+  return mutateDraft(env, id, async () => {
+    const draft = await getGeminiDirectoryDraft(env, id);
+    if (draft.reviewState === "APPROVED") return { status: "PENDING_SYNC" as const };
+    requireEditable(draft, revision);
+    if (!draft.source.startsWith("https://") || !draft.website.startsWith("https://"))
+      throw new GeminiNotionReviewError("STATE");
+    await assertReviewSchema(env);
+    await patchReview(env, draft, "APPROVE", actor, {
+      "Stav": { select: { name: "Publikované" } },
+      "Psipedia stav": { select: { name: "Publikované" } },
+    });
+    return { status: "PENDING_SYNC" as const };
   });
-  return { status: "PENDING_SYNC" as const };
+}
+
+const AUDIT_PREFIX = "[Psipedia Gemini review] ";
+type ReviewEvent = { action: string; reason?: string; [key: string]: unknown };
+function reviewAudit(notes: string): ReviewEvent[] {
+  return notes.split("\n").flatMap(line => {
+    if (!line.startsWith(AUDIT_PREFIX)) return [];
+    try { const event = JSON.parse(line.slice(AUDIT_PREFIX.length));
+      return event && typeof event.action === "string" ? [event] : [];
+    } catch { return []; }
+  });
+}
+function richReview(value: string) {
+  if (value.length > 150000) throw new GeminiNotionReviewError("STATE");
+  return { rich_text: Array.from({ length: Math.ceil(value.length / 1800) }, (_, i) =>
+    ({ type: "text", text: { content: value.slice(i * 1800, (i + 1) * 1800) } })) };
+}
+function auditProperties(draft: GeminiDirectoryDraft, action: string, actor: string, reason = "") {
+  const event = { action, at: new Date().toISOString(), actor, reason,
+    identity: { name: draft.name, city: draft.city, website: draft.website, source: draft.source,
+      phone: draft.phone, email: draft.email } };
+  return { "Poznámky": richReview(draft.notes + (draft.notes ? "\n" : "") + AUDIT_PREFIX + JSON.stringify(event)),
+    "Upravil": richReview(actor) };
+}
+async function assertReviewSchema(env: GeminiNotionReviewEnv) {
+  const schema = await notionRequest<{ properties?: Record<string, { type?: string; select?: { options?: { name: string }[] } }> }>(
+    env, "/data_sources/" + requireDirectoryId(env));
+  for (const [key, required] of Object.entries({ Stav: ["Na kontrolu", "Publikované", "Archív"], "Psipedia stav": ["Koncept", "Publikované", "Archív"] })) {
+    const prop = schema.properties?.[key];
+    if (prop?.type !== "select" || required.some(name => !prop.select?.options?.some(option => option.name === name)))
+      throw new GeminiNotionReviewError("CONFIG");
+  }
+  for (const key of ["Poznámky", "Upravil"])
+    if (schema.properties?.[key]?.type !== "rich_text") throw new GeminiNotionReviewError("CONFIG");
+}
+async function patchReview(env: GeminiNotionReviewEnv, draft: GeminiDirectoryDraft, action: string, actor: string,
+  properties: Record<string, unknown>, reason = "") {
+  const latest = await notionRequest<NotionPage>(env, "/pages/" + encodeURIComponent(draft.id));
+  if (!latest.last_edited_time || latest.last_edited_time !== draft.lastEditedAt)
+    throw new GeminiNotionReviewError("CONFLICT");
+  await notionRequest(env, "/pages/" + encodeURIComponent(draft.id), {
+    method: "PATCH", body: JSON.stringify({ properties: { ...properties, ...auditProperties(draft, action, actor, reason) } }),
+  }, { retryTransient: false });
+}
+function requireEditable(draft: GeminiDirectoryDraft, revision: string) {
+  if (draft.psipediaId || draft.psipediaStatus !== "Koncept" ||
+      !["", "Nápad", "Na kontrolu", "Ready"].includes(draft.editorialState))
+    throw new GeminiNotionReviewError("STATE");
+  if (!revision || revision !== draft.lastEditedAt) throw new GeminiNotionReviewError("CONFLICT");
+}
+async function mutateDraft<T>(env: GeminiNotionReviewEnv, id: string, work: () => Promise<T>) {
+  if (!/^[a-f\d]{8}-?[a-f\d]{4}-?[a-f\d]{4}-?[a-f\d]{4}-?[a-f\d]{12}$/i.test(id))
+    throw new GeminiNotionReviewError("ID");
+  if (!env.DB) throw new GeminiNotionReviewError("CONFIG");
+  const release = await acquireGeminiNotionLock(env.DB, id);
+  if (!release) throw new GeminiNotionReviewError("LOCKED");
+  try { const result = await work(); await release(); return result; }
+  catch (error) {
+    // Validation failed before a write; transport uncertainty retains the lock
+    // for operator reconciliation, never an automatic competing retry.
+    if (error instanceof GeminiNotionReviewError) await release();
+    throw error;
+  }
+}
+async function enrichCanonical(env: GeminiNotionReviewEnv, drafts: GeminiDirectoryDraft[]) {
+  if (!env.DB) return drafts;
+  for (let offset = 0; offset < drafts.length; offset += 80) {
+    const batch = drafts.slice(offset, offset + 80);
+    const rows = await env.DB.prepare(`SELECT dns.notion_page_id, dp.id, dp.status FROM directory_notion_sync dns
+      JOIN directory_profiles dp ON dp.id = dns.directory_profile_id
+      WHERE dns.notion_page_id IN (${batch.map(() => "?").join(",")})`)
+      .bind(...batch.map(draft => draft.id)).all<{ notion_page_id: string; id: number; status: string }>();
+    const mapped = new Map((rows.results ?? []).map(row => [row.notion_page_id, row]));
+    for (const draft of batch) {
+      const row = mapped.get(draft.id);
+      if (row) {
+        draft.psipediaId = String(row.id);
+        draft.reviewState = row.status === "published" ? "PUBLISHED" : "IMPORTED";
+      }
+    }
+  }
+  return drafts;
+}
+export async function reviewGeminiDirectoryDraft(env: GeminiNotionReviewEnv, id: string,
+  input: { action: "reject" | "restore"; lastEditedAt: string; reason?: string }, actor: string) {
+  return mutateDraft(env, id, async () => {
+    const draft = await getGeminiDirectoryDraft(env, id);
+    if (draft.psipediaId) throw new GeminiNotionReviewError("STATE");
+    if (input.action === "reject" && draft.reviewState === "REJECTED") return draft;
+    if (input.action === "restore" && draft.reviewState === "IN_PROGRESS" &&
+        reviewAudit(draft.notes).at(-1)?.action === "RESTORE") return draft;
+    if (!input.lastEditedAt || draft.lastEditedAt !== input.lastEditedAt) throw new GeminiNotionReviewError("CONFLICT");
+    if (input.action === "reject" && draft.reviewState !== "APPROVED") requireEditable(draft, input.lastEditedAt);
+    else if (input.action !== "reject" && (input.action !== "restore" || draft.reviewState !== "REJECTED")) throw new GeminiNotionReviewError("STATE");
+    if (typeof (input.reason ?? "") !== "string" || (input.reason?.length ?? 0) > 1500) throw new GeminiNotionReviewError("STATE");
+    await assertReviewSchema(env);
+    await patchReview(env, draft, input.action === "reject" ? "REJECT" : "RESTORE", actor, {
+      "Stav": { select: { name: input.action === "reject" ? "Archív" : "Na kontrolu" } },
+      "Psipedia stav": { select: { name: input.action === "reject" ? "Archív" : "Koncept" } },
+    }, input.reason?.trim());
+    return getGeminiDirectoryDraft(env, id);
+  });
 }
 
 
@@ -264,13 +379,14 @@ export async function approveGeminiDirectoryDraft(
  * either publication state on this path.
  */
 export async function saveGeminiDirectoryDraft(
-  env: GeminiNotionReviewEnv, id: string, raw: unknown,
+  env: GeminiNotionReviewEnv, id: string, raw: unknown, actor: string,
 ): Promise<GeminiDirectoryDraft> {
+  return mutateDraft(env, id, async () => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     throw new GeminiNotionReviewError("STATE");
   const input = raw as Record<string, unknown>;
   const before = await getGeminiDirectoryDraft(env, id);
-  if (before.psipediaStatus !== "Koncept" ||
+  if (before.psipediaId || before.psipediaStatus !== "Koncept" ||
       !["", "Nápad", "Na kontrolu", "Ready"].includes(before.editorialState))
     throw new GeminiNotionReviewError("STATE");
   if (!before.lastEditedAt || input.lastEditedAt !== before.lastEditedAt)
@@ -382,9 +498,8 @@ export async function saveGeminiDirectoryDraft(
     "Noindex": { checkbox: seoRecord.noindex },
     ...qualityProperties,
   };
-  await notionRequest(env, "/pages/" + encodeURIComponent(id), {
-    method: "PATCH",
-    body: JSON.stringify({ properties }),
-  }, { retryTransient: false });
+  await assertReviewSchema(env);
+  await patchReview(env, before, "SAVE", actor, properties);
   return getGeminiDirectoryDraft(env, id);
+  });
 }
