@@ -49,7 +49,7 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     const search = page.locator(searchForm);
     await expect(search.locator('input[name="q"]')).toBeVisible();
     await expect(search.getByRole("button", { name: "Hľadať" })).toBeVisible();
-    await expect(page.locator(filterForm + ' input[name="q"]')).toHaveCount(1); // hidden preserved search state
+    await expect(page.locator(filterForm + ' input[name="q"]')).toHaveCount(0); // no empty q when no search is active
     await expect(page.locator(filterForm + ' select[name="region"]')).toBeVisible();
     await expect(page.locator(filterForm + ' select[name="district"]')).toBeVisible();
     await expect(page.locator(filterForm + ' select[name="city"]')).toBeVisible();
