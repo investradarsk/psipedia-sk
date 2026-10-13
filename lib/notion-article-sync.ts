@@ -197,6 +197,10 @@ function selectProperty(page: NotionPage, name: string) {
     : "";
 }
 
+function checkboxProperty(page: NotionPage, name: string) {
+  return propertyRecord(page, name)?.checkbox === true;
+}
+
 
 function safeRemoteImageUrl(value: string) {
   let url: URL;
@@ -964,6 +968,9 @@ function validateSyncGate(page: NotionPage) {
   if (selectProperty(page, "Stav") !== "Ready") {
     throw new Error("Článok nie je v stave Ready na automatický prenos do adminu.");
   }
+  if (!checkboxProperty(page, "Odoslať na Psipedia")) {
+    throw new Error("Automatický prenos článku nie je povolený (Odoslať na Psipedia).");
+  }
 }
 
 async function notionRequest<T>(
@@ -1005,7 +1012,14 @@ async function listReadyNotionPages(bindings: NotionSyncBindings) {
       {
         method: "POST",
         body: JSON.stringify({
-          filter: { property: "Stav", select: { equals: "Ready" } },
+          // An explicit editorial opt-in avoids retrying historical errors and
+          // prevents importing Ready articles that were not approved for sending.
+          filter: {
+            and: [
+              { property: "Stav", select: { equals: "Ready" } },
+              { property: "Odoslať na Psipedia", checkbox: { equals: true } },
+            ],
+          },
           sorts: [{ timestamp: "last_edited_time", direction: "descending" }],
           page_size: Math.min(100, MAX_SYNC_ITEMS - results.length),
           ...(cursor ? { start_cursor: cursor } : {}),
