@@ -789,10 +789,13 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   const trainersHtml = await trainers.text();
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Psí tréneri a psie školy/);
+  // SERVICES-V2 uses a single accessible search above the navigable filters/results.
+  assert.match(trainersHtml, /data-directory-main-search/);
   assert.match(trainersHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
+  assert.match(trainersHtml, /data-directory-filter-form/);
+  assert.match(trainersHtml, /data-directory-results/);
   assert.match(trainersHtml, /Mesto\/obec/);
   assert.match(trainersHtml, /Zoradenie/);
-  assert.match(trainersHtml, /Nenašli sme zhodu/);
   assert.doesNotMatch(trainersHtml, /Koho hľadáš/);
 
   const directory = await worker.fetch(new Request("http://localhost/adresar", { headers: { accept: "text/html" } }), bindings, context);
@@ -803,15 +806,18 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(directoryHtml, /Hotely a opatrovanie/);
   assert.match(directoryHtml, /Adresár služieb/);
   assert.doesNotMatch(directoryHtml, /Služby pre psov na jednom mieste/);
-  // SERVICES-V2 #786: one canonical listing with category navigation and filters.
+  // SERVICES-V2 has one shared category navigator, one main search and filterable results.
   assert.match(directoryHtml, /data-directory-category-navigation/);
-  assert.match(directoryHtml, /data-directory-main-search/);
-  assert.match(directoryHtml, /data-directory-results/);
   assert.match(directoryHtml, /href="\/adresar\/veterinari"/);
-  assert.doesNotMatch(directoryHtml, /Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
+  assert.match(directoryHtml, /data-directory-main-search/);
+  assert.match(directoryHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
+  assert.match(directoryHtml, /data-directory-filter-form/);
+  assert.match(directoryHtml, /data-directory-results/);
+  assert.match(directoryHtml, /data-directory-map-cta/);
+  assert.match(directoryHtml, /data-directory-provider-cta/);
   assert.match(directoryHtml, /Poskytuješ služby pre psov/);
   assert.match(directoryHtml, /Fyzioterapia/);
-  assert.match(directoryHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
+  assert.doesNotMatch(directoryHtml, /data-directory-category-overview|Hlavné kategórie|Ďalšie kategórie služieb|Rýchly výber/);
   assert.doesNotMatch(directoryHtml, /directory-hero--photo/);
   assert.doesNotMatch(directoryHtml, /Profily v adresári/);
 
