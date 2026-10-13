@@ -70,8 +70,30 @@ export async function PUT(request: Request, { params }: RouteProps) {
   try {
     const before = await getManagedArticleById(id);
     if (!before) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
-    const payload = (await request.json()) as ManagedArticleInput;
-    const article = await updateManagedArticle(id, payload, user.email, before);
+    const payload = (await request.json()) as ManagedArticleInput & { expectedUpdatedAt?: unknown };
+    // Reject a stale editor tab rather than silently overwriting a newer Notion import.
+    if (payload.expectedUpdatedAt !== undefined &&
+        (typeof payload.expectedUpdatedAt !== "string" || payload.expectedUpdatedAt !== before.updatedAt)) {
+      return Response.json(
+        { error: "Článok sa medzičasom zmenil. Obnov editor a skontroluj nové údaje pred uložením." },
+        { status: 409 },
+      );
+    }
+
+    // Fields omitted by a client are not instructions to erase legacy/hidden content.
+    // Explicit empty arrays and null values still mean intentional edits.
+    const updatePayload: ManagedArticleInput = {
+      ...payload,
+      sections: payload.sections === undefined ? before.sections : payload.sections,
+      sources: payload.sources === undefined ? before.sources : payload.sources,
+      imageDisplay: payload.imageDisplay === undefined ? before.imageDisplay : payload.imageDisplay,
+      imageFocusX: payload.imageFocusX === undefined ? before.imageFocusX : payload.imageFocusX,
+      imageFocusY: payload.imageFocusY === undefined ? before.imageFocusY : payload.imageFocusY,
+      portalSubpage: payload.portalSubpage === undefined && payload.portalSection === before.portalSection
+        ? before.portalSubpage
+        : payload.portalSubpage,
+    };
+    const article = await updateManagedArticle(id, updatePayload, user.email, before);
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
     if (before.imageKey && before.imageKey !== article.imageKey) {
