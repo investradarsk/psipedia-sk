@@ -74,3 +74,28 @@ identitu, kategóriu, Notion data source, pôvod a stav konceptu pred
 zápisom. Zmeny metadát, tokeny a vyhľadávanie sú stále oddelené od
 publikovania. Prvé známe testovacie AmyVet bolo manuálne označené
 ako Gemini koncept, bez zmeny jeho nepublikovaného stavu.
+
+## GEMINI-EXTERNAL-AGENT-RECOVERY-1 — offline režim a kompatibilita (13. 10. 2026)
+
+- Worker používa REST /v1beta/interactions s modelom gemini-3.8-flash. Kontrakt: https://ai.google.dev/gemini-api/docs/interactions-overview a https://ai.google.dev/gemini-api/docs/function-calling.
+- Volania sú sekvenčné, nie súčasne zmiešané: prvá požiadavka používa iba google_search. Až po stave completed s krokom google_search_call nasleduje previous_interaction_id s custom functions search_notion a create_notion_draft. Každé pokračovanie znovu posiela tools (turn-scoped). Tento postup obchádza známu Preview nestabilitu miešania nástrojov, ale produkčnú kompatibilitu treba potvrdiť live testom.
+- Fail-closed stavy: in_progress, incomplete, failed, cancelled, neznámy stav; requires_action bez validných function_call/call_id; duplicitné identifikátory a chýbajúce Google Search dôkazy. Tieto stavy nespôsobia úspešný callback.
+- Maximum deväť Interactions požiadaviek na job (výskum + prvý funkčný krok + sedem pokračovaní); timeout 150 s pre Search, 90 s pre funkcie. Bez odpovede sa automaticky neopakuje platená požiadavka.
+- Logujú sa iba bezpečné kódy ako GEMINI_HTTP_400_TOOLS, GEMINI_TIMEOUT alebo GEMINI_STATE_INCOMPLETE a číselné metriky. Nie raw API chyby, kľúče, prompt ani súkromné Notion dáta.
+- Neistý výsledok Notion POST /pages (timeout, sieťová chyba, HTTP 5xx alebo neplatné JSON) znamená NOTION_CREATE_UNCERTAIN. Bez automatického opakovania; pred novým jobom musí operátor skontrolovať Notion.
+- Callback HMAC SHA-256 sa odošle po ukončení len raz. Ak výsledok doručenia nie je istý, proces skončí neúspešne. Najprv treba skontrolovať aktuálny stav jobu v Psipedii; callback naslepo neopakovať.
+- Pred create_notion_draft musí prebehnúť search_notion v predchádzajúcom funkčnom kole; adresár navyše opakovane číta cieľový Notion pre duplicitné záznamy. Povolené sú iba koncepty.
+
+### Offline akceptácia
+
+Spustiť: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs
+
+Mock e2e test spúšťa workera ako subprocess s node --import a zablokovaným reálnym fetch. Všetky adresy sú explicitne mockované, neznáme URL zlyhajú. Syntetický GEMINI_AGENT_PAID_ENABLED=true existuje len v izolovanom testovacom podprocese s mock fetch a nie v GitHub Actions vars, Cloudflare alebo produkcii. Testované: úspešný draft a podpísaný callback; chybný HTTP 400 TOOLS; neúplná odpoveď; neznáme a nesprávne zoradené tools; neistý Notion create bez opakovania; odmietnutý callback bez opakovania.
+
+### Čo ešte zostáva
+
+1. Pred prvým manuálnym plateným behom samostatne schváliť rozpočet a aktiváciu, auditovať staré RUNNING/QUEUED joby, overiť konkrétnu Notion data source a jej schému, nastaviť externé kvóty/rozpočtové upozornenia. Prvý schválený job musí mať limit 1 koncept. Mesačná poistka počtu behov nie je tvrdá finančná hranica.
+2. Potvrdiť živý end-to-end: vyhľadanie Google Search → Notion read/duplicate → Notion draft bez publikovania → podpísaný callback → história/notifikácia v admine; preveriť latenciu, účet a prípady zlyhania.
+3. Až po úspešnom ručnom teste a ďalšom schválení môže vzniknúť plánovaný režim. Nezávislá poistka GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED zostáva dovtedy unset/false.
+
+Tento PR nezapína GEMINI_AGENT_PAID_ENABLED, GEMINI_EXTERNAL_AGENT_ENABLED ani GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED, nespúšťa živé služby a nedotýka sa mapovania Events/Help (úloha 07).
