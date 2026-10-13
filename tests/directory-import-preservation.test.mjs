@@ -35,6 +35,7 @@ test("existing draft and repeated import preserve explicit no, unknown, and unre
   assert.equal(withoutFilters[emergency.d1.key], "no");
   assert.equal(withoutFilters[visits.d1.key], "unknown");
   assert.equal(withoutFilters["Plemeno"], "Labrador");
+  assert.equal(merge({ "Plemeno": "   " }, existing)["Plemeno"], "Labrador");
   assert.equal(withoutFilters.nullLegacy, null);
   assert.equal(withoutFilters._psipedia_profile_review_reviewed_at, existing._psipedia_profile_review_reviewed_at);
   assert.equal(withoutFilters._psipedia_quality_phone_status, "NOT_FOUND");
