@@ -62,6 +62,47 @@ test("retry is idempotent, protects non-drafts and preserves Admin-owned promo b
   assert.match(syncSource, /await updateNotionSyncState\(bindings, page\.id, \{[\s\S]*?state: "Synchronizované"/);
 });
 
+test("markerless Editorial Hub articles keep complete prose without importing admin-only notes", () => {
+  const start = syncSource.indexOf("function selectNotionArticleBodyBlocks(");
+  const end = syncSource.indexOf("\nfunction convertBodyBlocks(", start);
+  assert.ok(start >= 0 && end > start);
+  const isolated = syncSource.slice(start, end).replace("blocks: NotionBlock[]", "blocks");
+  const select = runInNewContext(`(${isolated})`, {
+    blockText: (block) => block.text ?? "",
+    isStartHeading: (value) => ["článok — draft", "osnova článku"].includes(value.toLowerCase()),
+    isStopHeading: (value) => value.toLowerCase() === "seo",
+    isAdminManifestHeading: (value) => value.toLowerCase() === "psipedia bloky",
+    normalizeText: (value) => value.replace(/\\s+/g, " ").trim(),
+  }, { timeout: 500 });
+  const paragraph = (text) => ({ type: "paragraph", text });
+  const heading = (text) => ({ type: "heading_2", text });
+  const intro = paragraph("Úvodný odsek skutočného článku obsahuje dôležité informácie pre čitateľa.");
+  const a = heading("Prvý obsahový nadpis");
+  const b = heading("Druhý obsahový nadpis");
+  const body = paragraph("Vysvetlenie jednotlivých krokov.");
+  const seo = heading("SEO");
+  const manifest = heading("Psipedia bloky");
+  const notes = heading("Pred publikovaním");
+
+  assert.deepEqual(Array.from(select([intro, a, body, b, seo, paragraph("Interné SEO")])), [intro, a, body, b]);
+  assert.deepEqual(Array.from(select([intro, a, b, notes, paragraph("Interné poznámky")])), [intro, a, b]);
+  assert.deepEqual(Array.from(select([intro, a, b, manifest, paragraph("JSON manifest")])), [intro, a, b]);
+  assert.deepEqual(Array.from(select([heading("Článok — draft"), intro, a, body, seo])), [intro, a, body]);
+  assert.throws(() => select([intro, a]), /aspoň dva obsahové nadpisy/);
+  assert.throws(() => select([heading("Redakčné pokyny"), intro, a, b]), /bezpečný úvod/);
+  assert.throws(() => select([paragraph("krátky"), a, b]), /bezpečný úvod/);
+});
+
+test("Notion retry cannot overwrite a manually edited or concurrently updated Admin draft", () => {
+  assert.match(syncSource, /if \\(existing\\.updatedBy !== SYNC_ACTOR\\)/);
+  assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
+  assert.match(syncSource, /updateManagedArticle\\(existing\\.id, prepared\\.payload, SYNC_ACTOR, existing, \\{ updatedAt: existing\\.updatedAt, status: "draft" \\}\\)/);
+  assert.match(articleStoreSource, /WHERE id = \\?\\$\\{schedulingPrecondition/);
+  assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \\?/);
+  assert.match(syncSource, /if \\(!updated\\) \\{/);
+  assert.match(syncSource, /cleanupImageKeys\\(bindings\\.BUCKET, \\[prepared\\.uploadedKey\\]\\)/);
+});
+
 test("canonical Notion subsection mapping is explicit and sourced from public portal taxonomy", () => {
   assert.match(syncSource, /selectProperty\(page, "Podsekcia"\)/);
   assert.match(syncSource, /resolveCanonicalArticleSubsection\(notionCategory, notionSubsection\)/);
