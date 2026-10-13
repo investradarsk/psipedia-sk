@@ -10,10 +10,8 @@ export type ManagedPortalSectionArticleCountResult = {
 };
 type ArticleCountRow = { slug: string; total: number; published: number; scheduled: number; draft: number };
 type Row = { slug: string; label: string; eyebrow: string; description: string; intro: string; hero_config_json?: string; subpages_json: string; position: number; visible: number; updated_at?: string };
-type ManagedSubpagesRow = { slug: string; subpages_json: string };
 type RuntimeBindings = { DB?: D1Database };
 let ready: Promise<void> | null = null;
-let dataRepairReady: Promise<void> | null = null;
 const legacyActivityDescriptions: Record<string, string> = {
   "psie-sporty": "Agility, obedience, nosework, canicross, aporty a ďalšie disciplíny.",
   "vylety-so-psom": "Trasy, náročnosť, pravidlá a praktická výbava.",
@@ -63,57 +61,6 @@ async function ensure(db: D1Database) {
     `).bind(section.label, section.description, section.intro, JSON.stringify(section.subpages), now, "system@psipedia.sk", section.slug)));
   })().catch((error) => { ready = null; throw error; });
   return ready;
-}
-
-async function repairCorruptManagedSubpages(db: D1Database) {
-  if (dataRepairReady) return dataRepairReady;
-  dataRepairReady = (async () => {
-    const result = await db.prepare("SELECT slug,subpages_json FROM portal_section_settings WHERE slug IN ('steniatka','aktivity')").all<ManagedSubpagesRow>();
-    const now = new Date().toISOString();
-    const updates: D1PreparedStatement[] = [];
-
-    for (const row of result.results) {
-      let parsed: unknown;
-      try { parsed = JSON.parse(row.subpages_json); }
-      catch { continue; }
-      if (!Array.isArray(parsed)) continue;
-
-      let changed = false;
-      let subpages = parsed.map((item) => ({ ...(item as Record<string, unknown>) }));
-
-      if (row.slug === "steniatka") {
-        const defaults = portalSections.find((section) => section.slug === "steniatka")?.subpages.find((item) => item.slug === "prve-dni");
-        subpages = subpages.map((item) => {
-          const normalizedLabel = String(item.label ?? "").trim().replace(/\s+/g, " ");
-          if (item.slug === "prve-dni" && normalizedLabel === "Prvé dni doma so šteniatkom Adresa URL" && defaults) {
-            changed = true;
-            return { ...item, label: defaults.label };
-          }
-          return item;
-        });
-      }
-
-      if (row.slug === "aktivity") {
-        const hasCanonicalTraining = subpages.some((item) => item.slug === "trening");
-        if (hasCanonicalTraining) {
-          const before = subpages.length;
-          subpages = subpages.filter((item) => {
-            const normalizedLabel = String(item.label ?? "").trim().toLocaleLowerCase("sk-SK").replace(/\s+/g, " ");
-            return !(item.slug !== "trening" && (normalizedLabel === "tréning psa" || normalizedLabel === "trening psa"));
-          });
-          if (subpages.length !== before) changed = true;
-        }
-      }
-
-      if (changed) {
-        updates.push(db.prepare("UPDATE portal_section_settings SET subpages_json=?,updated_at=?,updated_by=? WHERE slug=? AND subpages_json=?")
-          .bind(JSON.stringify(subpages), now, "system:data-repair", row.slug, row.subpages_json));
-      }
-    }
-
-    if (updates.length) await db.batch(updates);
-  })().catch((error) => { dataRepairReady = null; throw error; });
-  return dataRepairReady;
 }
 
 function safeHeroHref(value: string) {
@@ -175,14 +122,17 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return fallback;
-    const storedItems = parsed.map((item) => {
+    const storedItems = parsed.flatMap((item): PortalSubpage[] => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return [];
       const stored = item as PortalSubpage;
+      if (typeof stored.slug !== "string" || !stored.slug.trim() || typeof stored.label !== "string" || !stored.label.trim()) return [];
       const defaults = fallback.find((candidate) => candidate.slug === stored.slug);
-      if (!defaults) return stored;
+      if (!defaults) return [stored];
       const merged = { ...defaults, ...stored, heroConfig: { ...(defaults.heroConfig ?? {}), ...cleanHeroConfig(stored.heroConfig) } };
       if (stored.slug === "vycvik" && stored.label === "Výcvik") merged.label = defaults.label;
+      if (stored.slug === "prve-dni" && stored.label.trim().replace(/\s+/g, " ") === "Prvé dni doma so šteniatkom Adresa URL") merged.label = defaults.label;
       if (stored.description === legacyActivityDescriptions[stored.slug]) merged.description = defaults.description;
-      return merged;
+      return [merged];
     });
     const hasCanonicalTraining = fallback.some((item) => item.slug === "trening")
       && storedItems.some((item) => item.slug === "trening");
@@ -192,8 +142,13 @@ function parseSubpages(value: string, fallback: PortalSubpage[]) {
           return !(item.slug !== "trening" && (normalizedLabel === "tréning psa" || normalizedLabel === "trening psa"));
         })
       : storedItems;
-    const storedSlugs = new Set(deduplicatedItems.map((item) => item.slug));
-    return [...deduplicatedItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];
+    const storedSlugs = new Set<string>();
+    const uniqueItems = deduplicatedItems.filter((item) => {
+      if (storedSlugs.has(item.slug)) return false;
+      storedSlugs.add(item.slug);
+      return true;
+    });
+    return [...uniqueItems, ...fallback.filter((item) => !storedSlugs.has(item.slug))];
   }
   catch { return fallback; }
 }
@@ -256,7 +211,7 @@ export const listManagedPortalSections = cache(async function listManagedPortalS
   const db = database();
   if (!db) return defaultManagedSections();
   try {
-    await repairCorruptManagedSubpages(db);
+    // Public GET is strictly read-only; legacy data is normalized in memory by parseSubpages.
     const rows = await selectSectionRows(db);
     return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
   } catch (error) {
@@ -268,9 +223,7 @@ export const listManagedPortalSections = cache(async function listManagedPortalS
 export const listManagedPortalSectionsForSitemap = cache(async function listManagedPortalSectionsForSitemap(): Promise<ManagedPortalSection[]> {
   const db = database();
   if (!db) return defaultManagedSections();
-  // Sitemap generation is a read-only public request. Do not invoke the legacy
-  // repair path here: parseSubpages/merge already normalize legacy values for
-  // rendering without mutating production state.
+  // Both sitemap and other public routes use the same in-memory legacy normalization.
   try {
     const rows = await selectSectionRows(db);
     return rows.map(merge).filter((item): item is ManagedPortalSection => Boolean(item));
