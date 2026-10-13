@@ -180,7 +180,7 @@ export async function getHelpLandingSnapshot(
     empty.organizations.items.push({
       id: row.id, slug: row.slug, title: row.name, category: "utulky",
       excerpt: cleanPublicOrganizationCopy(row.short_description),
-      organization: row.name, city: row.city,
+      organization: row.name, city: row.city || "Online",
       region: (slovakRegions as readonly string[]).includes(row.region)
         ? row.region as HelpCase["region"] : "Online", imageUrl: row.image_url,
       urgent: false,
