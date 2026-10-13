@@ -88,7 +88,7 @@ test("SERVICES-V2 GET search and filters work without JavaScript and keep catego
 test("SERVICES-V2 category more keyboard interaction and 200% text do not clip", async ({ page }) => {
   await page.setViewportSize({width:1180,height:900});
   await open(page,"/adresar");
-  const more = page.getByRole("button",{name:"Ďalšie",exact:true});
+  const more = page.locator("[data-directory-category-navigation] button[aria-controls]");
   if (await more.isVisible()) {
     await more.focus();
     await more.press("Enter");
