@@ -134,7 +134,13 @@ export function DirectoryProfileDetail({
     }] : []),
   ];
   const updatedAt = formatDirectoryUpdatedAt(presentation.updatedAt);
-  const hasExpertise = presentation.facts.length > 0 || presentation.qualifications.length > 0 || Boolean(presentation.priceNote);
+  // Keep factual specialties in their structured rows; suppress an identical
+  // qualification label rather than repeating it in the same section.
+  const factValues = new Set(presentation.facts.map((fact) => fact.value.trim().toLocaleLowerCase("sk")));
+  const visibleQualifications = presentation.qualifications.filter(
+    (qualification) => !factValues.has(qualification.trim().toLocaleLowerCase("sk")),
+  );
+  const hasExpertise = presentation.facts.length > 0 || visibleQualifications.length > 0 || Boolean(presentation.priceNote);
   const hasExtendedDescription = Boolean(
     presentation.description?.trim() && presentation.description.trim() !== presentation.excerpt.trim(),
   );
@@ -182,11 +188,11 @@ export function DirectoryProfileDetail({
         {hasExpertise ? (
           <DetailSection eyebrow="Zameranie" title={presentation.health?.title ?? "Odborné informácie"}>
             {presentation.facts.length > 0 ? <DetailOptionGrid options={presentation.facts} /> : null}
-            {presentation.qualifications.length > 0 ? (
+            {visibleQualifications.length > 0 ? (
               <div className={styles.qualifications}>
                 <h3>Skúsenosti a kvalifikácie</h3>
                 <ul className={styles.qualificationsList}>
-                  {presentation.qualifications.map((qualification) => <li key={qualification}>{qualification}</li>)}
+                  {visibleQualifications.map((qualification) => <li key={qualification}>{qualification}</li>)}
                 </ul>
               </div>
             ) : null}

@@ -120,20 +120,25 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     const expert = main.getByRole("heading", { name: "Terapie a rehabilitácia" }).locator("xpath=ancestor::section[1]");
     await expect(expert.getByText("Hydroterapia", { exact: true })).toBeVisible();
     await expect(expert.getByText("Pooperačná rehabilitácia", { exact: true })).toBeVisible();
-    await expect(expert.getByText("Veterinárny fyzioterapeut", { exact: true })).toBeVisible();
+    // Identical certification in structured facts and qualifications is displayed once.
+    await expect(expert.getByText("Veterinárny fyzioterapeut", { exact: true })).toHaveCount(1);
     await assertNoOverflow(page);
   });
 
-  test("safe public maps keep consent and no-location profiles omit the map", async ({ page }) => {
-    const main = await openProfile(page, "/adresar/veterinari/map-e2e-vet-a");
-    await expect(main.getByTestId("public-location-map")).toBeVisible();
-    await expect(main.getByTestId("detail-map-consent-gate")).toBeVisible();
-    await expect(main.getByRole("link", { name: "Navigovať", exact: true }).first()).toHaveAttribute("href", /destination=/);
-    await assertNoOverflow(page);
-
-    const withoutMap = await openProfile(page, "/adresar/chovatelske-stanice/map-e2e-breeder");
-    await expect(withoutMap.getByTestId("public-location-map")).toHaveCount(0);
-    await expect(withoutMap.getByRole("link", { name: "Navigovať", exact: true })).toHaveCount(0);
+  test("profiles without a public GEO point do not expose map or navigation", async ({ page }) => {
+    // Directory PR CI seeds directory-admin-e2e.sql only. The dedicated map
+    // workflow seeds map-e2e-vet-a and exercises exact GEO, consent and directions
+    // in public-detail-maps.spec.ts; those profiles are not available here.
+    for (const href of [
+      "/adresar/veterinari/health-fixture-vet-rich",
+      "/adresar/dalsie-sluzby/e2e-services-detail-minimum",
+    ]) {
+      const main = await openProfile(page, href);
+      await expect(main.getByTestId("public-location-map")).toHaveCount(0);
+      await expect(main.getByRole("link", { name: "Navigovať", exact: true })).toHaveCount(0);
+      await expect(main.getByTestId("detail-map-consent-gate")).toHaveCount(0);
+      await assertNoOverflow(page);
+    }
   });
 
   test("contact form and review section remain navigable by keyboard", async ({ page }) => {

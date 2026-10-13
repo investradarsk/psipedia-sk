@@ -217,8 +217,10 @@ test.describe("admin directory v2", () => {
     const publicResponse = await page.goto("/adresar/treneri/directory-admin-editor-fixture", { waitUntil: "domcontentloaded" });
     expect(publicResponse?.status()).toBe(200);
     const publicPhoneLinks = page.getByRole("link", { name: "+421 900 333 444", exact: true });
-    await expect(publicPhoneLinks).toHaveCount(2);
-    await expect(publicPhoneLinks.first()).toBeVisible();
+    // Profile UX intentionally exposes the number only once, in the contacts section.
+    await expect(publicPhoneLinks).toHaveCount(1);
+    await expect(publicPhoneLinks).toHaveAttribute("href", "tel:+421900333444");
+    await expect(publicPhoneLinks).toBeVisible();
   });
 
   test("create flow validates current contract and produces a manageable draft", async ({ page }, testInfo) => {
