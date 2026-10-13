@@ -11,7 +11,7 @@ const addressFields = {
 };
 const requiredNames = ["0123_event_organization_structured_address.sql", "0124_gemini_notion_review_locks.sql"];
 const assert = (ok, message) => { if (!ok) throw new Error(message); };
-const simplified = (str) => String(str ?? "").replace(/\\s+/g, " ").trim();
+const simplified = (str) => String(str ?? "").replace(/\s+/g, " ").trim();
 
 function addressState(columnsByTable, sqlByTable) {
   let present = 0, valid = 0;
@@ -29,7 +29,7 @@ function addressState(columnsByTable, sqlByTable) {
     if (columns.has("address_format")) {
       const sql = simplified(sqlByTable[table]);
       if (!sql.includes(table + "_address_format_check") ||
-          !/address_format\\s+IN\\s*\\(\\s*''\\s*,\\s*'STREET'\\s*,\\s*'MUNICIPALITY_NUMBER'\\s*\\)/i.test(sql))
+          !/address_format\s+IN\s*\(\s*''\s*,\s*'STREET'\s*,\s*'MUNICIPALITY_NUMBER'\s*\)/i.test(sql))
         problems.push(table + " address_format CHECK constraint missing");
     }
   }
@@ -95,7 +95,7 @@ function invoke(args) {
   return parseJson(run.stdout);
 }
 function query(database, config, sql) {
-  assert(/^\\s*(SELECT|PRAGMA table_info\\s*\\()/i.test(sql), "Refusing non-read-only SQL");
+  assert(/^\s*(SELECT|PRAGMA table_info\s*\()/i.test(sql), "Refusing non-read-only SQL");
   const payload = invoke(["d1", "execute", database, "--remote", "--config", config, "--command", sql, "--json"]);
   return (Array.isArray(payload) ? payload : [payload]).flatMap(x => Array.isArray(x.results) ? x.results : []);
 }
@@ -106,7 +106,7 @@ export async function inspectProduction() {
   const db = resources.d1;
   assert(db?.binding === "DB" && db.database_name && db.database_id, "Invalid canonical D1 identity");
   const migrationFiles = (await fs.readdir(path.join(root, "drizzle")))
-    .filter(name => /^\\d{4}_[a-z0-9_]+\\.sql$/.test(name)).sort();
+    .filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort();
   assert(migrationFiles.length >= 125 && migrationFiles.slice(0, 125).every((name, i) => Number(name.slice(0, 4)) === i),
     "Missing/duplicate repository migrations");
   await fs.mkdir(reportDir, { recursive: true });
