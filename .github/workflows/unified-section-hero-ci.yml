@@ -32,7 +32,6 @@ on:
       - "tests/section-hero-v2.test.mjs"
       - "tests/unified-section-hero.test.mjs"
       - "tests/e2e/unified-section-hero.spec.ts"
-      - "package-lock.json"
       - ".github/workflows/unified-section-hero-ci.yml"
 
 permissions:

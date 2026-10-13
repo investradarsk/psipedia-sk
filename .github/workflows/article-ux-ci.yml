@@ -33,7 +33,6 @@ on:
       - "tests/article-modern-reading-experience.test.mjs"
       - "tests/e2e/article-reading-experience.spec.ts"
       - "tests/e2e/content-discovery-v3.spec.ts"
-      - "package-lock.json"
       - "playwright.config.ts"
       - "vite.config.*"
       - "tsconfig.json"

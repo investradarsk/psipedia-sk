@@ -96,7 +96,8 @@ assert.match(required, /full_core:\s*\$\{\{\s*steps\.scope\.outputs\.full_core\s
 assert.match(required, /bounded_core:\s*\$\{\{\s*steps\.scope\.outputs\.bounded_core\s*\}\}/);
 assert.match(required, /steps\.required-scope\.outputs\.full_core == 'true'/);
 assert.match(required, /steps\.required-scope\.outputs\.bounded_core == 'true'/);
-assert.match(required, /needs\.pr-scope\.outputs\.full_core == 'true'/, "broad PRs must run full required Playwright");
+assert.match(required, /github\.event_name == 'workflow_dispatch'/, "full E2E must remain manual");
+assert.match(required, /github\.event_name == 'schedule'/, "full E2E must remain nightly");
 assert.match(required, /name:\s*Directory PR E2E — desktop and mobile/);
 assert.match(required, /needs\.pr-scope\.outputs\.directory == 'true'/);
 for (const spec of ["admin-directory-filters.spec.ts", "services-detail-shell.spec.ts", "services-search-layout.spec.ts"]) {
@@ -118,18 +119,26 @@ for (const [name, source] of workflows) {
   assert.ok(cancel && cancel !== "false", `${name}: PR concurrency must cancel stale runs`);
 }
 
+// Required full regression and clean D1 are the only lockfile-wide PR validations.
+assert.ok(pullRequestPaths(workflows.get("clean-d1-migration-validation.yml"))?.includes("package-lock.json"));
 for (const name of [
-  "clean-d1-migration-validation.yml",
+  "ai-internal-discovery-click-value-ci.yml",
+  "ai-referral-measurement-ci.yml",
+  "article-ux-ci.yml",
+  "content-relations-1.yml",
   "map-geo-foundation-ci.yml",
-  "map-read-api-ci.yml",
-  "map-public-ui-ci.yml",
   "map-production-launch-ci.yml",
+  "map-public-ui-ci.yml",
+  "map-read-api-ci.yml",
+  "notion-article-sync-ci.yml",
   "notion-events-help-sync-ci.yml",
+  "organization-profile-e2e.yml",
+  "section-hero-v2-ci.yml",
+  "sitewide-ai-entity-surface-ci.yml",
+  "unified-section-hero-ci.yml"
 ]) {
-  const source = workflows.get(name);
-  assert.ok(source, `${name} missing`);
-  assert.doesNotMatch(onBlock(source), /"package\.json"/, `${name}: package.json must not be a blanket feature trigger`);
-  assert.match(onBlock(source), /"package-lock\.json"/, `${name}: dependency lock changes must remain in scope`);
+  assert.equal(prWorkflowWouldRun(name, ["package-lock.json"]), false, `${name}: unrelated dependency changes must not run costly feature jobs`);
+  assert.ok(pullRequestPaths(workflows.get(name))?.includes(`.github/workflows/${name}`), `${name}: workflow must still self-trigger`);
 }
 
 for (const name of ["section-hero-v2-ci.yml", "unified-section-hero-ci.yml"]) {
@@ -437,7 +446,7 @@ function simulation(files, eventName = "pull_request", options = {}) {
   assert.ok(auto);
   const events = workflowConditions(workflows.get("events-fallback-images.yml")).find((j) => j.id === "public-events");
   return {result, context, runs, stepRuns,
-    update: evaluateCondition(auto.condition, context), eventRoutes: evaluateCondition(events.condition, context)};
+    update: evaluateCondition(auto.condition, context), eventRoutes: (eventName === "workflow_dispatch" || (eventName === "pull_request" && prWorkflowWouldRun("events-fallback-images.yml", files))) && evaluateCondition(events.condition, context)};
 }
 const docsPr = simulation(["docs/audit.md"]);
 const docsPush = simulation(["docs/audit.md"], "push");
@@ -463,7 +472,7 @@ const cases = [
 for (const [label, files, full, options] of cases) for (const event of ["pull_request", "push"]) {
   const item = simulation(files, event, options);
   assert.equal(item.stepRuns("Full unit and integration regression"), full, label);
-  assert.equal(item.runs("pull-request-e2e"), full, label);
+  assert.equal(item.runs("pull-request-e2e"), false, `${label}: full browser suite is nightly/manual only`);
   assert.equal(item.stepRuns("Install dependencies"), full || item.result.boundedCore, label);
   assert.equal(item.stepRuns("Bounded PR build and global safety contracts"), item.result.boundedCore, label);
   assert.equal(item.runs("production-smoke"), event === "push" && productionSmokeRequired(item.result, {eventName:event,ref:"refs/heads/main"}), label);
@@ -473,6 +482,7 @@ assert.equal(simulation(["components/directory-card.tsx"]).runs("directory-e2e")
 const broadDirectory = simulation(["components/directory-card.tsx", "drizzle/test.sql"]);
 assert.equal(broadDirectory.runs("directory-e2e"), false);
 assert.equal(broadDirectory.eventRoutes, false);
+assert.equal(simulation(["components/event-card.tsx", "drizzle/0122_entity_image_display_config.sql"]).eventRoutes, true, "Events PR with a migration must retain focused E2E");
 const failedBroad = simulation(["package-lock.json"], "pull_request", {validateResult:"failure"});
 assert.equal(failedBroad.stepRuns("Full unit and integration regression"), true);
 assert.equal(failedBroad.runs("pull-request-e2e"), false, "A failing validation must not be bypassed");
