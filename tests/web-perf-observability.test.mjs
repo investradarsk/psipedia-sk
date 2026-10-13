@@ -42,7 +42,7 @@ test('extract lab metrics and actual LCP node, separating true TTFB from server 
 });
 
 test('summaries report only successful Lighthouse runs; field INP is independent', () => {
-  const probe = { status: 200, final_url: 'https://psipedia.sk/', cache_headers: { 'cf-cache-status': 'HIT' } };
+  const probe = { status: 200, final_url: 'https://psipedia.sk/', cache_headers: { 'cf-cache-status': 'HIT', 'x-psipedia-cache': 'HIT' } };
   const a = summarizeRuns('/', 'mobile', probe, [
     { ok: true, lab: { score: 70, lcp_ms: 2000, lcp_element: '#hero' } },
     { ok: true, lab: { score: 80, lcp_ms: 1500 } },
@@ -52,7 +52,7 @@ test('summaries report only successful Lighthouse runs; field INP is independent
   assert.equal(a.lcp_ms, 1750);
   assert.equal(a.successful_runs, 2);
   assert.equal(a.field_inp_p75_ms, 122);
-  assert.match(toCsv([a]), /HIT,3,2,75/);
+  assert.match(toCsv([a]), /HIT,HIT,3,2,75/);
   assert.equal(comparisons([a, { ...a, device: 'desktop', score: 90 }])[0].mobile_minus_desktop.score, -15);
 });
 
@@ -61,10 +61,11 @@ test('CSV safely quotes the LCP selector', () => {
 });
 
 test('probe checks real origin, 200 HTML, and allowlisted cache headers', async () => {
-  const mock = async () => ({ status: 200, url: 'https://psipedia.sk/', headers: new Headers({ 'content-type': 'text/html', 'cf-cache-status': 'HIT', 'set-cookie': 'private' }), body: { cancel: async () => {} } });
+  const mock = async () => ({ status: 200, url: 'https://psipedia.sk/', headers: new Headers({ 'content-type': 'text/html', 'cf-cache-status': 'HIT', 'x-psipedia-cache': 'HIT', 'set-cookie': 'private' }), body: { cancel: async () => {} } });
   const good = await probePage('https://psipedia.sk/', mock);
   assert.equal(good.ok, true);
   assert.equal(good.cache_headers['cf-cache-status'], 'HIT');
+  assert.equal(good.cache_headers['x-psipedia-cache'], 'HIT');
   assert.equal(good.cache_headers['set-cookie'], undefined);
   const bad = await probePage('https://psipedia.sk/', async () => ({ ...(await mock()), url: 'https://example.com/' }));
   assert.equal(bad.ok, false);
