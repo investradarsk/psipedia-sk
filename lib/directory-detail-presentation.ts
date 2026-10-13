@@ -26,6 +26,7 @@ export type DirectoryDetailPresentation = {
   region: string;
   address: string;
   priceNote: string;
+  openingHours: string | null;
   imageUrl: string | null;
   detailImageDisplay?: ImageDisplayConfig | null;
   verified: boolean;
@@ -193,6 +194,7 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     region: profile.region,
     address: publicAddress,
     priceNote: profile.priceNote,
+    openingHours: usefulDirectoryDetailValue(importedValue(profile, "Ordinačné hodiny", "Otváracie hodiny", "Otváracia doba", "Ordinačná doba", "Pracovná doba")),
     imageUrl: profile.imageUrl,
     detailImageDisplay: profile.detailImageDisplay,
     verified: profile.verified,
