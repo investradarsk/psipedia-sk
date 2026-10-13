@@ -94,6 +94,15 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
 
   test("veterinary specialist data are shown only when populated", async ({ page }) => {
     const rich = await openProfile(page, "/adresar/veterinari/health-fixture-vet-rich");
+    const hero = rich.locator("[data-directory-profile-hero]");
+    const photo = hero.locator("[data-public-profile-media] img");
+    await expect(photo).toBeVisible();
+    await expect(photo).toHaveAttribute("src", "/images/zdravie-veterinar.webp");
+    await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    const photoTop = await photo.evaluate((image) => image.getBoundingClientRect().top);
+    const headingTop = await hero.getByRole("heading", { level: 1 }).evaluate((heading) => heading.getBoundingClientRect().top);
+    expect(photoTop).toBeLessThan(headingTop);
+    await page.screenshot({ path: ".e2e-artifacts/services-profile-ux/veterinary-photo.png", fullPage: true });
     const expert = rich.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie" }).locator("xpath=ancestor::section[1]");
     await expect(expert.getByText("Špecializácie", { exact: true })).toBeVisible();
     await expect(expert.getByText("Interná medicína, chirurgia", { exact: true })).toBeVisible();
