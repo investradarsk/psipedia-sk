@@ -200,7 +200,7 @@ export async function probePage(url, fetcher = fetch, options = {}) {
       diagnostics.push({ attempt, status: response.status,
         reason: reason ?? 'ok', stream_warning, elapsed_ms: Date.now() - started });
       // Never retry real HTTP errors, redirects or non-HTML content.
-      return { status: response.status, final_url: final.origin === ORIGIN ? final.href : null,
+      return { status: response.status, final_url: safeReportUrl(final.href),
         cache_headers: headers, ok, error: reason, attempts: attempt, diagnostics };
     } catch (error) {
       const classified = probeException(error, controller.signal.aborted);
@@ -379,10 +379,10 @@ function runLighthouse(bin, url, device, base) {
   }
   writeFileSync(jsonPath, JSON.stringify({
     requested_url: url, final_url: safeReportUrl(lhr.finalUrl),
-    fetch_time: /^\\d{4}-\\d{2}-\\d{2}T/.test(lhr.fetchTime ?? '') ? lhr.fetchTime : null,
-    lighthouse_version: /^\\d+\\.\\d+\\.\\d+/.test(lhr.lighthouseVersion ?? '') ? lhr.lighthouseVersion : null,
+    fetch_time: typeof lhr.fetchTime === 'string' && Number.isFinite(Date.parse(lhr.fetchTime)) ? new Date(lhr.fetchTime).toISOString() : null,
+    lighthouse_version: /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(lhr.lighthouseVersion ?? '') ? lhr.lighthouseVersion : null,
     lab,
-  }, null, 2) + '\\n');
+  }, null, 2) + '\n');
   return { ok: true, elapsed_ms, lab, diagnostic, json_file: jsonPath,
     html_file: existsSync(htmlPath) ? htmlPath : null };
 }
