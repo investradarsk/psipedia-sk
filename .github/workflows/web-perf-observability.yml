@@ -1,6 +1,12 @@
 name: WEB-PERF Observability (read-only Lighthouse)
 
 on:
+  # Offline regression tests only; never run Chrome/Lighthouse for pull requests.
+  pull_request:
+    paths:
+      - 'scripts/web-perf-observability.mjs'
+      - 'tests/web-perf-observability.test.mjs'
+      - '.github/workflows/web-perf-observability.yml'
   workflow_dispatch:
     inputs:
       mode:
@@ -21,7 +27,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  offline-tests:
+    name: Lighthouse diagnostic unit tests (no live requests)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - run: node --test tests/web-perf-observability.test.mjs
+
   measure:
+    if: github.event_name != 'pull_request'
     name: Public site measurements (not a PR check)
     runs-on: ubuntu-24.04
     timeout-minutes: 55
