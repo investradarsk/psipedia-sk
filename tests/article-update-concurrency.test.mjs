@@ -76,10 +76,14 @@ function createHarness(status, injectConcurrentWrite = null) {
       relatedBreedIds: [10], blocks: [], topics: [{ id: 1 }],
     };
   }
-  class ArticleUpdateConflictError extends Error {}
-  class ArticleRescheduleConflictError extends Error {}
+  class ArticleUpdateConflictError extends Error {
+    constructor() { super("Článok sa medzičasom zmenil. Obnov editor a skontroluj údaje."); this.name = "ArticleUpdateConflictError"; }
+  }
+  class ArticleRescheduleConflictError extends Error {
+    constructor() { super("Scheduling conflict"); this.name = "ArticleRescheduleConflictError"; }
+  }
   const scope = {
-    Date, Number, JSON, Response, Promise,
+    Date, Number, JSON, Response, Promise, Error,
     ArticleUpdateConflictError, ArticleRescheduleConflictError,
     requireD1Binding: () => db,
     ensureArticleStore: async () => {},
