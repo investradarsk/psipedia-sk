@@ -20,6 +20,9 @@ on:
       - "components/admin-gemini-notion-*.tsx"
       - "tests/gemini-notion-drafts.test.mjs"
       - "scripts/gemini-notion-agent.mjs"
+      - "scripts/gemini-interactions-contract.mjs"
+      - "tests/gemini-external-worker-offline.test.mjs"
+      - "tests/fixtures/gemini-external-agent-fetch-mock.mjs"
       - "app/api/internal/gemini-agent/**"
       - ".github/workflows/gemini-notion-agent.yml"
       - "tests/gemini-external-agent.test.mjs"
@@ -62,7 +65,7 @@ jobs:
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
-        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
