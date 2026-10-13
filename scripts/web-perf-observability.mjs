@@ -330,7 +330,7 @@ export function shouldRetryLighthouse(result, mode) {
   return mode === 'quick' && !result.ok && result.diagnostic?.retryable === true;
 }
 
-function safeReportUrl(candidate) {
+export function safeReportUrl(candidate) {
   try {
     const target = new URL(candidate);
     return target.origin === ORIGIN && PATHS.includes(target.pathname) &&
@@ -338,14 +338,14 @@ function safeReportUrl(candidate) {
   } catch { return null; }
 }
 
-function runLighthouse(bin, url, device, base) {
+export function runLighthouse(bin, url, device, base, spawn = spawnSync) {
   const args = [url, '--quiet', '--only-categories=performance', '--throttling-method=simulate',
     '--disable-full-page-screenshot', '--output=json', '--output=html', `--output-path=${base}`,
     '--chrome-flags=--headless --no-sandbox --disable-dev-shm-usage'];
   if (device === 'desktop') args.push('--preset=desktop');
   const started = Date.now();
   const { CRUX_API_KEY: _unusedSecret, ...childEnv } = process.env;
-  const proc = spawnSync(bin, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 1024 * 1024,
+  const proc = spawn(bin, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 1024 * 1024,
     env: { ...childEnv, CI: '1' } });
   const elapsed_ms = Date.now() - started;
   const jsonPath = `${base}.report.json`, htmlPath = `${base}.report.html`;
@@ -463,5 +463,5 @@ export async function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+  main().catch(() => { console.error('web_perf_unexpected_failure'); process.exitCode = 1; });
 }
