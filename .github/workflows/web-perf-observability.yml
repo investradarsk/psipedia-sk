@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'weekly: 2 URLs x 2 devices x 1; quick: 7 x 2 x 1; baseline: 7 x 2 x 3'
+        description: 'weekly: 2 URLs x 2 devices x 1; quick: 8 x 2 x 1; baseline: 8 x 2 x 3'
         type: choice
         required: true
         default: quick

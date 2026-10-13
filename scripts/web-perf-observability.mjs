@@ -13,13 +13,14 @@ export const PATHS = Object.freeze([
   '/adresar/treneri',
   '/adresar/veterinari/ab-vet-piestany',
   '/podujatia',
+  '/pomoc-psom',
   '/clanky/nasli-ste-tulaveho-psa-co-robit',
 ]);
 const WEEKLY_PATHS = ['/', '/adresar/veterinari'];
 const DEVICES = ['mobile', 'desktop'];
 const ALLOWED_HEADERS = ['cache-control', 'cdn-cache-control', 'cf-cache-status', 'age', 'x-cache', 'x-psipedia-cache', 'cloudflare-cdn-cache-control', 'content-type'];
 const NUMERIC_FIELDS = ['score', 'lcp_ms', 'cls', 'ttfb_ms', 'tbt_ms', 'js_transfer_bytes', 'css_transfer_bytes', 'image_transfer_bytes'];
-const CSV_COLUMNS = ['path', 'device', 'http_status', 'probe_attempts', 'probe_error', 'probe_error_code', 'final_url', 'cf_cache_status', 'psipedia_cache_status', 'runs', 'successful_runs', ...NUMERIC_FIELDS, 'lcp_element', 'field_inp_p75_ms', 'field_scope', 'field_status'];
+const CSV_COLUMNS = ['path', 'device', 'http_status', 'probe_attempts', 'probe_error', 'probe_error_code', 'final_url', 'cf_cache_status', 'psipedia_cache_status', 'runs', 'successful_runs', ...NUMERIC_FIELDS, 'lcp_element', 'field_inp_p75_ms', 'field_scope', 'field_status', 'lighthouse_invocations', 'lighthouse_failure_code'];
 
 export function modePlan(mode) {
   if (mode === 'weekly') return { paths: WEEKLY_PATHS, repeats: 1 };
@@ -111,6 +112,8 @@ export function summarizeRuns(path, device, probe, attempts, field) {
   row.field_inp_p75_ms = field?.inp_p75_ms ?? null;
   row.field_scope = field?.scope ?? null;
   row.field_status = field?.status ?? 'not_configured';
+  row.lighthouse_invocations = attempts.reduce((sum, run) => sum + (run.invocations ?? 1), 0);
+  row.lighthouse_failure_code = attempts.filter((run) => !run.ok).at(-1)?.error ?? null;
   return row;
 }
 
@@ -254,6 +257,87 @@ function parseArgs(argv) {
   return opts;
 }
 
+// Diagnostic metadata is deliberately bounded to fixed identifiers, counts and booleans.
+ // No Chrome/Lighthouse stderr, exception messages, raw LHR or arbitrary runtime codes.
+const PERFORMANCE_AUDITS = Object.freeze([
+  'first-contentful-paint', 'largest-contentful-paint', 'speed-index',
+  'total-blocking-time', 'cumulative-layout-shift',
+]);
+const KNOWN_RUNTIME_CODES = new Set([
+  'NO_FCP', 'NO_LCP', 'NO_NAVSTART', 'PAGE_HUNG', 'CHROME_INTERSTITIAL_ERROR',
+  'PROTOCOL_TIMEOUT', 'ERRORED_DOCUMENT_REQUEST', 'FAILED_DOCUMENT_REQUEST',
+  'INSECURE_DOCUMENT_REQUEST', 'NO_DOCUMENT_REQUEST', 'NAVIGATION_ERROR',
+  'CHROME_DEBUGGER_CONNECTION', 'CHROME_ERROR',
+]);
+const NAVIGATION_RUNTIME_CODES = new Set([
+  'NO_NAVSTART', 'PAGE_HUNG', 'CHROME_INTERSTITIAL_ERROR', 'PROTOCOL_TIMEOUT',
+  'ERRORED_DOCUMENT_REQUEST', 'FAILED_DOCUMENT_REQUEST',
+  'INSECURE_DOCUMENT_REQUEST', 'NO_DOCUMENT_REQUEST', 'NAVIGATION_ERROR',
+  'CHROME_DEBUGGER_CONNECTION', 'CHROME_ERROR',
+]);
+const RETRYABLE_LIGHTHOUSE_FAILURES = new Set([
+  'LH_NAVIGATION_FAILED', 'LH_RUNTIME_FAILED', 'LH_SCORE_MISSING',
+  'LH_AUDIT_FAILED', 'LH_AUDITS_MISSING', 'LH_REPORT_INVALID',
+]);
+const SAFE_PROCESS_ERROR_CODES = new Set(['ETIMEDOUT', 'ENOENT', 'EACCES', 'EAGAIN']);
+
+export function diagnoseLighthouse({
+  lhr = null, reportStatus = 'parsed', exitStatus = 0, spawnErrorCode = null, signal = null,
+} = {}) {
+  const audits = lhr?.audits && typeof lhr.audits === 'object' && !Array.isArray(lhr.audits)
+    ? lhr.audits : null;
+  const category = lhr?.categories?.performance;
+  const score = category?.score;
+  const runtimeCode = lhr?.runtimeError?.code;
+  const runtime_error_code = KNOWN_RUNTIME_CODES.has(runtimeCode) ? runtimeCode
+    : runtimeCode == null ? null : 'UNRECOGNIZED';
+  const audit_status = Object.fromEntries(PERFORMANCE_AUDITS.map((id) => {
+    const audit = audits?.[id];
+    return [id, !audit ? 'missing'
+      : audit.scoreDisplayMode === 'error' ? 'error'
+      : audit.scoreDisplayMode === 'notApplicable' ? 'not_applicable'
+      : audit.score === null ? 'unscored' : 'available'];
+  }));
+  const erroredAudits = Object.values(audit_status).some((status) => status === 'error');
+  const missingScore = score === null || score === undefined;
+  let failure_code = null;
+  if (spawnErrorCode === 'ETIMEDOUT') failure_code = 'LH_PROCESS_TIMEOUT';
+  else if (spawnErrorCode) failure_code = 'LH_PROCESS_START_FAILED';
+  else if (signal) failure_code = 'LH_PROCESS_SIGNALED';
+  else if (reportStatus === 'missing') failure_code = exitStatus === 0 ? 'LH_REPORT_MISSING' : 'LH_CLI_NONZERO_EXIT';
+  else if (reportStatus === 'invalid') failure_code = 'LH_REPORT_INVALID';
+  else if (runtime_error_code) failure_code = NAVIGATION_RUNTIME_CODES.has(runtimeCode)
+    ? 'LH_NAVIGATION_FAILED' : 'LH_RUNTIME_FAILED';
+  else if (exitStatus !== 0) failure_code = 'LH_CLI_NONZERO_EXIT';
+  else if (!category) failure_code = 'LH_CATEGORY_MISSING';
+  else if (!audits || Object.keys(audits).length === 0) failure_code = 'LH_AUDITS_MISSING';
+  else if (missingScore && erroredAudits) failure_code = 'LH_AUDIT_FAILED';
+  else if (missingScore) failure_code = 'LH_SCORE_MISSING';
+  else if (numeric(score) === null || score < 0 || score > 1) failure_code = 'LH_SCORE_INVALID';
+  return {
+    failure_code, retryable: RETRYABLE_LIGHTHOUSE_FAILURES.has(failure_code),
+    report_status: reportStatus, process_exit_status: Number.isInteger(exitStatus) ? exitStatus : null,
+    process_error_code: spawnErrorCode ? (SAFE_PROCESS_ERROR_CODES.has(spawnErrorCode) ? spawnErrorCode : 'OTHER') : null,
+    process_signaled: !!signal, runtime_error_code,
+    performance_category_present: !!category,
+    performance_score_present: !missingScore,
+    audits_present: !!audits, audit_count: audits ? Object.keys(audits).length : 0, audit_status,
+  };
+}
+
+export function shouldRetryLighthouse(result, mode) {
+  // At most one extra CLI invocation for a failed logical slot, Quick only.
+  return mode === 'quick' && !result.ok && result.diagnostic?.retryable === true;
+}
+
+function safeReportUrl(candidate) {
+  try {
+    const target = new URL(candidate);
+    return target.origin === ORIGIN && PATHS.includes(target.pathname) &&
+      !target.search && !target.hash && !target.username && !target.password ? target.href : null;
+  } catch { return null; }
+}
+
 function runLighthouse(bin, url, device, base) {
   const args = [url, '--quiet', '--only-categories=performance', '--throttling-method=simulate',
     '--disable-full-page-screenshot', '--output=json', '--output=html', `--output-path=${base}`,
@@ -265,28 +349,42 @@ function runLighthouse(bin, url, device, base) {
     env: { ...childEnv, CI: '1' } });
   const elapsed_ms = Date.now() - started;
   const jsonPath = `${base}.report.json`, htmlPath = `${base}.report.html`;
-  if (proc.status !== 0 || !existsSync(jsonPath)) {
-    if (existsSync(jsonPath)) unlinkSync(jsonPath);
-    if (existsSync(htmlPath)) unlinkSync(htmlPath);
-    return { ok: false, elapsed_ms, error: proc.error?.code === 'ETIMEDOUT' ? 'Lighthouse timeout' : `Lighthouse exit ${proc.status ?? 'unknown'}` };
-  }
-  try {
-    const lhr = JSON.parse(readFileSync(jsonPath, 'utf8'));
-    const lab = extractLab(lhr);
-    if (lab.runtime_error || lab.score === null) {
-      unlinkSync(jsonPath);
-      if (existsSync(htmlPath)) unlinkSync(htmlPath);
-      return { ok: false, elapsed_ms, error: lab.runtime_error || 'Missing performance score' };
+  let lhr = null;
+  let reportStatus = 'missing';
+  if (existsSync(jsonPath)) {
+    try {
+      lhr = JSON.parse(readFileSync(jsonPath, 'utf8'));
+      reportStatus = 'parsed';
+    } catch {
+      reportStatus = 'invalid';
     }
-    // Retain only aggregate JSON + Lighthouse HTML. Raw JSON may expose request details.
-    // HTML contains only unauthenticated public pages; treat GitHub artifact access as private.
-    writeFileSync(jsonPath, JSON.stringify({ requested_url: url, final_url: lhr.finalUrl, fetch_time: lhr.fetchTime, lighthouse_version: lhr.lighthouseVersion, user_agent: lhr.userAgent, lab }, null, 2) + '\n');
-    return { ok: true, elapsed_ms, lab, json_file: jsonPath, html_file: existsSync(htmlPath) ? htmlPath : null };
-  } catch {
+  }
+  const diagnostic = diagnoseLighthouse({
+    lhr, reportStatus, exitStatus: proc.status, signal: proc.signal,
+    spawnErrorCode: proc.error?.code ?? null,
+  });
+  // Never upload full raw LHR on failure; persist only sanitized diagnostic fields.
+  if (diagnostic.failure_code) {
     if (existsSync(jsonPath)) unlinkSync(jsonPath);
     if (existsSync(htmlPath)) unlinkSync(htmlPath);
-    return { ok: false, elapsed_ms, error: 'Invalid Lighthouse JSON' };
+    return { ok: false, elapsed_ms, error: diagnostic.failure_code, diagnostic };
   }
+  const lab = extractLab(lhr);
+  // Defensive invariant: score 0 is valid, missing/nonfinite values are not.
+  if (lab.score === null) {
+    if (existsSync(jsonPath)) unlinkSync(jsonPath);
+    if (existsSync(htmlPath)) unlinkSync(htmlPath);
+    return { ok: false, elapsed_ms, error: 'LH_SCORE_MISSING',
+      diagnostic: { ...diagnostic, failure_code: 'LH_SCORE_MISSING', retryable: true } };
+  }
+  writeFileSync(jsonPath, JSON.stringify({
+    requested_url: url, final_url: safeReportUrl(lhr.finalUrl),
+    fetch_time: /^\\d{4}-\\d{2}-\\d{2}T/.test(lhr.fetchTime ?? '') ? lhr.fetchTime : null,
+    lighthouse_version: /^\\d+\\.\\d+\\.\\d+/.test(lhr.lighthouseVersion ?? '') ? lhr.lighthouseVersion : null,
+    lab,
+  }, null, 2) + '\\n');
+  return { ok: true, elapsed_ms, lab, diagnostic, json_file: jsonPath,
+    html_file: existsSync(htmlPath) ? htmlPath : null };
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -297,7 +395,7 @@ export async function main(argv = process.argv.slice(2)) {
   const started = new Date();
   const version = (command, args) => { try { return execFileSync(command, args, { encoding: 'utf8', timeout: 8_000 }).trim(); } catch { return 'unknown'; } };
   const manifest = {
-    schema_version: 1, source: ORIGIN, mode, started_at: started.toISOString(),
+    schema_version: 2, source: ORIGIN, mode, started_at: started.toISOString(),
     git_sha: process.env.GITHUB_SHA ?? version('git', ['rev-parse', 'HEAD']),
     runner: process.env.RUNNER_OS ?? process.platform, node: process.version,
     chrome: version(process.env.CHROME_PATH || 'google-chrome', ['--version']),
@@ -321,20 +419,22 @@ export async function main(argv = process.argv.slice(2)) {
         const base = join(dir, `${slug}-${device}-${i}`);
         console.log(`Lighthouse ${path} ${device} ${i}/${plan.repeats}`);
         let result = runLighthouse(bin, url, device, base);
-        // A missing score is not a usable measurement. Retry once in manual Quick
-        // mode only; do not add hidden 42-run baseline or weekly overhead.
-        let invocations = 1;
-        let first_error = null;
-        if (mode === 'quick' && !result.ok && result.error === 'Missing performance score') {
-          first_error = result.error;
-          console.warn(`Lighthouse incomplete ${path} ${device}: ${first_error}; retrying once`);
+        const attempt_history = [{ invocation: 1, ok: result.ok,
+          elapsed_ms: result.elapsed_ms, diagnostic: result.diagnostic }];
+        const first_error = result.error ?? null;
+        if (shouldRetryLighthouse(result, mode)) {
+          console.warn(`Lighthouse diagnostic ${path} ${device}: ${result.error}; Quick retry 2/2`);
           const next = runLighthouse(bin, url, device, base);
+          attempt_history.push({ invocation: 2, ok: next.ok,
+            elapsed_ms: next.elapsed_ms, diagnostic: next.diagnostic });
           result = { ...next, elapsed_ms: result.elapsed_ms + next.elapsed_ms };
-          invocations = 2;
         }
-        attempts.push({ repeat: i, ...result, invocations, first_error });
+        const invocations = attempt_history.length;
+        if (!result.ok) console.warn(`Lighthouse failed ${path} ${device}: ${result.error}; attempts=${invocations}`);
+        attempts.push({ repeat: i, ...result, invocations, first_error, attempt_history });
         runs.push({ path, device, repeat: i, ok: result.ok, elapsed_ms: result.elapsed_ms,
-          invocations, first_error, lab: result.lab ?? null, error: result.error ?? null });
+          invocations, first_error, attempt_history,
+          lab: result.lab ?? null, error: result.error ?? null });
       }
       rows.push(summarizeRuns(path, device, probe, attempts, field));
     }
@@ -344,9 +444,13 @@ export async function main(argv = process.argv.slice(2)) {
   manifest.actual_lighthouse_runs = runs.length;
   manifest.lighthouse_invocations = runs.reduce((total, r) => total + r.invocations, 0);
   manifest.successful_lighthouse_runs = runs.filter((r) => r.ok).length;
+  manifest.failed_lighthouse_invocations = runs.reduce((sum, r) =>
+    sum + r.attempt_history.filter((attempt) => !attempt.ok).length, 0);
+  manifest.retried_lighthouse_slots = runs.filter((r) => r.invocations > 1).length;
   manifest.lighthouse_elapsed_seconds = Math.round(runs.reduce((sum, r) => sum + r.elapsed_ms, 0) / 1000);
   manifest.failed_urls = probes.filter((p) => !p.ok).map((p) => p.path);
-  manifest.failed_runs = runs.filter((r) => !r.ok).map(({ path, device, repeat, error }) => ({ path, device, repeat, error }));
+  manifest.failed_runs = runs.filter((r) => !r.ok).map(({ path, device, repeat, error, invocations, attempt_history }) =>
+    ({ path, device, repeat, error, invocations, diagnostic: attempt_history.at(-1)?.diagnostic ?? null }));
   const summary = { manifest, probes, lab_rows: rows, mobile_desktop_comparison: comparisons(rows), runs };
   writeFileSync(join(dir, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
   writeFileSync(join(dir, 'summary.csv'), toCsv(rows));

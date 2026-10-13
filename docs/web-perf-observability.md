@@ -1,6 +1,6 @@
 # WEB-PERF-OBSERVABILITY-2 — real production performance baseline
 
-Read-only Lighthouse **lab** measurements of seven fixed anonymous public `https://psipedia.sk` URLs. No production settings, cookies, authentication, D1 writes, Next.js build, or deployment changes.
+Read-only Lighthouse **lab** measurements of eight fixed anonymous public `https://psipedia.sk` URLs. No production settings, cookies, authentication, D1 writes, Next.js build, or deployment changes.
 
 ## Run on GitHub
 
@@ -9,12 +9,12 @@ After this PR is merged into `main`, open **Actions → WEB-PERF Observability (
 | Mode | Pages | Form factors | Repeats per page/device | Lighthouse runs | Trigger |
 | --- | ---: | ---: | ---: | ---: | --- |
 | `weekly` | 2 | 2 | 1 | **4** | Monday 04:17 UTC; also manual |
-| `quick` | 7 | 2 | 1 | **14** | Manual default |
-| `baseline` | 7 | 2 | 3 | **42** | Manual explicit opt-in |
+| `quick` | 8 | 2 | 1 | **16** | Manual default |
+| `baseline` | 8 | 2 | 3 | **48** | Manual explicit opt-in |
 
 Only one workflow execution runs at a time. `schedule` is weekly, never on push or PR. The schedule runs from the default branch after merge, so it cannot run from an unmerged PR. The runner performs all measurements sequentially, no concurrency against the public site. Timeout is 55 minutes. A failing URL is recorded as unavailable, not quietly replaced by Lighthouse error-page scores. The job returns nonzero on any invalid URL or measurement failure, but uploads completed artifacts.
 
-Full routes: `/`, `/adresar`, `/adresar/veterinari`, `/adresar/treneri`, `/adresar/veterinari/ab-vet-piestany`, `/podujatia`, `/clanky/nasli-ste-tulaveho-psa-co-robit`.
+Full routes: `/`, `/adresar`, `/adresar/veterinari`, `/adresar/treneri`, `/adresar/veterinari/ab-vet-piestany`, `/podujatia`, `/pomoc-psom`, `/clanky/nasli-ste-tulaveho-psa-co-robit`.
 
 The small weekly subset is `/` and `/adresar/veterinari`; choose `baseline` manually immediately before and after substantial optimizations. The local runtime measures the **live deployed production website**, even when the job checks out a more recent Git commit: the recorded HEAD proves which measurement configuration was executed, **not** which code is currently deployed. To make a valid before/after comparison, separately record the production deployment SHA (Cloudflare) at each measurement time.
 
@@ -41,9 +41,9 @@ To enable optional field INP, create a GitHub Actions repository secret called `
 
 ## Costs and repeatability
 
-No `npm ci`, application build, Playwright browser installation, Cloudflare changes, or production writes. The workflow installs only **pinned Lighthouse `12.8.2`** into runner temporary storage, reuses preinstalled Chrome, and runs single-threaded. Chrome is version-logged because GitHub runner images may update. `ubuntu-24.04`, Node `22.19.0`, Lighthouse `12.8.2`, default Lighthouse mobile and `--preset=desktop`, simulated throttling, and 7 fixed URLs are the recorded setup. The default cache state is Lighthouse's clean profile per run (not warm-user browsing). For comparable baselines, use the same Chrome and Lighthouse versions, runner class, production deployment, time window, and repeat count. Changes to Chrome, live site, CDN cache or network conditions can shift results.
+No `npm ci`, application build, Playwright browser installation, Cloudflare changes, or production writes. The workflow installs only **pinned Lighthouse `12.8.2`** into runner temporary storage, reuses preinstalled Chrome, and runs single-threaded. Chrome is version-logged because GitHub runner images may update. `ubuntu-24.04`, Node `22.19.0`, Lighthouse `12.8.2`, default Lighthouse mobile and `--preset=desktop`, simulated throttling, and 8 fixed URLs are the recorded setup. The default cache state is Lighthouse's clean profile per run (not warm-user browsing). For comparable baselines, use the same Chrome and Lighthouse versions, runner class, production deployment, time window, and repeat count. Changes to Chrome, live site, CDN cache or network conditions can shift results.
 
-**Exact nominal requests:** 4/14/42 Lighthouse navigations respectively, plus 2/7/7 lightweight GET probes and up to 4/14/14 optional CrUX API calls (one per URL and device). Lighthouse itself makes the page's normal asset requests and may navigate/reload internally; those cannot be claimed as a fixed count. **Exact monetary cost and billed GitHub Actions minutes cannot be known before a real run.** `manifest.json` records actual Lighthouse and end-to-end wall time; use the GitHub Actions run's billed runtime and your plan's current per-minute rate/allowance to price the run. Baseline is manually opt-in because it can take substantial time and 42 runs.
+**Exact nominal requests:** 4/16/48 Lighthouse navigations respectively, plus 2/8/8 lightweight GET probes and up to 4/16/16 optional CrUX API calls (one per URL and device). Lighthouse itself makes the page's normal asset requests and may navigate/reload internally; those cannot be claimed as a fixed count. **Exact monetary cost and billed GitHub Actions minutes cannot be known before a real run.** `manifest.json` records actual Lighthouse and end-to-end wall time; use the GitHub Actions run's billed runtime and your plan's current per-minute rate/allowance to price the run. Baseline is manually opt-in because it can take substantial time and 48 runs.
 
 ## Reproducing on a machine with Chrome + Node 22.19+
 
@@ -80,3 +80,51 @@ The fix snapshots HTTP status and allowlisted headers before cancelling the unre
 Quick mode retries a `Missing performance score` Lighthouse result once, since it is not a valid measurement. `manifest.lighthouse_invocations` captures any extra CLI invocation; `actual_lighthouse_runs` continues to count logical page/device slots. Neither weekly nor baseline repeats Lighthouse. A nonzero exit code and artifact upload remain mandatory when any probe or attempted Lighthouse measurement fails, or fewer than the planned 14 slots are completed.
 
 **Run after hotfix merge:** choose `quick` manually. Do not run `baseline` merely to validate this fix. Review `probes[].diagnostics`, `manifest.actual_lighthouse_runs == 14`, `manifest.successful_lighthouse_runs == 14`, `manifest.lighthouse_invocations` and `manifest.failed_urls`. No new automatic PR-triggered measurement has been added.
+
+## LIGHTHOUSE-RELIABILITY-2 — 2026-10-13 Quick evidence and diagnostic contract
+
+Actual failing run: https://github.com/investradarsk/psipedia-sk/actions/runs/38467010710,
+artifact `web-perf-38467010710-1`. Checkout `45e53e2d47827a0294a6ce652f3cc45af1f195a5`;
+Node 22.19.0, Chrome 154.0.8037.97, Lighthouse 12.8.2. The report records **14 planned
+logical slots, 14 started, 13 valid Lighthouse scores and 15 real CLI invocations**.
+All seven HTTP probes eventually succeeded; four first attempts failed with
+`UND_ERR_SOCKET` and recovered on the bounded retry. The desktop homepage had valid HTTP
+200 HTML but both Lighthouse CLI invocations produced `Missing performance score`.
+The old CLI deleted its failed raw reports, and the remaining artifact has no
+`runtimeError`, failed-audit details or Chrome navigation diagnosis for that slot.
+Therefore the **specific cause is not recoverable** from run #38467010710.
+Neither a homepage defect nor a Chrome fault is established.
+
+The next manual Quick uses **8 URLs × 2 devices = 16 logical slots**, plus at most
+one additional Lighthouse CLI invocation for a transiently incomplete slot.
+Each `summary.json.runs[].attempt_history[]` records an ordinal invocation,
+elapsed duration, a constant failure code and sanitized diagnostic object.
+`manifest.lighthouse_invocations`, `manifest.failed_lighthouse_invocations` and
+`manifest.retried_lighthouse_slots` explicitly distinguish logical slots from
+physical invocations. CSV appends `lighthouse_invocations` and
+`lighthouse_failure_code`. `manifest.schema_version` is 2.
+
+Stable classifications: `LH_PROCESS_TIMEOUT`, `LH_PROCESS_START_FAILED`,
+`LH_PROCESS_SIGNALED`, `LH_CLI_NONZERO_EXIT`, `LH_REPORT_MISSING`,
+`LH_REPORT_INVALID`, `LH_NAVIGATION_FAILED`, `LH_RUNTIME_FAILED`,
+`LH_CATEGORY_MISSING`, `LH_AUDITS_MISSING`, `LH_AUDIT_FAILED`,
+`LH_SCORE_MISSING`, `LH_SCORE_INVALID`. Navigation requires a recognized
+Lighthouse runtime navigation code; an absent Performance category, missing
+audits, audit error and missing score are distinct states. Audit statuses use
+five fixed Performance audit identifiers. Unknown runtime codes become
+`UNRECOGNIZED`; raw error messages, stderr, cookies, tokens, request URLs,
+failed full Lighthouse JSON and failed HTML are never stored in diagnostics.
+A legitimate numeric score of 0 remains valid; missing metrics stay null.
+
+**Exactly one control Quick after merge:** once the merged revision is live and
+the runner is available, open Actions → WEB-PERF Observability → Run workflow,
+select `main` and `quick`. Do **not** run `baseline` or manually repeat this
+control Quick merely to improve the result. Download `web-perf-<run>-1` and check:
+`planned_lighthouse_runs=16`, `actual_lighthouse_runs=16`,
+`successful_lighthouse_runs=16`, `failed_urls=[]`, and
+`lighthouse_invocations>=16`. If homepage desktop fails again, inspect
+`runs[path="/",device="desktop"].attempt_history` for the safe error class,
+runtime code and five audit statuses. Compare the Chrome/Lighthouse versions
+recorded in the manifest. Keep the report failed and the score null until an
+actual valid Performance score is obtained. Scheduled weekly sampling remains
+2 URLs × 2 devices; no automatic baseline or expanded cron.
