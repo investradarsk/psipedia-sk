@@ -99,8 +99,8 @@ export function AdminArticleEditor({
   const currentAreas = areasFor(portalSection);
   // Keep an imported or legacy area selectable even if it is absent from current public options.
   const originalAreaHidden = article?.portalSection === portalSection
-    && Boolean(article.portalSubpage)
-    && !currentAreas.some((area) => area.slug === article.portalSubpage);
+    && Boolean(article?.portalSubpage)
+    && !currentAreas.some((area) => area.slug === article?.portalSubpage);
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
   const [accent, setAccent] = useState(article?.accent ?? "forest");
   const [author, setAuthor] = useState(article?.author ?? "Redakcia Psipedia");
