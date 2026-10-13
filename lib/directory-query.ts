@@ -33,3 +33,17 @@ export function directoryPageHref(basePath: string, filters: DirectoryFilters, p
   const query = params.toString();
   return query ? basePath + "?" + query : basePath;
 }
+
+/** HTML GET submits q="" on empty input. Canonicalize the browser URL even without JS. */
+export function directoryEmptyQueryRedirect(
+  path: string,
+  params: Record<string, string | string[] | undefined>,
+  parsed: DirectoryFilters,
+): string | null {
+  if (params.q === undefined) return null;
+  const query = Array.isArray(params.q) ? params.q[0] ?? "" : params.q;
+  if (query.trim()) return null;
+  const search = new URLSearchParams();
+  for (const field of directoryQueryFields(parsed, ["q"])) search.set(field.name, field.value);
+  return path + (search.size ? "?" + search.toString() : "");
+}
