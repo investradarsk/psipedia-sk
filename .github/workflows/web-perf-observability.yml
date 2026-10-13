@@ -23,8 +23,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: web-perf-observability
-  cancel-in-progress: false
+  # Cancel superseded offline PR tests, but NEVER interrupt scheduled/manual Lighthouse measurements.
+  group: web-perf-observability-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'measure' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   offline-tests:
