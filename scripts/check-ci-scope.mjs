@@ -92,8 +92,8 @@ assert.match(onBlock(required), /\n  pull_request:/, "required workflow must alw
 assert.doesNotMatch(onBlock(required), /\n    paths(?:-ignore)?:/, "required workflow must not use top-level PR path filtering");
 assert.match(required, /node scripts\/ci-scope\.mjs --github-output/);
 assert.match(required, /node scripts\/check-ci-scope\.mjs/);
-assert.match(required, /full_core:\s*\$\{\{\s*steps\.scope\.outputs\.full_core\s*\}\}/);
-assert.match(required, /bounded_core:\s*\$\{\{\s*steps\.scope\.outputs\.bounded_core\s*\}\}/);
+assert.match(required, /full_core:\s*\$\{\{\s*steps\.required-scope\.outputs\.full_core\s*\}\}/);
+assert.match(required, /bounded_core:\s*\$\{\{\s*steps\.required-scope\.outputs\.bounded_core\s*\}\}/);
 assert.match(required, /steps\.required-scope\.outputs\.full_core == 'true'/);
 assert.match(required, /steps\.required-scope\.outputs\.bounded_core == 'true'/);
 assert.match(required, /github\.event_name == 'workflow_dispatch'/, "full E2E must remain manual");
