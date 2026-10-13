@@ -266,6 +266,47 @@ const worker = {
       }).catch(() => ({ dispatched: 0, reason: "SWEEP_ERROR" }));
       console.info(JSON.stringify({ event: "gemini_external_dispatch", ...result }));
     }
+    if (isFullHourlyScheduledSweep(controller)) {
+      // Keep Notion article sync alive independently from unrelated hourly sweeps.
+      // A rejection in Promise.all below must not cancel an article import in flight.
+      // The task remains part of this same hourly Cron; it is not another trigger.
+      const notionArticleRunId = controller.scheduledTime ?? null;
+      const notionArticleStartedAt = Date.now();
+      console.info(JSON.stringify({
+        event: "notion_article_sync_started",
+        scheduledTime: notionArticleRunId,
+        configured: {
+          enabled: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
+          database: Boolean(env.DB),
+          bucket: Boolean(env.BUCKET),
+          notionToken: Boolean(env.NOTION_API_TOKEN?.trim()),
+          dataSourceId: Boolean(env.NOTION_ARTICLES_DATA_SOURCE_ID?.trim()),
+        },
+      }));
+      const notionArticleTask = observeScheduledAutomation({
+        database: env.DB, scheduledTime: controller.scheduledTime,
+        system: "notion", automationId: "articles", label: "Notion — články",
+        active: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
+        execute: () => runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
+        summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
+      }).then((result) => {
+        console.info(JSON.stringify({
+          event: "notion_article_sync_sweep",
+          scheduledTime: notionArticleRunId,
+          durationMs: Date.now() - notionArticleStartedAt,
+          ...result,
+        }));
+      }).catch((error) => {
+        console.error(JSON.stringify({
+          event: "notion_article_sync_sweep",
+          result: "failed",
+          scheduledTime: notionArticleRunId,
+          durationMs: Date.now() - notionArticleStartedAt,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      });
+      _ctx.waitUntil(notionArticleTask);
+    }
     if (!isFullHourlyScheduledSweep(controller)) {
       const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill, notionEshopBackfill, geminiManualQueue] = await Promise.all([
         runScheduledAdminPush(env),
@@ -339,46 +380,6 @@ const worker = {
     const notionEventsHelpEnabled = ["1", "true"].includes(
       (env.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED ?? "").trim().toLowerCase(),
     );
-    // Keep Notion article sync alive independently from unrelated hourly sweeps.
-    // A rejection in Promise.all below must not cancel an article import in flight.
-    // The task remains part of this same hourly Cron; it is not another trigger.
-    const notionArticleRunId = controller.scheduledTime ?? null;
-    const notionArticleStartedAt = Date.now();
-    console.info(JSON.stringify({
-      event: "notion_article_sync_started",
-      scheduledTime: notionArticleRunId,
-      configured: {
-        enabled: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
-        database: Boolean(env.DB),
-        bucket: Boolean(env.BUCKET),
-        notionToken: Boolean(env.NOTION_API_TOKEN?.trim()),
-        dataSourceId: Boolean(env.NOTION_ARTICLES_DATA_SOURCE_ID?.trim()),
-      },
-    }));
-    const notionArticleTask = observeScheduledAutomation({
-      database: env.DB, scheduledTime: controller.scheduledTime,
-      system: "notion", automationId: "articles", label: "Notion — články",
-      active: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
-      execute: () => runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
-      summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
-    }).then((result) => {
-      console.info(JSON.stringify({
-        event: "notion_article_sync_sweep",
-        scheduledTime: notionArticleRunId,
-        durationMs: Date.now() - notionArticleStartedAt,
-        ...result,
-      }));
-    }).catch((error) => {
-      console.error(JSON.stringify({
-        event: "notion_article_sync_sweep",
-        result: "failed",
-        scheduledTime: notionArticleRunId,
-        durationMs: Date.now() - notionArticleStartedAt,
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    });
-    _ctx.waitUntil(notionArticleTask);
-
     const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionBreeds, notionEvents, notionEventsHelp, notionDirectory, notionEshops, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
