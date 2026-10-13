@@ -42,7 +42,7 @@ The D1 dashboard offers database-wide 24-hour metrics and Cloudflare documents `
 - `rows_read` counts **scanned** rows, not HTTP response rows. Per-SQL duration is not end-to-end TTFB. Compare account-wide aggregates in Metrics for actual total consumption.
 - `--origin production` is an operator-declared label; the tool cannot independently verify the data source or timestamp. Never label the synthetic fixture production. The tool does not retain row-level SQL or identifiers.
 - JSON input bounded to 12 MiB / 5000 query records. If the experimental export format changes, fail or show missing metrics rather than silently invent figures. No automatic hourly or per-PR production polling.
-- **No GitHub Actions workflow added:** using a trusted local authorized export avoids secrets stored in CI and avoids production API traffic. Store exports privately; do not upload raw exports or derived reports with operationally sensitive patterns to public issues.
+- **GitHub Actions:** a small, paths-scoped offline fixture test (`d1-insights-report-ci.yml`) runs only on reporter/test/fixture changes. It has read-only repository permission and does not access Cloudflare, production SQL, credentials or production data. Real exports remain exclusively local and manual. Store exports privately; do not upload raw exports or derived reports with operationally sensitive patterns to public issues.
 
 ## Quality gates
 
