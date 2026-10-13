@@ -91,7 +91,9 @@ globalThis.fetch = async (url, options = {}) => {
   }
   if (address.startsWith("https://api.notion.com/v1/")) {
     if (address === "https://api.notion.com/v1/data_sources/" + ds)
-      return json({ properties });
+      return json({ properties: scenario === "unsafe_status_default"
+        ? { ...properties, "Stav": { type: "select", select: { options: [{ name: "Publikované" }] } } }
+        : properties });
     if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query")
       return json({ results: [], has_more: false });
     if (address === "https://api.notion.com/v1/pages") {
