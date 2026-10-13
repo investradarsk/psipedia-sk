@@ -60,24 +60,16 @@ test("shared landing heading owns typography and heading-to-content spacing", ()
   assert.match(layoutCss, /@media \(max-width: 700px\)[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*gap:\s*8px/);
 });
 
-test("comparable category roots retain shared heading and canonical content shells", () => {
-  for (const source of [helpOverview, reviews]) {
-    assert.match(source, /PublicContentShell/);
-    assert.match(source, /variant="landing"|variant=\{active \? "listing" : "landing"\}/);
-    assert.match(source, /PublicLandingSectionHeading/);
-  }
+test("directory root and categories retain shared content shell and canonical routes", () => {
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
-  assert.match(read("components/directory-category-overview.tsx"), /<h2 className=\{styles\.heading\}>/);
+  assert.match(directory, /DirectoryCategoryNavigation/);
+  assert.match(directory, /directoryCategoryHref\(category\)/);
+  assert.match(directory, /UnifiedSectionHeroShell/);
   assert.doesNotMatch(events, /PublicSubcategoryNavigator/);
-  assert.match(read("components/event-listing-results.tsx"), /Typ podujatia/);
-  assert.doesNotMatch(events, /mode="landing"|PublicLandingSectionHeading/);
-  assert.match(read("components/event-listing-results.tsx"), /eventTypes/);
-  assert.match(read("components/event-calendar.tsx"), /data-events-legend/);
-  assert.match(directory, /PublicSubcategoryNavigator/);
-  assert.doesNotMatch(directory, /mode="landing"/);
   assert.match(reviews, /PublicCategoryTiles/);
   assert.match(helpOverview, /overviewCategoryGrid/);
 });
+
 
 test("filter-first landings use the explicit listing variant", () => {
   for (const source of [news, breeds, events, directory, helpBrowser, adoption, lostFoundListing, lostFoundHub, portalTopic]) {
@@ -109,14 +101,14 @@ test("lost-found hub is no longer a legacy page-hero route", () => {
   assert.match(lostFoundHub, /PublicContentShell variant="listing"/);
 });
 
-test("directory has one shared post-hero spacing and navigation contract", () => {
-  assert.doesNotMatch(directoryCss, /\.discoveryHeading|\.sectionHeading|\.overviewHeading/);
-  assert.match(directory, /<div className=\{styles\.categorySwitcherWrap\} data-directory-category-navigation>/);
+test("directory has one canonical post-hero search and category navigation", () => {
+  assert.match(directory, /data-directory-main-search/);
+  assert.match(directory, /<DirectoryCategoryNavigation items=\{categoryItems\}/);
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
-  assert.match(directory, /<PublicSubcategoryNavigator[\s\S]*mode="compact"/);
-  assert.match(directoryCss, /SERVICES-PUBLIC-UX-1: foundation-driven directory landing/);
+  assert.match(directoryCss, /\.directoryColumns\s*\{/);
   assert.match(directoryCss, /\.resultsSection\s*\{\s*padding-block:\s*0;/);
 });
+
 
 test("reviews use shared headings while only the first category section loses legacy top padding", () => {
   assert.doesNotMatch(reviews, /styles\.(?:modeHeading|sectionHeading|eyebrow)/);
@@ -141,116 +133,81 @@ test("event category listing and lost-found listing do not stack old top padding
 });
 
 
-test("SERVICES-PUBLIC-UX-1 removes repeated category decisions and duplicate local search", () => {
+test("SERVICES-V2 has one main GET search, no category preview data path and no duplicate visible search", () => {
   const root = read("app/adresar/page.tsx");
   const category = read("app/adresar/[category]/page.tsx");
-  const filters = read("components/directory-filter-form.tsx");
-  const filterCss = read("components/directory-filter-form.module.css");
-  const disclosure = read("components/public-filter-disclosure.tsx");
-
-  assert.match(root, /getDirectoryCategoryPreviews\(7\)/);
+  const form = read("components/directory-filter-form.tsx");
+  const results = read("components/directory-results.tsx");
+  const query = read("lib/directory-query.ts");
   assert.match(root, /listPublishedDirectoryProfiles\(\{ filters \}\)/);
-  assert.doesNotMatch(directory, /PublicCategoryTiles|SectionHeroSearch|searchSlot=/);
-  assert.doesNotMatch(directory, /Rýchly výber|Hlavné kategórie|Ďalšie kategórie/);
-  assert.equal((directory.match(/mode="landing"/g) ?? []).length, 0);
-  assert.equal((directory.match(/mode="compact"/g) ?? []).length, 1);
-  assert.match(directory, /title: "Všetky služby"/);
-  assert.match(directory, /current: active\?\.slug === category\.slug/);
-  assert.equal((filters.match(/name="q"/g) ?? []).length, 1);
-  assert.match(filters, /placeholder="Názov služby, miesto, organizácia alebo plemeno"/);
-  assert.match(filters, /<PublicFilterDisclosure/);
-  assert.match(disclosure, /aria-expanded=\{open\}/);
-  assert.match(disclosure, /aria-controls=\{contentId\}/);
-  assert.match(filters, /activeFilterCount/);
-  assert.match(filters, /dependentSubmit\("region"\)/);
-  assert.match(filters, /dependentSubmit\("district"\)/);
-  assert.match(filters, /<Link href=\{basePath\}>Zrušiť filtre<\/Link>/);
-  assert.match(filterCss, /\.secondaryFilters\s*\{\s*display:\s*none/);
-  assert.match(filterCss, /\.secondaryFiltersOpen\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.doesNotMatch(root, /getDirectoryCategoryPreviews|getDirectoryCategoryCounts|showOverview/);
+  assert.match(directory, /SectionHeroSearch[\s\S]*formScope="services"/);
+  assert.doesNotMatch(form, /<input name="q"/);
+  assert.match(form, /directoryQueryFields\(filters/);
+  assert.match(results, /directoryPageHref\(basePath, filters, result\.page/);
+  assert.match(query, /directoryQueryFields/);
+  assert.match(query, /directoryEmptyQueryRedirect/);
   assert.match(category, /directoryCategoryListingMetadata/);
   assert.match(category, /resolveListingIndexPolicy/);
 });
 
-test("SERVICES-PUBLIC-UX-1 keeps one forest map banner after results and provider CTA secondary", () => {
-  const resultsPosition = directory.indexOf("<DirectoryResults");
-  const bannerPosition = directory.indexOf("<PublicContextBanner");
-  const providerPosition = directory.indexOf("data-directory-provider-cta");
 
-  assert.ok(resultsPosition >= 0 && bannerPosition > resultsPosition);
-  assert.ok(providerPosition > bannerPosition);
-  assert.equal((directory.match(/<PublicContextBanner/g) ?? []).length, 1);
-  assert.match(directory, /eyebrow="Služby v okolí"/);
-  assert.match(directory, /title="Nájdite služby pre psov na mape"/);
-  assert.match(directory, /ctaLabel="Pozrieť mapu"/);
-  assert.match(directory, /ctaHref="\/mapa"/);
-  assert.match(directory, /tone="forest"/);
+test("SERVICES-V2 map and provider CTAs remain safe and above real popularity", () => {
+  assert.match(directory, /data-directory-map-cta/);
+  assert.match(directory, /data-directory-provider-cta/);
+  assert.match(directory, /mapHref\(filters, active\?\.slug\)/);
+  assert.match(directory, /serializeMapUiFilters/);
+  assert.match(directory, /href="\/o-nas#kontakt"/);
+  assert.match(directory, /getArticleDiscoveryData/);
+  assert.match(directory, /ArticlePopularitySidebar/);
+  assert.doesNotMatch(directory, /<MapExperience/);
 });
 
-test("SERVICES-PUBLIC-UX-1 keeps canonical category links and mobile foundation behavior", () => {
-  const navigator = read("components/public-visual-system/public-subcategory-navigator.tsx");
-  const navigatorCss = read("components/public-visual-system/public-subcategory-navigator.module.css");
 
+test("SERVICES-V2 category navigation preserves canonical hrefs and accessible more", () => {
+  const navigation = read("components/directory-category-navigation.tsx");
+  const navigator = read("components/public-visual-system/public-subcategory-navigator.tsx");
   assert.match(directory, /href: directoryCategoryHref\(category\)/);
   assert.doesNotMatch(directory, /\?category=/);
-  assert.match(navigator, /<Link[\s\S]*href=\{item\.href\}/);
+  assert.match(navigation, /aria-expanded=\{expanded\}/);
+  assert.match(navigation, /<PublicSubcategoryNavigator/);
   assert.match(navigator, /aria-current=\{item\.current \? "page" : undefined\}/);
-  assert.match(navigatorCss, /grid-auto-columns:\s*minmax\(228px, 79%\)/);
-  assert.match(navigatorCss, /scroll-snap-type:\s*x mandatory/);
-  assert.match(navigatorCss, /flex-wrap:\s*nowrap/);
-  assert.match(navigatorCss, /min-height:\s*44px/);
 });
 
 
-test("HELP-SERVICES-LAYOUT-V2 puts one server-backed search before category navigation and results", () => {
-  const results = read("components/directory-results.tsx");
-  const filters = read("components/directory-filter-form.tsx");
-  assert.match(directory, /const categoryNavigation = \(/);
-  assert.match(directory, /<DirectoryResults[\s\S]*categoryNavigation=\{categoryNavigation\}/);
-  assert.match(results, /data-directory-search-first/);
-  const formPos = results.indexOf("<DirectoryFilterForm");
-  const navPos = results.indexOf("{categoryNavigation}");
-  const headingPos = results.indexOf('className="directory-result-heading"');
-  assert.ok(formPos >= 0 && navPos > formPos && headingPos > navPos);
-  assert.equal((results.match(/<DirectoryFilterForm/g) ?? []).length, 1);
-  assert.match(filters, /<PublicFilterDisclosure/);
+test("SERVICES-V2 renders search, categories, filters, cards and sidebar in approved order", () => {
+  const search = directory.indexOf("<SectionHeroSearch");
+  const nav = directory.indexOf("<DirectoryCategoryNavigation");
+  const filter = directory.indexOf("<DirectoryFilterForm");
+  const results = directory.indexOf("<DirectoryResults");
+  const sidebar = directory.indexOf('data-directory-map-cta');
+  assert.ok(search >= 0 && nav > search && filter > nav && results > filter && sidebar > results);
+  assert.match(directory, /data-directory-columns/);
+  assert.match(read("components/directory-filter-form.tsx"), /data-directory-filter-disclosure/);
   assert.match(directory, /getSectionHeroVisual\(active \? `directory\.\$\{active\.slug\}` : "section\.adresar"\)/);
-  assert.doesNotMatch(directory, /getResolvedSectionVisual/);
-  assert.match(directory, /<DirectoryCategoryOverview categories=\{directoryCategories\} previews=\{categoryPreviews\}/);
 });
 
-test("HELP-SERVICES-LAYOUT-V2 keeps dense tiles and 4-3-2-1 grid responsive without altering routing", () => {
+
+test("SERVICES-V2 keeps cards and URLs while preventing narrow three-column thumbnails", () => {
   const cards = read("components/directory-card.tsx");
   const results = read("components/directory-results.tsx");
-  assert.match(directory, /className=\{styles\.categorySwitcher\}/);
-  assert.match(directoryCss, /\.categoryTiles :global\(\[data-public-subcategory-track\]\)/);
-  assert.match(directoryCss, /@media \(min-width: 1360px\)[\s\S]*repeat\(4, minmax\(0, 1fr\)\)/);
-  assert.match(directoryCss, /@media \(min-width: 1024px\) and \(max-width: 1359px\)[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/);
-  assert.match(directoryCss, /@media \(min-width: 700px\) and \(max-width: 1023px\)[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(directoryCss, /@media \(max-width: 699px\)[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(directoryCss, /grid-template-columns: 220px minmax\(0,1fr\) 255px/);
+  assert.match(directoryCss, /@media \(max-width: 820px\)[\s\S]*grid-template-columns: minmax\(0,1fr\)/);
+  assert.match(directoryCss, /\.directoryColumns \.listGrid:global\(\.directory-grid\)/);
   assert.match(cards, /directoryProfileHref\(profile\)/);
   assert.match(cards, /profile\.imageUrl &&/);
-  assert.match(cards, /overflow-wrap: anywhere|cardTitle/);
-  assert.match(results, /if \(page > 1\) params\.set\("page"/);
-  assert.match(results, /<Link href=\{basePath\}>Zrušiť filtre<\/Link>/);
+  assert.match(results, /directoryPageHref\(basePath, filters/);
 });
 
-test("DIRECTORY-HELP-LANDINGS-V3 shows curated profiles only on the unfiltered root", () => {
+
+test("SERVICES-V2 root shows published profiles and never fetches hidden category previews", () => {
   const root = read("app/adresar/page.tsx");
-  const results = read("components/directory-results.tsx");
-  const previews = read("components/directory-category-overview.tsx");
-  const styles = read("components/directory-category-overview.module.css");
-  const store = read("lib/directory-store.ts");
-  assert.match(root, /showOverview \? getDirectoryCategoryPreviews\(7\)/);
-  assert.match(directory, /showResults=\{!showRootOverview\}/);
-  assert.match(results, /showResults \? <>/);
-  assert.match(previews, /slice\(0, 7\)/);
-  assert.match(previews, /directoryProfileHref\(profile\)/);
-  assert.match(previews, /directoryCategoryHref\(category\)/);
-  assert.match(store, /Math\.min\(7, Math\.trunc\(limit\)\)/);
-  assert.match(styles, /min-height: 44px/);
-  assert.match(styles, /overflow-x: auto/);
-  assert.match(helpCss, /\.overviewPromo \{ min-height: 180px; \}/);
-  assert.match(helpCss, /\.overviewCategoryGrid \{ display: flex; flex-wrap: wrap;/);
+  const cat = read("app/adresar/[category]/page.tsx");
+  assert.doesNotMatch(root, /getDirectoryCategoryPreviews|showOverview|categoryPreviews/);
+  assert.match(root, /<DirectoryPage result=\{result\} filters=\{filters\} \/>/);
+  assert.match(cat, /<DirectoryPage result=\{result\} filters=\{filters\} initialCategory=\{category.slug\}/);
+  assert.doesNotMatch(directory, /showResults|DirectoryCategoryOverview/);
+  assert.match(directory, /<DirectoryResults/);
 });
 
 
