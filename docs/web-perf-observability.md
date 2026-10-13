@@ -26,7 +26,7 @@ Artifacts (`web-perf-<run id>-<attempt>`; retention 14 days):
 - `<page>-<device>-<attempt>.report.html`: full Lighthouse report for each successful attempt.
 - `<page>-<device>-<attempt>.report.json`: **reduced** per-run metrics only, not the sensitive full raw Lighthouse JSON/network log.
 
-Headers are allowlisted (`cache-control`, `cdn-cache-control`, `cf-cache-status`, `age`, `x-cache`, `content-type`); `Set-Cookie`, credentials, and response bodies are never written to the structured reports. HTML is produced by Lighthouse from anonymous public pages and should still be treated as operational diagnostic data, not published openly.
+Headers are allowlisted (`cache-control`, `cdn-cache-control`, `cf-cache-status`, `age`, `x-cache`, `x-psipedia-cache`, `cloudflare-cdn-cache-control`, `content-type`); `Set-Cookie`, credentials, and response bodies are never written to the structured reports. HTML is produced by Lighthouse from anonymous public pages and should still be treated as operational diagnostic data, not published openly.
 
 ## Metric interpretation
 
