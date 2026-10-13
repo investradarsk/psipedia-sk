@@ -82,6 +82,12 @@ test("SERVICES-V2 GET search and filters work without JavaScript and keep catego
     await expect(page.locator('[data-directory-filter-form] select[name="region"]')).toBeVisible();
     await expect(page.locator('[data-directory-filter-form] button[type="submit"]')).toBeVisible();
     await expect(page.locator('[data-directory-category-navigation] [aria-current="page"]')).toHaveCount(1);
+    // Native GET with q="" must finish on a clean canonical URL, even without JS.
+    await page.locator('form[data-public-search-form="services"] input[name="q"]').fill("");
+    await Promise.all([
+      page.waitForURL((url) => url.pathname==="/adresar/veterinari" && !url.searchParams.has("q")),
+      page.locator('form[data-public-search-form="services"] button[type="submit"]').click(),
+    ]);
   } finally {await context.close();}
 });
 
@@ -89,15 +95,36 @@ test("SERVICES-V2 category more keyboard interaction and 200% text do not clip",
   await page.setViewportSize({width:1180,height:900});
   await open(page,"/adresar");
   const more = page.locator("[data-directory-category-navigation] button[aria-controls]");
-  if (await more.isVisible()) {
-    await more.focus();
-    await more.press("Enter");
-    await expect(more).toHaveAttribute("aria-expanded","true");
-    await expect(page.locator('[data-directory-category-navigation][data-expanded="true"]')).toBeVisible();
-  }
+  await expect(more, "The category track needs a keyboard-accessible overflow affordance").toBeVisible();
+  await more.focus();
+  await more.press("Enter");
+  await expect(more).toHaveAttribute("aria-expanded","true");
+  await expect(page.locator('[data-directory-category-navigation][data-expanded="true"]')).toBeVisible();
+  await more.press("Enter");
+  await expect(more).toHaveAttribute("aria-expanded","false");
+  await expect(more).toBeFocused();
   await page.evaluate(() => {document.documentElement.style.fontSize="200%";});
   await expect(page.locator("[data-directory-results] h2").first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1181);
   const results = await new AxeBuilder({page}).include("[data-directory-columns]").analyze();
   expect(results.violations.filter(v=>v.impact==="critical"||v.impact==="serious")).toEqual([]);
+});
+
+test("SERVICES-V2 all ten canonical service categories share the same public layout", async ({ page }) => {
+  test.setTimeout(3 * 60 * 1000);
+  await page.setViewportSize({width:390,height:844});
+  for (const slug of [
+    "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+    "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
+    "vencenie", "fyzioterapia", "dalsie-sluzby",
+  ]) {
+    const route = "/adresar/" + slug;
+    await open(page,route);
+    await expect(page.locator("[data-unified-section-hero]")).toHaveAttribute("data-section-visual-key", "directory." + slug);
+    await expect(page.locator("[data-directory-results]")).toBeVisible();
+    await expect(page.locator('[data-directory-category-navigation] [aria-current="page"]')).toHaveCount(1);
+    await expect(page.locator("[data-directory-filter-form]")).toHaveCount(1);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth), route + " mobile overflow")
+      .toBeLessThanOrEqual(391);
+  }
 });
