@@ -136,6 +136,7 @@ jobs:
       always() &&
       needs.validate.result == 'success' &&
       needs.pr-scope.result == 'success' &&
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') &&
       needs.pr-scope.outputs.full_core == 'true'
     needs: [validate, pr-scope]
     runs-on: ubuntu-latest

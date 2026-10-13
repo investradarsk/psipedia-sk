@@ -41,7 +41,6 @@ on:
       - "tests/fixtures/organization-profile-e2e.sql"
       - "tests/organization-profile-presentation.test.mjs"
       - "tests/organization-profile-route.test.mjs"
-      - "package-lock.json"
       - "playwright.config.ts"
       - "vite.config.*"
       - "tsconfig.json"

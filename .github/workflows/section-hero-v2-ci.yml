@@ -38,7 +38,6 @@ on:
       - "tests/e2e/unified-section-hero.spec.ts"
       - "tests/public-landing-alignment.test.mjs"
       - "tests/e2e/public-landing-alignment.spec.ts"
-      - "package-lock.json"
       - "scripts/production-d1-migrate.mjs"
       - ".github/workflows/production-d1-migrate.yml"
       - ".github/workflows/section-hero-v2-ci.yml"
