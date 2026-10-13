@@ -1,0 +1,116 @@
+name: SERVICES-V2 Directory layout
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/adresar/**"
+      - "components/directory-**"
+      - "components/section-hero-search.tsx"
+      - "lib/directory-query.ts"
+      - "tests/directory-unified-layout.test.mjs"
+      - "tests/e2e/directory-unified-layout.spec.ts"
+      - "tests/public-landing-alignment.test.mjs"
+      - ".github/workflows/services-v2-directory-ci.yml"
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: services-v2-directory-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    if: github.head_ref == 'feat/services-v2-directory-unified-layout'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Focused directory and URL contracts
+        run: |
+          node --experimental-strip-types --test tests/directory-unified-layout.test.mjs
+          npm run test:public-landing-alignment
+          npm run test:unified-section-hero
+          npm run test:map-public-ui
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+
+  visual:
+    if: github.head_ref == 'feat/services-v2-directory-unified-layout'
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Resolve exact Cloudflare preview
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_SHA}/check-runs"
+          preview_url=""
+          for attempt in $(seq 1 90); do
+            payload="$(curl --silent --show-error --fail -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "${api}")"
+            status="$(printf '%s' "${payload}" | node -e '
+              let str="";process.stdin.on("data",d=>str+=d).on("end",()=>{
+                const a=JSON.parse(str).check_runs||[];const x=a.find(y=>y.name==="Workers Builds: psipedia-sk");
+                process.stdout.write(x?x.status+"|"+(x.conclusion||""):"missing|");
+              });
+            ')"
+            if [ "${status}" = "completed|failure" ]; then
+              echo "::error::Cloudflare preview build failed"
+              exit 1
+            fi
+            if [ "${status}" = "completed|success" ]; then
+              preview_url="$(printf '%s' "${payload}" | node -e '
+                let str="";process.stdin.on("data",d=>str+=d).on("end",()=>{
+                  const a=JSON.parse(str).check_runs||[];const x=a.find(y=>y.name==="Workers Builds: psipedia-sk");
+                  const previewLine=(x?.output?.summary||"").split("Preview URL:")[1]||"";
+                  process.stdout.write(previewLine.trim().split(String.fromCharCode(10))[0].trim());
+                });
+              ')"
+              if [ -n "${preview_url}" ]; then break; fi
+            fi
+            sleep 5
+          done
+          test -n "${preview_url}"
+          echo "url=${preview_url}" >> "${GITHUB_OUTPUT}"
+      - name: Directory desktop/mobile/no-JS/keyboard screenshots
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: npx playwright test tests/e2e/directory-unified-layout.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-v2-directory-after-${{ github.run_attempt }}
+          path: .e2e-artifacts/services-v2-directory/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload test failure report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-v2-directory-failure-${{ github.run_attempt }}
+          path: |
+            test-results/playwright/
+            playwright-report/
+          if-no-files-found: ignore

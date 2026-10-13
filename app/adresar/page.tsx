@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { DirectoryPage } from "@/components/directory-page";
 import { StructuredData } from "@/components/structured-data";
 import { directoryCategories, directoryCategoryHref } from "@/lib/directory";
 import {
-  getDirectoryCategoryCounts,
-  getDirectoryCategoryPreviews,
   listPublishedDirectoryProfiles,
   parseDirectoryFilters,
 } from "@/lib/directory-store";
+import { directoryEmptyQueryRedirect } from "@/lib/directory-query";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
 
 export const dynamic = "force-dynamic";
@@ -30,15 +30,10 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const filters = parseDirectoryFilters(rawSearchParams);
   const policy = resolveListingIndexPolicy("/adresar", rawSearchParams);
-  // Only the unfiltered landing loads category previews; search and category pages remain unchanged.
-  const showOverview = filters.page === 1 && Object.values(filters).every(
-    (value) => value === "" || value === "recommended" || value === 1,
-  );
-  const [result, categoryCounts, categoryPreviews] = await Promise.all([
-    listPublishedDirectoryProfiles({ filters }),
-    getDirectoryCategoryCounts(),
-    showOverview ? getDirectoryCategoryPreviews(7) : Promise.resolve({}),
-  ]);
+  const cleanedUrl = directoryEmptyQueryRedirect("/adresar", rawSearchParams, filters);
+  if (cleanedUrl) redirect(cleanedUrl);
+  // Only one listing is rendered on the root; avoid unused overview/count queries.
+  const result = await listPublishedDirectoryProfiles({ filters });
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Služby pre psov",
     description: directoryDescription,
@@ -56,12 +51,7 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
   return (
     <>
       {schema && <StructuredData value={schema} />}
-      <DirectoryPage
-        result={result}
-        filters={filters}
-        categoryCounts={categoryCounts}
-        categoryPreviews={categoryPreviews}
-      />
+      <DirectoryPage result={result} filters={filters} />
     </>
   );
 }

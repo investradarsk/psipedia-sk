@@ -10,6 +10,7 @@ export function SectionHeroSearch({
   hidden = [],
   beforeInput,
   inputName = "q",
+  formScope,
 }: {
   action: string;
   id: string;
@@ -20,9 +21,10 @@ export function SectionHeroSearch({
   hidden?: Array<{ name: string; value: string }>;
   beforeInput?: ReactNode;
   inputName?: string;
+  formScope?: string;
 }) {
   return (
-    <form action={action} method="get" role="search" aria-label={label} data-section-hero-search>
+    <form action={action} method="get" role="search" aria-label={label} data-section-hero-search data-public-search-form={formScope}>
       {hidden.map((field) => <input type="hidden" name={field.name} value={field.value} key={field.name} />)}
       {beforeInput}
       <label htmlFor={id}>

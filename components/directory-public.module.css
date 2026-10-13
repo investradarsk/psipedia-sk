@@ -1733,3 +1733,215 @@
   .categorySwitcherWrap :global([data-public-subcategory-track]) { flex-wrap: wrap; overflow-x: visible; }
   .categorySwitcherWrap :global([data-public-subcategory-item]) { min-height: 44px; white-space: normal; }
 }
+
+/* PSIPEDIA-SERVICES-V2 (3/10): scoped unified directory layout.
+   Uses the existing PageContainer width; never affects other public sections. */
+.directorySearch {
+  min-width: 0;
+  margin-bottom: 17px;
+  padding: 14px;
+  border: 1px solid rgba(23,75,56,.12);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 25px rgba(23,53,43,.05);
+}
+.directorySearch :global([data-section-hero-search]) {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 9px;
+  align-items: stretch;
+}
+.directorySearch :global([data-section-hero-search] label) { min-width: 0; }
+.directorySearch :global([data-section-hero-search] input:not([type="hidden"])) {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid rgba(23,75,56,.17);
+  border-radius: 11px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+}
+.directorySearch :global([data-section-hero-search] button) {
+  min-height: 48px;
+  padding: 10px 24px;
+  border: 1px solid var(--forest);
+  border-radius: 11px;
+  color: #fff;
+  background: var(--forest);
+  font-weight: 850;
+  cursor: pointer;
+}
+.directorySearch :global([data-section-hero-search] :is(input,button):focus-visible) {
+  outline: 3px solid rgba(23,75,56,.3);
+  outline-offset: 2px;
+}
+.categorySwitcherWrap {
+  min-width: 0;
+  margin-bottom: 23px;
+  padding: 8px 0 9px;
+  border: 0;
+  background: transparent;
+}
+.categoryNavTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 0 6px;
+}
+.categoryNavTop > span { color: var(--muted); font-size: .78rem; font-weight: 850; }
+.categoryMore {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 13px;
+  border: 1px solid rgba(23,75,56,.15);
+  border-radius: 11px;
+  color: var(--forest);
+  background: #fff;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.categoryMore:focus-visible { outline: 3px solid rgba(23,75,56,.3); outline-offset: 2px; }
+.categorySwitcherWrap :global([data-public-subcategory-track]) {
+  width: 100%;
+  max-width: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-block: 5px 10px;
+}
+.categorySwitcherWrap[data-expanded="true"] :global([data-public-subcategory-track]) {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+.directoryColumns {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 220px minmax(0,1fr) 255px;
+  gap: 18px;
+  align-items: start;
+}
+.filterColumn, .resultsColumn, .directorySidebar { min-width: 0; }
+.filterColumn {
+  position: sticky;
+  top: calc(var(--psipedia-sticky-header-height, 76px) + 18px);
+  align-self: start;
+}
+.resultsColumn { display: grid; min-width: 0; gap: 14px; align-content: start; }
+.resultsHeading {
+  display: flex;
+  min-width: 0;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1px 0 10px;
+  border-bottom: 1px solid rgba(23,75,56,.1);
+}
+.resultsHeading > div { min-width: 0; }
+.resultsHeading h2 {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 2.3vw, 1.95rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.resultsHeading > strong {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border-radius: 999px;
+  color: var(--forest);
+  background: var(--sage-light);
+  font-size: .72rem;
+}
+.directoryColumns .listGrid:global(.directory-grid) {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 11px;
+}
+.directoryColumns .cardInner { padding: 15px; gap: 14px; }
+.directoryColumns .cardWithImage { grid-template-columns: 96px minmax(0,1fr); }
+.directoryColumns .cardImage { width: 96px; height: 82px; }
+.directoryColumns .cardTitle { font-size: 1.08rem; }
+.directorySidebar {
+  display: grid;
+  min-width: 0;
+  gap: 15px;
+  align-content: start;
+}
+.sidebarCard {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+  padding: 17px;
+  border: 1px solid rgba(23,75,56,.12);
+  border-radius: 16px;
+  background: #fff;
+}
+.sidebarEyebrow {
+  color: var(--coral-dark);
+  font-size: .69rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.sidebarCard h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.09rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+.sidebarCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .79rem;
+  line-height: 1.5;
+}
+.sidebarCard a {
+  display: inline-flex;
+  min-height: 44px;
+  width: fit-content;
+  align-items: center;
+  margin-top: 2px;
+  color: var(--forest);
+  font-size: .8rem;
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sidebarCard a:focus-visible { outline: 3px solid rgba(23,75,56,.3); outline-offset: 2px; }
+.popularityCard { min-width: 0; }
+.resultsShell { padding-bottom: clamp(36px,5vw,58px); }
+@media (max-width: 1100px) {
+  .directoryColumns { grid-template-columns: 210px minmax(0,1fr); }
+  .directorySidebar { grid-column: 1 / -1; grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 820px) {
+  .directoryColumns { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .filterColumn { position: static; }
+  .directorySidebar { grid-column: auto; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .popularityCard { grid-column: 1 / -1; }
+  .categorySwitcherWrap :global([data-public-subcategory-track]) { flex-wrap: nowrap; overflow-x: auto; }
+  .categorySwitcherWrap[data-expanded="true"] :global([data-public-subcategory-track]) { flex-wrap: wrap; overflow-x: visible; }
+}
+@media (max-width: 620px) {
+  .directorySearch { padding: 11px; }
+  .directorySearch :global([data-section-hero-search]) { grid-template-columns: minmax(0,1fr); }
+  .directorySearch :global([data-section-hero-search] button) { width: 100%; }
+  .directorySidebar { grid-template-columns: minmax(0,1fr); }
+  .popularityCard { grid-column: auto; }
+  .resultsHeading { flex-wrap: wrap; }
+  .resultsHeading > strong { white-space: normal; }
+  .directoryColumns .cardWithImage { grid-template-columns: 72px minmax(0,1fr); }
+  .directoryColumns .cardImage { width: 72px; height: 72px; }
+  .categorySwitcherWrap :global([data-public-subcategory-track]) { flex-wrap: nowrap; overflow-x: auto; }
+  .categorySwitcherWrap[data-expanded="true"] :global([data-public-subcategory-track]) { flex-wrap: wrap; overflow-x: visible; }
+}
