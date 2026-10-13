@@ -22,8 +22,10 @@ test("managed subsection writes reject technical labels and malformed slugs", ()
   assert.match(store, /adminFieldLabels/);
   assert.match(store, /normalizedLabel\.endsWith\(" adresa url"\)/);
   assert.match(store, /Adresa podsekcie musí byť platný slug bez úvodnej alebo koncovej pomlčky/);
-  assert.match(store, /repairCorruptManagedSubpages/);
-  assert.match(store, /system:data-repair/);
+  // Public reads normalize legacy subsection data in memory, without writes.
+  assert.match(store, /function parseSubpages/);
+  assert.match(store, /Public GET is strictly read-only/);
+  assert.doesNotMatch(store, /system:data-repair/);
 });
 
 test("section editor keeps subsection name and address in separate fields", () => {
