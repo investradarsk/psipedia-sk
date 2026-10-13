@@ -69,7 +69,7 @@ export default async function BreedsPage({ searchParams }: Props) {
               visual={heroVisual}
             />
           </UnifiedSectionHeroShell>
-                    <section className="page-body">
+          <section className="page-body">
             <PublicContentShell variant="listing">
             <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} actions={breedSection ? (
               <section className={styles.atlasActions} aria-labelledby="breed-actions-heading" data-breed-primary-actions>

@@ -39,10 +39,10 @@ test("canonical post-hero shells reuse PageContainer instead of inventing anothe
 });
 
 test("landing and listing variants own the canonical vertical rhythm", () => {
-  assert.match(layoutCss, /\.landing\s*\{\s*padding-top:\s*40px/);
-  assert.match(layoutCss, /\.listing\s*\{\s*padding-top:\s*24px/);
-  assert.match(layoutCss, /@media \(max-width: 820px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*32px/);
-  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*24px[\s\S]*\.listing\s*\{\s*padding-top:\s*18px/);
+  assert.match(layoutCss, /\.landing\s*\{\s*padding-top:\s*26px/);
+  assert.match(layoutCss, /\.listing\s*\{\s*padding-top:\s*16px/);
+  assert.match(layoutCss, /@media \(max-width: 820px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*24px/);
+  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*18px[\s\S]*\.listing\s*\{\s*padding-top:\s*12px/);
 });
 
 test("shared landing heading owns typography and heading-to-content spacing", () => {
@@ -50,7 +50,7 @@ test("shared landing heading owns typography and heading-to-content spacing", ()
   assert.match(layout, /data-public-landing-eyebrow/);
   assert.match(layout, /data-public-landing-heading/);
   assert.match(layoutCss, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(320px, 500px\)/);
-  assert.match(layoutCss, /gap:\s*32px/);
+  assert.match(layoutCss, /gap:\s*clamp\(12px, 2vw, 24px\)/);
   assert.match(layoutCss, /margin-bottom:\s*16px/);
   assert.match(layoutCss, /font-size:\s*\.7rem/);
   assert.match(layoutCss, /font-weight:\s*900/);

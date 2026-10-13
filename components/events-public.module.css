@@ -2035,6 +2035,6 @@
 
 /* GLOBAL-DESIGN-UNIFICATION-1: the event search follows, rather than overlaps, the hero. */
 .categorySearchShell { padding-top: 0; padding-bottom: 10px; }
-.categorySearchShell:global(.home-search-shell) { margin-top: 14px !important; }
+.categorySearchShell.categorySearchShell:global(.home-search-shell) { margin-top: 14px; }
 .categorySearchShell :global(.home-search-panel) { width: 100%; max-width: 780px; margin-inline: auto; grid-template-columns: minmax(0, 1fr); border-radius: var(--ps-radius-filter, 18px); }
-@media (max-width: 620px) { .categorySearchShell:global(.home-search-shell) { margin-top: 12px !important; } .categorySearchShell :global(.home-search-panel) { padding: 13px; } }
+@media (max-width: 620px) { .categorySearchShell.categorySearchShell:global(.home-search-shell) { margin-top: 12px; } .categorySearchShell :global(.home-search-panel) { padding: 13px; } }
