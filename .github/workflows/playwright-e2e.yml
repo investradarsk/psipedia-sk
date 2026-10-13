@@ -634,12 +634,40 @@ jobs:
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/directory-pr/mobile-html
         run: npx playwright test tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/directory-pr/mobile-results
+      - name: Verify eight responsive profile screenshots
+        if: success()
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const root = '.e2e-artifacts/services-profile-ux/';
+          for (const width of [320, 390, 430, 768, 1180, 1440]) {
+            const png = readFileSync(root + 'long-' + width + '.png');
+            assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'Invalid PNG');
+            assert.equal(png.readUInt32BE(16), width, 'Wrong screenshot width: ' + width);
+            assert.ok(png.readUInt32BE(20) >= 700, 'Screenshot too short: ' + width);
+          }
+          for (const name of ['minimum-390.png', 'veterinary-photo.png']) {
+            const png = readFileSync(root + name);
+            assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'Invalid PNG: ' + name);
+            assert.ok(png.readUInt32BE(16) > 0 && png.readUInt32BE(20) > 0, 'Empty screenshot: ' + name);
+          }
+          console.log('Verified eight real full-page PNG screenshots: six viewport widths, minimum and veterinary photo.');
+          NODE
       - name: Stop isolated local app
         if: always()
         run: |
           if [ -f .e2e-artifacts/directory-pr/server.pid ]; then
             kill "$(cat .e2e-artifacts/directory-pr/server.pid)" 2>/dev/null || true
           fi
+      - name: Upload responsive profile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-profile-ux-screenshots-${{ github.run_attempt }}
+          path: .e2e-artifacts/services-profile-ux/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload directory PR evidence on failure
         if: failure()
         uses: actions/upload-artifact@v4

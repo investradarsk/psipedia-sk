@@ -366,10 +366,32 @@ test("DIRECTORY-AI-PROFILE-SURFACE-1 JSON-LD preserves canonical graph and adds 
   }
 });
 
-test("DIRECTORY-AI-PROFILE-SURFACE-1 public component renders semantic quick facts without an Overené badge", () => {
+test("DIRECTORY-AI-PROFILE-SURFACE-1 redesigned detail retains semantic public facts without an Overené badge", () => {
   const component = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
-  assert.match(component, /Základné informácie/);
-  assert.match(component, /<dl className=\{styles\.quickFactsList\}>/);
-  assert.match(component, /<time dateTime=\{fact\.dateTime\}>/);
+  assert.match(component, /Adresa a kontakt/);
+  assert.match(component, /<dl className=\{styles\.practicalGrid\}>/);
+  assert.match(component, /<time dateTime=\{presentation\.updatedAt\}>/);
   assert.doesNotMatch(component, />Overené</);
+});
+
+
+test("presentation exposes real opening hours only when imported; it never guesses a timetable", () => {
+  const veterinary = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    importData: { "Ordinačné hodiny": "Po–Pi 9:00–17:00" },
+  }));
+  assert.equal(veterinary.openingHours, "Po–Pi 9:00–17:00");
+
+  const salon = getDirectoryDetailPresentation(profile({
+    category: "salony-a-sluzby",
+    importData: { "Otváracie hodiny": "Ut–So podľa objednávky" },
+  }));
+  assert.equal(salon.openingHours, "Ut–So podľa objednávky");
+
+  const unknown = getDirectoryDetailPresentation(profile({
+    category: "veterinari",
+    importData: { "Ordinačné hodiny": "Neoverené" },
+  }));
+  assert.equal(unknown.openingHours, null);
+  assert.equal(getDirectoryDetailPresentation(profile({ importData: {} })).openingHours, null);
 });

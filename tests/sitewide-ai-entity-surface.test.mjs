@@ -97,8 +97,8 @@ test("DIRECTORY regression keeps PR #641 semantic fact and schema contracts unch
   const detail = read("../components/directory-profile-detail.tsx");
   const presentation = read("../lib/directory-detail-presentation.ts");
   const schema = read("../lib/directory-profile-schema.ts");
-  assert.match(detail, /<h2 id="directory-basic-information">Základné informácie<\/h2>/);
-  assert.match(detail, /<dl className=\{styles\.quickFactsList\}/);
+  assert.match(detail, /<h2 id="directory-profile-contact">Adresa a kontakt<\/h2>/);
+  assert.match(detail, /<dl className=\{styles\.practicalGrid\}/);
   assert.match(presentation, /label: "Posledná aktualizácia"/);
   assert.match(schema, /"VeterinaryCare"/);
   assert.match(schema, /"Organization"/);

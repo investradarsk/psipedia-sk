@@ -141,7 +141,7 @@ INSERT INTO directory_profiles (
   0,
   '',
   NULL,
-  NULL,
+  '/images/zdravie-veterinar.webp',
   '{"Špecializácie":"Interná medicína, chirurgia","Pohotovosť":"Áno","Hospitalizácia":"Áno","RTG":"Digitálne RTG","USG":"Áno","Laboratórium":"Interné laboratórium"}',
   1,
   0,
