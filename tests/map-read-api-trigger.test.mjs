@@ -37,6 +37,8 @@ const matches = (file) => filters.some((re) => re.test(file));
 const shouldTrigger = [
   'app/api/map/route.ts',
   'app/mapa/page.tsx',
+  'app/adresar/page.tsx',
+  'app/adresar/[category]/page.tsx',
   'app/adresar/[category]/[slug]/page.tsx',
   'app/organizacie/[slug]/page.tsx',
   'app/[section]/[slug]/page.tsx',
@@ -90,8 +92,6 @@ const shouldTrigger = [
   '.github/workflows/map-read-api-ci.yml',
 ];
 const shouldSkip = [
-  'app/adresar/page.tsx',
-  'app/adresar/[category]/page.tsx', // listing route, not embedded map
   'app/adresar/[category]/kraj/[locationSlug]/page.tsx',
   'components/directory-results.tsx',
   'components/directory-card.tsx',
