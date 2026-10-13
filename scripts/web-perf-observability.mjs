@@ -188,8 +188,9 @@ function runLighthouse(bin, url, device, base) {
     '--chrome-flags=--headless --no-sandbox --disable-dev-shm-usage'];
   if (device === 'desktop') args.push('--preset=desktop');
   const started = Date.now();
+  const { CRUX_API_KEY: _unusedSecret, ...childEnv } = process.env;
   const proc = spawnSync(bin, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 1024 * 1024,
-    env: { ...process.env, CI: '1' } });
+    env: { ...childEnv, CI: '1' } });
   const elapsed_ms = Date.now() - started;
   const jsonPath = `${base}.report.json`, htmlPath = `${base}.report.html`;
   if (proc.status !== 0 || !existsSync(jsonPath)) {
