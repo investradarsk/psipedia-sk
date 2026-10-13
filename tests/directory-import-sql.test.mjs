@@ -92,11 +92,12 @@ test("directory profile importer keeps columns, placeholders and binds aligned",
     "2026-08-28T00:00:00.000Z",
     "test@psipedia.sk",
     "import:veterinari",
-    1,
+    null,
+    null,
   ];
 
-  assert.equal(placeholders.length, 28);
-  assert.equal(binds.length, 28);
+  assert.equal(placeholders.length, 29);
+  assert.equal(binds.length, 29);
   database.prepare(sql).run(...binds);
 
   const row = database.prepare(`
