@@ -3,8 +3,8 @@ import { eventTypeListingSeo, eventTypePortalHref, eventTypes } from "@/lib/even
 import { helpCategories, helpCategoryHref } from "@/lib/help";
 import { portalSections, type PortalSection, type SectionHeroConfig } from "@/lib/portal";
 
-export const SECTION_VISUAL_DESKTOP_ASPECT = [16, 7] as const;
-export const SECTION_VISUAL_MOBILE_ASPECT = [16, 6] as const;
+export const SECTION_VISUAL_DESKTOP_ASPECT = [118, 33] as const;
+export const SECTION_VISUAL_MOBILE_ASPECT = [65, 53] as const;
 export const SECTION_VISUAL_RECOMMENDED_SIZE = { width: 2000, height: 900 } as const;
 export const SECTION_VISUAL_MINIMUM_SIZE = { width: 1600, height: 720 } as const;
 export const SECTION_VISUAL_ZOOM_MIN = 1;

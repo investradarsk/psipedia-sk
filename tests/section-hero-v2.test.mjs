@@ -20,32 +20,32 @@ test("SECTION-HERO-V2 keeps one canonical hero and a homepage-style separate too
   assert.match(hero, /data-unified-section-hero-visual/);
   assert.match(hero, /data-unified-section-hero-tools/);
   assert.match(hero, /<div className=\{styles\.visual\}[\s\S]*<\/div>[\s\S]*hasTools \? \(/);
-  assert.match(heroCss, /\.visual[\s\S]*height:\s*clamp\(260px,\s*24vw,\s*330px\)/);
+  assert.match(heroCss, /\.visual[\s\S]*min-height:\s*330px/);
   assert.match(heroCss, /\.tools[\s\S]*background:\s*#fff/);
   assert.match(heroCss, /\.tools[\s\S]*margin:\s*-25px auto 0/);
 });
 
-test("SECTION-HERO-V2 keeps desktop 16:7 crop and uses low 16:6 mobile crop", () => {
-  assert.match(visualContract, /SECTION_VISUAL_DESKTOP_ASPECT = \[16, 7\]/);
-  assert.match(visualContract, /SECTION_VISUAL_MOBILE_ASPECT = \[16, 6\]/);
-  assert.match(heroCss, /aspect-ratio:\s*16 \/ 6/);
+test("SECTION-HERO-V2 preview matches real homepage hero geometry", () => {
+  assert.match(visualContract, /SECTION_VISUAL_DESKTOP_ASPECT = \[118, 33\]/);
+  assert.match(visualContract, /SECTION_VISUAL_MOBILE_ASPECT = \[65, 53\]/);
+  assert.match(heroCss, /min-height:\s*318px/);
   assert.doesNotMatch(heroCss, /aspect-ratio:\s*4 \/ 3/);
-  assert.match(admin, /mode === "desktop" \? "16 : 7" : "16 : 6"/);
-  assert.match(adminCss, /\.desktopPreview[\s\S]*aspect-ratio:\s*16 \/ 7/);
-  assert.match(adminCss, /\.mobilePreview[\s\S]*aspect-ratio:\s*16 \/ 6/);
+  assert.match(admin, /mode === "desktop" \? "1180 : 330" : "390 : 318"/);
+  assert.match(adminCss, /\.desktopPreview[\s\S]*aspect-ratio:\s*118 \/ 33/);
+  assert.match(adminCss, /\.mobilePreview[\s\S]*aspect-ratio:\s*65 \/ 53/);
 });
 
-test("mobile copy, image and tools stay separate with no photo overlay", () => {
-  assert.match(heroCss, /@media \(max-width: 767px\)/);
-  assert.match(heroCss, /\.copy[\s\S]*order:\s*1/);
-  assert.match(heroCss, /\.media[\s\S]*order:\s*2/);
-  assert.match(heroCss, /\.shade\s*\{\s*display:\s*none/);
-  assert.match(heroCss, /\.tools[\s\S]*margin:\s*12px 0 0/);
+test("mobile photo and text share one hero visual while tools remain outside", () => {
+  assert.match(heroCss, /@media \(max-width: 620px\)/);
+  assert.match(heroCss, /\.visual[\s\S]*width:\s*100dvw/);
+  assert.match(heroCss, /\.copy[\s\S]*justify-content:\s*flex-end/);
+  assert.match(heroCss, /\.shade[\s\S]*linear-gradient\(0deg/);
+  assert.match(heroCss, /\.tools[\s\S]*margin:\s*-18px 0 0/);
 });
 
 test("desktop overlay text uses light contrast while the search panel is not in its safe zone", () => {
   assert.match(heroCss, /\.breadcrumbs[\s\S]*color:\s*rgba\(255,255,255/);
-  assert.match(heroCss, /\.eyebrow[\s\S]*color:\s*rgba\(255,255,255/);
+  assert.match(heroCss, /\.eyebrow[\s\S]*color:\s*#f7d8c9/);
   assert.match(heroCss, /\.copy h1[\s\S]*color:\s*#fff/);
   assert.match(heroCss, /\.intro[\s\S]*color:\s*rgba\(255,255,255/);
   assert.match(admin, /breadcrumb · eyebrow · H1 · intro/);

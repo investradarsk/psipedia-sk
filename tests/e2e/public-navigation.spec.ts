@@ -366,17 +366,25 @@ test("PortalHub landing navigation and PortalTopic compact tabs share gutters wi
       const siteHeaderBox = await measuredBox(page.locator(".header-inner"), `${route.path}: site header`);
       const contentShellBox = await measuredBox(firstContent, `${route.path}: content shell`);
       const viewportWidth = page.viewportSize()!.width;
-      for (const [label, measured] of [
-        ["site header", siteHeaderBox],
-        ["section header", headerPublicBox],
-        ["subcategory navigation", navigationTrackBox],
-        ["content", contentShellBox],
+      for (const [label, measured, gutter] of [
+        ["site header", siteHeaderBox, 16],
+        ["section header", headerPublicBox, 12],
+        ["subcategory navigation", navigationTrackBox, 12],
+        ["content", contentShellBox, 12],
       ] as const) {
-        expect(Math.abs(measured.x - 16), `${route.path}: ${label} left gutter`).toBeLessThanOrEqual(1);
-        expect(Math.abs(viewportWidth - (measured.x + measured.width) - 16), `${route.path}: ${label} right gutter`).toBeLessThanOrEqual(1);
+        expect(Math.abs(measured.x - gutter), `${route.path}: ${label} left gutter`).toBeLessThanOrEqual(1);
+        expect(Math.abs(viewportWidth - (measured.x + measured.width) - gutter), `${route.path}: ${label} right gutter`).toBeLessThanOrEqual(1);
       }
       const breadcrumbBox = await measuredBox(breadcrumbs, `${route.path}: breadcrumbs`);
-      expect(Math.abs(breadcrumbBox.x - 16), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
+      // Homepage-style photography deliberately uses a 20px *inside-image*
+      // text safe-zone on mobile; public navigation/content shells use 12px.
+      const heroVisual = headerContainer.locator("[data-unified-section-hero-visual]");
+      if (await heroVisual.count()) {
+        const photoBox = await measuredBox(heroVisual, `${route.path}: photographic hero`);
+        expect(Math.abs(breadcrumbBox.x - photoBox.x - 20), `${route.path}: photo-overlay breadcrumb safe zone`).toBeLessThanOrEqual(1);
+      } else {
+        expect(Math.abs(breadcrumbBox.x - 12), `${route.path}: breadcrumbs gutter`).toBeLessThanOrEqual(1);
+      }
     } else {
       expect(headerPublicBox.width, `${route.path}: desktop header container exceeds 1180px`).toBeLessThanOrEqual(1180.5);
       expect(navigationTrackBox.width, `${route.path}: desktop subcategory navigation exceeds 1180px`).toBeLessThanOrEqual(1180.5);

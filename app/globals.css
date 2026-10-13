@@ -690,7 +690,7 @@ h3 {
 }
 
 .shell {
-  width: min(1180px, calc(100% - 48px));
+  width: min(var(--ps-content-max), calc(100% - 48px));
   margin-inline: auto;
 }
 

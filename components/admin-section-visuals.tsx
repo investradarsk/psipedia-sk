@@ -359,7 +359,7 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
                 <div className={styles.previewTitle}>
                   <div>
                     <strong>{mode === "desktop" ? "Desktop výrez" : "Mobilný výrez"}</strong>
-                    <small>{mode === "desktop" ? "16 : 7" : "16 : 6"} · potiahni obrázok do správnej polohy</small>
+                    <small>{mode === "desktop" ? "1180 : 330" : "390 : 318"} · potiahni obrázok do správnej polohy</small>
                   </div>
                 </div>
                 <div
@@ -375,7 +375,12 @@ export function AdminSectionVisuals({ initialVisuals, initialSections }: { initi
                       <span>SAFE ZONE</span>
                       <small>breadcrumb · eyebrow · H1 · intro</small>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className={styles.mobileSafeZone}>
+                      <span>TEXT NA FOTOGRAFII</span>
+                      <small>breadcrumb · eyebrow · H1 · intro</small>
+                    </div>
+                  )}
                   <div className={styles.dragHint}>↔ potiahnuť</div>
                 </div>
                 <div className={styles.cropControls}>
