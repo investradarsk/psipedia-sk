@@ -780,18 +780,41 @@ function placeManifestBlocks(articleBlocks: ArticleBlock[], directives: NotionMa
   return result;
 }
 
-function convertBodyBlocks(blocks: NotionBlock[]) {
-  const start = blocks.findIndex((block) => block.type === "heading_2" && isStartHeading(blockText(block)));
-  if (start < 0) {
-    throw new Error("V Notion článku chýba sekcia „Článok — draft“ (alebo kompatibilná „Osnova článku“).");
-  }
-
-  const selected: NotionBlock[] = [];
-  for (let index = start + 1; index < blocks.length; index += 1) {
+// The Editorial Hub also contains complete, markerless articles. Accept them
+// only when the page clearly starts with article prose and has a real H2 outline.
+// Never import editorial-only notes, SEO fields or Admin block manifests as prose.
+function selectNotionArticleBodyBlocks(blocks: NotionBlock[]) {
+  const markerIndex = blocks.findIndex((block) =>
+    block.type === "heading_2" && isStartHeading(blockText(block))
+  );
+  const from = markerIndex >= 0 ? markerIndex + 1 : 0;
+  let until = blocks.length;
+  for (let index = from; index < blocks.length; index += 1) {
     const block = blocks[index];
-    if (block.type === "heading_2" && isStopHeading(blockText(block))) break;
-    selected.push(block);
+    if (block.type !== "heading_2") continue;
+    const heading = blockText(block);
+    if (
+      isStopHeading(heading)
+      || isAdminManifestHeading(heading)
+      || normalizeText(heading).toLocaleLowerCase("sk") === "pred publikovaním"
+    ) {
+      until = index;
+      break;
+    }
   }
+  const selected = blocks.slice(from, until);
+  if (markerIndex < 0) {
+    const first = selected.find((block) => blockText(block).length > 0);
+    const headingCount = selected.filter((block) => block.type === "heading_2" && blockText(block)).length;
+    if (!first || first.type !== "paragraph" || blockText(first).length < 20 || headingCount < 2) {
+      throw new Error("Článok potrebuje nadpis „Článok — draft“ alebo bezpečný úvod a aspoň dva obsahové nadpisy H2.");
+    }
+  }
+  return selected;
+}
+
+function convertBodyBlocks(blocks: NotionBlock[]) {
+  const selected = selectNotionArticleBodyBlocks(blocks);
 
   let intro = "";
   let introRichText: EditorialRichTextDocument | null = null;
@@ -1231,6 +1254,11 @@ async function syncOneNotionPage(
       return "unchanged";
     }
 
+    // A locally edited draft belongs to the editor, not to the next Notion sweep.
+    // Hash-only checks cannot detect admin edits after the previous import.
+    if (existing.updatedBy !== SYNC_ACTOR) {
+      throw new Error("Prepojený koncept bol upravený v administrácii. Automatický sync ho neprepíše; zmeny treba zosúladiť ručne.");
+    }
     const preservedPayload: ManagedArticleInput = {
       ...basePayload,
       blocks: preserveArticlePromoBlocks(existing.blocks ?? [], basePayload.blocks ?? []),
@@ -1238,7 +1266,7 @@ async function syncOneNotionPage(
     const prepared = await prepareNotionMainImage(bindings, page, preservedPayload, existing);
     let updated: Awaited<ReturnType<typeof updateManagedArticle>> | null = null;
     try {
-      updated = await updateManagedArticle(existing.id, prepared.payload, SYNC_ACTOR, existing);
+      updated = await updateManagedArticle(existing.id, prepared.payload, SYNC_ACTOR, existing, { updatedAt: existing.updatedAt, status: "draft" });
     } catch (error) {
       await cleanupImageKeys(bindings.BUCKET, [prepared.uploadedKey]);
       throw error;
