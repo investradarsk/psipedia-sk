@@ -17,39 +17,24 @@ permissions:
   contents: read
 
 jobs:
-  pr-scope:
-    name: Detect CI event scope
-    runs-on: ubuntu-latest
-    outputs:
-      admin_events: ${{ steps.scope.outputs.admin_events }}
-      search: ${{ steps.scope.outputs.search }}
-      directory: ${{ steps.scope.outputs.directory }}
-      core: ${{ steps.scope.outputs.core }}
-      full_core: ${{ steps.scope.outputs.full_core }}
-      bounded_core: ${{ steps.scope.outputs.bounded_core }}
-      dependency: ${{ steps.scope.outputs.dependency }}
-      ci_control: ${{ steps.scope.outputs.ci_control }}
-      scopes: ${{ steps.scope.outputs.scopes }}
-      production_smoke: ${{ steps.scope.outputs.production_smoke }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.0
-      - id: scope
-        name: Detect changed feature areas
-        env:
-          CI_SCOPE_EVENT_NAME: ${{ github.event_name }}
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CI_SCOPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node scripts/ci-scope.mjs --github-output
-
   validate:
     name: Build, lint and unit/integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      admin_events: ${{ steps.required-scope.outputs.admin_events }}
+      search: ${{ steps.required-scope.outputs.search }}
+      directory: ${{ steps.required-scope.outputs.directory }}
+      core: ${{ steps.required-scope.outputs.core }}
+      full_core: ${{ steps.required-scope.outputs.full_core }}
+      bounded_core: ${{ steps.required-scope.outputs.bounded_core }}
+      dependency: ${{ steps.required-scope.outputs.dependency }}
+      ci_control: ${{ steps.required-scope.outputs.ci_control }}
+      scopes: ${{ steps.required-scope.outputs.scopes }}
+      production_smoke: ${{ steps.required-scope.outputs.production_smoke }}
+      seo_recovery: ${{ steps.required-scope.outputs.seo_recovery }}
+      sitemap_diagnostic: ${{ steps.required-scope.outputs.sitemap_diagnostic }}
+      lost_found: ${{ steps.required-scope.outputs.lost_found }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -127,7 +112,7 @@ jobs:
           overwrite: true
           retention-days: 2
       - name: SEO-RECOVERY-1 focused metadata and sitemap regressions
-        if: github.event_name == 'pull_request' && github.head_ref == 'codex/seo-recovery-1' && steps.required-scope.outputs.core == 'true'
+        if: github.event_name == 'pull_request' && steps.required-scope.outputs.seo_recovery == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
   pull-request-e2e:
@@ -135,10 +120,9 @@ jobs:
     if: >-
       always() &&
       needs.validate.result == 'success' &&
-      needs.pr-scope.result == 'success' &&
       (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') &&
-      needs.pr-scope.outputs.full_core == 'true'
-    needs: [validate, pr-scope]
+      needs.validate.outputs.full_core == 'true'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -295,13 +279,13 @@ jobs:
         run: npm run e2e -- tests/e2e/public-ux2a.spec.ts --grep-invert "Organizácia wraps" --project=desktop-chromium
       - name: PUBLIC-UX-FOUNDATION-V3 responsive navigation, safe-area and accessibility
         id: public_ux_foundation_v3
-        if: ${{ always() && github.head_ref == 'codex/public-ux-foundation-v3' && steps.seed.outcome == 'success' && steps.help_detail_seed.outcome == 'success' && steps.directory_seed.outcome == 'success' }}
+        if: ${{ always() && steps.seed.outcome == 'success' && steps.help_detail_seed.outcome == 'success' && steps.directory_seed.outcome == 'success' }}
         env:
           E2E_BASE_URL: http://localhost:5173
           PUBLIC_UX_FOUNDATION_V3_ARTIFACT_DIR: .e2e-artifacts/public-ux-foundation-v3
         run: npm run e2e -- tests/e2e/public-ux-foundation-v3.spec.ts --project=desktop-chromium --workers=1 --retries=0
       - name: Upload PUBLIC-UX-FOUNDATION-V3 post-change visual evidence
-        if: ${{ always() && github.head_ref == 'codex/public-ux-foundation-v3' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: public-ux-foundation-v3-after-${{ github.run_attempt }}
@@ -435,8 +419,8 @@ jobs:
 
   admin-events-e2e:
     name: Admin Events — desktop and mobile
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.pr-scope.outputs.admin_events == 'true'
-    needs: [validate, pr-scope]
+    if: github.event_name == 'pull_request' && needs.validate.outputs.admin_events == 'true'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -492,8 +476,8 @@ jobs:
 
   search-e2e:
     name: SEARCH-1 local desktop/mobile E2E
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.pr-scope.outputs.search == 'true'
-    needs: [validate, pr-scope]
+    if: github.event_name == 'pull_request' && needs.validate.outputs.search == 'true'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -566,8 +550,8 @@ jobs:
 
   directory-e2e:
     name: Directory PR E2E — desktop and mobile
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.pr-scope.outputs.directory == 'true' && needs.pr-scope.outputs.full_core != 'true'
-    needs: [validate, pr-scope]
+    if: github.event_name == 'pull_request' && needs.validate.outputs.directory == 'true' && needs.validate.outputs.full_core != 'true'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -682,8 +666,8 @@ jobs:
 
   production-smoke:
     name: Playwright production smoke (${{ matrix.label }})
-    needs: [validate, pr-scope]
-    if: always() && needs.validate.result == 'success' && needs.pr-scope.result == 'success' && needs.pr-scope.outputs.production_smoke == 'true'
+    needs: validate
+    if: always() && needs.validate.result == 'success' && needs.validate.outputs.production_smoke == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -748,7 +732,7 @@ jobs:
 
   seo-recovery-e2e:
     name: SEO-RECOVERY-1 exact-preview indexability matrix
-    if: github.event_name == 'pull_request' && github.head_ref == 'codex/seo-recovery-1'
+    if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -823,7 +807,8 @@ jobs:
 
   sitemap-production-diagnostic:
     name: Read-only production sitemap diagnostic collection
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'codex/hotfix-seo-sitemap') || github.head_ref == 'codex/seo-recovery-1')
+    if: github.event_name == 'pull_request' && needs.validate.outputs.sitemap_diagnostic == 'true'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -1090,7 +1075,7 @@ jobs:
 
   lost-found-public-e2e:
     name: LOST-FOUND-1 public submission — desktop/mobile
-    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/lost-found-1')
+    if: github.event_name == 'pull_request' && needs.validate.outputs.lost_found == 'true'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
