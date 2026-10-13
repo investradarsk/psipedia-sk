@@ -67,7 +67,7 @@ test("calendar maps elapsed scheduled posts to effective published and offers re
   assert.match(planner, /Potvrdiť plánovanie/);
   assert.match(planner, /expectedUpdatedAt: selectedArticle\.updatedAt/);
   assert.match(store, /existing\.status !== "draft"/);
-  assert.match(store, /schedulingPrecondition\.status === "draft"/);
+  assert.match(store, /return updateManagedArticle\(id, payload, editorEmail, existing, \{ updatedAt: expectedUpdatedAt, status: "draft" \}\)/);
   assert.match(api, /status: url\.searchParams\.get\("status"\) === "draft"/);
   assert.match(editPage, /calendarDay/);
   assert.match(editor, /returnToCalendar && nextStatus === "draft"/);
