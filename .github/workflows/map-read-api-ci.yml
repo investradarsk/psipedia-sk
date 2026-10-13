@@ -6,6 +6,8 @@ on:
     paths:
       - 'app/api/map/**'
       - 'app/mapa/**'
+      - 'app/adresar/page.tsx'
+      - 'app/adresar/\[category\]/page.tsx'
       - 'app/adresar/\[category\]/\[slug\]/page.tsx'
       - 'app/organizacie/\[slug\]/page.tsx'
       - 'app/\[section\]/\[slug\]/page.tsx'
