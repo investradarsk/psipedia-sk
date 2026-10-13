@@ -8,7 +8,7 @@ import {
 } from "@/lib/directory-filter-contract";
 
 type SourceRecord = Record<string, unknown>;
-const registeredKeys = new Map(directoryFilterRegistry.map((filter) => [filter.d1.key, filter]));
+const registeredKeys = new Map(directoryFilterRegistry.map((filter) => [filter.d1.key, filter] as const));
 
 function parseSourceRecord(value: string): SourceRecord {
   let parsed: unknown;
