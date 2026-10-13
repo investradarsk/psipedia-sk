@@ -167,7 +167,7 @@ export function DirectoryProfileDetail({
                 </div>
               ))}
             </dl>
-            {updatedAt ? <p className={styles.updatedAt}>{updatedAt}</p> : null}
+            {updatedAt ? <p className={styles.updatedAt}><time dateTime={presentation.updatedAt}>{updatedAt}</time></p> : null}
           </section>
         ) : null}
 

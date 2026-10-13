@@ -366,11 +366,11 @@ test("DIRECTORY-AI-PROFILE-SURFACE-1 JSON-LD preserves canonical graph and adds 
   }
 });
 
-test("DIRECTORY-AI-PROFILE-SURFACE-1 public component renders semantic quick facts without an Overené badge", () => {
+test("DIRECTORY-AI-PROFILE-SURFACE-1 redesigned detail retains semantic public facts without an Overené badge", () => {
   const component = fs.readFileSync(new URL("../components/directory-profile-detail.tsx", import.meta.url), "utf8");
-  assert.match(component, /Základné informácie/);
-  assert.match(component, /<dl className=\{styles\.quickFactsList\}>/);
-  assert.match(component, /<time dateTime=\{fact\.dateTime\}>/);
+  assert.match(component, /Adresa a kontakt/);
+  assert.match(component, /<dl className=\{styles\.practicalGrid\}>/);
+  assert.match(component, /<time dateTime=\{presentation\.updatedAt\}>/);
   assert.doesNotMatch(component, />Overené</);
 });
 
