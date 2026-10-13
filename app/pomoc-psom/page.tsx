@@ -1,24 +1,24 @@
 import type { Metadata } from "next";
 import { StructuredData } from "@/components/structured-data";
 import { HelpOverview, type HelpOverviewItem, type HelpOverviewSection } from "@/components/help-overview";
-import { getPublishedHelpCases } from "@/lib/help-store";
-import { getPublicAdoptions } from "@/lib/adoption-store";
-import { listPublicDogReports } from "@/lib/lost-found-dog-store";
+import {
+  getHelpLandingSnapshot,
+  type HelpLandingAdoptionItem,
+  type HelpLandingGenericItem,
+  type HelpLandingReportItem,
+} from "@/lib/help-landing-store";
 import {
   getHelpCategory,
   helpCategories,
   helpCaseHref,
   helpCategoryHref,
-  type HelpCase,
   type HelpCategorySlug,
 } from "@/lib/help";
 import {
   dogReportHref,
   dogReportTitle,
   dogReportTypeShortLabel,
-  type PublicDogReport,
 } from "@/lib/lost-found-dogs";
-import type { AdoptionDog } from "@/lib/adoption";
 import { buildCollectionPageJsonLd, coreLandingSeoFallback } from "@/lib/listing-seo";
 import { buildPageMetadata } from "@/lib/seo";
 
@@ -42,7 +42,7 @@ function placeMeta(...parts: Array<string | null | undefined>) {
   return parts.map((part) => part?.trim()).filter(Boolean).join(" · ");
 }
 
-function genericPreview(item: HelpCase): HelpOverviewItem {
+function genericPreview(item: HelpLandingGenericItem): HelpOverviewItem {
   const category = getHelpCategory(item.category);
   return {
     id: `help:${item.category}:${item.id}`,
@@ -58,7 +58,7 @@ function genericPreview(item: HelpCase): HelpOverviewItem {
   };
 }
 
-function adoptionPreview(dog: AdoptionDog): HelpOverviewItem {
+function adoptionPreview(dog: HelpLandingAdoptionItem): HelpOverviewItem {
   return {
     id: `adoption:${dog.id}`,
     href: `/pomoc-psom/adopcia/${dog.slug}`,
@@ -72,7 +72,7 @@ function adoptionPreview(dog: AdoptionDog): HelpOverviewItem {
   };
 }
 
-function reportPreview(report: PublicDogReport): HelpOverviewItem {
+function reportPreview(report: HelpLandingReportItem): HelpOverviewItem {
   return {
     id: `report:${report.type}:${report.id}`,
     href: dogReportHref(report),
@@ -88,37 +88,37 @@ function reportPreview(report: PublicDogReport): HelpOverviewItem {
 }
 
 export default async function HelpRootPage() {
-  const [items, adoptions, lost, found] = await Promise.all([
-    getPublishedHelpCases(),
-    getPublicAdoptions({ page: 1 }),
-    listPublicDogReports("LOST", { page: 1, pageSize: 6 }),
-    listPublicDogReports("FOUND", { page: 1, pageSize: 6 }),
-  ]);
+  const { generic, organizations, adoptions, reports } = await getHelpLandingSnapshot();
 
-  const activeGeneric = (category: HelpCategorySlug) =>
-    items.filter((item) => item.category === category && !item.resolved);
-
-  const lostFoundPreview = [...lost.items, ...found.items]
+  // Original overview combines six per type before sorting by event date.
+  // Keep LOST before FOUND on equal dates to preserve the stable tie order.
+  const lostFoundPreview = [
+    ...reports.items.filter((report) => report.type === "LOST"),
+    ...reports.items.filter((report) => report.type === "FOUND"),
+  ]
     .sort((left, right) => right.eventDate.localeCompare(left.eventDate))
     .slice(0, 6)
     .map(reportPreview);
 
+  const genericPreviewFor = (category: HelpCategorySlug) =>
+    generic.items.filter((item) => item.category === category).map(genericPreview);
+
   const previewByCategory: Partial<Record<HelpCategorySlug, HelpOverviewItem[]>> = {
-    adopcia: adoptions.items.slice(0, 6).map(adoptionPreview),
-    utulky: activeGeneric("utulky").slice(0, 6).map(genericPreview),
-    "docasna-opatera": activeGeneric("docasna-opatera").slice(0, 6).map(genericPreview),
-    zbierky: activeGeneric("zbierky").slice(0, 6).map(genericPreview),
+    adopcia: adoptions.items.map(adoptionPreview),
+    utulky: organizations.items.map(genericPreview),
+    "docasna-opatera": genericPreviewFor("docasna-opatera"),
+    zbierky: genericPreviewFor("zbierky"),
     "stratene-a-najdene": lostFoundPreview,
-    dobrovolnictvo: activeGeneric("dobrovolnictvo").slice(0, 6).map(genericPreview),
+    dobrovolnictvo: genericPreviewFor("dobrovolnictvo"),
   };
 
   const categoryCounts: Partial<Record<HelpCategorySlug, number>> = {
-    adopcia: adoptions.pagination.total,
-    utulky: activeGeneric("utulky").length,
-    "docasna-opatera": activeGeneric("docasna-opatera").length,
-    zbierky: activeGeneric("zbierky").length,
-    "stratene-a-najdene": lost.total + found.total,
-    dobrovolnictvo: activeGeneric("dobrovolnictvo").length,
+    adopcia: adoptions.count,
+    utulky: organizations.count,
+    "docasna-opatera": generic.counts["docasna-opatera"],
+    zbierky: generic.counts.zbierky,
+    "stratene-a-najdene": reports.counts.LOST + reports.counts.FOUND,
+    dobrovolnictvo: generic.counts.dobrovolnictvo,
   };
 
   const sections: HelpOverviewSection[] = helpCategories.map((category) => ({
