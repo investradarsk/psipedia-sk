@@ -146,6 +146,40 @@ test("hourly worker invokes the guarded sync sweep", () => {
 });
 
 
+test("hourly article sync survives unrelated Promise.all rejections and logs runtime binding health", () => {
+  const start = workerSource.indexOf("const notionArticleRunId = controller.scheduledTime ?? null;");
+  const dispatch = workerSource.indexOf("const [summary, editorial, partnerNotifications", start);
+  assert.ok(start > 0 && dispatch > start, "article task must be isolated before sibling sweeps");
+  const isolated = workerSource.slice(start, dispatch);
+  const siblings = workerSource.slice(dispatch, workerSource.indexOf("    // Run push after the editorial sweep", dispatch));
+
+  assert.match(isolated, /notionArticleTask = observeScheduledAutomation\(/);
+  assert.match(isolated, /execute: \(\) => runNotionArticleSyncSweep\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.match(isolated, /_ctx\.waitUntil\(notionArticleTask\)/);
+  assert.match(isolated, /\.then\(\(result\) =>/);
+  assert.match(isolated, /\.catch\(\(error\) =>/);
+  assert.match(isolated, /event: "notion_article_sync_started"/);
+  assert.match(isolated, /event: "notion_article_sync_sweep"/);
+  assert.match(isolated, /notionToken: Boolean\(env\.NOTION_API_TOKEN\?\.trim\(\)\)/);
+  assert.match(isolated, /database: Boolean\(env\.DB\)/);
+  assert.match(isolated, /bucket: Boolean\(env\.BUCKET\)/);
+  assert.match(isolated, /dataSourceId: Boolean\(env\.NOTION_ARTICLES_DATA_SOURCE_ID\?\.trim\(\)\)/);
+  assert.doesNotMatch(siblings, /notionArticles|runNotionArticleSyncSweep/);
+  assert.match(workerSource, /return new Date\(controller\.scheduledTime\)\.getUTCMinutes\(\) === 0/);
+  assert.match(workerSource, /const ADMIN_PUSH_CRON = "\*\/5 \* \* \* \*"/);
+});
+
+test("article sync keeps the original no-publish, no-duplicate and status writeback protections", () => {
+  assert.match(syncSource, /status: "draft"/);
+  assert.match(syncSource, /if \(existing\.status !== "draft"\)/);
+  assert.match(syncSource, /article_id = excluded\.article_id/);
+  assert.match(migrationSource, /notion_page_id TEXT PRIMARY KEY/);
+  assert.match(migrationSource, /article_id INTEGER NOT NULL UNIQUE/);
+  assert.match(syncSource, /await updateNotionSyncState\(bindings, page\.id, \{/);
+  assert.match(syncSource, /"Sync stav": \{ select: \{ name: values\.state \} \}/);
+  assert.match(syncSource, /if \(values\.articleId\) properties\["Psipedia ID"\]/);
+});
+
 test("publishing a Notion-linked draft writes publication metadata back to Notion", () => {
   assert.match(syncSource, /writeBackPublishedArticleToNotion/);
   assert.match(syncSource, /SELECT notion_page_id FROM article_notion_sync WHERE article_id = \?/);
