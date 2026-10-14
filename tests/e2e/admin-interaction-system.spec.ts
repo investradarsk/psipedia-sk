@@ -17,7 +17,7 @@ test.beforeEach(async ({ page, baseURL }) => {
 });
 
 test("shared bulk interaction hierarchy is accessible on desktop and mobile", async ({ page }, testInfo) => {
-  const response = await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(400);
 
@@ -64,7 +64,7 @@ test("shared bulk interaction hierarchy is accessible on desktop and mobile", as
 });
 
 test("modal loops Tab and Shift+Tab without focusing the inert background", async ({ page }) => {
-  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
   await page.getByRole("checkbox", { name: /^Vybrať článok / }).first().check();
   const opener = page.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
   await opener.click();
@@ -94,7 +94,7 @@ test("modal loops Tab and Shift+Tab without focusing the inert background", asyn
 });
 
 test("modal ignores hidden and disabled controls and does not steal nested modal focus", async ({ page }) => {
-  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
   await page.getByRole("checkbox", { name: /^Vybrať článok / }).first().check();
   const opener = page.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
   await opener.click();
