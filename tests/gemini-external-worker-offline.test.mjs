@@ -270,6 +270,15 @@ test("Lost/Found E2E LOST: exact parent, DRAFT-only properties, one signed callb
   for (const key of ["Slug","Psipedia ID","Latitude","Longitude","Publikované",
     "Verejný kontakt","Vyriešené","URL Psipedia"]) assert.equal(page.properties[key], undefined);
 });
+test("Lost/Found signed callback errors never retry or create extra concepts",()=>{
+  for (const scenario of ["callback_bad_signature","callback_503"]) {
+    const run=runOffline(scenario,"help.stratene-a-najdene","1");
+    assert.equal(run.exitCode,1,run.stderr);
+    assert.equal(run.counts.notionPosts,1);
+    assert.equal(run.counts.callbacks,1);
+    assert.match(run.stderr,/Callback failed:/);
+  }
+});
 test("Lost/Found E2E FOUND: same canonical database, never published", () => {
   const run = runOffline("lost_found", LF, "1");
   assert.equal(run.exitCode, 0, run.stderr);
