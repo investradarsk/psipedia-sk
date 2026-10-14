@@ -34,14 +34,16 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
 
   await page.goto("/podujatia");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
-  await page.getByRole("link", { name: "Ukončené", exact: true }).click();
+  // This preview smoke checks canonical, URL-backed period links and their server
+  // responses. The separate filter-state test below exercises client-side clicks.
+  const past = page.getByRole("link", { name: "Ukončené", exact: true });
+  await expect(past).toHaveAttribute("href", "/podujatia?termin=ukoncene");
+  await page.goto("/podujatia?termin=ukoncene");
   await expect(page).toHaveURL(/termin=ukoncene/);
-  // The URL can update before the new server-rendered filter state arrives.
-  // Wait for the active chip before starting the next navigation.
   await expect(page.getByRole("link", { name: "Ukončené", exact: true })).toHaveAttribute("aria-current", "page");
   const upcoming = page.getByRole("link", { name: "Najbližšie", exact: true });
   await expect(upcoming).toHaveAttribute("href", "/podujatia");
-  await upcoming.click();
+  await page.goto("/podujatia");
   await expect(page).not.toHaveURL(/termin=/);
 
   const organizer = page.locator("[data-public-context-banner]");
