@@ -787,14 +787,15 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
 
     const now = new Date().toISOString();
     const reasonCode = classification.reasonCode ?? "PRIVACY_CLASSIFICATION_MISSING";
-    await db.prepare(`
+    const casResult = await db.prepare(`
       UPDATE geo_points SET public_visibility=NULL, public_precision=NULL,
         latitude=NULL, longitude=NULL, resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='NEEDS_REVIEW', last_error_code=?, last_error_at=?, retry_after_at=NULL,
         attempt_count=0, last_geocoded_at=NULL, updated_at=?
       WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
-    `).bind(reviewState.sourceFingerprint, reasonCode, now, now, current.id).run();
+    `).bind(reviewState.sourceFingerprint, reasonCode, now, now, current.id, ...geoCasArgs).run();
+    if (casResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
     const point = await getGeoPointForTarget(targetType, targetIdValue, db);
     if (point) {
@@ -842,7 +843,7 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
   const now = new Date().toISOString();
   const casResult = await db.prepare(`
     UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
-      geocode_status='STALE', last_error_code=NULL, last_error_at=NULL, updated_at=? WHERE id=?
+      geocode_status='STALE', last_error_code=NULL, last_error_at=NULL, updated_at=? WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
   `).bind(
     desiredState.sourceFingerprint,
     desiredState.query,
