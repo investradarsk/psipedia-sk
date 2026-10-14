@@ -1,0 +1,112 @@
+[
+  {
+    "route": "/",
+    "status": 200,
+    "title": "Psipedia.sk – rozumej svojmu psovi",
+    "h1": [
+      "Rozumej svojmu psovi.Každý deň o trochu viac."
+    ],
+    "canonical": "https://psipedia.sk/",
+    "description": "Psipedia.sk je slovenský portál o psoch: rady o zdraví a výcviku, atlas plemien, veterinári, psie salóny, podujatia a pomoc psom."
+  },
+  {
+    "route": "/plemena",
+    "status": 200,
+    "title": "Plemená psov – atlas a informácie | Psipedia.sk",
+    "h1": [
+      "Plemená"
+    ],
+    "canonical": "https://psipedia.sk/plemena",
+    "description": "Atlas plemien psov podľa FCI s informáciami o povahe, potrebách, zdraví, pohybe, výcviku a vhodnosti do rodiny."
+  },
+  {
+    "route": "/steniatka",
+    "status": 200,
+    "title": "Šteniatka | Psipedia.sk",
+    "h1": [
+      "Šteniatka"
+    ],
+    "canonical": "https://psipedia.sk/steniatka",
+    "description": "Od rozhodnutia až po prvý rok: pokojný a praktický sprievodca životom so šteniatkom."
+  },
+  {
+    "route": "/starostlivost",
+    "status": 200,
+    "title": "Zdravie a starostlivosť | Psipedia.sk",
+    "h1": [
+      "Zdravie a starostlivosť"
+    ],
+    "canonical": "https://psipedia.sk/starostlivost",
+    "description": "Zdravie, výživa, výcvik aj správanie vysvetlené v súvislostiach."
+  },
+  {
+    "route": "/aktivity",
+    "status": 200,
+    "title": "Výcvik a aktivity | Psipedia.sk",
+    "h1": [
+      "Výcvik a aktivity"
+    ],
+    "canonical": "https://psipedia.sk/aktivity",
+    "description": "Psie športy, výlety, tréning aj cestovanie vybrané podľa potrieb konkrétneho psa."
+  },
+  {
+    "route": "/adresar",
+    "status": 200,
+    "title": "Služby pre psov – adresár Slovensko | Psipedia.sk",
+    "h1": [
+      "Služby pre psov"
+    ],
+    "canonical": "https://psipedia.sk/adresar",
+    "description": "Nájdite veterinárov, trénerov, psie salóny, hotely, opatrovanie, kluby a ďalšie služby pre psov podľa lokality."
+  },
+  {
+    "route": "/podujatia",
+    "status": 200,
+    "title": "Podujatia pre psov na Slovensku | Psipedia.sk",
+    "h1": [
+      "Podujatia"
+    ],
+    "canonical": "https://psipedia.sk/podujatia",
+    "description": "Kalendár výstav, pretekov, skúšok, tréningov, seminárov a stretnutí so psami na Slovensku."
+  },
+  {
+    "route": "/pomoc-psom",
+    "status": 200,
+    "title": "Pomoc psom – adopcie a stratené psy | Psipedia.sk",
+    "h1": [
+      "Pomoc psom"
+    ],
+    "canonical": "https://psipedia.sk/pomoc-psom",
+    "description": "Adopcie, stratené a nájdené psy, útulky, dočasná opatera, zbierky a ďalšie možnosti pomoci psom na Slovensku."
+  },
+  {
+    "route": "/recenzie",
+    "status": 200,
+    "title": "Recenzie a testy | Psipedia.sk",
+    "h1": [
+      "Recenzie a testy"
+    ],
+    "canonical": "https://psipedia.sk/recenzie",
+    "description": "Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste."
+  },
+  {
+    "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+    "status": 200,
+    "title": "Kedy ísť so psom k veterinárovi hneď a kedy počkať | Psipedia.sk",
+    "h1": [
+      "Kedy ísť so psom k veterinárovi hneď a kedy počkať"
+    ],
+    "canonical": "https://psipedia.sk/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+    "description": "Prehľad varovných príznakov, pri ktorých nečakať do rána, a situácií vhodných na pokojné sledovanie."
+  },
+  {
+    "route": "/plemena/australsky-ovciak",
+    "status": 200,
+    "title": "Austrálsky ovčiak – povaha, zdravie a výcvik | Psipedia.sk",
+    "h1": [
+      "Austrálsky ovčiak"
+    ],
+    "canonical": "https://psipedia.sk/plemena/australsky-ovciak",
+    "description": "Austrálsky ovčiak: povaha, veľkosť, zdravie, potreba pohybu, výcvik a praktické informácie pre život s plemenom."
+  }
+]
