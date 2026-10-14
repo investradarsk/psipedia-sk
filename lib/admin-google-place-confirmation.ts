@@ -83,7 +83,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       candidate: selected, intent: "ADMIN_RECONFIRM", expectedRevision: before.updatedAt,
     });
     if (!preview.readyForAuthorization) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED: " + preview.reviewReasons.join("; "));
-    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt);
+    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt, originalGeoRevision);
     if (!profile) throw new Error("Profil sa nenašiel.");
     sourceMutated = true;
   }
@@ -92,7 +92,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     const before = await getManagedEventById(effectiveTargetId);
     if (!before) throw new Error("Podujatie sa nenašlo.");
     if ([before.city, before.region].some((value) => value?.trim().toLowerCase() === "online")) throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
-    const updatedEvent = await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt);
+    const updatedEvent = await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt, undefined, originalGeoRevision);
     if (!updatedEvent) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     sourceMutated = true;
   }
@@ -115,6 +115,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
         region: effectiveSource.region ?? "",
         countryCode: effectiveSource.countryCode ?? "SK",
       },
+      originalGeoRevision,
     );
     if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
     sourceMutated = true;
