@@ -42,6 +42,13 @@ import {
 
 export type ArticleStatus = "draft" | "scheduled" | "published";
 
+export class ArticleUpdateConflictError extends Error {
+  constructor() {
+    super("Článok sa medzičasom zmenil. Obnov editor a skontroluj nové údaje pred uložením.");
+    this.name = "ArticleUpdateConflictError";
+  }
+}
+
 export class ArticleRescheduleConflictError extends Error {
   constructor() {
     super("Článok sa medzičasom zmenil alebo už nie je dostupný na plánovanie. Obnov detail a skús to znova.");
@@ -1125,7 +1132,9 @@ export async function updateManagedArticle(
 
   const input = await normalizeInput(payload, database, existing.authorProfileId);
   const topicIds = payload.topicIds === undefined ? undefined : await validateArticleTopicIds(database, payload.topicIds);
-  const now = new Date().toISOString();
+  // Give every successful update a version newer than the one read.
+  const previousMillis = Date.parse(existing.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previousMillis) ? previousMillis + 1 : 0)).toISOString();
   const publishedAt = input.status === "published"
     ? input.publishedAt ?? existing.publishedAt ?? now
     : input.status === "scheduled"
@@ -1143,7 +1152,9 @@ export async function updateManagedArticle(
       published_at = ?, updated_by = ?, content_updated_at = ?, show_updated_label = ?,
       seo_title = ?, meta_description = ?, canonical_url = ?, noindex = ?, focus_keyword = ?,
       og_title = ?, og_description = ?, og_image_url = ?, og_image_key = ?
-    WHERE id = ?${schedulingPrecondition ? schedulingPrecondition.status === "draft" ? " AND status = 'draft' AND updated_at = ?" : " AND status = 'scheduled' AND updated_at = ?" : ""}
+    WHERE id = ?
+      AND (? IS NULL OR updated_at = ?)
+      AND (? IS NULL OR status = ?)
     RETURNING *
   `).bind(
     input.slug,
@@ -1191,15 +1202,22 @@ export async function updateManagedArticle(
     input.ogImageUrl,
     input.ogImageKey,
     id,
-    ...(schedulingPrecondition ? [schedulingPrecondition.updatedAt] : []),
+    schedulingPrecondition?.updatedAt ?? null,
+    schedulingPrecondition?.updatedAt ?? null,
+    schedulingPrecondition?.status ?? null,
+    schedulingPrecondition?.status ?? null,
   );
 
-  const statements = [articleStatement];
-  if (topicIds !== undefined) statements.push(...replaceArticleTopicStatements(database, id, topicIds, now));
-  const [articleResult] = await database.batch(statements);
+  // The compare-and-swap must succeed before changing any related records.
+  // D1 batch commits even when UPDATE RETURNING returns no rows.
+  const [articleResult] = await database.batch([articleStatement]);
   const result = (articleResult.results?.[0] ?? null) as unknown as ArticleRow | null;
-  if (!result && schedulingPrecondition) throw new ArticleRescheduleConflictError();
+  if (!result && schedulingPrecondition?.status) throw new ArticleRescheduleConflictError();
+  if (!result && schedulingPrecondition) throw new ArticleUpdateConflictError();
   if (!result) return null;
+  if (topicIds !== undefined) {
+    await database.batch(replaceArticleTopicStatements(database, id, topicIds, now));
+  }
   await syncArticleBreeds(database, id, input.relatedBreedIds, editorEmail);
   const topics = topicIds === undefined ? existing.topics : await getArticleTopicsByArticleId(database, id);
   return rowToManagedArticle(result, input.relatedBreedIds, topics);
@@ -1269,7 +1287,7 @@ export async function rescheduleManagedArticle(
   if (existing.status === "draft") {
     return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt, status: "draft" });
   }
-  return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt });
+  return updateManagedArticle(id, payload, editorEmail, existing, { updatedAt: expectedUpdatedAt, status: "scheduled" });
 }
 
 export type ArticleContentQaAuditFinding = ArticleQaIssue & {

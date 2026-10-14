@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+// Keep article/Notion field preservation on the existing focused CI path.
+import "./article-editor-notion-parity.test.mjs";
+
 import {
   normalizeEditorialAuthorProfileInput,
   slugifyEditorialAuthorName,

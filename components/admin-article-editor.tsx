@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
 import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
+import { preservedEditorArticleMetadata } from "@/components/admin-article-editor-preserve";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
 import { AdminActionButton, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
 import { ArticleBlocks } from "@/components/article-blocks";
@@ -96,6 +97,10 @@ export function AdminArticleEditor({
     initialAreas[0]?.slug ?? "",
   );
   const currentAreas = areasFor(portalSection);
+  // Keep an imported or legacy area selectable even if it is absent from current public options.
+  const originalAreaHidden = article?.portalSection === portalSection
+    && Boolean(article?.portalSubpage)
+    && !currentAreas.some((area) => area.slug === article?.portalSubpage);
   const [newsCategory, setNewsCategory] = useState<NewsCategorySlug>(article?.newsCategory ?? "zo-sveta");
   const [accent, setAccent] = useState(article?.accent ?? "forest");
   const [author, setAuthor] = useState(article?.author ?? "Redakcia Psipedia");
@@ -143,6 +148,7 @@ export function AdminArticleEditor({
   const [previewOpen, setPreviewOpen] = useState(true);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
+  const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
   const allowNavigationRef = useRef(false);
   const resultRef = useRef<HTMLDivElement>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -229,12 +235,17 @@ export function AdminArticleEditor({
     const effectivePublishedAt = nextStatus === "published" && requestedPublishedAt && requestedPublishedAt.getTime() > Date.now()
       ? new Date()
       : requestedPublishedAt;
+    const preservedMetadata = preservedEditorArticleMetadata(article, {
+      portalSection,
+      portalSubpage: currentAreas.length || originalAreaHidden ? portalSubpage : null,
+      imageUrl: imageUrl || null,
+    });
     const payload = {
       title,
       slug,
       category,
       portalSection,
-      portalSubpage: currentAreas.length ? portalSubpage : null,
+      portalSubpage: preservedMetadata.portalSubpage,
       newsCategory: portalSection === "novinky" ? newsCategory : null,
       accent,
       author,
@@ -247,9 +258,9 @@ export function AdminArticleEditor({
       takeawayRichText,
       imageUrl: imageUrl || null,
       imageKey: imageKey || null,
-      imageDisplay: "auto" as const,
-      imageFocusX: null,
-      imageFocusY: null,
+      imageDisplay: preservedMetadata.imageDisplay,
+      imageFocusX: preservedMetadata.imageFocusX,
+      imageFocusY: preservedMetadata.imageFocusY,
       thumbnailImageDisplay,
       detailImageDisplay,
       imageAlt: imageAlt || null,
@@ -258,8 +269,8 @@ export function AdminArticleEditor({
       imageCreditUrl: imageCreditUrl || null,
       status: nextStatus,
       blocks,
-      sections: [],
-      sources: [],
+      sections: preservedMetadata.sections,
+      sources: preservedMetadata.sources,
       publishedAt: effectivePublishedAt?.toISOString() ?? null,
       contentUpdatedAt: contentUpdatedAt ? new Date(`${contentUpdatedAt}T12:00:00`).toISOString() : null,
       showUpdated,
@@ -274,6 +285,7 @@ export function AdminArticleEditor({
       ogImageKey: ogImageKey || null,
       relatedBreedIds,
       topicIds,
+      expectedUpdatedAt: lastSavedUpdatedAtRef.current ?? undefined,
     };
 
     let hasQaIssues = false;
@@ -300,6 +312,7 @@ export function AdminArticleEditor({
       }
 
       setStatus(data.article.status);
+      lastSavedUpdatedAtRef.current = data.article.updatedAt;
       setPublishedAt(dateTimeValue(data.article.publishedAt));
       setEditorDirty(false);
       setMessage(nextStatus === "published" ? (portalSection === "novinky" ? "Novinka je publikovaná na webe." : "Článok je publikovaný na webe.") : nextStatus === "scheduled" ? "Publikovanie je naplánované." : "Koncept je bezpečne uložený.");
@@ -346,7 +359,7 @@ export function AdminArticleEditor({
   return (
     <div className={`admin-editor ${previewOpen ? "has-preview" : ""}`}>
       {returnToCalendar && <button type="button" className="admin-secondary-action" onClick={cancelEditing}>← Späť do kalendára</button>}
-      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save(status); }}>
         <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora článku" />
         {qaIssues.length > 0 && (
           <section className="admin-form-card" aria-live="polite" aria-label="Publikačná kontrola">
@@ -383,6 +396,7 @@ export function AdminArticleEditor({
 
         <section id="article-publish" tabIndex={-1} className="admin-form-card">
           <div className="admin-card-heading"><div><span>01</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
+          <p data-article-current-status aria-live="polite">Aktuálny stav: {status === "published" ? "Publikovaný" : status === "scheduled" ? "Naplánovaný" : "Koncept"}</p>
           <div className="admin-field-grid">
             <div className="admin-field">
               <label htmlFor="article-published-at">Dátum a čas publikovania</label>
@@ -438,10 +452,11 @@ export function AdminArticleEditor({
               value={topicIds}
               onChange={(ids) => { setTopicIds(ids); setEditorDirty(true); }}
             />
-            {portalSection !== "novinky" && portalSection !== "clanky" && currentAreas.length > 0 && (
+            {portalSection !== "novinky" && portalSection !== "clanky" && (currentAreas.length > 0 || originalAreaHidden) && (
               <div className="admin-field">
                 <label htmlFor="article-portal-area">Oblasť {managedSections.find((section) => section.slug === portalSection)?.label ?? "sekcie"}</label>
                 <select id="article-portal-area" value={portalSubpage} onChange={(event) => setPortalSubpage(event.target.value)} required>
+                  {originalAreaHidden && <option value={article?.portalSubpage}>{`Pôvodná oblasť (${article?.portalSubpage})`}</option>}
                   {currentAreas.map((area) => <option value={area.slug} key={area.slug}>{area.label}</option>)}
                 </select>
                 <small>Článok sa zobrazí v zvolenej oblasti tejto sekcie.</small>
@@ -588,7 +603,7 @@ export function AdminArticleEditor({
           </div>
           <div>
             {status === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
-            <AdminActionButton variant="secondary" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
+            <AdminActionButton variant="secondary" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : status === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
             <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>{saving ? "Ukladám…" : "Naplánovať publikovanie"}</AdminActionButton>
             <AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť a aktualizovať" : `Publikovať ${portalSection === "novinky" ? "novinku" : "článok"}`}</AdminActionButton>
           </div>
