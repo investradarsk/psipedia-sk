@@ -315,8 +315,8 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
   assert.match(categoryPage, /description: category\.intro/);
 
   assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
-  assert.match(results, /<Link href=\{pageHref\(basePath, filters, result\.page - 1\)\}>/);
-  assert.match(results, /<Link href=\{pageHref\(basePath, filters, result\.page \+ 1\)\}>/);
+  assert.match(results, /<Link href=\{directoryPageHref\(basePath, filters, result\.page - 1\)\} rel="prev">/);
+  assert.match(results, /<Link href=\{directoryPageHref\(basePath, filters, result\.page \+ 1\)\} rel="next">/);
   assert.match(directoryPage, /href=\{directoryCategoryHref\(category\)\}/);
   assert.match(detail, /href=\{\`\/adresar\/\$\{presentation\.category\}\`\}/);
 });
