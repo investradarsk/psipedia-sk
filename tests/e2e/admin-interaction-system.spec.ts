@@ -23,7 +23,7 @@ async function expectWrappedFocus(page: Page, dialog: Locator) {
   await last.focus();
   await page.keyboard.press("Tab");
   await expect(first).toBeFocused();
-  expect(await page.evaluate(() => document.activeElement?.closest("dialog")?.open)).toBe(true);
+  expect(await page.evaluate(() => (document.activeElement?.closest("dialog") as HTMLDialogElement | null)?.open)).toBe(true);
 }
 
 test.beforeEach(async ({ page, baseURL }) => {
