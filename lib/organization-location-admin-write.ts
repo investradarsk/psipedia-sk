@@ -193,6 +193,7 @@ export async function updateOrganizationLocationFromGooglePlace(
   },
   actorRef: string,
   database?: AdoptionD1Database,
+  expectedAddress?: { address: string; city: string; district: string; region: string; countryCode: string },
 ) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
   if (!Number.isSafeInteger(locationId) || locationId <= 0) return null;
@@ -201,6 +202,11 @@ export async function updateOrganizationLocationFromGooglePlace(
   if (!organization) return null;
   const existing = await getOrganizationLocationAdmin(organizationId, locationId, db);
   if (!existing) return null;
+  const revision = expectedAddress ?? existing;
+  if (["address", "city", "district", "region", "countryCode"].some((key) =>
+    String(existing[key as keyof typeof existing] ?? "") !== String(revision[key as keyof typeof revision] ?? ""))) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
 
   // Google owns location only. Organization identity, contacts, website,
   // social links, descriptions and fundraising data live in other fields/tables
@@ -209,6 +215,7 @@ export async function updateOrganizationLocationFromGooglePlace(
     UPDATE organization_locations
     SET address = ?, city = ?, district = ?, region = ?, country_code = ?
     WHERE id = ? AND organization_id = ?
+      AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?
   `).bind(
     place.formattedAddress.trim(),
     place.address?.locality?.trim() || place.address?.sublocality?.trim() || existing.city,
@@ -217,15 +224,17 @@ export async function updateOrganizationLocationFromGooglePlace(
     place.address?.countryCode?.trim().toUpperCase() || existing.countryCode || "SK",
     locationId,
     organizationId,
+    revision.address, revision.city, revision.district, revision.region, revision.countryCode,
   ).run() as RunResult;
-  if (resultChanges(result) < 1) return null;
+  if (resultChanges(result) < 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
-  await reconcileGeoAfterSourceMutation({
-    targetType: "ORGANIZATION_LOCATION",
-    targetId: locationId,
-    actorRef,
-    actorType: "ADMIN",
-  }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
+  try {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "ORGANIZATION_LOCATION", targetId: locationId, actorRef, actorType: "ADMIN",
+    }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
+  } catch (cause) {
+    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
+  }
   return getOrganizationLocationAdmin(organizationId, locationId, db);
 }
 
