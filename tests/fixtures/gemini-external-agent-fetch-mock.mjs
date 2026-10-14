@@ -176,6 +176,32 @@ globalThis.fetch = async (url, options = {}) => {
       throw Error("MIXED_TOOL_REQUEST");
     if (body.previous_interaction_id !== (geminiCalls === 2 ? "research-1" : "functions-" + (geminiCalls - 2)))
       throw Error("WRONG_PREVIOUS_INTERACTION");
+    if (scenario.startsWith("pilot_")) {
+      const candidate = { name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
+        website_url: "https://example.com", phone: "+421 905 123 456", email: "clinic@example.com" };
+      const action = (name, args) => json({ id: "functions-" + (geminiCalls - 1),
+        status: "requires_action", steps: [step(name, "call-" + geminiCalls, args)] });
+      const done = (text = "Done") => json({ id: "functions-" + (geminiCalls - 1), status: "completed",
+        steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
+      if (body.tools.length === 0) {
+        if (scenario === "pilot_ignores_stop") return action("search_notion", { query: "Test Veterinár" });
+        if (scenario === "pilot_malformed_stop") return done("Done");
+        return done(scenario === "pilot_unresolved_stop" ? '{"outcome":"unresolved"}' : '{"outcome":"exhausted"}');
+      }
+      if (scenario === "pilot_limit_write" && geminiCalls === 9) return action("create_notion_draft", candidate);
+      if (["pilot_limit", "pilot_limit_write"].includes(scenario)) return action("search_notion", { query: "different-" + geminiCalls });
+      if (geminiCalls === 2) return action("search_notion", { query: "Test Veterinár" });
+      if (scenario === "pilot_empty") return done();
+      if (["pilot_search_loop", "pilot_ignores_stop", "pilot_unresolved_stop", "pilot_malformed_stop"].includes(scenario))
+        return action("search_notion", { query: "  test veterinar  " });
+      if (geminiCalls === 3) return action("create_notion_draft", candidate);
+      if (scenario === "pilot_duplicate_done") return done();
+      if (scenario === "pilot_duplicate_new" || scenario === "pilot_duplicate_recover" && geminiCalls === 5) return action("create_notion_draft", {
+        ...candidate, name: "Another clinic", city: "Nitra", source_url: "https://other.example/about",
+        website_url: "https://other.example", phone: "+421 905 999 999", email: "other@example.com",
+      });
+      return action("create_notion_draft", { ...candidate, name: "TEST VETERINÁR", description: "Changed prose" });
+    }
     if (geminiCalls === 2) {
       if (scenario === "unknown_tool")
         return json({ id: "functions-1", status: "requires_action", steps: [step("not_allowed", "call-a")] });
@@ -208,7 +234,10 @@ globalThis.fetch = async (url, options = {}) => {
       ] });
     }
     if (geminiCalls === 4 && scenario === "repeat_create")
-      return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "call-c", categoryArgs)] });
+      return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "call-c", section === "directory" ? {
+        name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
+        website_url: "https://example.com", phone: "+421 905 123 456", email: "clinic@example.com",
+      } : categoryArgs)] });
     if (geminiCalls === 5 && scenario === "repeat_create")
       return json({ id: "functions-4", status: "completed", steps: [] });
     if (geminiCalls === 4)
@@ -228,6 +257,11 @@ globalThis.fetch = async (url, options = {}) => {
     }
     if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query") {
       scans++;
+      if (scenario.startsWith("pilot_duplicate")) return json({ results: [{ id: "existing-clinic", properties: {
+        "Názov": { type: "title", title: [{ plain_text: "Test Veterinár" }] },
+        "Mesto": { type: "rich_text", rich_text: [{ plain_text: "Sereď" }] },
+        "Web": { type: "url", url: "https://example.com" },
+      } }], has_more: false });
       if (scenario === "paginated" && scans % 2 === 1) return json({ results: [], has_more: true, next_cursor: "page-2" });
       if (scenario === "partial_property") {
         const targetRow = lostFound ? lostFoundExisting : row;

@@ -21,7 +21,13 @@ Never infer identity merely from name, record count or schema. This mapping is e
 - Duplicate prevention uses report type, dog identity and markings, city, event date and source URL; incomplete/ambiguous identity fails closed. The confirmed-created set prevents a second POST on a stale Notion read.
 - Payload sets only `Psipedia stav=DRAFT` with factual fields and evidence. It does not set `Psipedia ID`, `Slug`, public status, coordinates, contacts or canonical identity. Manual review is mandatory.
 - Existing Notion POST handling treats timeout, 5xx, invalid JSON or missing ID as uncertain, sends a failure callback and **never retries the POST**.
-- Existing HMAC callback, budget/turn limits and no-automatic-schedule controls remain unchanged. PR #835 separately addresses turn-limit livelock; do not cherry-pick those changes into #834.
+- Existing HMAC callback, request budget and no-automatic-schedule controls are preserved. PR #835 is now merged into main and integrated in this branch: bounded progress tracking, duplicate recovery, one tool-free completion after two unproductive turns, and fail-closed behavior on an unresolved candidate or request-limit exhaustion. The ceiling remains nine Gemini requests.
+
+## Post-#835 integration
+
+- Merged the existing main hotfix into the original #834 branch without reverting its nonproductive-turn protections.
+- Combined the Lost/Found-specific Notion search with progress tracking and preserved the #835 offline pilot regressions alongside all 22 categories.
+- No production calls or writes are performed by this integration.
 
 ## Manual GitHub configuration BEFORE an explicitly approved live test
 
