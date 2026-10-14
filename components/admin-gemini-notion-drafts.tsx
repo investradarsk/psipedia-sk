@@ -6,6 +6,9 @@ import { useState } from "react";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminModalDialog } from "@/components/admin-interaction-system";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
+import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
+import { AdminGeminiAgendaDraftEditor } from "@/components/admin-gemini-agenda-draft-editor";
+type ReviewDraft = GeminiDirectoryDraft | GeminiAgendaDraft;
 import styles from "./admin-gemini-automation.module.css";
 
 export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
@@ -13,11 +16,11 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [canonicalProfile, setCanonicalProfile] = useState<ManagedDirectoryProfile | null>(null);
   const [opening, setOpening] = useState(false);
   const [open, setOpen] = useState(false);
-  const [drafts, setDrafts] = useState<GeminiDirectoryDraft[]>([]);
+  const [drafts, setDrafts] = useState<ReviewDraft[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedDraft, setSelectedDraft] = useState<GeminiDirectoryDraft | null>(null);
+  const [selectedDraft, setSelectedDraft] = useState<ReviewDraft | null>(null);
 
   async function load() {
     if (loading) return;
@@ -28,7 +31,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         "/api/admin/gemini-automation/notion-drafts?stable_key=" + encodeURIComponent(stableKey),
         { credentials: "same-origin", cache: "no-store" },
       );
-      const json = await response.json() as { drafts?: GeminiDirectoryDraft[]; error?: string };
+      const json = await response.json() as { drafts?: ReviewDraft[]; error?: string };
       if (!response.ok || !Array.isArray(json.drafts)) {
         throw new Error(json.error || "Nepodarilo sa načítať koncepty.");
       }
@@ -44,14 +47,14 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const counts = geminiReviewCounts(drafts);
   const visible = drafts.filter(draft => filter === "ALL" || (filter === "ACTIVE"
     ? ["NEW", "IN_PROGRESS", "APPROVED"].includes(draft.reviewState) : draft.reviewState === filter));
-  async function openDraft(draft: GeminiDirectoryDraft) {
+  async function openDraft(draft: ReviewDraft) {
     if (opening) return;
     setOpening(true); setError("");
     try {
-      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id), { cache: "no-store" });
+      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id) + "?stable_key=" + encodeURIComponent(stableKey), { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo otvoriť.");
-      if (data.draft.psipediaId) {
+      if (data.draft.psipediaId && !("agenda" in data.draft)) {
         const canonical = await fetch("/api/admin/directory/" + encodeURIComponent(data.draft.psipediaId), { cache: "no-store" });
         const profile = await canonical.json();
         if (!canonical.ok || !profile.profile) throw new Error(profile.error || "Profil sa nepodarilo načítať.");
@@ -110,19 +113,25 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       )}
       <AdminModalDialog
         open={Boolean(selectedDraft)}
-        title={selectedDraft ? "Upraviť profil · " + selectedDraft.name : "Koncept Gemini"}
-        description="Plnohodnotný editor Adresára. Uloženie upraví originálny Notion koncept; bez potvrdenia nebude verejný."
+        title={selectedDraft ? "Skontrolovať koncept · " + selectedDraft.name : "Koncept Gemini"}
+        description="Úpravy sa zapisujú iba do pôvodnej Notion stránky. Publikovanie vyžaduje samostatné potvrdenie."
         onClose={() => setSelectedDraft(null)}
         className={styles.notionEditorDialog}
       >
-        {selectedDraft && (
+        {selectedDraft && ("agenda" in selectedDraft ? (
+          <AdminGeminiAgendaDraftEditor
+            key={selectedDraft.id}
+            draft={selectedDraft}
+            onSaved={() => { setSelectedDraft(null); void load(); }}
+          />
+        ) : (
           <AdminDirectoryEditor
             key={selectedDraft.id}
             profile={canonicalProfile ?? undefined}
             notionDraft={canonicalProfile ? undefined : selectedDraft}
             onNotionSaved={() => { setSelectedDraft(null); void load(); }}
           />
-        )}
+        ))}
       </AdminModalDialog>
     </section>
   );
