@@ -1,5 +1,5 @@
 import type { AdoptionD1Database } from "./adoption-store.ts";
-import { reconcileGeoAfterSourceMutation } from "./geo-store.ts";
+import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "./geo-store.ts";
 import {
   normalizeOrganizationLocationAdminInput,
   type OrganizationLocationAdminInput,
@@ -194,6 +194,7 @@ export async function updateOrganizationLocationFromGooglePlace(
   actorRef: string,
   database?: AdoptionD1Database,
   expectedAddress?: { address: string; city: string; district: string; region: string; countryCode: string },
+  expectedGeoRevision?: string | null,
 ) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return null;
   if (!Number.isSafeInteger(locationId) || locationId <= 0) return null;
@@ -211,22 +212,33 @@ export async function updateOrganizationLocationFromGooglePlace(
   // Google owns location only. Organization identity, contacts, website,
   // social links, descriptions and fundraising data live in other fields/tables
   // and are deliberately absent from this UPDATE.
-  const result = await db.prepare(`
+  const nextAddress = place.formattedAddress.trim();
+  const nextCity = place.address?.locality?.trim() || place.address?.sublocality?.trim() || existing.city;
+  const nextDistrict = place.address?.district?.trim() || existing.district;
+  const nextRegion = place.address?.region?.trim() || existing.region;
+  const nextCountry = place.address?.countryCode?.trim().toUpperCase() || existing.countryCode || "SK";
+  const geo = await prepareGoogleSourceGeoInvalidation(
+    "ORGANIZATION_LOCATION", locationId,
+    db as Parameters<typeof prepareGoogleSourceGeoInvalidation>[2], expectedGeoRevision,
+    { sql: "SELECT 1 FROM organization_locations WHERE id=? AND organization_id=? AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?",
+      args: [locationId,organizationId,nextAddress,nextCity,nextDistrict,nextRegion,nextCountry] },
+  );
+  const sourceStatement = db.prepare(`
     UPDATE organization_locations
     SET address = ?, city = ?, district = ?, region = ?, country_code = ?
     WHERE id = ? AND organization_id = ?
       AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?
+      AND ${geo.sourceGuard}
   `).bind(
-    place.formattedAddress.trim(),
-    place.address?.locality?.trim() || place.address?.sublocality?.trim() || existing.city,
-    place.address?.district?.trim() || existing.district,
-    place.address?.region?.trim() || existing.region,
-    place.address?.countryCode?.trim().toUpperCase() || existing.countryCode || "SK",
+    nextAddress, nextCity, nextDistrict, nextRegion, nextCountry,
     locationId,
     organizationId,
     revision.address, revision.city, revision.district, revision.region, revision.countryCode,
-  ).run() as RunResult;
-  if (resultChanges(result) < 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    ...geo.sourceGuardArgs,
+  );
+  const results = await db.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  if (resultChanges(results[0] as RunResult) < 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (geo.invalidation && resultChanges(results[1] as RunResult) !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
   try {
     await reconcileGeoAfterSourceMutation({
