@@ -23,8 +23,10 @@ export type GeminiAgendaDraft = {
   missingFields: string[]; attribution: "EVIDENCE_SIGNATURE_ONLY";
 };
 export class GeminiAgendaReviewError extends Error {
-  constructor(readonly code: "CATEGORY" | "CONFIG" | "NOT_FOUND" | "CONFLICT" | "LOCKED" | "STATE" | "SCHEMA") {
+  readonly code: "CATEGORY" | "CONFIG" | "NOT_FOUND" | "CONFLICT" | "LOCKED" | "STATE" | "SCHEMA";
+  constructor(code: GeminiAgendaReviewError["code"]) {
     super(code);
+    this.code = code;
   }
 }
 const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
