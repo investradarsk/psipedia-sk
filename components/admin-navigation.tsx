@@ -80,7 +80,12 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
     };
     document.addEventListener("pointerdown", pointer);
     document.addEventListener("keydown", keyboard);
+    // A desktop <details> element can open before React hydration attaches
+    // Escape handling. Mark readiness only after installing the listener.
+    const desktop = desktopRef.current;
+    desktop?.setAttribute("data-admin-nav-hydrated", "true");
     return () => {
+      desktop?.removeAttribute("data-admin-nav-hydrated");
       document.removeEventListener("pointerdown", pointer);
       document.removeEventListener("keydown", keyboard);
     };

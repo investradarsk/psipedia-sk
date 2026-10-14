@@ -329,3 +329,9 @@
   .closingCtaInner { padding-block: 22px; }
   .closingCta h2 { font-size: 1.7rem; }
 }
+
+/* GLOBAL-DESIGN-UNIFICATION-1: keep the existing help form below the photo. */
+.browserTop { padding-top: 16px; }
+.toolbar { width: 100%; max-width: 780px; grid-template-columns: minmax(0, 1fr) auto auto; border-radius: var(--ps-radius-filter, 18px); }
+.card { border-radius: var(--ps-radius-card, 22px); }
+@media (max-width: 760px) { .toolbar { grid-template-columns: minmax(0, 1fr); } .browserTop { padding-top: 12px; } }

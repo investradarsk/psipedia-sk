@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { FciGroup } from "@/lib/content";
 import type { ManagedBreedIndexItem } from "@/lib/breed-store";
 import { normalizeBreedSearchText } from "@/lib/breed-fci";
@@ -19,7 +19,7 @@ const shortGroupLabels: Record<number, string> = {
   6: "Duriče", 7: "Stavače", 8: "Retrievery", 9: "Spoločenské", 10: "Chrty",
 };
 
-export function BreedBrowser({ breeds, groups, initialFilters }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters }) {
+export function BreedBrowser({ breeds, groups, initialFilters, actions }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters; actions?: ReactNode }) {
   const [query, setQuery] = useState(initialFilters.query);
   const [selectedGroup, setSelectedGroup] = useState(initialFilters.fciGroup || "all");
   const [selectedSection, setSelectedSection] = useState(() => validFciSectionForGroup(breeds, initialFilters.fciGroup, initialFilters.fciSection));
@@ -69,6 +69,7 @@ export function BreedBrowser({ breeds, groups, initialFilters }: { breeds: Manag
         </label>
         <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
       </div>
+      {actions}
       <div className="fci-filter-panel" aria-label="FCI skupiny">
         <div className="fci-filter-row" role="group" aria-label="Filtrovať podľa skupiny FCI">
           <button type="button" className={selectedGroup === "all" ? "is-active" : ""} aria-pressed={selectedGroup === "all"} onClick={() => {setSelectedGroup("all");setSelectedSection("");setShown(60);}}>Všetky</button>

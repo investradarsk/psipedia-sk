@@ -3,7 +3,7 @@
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
 import Link from "next/link";
-import { ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdminActionButton,
   AdminDrawer,
@@ -18,6 +18,9 @@ import type { ArticleSeo } from "@/lib/content";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import { directoryCategories, getDirectoryCategory, type DirectoryCategorySlug, type DirectoryProfileStatus, type ManagedDirectoryProfile } from "@/lib/directory";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
+import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
+import { buildDirectoryCategoryFilterPatch, readDirectoryCategoryFilterOriginals, scopeDirectoryCategoryFilterChanges } from "@/lib/directory-category-filter-editor";
+import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 import { DirectoryAddressAutocomplete } from "@/components/directory-address-autocomplete";
 import {
   applyDirectoryStreetSelection,
@@ -147,6 +150,13 @@ export function AdminDirectoryEditor({
   const [slug, setSlug] = useState(profile?.slug ?? notionDraft?.slug ?? (notionDraft?.name ? slugify(notionDraft.name) : ""));
   const [slugEdited, setSlugEdited] = useState(Boolean(profile || notionDraft?.slug));
   const [category, setCategory] = useState<DirectoryCategorySlug>(profile?.category ?? (notionDraft?.category as DirectoryCategorySlug | undefined) ?? "treneri");
+  const filterCategory = (serviceFilterCategories as readonly string[]).includes(category) ? category as ServiceFilterCategory : null;
+  // Keep a full baseline so changing category never discards previously stored facets.
+  const [filterSourceData, setFilterSourceData] = useState<Record<string, unknown>>(profile?.importData ?? {});
+  const [filterChanges, setFilterChanges] = useState<Record<string, string>>({});
+  const filterOriginals = useMemo(() => filterCategory
+    ? readDirectoryCategoryFilterOriginals(filterCategory, JSON.stringify(filterSourceData))
+    : {}, [filterCategory, filterSourceData]);
   const [excerpt, setExcerpt] = useState(profile?.excerpt ?? notionDraft?.summary ?? "");
   const [description, setDescription] = useState(profile?.description ?? notionDraft?.description ?? "");
   const [services, setServices] = useState(profile?.services.join("\n") ?? notionDraft?.services ?? "");
@@ -314,6 +324,9 @@ export function AdminDirectoryEditor({
         onNotionSaved?.();
         return;
       }
+      const filterPatch = filterCategory
+        ? buildDirectoryCategoryFilterPatch(filterCategory, filterOriginals, scopeDirectoryCategoryFilterChanges(filterCategory, filterChanges))
+        : null;
       const response = await fetch(profile ? `/api/admin/directory/${profile.id}` : "/api/admin/directory", {
         method: profile ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
@@ -337,9 +350,25 @@ export function AdminDirectoryEditor({
       });
       const data = await response.json() as { profile?: ManagedDirectoryProfile; error?: string };
       if (!response.ok || !data.profile) throw new Error(data.error || "Profil sa nepodarilo uložiť.");
-      setStatus(data.profile.status);
-      setQualityResolutions(qualityResolutionInput(data.profile));
-      setQualityCheckedAt(qualityCheckedAtInput(data.profile));
+      // Write only explicit facet changes through the authenticated, CAS-protected endpoint.
+      // The canonical profile save above continues to own all unrelated fields.
+      let savedProfile = data.profile;
+      if (filterPatch && Object.keys(filterPatch.updates).length) {
+        const filterResponse = await fetch(`/api/admin/directory/${savedProfile.id}`, {
+          method: "PATCH", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "set-category-filters", filterPatch }),
+        });
+        const filtered = await filterResponse.json() as { profile?: ManagedDirectoryProfile; error?: string };
+        if (!filterResponse.ok || !filtered.profile) {
+          throw new Error(filtered.error || "Profil bol uložený, ale kategóriové filtre nie. Skontrolujte ich a uložte znova.");
+        }
+        savedProfile = filtered.profile;
+      }
+      setFilterSourceData(savedProfile.importData ?? {});
+      setFilterChanges({});
+      setStatus(savedProfile.status);
+      setQualityResolutions(qualityResolutionInput(savedProfile));
+      setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
       setMessage(nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
       if (!profile) window.location.assign(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
@@ -484,7 +513,7 @@ export function AdminDirectoryEditor({
           <AdminEditorSection id="directory-main" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>
-            <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => setCategory(event.target.value as DirectoryCategorySlug)}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
+            <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => { setCategory(event.target.value as DirectoryCategorySlug); setFilterChanges({}); }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
             <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><textarea id="directory-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čím je profil zaujímavý a komu pomáha?" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
@@ -613,6 +642,16 @@ export function AdminDirectoryEditor({
               <div className="admin-field"><label htmlFor="directory-qualifications">Skúsenosti a kvalifikácie</label><textarea id="directory-qualifications" rows={7} value={qualifications} onChange={(event) => setQualifications(event.target.value)} placeholder={"Certifikácia alebo členstvo\nRoky praxe\nŠpecializované vzdelanie"} /><small>Jedna položka na riadok.</small></div>
             </div>
             <div className="admin-field"><label htmlFor="directory-price">Orientačná cena <small>nepovinné</small></label><input id="directory-price" value={priceNote} onChange={(event) => setPriceNote(event.target.value)} placeholder="Napríklad: od 25 € za lekciu" /></div>
+            {filterCategory && !notionDraft ? (
+              <DirectoryCategoryFilterFields
+                category={filterCategory}
+                originalValues={filterOriginals}
+                changes={filterChanges}
+                onChange={(next) => setFilterChanges({ ...next })}
+                disabled={saving}
+                idPrefix="admin-directory"
+              />
+            ) : null}
           </AdminEditorSection>
 
           <AdminEditorSection id="directory-contacts" className="admin-form-card">

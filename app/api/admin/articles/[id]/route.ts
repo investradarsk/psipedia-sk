@@ -6,10 +6,12 @@ import {
   updateManagedArticle,
   rescheduleManagedArticle,
   ArticleRescheduleConflictError,
+  ArticleUpdateConflictError,
   type ManagedArticleInput,
 } from "@/lib/article-store";
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { articleBlockImageKeys } from "@/lib/article-blocks";
+import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
@@ -35,7 +37,7 @@ function updateErrorResponse(error: unknown) {
     return Response.json({ error: error.message, issues: error.issues }, { status: 422 });
   }
   const message = error instanceof Error ? error.message : "Nastala neočakávaná chyba.";
-  const status = error instanceof ArticleRescheduleConflictError || isArticleSlugConflict(error) ? 409 : 400;
+  const status = error instanceof ArticleRescheduleConflictError || error instanceof ArticleUpdateConflictError || isArticleSlugConflict(error) ? 409 : 400;
   return Response.json(
     { error: isArticleSlugConflict(error) ? "Túto adresu už používa iný článok." : message },
     { status },
@@ -70,40 +72,38 @@ export async function PUT(request: Request, { params }: RouteProps) {
   try {
     const before = await getManagedArticleById(id);
     if (!before) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
-    const payload = (await request.json()) as ManagedArticleInput;
-    const article = await updateManagedArticle(id, payload, user.email, before);
+    const payload = (await request.json()) as ManagedArticleInput & { expectedUpdatedAt?: unknown };
+    // Reject a stale editor tab rather than silently overwriting a newer Notion import.
+    if (typeof payload.expectedUpdatedAt !== "string" || !payload.expectedUpdatedAt ||
+        payload.expectedUpdatedAt !== before.updatedAt) {
+      return Response.json(
+        { error: "Článok sa medzičasom zmenil. Obnov editor a skontroluj nové údaje pred uložením." },
+        { status: 409 },
+      );
+    }
+
+    // Fields omitted by a client are not instructions to erase legacy/hidden content.
+    // Explicit empty arrays and null values still mean intentional edits.
+    const updatePayload: ManagedArticleInput = {
+      ...payload,
+      sections: payload.sections === undefined ? before.sections : payload.sections,
+      sources: payload.sources === undefined ? before.sources : payload.sources,
+      imageDisplay: payload.imageDisplay === undefined ? before.imageDisplay : payload.imageDisplay,
+      imageFocusX: payload.imageFocusX === undefined ? before.imageFocusX : payload.imageFocusX,
+      imageFocusY: payload.imageFocusY === undefined ? before.imageFocusY : payload.imageFocusY,
+      portalSubpage: payload.portalSubpage === undefined && payload.portalSection === before.portalSection
+        ? before.portalSubpage
+        : payload.portalSubpage,
+    };
+    const article = await updateManagedArticle(id, updatePayload, user.email, before, { updatedAt: payload.expectedUpdatedAt });
     if (!article) return Response.json({ error: "Článok sa nenašiel." }, { status: 404 });
 
-    if (before.imageKey && before.imageKey !== article.imageKey) {
-      const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
-      if (bucket) await bucket.delete(before.imageKey).catch(() => undefined);
-    }
-    if (before.ogImageKey && before.ogImageKey !== article.ogImageKey) {
-      const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
-      if (bucket) await bucket.delete(before.ogImageKey).catch(() => undefined);
-    }
-
-    if (before.status !== "published" && article.status === "published") {
-      const bindings = env as unknown as ArticleRouteBindings;
-      if (bindings.DB) {
-        try {
-          await writeBackPublishedArticleToNotion({
-            database: bindings.DB,
-            bindings,
-            article,
-          });
-        } catch (error) {
-          console.error(JSON.stringify({
-            event: "notion_article_publish_writeback_failed",
-            articleId: article.id,
-            error: error instanceof Error ? error.message : String(error),
-          }));
-        }
-      }
-    }
-
-    const currentKeys = new Set(articleBlockImageKeys(article.blocks ?? []));
-    const removedKeys = articleBlockImageKeys(before.blocks ?? []).filter((key) => !currentKeys.has(key));
+    // Notion-imported hero and OG images often share one R2 object.
+    // Delete only keys that neither the resulting hero, OG nor any block uses.
+    const removedKeys = orphanedArticleMediaKeys(
+      [before.imageKey, before.ogImageKey, ...articleBlockImageKeys(before.blocks ?? [])],
+      [article.imageKey, article.ogImageKey, ...articleBlockImageKeys(article.blocks ?? [])],
+    );
     const bucket = (env as unknown as ArticleRouteBindings).BUCKET;
     if (bucket && removedKeys.length) {
       await Promise.all(removedKeys.map((key) => bucket.delete(key).catch(() => undefined)));
