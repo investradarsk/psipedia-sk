@@ -70,7 +70,7 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 2. Editing a description must retain the *entire original evidence suffix*; merely adding a new unrelated HTTPS URL is no longer accepted. Original source fields remain immutable.
 3. Long text preserves user-entered leading/trailing spacing and internal line breaks. Already-saved original rich-text blocks remain byte-for-byte unchanged unless that text was explicitly edited.
 4. **Help-case approve and reject both fail closed.** Previously `approve` changed `Psipedia stav` to `published`, which is a public publication state, not a review state. Such a click must not publish implicitly. Draft fields can still be edited and saved back to the same Notion page. Assigning a slug can already cause the normal hourly sync to import a **canonical draft** (`readyForCreate` checks name/slug/category); this is not publication but is distinct from review approval.
-5. Lost/Found data source is pinned to the #834 canonical source and parent. GPS, contact and precise location remain read-only; private text patterns are blocked on modified fields. No synthetic source or new worker.
+5. Lost/Found data source is pinned to the #834 canonical source and parent. GPS, contact and precise location remain read-only; private text patterns are blocked on modified fields. The existing Notion sync now treats only the existing `PENDING` moderation state as eligible for first canonical import: a merely saved `DRAFT` with slug or rejected `ARCHIVED` page is never imported as a new D1 dog. This does not create a new worker or a new status.
 
 ### Minimal independent follow-on work — not part of PR #838
 
