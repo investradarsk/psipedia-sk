@@ -381,6 +381,7 @@ const LOST_FOUND_PR_RE = /^(?:app\/pomoc-psom\/(?:stratene-psy|najdene-psy)\/|ap
 
 export function focusedPrE2eFlags(result, files = result.files) {
   return {
+    adminInteraction: files.some((file) => /^(?:components\/admin-interaction-system(?:\.module\.css|\.tsx)|tests\/e2e\/admin-interaction-system\.spec\.ts|tests\/admin-button-system\.test\.mjs)$/.test(file)),
     adminEvents: files.some((file) =>
       /^(app\/admin\/events\/|app\/api\/admin\/events\/|components\/admin-events|lib\/admin-events|scripts\/bootstrap-admin-events-e2e\.mjs$|scripts\/check-admin-events-local\.mjs$|tests\/e2e\/admin-events\.spec\.ts$|tests\/admin-events)/.test(file),
     ),
@@ -396,7 +397,7 @@ function writeGithubOutput(result, files) {
   const output = process.env.GITHUB_OUTPUT;
   if (!output) throw new Error("GITHUB_OUTPUT is required with --github-output");
 
-  const { adminEvents, search, directory, seoRecovery, sitemapDiagnostic, lostFound } = focusedPrE2eFlags(result, files);
+  const { adminInteraction, adminEvents, search, directory, seoRecovery, sitemapDiagnostic, lostFound } = focusedPrE2eFlags(result, files);
 
   appendFileSync(output, [
     `core=${result.core}`,
@@ -411,6 +412,7 @@ function writeGithubOutput(result, files) {
     `gemini_automation=${result.scopes.includes("GEMINI_AUTOMATION")}`,
     `ai_discovery=${result.scopes.includes("AI_DISCOVERY")}`,
     `entity_surfaces=${result.scopes.includes("ENTITY_SURFACES")}`,
+    `admin_interaction=${adminInteraction}`,
     `admin_events=${adminEvents}`,
     `search=${search}`,
     `directory=${directory}`,

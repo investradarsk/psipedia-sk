@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
+      admin_interaction: ${{ steps.required-scope.outputs.admin_interaction }}
       admin_events: ${{ steps.required-scope.outputs.admin_events }}
       search: ${{ steps.required-scope.outputs.search }}
       directory: ${{ steps.required-scope.outputs.directory }}
@@ -416,6 +417,74 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
+
+  admin-interaction-e2e:
+    name: Admin dialog keyboard — desktop and mobile
+    if: github.event_name == 'pull_request' && needs.validate.result == 'success' && needs.validate.outputs.admin_interaction == 'true'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Reuse validated build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: .
+      - name: Apply schema to isolated local D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Prepare existing breed E2E fixture
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/admin-interaction
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/admin-interaction/server.log 2>&1 &
+          echo $! > .e2e-artifacts/admin-interaction/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1
+      - name: Seed existing local breeds only
+        run: node scripts/bootstrap-breed-e2e.mjs seed
+      - name: Admin dialog Playwright — sequential desktop then mobile
+        run: |
+          desktop=0
+          mobile=0
+          npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/desktop || desktop=$?
+          npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/mobile || mobile=$?
+          echo "desktop_exit=$desktop mobile_exit=$mobile"
+          test "$desktop" -eq 0 && test "$mobile" -eq 0
+      - name: Stop isolated local app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/admin-interaction/server.pid ]; then
+            kill "$(cat .e2e-artifacts/admin-interaction/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-interaction-e2e-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/admin-interaction/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 7
 
   admin-events-e2e:
     name: Admin Events — desktop and mobile
