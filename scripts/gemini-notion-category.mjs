@@ -21,3 +21,13 @@ export function notionCategoryValue(section, subcategory) {
   if (section === "directory" || section === "help") return subcategory;
   return null;
 }
+
+// Explicit worker capability gate, independent of the broader admin catalog.
+export function externalWorkerCategorySupported(key) {
+  const [section, slug, extra] = String(key).split(".");
+  if (extra || !slug) return false;
+  if (section === "events") return Object.hasOwn(eventTypeBySlug, slug);
+  if (section === "help") return ["docasna-opatera", "zbierky", "dobrovolnictvo"].includes(slug);
+  return section === "directory" && ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+    "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"].includes(slug);
+}

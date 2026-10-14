@@ -284,3 +284,29 @@ test("Gemini worker offers actual Notion email/phone encoders and gates empty ve
   assert.match(source, /image_url: \{ type: "string"/);
   assert.match(source, /"insufficient_verified_contact_details"/);
 });
+
+test("dedicated help agendas cannot reserve or dispatch an external job", async () => {
+  for (const stableKey of ["help.adopcia", "help.utulky", "help.stratene-a-najdene"]) {
+    const { db, queries } = fakeDb();
+    await assert.rejects(dispatchExternalGemini({ db, stableKey, trigger: "MANUAL", env: {
+      GEMINI_EXTERNAL_AGENT_ENABLED: "true", GITHUB_ACTIONS_DISPATCH_TOKEN: "mock", GEMINI_AGENT_CALLBACK_SECRET: "mock",
+    } }), error => error.code === "CATEGORY");
+    assert.equal(queries.length, 0);
+  }
+});
+
+test("concurrent signed callbacks confirm the original job and history exactly once", async () => {
+  const { db, runs, getJob } = fakeDb();
+  const env = { GEMINI_EXTERNAL_AGENT_ENABLED: "true", GITHUB_ACTIONS_DISPATCH_TOKEN: "mock", GEMINI_AGENT_CALLBACK_SECRET: "mock" };
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response(null, { status: 204 });
+  try { await dispatchExternalGemini({ db, env, stableKey: "events.vystavy", trigger: "MANUAL" }); }
+  finally { globalThis.fetch = original; }
+  const body = JSON.stringify({ job_id: 7, status: "SUCCESS", concept_count: 1, duplicate_count: 0, request_count: 3, search_count: 1 });
+  const signature = "sha256=" + createHmac("sha256", "mock").update(body).digest("hex");
+  const responses = await Promise.all([completeExternalGemini({ db, env, body, signature }), completeExternalGemini({ db, env, body, signature })]);
+  assert.deepEqual(responses.map(v => v.status).sort(), [200, 409]);
+  assert.equal(getJob().stable_key, "events.vystavy");
+  assert.equal(runs.length, 1);
+  assert.equal((await completeExternalGemini({ db, env, body: body.replace('"concept_count":1', '"concept_count":2'), signature })).status, 401);
+});
