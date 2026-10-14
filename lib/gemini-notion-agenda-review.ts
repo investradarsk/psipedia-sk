@@ -73,9 +73,9 @@ function categoryMatches(page: Page, key: string, agenda: BidirectionalAgendaKey
  */
 function identifiable(page: Page, agenda: BidirectionalAgendaKey, sourceId: string, key: string) {
   if (normalized(page.parent?.data_source_id ?? "") !== normalized(sourceId) ||
-      !categoryMatches(page, key, agenda) || txt(page, "Psipedia ID")) return false;
+      !categoryMatches(page, key, agenda)) return false;
   const status = txt(page, agenda === "help-cases" || agenda === "lost-found" ? "Psipedia stav" : "Stav");
-  const drafts = agenda === "help-cases" ? ["draft"] : agenda === "lost-found"
+  const drafts = agenda === "help-cases" ? ["draft", "published"] : agenda === "lost-found"
     ? ["DRAFT", "PENDING", "ARCHIVED"] : ["Nápad", "Na kontrolu", "Ready", "Koncept", "Archív"];
   if (!drafts.includes(status)) return false;
   const description = txt(page, "Popis");
@@ -114,7 +114,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
   const status = txt(page, source.status);
   const reviewState: GeminiReviewState = txt(page, "Psipedia ID") ? "IMPORTED"
     : ["Archív", "ARCHIVED"].includes(status) ? "REJECTED"
-    : status === "Ready" || status === "PENDING" ? "APPROVED" : "NEW";
+    : status === "Ready" || status === "PENDING" || status === "published" ? "APPROVED" : "NEW";
   return {
     id: page.id, stableKey: key, agenda, name: txt(page, source.title),
     city: txt(page, "Mesto"), reviewState, syncError: txt(page, "Sync chyba"),
@@ -220,6 +220,9 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
       const values = fields as Record<string, unknown>;
       const available = new Map(draft.fields.filter(field => field.editable).map(field => [field.name, field]));
       if (Object.keys(values).some(name => !available.has(name))) throw new GeminiAgendaReviewError("STATE");
+      if (typeof values["Popis"] === "string" &&
+          (!values["Popis"].includes(evidenceTag(draft.agenda)) || !/https:\/\/[^\s]+/.test(values["Popis"])))
+        throw new GeminiAgendaReviewError("STATE");
       for (const [name, value] of Object.entries(values)) {
         const definition = available.get(name)!;
         const options = source.schema[name]?.select?.options ?? [];
