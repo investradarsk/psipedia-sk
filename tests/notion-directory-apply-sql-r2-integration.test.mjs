@@ -14,7 +14,10 @@ const syncSource = await readFile(new URL("../lib/notion-directory-sync.ts", imp
 const start = syncSource.indexOf("async function applyNotionToProfile(");
 const end = syncSource.indexOf("\nasync function recentNotionPages(", start);
 assert.ok(start > 0 && end > start, "production apply function is present");
-const runtimeCode = ts.transpileModule(syncSource.slice(start, end) + "\nexports.applyNotionToProfile = applyNotionToProfile;", {
+const workerStart = syncSource.indexOf("async function syncMappedPage(");
+const workerEnd = syncSource.indexOf("\nasync function recoverMappingFromPage(", workerStart);
+assert.ok(workerStart > end && workerEnd > workerStart, "production Notion mapped-page worker is present");
+const runtimeCode = ts.transpileModule(syncSource.slice(start, end) + "\n" + syncSource.slice(workerStart, workerEnd) + "\nexports.applyNotionToProfile = applyNotionToProfile; exports.syncMappedPage = syncMappedPage;", {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 
@@ -96,7 +99,7 @@ function fixture(options = {}) {
     exports: {},
     notionSnapshot() { calls.push("notion-snapshot"); return desired; },
     externalSourceImageUrl(url) { return /^https:\/\//.test(url ?? "") ? url : null; },
-    propertyText() { return ""; },
+    propertyText(page, property) { return property === "Psipedia ID" ? "1" : ""; },
     fullProfileInput() { return { ...newPayload }; },
     directoryPhysicalAddressChanged() { return !!options.addressChanged; },
     notionDirectoryUpdateSafety() {
@@ -139,6 +142,11 @@ function fixture(options = {}) {
       if (options.geoFailure === "google") throw Error("GEO_FAILED");
     },
     async getManagedDirectoryProfileById() { return profileRow(read()); },
+    async fetchNotionPage() { throw Error("UNEXPECTED_REMOTE_FETCH"); },
+    async getMediaSourceMonitorForEntity() { return null; },
+    profileSnapshot() { return { origin: "psipedia" }; },
+    async snapshotHash(value) { return value.origin === "psipedia" ? "stable-profile-hash" : "changed-notion-hash"; },
+    async writeProfileToNotion() { calls.push("notion-writeback"); },
     async archiveManagedDirectoryProfile() { throw Error("UNEXPECTED_ARCHIVE"); },
     SYSTEM_ACTOR: "notion-worker",
     Date, Error, Boolean,
@@ -147,7 +155,12 @@ function fixture(options = {}) {
   const run = () => ctx.exports.applyNotionToProfile({
     database: db, bindings: { BUCKET: bucket }, page: { id: "notion-page-1" }, profile: current,
   });
-  return { run, read, initial, deleted, objects, calls, sqlite, bucket, db };
+  const runMappedWorker = () => ctx.exports.syncMappedPage({
+    database: db, bindings: { BUCKET: bucket }, dataSourceId: "test-notion-source",
+    mapping: { directory_profile_id: 1, notion_page_id: "notion-page-1", content_hash: "stable-profile-hash", notion_last_edited_time: null },
+    page: { id: "notion-page-1", last_edited_time: "2026-10-14T09:00:00.000Z" },
+  });
+  return { run, runMappedWorker, read, initial, deleted, objects, calls, sqlite, bucket, db };
 }
 const closes = f => f.sqlite.close();
 
@@ -274,5 +287,26 @@ test("stale retry cannot add another profile or overwrite the committed row", as
   assert.equal(f.read().updated_at, updatedAt);
   assert.equal(f.read().image_key, "directory/new.webp");
   assert.equal(f.objects.has("directory/new.webp"), true);
+  closes(f);
+});
+
+test("mapped Notion worker pulls through canonical SQL, R2, GEO and Notion writeback in order", async () => {
+  const f = fixture();
+  const result = await f.runMappedWorker();
+  assert.equal(result, "pulled");
+  assert.equal(f.read().image_key, "directory/new.webp");
+  const order = ["notion-snapshot", "r2-put", "canonical-store", "d1-update", "geo-after-commit", "notion-writeback"];
+  const positions = order.map(event => f.calls.indexOf(event));
+  assert.ok(positions.every(position => position >= 0));
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+  closes(f);
+});
+
+test("mapped Notion worker does not write success metadata after GEO postcommit failure", async () => {
+  const f = fixture({ geoFailure: "google" });
+  await assert.rejects(f.runMappedWorker, /GEO_FAILED/);
+  assert.equal(f.read().image_key, "directory/new.webp");
+  assert.equal(f.objects.has("directory/new.webp"), true);
+  assert.equal(f.calls.includes("notion-writeback"), false);
   closes(f);
 });
