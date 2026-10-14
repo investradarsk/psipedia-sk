@@ -121,7 +121,7 @@ export default async function AdminGeminiAutomationPage() {
           : "Externý GitHub pracovník zatiaľ nie je aktivovaný. Uloženie nastavenia samo nespúšťa platené vyhľadávanie; starý manuálny režim zostáva oddelený."}
       </p>
       <p className={styles.notice}>Mesačný počet úloh Psipedia neobmedzuje. Platené volania stále podliehajú nastaveniam GitHubu, limitom jedného behu a kreditu alebo kvóte u poskytovateľa Gemini. Rozpočet 5 € nastavený u poskytovateľa nie je garanciou Psipedie.</p>
-      {queuedJobs.some((job) => job.status === "RUNNING" && job.claimed_at && Date.now() - new Date(job.claimed_at).getTime() > 2 * 60 * 60_000) && <p role="alert" className={styles.warning}>Gemini úloha je zaseknutá dlhšie než dve hodiny. Ďalšie platené spustenia sa z bezpečnostných dôvodov nepovolia bez manuálneho overenia v GitHub Actions. Systém ju automaticky neopakuje.</p>}
+      {queuedJobs.some((job) => job.status === "RUNNING") && <p role="status" className={styles.warning}>Gemini úloha práve beží. Ak zostane v stave RUNNING dlhšie než dve hodiny, ďalšie platené spustenia ostanú zablokované do manuálneho overenia v GitHub Actions. Systém ju automaticky neopakuje.</p>}
       {externalEnabled && runs.some(run => run.status === "SUCCESS" && run.conceptCount > 0) && (
         <p role="status" className={styles.notice}>
           Gemini vytvorilo {runs.find(run => run.status === "SUCCESS" && run.conceptCount > 0)?.conceptCount} nových konceptov pri poslednom úspešnom behu s novými výsledkami.
