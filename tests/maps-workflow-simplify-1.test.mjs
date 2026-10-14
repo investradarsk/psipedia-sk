@@ -375,3 +375,25 @@ test("production Google Maps audit reset SQL cannot overwrite a newer NOT_REQUIR
   assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
   assert.equal(db.prepare(sql).run(...bind("newer","current-confirmation")).changes,1);
 });
+
+
+test("organization workflow audit SQL cannot reset a newer NOT_REQUIRED revision", () => {
+  const workflow=read("lib/organization-google-maps-workflow.ts");
+  const start=workflow.indexOf("async function writeOrganizationWorkflowAction(");
+  const block=workflow.slice(start,workflow.indexOf("export async function setOrganizationGoogleMapsNotRequired(",start));
+  const sqlStart=block.indexOf("INSERT INTO moderation_events");
+  const sqlEnd=block.indexOf(String.fromCharCode(96)+").bind(",sqlStart);
+  assert.ok(sqlStart>=0&&sqlEnd>sqlStart);
+  // Execute the conditional branch from the production SQL template literal.
+  const sql=block.slice(sqlStart,sqlEnd).replace(/\$\{input.expectedWorkflowRevision !== undefined \? [\s\S]*? : ""\}/,
+    "WHERE (SELECT id FROM moderation_events WHERE resource_type=? AND subject_id=? AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN') ORDER BY created_at DESC,id DESC LIMIT 1) IS ?");
+  const db=new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE moderation_events(id TEXT PRIMARY KEY,submission_id TEXT,resource_type TEXT,subject_id TEXT,action TEXT,actor_type TEXT,actor_ref TEXT,from_status TEXT,to_status TEXT,reason_code TEXT,changed_fields_json TEXT,request_id TEXT,created_at TEXT)");
+  const add=(id,act,date)=>db.prepare("INSERT INTO moderation_events(id,resource_type,subject_id,action,created_at) VALUES(?,'HELP_ORGANIZATION','7',?,?)").run(id,act,date);
+  add("old","GOOGLE_MAPS_REQUIRED_AGAIN","2026-01-01T00:00:00.000Z");
+  add("new","GOOGLE_MAPS_NOT_REQUIRED","2026-01-02T00:00:00.000Z");
+  const args=(token,id)=>[id,"HELP_ORGANIZATION","7","GOOGLE_MAPS_REQUIRED_AGAIN","admin","ADMIN_MAP_REVIEW_REOPENED","[]","2026-01-03T00:00:00.000Z","HELP_ORGANIZATION","7",token];
+  assert.equal(db.prepare(sql).run(...args("old","stale")).changes,0);
+  assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
+  assert.equal(db.prepare(sql).run(...args("new","correct")).changes,1);
+});
