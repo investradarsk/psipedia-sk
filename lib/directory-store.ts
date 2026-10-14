@@ -43,7 +43,7 @@ import {
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
-import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import {
   directoryAddressFormats,
   evaluateDirectoryServiceAddress,
@@ -1284,20 +1284,22 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   place: GooglePlaceCandidate,
   editorEmail: string,
   databaseInput?: D1Database,
+  expectedUpdatedAt?: string,
+  expectedGeoRevision?: string | null,
 ) {
   const database = databaseInput ?? requireD1Binding();
   const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
 
+  if (expectedUpdatedAt !== undefined && existing.updatedAt !== expectedUpdatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   const location = googlePlaceDirectoryLocation(existing, place);
-  const street = place.address?.street?.trim() ?? "";
-  const houseNumber = place.address?.houseNumber?.trim() ?? "";
-  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode ?? "");
-  const addressFormat: DirectoryAddressFormat | "" = street
-    ? "STREET"
-    : houseNumber
-      ? "MUNICIPALITY_NUMBER"
-      : "";
+  const street = place.address?.street?.trim() || existing.street || "";
+  const houseNumber = place.address?.houseNumber?.trim() || existing.houseNumber || "";
+  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode?.trim() || existing.postalCode || "");
+  const addressFormat: DirectoryAddressFormat | "" = existing.addressFormat || (street ? "STREET" : houseNumber ? "MUNICIPALITY_NUMBER" : "");
+  if (place.address?.street?.trim() && !place.address?.houseNumber?.trim() && existing.houseNumber && place.address.street.trim() !== existing.street?.trim()) {
+    throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
+  }
   const searchText = directorySearchText({
     name: existing.name,
     excerpt: existing.excerpt,
@@ -1316,12 +1318,16 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
 
   // Location-only Google write contract. Contact, website, social, content,
   // pricing, media and SEO fields are intentionally absent from this UPDATE.
-  const row = await database.prepare(`
+  const geo = await prepareGoogleSourceGeoInvalidation(
+    "DIRECTORY_PROFILE", id, database, expectedGeoRevision,
+    { sql: "SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=?", args: [id, now] },
+  );
+  const sourceStatement = database.prepare(`
     UPDATE directory_profiles
     SET region = ?, district = ?, city = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION',
       search_text = ?, updated_at = ?, updated_by = ?
-    WHERE id = ?
+    WHERE id = ? AND updated_at = ? AND ${geo.sourceGuard}
     RETURNING *
   `).bind(
     location.region,
@@ -1336,16 +1342,23 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
     now,
     editorEmail,
     id,
-  ).first<DirectoryProfileRow>();
-  if (!row) return null;
+    expectedUpdatedAt ?? existing.updatedAt,
+    ...geo.sourceGuardArgs,
+  );
+  const results = await database.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  const row = results[0]?.results?.[0] as DirectoryProfileRow | undefined;
+  if (!row) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
-  await reconcileGeoAfterSourceMutation({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: row.id,
-    actorRef: editorEmail,
-    actorType: "ADMIN",
-  }, database);
-  return rowToManagedProfile(row);
+  try {
+    const geoReconciliation = await reconcileGeoAfterSourceMutation({
+      targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN", expectedGeoRevision: geo.current ? geo.now : null,
+    }, database);
+    return { ...rowToManagedProfile(row), googleConfirmationGeoRevision: geoReconciliation.point?.updatedAt ?? null };
+  } catch (cause) {
+    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
+  }
+
 }
 
 export async function setManagedDirectoryProfileReviewed(

@@ -219,3 +219,32 @@ test("invalid types, non-SK country, arbitrary fields and absent Place ID reject
   assert.ok(raw.conflicts.some((issue) => issue.code === "GOOGLE_PLACE_SELECTION_REQUIRED"));
   assert.deepEqual(snap, before);
 });
+
+
+test("existing municipality-number address preserves the number on incomplete Google evidence", () => {
+  const snap = directory({
+    region: "Prešovský kraj", district: "Prešov", city: "Prešov",
+    postalCode: "080 01", street: "", houseNumber: "42", addressFormat: "MUNICIPALITY_NUMBER",
+    address: "Prešov 42, 080 01 Prešov",
+  });
+  const result = previewGoogleAddressChange({
+    snapshot: snap,
+    candidate: candidate({ locality: "Prešov", region: "Prešovský kraj", countryCode: "SK" }),
+    intent: "ADMIN_RECONFIRM", expectedRevision: "rev-1",
+  });
+  assert.equal(result.proposedAddress.houseNumber, "42");
+  assert.equal(result.proposedAddress.postalCode, "080 01");
+  assert.equal(result.proposedAddress.addressFormat, "MUNICIPALITY_NUMBER");
+});
+
+test("stale revision and manual GEO block Google reconfirmation even with valid Place evidence", () => {
+  const snap = directory(full, adaptAddressGeo({
+    ...anchor, manualOverride: true,
+  }));
+  const result = previewGoogleAddressChange({
+    snapshot: snap, candidate: candidate(), intent: "ADMIN_RECONFIRM", expectedRevision: "stale",
+  });
+  assert.equal(result.readyForAuthorization, false);
+  assert.ok(result.conflicts.some((conflict) => conflict.code === "REVISION_CONFLICT"));
+  assert.ok(result.conflicts.some((conflict) => conflict.code === "MANUAL_GEO_LOCKED"));
+});

@@ -3,7 +3,6 @@ import {
   GOOGLE_MAPS_REQUIRED_AGAIN_ACTION,
   getGeoPointForTarget,
   hasExplicitPrivateGeoDecision,
-  resetGoogleMapsNotRequired,
 } from "@/lib/geo-store";
 import type { GeoSourceLocation } from "@/lib/geo";
 import { getOrganizationPublicationAdminById } from "@/lib/help-organization-admin-store";
@@ -44,20 +43,22 @@ export function preferredOrganizationSite(items: OrganizationLocationAdminRecord
 async function latestOrganizationWorkflowAction(organizationId: number) {
   const db = requireOrganizationLocationD1();
   const row = await db.prepare(`
-    SELECT action
-    FROM moderation_events
-    WHERE resource_type = ?
-      AND subject_id = ?
+    SELECT id,action FROM moderation_events
+    WHERE resource_type = ? AND subject_id = ?
       AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-    ORDER BY created_at DESC, id DESC
-    LIMIT 1
-  `).bind(ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE, String(organizationId)).first<{ action: string }>();
-  return row?.action ?? null;
+    ORDER BY created_at DESC, rowid DESC LIMIT 1
+  `).bind(ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE, String(organizationId))
+    .first<{ id: string; action: string }>();
+  return row ?? null;
+}
+
+export async function getOrganizationGoogleMapsWorkflowRevision(organizationId: number) {
+  return (await latestOrganizationWorkflowAction(organizationId))?.id ?? null;
 }
 
 export async function getOrganizationGoogleMapsWorkflowDecision(organizationId: number) {
   if (!Number.isSafeInteger(organizationId) || organizationId <= 0) return "UNRESOLVED" as const;
-  return (await latestOrganizationWorkflowAction(organizationId)) === GOOGLE_MAPS_NOT_REQUIRED_ACTION
+  return (await latestOrganizationWorkflowAction(organizationId))?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION
     ? "NOT_REQUIRED" as const
     : "UNRESOLVED" as const;
 }
@@ -67,13 +68,18 @@ async function writeOrganizationWorkflowAction(input: {
   action: typeof GOOGLE_MAPS_NOT_REQUIRED_ACTION | typeof GOOGLE_MAPS_REQUIRED_AGAIN_ACTION;
   actorRef: string;
   reasonCode: string;
+  expectedWorkflowRevision?: string | null;
 }) {
   const db = requireOrganizationLocationD1();
-  await db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO moderation_events (
       id, submission_id, resource_type, subject_id, action, actor_type, actor_ref,
       from_status, to_status, reason_code, changed_fields_json, request_id, created_at
-    ) VALUES (?, NULL, ?, ?, ?, 'ADMIN', ?, NULL, NULL, ?, ?, NULL, ?)
+    ) SELECT ?, NULL, ?, ?, ?, 'ADMIN', ?, NULL, NULL, ?, ?, NULL, ?
+      ${input.expectedWorkflowRevision !== undefined ? `
+      WHERE (SELECT id FROM moderation_events WHERE resource_type=? AND subject_id=?
+        AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?` : ""}
   `).bind(
     globalThis.crypto.randomUUID(),
     ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE,
@@ -83,7 +89,9 @@ async function writeOrganizationWorkflowAction(input: {
     input.reasonCode,
     JSON.stringify(["google_maps_workflow"]),
     new Date().toISOString(),
+    ...(input.expectedWorkflowRevision !== undefined ? [ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE, String(input.organizationId), input.expectedWorkflowRevision] : []),
   ).run();
+  if (input.expectedWorkflowRevision !== undefined && (result as { meta?: { changes?: number } }).meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 }
 
 export async function setOrganizationGoogleMapsNotRequired(organizationId: number, actorRef: string) {
@@ -98,15 +106,16 @@ export async function setOrganizationGoogleMapsNotRequired(organizationId: numbe
   });
 }
 
-export async function resetOrganizationGoogleMapsNotRequired(organizationId: number, actorRef: string) {
+export async function resetOrganizationGoogleMapsNotRequired(organizationId: number, actorRef: string, expectedWorkflowRevision?: string | null) {
   const organization = await getOrganizationPublicationAdminById(organizationId);
   if (!organization) throw new Error("Organizácia sa nenašla.");
-  if (await getOrganizationGoogleMapsWorkflowDecision(organizationId) !== "NOT_REQUIRED") return;
+  if (expectedWorkflowRevision === undefined && await getOrganizationGoogleMapsWorkflowDecision(organizationId) !== "NOT_REQUIRED") return;
   await writeOrganizationWorkflowAction({
     organizationId,
     action: GOOGLE_MAPS_REQUIRED_AGAIN_ACTION,
     actorRef,
     reasonCode: "ADMIN_MAP_REVIEW_REOPENED",
+    expectedWorkflowRevision,
   });
 }
 
@@ -173,6 +182,7 @@ export async function confirmOrganizationProfileGooglePlace(input: {
   const placeId = input.placeId.trim();
   if (!placeId) throw new Error("Vyber konkrétne miesto z Google Maps.");
 
+  const originalWorkflowRevision = await getOrganizationGoogleMapsWorkflowRevision(input.organizationId);
   let state = await loadOrganizationGoogleMapsProfile(input.organizationId);
   if (!state) throw new Error("Organizácia sa nenašla.");
   const candidates = await discoverGoogleTargetPlaces(state.source);
@@ -219,12 +229,9 @@ export async function confirmOrganizationProfileGooglePlace(input: {
     allowPrivateOverride: false,
   });
 
-  await resetOrganizationGoogleMapsNotRequired(input.organizationId, input.actorRef);
-  await resetGoogleMapsNotRequired({
-    targetType: "ORGANIZATION_LOCATION",
-    targetId: location.id,
-    actorRef: input.actorRef,
-  });
+  await resetOrganizationGoogleMapsNotRequired(input.organizationId, input.actorRef, originalWorkflowRevision);
+  // confirmAdminGooglePlace already handles the GEO_POINT-level decision with
+  // a pre-discovery audit CAS. Do not reset it a second, unguarded time.
 
   return {
     ...result,

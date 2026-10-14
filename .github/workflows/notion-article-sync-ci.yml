@@ -9,6 +9,8 @@ on:
       - "lib/notion-breed-sync.ts"
       - "lib/notion-event-sync.ts"
       - "lib/notion-directory-sync.ts"
+      # Canonical directory writes are shared by Notion synchronization and Google GEO confirmation.
+      - "lib/directory-store.ts"
       - "lib/notion-sync-shared.ts"
       - "app/api/admin/notion-sync/**"
       - "app/api/admin/notion-breeds-sync/**"

@@ -335,24 +335,32 @@ export async function writeGeoModerationEvent(input: {
 export const GOOGLE_MAPS_NOT_REQUIRED_ACTION = "GOOGLE_MAPS_NOT_REQUIRED";
 export const GOOGLE_MAPS_REQUIRED_AGAIN_ACTION = "GOOGLE_MAPS_REQUIRED_AGAIN";
 
+export async function getGoogleMapsWorkflowSnapshot(
+  targetType: GeoTargetType,
+  targetId: number,
+  database?: GeoD1Database,
+): Promise<{ eventId: string | null; decision: "NOT_REQUIRED" | "UNRESOLVED" }> {
+  const db = requireGeoD1(database);
+  const point = await getGeoPointForTarget(targetType, targetId, db);
+  if (!point) return { eventId: null, decision: "UNRESOLVED" };
+  const row = await db.prepare(`
+    SELECT id, action FROM moderation_events
+    WHERE resource_type='GEO_POINT' AND subject_id=?
+      AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+    ORDER BY created_at DESC, rowid DESC LIMIT 1
+  `).bind(String(point.id)).first<{ id: string; action: string }>();
+  return {
+    eventId: row?.id ?? null,
+    decision: row?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED",
+  };
+}
+
 export async function getGoogleMapsWorkflowDecision(
   targetType: GeoTargetType,
   targetId: number,
   database?: GeoD1Database,
 ): Promise<"NOT_REQUIRED" | "UNRESOLVED"> {
-  const db = requireGeoD1(database);
-  const point = await getGeoPointForTarget(targetType, targetId, db);
-  if (!point) return "UNRESOLVED";
-  const row = await db.prepare(`
-    SELECT action
-    FROM moderation_events
-    WHERE resource_type = 'GEO_POINT'
-      AND subject_id = ?
-      AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-    ORDER BY created_at DESC, id DESC
-    LIMIT 1
-  `).bind(String(point.id)).first<{ action: string }>();
-  return row?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED";
+  return (await getGoogleMapsWorkflowSnapshot(targetType, targetId, database)).decision;
 }
 
 export async function setGoogleMapsNotRequired(input: {
@@ -392,10 +400,42 @@ export async function resetGoogleMapsNotRequired(input: {
   targetType: GeoTargetType;
   targetId: number;
   actorRef: string;
+  expectedWorkflowRevision?: string | null;
+  expectedGeoRevision?: string;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!point) return null;
+  // Confirmation can only reset the workflow decision it observed before
+  // remote discovery. Guard the audit INSERT atomically against concurrent
+  // NOT_REQUIRED decisions; a stale confirmation must not clear them.
+  if (input.expectedWorkflowRevision !== undefined) {
+    if (input.expectedGeoRevision !== undefined && point.updatedAt !== input.expectedGeoRevision) {
+      throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    }
+    const eventId = globalThis.crypto.randomUUID();
+    const result = await db.prepare(`
+      INSERT INTO moderation_events (
+        id, submission_id, resource_type, subject_id, action, actor_type, actor_ref,
+        from_status, to_status, reason_code, changed_fields_json, request_id, created_at
+      )
+      SELECT ?, NULL, 'GEO_POINT', ?, 'GOOGLE_MAPS_REQUIRED_AGAIN', 'ADMIN', ?, ?, ?,
+        'ADMIN_MAP_REVIEW_REOPENED', ?, NULL, ?
+      WHERE (SELECT id FROM moderation_events
+        WHERE resource_type='GEO_POINT' AND subject_id=?
+          AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?
+        AND EXISTS (SELECT 1 FROM geo_points WHERE id=? AND updated_at=?
+          AND manual_override=0 AND provider='google_places' AND geocode_status='RESOLVED'
+          AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT')
+    `).bind(
+      eventId, String(point.id), input.actorRef, point.geocodeStatus, point.geocodeStatus,
+      JSON.stringify(["google_maps_workflow"]), new Date().toISOString(),
+      String(point.id), input.expectedWorkflowRevision, point.id, point.updatedAt,
+    ).run();
+    if (result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    return point;
+  }
   if (await getGoogleMapsWorkflowDecision(input.targetType, input.targetId, db) !== "NOT_REQUIRED") {
     return point;
   }
@@ -496,43 +536,51 @@ export async function setGeoVisibility(input: {
   actorRef: string;
   actorType?: "ADMIN" | "SYSTEM";
   reason?: string;
+  expectedGeoRevision?: string;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!current) throw new Error("Geo point neexistuje. Najprv ho inicializuj.");
+  if (input.expectedGeoRevision !== undefined && input.expectedGeoRevision !== current.updatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   const source = await getGeoSourceLocation(input.targetType, input.targetId, db);
   if (!source) throw new Error("Canonical location target neexistuje.");
 
   const precision = input.visibility === "HIDDEN" ? null : input.precision;
   if (input.visibility !== "HIDDEN" && !precision) throw new Error("Verejná poloha musí mať precision.");
   const state = await sourceState(source, input.visibility, precision);
-  const now = new Date().toISOString();
+  // Keep the revision strictly increasing even for two admin writes in one millisecond.
+  const previousRevisionMs = Date.parse(current.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previousRevisionMs) ? previousRevisionMs + 1 : 0)).toISOString();
 
+  const casArgs = [current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility, current.publicPrecision, current.sourceFingerprint, current.attemptCount];
   if (input.visibility === "HIDDEN") {
-    await db.prepare(`
+    const visibilityResult = await db.prepare(`
       UPDATE geo_points SET public_visibility='HIDDEN', public_precision=NULL,
         latitude=NULL, longitude=NULL, resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='SKIPPED', last_error_code='PRIVATE_HIDDEN', last_error_at=?, retry_after_at=NULL,
         manual_override=0, manual_updated_at=NULL, manual_updated_by=NULL, updated_at=?
-      WHERE id=?
-    `).bind(state.sourceFingerprint, now, now, current.id).run();
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
+    `).bind(state.sourceFingerprint, now, now, current.id, ...casArgs).run();
+    if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   } else if (current.manualOverride) {
-    await db.prepare(`
+    const visibilityResult = await db.prepare(`
       UPDATE geo_points SET public_visibility=?, public_precision=?, normalized_query=?, query_fingerprint=?,
         source_fingerprint=?, geocode_status='STALE', last_error_code='MANUAL_REVIEW', last_error_at=?,
         retry_after_at=NULL, updated_at=?
-      WHERE id=?
-    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, now, current.id).run();
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
+    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, now, current.id, ...casArgs).run();
+    if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   } else {
-    await db.prepare(`
+    const visibilityResult = await db.prepare(`
       UPDATE geo_points SET public_visibility=?, public_precision=?, latitude=NULL, longitude=NULL,
         resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=?, query_fingerprint=?, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='PENDING', last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL,
         attempt_count=0, last_geocoded_at=NULL, updated_at=?
-      WHERE id=?
-    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, current.id).run();
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
+    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, current.id, ...casArgs).run();
+    if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   }
 
   const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
@@ -616,6 +664,48 @@ export async function resetManualGeoOverride(targetType: GeoTargetType, targetId
   return point;
 }
 
+
+/**
+ * Google source writers use this existing D1 database transaction boundary.
+ * Each caller runs a source CAS and this GEO invalidation inside ONE db.batch().
+ * No reconciliation/publication can run between the two commits.
+ */
+export async function prepareGoogleSourceGeoInvalidation(
+  targetType: GeoTargetType,
+  targetId: number,
+  database: GeoD1Database,
+  expectedGeoRevision?: string | null,
+  postCommitSourceCheck?: { sql: string; args: (string | number | null)[] },
+) {
+  const current = await getGeoPointForTarget(targetType, targetId, database);
+  if (expectedGeoRevision !== undefined && (current?.updatedAt ?? null) !== expectedGeoRevision) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
+  const column = targetType === "DIRECTORY_PROFILE" ? "directory_profile_id"
+    : targetType === "MANAGED_EVENT" ? "managed_event_id" : "organization_location_id";
+  const key = `target_type='${targetType}' AND ${column}=?`;
+  const revision = current
+    ? `updated_at IS ? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?`
+    : null;
+  const revisionArgs: (string | number | null)[] = current ? [
+    current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility,
+    current.publicPrecision, current.sourceFingerprint, current.attemptCount,
+  ] : [];
+  const sourceGuard = current
+    ? `EXISTS (SELECT 1 FROM geo_points WHERE ${key} AND ${revision})`
+    : `NOT EXISTS (SELECT 1 FROM geo_points WHERE ${key})`;
+  const sourceGuardArgs = [targetId, ...revisionArgs];
+  const now = new Date(Math.max(Date.now(), Date.parse(current?.updatedAt ?? "") + 1 || 0)).toISOString();
+  const invalidation = current ? database.prepare(`
+    UPDATE geo_points SET resolved_source_fingerprint=NULL, google_place_source_fingerprint=NULL,
+      geocode_status=CASE WHEN public_visibility='HIDDEN' THEN 'SKIPPED' ELSE 'STALE' END,
+      last_error_code=CASE WHEN manual_override=1 THEN 'MANUAL_REVIEW' ELSE NULL END,
+      last_error_at=NULL, retry_after_at=NULL, updated_at=?
+    WHERE ${key} AND ${revision} ${postCommitSourceCheck ? `AND EXISTS (${postCommitSourceCheck.sql})` : ""}
+  `).bind(now, targetId, ...revisionArgs, ...(postCommitSourceCheck?.args ?? [])) : null;
+  return { sourceGuard, sourceGuardArgs, invalidation, current, now };
+}
+
 export function buildDirectoryGeoInvalidationForAddressReviewStatement(
   profileId: number,
   database: GeoD1Database,
@@ -634,14 +724,16 @@ export function buildDirectoryGeoInvalidationForAddressReviewStatement(
   `).bind(now, profileId, profileId, now);
 }
 
-export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, targetIdValue: number, database?: GeoD1Database) {
+export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, targetIdValue: number, database?: GeoD1Database, expectedGeoRevision?: string | null) {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(targetType, targetIdValue, db);
+  if (expectedGeoRevision !== undefined && (current?.updatedAt ?? null) !== expectedGeoRevision) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   if (!current) return null;
   const source = await getGeoSourceLocation(targetType, targetIdValue, db);
   if (!source) return null;
 
   const classification = classifyGeoSource(source);
+  const geoCasArgs = [current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility, current.publicPrecision, current.sourceFingerprint, current.attemptCount];
   const desiredVisibility = classification.proposedVisibility;
   const desiredPrecision = classification.proposedPrecision;
 
@@ -665,6 +757,7 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
       actorRef: "geo-source-sync",
       actorType: "SYSTEM",
       reason: classification.reasonCode ?? "PRIVATE_HIDDEN",
+      expectedGeoRevision: current.updatedAt,
     }, db);
   }
 
@@ -680,10 +773,10 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
     if (manualState.sourceFingerprint === current.sourceFingerprint && !classificationChanged) return current;
 
     const now = new Date().toISOString();
-    await db.prepare(`
+    const casResult = await db.prepare(`
       UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
         geocode_status='STALE', last_error_code='MANUAL_REVIEW', last_error_at=?,
-        retry_after_at=NULL, updated_at=? WHERE id=?
+        retry_after_at=NULL, updated_at=? WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
     `).bind(
       manualState.sourceFingerprint,
       manualState.query,
@@ -691,7 +784,9 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
       now,
       now,
       current.id,
+      ...geoCasArgs,
     ).run();
+    if (casResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
     const point = await getGeoPointForTarget(targetType, targetIdValue, db);
     if (point) {
@@ -734,14 +829,15 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
 
     const now = new Date().toISOString();
     const reasonCode = classification.reasonCode ?? "PRIVACY_CLASSIFICATION_MISSING";
-    await db.prepare(`
+    const casResult = await db.prepare(`
       UPDATE geo_points SET public_visibility=NULL, public_precision=NULL,
         latitude=NULL, longitude=NULL, resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='NEEDS_REVIEW', last_error_code=?, last_error_at=?, retry_after_at=NULL,
         attempt_count=0, last_geocoded_at=NULL, updated_at=?
-      WHERE id=?
-    `).bind(reviewState.sourceFingerprint, reasonCode, now, now, current.id).run();
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
+    `).bind(reviewState.sourceFingerprint, reasonCode, now, now, current.id, ...geoCasArgs).run();
+    if (casResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
     const point = await getGeoPointForTarget(targetType, targetIdValue, db);
     if (point) {
@@ -780,22 +876,25 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
       actorRef: "geo-source-sync",
       actorType: "SYSTEM",
       reason: "SOURCE_RECLASSIFIED",
+      expectedGeoRevision: current.updatedAt,
     }, db);
   }
 
   if (desiredState.sourceFingerprint === current.sourceFingerprint) return current;
 
   const now = new Date().toISOString();
-  await db.prepare(`
+  const casResult = await db.prepare(`
     UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
-      geocode_status='STALE', last_error_code=NULL, last_error_at=NULL, updated_at=? WHERE id=?
+      geocode_status='STALE', last_error_code=NULL, last_error_at=NULL, updated_at=? WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
   `).bind(
     desiredState.sourceFingerprint,
     desiredState.query,
     desiredState.queryFingerprint,
     now,
     current.id,
+    ...geoCasArgs,
   ).run();
+  if (casResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
   const point = await getGeoPointForTarget(targetType, targetIdValue, db);
   if (point) {
@@ -825,9 +924,11 @@ export async function reconcileGeoAfterSourceMutation(input: {
   targetId: number;
   actorRef?: string;
   actorType?: "ADMIN" | "SYSTEM";
+  expectedGeoRevision?: string | null;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const existing = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (input.expectedGeoRevision !== undefined && (existing?.updatedAt ?? null) !== input.expectedGeoRevision) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
   if (!existing) {
     const initialized = await initializeGeoPointForTarget(
@@ -837,10 +938,11 @@ export async function reconcileGeoAfterSourceMutation(input: {
       db,
       input.actorType ?? "SYSTEM",
     );
+    if (input.expectedGeoRevision === null && !initialized.created) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     return { point: initialized.point, action: initialized.created ? "INITIALIZED" as const : "NO_OP" as const };
   }
 
-  const point = await syncGeoPointAfterSourceChange(input.targetType, input.targetId, db);
+  const point = await syncGeoPointAfterSourceChange(input.targetType, input.targetId, db, input.expectedGeoRevision);
   const changed = Boolean(point) && (
     point!.sourceFingerprint !== existing.sourceFingerprint
     || point!.publicVisibility !== existing.publicVisibility
@@ -895,6 +997,7 @@ export async function applyGeocoderResolution(input: {
 export async function applyGooglePlaceResolution(input: {
   targetType: GeoTargetType;
   targetId: number;
+  expectedGeoRevision?: string;
   place: {
     id: string;
     latitude: number;
@@ -904,6 +1007,9 @@ export async function applyGooglePlaceResolution(input: {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!current) throw new Error("Geo point neexistuje.");
+  if (input.expectedGeoRevision !== undefined && current.updatedAt !== input.expectedGeoRevision) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
   if (current.manualOverride) throw new Error("Google Place nesmie prepísať manual override.");
   if (current.publicVisibility !== "EXACT_PUBLIC" || current.publicPrecision !== "EXACT") {
     throw new Error("Google Place exact resolution vyžaduje EXACT_PUBLIC / EXACT klasifikáciu.");
@@ -912,6 +1018,9 @@ export async function applyGooglePlaceResolution(input: {
   const latitude = safeCoordinate(input.place.latitude, true);
   const longitude = safeCoordinate(input.place.longitude, false);
   const now = new Date().toISOString();
+  const expectedFingerprint = current.sourceFingerprint;
+  const expectedRevision = current.updatedAt;
+  const expectedAttempt = current.attemptCount;
   const providerResultIdSchema = await isGeoProviderResultIdSchemaAvailable(db);
   const statement = providerResultIdSchema
     ? db.prepare(`
@@ -920,18 +1029,23 @@ export async function applyGooglePlaceResolution(input: {
           provider_result_id=?, google_place_id=?, google_place_source_fingerprint=source_fingerprint,
           google_place_matched_at=?, resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
           last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
-          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
-      `).bind(latitude, longitude, input.place.id.trim(), input.place.id.trim(), now, now, now, current.id)
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0 AND source_fingerprint=? AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT' AND updated_at=? AND attempt_count=?
+      `).bind(latitude, longitude, input.place.id.trim(), input.place.id.trim(), now, now, now, current.id, expectedFingerprint, expectedRevision, expectedAttempt)
     : db.prepare(`
         UPDATE geo_points SET latitude=?, longitude=?, resolution_method='GEOCODER',
           provider='google_places', provenance='Google Places API (New)', source_license=NULL,
           google_place_id=?, google_place_source_fingerprint=source_fingerprint,
           google_place_matched_at=?, resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
           last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
-          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
-      `).bind(latitude, longitude, input.place.id.trim(), now, now, now, current.id);
-  await statement.run();
-  return getGeoPointForTarget(input.targetType, input.targetId, db);
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0 AND source_fingerprint=? AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT' AND updated_at=? AND attempt_count=?
+      `).bind(latitude, longitude, input.place.id.trim(), now, now, now, current.id, expectedFingerprint, expectedRevision, expectedAttempt);
+  const result = await statement.run();
+  if (result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  const resolved = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (!resolved || resolved.geocodeStatus !== "RESOLVED" || resolved.provider !== "google_places" || resolved.attemptCount !== expectedAttempt + 1) {
+    throw new Error("GOOGLE_CONFIRMATION_INCOMPLETE");
+  }
+  return resolved;
 }
 
 export async function recordGeocoderFailure(input: {
