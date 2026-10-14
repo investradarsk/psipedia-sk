@@ -1,0 +1,33 @@
+.layout { display: grid; grid-template-columns: minmax(230px, 290px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.categories, .editor { background: #fff; border: 1px solid #dbe7df; border-radius: 14px; padding: 20px; min-width: 0; }
+.categories { max-height: 76vh; overflow-y: auto; position: sticky; top: 106px; }
+.categories h2 { font-size: 1.15rem; margin: 0 0 16px; }
+.categories h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; margin: 18px 0 8px; color: #52675c; }
+.categories ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.categoryLink, .active { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 9px; text-decoration: none; color: #234536; padding: 9px 10px; font-size: .87rem; }
+.categoryLink:hover { background: #f0f6f1; }
+.active { background: #e3efe5; font-weight: 700; }
+.categories small { color: #62766b; font-weight: 400; flex-shrink: 0; }
+.titleRow { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; }
+.titleRow h2 { margin: 0; font-size: 1.4rem; }
+.key { margin: 4px 0 0; color: #65786c; font-family: monospace; font-size: .85rem; }
+.status { padding: 6px 10px; border-radius: 999px; background: #f0f5f0; font-size: .8rem; color: #355842; }
+.editor > p { line-height: 1.6; }
+.form { display: grid; gap: 12px; }
+.form label { font-weight: 700; }
+.form textarea { resize: vertical; min-height: 340px; width: 100%; padding: 14px; border: 1px solid #b5c9bd; border-radius: 10px; font: inherit; line-height: 1.55; color: #21382c; background: #fff; }
+.form textarea:focus-visible, .actions button:focus-visible, .categories a:focus-visible { outline: 3px solid #e9b357; outline-offset: 2px; }
+.form textarea:disabled { background: #f6f7f6; }
+.meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #65786c; font-size: .83rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.actions button { cursor: pointer; padding: 10px 14px; }
+.actions button:disabled { opacity: .55; cursor: not-allowed; }
+.success { color: #23593d; }
+.error { color: #a01c1c; }
+.note { border-top: 1px solid #e7eee9; margin-top: 24px; padding-top: 16px; font-size: .85rem; color: #52675c; }
+@media (max-width: 850px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .categories { position: static; max-height: 270px; }
+  .editor, .categories { padding: 16px; }
+  .form textarea { min-height: 300px; }
+}
