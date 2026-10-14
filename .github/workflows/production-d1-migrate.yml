@@ -216,6 +216,9 @@ jobs:
       - name: Repository migration safety
         run: npm run db:check-migrations
 
+      - name: Offline migration safety regressions
+        run: npm run test:migration-safety
+
       - name: Build exact production artifact and generated Wrangler config
         run: npm run build
 
