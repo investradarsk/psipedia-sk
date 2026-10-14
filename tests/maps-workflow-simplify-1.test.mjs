@@ -215,3 +215,20 @@ test("postcommit GEO failure demands repair while precommit CAS conflict does no
   assert.match(read("lib/directory-store.ts"),/GOOGLE_SOURCE_COMMITTED_GEO_FAILED/);
   assert.match(read("lib/organization-location-admin-write.ts"),/GOOGLE_SOURCE_COMMITTED_GEO_FAILED/);
 });
+
+test("Google resolution requires the caller-observed GEO revision, not a newer read", () => {
+  const geo = read("lib/geo-store.ts");
+  const confirmation = read("lib/admin-google-place-confirmation.ts");
+  const start = geo.indexOf("export async function applyGooglePlaceResolution");
+  const end = geo.indexOf("export async function recordGeocoderFailure", start);
+  const source = geo.slice(start, end);
+  assert.match(source, /input\.expectedGeoRevision !== undefined && current\.updatedAt !== input\.expectedGeoRevision/);
+  assert.match(confirmation, /expectedGeoRevision: point\.updatedAt/);
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE geo_points (id INTEGER PRIMARY KEY, updated_at TEXT, attempt_count INTEGER, manual_override INTEGER, public_visibility TEXT, public_precision TEXT)");
+  db.prepare("INSERT INTO geo_points VALUES(1,'old',0,0,'EXACT_PUBLIC','EXACT')").run();
+  db.prepare("UPDATE geo_points SET updated_at='new',public_visibility='HIDDEN',public_precision=NULL WHERE id=1").run();
+  const result = db.prepare("UPDATE geo_points SET attempt_count=attempt_count+1 WHERE id=? AND updated_at=? AND manual_override=0 AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT'").run(1,"old");
+  assert.equal(result.changes,0);
+  assert.equal(db.prepare("SELECT public_visibility FROM geo_points WHERE id=1").get().public_visibility,"HIDDEN");
+});
