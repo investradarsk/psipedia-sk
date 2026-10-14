@@ -92,7 +92,8 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     const before = await getManagedEventById(effectiveTargetId);
     if (!before) throw new Error("Podujatie sa nenašlo.");
     if ([before.city, before.region].some((value) => value?.trim().toLowerCase() === "online")) throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
-    await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt);
+    const updatedEvent = await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt);
+    if (!updatedEvent) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     sourceMutated = true;
   }
 
