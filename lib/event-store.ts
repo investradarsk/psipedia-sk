@@ -423,7 +423,15 @@ export async function updateManagedEventLocationFromGooglePlace(
   const updated = results[0]?.results?.[0] as { id: number } | undefined;
   if (!updated) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
-  return { id: updated.id, address, city, region, updatedAt: now, googleConfirmationGeoRevision: geo.current ? geo.now : null };
+  try {
+    const reconciled = await reconcileGeoAfterSourceMutation({
+      targetType: "MANAGED_EVENT", targetId: id, actorRef: editorEmail, actorType: "ADMIN",
+    }, database);
+    return { id: updated.id, address, city, region, updatedAt: now,
+      googleConfirmationGeoRevision: reconciled.point?.updatedAt ?? null };
+  } catch (cause) {
+    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
+  }
 }
 
 export async function transitionManagedEventCancellation(
