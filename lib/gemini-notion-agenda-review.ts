@@ -181,8 +181,10 @@ function encoded(type: string, value: unknown, options: { name: string }[] = [])
     return { number: value };
   }
   if (typeof value !== "string" || value.length > 15000) throw new GeminiAgendaReviewError("STATE");
+  // Keep intentional whitespace/newlines of edited long text, including
+  // inline evidence references. Only URL/enum/email-like scalars are trimmed.
   const v = value.trim();
-  if (["title", "rich_text"].includes(type)) return { [type]: chunks(v) };
+  if (["title", "rich_text"].includes(type)) return { [type]: chunks(value) };
   if (["url", "email", "phone_number"].includes(type)) {
     if (type === "url" && v) {
       try { const u = new URL(v); if (!["http:", "https:"].includes(u.protocol) || u.username || u.password) throw Error(); }
@@ -211,7 +213,7 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
   const release = await acquireGeminiNotionLock(env.DB, id);
   if (!release) throw new GeminiAgendaReviewError("LOCKED");
   try {
-    const { draft, source } = await getGeminiAgendaDraft(env, key, id);
+    const { draft, page, source } = await getGeminiAgendaDraft(env, key, id);
     if (!draft.lastEditedAt || input.lastEditedAt !== draft.lastEditedAt)
       throw new GeminiAgendaReviewError("CONFLICT");
     if (draft.psipediaId) throw new GeminiAgendaReviewError("STATE");
@@ -228,10 +230,19 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
         throw new GeminiAgendaReviewError("STATE");
       const values = fields as Record<string, unknown>;
       const available = new Map(draft.fields.filter(field => field.editable).map(field => [field.name, field]));
-      if (Object.keys(values).some(name => !available.has(name))) throw new GeminiAgendaReviewError("STATE");
-      if (typeof values["Popis"] === "string" &&
-          (!values["Popis"].includes(evidenceTag(draft.agenda)) || !/https:\/\/[^\s]+/.test(values["Popis"])))
+      if (!Object.keys(values).length || Object.keys(values).some(name => !available.has(name)))
         throw new GeminiAgendaReviewError("STATE");
+      // The agent embeds provenance in the description because these agenda
+      // schemas have no dedicated evidence field. A reviewer may edit prose,
+      // but must retain the complete original evidence segment verbatim.
+      if (typeof values["Popis"] === "string") {
+        const original = txt(page, "Popis");
+        const marker = evidenceTag(draft.agenda);
+        const offset = original.indexOf(marker);
+        const evidence = offset < 0 ? "" : original.slice(offset).trim();
+        if (!evidence || !values["Popis"].includes(evidence))
+          throw new GeminiAgendaReviewError("STATE");
+      }
       for (const [name, value] of Object.entries(values)) {
         if (draft.agenda === "lost-found" && typeof value === "string" && privateLostFoundPattern.test(value))
           throw new GeminiAgendaReviewError("STATE");
@@ -243,20 +254,18 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
       if (typeof nextTitle !== "string" || !nextTitle.trim()) throw new GeminiAgendaReviewError("STATE");
     } else {
       if (input.confirm !== true) throw new GeminiAgendaReviewError("STATE");
+      // Help-cases uses draft/published as a PUBLICATION gate, not a review
+      // decision. Never convert an approval click into an automatic public post,
+      // or invent an unrecognized rejection state. A separate contract is needed.
+      if (draft.agenda === "help-cases") throw new GeminiAgendaReviewError("SCHEMA");
       if (action === "approve" && !draft.name.trim()) throw new GeminiAgendaReviewError("STATE");
       if (action === "approve" && !draft.fields.some(field =>
         field.name === "Slug" && typeof field.value === "string" && field.value.trim()))
         throw new GeminiAgendaReviewError("STATE");
       const target = action === "approve"
-        ? draft.agenda === "help-cases" ? "published" :
-          draft.agenda === "lost-found" ? "PENDING" : "Ready"
+        ? draft.agenda === "lost-found" ? "PENDING" : "Ready"
         : action === "reject" ? draft.agenda === "lost-found" ? "ARCHIVED" : "Archív"
-        : draft.agenda === "help-cases" ? "draft" :
-          draft.agenda === "lost-found" ? "DRAFT" : "Na kontrolu";
-      // Help-cases has rich_text statuses draft/published only: an invented archive
-      // state would break the canonical sync. Fail closed until a real review field exists.
-      if (draft.agenda === "help-cases" && action === "reject")
-        throw new GeminiAgendaReviewError("SCHEMA");
+        : draft.agenda === "lost-found" ? "DRAFT" : "Na kontrolu";
       patch[source.status] = encoded(source.schema[source.status].type ?? "", target,
         source.schema[source.status].select?.options ?? []);
     }
