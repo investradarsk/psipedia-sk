@@ -548,7 +548,9 @@ export async function setGeoVisibility(input: {
   const precision = input.visibility === "HIDDEN" ? null : input.precision;
   if (input.visibility !== "HIDDEN" && !precision) throw new Error("Verejná poloha musí mať precision.");
   const state = await sourceState(source, input.visibility, precision);
-  const now = new Date().toISOString();
+  // Keep the revision strictly increasing even for two admin writes in one millisecond.
+  const previousRevisionMs = Date.parse(current.updatedAt);
+  const now = new Date(Math.max(Date.now(), Number.isFinite(previousRevisionMs) ? previousRevisionMs + 1 : 0)).toISOString();
 
   const casArgs = [current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility, current.publicPrecision, current.sourceFingerprint, current.attemptCount];
   if (input.visibility === "HIDDEN") {
