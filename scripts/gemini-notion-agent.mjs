@@ -1,3 +1,4 @@
+import { buildShelterDraft, assertShelterSchema } from "./gemini-notion-shelter-fields.mjs";
 import { buildNotionEventsHelpDraft } from "./gemini-notion-events-help-fields.mjs";
 import { externalWorkerCategorySupported } from "./gemini-notion-category.mjs";
 import { directoryDuplicate } from "./gemini-notion-identity.mjs";
@@ -35,14 +36,14 @@ function category() {
   const ids = {
     directory: env.NOTION_DIRECTORY_DATA_SOURCE_ID,
     events: env.NOTION_EVENTS_DATA_SOURCE_ID,
-    help: env.NOTION_HELP_DATA_SOURCE_ID,
+    help: subcategory === "utulky" ? env.NOTION_ORGANIZATIONS_DATA_SOURCE_ID : env.NOTION_HELP_DATA_SOURCE_ID,
   };
   const dataSourceId = ids[section];
   if (!dataSourceId || !/^[a-f0-9-]{32,36}$/i.test(dataSourceId))
     throw Error("NOTION_DATA_SOURCE_MISSING");
   const categoryValue = notionCategoryValue(section, subcategory);
   if (!categoryValue) throw Error("INVALID_CATEGORY");
-  return { section, subcategory, categoryValue, dataSourceId };
+  return { section, subcategory, categoryValue, dataSourceId, dedicatedShelter: section === "help" && subcategory === "utulky" };
 }
 
 async function notion(path, method = "GET", body) {
@@ -93,7 +94,9 @@ async function notionSnapshot(dataSourceId, section = "directory") {
   if (properties["Názov"]?.type !== "title") throw Error("NOTION_TITLE_SCHEMA_MISSING");
   if (typeof metadata.id !== "string" || metadata.id.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
     throw Error("NOTION_TARGET_MISMATCH");
-  if (section === "events" || section === "help") {
+  if (section === "shelters") {
+    assertShelterSchema(properties);
+  } else if (section === "events" || section === "help") {
     const expected = section === "events"
       ? { "Typ podujatia": "rich_text", "Začiatok": "date", "Organizátor": "rich_text", "Stav": "select", "Web": "url", "Zdroj dát": "url" }
       : { "Kategória": "rich_text", "Psipedia stav": "rich_text" };
@@ -192,6 +195,26 @@ function notionSearch(rows, query) {
 
 async function createDraft(args, snapshot, target) {
   if (metrics.concept_count >= maxNew) return { status: "limit_reached" };
+  if (target.dedicatedShelter) {
+    const fresh = await notionSnapshot(target.dataSourceId, "shelters");
+    let properties;
+    try {
+      properties = buildShelterDraft({ args, ...fresh, rows: [...fresh.rows, ...confirmedDrafts], groundedSources: [...researchSources] });
+    } catch (error) {
+      if (error.message === "GEMINI_SHELTER_DUPLICATE_OR_AMBIGUOUS") {
+        metrics.duplicate_count++;
+        return { status: "duplicate" };
+      }
+      throw Error("NOTION_SHELTER_CONTRACT_INVALID");
+    }
+    const created = await notion("/pages", "POST", { parent: { type: "data_source_id", data_source_id: target.dataSourceId }, properties });
+    if (!created?.id || typeof created.id !== "string") throw Error("NOTION_CREATE_UNCERTAIN");
+    confirmedDrafts.push({id:created.id, properties:Object.fromEntries(Object.entries(properties).map(([key,value])=>[key,{type:Object.keys(value)[0],...value}]))});
+    snapshot.rows=[...fresh.rows,...confirmedDrafts];
+    metrics.concept_count++;
+    pageIds.push(created.id);
+    return { status:"created", notion_page_id:created.id };
+  }
   if (target.section === "events" || target.section === "help") {
     const sourceList = [args.source_url, ...(Array.isArray(args.source_urls) ? args.source_urls : [])];
     if (sourceList.some(url => !researchSources.has(httpsUrl(url)))) throw Error("GEMINI_SOURCE_NOT_GROUNDED");
@@ -327,6 +350,8 @@ const tools = [
         start_date: { type: "string", description: "Event date YYYY-MM-DD, if verified." },
         organizer: { type: "string" },
         organization: { type: "string" },
+        legal_name: { type: "string" },
+        registration_number: { type: "string" },
         end_date: { type: "string" },
         start_time: { type: "string", description: "Verified local event time HH:MM (Europe/Bratislava)." },
         end_time: { type: "string" },
@@ -398,9 +423,9 @@ async function runAgent() {
   if (!Number.isSafeInteger(jobId) || jobId < 1 ||
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
-  const snapshot = await notionSnapshot(target.dataSourceId, target.section);
+  const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedShelter ? "shelters" : target.section);
   const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. " +
-    "Kategória: " + target.categoryValue + " (" + stableKey + "), Slovensko. " +
+    "Kategória: " + (target.dedicatedShelter ? "útulky (Organizácie, SHELTER)" : target.categoryValue) + " (" + stableKey + "), Slovensko. " +
     "Použi teraz Google Search a nájdi maximálne " + maxNew +
     " NOVÝCH relevantných subjektov / podujatí / prípadov pomoci. " +
     "Pre každý vyhľadaj verejný primárny HTTPS zdroj, oficiálny web aj sekciu Kontakt. " +
@@ -418,7 +443,7 @@ async function runAgent() {
     .filter(annotation => annotation.type === "url_citation")
     .map(annotation => httpsUrl(annotation.url)).filter(Boolean));
   if (target.section !== "directory" && !researchSources.size) throw Error("GEMINI_SEARCH_EVIDENCE_MISSING");
-  const instruction = "Pre podujatia a pomoc použi source_url/source_urls výhradne zo Search výsledkov; " +
+  const instruction = (target.dedicatedShelter ? "Útulky: existujúca databáza Organizácie, typ SHELTER, stav Nápad. Nezadávaj adresu, telefón, e-mail, presnú polohu ani súradnice. Over meno, opisy a zdroje; dolož evidence fields name, summary, description a všetky doplnené identity. " : "") + "Pre podujatia a pomoc použi source_url/source_urls výhradne zo Search výsledkov; " +
     "evidence musí priradiť každý overený fakt k zdroju (source_url, fields). " +
     "Podujatia vyžadujú organizer, start_date, lokalitu, summary a description; časy sú HH:MM. " +
     "Pomoc vyžaduje summary a description; kontakt a organizáciu pridaj iba s dôkazmi. " +
