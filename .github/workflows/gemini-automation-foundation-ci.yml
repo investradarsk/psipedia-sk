@@ -67,7 +67,7 @@ jobs:
       - name: External Gemini agent contracts (no network or paid API)
         run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
@@ -83,7 +83,7 @@ jobs:
       - name: Gemini review, rejection and canonical lifecycle lint
         run: npx eslint app/admin/automatizacie-gemini app/api/admin/gemini-automation components/admin-gemini-concept-review.tsx lib/gemini-automation-concept-review.ts lib/gemini-automation-dedupe-store.ts lib/directory-store.ts
       - name: Gemini Event contract, canonical and review lint
-        run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts components/admin-gemini-event-concept-review.tsx
+        run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts lib/gemini-notion-agenda-review.ts components/admin-gemini-event-concept-review.tsx components/admin-gemini-agenda-draft-editor.tsx
       - name: Agent JavaScript syntax (without executing or billing)
         run: node --check scripts/gemini-notion-agent.mjs
       - name: Production build and typecheck
