@@ -129,11 +129,23 @@ test("SEO-RECOVERY-1 listing routes delegate query indexability to the shared po
   }
 });
 
-test("SEO-RECOVERY-1 event filter controls do not emit crawlable query anchors", () => {
+test("SEO-RECOVERY-1 event time links preserve filters and remain noindex/follow", () => {
   const source = fs.readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-  assert.match(source, /type="button"[\s\S]*selectTime\(value\)/);
-  assert.doesNotMatch(source, /href=\{eventTimeFilterHref\(value,/);
-  assert.match(source, /href=\{pathname\}/);
+  assert.match(source, /function timeHref\(value: EventTimeFilter\)/);
+  assert.match(source, /href=\{timeHref\(value\)\}/);
+  assert.match(source, /params\.delete\("termin"\)/);
+  assert.match(source, /eventTimeFilterParam\(value\)/);
+  assert.match(source, /aria-current=\{initialTime === value \? "page" : undefined\}/);
+
+  const filtered = buildListingPageMetadata({
+    title: "Podujatia",
+    description: "Filtrované podujatia.",
+    path: "/podujatia",
+    searchParams: { termin: "ukoncene" },
+  });
+  assert.equal(filtered.robots?.index, false);
+  assert.equal(filtered.robots?.follow, true);
+  assert.equal(canonical(filtered), SITE_URL + "/podujatia");
 });
 
 test("SEO-RECOVERY-1 crawler access remains open for filtered URLs and named search bots", () => {

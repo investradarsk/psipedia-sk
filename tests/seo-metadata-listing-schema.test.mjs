@@ -80,7 +80,7 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
   assert.match(articlePage, /items: articles\.map\(/);
   assert.match(breedPage, /listPublishedCanonicalBreedIndex\(\)/);
   assert.match(breedPage, /items: breeds\.map\(/);
-  assert.match(sectionPage, /slug === "podujatia" \? getPublishedEvents\(\)/);
+  assert.match(sectionPage, /slug === "podujatia" \? getPublishedEventListing\(parseEventListing\(rawSearchParams\)\)/);
   assert.match(sectionPage, /items: eventList\.map\(/);
   assert.match(directoryPage, /listPublishedDirectoryProfiles\(\{/);
   assert.match(directoryPage, /items: result\.profiles\.map\(/);
@@ -307,7 +307,8 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
 
   assert.match(directoryPage, /title=\{active\?\.heroTitle \?\? "Služby pre psov"\}/);
   assert.match(directoryPage, /intro=\{active\?\.intro \?\?/);
-  assert.match(directoryPage, /title=\{active \? active\.resultsTitle : "Výsledky vyhľadávania"\}/);
+  assert.match(directoryPage, /title=\{active \? active\.resultsTitle : filters\.query \|\| filters\.category/);
+  assert.match(directoryPage, /\? "Výsledky vyhľadávania" : "Všetky služby pre psov"\}/);
 
   assert.match(categoryPage, /directoryCategoryListingMetadata\(category, policy\.page\)/);
   assert.match(categoryPage, /name: category\.heroTitle/);

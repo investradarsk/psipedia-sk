@@ -6,6 +6,7 @@ import {
   type ManagedBreedInput,
 } from "@/lib/breed-store";
 import { SITE_URL } from "@/config/public-site";
+import { mergeNotionBreedInput } from "@/lib/breed-sync-preservation";
 import {
   cleanupNotionImageKeys,
   listReadyNotionPages,
@@ -100,7 +101,7 @@ export function notionPageToManagedBreedInput(page: NotionPage): ManagedBreedInp
     validStandardDate: notionDateStartProperty(page, "Platnosť FCI štandardu") || null,
     workingTrial: notionRichTextProperty(page, "Pracovná skúška"),
     importKey: notionRichTextProperty(page, "Import kľúč") || null,
-    editorialComplete: checkboxProperty(page, "Editorial complete"),
+    editorialComplete: notionPropertyRecord(page, "Editorial complete") ? checkboxProperty(page, "Editorial complete") : undefined,
     origin: notionRichTextProperty(page, "Krajina pôvodu"),
     group: notionRichTextProperty(page, "Skupina"),
     size: notionRichTextProperty(page, "Veľkosť"),
@@ -219,7 +220,7 @@ async function preparePayloadWithImage(
       imageKey: prepared.imageKey,
       seo: {
         ...(basePayload.seo ?? {}),
-        ogImage: prepared.imageUrl ?? "",
+        ogImage: basePayload.seo?.ogImage?.trim() || prepared.imageUrl || "",
       },
     } satisfies ManagedBreedInput,
     prepared,
@@ -259,7 +260,8 @@ async function syncOneBreed(
       return "unchanged";
     }
 
-    const { payload, prepared } = await preparePayloadWithImage(bindings, page, basePayload, existing);
+    const mergedPayload = mergeNotionBreedInput(existing, basePayload);
+    const { payload, prepared } = await preparePayloadWithImage(bindings, page, mergedPayload, existing);
     try {
       const updated = await updateManagedBreed(existing.id, payload, SYNC_ACTOR);
       if (!updated) throw new Error("Prepojené plemeno sa nepodarilo aktualizovať.");

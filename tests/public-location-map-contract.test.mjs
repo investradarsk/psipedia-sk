@@ -99,10 +99,17 @@ test("PUBLIC-MAPS-1 canonical detail routes use scoped server GEO reads and degr
   assert.match(query, /mapCandidateToItem/);
 });
 
-test("PUBLIC-MAPS-1 directory map suppresses legacy text navigation only when approved GEO exists", async () => {
+test("PUBLIC-MAPS-1 directory detail only offers directions for an approved exact GEO point", async () => {
   const detail = await read("components/directory-profile-detail.tsx");
-  assert.match(detail, /const hasEmbeddedMap = Boolean\(publicMap\?\.items\.length\)/);
-  assert.match(detail, /!hasEmbeddedMap && presentation\.navigationUrl/);
+  // PROFILE-UX now puts the directions action in the hero rather than the map section.
+  // No address-text navigation fallback is allowed, even when publicMap is empty.
+  assert.match(detail, /const mapItem = publicMap\?\.items\[0\]/);
+  assert.match(detail, /mapItem && !isApproximateMapItem\(mapItem\)/);
+  assert.match(detail, /buildGoogleMapsDirectionsUrl\(mapItem\.latitude, mapItem\.longitude, mapItem\.googlePlaceId\)/);
+  assert.match(detail, /navigationHref=\{navigationHref\}/);
+  assert.match(detail, /\{navigationHref \? <a[^\n]*href=\{navigationHref\}[^\n]*>Navigovať<\/a> : null\}/);
+  assert.doesNotMatch(detail, /presentation\.navigationUrl/);
+  assert.match(detail, /publicMap\?\.items\.length \? \(/);
   assert.match(detail, /title="Kde nás nájdete"/);
 });
 
