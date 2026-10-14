@@ -1997,35 +1997,35 @@ const ROLLOUT_TABLES = Object.freeze([
 
 function requireTextColumn(columns, table, name, { primaryKey = false, defaultValue = null } = {}) {
   const column = (columns ?? []).find(row => String(row.name) === name);
-  invariant(column, \`\${table}.\${name} missing\`);
+  invariant(column, `${table}.${name} missing`);
   invariant(String(column.type).toUpperCase() === "TEXT" && Number(column.notnull) === 1,
-    \`\${table}.\${name} must be TEXT NOT NULL\`);
-  if (primaryKey) invariant(Number(column.pk) === 1, \`\${table}.\${name} must be primary key\`);
-  else invariant(Number(column.pk) === 0, \`\${table}.\${name} must not be primary key\`);
+    `${table}.${name} must be TEXT NOT NULL`);
+  if (primaryKey) invariant(Number(column.pk) === 1, `${table}.${name} must be primary key`);
+  else invariant(Number(column.pk) === 0, `${table}.${name} must not be primary key`);
   if (defaultValue !== null) {
     invariant(String(column.dflt_value ?? "").replace(/\s+/g, "") === defaultValue,
-      \`\${table}.\${name} has invalid default\`);
+      `${table}.${name} has invalid default`);
   }
 }
 
 function assertTimestampDefault(columns, table) {
   const field = columns.find(row => String(row.name) === "created_at" || String(row.name) === "updated_at");
   invariant(/strftime\s*\(\s*'%Y-%m-%dT%H:%M:%fZ'\s*,\s*'now'\s*\)/i.test(String(field?.dflt_value ?? "")),
-    \`\${table} timestamp default must be canonical UTC strftime\`);
+    `${table} timestamp default must be canonical UTC strftime`);
 }
 
 export function assertStructuredAddressSchema(schema) {
   const objects = objectMap(schema.objects ?? []);
   for (const [table, key] of ROLLOUT_TABLES) {
-    invariant(objects.get(table)?.type === "table", \`Missing \${table} table\`);
+    invariant(objects.get(table)?.type === "table", `Missing ${table} table`);
     const columns = schema[key] ?? [];
     for (const name of ROLLOUT_ADDRESS_FIELDS[table]) {
       requireTextColumn(columns, table, name, { defaultValue: "''" });
     }
     const sql = String(objects.get(table).sql ?? "").replace(/\s+/g, " ");
     const check = new RegExp(
-      \`CONSTRAINT\\\\s+\${table}_address_format_check\\\\s+CHECK\\\\s*\\\\(\\\\s*address_format\\\\s+IN\\\\s*\\\\(\\\\s*''\\\\s*,\\\\s*'STREET'\\\\s*,\\\\s*'MUNICIPALITY_NUMBER'\\\\s*\\\\)\\\\s*\\\\)\`, "i");
-    invariant(check.test(sql), \`\${table} address_format CHECK constraint mismatch\`);
+      `CONSTRAINT\\s+${table}_address_format_check\\s+CHECK\\s*\\(\\s*address_format\\s+IN\\s*\\(\\s*''\\s*,\\s*'STREET'\\s*,\\s*'MUNICIPALITY_NUMBER'\\s*\\)\\s*\\)`, "i");
+    invariant(check.test(sql), `${table} address_format CHECK constraint mismatch`);
   }
 }
 
@@ -2214,13 +2214,13 @@ function additiveRolloutPreservationSnapshot(databaseName, configPath, schema, o
   const tables = {};
   for (const [table] of ROLLOUT_TABLES) {
     invariant(columns[table]?.includes("id") && columns[table].length > 0,
-      \`Cannot snapshot canonical \${table} rows\`);
+      `Cannot snapshot canonical ${table} rows`);
     const current = new Set((schema[table === "managed_events" ? "managedEventColumns" : "organizationLocationColumns"] ?? [])
       .map(row => String(row.name)));
-    invariant(columns[table].every(name => current.has(name)), \`Original \${table} columns disappeared\`);
-    const quoted = columns[table].map(name => \`"\${name.replace(/"/g, '""')}"\`).join(", ");
+    invariant(columns[table].every(name => current.has(name)), `Original ${table} columns disappeared`);
+    const quoted = columns[table].map(name => `"${name.replace(/"/g, '""')}"`).join(", ");
     const rows = d1Execute(databaseName, configPath,
-      \`SELECT \${quoted} FROM "\${table}" ORDER BY "id"\`);
+      `SELECT ${quoted} FROM "${table}" ORDER BY "id"`);
     tables[table] = { count: rows.length, digest: stableHash(rows) };
   }
   return { columns, tables };
@@ -2231,7 +2231,7 @@ export function assertAdditiveRolloutPreserved(before, after) {
   for (const [table] of ROLLOUT_TABLES) {
     invariant(before.tables?.[table]?.count === after.tables?.[table]?.count
       && before.tables?.[table]?.digest === after.tables?.[table]?.digest,
-      \`Pre-existing \${table} data changed during additive D1 migration\`);
+      `Pre-existing ${table} data changed during additive D1 migration`);
   }
 }
 
