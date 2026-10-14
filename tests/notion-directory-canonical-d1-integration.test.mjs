@@ -52,7 +52,7 @@ function fixture(status = "archived") {
 
 test("invalid canonical input cannot create an UPDATE or change archived profile and image", async () => {
   const f = fixture();
-  await assert.rejects(() => f.write({...f.input, category:"invalid-category"}));
+  assert.throws(() => f.write({...f.input, category:"invalid-category"}));
   assert.deepEqual(f.read(),f.original);
   f.sqlite.close();
 });
