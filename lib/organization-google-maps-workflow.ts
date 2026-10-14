@@ -46,7 +46,7 @@ async function latestOrganizationWorkflowAction(organizationId: number) {
     SELECT id,action FROM moderation_events
     WHERE resource_type = ? AND subject_id = ?
       AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-    ORDER BY created_at DESC, id DESC LIMIT 1
+    ORDER BY created_at DESC, rowid DESC LIMIT 1
   `).bind(ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE, String(organizationId))
     .first<{ id: string; action: string }>();
   return row ?? null;
@@ -79,7 +79,7 @@ async function writeOrganizationWorkflowAction(input: {
       ${input.expectedWorkflowRevision !== undefined ? `
       WHERE (SELECT id FROM moderation_events WHERE resource_type=? AND subject_id=?
         AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
-        ORDER BY created_at DESC, id DESC LIMIT 1) IS ?` : ""}
+        ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?` : ""}
   `).bind(
     globalThis.crypto.randomUUID(),
     ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE,
