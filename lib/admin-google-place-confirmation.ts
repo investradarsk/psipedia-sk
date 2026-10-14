@@ -155,6 +155,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   }
 
   point = await applyGooglePlaceResolution({
+    expectedGeoRevision: point.updatedAt,
     targetType: effectiveTargetType,
     targetId: effectiveTargetId,
     place: {
