@@ -59,8 +59,14 @@ function fixture(key) {
     }])) };
   const locks = new Set();
   const writes = [];
+  let mappedEntityId = null;
   const db = { prepare(sql) { return { bind(...params) { return {
     async first() { return sql.includes("notion_agenda_targets") ? { data_source_id: sources[params[0]] } : null; },
+    async all() {
+      if (!sql.includes("event_notion_sync") && !sql.includes("notion_agenda_sync"))
+        throw Error("Unexpected D1 read " + sql);
+      return { results: mappedEntityId === null ? [] : [{ notion_page_id: pageId, entity_id: mappedEntityId }] };
+    },
     async run() {
       if (sql.startsWith("INSERT OR IGNORE")) {
         const n = locks.has(params[0]) ? 0 : 1; locks.add(params[0]);
@@ -99,7 +105,7 @@ function fixture(key) {
     if (path.startsWith("/pages/")) return json(value);
     throw Error("Forbidden network endpoint " + path);
   };
-  return { env, value, schema, writes, request };
+  return { env, value, schema, writes, request, mapToCanonical(entityId) { mappedEntityId = entityId; } };
 }
 
 async function mockedFetch(fn, runner) {
@@ -259,6 +265,20 @@ test("lost-found cannot write contacts, coordinates or exact private location", 
       assert.equal(item.editable, false, item.name);
     await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "save", lastEditedAt: draft.lastEditedAt, fields: { Mesto: "Ulica: Hlavná 42" },
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("a D1 canonical mapping prevents re-review even when Notion Psipedia ID write-back is delayed", async () => {
+  const f = fixture("events.vystavy");
+  f.mapToCanonical(781);
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "events.vystavy"))[0];
+    assert.equal(draft.psipediaId, "781");
+    assert.equal(draft.reviewState, "IMPORTED");
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, "events.vystavy", draft.id, {
+      action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
     }, "admin@example.sk"), { code: "STATE" });
     assert.equal(f.writes.length, 0);
   });
