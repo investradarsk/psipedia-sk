@@ -14,6 +14,7 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
   "0123_event_organization_structured_address.sql",
   "0124_gemini_notion_review_locks.sql",
+  "0125_gemini_category_prompts.sql",
 ]);
 
 export const REVIEW_TABLES = Object.freeze([
