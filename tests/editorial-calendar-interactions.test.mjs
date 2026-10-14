@@ -32,8 +32,8 @@ test("calendar reschedules only scheduled articles via canonical guarded update,
   assert.match(calendar, /expectedUpdatedAt: selectedArticle.updatedAt/);
   assert.match(api, /requireAdminMutation\(request\)/);
   assert.match(api, /rescheduleManagedArticle/);
-  assert.match(store, /return updateManagedArticle\(id, payload, editorEmail, existing, \{ updatedAt: expectedUpdatedAt \}\)/);
-  assert.match(store, /AND status = 'scheduled' AND updated_at = \?/);
+  assert.match(store, /return updateManagedArticle\(id, payload, editorEmail, existing, \{ updatedAt: expectedUpdatedAt, status: "scheduled" \}\)/);
+  assert.match(store, /AND \(\? IS NULL OR updated_at = \?\)[\s\S]*AND \(\? IS NULL OR status = \?\)/);
   assert.match(store, /ArticleRescheduleConflictError/);
   assert.match(calendar, /selectedArticle.status !== "scheduled"/);
   assert.match(calendar, /iba na čítanie/);
