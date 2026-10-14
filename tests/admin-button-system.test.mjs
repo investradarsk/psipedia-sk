@@ -53,3 +53,16 @@ test("admin PWA settings use the shared semantic action hierarchy", () => {
   assert.match(settings, /className="is-danger" type="button" onClick=\{disableNotifications\}/);
   assert.match(settings, /<button type="button" onClick=\{\(\) => void inspect\(\)\}/);
 });
+
+test("shared modal and drawer contain keyboard focus in both directions", () => {
+  const dialog = read("components/admin-interaction-system.tsx");
+  assert.match(dialog, /function keepAdminDialogFocus\(event: KeyboardEvent<HTMLDialogElement>\)/);
+  assert.match(dialog, /event\.key !== "Tab"/);
+  assert.match(dialog, /event\.shiftKey && \(active === first \|\| !dialog\.contains\(active\)\)/);
+  assert.match(dialog, /!event\.shiftKey && \(active === last \|\| !dialog\.contains\(active\)\)/);
+  assert.match(dialog, /last\.focus\(\)/);
+  assert.match(dialog, /first\.focus\(\)/);
+  assert.equal((dialog.match(/onKeyDown=\{keepAdminDialogFocus\}/g) || []).length, 2);
+  assert.match(dialog, /onCancel=\{\(event\) => \{\s*event\.preventDefault\(\);\s*onClose\(\);/);
+  assert.equal((dialog.match(/onClose=\{restoreFocus\}/g) || []).length, 2);
+});
