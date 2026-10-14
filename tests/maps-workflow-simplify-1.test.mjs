@@ -336,3 +336,42 @@ test("transactional D1 source updates invalidate real public map SQL for all tar
     assert.deepEqual(noGeo.map(),[]);
   }
 });
+
+
+test("production EXACT_PUBLIC visibility SQL executes with complete CAS bindings", () => {
+  const geo=read("lib/geo-store.ts");
+  const section=geo.slice(geo.indexOf("export async function setGeoVisibility("),geo.indexOf("export async function setManualGeoCoordinates("));
+  const sqlStart=section.lastIndexOf("UPDATE geo_points SET");
+  const sqlEnd=section.indexOf(String.fromCharCode(96)+").bind(",sqlStart);
+  assert.ok(sqlStart>=0 && sqlEnd>sqlStart);
+  const sql=section.slice(sqlStart,sqlEnd);
+  const db=new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE geo_points (id INTEGER PRIMARY KEY,updated_at TEXT,manual_override INTEGER,public_visibility TEXT,public_precision TEXT,source_fingerprint TEXT,attempt_count INTEGER,latitude REAL,longitude REAL,resolution_method TEXT,provider TEXT,provenance TEXT,source_license TEXT,normalized_query TEXT,query_fingerprint TEXT,resolved_source_fingerprint TEXT,geocode_status TEXT,last_error_code TEXT,last_error_at TEXT,retry_after_at TEXT,last_geocoded_at TEXT)");
+  db.prepare("INSERT INTO geo_points(id,updated_at,manual_override,public_visibility,public_precision,source_fingerprint,attempt_count,latitude,longitude,geocode_status) VALUES(1,'r1',0,'APPROXIMATE_PUBLIC','APPROXIMATE','fp1',2,48,18,'STALE')").run();
+  const params=["EXACT_PUBLIC","EXACT","addr","queryhash","fp2","r2",1,"r1",0,"APPROXIMATE_PUBLIC","APPROXIMATE","fp1",2];
+  assert.equal(db.prepare(sql).run(...params).changes,1);
+  assert.equal(db.prepare("SELECT public_visibility FROM geo_points").get().public_visibility,"EXACT_PUBLIC");
+  assert.equal(db.prepare("SELECT latitude FROM geo_points").get().latitude,null);
+  assert.equal(db.prepare(sql).run(...params).changes,0);
+  db.prepare("UPDATE geo_points SET manual_override=1 WHERE id=1").run();
+  assert.equal(db.prepare(sql).run(...params).changes,0);
+});
+
+test("production Google Maps audit reset SQL cannot overwrite a newer NOT_REQUIRED", () => {
+  const geo=read("lib/geo-store.ts");
+  const section=geo.slice(geo.indexOf("export async function resetGoogleMapsNotRequired("),geo.indexOf("export async function initializeGeoPointForTarget("));
+  const sqlStart=section.indexOf("INSERT INTO moderation_events");
+  const sqlEnd=section.indexOf(String.fromCharCode(96)+").bind(",sqlStart);
+  assert.ok(sqlStart>=0 && sqlEnd>sqlStart);
+  const sql=section.slice(sqlStart,sqlEnd);
+  const db=new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE moderation_events(id TEXT PRIMARY KEY,submission_id TEXT,resource_type TEXT,subject_id TEXT,action TEXT,actor_type TEXT,actor_ref TEXT,from_status TEXT,to_status TEXT,reason_code TEXT,changed_fields_json TEXT,request_id TEXT,created_at TEXT);CREATE TABLE geo_points(id INTEGER PRIMARY KEY,updated_at TEXT,manual_override INTEGER,provider TEXT,geocode_status TEXT,public_visibility TEXT,public_precision TEXT)");
+  db.prepare("INSERT INTO geo_points VALUES(1,'g1',0,'google_places','RESOLVED','EXACT_PUBLIC','EXACT')").run();
+  const add=(id,action,date)=>db.prepare("INSERT INTO moderation_events(id,resource_type,subject_id,action,created_at) VALUES(?,'GEO_POINT','1',?,?)").run(id,action,date);
+  add("initial","GOOGLE_MAPS_REQUIRED_AGAIN","2026-01-01T00:00:00.000Z");
+  add("newer","GOOGLE_MAPS_NOT_REQUIRED","2026-01-02T00:00:00.000Z");
+  const bind=(revision,id)=>[id,"1","admin","RESOLVED","RESOLVED",'["google_maps_workflow"]',"2026-01-03T00:00:00.000Z","1",revision,1,"g1"];
+  assert.equal(db.prepare(sql).run(...bind("initial","old-confirmation")).changes,0);
+  assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
+  assert.equal(db.prepare(sql).run(...bind("newer","current-confirmation")).changes,1);
+});
