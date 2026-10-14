@@ -199,11 +199,12 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
       {externalEnabled && (
         <AdminGeminiNotionDrafts stableKey={setting.stableKey} />
       )}
-      {canManuallyRun && (
+      {(canManuallyRun || setting.section === "help") && (
         <div className={styles.pilot}>
           <strong>{externalEnabled ? "Spustiť externého Gemini pracovníka" : "Manuálne spustenie Gemini"}</strong>
           <p>{externalEnabled ? "GitHub Actions · maximálne 5 konceptov · zápis iba do Notionu · vyžaduje zvlášť povolené platené volania na GitHube." : "Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje."}</p>
           {!setting.saved && <p>Pred spustením najprv ulož nastavenia tejto karty.</p>}
+          {!canManuallyRun && <p>Pre túto kategóriu musí byť povolený externý Gemini pracovník.</p>}
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
           {confirming && <p role="alert">{externalEnabled ? "Potvrď odoslanie do GitHub Actions. Ak je platený režim na GitHube povolený, Gemini môže vykonať viacero platených API volaní a vytvoriť koncepty priamo v Notione." : "Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty."}</p>}
           <div className={styles.pilotActions}>
