@@ -43,7 +43,7 @@ import {
 import { ensureResourceForDirectoryProfile } from "@/lib/canonical-resource";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
-import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import {
   directoryAddressFormats,
   evaluateDirectoryServiceAddress,
@@ -1282,6 +1282,7 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   editorEmail: string,
   databaseInput?: D1Database,
   expectedUpdatedAt?: string,
+  expectedGeoRevision?: string | null,
 ) {
   const database = databaseInput ?? requireD1Binding();
   const existing = await getManagedDirectoryProfileById(id, database);
@@ -1314,12 +1315,16 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
 
   // Location-only Google write contract. Contact, website, social, content,
   // pricing, media and SEO fields are intentionally absent from this UPDATE.
-  const row = await database.prepare(`
+  const geo = await prepareGoogleSourceGeoInvalidation(
+    "DIRECTORY_PROFILE", id, database, expectedGeoRevision,
+    { sql: "SELECT 1 FROM directory_profiles WHERE id=? AND updated_at=?", args: [id, now] },
+  );
+  const sourceStatement = database.prepare(`
     UPDATE directory_profiles
     SET region = ?, district = ?, city = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION',
       search_text = ?, updated_at = ?, updated_by = ?
-    WHERE id = ? AND updated_at = ?
+    WHERE id = ? AND updated_at = ? AND ${geo.sourceGuard}
     RETURNING *
   `).bind(
     location.region,
@@ -1335,8 +1340,12 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
     editorEmail,
     id,
     expectedUpdatedAt ?? existing.updatedAt,
-  ).first<DirectoryProfileRow>();
+    ...geo.sourceGuardArgs,
+  );
+  const results = await database.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  const row = results[0]?.results?.[0] as DirectoryProfileRow | undefined;
   if (!row) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
   try {
     await reconcileGeoAfterSourceMutation({
