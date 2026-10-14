@@ -66,3 +66,8 @@ Events serialize singular text type, exact start date and Stav=Nápad. Help case
 3. **Tests:** run node --test tests/gemini-notion-events-help-fields.test.mjs and affected repository CI. After integration and Notion acceptance, require a separately approved one-concept manual live test. Do not enable paid or scheduled execution here.
 
 **Safety boundary:** only an isolated category helper, offline unit tests and this audit. No PR merge, production writes, auto-publishing, migrations or paid API calls.
+
+
+## Integration follow-up
+
+The existing external worker now consumes this helper; the historical “NOT connected yet” findings above describe the #816 audit baseline. See `docs/GEMINI-EXTERNAL-NOTION-AGENT.md`, GEMINI-EXTERNAL-NOTION-INTEGRATION-2, for the implemented capability matrix, evidence wire contract, final scan, time mapping and remaining live acceptance prerequisites. Dedicated Help agendas remain blocked; no live row verification or activation is claimed.

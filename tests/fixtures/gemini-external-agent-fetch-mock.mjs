@@ -15,6 +15,21 @@ const step = (name, id, args = {}) => ({
   type: "function_call", name, id, arguments: args,
 });
 const ds = "84e0664c-ca47-405f-9d54-31b20287bc8c";
+let scans = 0;
+const section = process.env.AGENT_STABLE_KEY.split(".")[0];
+const categoryArgs = {
+  name: "Mock candidate", city: "Sereď", source_url: "https://example.com/about",
+  summary: "Overený prípad", description: "Dostatočne podrobný popis overeného podujatia alebo prípadu pomoci.",
+  organizer: "Organizátor", start_date: "2099-10-20", start_time: "10:00", end_time: "12:00",
+  evidence: [{ source_url: "https://example.com/about", fields: section === "events"
+    ? ["name", "description", "source_url", "organizer", "start_date", "city", "start_time", "end_time"]
+    : ["name", "description", "source_url", "city"] }],
+};
+if (scenario === "ungrounded") categoryArgs.source_url = "https://unverified.example/about";
+if (scenario === "missing_source") delete categoryArgs.source_url;
+if (scenario === "invalid_source") categoryArgs.source_url = "http://example.com/about";
+if (scenario === "missing_evidence") delete categoryArgs.evidence;
+if (scenario === "missing_organizer") delete categoryArgs.organizer;
 const properties = {
   "Názov": { type: "title" },
   "Kategória": { type: "rich_text" },
@@ -27,12 +42,31 @@ const properties = {
   "E-mail": { type: "email" },
   "Vytvoril": { type: "rich_text" },
 };
+const categoryProperties = {
+  "Názov": { type: "title" }, "Perex": { type: "rich_text" }, "Popis": { type: "rich_text" },
+  "Mesto": { type: "rich_text" },
+  ...(section === "events" ? {
+    "Typ podujatia": { type: "rich_text" }, "Začiatok": { type: "date" },
+    "Čas začiatku": { type: "rich_text" }, "Čas konca": { type: "rich_text" },
+    "Organizátor": { type: "rich_text" }, "Web": { type: "url" }, "Zdroj dát": { type: "url" },
+    "Stav": { type: "select", select: { options: [{ name: "Nápad" }, { name: "Publikované" }] } },
+  } : { "Kategória": { type: "rich_text" }, "Psipedia stav": { type: "rich_text" } }),
+};
+if (scenario === "wrong_type") categoryProperties[section === "events" ? "Typ podujatia" : "Psipedia stav"] = { type: "select" };
+const row = { id: "existing", properties: {
+  "Názov": { type: "title", title: [{ plain_text: "Mock candidate" }] },
+  ...(scenario === "duplicate" ? {
+    "Začiatok": { type: "date", date: { start: "2099-10-20" } },
+    "Mesto": { type: "rich_text", rich_text: [{ plain_text: "Sereď" }] },
+  } : {}),
+} };
 globalThis.fetch = async (url, options = {}) => {
   const address = String(url);
   if (address === "https://generativelanguage.googleapis.com/v1beta/interactions") {
     geminiCalls++;
     const body = JSON.parse(options.body);
     if (body.model !== "gemini-3.8-flash") throw Error("WRONG_MODEL");
+    if (scenario === "gemini_timeout") throw new DOMException("Mock timeout", "TimeoutError");
     if (geminiCalls === 1) {
       if (body.tools?.length !== 1 || body.tools[0].type !== "google_search")
         throw Error("SEARCH_NOT_ISOLATED");
@@ -43,8 +77,10 @@ globalThis.fetch = async (url, options = {}) => {
       return json({
         id: "research-1", status: "completed",
         steps: scenario === "missing_search" ? [] : [
-          { type: "google_search_call", queries: ["mock query"] },
-          { type: "model_output", content: [{ type: "text", text: "Mock public source" }] },
+          { type: "google_search_call", id: "search-1", arguments: { queries: ["mock query"] } },
+          { type: "google_search_result", call_id: "search-1", result: [{ search_suggestions: "Mock suggestions" }] },
+          { type: "model_output", content: [{ type: "text", text: "Mock public source https://example.com/about",
+            annotations: scenario === "missing_grounding" ? [] : [{ type: "url_citation", url: "https://example.com/about", start_index: 0, end_index: 18 }] }] },
         ],
       });
     }
@@ -76,13 +112,17 @@ globalThis.fetch = async (url, options = {}) => {
           step("create_notion_draft", "", { name: "Test Veterinár" }),
         ] });
       return json({ id: "functions-2", status: "requires_action", steps: [
-        step("create_notion_draft", "call-b", {
+        step("create_notion_draft", "call-b", section !== "directory" ? categoryArgs : {
           name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
           website_url: "https://example.com", phone: "+421 905 123 456",
           email: "clinic@example.com", description: "Mock service",
         }),
       ] });
     }
+    if (geminiCalls === 4 && scenario === "repeat_create")
+      return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "call-c", categoryArgs)] });
+    if (geminiCalls === 5 && scenario === "repeat_create")
+      return json({ id: "functions-4", status: "completed", steps: [] });
     if (geminiCalls === 4)
       return json({ id: "functions-3", status: "completed", steps: [
         { type: "model_output", content: [{ type: "text", text: "Done" }] },
@@ -90,20 +130,33 @@ globalThis.fetch = async (url, options = {}) => {
     throw Error("EXTRA_GEMINI_REQUEST");
   }
   if (address.startsWith("https://api.notion.com/v1/")) {
-    if (address === "https://api.notion.com/v1/data_sources/" + ds)
-      return json({ properties: scenario === "unsafe_status_default"
-        ? { ...properties, "Stav": { type: "select", select: { options: [{ name: "Publikované" }] } } }
-        : properties });
-    if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query")
-      return json({ results: [], has_more: false });
+    if (address === "https://api.notion.com/v1/data_sources/" + ds) {
+      const schema = section === "directory" ? properties : categoryProperties;
+      return json({ id: ds, properties: scenario === "wrong_database" ? { Name: { type: "title" } }
+        : scenario === "unsafe_status_default" ? { ...schema, "Stav": { type: "select", select: { options: [{ name: "Publikované" }] } } } : schema });
+    }
+    if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query") {
+      scans++;
+      if (scenario === "paginated" && scans % 2 === 1) return json({ results: [], has_more: true, next_cursor: "page-2" });
+      if (scenario === "partial_property") return json({ results: [{ ...row, properties: { ...row.properties, "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
+      if (scenario === "incomplete_scan" && scans > 1) return json({ results: [], has_more: true, next_cursor: null });
+      if (scenario === "malformed_scan") return json({ has_more: false });
+      return json({ results: scans > 1 && ["duplicate", "ambiguous"].includes(scenario) ? [row] : [], has_more: false });
+    }
     if (address === "https://api.notion.com/v1/pages") {
       notionPosts++;
       const body = JSON.parse(options.body);
-      if (body.parent?.data_source_id !== ds ||
-          body.properties?.["Psipedia stav"]?.select?.name !== "Koncept" ||
-          body.properties?.["Stav"]?.select?.name !== "Na kontrolu")
+      console.log("MOCK_PAGE " + JSON.stringify(body));
+      if (body.parent?.data_source_id !== ds) throw Error("WRONG_TARGET");
+      if (section === "directory" && (body.properties?.["Psipedia stav"]?.select?.name !== "Koncept" ||
+          body.properties?.["Stav"]?.select?.name !== "Na kontrolu")) throw Error("NOT_DRAFT_ONLY");
+      if (section === "events" && body.properties?.Stav?.select?.name !== "Nápad") throw Error("NOT_DRAFT_ONLY");
+      if (section === "help" && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
         throw Error("NOT_DRAFT_ONLY");
       if (scenario === "notion_uncertain") throw Error("SIMULATED_POST_TIMEOUT");
+      if (scenario === "notion_500") return json({}, 500);
+      if (scenario === "notion_invalid_json") return new Response("invalid");
+      if (scenario === "notion_missing_id") return json({});
       return json({ id: "mock-notion-page", properties: body.properties });
     }
     throw Error("UNEXPECTED_NOTION_ENDPOINT");
