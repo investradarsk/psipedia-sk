@@ -29,6 +29,9 @@ function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") 
       NOTION_HELP_DATA_SOURCE_ID: ds,
       NOTION_ORGANIZATIONS_DATA_SOURCE_ID: ds,
       NOTION_ADOPTIONS_DATA_SOURCE_ID: ds,
+      NOTION_LOST_FOUND_DATA_SOURCE_ID: scenario === "wrong_config"
+        ? "3ed793fc-1d18-8141-bc25-000bc25ab39b"
+        : "3ed793fc-1d18-8122-95b9-000b05c3c6bd",
       AGENT_STABLE_KEY: stableKey,
       AGENT_MAX_NEW_CONCEPTS: maxNew,
       PSIPEDIA_AGENT_CALLBACK_SECRET: "offline-test-secret",
@@ -173,7 +176,7 @@ for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
     });
   }
 }
-for (const key of ["help.stratene-a-najdene", "help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
+for (const key of ["help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
   test("unsupported category stops before APIs: " + key, () => {
     const run = runOffline("success", key);
     assert.equal(run.callback.error_code, "CATEGORY_UNSUPPORTED");
@@ -248,5 +251,94 @@ for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","n
     assert.equal(run.exitCode, 1, run.stderr);
     assert.equal(run.callback.error_code, "NOTION_CREATE_UNCERTAIN");
     assert.equal(run.counts.notionPosts, 1);
+  });
+}
+
+const LF = "help.stratene-a-najdene";
+test("Lost/Found E2E LOST: exact parent, DRAFT-only properties, one signed callback", () => {
+  const run = runOffline("success", LF, "1");
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.equal(run.callback.status, "SUCCESS");
+  assert.equal(run.callback.concept_count, 1);
+  assert.equal(run.callback.search_count, 1);
+  assert.equal(run.counts.notionPosts, 1);
+  assert.equal(run.counts.callbacks, 1);
+  const page = run.pages[0];
+  assert.equal(page.parent.data_source_id, "3ed793fc-1d18-8122-95b9-000b05c3c6bd");
+  assert.equal(page.properties.Typ.rich_text[0].text.content, "LOST");
+  assert.equal(page.properties["Psipedia stav"].rich_text[0].text.content, "DRAFT");
+  for (const key of ["Slug","Psipedia ID","Latitude","Longitude","Publikované",
+    "Verejný kontakt","Vyriešené","URL Psipedia"]) assert.equal(page.properties[key], undefined);
+});
+test("Lost/Found E2E FOUND: same canonical database, never published", () => {
+  const run = runOffline("lost_found", LF, "1");
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.equal(run.counts.notionPosts, 1);
+  assert.equal(run.pages[0].properties.Typ.rich_text[0].text.content,"FOUND");
+  assert.equal(run.pages[0].properties["Psipedia stav"].rich_text[0].text.content,"DRAFT");
+});
+for (const scenario of ["wrong_config", "wrong_database","wrong_type", "missing_source",
+  "invalid_source", "ungrounded", "missing_evidence", "missing_grounding",
+  "lost_private", "lost_gps", "lost_private_text", "lost_stale", "lost_resolved",
+  "incomplete_scan", "malformed_scan", "partial_property", "gemini_timeout"]) {
+  test("Lost/Found E2E blocks "+scenario+" without a POST", () => {
+    const run=runOffline(scenario, LF);
+    assert.equal(run.exitCode,1,run.stderr);
+    assert.equal(run.callback.status,"FAILED");
+    assert.equal(run.counts.notionPosts,0);
+    assert.equal(run.counts.callbacks,1);
+    assert.doesNotMatch(run.stderr,/mock-key|mock-token|offline-test-secret/);
+    if (scenario==="wrong_config") assert.equal(run.counts.geminiCalls,0);
+  });
+}
+for (const scenario of ["duplicate","ambiguous"]) {
+  test("Lost/Found re-scans whole Notion source to refuse "+scenario,()=>{
+    const run=runOffline(scenario,LF);
+    assert.equal(run.exitCode,0,run.stderr);
+    assert.equal(run.counts.notionPosts,0);
+    assert.equal(run.callback.duplicate_count,1);
+  });
+}
+for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","notion_missing_id"]) {
+  test("Lost/Found POST "+scenario+" is never retried and signed FAILED callback sent",()=>{
+    const run=runOffline(scenario,LF);
+    assert.equal(run.exitCode,1,run.stderr);
+    assert.equal(run.callback.status,"FAILED");
+    assert.equal(run.callback.error_code,"NOTION_CREATE_UNCERTAIN");
+    assert.equal(run.counts.notionPosts,1);
+    assert.equal(run.counts.callbacks,1);
+  });
+}
+test("Lost/Found completes initial and final paginated snapshot scans",()=>{
+  const run=runOffline("paginated",LF,"1");
+  assert.equal(run.exitCode,0,run.stderr);
+  assert.equal(run.counts.notionPosts,1);
+});
+test("Lost/Found retains confirmed drafts across stale Notion reads",()=>{
+  const run=runOffline("repeat_create",LF);
+  assert.equal(run.exitCode,0,run.stderr);
+  assert.equal(run.callback.concept_count,1);
+  assert.equal(run.callback.duplicate_count,1);
+  assert.equal(run.counts.notionPosts,1);
+});
+const remainingKeys=[
+  "events.vystavy","events.preteky","events.seminare","events.treningy",
+  "events.stretnutia","events.dalsie",
+  "directory.veterinari","directory.treneri","directory.kynologicke-kluby",
+  "directory.chovatelske-kluby","directory.chovatelske-stanice",
+  "directory.salony-a-sluzby","directory.hotely-a-opatrovanie","directory.vencenie",
+  "directory.fyzioterapia","directory.dalsie-sluzby",
+  "help.docasna-opatera","help.zbierky","help.dobrovolnictvo",
+  "help.utulky","help.adopcia",
+];
+test("all remaining 21 worker categories retain explicit capability",()=>{
+  assert.equal(new Set(remainingKeys).size,21);
+});
+for (const key of remainingKeys) {
+  test("regression: existing category stays draft-only "+key,()=>{
+    const run=runOffline("success",key,"1");
+    assert.equal(run.exitCode,0,run.stderr);
+    assert.equal(run.counts.notionPosts,1);
+    assert.equal(run.callback.status,"SUCCESS");
   });
 }
