@@ -382,6 +382,42 @@ export async function getManagedEventById(id: number) {
   return row ? rowToEvent(row) : null;
 }
 
+/** Location-only Google confirmation; never rewrites unrelated event/editorial fields. */
+export async function updateManagedEventLocationFromGooglePlace(
+  id: number,
+  place: { formattedAddress: string; address?: { locality?: string; region?: string } },
+  editorEmail: string,
+  expectedUpdatedAt: string,
+  databaseInput?: D1Database,
+) {
+  const database = requireD1Binding(databaseInput);
+  const existing = await database.prepare(
+    "SELECT id,region,city,address,updated_at FROM managed_events WHERE id=? LIMIT 1",
+  ).bind(id).first<{id:number;region:string;city:string;address:string;updated_at:string}>();
+  if (!existing) return null;
+  if (existing.updated_at !== expectedUpdatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if ([existing.region, existing.city].some((value) => value?.trim().toLowerCase() === "online")) {
+    throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
+  }
+  const address = place.formattedAddress?.trim();
+  const city = place.address?.locality?.trim() || existing.city;
+  const region = place.address?.region?.trim() || existing.region;
+  if (!address || !city || !region) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
+  // A missing component is not an instruction to erase editorial details.
+  // Changing city/region without complete location evidence requires manual review.
+  if ((city !== existing.city || region !== existing.region) && (!place.address?.locality?.trim() || !place.address?.region?.trim())) {
+    throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
+  }
+  const now = new Date().toISOString();
+  const updated = await database.prepare(`
+    UPDATE managed_events SET city=?,region=?,address=?,updated_at=?,updated_by=?
+    WHERE id=? AND updated_at=?
+    RETURNING id
+  `).bind(city,region,address,now,editorEmail,id,expectedUpdatedAt).first<{id:number}>();
+  if (!updated) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  return { id: updated.id, address, city, region, updatedAt: now };
+}
+
 export async function transitionManagedEventCancellation(
   id: number,
   cancelled: boolean,
