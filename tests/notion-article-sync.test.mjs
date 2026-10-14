@@ -98,6 +98,8 @@ test("Notion retry cannot overwrite a manually edited or concurrently updated Ad
   assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
   assert.match(syncSource, /updateManagedArticle\(existing\.id, prepared\.payload, SYNC_ACTOR, existing, \{ updatedAt: existing\.updatedAt, status: "draft" \}\)/);
   assert.match(articleStoreSource, /WHERE id = \?\$\{schedulingPrecondition/);
+  assert.match(articleStoreSource, /const \[articleResult\] = await database\.batch\(\[articleStatement\]\)/);
+  assert.match(articleStoreSource, /if \(!result && schedulingPrecondition\) throw new ArticleUpdateConflictError\(\)/);
   assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \?/);
   assert.match(syncSource, /if \(!updated\) \{/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
@@ -244,7 +246,8 @@ test("Notion publication writeback is best-effort and does not block the admin p
 test("ARTICLE-TOPICS manual assignments survive Notion article updates", () => {
   assert.doesNotMatch(syncSource, /topicIds\s*:/);
   assert.match(articleStoreSource, /payload\.topicIds === undefined \? undefined/);
-  assert.match(articleStoreSource, /if \(topicIds !== undefined\) statements\.push/);
+  assert.match(articleStoreSource, /if \(topicIds !== undefined\) \{/);
+  assert.match(articleStoreSource, /await database\.batch\(replaceArticleTopicStatements\(database, id, topicIds, now\)\)/);
   assert.match(articleStoreSource, /topicIds === undefined \? existing\.topics/);
 });
 
