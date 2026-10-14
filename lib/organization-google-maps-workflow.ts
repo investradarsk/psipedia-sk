@@ -91,7 +91,7 @@ async function writeOrganizationWorkflowAction(input: {
     new Date().toISOString(),
     ...(input.expectedWorkflowRevision !== undefined ? [ORGANIZATION_GOOGLE_MAPS_RESOURCE_TYPE, String(input.organizationId), input.expectedWorkflowRevision] : []),
   ).run();
-  if (input.expectedWorkflowRevision !== undefined && result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (input.expectedWorkflowRevision !== undefined && (result as { meta?: { changes?: number } }).meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 }
 
 export async function setOrganizationGoogleMapsNotRequired(organizationId: number, actorRef: string) {
