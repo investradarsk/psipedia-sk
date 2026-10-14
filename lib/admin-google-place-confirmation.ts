@@ -154,6 +154,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
     point = await setGeoVisibility({
+      expectedGeoRevision: point.updatedAt,
       targetType: effectiveTargetType,
       targetId: effectiveTargetId,
       visibility: "EXACT_PUBLIC",
