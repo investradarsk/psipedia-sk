@@ -519,7 +519,7 @@ export async function setGeoVisibility(input: {
         geocode_status='SKIPPED', last_error_code='PRIVATE_HIDDEN', last_error_at=?, retry_after_at=NULL,
         manual_override=0, manual_updated_at=NULL, manual_updated_by=NULL, updated_at=?
       WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
-    `).bind(state.sourceFingerprint, now, now, current.id).run();
+    `).bind(state.sourceFingerprint, now, now, current.id, ...casArgs).run();
     if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   } else if (current.manualOverride) {
     const visibilityResult = await db.prepare(`
@@ -527,7 +527,7 @@ export async function setGeoVisibility(input: {
         source_fingerprint=?, geocode_status='STALE', last_error_code='MANUAL_REVIEW', last_error_at=?,
         retry_after_at=NULL, updated_at=?
       WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
-    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, now, current.id).run();
+    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, now, current.id, ...casArgs).run();
     if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   } else {
     const visibilityResult = await db.prepare(`
