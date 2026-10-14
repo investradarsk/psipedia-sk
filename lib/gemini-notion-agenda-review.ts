@@ -13,14 +13,14 @@ export type GeminiAgendaReviewEnv = {
   NOTION_HELP_DATA_SOURCE_ID?: string;
 };
 type Page = NotionPage & { parent?: { data_source_id?: string }; created_time?: string };
-type SourceSchema = { id?: string; properties?: Record<string, { type?: string; select?: { options?: { name: string }[] } }> };
+type SourceSchema = { id?: string; parent?: { database_id?: string }; properties?: Record<string, { type?: string; select?: { options?: { name: string }[] } }> };
 type SourcePages = { results?: Page[]; has_more?: boolean; next_cursor?: string | null };
 export type GeminiAgendaField = { name: string; type: string; value: string | number | boolean | null; editable: boolean };
 export type GeminiAgendaDraft = {
   id: string; stableKey: string; agenda: BidirectionalAgendaKey; name: string;
   city: string; reviewState: GeminiReviewState; syncError: string; rejectionReason: string;
   lastEditedAt: string; notionUrl: string; psipediaId: string; fields: GeminiAgendaField[];
-  missingFields: string[]; sourceVerified: boolean;
+  missingFields: string[]; attribution: "EVIDENCE_SIGNATURE_ONLY";
 };
 export class GeminiAgendaReviewError extends Error {
   constructor(readonly code: "CATEGORY" | "CONFIG" | "NOT_FOUND" | "CONFLICT" | "LOCKED" | "STATE" | "SCHEMA") {
@@ -93,8 +93,13 @@ async function dataSource(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgend
     } catch { throw new GeminiAgendaReviewError("CONFIG"); }
   }
   if (!id || !ID.test(id)) throw new GeminiAgendaReviewError("CONFIG");
+  if (agenda === "lost-found" && normalized(id) !== normalized("3ed793fc-1d18-8122-95b9-000b05c3c6bd"))
+    throw new GeminiAgendaReviewError("CONFIG");
   const schema = await notionRequest<SourceSchema>(env, "/data_sources/" + encodeURIComponent(id));
   if (!schema.properties || !schema.id || normalized(schema.id) !== normalized(id))
+    throw new GeminiAgendaReviewError("SCHEMA");
+  if (agenda === "lost-found" && normalized(schema.parent?.database_id ?? "") !==
+      normalized("811d0659-7217-4914-a27c-1cd67bda3e0e"))
     throw new GeminiAgendaReviewError("SCHEMA");
   const title = agenda === "adoptions" ? "Meno" : "Názov";
   const status = agenda === "help-cases" || agenda === "lost-found" ? "Psipedia stav" : "Stav";
@@ -122,7 +127,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
     notionUrl: "https://www.notion.so/" + normalized(page.id),
     psipediaId: txt(page, "Psipedia ID"), fields,
     missingFields: names.filter(name => !source.schema[name]),
-    sourceVerified: true,
+    attribution: "EVIDENCE_SIGNATURE_ONLY",
   };
 }
 export async function listGeminiAgendaDrafts(env: GeminiAgendaReviewEnv, key: string): Promise<GeminiAgendaDraft[]> {
