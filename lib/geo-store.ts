@@ -682,14 +682,16 @@ export function buildDirectoryGeoInvalidationForAddressReviewStatement(
   `).bind(now, profileId, profileId, now);
 }
 
-export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, targetIdValue: number, database?: GeoD1Database) {
+export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, targetIdValue: number, database?: GeoD1Database, expectedGeoRevision?: string | null) {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(targetType, targetIdValue, db);
+  if (expectedGeoRevision !== undefined && (current?.updatedAt ?? null) !== expectedGeoRevision) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   if (!current) return null;
   const source = await getGeoSourceLocation(targetType, targetIdValue, db);
   if (!source) return null;
 
   const classification = classifyGeoSource(source);
+  const geoCasArgs = [current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility, current.publicPrecision, current.sourceFingerprint, current.attemptCount];
   const desiredVisibility = classification.proposedVisibility;
   const desiredPrecision = classification.proposedPrecision;
 
@@ -713,6 +715,7 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
       actorRef: "geo-source-sync",
       actorType: "SYSTEM",
       reason: classification.reasonCode ?? "PRIVATE_HIDDEN",
+      expectedGeoRevision: current.updatedAt,
     }, db);
   }
 
@@ -728,10 +731,10 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
     if (manualState.sourceFingerprint === current.sourceFingerprint && !classificationChanged) return current;
 
     const now = new Date().toISOString();
-    await db.prepare(`
+    const casResult = await db.prepare(`
       UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
         geocode_status='STALE', last_error_code='MANUAL_REVIEW', last_error_at=?,
-        retry_after_at=NULL, updated_at=? WHERE id=?
+        retry_after_at=NULL, updated_at=? WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
     `).bind(
       manualState.sourceFingerprint,
       manualState.query,
@@ -739,7 +742,9 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
       now,
       now,
       current.id,
+      ...geoCasArgs,
     ).run();
+    if (casResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
     const point = await getGeoPointForTarget(targetType, targetIdValue, db);
     if (point) {
@@ -788,7 +793,7 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
         normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='NEEDS_REVIEW', last_error_code=?, last_error_at=?, retry_after_at=NULL,
         attempt_count=0, last_geocoded_at=NULL, updated_at=?
-      WHERE id=?
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
     `).bind(reviewState.sourceFingerprint, reasonCode, now, now, current.id).run();
 
     const point = await getGeoPointForTarget(targetType, targetIdValue, db);
@@ -828,13 +833,14 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
       actorRef: "geo-source-sync",
       actorType: "SYSTEM",
       reason: "SOURCE_RECLASSIFIED",
+      expectedGeoRevision: current.updatedAt,
     }, db);
   }
 
   if (desiredState.sourceFingerprint === current.sourceFingerprint) return current;
 
   const now = new Date().toISOString();
-  await db.prepare(`
+  const casResult = await db.prepare(`
     UPDATE geo_points SET source_fingerprint=?, normalized_query=?, query_fingerprint=?,
       geocode_status='STALE', last_error_code=NULL, last_error_at=NULL, updated_at=? WHERE id=?
   `).bind(
@@ -843,7 +849,9 @@ export async function syncGeoPointAfterSourceChange(targetType: GeoTargetType, t
     desiredState.queryFingerprint,
     now,
     current.id,
+    ...geoCasArgs,
   ).run();
+  if (casResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
   const point = await getGeoPointForTarget(targetType, targetIdValue, db);
   if (point) {
@@ -873,9 +881,11 @@ export async function reconcileGeoAfterSourceMutation(input: {
   targetId: number;
   actorRef?: string;
   actorType?: "ADMIN" | "SYSTEM";
+  expectedGeoRevision?: string | null;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const existing = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (input.expectedGeoRevision !== undefined && (existing?.updatedAt ?? null) !== input.expectedGeoRevision) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
   if (!existing) {
     const initialized = await initializeGeoPointForTarget(
@@ -888,7 +898,7 @@ export async function reconcileGeoAfterSourceMutation(input: {
     return { point: initialized.point, action: initialized.created ? "INITIALIZED" as const : "NO_OP" as const };
   }
 
-  const point = await syncGeoPointAfterSourceChange(input.targetType, input.targetId, db);
+  const point = await syncGeoPointAfterSourceChange(input.targetType, input.targetId, db, input.expectedGeoRevision);
   const changed = Boolean(point) && (
     point!.sourceFingerprint !== existing.sourceFingerprint
     || point!.publicVisibility !== existing.publicVisibility
