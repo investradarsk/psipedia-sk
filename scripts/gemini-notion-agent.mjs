@@ -183,8 +183,20 @@ function isDuplicate(rows, name, city, website, source) {
       (url && web && web === url);
   });
 }
-function notionSearch(rows, query) {
+function notionSearch(rows, query, target) {
   const q = normalize(query);
+  if (target.dedicatedLostFound) {
+    return rows.filter(page => !q || [
+      pageText(page,"Názov"),pageText(page,"Meno psa"),pageText(page,"Mesto"),
+      pageText(page,"Rozlišovacie znaky"),pageText(page,"Zdroj URL"),
+    ].some(value => normalize(value).includes(q))).slice(0,50).map(page => ({
+      title: pageText(page,"Názov"), type:pageText(page,"Typ"),
+      dog_name:pageText(page,"Meno psa"), city:pageText(page,"Mesto"),
+      distinguishing_marks:pageText(page,"Rozlišovacie znaky"),
+      event_date:pageText(page,"Dátum udalosti"),
+      state:pageText(page,"Psipedia stav"), source:pageText(page,"Zdroj URL"),
+    }));
+  }
   return rows.filter((page) => {
     if (!q) return true;
     return [pageText(page, "Názov") || pageText(page, "Meno"), pageText(page, "Organizácia"), pageText(page, "Mesto"),
@@ -520,7 +532,7 @@ async function runAgent() {
   const instruction = (target.dedicatedLostFound ? "Lost/Found: iba overený OPEN prípad, report_type STRATENÝ/NÁJDENÝ, report_status OPEN, event_date a verified_at YYYY-MM-DD (dnes). Vyžaduj city, name, summary, description a dog_name alebo breed alebo distinguishing_marks. Dolož evidence pre všetky vyplnené polia vrátane report_type, report_status, event_date, verified_at a source_url. Nikdy neposielaj kontakty, adresy, súradnice, slug ani Psipedia ID. " : target.dedicatedAdoption ? "Adopcie: databáza Adopcie, stav Nápad. Povinné meno psa, organizácia, summary, description, zdroj a evidence name, organization, summary, description. Žiadne kontakty, adresy, GPS ani súkromné údaje. " : target.dedicatedShelter ? "Útulky: existujúca databáza Organizácie, typ SHELTER, stav Nápad. Nezadávaj adresu, telefón, e-mail, presnú polohu ani súradnice. Over meno, opisy a zdroje; dolož evidence fields name, summary, description a všetky doplnené identity. " : "") + "Pre podujatia a pomoc použi source_url/source_urls výhradne zo Search výsledkov; " +
     "evidence musí priradiť každý overený fakt k zdroju (source_url, fields). " +
     "Podujatia vyžadujú organizer, start_date, lokalitu, summary a description; časy sú HH:MM. " +
-    "Pomoc vyžaduje summary a description; kontakt a organizáciu pridaj iba s dôkazmi. " +
+    (target.dedicatedLostFound ? "" : "Pomoc vyžaduje summary a description; kontakt a organizáciu pridaj iba s dôkazmi. ") +
     "Pokračuj v tomto existujúcom overenom prieskume. " +
     "NAJPRV zavolaj search_notion, pozri existujúce záznamy a až po prijatí jeho výsledku " +
     "môžeš použiť create_notion_draft. Vytvor maximálne " + maxNew + " KONCEPTOV. " +
@@ -546,7 +558,7 @@ async function runAgent() {
       let toolResult;
       if (call.name === "search_notion") {
         notionSearched = true;
-        toolResult = { total: snapshot.rows.length, matches: notionSearch(snapshot.rows, args.query) };
+        toolResult = { total: snapshot.rows.length, matches: notionSearch(snapshot.rows, args.query, target) };
       } else if (call.name === "create_notion_draft") {
         toolResult = searchedBeforeTurn
           ? await createDraft(args, snapshot, target)
