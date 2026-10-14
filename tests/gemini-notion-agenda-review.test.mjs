@@ -150,7 +150,7 @@ test("save updates the same Notion page, keeps publication and evidence, and rej
     const draft = entries[0];
     const next = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "save", lastEditedAt: draft.lastEditedAt,
-      fields: { "Názov": "Nový názov", Popis: "Opravený obsah.\n\nDôkazy:\nhttps://source.example/dog" },
+      fields: { "Názov": "Nový názov", Popis: "Opravený obsah.\n\nDôkazy:\nname: https://source.example/dog" },
     }, "admin@example.sk");
     assert.equal(next.name, "Nový názov");
     assert.equal(next.reviewState, "NEW");
@@ -159,6 +159,9 @@ test("save updates the same Notion page, keeps publication and evidence, and rej
     assert.equal(f.writes[0]["Psipedia stav"], undefined);
     assert.equal(f.writes[0]["Psipedia ID"], undefined);
     assert.equal(f.writes[0]["Zdroj dát"], undefined);
+    assert.equal(f.writes[0]["Popis"].rich_text[0].text.content,
+      "Opravený obsah.\\n\\nDôkazy:\\nname: https://source.example/dog");
+
     await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "save", lastEditedAt: draft.lastEditedAt,
       fields: { "Názov": "prepísať" },
@@ -202,13 +205,55 @@ test("explicit approval and rejection have independent semantics and cannot writ
   });
 });
 
-test("help-cases rejection fails closed when existing status schema cannot represent it", async () => {
+test("help-case approval and rejection fail closed: publication must not masquerade as review", async () => {
   const f = fixture("help.zbierky");
   await mockedFetch(f.request, async () => {
     const draft = (await listGeminiAgendaDrafts(f.env, "help.zbierky"))[0];
     await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "reject", confirm: true, lastEditedAt: draft.lastEditedAt,
     }, "admin@example.sk"), error => error instanceof GeminiAgendaReviewError && error.code === "SCHEMA");
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk"), error => error instanceof GeminiAgendaReviewError && error.code === "SCHEMA");
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("adoption fields support edits without overwriting unchanged canonical fields", async () => {
+  const f = fixture("help.adopcia");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.adopcia"))[0];
+    const next = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt, fields: { "Krátky popis": "Bezpečný krátky text" },
+    }, "admin@example.sk");
+    assert.equal(next.reviewState, "NEW");
+    assert.deepEqual(Object.keys(f.writes[0]), ["Krátky popis"]);
+    assert.equal(f.writes[0]["Psipedia ID"], undefined);
+  });
+});
+
+test("original evidence payload cannot be replaced with unrelated URL", async () => {
+  const f = fixture("events.vystavy");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "events.vystavy"))[0];
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt,
+      fields: { Popis: "Text\\nDôkazy:\\nother: https://unrelated.example" },
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("lost-found cannot write contacts, coordinates or exact private location", async () => {
+  const f = fixture("help.stratene-a-najdene");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.stratene-a-najdene"))[0];
+    const restricted = new Set(["Latitude", "Longitude", "Verejný kontakt", "Presnosť lokality", "Miesto"]);
+    for (const item of draft.fields) if (restricted.has(item.name))
+      assert.equal(item.editable, false, item.name);
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt, fields: { Mesto: "Ulica: Hlavná 42" },
+    }, "admin@example.sk"), { code: "STATE" });
     assert.equal(f.writes.length, 0);
   });
 });
