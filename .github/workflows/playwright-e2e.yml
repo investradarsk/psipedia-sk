@@ -435,9 +435,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Reuse validated build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-build-${{ github.sha }}
+          path: .
       - name: Apply schema to isolated local D1 only
         run: |
-          npx wrangler d1 migrations apply DB --local --persist-to .wrangler/state
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/admin-interaction
