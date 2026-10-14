@@ -13,7 +13,10 @@ import {
   googlePlaceActionForSource,
   googlePlaceConfirmationForSource,
 } from "@/lib/google-place-target-discovery";
-import { updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
+import { getManagedDirectoryProfileById, updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
+import { getManagedEventById, updateManagedEventLocationFromGooglePlace } from "@/lib/event-store";
+import { adaptAddressGeo, adaptDirectoryAddress } from "@/lib/admin-address-adapters";
+import { previewGoogleAddressChange } from "@/lib/admin-google-address-preview";
 import { updateOrganizationLocationFromGooglePlace } from "@/lib/organization-location-admin-write";
 
 export type AdminGooglePlaceConfirmationInput = {
@@ -46,6 +49,11 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   const effectiveTargetType: GeoTargetType = input.targetType;
   const effectiveTargetId = input.targetId;
   const effectiveSource = source;
+  // Discovery is remote: reject edits which landed while Google was searched.
+  const latestSource = await getGeoSourceLocation(effectiveTargetType, effectiveTargetId);
+  if (!latestSource || JSON.stringify(latestSource) !== JSON.stringify(source)) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
 
   const confirmationPolicy = googlePlaceConfirmationForSource(effectiveSource);
   if (!confirmationPolicy.available) throw new Error(confirmationPolicy.reason);
@@ -55,6 +63,8 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     throw new Error("Poloha má manuálny GEO override. Google Place ho nesmie potichu prepísať.");
   }
 
+  const originalGeoRevision = point?.updatedAt ?? null;
+  const originalGeoFingerprint = point?.sourceFingerprint ?? null;
   const explicitPrivate = await hasExplicitPrivateGeoDecision(effectiveTargetType, effectiveTargetId);
   const publicLocation = input.publicLocation !== false;
   const allowPrivateOverride = input.allowPrivateOverride === true;
@@ -64,8 +74,22 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   let profile = null;
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
-    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef);
+    const before = await getManagedDirectoryProfileById(effectiveTargetId);
+    if (!before) throw new Error("Profil sa nenašiel.");
+    const preview = previewGoogleAddressChange({
+      snapshot: adaptDirectoryAddress(before, adaptAddressGeo(point, explicitPrivate)),
+      candidate: selected, intent: "ADMIN_RECONFIRM", expectedRevision: before.updatedAt,
+    });
+    if (!preview.readyForAuthorization) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED: " + preview.reviewReasons.join("; "));
+    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt);
     if (!profile) throw new Error("Profil sa nenašiel.");
+  }
+
+  if (effectiveTargetType === "MANAGED_EVENT") {
+    const before = await getManagedEventById(effectiveTargetId);
+    if (!before) throw new Error("Podujatie sa nenašlo.");
+    if ([before.city, before.region].some((value) => value?.trim().toLowerCase() === "online")) throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
+    await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt);
   }
 
   if (effectiveTargetType === "ORGANIZATION_LOCATION") {
@@ -83,6 +107,9 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   }
 
   point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
+  if (originalGeoRevision && point && point.updatedAt !== originalGeoRevision && point.sourceFingerprint === originalGeoFingerprint) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
   if (!point) {
     point = (await initializeGeoPointForTarget(effectiveTargetType, effectiveTargetId, input.actorRef)).point;
   }
@@ -122,6 +149,9 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       longitude: selected.longitude,
     },
   });
+  if (!point || point.geocodeStatus !== "RESOLVED" || point.googlePlaceId !== selected.id) {
+    throw new Error("GOOGLE_CONFIRMATION_INCOMPLETE");
+  }
   await resetGoogleMapsNotRequired({
     targetType: effectiveTargetType,
     targetId: effectiveTargetId,
