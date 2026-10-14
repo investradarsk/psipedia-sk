@@ -214,3 +214,32 @@ export async function resetGoogleMapsNotRequired(input) {
   if(result.changes!==1)throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   return p;
 }
+
+
+export const googleMapsRendererConfigured=()=>false;
+export const publicMapLaunchEnabled=()=>false;
+export const geoapifyApiKey=()=>null;
+export const isGeoPublicPrecision=()=>true;
+export const isGeoPublicVisibility=()=>true;
+export const isGeoTargetType=(value)=>["DIRECTORY_PROFILE","MANAGED_EVENT","ORGANIZATION_LOCATION"].includes(value);
+export const geoFingerprintInput=()=>({});
+export const sourceGeoFingerprint=async()=> "fp1";
+export const directoryExactGeoCandidate=()=>null;
+export const directoryNumberlessPlaceCandidate=()=>null;
+export async function getAdminApiUser(){return {email:"editor@example.sk"};}
+export const unauthorizedAdminResponse=()=>Response.json({error:"Unauthorized"},{status:401});
+export const diagnoseGeoTarget=async()=>({});
+export const previewGeoSource=async()=>({});
+export const resolveGeoTarget=async()=>({});
+export const applyGeocoderResolution=async()=>({});
+export const getGoogleMapsWorkflowDecision=async()=> "UNRESOLVED";
+export const isGeoSchemaAvailable=async()=>true;
+export const resetManualGeoOverride=async()=>({});
+export const setGoogleMapsNotRequired=async()=>({});
+export const setManualGeoCoordinates=async()=>({});
+export const writeGeoModerationEvent=async()=>{};
+export const evaluateGooglePlaceCandidates=()=>({});
+export const evaluateNumberlessGooglePlaceCandidates=()=>({});
+export const googlePlacesApiKey=()=>null;
+export const searchGooglePlacesText=async()=>[];
+export const autoAssignGooglePlaceForDirectoryProfile=async()=>({});
