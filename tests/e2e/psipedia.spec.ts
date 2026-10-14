@@ -270,25 +270,98 @@ test("article magazine detail is accessible and overflow-safe on desktop and 390
 
 test("@production homepage search, CTA and Plemeno dňa work without JS errors", async ({ page }) => {
   await expectHealthyPage(page, "/");
-  await expect(page.locator("h1")).toBeVisible();
-  await expect(page.locator("main#obsah").getByRole("link", { name: /Všetky články/ })).toHaveAttribute("href", "/clanky");
+  await expect(page.locator("main#obsah h1")).toBeVisible();
+  await expect(page.locator("[data-home-hero]")).toBeVisible();
 
-  const sharedHomepageArticleLayouts = [
-    { root: "[data-home-latest]", id: "latest" },
-    { root: '[data-home-editorial="steniatka"]', id: "steniatka" },
-    { root: '[data-home-editorial="starostlivost"]', id: "starostlivost" },
-    { root: '[data-home-editorial="aktivity"]', id: "aktivity" },
-  ];
-  for (const item of sharedHomepageArticleLayouts) {
+  // PR #815 displays a real empty state until image-backed articles exist.
+  // Every editorial section must render exactly one of its article layout or empty state.
+  const homepageSections = [
+    { root: "[data-home-latest]", id: "latest", title: "Novinky zo sveta psov", cta: "Archív noviniek", href: "/clanky", empty: "[data-home-latest-empty]", emptyLabel: "Nové správy pripravujeme" },
+    { root: '[data-home-editorial="steniatka"]', id: "steniatka", title: "Šteniatka", cta: "Všetko o šteniatkach", href: "/steniatka", empty: '[data-home-editorial-empty="steniatka"]', emptyLabel: "Ďalší obsah pripravujeme" },
+    { root: '[data-home-editorial="starostlivost"]', id: "starostlivost", title: "Zdravie a starostlivosť", cta: "Všetko o zdraví", href: "/starostlivost", empty: '[data-home-editorial-empty="starostlivost"]', emptyLabel: "Ďalší obsah pripravujeme" },
+    { root: '[data-home-editorial="aktivity"]', id: "aktivity", title: "Výcvik a aktivity", cta: "Výcvik a aktivity", href: "/aktivity", empty: '[data-home-editorial-empty="aktivity"]', emptyLabel: "Ďalší obsah pripravujeme" },
+  ] as const;
+
+  for (const item of homepageSections) {
     const root = page.locator(item.root);
-    const layout = root.locator(`[data-home-article-layout="${item.id}"]`);
-    await expect(layout, `Homepage section ${item.id} is still serving the pre-#240 article layout`).toHaveCount(1);
-    await expect(layout.locator("[data-home-article-lead]")).toHaveCount(1);
-    expect(await layout.locator("[data-home-article-secondary] .home-latest-item").count()).toBeLessThanOrEqual(4);
+    await expect(root, "Homepage section " + item.id + " is missing").toBeVisible();
+    await expect(root.getByRole("heading", { name: item.title, exact: true })).toBeVisible();
+    const action = root.locator('[data-home-section-cta="' + item.id + '"]').getByRole("link", { name: item.cta, exact: true });
+    await expect(action, item.id + ": section CTA is missing or mislabelled").toHaveAttribute("href", item.href);
+
+    const layout = root.locator('[data-home-article-layout="' + item.id + '"]');
+    const empty = root.locator(item.empty);
+    const layoutCount = await layout.count();
+    const emptyCount = await empty.count();
+    expect(layoutCount + emptyCount, item.id + ": expected exactly one article layout or empty state").toBe(1);
+    if (!layoutCount) {
+      await expect(empty, item.id + ": empty state is not visible").toBeVisible();
+      await expect(empty).toContainText(item.emptyLabel);
+      continue;
+    }
+
+    const lead = layout.locator("[data-home-article-lead]");
+    await expect(lead, item.id + ": featured article is missing").toHaveCount(1);
+    const featured = lead.locator('[data-article-card][data-article-variant="featured"]');
+    await expect(featured).toHaveCount(1);
+    const leadMeta = featured.locator(".article-card-meta");
+    await expect(leadMeta).toBeVisible();
+    await expect(leadMeta).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
+    await expect(featured.locator(".article-card-title a[href]")).toHaveCount(1);
+    await expect(featured.locator('.article-card-media img:not([aria-hidden="true"])')).toHaveCount(1);
+
+    const secondary = layout.locator("[data-home-article-secondary]");
+    await expect(secondary, item.id + ": compact-article container is missing").toHaveCount(1);
+    const articleRows = secondary.locator(".home-latest-item");
+    const rowCount = await articleRows.count();
+    expect(rowCount, item.id + ": more than four secondary articles rendered").toBeLessThanOrEqual(4);
+    const compactRows = articleRows.locator("[data-article-list-item]");
+    await expect(compactRows, item.id + ": secondary articles must use the compact list design").toHaveCount(rowCount);
+    const media = compactRows.locator("[data-article-image]");
+    await expect(media, item.id + ": every compact article needs a photograph").toHaveCount(rowCount);
+
+    if (rowCount) {
+      const first = compactRows.first();
+      await expect(first.locator("[data-article-title]")).toBeVisible();
+      await expect(first.locator("[data-article-topic]")).toBeVisible();
+      await expect(first.locator("[data-article-date]")).toBeVisible();
+      await expect(first.locator("p")).toHaveCount(0);
+
+      const imagedRows = compactRows.filter({ visible: true }).filter({ has: page.locator("[data-article-image]") });
+      for (let index = 0; index < await imagedRows.count(); index += 1) {
+        const image = imagedRows.nth(index).locator('[data-article-image] img:not([aria-hidden="true"])');
+        await expect(image, item.id + ": compact thumbnail must have exactly one content image").toHaveCount(1);
+        await image.scrollIntoViewIfNeeded();
+        await expect(image).toBeVisible();
+        await expect.poll(
+          async () => image.evaluate((element) => {
+            const img = element as HTMLImageElement;
+            return img.complete ? img.naturalWidth : 0;
+          }),
+          { message: item.id + ": compact thumbnail failed to load" },
+        ).toBeGreaterThan(0);
+      }
+
+      const sizes = await media.evaluateAll((elements) => elements.map((element) => {
+        const { width, height } = element.getBoundingClientRect();
+        return { width, height };
+      }));
+      expect(sizes.every(({ width, height }) => width >= 60 && height >= 50), item.id + ": collapsed article thumbnails: " + JSON.stringify(sizes)).toBe(true);
+      const heights = await compactRows.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+      expect(heights.every((height) => height < 220), item.id + ": oversized compact rows: " + JSON.stringify(heights)).toBe(true);
+    }
   }
-  await expect(page.locator('[data-home-editorial="steniatka"] .home-editorial-grid')).toHaveCount(0);
-  await expect(page.locator('[data-home-editorial="starostlivost"] .home-editorial-grid')).toHaveCount(0);
-  await expect(page.locator('[data-home-editorial="aktivity"] .home-editorial-grid')).toHaveCount(0);
+
+  for (const id of ["steniatka", "starostlivost", "aktivity"]) {
+    await expect(page.locator('[data-home-editorial="' + id + '"] .home-editorial-grid')).toHaveCount(0);
+  }
+
+  // Newly added partner banners must remain actionable navigation links, not inert marketing.
+  await expect(page.locator('[data-home-banner="profil"]').getByRole("link", { name: "Pridať profil" }))
+    .toHaveAttribute("href", "/partner/profily/novy");
+  await expect(page.locator('[data-home-banner="podujatie"]').getByRole("link", { name: "Pridať podujatie" }))
+    .toHaveAttribute("href", "/partner/podujatia/nove");
+
   const search = page.getByRole("search").filter({ has: page.locator("#home-search") });
   await search.locator("input[name=q]").fill("labrador");
   await Promise.all([
@@ -297,61 +370,23 @@ test("@production homepage search, CTA and Plemeno dňa work without JS errors",
   ]);
   await expect(page.locator("h1")).toContainText(/Čo hľadáš\?|Hľadať|Výsledky/i);
   await gotoProductionPage(page, "/");
-  const ordinaryArticles = page.locator("[data-home-article-secondary] [data-article-list-item]");
-  if (await ordinaryArticles.count()) {
-    const first = ordinaryArticles.first();
-    await expect(first.locator("[data-article-title]")).toBeVisible();
-    await expect(first.locator("[data-article-topic]")).toBeVisible();
-    await expect(first.locator("[data-article-date]")).toBeVisible();
-    await expect(first.locator("p")).toHaveCount(0);
-    // Some article rows are present in the DOM but hidden by responsive layouts.
-    // Test only rendered rows, and scroll lazy-loaded images into view before checking.
-    const imagedSecondary = page.locator("[data-home-article-secondary] [data-article-list-item]:visible:has([data-article-image]:visible)");
-    for (let index = 0; index < await imagedSecondary.count(); index += 1) {
-      // The image editor can render an aria-hidden blurred background image.
-      // Assert the foreground thumbnail only; the decorative image is not content.
-      const image = imagedSecondary.nth(index).locator('[data-article-image] img:not([aria-hidden="true"])');
-      await expect(image, "A rendered homepage row has exactly one content thumbnail").toHaveCount(1);
-      await image.scrollIntoViewIfNeeded();
-      await expect(image, "A rendered homepage article thumbnail must be visible").toBeVisible();
-      await expect.poll(
-        async () => image.evaluate((element) => {
-          const img = element as HTMLImageElement;
-          return img.complete ? img.naturalWidth : 0;
-        }),
-        { message: "Homepage secondary thumbnail failed to load after entering the viewport" },
-      ).toBeGreaterThan(0);
-    }
-    const heights = await ordinaryArticles.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
-    expect(heights.every((height) => height < 220), `Homepage secondary article rows are oversized: ${JSON.stringify(heights)}`).toBe(true);
-  }
-  for (const item of sharedHomepageArticleLayouts) {
-    const layout = page.locator(item.root).locator(`[data-home-article-layout="${item.id}"]`);
-    const leadArticleMeta = layout.locator(
-      '[data-home-article-lead] [data-article-card][data-article-variant="featured"] .article-card-meta',
-    );
-    await expect(leadArticleMeta, `Homepage section ${item.id} should expose featured article metadata`).toHaveCount(1);
-    await expect(leadArticleMeta).not.toContainText(/\b\d+\s*min(?:\s+čítania)?\b/i);
 
-    const compactRows = layout.locator("[data-article-list-item]");
-    const rowCount = await compactRows.count();
-    if (rowCount) {
-      const media = compactRows.locator("[data-article-image]");
-      await expect(media, `${item.id}: every homepage compact article must have a thumbnail`).toHaveCount(rowCount);
-      const dimensions = await media.evaluateAll((elements) => elements.map((element) => {
-        const { width, height } = element.getBoundingClientRect();
-        return { width, height };
-      }));
-      expect(
-        dimensions.every(({ width, height }) => width >= 60 && height >= 50),
-        `${item.id}: homepage article thumbnails have collapsed: ${JSON.stringify(dimensions)}`,
-      ).toBe(true);
-    }
+  // Breed of the day is now in the Šteniatka sidebar, with a valid atlas fallback.
+  const breedSidebar = page.locator('[data-home-editorial="steniatka"] .home-magazine-sidebar-block');
+  await expect(breedSidebar).toBeVisible();
+  const breedLink = breedSidebar.locator("[data-home-breed]");
+  if (await breedLink.count()) {
+    await expect(breedSidebar.getByRole("heading", { name: "Plemeno dňa" })).toBeVisible();
+    await expect(breedLink).toHaveAttribute("href", /^\/plemena\/[^/?#]+$/);
+    await expect(breedLink.locator("strong")).not.toHaveText("");
+    await expect(breedLink.locator('img:not([aria-hidden="true"])')).toHaveCount(1);
+  } else {
+    await expect(breedSidebar.getByRole("heading", { name: "Atlas plemien" })).toBeVisible();
+    await expect(breedSidebar).toContainText("Spoznaj atlas publikovaných plemien");
   }
-  const breedSection = page.locator(".home-breed-day-section");
-  await expect(breedSection).toBeVisible();
-  await expect(breedSection.locator("h3")).not.toHaveText("");
-  await expect(breedSection.locator("dd").first()).not.toHaveText("");
+  await expect(breedSidebar.getByRole("link", { name: "Prejsť do atlasu" })).toHaveAttribute("href", "/plemena");
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(horizontalOverflow, "Homepage overflows horizontally on " + (await page.evaluate(() => innerWidth)) + "px viewport").toBeLessThanOrEqual(1);
 });
 
 test("@production breed listing filters, detail, 404 and comparison work", async ({ page }) => {
