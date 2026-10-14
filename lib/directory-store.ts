@@ -1348,13 +1348,14 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
   try {
-    await reconcileGeoAfterSourceMutation({
+    const geoReconciliation = await reconcileGeoAfterSourceMutation({
       targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
     }, database);
+    return { ...rowToManagedProfile(row), googleConfirmationGeoRevision: geoReconciliation.point?.updatedAt ?? null };
   } catch (cause) {
     throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
   }
-  return rowToManagedProfile(row);
+
 }
 
 export async function setManagedDirectoryProfileReviewed(
