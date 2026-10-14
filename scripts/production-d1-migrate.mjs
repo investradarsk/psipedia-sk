@@ -3,19 +3,14 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { classifyPreparedMigrations } from "./production-d1-0123-0124-preflight.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// Reviewed SQL prepared for local rehearsal only. Activation requires a separate
-// rollout change with production pre/postflight assertions and workflow approval.
-// These targets are intentionally NOT accepted by prepareScopedMigration/apply.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
-  "0123_event_organization_structured_address.sql",
-  "0124_gemini_notion_review_locks.sql",
-  "0125_gemini_category_prompts.sql",
-]);
+// All 0123–0125 targets are explicitly supported by the guarded, manual-only runner.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
@@ -124,6 +119,9 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0120_article_image_presentation.sql",
   "0121_article_image_display_config.sql",
   "0122_entity_image_display_config.sql",
+  "0123_event_organization_structured_address.sql",
+  "0124_gemini_notion_review_locks.sql",
+  "0125_gemini_category_prompts.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -733,6 +731,9 @@ function schemaState(databaseName, configPath) {
   const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
   const automationDirectRefreshColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_direct_refresh_settings')");
+  const organizationLocationColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('organization_locations')");
+  const geminiNotionReviewLockColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_notion_review_locks')");
+  const geminiCategoryPromptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_category_prompts')");
   const adminPushSubscriptionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_push_subscriptions')");
   const adminNotificationReadReceiptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_notification_read_receipts')");
   const adminNotificationReadReceiptForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('admin_notification_read_receipts')");
@@ -766,6 +767,9 @@ function schemaState(databaseName, configPath) {
     automationDiscoveryRunColumns,
     automationSourceColumns,
     automationDirectRefreshColumns,
+    organizationLocationColumns,
+    geminiNotionReviewLockColumns,
+    geminiCategoryPromptColumns,
     adminPushSubscriptionColumns,
     adminNotificationReadReceiptColumns,
     adminNotificationReadReceiptForeignKeys,
@@ -1181,6 +1185,18 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: ENTITY_IMAGE_DISPLAY_SCHEMA_TABLES.some(([, columnsKey]) =>
         (schema[columnsKey] ?? []).some(column => ENTITY_IMAGE_DISPLAY_FIELDS.includes(String(column.name)))),
     };
+  }
+  if (targetMigration === "0123_event_organization_structured_address.sql") {
+    return { partial: [
+      ["managedEventColumns", ["district", "postal_code", "street", "house_number", "address_format"]],
+      ["organizationLocationColumns", ["postal_code", "street", "house_number", "address_format"]],
+    ].some(([key, fields]) => (schema[key] ?? []).some(col => fields.includes(String(col.name)))) };
+  }
+  if (targetMigration === "0124_gemini_notion_review_locks.sql") {
+    return { partial: names.has("gemini_notion_review_locks") || (schema.geminiNotionReviewLockColumns ?? []).length > 0 };
+  }
+  if (targetMigration === "0125_gemini_category_prompts.sql") {
+    return { partial: names.has("gemini_category_prompts") || (schema.geminiCategoryPromptColumns ?? []).length > 0 };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1969,6 +1985,89 @@ export function assertEntityImageDisplaySchema(schema) {
   }
 }
 
+
+const ROLLOUT_ADDRESS_FIELDS = Object.freeze({
+  managed_events: ["district", "postal_code", "street", "house_number", "address_format"],
+  organization_locations: ["postal_code", "street", "house_number", "address_format"],
+});
+const ROLLOUT_TABLES = Object.freeze([
+  ["managed_events", "managedEventColumns"],
+  ["organization_locations", "organizationLocationColumns"],
+]);
+
+function requireTextColumn(columns, table, name, { primaryKey = false, defaultValue = null } = {}) {
+  const column = (columns ?? []).find(row => String(row.name) === name);
+  invariant(column, \`\${table}.\${name} missing\`);
+  invariant(String(column.type).toUpperCase() === "TEXT" && Number(column.notnull) === 1,
+    \`\${table}.\${name} must be TEXT NOT NULL\`);
+  if (primaryKey) invariant(Number(column.pk) === 1, \`\${table}.\${name} must be primary key\`);
+  else invariant(Number(column.pk) === 0, \`\${table}.\${name} must not be primary key\`);
+  if (defaultValue !== null) {
+    invariant(String(column.dflt_value ?? "").replace(/\s+/g, "") === defaultValue,
+      \`\${table}.\${name} has invalid default\`);
+  }
+}
+
+function assertTimestampDefault(columns, table) {
+  const field = columns.find(row => String(row.name) === "created_at" || String(row.name) === "updated_at");
+  invariant(/strftime\s*\(\s*'%Y-%m-%dT%H:%M:%fZ'\s*,\s*'now'\s*\)/i.test(String(field?.dflt_value ?? "")),
+    \`\${table} timestamp default must be canonical UTC strftime\`);
+}
+
+export function assertStructuredAddressSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  for (const [table, key] of ROLLOUT_TABLES) {
+    invariant(objects.get(table)?.type === "table", \`Missing \${table} table\`);
+    const columns = schema[key] ?? [];
+    for (const name of ROLLOUT_ADDRESS_FIELDS[table]) {
+      requireTextColumn(columns, table, name, { defaultValue: "''" });
+    }
+    const sql = String(objects.get(table).sql ?? "").replace(/\s+/g, " ");
+    const check = new RegExp(
+      \`CONSTRAINT\\\\s+\${table}_address_format_check\\\\s+CHECK\\\\s*\\\\(\\\\s*address_format\\\\s+IN\\\\s*\\\\(\\\\s*''\\\\s*,\\\\s*'STREET'\\\\s*,\\\\s*'MUNICIPALITY_NUMBER'\\\\s*\\\\)\\\\s*\\\\)\`, "i");
+    invariant(check.test(sql), \`\${table} address_format CHECK constraint mismatch\`);
+  }
+}
+
+export function assertGeminiNotionReviewLocksSchema(schema) {
+  const table = objectMap(schema.objects ?? []).get("gemini_notion_review_locks");
+  invariant(table?.type === "table", "Missing gemini_notion_review_locks table");
+  const columns = schema.geminiNotionReviewLockColumns ?? [];
+  invariant(columns.length === 3, "gemini_notion_review_locks must have exactly three columns");
+  requireTextColumn(columns, "gemini_notion_review_locks", "notion_page_id", { primaryKey: true });
+  requireTextColumn(columns, "gemini_notion_review_locks", "owner");
+  requireTextColumn(columns, "gemini_notion_review_locks", "created_at");
+  assertTimestampDefault(columns, "gemini_notion_review_locks");
+}
+
+export function assertGeminiCategoryPromptsSchema(schema) {
+  const table = objectMap(schema.objects ?? []).get("gemini_category_prompts");
+  invariant(table?.type === "table", "Missing gemini_category_prompts table");
+  const columns = schema.geminiCategoryPromptColumns ?? [];
+  invariant(columns.length === 3, "gemini_category_prompts must have exactly three columns");
+  requireTextColumn(columns, "gemini_category_prompts", "stable_key", { primaryKey: true });
+  requireTextColumn(columns, "gemini_category_prompts", "user_prompt");
+  requireTextColumn(columns, "gemini_category_prompts", "updated_at");
+  assertTimestampDefault(columns, "gemini_category_prompts");
+  const sql = String(table.sql ?? "");
+  invariant(/CHECK\s*\(\s*length\s*\(\s*trim\s*\(\s*user_prompt\s*\)\s*\)\s*BETWEEN\s+40\s+AND\s+6000\s*\)/i.test(sql),
+    "gemini_category_prompts user_prompt CHECK (length(trim(...)) BETWEEN 40 AND 6000) missing");
+}
+
+export function assertRolloutChainSchema(schema, targetMigration) {
+  const target = migrationIndex(targetMigration);
+  if (target < 123 || target > 125) return;
+  if (target >= 124) assertStructuredAddressSchema(schema);
+  if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
+  // A future table must not pre-exist a pending earlier migration, even when the
+  // requested target's own schema is absent. Fail before any Wrangler apply.
+  if (target < 124) assertPendingTargetSchemaClean("0124_gemini_notion_review_locks.sql",
+    targetSchemaObjects(schema, "0124_gemini_notion_review_locks.sql"));
+  if (target < 125) assertPendingTargetSchemaClean("0125_gemini_category_prompts.sql",
+    targetSchemaObjects(schema, "0125_gemini_category_prompts.sql"));
+}
+
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -2020,6 +2119,9 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
   if (migrationIndex(targetMigration) >= 121) assertArticleImageDisplayConfigSchema(schema);
   if (migrationIndex(targetMigration) >= 122) assertEntityImageDisplaySchema(schema);
+  if (migrationIndex(targetMigration) >= 123) assertStructuredAddressSchema(schema);
+  if (migrationIndex(targetMigration) >= 124) assertGeminiNotionReviewLocksSchema(schema);
+  if (migrationIndex(targetMigration) >= 125) assertGeminiCategoryPromptsSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2103,6 +2205,34 @@ function dataSnapshot(databaseName, configPath) {
     resourceDigest: stableHash(resourceRows),
     membershipDigest: stableHash(membershipRows),
   };
+}
+
+
+function additiveRolloutPreservationSnapshot(databaseName, configPath, schema, originalColumns = null) {
+  const columns = originalColumns ?? Object.fromEntries(ROLLOUT_TABLES.map(([table, key]) =>
+    [table, (schema[key] ?? []).map(row => String(row.name))]));
+  const tables = {};
+  for (const [table] of ROLLOUT_TABLES) {
+    invariant(columns[table]?.includes("id") && columns[table].length > 0,
+      \`Cannot snapshot canonical \${table} rows\`);
+    const current = new Set((schema[table === "managed_events" ? "managedEventColumns" : "organizationLocationColumns"] ?? [])
+      .map(row => String(row.name)));
+    invariant(columns[table].every(name => current.has(name)), \`Original \${table} columns disappeared\`);
+    const quoted = columns[table].map(name => \`"\${name.replace(/"/g, '""')}"\`).join(", ");
+    const rows = d1Execute(databaseName, configPath,
+      \`SELECT \${quoted} FROM "\${table}" ORDER BY "id"\`);
+    tables[table] = { count: rows.length, digest: stableHash(rows) };
+  }
+  return { columns, tables };
+}
+
+export function assertAdditiveRolloutPreserved(before, after) {
+  invariant(before && after, "Additive rollout preservation snapshots required");
+  for (const [table] of ROLLOUT_TABLES) {
+    invariant(before.tables?.[table]?.count === after.tables?.[table]?.count
+      && before.tables?.[table]?.digest === after.tables?.[table]?.digest,
+      \`Pre-existing \${table} data changed during additive D1 migration\`);
+  }
 }
 
 function safeCounts(snapshot) {
@@ -2242,6 +2372,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const historyNames = history.map((row) => String(row.name));
   const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
+  assertRolloutChainSchema(schema, targetMigration);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -2338,6 +2469,36 @@ async function preflight(targetMigration) {
   assertExactMigrationHistory(state.historyNames, expectedPreflightHistory, "Preflight");
   const snapshot = dataSnapshot(databaseName, prepared.configPath);
   const targetIndex = prepared.selection.targetIndex;
+  let rolloutReadiness = null;
+  if (targetIndex === 123 || targetIndex === 124) {
+    // Re-evaluate the existing READ-ONLY classifier against live schema and ledger
+    // within this protected, same-run preflight. A successful old workflow run is
+    // not accepted as proof of READY_0123.
+    const files = (await migrationFileNames()).filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
+      .sort((a, b) => migrationIndex(a) - migrationIndex(b));
+    const objects = objectMap(schema.objects);
+    const result = classifyPreparedMigrations({
+      historyNames: state.historyNames, expectedNames: files,
+      columnsByTable: {
+        managed_events: schema.managedEventColumns,
+        organization_locations: schema.organizationLocationColumns,
+        gemini_notion_review_locks: schema.geminiNotionReviewLockColumns,
+      },
+      tableSql: Object.fromEntries(["managed_events", "organization_locations", "gemini_notion_review_locks"]
+        .map(name => [name, String(objects.get(name)?.sql ?? "")])),
+    });
+    const expected = targetIndex === 123
+      ? (state.targetApplied ? "READY_0124" : "READY_0123")
+      : (state.targetApplied ? "COMPLETE" : "READY_0124");
+    invariant(result.classification === expected,
+      `Read-only audit blocked production migration: ${result.classification}; required ${expected}`);
+    rolloutReadiness = result.classification;
+  } else if (targetIndex === 125) {
+    rolloutReadiness = state.targetApplied ? "APPLIED_0125" : "READY_0125";
+  }
+  const additivePreservationBefore = targetIndex >= 123
+    ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
+    : null;
   const reviewCountBefore = targetIndex >= 63
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
     : null;
@@ -2378,6 +2539,8 @@ async function preflight(targetMigration) {
     partnerRebuildBefore,
     geoCountBefore,
     partnerAuthBefore,
+    rolloutReadiness,
+    additivePreservationBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -2398,11 +2561,13 @@ async function preflight(targetMigration) {
     partnerRebuildBefore,
     geoCountBefore,
     partnerAuthBefore,
+    rolloutReadiness,
+    additivePreservationCounts: additivePreservationBefore ? Object.fromEntries(Object.entries(additivePreservationBefore.tables).map(([table, value]) => [table, value.count])) : null,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
 
-  console.log(`[production-d1] preflight PASS — target=${targetMigration}; applied=${state.targetApplied}; latest=${state.historyNames.at(-1) ?? "<none>"}`);
+  console.log(`[production-d1] preflight PASS — target=${targetMigration}; applied=${state.targetApplied}; latest=${state.historyNames.at(-1) ?? "<none>"}; readiness=${rolloutReadiness ?? "legacy"}`);
   console.log(`[production-d1] target DB — account=${prepared.resources.account_id}; name=${databaseName}; id=${prepared.resources.d1.database_id}; worker=${prepared.generated.name}`);
   console.log(`[production-d1] recovery bookmark — ${bookmark}`);
   console.log(`[production-d1] counts — directory=${snapshot.directoryProfiles}; organizations=${snapshot.helpOrganizations}; resources=${snapshot.partnerResources}; memberships=${snapshot.partnerMemberships}; missingDirectory=${snapshot.missingDirectoryAnchors}; missingOrganizations=${snapshot.missingOrganizationAnchors}`);
@@ -2447,6 +2612,27 @@ async function verify(targetMigration) {
   invariant(state.targetApplied, `Target migration is still not recorded as applied: ${targetMigration}`);
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
+  const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex >= 123) {
+    const afterPreservation = additiveRolloutPreservationSnapshot(databaseName, prepared.configPath,
+      schema, internal.additivePreservationBefore?.columns);
+    assertAdditiveRolloutPreserved(internal.additivePreservationBefore, afterPreservation);
+    if (!internal.targetApplied && targetIndex === 123) {
+      for (const [table, columns] of Object.entries(ROLLOUT_ADDRESS_FIELDS)) {
+        const changed = scalarCount(databaseName, prepared.configPath,
+          `SELECT COUNT(*) AS count FROM "${table}" WHERE ${columns.map(column => `"${column}" <> ''`).join(" OR ")}`);
+        invariant(changed === 0, `0123 is additive only; nonempty structured address values found in ${table}`);
+      }
+    }
+    if (!internal.targetApplied && targetIndex === 124)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM gemini_notion_review_locks") === 0,
+        "0124 lock table must be empty immediately after first apply");
+    if (!internal.targetApplied && targetIndex === 125)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM gemini_category_prompts") === 0,
+        "0125 prompt table must be empty immediately after first apply");
+  }
 
   const after = dataSnapshot(databaseName, prepared.configPath);
   const before = internal.before;
@@ -2474,7 +2660,6 @@ async function verify(targetMigration) {
   }
 
   const reviewCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews");
-  const targetIndex = migrationIndex(targetMigration);
   if (targetIndex === 62 && !internal.targetApplied) {
     invariant(reviewCount === 0, "profile_reviews must remain empty on first 0062 foundation rollout");
   }
@@ -2603,6 +2788,11 @@ async function verify(targetMigration) {
       integrity: partnerH3Integrity,
     } : null,
     historyVerifiedThrough: targetMigration,
+    rolloutReadinessBeforeApply: internal.rolloutReadiness ?? null,
+    additiveRolloutPreservation: targetIndex >= 123 ? "PASS" : null,
+    structuredAddressSchema: targetIndex >= 123 ? "PASS" : null,
+    geminiNotionReviewLocksSchema: targetIndex >= 124 ? "PASS" : null,
+    geminiCategoryPromptsSchema: targetIndex >= 125 ? "PASS" : null,
     dynamicEntityIdentity: targetIndex >= 109 ? {
       indexes: DYNAMIC_ENTITY_IDENTITY_INDEXES,
     } : null,
