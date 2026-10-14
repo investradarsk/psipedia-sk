@@ -257,3 +257,82 @@ test("actual visibility SQL CAS rejects newer HIDDEN and manual decisions", () =
   assert.equal(db.prepare(sql).run(...params).changes,0);
   assert.equal(db.prepare("SELECT manual_override FROM geo_points").get().manual_override,1);
 });
+
+
+test("transactional D1 source updates invalidate real public map SQL for all target types", () => {
+  const geoCode = read("lib/geo-store.ts");
+  const mapCode = read("lib/map-query.ts");
+  const tick = String.fromCharCode(96);
+  const interpolation = String.fromCharCode(36,123) + "geo.sourceGuard}";
+  const whereStart = mapCode.indexOf("const GEO_PUBLIC_WHERE = ") + "const GEO_PUBLIC_WHERE = ".length + 1;
+  const publicSql = mapCode.slice(whereStart, mapCode.indexOf(tick,whereStart));
+  assert.match(publicSql,/resolved_source_fingerprint/);
+  const invalidationSection = geoCode.slice(geoCode.indexOf("export async function prepareGoogleSourceGeoInvalidation"));
+  const invalidationStart = invalidationSection.indexOf("UPDATE geo_points SET");
+  const invalidationEnd = invalidationSection.indexOf(tick + ").bind(now",invalidationStart);
+  assert.ok(invalidationStart>=0 && invalidationEnd>invalidationStart);
+  const invalidationTemplate=invalidationSection.slice(invalidationStart,invalidationEnd);
+  const revision="updated_at IS ? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?";
+  for(const [kind,column,table,code,startToken,binds] of [
+    ["DIRECTORY_PROFILE","directory_profile_id","directory_profiles",directory,"UPDATE directory_profiles",["Region","District","City","New address","94901","Street","22","STREET","search","r1","admin",7,"r0"]],
+    ["MANAGED_EVENT","managed_event_id","managed_events",read("lib/event-store.ts"),"UPDATE managed_events SET city=?",["City","Region","New address","r1","admin",7,"r0"]],
+    ["ORGANIZATION_LOCATION","organization_location_id","organization_locations",read("lib/organization-location-admin-write.ts"),"UPDATE organization_locations",["New address","City","District","Region","SK",7,3,"Old address","City","District","Region","SK"]],
+  ]) {
+    const runScenario=(options={})=>{
+      const db=new DatabaseSync(":memory:");
+      db.exec("CREATE TABLE geo_points (id INTEGER PRIMARY KEY,target_type TEXT,directory_profile_id INTEGER,managed_event_id INTEGER,organization_location_id INTEGER,latitude REAL,longitude REAL,source_fingerprint TEXT,resolved_source_fingerprint TEXT,google_place_source_fingerprint TEXT,updated_at TEXT,attempt_count INTEGER,manual_override INTEGER,public_visibility TEXT,public_precision TEXT,geocode_status TEXT,last_error_code TEXT,last_error_at TEXT,retry_after_at TEXT)");
+      db.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY,region TEXT,district TEXT,city TEXT,address TEXT,postal_code TEXT,street TEXT,house_number TEXT,address_format TEXT,service_address_confirmation TEXT,search_text TEXT,updated_at TEXT,updated_by TEXT)");
+      db.exec("CREATE TABLE managed_events (id INTEGER PRIMARY KEY,city TEXT,region TEXT,address TEXT,updated_at TEXT,updated_by TEXT)");
+      db.exec("CREATE TABLE organization_locations (id INTEGER PRIMARY KEY,organization_id INTEGER,address TEXT,city TEXT,district TEXT,region TEXT,country_code TEXT)");
+      db.exec("INSERT INTO directory_profiles (id,region,district,city,address,updated_at) VALUES (7,'Region','District','City','Old address','r0')");
+      db.exec("INSERT INTO managed_events (id,city,region,address,updated_at) VALUES (7,'City','Region','Old address','r0')");
+      db.exec("INSERT INTO organization_locations VALUES (7,3,'Old address','City','District','Region','SK')");
+      if(!options.noGeo) db.prepare("INSERT INTO geo_points (id,target_type,"+column+",latitude,longitude,source_fingerprint,resolved_source_fingerprint,updated_at,attempt_count,manual_override,public_visibility,public_precision,geocode_status) VALUES (100,?,7,48.1,18.2,'old','old','g0',0,0,'EXACT_PUBLIC','EXACT','RESOLVED')").run(kind);
+      const canonicalSection=code.slice(code.indexOf(kind==="DIRECTORY_PROFILE"?"export async function updateManagedDirectoryProfileLocationFromGooglePlace":kind==="MANAGED_EVENT"?"export async function updateManagedEventLocationFromGooglePlace":"export async function updateOrganizationLocationFromGooglePlace"));
+      const start=canonicalSection.indexOf(startToken);
+      const end=canonicalSection.indexOf(tick+").bind(",start);
+      assert.ok(start>=0 && end>start,kind+" runtime source SQL");
+      const key="target_type='"+kind+"' AND "+column+"=?";
+      const guard=options.noGeo?"NOT EXISTS (SELECT 1 FROM geo_points WHERE "+key+")":"EXISTS (SELECT 1 FROM geo_points WHERE "+key+" AND "+revision+")";
+      const sourceSql=canonicalSection.slice(start,end).replace(interpolation,guard);
+      const sourceArgs=[...binds,7,...(options.noGeo?[]:["g0",0,"EXACT_PUBLIC","EXACT","old",0])];
+      let postSql,postArgs;
+      if(kind==="ORGANIZATION_LOCATION"){postSql="SELECT 1 FROM organization_locations WHERE id=? AND organization_id=? AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?";postArgs=[7,3,"New address","City","District","Region","SK"];}
+      else {postSql="SELECT 1 FROM "+table+" WHERE id=? AND updated_at=?";postArgs=[7,"r1"];}
+      const inv=options.noGeo?null:invalidationTemplate
+        .replace(String.fromCharCode(36,123)+"key}",key)
+        .replace(String.fromCharCode(36,123)+"revision}",revision)
+        .replace(/\$\{postCommitSourceCheck \? [^\n]+\}/,"AND EXISTS ("+postSql+")");
+      const invArgs=["g1",7,"g0",0,"EXACT_PUBLIC","EXACT","old",0,...postArgs];
+      const map=()=>db.prepare("SELECT g.id FROM geo_points g JOIN "+table+" s ON s.id=g."+column+" WHERE g.target_type=? AND "+publicSql+" AND g.public_visibility='EXACT_PUBLIC' AND g.public_precision='EXACT'").all(kind);
+      function batch(fail=false) {
+        db.exec("BEGIN");
+        try{
+          const changed=kind==="ORGANIZATION_LOCATION"?db.prepare(sourceSql).run(...sourceArgs).changes:db.prepare(sourceSql).all(...sourceArgs).length;
+          if(fail) throw new Error("SIMULATED_GEO_FAILURE");
+          const invalidated=inv?db.prepare(inv).run(...invArgs).changes:0;
+          db.exec("COMMIT");return {changed,invalidated};
+        }catch(error){db.exec("ROLLBACK");throw error;}
+      }
+      return {db,batch,map};
+    };
+    const successful=runScenario();
+    assert.equal(successful.map().length,1,kind+" preexisting pin");
+    assert.deepEqual(successful.batch(),{changed:1,invalidated:1},kind);
+    assert.deepEqual(successful.map(),[],kind+" no stale public pin after address commit");
+    assert.equal(successful.db.prepare("SELECT address FROM "+table+" WHERE id=7").get().address,"New address");
+    const rolledBack=runScenario();
+    assert.throws(()=>rolledBack.batch(true),/SIMULATED_GEO_FAILURE/);
+    assert.equal(rolledBack.db.prepare("SELECT address FROM "+table+" WHERE id=7").get().address,"Old address");
+    assert.equal(rolledBack.map().length,1);
+    for(const decision of ["public_visibility='HIDDEN',public_precision=NULL,updated_at='g2'","manual_override=1,updated_at='g2'","source_fingerprint='different'","updated_at='g2'"]){
+      const concurrent=runScenario();
+      concurrent.db.exec("UPDATE geo_points SET "+decision+" WHERE id=100");
+      assert.deepEqual(concurrent.batch(),{changed:0,invalidated:0},kind+" stale source rejected: "+decision);
+      assert.equal(concurrent.db.prepare("SELECT address FROM "+table+" WHERE id=7").get().address,"Old address");
+    }
+    const noGeo=runScenario({noGeo:true});
+    assert.deepEqual(noGeo.batch(),{changed:1,invalidated:0});
+    assert.deepEqual(noGeo.map(),[]);
+  }
+});
