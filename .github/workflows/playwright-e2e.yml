@@ -463,8 +463,12 @@ jobs:
         run: node scripts/bootstrap-breed-e2e.mjs seed
       - name: Admin dialog Playwright — sequential desktop then mobile
         run: |
-          npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/desktop
-          npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/mobile
+          desktop=0
+          mobile=0
+          npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/desktop || desktop=$?
+          npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/mobile || mobile=$?
+          echo "desktop_exit=$desktop mobile_exit=$mobile"
+          test "$desktop" -eq 0 && test "$mobile" -eq 0
       - name: Stop isolated local app
         if: always()
         run: |
