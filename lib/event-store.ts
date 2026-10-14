@@ -425,7 +425,7 @@ export async function updateManagedEventLocationFromGooglePlace(
   if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
   try {
     const reconciled = await reconcileGeoAfterSourceMutation({
-      targetType: "MANAGED_EVENT", targetId: id, actorRef: editorEmail, actorType: "ADMIN",
+      targetType: "MANAGED_EVENT", targetId: id, actorRef: editorEmail, actorType: "ADMIN", expectedGeoRevision: geo.current ? geo.now : null,
     }, database);
     return { id: updated.id, address, city, region, updatedAt: now,
       googleConfirmationGeoRevision: reconciled.point?.updatedAt ?? null };
