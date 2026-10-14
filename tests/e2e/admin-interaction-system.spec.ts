@@ -62,3 +62,33 @@ test("shared bulk interaction hierarchy is accessible on desktop and mobile", as
     path: `.e2e-artifacts/admin-interaction-system/bulk-toolbar-${testInfo.project.name}.png`,
   });
 });
+
+test("modal loops Tab and Shift+Tab without focusing the inert background", async ({ page }) => {
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  await page.getByRole("checkbox", { name: /^Vybrať článok / }).first().check();
+  const opener = page.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
+  await opener.click();
+  const dialog = page.locator("dialog[open]");
+  await expect(dialog).toBeVisible();
+
+  const focusable = dialog.locator('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    .filter({ visible: true });
+  const count = await focusable.count();
+  expect(count).toBeGreaterThan(1);
+  const first = focusable.first();
+  const last = focusable.last();
+
+  await first.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(last).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+
+  await last.focus();
+  await page.keyboard.press("Tab");
+  await expect(first).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+});
