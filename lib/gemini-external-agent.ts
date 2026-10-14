@@ -185,12 +185,12 @@ export async function completeExternalGemini(input: {
   if (!job || job.status !== "RUNNING" || !job.error_code.startsWith("EXT_"))
     return { status: 409, ok: false };
   const now = new Date().toISOString();
+  const trigger = job.error_code.startsWith("EXT_SCHEDULED") ? "SCHEDULED" : "MANUAL";
   const updated = await input.db.prepare(
     "UPDATE gemini_manual_background_jobs SET status=?,error_code=?,completed_at=? " +
     "WHERE id=? AND status='RUNNING' AND error_code LIKE 'EXT_%'"
   ).bind(status, code ?? null, now, jobId).run();
   if (updated.meta.changes !== 1) return { status: 409, ok: false };
-  const trigger = job.error_code.startsWith("EXT_SCHEDULED") ? "SCHEDULED" : "MANUAL";
   const run = await input.db.prepare(
     "INSERT INTO gemini_automation_runs(setting_id,trigger_type,status,started_at,completed_at," +
     "model,request_count,grounded_search_query_count,candidate_count,duplicate_count,concept_count," +
