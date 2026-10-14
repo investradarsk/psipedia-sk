@@ -317,8 +317,9 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
   assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
   assert.match(results, /<Link href=\{directoryPageHref\(basePath, filters, result\.page - 1\)\} rel="prev">/);
   assert.match(results, /<Link href=\{directoryPageHref\(basePath, filters, result\.page \+ 1\)\} rel="next">/);
-  assert.match(directoryPage, /href=\{directoryCategoryHref\(category\)\}/);
-  assert.match(detail, /href=\{\`\/adresar\/\$\{presentation\.category\}\`\}/);
+  assert.match(directoryPage, /href: directoryCategoryHref\(category\),/);
+  assert.match(directoryPage, /<DirectoryCategoryNavigation items=\{categoryItems\} \/>/);
+  assert.match(detail, /href=\{"\/adresar\/" \+ presentation\.category\}/);
 });
 
 test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 category schema stays canonical and points ItemList at detail URLs", () => {
