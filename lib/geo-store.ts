@@ -496,10 +496,12 @@ export async function setGeoVisibility(input: {
   actorRef: string;
   actorType?: "ADMIN" | "SYSTEM";
   reason?: string;
+  expectedGeoRevision?: string;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!current) throw new Error("Geo point neexistuje. Najprv ho inicializuj.");
+  if (input.expectedGeoRevision !== undefined && input.expectedGeoRevision !== current.updatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   const source = await getGeoSourceLocation(input.targetType, input.targetId, db);
   if (!source) throw new Error("Canonical location target neexistuje.");
 
@@ -508,31 +510,35 @@ export async function setGeoVisibility(input: {
   const state = await sourceState(source, input.visibility, precision);
   const now = new Date().toISOString();
 
+  const casArgs = [current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility, current.publicPrecision, current.sourceFingerprint, current.attemptCount];
   if (input.visibility === "HIDDEN") {
-    await db.prepare(`
+    const visibilityResult = await db.prepare(`
       UPDATE geo_points SET public_visibility='HIDDEN', public_precision=NULL,
         latitude=NULL, longitude=NULL, resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=NULL, query_fingerprint=NULL, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='SKIPPED', last_error_code='PRIVATE_HIDDEN', last_error_at=?, retry_after_at=NULL,
         manual_override=0, manual_updated_at=NULL, manual_updated_by=NULL, updated_at=?
-      WHERE id=?
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
     `).bind(state.sourceFingerprint, now, now, current.id).run();
+    if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   } else if (current.manualOverride) {
-    await db.prepare(`
+    const visibilityResult = await db.prepare(`
       UPDATE geo_points SET public_visibility=?, public_precision=?, normalized_query=?, query_fingerprint=?,
         source_fingerprint=?, geocode_status='STALE', last_error_code='MANUAL_REVIEW', last_error_at=?,
         retry_after_at=NULL, updated_at=?
-      WHERE id=?
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
     `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, now, current.id).run();
+    if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   } else {
-    await db.prepare(`
+    const visibilityResult = await db.prepare(`
       UPDATE geo_points SET public_visibility=?, public_precision=?, latitude=NULL, longitude=NULL,
         resolution_method=NULL, provider=NULL, provenance=NULL, source_license=NULL,
         normalized_query=?, query_fingerprint=?, source_fingerprint=?, resolved_source_fingerprint=NULL,
         geocode_status='PENDING', last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL,
         attempt_count=0, last_geocoded_at=NULL, updated_at=?
-      WHERE id=?
+      WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
     `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, current.id).run();
+    if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   }
 
   const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
