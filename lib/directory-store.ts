@@ -1338,12 +1338,13 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   ).first<DirectoryProfileRow>();
   if (!row) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
-  await reconcileGeoAfterSourceMutation({
-    targetType: "DIRECTORY_PROFILE",
-    targetId: row.id,
-    actorRef: editorEmail,
-    actorType: "ADMIN",
-  }, database);
+  try {
+    await reconcileGeoAfterSourceMutation({
+      targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
+    }, database);
+  } catch (cause) {
+    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
+  }
   return rowToManagedProfile(row);
 }
 
