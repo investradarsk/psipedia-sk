@@ -335,24 +335,32 @@ export async function writeGeoModerationEvent(input: {
 export const GOOGLE_MAPS_NOT_REQUIRED_ACTION = "GOOGLE_MAPS_NOT_REQUIRED";
 export const GOOGLE_MAPS_REQUIRED_AGAIN_ACTION = "GOOGLE_MAPS_REQUIRED_AGAIN";
 
+export async function getGoogleMapsWorkflowSnapshot(
+  targetType: GeoTargetType,
+  targetId: number,
+  database?: GeoD1Database,
+): Promise<{ eventId: string | null; decision: "NOT_REQUIRED" | "UNRESOLVED" }> {
+  const db = requireGeoD1(database);
+  const point = await getGeoPointForTarget(targetType, targetId, db);
+  if (!point) return { eventId: null, decision: "UNRESOLVED" };
+  const row = await db.prepare(`
+    SELECT id, action FROM moderation_events
+    WHERE resource_type='GEO_POINT' AND subject_id=?
+      AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
+    ORDER BY created_at DESC, id DESC LIMIT 1
+  `).bind(String(point.id)).first<{ id: string; action: string }>();
+  return {
+    eventId: row?.id ?? null,
+    decision: row?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED",
+  };
+}
+
 export async function getGoogleMapsWorkflowDecision(
   targetType: GeoTargetType,
   targetId: number,
   database?: GeoD1Database,
 ): Promise<"NOT_REQUIRED" | "UNRESOLVED"> {
-  const db = requireGeoD1(database);
-  const point = await getGeoPointForTarget(targetType, targetId, db);
-  if (!point) return "UNRESOLVED";
-  const row = await db.prepare(`
-    SELECT action
-    FROM moderation_events
-    WHERE resource_type = 'GEO_POINT'
-      AND subject_id = ?
-      AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-    ORDER BY created_at DESC, id DESC
-    LIMIT 1
-  `).bind(String(point.id)).first<{ action: string }>();
-  return row?.action === GOOGLE_MAPS_NOT_REQUIRED_ACTION ? "NOT_REQUIRED" : "UNRESOLVED";
+  return (await getGoogleMapsWorkflowSnapshot(targetType, targetId, database)).decision;
 }
 
 export async function setGoogleMapsNotRequired(input: {
@@ -392,10 +400,42 @@ export async function resetGoogleMapsNotRequired(input: {
   targetType: GeoTargetType;
   targetId: number;
   actorRef: string;
+  expectedWorkflowRevision?: string | null;
+  expectedGeoRevision?: string;
 }, database?: GeoD1Database) {
   const db = requireGeoD1(database);
   const point = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!point) return null;
+  // Confirmation can only reset the workflow decision it observed before
+  // remote discovery. Guard the audit INSERT atomically against concurrent
+  // NOT_REQUIRED decisions; a stale confirmation must not clear them.
+  if (input.expectedWorkflowRevision !== undefined) {
+    if (input.expectedGeoRevision !== undefined && point.updatedAt !== input.expectedGeoRevision) {
+      throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    }
+    const eventId = globalThis.crypto.randomUUID();
+    const result = await db.prepare(`
+      INSERT INTO moderation_events (
+        id, submission_id, resource_type, subject_id, action, actor_type, actor_ref,
+        from_status, to_status, reason_code, changed_fields_json, request_id, created_at
+      )
+      SELECT ?, NULL, 'GEO_POINT', ?, 'GOOGLE_MAPS_REQUIRED_AGAIN', 'ADMIN', ?, ?, ?,
+        'ADMIN_MAP_REVIEW_REOPENED', ?, NULL, ?
+      WHERE (SELECT id FROM moderation_events
+        WHERE resource_type='GEO_POINT' AND subject_id=?
+          AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
+        ORDER BY created_at DESC, id DESC LIMIT 1) IS ?
+        AND EXISTS (SELECT 1 FROM geo_points WHERE id=? AND updated_at=?
+          AND manual_override=0 AND provider='google_places' AND geocode_status='RESOLVED'
+          AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT')
+    `).bind(
+      eventId, String(point.id), input.actorRef, point.geocodeStatus, point.geocodeStatus,
+      JSON.stringify(["google_maps_workflow"]), new Date().toISOString(),
+      String(point.id), input.expectedWorkflowRevision, point.id, point.updatedAt,
+    ).run();
+    if (result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    return point;
+  }
   if (await getGoogleMapsWorkflowDecision(input.targetType, input.targetId, db) !== "NOT_REQUIRED") {
     return point;
   }
