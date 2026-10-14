@@ -1,6 +1,6 @@
 import {
   geminiAutomationCatalog, getGeminiCatalogItem,
-  GEMINI_DEFAULT_CADENCE_MINUTES, GEMINI_DEFAULT_MAX_NEW_CONCEPTS,
+  GEMINI_DEFAULT_MAX_NEW_CONCEPTS,
 } from "./gemini-automation-catalog.ts";
 import type { GeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { recommendedGeminiCadence } from "./gemini-automation-schedule.ts";
@@ -47,7 +47,8 @@ export function parseGeminiSettingsInput(value: unknown): GeminiSettingsInput {
   }
   const object = value as Record<string, unknown>;
   const expected = ["stable_key", "enabled", "cadence_minutes", "weekly_day", "max_new_concepts"];
-  if (Object.keys(object).some((key) => !expected.includes(key)) || expected.some((key) => !Object.hasOwn(object, key))) {
+  if (Object.keys(object).some((key) => !expected.includes(key)) ||
+    ["stable_key", "enabled", "cadence_minutes", "max_new_concepts"].some((key) => !Object.hasOwn(object, key))) {
     throw new GeminiSettingsValidationError("Možno upraviť iba zapnutie, frekvenciu a počet konceptov.");
   }
   if (typeof object.stable_key !== "string" || !getGeminiCatalogItem(object.stable_key)) {
