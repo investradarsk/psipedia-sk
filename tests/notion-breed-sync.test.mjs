@@ -89,3 +89,11 @@ test("publishing a Notion-linked breed writes public state back to Notion", () =
   assert.match(breedRouteSource, /writeBackPublishedBreedToNotion/);
   assert.match(breedRouteSource, /notion_breed_publish_writeback_failed/);
 });
+
+
+test("Notion resync merges sparse updates before full D1 upsert and preserves OG media", () => {
+  assert.match(syncSource, /mergeNotionBreedInput\(existing, basePayload\)/);
+  assert.match(syncSource, /preparePayloadWithImage\(bindings, page, mergedPayload, existing\)/);
+  assert.match(syncSource, /ogImage: basePayload\.seo\?\.ogImage\?\.trim\(\) \|\| prepared\.imageUrl \|\| ""/);
+  assert.match(syncSource, /notionPropertyRecord\(page, "Editorial complete"\) \? checkboxProperty/);
+});
