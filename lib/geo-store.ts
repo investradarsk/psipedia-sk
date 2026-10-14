@@ -622,6 +622,47 @@ export async function resetManualGeoOverride(targetType: GeoTargetType, targetId
   return point;
 }
 
+
+/**
+ * Google source writers use this existing D1 database transaction boundary.
+ * Each caller runs a source CAS and this GEO invalidation inside ONE db.batch().
+ * No reconciliation/publication can run between the two commits.
+ */
+export async function prepareGoogleSourceGeoInvalidation(
+  targetType: GeoTargetType,
+  targetId: number,
+  database: GeoD1Database,
+  expectedGeoRevision?: string | null,
+) {
+  const current = await getGeoPointForTarget(targetType, targetId, database);
+  if (expectedGeoRevision !== undefined && (current?.updatedAt ?? null) !== expectedGeoRevision) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
+  const column = targetType === "DIRECTORY_PROFILE" ? "directory_profile_id"
+    : targetType === "MANAGED_EVENT" ? "managed_event_id" : "organization_location_id";
+  const key = `target_type='${targetType}' AND ${column}=?`;
+  const revision = current
+    ? `updated_at IS ? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?`
+    : null;
+  const revisionArgs: unknown[] = current ? [
+    current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility,
+    current.publicPrecision, current.sourceFingerprint, current.attemptCount,
+  ] : [];
+  const sourceGuard = current
+    ? `EXISTS (SELECT 1 FROM geo_points WHERE ${key} AND ${revision})`
+    : `NOT EXISTS (SELECT 1 FROM geo_points WHERE ${key})`;
+  const sourceGuardArgs = [targetId, ...revisionArgs];
+  const now = new Date(Math.max(Date.now(), Date.parse(current?.updatedAt ?? "") + 1 || 0)).toISOString();
+  const invalidation = current ? database.prepare(`
+    UPDATE geo_points SET resolved_source_fingerprint=NULL, google_place_source_fingerprint=NULL,
+      geocode_status=CASE WHEN public_visibility='HIDDEN' THEN 'SKIPPED' ELSE 'STALE' END,
+      last_error_code=CASE WHEN manual_override=1 THEN 'MANUAL_REVIEW' ELSE NULL END,
+      last_error_at=NULL, retry_after_at=NULL, updated_at=?
+    WHERE ${key} AND ${revision}
+  `).bind(now, targetId, ...revisionArgs) : null;
+  return { sourceGuard, sourceGuardArgs, invalidation, current, now };
+}
+
 export function buildDirectoryGeoInvalidationForAddressReviewStatement(
   profileId: number,
   database: GeoD1Database,
