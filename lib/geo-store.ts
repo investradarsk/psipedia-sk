@@ -537,7 +537,7 @@ export async function setGeoVisibility(input: {
         geocode_status='PENDING', last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL,
         attempt_count=0, last_geocoded_at=NULL, updated_at=?
       WHERE id=? AND updated_at=? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?
-    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, current.id).run();
+    `).bind(input.visibility, precision, state.query, state.queryFingerprint, state.sourceFingerprint, now, current.id, ...casArgs).run();
     if (visibilityResult.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   }
 
