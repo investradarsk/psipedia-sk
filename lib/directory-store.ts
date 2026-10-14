@@ -1349,7 +1349,7 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
 
   try {
     const geoReconciliation = await reconcileGeoAfterSourceMutation({
-      targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN",
+      targetType: "DIRECTORY_PROFILE", targetId: row.id, actorRef: editorEmail, actorType: "ADMIN", expectedGeoRevision: geo.current ? geo.now : null,
     }, database);
     return { ...rowToManagedProfile(row), googleConfirmationGeoRevision: geoReconciliation.point?.updatedAt ?? null };
   } catch (cause) {
