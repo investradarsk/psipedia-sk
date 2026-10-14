@@ -1,5 +1,6 @@
 import { buildShelterDraft, assertShelterSchema } from "./gemini-notion-shelter-fields.mjs";
 import { buildAdoptionDraft, assertAdoptionSchema } from "./gemini-notion-adoption-fields.mjs";
+import { buildLostFoundDraft, assertLostFoundSchema, assertLostFoundTarget } from "./gemini-notion-lost-found-fields.mjs";
 import { buildNotionEventsHelpDraft } from "./gemini-notion-events-help-fields.mjs";
 import { externalWorkerCategorySupported } from "./gemini-notion-category.mjs";
 import { canonicalIdentityUrl, directoryDuplicate, sameDirectoryIdentity } from "./gemini-notion-identity.mjs";
@@ -37,14 +38,15 @@ function category() {
   const ids = {
     directory: env.NOTION_DIRECTORY_DATA_SOURCE_ID,
     events: env.NOTION_EVENTS_DATA_SOURCE_ID,
-    help: subcategory === "utulky" ? env.NOTION_ORGANIZATIONS_DATA_SOURCE_ID : subcategory === "adopcia" ? env.NOTION_ADOPTIONS_DATA_SOURCE_ID : env.NOTION_HELP_DATA_SOURCE_ID,
+    help: subcategory === "utulky" ? env.NOTION_ORGANIZATIONS_DATA_SOURCE_ID : subcategory === "adopcia" ? env.NOTION_ADOPTIONS_DATA_SOURCE_ID : subcategory === "stratene-a-najdene" ? env.NOTION_LOST_FOUND_DATA_SOURCE_ID : env.NOTION_HELP_DATA_SOURCE_ID,
   };
   const dataSourceId = ids[section];
   if (!dataSourceId || !/^[a-f0-9-]{32,36}$/i.test(dataSourceId))
     throw Error("NOTION_DATA_SOURCE_MISSING");
+  if (section === "help" && subcategory === "stratene-a-najdene") assertLostFoundTarget(dataSourceId);
   const categoryValue = notionCategoryValue(section, subcategory);
   if (!categoryValue) throw Error("INVALID_CATEGORY");
-  return { section, subcategory, categoryValue, dataSourceId, dedicatedShelter: section === "help" && subcategory === "utulky", dedicatedAdoption: section === "help" && subcategory === "adopcia" };
+  return { section, subcategory, categoryValue, dataSourceId, dedicatedShelter: section === "help" && subcategory === "utulky", dedicatedAdoption: section === "help" && subcategory === "adopcia", dedicatedLostFound: section === "help" && subcategory === "stratene-a-najdene" };
 }
 
 async function notion(path, method = "GET", body) {
@@ -95,7 +97,10 @@ async function notionSnapshot(dataSourceId, section = "directory") {
   if (properties[section === "adoptions" ? "Meno" : "Názov"]?.type !== "title") throw Error("NOTION_TITLE_SCHEMA_MISSING");
   if (typeof metadata.id !== "string" || metadata.id.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
     throw Error("NOTION_TARGET_MISMATCH");
-  if (section === "adoptions") {
+  if (section === "lost-found") {
+    assertLostFoundTarget(dataSourceId, metadata);
+    assertLostFoundSchema(properties);
+  } else if (section === "adoptions") {
     assertAdoptionSchema(properties);
   } else if (section === "shelters") {
     assertShelterSchema(properties);
@@ -127,7 +132,8 @@ async function notionSnapshot(dataSourceId, section = "directory") {
     if (!Array.isArray(result.results) || typeof result.has_more !== "boolean" ||
         result.results.some(row => !row?.id || !row.properties || row.properties[section === "adoptions" ? "Meno" : "Názov"]?.type !== "title" ||
           Object.values(row.properties).some(property => property?.has_more === true) ||
-          row.parent?.data_source_id && row.parent.data_source_id.replaceAll("-", "") !== dataSourceId.replaceAll("-", "")))
+          row.parent?.data_source_id && row.parent.data_source_id.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase() ||
+          section === "lost-found" && (!row.parent?.data_source_id || row.parent.data_source_id.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())))
       throw Error("NOTION_SCAN_INVALID");
     rows.push(...result.results);
     if (!result.has_more) return { rows, properties, scanComplete: true };
@@ -177,8 +183,20 @@ function isDuplicate(rows, name, city, website, source) {
       (url && web && web === url);
   });
 }
-function notionSearch(rows, query) {
+function notionSearch(rows, query, target) {
   const q = normalize(query);
+  if (target.dedicatedLostFound) {
+    return rows.filter(page => !q || [
+      pageText(page,"Názov"),pageText(page,"Meno psa"),pageText(page,"Mesto"),
+      pageText(page,"Rozlišovacie znaky"),pageText(page,"Zdroj URL"),
+    ].some(value => normalize(value).includes(q))).slice(0,50).map(page => ({
+      title: pageText(page,"Názov"), type:pageText(page,"Typ"),
+      dog_name:pageText(page,"Meno psa"), city:pageText(page,"Mesto"),
+      distinguishing_marks:pageText(page,"Rozlišovacie znaky"),
+      event_date:pageText(page,"Dátum udalosti"),
+      state:pageText(page,"Psipedia stav"), source:pageText(page,"Zdroj URL"),
+    }));
+  }
   return rows.filter((page) => {
     if (!q) return true;
     return [pageText(page, "Názov") || pageText(page, "Meno"), pageText(page, "Organizácia"), pageText(page, "Mesto"),
@@ -198,6 +216,35 @@ function notionSearch(rows, query) {
 
 async function createDraft(args, snapshot, target) {
   if (metrics.concept_count >= maxNew) return { status: "limit_reached" };
+  if (target.dedicatedLostFound) {
+    // Always read *all* pages from the independently verified canonical source immediately before POST.
+    const fresh = await notionSnapshot(target.dataSourceId, "lost-found");
+    let properties;
+    try {
+      properties = buildLostFoundDraft({
+        args, ...fresh, rows: [...fresh.rows, ...confirmedDrafts],
+        groundedSources: [...researchSources], today: bratislavaToday(),
+      });
+    } catch (error) {
+      if (error?.message === "GEMINI_LOST_FOUND_DUPLICATE_OR_AMBIGUOUS") {
+        metrics.duplicate_count++;
+        return { status: "duplicate" };
+      }
+      throw Error("NOTION_LOST_FOUND_CONTRACT_INVALID");
+    }
+    // A Notion create may succeed despite timeout/HTTP 5xx. Existing notion() never retries POST.
+    const created = await notion("/pages", "POST", {
+      parent: { type: "data_source_id", data_source_id: target.dataSourceId }, properties,
+    });
+    if (typeof created?.id !== "string" || !created.id) throw Error("NOTION_CREATE_UNCERTAIN");
+    confirmedDrafts.push({ id: created.id, parent: { type: "data_source_id", data_source_id: target.dataSourceId },
+      properties: Object.fromEntries(Object.entries(properties)
+        .map(([key, value]) => [key, { type: Object.keys(value)[0], ...value }])) });
+    snapshot.rows = [...fresh.rows, ...confirmedDrafts];
+    metrics.concept_count++;
+    pageIds.push(created.id);
+    return { status: "created", notion_page_id: created.id };
+  }
   if (target.dedicatedAdoption) {
     const fresh = await notionSnapshot(target.dataSourceId, "adoptions");
     let properties;
@@ -380,6 +427,17 @@ const tools = [
         summary: { type: "string" },
         venue: { type: "string" },
         start_date: { type: "string", description: "Event date YYYY-MM-DD, if verified." },
+        report_type: { type: "string", enum: ["STRATENÝ", "NÁJDENÝ"], description: "Lost/Found case type, only for help.stratene-a-najdene." },
+        report_status: { type: "string", enum: ["OPEN"], description: "Source explicitly confirms the report is still open." },
+        dog_name: { type: "string", description: "Dog's verified name, if known." },
+        sex: { type: "string" },
+        breed: { type: "string" },
+        color: { type: "string" },
+        size: { type: "string" },
+        distinguishing_marks: { type: "string" },
+        collar_description: { type: "string" },
+        event_date: { type: "string", description: "Verified incident date YYYY-MM-DD." },
+        verified_at: { type: "string", description: "Date of positive confirmation that report is still OPEN, YYYY-MM-DD." },
         organizer: { type: "string" },
         organization: { type: "string" },
         legal_name: { type: "string" },
@@ -455,12 +513,12 @@ async function runAgent() {
   if (!Number.isSafeInteger(jobId) || jobId < 1 ||
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
-  const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
+  const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedLostFound ? "lost-found" : target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
   const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. " +
-    "Kategória: " + (target.dedicatedAdoption ? "psy na adopciu (Adopcie, iba Nápad)" : target.dedicatedShelter ? "útulky (Organizácie, SHELTER)" : target.categoryValue) + " (" + stableKey + "), Slovensko. " +
+    "Kategória: " + (target.dedicatedLostFound ? "stratené a nájdené psy (Lost/Found, iba DRAFT)" : target.dedicatedAdoption ? "psy na adopciu (Adopcie, iba Nápad)" : target.dedicatedShelter ? "útulky (Organizácie, SHELTER)" : target.categoryValue) + " (" + stableKey + "), Slovensko. " +
     "Použi teraz Google Search a nájdi maximálne " + maxNew +
     " NOVÝCH relevantných subjektov / podujatí / prípadov pomoci. " +
-    (target.dedicatedAdoption ? "Pre každého psa nájdi primárny verejný HTTPS zdroj, jeho meno, zodpovednú organizáciu a podklady o adopcii; nie osobné kontakty alebo presné adresy. " : "Pre každý vyhľadaj verejný primárny HTTPS zdroj, oficiálny web aj sekciu Kontakt. Zisti doložený názov, obec, adresu, kontakty, služby, dátum podujatia a prípustné verejné fotografie. ") +
+    (target.dedicatedLostFound ? "Hľadaj iba aktuálne verejné hlásenia STRATENÝ alebo NÁJDENÝ, overené ešte dnes, s dátumom udalosti do 30 dní, zdrojovou URL, mestom a identifikačnými znakmi. Vynechaj vyriešené, neaktuálne alebo neisté prípady a úplne vylúč súkromné kontakty, adresy a presnú GPS polohu. " : target.dedicatedAdoption ? "Pre každého psa nájdi primárny verejný HTTPS zdroj, jeho meno, zodpovednú organizáciu a podklady o adopcii; nie osobné kontakty alebo presné adresy. " : "Pre každý vyhľadaj verejný primárny HTTPS zdroj, oficiálny web aj sekciu Kontakt. Zisti doložený názov, obec, adresu, kontakty, služby, dátum podujatia a prípustné verejné fotografie. ") +
     "Nič nevymýšľaj. Predlož len overiteľné odkazy a stručné dôkazy, " +
     "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam.";
   const research = await gemini({ input: researchInstruction, tools: searchTools }, "research");
@@ -474,10 +532,10 @@ async function runAgent() {
     .filter(annotation => annotation.type === "url_citation")
     .map(annotation => httpsUrl(annotation.url)).filter(Boolean));
   if (target.section !== "directory" && !researchSources.size) throw Error("GEMINI_SEARCH_EVIDENCE_MISSING");
-  const instruction = (target.dedicatedAdoption ? "Adopcie: databáza Adopcie, stav Nápad. Povinné meno psa, organizácia, summary, description, zdroj a evidence name, organization, summary, description. Žiadne kontakty, adresy, GPS ani súkromné údaje. " : target.dedicatedShelter ? "Útulky: existujúca databáza Organizácie, typ SHELTER, stav Nápad. Nezadávaj adresu, telefón, e-mail, presnú polohu ani súradnice. Over meno, opisy a zdroje; dolož evidence fields name, summary, description a všetky doplnené identity. " : "") + "Pre podujatia a pomoc použi source_url/source_urls výhradne zo Search výsledkov; " +
+  const instruction = (target.dedicatedLostFound ? "Lost/Found: iba overený OPEN prípad, report_type STRATENÝ/NÁJDENÝ, report_status OPEN, event_date a verified_at YYYY-MM-DD (dnes). Vyžaduj city, name, summary, description a dog_name alebo breed alebo distinguishing_marks. Dolož evidence pre všetky vyplnené polia vrátane report_type, report_status, event_date, verified_at a source_url. Nikdy neposielaj kontakty, adresy, súradnice, slug ani Psipedia ID. " : target.dedicatedAdoption ? "Adopcie: databáza Adopcie, stav Nápad. Povinné meno psa, organizácia, summary, description, zdroj a evidence name, organization, summary, description. Žiadne kontakty, adresy, GPS ani súkromné údaje. " : target.dedicatedShelter ? "Útulky: existujúca databáza Organizácie, typ SHELTER, stav Nápad. Nezadávaj adresu, telefón, e-mail, presnú polohu ani súradnice. Over meno, opisy a zdroje; dolož evidence fields name, summary, description a všetky doplnené identity. " : "") + "Pre podujatia a pomoc použi source_url/source_urls výhradne zo Search výsledkov; " +
     "evidence musí priradiť každý overený fakt k zdroju (source_url, fields). " +
     "Podujatia vyžadujú organizer, start_date, lokalitu, summary a description; časy sú HH:MM. " +
-    "Pomoc vyžaduje summary a description; kontakt a organizáciu pridaj iba s dôkazmi. " +
+    (target.dedicatedLostFound ? "" : "Pomoc vyžaduje summary a description; kontakt a organizáciu pridaj iba s dôkazmi. ") +
     "Pokračuj v tomto existujúcom overenom prieskume. " +
     "NAJPRV zavolaj search_notion, pozri existujúce záznamy a až po prijatí jeho výsledku " +
     "môžeš použiť create_notion_draft. Vytvor maximálne " + maxNew + " KONCEPTOV. " +
@@ -529,7 +587,7 @@ async function runAgent() {
       if (call.name === "search_notion") {
         const key = canonicalIdentityUrl(args.query) || normalize(args.query);
         notionSearched = true;
-        toolResult = { total: snapshot.rows.length, matches: notionSearch(snapshot.rows, args.query) };
+        toolResult = { total: snapshot.rows.length, matches: notionSearch(snapshot.rows, args.query, target) };
         const resultKey = stableArguments(toolResult);
         if (searches.get(key) !== resultKey) progress = true;
         searches.set(key, resultKey);

@@ -14,7 +14,10 @@ const json = (value, status = 200) => new Response(JSON.stringify(value), {
 const step = (name, id, args = {}) => ({
   type: "function_call", name, id, arguments: args,
 });
-const ds = "84e0664c-ca47-405f-9d54-31b20287bc8c";
+const lostFound = process.env.AGENT_STABLE_KEY === "help.stratene-a-najdene";
+const ds = lostFound ? "3ed793fc-1d18-8122-95b9-000b05c3c6bd" : "84e0664c-ca47-405f-9d54-31b20287bc8c";
+const canonicalDb = "811d0659-7217-4914-a27c-1cd67bda3e0e";
+const localToday = new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Bratislava",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 let scans = 0;
 const section = process.env.AGENT_STABLE_KEY.split(".")[0];
 const shelter = process.env.AGENT_STABLE_KEY === "help.utulky";
@@ -27,6 +30,26 @@ const categoryArgs = {
     ? ["name", "description", "source_url", "organizer", "start_date", "city", "start_time", "end_time"]
     : ["name", "description", "source_url", "city"] }],
 };
+if (lostFound) {
+  for (const field of ["organizer", "start_date", "start_time", "end_time"]) delete categoryArgs[field];
+  Object.assign(categoryArgs, {
+    report_type: scenario === "lost_found" ? "NÁJDENÝ" : "STRATENÝ",
+    report_status: scenario === "lost_resolved" ? "RESOLVED" : "OPEN",
+    name: "Stratený čierny labrador Nitra", dog_name: "Neo",
+    breed: "Labrador", color: "čierny",
+    distinguishing_marks: "biela škvrna na hrudi", city: "Nitra",
+    summary: "Aktuálne hlásenie čierneho labradora v Nitre.",
+    description: "Čierny labrador s bielou škvrnou na hrudi. Prípad stále aktívny podľa verejného hlásenia.",
+    event_date: scenario === "lost_stale" ? "2023-01-01" : localToday,
+    verified_at: localToday,
+  });
+  categoryArgs.evidence=[{source_url:"https://example.com/about",
+    fields:["report_type","report_status","name","dog_name","breed","color","distinguishing_marks",
+      "city","summary","description","event_date","verified_at","source_url"]}];
+  if (scenario === "lost_private") categoryArgs.phone="+421 905 123 456";
+  if (scenario === "lost_gps") categoryArgs.latitude=48.123456;
+  if (scenario === "lost_private_text") categoryArgs.description="Presné súradnice GPS: 48.123456, 18.123456. Kontaktujte majiteľa.";
+}
 if (adoption) {
   categoryArgs.name = "Nový psík";
   categoryArgs.organization = "Útulok Test";
@@ -86,9 +109,34 @@ const adoptionProperties = {
   "Mesto": {type:"rich_text"}, "Kraj": {type:"rich_text"},
   "Zdroj dát": {type:"url"}, "Psipedia ID": {type:"rich_text"}, "Slug": {type:"rich_text"},
 };
+const lostFoundProperties = {
+  "Názov": {type:"title"}, "Typ": {type:"rich_text"}, "Psipedia stav": {type:"rich_text"},
+  "Meno psa": {type:"rich_text"}, "Mesto": {type:"rich_text"},
+  "Dátum udalosti": {type:"date"}, "Popis": {type:"rich_text"},
+  "Rozlišovacie znaky": {type:"rich_text"}, "Zdroj URL": {type:"url"},
+  "Psipedia ID": {type:"rich_text"}, "URL Psipedia": {type:"url"},
+  "Slug": {type:"rich_text"}, "Vyriešené": {type:"date"}, "Expirácia": {type:"date"},
+  "Latitude": {type:"number"}, "Longitude": {type:"number"},
+  "Pohlavie": {type:"rich_text"}, "Plemeno": {type:"rich_text"},
+  "Farba": {type:"rich_text"}, "Veľkosť": {type:"rich_text"},
+  "Obojok": {type:"rich_text"}, "Okres": {type:"rich_text"}, "Kraj": {type:"rich_text"},
+};
+if (lostFound && scenario === "wrong_type") lostFoundProperties.Typ={type:"select"};
 if (adoption && scenario === "wrong_type") adoptionProperties.Organizácia={type:"select"};
 if (shelter && scenario === "wrong_type") shelterProperties.Typ={type:"select"};
 if (scenario === "wrong_type") categoryProperties[section === "events" ? "Typ podujatia" : "Psipedia stav"] = { type: "select" };
+const lostFoundExisting = { id:"existing", parent:{type:"data_source_id",data_source_id:ds},
+  properties:{
+    "Názov":{type:"title",title:[{plain_text:"Stratený labrador Nitra"}]},
+    "Typ":{type:"rich_text",rich_text:[{plain_text:"LOST"}]},
+    "Meno psa":{type:"rich_text",rich_text:[{plain_text:scenario === "ambiguous" ? "" : "Neo"}]},
+    "Mesto":{type:"rich_text",rich_text:[{plain_text:"Nitra"}]},
+    "Plemeno":{type:"rich_text",rich_text:[{plain_text:scenario === "ambiguous" ? "" : "Labrador"}]},
+    "Farba":{type:"rich_text",rich_text:[{plain_text:scenario === "ambiguous" ? "" : "čierny"}]},
+    "Rozlišovacie znaky":{type:"rich_text",rich_text:[{plain_text:scenario === "ambiguous" ? "" : "biela škvrna na hrudi"}]},
+    "Dátum udalosti":{type:"date",date:{start:localToday}},
+    "Zdroj URL":{type:"url",url:"https://example.com/about"}
+  }};
 const row = { id: "existing", properties: {
   ...(adoption ? {
     "Meno": {type:"title",title:[{plain_text:"Nový psík"}]},
@@ -200,8 +248,11 @@ globalThis.fetch = async (url, options = {}) => {
   }
   if (address.startsWith("https://api.notion.com/v1/")) {
     if (address === "https://api.notion.com/v1/data_sources/" + ds) {
-      const schema = adoption ? adoptionProperties : shelter ? shelterProperties : section === "directory" ? properties : categoryProperties;
-      return json({ id: ds, properties: scenario === "wrong_database" ? { Name: { type: "title" } }
+      const schema = lostFound ? lostFoundProperties : adoption ? adoptionProperties : shelter ? shelterProperties : section === "directory" ? properties : categoryProperties;
+      return json({ id: ds,
+        ...(lostFound ? { parent:{type:"database_id",database_id:scenario==="wrong_database"
+          ? "b7c978b6-bbfd-460b-b489-30e0814b0ddd" : canonicalDb} } : {}),
+        properties: scenario === "wrong_database" && !lostFound ? { Name: { type: "title" } }
         : scenario === "unsafe_status_default" ? { ...schema, "Stav": { type: "select", select: { options: [{ name: "Publikované" }] } } } : schema });
     }
     if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query") {
@@ -212,10 +263,17 @@ globalThis.fetch = async (url, options = {}) => {
         "Web": { type: "url", url: "https://example.com" },
       } }], has_more: false });
       if (scenario === "paginated" && scans % 2 === 1) return json({ results: [], has_more: true, next_cursor: "page-2" });
-      if (scenario === "partial_property") return json({ results: [{ ...row, properties: { ...row.properties, "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
+      if (scenario === "partial_property") {
+        const targetRow = lostFound ? lostFoundExisting : row;
+        return json({ results: [{ ...targetRow, properties: { ...targetRow.properties,
+          "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
+      }
       if (scenario === "incomplete_scan" && scans > 1) return json({ results: [], has_more: true, next_cursor: null });
       if (scenario === "malformed_scan") return json({ has_more: false });
-      return json({ results: scans > 1 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario) ? [shelter ? { ...row, properties: { ...row.properties, "Typ": { type:"rich_text", rich_text:[{plain_text:"CIVIC_ASSOCIATION"}] } } } : row] : [], has_more: false });
+      return json({ results: scans > 1 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario)
+        ? [lostFound ? lostFoundExisting : shelter ? { ...row, properties: { ...row.properties,
+          "Typ": { type:"rich_text", rich_text:[{plain_text:"CIVIC_ASSOCIATION"}] } } } : row]
+        : [], has_more: false });
     }
     if (address === "https://api.notion.com/v1/pages") {
       notionPosts++;
@@ -225,8 +283,13 @@ globalThis.fetch = async (url, options = {}) => {
       if (section === "directory" && (body.properties?.["Psipedia stav"]?.select?.name !== "Koncept" ||
           body.properties?.["Stav"]?.select?.name !== "Na kontrolu")) throw Error("NOT_DRAFT_ONLY");
       if (section === "events" && body.properties?.Stav?.select?.name !== "Nápad") throw Error("NOT_DRAFT_ONLY");
-      if (section === "help" && !shelter && !adoption && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
+      if (section === "help" && !shelter && !adoption && !lostFound && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
         throw Error("NOT_DRAFT_ONLY");
+      if (lostFound && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "DRAFT" ||
+        !["LOST","FOUND"].includes(body.properties?.Typ?.rich_text?.[0]?.text?.content) ||
+        body.properties?.Slug || body.properties?.["Psipedia ID"] || body.properties?.Latitude ||
+        body.properties?.Longitude || body.properties?.["Verejný kontakt"] || body.properties?.Publikované))
+        throw Error("LOST_FOUND_NOT_DRAFT");
       if (adoption && (body.properties?.Stav?.select?.name !== "Nápad" ||
          body.properties?.Meno?.title?.[0]?.text?.content !== "Nový psík" ||
          body.properties?.Slug || body.properties?.["Psipedia ID"] || body.properties?.Latitude))
@@ -244,7 +307,7 @@ globalThis.fetch = async (url, options = {}) => {
     callbacks++;
     const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
       .update(options.body).digest("hex");
-    if (options.headers["X-Psipedia-Signature"] !== expected)
+    if (scenario === "callback_bad_signature" || options.headers["X-Psipedia-Signature"] !== expected)
       throw Error("INVALID_CALLBACK_SIGNATURE");
     const payload = JSON.parse(options.body);
     console.log("MOCK_CALLBACK " + JSON.stringify(payload));
