@@ -1,6 +1,6 @@
 /**
  * Pure offline category-specific gate for the external Gemini -> Notion worker.
- * Deliberately NOT wired into gemini-notion-agent.mjs (owned by task 06).
+ * Used by the existing external worker immediately before draft creation.
  * Accept only runtime-fetched Notion REST property metadata, never an assumed schema.
  * This module neither performs HTTP requests nor creates pages.
  */
@@ -49,7 +49,8 @@ function date(value) {
     fail("EVENT_DATE_INVALID");
   return value;
 }
-const t = (value) => [{ type: "text", text: { content: value } }];
+const t = (value) => Array.from({ length: Math.ceil(value.length / 1800) }, (_, i) =>
+  ({ type: "text", text: { content: value.slice(i * 1800, (i + 1) * 1800) } }));
 function rich(schema, name, value, required = false) {
   if (!value) { if (required) fail("VALUE_REQUIRED_" + name); return null; }
   requireField(schema, name, "rich_text");
@@ -76,12 +77,13 @@ export function assertNotionEventsHelpUnique({ section, args, rows, scanComplete
   if (scanComplete !== true || !Array.isArray(rows)) fail("DUPLICATE_SCAN_INCOMPLETE");
   const name = normalize(args.name), city = normalize(args.city);
   const start = section === "events" ? date(args.start_date) : "";
-  const source = verifiedHttps(args.source_url);
+  const sources = new Set([verifiedHttps(args.source_url), ...(args.source_urls ?? []).map(verifiedHttps)]);
   for (const row of rows) {
     const existing = normalize(plain(row, "Názov"));
-    const knownSource = plain(row, "Zdroj dát") || plain(row, "Web");
-    const sourceMatch = knownSource && knownSource === source;
+    const knownSources = [plain(row, "Zdroj dát"), plain(row, "Web"), ...(plain(row, "Popis").match(/https:\/\/[^\s]+/g) ?? [])];
+    const sourceMatch = knownSources.some(value => { try { return sources.has(new URL(value).href); } catch { return false; } });
     if (sourceMatch && section === "help") fail("DUPLICATE");
+    if (section === "events" && sourceMatch && existing !== name) fail("DUPLICATE_OR_AMBIGUOUS");
     if (existing !== name) continue;
     if (section === "events") {
       const otherDate = plain(row, "Začiatok").slice(0, 10);
@@ -105,10 +107,10 @@ export function buildNotionEventsHelpDraft({ section, subcategory, args, propert
   const name = text(args.name, 160), summary = text(args.summary, 350), description = text(args.description, 1600);
   if (!name || description.length < 30 || !summary) fail("CONTENT_REQUIRED");
   const source = verifiedHttps(args.source_url);
-  if (!Array.isArray(args.evidence) || !args.evidence.length) fail("EVIDENCE_REQUIRED");
+  if (!Array.isArray(args.evidence) || !args.evidence.length || args.evidence.length > 12) fail("EVIDENCE_REQUIRED");
   const supported = new Set();
   const fieldsAllowed = section === "events"
-    ? ["name", "organizer", "start_date", "end_date", "city", "venue", "description", "website_url", "source_url"]
+    ? ["name", "organizer", "start_date", "end_date", "city", "venue", "description", "website_url", "source_url", "start_time", "end_time"]
     : ["name", "description", "contact", "organization", "city", "source_url"];
   const otherSources = args.source_urls === undefined ? [] : args.source_urls;
   if (!Array.isArray(otherSources) || otherSources.length > 7) fail("SOURCES_INVALID");
@@ -152,6 +154,14 @@ export function buildNotionEventsHelpDraft({ section, subcategory, args, propert
     if (verifiedHttps(website) !== source && !supported.has("website_url")) fail("WEBSITE_UNVERIFIED");
     put("Web", url(properties, "Web", website));
     put("Zdroj dát", url(properties, "Zdroj dát", source));
+    for (const [field, property] of [["start_time", "Čas začiatku"], ["end_time", "Čas konca"]]) {
+      if (args[field] == null || args[field] === "") continue;
+      if (typeof args[field] !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(args[field]) || !supported.has(field))
+        fail("EVENT_TIME_UNVERIFIED");
+      put(property, rich(properties, property, args[field], true));
+    }
+    if (args.end_time && (!args.start_time || (!args.end_date || args.end_date === args.start_date) && args.end_time < args.start_time))
+      fail("EVENT_TIME_INVALID");
     if (args.end_date != null && args.end_date !== "") {
       const end = date(args.end_date);
       if (end < eventDate || !supported.has("end_date")) fail("END_DATE_UNVERIFIED");
@@ -172,5 +182,10 @@ export function buildNotionEventsHelpDraft({ section, subcategory, args, propert
     if (organization && !supported.has("organization")) fail("ORGANIZATION_UNVERIFIED");
     put("Organizácia", rich(properties, "Organizácia", organization));
   }
+  // Keep all source documents and their fact assignments visible for review.
+  const evidenceText = args.evidence.map(item => item.fields.join(", ") + ": " + item.source_url).join("\n");
+  const existingDescription = result["Popis"].rich_text.map(item => item.text.content).join("");
+  result["Popis"] = { rich_text: t(existingDescription) };
+  result["Popis"].rich_text.push(...t("\n\nDôkazy:\n" + evidenceText));
   return result;
 }

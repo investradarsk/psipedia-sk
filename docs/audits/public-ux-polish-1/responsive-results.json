@@ -1,0 +1,677 @@
+[
+  {
+    "route": "/",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/plemena",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/steniatka",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/starostlivost",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/aktivity",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/adresar",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/podujatia",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/pomoc-psom",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/recenzie",
+    "width": 320,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 320,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/plemena",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/steniatka",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/starostlivost",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/aktivity",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/adresar",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/podujatia",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/pomoc-psom",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/recenzie",
+    "width": 390,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 390,
+        "left": 0,
+        "height": 318,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/plemena",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/steniatka",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/starostlivost",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/aktivity",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/adresar",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/podujatia",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/pomoc-psom",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/recenzie",
+    "width": 768,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 680,
+        "left": 44,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/plemena",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/steniatka",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/starostlivost",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/aktivity",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/adresar",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/podujatia",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/pomoc-psom",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/recenzie",
+    "width": 1024,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 976,
+        "left": 24,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "0px"
+      }
+    ]
+  },
+  {
+    "route": "/plemena",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/steniatka",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/starostlivost",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/aktivity",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/adresar",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/podujatia",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/pomoc-psom",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  },
+  {
+    "route": "/recenzie",
+    "width": 1440,
+    "status": 200,
+    "overflow": 0,
+    "unchangedTitlesHeadingsLinksInputsHero": true,
+    "hero": [
+      {
+        "width": 1180,
+        "left": 130,
+        "height": 330,
+        "radius": "22px"
+      }
+    ]
+  }
+]

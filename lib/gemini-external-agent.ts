@@ -1,3 +1,4 @@
+import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 
 export type GeminiExternalEnv = {
@@ -36,7 +37,7 @@ export async function dispatchExternalGemini(input: {
     throw new ExternalAgentError("DISABLED");
   if (!env.GITHUB_ACTIONS_DISPATCH_TOKEN || !env.GEMINI_AGENT_CALLBACK_SECRET)
     throw new ExternalAgentError("CONFIG");
-  if (!getGeminiCatalogItem(stableKey)) throw new ExternalAgentError("CATEGORY");
+  if (!getGeminiCatalogItem(stableKey) || !externalWorkerCategorySupported(stableKey)) throw new ExternalAgentError("CATEGORY");
   const setting = await db.prepare(
     "SELECT id,max_new_concepts,cadence_minutes FROM gemini_automation_settings WHERE stable_key=?"
   ).bind(stableKey).first<Setting>();

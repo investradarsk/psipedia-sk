@@ -89,3 +89,26 @@ test("help: complete scan compulsory, same-name existing entries block new draft
   rejects(()=>assertNotionEventsHelpUnique({section:"help",args:hargs,rows:[row],scanComplete:true}),"DUPLICATE_OR_AMBIGUOUS");
   rejects(()=>assertNotionEventsHelpUnique({section:"help",args:hargs,rows:[],scanComplete:false}),"DUPLICATE_SCAN_INCOMPLETE");
 });
+
+test("event times require field evidence, valid local HH:MM and chronological end", () => {
+  const properties = { ...events, "Čas začiatku": field("rich_text"), "Čas konca": field("rich_text") };
+  const args = { ...eargs, start_time: "10:30", end_time: "12:00",
+    evidence: [{ source_url: source, fields: [...eargs.evidence[0].fields, "start_time", "end_time"] }] };
+  assert.equal(ep(args, properties)["Čas začiatku"].rich_text[0].text.content, "10:30");
+  rejects(() => ep({ ...args, start_time: "25:00" }, properties), "EVENT_TIME_UNVERIFIED");
+  rejects(() => ep({ ...args, evidence: eargs.evidence }, properties), "EVENT_TIME_UNVERIFIED");
+  rejects(() => ep({ ...args, end_time: "09:00" }, properties), "EVENT_TIME_INVALID");
+  rejects(() => ep(args, { ...properties, "Čas začiatku": field("date") }), "FIELD_TYPE");
+});
+
+test("help source identity survives renamed title and long descriptions retain every source", () => {
+  const secondary = "https://pomoc.example.org/" + "a".repeat(1800);
+  const args = { ...hargs, description: "d".repeat(1600), source_urls: [secondary] };
+  const properties = hp(args);
+  const text = properties.Popis.rich_text.map(item => item.text.content).join("");
+  assert.ok(text.includes(secondary));
+  assert.ok(properties.Popis.rich_text.every(item => item.text.content.length <= 1800));
+  const row = { properties: { "Názov": { type: "title", title: [{ plain_text: "Different title" }] },
+    "Popis": { type: "rich_text", rich_text: properties.Popis.rich_text } } };
+  rejects(() => assertNotionEventsHelpUnique({ section: "help", args, rows: [row], scanComplete: true }), "DUPLICATE");
+});
