@@ -2,7 +2,7 @@ import { buildShelterDraft, assertShelterSchema } from "./gemini-notion-shelter-
 import { buildAdoptionDraft, assertAdoptionSchema } from "./gemini-notion-adoption-fields.mjs";
 import { buildNotionEventsHelpDraft } from "./gemini-notion-events-help-fields.mjs";
 import { externalWorkerCategorySupported } from "./gemini-notion-category.mjs";
-import { directoryDuplicate } from "./gemini-notion-identity.mjs";
+import { canonicalIdentityUrl, directoryDuplicate, sameDirectoryIdentity } from "./gemini-notion-identity.mjs";
 import { GEMINI_REQUEST_LIMIT, geminiHttpCode, inspectInteraction } from "./gemini-interactions-contract.mjs";
 /**
  * Independent Gemini research worker. Runs ONLY inside GitHub Actions.
@@ -282,7 +282,7 @@ async function createDraft(args, snapshot, target) {
   }
   if (target.section === "directory") {
     const fresh = await notionSnapshot(target.dataSourceId);
-    snapshot.rows = fresh.rows;
+    snapshot.rows = [...fresh.rows, ...confirmedDrafts];
   }
   if (target.section === "directory" ? directoryDuplicate(snapshot.rows, { name, city, website, source, phone: args.phone, email: args.email })
     : isDuplicate(snapshot.rows, name, city, website, source)) {
@@ -346,8 +346,11 @@ async function createDraft(args, snapshot, target) {
     parent: { type: "data_source_id", data_source_id: target.dataSourceId },
     properties,
   });
-  if (!created.id) throw Error("NOTION_CREATE_UNCERTAIN");
-  snapshot.rows.push(created);
+  if (typeof created?.id !== "string" || !created.id) throw Error("NOTION_CREATE_UNCERTAIN");
+  const confirmed = { id: created.id, properties: Object.fromEntries(Object.entries(properties)
+    .map(([key, value]) => [key, { type: Object.keys(value)[0], ...value }])) };
+  confirmedDrafts.push(confirmed);
+  snapshot.rows.push(confirmed);
   metrics.concept_count++;
   pageIds.push(created.id);
   return { status: "created", notion_page_id: created.id };
@@ -483,37 +486,88 @@ async function runAgent() {
     "kvalifikácie, Facebook/Instagram a priame HTTPS URL obrázkov iba z oficiálneho webu. " +
     "Pri veterinároch požaduj minimálne dva z: telefón, verejný e-mail, úplná adresa. " +
     "Nevytváraj neúplné záznamy ani možné duplicity. Nikdy nepublikuj. " +
+    "Po výsledku duplicate neopakuj rovnakého kandidáta ani rovnaký Notion dotaz. " +
+    "Pokračuj ďalším doloženým kandidátom z prieskumu; ak žiadny nezostal, ukonči odpoveď bez funkčného volania. " +
     "Ak podklady nestačia, skonči bez zápisu.";
   let response = await gemini({
     input: instruction, previous_interaction_id: research.id, tools: functionTools,
   }, "functions");
   let notionSearched = false;
+  const searches = new Map();
+  const duplicateCandidates = [];
+  let repeatedTurns = 0;
+  let finalizing = false;
+  const unresolvedRejections = new Set();
+  const candidateKey = args => JSON.stringify([normalize(args.name), normalize(args.city), args.start_date ?? "", normalize(args.organization)]);
+  const identity = args => ({ ...args, website: args.website_url, source: args.source_url });
+  const stableArguments = value => JSON.stringify(value, (_key, item) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);
   for (let turn = 0; turn <= AGENT_TURNS_LIMIT; turn++) {
     const { calls, status } = inspectInteraction(response, "functions");
-    if (status === "completed") return;
+    if (status === "completed") {
+      if (unresolvedRejections.size) throw Error("AGENT_CANDIDATE_UNRESOLVED");
+      if (finalizing) {
+        const text = response.steps.filter(step => step.type === "model_output")
+          .flatMap(step => step.content ?? []).filter(block => block.type === "text")
+          .map(block => block.text).join("").trim();
+        if (text !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+      }
+      return;
+    }
+    // Repetition is not proof of exhaustion. Require a completed response; never
+    // turn a stalled or budget-exhausted requires_action into a successful job.
+    if (finalizing) throw Error("AGENT_NO_PROGRESS");
     // Do not make an unacknowledged Notion write at the request limit.
     if (turn === AGENT_TURNS_LIMIT) throw Error("AGENT_TURN_LIMIT");
     const results = [];
     const searchedBeforeTurn = notionSearched;
+    let progress = false;
     for (const call of calls) {
       const args = call.arguments;
       let toolResult;
       if (call.name === "search_notion") {
+        const key = canonicalIdentityUrl(args.query) || normalize(args.query);
         notionSearched = true;
         toolResult = { total: snapshot.rows.length, matches: notionSearch(snapshot.rows, args.query) };
+        const resultKey = stableArguments(toolResult);
+        if (searches.get(key) !== resultKey) progress = true;
+        searches.set(key, resultKey);
       } else if (call.name === "create_notion_draft") {
-        toolResult = searchedBeforeTurn
-          ? await createDraft(args, snapshot, target)
-          : { status: "rejected", reason: "search_notion_required_first" };
+        const repeated = duplicateCandidates.some(previous => target.section === "directory"
+          ? sameDirectoryIdentity(identity(previous), identity(args))
+          : stableArguments(previous) === stableArguments(args));
+        toolResult = repeated ? { status: "duplicate", already_processed: true }
+          : searchedBeforeTurn ? await createDraft(args, snapshot, target)
+            : { status: "rejected", reason: "search_notion_required_first" };
+        if (!repeated && toolResult.status === "duplicate") duplicateCandidates.push(args);
+        if (!repeated && ["duplicate", "created"].includes(toolResult.status)) progress = true;
+        if (toolResult.status === "created") searches.clear();
+        if (toolResult.status === "rejected") unresolvedRejections.add(candidateKey(args));
+        if (["created", "duplicate"].includes(toolResult.status)) unresolvedRejections.delete(candidateKey(args));
       } else throw Error("GEMINI_INVALID_TOOL_CALL");
       results.push({
         type: "function_result", name: call.name, call_id: call.id,
         result: [{ type: "text", text: JSON.stringify(toolResult) }],
       });
     }
+    console.log("Agent turn:", JSON.stringify({ turn, calls: calls.length, progress,
+      searches: calls.filter(call => call.name === "search_notion").length,
+      creates: calls.filter(call => call.name === "create_notion_draft").length,
+      concept_count: metrics.concept_count, duplicate_count: metrics.duplicate_count }));
     if (metrics.concept_count >= maxNew) return;
+    repeatedTurns = progress ? 0 : repeatedTurns + 1;
+    // Allow one recovery turn (another researched candidate can still progress).
+    // Two consecutive unproductive turns get a single, tool-free completion.
+    finalizing = repeatedTurns >= 2;
+    if (finalizing) {
+      for (const result of results) result.result[0].text = JSON.stringify({
+        ...JSON.parse(result.result[0].text),
+        instruction: "Repeated calls added no information. No more tools or writes are allowed. Only if all researched candidates are resolved and none remains to check or create, reply exactly {\"outcome\":\"exhausted\"}. Otherwise reply exactly {\"outcome\":\"unresolved\"}. Repetition alone does not establish exhaustion.",
+      });
+    }
     response = await gemini({
-      input: results, previous_interaction_id: response.id, tools: functionTools,
+      input: results, previous_interaction_id: response.id, tools: finalizing ? [] : functionTools,
     }, "functions");
   }
   throw Error("AGENT_TURN_LIMIT");
