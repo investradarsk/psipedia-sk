@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
 
 type Values = Record<string, string | number | boolean | null>;
@@ -21,11 +21,6 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [confirm, setConfirm] = useState<"approve" | "reject" | "restore" | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  useEffect(() => {
-    setValues(initial(draft)); setRevision(draft.lastEditedAt); setReviewState(draft.reviewState);
-    setError(""); setMessage(""); setConfirm(null);
-  }, [draft]);
-
   async function submit(action: "save" | "approve" | "reject" | "restore") {
     if (busy) return;
     setBusy(true); setError(""); setMessage("");
