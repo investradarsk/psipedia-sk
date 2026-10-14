@@ -912,6 +912,7 @@ export async function applyGooglePlaceResolution(input: {
   const latitude = safeCoordinate(input.place.latitude, true);
   const longitude = safeCoordinate(input.place.longitude, false);
   const now = new Date().toISOString();
+  const expectedFingerprint = current.sourceFingerprint;
   const providerResultIdSchema = await isGeoProviderResultIdSchemaAvailable(db);
   const statement = providerResultIdSchema
     ? db.prepare(`
@@ -920,18 +921,23 @@ export async function applyGooglePlaceResolution(input: {
           provider_result_id=?, google_place_id=?, google_place_source_fingerprint=source_fingerprint,
           google_place_matched_at=?, resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
           last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
-          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
-      `).bind(latitude, longitude, input.place.id.trim(), input.place.id.trim(), now, now, now, current.id)
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0 AND source_fingerprint=? AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT'
+      `).bind(latitude, longitude, input.place.id.trim(), input.place.id.trim(), now, now, now, current.id, expectedFingerprint)
     : db.prepare(`
         UPDATE geo_points SET latitude=?, longitude=?, resolution_method='GEOCODER',
           provider='google_places', provenance='Google Places API (New)', source_license=NULL,
           google_place_id=?, google_place_source_fingerprint=source_fingerprint,
           google_place_matched_at=?, resolved_source_fingerprint=source_fingerprint, geocode_status='RESOLVED',
           last_error_code=NULL, last_error_at=NULL, retry_after_at=NULL, attempt_count=attempt_count+1,
-          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0
-      `).bind(latitude, longitude, input.place.id.trim(), now, now, now, current.id);
-  await statement.run();
-  return getGeoPointForTarget(input.targetType, input.targetId, db);
+          last_geocoded_at=?, updated_at=? WHERE id=? AND manual_override=0 AND source_fingerprint=? AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT'
+      `).bind(latitude, longitude, input.place.id.trim(), now, now, now, current.id, expectedFingerprint);
+  const result = await statement.run();
+  if (result.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  const resolved = await getGeoPointForTarget(input.targetType, input.targetId, db);
+  if (!resolved || resolved.geocodeStatus !== "RESOLVED" || resolved.provider !== "google_places") {
+    throw new Error("GOOGLE_CONFIRMATION_INCOMPLETE");
+  }
+  return resolved;
 }
 
 export async function recordGeocoderFailure(input: {
