@@ -162,9 +162,9 @@ async function writeCanonical(type,place,expectedRevision,originalGeoRevision,ol
     if(point) {
       const current=snapshot();
       if(current.updatedAt!=="g2" || current.manualOverride)throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
-      db.prepare("UPDATE geo_points SET source_fingerprint=?,updated_at=?,geocode_status='STALE' WHERE id=100 AND updated_at=?").run("fp1","g3","g2");
+      db.prepare("UPDATE geo_points SET source_fingerprint=?,updated_at=?,geocode_status='STALE' WHERE id=100 AND updated_at=?").run("fp1",updateClock(),"g2");
     } else {
-      db.prepare("INSERT INTO geo_points(id,target_type,directory_profile_id,managed_event_id,organization_location_id,source_fingerprint,updated_at,attempt_count,manual_override,public_visibility,public_precision,geocode_status) VALUES(100,?,?,?,?,?,'g3',0,0,'APPROXIMATE_PUBLIC','APPROXIMATE','PENDING')").run(type,type==="DIRECTORY_PROFILE"?1:null,type==="MANAGED_EVENT"?1:null,type==="ORGANIZATION_LOCATION"?1:null,"fp1");
+      db.prepare("INSERT INTO geo_points(id,target_type,directory_profile_id,managed_event_id,organization_location_id,source_fingerprint,updated_at,attempt_count,manual_override,public_visibility,public_precision,geocode_status) VALUES(100,?,?,?,?,?,?,0,0,'APPROXIMATE_PUBLIC','APPROXIMATE','PENDING')").run(type,type==="DIRECTORY_PROFILE"?1:null,type==="MANAGED_EVENT"?1:null,type==="ORGANIZATION_LOCATION"?1:null,"fp1",updateClock());
     }
     await fire("afterReconcile");
   } catch(cause){throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED",{cause}),{sourceCommitted:true});}
