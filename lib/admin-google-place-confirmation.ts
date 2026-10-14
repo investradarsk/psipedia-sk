@@ -133,6 +133,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   if (!publicLocation) {
     point = await setGeoVisibility({
+      expectedGeoRevision: point.updatedAt,
       targetType: effectiveTargetType,
       targetId: effectiveTargetId,
       visibility: "HIDDEN",
