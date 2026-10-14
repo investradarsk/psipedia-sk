@@ -6,6 +6,7 @@ import {
   updateManagedBreed,
   type ManagedBreedInput,
 } from "@/lib/breed-store";
+import { mergeManagedBreedEdit } from "@/lib/breed-sync-preservation";
 import {
   writeBackPublishedBreedToNotion,
   type NotionBreedSyncBindings,
@@ -32,7 +33,8 @@ export async function PUT(request: Request, { params }: RouteProps) {
     const before = await getManagedBreed(id);
     if (!before) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
 
-    const breed = await updateManagedBreed(id, await request.json() as ManagedBreedInput, user.email);
+    const patch = await request.json() as ManagedBreedInput;
+    const breed = await updateManagedBreed(id, mergeManagedBreedEdit(before, patch), user.email);
     if (!breed) return Response.json({ error: "Plemeno sa nenašlo." }, { status: 404 });
 
     if (before.status !== "published" && breed.status === "published") {
