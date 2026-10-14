@@ -6,6 +6,7 @@ import {
   hasExplicitPrivateGeoDecision,
   initializeGeoPointForTarget,
   resetGoogleMapsNotRequired,
+  reconcileGeoAfterSourceMutation,
   setGeoVisibility,
 } from "@/lib/geo-store";
 import {
@@ -73,6 +74,8 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   }
 
   let profile = null;
+  let sourceMutated = false;
+  try {
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
     const before = await getManagedDirectoryProfileById(effectiveTargetId);
     if (!before) throw new Error("Profil sa nenašiel.");
@@ -83,6 +86,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     if (!preview.readyForAuthorization) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED: " + preview.reviewReasons.join("; "));
     profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt);
     if (!profile) throw new Error("Profil sa nenašiel.");
+    sourceMutated = true;
   }
 
   if (effectiveTargetType === "MANAGED_EVENT") {
@@ -90,6 +94,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     if (!before) throw new Error("Podujatie sa nenašlo.");
     if ([before.city, before.region].some((value) => value?.trim().toLowerCase() === "online")) throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
     await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt);
+    sourceMutated = true;
   }
 
   if (effectiveTargetType === "ORGANIZATION_LOCATION") {
@@ -104,6 +109,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       input.actorRef,
     );
     if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
+    sourceMutated = true;
   }
 
   point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
@@ -159,5 +165,19 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   });
 
   return { profile, point, googlePlaceId: selected.id, createdSiteId: null };
-
+  } catch (error) {
+    // A committed source address must never masquerade as a completed Google/GEO
+    // confirmation when a later step fails. Reconcile to STALE / review state.
+    if (sourceMutated) {
+      try {
+        await reconcileGeoAfterSourceMutation({
+          targetType: effectiveTargetType, targetId: effectiveTargetId,
+          actorRef: input.actorRef, actorType: "ADMIN",
+        });
+      } catch {
+        throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED", { cause: error });
+      }
+    }
+    throw error;
+  }
 }
