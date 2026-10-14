@@ -6,7 +6,6 @@ import {
   hasExplicitPrivateGeoDecision,
   initializeGeoPointForTarget,
   resetGoogleMapsNotRequired,
-  reconcileGeoAfterSourceMutation,
   setGeoVisibility,
 } from "@/lib/geo-store";
 import {
@@ -84,7 +83,6 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       candidate: selected, intent: "ADMIN_RECONFIRM", expectedRevision: before.updatedAt,
     });
     if (!preview.readyForAuthorization) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED: " + preview.reviewReasons.join("; "));
-    sourceMutated = true; // The existing store may commit SQL before its GEO reconciliation fails.
     profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt);
     if (!profile) throw new Error("Profil sa nenašiel.");
     sourceMutated = true;
@@ -94,7 +92,6 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     const before = await getManagedEventById(effectiveTargetId);
     if (!before) throw new Error("Podujatie sa nenašlo.");
     if ([before.city, before.region].some((value) => value?.trim().toLowerCase() === "online")) throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
-    sourceMutated = true;
     await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt);
     sourceMutated = true;
   }
@@ -104,7 +101,6 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     if (!Number.isSafeInteger(organizationId) || organizationId <= 0) {
       throw new Error("Organizácia pre Google Maps lokalitu sa nenašla.");
     }
-    sourceMutated = true; // The organization writer may commit before returning.
     const location = await updateOrganizationLocationFromGooglePlace(
       organizationId,
       effectiveTargetId,
@@ -169,17 +165,13 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   return { profile, point, googlePlaceId: selected.id, createdSiteId: null };
   } catch (error) {
-    // A committed source address must never masquerade as a completed Google/GEO
-    // confirmation when a later step fails. Reconcile to STALE / review state.
-    if (sourceMutated) {
-      try {
-        await reconcileGeoAfterSourceMutation({
-          targetType: effectiveTargetType, targetId: effectiveTargetId,
-          actorRef: input.actorRef, actorType: "ADMIN",
-        });
-      } catch {
-        throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED", { cause: error });
-      }
+    const committedBeforeFailure = sourceMutated
+      || (error instanceof Error && "sourceCommitted" in error && error.sourceCommitted === true);
+    // Do not run unguarded reconciliation here: another admin may have changed
+    // visibility, manual coordinates or the canonical address after our commit.
+    // Explicit repair is safer than overwriting the winner of that race.
+    if (committedBeforeFailure) {
+      throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED", { cause: error });
     }
     throw error;
   }
