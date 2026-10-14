@@ -633,6 +633,7 @@ export async function prepareGoogleSourceGeoInvalidation(
   targetId: number,
   database: GeoD1Database,
   expectedGeoRevision?: string | null,
+  postCommitSourceCheck?: { sql: string; args: unknown[] },
 ) {
   const current = await getGeoPointForTarget(targetType, targetId, database);
   if (expectedGeoRevision !== undefined && (current?.updatedAt ?? null) !== expectedGeoRevision) {
@@ -658,8 +659,8 @@ export async function prepareGoogleSourceGeoInvalidation(
       geocode_status=CASE WHEN public_visibility='HIDDEN' THEN 'SKIPPED' ELSE 'STALE' END,
       last_error_code=CASE WHEN manual_override=1 THEN 'MANUAL_REVIEW' ELSE NULL END,
       last_error_at=NULL, retry_after_at=NULL, updated_at=?
-    WHERE ${key} AND ${revision}
-  `).bind(now, targetId, ...revisionArgs) : null;
+    WHERE ${key} AND ${revision} ${postCommitSourceCheck ? `AND EXISTS (${postCommitSourceCheck.sql})` : ""}
+  `).bind(now, targetId, ...revisionArgs, ...(postCommitSourceCheck?.args ?? [])) : null;
   return { sourceGuard, sourceGuardArgs, invalidation, current, now };
 }
 
