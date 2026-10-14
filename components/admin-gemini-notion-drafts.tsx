@@ -51,7 +51,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     if (opening) return;
     setOpening(true); setError("");
     try {
-      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id) + "?stable_key=" + encodeURIComponent(stableKey), { cache: "no-store" });
+      const response = await fetch("/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id) + (stableKey.startsWith("directory.") ? "" : "?stable_key=" + encodeURIComponent(stableKey)), { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo otvoriť.");
       if (data.draft.psipediaId && !("agenda" in data.draft)) {
