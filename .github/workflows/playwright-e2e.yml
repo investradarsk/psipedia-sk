@@ -446,6 +446,8 @@ jobs:
           mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
           trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
           npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Prepare existing breed E2E fixture
+        run: node scripts/bootstrap-breed-e2e.mjs prepare
       - name: Start isolated local app
         run: |
           mkdir -p .e2e-artifacts/admin-interaction
@@ -457,8 +459,8 @@ jobs:
             sleep 1
           done
           test "$ready" = 1
-      - name: Seed isolated admin article fixture
-        run: node scripts/bootstrap-phase5-e2e.mjs
+      - name: Seed existing local breeds only
+        run: node scripts/bootstrap-breed-e2e.mjs seed
       - name: Admin dialog Playwright — sequential desktop then mobile
         run: |
           npx playwright test tests/e2e/admin-interaction-system.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/admin-interaction/desktop
