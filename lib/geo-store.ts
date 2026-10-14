@@ -633,7 +633,7 @@ export async function prepareGoogleSourceGeoInvalidation(
   targetId: number,
   database: GeoD1Database,
   expectedGeoRevision?: string | null,
-  postCommitSourceCheck?: { sql: string; args: unknown[] },
+  postCommitSourceCheck?: { sql: string; args: (string | number | null)[] },
 ) {
   const current = await getGeoPointForTarget(targetType, targetId, database);
   if (expectedGeoRevision !== undefined && (current?.updatedAt ?? null) !== expectedGeoRevision) {
@@ -645,7 +645,7 @@ export async function prepareGoogleSourceGeoInvalidation(
   const revision = current
     ? `updated_at IS ? AND manual_override=? AND public_visibility IS ? AND public_precision IS ? AND source_fingerprint IS ? AND attempt_count=?`
     : null;
-  const revisionArgs: unknown[] = current ? [
+  const revisionArgs: (string | number | null)[] = current ? [
     current.updatedAt, current.manualOverride ? 1 : 0, current.publicVisibility,
     current.publicPrecision, current.sourceFingerprint, current.attemptCount,
   ] : [];
