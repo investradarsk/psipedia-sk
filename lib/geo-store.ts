@@ -347,7 +347,7 @@ export async function getGoogleMapsWorkflowSnapshot(
     SELECT id, action FROM moderation_events
     WHERE resource_type='GEO_POINT' AND subject_id=?
       AND action IN ('GOOGLE_MAPS_NOT_REQUIRED','GOOGLE_MAPS_REQUIRED_AGAIN')
-    ORDER BY created_at DESC, id DESC LIMIT 1
+    ORDER BY created_at DESC, rowid DESC LIMIT 1
   `).bind(String(point.id)).first<{ id: string; action: string }>();
   return {
     eventId: row?.id ?? null,
@@ -424,7 +424,7 @@ export async function resetGoogleMapsNotRequired(input: {
       WHERE (SELECT id FROM moderation_events
         WHERE resource_type='GEO_POINT' AND subject_id=?
           AND action IN ('GOOGLE_MAPS_NOT_REQUIRED', 'GOOGLE_MAPS_REQUIRED_AGAIN')
-        ORDER BY created_at DESC, id DESC LIMIT 1) IS ?
+        ORDER BY created_at DESC, rowid DESC LIMIT 1) IS ?
         AND EXISTS (SELECT 1 FROM geo_points WHERE id=? AND updated_at=?
           AND manual_override=0 AND provider='google_places' AND geocode_status='RESOLVED'
           AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT')
