@@ -25,7 +25,11 @@ export function selectHomepageArticles(
   const backfillSectionsFromLatest = options.backfillSectionsFromLatest ?? false;
   // Homepage editorial cards must have an actual cover image, not an empty media slot.
   const ordered = articles.filter((article) => Boolean(article.image?.trim())).sort(comparePublishedArticles);
-  const latest = ordered.slice(0, latestLimit);
+  // The first editorial block is a news desk, not a second general article feed.
+  // Only published summaries explicitly assigned to "novinky" qualify here.
+  const latest = ordered
+    .filter((article) => articlePortalSection(article) === "novinky")
+    .slice(0, latestLimit);
   const usedSlugs = new Set(latest.map((article) => article.slug));
 
   const bySection = Object.fromEntries(

@@ -236,13 +236,13 @@ test("renders the portal homepage", async () => {
   // development preview marker.
   assert.doesNotMatch(html, developmentPreviewMeta);
   assert.match(html, /Rozumej svojmu psovi/);
-  assert.match(html, /Najnovšie články/);
+  assert.match(html, /Novinky zo sveta psov/);
   assert.match(html, /Najbližšie podujatia/);
-  assert.match(html, /Najnovšie pre dobrý štart/);
+  assert.match(html, /<h2 id="home-steniatka-title">Šteniatka<\/h2>/);
   assert.match(html, /Veterinárna starostlivosť na jednom mieste/);
-  assert.match(html, /Najnovšie o zdraví a každodennej starostlivosti/);
+  assert.match(html, /<h2 id="home-starostlivost-title">Zdravie a starostlivosť<\/h2>/);
   assert.match(html, /Praktické služby pre každý deň so psom/);
-  assert.match(html, /Najnovšie pre tréning, pohyb a spoločné aktivity/);
+  assert.match(html, /<h2 id="home-aktivity-title">Výcvik a aktivity<\/h2>/);
   assert.match(html, /Pomoc psom/);
   assert.match(html, /Plemeno dňa/);
   assert.match(html, /Koľko „ľudských rokov“ má tvoj pes/);
@@ -250,11 +250,22 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Momentálne tu nie je otvorená výzva/);
   assert.match(html, /href="\/o-nas#kontakt"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
-  assert.ok(html.indexOf("<h2 id=\"home-latest-title\">Najnovšie články</h2>") < html.indexOf("<h2 id=\"home-events-title\">Najbližšie podujatia</h2>"));
-  assert.ok(html.indexOf("<h2 id=\"home-events-title\">Najbližšie podujatia</h2>") < html.indexOf("<h2 id=\"home-steniatka-title\">Najnovšie pre dobrý štart</h2>"));
-  assert.ok(html.indexOf("<h2 id=\"home-aktivity-title\">Najnovšie pre tréning, pohyb a spoločné aktivity</h2>") < html.indexOf("<h2 id=\"home-help-title\">Pomoc psom</h2>"));
+  const magazineTitles = [
+    "home-latest-title",
+    "home-steniatka-title",
+    "home-starostlivost-title",
+    "home-aktivity-title",
+    "home-plemena-title",
+    "home-help-title",
+  ];
+  const titlePositions = magazineTitles.map((id) => html.indexOf(`id="${id}"`));
+  assert.ok(titlePositions.every((position) => position >= 0), "all magazine headings must render");
+  assert.ok(titlePositions.every((position, index) => index === 0 || position > titlePositions[index - 1]), "magazine sections stay in approved order");
+  assert.ok(html.indexOf('data-home-banner="profil"') < html.indexOf('id="home-steniatka-title"'));
+  assert.ok(html.indexOf('data-home-banner="podujatie"') < html.indexOf('id="home-starostlivost-title"'));
+  assert.match(html, /href="\/partner\/profily\/novy"/);
+  assert.match(html, /href="\/partner\/podujatia\/nove"/);
   assert.doesNotMatch(html, /Vybrané redakciou/);
-  assert.doesNotMatch(html, /Novinky zo sveta psov/);
   assert.doesNotMatch(html, /Najnovšie publikovaný obsah naprieč Psipediou/);
   assert.doesNotMatch(html, /Najbližšie publikované podujatia zoradené podľa dátumu/);
   assert.doesNotMatch(html, /Priamy vstup do canonical adresára/);
@@ -623,7 +634,9 @@ test("uses light admin lists and loads full records only for detail and save", a
       body: JSON.stringify(articlePayload),
     }), bindings, context);
     assert.equal(created.status, 201);
-    assert.equal((await created.json()).article.id, 7);
+    const createdArticle = (await created.json()).article;
+    assert.equal(createdArticle.id, 7);
+    assert.ok(createdArticle.updatedAt, "created article must expose the version token");
     const createArticleQuery = database.queries.find(({ sql }) => /INSERT INTO managed_articles/i.test(sql));
     const storedBlocks = createArticleQuery?.bindings.find((value) => typeof value === "string" && value.includes('"type":"cta"'));
     assert.match(storedBlocks ?? "", /"buttonText":"Pozrieť produkt"/);
@@ -633,7 +646,7 @@ test("uses light admin lists and loads full records only for detail and save", a
     const saved = await worker.fetch(adminRequest("/api/admin/articles/7", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(articlePayload),
+      body: JSON.stringify({ ...articlePayload, expectedUpdatedAt: createdArticle.updatedAt }),
     }), bindings, context);
     assert.equal(saved.status, 200);
     assert.equal((await saved.json()).article.id, 7);
