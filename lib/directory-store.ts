@@ -1281,20 +1281,21 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
   place: GooglePlaceCandidate,
   editorEmail: string,
   databaseInput?: D1Database,
+  expectedUpdatedAt?: string,
 ) {
   const database = databaseInput ?? requireD1Binding();
   const existing = await getManagedDirectoryProfileById(id, database);
   if (!existing) return null;
 
+  if (expectedUpdatedAt !== undefined && existing.updatedAt !== expectedUpdatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   const location = googlePlaceDirectoryLocation(existing, place);
-  const street = place.address?.street?.trim() ?? "";
-  const houseNumber = place.address?.houseNumber?.trim() ?? "";
-  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode ?? "");
-  const addressFormat: DirectoryAddressFormat | "" = street
-    ? "STREET"
-    : houseNumber
-      ? "MUNICIPALITY_NUMBER"
-      : "";
+  const street = place.address?.street?.trim() || existing.street || "";
+  const houseNumber = place.address?.houseNumber?.trim() || existing.houseNumber || "";
+  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode?.trim() || existing.postalCode || "");
+  const addressFormat: DirectoryAddressFormat | "" = existing.addressFormat || (street ? "STREET" : houseNumber ? "MUNICIPALITY_NUMBER" : "");
+  if (place.address?.street?.trim() && !place.address?.houseNumber?.trim() && existing.houseNumber && place.address.street.trim() !== existing.street?.trim()) {
+    throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
+  }
   const searchText = directorySearchText({
     name: existing.name,
     excerpt: existing.excerpt,
@@ -1318,7 +1319,7 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
     SET region = ?, district = ?, city = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION',
       search_text = ?, updated_at = ?, updated_by = ?
-    WHERE id = ?
+    WHERE id = ? AND updated_at = ?
     RETURNING *
   `).bind(
     location.region,
@@ -1333,8 +1334,9 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
     now,
     editorEmail,
     id,
+    expectedUpdatedAt ?? existing.updatedAt,
   ).first<DirectoryProfileRow>();
-  if (!row) return null;
+  if (!row) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
 
   await reconcileGeoAfterSourceMutation({
     targetType: "DIRECTORY_PROFILE",
