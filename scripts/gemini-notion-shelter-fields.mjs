@@ -70,6 +70,8 @@ export function buildShelterDraft({args,properties,rows,scanComplete,groundedSou
   const supported=new Set();
   for(const item of evidence) {
     if(!item||!sources.includes(item.source_url)||!Array.isArray(item.fields)||!item.fields.length) fail("EVIDENCE_INVALID");
+    const allowedEvidenceFields = new Set(["name","summary","description","source_url","legal_name","registration_number","city","region","website_url","facebook_url","instagram_url"]);
+    if(item.fields.length>allowedEvidenceFields.size || item.fields.some(f=>typeof f!=="string" || !allowedEvidenceFields.has(f))) fail("EVIDENCE_FIELD_INVALID");
     item.fields.forEach(f=>supported.add(f));
   }
   for(const f of ["name","summary","description"]) if(!supported.has(f)) fail("EVIDENCE_INCOMPLETE");
@@ -81,20 +83,7 @@ export function buildShelterDraft({args,properties,rows,scanComplete,groundedSou
   // Organization schema has no public phone/email fields. Never leak contacts into prose.
   // Avoid inferred public visitor addresses, precise GEO and personal data in any free text.
   if(["address","street","house_number","postal_code","latitude","longitude","contact","phone","email","venue"].some(k=>Boolean(args[k]))) fail("LOCATION_OR_CONTACT_UNSUPPORTED");
-  if(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary+" "+description)||
-    /(?:\+421|\b0\d{3})[\s-]?\d{3}[\s-]?\d{3}/.test(summary+" "+description)||
-    /\b(?:ulica|ulici|ul\.|súpisné|číslo domu)\s+\S+\s+\d+/i.test(summary+" "+description)) fail("PRIVATE_DATA_IN_TEXT");
-  assertShelterUnique(rows,args,scanComplete);
-  const result={"Názov":{title:t(name)},"Typ":{rich_text:t("SHELTER")},"Stav":{select:{name:"Nápad"}},
-    "Krátky popis":{rich_text:t(summary)},
-    "Popis":{rich_text:t(description+"\n\nZdroje a dôkazy:\n"+evidence.map(e=>e.fields.join(", ")+": "+e.source_url).join("\n"))},
-    "Zdroj dát":{url:source}};
-  for(const [arg,prop,type] of [["legal_name","Právny názov","rich_text"],["registration_number","IČO / registračné číslo","rich_text"],["city","Mesto","rich_text"],["region","Kraj","rich_text"],["website_url","Web","url"],["facebook_url","Facebook","url"],["instagram_url","Instagram","url"]]){
-    const value=val(args[arg],type==="url"?2048:240);
-    if(value) {if(type==="url"&&!domain(value)) fail("UNSAFE_SOCIAL_URL");result[prop]=type==="url"?{url:value}:{rich_text:t(value)};}
-  }
-  return result;
-}  if([name,summary,description,args.legal_name,args.city,args.region,args.registration_number].some(unsafeText)) fail("PRIVATE_DATA_IN_TEXT");
+  if([name,summary,description,args.legal_name,args.city,args.region,args.registration_number].filter(Boolean).some(unsafeText)) fail("PRIVATE_DATA_IN_TEXT");
   if([args.facebook_url,args.instagram_url].filter(Boolean).some(unsafeUrl)) fail("SOURCE_PRIVATE");
   assertShelterUnique(rows,args,scanComplete);
   const result={"Názov":{title:t(name)},"Typ":{rich_text:t("SHELTER")},"Stav":{select:{name:"Nápad"}},
@@ -103,7 +92,7 @@ export function buildShelterDraft({args,properties,rows,scanComplete,groundedSou
     "Zdroj dát":{url:source}};
   for(const [arg,prop,type] of [["legal_name","Právny názov","rich_text"],["registration_number","IČO / registračné číslo","rich_text"],["city","Mesto","rich_text"],["region","Kraj","rich_text"],["website_url","Web","url"],["facebook_url","Facebook","url"],["instagram_url","Instagram","url"]]){
     const value=val(args[arg],type==="url"?2048:240);
-    if(value) {if(type==="url"&&!domain(value)) fail("UNSAFE_SOCIAL_URL");result[prop]=type==="url"?{url:value}:{rich_text:t(value)};}
+    if(value) {if(type==="url"&&unsafeUrl(value)) fail("UNSAFE_SOCIAL_URL");result[prop]=type==="url"?{url:value}:{rich_text:t(value)};}
   }
   return result;
 }
