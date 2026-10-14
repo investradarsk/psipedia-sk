@@ -3,6 +3,7 @@ import {
   applyGooglePlaceResolution,
   getGeoPointForTarget,
   getGeoSourceLocation,
+  getGoogleMapsWorkflowSnapshot,
   hasExplicitPrivateGeoDecision,
   initializeGeoPointForTarget,
   resetGoogleMapsNotRequired,
@@ -34,6 +35,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   const source = await getGeoSourceLocation(input.targetType, input.targetId);
   if (!source) throw new Error("Canonical target sa nenašiel.");
+  const initialMapsWorkflow = await getGoogleMapsWorkflowSnapshot(input.targetType, input.targetId);
 
   const discoveryPolicy = googlePlaceActionForSource(source);
   if (!discoveryPolicy.available) throw new Error(discoveryPolicy.reason);
@@ -181,6 +183,8 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     targetType: effectiveTargetType,
     targetId: effectiveTargetId,
     actorRef: input.actorRef,
+    expectedWorkflowRevision: initialMapsWorkflow.eventId,
+    expectedGeoRevision: point.updatedAt,
   });
 
   return { profile, point, googlePlaceId: selected.id, createdSiteId: null };
