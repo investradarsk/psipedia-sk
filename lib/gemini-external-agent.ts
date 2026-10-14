@@ -108,7 +108,7 @@ export async function dispatchExternalGemini(input: {
     await db.prepare(
       "UPDATE gemini_manual_background_jobs SET status=?,error_code=?,completed_at=? WHERE id=? AND status='RUNNING'"
     ).bind(rejected ? "FAILED" : "RUNNING",
-      rejected ? "EXT_DISPATCH_REJECTED" : "EXT_DISPATCH_UNCERTAIN",
+      rejected ? "EXT_DISPATCH_REJECTED" : (trigger === "SCHEDULED" ? "EXT_SCHEDULED_UNCERTAIN" : "EXT_MANUAL_UNCERTAIN"),
       rejected ? startedAt : null, jobId).run();
     throw new ExternalAgentError("DISPATCH");
   }
@@ -187,7 +187,7 @@ export async function completeExternalGemini(input: {
     "WHERE id=? AND status='RUNNING' AND error_code LIKE 'EXT_%'"
   ).bind(status, code ?? null, now, jobId).run();
   if (updated.meta.changes !== 1) return { status: 409, ok: false };
-  const trigger = job.error_code === "EXT_SCHEDULED" ? "SCHEDULED" : "MANUAL";
+  const trigger = job.error_code.startsWith("EXT_SCHEDULED") ? "SCHEDULED" : "MANUAL";
   const run = await input.db.prepare(
     "INSERT INTO gemini_automation_runs(setting_id,trigger_type,status,started_at,completed_at," +
     "model,request_count,grounded_search_query_count,candidate_count,duplicate_count,concept_count," +
