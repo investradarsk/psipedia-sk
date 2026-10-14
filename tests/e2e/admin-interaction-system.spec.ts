@@ -92,3 +92,46 @@ test("modal loops Tab and Shift+Tab without focusing the inert background", asyn
   await expect(dialog).toBeHidden();
   await expect(opener).toBeFocused();
 });
+
+test("modal ignores hidden and disabled controls and does not steal nested modal focus", async ({ page }) => {
+  await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  await page.getByRole("checkbox", { name: /^Vybrať článok / }).first().check();
+  const opener = page.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
+  await opener.click();
+  const outer = page.locator("dialog[open]").first();
+  await expect(outer).toBeVisible();
+
+  await outer.evaluate((element) => {
+    const disabled = document.createElement("button");
+    disabled.textContent = "Disabled fixture";
+    disabled.disabled = true;
+    element.append(disabled);
+    const hidden = document.createElement("button");
+    hidden.textContent = "Hidden fixture";
+    hidden.style.display = "none";
+    element.append(hidden);
+  });
+  const lastReal = outer.locator('button:not([disabled])').last();
+  await lastReal.focus();
+  await page.keyboard.press("Tab");
+  await expect(outer.getByRole("button", { name: "Zavrieť dialóg" })).toBeFocused();
+
+  await outer.evaluate((element) => {
+    const inner = document.createElement("dialog");
+    inner.setAttribute("aria-label", "Nested fixture");
+    inner.innerHTML = '<button type="button">First nested</button><button type="button">Last nested</button>';
+    element.append(inner);
+    inner.showModal();
+  });
+  const inner = page.getByRole("dialog", { name: "Nested fixture" });
+  await expect(inner).toBeVisible();
+  await inner.getByRole("button", { name: "Last nested" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(inner.getByRole("button", { name: "First nested" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(inner).toBeHidden();
+  await expect(outer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(outer).toBeHidden();
+  await expect(opener).toBeFocused();
+});
