@@ -43,7 +43,7 @@ export function assertShelterUnique(rows,args,scanComplete) {
   for(const row of rows) {
     const p=k=>identityPageText(row,k);
     const existingNames=[normalizedName(p("Názov")),normalizedName(p("Právny názov"))].filter(x=>x.length>=4);
-    const knownHosts=[officialHost(p("Web")),officialHost(p("Zdroj dát"))].filter(Boolean);
+    const knownHosts=[officialHost(p("Web"))].filter(Boolean);
     const existingReg=normalizeIdentity(p("IČO / registračné číslo"));
     const existingId=normalizeIdentity(p("Psipedia ID"));
     const sameName=names.some(a=>existingNames.some(b=>a===b || (a.length>=8&&b.length>=8&&(a.includes(b)||b.includes(a)))));
