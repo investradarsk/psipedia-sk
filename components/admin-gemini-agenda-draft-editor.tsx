@@ -23,14 +23,24 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [message, setMessage] = useState("");
   async function submit(action: "save" | "approve" | "reject" | "restore") {
     if (busy) return;
-    setBusy(true); setError(""); setMessage("");
+    setError(""); setMessage("");
+    // PATCH only actually edited fields. Preserves rich-text mentions, formatted
+    // fragments and datetime values that a plain HTML input cannot round-trip.
+    const changed = Object.fromEntries(draft.fields.filter(field =>
+      field.editable && !Object.is(values[field.name], field.value))
+      .map(field => [field.name, values[field.name]]));
+    if (action === "save" && Object.keys(changed).length === 0) {
+      setMessage("Žiadne zmeny na uloženie.");
+      return;
+    }
+    setBusy(true);
     try {
       const response = await fetch(api(draft), {
         method: action === "save" ? "PUT" : "PATCH",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, lastEditedAt: revision,
-          ...(action === "save" ? { fields: values } : { confirm: true }) }),
+          ...(action === "save" ? { fields: changed } : { confirm: true }) }),
       });
       const data = await response.json() as { draft?: GeminiAgendaDraft; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Notion neodpovedá. Over stav konceptu pred opakovaním.");
@@ -57,7 +67,8 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
           {" " + draft.missingFields.join(", ")}. Doplnenie schémy vyžaduje samostatné schválenie.
         </p>
       )}
-      {draft.agenda === "help-cases" && <p>Odmietnutie prípadov Pomoc psom vyžaduje schválené pole stavu odmietnutia v Notione. Do jeho zavedenia zostáva zablokované.</p>}
+      {draft.attribution === "EVIDENCE_SIGNATURE_ONLY" && <p role="status">Gemini pôvod je zatiaľ odhadnutý podľa zdrojových dôkazov. Jednoznačné označenie vyžaduje úpravu existujúceho pracovníka Gemini.</p>}
+      {draft.agenda === "help-cases" && <p role="alert">Schválenie aj odmietnutie prípadov Pomoc psom je dočasne zablokované: ich Notion schéma používa iba publikačný stav draft/published. Schválenie nesmie automaticky publikovať. Úpravy a uloženie konceptu zostávajú dostupné.</p>}
       <form onSubmit={event => { event.preventDefault(); void submit("save"); }}>
         <div className="admin-field-grid">
           {draft.fields.map(field => (
@@ -77,7 +88,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
                 <input id={"gemini-agenda-" + field.name}
                   type={field.type === "number" ? "number" :
                     field.type === "email" ? "email" : field.type === "url" ? "url" :
-                      field.type === "date" ? "date" : "text"}
+                      field.type === "date" && !String(values[field.name] ?? field.value ?? "").includes("T") ? "date" : "text"}
                   disabled={readOnly || !field.editable || busy}
                   value={String(values[field.name] ?? field.value ?? "")}
                   onChange={event => setValues(previous => ({ ...previous,
@@ -91,13 +102,13 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         <div className="admin-editor-actions">
           <button type="submit" disabled={busy || readOnly}>{busy ? "Ukladám…" : "Uložiť ako koncept"}</button>
           {!draft.psipediaId && reviewState !== "APPROVED" && (
-            <button type="button" disabled={busy || (draft.agenda === "help-cases" && reviewState !== "REJECTED")}
+            <button type="button" disabled={busy || draft.agenda === "help-cases"}
               onClick={() => setConfirm(reviewState === "REJECTED" ? "restore" : "reject")}>
               {reviewState === "REJECTED" ? "Obnoviť" : "Odmietnuť"}
             </button>
           )}
           {!readOnly && (
-            <button type="button" disabled={busy} onClick={() => setConfirm("approve")}>
+            <button type="button" disabled={busy || draft.agenda === "help-cases"} onClick={() => setConfirm("approve")}>
               Schváliť na publikovanie
             </button>
           )}
