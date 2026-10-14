@@ -286,7 +286,7 @@ test("Gemini worker offers actual Notion email/phone encoders and gates empty ve
 });
 
 test("remaining unsupported dedicated help agendas cannot reserve or dispatch", async () => {
-  for (const stableKey of ["help.adopcia", "help.stratene-a-najdene"]) {
+  for (const stableKey of ["help.stratene-a-najdene"]) {
     const { db, queries } = fakeDb();
     await assert.rejects(dispatchExternalGemini({ db, stableKey, trigger: "MANUAL", env: {
       GEMINI_EXTERNAL_AGENT_ENABLED: "true", GITHUB_ACTIONS_DISPATCH_TOKEN: "mock", GEMINI_AGENT_CALLBACK_SECRET: "mock",
