@@ -122,6 +122,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
           });
         }
       } catch (error) {
+        void error;
         // Do not log Notion errors: transport messages may contain sensitive data.
         console.error("notion_article_publish_writeback_failed", { articleId: article.id });
       }
