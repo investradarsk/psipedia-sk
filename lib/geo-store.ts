@@ -896,6 +896,7 @@ export async function reconcileGeoAfterSourceMutation(input: {
       db,
       input.actorType ?? "SYSTEM",
     );
+    if (input.expectedGeoRevision === null && !initialized.created) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     return { point: initialized.point, action: initialized.created ? "INITIALIZED" as const : "NO_OP" as const };
   }
 
