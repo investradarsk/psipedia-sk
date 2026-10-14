@@ -938,7 +938,9 @@ async function applyNotionToProfile(input: {
         sourceContentHash: prepared.sourceContentHash,
         activeImageKey: prepared.imageKey,
       });
-      await cleanupNotionImageKeys(input.bindings.BUCKET, prepared.replacedKeys);
+      for (const key of prepared.replacedKeys) {
+        await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, key);
+      }
     }
 
     if (verified) {
