@@ -191,7 +191,7 @@ function GeminiCategoryPromptForm({
           </div>
           <div className={styles.actions}>
             <button type="submit" className="admin-primary-action"
-              disabled={!available || busy || !valid || !dirty}>
+              disabled={!available || busy || !valid || (!dirty && current.customized)}>
               {busy ? "Spracúvam…" : "Uložiť prompt"}
             </button>
             <button type="button" className="admin-secondary-action"
