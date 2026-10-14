@@ -217,13 +217,14 @@ export async function updateOrganizationLocationFromGooglePlace(
   const nextDistrict = place.address?.district?.trim() || existing.district;
   const nextRegion = place.address?.region?.trim() || existing.region;
   const nextCountry = place.address?.countryCode?.trim().toUpperCase() || existing.countryCode || "SK";
+  const atomicDb = db as unknown as Parameters<typeof prepareGoogleSourceGeoInvalidation>[2];
   const geo = await prepareGoogleSourceGeoInvalidation(
     "ORGANIZATION_LOCATION", locationId,
-    db as Parameters<typeof prepareGoogleSourceGeoInvalidation>[2], expectedGeoRevision,
+    atomicDb, expectedGeoRevision,
     { sql: "SELECT 1 FROM organization_locations WHERE id=? AND organization_id=? AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?",
       args: [locationId,organizationId,nextAddress,nextCity,nextDistrict,nextRegion,nextCountry] },
   );
-  const sourceStatement = db.prepare(`
+  const sourceStatement = atomicDb.prepare(`
     UPDATE organization_locations
     SET address = ?, city = ?, district = ?, region = ?, country_code = ?
     WHERE id = ? AND organization_id = ?
@@ -236,7 +237,7 @@ export async function updateOrganizationLocationFromGooglePlace(
     revision.address, revision.city, revision.district, revision.region, revision.countryCode,
     ...geo.sourceGuardArgs,
   );
-  const results = await db.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  const results = await atomicDb.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
   if (resultChanges(results[0] as RunResult) < 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   if (geo.invalidation && resultChanges(results[1] as RunResult) !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
