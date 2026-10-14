@@ -102,7 +102,8 @@ test("Notion retry cannot overwrite a manually edited or concurrently updated Ad
   assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
   assert.match(articleStoreSource, /const \[articleResult\] = await database\.batch\(\[articleStatement\]\)/);
   assert.match(articleStoreSource, /if \(!result && schedulingPrecondition\) throw new ArticleUpdateConflictError\(\)/);
-  assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \?/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR updated_at = \?\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
   assert.match(syncSource, /if \(!updated\) \{/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
 });
