@@ -112,16 +112,15 @@ function keepAdminDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
     dialog.focus();
     return;
   }
-  const first = candidates[0];
-  const last = candidates[candidates.length - 1];
   const active = document.activeElement;
-  if (event.shiftKey && (active === first || !dialog.contains(active))) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
-    event.preventDefault();
-    first.focus();
-  }
+  const current = candidates.indexOf(active as HTMLElement);
+  const next = current < 0
+    ? (event.shiftKey ? candidates.length - 1 : 0)
+    : (current + (event.shiftKey ? -1 : 1) + candidates.length) % candidates.length;
+  // Resolve every key press explicitly: native browser edge handling differs
+  // between Chromium and WebKit when modal focus begins at the first control.
+  event.preventDefault();
+  candidates[next].focus();
 }
 
 function useAdminDialog(open: boolean) {
