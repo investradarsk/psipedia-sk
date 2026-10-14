@@ -181,12 +181,26 @@ test("PUBLIC-POLISH-2 homepage section CTAs follow their content", () => {
   const latestCta = homeEditorial.indexOf('data-home-section-cta="latest"');
   assert.ok(latestLayout >= 0 && latestCta > latestLayout);
 
-  const vetList = homePage.indexOf('className="home-vet-list"');
-  const vetCta = homePage.indexOf('data-home-section-cta="veterinari"');
-  const helpGrid = homePage.indexOf('className="home-help-grid"');
-  const helpCta = homePage.indexOf('data-home-section-cta="pomoc"');
-  assert.ok(vetList >= 0 && vetCta > vetList);
-  assert.ok(helpGrid >= 0 && helpCta > helpGrid);
+  // PR #815 moved these CTAs to shared magazine components. The sidebar
+  // action must follow its children, and editorial section CTAs follow features
+  // (or their empty states) via HomeEditorialSection above.
+  const sidebarStart = homeEditorial.indexOf('export function HomeMagazineSidebar(');
+  const sidebarChildren = homeEditorial.indexOf('{children}', sidebarStart);
+  const sidebarAction = homeEditorial.indexOf('className="home-magazine-sidebar-action"', sidebarChildren);
+  const sidebarEnd = homeEditorial.indexOf('export function HomeMagazineBanner(', sidebarStart);
+  assert.ok(sidebarStart >= 0 && sidebarChildren > sidebarStart && sidebarAction > sidebarChildren && sidebarEnd > sidebarAction);
+
+  const vetSidebar = homePage.indexOf('title="Veterinárna starostlivosť na jednom mieste"');
+  const vetList = homePage.indexOf('className="home-vet-list"', vetSidebar);
+  const vetEmpty = homePage.indexOf('data-home-veterinarians-empty', vetSidebar);
+  const vetEnd = homePage.indexOf('</HomeMagazineSidebar>', vetSidebar);
+  assert.ok(vetSidebar >= 0 && vetList > vetSidebar && vetEmpty > vetList && vetEnd > vetEmpty);
+
+  const helpSection = homePage.indexOf('<div data-home-help>');
+  const helpGrid = homePage.indexOf('className="home-help-grid"', helpSection);
+  const helpEmpty = homePage.indexOf('data-home-help-empty', helpSection);
+  const helpSectionCtaProps = homePage.indexOf('testId="help"', helpSection);
+  assert.ok(helpSection >= 0 && helpGrid > helpSection && helpEmpty > helpGrid && helpSectionCtaProps > helpEmpty);
 });
 
 test("PUBLIC-POLISH-2 event cards preserve photo display and accessible fallbacks", () => {
