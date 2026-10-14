@@ -8,7 +8,7 @@ const worker = fileURLToPath(new URL("../scripts/gemini-notion-agent.mjs", impor
 const fixture = fileURLToPath(new URL("./fixtures/gemini-external-agent-fetch-mock.mjs", import.meta.url));
 const ds = "84e0664c-ca47-405f-9d54-31b20287bc8c";
 
-function runOffline(scenario) {
+function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") {
   // The preload replaces global fetch *before* the worker imports or runs.
   // The secrets are synthetic and never leave this local child process.
   const child = spawnSync(process.execPath, ["--import", fixture, worker], {
@@ -22,8 +22,10 @@ function runOffline(scenario) {
       AGENT_NOTION_ACCESS_TOKEN: "mock-token",
       NOTION_DIRECTORY_DATA_SOURCE_ID: ds,
       AGENT_JOB_ID: "7",
-      AGENT_STABLE_KEY: "directory.veterinari",
-      AGENT_MAX_NEW_CONCEPTS: "2",
+      NOTION_EVENTS_DATA_SOURCE_ID: ds,
+      NOTION_HELP_DATA_SOURCE_ID: ds,
+      AGENT_STABLE_KEY: stableKey,
+      AGENT_MAX_NEW_CONCEPTS: maxNew,
       PSIPEDIA_AGENT_CALLBACK_SECRET: "offline-test-secret",
       PSIPEDIA_AGENT_CALLBACK_URL: "https://psipedia.sk/api/internal/gemini-agent/callback",
       GEMINI_MODEL: "gemini-3.8-flash",
@@ -34,6 +36,7 @@ function runOffline(scenario) {
   const counts = child.stdout?.match(/^MOCK_COUNTS (.+)$/m);
   assert.ok(counts, "Fetch fixture must install and intercept all network traffic: " + child.stderr);
   return {
+    pages: [...child.stdout.matchAll(/^MOCK_PAGE (.+)$/gm)].map(m => JSON.parse(m[1])),
     exitCode: child.status,
     callback: callback ? JSON.parse(callback[1]) : null,
     counts: JSON.parse(counts[1]),
@@ -117,4 +120,74 @@ test("strict Interactions states and tool-call IDs cannot silently signal succes
   }, "functions"), /GEMINI_INVALID_TOOL_CALL/);
   assert.equal(geminiHttpCode(400, { error: { message: "TOOLS cannot be combined" } }), "GEMINI_HTTP_400_TOOLS");
   assert.equal(geminiHttpCode(429, { error: { message: "Never log secret" } }), "GEMINI_HTTP_429");
+});
+
+for (const key of ["events.vystavy", "events.preteky", "events.seminare", "events.treningy", "events.stretnutia", "events.dalsie",
+  "help.docasna-opatera", "help.zbierky", "help.dobrovolnictvo"]) {
+  test("category E2E draft-only: " + key, () => {
+    const run = runOffline("success", key, "1");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.callback.concept_count, 1);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.equal(run.counts.geminiCalls, 3, "limit stops further requests");
+    const properties = run.pages[0].properties;
+    assert.doesNotMatch(JSON.stringify(properties), /Publikované|published|Ready|Sync stav/);
+    assert.match(JSON.stringify(properties.Popis), /Dôkazy/);
+    if (key.startsWith("events")) {
+      assert.equal(properties["Čas začiatku"].rich_text[0].text.content, "10:00");
+      assert.equal(properties["Organizátor"].rich_text[0].text.content, "Organizátor");
+    } else assert.equal(properties.Slug, undefined);
+  });
+}
+for (const key of ["events.vystavy", "help.zbierky"]) {
+  for (const scenario of ["wrong_database", "wrong_type", "missing_source", "invalid_source", "ungrounded", "missing_evidence",
+    "missing_grounding", "incomplete_scan", "malformed_scan", "partial_property", "gemini_timeout"]) {
+    test(key + " refuses " + scenario + " without write", () => {
+      const run = runOffline(scenario, key);
+      assert.equal(run.exitCode, 1, run.stderr);
+      assert.equal(run.callback.status, "FAILED");
+      assert.equal(run.counts.notionPosts, 0);
+      assert.equal(run.counts.callbacks, 1);
+    });
+  }
+  for (const scenario of ["duplicate", "ambiguous"]) {
+    test(key + " fresh final scan blocks " + scenario, () => {
+      const run = runOffline(scenario, key);
+      assert.equal(run.exitCode, 0, run.stderr);
+      assert.equal(run.counts.notionPosts, 0);
+      assert.equal(run.callback.duplicate_count, 1);
+    });
+  }
+  for (const scenario of ["notion_uncertain", "notion_500", "notion_invalid_json", "notion_missing_id"]) {
+    test(key + " never retries " + scenario, () => {
+      const run = runOffline(scenario, key);
+      assert.equal(run.exitCode, 1);
+      assert.equal(run.callback.error_code, "NOTION_CREATE_UNCERTAIN");
+      assert.equal(run.counts.notionPosts, 1);
+      assert.equal(run.counts.callbacks, 1);
+    });
+  }
+}
+for (const key of ["help.adopcia", "help.utulky", "help.stratene-a-najdene", "help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
+  test("unsupported category stops before APIs: " + key, () => {
+    const run = runOffline("success", key);
+    assert.equal(run.callback.error_code, "CATEGORY_UNSUPPORTED");
+    assert.deepEqual(run.counts, { geminiCalls: 0, notionPosts: 0, callbacks: 1 });
+  });
+}
+
+for (const key of ["events.vystavy", "help.zbierky"]) {
+  test(key + " retains confirmed writes when Notion scan is temporarily stale", () => {
+    const run = runOffline("repeat_create", key);
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.equal(run.callback.concept_count, 1);
+    assert.equal(run.callback.duplicate_count, 1);
+  });
+}
+
+test("event worker completes initial and final paginated scans before creating", () => {
+  const run = runOffline("paginated", "events.vystavy");
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.equal(run.counts.notionPosts, 1);
 });

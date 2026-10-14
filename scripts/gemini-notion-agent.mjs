@@ -1,3 +1,5 @@
+import { buildNotionEventsHelpDraft } from "./gemini-notion-events-help-fields.mjs";
+import { externalWorkerCategorySupported } from "./gemini-notion-category.mjs";
 import { directoryDuplicate } from "./gemini-notion-identity.mjs";
 import { GEMINI_REQUEST_LIMIT, geminiHttpCode, inspectInteraction } from "./gemini-interactions-contract.mjs";
 /**
@@ -15,6 +17,9 @@ const stableKey = env.AGENT_STABLE_KEY ?? "";
 const maxNew = Math.min(5, Number(env.AGENT_MAX_NEW_CONCEPTS));
 const metrics = { concept_count: 0, duplicate_count: 0, request_count: 0, search_count: 0 };
 const pageIds = [];
+let researchSources = new Set();
+const confirmedDrafts = [];
+const bratislavaToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const AGENT_TURNS_LIMIT = 7; // Seven continuations after research + first function turn = nine requests.
 const NOTION_VERSION = "2025-09-03";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,6 +30,7 @@ const trim = (value, max = 1800) => typeof value === "string" ? value.trim().sli
 function category() {
   if (!/^(directory|events|help)\.[a-z0-9-]+$/.test(stableKey))
     throw Error("INVALID_CATEGORY");
+  if (!externalWorkerCategorySupported(stableKey)) throw Error("CATEGORY_UNSUPPORTED");
   const [section, subcategory] = stableKey.split(".");
   const ids = {
     directory: env.NOTION_DIRECTORY_DATA_SOURCE_ID,
@@ -72,37 +78,56 @@ async function notion(path, method = "GET", body) {
 function pageText(page, propertyName) {
   const property = page.properties?.[propertyName];
   if (!property) return "";
-  if (property.type === "title") return (property.title ?? []).map((v) => v.plain_text ?? "").join("");
-  if (property.type === "rich_text") return (property.rich_text ?? []).map((v) => v.plain_text ?? "").join("");
+  if (property.type === "title") return (property.title ?? []).map((v) => v.plain_text ?? v.text?.content ?? "").join("");
+  if (property.type === "rich_text") return (property.rich_text ?? []).map((v) => v.plain_text ?? v.text?.content ?? "").join("");
   if (property.type === "url") return property.url ?? "";
+  if (property.type === "date") return property.date?.start ?? "";
   if (property.type === "select") return property.select?.name ?? "";
   if (property.type === "status") return property.status?.name ?? "";
   return "";
 }
 
-async function notionSnapshot(dataSourceId) {
+async function notionSnapshot(dataSourceId, section = "directory") {
   const metadata = await notion("/data_sources/" + encodeURIComponent(dataSourceId));
   const properties = metadata.properties ?? {};
   if (properties["Názov"]?.type !== "title") throw Error("NOTION_TITLE_SCHEMA_MISSING");
-  const statusName = properties["Psipedia stav"] ? "Psipedia stav" :
-    (properties.Stav ? "Stav" : "");
-  if (!statusName) throw Error("NOTION_DRAFT_SCHEMA_MISSING");
-  const statusSchema = properties[statusName];
-  if (!["select", "status"].includes(statusSchema.type))
-    throw Error("NOTION_DRAFT_SCHEMA_INVALID");
-  const draftOptions = statusSchema[statusSchema.type]?.options ?? [];
-  const draft = ["Koncept", "Nápad", "Na kontrolu", "Ready"]
-    .find((name) => draftOptions.some((option) => option.name === name));
-  if (!draft) throw Error("NOTION_DRAFT_OPTION_MISSING");
+  if (typeof metadata.id !== "string" || metadata.id.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+    throw Error("NOTION_TARGET_MISMATCH");
+  if (section === "events" || section === "help") {
+    const expected = section === "events"
+      ? { "Typ podujatia": "rich_text", "Začiatok": "date", "Organizátor": "rich_text", "Stav": "select", "Web": "url", "Zdroj dát": "url" }
+      : { "Kategória": "rich_text", "Psipedia stav": "rich_text" };
+    for (const [name, type] of Object.entries({ ...expected, "Perex": "rich_text", "Popis": "rich_text" }))
+      if (properties[name]?.type !== type) throw Error("NOTION_CATEGORY_SCHEMA_INVALID");
+    // Additional editorial gates are not part of these audited contracts.
+    if (section === "events" ? properties["Psipedia stav"] : properties.Stav)
+      throw Error("NOTION_CATEGORY_SCHEMA_INVALID");
+    if (section === "events" && !properties.Stav.select?.options?.some(v => ["Nápad", "Na kontrolu"].includes(v.name)))
+      throw Error("NOTION_DRAFT_OPTION_MISSING");
+  } else {
+    const statusName = properties["Psipedia stav"] ? "Psipedia stav" : (properties.Stav ? "Stav" : "");
+    if (!statusName) throw Error("NOTION_DRAFT_SCHEMA_MISSING");
+    const schema = properties[statusName];
+    if (!["select", "status"].includes(schema.type)) throw Error("NOTION_DRAFT_SCHEMA_INVALID");
+    if (!["Koncept", "Nápad", "Na kontrolu", "Ready"].some(name => schema[schema.type]?.options?.some(v => v.name === name)))
+      throw Error("NOTION_DRAFT_OPTION_MISSING");
+  }
   const rows = [];
   let cursor = null;
+  const cursors = new Set();
   for (let i = 0; i < 35; i++) {
     const result = await notion("/data_sources/" + encodeURIComponent(dataSourceId) + "/query",
       "POST", { page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) });
-    rows.push(...(result.results ?? []));
-    if (!result.has_more) return { rows, properties, statusName, draft };
+    if (!Array.isArray(result.results) || typeof result.has_more !== "boolean" ||
+        result.results.some(row => !row?.id || !row.properties || row.properties["Názov"]?.type !== "title" ||
+          Object.values(row.properties).some(property => property?.has_more === true) ||
+          row.parent?.data_source_id && row.parent.data_source_id.replaceAll("-", "") !== dataSourceId.replaceAll("-", "")))
+      throw Error("NOTION_SCAN_INVALID");
+    rows.push(...result.results);
+    if (!result.has_more) return { rows, properties, scanComplete: true };
     cursor = result.next_cursor;
-    if (!cursor) throw Error("NOTION_CURSOR_INVALID");
+    if (typeof cursor !== "string" || !cursor || cursors.has(cursor)) throw Error("NOTION_CURSOR_INVALID");
+    cursors.add(cursor);
     await sleep(350);
   }
   // Don't create a concept when duplicate coverage is incomplete.
@@ -157,12 +182,44 @@ function notionSearch(rows, query) {
     title: pageText(page, "Názov"),
     city: pageText(page, "Mesto"),
     website: pageText(page, "Web"),
-    state: pageText(page, "Stav"),
+    state: pageText(page, "Psipedia stav") || pageText(page, "Stav"),
+    category: pageText(page, "Typ podujatia") || pageText(page, "Kategória"),
+    start_date: pageText(page, "Začiatok"),
+    organizer: pageText(page, "Organizátor") || pageText(page, "Organizácia"),
+    source: pageText(page, "Zdroj dát"),
   }));
 }
 
 async function createDraft(args, snapshot, target) {
   if (metrics.concept_count >= maxNew) return { status: "limit_reached" };
+  if (target.section === "events" || target.section === "help") {
+    const sourceList = [args.source_url, ...(Array.isArray(args.source_urls) ? args.source_urls : [])];
+    if (sourceList.some(url => !researchSources.has(httpsUrl(url)))) throw Error("GEMINI_SOURCE_NOT_GROUNDED");
+    const fresh = await notionSnapshot(target.dataSourceId, target.section);
+    let properties;
+    try {
+      properties = buildNotionEventsHelpDraft({ ...target, args, ...fresh,
+        rows: [...fresh.rows, ...confirmedDrafts], today: bratislavaToday() });
+    } catch (error) {
+      if (/^GEMINI_NOTION_CATEGORY_DUPLICATE(?:_OR_AMBIGUOUS)?$/.test(error.message)) {
+        metrics.duplicate_count++;
+        return { status: "duplicate" };
+      }
+      // Helper reasons contain field names; never leak them or raw provider data.
+      throw Error("NOTION_CATEGORY_CONTRACT_INVALID");
+    }
+    const created = await notion("/pages", "POST", {
+      parent: { type: "data_source_id", data_source_id: target.dataSourceId }, properties,
+    });
+    if (typeof created.id !== "string" || !created.id) throw Error("NOTION_CREATE_UNCERTAIN");
+    const confirmed = { id: created.id, properties: Object.fromEntries(Object.entries(properties)
+      .map(([name, value]) => [name, { type: Object.keys(value)[0], ...value }])) };
+    confirmedDrafts.push(confirmed);
+    snapshot.rows = [...fresh.rows, ...confirmedDrafts];
+    metrics.concept_count++;
+    pageIds.push(created.id);
+    return { status: "created", notion_page_id: created.id };
+  }
   const name = trim(args.name, 180);
   const city = trim(args.city, 100);
   const source = httpsUrl(args.source_url);
@@ -268,6 +325,15 @@ const tools = [
         summary: { type: "string" },
         venue: { type: "string" },
         start_date: { type: "string", description: "Event date YYYY-MM-DD, if verified." },
+        organizer: { type: "string" },
+        organization: { type: "string" },
+        end_date: { type: "string" },
+        start_time: { type: "string", description: "Verified local event time HH:MM (Europe/Bratislava)." },
+        end_time: { type: "string" },
+        source_urls: { type: "array", items: { type: "string" } },
+        evidence: { type: "array", items: { type: "object", properties: {
+          source_url: { type: "string" }, fields: { type: "array", items: { type: "string" } },
+        }, required: ["source_url", "fields"] } },
         contact: { type: "string" },
         phone: { type: "string", description: "Verified public business phone from primary source (e.g. +421...). Never guess." },
         email: { type: "string", description: "Verified public business email. No personal/internal emails." },
@@ -332,7 +398,7 @@ async function runAgent() {
   if (!Number.isSafeInteger(jobId) || jobId < 1 ||
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
-  const snapshot = await notionSnapshot(target.dataSourceId);
+  const snapshot = await notionSnapshot(target.dataSourceId, target.section);
   const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. " +
     "Kategória: " + target.categoryValue + " (" + stableKey + "), Slovensko. " +
     "Použi teraz Google Search a nájdi maximálne " + maxNew +
@@ -343,7 +409,20 @@ async function runAgent() {
     "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam.";
   const research = await gemini({ input: researchInstruction, tools: searchTools }, "research");
 
-  const instruction = "Pokračuj v tomto existujúcom overenom prieskume. " +
+  // Interactions supplies grounded URLs as text-block url_citation annotations
+  // (googleapis/python-genai URLCitation/TextContent), not model-written links.
+  researchSources = new Set(research.steps.filter(step => step.type === "model_output")
+    .flatMap(step => Array.isArray(step.content) ? step.content : [])
+    .filter(block => block.type === "text")
+    .flatMap(block => Array.isArray(block.annotations) ? block.annotations : [])
+    .filter(annotation => annotation.type === "url_citation")
+    .map(annotation => httpsUrl(annotation.url)).filter(Boolean));
+  if (target.section !== "directory" && !researchSources.size) throw Error("GEMINI_SEARCH_EVIDENCE_MISSING");
+  const instruction = "Pre podujatia a pomoc použi source_url/source_urls výhradne zo Search výsledkov; " +
+    "evidence musí priradiť každý overený fakt k zdroju (source_url, fields). " +
+    "Podujatia vyžadujú organizer, start_date, lokalitu, summary a description; časy sú HH:MM. " +
+    "Pomoc vyžaduje summary a description; kontakt a organizáciu pridaj iba s dôkazmi. " +
+    "Pokračuj v tomto existujúcom overenom prieskume. " +
     "NAJPRV zavolaj search_notion, pozri existujúce záznamy a až po prijatí jeho výsledku " +
     "môžeš použiť create_notion_draft. Vytvor maximálne " + maxNew + " KONCEPTOV. " +
     "Používaj výhradne konkrétne doložené verejné fakty a HTTPS zdroje z prieskumu. " +

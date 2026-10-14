@@ -12,7 +12,7 @@ GitHub Actions secrets: GEMINI_AGENT_API_KEY, GEMINI_AGENT_NOTION_TOKEN (úzko o
 
 GitHub Actions vars: NOTION_DIRECTORY_DATA_SOURCE_ID, NOTION_EVENTS_DATA_SOURCE_ID, NOTION_HELP_DATA_SOURCE_ID a GEMINI_AGENT_PAID_ENABLED. Platený režim funguje iba pri GEMINI_AGENT_PAID_ENABLED=true; inak skript nevolá Gemini ani Notion.
 
-Konkrétne Notion ID pre Pomoc psom zatiaľ musí byť doplnené a oprávnené k tejto integrácii; nepoužívajte náhodné ani nesprávne ID.
+Notion ID pre Pomoc psom musí ukazovať na help-case data source so správnou schémou a byť oprávnené k integrácii; nepoužívajte sibling databázu iba s Name title. Diagnostické ID sú v docs/GEMINI-NOTION-EVENTS-HELP-CONTRACT-AUDIT.md; worker smeruje iba podľa konfigurácie.
 
 ## Bezpečnosť
 
@@ -21,7 +21,7 @@ Konkrétne Notion ID pre Pomoc psom zatiaľ musí byť doplnené a oprávnené k
 - Nejednoznačný stav odpovede GitHub dispatch zostane RUNNING a blokuje nové úlohy, kým ho človek nepreverí. Bez automatického opakovania platených požiadaviek.
 - Maximálne 5 konceptov na beh a najviac 9 požiadaviek Gemini Interactions (počiatočná + 8 nadväzujúcich). Konzervatívna poistka najviac 10 zaradených Gemini úloh mesačne v spoločnej fronte; nejde o priamy finančný limit.
 - Číta sa celá cieľová Notion data source; neúplné načítanie sa odmietne. Kontrola duplicít a vyplnenie polí prebieha výhradne v agentovi.
-- Nové stránky môžu mať iba existujúci draft status (Koncept, Nápad, Na kontrolu, Ready). Vyžaduje sa verejný HTTPS zdroj; agent nikdy nezverejňuje.
+- Adresár zachováva existujúce draft gates. Podujatia zapisujú iba Stav=Nápad/Na kontrolu; Help iba textové Psipedia stav=draft bez Slug. Vyžaduje sa verejný HTTPS zdroj; agent nikdy nezverejňuje.
 - Mapovanie podľa overeného Notionu: **Adresár** má v poli `Kategória` technické slugs (`veterinari`, `salony-a-sluzby`…), preto sa nemenia; **Podujatia** majú v `Typ podujatia` slovenské jednotné hodnoty (`Výstava`, `Seminár`, `Tréning`, `Iné`…), preto worker mapuje URL slug na kanonický typ. Neznáme slugy podujatí sa odmietnu pred zápisom. Pre Pomoc psom treba pri akceptácii zvlášť potvrdiť skutočné polia.
 - Neopakovať Notion POST /pages po neistom výsledku; pred opätovným spustením sa musí skontrolovať Notion.
 - Callback je HMAC SHA-256 s obmedzenými číselnými údajmi a je platný iba raz počas RUNNING jobu.
@@ -99,3 +99,40 @@ Mock e2e test spúšťa workera ako subprocess s node --import a zablokovaným r
 3. Až po úspešnom ručnom teste a ďalšom schválení môže vzniknúť plánovaný režim. Nezávislá poistka GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED zostáva dovtedy unset/false.
 
 Tento PR nezapína GEMINI_AGENT_PAID_ENABLED, GEMINI_EXTERNAL_AGENT_ENABLED ani GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED, nespúšťa živé služby a nedotýka sa mapovania Events/Help (úloha 07).
+
+
+## GEMINI-EXTERNAL-NOTION-INTEGRATION-2 — worker integration
+
+Existing worker now calls `buildNotionEventsHelpDraft()` (including its `assertNotionEventsHelpUnique()` gate) for Events/Help. No second worker, bridge, CMS, migration or publication path is introduced. PR #808's sequential Interactions, request limits, Search-first function ordering, Notion uncertainty handling and one HMAC callback remain in place.
+
+Actual worker capability, separate from the broader admin catalog:
+
+| Section | Supported draft routes | Blocked routes |
+| --- | --- | --- |
+| Events | vystavy, preteky, seminare, treningy, stretnutia, dalsie | unknown slugs |
+| Help cases | docasna-opatera, zbierky, dobrovolnictvo | adopcia, utulky, stratene-a-najdene; unknown slugs |
+| Directory | veterinari, treneri, kynologicke-kluby, chovatelske-kluby, chovatelske-stanice, salony-a-sluzby, hotely-a-opatrovanie, vencenie, fyzioterapia, dalsie-sluzby | legacy psie-skoly / utulky-a-zachrana; unknown slugs |
+
+Dedicated Help categories still require separate implementation against their existing canonical adoption, organization and lost/found agendas. They are rejected before job reservation in Psipedia and before Notion/Gemini calls in the worker. The register alone is not a capability declaration. Directory's existing functionality is preserved; this task's new category E2E coverage concerns Events and generic Help.
+
+Events require the audited rich_text type, date start, organizer, location, summary, description and field-linked evidence. Optional start_time/end_time serialize verified HH:MM into Čas začiatku/Čas konca; end_date into Koniec. Current Europe/Bratislava date is computed at create time. Help writes the canonical category slug and rich_text Psipedia stav=draft, retains sources and evidence in Popis, and deliberately omits Slug. Optional contact/organization require evidence. No Ready, published status, Sync stav or publish API call is emitted by these routes.
+
+The worker reads configured data-source metadata and a complete paginated snapshot initially and again immediately before every candidate POST. Wrong schemas/types, additional unaudited editorial gates, publish-only options, invalid/missing query results, partial property results and broken/repeated cursors stop the job without writing. Full snapshots include all categories for conservative duplicate detection; duplicates and ambiguous identities increment duplicate_count. Source matching also checks Help's embedded Popis URLs and secondary sources. Confirmed drafts are retained locally, so eventual consistency in a subsequent Notion scan cannot permit duplicate creation within the run. Workflow global concurrency remains unchanged; this cannot guarantee atomic uniqueness against independent human writers.
+
+Only URLs from provider `model_output.content[].annotations[]` with `type=url_citation` in the completed Google Search research turn can back Events/Help candidate sources. Plain model text and create-function arguments cannot add provenance. This wire shape was checked against Google's generated Python SDK at commit f1499bb86c707d51b5b2684ff9423653cc74895c:
+https://github.com/googleapis/python-genai/blob/f1499bb86c707d51b5b2684ff9423653cc74895c/google/genai/_gaos/types/interactions/urlcitation.py
+and its textcontent.py / googlesearchresult.py siblings. Search result steps themselves carry search_suggestions, not source URLs. Missing citations fail closed. Redirect grounding URLs remain disallowed by the existing category contract; direct public citations must be confirmed before live acceptance. Citation provenance and model field attribution do not independently prove factual accuracy; human review remains compulsory.
+
+Notion create timeout/network/5xx/invalid JSON/missing ID is uncertain and never retried. The signed callback updates only the original external RUNNING job through a conditional UPDATE; repeated or concurrent completions receive 409 and cannot create a second run-history entry. Callback delivery itself is never automatically retried.
+
+Offline validation commands:
+
+```
+node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs
+npm run build
+node scripts/check-ci-scope.mjs
+```
+
+Mocks cover all nine new routes, actual category schemas, wrong database/type, absent/unsafe/uncited source, missing evidence, incomplete/partial scan, complete pagination, fresh duplicate/ambiguous identity, stale-scan repeat creation, Gemini timeout, uncertain writes, concept limit and callback signatures/replay/concurrency. All network is intercepted in subprocesses. Synthetic paid flags are confined to those mock children. The existing CI workflow now runs the category helper suite alongside worker E2E tests and tracks all gemini-notion scripts.
+
+Before one controlled live test: review/merge this PR separately; verify exact configured data source and integration read/write access using read-only inspection; recheck Help rows/taxonomy and all editorial gates; confirm direct citation wire data for the chosen model; inspect existing RUNNING/QUEUED jobs and uncertain Notion writes; approve budget and manual activation separately; use max_new_concepts=1; verify draft, signed callback, original job history and notification. Scheduled execution remains off. No live Gemini/Notion request, migration, production deployment or published-profile edit was performed by this integration task.
