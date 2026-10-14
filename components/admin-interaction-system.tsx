@@ -95,10 +95,15 @@ function keepAdminDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
   if (event.key !== "Tab") return;
   const dialog = event.currentTarget;
   if (!dialog.open) return;
+  // A nested dialog's Tab event can bubble through an ancestor dialog.
+  // Only the innermost originating dialog may wrap its own focus.
+  if (event.target instanceof Element && event.target.closest("dialog") !== dialog) return;
   const candidates = Array.from(dialog.querySelectorAll<HTMLElement>(
     'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
   )).filter((element) =>
     element.tabIndex >= 0 &&
+    !element.matches(":disabled") &&
+    getComputedStyle(element).visibility !== "hidden" &&
     !element.closest('[inert], [hidden], [aria-hidden="true"]') &&
     element.getClientRects().length > 0
   );
