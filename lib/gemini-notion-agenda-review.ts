@@ -134,6 +134,34 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
     attribution: "EVIDENCE_SIGNATURE_ONLY",
   };
 }
+/** The canonical Notion -> D1 sync mapping can precede Notion's Psipedia ID
+ * write-back. Consult its existing mapping table before offering any mutation;
+ * otherwise the same Notion page might be reviewed a second time.
+ */
+async function enrichCanonicalMappings(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgendaKey,
+  drafts: GeminiAgendaDraft[]): Promise<GeminiAgendaDraft[]> {
+  if (!env.DB) throw new GeminiAgendaReviewError("CONFIG");
+  for (let offset = 0; offset < drafts.length; offset += 75) {
+    const batch = drafts.slice(offset, offset + 75);
+    const placeholders = batch.map(() => "?").join(",");
+    const sql = agenda === "events"
+      ? "SELECT notion_page_id, event_id AS entity_id FROM event_notion_sync WHERE notion_page_id IN (" + placeholders + ")"
+      : "SELECT notion_page_id, entity_id FROM notion_agenda_sync WHERE agenda=? AND notion_page_id IN (" + placeholders + ")";
+    const params = agenda === "events" ? batch.map(item => item.id)
+      : [agenda, ...batch.map(item => item.id)];
+    const rows = await env.DB.prepare(sql).bind(...params).all<{ notion_page_id: string; entity_id: number }>();
+    const byPage = new Map((rows.results ?? []).map(row => [normalized(row.notion_page_id), row.entity_id]));
+    for (const draft of batch) {
+      const mapped = byPage.get(normalized(draft.id));
+      if (mapped) {
+        draft.psipediaId = String(mapped);
+        draft.reviewState = "IMPORTED";
+      }
+    }
+  }
+  return drafts;
+}
+
 export async function listGeminiAgendaDrafts(env: GeminiAgendaReviewEnv, key: string): Promise<GeminiAgendaDraft[]> {
   const agenda = geminiAgendaForKey(key);
   if (!agenda) throw new GeminiAgendaReviewError("CATEGORY");
@@ -148,7 +176,7 @@ export async function listGeminiAgendaDrafts(env: GeminiAgendaReviewEnv, key: st
       throw new GeminiAgendaReviewError("SCHEMA");
     for (const page of response.results) if (identifiable(page, agenda, source.id, key))
       drafts.push(toDraft(page, key, agenda, source));
-    if (!response.has_more) return drafts;
+    if (!response.has_more) return enrichCanonicalMappings(env, agenda, drafts);
     if (!response.next_cursor || seen.has(response.next_cursor)) throw new GeminiAgendaReviewError("SCHEMA");
     cursor = response.next_cursor;
     seen.add(cursor);
@@ -162,7 +190,8 @@ export async function getGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: stri
   const source = await dataSource(env, agenda);
   const page = await notionRequest<Page>(env, "/pages/" + encodeURIComponent(id));
   if (!identifiable(page, agenda, source.id, key)) throw new GeminiAgendaReviewError("NOT_FOUND");
-  return { draft: toDraft(page, key, agenda, source), page, source };
+  const [draft] = await enrichCanonicalMappings(env, agenda, [toDraft(page, key, agenda, source)]);
+  return { draft, page, source };
 }
 function chunks(value: string) {
   const text = [];
