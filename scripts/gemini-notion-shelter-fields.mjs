@@ -4,27 +4,27 @@ const fail = reason => { throw Error("GEMINI_SHELTER_" + reason); };
 const val = (v,n=1600) => typeof v==="string" && v.trim().length<=n ? v.trim() : "";
 const t = v => Array.from({length:Math.ceil(v.length/1800)},(_,i)=>({type:"text",text:{content:v.slice(i*1800,(i+1)*1800)}}));
 const domain = v => { try { const u=new URL(v); return u.protocol==="https:" && !u.username && !u.password && !/^(localhost|127\.|10\.|192\.168\.)/.test(u.hostname) ? u.hostname.toLowerCase().replace(/^www\./,"") : ""; } catch { return ""; } };
-const normalizedName = v => normalizeIdentity(v).replace(/\\b(obcianske zdruzenie|oz|o z|neziskova organizacia|utulok|utulku|zachranna organizacia|pre zvierata|pre psov|n o|no)\\b/g," ").replace(/\\s+/g," ").trim();
+const normalizedName = v => normalizeIdentity(v).replace(/\b(obcianske zdruzenie|oz|o z|neziskova organizacia|utulok|utulku|zachranna organizacia|pre zvierata|pre psov|n o|no)\b/g," ").replace(/\s+/g," ").trim();
 const portalHosts = new Set(["facebook.com","instagram.com","google.com","maps.google.com","zoznam.sk","azet.sk","firmy.sk","finstat.sk","orsr.sk","registeruz.sk","youtube.com"]);
 const officialHost = v => {const h=domain(v);return h && !portalHosts.has(h) && ![...portalHosts].some(p=>h.endsWith("."+p)) ? h : "";};
-const normalizedUrl = v => {try {const u=new URL(v);if(u.protocol!=="https:")return "";return u.origin.toLowerCase()+u.pathname.replace(/\\/+$/,"").toLowerCase();}catch{return "";}};
+const normalizedUrl = v => {try {const u=new URL(v);if(u.protocol!=="https:")return "";return u.origin.toLowerCase()+u.pathname.replace(/\/+$/,"").toLowerCase();}catch{return "";}};
 const unsafeText = v => {
   const text=String(v??"");
-  return /[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}/i.test(text) ||
-    /(?:\\+421|\\b0\\d{3})[\\s().-]*\\d{3}[\\s.-]*\\d{3}/.test(text) ||
-    /(?:\\b(?:49|48|47|46|45)\\.\\d{3,}|\\b\\d{1,2}\\.\\d{3,})[;,\\s]+(?:\\d{1,3}\\.\\d{3,})/.test(text) ||
-    /(?:\\b(?:lat|lng|lon|latitude|longitude|gps|súradnice|suradnice)\\b\\s*[:=]?\\s*[-+]?\\d{1,3}[.,]\\d{3,})/i.test(text) ||
-    /\\b(?:ulica|ulici|ul\\.|adresa|sídlo|sidlo|na adrese|číslo domu|súpisné|supisne)\\s*[:,-]?\\s*(?:[\\p{L} .-]+)\\s+\\d{1,4}(?:\\s*\\/\\s*\\d{1,4})?/iu.test(text) ||
-    /\\b[\\p{Lu}][\\p{L}.-]*(?:\\s+[\\p{Lu}][\\p{L}.-]*){0,3}\\s+\\d{1,4}(?:\\/\\d{1,4})?(?:\\s*,?\\s*\\d{3}\\s?\\d{2})?\\b/u.test(text) ||
-    /\\b\\d{3}\\s?\\d{2}\\b\\s*[,;-]?\\s*[\\p{L}]+\\s+\\d{1,4}/iu.test(text);
+  return /[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(text) ||
+    /(?:\+421|\b0\d{3})[\s().-]*\d{3}[\s.-]*\d{3}/.test(text) ||
+    /(?:\b(?:49|48|47|46|45)\.\d{3,}|\b\d{1,2}\.\d{3,})[;,\s]+(?:\d{1,3}\.\d{3,})/.test(text) ||
+    /(?:\b(?:lat|lng|lon|latitude|longitude|gps|súradnice|suradnice)\b\s*[:=]?\s*[-+]?\d{1,3}[.,]\d{3,})/i.test(text) ||
+    /\b(?:ulica|ulici|ul\.|adresa|sídlo|sidlo|na adrese|číslo domu|súpisné|supisne)\s*[:,-]?\s*(?:[\p{L} .-]+)\s+\d{1,4}(?:\s*\/\s*\d{1,4})?/iu.test(text) ||
+    /\b[\p{Lu}][\p{L}.-]*(?:\s+[\p{Lu}][\p{L}.-]*){0,3}\s+\d{1,4}(?:\/\d{1,4})?(?:\s*,?\s*\d{3}\s?\d{2})?\b/u.test(text) ||
+    /\b\d{3}\s?\d{2}\b\s*[,;-]?\s*[\p{L}]+\s+\d{1,4}/iu.test(text);
 };
 const unsafeUrl = v => { try {
   const u=new URL(v);
   if(!domain(v)||u.username||u.password||u.hash) return true;
   const query=decodeURIComponent(u.pathname+" "+u.search).replace(/[+_%]/g," ");
-  return /(?:\\b(?:lat|lng|lon|latitude|longitude|coordinates|coord|gps|address|adresa|street|house|postcode|postal|zip|phone|email|tel)\\b|@[-+]?\\d{1,3}\\.\\d{3,},[-+]?\\d{1,3}\\.\\d{3,})/i.test(query) ||
-   /\\d{1,3}\\.\\d{3,}[,; ]+[-+]?\\d{1,3}\\.\\d{3,}/.test(query) ||
-   /\\b\\d{3}[- ]?\\d{2}[-_/][\\p{L}\\d-]+/iu.test(query) ||
+  return /(?:\b(?:lat|lng|lon|latitude|longitude|coordinates|coord|gps|address|adresa|street|house|postcode|postal|zip|phone|email|tel)\b|@[-+]?\d{1,3}\.\d{3,},[-+]?\d{1,3}\.\d{3,})/i.test(query) ||
+   /\d{1,3}\.\d{3,}[,; ]+[-+]?\d{1,3}\.\d{3,}/.test(query) ||
+   /\b\d{3}[- ]?\d{2}[-_/][\p{L}\d-]+/iu.test(query) ||
    unsafeText(query);
   } catch {return true;}
 };
