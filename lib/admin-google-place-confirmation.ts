@@ -149,7 +149,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       longitude: selected.longitude,
     },
   });
-  if (!point || point.geocodeStatus !== "RESOLVED" || point.googlePlaceId !== selected.id) {
+  if (!point || point.geocodeStatus !== "RESOLVED" || point.provider !== "google_places") {
     throw new Error("GOOGLE_CONFIRMATION_INCOMPLETE");
   }
   await resetGoogleMapsNotRequired({
