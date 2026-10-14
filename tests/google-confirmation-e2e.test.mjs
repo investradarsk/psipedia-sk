@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { confirmAdminGooglePlace } from "../lib/admin-google-place-confirmation.ts";
+import { POST as geoPost } from "../app/api/admin/geo/[targetType]/[id]/route.ts";
 import { harness } from "./google-confirmation-harness.mjs";
 
 const confirm = (targetType,placeId="place-A") => confirmAdminGooglePlace({
@@ -93,3 +94,36 @@ test("online managed event rejects physical Google confirmation before source co
   assert.equal(harness.row("managed_events").address,"Old address");
   assert.equal(harness.row("geo_points").google_place_id,null);
 });
+
+
+function requestFor(type,placeId="place-A") {
+  return geoPost(new Request("http://localhost/api/admin/geo/"+type+"/1",{
+    method:"POST",headers:{"origin":"http://localhost","content-type":"application/json"},
+    body:JSON.stringify({action:"confirm-google-place",placeId}),
+  }),{params:Promise.resolve({targetType:type,id:"1"})});
+}
+for(const type of types) {
+  test("real admin GEO API returns HTTP 409 before canonical commit: "+type,async()=>{
+    harness.init(type);
+    harness.inject("beforeBatch",()=>harness.changeCanonical());
+    const response=await requestFor(type);
+    assert.equal(response.status,409);
+    assert.equal((await response.json()).error,"GOOGLE_CONFIRMATION_CONFLICT");
+    assert.equal(harness.row("geo_points").google_place_id,null);
+  });
+  test("real admin GEO API never reports success after partial GEO failure: "+type,async()=>{
+    harness.init(type);
+    harness.inject("afterBatch",()=>{throw Error("GEO_RECONCILIATION_ERROR");});
+    const response=await requestFor(type);
+    assert.equal(response.status,409);
+    assert.equal((await response.json()).error,"GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
+    assert.equal(harness.publishable().length,0);
+  });
+  test("real admin GEO API confirms a valid Google place with HTTP 200: "+type,async()=>{
+    harness.init(type,{publicExact:false});
+    const response=await requestFor(type);
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).googlePlaceId,"place-A");
+    assert.equal(harness.publishable().length,1);
+  });
+}
