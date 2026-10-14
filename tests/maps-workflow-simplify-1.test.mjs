@@ -175,3 +175,43 @@ test("F: main Admin Mapy controls are simple", () => {
   assert.match(dashboard, /Treba vyriešiť:/);
   assert.doesNotMatch(dashboard, /Operator stav|Všetky chyby|Nezobrazuje sa verejne/);
 });
+
+
+test("Google GEO compare-and-swap uses revision and attempts even with unchanged source fingerprint", () => {
+  const geo = read("lib/geo-store.ts");
+  const block = geo.slice(geo.indexOf("export async function applyGooglePlaceResolution"), geo.indexOf("export async function recordGeocoderFailure"));
+  assert.match(block, /AND updated_at=\? AND attempt_count=\?/);
+  assert.match(block, /result\.meta\?\.changes !== 1/);
+  assert.match(block, /expectedRevision, expectedAttempt/);
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE geo_points (id INTEGER PRIMARY KEY, source_fingerprint TEXT, updated_at TEXT, attempt_count INTEGER, manual_override INTEGER, public_visibility TEXT, public_precision TEXT, google_place_id TEXT)");
+  db.prepare("INSERT INTO geo_points VALUES (1,'same','revision-1',0,0,'EXACT_PUBLIC','EXACT',NULL)").run();
+  const sql = "UPDATE geo_points SET google_place_id=?, attempt_count=attempt_count+1, updated_at=? WHERE id=? AND manual_override=0 AND source_fingerprint=? AND public_visibility='EXACT_PUBLIC' AND public_precision='EXACT' AND updated_at=? AND attempt_count=?";
+  const first = db.prepare(sql).run("google-one","revision-2",1,"same","revision-1",0);
+  const second = db.prepare(sql).run("google-two","revision-3",1,"same","revision-1",0);
+  assert.equal(first.changes, 1);
+  assert.equal(second.changes, 0);
+  assert.equal(db.prepare("SELECT google_place_id FROM geo_points").get().google_place_id,"google-one");
+});
+
+test("organization CAS rejects a concurrent textual address update", () => {
+  const writer = read("lib/organization-location-admin-write.ts");
+  const block = writer.slice(writer.indexOf("export async function updateOrganizationLocationFromGooglePlace"), writer.indexOf("export async function deleteOrganizationLocationFromAdmin"));
+  assert.match(block, /address IS \? AND city IS \? AND district IS \? AND region IS \? AND country_code IS \?/);
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE organization_locations (id INTEGER,organization_id INTEGER,address TEXT,city TEXT,district TEXT,region TEXT,country_code TEXT)");
+  db.prepare("INSERT INTO organization_locations VALUES (1,2,'Old','Nitra','Nitra','Nitriansky kraj','SK')").run();
+  db.prepare("UPDATE organization_locations SET address='Updated by another admin' WHERE id=1").run();
+  const result = db.prepare("UPDATE organization_locations SET address=? WHERE id=? AND organization_id=? AND address IS ? AND city IS ? AND district IS ? AND region IS ? AND country_code IS ?").run("Google",1,2,"Old","Nitra","Nitra","Nitriansky kraj","SK");
+  assert.equal(result.changes,0);
+  assert.equal(db.prepare("SELECT address FROM organization_locations").get().address,"Updated by another admin");
+});
+
+test("postcommit GEO failure demands repair while precommit CAS conflict does not compensate", () => {
+  const confirmation = read("lib/admin-google-place-confirmation.ts");
+  assert.match(confirmation,/sourceCommitted/);
+  assert.match(confirmation,/GOOGLE_CONFIRMATION_REPAIR_REQUIRED/);
+  assert.doesNotMatch(confirmation,/await reconcileGeoAfterSourceMutation\(/);
+  assert.match(read("lib/directory-store.ts"),/GOOGLE_SOURCE_COMMITTED_GEO_FAILED/);
+  assert.match(read("lib/organization-location-admin-write.ts"),/GOOGLE_SOURCE_COMMITTED_GEO_FAILED/);
+});
