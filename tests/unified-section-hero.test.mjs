@@ -45,8 +45,8 @@ test("desktop and mobile preview geometry match the homepage hero", () => {
 });
 
 test("canonical hero shell owns landing geometry and mobile edge-to-edge media", () => {
-  assert.match(unifiedCss, /\.shell\s*\{[\s\S]*padding-top:\s*18px[\s\S]*padding-bottom:\s*24px/);
-  assert.match(unifiedCss, /@media \(max-width: 620px\)[\s\S]*\.shell\s*\{[\s\S]*padding-top:\s*12px[\s\S]*padding-bottom:\s*22px/);
+  assert.match(unifiedCss, /\.shell\s*\{[\s\S]*padding-top:\s*clamp\(14px, 1\.8vw, 20px\)[\s\S]*padding-bottom:\s*16px/);
+  assert.match(unifiedCss, /@media \(max-width: 620px\)[\s\S]*\.shell\s*\{[\s\S]*padding-top:\s*0[\s\S]*padding-bottom:\s*12px/);
   assert.match(unifiedCss, /width:\s*100dvw/);
   assert.match(unifiedCss, /border-radius:\s*0/);
   assert.match(unifiedCss, /\.hero \.intro > p\s*\{[\s\S]*margin:\s*0/);
@@ -57,10 +57,10 @@ test("canonical hero shell owns landing geometry and mobile edge-to-edge media",
   }
 });
 
-test("mobile overlay uses full-bleed photo, 20px radius and persisted crop", () => {
+test("mobile overlay uses a full-bleed square-corner photo and persisted crop", () => {
   assert.match(unifiedCss, /@media \(max-width: 620px\)/);
   assert.match(unifiedCss, /width:\s*100dvw/);
-  assert.match(unifiedCss, /border-radius:\s*20px/);
+  assert.match(unifiedCss, /@media \(max-width: 620px\)[\s\S]*?\.visual\s*\{[^}]*border-radius:\s*0/);
   assert.match(unifiedCss, /\.copy\s*\{[^}]*justify-content:\s*flex-end/s);
   assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[65, 53\]/);
 });

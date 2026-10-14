@@ -7,11 +7,12 @@
   --pv-type-editorial-heading: clamp(2.35rem, 5vw, 4.25rem);
   --pv-leading-body: 1.62;
   --pv-leading-tight: 1.08;
-  --pv-space-section: clamp(28px, 4vw, 48px);
+  --pv-space-section: clamp(24px, 3.4vw, 42px);
   --pv-space-card: 18px;
-  --pv-radius-control: 11px;
-  --pv-radius-card: 16px;
+  --pv-radius-control: var(--ps-radius-control, 12px);
+  --pv-radius-card: var(--ps-radius-card, 22px);
   color: var(--ink);
+  background: var(--paper);
   font-size: var(--pv-type-body);
   line-height: var(--pv-leading-body);
 }

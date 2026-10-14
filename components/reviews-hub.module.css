@@ -279,3 +279,8 @@
     max-width: none;
   }
 }
+
+/* GLOBAL-DESIGN-UNIFICATION-1: shared public section and card vocabulary. */
+.modeSection { background: var(--paper); }
+.section, .sectionAlt, .methodology { padding-block: clamp(30px, 4vw, 50px); }
+.categoryCard, .userReviewCard { border-radius: var(--ps-radius-card, 22px); }
