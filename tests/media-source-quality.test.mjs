@@ -36,7 +36,8 @@ test("directory Notion image URLs are ingested into R2 instead of hotlinked", ()
   assert.match(directorySync, /existingImageKey: current\.imageKey/);
   assert.match(directorySync, /upsertMediaSourceMonitor/);
   assert.match(directorySync, /sourceContentHash: prepared\.sourceContentHash/);
-  assert.match(directorySync, /cleanupNotionImageKeys\(input\.bindings\.BUCKET, prepared\.replacedKeys\)/);
+  assert.match(directorySync, /for \(const key of prepared\.replacedKeys\)/);
+  assert.match(directorySync, /cleanupUnreferencedNotionUpload\(input\.database, input\.bindings\.BUCKET, key\)/);
 });
 
 test("event Notion images register their long-lived source monitor", () => {
