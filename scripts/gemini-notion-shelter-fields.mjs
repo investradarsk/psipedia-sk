@@ -53,7 +53,7 @@ export function buildShelterDraft({args,properties,rows,scanComplete,groundedSou
   if(["address","street","house_number","postal_code","latitude","longitude","contact","phone","email","venue"].some(k=>Boolean(args[k]))) fail("LOCATION_OR_CONTACT_UNSUPPORTED");
   if(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(summary+" "+description)||
     /(?:\+421|\b0\d{3})[\s-]?\d{3}[\s-]?\d{3}/.test(summary+" "+description)||
-    /\b(?:ulica|ul\.|súpisné|číslo domu)\s+\S+\s+\d+/i.test(summary+" "+description)) fail("PRIVATE_DATA_IN_TEXT");
+    /\b(?:ulica|ulici|ul\.|súpisné|číslo domu)\s+\S+\s+\d+/i.test(summary+" "+description)) fail("PRIVATE_DATA_IN_TEXT");
   assertShelterUnique(rows,args,scanComplete);
   const result={"Názov":{title:t(name)},"Typ":{rich_text:t("SHELTER")},"Stav":{select:{name:"Nápad"}},
     "Krátky popis":{rich_text:t(summary)},
