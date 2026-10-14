@@ -2580,6 +2580,14 @@ async function apply(targetMigration) {
   invariant(internal.targetMigration === targetMigration, "Preflight target does not match requested target");
   invariant(internal.databaseId === prepared.resources.d1.database_id, "Preflight database does not match canonical target");
   invariant(internal.targetMigrationSha256 === prepared.targetMigrationSha256, "Target migration content changed after preflight");
+  // Guard against ledger/schema drift between the protected read-only preflight
+  // and the only remote mutation. Never blindly trust a stored preflight report.
+  const liveHistory = migrationHistory(prepared.resources.d1.database_name, prepared.configPath);
+  const liveSchema = schemaState(prepared.resources.d1.database_name, prepared.configPath);
+  const liveState = targetState(liveHistory, liveSchema, targetMigration, prepared.selection.selected);
+  invariant(JSON.stringify(liveState.historyNames) === JSON.stringify(internal.historyNames)
+    && liveState.targetApplied === internal.targetApplied,
+    "Production D1 changed after preflight; refusing apply");
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
