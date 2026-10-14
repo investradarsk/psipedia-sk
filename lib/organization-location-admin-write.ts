@@ -244,7 +244,7 @@ export async function updateOrganizationLocationFromGooglePlace(
   let googleConfirmationGeoRevision: string | null = null;
   try {
     const geoReconciliation = await reconcileGeoAfterSourceMutation({
-      targetType: "ORGANIZATION_LOCATION", targetId: locationId, actorRef, actorType: "ADMIN",
+      targetType: "ORGANIZATION_LOCATION", targetId: locationId, actorRef, actorType: "ADMIN", expectedGeoRevision: geo.current ? geo.now : null,
     }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
     googleConfirmationGeoRevision = geoReconciliation.point?.updatedAt ?? null;
   } catch (cause) {
