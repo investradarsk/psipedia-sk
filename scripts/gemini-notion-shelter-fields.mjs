@@ -2,7 +2,7 @@
 import { identityPageText, normalizeIdentity } from "./gemini-notion-identity.mjs";
 const fail = reason => { throw Error("GEMINI_SHELTER_" + reason); };
 const val = (v,n=1600) => typeof v==="string" && v.trim().length<=n ? v.trim() : "";
-const t = v => [{type:"text",text:{content:v}}];
+const t = v => Array.from({length:Math.ceil(v.length/1800)},(_,i)=>({type:"text",text:{content:v.slice(i*1800,(i+1)*1800)}}));
 const domain = v => { try { const u=new URL(v); return u.protocol==="https:" && !u.username && !u.password && !/^(localhost|127\.|10\.|192\.168\.)/.test(u.hostname) ? u.hostname.toLowerCase().replace(/^www\./,"") : ""; } catch { return ""; } };
 export function assertShelterSchema(properties) {
   const types={"Názov":"title","Typ":"rich_text","Stav":"select","Právny názov":"rich_text","IČO / registračné číslo":"rich_text","Psipedia ID":"rich_text","Mesto":"rich_text","Kraj":"rich_text","Web":"url","Zdroj dát":"url","Popis":"rich_text","Krátky popis":"rich_text","Facebook":"url","Instagram":"url"};
@@ -34,6 +34,7 @@ export function buildShelterDraft({args,properties,rows,scanComplete,groundedSou
   const summary=val(args.summary,700),description=val(args.description,1500);
   if(!name||!summary||description.length<30||!domain(source)) fail("CONTENT_OR_SOURCE_MISSING");
   const sources=[source,...(Array.isArray(args.source_urls)?args.source_urls:[])];
+  if(sources.length>12) fail("TOO_MANY_SOURCES");
   if(!Array.isArray(groundedSources)||sources.some(s=>!domain(s)||!groundedSources.includes(new URL(s).toString()))) fail("SOURCE_UNGROUNDED");
   const evidence=args.evidence;
   if(!Array.isArray(evidence)||!evidence.length||evidence.length>12) fail("EVIDENCE_REQUIRED");
