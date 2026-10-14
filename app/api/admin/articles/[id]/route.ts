@@ -109,6 +109,24 @@ export async function PUT(request: Request, { params }: RouteProps) {
       await Promise.all(removedKeys.map((key) => bucket.delete(key).catch(() => undefined)));
     }
 
+    // Canonical D1 publication already committed. Notion writeback is best-effort:
+    // a remote API error must never turn a successful publish into a failed response.
+    if (before.status !== "published" && article.status === "published") {
+      try {
+        const bindings = env as unknown as ArticleRouteBindings;
+        if (bindings.DB) {
+          await writeBackPublishedArticleToNotion({
+            database: bindings.DB,
+            bindings,
+            article,
+          });
+        }
+      } catch (error) {
+        // Do not log Notion errors: transport messages may contain sensitive data.
+        console.error("notion_article_publish_writeback_failed", { articleId: article.id });
+      }
+    }
+
     return Response.json({ article });
   } catch (error) {
     return updateErrorResponse(error);
