@@ -255,3 +255,74 @@ test("PARTNER-3A stays within scope", () => {
   assert.doesNotMatch(domain, /media_assets|R2|upload/i);
   assert.doesNotMatch(domain, /organization_fundraising_methods|fundraising/i);
 });
+
+test("all 10 category facet patches are allowlisted and unchanged saves are empty", async () => {
+  const { directoryFilterRegistry, serviceFilterCategories } = await importTs("lib/directory-filter-contract.ts");
+  const { normalizePartnerProfilePatch, buildDirectoryApplyStatement } = await importTs("lib/partner-profile-changes.ts");
+  for (const category of serviceFilterCategories) {
+    const defs = directoryFilterRegistry.filter((definition) => definition.category === category);
+    for (const definition of defs) {
+      for (const allowed of definition.allowedValues) {
+        assert.deepEqual(normalizePartnerProfilePatch("DIRECTORY_PROFILE", { [definition.id]: allowed },
+          { [definition.id]: null }, false, category), { [definition.id]: allowed });
+      }
+      assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+        { [definition.id]: "__invalid__" }, {}, false, category), /Nepovolená hodnota/);
+      const foreign = serviceFilterCategories.find((item) => item !== category);
+      assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+        { [definition.id]: definition.allowedValues[0] }, {}, false, foreign), /nepatrí do kategórie/);
+      assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+        { [definition.id]: definition.allowedValues[0] }, { [definition.id]: definition.allowedValues[0] },
+        false, category), /Nezmenili ste žiadny údaj/);
+    }
+  }
+  assert.throws(() => normalizePartnerProfilePatch("DIRECTORY_PROFILE",
+    { "veterinari.fake": "yes" }, {}, false, "veterinari"), /nie je možné upravovať/);
+  assert.throws(() => normalizePartnerProfilePatch("HELP_ORGANIZATION",
+    { "veterinari.emergency": "yes" }, {}, false, null), /nie je možné upravovať/);
+
+  // One moderated approval changes only the permitted facet and a contact;
+  // all other facets and nested legacy metadata survive the atomic statement.
+  const sourceDataJson = JSON.stringify({
+    "_audit": { reviewed: true, notes: ["legacy"] }, "Typ služby": "veterinár",
+    "_psipedia_filter_v1_veterinari_emergency": "no",
+    "_psipedia_filter_v1_veterinari_home_visits": "yes",
+    "_psipedia_filter_v1_treneri_group_training": "unknown",
+  });
+  const prepared = { prepare(sql) { return { bind(...bindings) { return { sql, bindings }; } }; } };
+  const canonical = {
+    canonicalId: 123, directoryCategory: "veterinari", sourceDataJson,
+    sourceData: JSON.parse(sourceDataJson),
+    values: { name: "Vet", excerpt: "Bez zmeny", publicEmail: "old@example.sk", publicPhone: "",
+      websiteUrl: "", facebookUrl: "", instagramUrl: "" },
+  };
+  const statement = buildDirectoryApplyStatement(prepared, canonical,
+    { "veterinari.emergency": "yes", publicEmail: "new@example.sk" },
+    "partner:test", "2026-10-13T20:00:00.000Z", "submission-test");
+  const columns = statement.sql.slice(statement.sql.indexOf("SET ") + 4, statement.sql.indexOf(" WHERE "))
+    .split(",").map((item) => item.split("=")[0]);
+  assert.equal(columns.filter((item) => item === "source_data_json").length, 1);
+  const updatedSource = JSON.parse(statement.bindings[columns.indexOf("source_data_json")]);
+  assert.deepEqual(updatedSource._audit, { reviewed: true, notes: ["legacy"] });
+  assert.equal(updatedSource["Typ služby"], "veterinár");
+  assert.equal(updatedSource._psipedia_filter_v1_veterinari_emergency, "yes");
+  assert.equal(updatedSource._psipedia_filter_v1_veterinari_home_visits, "yes");
+  assert.equal(updatedSource._psipedia_filter_v1_treneri_group_training, "unknown");
+  assert.equal(updatedSource["E-mail"], "new@example.sk");
+  assert.match(statement.sql, /moderation_submissions WHERE id=\?/);
+  assert.throws(() => buildDirectoryApplyStatement(prepared,
+    { ...canonical, sourceDataJson: "broken" }, { "veterinari.emergency": "no" },
+    "partner:test", "2026-10-13T20:00:00.000Z"), /Invalid source_data_json/);
+});
+
+test("partner filter-only change uses permission gate, revision and moderation; no direct write", () => {
+  assert.match(domain, /serviceFiltersForCategory\(row\.category\)/);
+  assert.match(domain, /sourceDataJson: row\.source_data_json/);
+  assert.match(domain, /directoryCategory: canonical\.directoryCategory/);
+  assert.match(domain, /normalizePartnerProfilePatch\(canonical\.entityType, input\.patch, canonical\.values, Boolean\(mediaAssetId\), canonical\.directoryCategory\)/);
+  assert.match(domain, /requirePartnerPermission\(input\.accountId, input\.resourceId, "PROFILE_SUBMIT_CHANGE", db\)/);
+  assert.match(domain, /currentRevision/);
+  assert.match(domain, /INSERT INTO moderation_submissions/);
+  assert.match(admin, /normalizePartnerProfilePatch\(row\.resourceType,stored,base,Boolean\(row\.mediaAssetId\),row\.directoryCategory\)/);
+  assert.match(admin, /buildDirectoryApplyStatement/);
+});

@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
+import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
+import { buildDirectoryCategoryFilterPatch } from "@/lib/directory-category-filter-editor";
+import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
 
 type Props = {
   resourceId: string;
@@ -11,6 +14,7 @@ type Props = {
   values: Record<string, PartnerProfileEditableValue>;
   baseRevision: string;
   resourceType: PartnerProfileChangeResourceType;
+  directoryCategory?: string | null;
   currentImageUrl?: string | null;
 };
 
@@ -28,9 +32,13 @@ function apiValue(field: PartnerProfileFieldDefinition, value: string | boolean)
   return String(value);
 }
 
-export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision, resourceType, currentImageUrl }: Props) {
+export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision, resourceType, directoryCategory, currentImageUrl }: Props) {
   const initial = useMemo(() => Object.fromEntries(fields.map((field) => [field.key, uiValue(field, values[field.key])])), [fields, values]);
   const [draft, setDraft] = useState<Record<string, string | boolean>>(initial);
+  const [filterChanges, setFilterChanges] = useState<Record<string, string>>({});
+  const filterCategory = resourceType === "DIRECTORY_PROFILE" && directoryCategory
+    && (serviceFilterCategories as readonly string[]).includes(directoryCategory)
+    ? directoryCategory as ServiceFilterCategory : null;
   const [state, setState] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [mediaAssetId, setMediaAssetId] = useState<string|null>(null);
@@ -44,6 +52,11 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
       const before = apiValue(field, initial[field.key]);
       const after = apiValue(field, draft[field.key]);
       if (JSON.stringify(before) !== JSON.stringify(after)) patch[field.key] = after;
+    }
+    if (filterCategory) {
+      // Existing values and invalid/unresolved originals remain untouched unless explicitly changed.
+      const filterPatch = buildDirectoryCategoryFilterPatch(filterCategory, values, filterChanges);
+      Object.assign(patch, filterPatch.updates);
     }
     if (!Object.keys(patch).length && !mediaAssetId) {
       setState("error");
@@ -147,6 +160,16 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
           );
         })}
       </div>
+      {filterCategory ? (
+        <DirectoryCategoryFilterFields
+          category={filterCategory}
+          originalValues={values}
+          changes={filterChanges}
+          onChange={(next) => setFilterChanges({ ...next })}
+          disabled={state === "success" || state === "sending"}
+          idPrefix="partner-directory"
+        />
+      ) : null}
       <PartnerMediaField label="Navrhnúť zmenu obrázka" intent="PARTNER_PROFILE_UPDATE" currentImageUrl={currentImageUrl} onChange={setMediaAssetId} disabled={state==="success"}/>
       <div className="partner-profile-edit-submit">
         <div>

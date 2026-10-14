@@ -91,7 +91,7 @@ test("safe patch preserves unrelated data and blocks malformed source data", () 
   assert.throws(() => readDirectoryCategoryFilterOriginals(category, "[]"), /musí byť objekt/);
 });
 
-test("standalone UI is accessible, callback-only, responsive, not mounted in live editors", () => {
+test("shared UI is accessible, callback-only, responsive and mounted in both editors", () => {
   const ui = source("components/directory-category-filter-fields.tsx");
   const css = source("components/directory-category-filter-fields.module.css");
   assert.match(ui, /"use client"/);
@@ -106,6 +106,19 @@ test("standalone UI is accessible, callback-only, responsive, not mounted in liv
   assert.match(css, /:focus-visible/);
   assert.match(css, /max-width:\s*660px/);
   assert.doesNotMatch(ui, /\bfetch\s*\(|\bXMLHttpRequest\b|\/api\//);
-  assert.doesNotMatch(source("components/admin-directory-editor.tsx"), /DirectoryCategoryFilterFields/);
-  assert.doesNotMatch(source("components/partner-profile-edit-form.tsx"), /DirectoryCategoryFilterFields/);
+  const admin = source("components/admin-directory-editor.tsx");
+  const partner = source("components/partner-profile-edit-form.tsx");
+  assert.match(admin, /<DirectoryCategoryFilterFields/);
+  assert.match(partner, /<DirectoryCategoryFilterFields/);
+  assert.match(admin, /scopeDirectoryCategoryFilterChanges/);
+  assert.match(admin, /setFilterChanges\(\{\}\)/);
+  assert.match(admin, /action: "set-category-filters"/);
+  assert.match(partner, /Object\.assign\(patch, filterPatch\.updates\)/);
+  assert.match(partner, /if \(!Object\.keys\(patch\)\.length && !mediaAssetId\)/);
+  assert.match(source("app/partner/profily/[resourceId]/upravit/page.tsx"), /directoryCategory=\{editor\.resource\.directoryCategory\}/);
+  const api = source("app/api/admin/directory/[id]/route.ts");
+  assert.match(api, /getAdminApiUser\(\)/);
+  assert.match(api, /mergeDirectoryFilterValues/);
+  assert.match(api, /source_data_json=\?6/);
+  assert.match(api, /row\.category !== requested\.category/);
 });

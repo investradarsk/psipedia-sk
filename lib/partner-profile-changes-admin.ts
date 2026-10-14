@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { directoryFilterRegistry } from "@/lib/directory-filter-contract";
 import { adminAuditActorRef } from "@/lib/audit-identity";
 import { decryptPii } from "@/lib/pii-crypto";
 import { getPartnerDatabase } from "@/lib/partner-auth-store";
@@ -172,10 +173,14 @@ export async function getPartnerProfileChangeAdmin(id:string,input:{database?:D1
   const item=await hydrate(row,encryptionKey(input.encryptionKey));
   const canonical=await loadPartnerCanonicalForResource(row.resourceId,database);
   const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
-  const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId));
+  const proposed=normalizePartnerProfilePatch(row.resourceType,item.proposedPatch,base,Boolean(row.mediaAssetId),row.directoryCategory);
   const stale=item.active&&partnerProfileChangeIsStale(row.baseSnapshotJson,canonical.values,row.resourceType);
   const risks=[...new Set([...partnerProfileChangeRiskFlags(proposed),...item.riskFlags,...(stale?["STALE_BASE"]:[])])];
-  const labels=new Map(getPartnerEditableFields(row.resourceType).map(field=>[field.key,field.label]));
+  const labels=new Map([
+    ...getPartnerEditableFields(row.resourceType).map(field=>[field.key,field.label] as const),
+    ...(row.resourceType==="DIRECTORY_PROFILE"
+      ? directoryFilterRegistry.filter(field=>field.category===row.directoryCategory).map(field=>[field.id,field.label] as const) : []),
+  ]);
   const diff=Object.keys(proposed).map(key=>({
     key,
     label:labels.get(key)??key,
@@ -286,7 +291,7 @@ export async function approvePartnerProfileChangeAdmin(input:{
   }
   const base=safeBasePatch(row.baseSnapshotJson,row.resourceType);
   const stored=safePatch(row.proposedPatchJson,row.resourceType);
-  const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId));
+  const patch=normalizePartnerProfilePatch(row.resourceType,stored,base,Boolean(row.mediaAssetId),row.directoryCategory);
   const media=await publishPartnerSubmissionMedia({
     submissionId:input.id,database,publicFolder:row.resourceType==="HELP_ORGANIZATION"?"help":"directory",
   });
