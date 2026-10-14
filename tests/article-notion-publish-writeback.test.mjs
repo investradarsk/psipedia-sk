@@ -75,9 +75,9 @@ function harness({ status = "draft", target = "published", changed = false, writ
     },
   };
   const logs = [];
-  const module = { exports: {} };
+  const cjsModule = { exports: {} };
   runInNewContext(compiled, {
-    module, exports: module.exports, require(name) {
+    module: cjsModule, exports: cjsModule.exports, require(name) {
       if (!(name in services)) throw new Error("Unknown import: " + name);
       return services[name];
     },
@@ -90,7 +90,7 @@ function harness({ status = "draft", target = "published", changed = false, writ
         method: "PUT", headers: { "content-type": "application/json" },
         body: JSON.stringify({ status: target, expectedUpdatedAt, ...patch }),
       });
-      const response = await module.exports.PUT(req, { params: Promise.resolve({ id: "7" }) });
+      const response = await cjsModule.exports.PUT(req, { params: Promise.resolve({ id: "7" }) });
       return { status: response.status, body: await response.json(), stored };
     },
   };
