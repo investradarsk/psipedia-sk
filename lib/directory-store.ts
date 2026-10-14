@@ -1212,9 +1212,10 @@ export function buildManagedDirectoryProfileUpdateStatement(
   guard?: {
     expectedUpdatedAt?: string;
     automationAddressReview?: { id: number; fingerprint: string };
+    restoreArchived?: boolean;
   },
 ) {
-  if (existing.status === "archived") throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
+  if (existing.status === "archived" && !guard?.restoreArchived) throw new Error("Archivovaný profil je iba na čítanie. Najprv ho obnov do konceptu.");
   const input = normalizeManagedDirectoryProfileInput(payload, existing.importData, {
     currentServiceAddressConfirmation: existing.serviceAddressConfirmation,
     legacyAddress: existing.address,
@@ -1233,7 +1234,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
     JSON.stringify(payload.thumbnailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.thumbnailImageDisplay ?? null : input.thumbnailImageDisplay ?? null),
     JSON.stringify(payload.detailImageDisplay === undefined && input.imageUrl === existing.imageUrl ? existing.detailImageDisplay ?? null : input.detailImageDisplay ?? null),
     JSON.stringify(input.sourceData), input.verified ? 1 : 0, input.featured ? 1 : 0, JSON.stringify(input.seo), input.searchText,
-    now, publishedAt, editorEmail, id,
+    now, publishedAt, guard?.restoreArchived ? 1 : 0, editorEmail, id,
     ...(guard?.expectedUpdatedAt ? [guard.expectedUpdatedAt] : []),
     ...(guard?.automationAddressReview
       ? [guard.automationAddressReview.id, guard.automationAddressReview.fingerprint]
@@ -1244,7 +1245,7 @@ export function buildManagedDirectoryProfileUpdateStatement(
       slug = ?, name = ?, category = ?, status = ?, excerpt = ?, description = ?, services_json = ?,
       qualifications_json = ?, city = ?, district = ?, region = ?, address = ?, postal_code = ?, street = ?, house_number = ?,
       address_format = ?, service_address_confirmation = ?, online = ?, price_note = ?, website_url = ?,
-      internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, updated_by = ?
+      internal_email = ?, image_url = ?, image_key = ?, thumbnail_display_json = ?, detail_display_json = ?, source_data_json = ?, verified = ?, featured = ?, seo_json = ?, search_text = ?, updated_at = ?, published_at = ?, archived_at = CASE WHEN ?=1 THEN NULL ELSE archived_at END, updated_by = ?
     WHERE id = ?${updatedAtGuard}${reviewGuard} RETURNING *
   `).bind(...bindings);
 }
@@ -1255,6 +1256,7 @@ export async function updateManagedDirectoryProfile(
   editorEmail: string,
   existingProfile?: ManagedDirectoryProfile,
   databaseInput?: D1Database,
+  guard?: { expectedUpdatedAt?: string; restoreArchived?: boolean },
 ) {
   const database = databaseInput ?? requireD1Binding();
   await ensureDirectoryStore(database);
@@ -1268,6 +1270,7 @@ export async function updateManagedDirectoryProfile(
     editorEmail,
     existing,
     now,
+    guard,
   ).first<DirectoryProfileRow>();
   if (!row) return null;
   await reconcileGeoAfterSourceMutation({

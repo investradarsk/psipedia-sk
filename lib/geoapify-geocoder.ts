@@ -98,7 +98,7 @@ export class GeoapifyGeocoder implements GeocoderProvider {
 
   constructor(options: { apiKey?: string; fetchImpl?: typeof fetch; timeoutMs?: number; bindings?: GeoapifyBindings } = {}) {
     this.apiKey = options.apiKey ?? geoapifyApiKey(options.bindings);
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
     this.timeoutMs = Math.max(1_000, Math.min(20_000, options.timeoutMs ?? DEFAULT_TIMEOUT_MS));
   }
 

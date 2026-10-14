@@ -5,7 +5,7 @@ import {
   archiveManagedDirectoryProfile,
   createManagedDirectoryProfile,
   getManagedDirectoryProfileById,
-  restoreManagedDirectoryProfile,
+  normalizeManagedDirectoryProfileInput,
   updateManagedDirectoryProfile,
   type ManagedDirectoryProfileInput,
 } from "@/lib/directory-store";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/directory-address-save";
 import {
   cleanupNotionImageKeys,
+  cleanupUnreferencedNotionUpload,
   notionFlagEnabled,
   notionPropertyRecord,
   notionRequest,
@@ -791,6 +792,26 @@ async function createProfileFromNotion(input: {
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
+  let payload = newProfileInput(desired);
+  let verified = null;
+
+  if (desired.confirmedServiceLocation) {
+    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+    verified = await verifyDirectoryCanonicalAddress({
+      region: desired.region,
+      district: desired.district,
+      city: desired.city,
+      street: desired.street,
+      houseNumber: desired.houseNumber,
+      addressFormat,
+      revalidateStreet: addressFormat === "STREET",
+    });
+    payload = withVerifiedDirectoryAddress(payload, verified);
+  } else {
+    payload = { ...payload, clearServiceAddressConfirmation: true };
+  }
+
+  normalizeManagedDirectoryProfileInput(payload);
   const prepared = sourceImageUrl
     ? await prepareNotionMainImage({
         bindings: input.bindings,
@@ -804,27 +825,7 @@ async function createProfileFromNotion(input: {
     : null;
 
   try {
-    let payload = newProfileInput(
-      desired,
-      prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
-    );
-    let verified = null;
-
-    if (desired.confirmedServiceLocation) {
-      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-      verified = await verifyDirectoryCanonicalAddress({
-        region: desired.region,
-        district: desired.district,
-        city: desired.city,
-        street: desired.street,
-        houseNumber: desired.houseNumber,
-        addressFormat,
-        revalidateStreet: addressFormat === "STREET",
-      });
-      payload = withVerifiedDirectoryAddress(payload, verified);
-    } else {
-      payload = { ...payload, clearServiceAddressConfirmation: true };
-    }
+    if (prepared) payload = { ...payload, imageUrl: prepared.imageUrl, imageKey: prepared.imageKey };
 
     const created = await createManagedDirectoryProfile(payload, SYSTEM_ACTOR, input.database);
     return {
@@ -836,7 +837,7 @@ async function createProfileFromNotion(input: {
     };
   } catch (error) {
     if (prepared?.uploadedKey) {
-      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+      await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, prepared.uploadedKey);
     }
     throw error;
   }
@@ -849,7 +850,7 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
 }) {
   const desired = notionSnapshot(input.page);
-  let current = input.profile;
+  const current = input.profile;
 
   if (desired.status === "archived") {
     const archived = await archiveManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
@@ -857,32 +858,10 @@ async function applyNotionToProfile(input: {
     return archived;
   }
 
-  if (current.status === "archived") {
-    const restored = await restoreManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
-    if (!restored) throw new Error("Archivovaný profil sa pri synchronizácii nepodarilo obnoviť.");
-    current = restored;
-  }
-
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || current.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name || current.name;
-  const prepared = sourceImageUrl
-    ? await prepareNotionMainImage({
-        bindings: input.bindings,
-        sourceUrl: sourceImageUrl,
-        sourcePageUrl,
-        altText: imageAltText,
-        folder: "directory",
-        existingImageUrl: current.imageUrl,
-        existingImageKey: current.imageKey,
-      })
-    : null;
-
-  let payload = fullProfileInput(
-    desired,
-    current,
-    prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
-  );
+  let payload = fullProfileInput(desired, current);
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
   const safety = notionDirectoryUpdateSafety({
     physicalAddressChanged: addressChanged,
@@ -919,6 +898,25 @@ async function applyNotionToProfile(input: {
     payload = { ...payload, clearServiceAddressConfirmation: true };
   }
 
+  normalizeManagedDirectoryProfileInput(payload, current.importData, {
+    currentServiceAddressConfirmation: current.serviceAddressConfirmation,
+    legacyAddress: current.address,
+  });
+
+  const prepared = sourceImageUrl
+    ? await prepareNotionMainImage({
+        bindings: input.bindings,
+        sourceUrl: sourceImageUrl,
+        sourcePageUrl,
+        altText: imageAltText,
+        folder: "directory",
+        existingImageUrl: current.imageUrl,
+        existingImageKey: current.imageKey,
+      })
+    : null;
+
+  if (prepared) payload = { ...payload, imageUrl: prepared.imageUrl, imageKey: prepared.imageKey };
+
   try {
     const updated = await updateManagedDirectoryProfile(
       current.id,
@@ -926,8 +924,9 @@ async function applyNotionToProfile(input: {
       SYSTEM_ACTOR,
       current,
       input.database,
+      { expectedUpdatedAt: current.updatedAt, restoreArchived: current.status === "archived" },
     );
-    if (!updated) throw new Error("Profil sa pri synchronizácii nepodarilo uložiť.");
+    if (!updated) throw new Error("CONFLICT: Profil bol súbežne upravený; Notion zápis sa neuskutočnil.");
 
     if (prepared && sourceImageUrl) {
       await upsertMediaSourceMonitor({
@@ -939,7 +938,9 @@ async function applyNotionToProfile(input: {
         sourceContentHash: prepared.sourceContentHash,
         activeImageKey: prepared.imageKey,
       });
-      await cleanupNotionImageKeys(input.bindings.BUCKET, prepared.replacedKeys);
+      for (const key of prepared.replacedKeys) {
+        await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, key);
+      }
     }
 
     if (verified) {
@@ -959,7 +960,7 @@ async function applyNotionToProfile(input: {
     return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
   } catch (error) {
     if (prepared?.uploadedKey) {
-      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+      await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, prepared.uploadedKey);
     }
     throw error;
   }
