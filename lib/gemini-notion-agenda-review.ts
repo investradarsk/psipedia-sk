@@ -31,6 +31,8 @@ const ID = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
 const normalized = (value: string) => value.replaceAll("-", "").toLowerCase();
 const editableTypes = new Set(["title", "rich_text", "url", "email", "phone_number", "select", "date", "checkbox", "number"]);
 const immutable = new Set(["Stav", "Psipedia stav", "Kategória", "Typ podujatia", "Typ", "Zdroj dát", "Zdroj URL", "Zdroj"]);
+const lostFoundRestricted = new Set(["Latitude", "Longitude", "Presnosť lokality", "Verejný kontakt", "Miesto"]);
+const privateLostFoundPattern = /[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+\s*421|\b0(?:9|[2-8]))[\s().-]*\d{2,3}[\s().-]*\d{3}[\s.-]*\d{3,4}|\b(?:gps|latitude|longitude|súradnice)\s*[:=]?\s*-?\d{1,3}[.,]\d{3,}|\b(?:ulica|ul\.|adresa|bydlisko|domu|súpisné)\s*[:,-]?\s*[\p{L} .-]+\s+\d{1,4}(?:\/\d+)?\b/iu;
 const evidenceTag = (agenda: BidirectionalAgendaKey) =>
   agenda === "adoptions" || agenda === "organizations" ? "Zdroje a dôkazy:" : "Dôkazy:";
 
@@ -114,7 +116,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
   const fields = names.filter(name => Boolean(source.schema[name]))
     .map(name => ({
       name, type: source.schema[name].type ?? "", value: textValue(page.properties?.[name]),
-      editable: !immutable.has(name) && editableTypes.has(source.schema[name].type ?? ""),
+      editable: !immutable.has(name) && !(agenda === "lost-found" && lostFoundRestricted.has(name)) && editableTypes.has(source.schema[name].type ?? ""),
     }));
   const status = txt(page, source.status);
   const reviewState: GeminiReviewState = txt(page, "Psipedia ID") ? "IMPORTED"
@@ -229,6 +231,8 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
           (!values["Popis"].includes(evidenceTag(draft.agenda)) || !/https:\/\/[^\s]+/.test(values["Popis"])))
         throw new GeminiAgendaReviewError("STATE");
       for (const [name, value] of Object.entries(values)) {
+        if (draft.agenda === "lost-found" && typeof value === "string" && privateLostFoundPattern.test(value))
+          throw new GeminiAgendaReviewError("STATE");
         const definition = available.get(name)!;
         const options = source.schema[name]?.select?.options ?? [];
         patch[name] = encoded(definition.type, value, options);
@@ -238,6 +242,9 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
     } else {
       if (input.confirm !== true) throw new GeminiAgendaReviewError("STATE");
       if (action === "approve" && !draft.name.trim()) throw new GeminiAgendaReviewError("STATE");
+      if (action === "approve" && !draft.fields.some(field =>
+        field.name === "Slug" && typeof field.value === "string" && field.value.trim()))
+        throw new GeminiAgendaReviewError("STATE");
       const target = action === "approve"
         ? draft.agenda === "help-cases" ? "published" :
           draft.agenda === "lost-found" ? "PENDING" : "Ready"
@@ -248,9 +255,6 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
       // state would break the canonical sync. Fail closed until a real review field exists.
       if (draft.agenda === "help-cases" && action === "reject")
         throw new GeminiAgendaReviewError("SCHEMA");
-      if (draft.agenda === "help-cases" && action === "approve" &&
-          !draft.fields.some(field => field.name === "Slug" && typeof field.value === "string" && field.value.trim()))
-        throw new GeminiAgendaReviewError("STATE");
       patch[source.status] = encoded(source.schema[source.status].type ?? "", target,
         source.schema[source.status].select?.options ?? []);
     }
