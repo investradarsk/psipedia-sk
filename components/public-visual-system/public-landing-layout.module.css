@@ -10,18 +10,18 @@
 }
 
 .landing {
-  padding-top: 40px;
+  padding-top: 26px;
 }
 
 .listing {
-  padding-top: 24px;
+  padding-top: 16px;
 }
 
 .heading {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 500px);
-  gap: 32px;
+  gap: clamp(12px, 2vw, 24px);
   align-items: end;
   margin-bottom: 16px;
 }
@@ -83,7 +83,7 @@
 
 @media (max-width: 820px) {
   .landing {
-    padding-top: 32px;
+    padding-top: 24px;
   }
 }
 
@@ -116,10 +116,10 @@
   }
 
   .landing {
-    padding-top: 24px;
+    padding-top: 18px;
   }
 
   .listing {
-    padding-top: 18px;
+    padding-top: 12px;
   }
 }

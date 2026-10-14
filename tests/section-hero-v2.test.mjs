@@ -22,7 +22,7 @@ test("SECTION-HERO-V2 keeps one canonical hero and a homepage-style separate too
   assert.match(hero, /<div className=\{styles\.visual\}[\s\S]*<\/div>[\s\S]*hasTools \? \(/);
   assert.match(heroCss, /\.visual[\s\S]*min-height:\s*330px/);
   assert.match(heroCss, /\.tools[\s\S]*background:\s*#fff/);
-  assert.match(heroCss, /\.tools[\s\S]*margin:\s*-25px auto 0/);
+  assert.match(heroCss, /\.tools[\s\S]*margin:\s*14px auto 0/);
 });
 
 test("SECTION-HERO-V2 preview matches real homepage hero geometry", () => {
@@ -40,7 +40,7 @@ test("mobile photo and text share one hero visual while tools remain outside", (
   assert.match(heroCss, /\.visual[\s\S]*width:\s*100dvw/);
   assert.match(heroCss, /\.copy[\s\S]*justify-content:\s*flex-end/);
   assert.match(heroCss, /\.shade[\s\S]*linear-gradient\(0deg/);
-  assert.match(heroCss, /\.tools[\s\S]*margin:\s*-18px 0 0/);
+  assert.match(heroCss, /\.tools[\s\S]*margin:\s*12px auto 0/);
 });
 
 test("desktop overlay text uses light contrast while the search panel is not in its safe zone", () => {

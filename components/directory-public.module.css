@@ -1945,3 +1945,8 @@
   .categorySwitcherWrap :global([data-public-subcategory-track]) { flex-wrap: nowrap; overflow-x: auto; }
   .categorySwitcherWrap[data-expanded="true"] :global([data-public-subcategory-track]) { flex-wrap: wrap; overflow-x: visible; }
 }
+
+/* GLOBAL-DESIGN-UNIFICATION-1: align the directory search below the shared hero. */
+.resultsSection { background: var(--paper); }
+.directorySearch { width: 100%; max-width: 780px; margin: 0 auto 18px; border-radius: var(--ps-radius-filter, 18px); }
+@media (max-width: 620px) { .directorySearch { margin-bottom: 14px; } }

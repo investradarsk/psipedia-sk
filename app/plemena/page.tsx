@@ -69,13 +69,14 @@ export default async function BreedsPage({ searchParams }: Props) {
               visual={heroVisual}
             />
           </UnifiedSectionHeroShell>
-          {breedSection ? (
-            <section aria-labelledby="breed-actions-heading" data-breed-primary-actions>
-              <PublicContentShell variant="landing">
+          <section className="page-body">
+            <PublicContentShell variant="listing">
+            <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} actions={breedSection ? (
+              <section className={styles.atlasActions} aria-labelledby="breed-actions-heading" data-breed-primary-actions>
                 <PublicLandingSectionHeading
                   eyebrow="Plemená podľa cieľa"
                   title="Čo chceš urobiť?"
-                  description="Atlas zostáva hlavný pracovný nástroj nižšie. Tu si vyber inú cestu, ak chceš plemeno nájsť podľa potrieb, porovnať alebo otvoriť kluby."
+                  description="Atlas zostáva hlavný pracovný nástroj. Vyber si inú cestu, ak chceš plemeno nájsť podľa potrieb, porovnať alebo otvoriť kluby."
                   id="breed-actions-heading"
                 />
                 <nav aria-label="Hlavné možnosti v sekcii Plemená" className={styles.quickActions}>
@@ -88,12 +89,8 @@ export default async function BreedsPage({ searchParams }: Props) {
                       </Link>
                     ))}
                 </nav>
-              </PublicContentShell>
-            </section>
-          ) : null}
-          <section className="page-body">
-            <PublicContentShell variant="listing">
-            <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} />
+              </section>
+            ) : null} />
             {policy.kind === "clean" && <BreedCrawlIndex breeds={breeds} groups={fciGroups} />}
             <div className="breed-atlas-footer">
             <aside className="fci-source-note">
