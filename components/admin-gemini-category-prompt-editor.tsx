@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { geminiAutomationSections, type GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import {
   GEMINI_PROMPT_MAX_LENGTH, GEMINI_PROMPT_MIN_LENGTH,
@@ -28,20 +28,31 @@ export function AdminGeminiCategoryPromptEditor({
   available: boolean;
 }) {
   const initial = initialPrompts.find((item) => item.stableKey === selectedKey)!;
+  return (
+    <GeminiCategoryPromptForm
+      key={selectedKey}
+      initial={initial}
+      initialPrompts={initialPrompts}
+      selectedKey={selectedKey}
+      available={available}
+    />
+  );
+}
+
+function GeminiCategoryPromptForm({
+  initial, initialPrompts, selectedKey, available,
+}: {
+  initial: GeminiCategoryPromptView;
+  initialPrompts: readonly GeminiCategoryPromptView[];
+  selectedKey: string;
+  available: boolean;
+}) {
   const [current, setCurrent] = useState(initial);
   const [draft, setDraft] = useState(initial.effectivePrompt);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
-
-  useEffect(() => {
-    setCurrent(initial);
-    setDraft(initial.effectivePrompt);
-    setMessage("");
-    setError("");
-    setConfirmReset(false);
-  }, [initial]);
 
   const dirty = draft !== current.effectivePrompt;
   const valid = draft.trim().length >= GEMINI_PROMPT_MIN_LENGTH
