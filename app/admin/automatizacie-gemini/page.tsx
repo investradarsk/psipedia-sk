@@ -122,6 +122,9 @@ export default async function AdminGeminiAutomationPage() {
       </p>
       <p className={styles.notice}>Mesačný počet úloh Psipedia neobmedzuje. Platené volania stále podliehajú nastaveniam GitHubu, limitom jedného behu a kreditu alebo kvóte u poskytovateľa Gemini. Rozpočet 5 € nastavený u poskytovateľa nie je garanciou Psipedie.</p>
       {queuedJobs.some((job) => job.status === "RUNNING") && <p role="status" className={styles.warning}>Gemini úloha práve beží. Ak zostane v stave RUNNING dlhšie než dve hodiny, ďalšie platené spustenia ostanú zablokované do manuálneho overenia v GitHub Actions. Systém ju automaticky neopakuje.</p>}
+      <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/prompty">
+        Upraviť prompty pre 22 kategórií →
+      </Link></p>
       {externalEnabled && runs.some(run => run.status === "SUCCESS" && run.conceptCount > 0) && (
         <p role="status" className={styles.notice}>
           Gemini vytvorilo {runs.find(run => run.status === "SUCCESS" && run.conceptCount > 0)?.conceptCount} nových konceptov pri poslednom úspešnom behu s novými výsledkami.
