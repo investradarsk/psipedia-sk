@@ -97,7 +97,9 @@ test("Notion retry cannot overwrite a manually edited or concurrently updated Ad
   assert.match(syncSource, /if \(existing\.updatedBy !== SYNC_ACTOR\)/);
   assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
   assert.match(syncSource, /updateManagedArticle\(existing\.id, prepared\.payload, SYNC_ACTOR, existing, \{ updatedAt: existing\.updatedAt, status: "draft" \}\)/);
-  assert.match(articleStoreSource, /WHERE id = \?\$\{schedulingPrecondition/);
+  assert.match(articleStoreSource, /WHERE id = \?/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR updated_at = \?\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
   assert.match(articleStoreSource, /const \[articleResult\] = await database\.batch\(\[articleStatement\]\)/);
   assert.match(articleStoreSource, /if \(!result && schedulingPrecondition\) throw new ArticleUpdateConflictError\(\)/);
   assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \?/);
