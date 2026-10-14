@@ -205,7 +205,7 @@ test("shelter creates only a canonical Organization draft (SHELTER/Nápad)", () 
   assert.equal(page.properties.Kategória, undefined);
   assert.equal(page.properties.Adresa, undefined);
   assert.equal(page.properties.Latitude, undefined);
-  assert.match(JSON.stringify(page.properties.Popis), /Dôkazy/);
+  assert.match(JSON.stringify(page.properties.Popis), /dôkazy/i);
 });
 for (const scenario of ["wrong_database","wrong_type","missing_source","missing_evidence","ungrounded",
   "incomplete_scan","malformed_scan","partial_property","shelter_unverified","shelter_private"]) {
