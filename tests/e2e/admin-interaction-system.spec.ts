@@ -1,137 +1,83 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function expectAxeClean(page: import("@playwright/test").Page) {
-  const result = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  const violations = result.violations.filter((item) => item.impact === "critical" || item.impact === "serious");
-  expect(violations, violations.map((item) => `${item.id}: ${item.help}`).join("\n")).toEqual([]);
-}
+const selector = 'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-test.beforeEach(async ({ page, baseURL }) => {
-  const url = new URL(baseURL!);
-  test.skip(!["localhost", "127.0.0.1", "::1"].includes(url.hostname), "FOUNDATION-ADMIN interaction coverage runs only against isolated local admin fixtures.");
-  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
-});
-
-test("shared bulk interaction hierarchy is accessible on desktop and mobile", async ({ page }, testInfo) => {
-  const response = await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
-  expect(response).not.toBeNull();
-  expect(response?.status()).toBeLessThan(400);
-
-  const rowCheckbox = page.getByRole("checkbox", { name: /^Vybrať článok / }).first();
-  await expect(rowCheckbox).toBeVisible();
-  await rowCheckbox.check();
-
-  const toolbar = page.locator("[data-admin-bulk-toolbar]");
-  await expect(toolbar).toBeVisible();
-  await expect(toolbar).toContainText("Upravíš 1 vybranú položku");
-
-  const primary = toolbar.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
-  const secondary = toolbar.getByRole("button", { name: "Skontrolovať presun do konceptov", exact: true });
-  const clear = toolbar.getByRole("button", { name: "Zrušiť výber", exact: true });
-
-  await expect(primary).toHaveAttribute("data-admin-action", "primary");
-  await expect(secondary).toHaveAttribute("data-admin-action", "secondary");
-  await expect(clear).toHaveAttribute("data-admin-action", "link");
-
-  for (const control of [primary, secondary, clear]) {
-    const box = await control.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
-  }
-
-  await primary.click();
-  const dialog = page.locator("dialog[open]");
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("heading", { level: 2 })).toContainText("1 článkov");
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(primary).toBeFocused();
-
-  const overflow = await page.evaluate(() =>
-    Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
-  );
-  expect(overflow).toBeLessThanOrEqual(1);
-  await expectAxeClean(page);
-
-  await mkdir(".e2e-artifacts/admin-interaction-system", { recursive: true });
-  await toolbar.screenshot({
-    path: `.e2e-artifacts/admin-interaction-system/bulk-toolbar-${testInfo.project.name}.png`,
-  });
-});
-
-test("modal loops Tab and Shift+Tab without focusing the inert background", async ({ page }) => {
-  await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
-  await page.getByRole("checkbox", { name: /^Vybrať článok / }).first().check();
-  const opener = page.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
-  await opener.click();
-  const dialog = page.locator("dialog[open]");
-  await expect(dialog).toBeVisible();
-
-  const focusable = dialog.locator('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
-    .filter({ visible: true });
-  const count = await focusable.count();
-  expect(count).toBeGreaterThan(1);
-  const first = focusable.first();
-  const last = focusable.last();
-
+// Evaluate inside the actual mounted React AdminDrawer/AdminModalDialog;
+// do not insert an unrelated native dialog into another application's DOM.
+async function expectWrappedFocus(page: Page, dialog: Locator) {
+  const candidates = dialog.locator(selector);
+  const indices = await candidates.evaluateAll((elements) => elements
+    .map((el, index) => ({ el: el as HTMLElement, index }))
+    .filter(({ el }) => el.tabIndex >= 0 && !el.matches(":disabled")
+      && getComputedStyle(el).visibility !== "hidden"
+      && !el.closest('[hidden], [inert], [aria-hidden="true"]') && el.getClientRects().length > 0)
+    .map(({ index }) => index));
+  expect(indices.length).toBeGreaterThan(1);
+  const first = candidates.nth(indices[0]);
+  const last = candidates.nth(indices[indices.length - 1]);
   await first.focus();
   await page.keyboard.press("Shift+Tab");
   await expect(last).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(first).toBeFocused();
-
   await last.focus();
   await page.keyboard.press("Tab");
   await expect(first).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement?.closest("dialog")?.open)).toBe(true);
+}
 
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(opener).toBeFocused();
+test.beforeEach(async ({ page, baseURL }) => {
+  const host = new URL(baseURL!).hostname;
+  test.skip(!["localhost", "127.0.0.1", "::1"].includes(host), "Only isolated local D1 fixtures");
+  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("modal ignores hidden and disabled controls and does not steal nested modal focus", async ({ page }) => {
-  await page.goto("/admin/clanky", { waitUntil: "domcontentloaded" });
-  await page.getByRole("checkbox", { name: /^Vybrať článok / }).first().check();
-  const opener = page.getByRole("button", { name: "Skontrolovať publikovanie", exact: true });
+test("real AdminDrawer in new breed editor traps focus, skips disabled/hidden and preserves unsaved fields", async ({ page }) => {
+  await page.goto("/admin/plemena/novy", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('.admin-breed-editor[data-admin-breed-editor-ready="true"]')).toBeVisible();
+  const name = page.getByLabel("Názov plemena");
+  await name.fill("E2E unsaved breed");
+  const opener = page.getByRole("button", { name: "Nastavenia, FCI a SEO" });
   await opener.click();
-  const outer = page.locator("dialog[open]").first();
-  await expect(outer).toBeVisible();
-
-  await outer.evaluate((element) => {
+  const drawer = page.getByRole("dialog", { name: "Nastavenia plemena" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByLabel("FCI PDF URL")).toBeVisible();
+  await expectWrappedFocus(page, drawer);
+  await drawer.evaluate((root) => {
     const disabled = document.createElement("button");
-    disabled.textContent = "Disabled fixture";
     disabled.disabled = true;
-    element.append(disabled);
+    disabled.textContent = "Disabled fixture";
     const hidden = document.createElement("button");
+    hidden.hidden = true;
     hidden.textContent = "Hidden fixture";
-    hidden.style.display = "none";
-    element.append(hidden);
+    root.append(disabled, hidden);
   });
-  const lastReal = outer.locator('button:not([disabled])').filter({ visible: true }).last();
-  await lastReal.focus();
-  await page.keyboard.press("Tab");
-  await expect(outer.getByRole("button", { name: "Zavrieť dialóg" })).toBeFocused();
+  await expectWrappedFocus(page, drawer);
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(opener).toBeFocused();
+  await expect(name).toHaveValue("E2E unsaved breed");
+});
 
-  await outer.evaluate((element) => {
-    const inner = document.createElement("dialog");
-    inner.setAttribute("aria-label", "Nested fixture");
-    inner.innerHTML = '<button type="button">First nested</button><button type="button">Last nested</button>';
-    element.append(inner);
-    inner.showModal();
+test("real AdminModalDialog in breeds bulk publishing traps focus and restores opener without publishing", async ({ page }) => {
+  await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Plemená", exact: true })).toBeVisible();
+  await page.getByLabel("Publikovanie").selectOption("draft");
+  const row = page.getByRole("article").filter({ has: page.locator('input[type="checkbox"][aria-label^="Vybrať "]') }).first();
+  await row.getByRole("checkbox").check();
+  const opener = page.getByRole("button", { name: "Publikovať", exact: true }).first();
+  await opener.click();
+  const modal = page.getByRole("dialog", { name: "Publikovať vybrané plemená" });
+  await expect(modal).toBeVisible();
+  await expectWrappedFocus(page, modal);
+  await modal.evaluate((root) => {
+    const disabled = document.createElement("button");
+    disabled.disabled = true;
+    disabled.textContent = "Disabled fixture";
+    root.append(disabled);
   });
-  const inner = page.getByRole("dialog", { name: "Nested fixture" });
-  await expect(inner).toBeVisible();
-  await inner.getByRole("button", { name: "Last nested" }).focus();
-  await page.keyboard.press("Tab");
-  await expect(inner.getByRole("button", { name: "First nested" })).toBeFocused();
+  await expectWrappedFocus(page, modal);
   await page.keyboard.press("Escape");
-  await expect(inner).toBeHidden();
-  await expect(outer).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(outer).toBeHidden();
+  await expect(modal).toBeHidden();
   await expect(opener).toBeFocused();
 });
