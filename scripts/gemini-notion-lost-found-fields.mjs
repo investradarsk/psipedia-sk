@@ -1,9 +1,23 @@
 /**
  * Offline, fail-closed Lost/Found draft validator for the EXISTING Gemini worker.
- * NOT connected to the worker until canonical D1 notion_agenda_targets mapping
- * for lost-found is independently verified. No HTTP calls and no Notion writes.
+ * Canonical target established by operator's production D1 read-only evidence
+ * and cross-checked against the existing Notion page parent. No HTTP calls here.
  */
 const fail = code => { throw new Error("GEMINI_LOST_FOUND_" + code); };
+export const CANONICAL_LOST_FOUND_DATA_SOURCE_ID = "3ed793fc-1d18-8122-95b9-000b05c3c6bd";
+export const CANONICAL_LOST_FOUND_DATABASE_ID = "811d0659-7217-4914-a27c-1cd67bda3e0e";
+const uuid = value => typeof value === "string" ? value.replaceAll("-", "").toLowerCase() : "";
+/** Reject other same-named Notion databases, even with an identical field schema.
+ * Requires explicit variable and fresh Notion REST metadata on every snapshot.
+ */
+export function assertLostFoundTarget(configuredId, metadata) {
+  if (uuid(configuredId) !== uuid(CANONICAL_LOST_FOUND_DATA_SOURCE_ID))
+    fail("TARGET_NOT_CANONICAL");
+  if (metadata !== undefined &&
+      (uuid(metadata?.id) !== uuid(CANONICAL_LOST_FOUND_DATA_SOURCE_ID) ||
+       uuid(metadata?.parent?.database_id) !== uuid(CANONICAL_LOST_FOUND_DATABASE_ID)))
+    fail("TARGET_PARENT_INVALID");
+}
 const clean = (v, max = 1500) => typeof v === 'string' && v.trim().length <= max ? v.trim() : '';
 const norm = v => String(v ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
