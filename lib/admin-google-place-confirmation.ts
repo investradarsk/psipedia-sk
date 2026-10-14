@@ -106,6 +106,14 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       effectiveTargetId,
       selected,
       input.actorRef,
+      undefined,
+      {
+        address: effectiveSource.address ?? "",
+        city: effectiveSource.city ?? "",
+        district: effectiveSource.district ?? "",
+        region: effectiveSource.region ?? "",
+        countryCode: effectiveSource.countryCode ?? "SK",
+      },
     );
     if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
     sourceMutated = true;
