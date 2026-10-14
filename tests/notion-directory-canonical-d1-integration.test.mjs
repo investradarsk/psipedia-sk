@@ -21,7 +21,7 @@ function fixture(status = "archived") {
   const timestamp = "2026-10-14T08:00:00.000Z";
   sqlite.prepare(`INSERT INTO directory_profiles
     (id,slug,name,category,status,city,district,region,address,image_url,image_key,updated_at,archived_at,service_address_confirmation)
-    VALUES (1,'test-profil','Pôvodný profil','treneri',?,?,?,?,?,?,?,?,?,?,?)`).run(
+    VALUES (1,'test-profil','Pôvodný profil','treneri',?,?,?,?,?,?,?,?,?,?)`).run(
       status, "Nitra", "Nitra", "Nitriansky kraj", "Hlavná 1, Nitra",
       "/media/directory/original.webp", "directory/original.webp", timestamp,
       status === "archived" ? timestamp : null, "CONFIRMED_SERVICE_LOCATION",
