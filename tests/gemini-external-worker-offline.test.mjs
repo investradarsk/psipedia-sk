@@ -1,4 +1,5 @@
 import "./gemini-shelter-privacy-identity.test.mjs";
+import "./gemini-adoption-contract.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -26,6 +27,7 @@ function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") 
       NOTION_EVENTS_DATA_SOURCE_ID: ds,
       NOTION_HELP_DATA_SOURCE_ID: ds,
       NOTION_ORGANIZATIONS_DATA_SOURCE_ID: ds,
+      NOTION_ADOPTIONS_DATA_SOURCE_ID: ds,
       AGENT_STABLE_KEY: stableKey,
       AGENT_MAX_NEW_CONCEPTS: maxNew,
       PSIPEDIA_AGENT_CALLBACK_SECRET: "offline-test-secret",
@@ -141,7 +143,7 @@ for (const key of ["events.vystavy", "events.preteky", "events.seminare", "event
     } else assert.equal(properties.Slug, undefined);
   });
 }
-for (const key of ["events.vystavy", "help.zbierky"]) {
+for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
   for (const scenario of ["wrong_database", "wrong_type", "missing_source", "invalid_source", "ungrounded", "missing_evidence",
     "missing_grounding", "incomplete_scan", "malformed_scan", "partial_property", "gemini_timeout"]) {
     test(key + " refuses " + scenario + " without write", () => {
@@ -170,7 +172,7 @@ for (const key of ["events.vystavy", "help.zbierky"]) {
     });
   }
 }
-for (const key of ["help.adopcia", "help.stratene-a-najdene", "help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
+for (const key of ["help.stratene-a-najdene", "help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
   test("unsupported category stops before APIs: " + key, () => {
     const run = runOffline("success", key);
     assert.equal(run.callback.error_code, "CATEGORY_UNSUPPORTED");
@@ -178,7 +180,7 @@ for (const key of ["help.adopcia", "help.stratene-a-najdene", "help.unknown", "e
   });
 }
 
-for (const key of ["events.vystavy", "help.zbierky"]) {
+for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
   test(key + " retains confirmed writes when Notion scan is temporarily stale", () => {
     const run = runOffline("repeat_create", key);
     assert.equal(run.exitCode, 0, run.stderr);
@@ -188,6 +190,20 @@ for (const key of ["events.vystavy", "help.zbierky"]) {
   });
 }
 
+test("help.adopcia creates canonical Nápad without identity/publication or personal data", () => {
+  const run=runOffline("success","help.adopcia","1");
+  assert.equal(run.exitCode,0,run.stderr);
+  assert.equal(run.counts.notionPosts,1);
+  const p=run.pages[0].properties;
+  assert.equal(p.Stav.select.name,"Nápad");
+  assert.equal(p.Meno.title[0].text.content,"Nový psík");
+  for(const key of ["Psipedia ID","Slug","Latitude","Longitude","Verejný kontakt"])assert.equal(p[key],undefined);
+});
+test("help.adopcia rejects private phone from Gemini before writing Notion", () => {
+  const run=runOffline("adoption_private","help.adopcia");
+  assert.equal(run.counts.notionPosts,0);
+  assert.equal(run.callback.error_code,"NOTION_ADOPTION_CONTRACT_INVALID");
+});
 test("event worker completes initial and final paginated scans before creating", () => {
   const run = runOffline("paginated", "events.vystavy");
   assert.equal(run.exitCode, 0, run.stderr);
