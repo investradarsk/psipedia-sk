@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
 const store = await readFile(new URL("../lib/directory-store.ts", import.meta.url), "utf8");
+const shared = await readFile(new URL("../lib/notion-sync-shared.ts", import.meta.url), "utf8");
 const geoSource = await readFile(new URL("../lib/geoapify-geocoder.ts", import.meta.url), "utf8");
 
 const createBody = source.slice(source.indexOf("async function createProfileFromNotion"), source.indexOf("async function applyNotionToProfile"));
@@ -35,7 +36,7 @@ test("archive restoration is part of a guarded canonical update", () => {
 });
 
 test("ambiguous database commit never triggers blind R2 removal", () => {
-  const cleanup = source.slice(source.indexOf("async function cleanupUnreferencedNotionUpload"), source.indexOf("async function createProfileFromNotion"));
+  const cleanup = shared.slice(shared.indexOf("export async function cleanupUnreferencedNotionUpload"));
   assert.match(cleanup, /SELECT 1 AS used FROM directory_profiles WHERE image_key = \? LIMIT 1/);
   assert.match(cleanup, /if \(!referenced\) await cleanupNotionImageKeys/);
   assert.match(cleanup, /catch \{/);
