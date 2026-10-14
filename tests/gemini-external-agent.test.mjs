@@ -24,7 +24,7 @@ function fakeDb() {
         async all() { return { results: [{ stable_key: "directory.veterinari" }] }; },
         async first() {
           if (sql.includes("FROM gemini_automation_settings")) {
-            if (sql.includes("next_run_at")) return { stable_key: "directory.veterinari" };
+            if (sql.startsWith("SELECT stable_key FROM gemini_automation_settings")) return { stable_key: "directory.veterinari" };
             return { id: 42, max_new_concepts: 8, cadence_minutes: 720, weekly_day: null,
               enabled: 1, next_run_at: "2026-10-11T01:00:00.000Z" };
           }
