@@ -273,7 +273,7 @@ globalThis.fetch = async (url, options = {}) => {
     callbacks++;
     const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
       .update(options.body).digest("hex");
-    if (options.headers["X-Psipedia-Signature"] !== expected)
+    if (scenario === "callback_bad_signature" || options.headers["X-Psipedia-Signature"] !== expected)
       throw Error("INVALID_CALLBACK_SIGNATURE");
     const payload = JSON.parse(options.body);
     console.log("MOCK_CALLBACK " + JSON.stringify(payload));
