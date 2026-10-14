@@ -520,7 +520,10 @@ test("create-from-Notion gate keeps event/org/adoption Ready and validates help/
   assert.equal(readyForCreate("organizations", { Stav: "Ready" }), true);
   assert.equal(readyForCreate("adoptions", { Stav: "Ready" }), true);
   assert.equal(readyForCreate("help-cases", { Názov: "X", Slug: "x", Kategória: "zbierky" }), true);
-  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST" }), true);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST" }), false);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST", "Psipedia stav": "DRAFT" }), false);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST", "Psipedia stav": "ARCHIVED" }), false);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST", "Psipedia stav": "PENDING" }), true);
 });
 
 test("migration is additive and persists agenda mapping plus target identity", async () => {
