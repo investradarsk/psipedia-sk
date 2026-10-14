@@ -2,8 +2,9 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { GeminiSectionKey } from "@/lib/gemini-automation-catalog";
-import { geminiCadenceOptions } from "@/lib/gemini-automation-catalog";
+import { geminiSchedulerOptions, geminiWeekdays, recommendedGeminiCadence } from "@/lib/gemini-automation-schedule";
 import type { GeminiSettingView } from "@/lib/gemini-automation-admin-settings";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
@@ -26,7 +27,14 @@ type PilotResult = {
 function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: GeminiSettingView; available: boolean; externalEnabled: boolean }) {
   const [setting, setSetting] = useState(initial);
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [cadence, setCadence] = useState(String(initial.cadenceMinutes));
+  const [cadence, setCadence] = useState(
+    geminiSchedulerOptions.some((option) => option.minutes === initial.cadenceMinutes)
+      ? String(initial.cadenceMinutes) : "custom"
+  );
+  const [customMinutes, setCustomMinutes] = useState(String(initial.cadenceMinutes));
+  const [weekday, setWeekday] = useState(initial.weeklyDay == null ? "" : String(initial.weeklyDay));
+  const cadenceMinutes = cadence === "custom" ? Number(customMinutes) : Number(cadence);
+  const weeklyDay = cadenceMinutes === 10080 && weekday !== "" ? Number(weekday) : null;
   const [maximum, setMaximum] = useState(String(initial.maxNewConcepts));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -39,7 +47,8 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
   const router = useRouter();
   const canManuallyRun = externalEnabled || setting.section === "directory" || setting.section === "events";
   const unsavedChanges = setting.enabled !== enabled ||
-    setting.cadenceMinutes !== Number(cadence) || setting.maxNewConcepts !== Number(maximum);
+    setting.cadenceMinutes !== cadenceMinutes || setting.weeklyDay !== weeklyDay ||
+    setting.maxNewConcepts !== Number(maximum);
   const canPilot = canManuallyRun && available && setting.saved && !unsavedChanges &&
     Number(maximum) > 0 && !saving && !running;
   const id = "gemini-" + setting.stableKey.replaceAll(".", "-");
@@ -47,10 +56,10 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!available || saving || running) return;
-    const cadenceMinutes = Number(cadence);
     const maxNewConcepts = Number(maximum);
-    if (!geminiCadenceOptions.some((option) => option.minutes === cadenceMinutes)
-      || !Number.isSafeInteger(maxNewConcepts) || maximum.trim() === ""
+    if (!Number.isSafeInteger(cadenceMinutes) || cadenceMinutes < 5 || cadenceMinutes > 43200 ||
+      (weeklyDay !== null && (!Number.isSafeInteger(weeklyDay) || weeklyDay < 1 || weeklyDay > 7)) ||
+      !Number.isSafeInteger(maxNewConcepts) || maximum.trim() === ""
       || maxNewConcepts < 0 || maxNewConcepts > 100) {
       setMessage("Vyber platnú frekvenciu a počet konceptov od 0 do 100.");
       return;
@@ -64,7 +73,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
         credentials: "same-origin",
         body: JSON.stringify({
           stable_key: setting.stableKey,
-          enabled, cadence_minutes: cadenceMinutes, max_new_concepts: maxNewConcepts,
+          enabled, cadence_minutes: cadenceMinutes, weekly_day: weeklyDay, max_new_concepts: maxNewConcepts,
         }),
       });
       const data = await response.json() as { error?: string; setting?: GeminiSettingView };
@@ -144,13 +153,29 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
       </label>
       <div className={styles.fields}>
         <label htmlFor={id + "-cadence"}>
-          Frekvencia
+          Frekvencia <small>(odporúčané: {geminiSchedulerOptions.find((option) =>
+            option.minutes === recommendedGeminiCadence(setting.stableKey))?.label.toLowerCase() ?? "vlastná"})</small>
           <select id={id + "-cadence"} value={cadence} disabled={!available || saving}
             onChange={(event) => setCadence(event.target.value)}>
-            {geminiCadenceOptions.map((option) =>
+            {geminiSchedulerOptions.map((option) =>
               <option value={option.minutes} key={option.minutes}>{option.label}</option>)}
+            <option value="custom">Vlastný interval</option>
           </select>
         </label>
+        {cadence === "custom" && <label htmlFor={id + "-custom"}>
+          Vlastný interval (minúty)
+          <input id={id + "-custom"} type="number" min={5} max={43200} step={1}
+            value={customMinutes} required disabled={!available || saving}
+            onChange={(event) => setCustomMinutes(event.target.value)} />
+        </label>}
+        {cadenceMinutes === 10080 && <label htmlFor={id + "-weekday"}>
+          Deň v týždni
+          <select id={id + "-weekday"} value={weekday} disabled={!available || saving}
+            onChange={(event) => setWeekday(event.target.value)}>
+            <option value="">Bez určeného dňa</option>
+            {geminiWeekdays.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}
+          </select>
+        </label>}
         <label htmlFor={id + "-maximum"}>
           Max. nových konceptov
           <input id={id + "-maximum"} type="number" min={0} max={100} step={1} required
@@ -163,12 +188,15 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
         <div><dt>Ďalšie plánované</dt><dd>{formatDate(setting.nextRunAt)}</dd></div>
       </dl>
       <div className={styles.cardBottom}>
+        <Link href={"/admin/automatizacie-gemini/prompty?stable_key=" + encodeURIComponent(setting.stableKey)}>
+          Upraviť prompt
+        </Link>
         <button type="submit" className="admin-primary-action" disabled={!available || saving}>
           {saving ? "Ukladám…" : "Uložiť"}
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
-      {externalEnabled && setting.section === "directory" && (
+      {externalEnabled && (
         <AdminGeminiNotionDrafts stableKey={setting.stableKey} />
       )}
       {canManuallyRun && (
@@ -181,7 +209,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
           <div className={styles.pilotActions}>
             <button type="button" className="admin-primary-action"
               disabled={!canPilot} onClick={onPilotClick}>
-              {running ? "Spúšťam Gemini…" : confirming ? "Potvrdiť a spustiť" : "Spustiť Gemini"}
+              {running ? "Spúšťam vyhľadávanie…" : confirming ? "Potvrdiť a spustiť" : "Spustiť vyhľadávanie teraz"}
             </button>
             {confirming && (
               <button type="button" disabled={running} onClick={() => setConfirming(false)}>
