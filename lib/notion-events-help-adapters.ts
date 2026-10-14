@@ -146,7 +146,11 @@ export function readyForCreate(agenda: BidirectionalAgendaKey, values: Record<st
   if (agenda === "help-cases") {
     return Boolean(s(values["Názov"]) && s(values["Slug"]) && s(values["Kategória"]));
   }
-  return Boolean(s(values["Názov"]) && s(values["Slug"]) && s(values["Typ"]));
+  // Lost/Found must have explicit moderation approval. A draft with a
+  // reviewer-assigned slug remains in Notion until its existing PENDING state
+  // is set. ARCHIVED/REJECTED entries must never be imported as new D1 dogs.
+  return s(values["Psipedia stav"]).toUpperCase() === "PENDING" &&
+    Boolean(s(values["Názov"]) && s(values["Slug"]) && s(values["Typ"]));
 }
 
 function eventInput(
