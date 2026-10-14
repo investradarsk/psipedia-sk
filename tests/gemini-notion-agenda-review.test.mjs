@@ -46,7 +46,7 @@ function fixture(key) {
       "Web": url("https://source.example/dog"),
     },
   };
-  const schema = { id: ds, properties: Object.fromEntries(Object.entries(value.properties)
+  const schema = { id: ds, parent: { database_id: "811d0659-7217-4914-a27c-1cd67bda3e0e" }, properties: Object.fromEntries(Object.entries(value.properties)
     .map(([name, prop]) => [name, {
       type: prop.type,
       ...(prop.type === "select" ? { select: { options: ["Nápad", "Na kontrolu", "Ready", "Archív"].map(name => ({ name })) } } : {}),
