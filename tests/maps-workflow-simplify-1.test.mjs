@@ -85,6 +85,11 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
     SELECT address, region, district, city, website_url, source_data_json
     FROM directory_profiles WHERE id = 7
   `).get();
+  const stale = db.prepare(locationOnlySql).get(
+    "Iný kraj", "Iný okres", "Iné mesto", "Riziková adresa", "99999", "Iná", "99",
+    "STREET", "stale search", "2026-10-02T21:00:00.000Z", "other@example.sk", 7, "2026-01-01T00:00:00.000Z",
+  );
+  assert.equal(stale, undefined, "a concurrent address revision must reject stale Google SQL");
   assert.equal(after.address, "Hlavná 22");
   assert.equal(after.region, "Nitriansky kraj");
   assert.equal(after.district, "Nitra");
