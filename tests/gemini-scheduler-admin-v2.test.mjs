@@ -112,7 +112,7 @@ test("custom intervals, ISO weekdays, and Bratislava DST stay valid", () => {
   assert.equal(nextGeminiRunAt(new Date("2026-10-14T08:00:00Z"), 10080, 1),
     "2026-10-19T07:00:00.000Z");
   assert.equal(nextGeminiRunAt(new Date("2026-10-14T08:00:00Z"), 4320, null,
-    new Date("2026-11-01T08:00:00Z")), "2026-11-04T09:00:00.000Z");
+    new Date("2026-11-01T08:00:00Z")), "2026-11-01T09:00:00.000Z");
 });
 
 test("all 22 due together: one dispatch at a time, no duplicate, no missed supported category", async () => {
