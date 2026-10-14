@@ -1,5 +1,5 @@
 /** Fail-closed, offline-only Notion Organization (SHELTER) draft contract. */
-import { identityPageText, canonicalIdentityUrl, normalizeIdentity } from "./gemini-notion-identity.mjs";
+import { identityPageText, normalizeIdentity } from "./gemini-notion-identity.mjs";
 const fail = reason => { throw Error("GEMINI_SHELTER_" + reason); };
 const val = (v,n=1600) => typeof v==="string" && v.trim().length<=n ? v.trim() : "";
 const t = v => [{type:"text",text:{content:v}}];
