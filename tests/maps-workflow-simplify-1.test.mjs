@@ -368,11 +368,11 @@ test("production Google Maps audit reset SQL cannot overwrite a newer NOT_REQUIR
   db.exec("CREATE TABLE moderation_events(id TEXT PRIMARY KEY,submission_id TEXT,resource_type TEXT,subject_id TEXT,action TEXT,actor_type TEXT,actor_ref TEXT,from_status TEXT,to_status TEXT,reason_code TEXT,changed_fields_json TEXT,request_id TEXT,created_at TEXT);CREATE TABLE geo_points(id INTEGER PRIMARY KEY,updated_at TEXT,manual_override INTEGER,provider TEXT,geocode_status TEXT,public_visibility TEXT,public_precision TEXT)");
   db.prepare("INSERT INTO geo_points VALUES(1,'g1',0,'google_places','RESOLVED','EXACT_PUBLIC','EXACT')").run();
   const add=(id,action,date)=>db.prepare("INSERT INTO moderation_events(id,resource_type,subject_id,action,created_at) VALUES(?,'GEO_POINT','1',?,?)").run(id,action,date);
-  add("initial","GOOGLE_MAPS_REQUIRED_AGAIN","2026-01-01T00:00:00.000Z");
+  add("initial","GOOGLE_MAPS_REQUIRED_AGAIN","2026-01-02T00:00:00.000Z");
   add("newer","GOOGLE_MAPS_NOT_REQUIRED","2026-01-02T00:00:00.000Z");
   const bind=(revision,id)=>[id,"1","admin","RESOLVED","RESOLVED",'["google_maps_workflow"]',"2026-01-03T00:00:00.000Z","1",revision,1,"g1"];
   assert.equal(db.prepare(sql).run(...bind("initial","old-confirmation")).changes,0);
-  assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
+  assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC,rowid DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
   assert.equal(db.prepare(sql).run(...bind("newer","current-confirmation")).changes,1);
 });
 
@@ -390,10 +390,10 @@ test("organization workflow audit SQL cannot reset a newer NOT_REQUIRED revision
   const db=new DatabaseSync(":memory:");
   db.exec("CREATE TABLE moderation_events(id TEXT PRIMARY KEY,submission_id TEXT,resource_type TEXT,subject_id TEXT,action TEXT,actor_type TEXT,actor_ref TEXT,from_status TEXT,to_status TEXT,reason_code TEXT,changed_fields_json TEXT,request_id TEXT,created_at TEXT)");
   const add=(id,act,date)=>db.prepare("INSERT INTO moderation_events(id,resource_type,subject_id,action,created_at) VALUES(?,'HELP_ORGANIZATION','7',?,?)").run(id,act,date);
-  add("old","GOOGLE_MAPS_REQUIRED_AGAIN","2026-01-01T00:00:00.000Z");
+  add("old","GOOGLE_MAPS_REQUIRED_AGAIN","2026-01-02T00:00:00.000Z");
   add("new","GOOGLE_MAPS_NOT_REQUIRED","2026-01-02T00:00:00.000Z");
   const args=(token,id)=>[id,"HELP_ORGANIZATION","7","GOOGLE_MAPS_REQUIRED_AGAIN","admin","ADMIN_MAP_REVIEW_REOPENED","[]","2026-01-03T00:00:00.000Z","HELP_ORGANIZATION","7",token];
   assert.equal(db.prepare(sql).run(...args("old","stale")).changes,0);
-  assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
+  assert.equal(db.prepare("SELECT action FROM moderation_events ORDER BY created_at DESC,rowid DESC LIMIT 1").get().action,"GOOGLE_MAPS_NOT_REQUIRED");
   assert.equal(db.prepare(sql).run(...args("new","correct")).changes,1);
 });
