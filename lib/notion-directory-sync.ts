@@ -809,7 +809,7 @@ async function createProfileFromNotion(input: {
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
-    let payload = newProfileInput(desired);
+  let payload = newProfileInput(desired);
   let verified = null;
 
   if (desired.confirmedServiceLocation) {
@@ -867,7 +867,7 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
 }) {
   const desired = notionSnapshot(input.page);
-  let current = input.profile;
+  const current = input.profile;
 
   if (desired.status === "archived") {
     const archived = await archiveManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
