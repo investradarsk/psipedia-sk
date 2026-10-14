@@ -50,7 +50,7 @@ test("quick categories use existing routes and category copy stays relevant", as
   await expect(page.locator('input[name="q"]:not([type="hidden"])')).toHaveCount(1);
 });
 
-test("homepage search defaults stay unchanged and event panel fits mobile and desktop", async ({ page }) => {
+test("homepage search defaults stay unchanged and event search follows the hero without overflow", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".home-search-form")).toHaveAttribute("action", "/hladat");
   await expect(page.locator("#home-search")).toHaveAttribute("required", "");
@@ -61,7 +61,14 @@ test("homepage search defaults stay unchanged and event panel fits mobile and de
     await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toBeVisible();
     const bounds = await page.locator("[data-unified-section-hero-visual]").boundingBox();
     const panel = await page.locator(".home-search-panel").boundingBox();
-    expect(panel!.y).toBeLessThan(bounds!.y + bounds!.height);
+    // GLOBAL-DESIGN-UNIFICATION-1 intentionally moves the event search below the hero.
+    // Preserve the no-overlap, compact-gap and bounded-width layout contract.
+    const heroBottom = bounds!.y + bounds!.height;
+    expect(panel!.y).toBeGreaterThanOrEqual(heroBottom);
+    expect(panel!.y - heroBottom).toBeLessThanOrEqual(80);
+    expect(panel!.width).toBeLessThanOrEqual(781);
+    expect(panel!.x).toBeGreaterThanOrEqual(0);
+    expect(panel!.x + panel!.width).toBeLessThanOrEqual(width + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });

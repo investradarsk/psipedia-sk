@@ -249,3 +249,9 @@
   .quickActions { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 18px; }
   .quickAction { min-height: 52px; padding: 10px 14px; }
 }
+
+/* GLOBAL-DESIGN-UNIFICATION-1: search first, then atlas actions. */
+.foundation :global(.browser-toolbar) { width: 100%; max-width: 780px; margin-inline: auto; margin-bottom: 16px; border-radius: var(--ps-radius-filter, 18px); }
+.atlasActions { padding-block: 8px 12px; }
+.atlasActions :global([data-public-landing-section-heading]) { margin-bottom: 12px; }
+@media (max-width: 620px) { .atlasActions { padding-block: 4px 8px; } }
