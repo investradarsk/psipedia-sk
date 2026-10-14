@@ -895,6 +895,7 @@ export async function applyGeocoderResolution(input: {
 export async function applyGooglePlaceResolution(input: {
   targetType: GeoTargetType;
   targetId: number;
+  expectedGeoRevision?: string;
   place: {
     id: string;
     latitude: number;
@@ -904,6 +905,9 @@ export async function applyGooglePlaceResolution(input: {
   const db = requireGeoD1(database);
   const current = await getGeoPointForTarget(input.targetType, input.targetId, db);
   if (!current) throw new Error("Geo point neexistuje.");
+  if (input.expectedGeoRevision !== undefined && current.updatedAt !== input.expectedGeoRevision) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
   if (current.manualOverride) throw new Error("Google Place nesmie prepísať manual override.");
   if (current.publicVisibility !== "EXACT_PUBLIC" || current.publicPrecision !== "EXACT") {
     throw new Error("Google Place exact resolution vyžaduje EXACT_PUBLIC / EXACT klasifikáciu.");
