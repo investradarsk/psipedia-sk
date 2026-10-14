@@ -21,6 +21,7 @@ function fakeDb() {
       let args = [];
       const stmt = {
         bind(...values) { args = values; return stmt; },
+        async all() { return { results: [{ stable_key: "directory.veterinari" }] }; },
         async first() {
           if (sql.includes("FROM gemini_automation_settings")) {
             if (sql.includes("next_run_at")) return { stable_key: "directory.veterinari" };
