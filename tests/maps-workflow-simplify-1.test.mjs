@@ -36,7 +36,7 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
   const sqlStart = block.indexOf("UPDATE directory_profiles");
   const sqlEnd = block.indexOf("`).bind(", sqlStart);
   assert.ok(sqlStart >= 0 && sqlEnd > sqlStart, "location-only UPDATE SQL must be extractable from the runtime helper");
-  const locationOnlySql = block.slice(sqlStart, sqlEnd).trim();
+  const locationOnlySql = block.slice(sqlStart, sqlEnd).trim().replace('${geo.sourceGuard}', 'NOT EXISTS (SELECT 1 FROM geo_points WHERE target_type=\'DIRECTORY_PROFILE\' AND directory_profile_id=?)');
 
   const db = new DatabaseSync(":memory:");
   db.exec(`
@@ -48,6 +48,8 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
       website_url TEXT, internal_email TEXT, source_data_json TEXT
     )
   `);
+
+  db.exec("CREATE TABLE geo_points (target_type TEXT, directory_profile_id INTEGER)");
 
   const before = {
     phone: "+421 905 123 456  ",
@@ -78,7 +80,7 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
 
   db.prepare(locationOnlySql).get(
     "Nitriansky kraj", "Nitra", "Nitra", "Hlavná 22", "94901", "Hlavná", "22",
-    "STREET", "new search", "2026-10-02T20:00:00.000Z", "admin@example.sk", 7, "2026-01-01T00:00:00.000Z",
+    "STREET", "new search", "2026-10-02T20:00:00.000Z", "admin@example.sk", 7, "2026-01-01T00:00:00.000Z", 7,
   );
 
   const after = db.prepare(`
@@ -87,7 +89,7 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
   `).get();
   const stale = db.prepare(locationOnlySql).get(
     "Iný kraj", "Iný okres", "Iné mesto", "Riziková adresa", "99999", "Iná", "99",
-    "STREET", "stale search", "2026-10-02T21:00:00.000Z", "other@example.sk", 7, "2026-01-01T00:00:00.000Z",
+    "STREET", "stale search", "2026-10-02T21:00:00.000Z", "other@example.sk", 7, "2026-01-01T00:00:00.000Z", 7,
   );
   assert.equal(stale, undefined, "a concurrent address revision must reject stale Google SQL");
   assert.equal(after.address, "Hlavná 22");
