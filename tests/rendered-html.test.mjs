@@ -634,7 +634,9 @@ test("uses light admin lists and loads full records only for detail and save", a
       body: JSON.stringify(articlePayload),
     }), bindings, context);
     assert.equal(created.status, 201);
-    assert.equal((await created.json()).article.id, 7);
+    const createdArticle = (await created.json()).article;
+    assert.equal(createdArticle.id, 7);
+    assert.ok(createdArticle.updatedAt, "created article must expose the version token");
     const createArticleQuery = database.queries.find(({ sql }) => /INSERT INTO managed_articles/i.test(sql));
     const storedBlocks = createArticleQuery?.bindings.find((value) => typeof value === "string" && value.includes('"type":"cta"'));
     assert.match(storedBlocks ?? "", /"buttonText":"Pozrieť produkt"/);
@@ -644,7 +646,7 @@ test("uses light admin lists and loads full records only for detail and save", a
     const saved = await worker.fetch(adminRequest("/api/admin/articles/7", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(articlePayload),
+      body: JSON.stringify({ ...articlePayload, expectedUpdatedAt: createdArticle.updatedAt }),
     }), bindings, context);
     assert.equal(saved.status, 200);
     assert.equal((await saved.json()).article.id, 7);
