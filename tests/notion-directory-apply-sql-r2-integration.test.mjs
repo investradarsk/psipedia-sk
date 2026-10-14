@@ -254,3 +254,25 @@ test("unchanged external image absent causes no upload or delete during canonica
   assert.deepEqual(f.deleted, []);
   closes(f);
 });
+
+test("media monitor failure after canonical commit retains the referenced upload", async () => {
+  const f = fixture({ mediaFailure: true });
+  await assert.rejects(f.run, /MEDIA_FAILED/);
+  assert.equal(f.read().image_key, "directory/new.webp");
+  assert.equal(f.objects.has("directory/new.webp"), true);
+  assert.deepEqual(f.deleted, []);
+  closes(f);
+});
+
+test("stale retry cannot add another profile or overwrite the committed row", async () => {
+  const f = fixture();
+  const first = await f.run();
+  assert.equal(first.imageKey, "directory/new.webp");
+  const updatedAt = f.read().updated_at;
+  await assert.rejects(f.run, /CONFLICT/);
+  assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM directory_profiles").get().n, 1);
+  assert.equal(f.read().updated_at, updatedAt);
+  assert.equal(f.read().image_key, "directory/new.webp");
+  assert.equal(f.objects.has("directory/new.webp"), true);
+  closes(f);
+});
