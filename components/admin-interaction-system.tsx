@@ -7,6 +7,7 @@ import {
   useState,
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
+  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import styles from "./admin-interaction-system.module.css";
@@ -88,6 +89,36 @@ export function AdminBulkActionToolbar({
   );
 }
 
+// Native showModal makes the background inert. Explicitly wrap the edge case where
+// Shift+Tab or Tab would otherwise leave the dialog on some browser versions.
+function keepAdminDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
+  if (event.key !== "Tab") return;
+  const dialog = event.currentTarget;
+  if (!dialog.open) return;
+  const candidates = Array.from(dialog.querySelectorAll<HTMLElement>(
+    'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )).filter((element) =>
+    element.tabIndex >= 0 &&
+    !element.closest('[inert], [hidden], [aria-hidden="true"]') &&
+    element.getClientRects().length > 0
+  );
+  if (!candidates.length) {
+    event.preventDefault();
+    dialog.focus();
+    return;
+  }
+  const first = candidates[0];
+  const last = candidates[candidates.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || !dialog.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function useAdminDialog(open: boolean) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -150,6 +181,7 @@ export function AdminModalDialog({
         onClose();
       }}
       onClose={restoreFocus}
+      onKeyDown={keepAdminDialogFocus}
     >
       <div className={styles.dialogHeader}>
         <div>
@@ -243,6 +275,7 @@ export function AdminDrawer({
         onClose();
       }}
       onClose={restoreFocus}
+      onKeyDown={keepAdminDialogFocus}
     >
       <div className={styles.drawerHeader}>
         <div>
