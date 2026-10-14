@@ -126,7 +126,7 @@ test("LEGACY_UNCONFIRMED public address remains visible and public UI contains n
   const presentation = getDirectoryDetailPresentation(publicProfile());
   assert.equal(presentation.address, "Hlavná 123, 949 01 Nitra");
   assert.equal(presentation.navigationUrl, null);
-  assert.match(publicDetail, /presentation\.address \? \{ label: "Adresa"/);
+  assert.match(publicDetail, /presentation\.address \? \[\{ label: "Adresa"/);
   assert.doesNotMatch(publicDetail, /Adresa nie je potvrdená|Geoapify|Google nepotvrdil|LEGACY_UNCONFIRMED/);
   assert.doesNotMatch(publicPage, /Adresa nie je potvrdená|Geoapify nenašiel|Google nepotvrdil/);
 });
@@ -137,7 +137,7 @@ test("manual text alone never fabricates an exact GEO point", () => {
     serviceAddressConfirmation: "LEGACY_UNCONFIRMED",
   }), null);
   assert.match(store, /reconcileGeoAfterSourceMutation/);
-  assert.match(publicDetail, /hasEmbeddedMap = Boolean\(publicMap\?\.items\.length\)/);
+  assert.match(publicDetail, /mapItem && !isApproximateMapItem\(mapItem\)/);
 });
 
 test("Google-first flow uses editorial address as a discovery hint and confirmation can upgrade canonical address and GEO", () => {
