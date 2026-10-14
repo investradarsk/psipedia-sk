@@ -18,6 +18,7 @@ const ds = "84e0664c-ca47-405f-9d54-31b20287bc8c";
 let scans = 0;
 const section = process.env.AGENT_STABLE_KEY.split(".")[0];
 const shelter = process.env.AGENT_STABLE_KEY === "help.utulky";
+const adoption = process.env.AGENT_STABLE_KEY === "help.adopcia";
 const categoryArgs = {
   name: "Mock candidate", city: "Sereď", source_url: "https://example.com/about",
   summary: "Overený prípad", description: "Dostatočne podrobný popis overeného podujatia alebo prípadu pomoci.",
@@ -26,6 +27,15 @@ const categoryArgs = {
     ? ["name", "description", "source_url", "organizer", "start_date", "city", "start_time", "end_time"]
     : ["name", "description", "source_url", "city"] }],
 };
+if (adoption) {
+  categoryArgs.name = "Nový psík";
+  categoryArgs.organization = "Útulok Test";
+  categoryArgs.summary = "Psík čaká na zodpovednú adopciu.";
+  categoryArgs.description = "Pes je v starostlivosti útulku a hľadá bezpečný nový domov po preverení dostupných informácií.";
+  categoryArgs.evidence = [{ source_url: "https://example.com/about",
+    fields: ["name", "organization", "summary", "description", "city"] }];
+  if (scenario === "adoption_private") categoryArgs.phone="+421 905 123 456";
+}
 if (shelter) {
   categoryArgs.summary="Overený opis útulku";
   categoryArgs.description="Organizácia sa zaoberá starostlivosťou o opustené zvieratá a prevádzkou útulku.";
@@ -69,10 +79,22 @@ const shelterProperties = {
   "Web":{type:"url"}, "Zdroj dát":{type:"url"}, "Popis":{type:"rich_text"},
   "Krátky popis":{type:"rich_text"}, "Facebook":{type:"url"}, "Instagram":{type:"url"},
 };
+const adoptionProperties = {
+  "Meno": {type:"title"}, "Organizácia": {type:"rich_text"},
+  "Stav": {type:"select",select:{options:[{name:"Nápad"},{name:"Ready"},{name:"Publikované"}]}},
+  "Krátky popis": {type:"rich_text"}, "Popis": {type:"rich_text"},
+  "Mesto": {type:"rich_text"}, "Kraj": {type:"rich_text"},
+  "Zdroj dát": {type:"url"}, "Psipedia ID": {type:"rich_text"}, "Slug": {type:"rich_text"},
+};
+if (adoption && scenario === "wrong_type") adoptionProperties.Organizácia={type:"select"};
 if (shelter && scenario === "wrong_type") shelterProperties.Typ={type:"select"};
 if (scenario === "wrong_type") categoryProperties[section === "events" ? "Typ podujatia" : "Psipedia stav"] = { type: "select" };
 const row = { id: "existing", properties: {
-  "Názov": { type: "title", title: [{ plain_text: "Mock candidate" }] },
+  ...(adoption ? {
+    "Meno": {type:"title",title:[{plain_text:"Nový psík"}]},
+    "Organizácia": {type:"rich_text",rich_text:[{plain_text:"Útulok Test"}]},
+    "Zdroj dát": {type:"url",url:"https://example.com/about"},
+  } : {"Názov": { type: "title", title: [{ plain_text: "Mock candidate" }] }}),
   ...(scenario === "duplicate" ? {
     "Začiatok": { type: "date", date: { start: "2099-10-20" } },
     "Mesto": { type: "rich_text", rich_text: [{ plain_text: "Sereď" }] },
@@ -149,7 +171,7 @@ globalThis.fetch = async (url, options = {}) => {
   }
   if (address.startsWith("https://api.notion.com/v1/")) {
     if (address === "https://api.notion.com/v1/data_sources/" + ds) {
-      const schema = shelter ? shelterProperties : section === "directory" ? properties : categoryProperties;
+      const schema = adoption ? adoptionProperties : shelter ? shelterProperties : section === "directory" ? properties : categoryProperties;
       return json({ id: ds, properties: scenario === "wrong_database" ? { Name: { type: "title" } }
         : scenario === "unsafe_status_default" ? { ...schema, "Stav": { type: "select", select: { options: [{ name: "Publikované" }] } } } : schema });
     }
@@ -169,9 +191,13 @@ globalThis.fetch = async (url, options = {}) => {
       if (section === "directory" && (body.properties?.["Psipedia stav"]?.select?.name !== "Koncept" ||
           body.properties?.["Stav"]?.select?.name !== "Na kontrolu")) throw Error("NOT_DRAFT_ONLY");
       if (section === "events" && body.properties?.Stav?.select?.name !== "Nápad") throw Error("NOT_DRAFT_ONLY");
-      if (section === "help" && !shelter && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
+      if (section === "help" && !shelter && !adoption && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
         throw Error("NOT_DRAFT_ONLY");
-      if (shelter && (body.parent?.data_source_id !== ds || body.properties?.Typ?.rich_text?.[0]?.text?.content !== "SHELTER" || body.properties?.Stav?.select?.name !== "Nápad" || body.properties?.Adresa || body.properties?.Latitude || body.properties?.Longitude)) throw Error("SHELTER_DRAFT_INVALID");
+      if (adoption && (body.properties?.Stav?.select?.name !== "Nápad" ||
+         body.properties?.Meno?.title?.[0]?.text?.content !== "Nový psík" ||
+         body.properties?.Slug || body.properties?.["Psipedia ID"] || body.properties?.Latitude))
+         throw Error("ADOPTION_NOT_DRAFT");
+       if (shelter && (body.parent?.data_source_id !== ds || body.properties?.Typ?.rich_text?.[0]?.text?.content !== "SHELTER" || body.properties?.Stav?.select?.name !== "Nápad" || body.properties?.Adresa || body.properties?.Latitude || body.properties?.Longitude)) throw Error("SHELTER_DRAFT_INVALID");
       if (scenario === "notion_uncertain") throw Error("SIMULATED_POST_TIMEOUT");
       if (scenario === "notion_500") return json({}, 500);
       if (scenario === "notion_invalid_json") return new Response("invalid");
