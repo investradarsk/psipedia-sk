@@ -77,6 +77,23 @@
   color: inherit;
 }
 
+/* The shared article breadcrumbs have their own color and spacing. Inherit the
+   hero treatment here so photographic and light task variants both stay legible. */
+.breadcrumbs :global(.page-breadcrumbs) {
+  margin-bottom: 0;
+  color: inherit;
+}
+
+.breadcrumbs :global(.page-breadcrumbs) a:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.breadcrumbs :global(.page-breadcrumbs) a:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
 .eyebrow {
   margin-bottom: 10px;
   color: #f7d8c9;

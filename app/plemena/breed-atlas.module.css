@@ -30,6 +30,11 @@
   background: var(--white);
 }
 
+.foundation :global(.breed-search-primary input:focus-visible) {
+  outline: 3px solid var(--forest);
+  outline-offset: 2px;
+}
+
 .foundation :global(.breed-origin-filter select) {
   width: 100%;
   max-width: none;

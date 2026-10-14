@@ -1,0 +1,89 @@
+[
+  {
+    "route": "/",
+    "violations": [],
+    "incomplete": [
+      "aria-prohibited-attr",
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/plemena",
+    "violations": [],
+    "incomplete": [
+      "aria-prohibited-attr",
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/steniatka",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/starostlivost",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/aktivity",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/adresar",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/podujatia",
+    "violations": [],
+    "incomplete": [
+      "aria-prohibited-attr",
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/pomoc-psom",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/recenzie",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/plemena/australsky-ovciak",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  },
+  {
+    "route": "/podujatia/pridat-podujatie",
+    "violations": [],
+    "incomplete": [
+      "color-contrast"
+    ]
+  }
+]
