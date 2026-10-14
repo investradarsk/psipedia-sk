@@ -27,3 +27,26 @@ for(const [label,change] of [
  ["private phone in source URL",a=>{a.source_url="https://example.org/about?phone=0905123456";a.evidence[0].source_url=a.source_url;}],
  ["precise visitor address field",a=>a.address="Hlavná 42"],
 ]) test("privacy rejects "+label,()=>{const a=args();change(a);assert.throws(()=>build(a));});
+
+for (const payload of [
+  "email private@example.com",
+  "Hlavná 42",
+  "GPS: 48.123456, 18.123456",
+  "949 01 Hlavná 42",
+  "phone +421 905 123 456",
+]) {
+  test("evidence fields cannot inject private information: " + payload, () => {
+    const a=args();
+    a.evidence[0].fields.push(payload);
+    assert.throws(()=>build(a), /EVIDENCE_FIELD_INVALID/);
+  });
+}
+test("evidence fields cannot contain non-string values or extra keys",()=>{
+  const a=args();a.evidence[0].fields.push({description:"Hlavná 42"});
+  assert.throws(()=>build(a),/EVIDENCE_FIELD_INVALID/);
+});
+test("verified website with embedded private coordinates is rejected",()=>{
+  const a=args();a.website_url="https://example.org/about?latitude=48.123456";
+  a.evidence[0].fields.push("website_url");
+  assert.throws(()=>build(a),/WEBSITE_UNSAFE/);
+});
