@@ -80,8 +80,9 @@ for (const [scenario, error, requests] of [
 
 test("offline create-before-Notion-search is rejected without side effects", () => {
   const run = runOffline("out_of_order");
-  assert.equal(run.exitCode, 0, run.stderr);
-  assert.equal(run.callback.status, "SUCCESS");
+  assert.equal(run.exitCode, 1, run.stderr);
+  assert.equal(run.callback.status, "FAILED");
+  assert.equal(run.callback.error_code, "AGENT_CANDIDATE_UNRESOLVED");
   assert.equal(run.callback.concept_count, 0);
   assert.deepEqual(run.counts, { geminiCalls: 3, notionPosts: 0, callbacks: 1 });
 });
@@ -180,7 +181,7 @@ for (const key of ["help.stratene-a-najdene", "help.unknown", "events.unknown", 
   });
 }
 
-for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
+for (const key of ["directory.veterinari", "events.vystavy", "help.zbierky", "help.adopcia"]) {
   test(key + " retains confirmed writes when Notion scan is temporarily stale", () => {
     const run = runOffline("repeat_create", key);
     assert.equal(run.exitCode, 0, run.stderr);
@@ -247,5 +248,48 @@ for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","n
     assert.equal(run.exitCode, 1, run.stderr);
     assert.equal(run.callback.error_code, "NOTION_CREATE_UNCERTAIN");
     assert.equal(run.counts.notionPosts, 1);
+  });
+}
+
+for (const [scenario, status, requests, concepts, error] of [
+  ["pilot_duplicate_done", "SUCCESS", 4, 0, null],
+  ["pilot_duplicate_loop", "SUCCESS", 6, 0, null],
+  ["pilot_search_loop", "SUCCESS", 5, 0, null],
+  ["pilot_duplicate_new", "SUCCESS", 4, 1, null],
+  ["pilot_duplicate_recover", "SUCCESS", 5, 1, null],
+  ["pilot_empty", "SUCCESS", 3, 0, null],
+  ["pilot_limit", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
+  ["pilot_limit_write", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
+  ["pilot_malformed_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
+  ["pilot_ignores_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
+  ["pilot_unresolved_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
+]) {
+  test("live pilot regression: " + scenario, () => {
+    const run = runOffline(scenario, "directory.kynologicke-kluby", "1");
+    assert.equal(run.callback.status, status, run.stderr);
+    assert.equal(run.callback.error_code, error);
+    assert.equal(run.exitCode, status === "SUCCESS" ? 0 : 1);
+    assert.equal(run.callback.concept_count, concepts);
+    assert.deepEqual(run.counts, { geminiCalls: requests, notionPosts: concepts, callbacks: 1 });
+    assert.ok(run.callback.request_count <= 9);
+    if (scenario.startsWith("pilot_duplicate")) assert.equal(run.callback.duplicate_count, 1);
+    assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
+  });
+}
+for (const key of ["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+  "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie", "vencenie", "fyzioterapia", "dalsie-sluzby"]) {
+  test("directory immediate confirmed single draft: " + key, () => {
+    const run = runOffline("success", "directory." + key, "1");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.callback.concept_count, 1);
+    assert.deepEqual(run.counts, { geminiCalls: 3, notionPosts: 1, callbacks: 1 });
+  });
+}
+for (const scenario of ["notion_uncertain", "notion_500", "notion_invalid_json", "notion_missing_id"]) {
+  test("directory never retries uncertain create: " + scenario, () => {
+    const run = runOffline(scenario);
+    assert.equal(run.callback.status, "FAILED");
+    assert.equal(run.callback.error_code, "NOTION_CREATE_UNCERTAIN");
+    assert.deepEqual(run.counts, { geminiCalls: 3, notionPosts: 1, callbacks: 1 });
   });
 }
