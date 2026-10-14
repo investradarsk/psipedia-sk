@@ -128,12 +128,15 @@ export async function sweepExternalGemini(input: {
     const stale = active.claimed_at && now.getTime() - new Date(active.claimed_at).getTime() > 2 * 60 * 60_000;
     return { dispatched: 0, reason: stale ? "STALLED_REVIEW" : "BUSY" };
   }
-  const due = await input.db.prepare(
+  // An as-yet unsupported category must not starve the other due categories.
+  // Keep its original due slot for when the worker's category contract lands.
+  const dueRows = await input.db.prepare(
     "SELECT stable_key FROM gemini_automation_settings WHERE enabled=1 " +
     "AND max_new_concepts>0 AND next_run_at IS NOT NULL AND next_run_at<=? " +
-    "ORDER BY next_run_at ASC,id ASC LIMIT 1"
-  ).bind(now.toISOString()).first<{ stable_key: string }>();
-  if (!due) return { dispatched: 0 };
+    "ORDER BY next_run_at ASC,id ASC LIMIT 22"
+  ).bind(now.toISOString()).all<{ stable_key: string }>();
+  const due = (dueRows.results ?? []).find((row) => externalWorkerCategorySupported(row.stable_key));
+  if (!due) return { dispatched: 0, ...(dueRows.results?.length ? { reason: "CATEGORY_NOT_READY" } : {}) };
   try {
     await dispatchExternalGemini({
       db: input.db, env: input.env, stableKey: due.stable_key, trigger: "SCHEDULED", now,
