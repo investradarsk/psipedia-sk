@@ -78,7 +78,7 @@ test("A: location-only Google SQL preserves phone/email/website/Facebook/Instagr
 
   db.prepare(locationOnlySql).get(
     "Nitriansky kraj", "Nitra", "Nitra", "Hlavná 22", "94901", "Hlavná", "22",
-    "STREET", "new search", "2026-10-02T20:00:00.000Z", "admin@example.sk", 7,
+    "STREET", "new search", "2026-10-02T20:00:00.000Z", "admin@example.sk", 7, "2026-01-01T00:00:00.000Z",
   );
 
   const after = db.prepare(`
