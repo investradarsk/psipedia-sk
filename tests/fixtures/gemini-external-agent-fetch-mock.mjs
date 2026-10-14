@@ -17,6 +17,7 @@ const step = (name, id, args = {}) => ({
 const ds = "84e0664c-ca47-405f-9d54-31b20287bc8c";
 let scans = 0;
 const section = process.env.AGENT_STABLE_KEY.split(".")[0];
+const shelter = process.env.AGENT_STABLE_KEY === "help.utulky";
 const categoryArgs = {
   name: "Mock candidate", city: "Sereď", source_url: "https://example.com/about",
   summary: "Overený prípad", description: "Dostatočne podrobný popis overeného podujatia alebo prípadu pomoci.",
@@ -25,6 +26,14 @@ const categoryArgs = {
     ? ["name", "description", "source_url", "organizer", "start_date", "city", "start_time", "end_time"]
     : ["name", "description", "source_url", "city"] }],
 };
+if (shelter) {
+  categoryArgs.summary="Overený opis útulku";
+  categoryArgs.description="Organizácia sa zaoberá starostlivosťou o opustené zvieratá a prevádzkou útulku.";
+  categoryArgs.website_url="https://example.com";
+  categoryArgs.evidence=[{source_url:"https://example.com/about",fields:["name","summary","description","city","website_url"]}];
+  if (scenario === "shelter_unverified") categoryArgs.email="private@example.com";
+  if (scenario === "shelter_private") categoryArgs.description="Organizácia prevádzkuje útulok na ulici Hlavná 42 a poskytuje starostlivosť.";
+}
 if (scenario === "ungrounded") categoryArgs.source_url = "https://unverified.example/about";
 if (scenario === "missing_source") delete categoryArgs.source_url;
 if (scenario === "invalid_source") categoryArgs.source_url = "http://example.com/about";
@@ -52,6 +61,15 @@ const categoryProperties = {
     "Stav": { type: "select", select: { options: [{ name: "Nápad" }, { name: "Publikované" }] } },
   } : { "Kategória": { type: "rich_text" }, "Psipedia stav": { type: "rich_text" } }),
 };
+const shelterProperties = {
+  "Názov":{type:"title"}, "Typ":{type:"rich_text"},
+  "Stav":{type:"select",select:{options:[{name:"Nápad"},{name:"Publikované"}]}},
+  "Právny názov":{type:"rich_text"}, "IČO / registračné číslo":{type:"rich_text"},
+  "Psipedia ID":{type:"rich_text"}, "Mesto":{type:"rich_text"}, "Kraj":{type:"rich_text"},
+  "Web":{type:"url"}, "Zdroj dát":{type:"url"}, "Popis":{type:"rich_text"},
+  "Krátky popis":{type:"rich_text"}, "Facebook":{type:"url"}, "Instagram":{type:"url"},
+};
+if (shelter && scenario === "wrong_type") shelterProperties.Typ={type:"select"};
 if (scenario === "wrong_type") categoryProperties[section === "events" ? "Typ podujatia" : "Psipedia stav"] = { type: "select" };
 const row = { id: "existing", properties: {
   "Názov": { type: "title", title: [{ plain_text: "Mock candidate" }] },
@@ -131,7 +149,7 @@ globalThis.fetch = async (url, options = {}) => {
   }
   if (address.startsWith("https://api.notion.com/v1/")) {
     if (address === "https://api.notion.com/v1/data_sources/" + ds) {
-      const schema = section === "directory" ? properties : categoryProperties;
+      const schema = shelter ? shelterProperties : section === "directory" ? properties : categoryProperties;
       return json({ id: ds, properties: scenario === "wrong_database" ? { Name: { type: "title" } }
         : scenario === "unsafe_status_default" ? { ...schema, "Stav": { type: "select", select: { options: [{ name: "Publikované" }] } } } : schema });
     }
@@ -141,7 +159,7 @@ globalThis.fetch = async (url, options = {}) => {
       if (scenario === "partial_property") return json({ results: [{ ...row, properties: { ...row.properties, "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
       if (scenario === "incomplete_scan" && scans > 1) return json({ results: [], has_more: true, next_cursor: null });
       if (scenario === "malformed_scan") return json({ has_more: false });
-      return json({ results: scans > 1 && ["duplicate", "ambiguous"].includes(scenario) ? [row] : [], has_more: false });
+      return json({ results: scans > 1 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario) ? [shelter ? { ...row, properties: { ...row.properties, "Typ": { type:"rich_text", rich_text:[{plain_text:"CIVIC_ASSOCIATION"}] } } } : row] : [], has_more: false });
     }
     if (address === "https://api.notion.com/v1/pages") {
       notionPosts++;
@@ -151,8 +169,9 @@ globalThis.fetch = async (url, options = {}) => {
       if (section === "directory" && (body.properties?.["Psipedia stav"]?.select?.name !== "Koncept" ||
           body.properties?.["Stav"]?.select?.name !== "Na kontrolu")) throw Error("NOT_DRAFT_ONLY");
       if (section === "events" && body.properties?.Stav?.select?.name !== "Nápad") throw Error("NOT_DRAFT_ONLY");
-      if (section === "help" && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
+      if (section === "help" && !shelter && (body.properties?.["Psipedia stav"]?.rich_text?.[0]?.text?.content !== "draft" || body.properties.Slug))
         throw Error("NOT_DRAFT_ONLY");
+      if (shelter && (body.parent?.data_source_id !== ds || body.properties?.Typ?.rich_text?.[0]?.text?.content !== "SHELTER" || body.properties?.Stav?.select?.name !== "Nápad" || body.properties?.Adresa || body.properties?.Latitude || body.properties?.Longitude)) throw Error("SHELTER_DRAFT_INVALID");
       if (scenario === "notion_uncertain") throw Error("SIMULATED_POST_TIMEOUT");
       if (scenario === "notion_500") return json({}, 500);
       if (scenario === "notion_invalid_json") return new Response("invalid");

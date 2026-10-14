@@ -1,3 +1,4 @@
+import "./gemini-shelter-privacy-identity.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -24,6 +25,7 @@ function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") 
       AGENT_JOB_ID: "7",
       NOTION_EVENTS_DATA_SOURCE_ID: ds,
       NOTION_HELP_DATA_SOURCE_ID: ds,
+      NOTION_ORGANIZATIONS_DATA_SOURCE_ID: ds,
       AGENT_STABLE_KEY: stableKey,
       AGENT_MAX_NEW_CONCEPTS: maxNew,
       PSIPEDIA_AGENT_CALLBACK_SECRET: "offline-test-secret",
@@ -168,7 +170,7 @@ for (const key of ["events.vystavy", "help.zbierky"]) {
     });
   }
 }
-for (const key of ["help.adopcia", "help.utulky", "help.stratene-a-najdene", "help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
+for (const key of ["help.adopcia", "help.stratene-a-najdene", "help.unknown", "events.unknown", "directory.unknown", "directory.utulky-a-zachrana"]) {
   test("unsupported category stops before APIs: " + key, () => {
     const run = runOffline("success", key);
     assert.equal(run.callback.error_code, "CATEGORY_UNSUPPORTED");
@@ -191,3 +193,43 @@ test("event worker completes initial and final paginated scans before creating",
   assert.equal(run.exitCode, 0, run.stderr);
   assert.equal(run.counts.notionPosts, 1);
 });
+
+test("shelter creates only a canonical Organization draft (SHELTER/Nápad)", () => {
+  const run = runOffline("success", "help.utulky", "1");
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.equal(run.counts.notionPosts, 1);
+  assert.equal(run.callback.concept_count, 1);
+  const page = run.pages[0];
+  assert.equal(page.properties.Typ.rich_text[0].text.content, "SHELTER");
+  assert.equal(page.properties.Stav.select.name, "Nápad");
+  assert.equal(page.properties["Psipedia stav"], undefined);
+  assert.equal(page.properties.Kategória, undefined);
+  assert.equal(page.properties.Adresa, undefined);
+  assert.equal(page.properties.Latitude, undefined);
+  assert.match(JSON.stringify(page.properties.Popis), /dôkazy/i);
+});
+for (const scenario of ["wrong_database","wrong_type","missing_source","missing_evidence","ungrounded",
+  "incomplete_scan","malformed_scan","partial_property","shelter_unverified","shelter_private"]) {
+  test("shelter rejects " + scenario + " before POST", () => {
+    const run = runOffline(scenario, "help.utulky");
+    assert.equal(run.exitCode, 1, run.stderr);
+    assert.equal(run.counts.notionPosts, 0);
+    assert.equal(run.counts.callbacks, 1);
+  });
+}
+for (const scenario of ["duplicate","ambiguous","shelter_other_type"]) {
+  test("shelter blocks cross-type or uncertain organization identity: " + scenario, () => {
+    const run = runOffline(scenario, "help.utulky");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.counts.notionPosts, 0);
+    assert.equal(run.callback.duplicate_count, 1);
+  });
+}
+for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","notion_missing_id"]) {
+  test("shelter does not retry ambiguous Notion create: " + scenario, () => {
+    const run = runOffline(scenario, "help.utulky");
+    assert.equal(run.exitCode, 1, run.stderr);
+    assert.equal(run.callback.error_code, "NOTION_CREATE_UNCERTAIN");
+    assert.equal(run.counts.notionPosts, 1);
+  });
+}
