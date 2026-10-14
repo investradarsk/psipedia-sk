@@ -240,14 +240,17 @@ export async function updateOrganizationLocationFromGooglePlace(
   if (resultChanges(results[0] as RunResult) < 1) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   if (geo.invalidation && resultChanges(results[1] as RunResult) !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
 
+  let googleConfirmationGeoRevision: string | null = null;
   try {
-    await reconcileGeoAfterSourceMutation({
+    const geoReconciliation = await reconcileGeoAfterSourceMutation({
       targetType: "ORGANIZATION_LOCATION", targetId: locationId, actorRef, actorType: "ADMIN",
     }, db as Parameters<typeof reconcileGeoAfterSourceMutation>[1]);
+    googleConfirmationGeoRevision = geoReconciliation.point?.updatedAt ?? null;
   } catch (cause) {
     throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
   }
-  return getOrganizationLocationAdmin(organizationId, locationId, db);
+  const saved = await getOrganizationLocationAdmin(organizationId, locationId, db);
+  return saved ? { ...saved, googleConfirmationGeoRevision } : null;
 }
 
 export async function deleteOrganizationLocationFromAdmin(
