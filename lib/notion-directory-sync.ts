@@ -25,6 +25,7 @@ import {
 } from "@/lib/directory-address-save";
 import {
   cleanupNotionImageKeys,
+  cleanupUnreferencedNotionUpload,
   notionFlagEnabled,
   notionPropertyRecord,
   notionRequest,
@@ -774,24 +775,6 @@ function notionProfileReadyForCreate(page: NotionPage) {
 }
 
 class GeminiCanonicalDuplicateError extends Error {}
-
-// Only reclaim an uploaded image if a successful canonical reference check proves
-// the key is unused. A failed D1 response is not evidence of a failed commit.
-async function cleanupUnreferencedNotionUpload(
-  database: D1Database,
-  bucket: R2Bucket | undefined,
-  uploadedKey: string | null | undefined,
-) {
-  if (!uploadedKey) return;
-  try {
-    const referenced = await database.prepare(
-      "SELECT 1 AS used FROM directory_profiles WHERE image_key = ? LIMIT 1",
-    ).bind(uploadedKey).first<{ used: number }>();
-    if (!referenced) await cleanupNotionImageKeys(bucket, [uploadedKey]);
-  } catch {
-    // Unknown D1 state: defer deletion rather than orphaning an active image.
-  }
-}
 
 async function createProfileFromNotion(input: {
   database: D1Database;
