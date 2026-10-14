@@ -15,7 +15,7 @@ import {
 import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
-import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
@@ -389,6 +389,7 @@ export async function updateManagedEventLocationFromGooglePlace(
   editorEmail: string,
   expectedUpdatedAt: string,
   databaseInput?: D1Database,
+  expectedGeoRevision?: string | null,
 ) {
   const database = requireD1Binding(databaseInput);
   const existing = await database.prepare(
@@ -409,12 +410,19 @@ export async function updateManagedEventLocationFromGooglePlace(
     throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
   }
   const now = new Date().toISOString();
-  const updated = await database.prepare(`
+  const geo = await prepareGoogleSourceGeoInvalidation(
+    "MANAGED_EVENT", id, database, expectedGeoRevision,
+    { sql: "SELECT 1 FROM managed_events WHERE id=? AND updated_at=?", args: [id, now] },
+  );
+  const sourceStatement = database.prepare(`
     UPDATE managed_events SET city=?,region=?,address=?,updated_at=?,updated_by=?
-    WHERE id=? AND updated_at=?
+    WHERE id=? AND updated_at=? AND ${geo.sourceGuard}
     RETURNING id
-  `).bind(city,region,address,now,editorEmail,id,expectedUpdatedAt).first<{id:number}>();
+  `).bind(city,region,address,now,editorEmail,id,expectedUpdatedAt,...geo.sourceGuardArgs);
+  const results = await database.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  const updated = results[0]?.results?.[0] as { id: number } | undefined;
   if (!updated) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
   return { id: updated.id, address, city, region, updatedAt: now };
 }
 
