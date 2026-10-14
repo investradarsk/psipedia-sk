@@ -109,10 +109,10 @@ export default async function AdminGeminiAutomationPage() {
       user={user}
       eyebrow="Automatizácie a kvalita"
       title="Automatizácie Gemini"
-      description="Samostatné nastavenia nového systému pre služby, podujatia a pomoc psom."
+      description="Správa externého Gemini vyhľadávania pre všetkých 22 kategórií."
     >
       {!ready && <p className={styles.warning} role="alert">
-        Gemini databázové nastavenia nie sú dostupné. Over, či bola aplikovaná migrácia 0113.
+        Gemini databázové nastavenia nie sú dostupné. Over, či boli aplikované migrácie 0113 a 0126.
         Ukladanie je dočasne vypnuté.
       </p>}
       <p className={styles.notice}>
@@ -120,13 +120,15 @@ export default async function AdminGeminiAutomationPage() {
           ? "Samostatný GitHub pracovník pre Gemini + Notion je zapnutý. Tu nastavíš frekvenciu, kategóriu a počet konceptov. Platené volania podliehajú ďalšiemu vypínaču priamo v GitHube. Výsledky uvidíš v histórii."
           : "Externý GitHub pracovník zatiaľ nie je aktivovaný. Uloženie nastavenia samo nespúšťa platené vyhľadávanie; starý manuálny režim zostáva oddelený."}
       </p>
+      <p className={styles.notice}>Mesačný počet úloh Psipedia neobmedzuje. Platené volania stále podliehajú nastaveniam GitHubu, limitom jedného behu a kreditu alebo kvóte u poskytovateľa Gemini. Rozpočet 5 € nastavený u poskytovateľa nie je garanciou Psipedie.</p>
+      {queuedJobs.some((job) => job.status === "RUNNING" && job.claimed_at && Date.now() - new Date(job.claimed_at).getTime() > 2 * 60 * 60_000) && <p role="alert" className={styles.warning}>Gemini úloha je zaseknutá dlhšie než dve hodiny. Ďalšie platené spustenia sa z bezpečnostných dôvodov nepovolia bez manuálneho overenia v GitHub Actions. Systém ju automaticky neopakuje.</p>}
       {externalEnabled && runs.some(run => run.status === "SUCCESS" && run.conceptCount > 0) && (
         <p role="status" className={styles.notice}>
           Gemini vytvorilo {runs.find(run => run.status === "SUCCESS" && run.conceptCount > 0)?.conceptCount} nových konceptov pri poslednom úspešnom behu s novými výsledkami.
         </p>
       )}
       {externalEnabled
-        ? <p>Nové externé koncepty služieb nájdeš priamo pod kartami jednotlivých kategórií. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
+        ? <p>Nové externé koncepty nájdeš pod kartami kategórií Služieb, Podujatí a Pomoci psom. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
         : <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>}
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} externalEnabled={externalEnabled} />
       {showQueue && <GeminiQueueHistory jobs={queuedJobs} />}
