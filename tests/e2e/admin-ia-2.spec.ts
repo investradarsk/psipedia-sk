@@ -54,6 +54,8 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     await expect(nav).toHaveCSS("position", "sticky");
+    // Wait for the Escape handler, not just the server-rendered <details>.
+    await expect(nav).toHaveAttribute("data-admin-nav-hydrated", "true");
     const overviewTrigger = nav.getByText("Prehľad", { exact: true });
     await overviewTrigger.click();
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
