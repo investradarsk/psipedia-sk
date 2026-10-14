@@ -232,3 +232,26 @@ test("Google resolution requires the caller-observed GEO revision, not a newer r
   assert.equal(result.changes,0);
   assert.equal(db.prepare("SELECT public_visibility FROM geo_points WHERE id=1").get().public_visibility,"HIDDEN");
 });
+
+test("actual visibility SQL CAS rejects newer HIDDEN and manual decisions", () => {
+  const source = read("lib/geo-store.ts");
+  const section = source.slice(source.indexOf("export async function setGeoVisibility"), source.indexOf("export async function setManualGeoCoordinates"));
+  const statements = [...section.matchAll(/UPDATE geo_points SET([\s\S]*?)`\)\.bind\(/g)].map(m => "UPDATE geo_points SET" + m[1]);
+  assert.equal(statements.length, 3);
+  const db = new DatabaseSync(":memory:");
+  db.exec(`CREATE TABLE geo_points (
+    id INTEGER PRIMARY KEY, public_visibility TEXT, public_precision TEXT, latitude REAL, longitude REAL,
+    resolution_method TEXT,provider TEXT,provenance TEXT,source_license TEXT,
+    normalized_query TEXT,query_fingerprint TEXT,source_fingerprint TEXT,resolved_source_fingerprint TEXT,
+    geocode_status TEXT,last_error_code TEXT,last_error_at TEXT,retry_after_at TEXT,
+    manual_override INTEGER,manual_updated_at TEXT,manual_updated_by TEXT,updated_at TEXT,
+    attempt_count INTEGER,last_geocoded_at TEXT)`);
+  db.prepare("INSERT INTO geo_points (id,public_visibility,public_precision,source_fingerprint,updated_at,manual_override,attempt_count) VALUES (1,'EXACT_PUBLIC','EXACT','same','one',0,0)").run();
+  const sql = statements[2];
+  const params = ["EXACT_PUBLIC","EXACT",null,null,"same","two",1,"one",0,"EXACT_PUBLIC","EXACT","same",0];
+  db.prepare("UPDATE geo_points SET public_visibility='HIDDEN',public_precision=NULL,updated_at='other' WHERE id=1").run();
+  assert.equal(db.prepare(sql).run(...params).changes,0);
+  db.prepare("UPDATE geo_points SET public_visibility='EXACT_PUBLIC',public_precision='EXACT',updated_at='one',manual_override=1 WHERE id=1").run();
+  assert.equal(db.prepare(sql).run(...params).changes,0);
+  assert.equal(db.prepare("SELECT manual_override FROM geo_points").get().manual_override,1);
+});
