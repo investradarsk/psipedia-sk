@@ -64,7 +64,6 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   }
 
   const originalGeoRevision = point?.updatedAt ?? null;
-  const originalGeoFingerprint = point?.sourceFingerprint ?? null;
   const explicitPrivate = await hasExplicitPrivateGeoDecision(effectiveTargetType, effectiveTargetId);
   const publicLocation = input.publicLocation !== false;
   const allowPrivateOverride = input.allowPrivateOverride === true;
@@ -74,6 +73,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   let profile = null;
   let sourceMutated = false;
+  let ownedGeoRevision: string | null | undefined;
   try {
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
     const before = await getManagedDirectoryProfileById(effectiveTargetId);
@@ -86,6 +86,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt, originalGeoRevision);
     if (!profile) throw new Error("Profil sa nenašiel.");
     sourceMutated = true;
+    ownedGeoRevision = profile.googleConfirmationGeoRevision;
   }
 
   if (effectiveTargetType === "MANAGED_EVENT") {
@@ -95,6 +96,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     const updatedEvent = await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt, undefined, originalGeoRevision);
     if (!updatedEvent) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
     sourceMutated = true;
+    ownedGeoRevision = updatedEvent.googleConfirmationGeoRevision;
   }
 
   if (effectiveTargetType === "ORGANIZATION_LOCATION") {
@@ -119,14 +121,19 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     );
     if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
     sourceMutated = true;
+    ownedGeoRevision = location.googleConfirmationGeoRevision;
   }
 
   point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
-  if (originalGeoRevision && point && point.updatedAt !== originalGeoRevision && point.sourceFingerprint === originalGeoFingerprint) {
+  // The source writer owns one exact post-commit GEO revision. A newer admin
+  // decision must not be reinterpreted as authorization to publish the point.
+  if (ownedGeoRevision === undefined || (point?.updatedAt ?? null) !== ownedGeoRevision) {
     throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   }
   if (!point) {
-    point = (await initializeGeoPointForTarget(effectiveTargetType, effectiveTargetId, input.actorRef)).point;
+    const initialized = await initializeGeoPointForTarget(effectiveTargetType, effectiveTargetId, input.actorRef);
+    if (!initialized.created) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    point = initialized.point;
   }
   if (point.manualOverride) {
     throw new Error("Poloha má manuálny GEO override. Google Place ho nesmie prepísať.");
