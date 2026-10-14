@@ -166,7 +166,7 @@ test("save updates the same Notion page, keeps publication and evidence, and rej
     assert.equal(f.writes[0]["Psipedia ID"], undefined);
     assert.equal(f.writes[0]["Zdroj dát"], undefined);
     assert.equal(f.writes[0]["Popis"].rich_text[0].text.content,
-      "Opravený obsah.\\n\\nDôkazy:\\nname: https://source.example/dog");
+      "Opravený obsah.\n\nDôkazy:\nname: https://source.example/dog");
 
     await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "save", lastEditedAt: draft.lastEditedAt,
