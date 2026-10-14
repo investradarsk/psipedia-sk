@@ -5,7 +5,7 @@ const mockedImports = new Set([
   "@/lib/organization-location-admin-write",
 ]);
 export async function resolve(specifier, context, nextResolve) {
-  if (context.parentURL?.endsWith("/app/api/admin/geo/[targetType]/[id]/route.ts")
+  if (context.parentURL?.includes("/app/api/admin/geo/") && context.parentURL?.endsWith("/route.ts")
       && specifier.startsWith("@/") && specifier !== "@/lib/admin-google-place-confirmation") {
     return { url: new URL("./google-confirmation-harness.mjs", import.meta.url).href, shortCircuit: true };
   }
