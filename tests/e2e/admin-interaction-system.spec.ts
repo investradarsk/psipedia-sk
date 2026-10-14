@@ -111,7 +111,7 @@ test("modal ignores hidden and disabled controls and does not steal nested modal
     hidden.style.display = "none";
     element.append(hidden);
   });
-  const lastReal = outer.locator('button:not([disabled])').last();
+  const lastReal = outer.locator('button:not([disabled])').filter({ visible: true }).last();
   await lastReal.focus();
   await page.keyboard.press("Tab");
   await expect(outer.getByRole("button", { name: "Zavrieť dialóg" })).toBeFocused();
