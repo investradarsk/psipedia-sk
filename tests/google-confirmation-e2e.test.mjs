@@ -127,3 +127,65 @@ for(const type of types) {
     assert.equal(harness.publishable().length,1);
   });
 }
+
+
+for(const type of types) {
+  test("HTTP 409 D1 batch rollback preserves canonical source and public GEO: "+type,async()=>{
+    harness.init(type);
+    harness.inject("duringBatch",()=>{throw Error("INJECTED_D1_FAILURE");});
+    const response=await requestFor(type);
+    assert.equal(response.status,409);
+    assert.equal(harness.row(type==="DIRECTORY_PROFILE"?"directory_profiles":type==="MANAGED_EVENT"?"managed_events":"organization_locations").address,"Old address");
+    assert.equal(harness.publishable().length,1);
+  });
+  test("HTTP 409 preserves HIDDEN decision during Google visibility: "+type,async()=>{
+    harness.init(type,{publicExact:false});
+    harness.inject("beforeVisibility",()=>harness.markHidden());
+    const response=await requestFor(type);
+    assert.equal(response.status,409);
+    assert.equal(harness.row("geo_points").public_visibility,"HIDDEN");
+    assert.equal(harness.publishable().length,0);
+  });
+  test("HTTP 409 preserves manual GEO during Google resolution: "+type,async()=>{
+    harness.init(type);
+    harness.inject("beforeResolution",()=>harness.markManual());
+    const response=await requestFor(type);
+    assert.equal(response.status,409);
+    assert.equal(harness.row("geo_points").manual_override,1);
+    assert.equal(harness.row("geo_points").google_place_id,null);
+    assert.equal(harness.publishable().length,0);
+  });
+  test("HTTP 409 preserves concurrent NOT_REQUIRED audit decision: "+type,async()=>{
+    harness.init(type);
+    harness.inject("beforeAudit",()=>harness.markNotRequired("other-user"));
+    const response=await requestFor(type);
+    assert.equal(response.status,409);
+    assert.equal(harness.decision().id,"other-user");
+    assert.equal(harness.decision().action,"GOOGLE_MAPS_NOT_REQUIRED");
+  });
+  test("HTTP 409 rejects older Google A after successful concurrent B: "+type,async()=>{
+    harness.init(type);
+    harness.inject("discover",async()=>{
+      const b=await requestFor(type,"place-B");
+      assert.equal(b.status,200);
+    });
+    const a=await requestFor(type,"place-A");
+    assert.equal(a.status,409);
+    assert.equal(harness.row("geo_points").google_place_id,"place-B");
+    assert.equal(harness.publishable().length,1);
+  });
+  test("HTTP 200 initializes missing GEO with correct exact Google marker: "+type,async()=>{
+    harness.init(type,{missingGeo:true});
+    const response=await requestFor(type);
+    assert.equal(response.status,200);
+    assert.equal(harness.row("geo_points").google_place_id,"place-A");
+    assert.equal(harness.publishable().length,1);
+  });
+}
+test("HTTP 409 rejects online event location without canonical or GEO mutation",async()=>{
+  harness.init("MANAGED_EVENT",{online:true});
+  const response=await requestFor("MANAGED_EVENT");
+  assert.equal(response.status,409);
+  assert.equal(harness.row("managed_events").address,"Old address");
+  assert.equal(harness.row("geo_points").google_place_id,null);
+});
