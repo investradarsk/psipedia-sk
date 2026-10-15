@@ -6,6 +6,7 @@ import ts from "typescript";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { geminiImportAgenda } from "../lib/gemini-notion-provenance.ts";
 import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
+import { decideBidirectionalChange } from "../lib/notion-bidirectional-reconciliation.ts";
 
 /**
  * Execute the real production createCanonicalFromNotion function, including its
@@ -126,4 +127,44 @@ test("untrusted Notion text never bypasses Ready and trusted import requires tit
   await assert.rejects(() => create("lost-found", { ...missing, Slug:"nonempty", Typ:"" }, db, true),
     /GEMINI_LOST_FOUND_TYPE_REQUIRED/);
   assert.equal(changes.length, 0);
+});
+
+
+test("all 22 category canonical editor changes win against unchanged Notion; dual edits require conflict review", () => {
+  for (const item of geminiAutomationCatalog) {
+    const unchangedNotion = decideBidirectionalChange({
+      baselineHash: "last-synced", notionHash: "last-synced",
+      psipediaHash: "human-editor-saved",
+    });
+    assert.equal(unchangedNotion.decision, "PUSH_PSIPEDIA", item.stableKey);
+    assert.equal(unchangedNotion.psipediaChanged, true);
+    const simultaneous = decideBidirectionalChange({
+      baselineHash: "last-synced", notionHash: "Gemini-edited",
+      psipediaHash: "human-editor-saved",
+    });
+    assert.equal(simultaneous.decision, "CONFLICT", item.stableKey);
+    assert.notEqual(simultaneous.decision, "PULL_NOTION",
+      "Never overwrite a changed editor record from stale Notion");
+    assert.equal(decideBidirectionalChange({
+      baselineHash: "last-synced", notionHash: "identical-editor-change",
+      psipediaHash: "identical-editor-change",
+    }).decision, "UNCHANGED");
+  }
+});
+
+test("production Notion imports persist identity mappings before risky remote writeback", () => {
+  const eventsSync = readFileSync(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const directorySync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const eventCreate = eventsSync.slice(eventsSync.indexOf("const created = await createCanonicalFromNotion("));
+  const eventMappingAt = eventCreate.indexOf("await saveMapping({");
+  const eventNotionAt = eventCreate.indexOf("const written = await writeSourceToNotion({");
+  assert.ok(eventMappingAt >= 0 && eventMappingAt < eventNotionAt,
+    "Events/Help must map the canonical D1 draft before any unreliable Notion PATCH");
+  const directoryCreate = directorySync.slice(directorySync.indexOf("const creation = await createProfileFromNotion({"));
+  const dirMappingAt = directoryCreate.indexOf("await saveMapping({");
+  const dirNotionAt = directoryCreate.indexOf("await writeProfileToNotion({");
+  assert.ok(dirMappingAt >= 0 && dirMappingAt < dirNotionAt,
+    "Directory must map before optional R2/GEO/Notion post-processing");
+  assert.match(directorySync, /GEMINI_PROVENANCE_IMPORT_CONFLICT/);
+  assert.match(eventsSync, /GEMINI_PROVENANCE_IMPORT_CONFLICT/);
 });
