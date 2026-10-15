@@ -1106,6 +1106,23 @@ async function syncAgenda(input: {
       continue;
     }
     const trustedGemini = Boolean(provenance);
+    if (trustedGemini && input.definition.key === "lost-found" && (
+      values["Latitude"] != null && values["Latitude"] !== "" ||
+      values["Longitude"] != null && values["Longitude"] !== "" ||
+      clean(values["Verejný kontakt"]) ||
+      clean(values["Miesto"]) !== clean(values["Mesto"])
+    )) {
+      // Never discard protected Notion evidence by overwriting it from a
+      // sanitized public canonical snapshot. Require explicit private review.
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id,
+        reason: "GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED",
+        fields: ["Latitude", "Longitude", "Miesto", "Verejný kontakt"],
+        baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
     // Internal Gemini moderation is separate from public draft/published.
     // Never auto-import an unapproved/rejected source-evidenced Help concept.
     // Keep unmarked, pre-existing manual Notion imports compatible.
