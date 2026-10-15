@@ -109,10 +109,10 @@ export default async function AdminGeminiAutomationPage() {
       user={user}
       eyebrow="Automatizácie a kvalita"
       title="Automatizácie Gemini"
-      description="Samostatné nastavenia nového systému pre služby, podujatia a pomoc psom."
+      description="Správa externého Gemini vyhľadávania pre všetkých 22 kategórií."
     >
       {!ready && <p className={styles.warning} role="alert">
-        Gemini databázové nastavenia nie sú dostupné. Over, či bola aplikovaná migrácia 0113.
+        Gemini databázové nastavenia nie sú dostupné. Over, či boli aplikované migrácie 0113 a 0126.
         Ukladanie je dočasne vypnuté.
       </p>}
       <p className={styles.notice}>
@@ -120,6 +120,8 @@ export default async function AdminGeminiAutomationPage() {
           ? "Samostatný GitHub pracovník pre Gemini + Notion je zapnutý. Tu nastavíš frekvenciu, kategóriu a počet konceptov. Platené volania podliehajú ďalšiemu vypínaču priamo v GitHube. Výsledky uvidíš v histórii."
           : "Externý GitHub pracovník zatiaľ nie je aktivovaný. Uloženie nastavenia samo nespúšťa platené vyhľadávanie; starý manuálny režim zostáva oddelený."}
       </p>
+      <p className={styles.notice}>Mesačný počet úloh Psipedia neobmedzuje. Platené volania stále podliehajú nastaveniam GitHubu, limitom jedného behu a kreditu alebo kvóte u poskytovateľa Gemini. Rozpočet 5 € nastavený u poskytovateľa nie je garanciou Psipedie.</p>
+      {queuedJobs.some((job) => job.status === "RUNNING") && <p role="status" className={styles.warning}>Gemini úloha práve beží. Ak zostane v stave RUNNING dlhšie než dve hodiny, ďalšie platené spustenia ostanú zablokované do manuálneho overenia v GitHub Actions. Systém ju automaticky neopakuje.</p>}
       <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/prompty">
         Upraviť prompty pre 22 kategórií →
       </Link></p>
@@ -129,7 +131,7 @@ export default async function AdminGeminiAutomationPage() {
         </p>
       )}
       {externalEnabled
-        ? <p>Nové externé koncepty služieb nájdeš priamo pod kartami jednotlivých kategórií. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
+        ? <p>Koncepty služieb nájdeš pod kartami. Kontrolu konceptov Podujatí a Pomoci psom sprístupní spoločný editor zo súbežnej úlohy #03. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
         : <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>}
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} externalEnabled={externalEnabled} />
       {showQueue && <GeminiQueueHistory jobs={queuedJobs} />}
