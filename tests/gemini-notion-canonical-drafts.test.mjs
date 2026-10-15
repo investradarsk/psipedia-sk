@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { registerGeminiCreatedPages, parseGeminiCreatedPages } from "../lib/gemini-notion-provenance.ts";
 import { runInNewContext } from "node:vm";
@@ -360,4 +360,31 @@ test("all 12 trusted Events/Help categories refuse public, archived or rejected 
   const sync = readFileSync(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
   assert.match(sync, /trustedGemini && !trustedGeminiSourceIsPrivateDraft/);
   assert.match(sync, /GEMINI_PRIVATE_DRAFT_REQUIRED/);
+});
+
+
+test("all 22 mapped canonical IDs link to an existing native administration editor route", () => {
+  const layout = readFileSync(
+    new URL("../components/admin-gemini-notion-drafts.tsx", import.meta.url), "utf8");
+  assert.match(layout, /function canonicalEditorUrl\(draft:/);
+  assert.match(layout, /draft\.psipediaId/);
+  const segments = {
+    directory: "adresar",
+    events: "podujatia",
+    organizations: "organizacie",
+    adoptions: "adopcie",
+    "help-cases": "pomoc",
+    "lost-found": "stratene-najdene",
+  };
+  for (const [agenda, segment] of Object.entries(segments)) {
+    assert.ok(layout.includes(agenda === "directory" ? ': "adresar"' : segment),
+      agenda + " must be routed to its native editor");
+    assert.equal(existsSync(new URL("../app/admin/" + segment + "/[id]/page.tsx", import.meta.url)),
+      true, "missing canonical editor: " + agenda);
+  }
+  for (const item of geminiAutomationCatalog) {
+    assert.ok(segments[geminiImportAgenda(item.stableKey)], item.stableKey);
+  }
+  assert.match(layout, /<AdminDirectoryEditor/);
+  assert.match(layout, /<AdminGeminiAgendaDraftEditor/);
 });
