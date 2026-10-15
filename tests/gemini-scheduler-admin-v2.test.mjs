@@ -26,7 +26,8 @@ const now = new Date("2026-10-14T08:00:00.000Z");
 function fixture() {
   const sqlite = new DatabaseSync(":memory:");
   for (const file of ["0113_gemini_automation_foundation.sql",
-    "0119_gemini_manual_background_jobs.sql", "0126_gemini_scheduler_admin_v2.sql"]) {
+    "0119_gemini_manual_background_jobs.sql", "0125_gemini_category_prompts.sql",
+    "0126_gemini_scheduler_admin_v2.sql"]) {
     sqlite.exec(read("drizzle/" + file));
   }
   const db = {
