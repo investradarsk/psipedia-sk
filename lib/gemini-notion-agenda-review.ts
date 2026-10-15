@@ -15,7 +15,10 @@ export type GeminiAgendaReviewEnv = {
 type Page = NotionPage & { parent?: { data_source_id?: string }; created_time?: string };
 type SourceSchema = { id?: string; parent?: { database_id?: string }; properties?: Record<string, { type?: string; select?: { options?: { name: string }[] } }> };
 type SourcePages = { results?: Page[]; has_more?: boolean; next_cursor?: string | null };
-export type GeminiAgendaField = { name: string; type: string; value: string | number | boolean | null; editable: boolean };
+export type GeminiAgendaField = {
+  name: string; type: string; value: string | number | boolean | null;
+  editable: boolean; synced: boolean; options?: string[];
+};
 export type GeminiAgendaDraft = {
   id: string; stableKey: string; agenda: BidirectionalAgendaKey; name: string;
   city: string; reviewState: GeminiReviewState; syncError: string; rejectionReason: string;
@@ -115,11 +118,39 @@ async function dataSource(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgend
 function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
   source: Awaited<ReturnType<typeof dataSource>>): GeminiAgendaDraft {
   const names = agendaEditableFields[agenda].filter(name => !["Stav", "Psipedia stav"].includes(name));
-  const fields = names.filter(name => Boolean(source.schema[name]))
-    .map(name => ({
-      name, type: source.schema[name].type ?? "", value: textValue(page.properties?.[name]),
-      editable: !immutable.has(name) && !(agenda === "lost-found" && lostFoundRestricted.has(name)) && editableTypes.has(source.schema[name].type ?? ""),
-    }));
+  const supported = names.filter(name => Boolean(source.schema[name]));
+  const fields: GeminiAgendaField[] = [
+    ...supported.map(name => {
+      const definition = source.schema[name];
+      const property = page.properties?.[name] as Record<string, unknown> | undefined;
+      const fragments = property && (property.rich_text ?? property.title);
+      // Native Notion formatting, links, mentions or date ranges cannot be
+      // round-tripped losslessly through plain inputs; they stay read-only.
+      const structuredText = Array.isArray(fragments) && fragments.some(part => {
+        if (!part || typeof part !== "object") return true;
+        const entry = part as Record<string, unknown>;
+        const annotations = entry.annotations as Record<string, unknown> | undefined;
+        return (entry.type && entry.type !== "text") || Boolean(entry.href) ||
+          Boolean((entry.text as { link?: unknown } | undefined)?.link) ||
+          Boolean(annotations && Object.values(annotations).some(Boolean));
+      });
+      const dateRange = Boolean((property?.date as { end?: string | null } | undefined)?.end);
+      return {
+        name, type: definition.type ?? "", value: textValue(property), synced: true,
+        options: definition.select?.options?.map(option => option.name),
+        editable: !immutable.has(name) &&
+          !(agenda === "help-cases" && name === "Slug") &&
+          !(agenda === "lost-found" && lostFoundRestricted.has(name)) &&
+          !structuredText && !dateRange && editableTypes.has(definition.type ?? ""),
+      };
+    }),
+    ...Object.keys(source.schema).filter(name => !supported.includes(name))
+      .map(name => ({
+        name, type: source.schema[name].type ?? "",
+        value: textValue(page.properties?.[name]),
+        editable: false, synced: false,
+      })),
+  ];
   const status = txt(page, source.status);
   const reviewState: GeminiReviewState = txt(page, "Psipedia ID") ? "IMPORTED"
     : ["Archív", "ARCHIVED"].includes(status) ? "REJECTED"
