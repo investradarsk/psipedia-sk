@@ -123,6 +123,33 @@ const lostFoundProperties = {
   "Obojok": {type:"rich_text"}, "Okres": {type:"rich_text"}, "Kraj": {type:"rich_text"},
 };
 for (const schema of [properties, categoryProperties, shelterProperties, adoptionProperties, lostFoundProperties]) schema["Gemini poznámka"] = { type: "rich_text" };
+if (scenario.startsWith("dynamic_")) {
+  for (const schema of [properties, categoryProperties, shelterProperties, adoptionProperties, lostFoundProperties]) {
+    Object.assign(schema, {
+      "Ďalší overený fakt": { type: "rich_text" },
+      "Počet miest": { type: "number" }, "Prístupnosť": { type: "checkbox" },
+      "Zameranie": { type: "multi_select", multi_select: { options: [{ name: "Malé psy" }, { name: "Veľké psy" }] } },
+      "Psipedia ID": { type: "rich_text" }, "Publikovať": { type: "checkbox" },
+      "Sync hash": { type: "rich_text" }, "Interný e-mail": { type: "email" },
+    });
+  }
+  Object.assign(adoptionProperties, {
+    "Hmotnosť": { type: "number", number: { format: "number" } }, "Plemeno": { type: "rich_text" },
+    "Kríženec": { type: "checkbox" }, "Dátum narodenia": { type: "date" },
+    "Zdravotné poznámky": { type: "rich_text" },
+  });
+}
+const dynamicArgs = { fields: {
+  [adoption ? "Meno" : "Názov"]: adoption ? "Nový psík" : "Dynamický koncept",
+  "Ďalší overený fakt": "Nové obsahové pole zo živej schémy", "Počet miest": "4",
+  "Prístupnosť": "ÁNO", "Zameranie": ["Male psy", "Veľké psy"],
+  ...(lostFound ? { Typ: "LOST" } : {}),
+  ...(adoption ? { "Hmotnosť": "4 kg", "Plemeno": "kríženec yorkšírskeho teriéra", "Kríženec": true,
+    "Dátum narodenia": "08/2024", "Zdravotné poznámky": "Očkovaný a kastrovaný.",
+    "Popis": "Psík je približne 4-kilogramový kríženec yorkšírskeho teriéra, očkovaný a kastrovaný. Narodený približne 08/2024." } : {}),
+  ...(scenario === "dynamic_protected" ? { "Psipedia ID": "999", "Sync hash": "FAKE", "Publikovať": true, "Stav": "Publikované", "Psipedia stav": "published", "Interný e-mail": "internal@example.com", "Kategória": "wrong" } : {}),
+  ...(scenario === "dynamic_privacy" ? { "Popis": "Kontakt: owner@example.com. GPS: 48.123456, 18.123456", "Ďalší overený fakt": "Telefón +421 905 123 456", "Latitude": 48.123456 } : {}),
+}, gemini_note: "Skontrolujte výsledný koncept." };
 if (lostFound && scenario === "wrong_type") lostFoundProperties.Typ={type:"select"};
 if (adoption && scenario === "wrong_type") adoptionProperties.Organizácia={type:"select"};
 if (shelter && scenario === "wrong_type") shelterProperties.Typ={type:"select"};
@@ -155,6 +182,13 @@ globalThis.fetch = async (url, options = {}) => {
   if (address === "https://generativelanguage.googleapis.com/v1beta/interactions") {
     geminiCalls++;
     const body = JSON.parse(options.body);
+    if (scenario.startsWith("dynamic_")) {
+      if (geminiCalls <= 2 && (!body.input.includes('"Ďalší overený fakt"') || !body.input.includes('"multi_select"') || !body.input.includes('Malé psy') || !body.input.includes('08/2024'))) throw Error("LIVE_SCHEMA_NOT_PROVIDED");
+      if (geminiCalls > 1) {
+        const fields = body.tools.find(tool => tool.name === "create_notion_draft")?.parameters?.properties?.fields?.properties;
+        if (!fields?.["Ďalší overený fakt"] || !fields?.["Počet miest"] || fields?.["Psipedia ID"] || fields?.["Publikovať"] || fields?.["Interný e-mail"] || fields?.Stav) throw Error("UNSAFE_DYNAMIC_TOOL_SCHEMA");
+      }
+    }
     if (body.model !== "gemini-3.8-flash") throw Error("WRONG_MODEL");
     if (scenario === "gemini_timeout") throw new DOMException("Mock timeout", "TimeoutError");
     if (geminiCalls === 1) {
@@ -241,13 +275,15 @@ globalThis.fetch = async (url, options = {}) => {
           step("create_notion_draft", "", { name: "Test Veterinár" }),
         ] });
       return json({ id: "functions-2", status: "requires_action", steps: [
-        step("create_notion_draft", "call-b", section !== "directory" ? categoryArgs : {
+        step("create_notion_draft", "call-b", scenario.startsWith("dynamic_") ? dynamicArgs : section !== "directory" ? categoryArgs : {
           name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
           website_url: "https://example.com", phone: "+421 905 123 456",
           email: "clinic@example.com", description: "Mock service", gemini_note: "Overte dostupnosť pred publikovaním.",
         }),
       ] });
     }
+    if (geminiCalls === 4 && scenario === "dynamic_replay")
+      return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "dynamic-again", { ...dynamicArgs, fields: { ...dynamicArgs.fields, "Ďalší overený fakt": "Upravený opis toho istého kandidáta" } })] });
     if (geminiCalls === 4 && scenario === "repeat_create")
       return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "call-c", section === "directory" ? {
         name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
@@ -257,7 +293,7 @@ globalThis.fetch = async (url, options = {}) => {
       return json({ id: "functions-4", status: "completed", steps: [
         { type: "model_output", content: [{ type: "text", text: '{"outcome":"duplicate_only"}' }] },
       ] });
-    if (geminiCalls === 5 && ["repeat_create", "many_records"].includes(scenario))
+    if (geminiCalls === 5 && ["repeat_create", "many_records", "dynamic_replay"].includes(scenario))
       return json({ id: "functions-4", status: "completed", steps: [] });
     if (geminiCalls === 4)
       return json({ id: "functions-3", status: "completed", steps: [
@@ -276,6 +312,7 @@ globalThis.fetch = async (url, options = {}) => {
     }
     if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query") {
       scans++;
+      if (scenario === "dynamic_duplicate") return json({ results: [{ id: "existing-dynamic", parent: { data_source_id: ds }, properties: { [adoption ? "Meno" : "Názov"]: { type: "title", title: [{ plain_text: adoption ? "Nový psík" : "Dynamický koncept" }] } } }], has_more: false });
       if (scenario === "many_records") {
         const offset = JSON.parse(options.body).start_cursor ? 100 : 0;
         return json({ results: Array.from({ length: offset ? 51 : 100 }, (_, i) => ({ id: "record-" + (offset + i), properties: { "Názov": { type: "title", title: [{ plain_text: "Record " + (offset + i) }] } } })), has_more: offset === 0, next_cursor: offset ? null : "page-2" });
