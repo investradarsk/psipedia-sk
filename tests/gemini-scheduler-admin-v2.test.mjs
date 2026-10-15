@@ -211,7 +211,7 @@ test("all 22 due together: one dispatch at a time, no duplicate, no missed suppo
 
 test("22 category admin controls share one safe external route; manual jobs not capped monthly", async () => {
   const cards = read("components/admin-gemini-automation-settings.tsx");
-  assert.match(cards, /settings\.filter\(\(item\) => item\.section === section\.key\)/);
+  assert.match(cards, /liveSettings\.filter\(\(item\) => item\.section === section\.key\)/);
   assert.match(cards, /Spustiť vyhľadávanie teraz/);
   assert.match(cards, /Upraviť prompt/);
   assert.match(cards, /weekly_day: weeklyDay/);
