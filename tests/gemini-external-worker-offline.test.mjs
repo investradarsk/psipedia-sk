@@ -456,3 +456,59 @@ test("re-running an existing workflow cannot repeat uncertain technical writes",
   assert.equal(run.callback.error_code, "AGENT_REPLAY_REQUIRES_REVIEW");
   assert.deepEqual(run.counts, { geminiCalls: 0, notionPosts: 0, callbacks: 1 });
 });
+
+for (const key of [...remainingKeys, LF]) {
+  test("live schema-driven fields use the same worker for " + key, () => {
+    const run = runOffline("dynamic_fields", key, "1");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.callback.concept_count, 1);
+    const p = run.pages[0].properties;
+    assert.equal(p["Ďalší overený fakt"].rich_text[0].text.content, "Nové obsahové pole zo živej schémy");
+    assert.equal(p["Počet miest"].number, 4);
+    assert.equal(p["Prístupnosť"].checkbox, true);
+    assert.deepEqual(p["Zameranie"].multi_select, [{ name: "Malé psy" }, { name: "Veľké psy" }]);
+    if (key === "help.adopcia") {
+      assert.equal(p["Hmotnosť"].number, 4);
+      assert.equal(p["Plemeno"].rich_text[0].text.content, "kríženec yorkšírskeho teriéra");
+      assert.equal(p["Kríženec"].checkbox, true);
+      assert.match(JSON.stringify(p["Zdravotné poznámky"]), /Očkovaný a kastrovaný/);
+      assert.equal(p["Dátum narodenia"], undefined);
+      assert.match(JSON.stringify(p["Gemini poznámka"]), /Dátum narodenia/);
+      assert.match(JSON.stringify(p["Gemini poznámka"]), /08\/2024/);
+      assert.doesNotMatch(JSON.stringify(p["Gemini poznámka"]), /Web|Organizátor/);
+    }
+  });
+}
+for (const key of ["directory.veterinari", "events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", LF]) {
+  test("dynamic fields cannot override protected controls: " + key, () => {
+    const run = runOffline("dynamic_protected", key, "1");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.doesNotMatch(JSON.stringify(run.pages), /999|FAKE|internal@example|Publikované|published/);
+    assert.equal(run.pages[0].properties["Publikovať"], undefined);
+  });
+  test("dynamic fields retain in-run technical idempotency: " + key, () => {
+    const run = runOffline("dynamic_replay", key);
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.equal(run.callback.concept_count, 1);
+    assert.equal(run.callback.duplicate_count, 0);
+  });
+}
+test("dynamic arbitrary text fields cannot bypass Lost/Found privacy", () => {
+  const run = runOffline("dynamic_privacy", LF, "1");
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.equal(run.counts.notionPosts, 1);
+  assert.doesNotMatch(JSON.stringify(run.pages), /owner@example|48\.123456|905 123 456/);
+});
+
+for (const key of ["directory.veterinari", "events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", LF]) {
+  test("dynamic fields keep possible duplicates as private drafts with warning: " + key, () => {
+    const run = runOffline("dynamic_duplicate", key, "1");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.equal(run.callback.concept_count, 1);
+    assert.equal(run.callback.duplicate_count, 1);
+    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /Možná duplicita/);
+  });
+}

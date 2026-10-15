@@ -325,8 +325,8 @@ test("Gemini worker uses schema-aware encoding without minimum contact quality v
   const source = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
   assert.match(source, /buildGeminiNotionDraft/);
   assert.doesNotMatch(source, /hasMinimumVeterinarianContact|insufficient_verified_contact_details|sourceEvidence/);
-  assert.match(source, /logo_url: \{ type: "string"/);
-  assert.match(source, /image_url: \{ type: "string"/);
+  assert.match(source, /fields: \{ type: "object"/);
+  assert.match(source, /geminiNotionSchema\(snapshot.properties, target\)/);
 });
 
 test("remaining unsupported dedicated help agendas cannot reserve or dispatch", async () => {
