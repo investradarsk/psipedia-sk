@@ -256,12 +256,12 @@ for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","n
 }
 
 for (const [scenario, status, requests, concepts, error] of [
-  ["pilot_duplicate_done", "SUCCESS", 4, 0, null],
+  ["pilot_duplicate_done", "SUCCESS", 5, 0, null],
   ["pilot_duplicate_loop", "SUCCESS", 6, 0, null],
   ["pilot_search_loop", "SUCCESS", 5, 0, null],
   ["pilot_duplicate_new", "SUCCESS", 4, 1, null],
   ["pilot_duplicate_recover", "SUCCESS", 5, 1, null],
-  ["pilot_empty", "SUCCESS", 3, 0, null],
+  ["pilot_empty", "SUCCESS", 4, 0, null],
   ["pilot_limit", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
   ["pilot_limit_write", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
   ["pilot_malformed_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
@@ -393,5 +393,22 @@ for (const key of remainingKeys) {
     assert.equal(run.exitCode,0,run.stderr);
     assert.equal(run.counts.notionPosts,1);
     assert.equal(run.callback.status,"SUCCESS");
+  });
+}
+
+const allWorkerKeys = [...remainingKeys, "help.stratene-a-najdene"];
+test("the offline zero-draft matrix contains all 22 canonical worker categories", () => {
+  assert.equal(allWorkerKeys.length, 22);
+  assert.equal(new Set(allWorkerKeys).size, 22);
+});
+for (const key of allWorkerKeys) {
+  test("no premature success: Google Search -> Notion search -> explicit no-draft outcome: " + key, () => {
+    const run = runOffline("pilot_empty", key);
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.callback.status, "SUCCESS");
+    assert.equal(run.callback.concept_count, 0);
+    assert.deepEqual(run.counts, { geminiCalls: 4, notionPosts: 0, callbacks: 1 });
+    assert.ok(run.callback.request_count <= 9);
+    assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
   });
 }
