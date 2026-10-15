@@ -94,7 +94,9 @@ test("full 0123-0126 chain refuses gaps and execution before 0125", () => {
   assert.deepEqual(validateProductionTargetHistory(expected, expected, target),
     { latestIndex: 126, targetApplied: true });
   assert.throws(() => validateProductionTargetHistory(expected.slice(0, -2), expected, target), /expected exactly 0125/);
-  assert.throws(() => validateProductionTargetHistory(expected.slice(0, -1).concat("0126_wrong.sql"), expected, target), /does not exactly match/);
+  const wrongPrefix = expected.slice(0, -1);
+  wrongPrefix[124] = "0124_wrong.sql";
+  assert.throws(() => validateProductionTargetHistory(wrongPrefix, expected, target), /does not exactly match/);
 });
 
 test("0126 preserves every stored category, enabled flag, cadence, quota and due timestamp", () => {
