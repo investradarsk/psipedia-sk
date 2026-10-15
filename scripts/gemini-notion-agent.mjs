@@ -5,6 +5,7 @@ import { buildNotionEventsHelpDraft } from "./gemini-notion-events-help-fields.m
 import { externalWorkerCategorySupported } from "./gemini-notion-category.mjs";
 import { canonicalIdentityUrl, directoryDuplicate, sameDirectoryIdentity } from "./gemini-notion-identity.mjs";
 import { GEMINI_REQUEST_LIMIT, geminiHttpCode, inspectInteraction } from "./gemini-interactions-contract.mjs";
+import { parseNoDraftOutcome, requiresNoDraftRecovery } from "./gemini-search-outcome.mjs";
 /**
  * Independent Gemini research worker. Runs ONLY inside GitHub Actions.
  * No Psipedia database logic or Cloudflare runtime required.
@@ -571,7 +572,7 @@ async function runAgent() {
         .map(block => block.text).join("").trim();
       if (finalizing) {
         if (answer !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
-      } else if (metrics.concept_count === 0) {
+      } else if (requiresNoDraftRecovery(metrics.concept_count)) {
         // A model may finish immediately after search_notion. This is not a
         // researched outcome. Continue the SAME interaction exactly once.
         if (!completionRecovery) {
@@ -583,12 +584,7 @@ async function runAgent() {
           }, "functions");
           continue;
         }
-        const allowed = new Set(["no_relevant_candidate", "duplicate_only", "insufficient_evidence", "exhausted"]);
-        let outcome;
-        try { outcome = JSON.parse(answer)?.outcome; } catch { /* fail closed */ }
-        if (!allowed.has(outcome) || Object.keys(JSON.parse(answer)).length !== 1)
-          throw Error("AGENT_OUTCOME_MISSING");
-        console.log("Agent no-draft outcome:", outcome);
+        console.log("Agent no-draft outcome:", parseNoDraftOutcome(answer));
       }
       return;
     }
