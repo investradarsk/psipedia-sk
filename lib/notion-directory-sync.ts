@@ -1282,6 +1282,32 @@ export async function runNotionDirectorySyncSweep(input: {
     pages = [targetPage];
   } else {
     pages = await recentNotionPages(input.bindings, dataSourceId);
+    // The normal recent-page window alone can starve older Gemini drafts.
+    // Drain the immutable provenance queue in bounded oldest-first batches,
+    // reusing the SAME mapping/duplicate/conflict path as ordinary sync.
+    const queued = await input.database.prepare(
+      "SELECT notion_page_id FROM gemini_notion_created_pages " +
+      "WHERE import_agenda='directory' AND notion_data_source_id=? " +
+      "AND imported_at IS NULL ORDER BY registered_at ASC LIMIT 20"
+    ).bind(dataSourceId).all<{ notion_page_id: string }>();
+    const seen = new Set(pages.map(page => page.id));
+    for (const entry of queued.results ?? []) {
+      if (seen.has(entry.notion_page_id)) continue;
+      try {
+        const fetched = await fetchNotionPage(input.bindings, entry.notion_page_id);
+        const parent = (fetched as NotionPage & { parent?: { data_source_id?: string } }).parent;
+        if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !==
+            dataSourceId.replaceAll("-", "").toLowerCase()) {
+          summary.failed += 1;
+          continue;
+        }
+        pages.push(fetched);
+        seen.add(fetched.id);
+      } catch {
+        // A temporarily inaccessible page remains pending for later review.
+        summary.failed += 1;
+      }
+    }
   }
   summary.notionScanned = pages.length;
 
