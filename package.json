@@ -19,7 +19,7 @@
     "test:notion-bulk-backfill": "node --experimental-strip-types --test tests/notion-bulk-backfill.test.mjs",
     "test:notion-events-help-sync": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-events-help-bidirectional.test.mjs tests/notion-geo-mirror.test.mjs tests/notion-data-quality-recovery.test.mjs",
     "test:deploy-safety": "node --test tests/deploy-safety.test.mjs",
-    "test:migration-safety": "node --test tests/migration-safety.test.mjs tests/production-d1-migration.test.mjs tests/production-d1-history-audit.test.mjs tests/production-d1-backlog-rollout.test.mjs tests/production-d1-0123-0125-rollout.test.mjs",
+    "test:migration-safety": "node --test tests/migration-safety.test.mjs tests/production-d1-migration.test.mjs tests/production-d1-history-audit.test.mjs tests/production-d1-backlog-rollout.test.mjs tests/production-d1-0123-0125-rollout.test.mjs tests/production-d1-0126-rollout.test.mjs",
     "test:lost-found": "node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/lost-found-lifecycle.test.mjs tests/lost-found-admin-contract.test.mjs tests/lost-found-public-submission.test.mjs",
     "test:org-fundraising": "node --experimental-strip-types --test tests/organization-fundraising-contract.test.mjs",
     "test:org-fundraising-foundation": "node --experimental-strip-types --test tests/organization-fundraising-foundation.test.mjs",
