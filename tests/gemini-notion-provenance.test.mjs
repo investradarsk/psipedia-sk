@@ -6,6 +6,7 @@ import {
   expectedGeminiNotionSource, verifyGeminiCreatedPages,
 } from "../lib/gemini-notion-provenance.ts";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 
 const ID = "a1111111-1111-4111-8111-111111111111";
 const ID2 = "b2222222-2222-4222-8222-222222222222";
@@ -142,4 +143,98 @@ test("provider read-back verifies immutable Notion page and canonical source bef
     await assert.rejects(() => verifyGeminiCreatedPages({ NOTION_API_TOKEN: "offline" }, pages),
       /GEMINI_PROVENANCE_PAGE_MISMATCH/);
   } finally { globalThis.fetch = original; }
+});
+
+
+function sqliteProvenanceRegistry() {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec("PRAGMA foreign_keys=ON; CREATE TABLE gemini_manual_background_jobs (id INTEGER PRIMARY KEY);");
+  sqlite.exec("INSERT INTO gemini_manual_background_jobs(id) VALUES(23),(24)");
+  // Test the exact additive production 0127 migration on a real in-memory SQLite.
+  sqlite.exec(readFileSync(new URL("../drizzle/0127_gemini_notion_created_pages.sql", import.meta.url), "utf8"));
+  const db = { prepare(sql) {
+    const statement = sqlite.prepare(sql);
+    return { bind(...args) { return {
+      async run() { return statement.run(...args); },
+      async first() { return statement.get(...args) ?? null; },
+      async all() { return { results: statement.all(...args) }; },
+    }; } };
+  } };
+  return { sqlite, db };
+}
+
+test("0127 real SQLite records durable receipts for all 22 categories, idempotent replay and foreign-page exclusion", async () => {
+  const { sqlite, db } = sqliteProvenanceRegistry();
+  const priorFetch = globalThis.fetch;
+  const seen = new Map();
+  try {
+    for (const [index, entry] of geminiAutomationCatalog.entries()) {
+      const key = entry.stableKey;
+      const pageId = "c3333333-3333-4333-8333-" + String(index + 1).padStart(12, "0");
+      const parsed = parseGeminiCreatedPages([receipt(key, pageId)], key, 1, ENV);
+      assert.ok(parsed, key);
+      // Actual production page-verification helper reads an isolated, mocked
+      // Notion response before any registry write, not candidate-supplied text.
+      globalThis.fetch = async () => Response.json({
+        id: pageId,
+        parent: { type: "data_source_id", data_source_id: parsed.pages[0].notion_data_source_id },
+        archived: false, in_trash: false,
+      });
+      await verifyGeminiCreatedPages({ NOTION_API_TOKEN: "offline-only" }, parsed.pages);
+      await registerGeminiCreatedPages(db, 23, parsed);
+      await registerGeminiCreatedPages(db, 23, parsed);
+      seen.set(key, pageId);
+    }
+    assert.equal(seen.size, 22);
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM gemini_notion_created_pages").get().n, 22);
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM gemini_notion_created_pages WHERE canonical_entity_id IS NOT NULL").get().n, 0);
+    for (const [key, pageId] of seen) {
+      const row = sqlite.prepare("SELECT * FROM gemini_notion_created_pages WHERE notion_page_id=?").get(pageId);
+      assert.equal(row.stable_key, key);
+      assert.equal(row.import_agenda, geminiImportAgenda(key));
+      assert.equal(row.imported_at, null);
+      assert.equal(row.canonical_entity_id, null);
+    }
+    const first = geminiAutomationCatalog[0].stableKey;
+    await assert.rejects(
+      () => registerGeminiCreatedPages(db, 24, parseGeminiCreatedPages([receipt(first, seen.get(first))], first, 1, ENV)),
+      /GEMINI_PROVENANCE_COLLISION/,
+    );
+    const any = seen.get(geminiAutomationCatalog[2].stableKey);
+    globalThis.fetch = async () => Response.json({
+      id: any, parent: { type: "data_source_id", data_source_id: SOURCES.events },
+    });
+    await assert.rejects(
+      () => verifyGeminiCreatedPages({ NOTION_API_TOKEN: "offline-only" },
+        parseGeminiCreatedPages([receipt(geminiAutomationCatalog[2].stableKey, any)],
+          geminiAutomationCatalog[2].stableKey, 1, ENV).pages),
+      /GEMINI_PROVENANCE_PAGE_MISMATCH/,
+    );
+    assert.throws(() => sqlite.exec(
+      "INSERT INTO gemini_notion_created_pages(notion_page_id,job_id,stable_key,notion_data_source_id,import_agenda) " +
+      "VALUES('d4444444-4444-4444-8444-444444444444',999,'events.vystavy','" +
+        SOURCES.events + "','events')"),
+      /FOREIGN KEY/,
+    );
+  } finally { globalThis.fetch = priorFetch; sqlite.close(); }
+});
+
+test("0127 SQL prevents two page IDs from claiming one canonical entity; rollback preserves identity", () => {
+  const { sqlite } = sqliteProvenanceRegistry();
+  try {
+    const a = receipt("directory.salony-a-sluzby", ID);
+    const b = receipt("directory.salony-a-sluzby", ID2);
+    const add = sqlite.prepare("INSERT INTO gemini_notion_created_pages" +
+      "(notion_page_id,job_id,stable_key,notion_data_source_id,import_agenda) VALUES(?,?,?,?,?)");
+    add.run(a.notion_page_id, 23, a.stable_key, a.notion_data_source_id, "directory");
+    add.run(b.notion_page_id, 23, b.stable_key, b.notion_data_source_id, "directory");
+    const mark = sqlite.prepare("UPDATE gemini_notion_created_pages SET canonical_entity_id=?,imported_at=? " +
+      "WHERE notion_page_id=? AND canonical_entity_id IS NULL");
+    assert.equal(mark.run(717, "2026-10-15T00:00:00Z", ID).changes, 1);
+    assert.equal(mark.run(717, "2026-10-15T00:00:00Z", ID).changes, 0,
+      "replayed mapped import cannot silently reassign");
+    assert.throws(() => mark.run(717, "2026-10-15T00:00:00Z", ID2), /UNIQUE constraint failed/);
+    assert.equal(sqlite.prepare("SELECT canonical_entity_id FROM gemini_notion_created_pages WHERE notion_page_id=?").get(ID2).canonical_entity_id, null);
+    assert.throws(() => sqlite.exec("UPDATE gemini_notion_created_pages SET canonical_entity_id=717,imported_at=NULL WHERE notion_page_id='" + ID2 + "'"), /CHECK constraint failed/);
+  } finally { sqlite.close(); }
 });
