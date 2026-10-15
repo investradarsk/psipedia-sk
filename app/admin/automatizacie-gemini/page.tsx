@@ -27,7 +27,7 @@ function formatDate(value: string | null) {
 
 const zeroResultLabels: Record<string, string> = {
   NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt.",
-  NO_RESULT_DUPLICATE_ONLY: "Nájdené boli iba existujúce duplicity.",
+  NO_RESULT_DUPLICATE_ONLY: "Gemini označilo kandidátov za duplicity; nový koncept nevznikol. Automatické potvrdenie zhody nie je evidované.",
   NO_RESULT_INSUFFICIENT_EVIDENCE: "Chýbajú dostatočne overiteľné informácie.",
   NO_RESULT_EXHAUSTED: "Možnosti vyhľadávania boli vyčerpané.",
 };
