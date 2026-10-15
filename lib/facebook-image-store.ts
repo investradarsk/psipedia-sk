@@ -17,7 +17,7 @@ async function hasPublisherSchema(db:D1Database) {
   catch(error) {
     // Only a genuinely missing migration may fall back to V1. A transient
     // D1 failure must fail closed or an in-flight post might become editable.
-    if(error instanceof Error && /no such table:\\s*facebook_image_publish_attempts|table.*facebook_image_publish_attempts.*does not exist/i.test(error.message))return false;
+    if(error instanceof Error && /no such table:\s*facebook_image_publish_attempts|table.*facebook_image_publish_attempts.*does not exist/i.test(error.message))return false;
     throw error;
   }
 }
