@@ -46,7 +46,6 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
   latestJob: GeminiQueuedJob | null;
 }) {
   const [setting, setSetting] = useState(initial);
-  useEffect(() => setSetting(initial), [initial]);
   const [enabled, setEnabled] = useState(initial.enabled);
   const [cadence, setCadence] = useState(
     geminiSchedulerOptions.some((option) => option.minutes === initial.cadenceMinutes)
@@ -205,7 +204,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
         </label>
       </div>
       <dl className={styles.timestamps}>
-        <div><dt>Posledné spustenie</dt><dd>{formatDate(latestJob?.created_at ?? setting.lastRunAt)}</dd></div>
+        <div><dt>Posledné spustenie</dt><dd>{formatDate(latestJob?.created_at ?? initial.lastRunAt)}</dd></div>
         <div><dt>Ďalšie plánované</dt><dd>{formatDate(setting.nextRunAt)}</dd></div>
       </dl>
       {latestJob && <p role="status" aria-live="polite"
