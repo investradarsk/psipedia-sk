@@ -181,6 +181,11 @@ export async function completeExternalGemini(input: {
   const requests = result.request_count;
   const searches = result.search_count;
   const code = result.error_code;
+  const outcome = result.outcome_code;
+  const outcomes = ["no_relevant_candidate", "duplicate_only", "insufficient_evidence", "exhausted"];
+  if (outcome !== undefined && outcome !== null &&
+      (status !== "SUCCESS" || count !== 0 || !outcomes.includes(outcome as string)))
+    return { status: 400, ok: false };
   if (!Number.isSafeInteger(jobId) || Number(jobId) < 1 ||
     (status !== "SUCCESS" && status !== "FAILED") ||
     !Number.isSafeInteger(count) || Number(count) < 0 || Number(count) > 5 ||
@@ -208,7 +213,7 @@ export async function completeExternalGemini(input: {
   ).bind(job.setting_id, trigger, status,
     now, now, "gemini-3.8-flash", requests, searches, Number(count) + Number(duplicates),
     duplicates, count, status === "SUCCESS" ? 0 : 1,
-    status === "SUCCESS" ? null : (
+    status === "SUCCESS" ? (count === 0 && typeof outcome === "string" ? "NO_RESULT_" + outcome.toUpperCase() : null) : (
       ["RATE_LIMITED", "RESOURCE_EXHAUSTED", "QUOTA_EXCEEDED", "INSUFFICIENT_CREDIT"].includes(String(code))
         ? "RATE_LIMITED" : "PROVIDER_ERROR")).run();
   const runId = Number(run.meta.last_row_id);
