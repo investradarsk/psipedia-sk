@@ -1,6 +1,6 @@
 # GEMINI-NOTION-EDITOR-PARITY-ALL-1 — audit and limitations
 
-Base: current main a687d2e4d72cd7d2048c33003a5d402a0e322e21, integrated into existing PR #838, including #834, #836, #839, #840 (D1 0126 rollout) and now merged #837 Gemini scheduler. The PR #838 itself remains unmerged. Scope: existing admin Notion concept component, existing Notion APIs, editor field adapters, and mocked tests. No new CMS, database migrations, Gemini calls, or Notion schema mutations.
+Base: current main a687d2e4d72cd7d2048c33003a5d402a0e322e21, integrated into existing PR #838, including #834, #836, #839, #840 (D1 0126 rollout) and now merged #837 Gemini scheduler. The PR #838 itself remains unmerged. Scope: existing admin Notion concept component, existing Notion APIs, editor field adapters, and mocked tests. No new CMS, database migrations or paid Gemini calls. The separately approved live Notion schema change has already been applied and verified, outside this PR.
 
 ## Category routing (22 catalog entries)
 
@@ -27,7 +27,7 @@ Events map \`events.vystavy\`, \`events.preteky\`, \`events.seminare\`, \`events
 
 **Adoptions:** dog profile name and descriptors, birthdate/estimated age, sex/size/weight, breed/mix/color, location, organization, description/temperament/activity/health/special needs, main image, source; **no generic Event/Help SEO contract**. Existing adoption data/relationship is unchanged.
 
-**Help cases:** title/slug/category, excerpt/content, organization and dog attributes, location and reporting/deadline dates, call-to-action/contact, funds, image, urgency/resolution and SEO. The existing public `Psipedia stav` remains exclusively `draft/published`. The review module now recognizes independently provisioned `Gemini kontrola` and `Dôvod odmietnutia` properties. If both valid properties do not exist, **approve/reject/restore fail closed**, although read-only listing and supported draft saving continue. If both exist, the editor writes only the separate review state + rejection reason; public publication is never changed. Slug edit becomes available only after valid review schema is verified. This implementation is conditional and does **not** mutate live Notion schema.
+**Help cases:** title/slug/category, excerpt/content, organization and dog attributes, location and reporting/deadline dates, call-to-action/contact, funds, image, urgency/resolution and SEO. The existing public `Psipedia stav` remains exclusively `draft/published`. The review module now recognizes the **live-provisioned and verified** internal `Gemini kontrola` and `Dôvod odmietnutia` properties. Review decisions are schema-enabled for matched Notion drafts; only these internal review values are patched, without public publication. Slug editing is schema-enabled. Invalid or removed properties still fail closed.
 
 
 **Lost/Found:** existing adapter covers type/status, dog appearance/identifying details, event dates, broad location and optional precision, public contact note, source and image. This PR prevents editing the immutable source, category/type/status and never injects private contactName/Phone/Email or exact GPS values. The existing contract itself lists latitude/longitude but privacy review must separately verify release; **although PR #834 has merged, live configuration must still be checked read-only; category remains BLOCKED for live use until privacy acceptance**. Canonical data source and parent are pinned; sibling same-named database rejected. Source and evidence remain unchanged on save.
@@ -47,7 +47,7 @@ No concept is created in D1 by opening or saving. Mutations use existing admin a
 
 Added \`tests/gemini-notion-agenda-review.test.mjs\` to existing Gemini CI (mock Notion API and D1 lock): catalog 10+6+6, 12 direct-source queries, category/source filtering, explicit edit/approve/reject/restore, unchanged publication on save, evidence protection, stale revision HTTP safety, blocked unsupported help rejection. Existing directory/Notion tests and UI modal test remain CI requirements. All real external calls are mocked; no paid Gemini test, production Notion write or D1 migration.
 
-Pending release gates: CI + build/lint execution, schema option validation against actual Notion data sources by *read-only* inspection, definitive non-directory provenance, directory filter schema+sync provisioning, help-case rejection lifecycle, rejection reason contract, Lost/Found #834 operator privacy signoff. This PR should remain a **draft/BLOCKED** until those are resolved. No merge or production publication is authorized by this document.
+**Current release gates:** Notion Help schema, review/rejection contract and offline tests are completed. Remaining: immutable Gemini origin for 12 non-directory categories, separately authorized live moderation acceptance, and Lost/Found privacy signoff. The optional 21 Directory category filters and advanced media/editor parity are not blockers for basic draft editing. Keep PR Draft/BLOCKED for complete production moderation.
 
 ## Read-only verification against six live Notion data sources — 14 October 2026
 
@@ -59,7 +59,7 @@ The connected Notion workspace was inspected using **read-only fetch** (no schem
 | Events (6) | `76d9ccde-5816-422c-bcfe-863ab69db080` | 45 | `Stav` select (`Nápad`, `Na kontrolu`, `Ready`, `Publikované`, `Archív`) | Provenance marker missing |
 | Organizations (1) | `6fbf8eb2-2f72-4d0c-b825-c46f6f72f92e` | 36 | Same five `Stav` choices | Provenance marker missing |
 | Adoptions (1) | `ca3c57e7-1342-42cd-939e-967b63d3027c` | 31 | `Stav` select, also `Rezervované` | Provenance marker missing |
-| Help cases (3) | `3ed793fc-1d18-819c-bb39-000b753d0002` | 47 | `Psipedia stav` text | **No distinct review/rejection state** |
+| Help cases (3) | `3ed793fc-1d18-819c-bb39-000b753d0002` | **49** (as of 15 Oct) | `Gemini kontrola` select + `Dôvod odmietnutia` rich text; public `Psipedia stav` unchanged | Schema complete; live E2E remains untested |
 | Lost/Found (1) | `3ed793fc-1d18-8122-95b9-000b05c3c6bd` | 39 | `Psipedia stav` text | Canonical source and parent verified; privacy constraints preserved |
 
 The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5479`, an effectively empty `Name`-only source. **Never** use that source for help-case review based on the database title. Missing/wrong source returns a schema/configuration error.
@@ -76,7 +76,7 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 
 ### Minimal independent follow-on work — not part of PR #838
 
-**HELP-REVIEW-STATE-CONTRACT-1 (Notion schema provisioning only):** The read/save/decision and import gate code is now implemented in #838. Operator must explicitly approve **exactly two Notion properties on the canonical Help cases data source only**: `Gemini kontrola` (select with values `Na kontrolu`, `Schválené`, `Odmietnuté`) and `Dôvod odmietnutia` (rich text). Do **not** modify the existing `Psipedia stav` draft/published field or change the unrelated one-column Help data source. Use a separate explicitly approved schema rollout; before that #838 stays Draft.
+**HELP-REVIEW-STATE-CONTRACT-1 — COMPLETE:** On 15 Oct 2026 the operator-approved write added exactly `Gemini kontrola` (select: `Na kontrolu`, `Schválené`, `Odmietnuté`) and `Dôvod odmietnutia` (rich text) to canonical `3ed793fc-1d18-819c-bb39-000b753d0002`. Read-only verification confirmed 49 properties, unchanged public `Psipedia stav`, unchanged sibling source and no duplicates. Moderation API and UI are schema-enabled, with offline tests green; live E2E remains separately gated.
 
 
 **DIRECTORY-FILTER-NOTION-PARITY-1 (new schema + registry sync):** Provision the proposed 21 `Filter · ...` fields with validated select options; map them through the existing Directory Notion and D1 `source_data_json` contract and editor. No production Notion schema modifications in this PR.
@@ -146,35 +146,41 @@ Update the **single existing Gemini Notion worker** to write explicit, stable ow
 - Main `a687d2e4d72cd7d2048c33003a5d402a0e322e21` includes merged PR #837. It has been integrated **into the existing #838 branch only**; no merge of #838 into main and no production writes.
 - Resolved the sole overlapping settings UI component by retaining #837's `geminiSchedulerOptions`, custom minute interval, weekday configuration, recommended cadence, prompt link, save API `weekly_day` and manual search launch. Replaced #837's temporary non-directory placeholder with the **same real** `AdminGeminiNotionDrafts` component for all external-enabled categories. Exactly one review panel per category; no parallel worker or planner code copied.
 - Added a regression contract covering the integration of the 22-category catalog, scheduling controls, prompts/manual action and one actual review panel with no placeholder. Existing mocked Notion tests cover title updates across all 12 non-directory categories and the original Directory tests cover the other ten.
-- Read-only retrieval of canonical Help data source `3ed793fc-1d18-819c-bb39-000b753d0002` after #837 merger confirms 47 properties and **neither** `Gemini kontrola` nor `Dôvod odmietnutia`. Consequently internal Help decisions remain correctly **disabled** until a separate explicit schema approval; editing and saving supported fields do not publish.
+- Latest read-only verification of canonical Help data source confirms **49 properties** and both correctly typed internal review fields with all three approved choices. This enables Help decisions in code; production moderation has not undergone an operator-authorized live E2E check.
 - The evidence signature is still *candidate discovery only*, not an immutable ownership claim. Full Gemini worker provenance requires a separate change to the **existing** worker and likely schema approval.
 - All 21 Directory category filter properties are optional for **basic profile editing**; they remain unprovisioned and full structured category-facet parity is not claimed. Advanced media widgets and Notion's lack of atomic page-property CAS are additional known limitations.
 
-**Merge assessment:** Core review/edit preservation and scheduler UI integration are technically validated, but PR #838 remains **Draft / BLOCKED for the complete 22-category moderation promise** until canonical Help review schema is approved and a non-directory provenance contract is implemented. Do not treat current CI as proof of those missing production capabilities.
+**Merge assessment:** Core editing, #837 scheduler integration and Help schema compatibility have green offline CI. PR #838 remains **Draft/BLOCKED for complete production moderation** pending unambiguous non-directory Gemini provenance, separately approved live operator E2E, and Lost/Found privacy acceptance. A scoped infrastructure merge must not activate unverified automation.
 
 
-## Production Help Notion schema preflight and explicit confirmation gate — 15 October 2026
+## Production Notion Help schema — COMPLETE, VERIFIED (15 October 2026)
 
-**STATUS: PREPARED / NOT APPLIED.** The user approved the _choice_ of exactly two moderation properties but explicitly withheld authorization for an actual production schema write until a further direct confirmation. Do not call the Notion schema mutation tool, apply SQL, edit Notion records or activate automation on this stage.
+**Not a remaining blocker.** Separate explicit operator consent authorized one production update of exactly two internal properties, followed by fresh independent read-only verification. Parent DB `4a883a05-35af-45b8-b7cc-5ad7ac5670e9`; canonical data source `3ed793fc-1d18-819c-bb39-000b753d0002`. **49 properties** (47 original plus the following 2), no duplicates:
 
-Read-only Notion fetch on 15 October 2026 verified:
+| Property | Observed live type/options |
+| --- | --- |
+| `Gemini kontrola` | Select: `Na kontrolu` (gray), `Schválené` (green), `Odmietnuté` (red) |
+| `Dôvod odmietnutia` | Rich text (`text` in native Notion connector, `rich_text` in REST API) |
+| `Psipedia stav` | Original text unchanged; NOT used as internal approval |
 
-- Parent database: `4a883a05-35af-45b8-b7cc-5ad7ac5670e9`; two data sources with the same title `Pomoc psom`.
-- **Only intended canonical source:** `collection://3ed793fc-1d18-819c-bb39-000b753d0002`, 47 properties, `Názov` title and `Psipedia stav`, `Psipedia ID`, `Slug` text.
-- **Invalid sibling:** `collection://01d07d71-88e7-45fc-8188-8de4146c5479`, `Name` title only; never mutate.
-- Both target properties are **absent**. All other 47 properties must remain unchanged.
+The unrelated sibling data source `01d07d71-88e7-45fc-8188-8de4146c5479` still has only `Name`. No existing page, public state, automation or publication setting changed as part of the approved schema rollout. The pure `planHelpGeminiReviewSchema` yields **no-op** when the full approved schema already exists and fails closed on mismatches.
 
-### Exact approved DDL (NOT executed)
+### Audit: moderation code and regression coverage
 
-The Notion tool `notion_update_data_source` supports the following SQL DDL statements on the exact canonical collection ID:
+- `lib/gemini-notion-agenda-review.ts`: checks presence of both valid property types and **exactly the approved three select choices**. It exposes `reviewAvailable: true` for matching Help-case drafts and gates `approve/reject/restore` on this schema. Rejection requires a nonempty reason (at most 1000 characters), restore clears it. These actions patch ONLY the two internal review properties, never public `Psipedia stav`.
+- `components/admin-gemini-agenda-draft-editor.tsx`: provides review buttons, a required rejection-reason input, restoration, and also a rejection button for **already approved but not yet imported** Help drafts. Imported pages cannot be reviewed as new drafts.
+- `lib/notion-events-help-sync.ts`: for *new* Help pages with recognized source-evidence signature, import is gated by `Gemini kontrola = Schválené`; canonical creation forces D1 `draft`, not `published`. Legacy manual Notion imports are not reclassified. Evidence-based origin is NOT a definitive attribution control.
+- Mocked offline tests cover schema no-op and wrong values, save-only-changed fields, 12 non-directory categories, approval/rejection/restore and approved→reject→restore, stale revisions, required rejection reason, preservation of untouched media/contacts/SEO and `Psipedia stav`. Notion does not provide atomic compare-and-swap for concurrent external page edits; remain cautious with live reviews.
 
-```sql
-ADD COLUMN "Gemini kontrola" SELECT('Na kontrolu':gray, 'Schválené':green, 'Odmietnuté':red);
-ADD COLUMN "Dôvod odmietnutia" RICH_TEXT
-```
+### Smallest safe live verification — NOT AUTHORIZED OR EXECUTED
 
-**When and only when the user explicitly confirms the production schema write:** (1) refetch parent database and exact child data source; (2) use pure `planHelpGeminiReviewSchema` with fetched schema to assert canonical identity and options; (3) if both fields exist and exactly match, do nothing; if one exists correctly, create ONLY the missing property; if either exists with wrong type/options or the parent/schema has changed, abort and report; (4) submit only the computed ADD COLUMN statements to `notion_update_data_source`, with no page layout, title, page data or publication changes; (5) refetch canonical data source and verify both properties and existing 47 properties. Expected count after both additions: 49. No migration of existing page values and no automatic publication.
+1. In a separate operator-approved session, identify a **single existing, genuinely Gemini-created, unpublished and unmapped Help-case Notion draft** (nonempty name, slug and category; `Psipedia stav=draft`, blank `Psipedia ID`), and capture its page ID and baseline including review status, rejection reason, original content/media/contacts/SEO, revision and D1 mapping. Do not create a draft.
+2. Verify read-only in both API and Notion that it is the correct canonical source, that it has a safe rollback path and the live admin UI shows the expected controls. No worker dispatch or import.
+3. Only after specific authorization to change **that one page**, test approve→reject with an explicit reason→restore; after each operation, read-only verify that only `Gemini kontrola` and `Dôvod odmietnutia` changed, `Psipedia stav` stays `draft`, and no D1/public content changed. Restore original review values only with explicit permission and a safe procedure; otherwise stop before writing.
+4. A later D1 sync/import acceptance requires **separate** authorization and controls against unintended scheduled executions or publication. It is not included in this task.
 
-Do not infer confirmation from the original selection approval. Do not run a production test by modifying existing Notion pages. The live review API must still disable Help decisions until the actual schema is verified. Existing offline tests, including approval, required rejection reason, restore, stale revision, no `Psipedia stav` mutation and D1-draft-only mapping, can be verified now with GitHub CI. **End-to-end live approval/rejection cannot be claimed until the separately authorized schema change and safe manual operator testing.**
+### Remaining dependencies / merge boundary
 
-After schema provisioning, the remaining independent blocker is reliable Gemini provenance for non-directory categories (existing external worker change, with separate schema/field decision). The 21 Directory category filters are optional for basic draft editing. PR #838 stays Draft; no automatic merge.
+**Technically ready for a scoped infrastructure merge decision (still NOT merged):** 22-category UI panel, #837 planner with its cadence/days/prompts/manual action intact, changed-only Notion editing, schema-backed internal Help review, D1 locks/revision protections and green offline CI. This does **not** establish live E2E verification and does not authorize paid agent dispatch, auto-import or publication.
+
+**BLOCKED for full live moderation:** Existing external Gemini worker lacks a stable explicit origin/job ID for 12 non-directory Events/Help categories; source-evidence text can be spoofed or altered. Operator-approved non-public live review E2E and Lost/Found privacy/config acceptance remain outstanding. Optional 21 Directory filters and advanced native image/widget parity are not blockers for basic profile editing. Provider Notion lacks atomic page CAS against unrelated writers. PR remains **Draft / BLOCKED** until the restricted release decision is made.

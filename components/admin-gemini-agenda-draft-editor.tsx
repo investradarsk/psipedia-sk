@@ -127,7 +127,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         {message && <p role="status">{message}</p>}
         <div className="admin-editor-actions">
           <button type="submit" disabled={busy || readOnly}>{busy ? "Ukladám…" : "Uložiť ako koncept"}</button>
-          {!draft.psipediaId && reviewState !== "APPROVED" && (
+          {!draft.psipediaId && (reviewState !== "APPROVED" || draft.agenda === "help-cases") && (
             <button type="button" disabled={busy || (draft.agenda === "help-cases" && !draft.reviewAvailable)}
               onClick={() => setConfirm(reviewState === "REJECTED" ? "restore" : "reject")}>
               {reviewState === "REJECTED" ? "Obnoviť" : "Odmietnuť"}

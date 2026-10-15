@@ -578,3 +578,42 @@ test("Help review decision refuses options beyond the exact approved moderation 
     assert.equal(f.writes.length, 0);
   });
 });
+
+
+test("Help approved but not yet imported draft can be rejected and restored without publishing", async () => {
+  const f = withInternalHelpReview(fixture("help.docasna-opatera"));
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.docasna-opatera"))[0];
+    const approved = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(approved.reviewState, "APPROVED");
+    const rejected = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "reject", confirm: true, reason: "Neoveriteľný zdroj",
+      lastEditedAt: approved.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(rejected.reviewState, "REJECTED");
+    assert.equal(rejected.rejectionReason, "Neoveriteľný zdroj");
+    const restored = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "restore", confirm: true, lastEditedAt: rejected.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(restored.reviewState, "NEW");
+    assert.equal(restored.rejectionReason, "");
+    assert.equal(f.writes.length, 3);
+    for (const patch of f.writes) {
+      assert.deepEqual(Object.keys(patch).sort(), ["Gemini kontrola", "Dôvod odmietnutia"].sort());
+      assert.equal(patch["Psipedia stav"], undefined);
+      assert.equal(patch["Psipedia ID"], undefined);
+    }
+    assert.equal(f.value.properties["Psipedia stav"].rich_text[0].plain_text, "draft");
+  });
+});
+
+test("Help editor offers reject for internally approved but nonimported draft", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const editor = await readFile(
+    new URL("../components/admin-gemini-agenda-draft-editor.tsx", import.meta.url), "utf8");
+  assert.match(editor, /reviewState !== "APPROVED" \|\| draft\.agenda === "help-cases"/);
+  assert.match(editor, /reviewState === "REJECTED" \? "restore" : "reject"/);
+  assert.match(editor, /confirm === "reject" && draft\.agenda === "help-cases"/);
+});
