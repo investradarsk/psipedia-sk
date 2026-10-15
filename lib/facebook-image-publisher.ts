@@ -111,7 +111,10 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
         .bind(remote,done,done,item.id).run();
       summary.published++;
     }catch(error){
-      const code=(error instanceof Error ? error.message : "UNKNOWN").replace(/[^A-Z0-9_]/g,"_").slice(0,64);
+      const message=error instanceof Error ? error.message : "";
+      // Never persist arbitrary exception text: runtimes/providers may echo tokens.
+      const code=/^META_HTTP_[0-9]{3}$/.test(message)?message:
+        ["META_AMBIGUOUS_RESPONSE","IMAGE_KEY_INVALID","FACEBOOK_NOT_CONFIGURED"].includes(message)?message:"TRANSPORT_OR_UNKNOWN";
       // Safe as well for HTTP errors: Meta may have acted despite a failed response.
       await db.prepare("UPDATE facebook_image_publish_attempts SET state='UNCERTAIN',completed_at=?,error_code=? WHERE post_id=? AND state='SENDING'")
         .bind(clock(new Date()),code,item.id).run();
