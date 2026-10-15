@@ -47,13 +47,13 @@ function fakeDb(promptOverride = null) {
             return { id: 42, max_new_concepts: 8, cadence_minutes: 720, weekly_day: null,
               enabled: 1, next_run_at: "2026-10-11T01:00:00.000Z" };
           }
+          if (sql.includes("FROM gemini_automation_runs")) return runs.length
+            ? { concept_count: runs[0][10], duplicate_count: runs[0][9],
+                request_count: runs[0][6], grounded_search_query_count: runs[0][7],
+                status: runs[0][2] } : null;
           if (sql.includes("FROM gemini_manual_background_jobs")) return job;
           if (sql.includes("FROM notion_agenda_targets")) return { data_source_id: sources[args[0]] };
           if (sql.includes("FROM gemini_notion_created_pages")) return createdPages.get(args[0]) ?? null;
-          if (sql.includes("FROM gemini_automation_runs")) return runs.length
-            ? { concept_count: runs[0][10], duplicate_count: runs[0][9],
-                request_count: runs[0][7], grounded_search_query_count: runs[0][8],
-                status: runs[0][2] } : null;
           return null;
         },
         async run() {
