@@ -442,7 +442,8 @@ test("13. scheduled job keeps hourly full work and adds bounded five-minute auto
   assert.doesNotMatch(worker, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
   assert.match(worker, /tavilyApiKey: env\.TAVILY_API_KEY/);
   assert.match(worker, /internetTransport:\s*"TAVILY_ONLY"/);
-  assert.match(wrangler, /"crons": \["\*\/5 \* \* \* \*"\]/);
+  assert.deepEqual(JSON.parse(wrangler).triggers.crons, ["*/5 * * * *", "* * * * *"]);
+  assert.match(worker, /controller\\.cron === "\\* \\* \\* \\* \\*"/);
   assert.match(worker, /getUTCMinutes\(\) === 0/);
   const fastBranch = worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"), worker.indexOf("const [summary, editorial"));
   assert.match(fastBranch, /runScheduledAdminPush\(env\)/);
