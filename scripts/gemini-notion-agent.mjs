@@ -555,6 +555,7 @@ async function runAgent() {
   const duplicateCandidates = [];
   let repeatedTurns = 0;
   let finalizing = false;
+  let completionRecovery = false;
   const unresolvedRejections = new Set();
   const candidateKey = args => JSON.stringify([normalize(args.name), normalize(args.city), args.start_date ?? "", normalize(args.organization)]);
   const identity = args => ({ ...args, website: args.website_url, source: args.source_url });
@@ -565,11 +566,29 @@ async function runAgent() {
     const { calls, status } = inspectInteraction(response, "functions");
     if (status === "completed") {
       if (unresolvedRejections.size) throw Error("AGENT_CANDIDATE_UNRESOLVED");
+      const answer = response.steps.filter(step => step.type === "model_output")
+        .flatMap(step => step.content ?? []).filter(block => block.type === "text")
+        .map(block => block.text).join("").trim();
       if (finalizing) {
-        const text = response.steps.filter(step => step.type === "model_output")
-          .flatMap(step => step.content ?? []).filter(block => block.type === "text")
-          .map(block => block.text).join("").trim();
-        if (text !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+        if (answer !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+      } else if (metrics.concept_count === 0) {
+        // A model may finish immediately after search_notion. This is not a
+        // researched outcome. Continue the SAME interaction exactly once.
+        if (!completionRecovery) {
+          if (turn === AGENT_TURNS_LIMIT) throw Error("AGENT_TURN_LIMIT");
+          completionRecovery = true;
+          response = await gemini({
+            input: "Vyhľadávanie a kontrola duplicít nie sú dokončením úlohy. Vyhodnoť všetkých doložených kandidátov z predchádzajúceho Google Search. Ak existuje bezpečne overený a neduplicitný kandidát, pokračuj search_notion (ak ešte neprebehlo) a potom create_notion_draft. Ak neexistuje, skonči presne jedným JSON objektom bez ďalšieho textu: {\\"outcome\\":\\"no_relevant_candidate\\"} alebo {\\"outcome\\":\\"duplicate_only\\"} alebo {\\"outcome\\":\\"insufficient_evidence\\"} alebo {\\"outcome\\":\\"exhausted\\"}. Nevytváraj záznam bez overenia.",
+            previous_interaction_id: response.id, tools: functionTools,
+          }, "functions");
+          continue;
+        }
+        const allowed = new Set(["no_relevant_candidate", "duplicate_only", "insufficient_evidence", "exhausted"]);
+        let outcome;
+        try { outcome = JSON.parse(answer)?.outcome; } catch { /* fail closed */ }
+        if (!allowed.has(outcome) || Object.keys(JSON.parse(answer)).length !== 1)
+          throw Error("AGENT_OUTCOME_MISSING");
+        console.log("Agent no-draft outcome:", outcome);
       }
       return;
     }
