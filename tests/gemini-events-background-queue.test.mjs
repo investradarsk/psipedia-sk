@@ -134,7 +134,7 @@ test("Cron consumes only manually queued Gemini jobs when opt-in is enabled",()=
 test("0129 changes the hard D1 constraint to one RUNNING job, with multiple waiting categories", () => {
   const sqlite = new DatabaseSync(":memory:");
   try {
-    sqlite.exec("CREATE TABLE gemini_automation_settings(id INTEGER PRIMARY KEY); INSERT INTO gemini_automation_settings VALUES (1),(2),(3);");
+    sqlite.exec("CREATE TABLE gemini_automation_settings(id INTEGER PRIMARY KEY); CREATE TABLE gemini_automation_runs(id INTEGER PRIMARY KEY); INSERT INTO gemini_automation_settings VALUES (1),(2),(3);");
     sqlite.exec(readFileSync(new URL("../drizzle/0119_gemini_manual_background_jobs.sql",import.meta.url),"utf8"));
     sqlite.exec(readFileSync(new URL("../drizzle/0129_gemini_external_manual_queue.sql",import.meta.url),"utf8"));
     const add = sqlite.prepare("INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status,error_code) VALUES (?,?,?,?)");
