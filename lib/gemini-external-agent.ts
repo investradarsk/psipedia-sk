@@ -1,5 +1,6 @@
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { nextGeminiRunAt } from "./gemini-automation-schedule.ts";
 
 export type GeminiExternalEnv = {
   GEMINI_EXTERNAL_AGENT_ENABLED?: string;
@@ -18,13 +19,13 @@ export const externalAgentScheduledEnabled = (env: GeminiExternalEnv) =>
 
 export class ExternalAgentError extends Error {
   readonly code: "DISABLED" | "CONFIG" | "CATEGORY" | "SETTING" |
-    "LIMIT" | "BUDGET" | "BUSY" | "DISPATCH";
+    "LIMIT" | "BUSY" | "DISPATCH";
   constructor(code: ExternalAgentError["code"]) {
     super(code);
     this.code = code;
   }
 }
-type Setting = { id: number; max_new_concepts: number; cadence_minutes: number };
+type Setting = { id: number; max_new_concepts: number; cadence_minutes: number; weekly_day: number | null; enabled: number; next_run_at: string | null };
 const DISPATCH_URL = "https://api.github.com/repos/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml/dispatches";
 
 export async function dispatchExternalGemini(input: {
@@ -39,22 +40,15 @@ export async function dispatchExternalGemini(input: {
     throw new ExternalAgentError("CONFIG");
   if (!getGeminiCatalogItem(stableKey) || !externalWorkerCategorySupported(stableKey)) throw new ExternalAgentError("CATEGORY");
   const setting = await db.prepare(
-    "SELECT id,max_new_concepts,cadence_minutes FROM gemini_automation_settings WHERE stable_key=?"
+    "SELECT id,max_new_concepts,cadence_minutes,weekly_day,enabled,next_run_at FROM gemini_automation_settings WHERE stable_key=?"
   ).bind(stableKey).first<Setting>();
   if (!setting) throw new ExternalAgentError("SETTING");
   if (setting.max_new_concepts <= 0) throw new ExternalAgentError("LIMIT");
-  // Fail-closed monthly request fuse, including legacy manual queue entries.
-  // Conservative 10 dispatches/month; actual spend must ALSO be limited at Google.
-  const beginning = new Date(input.now ?? new Date());
-  beginning.setUTCDate(1);
-  beginning.setUTCHours(0, 0, 0, 0);
-  const usage = await db.prepare(
-    "SELECT COUNT(*) AS total FROM gemini_manual_background_jobs WHERE created_at >= ?"
-  ).bind(beginning.toISOString()).first<{ total: number }>();
-  if ((usage?.total ?? 0) >= 10) throw new ExternalAgentError("BUDGET");
-
   const now = input.now ?? new Date();
   const startedAt = now.toISOString();
+  if (trigger === "SCHEDULED" && (!setting.enabled || !setting.next_run_at || setting.next_run_at > startedAt))
+    throw new ExternalAgentError("SETTING");
+  const dueAt = trigger === "SCHEDULED" ? setting.next_run_at : null;
   const marker = trigger === "SCHEDULED" ? "EXT_SCHEDULED" : "EXT_MANUAL";
   // Insert directly as RUNNING. The old manual Cron runner only claims QUEUED jobs.
   // Existing unique active-job index also serializes the external worker globally.
@@ -69,6 +63,21 @@ export async function dispatchExternalGemini(input: {
   }
   const jobId = Number(inserted.meta.last_row_id);
   if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new ExternalAgentError("BUSY");
+  // Reserve the exact due occurrence before making an uncertain paid network call.
+  // The existing global unique RUNNING/QUEUED index serializes all categories.
+  if (dueAt) {
+    const next = nextGeminiRunAt(new Date(dueAt), setting.cadence_minutes, setting.weekly_day, now);
+    const reserved = await db.prepare(
+      "UPDATE gemini_automation_settings SET next_run_at=?,updated_at=? " +
+      "WHERE id=? AND enabled=1 AND next_run_at=? AND max_new_concepts>0"
+    ).bind(next, startedAt, setting.id, dueAt).run();
+    if ((reserved.meta.changes ?? 0) !== 1) {
+      await db.prepare(
+        "UPDATE gemini_manual_background_jobs SET status='FAILED',error_code='EXT_SETTING_CHANGED',completed_at=? WHERE id=? AND status='RUNNING'"
+      ).bind(startedAt, jobId).run();
+      throw new ExternalAgentError("SETTING");
+    }
+  }
   let status: number | null = null;
   try {
     const response = await fetch(DISPATCH_URL, {
@@ -92,12 +101,6 @@ export async function dispatchExternalGemini(input: {
     });
     status = response.status;
     if (status !== 200 && status !== 204) throw new Error("Dispatch was rejected");
-    if (trigger === "SCHEDULED") {
-      const next = new Date(now.getTime() + setting.cadence_minutes * 60000).toISOString();
-      await db.prepare(
-        "UPDATE gemini_automation_settings SET next_run_at=?,updated_at=? WHERE id=?"
-      ).bind(next, startedAt, setting.id).run();
-    }
     return { jobId, status: "QUEUED" };
   } catch {
     // Ambiguous response might have dispatched. Never auto-retry the same paid job.
@@ -105,7 +108,7 @@ export async function dispatchExternalGemini(input: {
     await db.prepare(
       "UPDATE gemini_manual_background_jobs SET status=?,error_code=?,completed_at=? WHERE id=? AND status='RUNNING'"
     ).bind(rejected ? "FAILED" : "RUNNING",
-      rejected ? "EXT_DISPATCH_REJECTED" : "EXT_DISPATCH_UNCERTAIN",
+      rejected ? "EXT_DISPATCH_REJECTED" : (trigger === "SCHEDULED" ? "EXT_SCHEDULED_UNCERTAIN" : "EXT_MANUAL_UNCERTAIN"),
       rejected ? startedAt : null, jobId).run();
     throw new ExternalAgentError("DISPATCH");
   }
@@ -118,12 +121,22 @@ export async function sweepExternalGemini(input: {
   if (!externalAgentScheduledEnabled(input.env))
     return { dispatched: 0, reason: "SCHEDULE_DISABLED" };
   const now = input.now ?? new Date();
-  const due = await input.db.prepare(
+  const active = await input.db.prepare(
+    "SELECT claimed_at FROM gemini_manual_background_jobs WHERE status='RUNNING' ORDER BY id ASC LIMIT 1"
+  ).first<{ claimed_at: string | null }>();
+  if (active) {
+    const stale = active.claimed_at && now.getTime() - new Date(active.claimed_at).getTime() > 2 * 60 * 60_000;
+    return { dispatched: 0, reason: stale ? "STALLED_REVIEW" : "BUSY" };
+  }
+  // An as-yet unsupported category must not starve the other due categories.
+  // Keep its original due slot for when the worker's category contract lands.
+  const dueRows = await input.db.prepare(
     "SELECT stable_key FROM gemini_automation_settings WHERE enabled=1 " +
     "AND max_new_concepts>0 AND next_run_at IS NOT NULL AND next_run_at<=? " +
-    "ORDER BY next_run_at ASC,id ASC LIMIT 1"
-  ).bind(now.toISOString()).first<{ stable_key: string }>();
-  if (!due) return { dispatched: 0 };
+    "ORDER BY next_run_at ASC,id ASC LIMIT 22"
+  ).bind(now.toISOString()).all<{ stable_key: string }>();
+  const due = (dueRows.results ?? []).find((row) => externalWorkerCategorySupported(row.stable_key));
+  if (!due) return { dispatched: 0, ...(dueRows.results?.length ? { reason: "CATEGORY_NOT_READY" } : {}) };
   try {
     await dispatchExternalGemini({
       db: input.db, env: input.env, stableKey: due.stable_key, trigger: "SCHEDULED", now,
@@ -172,12 +185,12 @@ export async function completeExternalGemini(input: {
   if (!job || job.status !== "RUNNING" || !job.error_code.startsWith("EXT_"))
     return { status: 409, ok: false };
   const now = new Date().toISOString();
+  const trigger = job.error_code.startsWith("EXT_SCHEDULED") ? "SCHEDULED" : "MANUAL";
   const updated = await input.db.prepare(
     "UPDATE gemini_manual_background_jobs SET status=?,error_code=?,completed_at=? " +
     "WHERE id=? AND status='RUNNING' AND error_code LIKE 'EXT_%'"
   ).bind(status, code ?? null, now, jobId).run();
   if (updated.meta.changes !== 1) return { status: 409, ok: false };
-  const trigger = job.error_code === "EXT_SCHEDULED" ? "SCHEDULED" : "MANUAL";
   const run = await input.db.prepare(
     "INSERT INTO gemini_automation_runs(setting_id,trigger_type,status,started_at,completed_at," +
     "model,request_count,grounded_search_query_count,candidate_count,duplicate_count,concept_count," +
@@ -185,7 +198,9 @@ export async function completeExternalGemini(input: {
   ).bind(job.setting_id, trigger, status,
     now, now, "gemini-3.8-flash", requests, searches, Number(count) + Number(duplicates),
     duplicates, count, status === "SUCCESS" ? 0 : 1,
-    status === "SUCCESS" ? null : "PROVIDER_ERROR").run();
+    status === "SUCCESS" ? null : (
+      ["RATE_LIMITED", "RESOURCE_EXHAUSTED", "QUOTA_EXCEEDED", "INSUFFICIENT_CREDIT"].includes(String(code))
+        ? "RATE_LIMITED" : "PROVIDER_ERROR")).run();
   const runId = Number(run.meta.last_row_id);
   await input.db.prepare(
     "UPDATE gemini_manual_background_jobs SET run_id=? WHERE id=?"

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const [settings, runs] = await Promise.all([listGeminiSettings(db), listRecentGeminiRuns(db)]);
     return Response.json({ settings, runs }, { headers: NO_STORE });
   } catch {
-    return Response.json({ error: "Gemini konfigurácie nie sú dostupné. Over migráciu 0113." }, { status: 503, headers: NO_STORE });
+    return Response.json({ error: "Gemini konfigurácie nie sú dostupné. Over migrácie 0113 a 0126." }, { status: 503, headers: NO_STORE });
   }
 }
 
@@ -42,6 +42,6 @@ export async function PUT(request: Request) {
     if (error instanceof GeminiSettingsValidationError) {
       return Response.json({ error: error.message }, { status: 400, headers: NO_STORE });
     }
-    return Response.json({ error: "Nastavenia sa nepodarilo uložiť. Over migráciu 0113." }, { status: 503, headers: NO_STORE });
+    return Response.json({ error: "Nastavenia sa nepodarilo uložiť. Over migrácie 0113 a 0126." }, { status: 503, headers: NO_STORE });
   }
 }

@@ -1,8 +1,9 @@
 import {
   geminiAutomationCatalog, getGeminiCatalogItem,
-  GEMINI_DEFAULT_CADENCE_MINUTES, GEMINI_DEFAULT_MAX_NEW_CONCEPTS,
+  GEMINI_DEFAULT_MAX_NEW_CONCEPTS,
 } from "./gemini-automation-catalog.ts";
 import type { GeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { recommendedGeminiCadence } from "./gemini-automation-schedule.ts";
 
 export type GeminiSettingRow = {
   id: number;
@@ -11,6 +12,7 @@ export type GeminiSettingRow = {
   subcategory: string;
   enabled: number;
   cadence_minutes: number;
+  weekly_day: number | null;
   max_new_concepts: number;
   last_run_at: string | null;
   next_run_at: string | null;
@@ -19,6 +21,7 @@ export type GeminiSettingRow = {
 export type GeminiSettingView = GeminiCatalogItem & {
   enabled: boolean;
   cadenceMinutes: number;
+  weeklyDay: number | null;
   maxNewConcepts: number;
   lastRunAt: string | null;
   nextRunAt: string | null;
@@ -29,6 +32,7 @@ export type GeminiSettingsInput = {
   stableKey: string;
   enabled: boolean;
   cadenceMinutes: number;
+  weeklyDay: number | null;
   maxNewConcepts: number;
 };
 
@@ -42,8 +46,9 @@ export function parseGeminiSettingsInput(value: unknown): GeminiSettingsInput {
     throw new GeminiSettingsValidationError("Neplatné nastavenia.");
   }
   const object = value as Record<string, unknown>;
-  const expected = ["stable_key", "enabled", "cadence_minutes", "max_new_concepts"];
-  if (Object.keys(object).some((key) => !expected.includes(key)) || expected.some((key) => !Object.hasOwn(object, key))) {
+  const expected = ["stable_key", "enabled", "cadence_minutes", "weekly_day", "max_new_concepts"];
+  if (Object.keys(object).some((key) => !expected.includes(key)) ||
+    ["stable_key", "enabled", "cadence_minutes", "max_new_concepts"].some((key) => !Object.hasOwn(object, key))) {
     throw new GeminiSettingsValidationError("Možno upraviť iba zapnutie, frekvenciu a počet konceptov.");
   }
   if (typeof object.stable_key !== "string" || !getGeminiCatalogItem(object.stable_key)) {
@@ -54,20 +59,26 @@ export function parseGeminiSettingsInput(value: unknown): GeminiSettingsInput {
   }
   const cadence = object.cadence_minutes;
   const max = object.max_new_concepts;
+  const weekday = object.weekly_day ?? null;
+  if (weekday !== null && (cadence !== 10080 || !Number.isInteger(weekday) ||
+    (weekday as number) < 1 || (weekday as number) > 7)) {
+    throw new GeminiSettingsValidationError("Deň v týždni platí iba pre týždennú frekvenciu (pondelok až nedeľa).");
+  }
   if (typeof cadence !== "number" || !Number.isSafeInteger(cadence) || cadence < 5 || cadence > 43200) {
     throw new GeminiSettingsValidationError("Frekvencia musí byť medzi 5 a 43 200 minútami.");
   }
   if (typeof max !== "number" || !Number.isSafeInteger(max) || max < 0 || max > 100) {
     throw new GeminiSettingsValidationError("Maximálny počet konceptov musí byť medzi 0 a 100.");
   }
-  return { stableKey: object.stable_key, enabled: object.enabled, cadenceMinutes: cadence, maxNewConcepts: max };
+  return { stableKey: object.stable_key, enabled: object.enabled, cadenceMinutes: cadence, weeklyDay: weekday as number | null, maxNewConcepts: max };
 }
 
 export function geminiSettingView(item: GeminiCatalogItem, row?: GeminiSettingRow | null): GeminiSettingView {
   return {
     ...item,
     enabled: row ? row.enabled === 1 : false,
-    cadenceMinutes: row?.cadence_minutes ?? GEMINI_DEFAULT_CADENCE_MINUTES,
+    cadenceMinutes: row?.cadence_minutes ?? recommendedGeminiCadence(item.stableKey),
+    weeklyDay: row?.weekly_day ?? null,
     maxNewConcepts: row?.max_new_concepts ?? GEMINI_DEFAULT_MAX_NEW_CONCEPTS,
     lastRunAt: row?.last_run_at ?? null,
     nextRunAt: row?.next_run_at ?? null,

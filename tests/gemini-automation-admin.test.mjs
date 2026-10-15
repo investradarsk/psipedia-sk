@@ -16,6 +16,7 @@ import {
   getGeminiSetting, listGeminiSettings, listRecentGeminiRuns, saveGeminiSetting,
 } from "../lib/gemini-automation-admin-store.ts";
 import { classifyChangedFiles } from "../scripts/ci-scope.mjs";
+import { recommendedGeminiCadence } from "../lib/gemini-automation-schedule.ts";
 import { findActiveAdminNavigationItem, getAdminBreadcrumbs } from "../lib/admin-navigation.ts";
 
 const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -25,6 +26,7 @@ const migration = source("drizzle/0113_gemini_automation_foundation.sql");
 function fixture() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(migration);
+  sqlite.exec(source("drizzle/0126_gemini_scheduler_admin_v2.sql"));
   return {
     sqlite,
     db: {
@@ -97,7 +99,7 @@ test("E: missing setting uses disabled defaults; GET/list never seeds DB", async
   const list = await listGeminiSettings(db);
   assert.equal(list.length, geminiAutomationCatalog.length);
   assert.ok(list.every((row) => row.enabled === false && row.saved === false
-    && row.cadenceMinutes === 1440 && row.maxNewConcepts === 5 && row.nextRunAt === null));
+    && row.cadenceMinutes === recommendedGeminiCadence(row.stableKey) && row.maxNewConcepts === 5 && row.nextRunAt === null));
   assert.deepEqual(await getGeminiSetting(db, geminiAutomationCatalog[0].stableKey), list[0]);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM gemini_automation_settings").get().n, 0);
   sqlite.close();
