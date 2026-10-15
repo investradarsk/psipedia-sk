@@ -145,6 +145,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0123_event_organization_structured_address.sql",
     "0124_gemini_notion_review_locks.sql",
     "0125_gemini_category_prompts.sql",
+    "0126_gemini_scheduler_admin_v2.sql",
   ]);
 });
 
