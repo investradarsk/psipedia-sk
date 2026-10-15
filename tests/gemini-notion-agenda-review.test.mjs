@@ -378,3 +378,13 @@ test("Lost/Found only accepts canonical data source and matching Notion parent",
     assert.equal(f.writes.length, 0);
   });
 });
+
+
+test("published help cases are never reclassified as Gemini drafts", async () => {
+  const f = fixture("help.zbierky");
+  f.value.properties["Psipedia stav"] = rich("published");
+  await mockedFetch(f.request, async () => {
+    assert.deepEqual(await listGeminiAgendaDrafts(f.env, "help.zbierky"), []);
+    assert.equal(f.writes.length, 0);
+  });
+});
