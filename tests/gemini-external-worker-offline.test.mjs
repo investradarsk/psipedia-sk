@@ -408,8 +408,16 @@ for (const key of allWorkerKeys) {
     assert.equal(run.exitCode, 0, run.stderr);
     assert.equal(run.callback.status, "SUCCESS");
     assert.equal(run.callback.concept_count, 0);
+    assert.equal(run.callback.outcome_code, "no_relevant_candidate");
     assert.deepEqual(run.counts, { geminiCalls: 4, notionPosts: 0, callbacks: 1 });
     assert.ok(run.callback.request_count <= 9);
     assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
   });
 }
+
+test("all four no-draft terminal reasons stay callback-safe, without provider text", () => {
+  const worker = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  assert.match(worker, /outcome_code: status === "SUCCESS" && metrics.concept_count === 0/);
+  assert.match(worker, /parseNoDraftOutcome\(answer\)/);
+  assert.doesNotMatch(worker, /outcome_code: answer/);
+});
