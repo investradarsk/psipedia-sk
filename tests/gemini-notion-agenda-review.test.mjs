@@ -313,6 +313,7 @@ test("existing Notion values outside sync contract are visible but never editabl
     const custom = draft.fields.find(field => field.name === "Príloha Notion");
     assert.equal(custom?.synced, false);
     assert.equal(custom?.editable, false);
+    assert.equal(custom?.value, "súbor");
     await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "save", lastEditedAt: draft.lastEditedAt, fields: { "Príloha Notion": "should fail" },
     }, "admin@example.sk"), { code: "STATE" });
@@ -333,6 +334,7 @@ test("rich-text formatting and date ranges remain read-only to prevent lossy rou
     const draft = (await listGeminiAgendaDrafts(f.env, "events.vystavy"))[0];
     assert.equal(draft.fields.find(item => item.name === "Popis")?.editable, false);
     assert.equal(draft.fields.find(item => item.name === "Začiatok")?.editable, false);
+    assert.equal(draft.fields.find(item => item.name === "Začiatok")?.value, "2026-10-22 – 2026-10-23");
     await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "save", lastEditedAt: draft.lastEditedAt, fields: { "Začiatok": "2026-10-25" },
     }, "admin@example.sk"), { code: "STATE" });
