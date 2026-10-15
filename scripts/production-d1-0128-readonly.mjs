@@ -81,7 +81,7 @@ async function main() {
     readFile(path.join(root, "drizzle", TARGET_0128), "utf8"),
     readdir(path.join(root, "drizzle")),
   ]);
-  const canonicalNames = allFiles.filter(name => /^\\d{4}_[a-z0-9_]+\\.sql$/.test(name)).sort();
+  const canonicalNames = allFiles.filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort();
   const outcome = await audit0128({ mode: process.env.D1_0128_AUDIT_MODE,
     resources: JSON.parse(resources), migration, canonicalNames, env: process.env });
   process.stdout.write(JSON.stringify(outcome, null, 2) + "\n");
