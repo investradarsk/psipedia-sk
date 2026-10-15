@@ -80,6 +80,15 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
   // Missing 0129 never falls back to unguarded external publishing.
   await requirePublisherSchema(db);
   const timestamp=clock(now);
+  // Recover a successful Graph response that was already recorded before a
+  // subsequent metadata write failed. Never issue another Meta request.
+  await db.prepare(`UPDATE facebook_image_posts SET status='published',
+      facebook_post_id=(SELECT a.remote_id FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id),
+      published_at=(SELECT a.completed_at FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id),
+      updated_at=?,updated_by='facebook-image-publisher-reconcile',version=version+1
+      WHERE status='scheduled'
+      AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED' AND a.remote_id IS NOT NULL)`)
+      .bind(timestamp).run();
   const candidates=await db.prepare(`SELECT id,image_key,caption,version,scheduled_at,approval_status FROM facebook_image_posts
     WHERE status='scheduled' AND scheduled_at<=? AND image_key<>''
       AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
@@ -100,16 +109,9 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
        RETURNING post_id`).bind(timestamp,item.id,item.version,timestamp,item.image_key).first<{post_id:string}>();
     if(!claimed)continue;
     summary.claimed++;
+    let remote:string;
     try {
-      const remote=await publishPhotoToMeta({imageKey:item.image_key,caption:item.caption},bindings,fetcher);
-      const done=clock(new Date());
-      // Metadata first: a failed DB write leaves SENDING; no automatic retry.
-      await db.prepare("UPDATE facebook_image_publish_attempts SET state='PUBLISHED',remote_id=?,completed_at=? WHERE post_id=? AND state='SENDING'")
-        .bind(remote,done,item.id).run();
-      await db.prepare(`UPDATE facebook_image_posts SET status='published',facebook_post_id=?,published_at=?,version=version+1,updated_at=?,updated_by='facebook-image-publisher' WHERE id=? AND status='scheduled'
-        AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED')`)
-        .bind(remote,done,done,item.id).run();
-      summary.published++;
+      remote=await publishPhotoToMeta({imageKey:item.image_key,caption:item.caption},bindings,fetcher);
     }catch(error){
       const message=error instanceof Error ? error.message : "";
       // Never persist arbitrary exception text: runtimes/providers may echo tokens.
@@ -119,7 +121,17 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       await db.prepare("UPDATE facebook_image_publish_attempts SET state='UNCERTAIN',completed_at=?,error_code=? WHERE post_id=? AND state='SENDING'")
         .bind(clock(new Date()),code,item.id).run();
       summary.uncertain++;
+      continue;
     }
+    const done=clock(new Date());
+    // Metadata first: a failed DB write leaves SENDING; no automatic retry.
+    // If the second write fails, a later sweep reconciles from the saved Meta ID.
+    await db.prepare("UPDATE facebook_image_publish_attempts SET state='PUBLISHED',remote_id=?,completed_at=? WHERE post_id=? AND state='SENDING'")
+      .bind(remote,done,item.id).run();
+    await db.prepare(`UPDATE facebook_image_posts SET status='published',facebook_post_id=?,published_at=?,version=version+1,updated_at=?,updated_by='facebook-image-publisher' WHERE id=? AND status='scheduled'
+      AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED')`)
+      .bind(remote,done,done,item.id).run();
+    summary.published++;
   }
   return summary;
 }
