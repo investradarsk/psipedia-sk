@@ -33,7 +33,7 @@ const outcomeLabels: Record<string, string> = {
 };
 
 function jobStatus(job: GeminiQueuedJob) {
-  if (job.status === "QUEUED") return "Čaká na spustenie";
+  if (job.status === "QUEUED") return "V poradovníku — čaká na spustenie";
   if (job.status === "RUNNING") return "Vyhľadáva / spracúva výsledok";
   if (job.status === "FAILED") return "Zlyhalo: " + (job.error_code ?? "neznáma chyba");
   if (job.run_id == null) return "Neúplný zápis výsledku — vyžaduje kontrolu";
@@ -132,9 +132,16 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
         credentials: "same-origin",
         body: JSON.stringify({ stable_key: setting.stableKey }),
       });
-      const data = await response.json() as { error?: string; runId?: number; status?: string;jobId?:number } & Partial<PilotResult>;
+      const data = await response.json() as { error?: string; runId?: number; status?: string;jobId?:number; started?:boolean; alreadyQueued?:boolean } & Partial<PilotResult>;
       if (response.ok && data.status === "QUEUED" && Number.isInteger(data.jobId)) {
-        setQueuedMessage("Gemini úloha #"+data.jobId+" bola odoslaná " + (externalEnabled ? "na GitHub" : "na pozadie") + ". Stav uvidíš v histórii úloh.");
+        const label = "Gemini úloha #" + data.jobId;
+        setQueuedMessage(externalEnabled
+          ? data.alreadyQueued
+            ? label + " už čaká v poradovníku alebo beží. Nová platená úloha nevznikla."
+            : data.started
+              ? label + " sa odoslala na GitHub a začína pracovať. Stav uvidíš v histórii."
+              : label + " bola zaradená do poradovníka. Po dokončení predchádzajúcej úlohy sa automaticky spustí (kontrola každých 5 minút)."
+          : label + " bola zaradená na spracovanie na pozadí. Stav uvidíš v histórii.");
       } else if (!response.ok || data.status !== "SUCCESS") {
         setPilotError(data.error ?? "Gemini beh zlyhal. Skontroluj históriu behov.");
       } else {
@@ -229,15 +236,15 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
       {(canManuallyRun || setting.section === "help") && (
         <div className={styles.pilot}>
           <strong>{externalEnabled ? "Spustiť externého Gemini pracovníka" : "Manuálne spustenie Gemini"}</strong>
-          <p>{externalEnabled ? "GitHub Actions · maximálne 5 konceptov · zápis iba do Notionu · vyžaduje zvlášť povolené platené volania na GitHube." : "Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje."}</p>
+          <p>{externalEnabled ? "GitHub Actions · úlohy sa radia do poradovníka a spúšťajú po jednej · najviac 5 konceptov na beh · zápis iba do Notionu · platený režim musí byť povolený na GitHube." : "Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje."}</p>
           {!setting.saved && <p>Pred spustením najprv ulož nastavenia tejto karty.</p>}
           {!canManuallyRun && <p>Pre túto kategóriu musí byť povolený externý Gemini pracovník.</p>}
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
-          {confirming && <p role="alert">{externalEnabled ? "Potvrď odoslanie do GitHub Actions. Ak je platený režim na GitHube povolený, Gemini môže vykonať viacero platených API volaní a vytvoriť koncepty priamo v Notione." : "Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty."}</p>}
+          {confirming && <p role="alert">{externalEnabled ? "Potvrď zaradenie do poradovníka. Ak je platený režim na GitHube povolený, po uvoľnení pracovníka sa automaticky vykonajú platené Gemini volania a môžu vzniknúť koncepty v Notione." : "Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty."}</p>}
           <div className={styles.pilotActions}>
             <button type="button" className="admin-primary-action"
               disabled={!canPilot} onClick={onPilotClick}>
-              {running ? "Spúšťam vyhľadávanie…" : confirming ? "Potvrdiť a spustiť" : "Spustiť vyhľadávanie teraz"}
+              {running ? "Zaraďujem úlohu…" : confirming ? (externalEnabled ? "Potvrdiť a zaradiť" : "Potvrdiť a spustiť") : (externalEnabled ? "Zaradiť vyhľadávanie" : "Spustiť vyhľadávanie teraz")}
             </button>
             {confirming && (
               <button type="button" disabled={running} onClick={() => setConfirming(false)}>

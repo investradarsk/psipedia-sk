@@ -5,7 +5,7 @@ import {
   GeminiPilotGuardError, parseGeminiDirectoryRunBody, runGeminiDirectoryCategory,
 } from "@/lib/gemini-automation-pilot";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
-import { dispatchExternalGemini, externalAgentEnabled, ExternalAgentError } from "@/lib/gemini-external-agent";
+import { dispatchPendingExternalGemini, enqueueExternalGemini, externalAgentEnabled, ExternalAgentError } from "@/lib/gemini-external-agent";
 import {enqueueGeminiManualBackgroundJob,geminiManualBackgroundEnabled,GeminiQueueGuardError} from "@/lib/gemini-automation-background-queue";
 import { parseGeminiEventRunBody, runGeminiEventCategory } from "@/lib/gemini-automation-event-runner";
 import type { NotionEventsHelpSyncBindings } from "@/lib/notion-events-help-sync";
@@ -30,10 +30,15 @@ export async function POST(request: Request) {
     if (!catalog) throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
     const database = requireGeminiAdminD1() as D1Database;
     if (externalAgentEnabled(env)) {
-      const queued = await dispatchExternalGemini({
-        db: database, env, stableKey: key as string, trigger: "MANUAL",
+      const queued = await enqueueExternalGemini({
+        db: database, env, stableKey: key as string,
       });
-      return Response.json(queued, { status: 202, headers: NO_STORE });
+      // Immediately start the oldest approved job if the worker is idle.
+      // Otherwise it stays in the D1 queue for the next five-minute Cron.
+      const started = await dispatchPendingExternalGemini({ db: database, env });
+      return Response.json({
+        ...queued, started: started.dispatched === 1 && started.jobId === queued.jobId,
+      }, { status: 202, headers: NO_STORE });
     }
     if (geminiManualBackgroundEnabled(env as unknown as {GEMINI_ASYNC_MANUAL_ENABLED?:string})) {
       const queued=await enqueueGeminiManualBackgroundJob({
@@ -67,7 +72,7 @@ export async function POST(request: Request) {
         CATEGORY: "Neznáma podkategória.",
         SETTING: "Najprv ulož nastavenia podkategórie.",
         LIMIT: "Maximálny počet konceptov musí byť väčší než nula.",
-        BUSY: "Ďalšia Gemini úloha už beží. Najprv skontroluj jej výsledok.",
+        BUSY: "Poradovník Gemini je naplnený alebo sa práve mení. Skús požiadavku zopakovať po aktualizácii stránky.",
         DISPATCH: "Spustenie na GitHube nie je potvrdené. Pred opakovaním over úlohu v histórii.",
       };
       return Response.json({ error: messages[error.code], code: "EXTERNAL_" + error.code }, {

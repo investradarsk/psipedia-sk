@@ -32,7 +32,7 @@ const DISPATCH_URL = "https://api.github.com/repos/investradarsk/psipedia-sk/act
 
 export async function dispatchExternalGemini(input: {
   db: D1Database; env: GeminiExternalEnv; stableKey: string;
-  trigger: "MANUAL" | "SCHEDULED"; now?: Date;
+  trigger: "MANUAL" | "SCHEDULED"; now?: Date; queuedJobId?: number;
 }): Promise<{ jobId: number; status: "QUEUED" }> {
   const { db, env, stableKey, trigger } = input;
   if (!externalAgentEnabled(env) ||
@@ -60,21 +60,36 @@ export async function dispatchExternalGemini(input: {
     throw new ExternalAgentError("SETTING");
   const dueAt = trigger === "SCHEDULED" ? setting.next_run_at : null;
   const marker = trigger === "SCHEDULED" ? "EXT_SCHEDULED" : "EXT_MANUAL";
-  // Insert directly as RUNNING. The old manual Cron runner only claims QUEUED jobs.
-  // Existing unique active-job index also serializes the external worker globally.
-  let inserted;
+  // The running-only unique D1 index is the concurrency authority. Older
+  // legacy jobs are never dispatched by the external queue consumer.
+  let jobId: number;
   try {
-    inserted = await db.prepare(
-      "INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status,error_code,created_at,claimed_at) " +
-      "VALUES (?,?,'RUNNING',?,?,?)"
-    ).bind(setting.id, stableKey, marker, startedAt, startedAt).run();
-  } catch {
+    if (input.queuedJobId !== undefined) {
+      if (trigger !== "MANUAL" || !Number.isSafeInteger(input.queuedJobId) || input.queuedJobId < 1)
+        throw new ExternalAgentError("SETTING");
+      const claimed = await db.prepare(
+        "UPDATE gemini_manual_background_jobs SET status='RUNNING',claimed_at=?,error_code=? " +
+        "WHERE id=? AND setting_id=? AND stable_key=? AND status='QUEUED' AND error_code='EXT_MANUAL_PENDING' " +
+        "AND NOT EXISTS (SELECT 1 FROM gemini_manual_background_jobs WHERE status='RUNNING') " +
+        "AND NOT EXISTS (SELECT 1 FROM gemini_manual_background_jobs WHERE status='QUEUED' " +
+        "AND error_code='EXT_MANUAL_PENDING' AND id<?)"
+      ).bind(startedAt, marker, input.queuedJobId, setting.id, stableKey, input.queuedJobId).run();
+      if (claimed.meta.changes !== 1) throw new ExternalAgentError("BUSY");
+      jobId = input.queuedJobId;
+    } else {
+      const inserted = await db.prepare(
+        "INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status,error_code,created_at,claimed_at) " +
+        "VALUES (?,?,'RUNNING',?,?,?)"
+      ).bind(setting.id, stableKey, marker, startedAt, startedAt).run();
+      jobId = Number(inserted.meta.last_row_id);
+      if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new ExternalAgentError("BUSY");
+    }
+  } catch (error) {
+    if (error instanceof ExternalAgentError && error.code === "SETTING") throw error;
     throw new ExternalAgentError("BUSY");
   }
-  const jobId = Number(inserted.meta.last_row_id);
-  if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new ExternalAgentError("BUSY");
   // Reserve the exact due occurrence before making an uncertain paid network call.
-  // The existing global unique RUNNING/QUEUED index serializes all categories.
+  // The running-only partial unique index serializes all categories.
   if (dueAt) {
     const next = nextGeminiRunAt(new Date(dueAt), setting.cadence_minutes, setting.weekly_day, now);
     const reserved = await db.prepare(
@@ -125,12 +140,90 @@ export async function dispatchExternalGemini(input: {
   }
 }
 
+
+/**
+ * Every queued manual job represents one explicit authenticated admin approval.
+ * Enqueuing does NOT call Gemini or GitHub. Maximum one outstanding request per
+ * category (D1 partial unique index), with at most 22 manual requests in line.
+ */
+export async function enqueueExternalGemini(input: {
+  db: D1Database; env: GeminiExternalEnv; stableKey: string; now?: Date;
+}): Promise<{ jobId: number; status: "QUEUED"; alreadyQueued: boolean }> {
+  const { db, env, stableKey } = input;
+  if (!externalAgentEnabled(env)) throw new ExternalAgentError("DISABLED");
+  if (!env.GITHUB_ACTIONS_DISPATCH_TOKEN || !env.GEMINI_AGENT_CALLBACK_SECRET)
+    throw new ExternalAgentError("CONFIG");
+  if (!getGeminiCatalogItem(stableKey) || !externalWorkerCategorySupported(stableKey))
+    throw new ExternalAgentError("CATEGORY");
+  const setting = await db.prepare(
+    "SELECT id,max_new_concepts FROM gemini_automation_settings WHERE stable_key=?"
+  ).bind(stableKey).first<{ id: number; max_new_concepts: number }>();
+  if (!setting) throw new ExternalAgentError("SETTING");
+  if (setting.max_new_concepts <= 0) throw new ExternalAgentError("LIMIT");
+  try {
+    const prompt = await getGeminiCategoryPrompt(db, stableKey);
+    if (!prompt?.effectivePrompt || prompt.effectivePrompt.length > 6000)
+      throw Error("PROMPT_INVALID");
+  } catch { throw new ExternalAgentError("CONFIG"); }
+  const findExisting = () => db.prepare(
+    "SELECT id FROM gemini_manual_background_jobs WHERE stable_key=? " +
+    "AND status IN ('QUEUED','RUNNING') ORDER BY id DESC LIMIT 1"
+  ).bind(stableKey).first<{ id: number }>();
+  const existing = await findExisting();
+  if (existing) return { jobId: existing.id, status: "QUEUED", alreadyQueued: true };
+  const now = (input.now ?? new Date()).toISOString();
+  try {
+    // A bounded FIFO queue. The index prevents the same category entering twice.
+    const inserted = await db.prepare(
+      "INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status,error_code,created_at) " +
+      "SELECT ?,?,'QUEUED','EXT_MANUAL_PENDING',? WHERE " +
+      "NOT EXISTS (SELECT 1 FROM gemini_manual_background_jobs WHERE status='QUEUED' LIMIT 1 OFFSET 21)"
+    ).bind(setting.id, stableKey, now).run();
+    if (inserted.meta.changes !== 1) throw new ExternalAgentError("BUSY");
+    const jobId = Number(inserted.meta.last_row_id);
+    if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new ExternalAgentError("BUSY");
+    return { jobId, status: "QUEUED", alreadyQueued: false };
+  } catch {
+    // Another concurrent request may have won the per-category unique index.
+    const same = await findExisting();
+    if (same) return { jobId: same.id, status: "QUEUED", alreadyQueued: true };
+    throw new ExternalAgentError("BUSY");
+  }
+}
+
+/** Dispatch at most the oldest explicitly queued manual job, never a legacy
+ * QUEUED job, never in parallel with another paid RUNNING job. */
+export async function dispatchPendingExternalGemini(input: {
+  db: D1Database; env: GeminiExternalEnv; now?: Date;
+}): Promise<{ dispatched: number; jobId?: number; reason?: string }> {
+  if (!externalAgentEnabled(input.env)) return { dispatched: 0, reason: "DISABLED" };
+  const pending = await input.db.prepare(
+    "SELECT id,stable_key FROM gemini_manual_background_jobs " +
+    "WHERE status='QUEUED' AND error_code='EXT_MANUAL_PENDING' ORDER BY id ASC LIMIT 1"
+  ).first<{ id: number; stable_key: string }>();
+  if (!pending) return { dispatched: 0, reason: "EMPTY" };
+  try {
+    await dispatchExternalGemini({
+      ...input, stableKey: pending.stable_key, trigger: "MANUAL", queuedJobId: pending.id,
+    });
+    return { dispatched: 1, jobId: pending.id };
+  } catch (error) {
+    const reason = error instanceof ExternalAgentError ? error.code : "ERROR";
+    if (reason !== "BUSY" && reason !== "DISPATCH") {
+      // Invalid settings/config never cause an unattended paid retry.
+      await input.db.prepare(
+        "UPDATE gemini_manual_background_jobs SET status='FAILED',error_code=?,completed_at=? " +
+        "WHERE id=? AND status='QUEUED' AND error_code='EXT_MANUAL_PENDING'"
+      ).bind("EXT_QUEUE_" + reason, (input.now ?? new Date()).toISOString(), pending.id).run();
+    }
+    return { dispatched: 0, reason };
+  }
+}
+
 export async function sweepExternalGemini(input: {
   db: D1Database; env: GeminiExternalEnv; now?: Date;
 }): Promise<{ dispatched: number; reason?: string }> {
   if (!externalAgentEnabled(input.env)) return { dispatched: 0, reason: "DISABLED" };
-  if (!externalAgentScheduledEnabled(input.env))
-    return { dispatched: 0, reason: "SCHEDULE_DISABLED" };
   const now = input.now ?? new Date();
   const active = await input.db.prepare(
     "SELECT claimed_at FROM gemini_manual_background_jobs WHERE status='RUNNING' ORDER BY id ASC LIMIT 1"
@@ -139,6 +232,12 @@ export async function sweepExternalGemini(input: {
     const stale = active.claimed_at && now.getTime() - new Date(active.claimed_at).getTime() > 2 * 60 * 60_000;
     return { dispatched: 0, reason: stale ? "STALLED_REVIEW" : "BUSY" };
   }
+  // Explicitly queued manual work must drain even when scheduled paid discovery
+  // is disabled. Cron only consumes requests that an administrator approved.
+  const manual = await dispatchPendingExternalGemini({ ...input, now });
+  if (manual.dispatched || manual.reason !== "EMPTY") return manual;
+  if (!externalAgentScheduledEnabled(input.env))
+    return { dispatched: 0, reason: "SCHEDULE_DISABLED" };
   // An as-yet unsupported category must not starve the other due categories.
   // Keep its original due slot for when the worker's category contract lands.
   const dueRows = await input.db.prepare(
