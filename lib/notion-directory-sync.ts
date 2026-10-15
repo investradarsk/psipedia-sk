@@ -1270,7 +1270,8 @@ export async function runNotionDirectorySyncSweep(input: {
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
       throw new Error("NOTION_TARGET_PAGE_INVALID");
     const targetPage = await fetchNotionPage(input.bindings, input.targetPageId);
-    if (targetPage.parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+    const parent = (targetPage as NotionPage & { parent?: { data_source_id?: string } }).parent;
+    if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
       throw new Error("NOTION_TARGET_DATA_SOURCE_MISMATCH");
     pages = [targetPage];
   } else {
