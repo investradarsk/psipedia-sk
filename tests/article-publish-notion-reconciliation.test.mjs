@@ -133,6 +133,20 @@ test("future schedule and draft remain private and never contact Notion", async 
   }
 });
 
+test("legacy published NULL or invalid published_at is deferred across hourly times without Notion traffic", async () => {
+  for (const publishedAt of [null, "", "not-a-date"]) {
+    for (const alreadyPublished of [false, true]) {
+      const h = publicationHarness({ status: "published", publishedAt, alreadyPublished });
+      for (const now of ["2026-10-15T10:00:00Z", "2026-10-15T11:00:00Z", "2026-10-15T12:00:00Z"]) {
+        const result = await h.run(now);
+        assert.equal(result.reason, "missing-publication-date");
+        assert.equal(result.updated, false);
+      }
+      assert.deepEqual(h.calls, [], "must not look up a mapping, read/PATCH Notion or advance an acknowledgement");
+    }
+  }
+});
+
 test("unlinked or disabled publication never contacts Notion", async () => {
   const h1 = publicationHarness({ mapped: false });
   assert.equal((await h1.run()).reason, "not-linked");
@@ -227,6 +241,64 @@ test("hourly candidate query follows public scheduled visibility and rotates fai
   });
   assert.equal(calls.filter(([op]) => op === "failure-cursor").length, 1);
   assert.doesNotMatch(JSON.stringify(logs), /private_token_123/);
+});
+
+test("two hourly reconciler runs skip legacy NULL published_at and avoid a duplicate Notion PATCH", async () => {
+  const valid = publicationHarness({ status: "published", publishedAt: "2026-10-14T12:00:00.000Z" });
+  const legacy = publicationHarness({ status: "published", publishedAt: null });
+  const candidates = [
+    { id: 12, slug: "moj-clanok", portal_section: "zdravie", status: "published",
+      published_at: valid.article.publishedAt, updated_at: "version-1",
+      notion_page_id: "page-12", mapping_updated_at: "m1" },
+    { id: 13, slug: "stary-clanok", portal_section: "zdravie", status: "published",
+      published_at: null, updated_at: "version-legacy",
+      notion_page_id: "page-13", mapping_updated_at: "m2" },
+  ];
+  const queries = [];
+  const db = {
+    prepare(sql) {
+      queries.push(sql);
+      return {
+        bind(...values) {
+          if (sql.startsWith("SELECT a.id")) {
+            assert.equal(values[1], 50);
+            return {
+              async all() {
+                // Model the SQL predicate, not a prefiltered hardcoded result.
+                const excludesNull = sql.includes("a.status = 'published' AND a.published_at IS NOT NULL");
+                return { results: candidates.filter((row) => excludesNull || row.published_at !== null) };
+              },
+            };
+          }
+          throw new Error("Unexpected SQL: " + sql);
+        },
+      };
+    },
+  };
+  const seen = [];
+  const reconciliation = await compiledModule("../lib/article-publish-notion-reconciliation.ts", {
+    "@/lib/notion-article-sync": {
+      async writeBackPublishedArticleToNotion(args) {
+        seen.push(args.article.id);
+        if (args.article.id === 12) return valid.run(args.now);
+        return legacy.run(args.now);
+      },
+    },
+  });
+  const first = await reconciliation.runArticlePublishNotionReconciliation({
+    database: db, bindings: valid.bindings, now: "2026-10-15T10:00:00Z",
+  });
+  const second = await reconciliation.runArticlePublishNotionReconciliation({
+    database: db, bindings: valid.bindings, now: "2026-10-15T11:00:00Z",
+  });
+  assert.deepEqual(seen, [12, 12], "legacy published NULL rows must not be selected");
+  assert.match(queries[0], /a\\.status = 'published' AND a\\.published_at IS NOT NULL/);
+  assert.equal(first.checked, 1);
+  assert.equal(first.updated, 1);
+  assert.equal(second.checked, 1);
+  assert.equal(second.unchanged, 1);
+  assert.equal(valid.calls.filter(([action]) => action === "PATCH").length, 1);
+  assert.equal(legacy.calls.length, 0);
 });
 
 test("disabled hourly reconciliation executes no query", async () => {
