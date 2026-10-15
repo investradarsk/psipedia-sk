@@ -66,9 +66,10 @@ function schema(db) {
   };
 }
 
-test("0127 is the only newly approved target, with exact immutable preflight SHA and canonical database", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0128_facebook_image_posts.sql"]);
+test("0127 remains approved and pinned even when 0128 is a later supported target", () => {
+  assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0128_facebook_image_posts.sql");
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   const bytes = readFileSync(path.join(root, "drizzle", target));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), APPROVED_0127_SHA256);
   assert.doesNotThrow(() => assertApproved0127Target("psipedia-sk-db", APPROVED_0127_SHA256));
@@ -78,16 +79,15 @@ test("0127 is the only newly approved target, with exact immutable preflight SHA
     "psipedia-sk-db");
 });
 
-test("prepared 0128 cannot enter production rollout or the 0127 migration scope", async () => {
-  const prepared = "0128_facebook_image_posts.sql";
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(prepared), false);
-  await assert.rejects(prepareScopedMigration({ targetMigration: prepared }), /Unsupported production migration target/);
+test("0127 scoped rollout never includes later 0128 even after its authorization", () => {
+  const later = "0128_facebook_image_posts.sql";
+  assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(later));
   const earlier = Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_fixture.sql");
-  const { selected, excludedFuture } = selectMigrationsThrough([...earlier, ...SUPPORTED_PRODUCTION_TARGETS, prepared], target);
-  assert.deepEqual(selected, [...earlier, ...SUPPORTED_PRODUCTION_TARGETS]);
-  assert.deepEqual(excludedFuture, [prepared]);
+  const { selected, excludedFuture } = selectMigrationsThrough([...earlier, ...SUPPORTED_PRODUCTION_TARGETS], target);
+  assert.deepEqual(selected, [...earlier, ...SUPPORTED_PRODUCTION_TARGETS.filter(name => name !== later)]);
+  assert.deepEqual(excludedFuture, [later]);
   const workflow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
-  assert.doesNotMatch(workflow, /0128_facebook_image_posts/);
+  assert.match(workflow, /0128_facebook_image_posts/);
 });
 
 test("actual workflow confirmation step rejects wrong token, wrong branch and wrong migration", () => {

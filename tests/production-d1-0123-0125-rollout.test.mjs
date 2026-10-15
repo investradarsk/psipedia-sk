@@ -47,7 +47,7 @@ function schema(db) {
   };
 }
 test("three targets are fully supported and mobile GitHub dispatch remains explicit, manual and protected", () => {
-  assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS.slice(-5, -2), targets);
+  assert.deepEqual(SUPPORTED_PRODUCTION_TARGETS.filter(name => targets.includes(name)), targets);
   for (const target of targets) assert.equal(PREPARED_PRODUCTION_TARGETS.includes(target), false);
   const workflow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m);
