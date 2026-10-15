@@ -27,7 +27,7 @@ type PilotResult = {
 
 const outcomeLabels: Record<string, string> = {
   NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt",
-  NO_RESULT_DUPLICATE_ONLY: "Nájdené boli iba duplicity",
+  NO_RESULT_DUPLICATE_ONLY: "Gemini označilo kandidátov za duplicity; nový koncept nevznikol",
   NO_RESULT_INSUFFICIENT_EVIDENCE: "Nedostatok overiteľných údajov",
   NO_RESULT_EXHAUSTED: "Vyhľadávanie vyčerpalo dostupných kandidátov",
 };
