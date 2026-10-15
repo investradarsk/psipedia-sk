@@ -26,6 +26,7 @@ import {
   GEMINI_HELP_REVIEW_PROPERTY,
   helpCaseMayEnterCanonicalSync,
   readyForCreate,
+  trustedGeminiSourceIsPrivateDraft,
   type BidirectionalAgendaKey,
 } from "./notion-events-help-adapters.ts";
 import {
@@ -1107,6 +1108,15 @@ async function syncAgenda(input: {
       continue;
     }
     const trustedGemini = Boolean(provenance);
+    if (trustedGemini && !trustedGeminiSourceIsPrivateDraft(input.definition.key, values)) {
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id, reason: "GEMINI_PRIVATE_DRAFT_REQUIRED",
+        fields: ["Stav", "Psipedia stav"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
     if (!trustedGemini && clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia") {
       // A Notion text property does not establish signed worker provenance.
       summary.unchanged += 1;
