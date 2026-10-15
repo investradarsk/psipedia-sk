@@ -58,7 +58,7 @@ function schema(db) {
 function apply(db, name) { db.exec(sql(name).replaceAll("--> statement-breakpoint", "\n")); }
 
 test("0126 is a single manual production target and cannot be run on unapproved workflow triggers", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
   assert.equal(PREPARED_PRODUCTION_TARGETS.includes(target), false);
   const flow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(flow, /^on:\s*\n\s+workflow_dispatch:/m);
