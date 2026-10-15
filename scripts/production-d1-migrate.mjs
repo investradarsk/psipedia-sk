@@ -9,9 +9,17 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// All 0123–0125 targets are explicitly supported by the guarded, manual-only runner.
-// Development-only 0127: tracked for migration-chain integrity but explicitly NOT runnable.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0127_gemini_notion_created_pages.sql"]);
+// 0127 is operator-gated separately. Pin the exact SQL approved by the 2026-10-15 read-only audit.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0127_SHA256 = "11188f4c5f08e9bfa15c20add40c7df08b07f95ea6f555bbdd46ca73b08bd03e";
+export function assertApproved0127Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0127 requires the canonical psipedia-sk-db database");
+  invariant(sha256 === APPROVED_0127_SHA256, "0127 SQL SHA256 differs from the approved production preflight");
+}
+export function assert0127NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0127_gemini_notion_created_pages.sql")
+    invariant(!targetApplied, "0127 already applied; refusing repeated production APPLY");
+}
 
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
@@ -124,6 +132,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0124_gemini_notion_review_locks.sql",
   "0125_gemini_category_prompts.sql",
   "0126_gemini_scheduler_admin_v2.sql",
+  "0127_gemini_notion_created_pages.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -627,6 +636,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
   const selection = selectMigrationsThrough(files, targetMigration);
   const targetMigrationBytes = await fs.readFile(path.join(repoRoot, "drizzle", targetMigration));
   const targetMigrationSha256 = createHash("sha256").update(targetMigrationBytes).digest("hex");
+  if (targetMigration === "0127_gemini_notion_created_pages.sql")
+    assertApproved0127Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1204,6 +1215,10 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0126_gemini_scheduler_admin_v2.sql") {
     return { partial: (schema.geminiAutomationSettingsColumns ?? []).some(column => String(column.name) === "weekly_day") };
+  }
+  if (targetMigration === "0127_gemini_notion_created_pages.sql") {
+    return { partial: ["gemini_notion_created_pages", "idx_gemini_notion_created_pages_job",
+      "idx_gemini_notion_created_pages_pending"].some(name => names.has(name)) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2061,6 +2076,39 @@ export function assertGeminiCategoryPromptsSchema(schema) {
     "gemini_category_prompts user_prompt CHECK (length(trim(...)) BETWEEN 40 AND 6000) missing");
 }
 
+export function assertGeminiNotionCreatedPagesSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("gemini_notion_created_pages");
+  invariant(table?.type === "table", "Missing 0127 Gemini Notion receipt table");
+  const sql = String(table.sql ?? "");
+  for (const clause of [
+    "notion_page_id TEXT PRIMARY KEY NOT NULL",
+    "CHECK (length(notion_page_id) = 36)",
+    "job_id INTEGER NOT NULL REFERENCES gemini_manual_background_jobs(id)",
+    "stable_key TEXT NOT NULL",
+    "notion_data_source_id TEXT NOT NULL",
+    "import_agenda TEXT NOT NULL CHECK",
+    "'directory','events','organizations','adoptions','help-cases','lost-found'",
+    "canonical_entity_id INTEGER",
+    "registered_at TEXT NOT NULL DEFAULT",
+    "imported_at TEXT",
+    "canonical_entity_id IS NULL AND imported_at IS NULL",
+    "canonical_entity_id > 0 AND imported_at IS NOT NULL",
+    "UNIQUE (import_agenda, canonical_entity_id)",
+  ]) invariant(sql.includes(clause), "0127 receipt schema drift: " + clause);
+  const indexes = [
+    ["idx_gemini_notion_created_pages_job", "ON gemini_notion_created_pages(job_id, stable_key)"],
+    ["idx_gemini_notion_created_pages_pending", "ON gemini_notion_created_pages(import_agenda, stable_key, registered_at)"],
+  ];
+  for (const [name, definition] of indexes) {
+    const index = objects.get(name);
+    invariant(index?.type === "index" && index.tbl_name === "gemini_notion_created_pages"
+      && String(index.sql ?? "").includes(definition), "0127 receipt index missing or changed: " + name);
+  }
+  invariant(String(objects.get("idx_gemini_notion_created_pages_pending")?.sql ?? "").includes("WHERE imported_at IS NULL"),
+    "0127 pending receipt partial-index predicate missing");
+}
+
 export function assertGeminiSchedulerWeeklyDaySchema(schema) {
   const table = objectMap(schema.objects ?? []).get("gemini_automation_settings");
   invariant(table?.type === "table", "Missing gemini_automation_settings table");
@@ -2078,7 +2126,7 @@ export function assertGeminiSchedulerWeeklyDaySchema(schema) {
 
 export function assertRolloutChainSchema(schema, targetMigration) {
   const target = migrationIndex(targetMigration);
-  if (target < 123 || target > 126) return;
+  if (target < 123 || target > 127) return;
   if (target >= 124) assertStructuredAddressSchema(schema);
   if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
   if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
@@ -2090,6 +2138,10 @@ export function assertRolloutChainSchema(schema, targetMigration) {
     targetSchemaObjects(schema, "0125_gemini_category_prompts.sql"));
   if (target < 126) assertPendingTargetSchemaClean("0126_gemini_scheduler_admin_v2.sql",
     targetSchemaObjects(schema, "0126_gemini_scheduler_admin_v2.sql"));
+  if (target >= 127) {
+    assertGeminiSchedulerWeeklyDaySchema(schema);
+    assertGeminiManualQueueSchema(schema);
+  }
 }
 
 
@@ -2148,6 +2200,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 124) assertGeminiNotionReviewLocksSchema(schema);
   if (migrationIndex(targetMigration) >= 125) assertGeminiCategoryPromptsSchema(schema);
   if (migrationIndex(targetMigration) >= 126) assertGeminiSchedulerWeeklyDaySchema(schema);
+  if (migrationIndex(targetMigration) >= 127) assertGeminiNotionCreatedPagesSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2512,6 +2565,7 @@ async function preflight(targetMigration) {
   assertProductionIdentity(prepared.resources, prepared.generated, info);
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration, prepared.selection.selected);
+  assert0127NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2546,6 +2600,8 @@ async function preflight(targetMigration) {
     rolloutReadiness = state.targetApplied ? "APPLIED_0125" : "READY_0125";
   } else if (targetIndex === 126) {
     rolloutReadiness = state.targetApplied ? "APPLIED_0126" : "READY_0126";
+  } else if (targetIndex === 127) {
+    rolloutReadiness = "READY_0127";
   }
   const additivePreservationBefore = targetIndex >= 123
     ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
@@ -2649,6 +2705,7 @@ async function apply(targetMigration) {
       liveSchema, internal.geminiSchedulerBefore?.columns);
     assertGeminiSchedulerSettingsPreserved(internal.geminiSchedulerBefore, latest);
   }
+  assert0127NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
@@ -2714,6 +2771,10 @@ async function verify(targetMigration) {
       invariant(scalarCount(databaseName, prepared.configPath,
         "SELECT COUNT(*) AS count FROM gemini_category_prompts") === 0,
         "0125 prompt table must be empty immediately after first apply");
+    if (!internal.targetApplied && targetIndex === 127)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM gemini_notion_created_pages") === 0,
+        "0127 receipt table must be empty immediately after first apply");
   }
 
   const after = dataSnapshot(databaseName, prepared.configPath);
