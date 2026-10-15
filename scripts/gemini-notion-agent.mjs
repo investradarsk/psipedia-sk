@@ -514,6 +514,11 @@ async function runAgent() {
   if (!Number.isSafeInteger(jobId) || jobId < 1 ||
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
+  // Editorial guidance is supplied by the existing admin prompt store, via dispatch.
+  // It does not change duplicate, source, privacy or draft-only hard guards.
+  const categoryGuidance = env.AGENT_CATEGORY_PROMPT?.trim();
+  if (!categoryGuidance || categoryGuidance.length < 40 || categoryGuidance.length > 6000)
+    throw Error("AGENT_CATEGORY_PROMPT_MISSING");
   const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedLostFound ? "lost-found" : target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
   const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. " +
     "Kategória: " + (target.dedicatedLostFound ? "stratené a nájdené psy (Lost/Found, iba DRAFT)" : target.dedicatedAdoption ? "psy na adopciu (Adopcie, iba Nápad)" : target.dedicatedShelter ? "útulky (Organizácie, SHELTER)" : target.categoryValue) + " (" + stableKey + "), Slovensko. " +
@@ -521,7 +526,8 @@ async function runAgent() {
     " NOVÝCH relevantných subjektov / podujatí / prípadov pomoci. " +
     (target.dedicatedLostFound ? "Hľadaj iba aktuálne verejné hlásenia STRATENÝ alebo NÁJDENÝ, overené ešte dnes, s dátumom udalosti do 30 dní, zdrojovou URL, mestom a identifikačnými znakmi. Vynechaj vyriešené, neaktuálne alebo neisté prípady a úplne vylúč súkromné kontakty, adresy a presnú GPS polohu. " : target.dedicatedAdoption ? "Pre každého psa nájdi primárny verejný HTTPS zdroj, jeho meno, zodpovednú organizáciu a podklady o adopcii; nie osobné kontakty alebo presné adresy. " : "Pre každý vyhľadaj verejný primárny HTTPS zdroj, oficiálny web aj sekciu Kontakt. Zisti doložený názov, obec, adresu, kontakty, služby, dátum podujatia a prípustné verejné fotografie. ") +
     "Nič nevymýšľaj. Predlož len overiteľné odkazy a stručné dôkazy, " +
-    "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam.";
+    "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam. " +
+    "Kategóriový redakčný prompt z administrácie (nenahrádza pravidlá overovania): " + categoryGuidance;
   const research = await gemini({ input: researchInstruction, tools: searchTools }, "research");
 
   // Interactions supplies grounded URLs as text-block url_citation annotations
@@ -547,7 +553,8 @@ async function runAgent() {
     "Nevytváraj neúplné záznamy ani možné duplicity. Nikdy nepublikuj. " +
     "Po výsledku duplicate neopakuj rovnakého kandidáta ani rovnaký Notion dotaz. " +
     "Pokračuj ďalším doloženým kandidátom z prieskumu; ak žiadny nezostal, ukonči odpoveď bez funkčného volania. " +
-    "Ak podklady nestačia, skonči bez zápisu.";
+    "Ak podklady nestačia, skonči bez zápisu. " +
+    "Pri vyhodnocovaní zohľadni kategóriový prompt: " + categoryGuidance;
   let response = await gemini({
     input: instruction, previous_interaction_id: research.id, tools: functionTools,
   }, "functions");
