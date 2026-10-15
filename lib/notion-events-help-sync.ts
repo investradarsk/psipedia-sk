@@ -1113,9 +1113,11 @@ async function syncAgenda(input: {
       const actual = input.definition.key === "events" ? clean(values["Typ podujatia"])
         : input.definition.key === "help-cases" ? clean(values["Kategória"])
         : input.definition.key === "organizations" ? clean(values["Typ"]) : "";
-      if ((input.definition.key === "events" || input.definition.key === "help-cases") &&
-          (!expected || actual !== expected) ||
-          input.definition.key === "organizations" && actual !== "SHELTER") {
+      const categoryInvalid = (
+        (input.definition.key === "events" || input.definition.key === "help-cases") &&
+          (!expected || actual !== expected)
+      ) || (input.definition.key === "organizations" && actual !== "SHELTER");
+      if (categoryInvalid) {
         summary.conflicts += 1;
         appendNotionReview(summary.reviewQueue, {
           entityId: null, notionPageId: page.id, reason: "GEMINI_CATEGORY_MISMATCH",
