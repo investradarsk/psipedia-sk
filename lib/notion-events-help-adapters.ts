@@ -139,6 +139,29 @@ export function lostFoundStatusFromNotion(value: string) {
   return normalized;
 }
 
+/** Separate internal Gemini review contract: NOT a public publication state.
+ * These fields are intentionally excluded from agendaEditableFields, so the
+ * canonical D1 -> Notion sync can never overwrite the moderator's decision.
+ */
+export const GEMINI_HELP_REVIEW_PROPERTY = "Gemini kontrola";
+export const GEMINI_HELP_REJECTION_PROPERTY = "Dôvod odmietnutia";
+export const GEMINI_HELP_REVIEW_STATES = ["Na kontrolu", "Schválené", "Odmietnuté"] as const;
+export type GeminiHelpReviewState = (typeof GEMINI_HELP_REVIEW_STATES)[number];
+
+/** The worker currently has no immutable provenance on Help cases. The evidence
+ * suffix is used only to FAIL CLOSED for probable agent drafts, never to assert
+ * certain Gemini attribution. Legacy manual Notion records without a review
+ * state keep their existing import behavior.
+ */
+export function helpCaseMayEnterCanonicalSync(
+  reviewState: ReconciliationValue | undefined,
+  description: ReconciliationValue | undefined,
+) {
+  const state = s(reviewState);
+  if (state) return state === "Schválené";
+  return !/(?:^|\n)Dôkazy:\s*\n|(?:^|\n)Zdroje a dôkazy:\s*\n/u.test(s(description));
+}
+
 export function readyForCreate(agenda: BidirectionalAgendaKey, values: Record<string, ReconciliationValue>) {
   if (agenda === "events" || agenda === "organizations" || agenda === "adoptions") {
     return s(values["Stav"]) === "Ready";
