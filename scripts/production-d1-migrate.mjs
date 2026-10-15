@@ -10,7 +10,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // All 0123–0125 targets are explicitly supported by the guarded, manual-only runner.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// Development-only 0127: tracked for migration-chain integrity but explicitly NOT runnable.\nexport const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0127_gemini_notion_created_pages.sql"]);
 
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
