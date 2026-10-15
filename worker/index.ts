@@ -15,6 +15,7 @@ import { runPartnerNotificationSweep } from "../lib/partner-email";
 import { cleanupPartnerMedia } from "../lib/partner-media";
 import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
+import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
@@ -287,8 +288,29 @@ const worker = {
         database: env.DB, scheduledTime: controller.scheduledTime,
         system: "notion", automationId: "articles", label: "Notion — články",
         active: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
-        execute: () => runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
-        summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
+        execute: async () => {
+          // Reconcile the canonical D1 publication before importing Ready Notion
+          // drafts. This prevents a due scheduled article from being marked as an
+          // import error just because the D1 status remains "scheduled".
+          let publication = { checked: 0, updated: 0, unchanged: 0, skipped: 0, failed: 0 };
+          try {
+            publication = await runArticlePublishNotionReconciliation({ database: env.DB, bindings: env });
+          } catch {
+            publication.failed += 1;
+            console.error("notion_article_publication_reconciliation_sweep_failed");
+          }
+          // A reconciliation outage must not cancel the ordinary Notion import.
+          const imported = await runNotionArticleSyncSweep({ database: env.DB, bindings: env });
+          return { ...imported, publication };
+        },
+        summarize: (r) => ({
+          enabled: r.enabled, checked: r.scanned, created: r.created,
+          updated: r.updated, errors: r.failed,
+          publicationChecked: r.publication.checked,
+          publicationUpdated: r.publication.updated,
+          publicationUnchanged: r.publication.unchanged,
+          publicationFailed: r.publication.failed,
+        }),
       }).then((result) => {
         console.info(JSON.stringify({
           event: "notion_article_sync_sweep",
