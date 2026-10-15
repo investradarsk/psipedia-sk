@@ -16,6 +16,10 @@ export function assertApproved0127Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0127 requires the canonical psipedia-sk-db database");
   invariant(sha256 === APPROVED_0127_SHA256, "0127 SQL SHA256 differs from the approved production preflight");
 }
+export function assert0127NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0127_gemini_notion_created_pages.sql")
+    invariant(!targetApplied, "0127 already applied; refusing repeated production APPLY");
+}
 
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
@@ -2561,8 +2565,7 @@ async function preflight(targetMigration) {
   assertProductionIdentity(prepared.resources, prepared.generated, info);
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration, prepared.selection.selected);
-  if (prepared.selection.targetIndex === 127)
-    invariant(!state.targetApplied, "0127 is already applied; refusing repeated production APPLY");
+  assert0127NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2702,9 +2705,7 @@ async function apply(targetMigration) {
       liveSchema, internal.geminiSchedulerBefore?.columns);
     assertGeminiSchedulerSettingsPreserved(internal.geminiSchedulerBefore, latest);
   }
-  if (prepared.selection.targetIndex === 127)
-    invariant(!internal.targetApplied && !liveState.targetApplied,
-      "0127 already applied; refusing repeated production APPLY");
+  assert0127NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
