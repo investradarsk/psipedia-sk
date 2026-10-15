@@ -1,6 +1,6 @@
 # GEMINI-NOTION-EDITOR-PARITY-ALL-1 — audit and limitations
 
-Base: main 2d8fd33921ec3d1637790d5d06b40478005e1e75. Scope: existing admin Notion concept component, existing Notion APIs, editor field adapters, and mocked tests. No new CMS, database migrations, Gemini calls, or Notion schema mutations.
+Base: main c78b827caa78b0885059acf3c67c63308e69f927, integrated as a two-parent merge of main into the existing #838 branch (including #834, #836 and #839). Scope: existing admin Notion concept component, existing Notion APIs, editor field adapters, and mocked tests. No new CMS, database migrations, Gemini calls, or Notion schema mutations.
 
 ## Category routing (22 catalog entries)
 
@@ -45,7 +45,7 @@ No concept is created in D1 by opening or saving. Mutations use existing admin a
 
 Added \`tests/gemini-notion-agenda-review.test.mjs\` to existing Gemini CI (mock Notion API and D1 lock): catalog 10+6+6, 12 direct-source queries, category/source filtering, explicit edit/approve/reject/restore, unchanged publication on save, evidence protection, stale revision HTTP safety, blocked unsupported help rejection. Existing directory/Notion tests and UI modal test remain CI requirements. All real external calls are mocked; no paid Gemini test, production Notion write or D1 migration.
 
-Pending release gates: CI + build/lint execution, schema option validation against actual Notion data sources by *read-only* inspection, definitive non-directory provenance, directory filter schema+sync provisioning, help-case rejection lifecycle, rejection reason contract, Lost/Found worker PR #834 integration and privacy signoff. This PR should remain a **draft/BLOCKED** until those are resolved. No merge or production publication is authorized by this document.
+Pending release gates: CI + build/lint execution, schema option validation against actual Notion data sources by *read-only* inspection, definitive non-directory provenance, directory filter schema+sync provisioning, help-case rejection lifecycle, rejection reason contract, Lost/Found #834 operator privacy signoff. This PR should remain a **draft/BLOCKED** until those are resolved. No merge or production publication is authorized by this document.
 
 ## Read-only verification against six live Notion data sources — 14 October 2026
 
@@ -80,6 +80,16 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 
 **GEMINI-WORKER-PROVENANCE-1 (existing worker, separate PR):** Write a consistent explicit origin marker or stable job ID to each supported Notion data source. The current evidence signature provides no cryptographic or complete provenance guarantee and must not be described as verified Gemini origin; do not add another worker.
 
-**Review UX parity:** This PR's existing `AdminGeminiNotionDrafts` component supports all agenda categories, but wiring this component into non-directory settings cards belongs to the parallel scheduler task. This PR does not edit `components/admin-gemini-automation-settings.tsx` or scheduling/prompt configuration. The generic schema field form uses existing `agendaEditableFields`, not a rewritten native Events/Help editor; exact visual feature parity (including R2 image upload, image cropping, Google place selection and custom field widgets) is therefore not achieved by #838.
+**Review UX parity:** This PR now mounts the existing `AdminGeminiNotionDrafts` panel for all 22 category cards whenever external Gemini is enabled. This changes only the panel visibility condition in `components/admin-gemini-automation-settings.tsx`; no schedule, prompt, worker or dispatcher settings are changed. Parallel PR #837 also touches that component and contains a temporary non-directory placeholder, so after #837 merge resolve the one overlapping UI hunk by retaining #837 cadence/prompt functionality and #838 real shared panel, removing the placeholder. The existing shared form uses `agendaEditableFields`: it exposes every other Notion schema field in an expandable read-only panel, renders schema-valid select choices and marks complex formatted rich text/date ranges read-only to prevent lossy writes; it does not replace a native Events/Help editor; exact visual feature parity (including R2 image upload, image cropping, Google place selection and custom field widgets) is therefore not achieved by #838.
 
 **Release verdict: BLOCKED/DRAFT** until follow-on contracts, provenance and operator checks pass, notwithstanding green CI. Never merge solely because CI passes.
+
+
+### Continuation changes — main #839 integration and complete field-view checks
+
+- Main `c78b827caa78b0885059acf3c67c63308e69f927` was merged into the same PR branch with **no changes to the scheduler or worker**; #839 D1 rollout migration pipeline remains intact.
+- Shared concept review card is now mounted in all 22 existing external-enabled Gemini category cards, rather than only the ten Directory cards. Do not enable billing or runs from this PR.
+- The existing editor exposes all Notion schema properties, including status/metadata fields it cannot edit, under a labelled read-only section. Only fields in the **current** `agendaEditableFields` sync contract are editable; unsupported data cannot be accidentally sent on PATCH. Date ranges and decorated rich-text fields are deliberately read-only, with a link to the original Notion page for advanced editing. Select fields use the actual source schema options rather than a free-text box.
+- Help-case `published` records are excluded from the draft queue. Help-case `Slug` is read-only here until a distinct review-state sync gate exists. Opening, ordinary draft edits and saving do not directly publish, and both decisions remain blocked.
+- The tests cover each of the 12 non-directory categories for saving, and all 22 keys for catalog routing, plus Notion source parent, evidence, rich formatting/date intervals, field omissions, published help records and Lost/Found privacy. Directory's original dedicated mocked contracts remain in place.
+- **Explicit limitation:** Notion has no page-property CAS and non-directory provenance remains inferred from evidence signatures, not definitive. Native media upload/crop, Google Place picker and certain bespoke field widgets are not reproducible in this Notion-only path; do not claim full native UX parity. The proposed 21 directory filters remain absent from live Notion schema.
