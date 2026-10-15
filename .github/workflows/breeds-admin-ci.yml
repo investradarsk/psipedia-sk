@@ -10,6 +10,8 @@ on:
       - "lib/admin-breeds.ts"
       - "lib/breed-store.ts"
       - "tests/breed-admin-v2.test.mjs"
+      - "tests/breed-concurrency-guard.test.mjs"
+      - "lib/notion-breed-sync.ts"
       - "tests/e2e/breeds-admin-v2.spec.ts"
       - "tests/fixtures/breeds-admin-v2-e2e.sql"
       - ".github/workflows/breeds-admin-ci.yml"
@@ -46,7 +48,9 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: BREEDS-ADMIN unit contract
-        run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-admin-v2.test.mjs
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-admin-v2.test.mjs
+          npm run test:breed-concurrency
       - name: Lint
         run: npm run lint
       - name: Build
