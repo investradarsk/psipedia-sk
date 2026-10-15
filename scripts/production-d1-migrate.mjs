@@ -9,8 +9,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// 0128 is prepared only; production activation requires separate rollout approval.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0128_facebook_image_posts.sql"]);
+// 0128 and 0129 are prepared only; production activation requires separate rollout approval.
+// 0129 must NOT be activated before 0128 has been applied and verified.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0128_facebook_image_posts.sql", "0129_gemini_external_manual_queue.sql"]);
 // 0127 remains pinned to the SQL approved by the 2026-10-15 read-only audit.
 export const APPROVED_0127_SHA256 = "11188f4c5f08e9bfa15c20add40c7df08b07f95ea6f555bbdd46ca73b08bd03e";
 export function assertApproved0127Target(databaseName, sha256) {
