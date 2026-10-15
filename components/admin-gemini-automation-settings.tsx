@@ -168,7 +168,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
-      {externalEnabled && setting.section === "directory" && (
+      {externalEnabled && (
         <AdminGeminiNotionDrafts stableKey={setting.stableKey} />
       )}
       {canManuallyRun && (
