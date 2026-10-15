@@ -28,3 +28,29 @@ test("research -> notion search -> continuation -> draft or reason is retained",
   assert.match(src, /NOTION_CREATE_UNCERTAIN/);
   assert.match(src, /NOTION_DRAFT_OPTION_MISSING/);
 });
+
+import { externalWorkerCategorySupported, notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
+
+const keys = [
+  ...["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+    "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
+    "vencenie", "fyzioterapia", "dalsie-sluzby"].map(x => "directory." + x),
+  ...["vystavy", "preteky", "seminare", "treningy", "stretnutia", "dalsie"].map(x => "events." + x),
+  ...["docasna-opatera", "zbierky", "dobrovolnictvo", "utulky", "adopcia", "stratene-a-najdene"].map(x => "help." + x),
+];
+test("all 22 worker categories share fail-closed search outcome handling", async (t) => {
+  assert.equal(keys.length, 22);
+  const source = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  assert.match(source, /requiresNoDraftRecovery\(metrics.concept_count\)/);
+  assert.match(source, /parseNoDraftOutcome\(answer\)/);
+  for (const key of keys) {
+    await t.test(key, () => {
+      assert.ok(externalWorkerCategorySupported(key));
+      const [section, slug] = key.split(".");
+      assert.ok(notionCategoryValue(section, slug));
+      assert.equal(requiresNoDraftRecovery(0), true);
+      assert.equal(parseNoDraftOutcome('{"outcome":"exhausted"}'), "exhausted");
+      assert.throws(() => parseNoDraftOutcome("unexplained"), /AGENT_OUTCOME_MISSING/);
+    });
+  }
+});
