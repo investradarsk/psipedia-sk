@@ -22,6 +22,7 @@ function section(src, first, after) {
   return src.slice(a, b);
 }
 const factories = section(store, "function values(", "export async function createManagedBreed(")
+  + "\n" + section(store, "const select=", "export async function listManagedBreedSummaries(")
   + "\n" + section(store, "export function buildManagedBreedUpdateStatements(", "export async function updateManagedBreed(").replace(/^export /, "");
 const { buildManagedBreedUpdateStatements } = vm.runInNewContext(
   stripTypeScriptTypes(factories + "\n({buildManagedBreedUpdateStatements})"),
@@ -66,7 +67,7 @@ function adapter() {
   assert.ok(assignments, "production UPDATE has expected CAS clause");
   const columns = [...assignments[1].matchAll(/(?:^|,)([a-z_]+)=/g)].map(match => match[1]);
   assert.ok(columns.length > 45, "full canonical columns are covered");
-  sqlite.exec("CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY," + [...new Set(columns)].map(col => col + " TEXT").join(",") + ")");
+  sqlite.exec("CREATE TABLE managed_breeds(id INTEGER PRIMARY KEY, created_at TEXT," + [...new Set(columns)].map(col => col + " TEXT").join(",") + ")");
   sqlite.exec("CREATE TABLE managed_articles(id INTEGER PRIMARY KEY)");
   sqlite.exec("CREATE TABLE directory_profiles(id INTEGER PRIMARY KEY,category TEXT)");
   sqlite.exec("CREATE TABLE breed_article_relations(breed_id INTEGER,article_id INTEGER,created_at TEXT,created_by TEXT)");
@@ -190,5 +191,6 @@ test("admin and Notion call-sites must use the read version and return an action
   assert.match(store, /new Date\(Math\.max\(Date\.now\(\), previous \+ 1\)\)\.toISOString\(\)/);
   assert.match(store, /breeds\.map\(\(breed\) => Date\.parse\(breed\.updatedAt\) \+ 1\)/);
   assert.match(store, /SELECT CASE WHEN changes\(\) = 1/);
+  assert.match(store, /const \[breedResult, articleResult, directoryResult\] = results\.slice\(-3\)/);
   assert.ok(store.indexOf("breed_update_guard") < store.indexOf("...breedRelationStatements(database,id,value,user)"));
 });
