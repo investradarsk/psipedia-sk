@@ -1,3 +1,4 @@
+import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
 import {
   loadNotionBulkEvents,
   loadNotionBulkOrganizations,
@@ -1081,16 +1082,40 @@ async function syncAgenda(input: {
     const psipediaId = clean(pageProperty(page, "Psipedia ID"));
     if (psipediaId) continue;
     const values = pageSnapshot(input.definition.key, page, schema);
+    // Immutable signed-worker provenance, never a user-editable description tag.
+    const provenance = await input.database.prepare(
+      "SELECT stable_key,import_agenda,notion_data_source_id,canonical_entity_id " +
+      "FROM gemini_notion_created_pages WHERE notion_page_id=?"
+    ).bind(page.id).first<{
+      stable_key: string; import_agenda: string; notion_data_source_id: string;
+      canonical_entity_id: number | null;
+    }>();
+    if (provenance && (
+      provenance.import_agenda !== input.definition.key ||
+      provenance.notion_data_source_id.replaceAll("-", "").toLowerCase() !==
+        target.dataSourceId.replaceAll("-", "").toLowerCase() ||
+      geminiImportAgenda(provenance.stable_key) !== input.definition.key ||
+      provenance.canonical_entity_id !== null
+    )) {
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id, reason: "GEMINI_PROVENANCE_MISMATCH",
+        fields: ["Psipedia ID"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
+    const trustedGemini = Boolean(provenance);
     // Internal Gemini moderation is separate from public draft/published.
     // Never auto-import an unapproved/rejected source-evidenced Help concept.
     // Keep unmarked, pre-existing manual Notion imports compatible.
-    if (input.definition.key === "help-cases" &&
+    if (!trustedGemini && input.definition.key === "help-cases" &&
         !helpCaseMayEnterCanonicalSync(
           pageProperty(page, GEMINI_HELP_REVIEW_PROPERTY), values["Popis"])) {
       summary.unchanged += 1;
       continue;
     }
-    if (!readyForCreate(input.definition.key, values)) {
+    if (!trustedGemini && !readyForCreate(input.definition.key, values)) {
       summary.unchanged += 1;
       continue;
     }
@@ -1120,7 +1145,7 @@ async function syncAgenda(input: {
     }
 
     try {
-      const created = await createCanonicalFromNotion(input.definition.key, values, input.database) as { id?: number } | null;
+      const created = await createCanonicalFromNotion(input.definition.key, values, input.database, trustedGemini) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
@@ -1149,6 +1174,13 @@ async function syncAgenda(input: {
         psipediaUpdatedAt: updatedAt,
         syncedAt,
       });
+      if (trustedGemini) {
+        const marked = await input.database.prepare(
+          "UPDATE gemini_notion_created_pages SET canonical_entity_id=?,imported_at=? " +
+          "WHERE notion_page_id=? AND import_agenda=? AND canonical_entity_id IS NULL"
+        ).bind(entityId, syncedAt, page.id, input.definition.key).run();
+        if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
+      }
       summary.createdFromNotion += 1;
     } catch (error) {
       logFailure(summary, {
