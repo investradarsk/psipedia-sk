@@ -769,8 +769,10 @@ function newProfileInput(
 function notionProfileReadyForCreate(page: NotionPage) {
   if (propertyText(page, "Psipedia ID")) return false;
   const editorialState = propertyText(page, "Stav");
+  // Gemini-generated Notion drafts enter the existing canonical directory as
+  // private drafts immediately. Approval and publication are separate actions.
   if (propertyText(page, "Vytvoril") === "Gemini automatizácia")
-    return editorialState === "Publikované" && propertyText(page, "Psipedia stav") === "Publikované";
+    return editorialState !== "Odmietnuté" && propertyText(page, "Psipedia stav") !== "Publikované";
   return editorialState === "Ready" || editorialState === "Publikované";
 }
 
@@ -793,6 +795,10 @@ async function createProfileFromNotion(input: {
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
   let payload = newProfileInput(desired);
+  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
+    // Fail closed, regardless of unexpected Notion status/defaults.
+    payload = { ...payload, status: "draft" };
+  }
   let verified = null;
 
   if (desired.confirmedServiceLocation) {
@@ -862,6 +868,11 @@ async function applyNotionToProfile(input: {
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || current.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name || current.name;
   let payload = fullProfileInput(desired, current);
+  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
+    // Notion cannot publish or unpublish a Gemini-created profile.
+    // Only the explicit canonical admin publish action can change its status.
+    payload = { ...payload, status: current.status };
+  }
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
   const safety = notionDirectoryUpdateSafety({
     physicalAddressChanged: addressChanged,
@@ -1068,9 +1079,9 @@ async function syncMappedPage(input: {
 
   let notionWins = notionChanged && !profileChanged;
   if (notionChanged && profileChanged) {
-    const notionTime = Date.parse(page.last_edited_time ?? "");
-    const profileTime = Date.parse(profile.updatedAt);
-    notionWins = Number.isFinite(notionTime) && (!Number.isFinite(profileTime) || notionTime > profileTime);
+    // Never last-write-wins over a human editor. Leave both sides intact,
+    // so an operator can explicitly resolve the conflict.
+    throw new Error("CONFLICT: Notion aj Psipedia boli upravené od poslednej synchronizácie.");
   }
 
   if (notionWins) {
