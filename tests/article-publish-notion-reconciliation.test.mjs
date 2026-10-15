@@ -9,16 +9,16 @@ async function compiledModule(path, services, globals = {}) {
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
-  const module = { exports: {} };
+  const cjsModule = { exports: {} };
   runInNewContext(compiled, {
-    module, exports: module.exports,
+    module: cjsModule, exports: cjsModule.exports,
     require(name) {
       if (!(name in services)) throw new Error("Unexpected import: " + name);
       return services[name];
     },
     console, Response, Request, Headers, URL, URLSearchParams, TextEncoder, crypto, ...globals,
   }, { filename: path });
-  return module.exports;
+  return cjsModule.exports;
 }
 
 const syncDependencies = {
@@ -99,8 +99,8 @@ function publicationHarness({
   return {
     article, remote, calls, DB, bindings,
     async run(now = "2026-10-15T10:00:00.000Z") {
-      const module = await compiledModule("../lib/notion-article-sync.ts", syncDependencies, { fetch: fetchMock });
-      return module.writeBackPublishedArticleToNotion({ database: DB, bindings, article, now });
+      const notionSync = await compiledModule("../lib/notion-article-sync.ts", syncDependencies, { fetch: fetchMock });
+      return notionSync.writeBackPublishedArticleToNotion({ database: DB, bindings, article, now });
     },
   };
 }
@@ -206,16 +206,16 @@ test("hourly candidate query follows public scheduled visibility and rotates fai
   };
   const seen = [];
   const logs = [];
-  const module = await compiledModule("../lib/article-publish-notion-reconciliation.ts", {
+  const reconciliationModule = await compiledModule("../lib/article-publish-notion-reconciliation.ts", {
     "@/lib/notion-article-sync": {
-      async writeBackPublishedArticleToNotion(args) {
-        seen.push(args.article);
-        if (args.article.id === 11) throw new Error("private_token_123");
+      async writeBackPublishedArticleToNotion({ article }) {
+        seen.push(article);
+        if (article.id === 11) throw new Error("private_token_123");
         return { linked: true, updated: false };
       },
     },
   }, { console: { error(...args) { logs.push(args); } } });
-  const summary = await module.runArticlePublishNotionReconciliation({
+  const summary = await reconciliationModule.runArticlePublishNotionReconciliation({
     database: DB, bindings: { NOTION_ARTICLE_SYNC_ENABLED: "true" },
     now: "2026-10-15T10:00:00Z", limit: 50,
   });
