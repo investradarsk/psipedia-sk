@@ -238,6 +238,10 @@ globalThis.fetch = async (url, options = {}) => {
         name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
         website_url: "https://example.com", phone: "+421 905 123 456", email: "clinic@example.com",
       } : categoryArgs)] });
+    if (geminiCalls === 5 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario))
+      return json({ id: "functions-4", status: "completed", steps: [
+        { type: "model_output", content: [{ type: "text", text: '{"outcome":"duplicate_only"}' }] },
+      ] });
     if (geminiCalls === 5 && scenario === "repeat_create")
       return json({ id: "functions-4", status: "completed", steps: [] });
     if (geminiCalls === 4)
