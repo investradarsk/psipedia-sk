@@ -23,10 +23,11 @@ export type GeminiAgendaField = {
   editable: boolean; synced: boolean; options?: string[];
 };
 export type GeminiAgendaDraft = {
+  geminiNote?: string;
   id: string; stableKey: string; agenda: BidirectionalAgendaKey; name: string;
   city: string; reviewState: GeminiReviewState; syncError: string; rejectionReason: string;
   lastEditedAt: string; notionUrl: string; psipediaId: string; fields: GeminiAgendaField[];
-  missingFields: string[]; attribution: "EVIDENCE_SIGNATURE_ONLY"; reviewAvailable: boolean;
+  missingFields: string[]; attribution: "SIGNED_CALLBACK" | "EVIDENCE_SIGNATURE_ONLY"; reviewAvailable: boolean;
 };
 export class GeminiAgendaReviewError extends Error {
   readonly code: "CATEGORY" | "CONFIG" | "NOT_FOUND" | "CONFLICT" | "LOCKED" | "STATE" | "SCHEMA";
@@ -91,9 +92,9 @@ function categoryMatches(page: Page, key: string, agenda: BidirectionalAgendaKey
 }
 /** The external worker has no common Vytvoril field on these 5 agendas.
  * Never mistake a normal published/mapped Notion record for a reviewable draft.
- * Evidence signatures are temporary conservative attribution; see limitations document.
+ * New drafts use immutable signed-callback provenance. Legacy drafts retain the old evidence signature.
  */
-function identifiable(page: Page, agenda: BidirectionalAgendaKey, sourceId: string, key: string) {
+function identifiable(page: Page, agenda: BidirectionalAgendaKey, sourceId: string, key: string, trusted = false) {
   if (normalized(page.parent?.data_source_id ?? "") !== normalized(sourceId) ||
       !categoryMatches(page, key, agenda)) return false;
   const status = txt(page, agenda === "help-cases" || agenda === "lost-found" ? "Psipedia stav" : "Stav");
@@ -101,7 +102,7 @@ function identifiable(page: Page, agenda: BidirectionalAgendaKey, sourceId: stri
     ? ["DRAFT", "PENDING", "ARCHIVED"] : ["Nápad", "Na kontrolu", "Ready", "Koncept", "Archív"];
   if (!drafts.includes(status)) return false;
   const description = txt(page, "Popis");
-  return description.includes(evidenceTag(agenda)) && /https:\/\/[^\s]+/.test(description);
+  return trusted || description.includes(evidenceTag(agenda)) && /https:\/\/[^\s]+/.test(description);
 }
 async function dataSource(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgendaKey) {
   if (!env.NOTION_API_TOKEN) throw new GeminiAgendaReviewError("CONFIG");
@@ -143,7 +144,7 @@ async function dataSource(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgend
   return { id, schema: schema.properties, title, status, reviewAvailable };
 }
 function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
-  source: Awaited<ReturnType<typeof dataSource>>): GeminiAgendaDraft {
+  source: Awaited<ReturnType<typeof dataSource>>, trusted = false): GeminiAgendaDraft {
   const names = agendaEditableFields[agenda].filter(name => !["Stav", "Psipedia stav"].includes(name));
   const supported = names.filter(name => Boolean(source.schema[name]));
   const fields: GeminiAgendaField[] = [
@@ -172,7 +173,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
           !structuredText && !dateRange && editableTypes.has(definition.type ?? ""),
       };
     }),
-    ...Object.keys(source.schema).filter(name => !supported.includes(name))
+    ...Object.keys(source.schema).filter(name => !supported.includes(name) && name !== "Gemini poznámka")
       .map(name => ({
         name, type: source.schema[name].type ?? "",
         value: textValue(page.properties?.[name]),
@@ -190,13 +191,14 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
     : ["Archív", "ARCHIVED"].includes(status) ? "REJECTED"
     : status === "Ready" || status === "PENDING" ? "APPROVED" : "NEW";
   return {
+    geminiNote: txt(page, "Gemini poznámka"),
     id: page.id, stableKey: key, agenda, name: txt(page, source.title),
     city: txt(page, "Mesto"), reviewState, syncError: txt(page, "Sync chyba"),
     rejectionReason: source.reviewAvailable ? txt(page, GEMINI_HELP_REJECTION_PROPERTY) : "", lastEditedAt: page.last_edited_time ?? "",
     notionUrl: "https://www.notion.so/" + normalized(page.id),
     psipediaId: txt(page, "Psipedia ID"), fields,
     missingFields: names.filter(name => !source.schema[name]),
-    attribution: "EVIDENCE_SIGNATURE_ONLY", reviewAvailable: source.reviewAvailable,
+    attribution: trusted ? "SIGNED_CALLBACK" : "EVIDENCE_SIGNATURE_ONLY", reviewAvailable: source.reviewAvailable,
   };
 }
 /** The canonical Notion -> D1 sync mapping can precede Notion's Psipedia ID
@@ -227,20 +229,29 @@ async function enrichCanonicalMappings(env: GeminiAgendaReviewEnv, agenda: Bidir
   return drafts;
 }
 
+async function trustedPageIds(env: GeminiAgendaReviewEnv, key: string, agenda: BidirectionalAgendaKey, sourceId: string) {
+  if (!env.DB) return new Set<string>();
+  const result = await env.DB.prepare(
+    "SELECT notion_page_id FROM gemini_notion_created_pages WHERE stable_key=? AND import_agenda=? AND lower(replace(notion_data_source_id,'-',''))=?",
+  ).bind(key, agenda, normalized(sourceId)).all<{ notion_page_id: string }>();
+  return new Set((result.results ?? []).map(row => normalized(row.notion_page_id)));
+}
+
 export async function listGeminiAgendaDrafts(env: GeminiAgendaReviewEnv, key: string): Promise<GeminiAgendaDraft[]> {
   const agenda = geminiAgendaForKey(key);
   if (!agenda) throw new GeminiAgendaReviewError("CATEGORY");
   const source = await dataSource(env, agenda);
   let cursor: string | null = null;
   const drafts: GeminiAgendaDraft[] = [];
+  const trusted = await trustedPageIds(env, key, agenda, source.id);
   const seen = new Set<string>();
   for (let i = 0; i < 40; i++) {
-    const response = await notionRequest<SourcePages>(env, "/data_sources/" + encodeURIComponent(source.id) + "/query",
+    const response: SourcePages = await notionRequest<SourcePages>(env, "/data_sources/" + encodeURIComponent(source.id) + "/query",
       { method: "POST", body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }) });
     if (!Array.isArray(response.results) || typeof response.has_more !== "boolean")
       throw new GeminiAgendaReviewError("SCHEMA");
-    for (const page of response.results) if (identifiable(page, agenda, source.id, key))
-      drafts.push(toDraft(page, key, agenda, source));
+    for (const page of response.results) if (identifiable(page, agenda, source.id, key, trusted.has(normalized(page.id))))
+      drafts.push(toDraft(page, key, agenda, source, trusted.has(normalized(page.id))));
     if (!response.has_more) return enrichCanonicalMappings(env, agenda, drafts);
     if (!response.next_cursor || seen.has(response.next_cursor)) throw new GeminiAgendaReviewError("SCHEMA");
     cursor = response.next_cursor;
@@ -254,9 +265,10 @@ export async function getGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: stri
   if (!ID.test(id)) throw new GeminiAgendaReviewError("NOT_FOUND");
   const source = await dataSource(env, agenda);
   const page = await notionRequest<Page>(env, "/pages/" + encodeURIComponent(id));
-  if (!identifiable(page, agenda, source.id, key)) throw new GeminiAgendaReviewError("NOT_FOUND");
-  const [draft] = await enrichCanonicalMappings(env, agenda, [toDraft(page, key, agenda, source)]);
-  return { draft, page, source };
+  const trusted = (await trustedPageIds(env, key, agenda, source.id)).has(normalized(page.id));
+  if (!identifiable(page, agenda, source.id, key, trusted)) throw new GeminiAgendaReviewError("NOT_FOUND");
+  const [draft] = await enrichCanonicalMappings(env, agenda, [toDraft(page, key, agenda, source, trusted)]);
+  return { draft, page, source, trusted };
 }
 function chunks(value: string) {
   const text = [];
@@ -307,7 +319,7 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
   const release = await acquireGeminiNotionLock(env.DB, id);
   if (!release) throw new GeminiAgendaReviewError("LOCKED");
   try {
-    const { draft, page, source } = await getGeminiAgendaDraft(env, key, id);
+    const { draft, page, source, trusted } = await getGeminiAgendaDraft(env, key, id);
     if (!draft.lastEditedAt || input.lastEditedAt !== draft.lastEditedAt)
       throw new GeminiAgendaReviewError("CONFLICT");
     if (draft.psipediaId) throw new GeminiAgendaReviewError("STATE");
@@ -379,7 +391,7 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
     // Notion REST has no CAS for page properties; re-read immediately under
     // cross-isolate D1 lock, then fail closed on a transport-uncertain PATCH.
     const latest = await notionRequest<Page>(env, "/pages/" + encodeURIComponent(id));
-    if (latest.last_edited_time !== draft.lastEditedAt || !identifiable(latest, draft.agenda, source.id, key))
+    if (latest.last_edited_time !== draft.lastEditedAt || !identifiable(latest, draft.agenda, source.id, key, trusted))
       throw new GeminiAgendaReviewError("CONFLICT");
     await notionRequest(env, "/pages/" + encodeURIComponent(id), {
       method: "PATCH", body: JSON.stringify({ properties: patch }),

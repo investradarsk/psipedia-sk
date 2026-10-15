@@ -30,7 +30,7 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       let draft = { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', name: 'Test veterinár', category: 'veterinari',
         city: 'Žilina', lastEditedAt: 'v1', reviewState: 'NEW', psipediaId: '', psipediaStatus: 'Koncept', editorialState: 'Na kontrolu',
-        website: 'https://example.test', source: 'https://example.test', notes: '', rejectionReason: '', seo: {},
+        geminiNote: 'Overte duplicitu <script>alert(1)</script>', website: 'https://example.test', source: 'https://example.test', notes: '', rejectionReason: '', seo: {},
         qualityResolutions: { phone: '', email: '', website: '', image: '', address: '' } };
       const writes = [];
       await page.route('**/*', async route => {
@@ -49,6 +49,7 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       });
       await page.goto('https://fixture.test/');
       await page.getByRole('button', { name: 'Koncepty z automatizácie' }).click();
+      await page.getByLabel('Gemini poznámka', { exact: true }).first().waitFor({ state: 'visible' });
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
       await page.getByRole('button', { name: 'Odmietnuť koncept', exact: true }).click();
       assert.equal(writes.length, 0, 'opening and confirmation do not write');
@@ -67,6 +68,8 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       await page.getByRole('button', { name: 'Uložiť koncept', exact: true }).click();
       await page.getByText('Upravený veterinár', { exact: true }).waitFor();
       assert.equal(writes.at(-1).method, 'PUT');
+      assert.ok(!JSON.stringify(writes).includes('Overte duplicitu'));
+      assert.ok(!Object.hasOwn(writes.at(-1).body, 'geminiNote'));
       assert.equal(writes.some(write => write.method === 'POST'), false, 'save never publishes');
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);

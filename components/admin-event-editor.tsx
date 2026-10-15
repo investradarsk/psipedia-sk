@@ -113,7 +113,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   }
 
   return (
-    <form className="admin-event-editor" onSubmit={(submitEvent) => { submitEvent.preventDefault(); void save("draft"); }}>
+    <form noValidate className="admin-event-editor" onSubmit={(submitEvent) => { submitEvent.preventDefault(); void save("draft"); }}>
       <div className="admin-event-editor-grid">
         <div className="admin-event-fields">
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />

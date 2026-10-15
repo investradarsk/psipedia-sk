@@ -1198,7 +1198,9 @@ async function syncAgenda(input: {
     }
 
     try {
-      const created = await createCanonicalFromNotion(input.definition.key, values, input.database, trustedGemini) as { id?: number } | null;
+      const draftValues = trustedGemini && !clean(values["Slug"])
+        ? { ...values, "Slug": "gemini-" + page.id.replaceAll("-", "") } : values;
+      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, trustedGemini) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");

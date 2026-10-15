@@ -28,7 +28,7 @@ const eventValues = {
   treningy: "Tréning", stretnutia: "Stretnutie", dalsie: "Iné",
 };
 
-function fixture(key) {
+function fixture(key, signed = false) {
   const agenda = geminiAgendaForKey(key);
   assert.ok(agenda, "agenda must be known for non-directory");
   const ds = sources[agenda];
@@ -67,6 +67,7 @@ function fixture(key) {
   const db = { prepare(sql) { return { bind(...params) { return {
     async first() { return sql.includes("notion_agenda_targets") ? { data_source_id: sources[params[0]] } : null; },
     async all() {
+      if (sql.includes("gemini_notion_created_pages")) return { results: signed ? [{ notion_page_id: pageId }] : [] };
       if (!sql.includes("event_notion_sync") && !sql.includes("notion_agenda_sync"))
         throw Error("Unexpected D1 read " + sql);
       return { results: mappedEntityId === null ? [] : [{ notion_page_id: pageId, entity_id: mappedEntityId }] };
@@ -616,4 +617,26 @@ test("Help editor offers reject for internally approved but nonimported draft", 
   assert.match(editor, /reviewState !== "APPROVED" \|\| draft\.agenda === "help-cases"/);
   assert.match(editor, /reviewState === "REJECTED" \? "restore" : "reject"/);
   assert.match(editor, /confirm === "reject" && draft\.agenda === "help-cases"/);
+});
+
+for (const key of ["events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", "help.stratene-a-najdene"]) {
+  test(key + " signed callback makes clean content reviewable; note stays separate", async () => {
+    const f = fixture(key, true);
+    f.value.properties.Popis = rich("Prirodzený slovenský opis bez technických dôkazov.");
+    f.value.properties["Gemini poznámka"] = rich("Overte možnú duplicitu.");
+    f.schema.properties["Gemini poznámka"] = { type: "rich_text" };
+    await mockedFetch(f.request, async () => {
+      const [draft] = await listGeminiAgendaDrafts(f.env, key);
+      assert.equal(draft.attribution, "SIGNED_CALLBACK");
+      assert.equal(draft.geminiNote, "Overte možnú duplicitu.");
+      assert.ok(!draft.fields.some(field => field.name === "Gemini poznámka"));
+    });
+  });
+}
+test("an ordinary unmarked Notion draft is not attributed to Gemini", async () => {
+  const f = fixture("events.vystavy");
+  f.value.properties.Popis = rich("Obyčajný koncept redaktora.");
+  await mockedFetch(f.request, async () => {
+    assert.deepEqual(await listGeminiAgendaDrafts(f.env, "events.vystavy"), []);
+  });
 });

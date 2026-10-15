@@ -242,8 +242,9 @@ test("Notion category values preserve directory slugs and canonical singular eve
   assert.equal(notionCategoryValue("events", "../../secret"), null);
   const worker = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
   assert.match(worker, /notionCategoryValue\(section, subcategory\)/);
-  assert.match(worker, /"Typ podujatia": target\.categoryValue/);
-  assert.match(worker, /"Kategória": target\.categoryValue/);
+  assert.match(worker, /buildGeminiNotionDraft/);
+  const fields = readFileSync(new URL("../scripts/gemini-notion-directory-fields.mjs", import.meta.url), "utf8");
+  assert.match(fields, /"Typ podujatia" : "Kategória"/);
 });
 
 
@@ -320,15 +321,12 @@ test("vector logos can be saved independently without being sent to raster image
   assert.equal(fallback["Alt text obrázka"], "Logo Clinic");
 });
 
-test("Gemini worker offers actual Notion email/phone encoders and gates empty veterinary drafts", () => {
+test("Gemini worker uses schema-aware encoding without minimum contact quality vetoes", () => {
   const source = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
-  assert.match(source, /if \(schema.type === "email"\) return \{ email: value \}/);
-  assert.match(source, /if \(schema.type === "phone_number"\) return \{ phone_number: value \}/);
-  assert.match(source, /directoryProfileValues\(args\)/);
-  assert.match(source, /hasMinimumVeterinarianContact\(properties\)/);
+  assert.match(source, /buildGeminiNotionDraft/);
+  assert.doesNotMatch(source, /hasMinimumVeterinarianContact|insufficient_verified_contact_details|sourceEvidence/);
   assert.match(source, /logo_url: \{ type: "string"/);
   assert.match(source, /image_url: \{ type: "string"/);
-  assert.match(source, /"insufficient_verified_contact_details"/);
 });
 
 test("remaining unsupported dedicated help agendas cannot reserve or dispatch", async () => {
