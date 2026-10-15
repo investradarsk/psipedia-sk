@@ -21,7 +21,8 @@ const source=readFileSync(path.join(root,"drizzle",target));
 const workflow=readFileSync(path.join(root,".github/workflows/production-d1-migrate.yml"),"utf8");
 
 test("0128 exact immutable SQL, canonical D1 target and one-at-a-time approval",()=>{
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),target);
+  assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),"0129_gemini_external_manual_queue.sql");
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS,[]);
   assert.equal(createHash("sha256").update(source).digest("hex"),APPROVED_0128_SHA256);
   assert.doesNotThrow(()=>assertApproved0128Target("psipedia-sk-db",APPROVED_0128_SHA256));
