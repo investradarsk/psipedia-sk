@@ -84,8 +84,8 @@ test("0127 scoped rollout never includes later 0128 even after its authorization
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(later));
   const earlier = Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_fixture.sql");
   const { selected, excludedFuture } = selectMigrationsThrough([...earlier, ...SUPPORTED_PRODUCTION_TARGETS], target);
-  assert.deepEqual(selected, [...earlier, ...SUPPORTED_PRODUCTION_TARGETS.filter(name => name !== later)]);
-  assert.deepEqual(excludedFuture, [later]);
+  assert.deepEqual(selected, [...earlier, ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 127)]);
+  assert.deepEqual(excludedFuture, [later, "0129_gemini_external_manual_queue.sql"]);
   const workflow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(workflow, /0128_facebook_image_posts/);
 });
