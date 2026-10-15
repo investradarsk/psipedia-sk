@@ -5,6 +5,7 @@ import { buildNotionEventsHelpDraft } from "./gemini-notion-events-help-fields.m
 import { externalWorkerCategorySupported } from "./gemini-notion-category.mjs";
 import { canonicalIdentityUrl, directoryDuplicate, sameDirectoryIdentity } from "./gemini-notion-identity.mjs";
 import { GEMINI_REQUEST_LIMIT, geminiHttpCode, inspectInteraction } from "./gemini-interactions-contract.mjs";
+import { parseNoDraftOutcome, requiresNoDraftRecovery } from "./gemini-search-outcome.mjs";
 /**
  * Independent Gemini research worker. Runs ONLY inside GitHub Actions.
  * No Psipedia database logic or Cloudflare runtime required.
@@ -20,6 +21,7 @@ const stableKey = env.AGENT_STABLE_KEY ?? "";
 const maxNew = Math.min(5, Number(env.AGENT_MAX_NEW_CONCEPTS));
 const metrics = { concept_count: 0, duplicate_count: 0, request_count: 0, search_count: 0 };
 const pageIds = [];
+let noDraftOutcome = null;
 let researchSources = new Set();
 const confirmedDrafts = [];
 const bratislavaToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -513,6 +515,11 @@ async function runAgent() {
   if (!Number.isSafeInteger(jobId) || jobId < 1 ||
       !Number.isSafeInteger(maxNew) || maxNew < 1) throw Error("AGENT_INPUT_INVALID");
   const target = category();
+  // Editorial guidance is supplied by the existing admin prompt store, via dispatch.
+  // It does not change duplicate, source, privacy or draft-only hard guards.
+  const categoryGuidance = env.AGENT_CATEGORY_PROMPT?.trim();
+  if (!categoryGuidance || categoryGuidance.length < 40 || categoryGuidance.length > 6000)
+    throw Error("AGENT_CATEGORY_PROMPT_MISSING");
   const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedLostFound ? "lost-found" : target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
   const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. " +
     "Kategória: " + (target.dedicatedLostFound ? "stratené a nájdené psy (Lost/Found, iba DRAFT)" : target.dedicatedAdoption ? "psy na adopciu (Adopcie, iba Nápad)" : target.dedicatedShelter ? "útulky (Organizácie, SHELTER)" : target.categoryValue) + " (" + stableKey + "), Slovensko. " +
@@ -520,7 +527,8 @@ async function runAgent() {
     " NOVÝCH relevantných subjektov / podujatí / prípadov pomoci. " +
     (target.dedicatedLostFound ? "Hľadaj iba aktuálne verejné hlásenia STRATENÝ alebo NÁJDENÝ, overené ešte dnes, s dátumom udalosti do 30 dní, zdrojovou URL, mestom a identifikačnými znakmi. Vynechaj vyriešené, neaktuálne alebo neisté prípady a úplne vylúč súkromné kontakty, adresy a presnú GPS polohu. " : target.dedicatedAdoption ? "Pre každého psa nájdi primárny verejný HTTPS zdroj, jeho meno, zodpovednú organizáciu a podklady o adopcii; nie osobné kontakty alebo presné adresy. " : "Pre každý vyhľadaj verejný primárny HTTPS zdroj, oficiálny web aj sekciu Kontakt. Zisti doložený názov, obec, adresu, kontakty, služby, dátum podujatia a prípustné verejné fotografie. ") +
     "Nič nevymýšľaj. Predlož len overiteľné odkazy a stručné dôkazy, " +
-    "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam.";
+    "nie rozhodnutie o duplicite. Zatiaľ nevytváraj žiadny Notion záznam. " +
+    "Kategóriový redakčný prompt z administrácie (nenahrádza pravidlá overovania): " + categoryGuidance;
   const research = await gemini({ input: researchInstruction, tools: searchTools }, "research");
 
   // Interactions supplies grounded URLs as text-block url_citation annotations
@@ -546,7 +554,8 @@ async function runAgent() {
     "Nevytváraj neúplné záznamy ani možné duplicity. Nikdy nepublikuj. " +
     "Po výsledku duplicate neopakuj rovnakého kandidáta ani rovnaký Notion dotaz. " +
     "Pokračuj ďalším doloženým kandidátom z prieskumu; ak žiadny nezostal, ukonči odpoveď bez funkčného volania. " +
-    "Ak podklady nestačia, skonči bez zápisu.";
+    "Ak podklady nestačia, skonči bez zápisu. " +
+    "Pri vyhodnocovaní zohľadni kategóriový prompt: " + categoryGuidance;
   let response = await gemini({
     input: instruction, previous_interaction_id: research.id, tools: functionTools,
   }, "functions");
@@ -555,6 +564,7 @@ async function runAgent() {
   const duplicateCandidates = [];
   let repeatedTurns = 0;
   let finalizing = false;
+  let completionRecovery = false;
   const unresolvedRejections = new Set();
   const candidateKey = args => JSON.stringify([normalize(args.name), normalize(args.city), args.start_date ?? "", normalize(args.organization)]);
   const identity = args => ({ ...args, website: args.website_url, source: args.source_url });
@@ -565,11 +575,36 @@ async function runAgent() {
     const { calls, status } = inspectInteraction(response, "functions");
     if (status === "completed") {
       if (unresolvedRejections.size) throw Error("AGENT_CANDIDATE_UNRESOLVED");
+      const answer = response.steps.filter(step => step.type === "model_output")
+        .flatMap(step => step.content ?? []).filter(block => block.type === "text")
+        .map(block => block.text).join("").trim();
       if (finalizing) {
-        const text = response.steps.filter(step => step.type === "model_output")
-          .flatMap(step => step.content ?? []).filter(block => block.type === "text")
-          .map(block => block.text).join("").trim();
-        if (text !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+        if (answer !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+        noDraftOutcome = "exhausted";
+        console.log("Agent no-draft outcome: exhausted");
+      } else if (requiresNoDraftRecovery(metrics.concept_count)) {
+        // A model may finish immediately after search_notion. This is not a
+        // researched outcome. Continue the SAME interaction exactly once.
+        if (!completionRecovery) {
+          // An already explicit, valid reason requires no extra paid request.
+          try {
+            const outcome = parseNoDraftOutcome(answer);
+            noDraftOutcome = outcome;
+            console.log("Agent no-draft outcome:", outcome);
+            return;
+          } catch (error) {
+            if (error?.message !== "AGENT_OUTCOME_MISSING") throw error;
+          }
+          if (turn === AGENT_TURNS_LIMIT) throw Error("AGENT_TURN_LIMIT");
+          completionRecovery = true;
+          response = await gemini({
+            input: "Vyhľadávanie a kontrola duplicít nie sú dokončením úlohy. Vyhodnoť všetkých doložených kandidátov z predchádzajúceho Google Search. Ak existuje bezpečne overený a neduplicitný kandidát, pokračuj search_notion (ak ešte neprebehlo) a potom create_notion_draft. Ak neexistuje, skonči presne jedným JSON objektom bez ďalšieho textu: {\"outcome\":\"no_relevant_candidate\"} alebo {\"outcome\":\"duplicate_only\"} alebo {\"outcome\":\"insufficient_evidence\"} alebo {\"outcome\":\"exhausted\"}. Nevytváraj záznam bez overenia.",
+            previous_interaction_id: response.id, tools: functionTools,
+          }, "functions");
+          continue;
+        }
+        noDraftOutcome = parseNoDraftOutcome(answer);
+        console.log("Agent no-draft outcome:", noDraftOutcome);
       }
       return;
     }
@@ -639,6 +674,7 @@ async function callback(status, code = null) {
   const body = JSON.stringify({
     job_id: jobId, status, ...metrics,
     error_code: code,
+    outcome_code: status === "SUCCESS" && metrics.concept_count === 0 ? noDraftOutcome : null,
   });
   const signature = createHmac("sha256", secret).update(body).digest("hex");
   const response = await fetch(callbackUrl, {

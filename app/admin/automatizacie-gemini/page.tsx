@@ -25,6 +25,13 @@ function formatDate(value: string | null) {
   }).format(parsed);
 }
 
+const zeroResultLabels: Record<string, string> = {
+  NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt.",
+  NO_RESULT_DUPLICATE_ONLY: "Nájdené boli iba existujúce duplicity.",
+  NO_RESULT_INSUFFICIENT_EVIDENCE: "Chýbajú dostatočne overiteľné informácie.",
+  NO_RESULT_EXHAUSTED: "Možnosti vyhľadávania boli vyčerpané.",
+};
+
 function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
   const labels = new Map(geminiAutomationCatalog.map((item) => [item.stableKey, item.label]));
   return (
@@ -47,7 +54,7 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
               <th scope="col">Koncepty</th>
               <th scope="col">Chyby</th>
               <th scope="col">Dokončenie</th>
-              <th scope="col">Kód chyby</th>
+              <th scope="col">Výsledok / kód chyby</th>
             </tr></thead>
             <tbody>{runs.map((run) => (
               <tr key={run.id}>
@@ -63,7 +70,9 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
                 <td>{run.conceptCount}</td>
                 <td>{run.errorCount}</td>
                 <td>{formatDate(run.completedAt)}</td>
-                <td>{run.errorCode ?? "—"}</td>
+                <td>{run.status === "SUCCESS" && run.conceptCount === 0
+                  ? zeroResultLabels[run.errorCode ?? ""] ?? "Bez nového konceptu (dôvod nezaznamenaný)."
+                  : run.errorCode ?? "—"}</td>
               </tr>
             ))}</tbody>
           </table>
