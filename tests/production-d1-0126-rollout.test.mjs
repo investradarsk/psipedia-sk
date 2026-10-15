@@ -58,7 +58,9 @@ function schema(db) {
 function apply(db, name) { db.exec(sql(name).replaceAll("--> statement-breakpoint", "\n")); }
 
 test("0126 is a single manual production target and cannot be run on unapproved workflow triggers", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
+  assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.indexOf(target) + 1,
+    SUPPORTED_PRODUCTION_TARGETS.indexOf("0127_gemini_notion_created_pages.sql"));
   assert.equal(PREPARED_PRODUCTION_TARGETS.includes(target), false);
   const flow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(flow, /^on:\s*\n\s+workflow_dispatch:/m);
