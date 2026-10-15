@@ -21,6 +21,7 @@ const stableKey = env.AGENT_STABLE_KEY ?? "";
 const maxNew = Math.min(5, Number(env.AGENT_MAX_NEW_CONCEPTS));
 const metrics = { concept_count: 0, duplicate_count: 0, request_count: 0, search_count: 0 };
 const pageIds = [];
+let noDraftOutcome = null;
 let researchSources = new Set();
 const confirmedDrafts = [];
 const bratislavaToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -579,6 +580,7 @@ async function runAgent() {
         .map(block => block.text).join("").trim();
       if (finalizing) {
         if (answer !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+        noDraftOutcome = "exhausted";
         console.log("Agent no-draft outcome: exhausted");
       } else if (requiresNoDraftRecovery(metrics.concept_count)) {
         // A model may finish immediately after search_notion. This is not a
@@ -587,6 +589,7 @@ async function runAgent() {
           // An already explicit, valid reason requires no extra paid request.
           try {
             const outcome = parseNoDraftOutcome(answer);
+            noDraftOutcome = outcome;
             console.log("Agent no-draft outcome:", outcome);
             return;
           } catch (error) {
@@ -600,7 +603,8 @@ async function runAgent() {
           }, "functions");
           continue;
         }
-        console.log("Agent no-draft outcome:", parseNoDraftOutcome(answer));
+        noDraftOutcome = parseNoDraftOutcome(answer);
+        console.log("Agent no-draft outcome:", noDraftOutcome);
       }
       return;
     }
@@ -670,6 +674,7 @@ async function callback(status, code = null) {
   const body = JSON.stringify({
     job_id: jobId, status, ...metrics,
     error_code: code,
+    outcome_code: status === "SUCCESS" && metrics.concept_count === 0 ? noDraftOutcome : null,
   });
   const signature = createHmac("sha256", secret).update(body).digest("hex");
   const response = await fetch(callbackUrl, {
