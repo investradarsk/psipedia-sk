@@ -17,7 +17,7 @@ function fixture() {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys=ON; CREATE TABLE d1_migrations (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);");
   const insert = db.prepare("INSERT INTO d1_migrations(id,name) VALUES(?,?)");
-  canonicalNames.slice(0,-1).forEach((name,i) => insert.run(i+1,name));
+  canonicalNames.slice(0,canonicalNames.indexOf("0128_facebook_image_posts.sql")).forEach((name,i) => insert.run(i+1,name));
   db.exec("CREATE TABLE gemini_manual_background_jobs (id INTEGER PRIMARY KEY)");
   db.exec(previous);
   return { db, query: async (_database, sql) => db.prepare(assertReadonly0128Query(sql)).all() };
