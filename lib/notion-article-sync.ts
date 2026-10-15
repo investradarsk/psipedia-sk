@@ -1109,6 +1109,14 @@ async function updateNotionSyncState(
 }
 
 
+/**
+ * A D1 publication is authoritative. Scheduled rows remain "scheduled" in D1
+ * even after published_at; public GET routes intentionally do not write to D1.
+ *
+ * This helper is shared by explicit Admin publishes and the hourly Cron repair.
+ * Read Notion before PATCH so a replay is harmless and editorial revocations
+ * (Draft / unchecked send) are never silently overwritten.
+ */
 export async function writeBackPublishedArticleToNotion(args: {
   database: D1Database;
   bindings: NotionSyncBindings;
@@ -1118,55 +1126,113 @@ export async function writeBackPublishedArticleToNotion(args: {
     portalSection: string;
     status: string;
     publishedAt: string | null;
+    updatedAt?: string;
   };
+  now?: string;
 }) {
   if (!flagEnabled(args.bindings.NOTION_ARTICLE_SYNC_ENABLED)) {
     return { linked: false, updated: false, reason: "disabled" as const };
   }
-  if (args.article.status !== "published") {
+  const now = args.now ?? new Date().toISOString();
+  const dueScheduled = args.article.status === "scheduled"
+    && Boolean(args.article.publishedAt)
+    && Number.isFinite(Date.parse(args.article.publishedAt!))
+    && Date.parse(args.article.publishedAt!) <= Date.parse(now);
+  if (args.article.status !== "published" && !dueScheduled) {
     return { linked: false, updated: false, reason: "not-published" as const };
+  }
+  // Some legacy published rows have no reliable published_at. Never replace
+  // that missing historical fact with the current Cron/Admin request time:
+  // a later run would interpret the fabricated date as a publication conflict.
+  // Leave the Notion page and D1 mapping untouched for individual review.
+  const publishedAt = args.article.publishedAt;
+  if (!publishedAt || !Number.isFinite(Date.parse(publishedAt))) {
+    return { linked: false, updated: false, reason: "missing-publication-date" as const };
   }
 
   const mapping = await args.database.prepare(
     "SELECT notion_page_id FROM article_notion_sync WHERE article_id = ? LIMIT 1",
   ).bind(args.article.id).first<{ notion_page_id: string }>();
-
   if (!mapping?.notion_page_id) {
     return { linked: false, updated: false, reason: "not-linked" as const };
   }
 
-  const now = new Date().toISOString();
-  const publishedAt = args.article.publishedAt ?? now;
-  const publicUrl = `${SITE_URL}${articleHref({
+  const publicUrl = SITE_URL + articleHref({
     slug: args.article.slug,
     portalSection: args.article.portalSection,
-  })}`;
-
-  await notionRequest(
+  });
+  const page = await notionRequest<NotionPage>(
     args.bindings,
-    `/pages/${encodeURIComponent(mapping.notion_page_id)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        properties: {
-          "Stav": { select: { name: "Publikované" } },
-          "Dátum publikácie": { date: { start: publishedAt } },
-          "URL Psipedia": { url: publicUrl },
-          "Sync stav": { select: { name: "Synchronizované" } },
-          "Sync chyba": notionTextValue(""),
-          "Posledný sync": { date: { start: now } },
-        },
-      }),
-    },
+    "/pages/" + encodeURIComponent(mapping.notion_page_id),
   );
+  const notionState = selectProperty(page, "Stav");
+  const remoteUrl = urlProperty(page, "URL Psipedia");
+  const date = propertyRecord(page, "Dátum publikácie")?.date;
+  const remoteDate = date && typeof date === "object"
+    ? (date as { start?: unknown }).start : null;
+  const sameDate = typeof remoteDate === "string"
+    && Number.isFinite(Date.parse(remoteDate))
+    && Date.parse(remoteDate) === Date.parse(publishedAt);
+  const publishedMatches = notionState === "Publikované"
+    && remoteUrl === publicUrl && sameDate;
 
+  if (notionState === "Publikované" && !publishedMatches) {
+    throw new Error("NOTION_PUBLICATION_CONFLICT");
+  }
+  if (!publishedMatches && (notionState !== "Ready" || !checkboxProperty(page, "Odoslať na Psipedia"))) {
+    throw new Error("NOTION_PUBLICATION_NOT_APPROVED");
+  }
+
+  // Re-read after the network request: a concurrent reschedule, unpublish or
+  // edit must not be acknowledged based on the stale Cron/Admin snapshot.
+  const current = await args.database.prepare(
+    "SELECT slug, portal_section, status, published_at, updated_at FROM managed_articles WHERE id = ? LIMIT 1",
+  ).bind(args.article.id).first<{
+    slug: string; portal_section: string; status: string;
+    published_at: string | null; updated_at: string;
+  }>();
+  if (!current
+    || current.slug !== args.article.slug
+    || current.portal_section !== args.article.portalSection
+    || current.status !== args.article.status
+    || current.published_at !== args.article.publishedAt
+    || (args.article.updatedAt && current.updated_at !== args.article.updatedAt)
+    || (current.status === "scheduled" && (!current.published_at || Date.parse(current.published_at) > Date.parse(now)))) {
+    throw new Error("D1_PUBLICATION_CHANGED");
+  }
+
+  const alreadySynced = publishedMatches
+    && selectProperty(page, "Sync stav") === "Synchronizované"
+    && !richTextProperty(page, "Sync chyba");
+  if (!alreadySynced) {
+    await notionRequest(
+      args.bindings,
+      "/pages/" + encodeURIComponent(mapping.notion_page_id),
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          properties: {
+            "Stav": { select: { name: "Publikované" } },
+            "Dátum publikácie": { date: { start: publishedAt } },
+            "URL Psipedia": { url: publicUrl },
+            "Sync stav": { select: { name: "Synchronizované" } },
+            "Sync chyba": notionTextValue(""),
+            "Posledný sync": { date: { start: now } },
+          },
+        }),
+      },
+    );
+  }
+
+  // Mark only a successfully repaired/already correct mapping. This timestamp
+  // also rotates the bounded Cron scan instead of repeatedly checking page 1.
   await args.database.prepare(
-    "UPDATE article_notion_sync SET last_synced_at = ?, updated_at = ? WHERE notion_page_id = ?",
-  ).bind(now, now, mapping.notion_page_id).run();
+    "UPDATE article_notion_sync SET last_synced_at = ?, updated_at = ? WHERE notion_page_id = ? AND article_id = ?",
+  ).bind(now, now, mapping.notion_page_id, args.article.id).run();
 
   return {
     linked: true,
-    updated: true,
+    updated: !alreadySynced,
     notionPageId: mapping.notion_page_id,
     publicUrl,
   };

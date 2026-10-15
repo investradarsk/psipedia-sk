@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { articleEffectiveStatusSql } from "@/lib/article-effective-status";
 
 export type EditorialCalendarItem = {
   id: number;
@@ -19,7 +20,7 @@ export async function listEditorialCalendarItems(year: number, month: number): P
   const end = new Date(Date.UTC(year, month, 3)).toISOString();
   const rows = await database.prepare(`
     SELECT id, title,
-      CASE WHEN status = 'scheduled' AND published_at <= ? THEN 'published' ELSE status END AS status,
+      ${articleEffectiveStatusSql()} AS status,
       published_at
     FROM managed_articles
     WHERE status IN ('published', 'scheduled')
