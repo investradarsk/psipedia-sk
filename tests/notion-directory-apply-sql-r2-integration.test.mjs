@@ -34,6 +34,10 @@ function fixture(options = {}) {
     verified INTEGER, featured INTEGER, seo_json TEXT, search_text TEXT,
     updated_at TEXT, published_at TEXT, archived_at TEXT, updated_by TEXT
   )`);
+  // Registry exists in post-0127 canonical D1; these legacy tests exercise
+  // unrelated ordinary Notion edits with no recorded Gemini provenance.
+  sqlite.exec("CREATE TABLE gemini_notion_created_pages (" +
+    "notion_page_id TEXT PRIMARY KEY, import_agenda TEXT, canonical_entity_id INTEGER)");
   const version = "2026-10-14T08:00:00.000Z";
   const status = options.status ?? "draft";
   sqlite.prepare(`INSERT INTO directory_profiles
