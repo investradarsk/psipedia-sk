@@ -283,3 +283,98 @@ test("a D1 canonical mapping prevents re-review even when Notion Psipedia ID wri
     assert.equal(f.writes.length, 0);
   });
 });
+
+
+test("all 12 non-directory categories can save supported title without changing status or other fields", async () => {
+  const items = geminiAutomationCatalog.filter(item => item.section !== "directory");
+  for (const item of items) {
+    const f = fixture(item.stableKey);
+    await mockedFetch(f.request, async () => {
+      const draft = (await listGeminiAgendaDrafts(f.env, item.stableKey))[0];
+      const field = f.schema.properties["Meno"] ? "Meno" : "Názov";
+      const saved = await mutateGeminiAgendaDraft(f.env, item.stableKey, draft.id, {
+        action: "save", lastEditedAt: draft.lastEditedAt, fields: { [field]: "Nový bezpečný názov" },
+      }, "admin@example.sk");
+      assert.equal(saved.name, "Nový bezpečný názov", item.stableKey);
+      assert.equal(saved.reviewState, "NEW", item.stableKey);
+      assert.deepEqual(Object.keys(f.writes[0]), [field], item.stableKey);
+      assert.equal(f.writes[0]["Psipedia stav"], undefined, item.stableKey);
+      assert.equal(f.writes[0].Stav, undefined, item.stableKey);
+    });
+  }
+});
+
+test("existing Notion values outside sync contract are visible but never editable", async () => {
+  const f = fixture("events.vystavy");
+  f.schema.properties["Príloha Notion"] = { type: "files" };
+  f.value.properties["Príloha Notion"] = { type: "files", files: [{ name: "súbor" }] };
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "events.vystavy"))[0];
+    const custom = draft.fields.find(field => field.name === "Príloha Notion");
+    assert.equal(custom?.synced, false);
+    assert.equal(custom?.editable, false);
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt, fields: { "Príloha Notion": "should fail" },
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("rich-text formatting and date ranges remain read-only to prevent lossy round-trips", async () => {
+  const f = fixture("events.vystavy");
+  f.value.properties["Popis"] = {
+    type: "rich_text",
+    rich_text: [{ plain_text: "Obsah\n\nDôkazy:\nhttps://source.example/dog",
+      type: "text", annotations: { bold: true, color: "default" } }],
+  };
+  f.value.properties["Začiatok"] = { type: "date",
+    date: { start: "2026-10-22", end: "2026-10-23" } };
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "events.vystavy"))[0];
+    assert.equal(draft.fields.find(item => item.name === "Popis")?.editable, false);
+    assert.equal(draft.fields.find(item => item.name === "Začiatok")?.editable, false);
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt, fields: { "Začiatok": "2026-10-25" },
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("existing select schema options are exposed and invalid choices cannot be saved", async () => {
+  const f = fixture("help.adopcia");
+  f.schema.properties["Veľkosť"] = { type: "select", select: { options: [{ name: "Malý" }, { name: "Veľký" }] } };
+  f.value.properties["Veľkosť"] = select("Malý");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.adopcia"))[0];
+    assert.deepEqual(draft.fields.find(item => item.name === "Veľkosť")?.options, ["Malý", "Veľký"]);
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt, fields: { "Veľkosť": "Neexistujúca" },
+    }, "admin@example.sk"), { code: "SCHEMA" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("help-case slug is not an editable shortcut to implicit canonical creation", async () => {
+  const f = fixture("help.zbierky");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.zbierky"))[0];
+    assert.equal(draft.fields.find(item => item.name === "Slug")?.editable, false);
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: draft.lastEditedAt, fields: { Slug: "ready-to-import" },
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("Lost/Found only accepts canonical data source and matching Notion parent", async () => {
+  const f = fixture("help.stratene-a-najdene");
+  await mockedFetch(f.request, async () => {
+    f.value.parent.data_source_id = "00000000-0000-0000-0000-000000000099";
+    assert.deepEqual(await listGeminiAgendaDrafts(f.env, "help.stratene-a-najdene"), []);
+    f.value.parent.data_source_id = sources["lost-found"];
+    f.schema.parent.database_id = "00000000-0000-0000-0000-000000000099";
+    await assert.rejects(() => listGeminiAgendaDrafts(f.env, "help.stratene-a-najdene"),
+      { code: "SCHEMA" });
+    assert.equal(f.writes.length, 0);
+  });
+});
