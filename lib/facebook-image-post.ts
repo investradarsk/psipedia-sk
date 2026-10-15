@@ -5,6 +5,7 @@ export type FacebookImagePost = {
   id: string; title: string; imageUrl: string; imageKey: string; caption: string;
   scheduledAt: string | null; status: FacebookImageStatus; version: number;
   createdAt: string; updatedAt: string;
+  approvalStatus?: string; publicationState?: string; publicationError?: string | null; facebookPostId?: string | null;
 };
 const wallFormat = new Intl.DateTimeFormat("en-CA", { timeZone: FACEBOOK_IMAGE_TIME_ZONE,
   year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
