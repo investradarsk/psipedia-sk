@@ -10,7 +10,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // All canonical migrations through 0128 are recognized, but production APPLY still requires a protected manual workflow and confirmation.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0129_facebook_image_publisher.sql"]);
 export const APPROVED_0128_SHA256 = "9f8b23e2420f354089f38490d9105707346527e5ab8fc544f55234d8283a098a";
 export function assertApproved0128Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0128 requires the canonical psipedia-sk-db database");
