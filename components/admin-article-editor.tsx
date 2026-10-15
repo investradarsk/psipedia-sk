@@ -11,6 +11,7 @@ import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { EditorialRichText } from "@/components/editorial-rich-text";
 import type { ArticleStatus, ManagedArticle } from "@/lib/article-store";
+import { effectiveArticleStatus, articleEffectiveStatusLabel } from "@/lib/article-effective-status";
 import { formatArticleLocalDateTime } from "@/lib/article-schedule-time";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import { createArticleBlock, legacyArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
@@ -139,7 +140,25 @@ export function AdminArticleEditor({
         ? legacyArticleBlocks(article.sections, article.sources)
         : [createArticleBlock("text", "new-article-initial-text")],
   );
-  const [status, setStatus] = useState(article?.status ?? "draft");
+  // Keep persisted lifecycle separate from display: an elapsed schedule is public
+  // without a write to managed_articles or to the Notion import mapping.
+  const [status, setStatus] = useState<ArticleStatus>(article?.status ?? "draft");
+  const [confirmedPublishedAt, setConfirmedPublishedAt] = useState(article?.publishedAt ?? null);
+  const [statusClock, setStatusClock] = useState(() => Date.now());
+  const displayedStatus = effectiveArticleStatus(status, confirmedPublishedAt, statusClock);
+  useEffect(() => {
+    const refresh = () => setStatusClock(Date.now());
+    window.addEventListener("focus", refresh);
+    const due = confirmedPublishedAt ? Date.parse(confirmedPublishedAt) : NaN;
+    const remaining = due - Date.now();
+    const timeout = status === "scheduled" && Number.isFinite(due)
+      && remaining >= 0 && remaining <= 2147483646
+      ? window.setTimeout(refresh, remaining + 1) : null;
+    return () => {
+      window.removeEventListener("focus", refresh);
+      if (timeout !== null) window.clearTimeout(timeout);
+    };
+  }, [status, confirmedPublishedAt]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -232,9 +251,12 @@ export function AdminArticleEditor({
     setMessage("");
 
     const requestedPublishedAt = publishedAt ? new Date(publishedAt) : null;
-    const effectivePublishedAt = nextStatus === "published" && requestedPublishedAt && requestedPublishedAt.getTime() > Date.now()
-      ? new Date()
-      : requestedPublishedAt;
+    // Preserve the true historical publish time if the schedule has elapsed.
+    const effectivePublishedAt = nextStatus === "published" && status === "scheduled" && displayedStatus === "published" && confirmedPublishedAt
+      ? new Date(confirmedPublishedAt)
+      : nextStatus === "published" && requestedPublishedAt && requestedPublishedAt.getTime() > statusClock
+        ? new Date()
+        : requestedPublishedAt;
     const preservedMetadata = preservedEditorArticleMetadata(article, {
       portalSection,
       portalSubpage: currentAreas.length || originalAreaHidden ? portalSubpage : null,
@@ -312,6 +334,7 @@ export function AdminArticleEditor({
       }
 
       setStatus(data.article.status);
+      setConfirmedPublishedAt(data.article.publishedAt);
       lastSavedUpdatedAtRef.current = data.article.updatedAt;
       setPublishedAt(dateTimeValue(data.article.publishedAt));
       setEditorDirty(false);
@@ -359,7 +382,7 @@ export function AdminArticleEditor({
   return (
     <div className={`admin-editor ${previewOpen ? "has-preview" : ""}`}>
       {returnToCalendar && <button type="button" className="admin-secondary-action" onClick={cancelEditing}>← Späť do kalendára</button>}
-      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save(status); }}>
+      <form className="admin-editor-form" onChange={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onInput={(event) => { if (!(event.target as HTMLElement).closest("dialog")) setEditorDirty(true); }} onSubmit={(event) => { event.preventDefault(); void save(displayedStatus); }}>
         <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora článku" />
         {qaIssues.length > 0 && (
           <section className="admin-form-card" aria-live="polite" aria-label="Publikačná kontrola">
@@ -396,13 +419,13 @@ export function AdminArticleEditor({
 
         <section id="article-publish" tabIndex={-1} className="admin-form-card">
           <div className="admin-card-heading"><div><span>01</span><div><h2>Publikovanie</h2><p>Termín publikovania a redakčná aktualizácia.</p></div></div></div>
-          <p data-article-current-status aria-live="polite">Aktuálny stav: {status === "published" ? "Publikovaný" : status === "scheduled" ? "Naplánovaný" : "Koncept"}</p>
+          <p data-article-current-status aria-live="polite">Aktuálny stav: {articleEffectiveStatusLabel(displayedStatus)}</p>
           <div className="admin-field-grid">
             <div className="admin-field">
               <label htmlFor="article-published-at">Dátum a čas publikovania</label>
-              <input id="article-published-at" type="datetime-local" value={publishedAt} onChange={(event) => setPublishedAt(event.target.value)} />
+              <input id="article-published-at" type="datetime-local" value={publishedAt} readOnly={displayedStatus === "published"} onChange={(event) => setPublishedAt(event.target.value)} />
               <small>Pri okamžitom publikovaní môže zostať prázdny.</small>
-              <ArticleEditorCalendar value={publishedAt} articleId={article?.id} readOnly={status === "published"}
+              <ArticleEditorCalendar value={publishedAt} articleId={article?.id} readOnly={displayedStatus === "published"}
                 onChoose={(nextDate) => { setPublishedAt(nextDate); setEditorDirty(true); }} />
             </div>
             <div className="admin-field"><label htmlFor="article-updated-at">Dátum aktualizácie</label><input id="article-updated-at" type="date" value={contentUpdatedAt} onChange={(event) => setContentUpdatedAt(event.target.value)} /></div>
@@ -602,10 +625,10 @@ export function AdminArticleEditor({
             <span className="admin-editor-dirty-state" role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>
           </div>
           <div>
-            {status === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
-            <AdminActionButton variant="secondary" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : status === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
-            <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt} onClick={() => void save("scheduled")}>{saving ? "Ukladám…" : "Naplánovať publikovanie"}</AdminActionButton>
-            <AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť a aktualizovať" : `Publikovať ${portalSection === "novinky" ? "novinku" : "článok"}`}</AdminActionButton>
+            {displayedStatus === "published" && <AdminActionButton variant="destructive" disabled={saving || uploading} onClick={unpublish}>Stiahnuť z webu</AdminActionButton>}
+            <AdminActionButton variant="secondary" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť zmeny" : displayedStatus === "scheduled" ? "Uložiť plánovaný článok" : "Uložiť koncept"}</AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={saving || uploading || !publishedAt || displayedStatus === "published"} onClick={() => void save("scheduled")}>{saving ? "Ukladám…" : "Naplánovať publikovanie"}</AdminActionButton>
+            <AdminActionButton variant="primary" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : displayedStatus === "published" ? "Uložiť a aktualizovať" : `Publikovať ${portalSection === "novinky" ? "novinku" : "článok"}`}</AdminActionButton>
           </div>
         </div>
       </form>

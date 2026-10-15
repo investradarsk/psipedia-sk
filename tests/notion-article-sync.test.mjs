@@ -200,7 +200,10 @@ test("hourly article sync survives unrelated Promise.all rejections and logs run
   const siblings = workerSource.slice(dispatch, workerSource.indexOf("    // Run push after the editorial sweep", dispatch));
 
   assert.match(isolated, /notionArticleTask = observeScheduledAutomation\(/);
-  assert.match(isolated, /execute: \(\) => runNotionArticleSyncSweep\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.match(isolated, /execute: async \(\) => \{/);
+  assert.match(isolated, /await runArticlePublishNotionReconciliation\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.match(isolated, /const imported = await runNotionArticleSyncSweep\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.ok(isolated.indexOf("await runArticlePublishNotionReconciliation") < isolated.indexOf("await runNotionArticleSyncSweep"), "publish reconciliation must precede Ready imports");
   assert.match(isolated, /_ctx\.waitUntil\(notionArticleTask\)/);
   assert.match(isolated, /\.then\(\(result\) =>/);
   assert.match(isolated, /\.catch\(\(error\) =>/);
