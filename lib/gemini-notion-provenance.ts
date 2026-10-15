@@ -39,6 +39,29 @@ export function expectedGeminiNotionSource(env: GeminiProvenanceEnv, agenda: Gem
   } as const)[agenda];
   return env[name]?.trim() ?? "";
 }
+/** Help and event target identities already live in the canonical D1 target registry.
+ * The Cloudflare callback does not rely on optional GitHub worker env values.
+ */
+export async function resolveGeminiCallbackSource(db: D1Database, env: GeminiProvenanceEnv,
+  agenda: GeminiProvenanceAgenda): Promise<GeminiProvenanceEnv> {
+  if (agenda === "directory") return env;
+  const row = await db.prepare(
+    "SELECT data_source_id FROM notion_agenda_targets WHERE agenda=?"
+  ).bind(agenda).first<{ data_source_id: string }>();
+  if (!row?.data_source_id || !UUID.test(row.data_source_id))
+    throw Error("GEMINI_PROVENANCE_TARGET_UNRESOLVED");
+  const field = ({
+    events: "NOTION_EVENTS_DATA_SOURCE_ID",
+    organizations: "NOTION_ORGANIZATIONS_DATA_SOURCE_ID",
+    adoptions: "NOTION_ADOPTIONS_DATA_SOURCE_ID",
+    "help-cases": "NOTION_HELP_DATA_SOURCE_ID",
+    "lost-found": "NOTION_LOST_FOUND_DATA_SOURCE_ID",
+  } as const)[agenda];
+  const configured = expectedGeminiNotionSource(env, agenda);
+  if (configured && normalizedId(configured) !== normalizedId(row.data_source_id))
+    throw Error("GEMINI_PROVENANCE_TARGET_CONFLICT");
+  return { ...env, [field]: row.data_source_id };
+}
 export function parseGeminiCreatedPages(value: unknown, jobKey: string, count: number,
   env: GeminiProvenanceEnv): { pages: GeminiCreatedPage[]; agenda: GeminiProvenanceAgenda } | null {
   const agenda = geminiImportAgenda(jobKey);
