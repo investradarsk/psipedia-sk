@@ -9,7 +9,7 @@ import { parseNoDraftOutcome, requiresNoDraftRecovery } from "./gemini-search-ou
  */
 import { createHmac } from "node:crypto";
 import { notionCategoryValue } from "./gemini-notion-category.mjs";
-import { buildGeminiNotionDraft } from "./gemini-notion-directory-fields.mjs";
+import { buildGeminiNotionDraft, geminiNotionSchema, geminiDraftIdentity } from "./gemini-notion-directory-fields.mjs";
 
 const env = process.env;
 const jobId = Number(env.AGENT_JOB_ID);
@@ -187,49 +187,8 @@ const tools = [
     parameters: {
       type: "object", properties: {
         gemini_note: { type: "string", description: "Optional private Gemini poznámka: missing/uncertain facts, possible duplicates or checks for the reviewer. Never include private contacts or exact locations in Lost/Found." },
-        name: { type: "string" },
-        city: { type: "string" },
-        source_url: { type: "string", description: "Public HTTPS source proving the entity/event exists." },
-        website_url: { type: "string" },
-        description: { type: "string" },
-        summary: { type: "string" },
-        venue: { type: "string" },
-        start_date: { type: "string", description: "Event date YYYY-MM-DD, if verified." },
-        report_type: { type: "string", enum: ["STRATENÝ", "NÁJDENÝ"], description: "Lost/Found case type, only for help.stratene-a-najdene." },
-        report_status: { type: "string", enum: ["OPEN"], description: "Source explicitly confirms the report is still open." },
-        dog_name: { type: "string", description: "Dog's verified name, if known." },
-        sex: { type: "string" },
-        breed: { type: "string" },
-        color: { type: "string" },
-        size: { type: "string" },
-        distinguishing_marks: { type: "string" },
-        collar_description: { type: "string" },
-        event_date: { type: "string", description: "Verified incident date YYYY-MM-DD." },
-        verified_at: { type: "string", description: "Date of positive confirmation that report is still OPEN, YYYY-MM-DD." },
-        organizer: { type: "string" },
-        organization: { type: "string" },
-        legal_name: { type: "string" },
-        registration_number: { type: "string" },
-        end_date: { type: "string" },
-        start_time: { type: "string", description: "Verified local event time HH:MM (Europe/Bratislava)." },
-        end_time: { type: "string" },
-        contact: { type: "string" },
-        phone: { type: "string", description: "Verified public business phone from primary source (e.g. +421...). Never guess." },
-        email: { type: "string", description: "Verified public business email. No personal/internal emails." },
-        address: { type: "string", description: "Verified full public visitor address, including street and house number where available." },
-        street: { type: "string" },
-        house_number: { type: "string" },
-        postal_code: { type: "string" },
-        district: { type: "string" },
-        region: { type: "string" },
-        facebook_url: { type: "string", description: "Verified official Facebook profile URL." },
-        instagram_url: { type: "string", description: "Verified official Instagram profile URL." },
-        services: { type: "string", description: "Specific publicly evidenced business services." },
-        qualifications: { type: "string", description: "Only publicly evidenced qualifications/certifications." },
-        logo_url: { type: "string", description: "Direct HTTPS link to the official organisation logo image file on its own website, ending .png/.jpg/.jpeg/.webp/.gif/.svg. Not a page or Google image URL. Leave empty if unverified." },
-        image_url: { type: "string", description: "Direct HTTPS link to an official cover photograph image file on organisation website; not a search result or page." },
-        image_alt: { type: "string", description: "Truthful alt text for the verified cover photo." },
-      }, required: ["name"],
+        fields: { type: "object", description: "Values keyed by exact writable Notion field names from the live target schema. Analyze all verified facts, not only the description." },
+      }, required: ["fields"],
     },
   },
 ];
@@ -238,7 +197,11 @@ const tools = [
 // Split Google Search from custom functions to avoid the provider's Preview
 // mixed-tool TOOLS/timeout failure. previous_interaction_id retains grounded context.
 const searchTools = [{ type: "google_search" }];
-const functionTools = tools.filter(tool => tool.type === "function");
+function notionFunctionTools(schema) {
+  return tools.filter(tool => tool.type === "function").map(tool => tool.name !== "create_notion_draft" ? tool : {
+    ...tool, parameters: { ...tool.parameters, properties: { ...tool.parameters.properties, fields: schema.input } },
+  });
+}
 
 async function gemini(payload, phase) {
   if (metrics.request_count >= GEMINI_REQUEST_LIMIT) throw Error("GEMINI_REQUEST_LIMIT");
@@ -284,6 +247,16 @@ async function runAgent() {
   if (!categoryGuidance || categoryGuidance.length > 6000)
     throw Error("AGENT_CATEGORY_PROMPT_MISSING");
   const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedLostFound ? "lost-found" : target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
+  const liveSchema = geminiNotionSchema(snapshot.properties, target);
+  const functionTools = notionFunctionTools(liveSchema);
+  const schemaInstruction = " Aktuálna schéma cieľového Notion zdroja (názvy, typy a existujúce možnosti; writable=false je iba pre kontext, nikdy na zápis): " + JSON.stringify(liveSchema.description) +
+    ". V create_notion_draft odovzdaj fields s presnými názvami obsahových polí. Systémové identity, kategóriu a publikovanie riadi Psipedia. Pri Lost/Found vyber Typ LOST alebo FOUND. " +
+    "Analyzuj súvislé opisy, tabuľky, parametre aj relevantné podstránky. Každý doložený fakt vrátane faktov vo vlastnom opise priraď k vhodnému existujúcemu poľu. " +
+    "Napríklad overená hmotnosť, kríženec či zdravotné informácie nemajú zostať iba v opise, ak existujú zodpovedajúce polia. Rozhodujúca je táto schéma, nie pevný zoznam príkladov. " +
+    "Zvoľ existujúce select/multi-select možnosti podľa významu, dodrž typy a jednotky; pri Notion number_format=percent je 25 % hodnota 0.25. Ak význam alebo prevod nie je jednoznačný, nechaj pole prázdne a vysvetli to v gemini_note. " +
+    "Mesiac narodenia 08/2024 nie je presný dátum: nevymýšľaj deň ani presný vek; použi vhodné približné textové pole, opis alebo poznámku. " +
+    "Obrázky iba z overených priamych verejných HTTPS zdrojov; pri službách z ich vlastného webu. Žiadne interné súbory, kontakty osôb ani presná poloha citlivých prípadov. " +
+    "Popis napíš prirodzenou odbornou slovenčinou skúseného odborníka, pri kynologickom obsahu kynológa. Nekopíruj mechanicky zdroj. Chýbajúce a nerelevantné polia nechaj prázdne bez zbytočných upozornení.";
   const researchInstruction = "Si odborný výskumný pracovník Psipedia.sk. Kategória: " + stableKey +
     ". Vyhľadaj relevantné verejné informácie pomocou Google Search a priprav najviac " + maxNew +
     " neverejných konceptov podľa používateľského promptu: " + categoryGuidance +
@@ -291,7 +264,7 @@ async function runAgent() {
     "Samotný počet kontaktov, dĺžka textu ani chýbajúce dôkazy jednotlivých polí neblokujú koncept. " +
     "Poznámky a neistoty patria iba do gemini_note, nie do popisu. Zatiaľ vykonaj prieskum. " +
     "Pri adopciách, útulkoch a najmä stratených/nájdených psoch neposielaj súkromné kontakty, presné adresy či GPS. Nikdy nepublikuj.";
-  const research = await gemini({ input: researchInstruction, tools: searchTools }, "research");
+  const research = await gemini({ input: researchInstruction + schemaInstruction, tools: searchTools }, "research");
   const instruction = "Pokračuj podľa používateľského promptu: " + categoryGuidance +
     ". Pozri existujúce Notion záznamy cez search_notion; odpoveď uvádza stránkovanie a next_offset. " +
     "Následne vytvor použiteľné koncepty cez create_notion_draft. Prípadná duplicita je iba upozornenie " +
@@ -301,7 +274,7 @@ async function runAgent() {
     "Ak sa nenašiel žiadny použiteľný subjekt alebo prípad, nevytváraj falošný profil; " +
     "ukonči jedným JSON objektom s outcome no_relevant_candidate, duplicate_only, insufficient_evidence alebo exhausted.";
   let response = await gemini({
-    input: instruction, previous_interaction_id: research.id, tools: functionTools,
+    input: instruction + schemaInstruction, previous_interaction_id: research.id, tools: functionTools,
   }, "functions");
   let notionSearched = false;
   const searches = new Map();
@@ -310,7 +283,7 @@ async function runAgent() {
   let finalizing = false;
   let completionRecovery = false;
   const unresolvedRejections = new Set();
-  const candidateKey = args => JSON.stringify([normalize(args.name), normalize(args.city), args.start_date ?? args.event_date ?? "", normalize(args.organization), args.source_url ?? "", args.report_type ?? ""]);
+  const candidateKey = args => JSON.stringify(geminiDraftIdentity(args, target));
   const stableArguments = value => JSON.stringify(value, (_key, item) =>
     item && typeof item === "object" && !Array.isArray(item)
       ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item);

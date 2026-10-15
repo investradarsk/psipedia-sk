@@ -143,3 +143,86 @@ test("actual Notion types and existing options control encoding; no schema mutat
   assert.equal(notionDraftProperty(field("date"), "2027-02-30"), null);
   assert.equal(notionDraftProperty(field("url"), "https://127.0.0.1/"), null);
 });
+
+const { geminiNotionSchema, geminiContentField, geminiDraftIdentity } = await import('../scripts/gemini-notion-directory-fields.mjs');
+test('live schema describes all field types/options and exposes only content fields', () => {
+  const schema = { ...events, 'Nová informácia': field('rich_text'),
+    'Zdravotný stav': field('rich_text'), 'Hmotnosť': field('number'),
+    'Dostupnosť': field('select', ['Áno', 'Nie']),
+    'Zameranie': { type: 'multi_select', multi_select: { options: [{ name: 'Tréning psov' }] } },
+    'Overené': field('checkbox'), 'Psipedia ID': field('rich_text'), 'Publikovať': field('checkbox'),
+    'Interný e-mail': field('email'), 'Sync hash': field('rich_text'), 'Latitude': field('number'),
+    'Výpočet': field('formula'), 'Vzťah': field('relation'), 'Ľudia': field('people'),
+    'Fotografie': field('files'), 'Gemini poznámka': field('rich_text') };
+  const live = geminiNotionSchema(schema, target);
+  assert.deepEqual(live.input.properties.Dostupnosť.enum, ['Áno', 'Nie']);
+  assert.deepEqual(live.input.properties.Zameranie.items.enum, ['Tréning psov']);
+  assert.ok(live.input.properties['Nová informácia']);
+  assert.ok(live.input.properties['Zdravotný stav']);
+  assert.ok(live.input.properties.Fotografie);
+  for (const name of ['Stav', 'Typ podujatia', 'Overené', 'Psipedia ID', 'Publikovať', 'Interný e-mail', 'Sync hash', 'Latitude', 'Výpočet', 'Vzťah', 'Ľudia', 'Gemini poznámka']) {
+    assert.equal(live.input.properties[name], undefined, name);
+    assert.equal(live.description.find(p => p.name === name).writable, false, name);
+  }
+});
+test('typed values preserve booleans, normalize units/options and refuse ambiguous approximations', () => {
+  assert.deepEqual(notionDraftProperty(field('number'), '4 kg', 'Hmotnosť'), { number: 4 });
+  assert.deepEqual(notionDraftProperty({ type: 'number', number: { format: 'euro' } }, '1 234,50 EUR'), { number: 1234.5 });
+  assert.deepEqual(notionDraftProperty(field('number'), '4000 g', 'Hmotnosť (kg)'), { number: 4 });
+  assert.equal(notionDraftProperty(field('number'), '4000 g', 'Hmotnosť'), null, 'unknown target unit must not be guessed');
+  assert.equal(notionDraftProperty(field('number'), 'približne 4 kg', 'Hmotnosť'), null);
+  assert.equal(notionDraftProperty(field('number'), '4-5 kg', 'Hmotnosť'), null);
+  assert.equal(notionDraftProperty(field('number'), {}, 'Hmotnosť'), null);
+  assert.equal(notionDraftProperty(field('rich_text'), { secret: 'do not stringify' }), null);
+  assert.deepEqual(notionDraftProperty(field('number'), '18 mesiacov', 'Vek mesiace'), { number: 18 });
+  assert.deepEqual(notionDraftProperty({ type: 'number', number: { format: 'percent' } }, '25%'), { number: .25 });
+  assert.deepEqual(notionDraftProperty(field('checkbox'), 'NIE'), { checkbox: false });
+  assert.deepEqual(notionDraftProperty(field('checkbox'), 'Áno'), { checkbox: true });
+  assert.equal(notionDraftProperty(field('checkbox'), 'neznáme'), null);
+  assert.deepEqual(notionDraftProperty(field('select', ['Áno', 'Nie']), 'yes'), { select: { name: 'Áno' } });
+  const tags = { type: 'multi_select', multi_select: { options: [{ name: 'Malé psy' }] } };
+  assert.deepEqual(notionDraftProperty(tags, ['male psy', 'Malé psy']), { multi_select: [{ name: 'Malé psy' }] });
+  assert.equal(notionDraftProperty(tags, ['Malé psy', 'Neznáma možnosť']), null);
+});
+test('dates preserve exact ranges/timezones without making a day from a month or rolling invalid dates', () => {
+  for (const input of ['08/2024', '2024-08', 'asi august 2024', '2027-02-30', '2027-04-01T24:00:00Z'])
+    assert.equal(notionDraftProperty(field('date'), input), null, input);
+  assert.deepEqual(notionDraftProperty(field('date'), '1. 4. 2027'), { date: { start: '2027-04-01' } });
+  const range = { start: '2027-04-01T10:00:00', end: '2027-04-01T12:00:00', time_zone: 'Europe/Bratislava' };
+  assert.deepEqual(notionDraftProperty(field('date'), range), { date: range });
+  assert.equal(notionDraftProperty(field('date'), { start: '2027-04-02', end: '2027-04-01' }), null);
+  assert.equal(notionDraftProperty(field('date'), { ...range, time_zone: 'invented/timezone' }), null);
+  const p = simple({ fields: { 'Názov': 'Rozsah', 'Začiatok': range } }).properties;
+  assert.deepEqual(p.Začiatok.date, range);
+});
+test('external files use safe existing Notion file shape, never internal IDs or unsafe hosts', () => {
+  assert.deepEqual(notionDraftProperty(field('files'), [{ url: 'https://example.org/dog.webp', name: 'Pes' }]), {
+    files: [{ name: 'Pes', type: 'external', external: { url: 'https://example.org/dog.webp' } }] });
+  for (const input of [[{ id: 'internal-file' }], [{ url: 'https://127.0.0.1/private' }], [{ url: 'javascript:alert(1)' }]])
+    assert.equal(notionDraftProperty(field('files'), input), null);
+});
+test('technical identity ignores descriptions but distinguishes different same-name subjects', () => {
+  const base = { fields: { 'Názov': 'Klub', 'Mesto': 'Nitra', 'Popis': 'A', 'Zdroj dát': 'https://example.org' } };
+  assert.deepEqual(geminiDraftIdentity(base, target), geminiDraftIdentity({ fields: { ...base.fields, 'Popis': 'B' }, gemini_note: 'nová poznámka' }, target));
+  assert.notDeepEqual(geminiDraftIdentity(base, target), geminiDraftIdentity({ fields: { ...base.fields, 'Mesto': 'Martin' } }, target));
+  assert.notDeepEqual(geminiDraftIdentity({ fields: { ...base.fields, 'Zdroj dát': 'https://example.org/A' } }, target), geminiDraftIdentity({ fields: { ...base.fields, 'Zdroj dát': 'https://example.org/a' } }, target));
+});
+test('privacy applies to dynamic unknown text, files and note; protected metadata cannot be written', () => {
+  const schema = { 'Názov': field('title'), 'Typ': field('rich_text'), 'Psipedia stav': field('rich_text'),
+    'Ďalší opis': field('rich_text'), 'Kontaktná osoba': field('rich_text'), 'Fotografie': field('files'),
+    'Gemini poznámka': field('rich_text'), 'Súkromný kontakt': field('rich_text'), 'Sync hash': field('rich_text') };
+  const t = { section: 'help', dedicatedLostFound: true };
+  assert.equal(geminiContentField('Súkromný kontakt', schema['Súkromný kontakt'], t), false);
+  const d = buildGeminiNotionDraft({ target: t, properties: schema, rows: [], args: { fields: {
+    'Názov': 'Nájdený pes', 'Typ': 'FOUND', 'Ďalší opis': 'Píšte na owner@example.org',
+    'Fotografie': [{ url: 'https://example.org/dog.webp?email=owner' }], 'Sync hash': 'secret' },
+    gemini_note: 'Súkromné GPS: 48.123456, 18.123456' } });
+  assert.doesNotMatch(JSON.stringify(d.properties), /owner@example|48\.123456|email=owner|secret/);
+  assert.equal(d.properties['Psipedia stav'].rich_text[0].text.content, 'DRAFT');
+});
+
+test('public URL fields allow numeric domain labels but reject IP encodings and credentials', () => {
+  assert.deepEqual(notionDraftProperty(field('url'), 'https://4paws.sk'), { url: 'https://4paws.sk/' });
+  for (const url of ['https://127.0.0.1', 'https://2130706433', 'https://0x7f000001', 'https://[::1]', 'https://user:password@example.org'])
+    assert.equal(notionDraftProperty(field('url'), url), null, url);
+});

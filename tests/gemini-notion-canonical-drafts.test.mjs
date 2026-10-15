@@ -435,3 +435,29 @@ test('real Events/Help store normalizers accept incomplete drafts but preserve e
   for (const field of ['city', 'region', 'organization', 'excerpt', 'description'])
     assert.throws(() => help({ ...completeHelp, [field]: '' }), undefined, field);
 });
+
+test('schema-driven Nippo facts reach the real existing adoption input adapter without note leakage', async () => {
+  const { buildGeminiNotionDraft } = await import('../scripts/gemini-notion-directory-fields.mjs');
+  const schema = Object.fromEntries(['Organizácia', 'Popis', 'Plemeno', 'Zdravotné poznámky', 'Gemini poznámka'].map(name => [name, { type: 'rich_text' }]));
+  Object.assign(schema, { Meno: { type: 'title' }, Stav: { type: 'select', select: { options: [{ name: 'Nápad' }] } },
+    Hmotnosť: { type: 'number' }, Kríženec: { type: 'checkbox' }, 'Dátum narodenia': { type: 'date' } });
+  const draft = buildGeminiNotionDraft({ args: { fields: { Meno: 'Nippo', Hmotnosť: '4 kg', Kríženec: true,
+    Plemeno: 'kríženec yorkšírskeho teriéra', 'Dátum narodenia': '08/2024',
+    'Zdravotné poznámky': 'Očkovaný a kastrovaný.',
+    Popis: 'Nippo je približne 4-kilogramový kríženec yorkšírskeho teriéra. Narodil sa približne 08/2024.' },
+    gemini_note: 'Overte mesiac narodenia.' }, properties: schema, rows: [], target: { section: 'help', dedicatedAdoption: true } });
+  const values = Object.fromEntries(Object.entries(draft.properties).map(([name, p]) => [name,
+    p.number ?? p.checkbox ?? p.date?.start ?? p.select?.name ?? (p.title ?? p.rich_text ?? []).map(v => v.text.content).join('')]));
+  values.Slug = 'gemini-offline-nippo';
+  const { create, changes } = adapterHarness();
+  await create('adoptions', values, { prepare() { throw Error('UNEXPECTED_DATABASE_READ'); } }, true);
+  const payload = changes.at(-1).payload;
+  assert.equal(payload.status, 'DRAFT');
+  assert.equal(payload.weight, 4);
+  assert.equal(payload.breedMix, true);
+  assert.equal(payload.breedName, 'kríženec yorkšírskeho teriéra');
+  assert.equal(payload.healthNotes, 'Očkovaný a kastrovaný.');
+  assert.equal(payload.birthDate, null);
+  assert.match(payload.description, /08\/2024/);
+  assert.doesNotMatch(JSON.stringify(payload), /Overte mesiac narodenia|Gemini poznámka/);
+});
