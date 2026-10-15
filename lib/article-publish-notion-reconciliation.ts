@@ -54,7 +54,9 @@ export async function runArticlePublishNotionReconciliation(args: {
       "m.notion_page_id, m.updated_at AS mapping_updated_at " +
     "FROM managed_articles a " +
     "JOIN article_notion_sync m ON m.article_id = a.id " +
-    "WHERE a.status = 'published' OR " +
+    // Legacy published rows with no publish time require manual resolution. Never
+    // emit a remote publication date inferred from a Cron execution time.
+    "WHERE (a.status = 'published' AND a.published_at IS NOT NULL) OR " +
       "(a.status = 'scheduled' AND a.published_at IS NOT NULL AND a.published_at <= ?) " +
     "ORDER BY m.updated_at ASC, a.id ASC LIMIT ?",
   ).bind(now, limit).all<ReconciliationCandidate>();
