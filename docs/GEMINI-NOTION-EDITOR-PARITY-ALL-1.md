@@ -1,3 +1,31 @@
+# GEMINI-NOTION-EDITOR-PARITY-ALL-1 — CURRENT INTEGRATION STATUS (15 October 2026)
+
+> **Authoritative status after #842 / #843.** The historical pre-rollout notes below document the *earlier* state and must not be interpreted as current instructions to re-apply migration 0127.
+
+- **Main:** `42798725b19d340d0bbc227615f04c92bd6045e1` (after #843).
+- **PR #838:** existing Draft branch `gemini-notion-editor-parity-all-1`; merge from latest main on 15 October, no new PR, no merge to main.
+- **Migration 0127:** **already applied in production**, according to the operator's successful guarded rollout and independent postflight result `APPLIED_AND_VERIFIED`. **Do not run APPLY again**. The main version of `scripts/production-d1-migrate.mjs` includes exact SHA256 approval and repeat-apply guard. Main's 0127 SQL, protected workflow, readonly script and readonly tests were preserved unchanged.
+- **PR delta:** limited to 24 application, review, adapter, provenance, worker and offline test files, plus this documentation; previous duplicate 0127 rollout files were removed from the effective PR diff.
+- **Implemented:** 22 stable keys = 10 Directory + 6 Events + 6 Help. HMAC callback and server-owned Notion receipt validation, canonical private D1 mapping, native agenda/editor routing, idempotent retries, canonical human-edit preservation, concurrent edit conflicts, no unattended publishing, and Lost/Found privacy gates.
+- **Evidence boundary:** all 22 keys have prior offline receipt-to-mapping coverage and all 12 non-Directory keys exercise real canonical adapters at mocked I/O boundaries. Directory has separate native sync/SQLite/R2/GEO contracts. This **is not** full remote Notion → production D1 → browser editor E2E acceptance for every category.
+- **CI:** check the latest exact PR HEAD after this documentation update. Green CI proves offline regression/build checks only; it does not authorize live import or publishing.
+- **Fénix:** historical Notion salon page `3fa793fc-1d18-8108-af1b-c7dd5414a0b9` **HOLD**. The separate FAWN FÉNIX profile ID 873 shares contact/domain context. Require fresh read-only production D1 identity/mapping/duplicate checks and explicit one-page approval. Never forge a signed receipt from editable `Vytvoril` text.
+- **Remaining release gates:** exact-HEAD green CI; controlled live acceptance per representative agenda and ultimately 22/22, editor save/re-sync preservation, Lost/Found privacy review and Notion concurrent-writer recovery assessment. Worker dispatch/deployment/publication are outside this PR's approval.
+- **No production writes, deployment, paid Gemini calls, activation or merge** were performed during this PR integration.
+
+## Safe live acceptance plan (after separately approved merge/deployment)
+
+1. Verify new application code is deployed **after** the now-applied 0127 schema, confirm protected configuration, and keep scheduled/paid Gemini dispatch disabled.
+2. Using a separately approved nonpublic test source, validate the 22-category mapping matrix: each Notion page and signed job matches the expected canonical source and creates **exactly one** private draft in the correct D1 model and existing editor; fail closed on wrong source or job.
+3. Repeat callbacks and synchronization. Confirm no duplicate IDs and deterministic recovery from an uncertain Notion writeback.
+4. Edit the draft in its native admin editor and re-sync. Human edits must survive; dual edits must surface conflict review, never overwrite silently.
+5. Verify absence of public publication, unsafe external URLs and accidental notifications. For Lost/Found, inspect protected contacts/coordinates and moderation gates before allowing any live test.
+6. Handle Fénix separately only after identity adjudication. Stop immediately on unexpected D1 mappings or privacy/publication anomalies.
+
+---
+
+## Historical pre-rollout notes (superseded after #843)
+
 # GEMINI-NOTION-EDITOR-PARITY-ALL-1 — PR #838
 
 **Current status (15 October 2026): BLOCKED / Draft. NO MERGE.**
