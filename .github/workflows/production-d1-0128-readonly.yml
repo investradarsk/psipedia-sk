@@ -1,0 +1,77 @@
+name: Production D1 0128 Read-only Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      audit_mode:
+        description: Read-only preflight or postflight
+        required: true
+        type: choice
+        options: [preflight, postflight]
+      confirmation:
+        description: Type AUDIT-0128-<mode>-psipedia-sk-db exactly
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: D1 0128 manual read-only audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+      D1_0128_AUDIT_MODE: ${{ inputs.audit_mode }}
+    steps:
+      - name: Require main and exact manual approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          case "$D1_0128_AUDIT_MODE" in preflight|postflight) ;; *) exit 1 ;; esac
+          expected="AUDIT-0128-${D1_0128_AUDIT_MODE}-psipedia-sk-db"
+          actual="$(node -e 'const e=require(process.env.GITHUB_EVENT_PATH); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$actual" = "$expected"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Ensure checked-out commit is still current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Offline read-only contracts
+        run: node --experimental-strip-types --test tests/production-d1-0128-readonly.test.mjs
+
+      - name: Canonical migration safety
+        run: npm run db:check-migrations
+
+      - name: Resolve protected Cloudflare account
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Read-only 0128 D1 ledger and schema audit
+        run: node scripts/production-d1-0128-readonly.mjs
