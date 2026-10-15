@@ -9,11 +9,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// 0123–0125 use the guarded, manual-only runner. Migration 0126 remains local-only
-// until a separate reviewed, approved production rollout explicitly enables it.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
-  "0126_gemini_scheduler_admin_v2.sql",
-]);
+// All 0123–0125 targets are explicitly supported by the guarded, manual-only runner.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
