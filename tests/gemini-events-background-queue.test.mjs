@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {DatabaseSync} from "node:sqlite";
 import {geminiAutomationCatalog} from "../lib/gemini-automation-catalog.ts";
 import {
   GEMINI_BACKGROUND_TIMEOUT_MS,geminiManualBackgroundEnabled,
@@ -128,4 +129,25 @@ test("Cron consumes only manually queued Gemini jobs when opt-in is enabled",()=
   assert.doesNotMatch(worker,/enqueueGeminiManualBackgroundJob/);
   assert.match(migration,/idx_gemini_manual_only_one_active/);
   assert.match(migration,/CREATE TABLE IF NOT EXISTS gemini_manual_background_jobs/);
+});
+
+test("0129 changes the hard D1 constraint to one RUNNING job, with multiple waiting categories", () => {
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec("CREATE TABLE gemini_automation_settings(id INTEGER PRIMARY KEY); INSERT INTO gemini_automation_settings VALUES (1),(2),(3);");
+    sqlite.exec(readFileSync(new URL("../drizzle/0119_gemini_manual_background_jobs.sql",import.meta.url),"utf8"));
+    sqlite.exec(readFileSync(new URL("../drizzle/0129_gemini_external_manual_queue.sql",import.meta.url),"utf8"));
+    const add = sqlite.prepare("INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status,error_code) VALUES (?,?,?,?)");
+    add.run(1,"directory.veterinari","QUEUED","EXT_MANUAL_PENDING");
+    add.run(2,"help.adopcia","QUEUED","EXT_MANUAL_PENDING");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status='QUEUED'").get().count,2);
+    assert.throws(() => add.run(1,"directory.veterinari","QUEUED","EXT_MANUAL_PENDING"), /UNIQUE constraint failed/);
+    sqlite.prepare("UPDATE gemini_manual_background_jobs SET status='RUNNING' WHERE stable_key=?").run("directory.veterinari");
+    assert.throws(() => sqlite.prepare("UPDATE gemini_manual_background_jobs SET status='RUNNING' WHERE stable_key=?").run("help.adopcia"), /UNIQUE constraint failed/);
+    sqlite.prepare("UPDATE gemini_manual_background_jobs SET status='SUCCESS' WHERE stable_key=?").run("directory.veterinari");
+    sqlite.prepare("UPDATE gemini_manual_background_jobs SET status='RUNNING' WHERE stable_key=?").run("help.adopcia");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status='RUNNING'").get().count,1);
+  } finally {
+    sqlite.close();
+  }
 });
