@@ -1,4 +1,5 @@
 import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
+import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
 import {
   loadNotionBulkEvents,
   loadNotionBulkOrganizations,
@@ -1106,6 +1107,24 @@ async function syncAgenda(input: {
       continue;
     }
     const trustedGemini = Boolean(provenance);
+    if (trustedGemini) {
+      const [section, subcategory] = provenance!.stable_key.split(".");
+      const expected = notionCategoryValue(section, subcategory);
+      const actual = input.definition.key === "events" ? clean(values["Typ podujatia"])
+        : input.definition.key === "help-cases" ? clean(values["Kategória"])
+        : input.definition.key === "organizations" ? clean(values["Typ"]) : "";
+      if ((input.definition.key === "events" || input.definition.key === "help-cases") &&
+          (!expected || actual !== expected) ||
+          input.definition.key === "organizations" && actual !== "SHELTER") {
+        summary.conflicts += 1;
+        appendNotionReview(summary.reviewQueue, {
+          entityId: null, notionPageId: page.id, reason: "GEMINI_CATEGORY_MISMATCH",
+          fields: ["Typ podujatia", "Kategória", "Typ"],
+          baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+        });
+        continue;
+      }
+    }
     if (trustedGemini && input.definition.key === "lost-found" && (
       values["Latitude"] != null && values["Latitude"] !== "" ||
       values["Longitude"] != null && values["Longitude"] !== "" ||
