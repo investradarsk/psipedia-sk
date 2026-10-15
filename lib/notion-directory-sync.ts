@@ -766,14 +766,14 @@ function newProfileInput(
   };
 }
 
-function notionProfileReadyForCreate(page: NotionPage) {
+function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
   if (propertyText(page, "Psipedia ID")) return false;
   const editorialState = propertyText(page, "Stav");
-  // Gemini-generated Notion drafts enter the existing canonical directory as
-  // private drafts immediately. Approval and publication are separate actions.
-  if (propertyText(page, "Vytvoril") === "Gemini automatizácia")
+  // Textual creator marker is never sufficient to grant automatic import.
+  if (trustedGemini)
     return ["", "Nápad", "Na kontrolu", "Ready", "Koncept"].includes(editorialState) &&
       propertyText(page, "Psipedia stav") === "Koncept";
+  if (propertyText(page, "Vytvoril") === "Gemini automatizácia") return false;
   return editorialState === "Ready" || editorialState === "Publikované";
 }
 
@@ -1285,20 +1285,26 @@ export async function runNotionDirectorySyncSweep(input: {
     let release: (() => Promise<void>) | null = null;
     let releaseImport: (() => Promise<void>) | null = null;
     try {
-      if (propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+      const registered = await input.database.prepare(
+        "SELECT notion_page_id FROM gemini_notion_created_pages " +
+        "WHERE notion_page_id=? AND import_agenda='directory' AND stable_key=? AND notion_data_source_id=?"
+      ).bind(page.id, "directory." + propertyText(page, "Kategória"), dataSourceId)
+        .first<{ notion_page_id: string }>();
+      const trustedGemini = Boolean(registered);
+      if (trustedGemini || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
         // Rejected/not-yet-approved Notion-only records cannot recover a mapping
         // or create/modify a canonical profile.
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
-      if (!mapping && notionProfileReadyForCreate(page)) {
-        if (propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+      if (!mapping && notionProfileReadyForCreate(page, trustedGemini)) {
+        if (trustedGemini) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
           releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
           if (!releaseImport) continue;
@@ -1326,6 +1332,13 @@ export async function runNotionDirectorySyncSweep(input: {
           syncedAt,
         });
 
+        if (trustedGemini) {
+          const marked = await input.database.prepare(
+            "UPDATE gemini_notion_created_pages SET canonical_entity_id=?,imported_at=? " +
+            "WHERE notion_page_id=? AND canonical_entity_id IS NULL AND import_agenda='directory'"
+          ).bind(created.id, syncedAt, page.id).run();
+          if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
+        }
         if (creation.prepared && creation.sourceImageUrl) {
           await upsertMediaSourceMonitor({
             database: input.database,
