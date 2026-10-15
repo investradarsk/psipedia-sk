@@ -17,6 +17,8 @@ on:
       - "scripts/gemini-notion-*.mjs"
       - "tests/gemini-notion-*.test.mjs"
       - "drizzle/0124_gemini_notion_review_locks.sql"
+      - "drizzle/0127_gemini_notion_created_pages.sql"
+      - "tests/gemini-notion-provenance.test.mjs"
       - "components/admin-gemini-notion-*.tsx"
       - "tests/gemini-notion-drafts.test.mjs"
       - "scripts/gemini-notion-agent.mjs"
@@ -65,7 +67,7 @@ jobs:
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
-        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs tests/gemini-notion-provenance.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
@@ -77,7 +79,7 @@ jobs:
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint
-        run: npx eslint lib/gemini-external-agent.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs
+        run: npx eslint lib/gemini-external-agent.ts lib/gemini-notion-provenance.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs
       - name: Targeted Gemini admin lint coverage
         run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Gemini review, rejection and canonical lifecycle lint
