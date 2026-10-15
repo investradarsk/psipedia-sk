@@ -23,6 +23,7 @@ const section = process.env.AGENT_STABLE_KEY.split(".")[0];
 const shelter = process.env.AGENT_STABLE_KEY === "help.utulky";
 const adoption = process.env.AGENT_STABLE_KEY === "help.adopcia";
 const categoryArgs = {
+  gemini_note: "Overte dostupnosť pred publikovaním.",
   name: "Mock candidate", city: "Sereď", source_url: "https://example.com/about",
   summary: "Overený prípad", description: "Dostatočne podrobný popis overeného podujatia alebo prípadu pomoci.",
   organizer: "Organizátor", start_date: "2099-10-20", start_time: "10:00", end_time: "12:00",
@@ -121,6 +122,7 @@ const lostFoundProperties = {
   "Farba": {type:"rich_text"}, "Veľkosť": {type:"rich_text"},
   "Obojok": {type:"rich_text"}, "Okres": {type:"rich_text"}, "Kraj": {type:"rich_text"},
 };
+for (const schema of [properties, categoryProperties, shelterProperties, adoptionProperties, lostFoundProperties]) schema["Gemini poznámka"] = { type: "rich_text" };
 if (lostFound && scenario === "wrong_type") lostFoundProperties.Typ={type:"select"};
 if (adoption && scenario === "wrong_type") adoptionProperties.Organizácia={type:"select"};
 if (shelter && scenario === "wrong_type") shelterProperties.Typ={type:"select"};
@@ -202,6 +204,19 @@ globalThis.fetch = async (url, options = {}) => {
       });
       return action("create_notion_draft", { ...candidate, name: "TEST VETERINÁR", description: "Changed prose" });
     }
+    if (scenario === "many_records") {
+      const action = (name, args) => json({ id: "functions-" + (geminiCalls - 1), status: "requires_action", steps: [step(name, "page-call-" + geminiCalls, args)] });
+      if (geminiCalls === 2) return action("search_notion", { query: "", offset: 0 });
+      const result = JSON.parse(body.input[0].result[0].text);
+      if (geminiCalls === 3) {
+        if (result.matches.length !== 100 || !result.has_more || result.next_offset !== 100) throw Error("PAGINATION_TRUNCATED");
+        return action("search_notion", { query: "", offset: result.next_offset });
+      }
+      if (geminiCalls === 4) {
+        if (result.matches.length !== 51 || result.has_more || result.next_offset !== null || result.matches[50].title !== "Record 150") throw Error("PAGINATION_LOST_RECORDS");
+        return action("create_notion_draft", { name: "New candidate" });
+      }
+    }
     if (geminiCalls === 2) {
       if (scenario === "unknown_tool")
         return json({ id: "functions-1", status: "requires_action", steps: [step("not_allowed", "call-a")] });
@@ -229,7 +244,7 @@ globalThis.fetch = async (url, options = {}) => {
         step("create_notion_draft", "call-b", section !== "directory" ? categoryArgs : {
           name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
           website_url: "https://example.com", phone: "+421 905 123 456",
-          email: "clinic@example.com", description: "Mock service",
+          email: "clinic@example.com", description: "Mock service", gemini_note: "Overte dostupnosť pred publikovaním.",
         }),
       ] });
     }
@@ -242,7 +257,7 @@ globalThis.fetch = async (url, options = {}) => {
       return json({ id: "functions-4", status: "completed", steps: [
         { type: "model_output", content: [{ type: "text", text: '{"outcome":"duplicate_only"}' }] },
       ] });
-    if (geminiCalls === 5 && scenario === "repeat_create")
+    if (geminiCalls === 5 && ["repeat_create", "many_records"].includes(scenario))
       return json({ id: "functions-4", status: "completed", steps: [] });
     if (geminiCalls === 4)
       return json({ id: "functions-3", status: "completed", steps: [
@@ -261,6 +276,10 @@ globalThis.fetch = async (url, options = {}) => {
     }
     if (address === "https://api.notion.com/v1/data_sources/" + ds + "/query") {
       scans++;
+      if (scenario === "many_records") {
+        const offset = JSON.parse(options.body).start_cursor ? 100 : 0;
+        return json({ results: Array.from({ length: offset ? 51 : 100 }, (_, i) => ({ id: "record-" + (offset + i), properties: { "Názov": { type: "title", title: [{ plain_text: "Record " + (offset + i) }] } } })), has_more: offset === 0, next_cursor: offset ? null : "page-2" });
+      }
       if (scenario.startsWith("pilot_duplicate")) return json({ results: [{ id: "existing-clinic", properties: {
         "Názov": { type: "title", title: [{ plain_text: "Test Veterinár" }] },
         "Mesto": { type: "rich_text", rich_text: [{ plain_text: "Sereď" }] },
@@ -272,9 +291,9 @@ globalThis.fetch = async (url, options = {}) => {
         return json({ results: [{ ...targetRow, properties: { ...targetRow.properties,
           "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
       }
-      if (scenario === "incomplete_scan" && scans > 1) return json({ results: [], has_more: true, next_cursor: null });
+      if (scenario === "incomplete_scan") return json({ results: [], has_more: true, next_cursor: null });
       if (scenario === "malformed_scan") return json({ has_more: false });
-      return json({ results: scans > 1 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario)
+      return json({ results: ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario)
         ? [lostFound ? lostFoundExisting : shelter ? { ...row, properties: { ...row.properties,
           "Typ": { type:"rich_text", rich_text:[{plain_text:"CIVIC_ASSOCIATION"}] } } } : row]
         : [], has_more: false });

@@ -72,7 +72,7 @@ function valuesFor(item) {
     "Stav": "Publikované", "Psipedia stav": "published",
     "Typ podujatia": type, "Kategória": type, "Typ": item.stableKey === "help.utulky" ? "SHELTER" : "LOST",
     "Popis": "Dôkazy:\nhttps://example.test/dog",
-    "Mesto": "", "Organizácia": "",
+    "Mesto": "", "Organizácia": "", "Gemini poznámka": "Internal note never reaches canonical content",
     "Latitude": 48.123456, "Longitude": 18.123456,
     "Presnosť lokality": "EXACT", "Verejný kontakt": "PRIVATE CONTACT",
     "Miesto": "Sensitive street 2",
@@ -92,6 +92,7 @@ test("all 12 non-directory categories call real canonical adapters with draft-on
     const latest = changes.at(-1);
     assert.equal(latest.agenda, agenda, item.stableKey);
     const payload = latest.payload;
+    assert.ok(!JSON.stringify(payload).includes("Internal note never reaches canonical content"));
     if (agenda === "organizations") {
       assert.equal(payload.name, values["Názov"]);
       assert.equal(payload.type, "SHELTER");
@@ -387,4 +388,50 @@ test("all 22 mapped canonical IDs link to an existing native administration edit
   }
   assert.match(layout, /<AdminDirectoryEditor/);
   assert.match(layout, /<AdminGeminiAgendaDraftEditor/);
+});
+
+// Exercise production normalizers too: adapter stubs alone cannot prove that
+// an incomplete draft survives the canonical store's validation.
+const { slovakRegions, eventTypes } = await import('../lib/events.ts');
+const helpModel = await import('../lib/help.ts');
+function storeNormalizer(file, name) {
+  const input = readFileSync(new URL('../lib/' + file, import.meta.url), 'utf8');
+  const code = ts.transpileModule(input + '\nexport const testNormalizer = ' + name + ';', {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  const require = id => {
+    if (id === 'react') return { cache: fn => fn };
+    if (id === 'cloudflare:workers') return { env: {} };
+    if (id.endsWith('/events')) return { slovakRegions, eventTypes };
+    if (id.endsWith('/help')) return helpModel;
+    if (id.endsWith('help-admin-query')) return { isHelpAdminCreateCategory: key => ['zbierky', 'docasna-opatera', 'dobrovolnictvo'].includes(key) };
+    if (id.endsWith('/portal')) return { getPortalSubpage: () => null };
+    if (id.endsWith('/article-store')) return { slugifyArticleTitle: value => value };
+    if (id.endsWith('/content-seo')) return { cleanEditableSeo: () => ({}) };
+    if (id.endsWith('/smart-image')) return { normalizeSmartImageMode: () => 'cover' };
+    if (id.endsWith('/image-display')) return { normalizeImageDisplayConfig: () => null };
+    return {};
+  };
+  runInNewContext(code, { exports, require, URL, Error, console, Date }, { timeout: 1000 });
+  return exports.testNormalizer;
+}
+test('real Events/Help store normalizers accept incomplete drafts but preserve each publication requirement', () => {
+  const event = storeNormalizer('event-store.ts', 'normalizeManagedEventInput');
+  const help = storeNormalizer('help-store.ts', 'normalizeInput');
+  const e = { title: 'Koncept', slug: 'gemini-offline', eventType: 'Výstava', status: 'draft' };
+  assert.equal(event(e).startDate, '');
+  assert.equal(event(e).region, '');
+  assert.throws(() => event({ ...e, startDate: 'not-a-date' }), /dátum/);
+  const completeEvent = { ...e, status: 'published', startDate: '2099-04-01', city: 'Nitra', region: 'Nitriansky kraj', organizer: 'Klub', excerpt: 'Dostatočný krátky opis podujatia.', description: 'Dostatočný odborný podrobný opis podujatia pre verejnosť.' };
+  assert.equal(event(completeEvent).status, 'published');
+  for (const field of ['startDate', 'city', 'region', 'organizer', 'excerpt', 'description'])
+    assert.throws(() => event({ ...completeEvent, [field]: '' }), undefined, field);
+  const h = { title: 'Koncept', slug: 'gemini-offline', category: 'dobrovolnictvo', status: 'draft' };
+  assert.equal(help(h).description, '');
+  assert.equal(help(h).city, '');
+  const completeHelp = { ...h, status: 'published', city: 'Nitra', region: 'Nitriansky kraj', organization: 'Organizácia', excerpt: 'Dostatočný krátky opis pomoci.', description: 'Dostatočný podrobný opis dobrovoľníckej pomoci pre verejnosť.' };
+  assert.equal(help(completeHelp).status, 'published');
+  for (const field of ['city', 'region', 'organization', 'excerpt', 'description'])
+    assert.throws(() => help({ ...completeHelp, [field]: '' }), undefined, field);
 });
