@@ -42,7 +42,7 @@ Existujúce mocky a CI, bez nového testovacieho systému a bez skutočných Gem
 - **362 kontraktových testov:** foundation, dispatch/callback/provenance, canonical import, review/locks a obojsmerný sync.
 - **Nippo regresia:** hmotnosť 4, plemeno, kríženec a zdravotné poznámky sa dostanú do Notion payloadu aj cez skutočný existujúci adopčný input adaptér. Čiastočný dátum zostane prázdny, informácia ostane v opise/poznámke. Bez upozornení Web/Organizátor a bez úniku poznámky do canonical payloadu.
 - Existujúci Playwright Gemini review na **390/1280 px**, reject/restore/save a izolácia poznámky: prešiel. API autorizácia: prešla.
-- **Build a validácia artefaktu:** prešli. **Lint:** 0 chýb, 101 existujúcich warnings; cielený lint čistý.
-- Config: **14 testov**; migration safety: **123 testov**; CI scope guard: prešli. Žiadne migrácie sa neaplikovali.
+- **Build a validácia artefaktu:** prešli. **Lint:** 0 chýb, 103 warnings na novom main; cielený lint čistý.
+- Config: **14 testov**; migration safety: **124 testov**; CI scope guard: prešli. Žiadne migrácie sa neaplikovali.
 
 Živé správanie Gemini, prijatie generovaného JSON Schema poskytovateľom, aktuálne produkčné Notion metadata a reálny callback/import treba overiť až pri samostatne autorizovanom behu po nasadení. Offline testy dokazujú odovzdanie schémy a spracovanie výsledku, nie úspešnosť budúceho plateného výskumu alebo jeho faktografickú kvalitu.
