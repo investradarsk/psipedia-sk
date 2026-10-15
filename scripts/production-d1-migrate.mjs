@@ -12,6 +12,15 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // All canonical migrations through 0129 are recognized, but production APPLY
 // still requires a separate protected manual workflow and confirmation.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0130_SHA256 = "b198096d6c83fb63c4f1b9058735bfc4f3dc7b3a777cb3a60a65177e026e21bb";
+export function assertApproved0130Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0130 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0130_SHA256, "0130 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0130NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0130_facebook_image_publisher.sql")
+    invariant(!targetApplied, "0130 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0129_SHA256 = "ef44cca9fc23decee10714c2d7ba54fb54be49428856e82c5fd782cd19e37b1d";
 export function assertApproved0129Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0129 requires canonical psipedia-sk-db");
@@ -155,6 +164,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0127_gemini_notion_created_pages.sql",
   "0128_facebook_image_posts.sql",
   "0129_gemini_external_manual_queue.sql",
+  "0130_facebook_image_publisher.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -664,6 +674,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0128Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0129_gemini_external_manual_queue.sql")
     assertApproved0129Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0130_facebook_image_publisher.sql")
+    assertApproved0130Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1256,6 +1268,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: !names.has("idx_gemini_manual_only_one_active") ||
       names.has("idx_gemini_manual_only_one_running") ||
       names.has("idx_gemini_manual_external_pending") };
+  }
+  if (targetMigration === "0130_facebook_image_publisher.sql") {
+    return { partial: ["facebook_image_publisher_settings", "facebook_image_publish_attempts",
+      "facebook_image_publish_attempts_state_idx"].some(name => names.has(name)) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2194,9 +2210,40 @@ export function assertFacebookImagePostsSchema(schema) {
   }
 }
 
+/** Exact prepared 0130 schema contract: settings are disabled by default, attempts have
+ * single-claim identity/FK/index, and no provider credentials are persisted. */
+export function assertFacebookImagePublisherSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const settings = objects.get("facebook_image_publisher_settings");
+  const attempts = objects.get("facebook_image_publish_attempts");
+  invariant(settings?.type === "table" && attempts?.type === "table", "Missing 0130 Facebook publisher tables");
+  const settingsSql = String(settings.sql ?? "");
+  const attemptsSql = String(attempts.sql ?? "");
+  for (const clause of [
+    "id INTEGER PRIMARY KEY NOT NULL CHECK (id=1)",
+    "enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0,1))",
+    "updated_at TEXT NOT NULL",
+    "updated_by TEXT NOT NULL",
+  ]) invariant(settingsSql.includes(clause), "0130 Facebook settings schema drift: " + clause);
+  for (const clause of [
+    "post_id TEXT PRIMARY KEY NOT NULL REFERENCES facebook_image_posts(id) ON DELETE RESTRICT",
+    "snapshot_version INTEGER NOT NULL CHECK (snapshot_version>=1)",
+    "state TEXT NOT NULL DEFAULT 'SENDING' CHECK (state IN ('SENDING','PUBLISHED','UNCERTAIN'))",
+    "remote_id TEXT", "started_at TEXT NOT NULL", "completed_at TEXT", "error_code TEXT",
+    "CHECK ((state='PUBLISHED' AND remote_id IS NOT NULL AND completed_at IS NOT NULL)",
+    "OR (state<>'PUBLISHED' AND remote_id IS NULL))",
+  ]) invariant(attemptsSql.includes(clause), "0130 Facebook attempt schema drift: " + clause);
+  const idx = objects.get("facebook_image_publish_attempts_state_idx");
+  invariant(idx?.type === "index" && idx.tbl_name === "facebook_image_publish_attempts" &&
+    String(idx.sql ?? "").includes("CREATE INDEX facebook_image_publish_attempts_state_idx ON facebook_image_publish_attempts(state,started_at)"),
+    "0130 Facebook attempt state index drift");
+  invariant(!/FB_PAGE_ACCESS_TOKEN|FB_PAGE_ID|ACCESS_TOKEN/i.test(settingsSql + attemptsSql),
+    "0130 must not store Meta credentials in D1");
+}
+
 export function assertRolloutChainSchema(schema, targetMigration) {
   const target = migrationIndex(targetMigration);
-  if (target < 123 || target > 129) return;
+  if (target < 123 || target > 130) return;
   if (target >= 124) assertStructuredAddressSchema(schema);
   if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
   if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
@@ -2212,7 +2259,7 @@ export function assertRolloutChainSchema(schema, targetMigration) {
     assertGeminiSchedulerWeeklyDaySchema(schema);
     // In the same-run preflight 0129 is still under old 0119 uniqueness;
     // postflight has the new running-only index and no old index.
-    const migrated0129 = target === 129 &&
+    const migrated0129 = target >= 129 &&
       objectMap(schema.objects).has("idx_gemini_manual_only_one_running");
     assertGeminiManualQueueSchema(schema, migrated0129);
   }
@@ -2281,6 +2328,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 126) assertGeminiSchedulerWeeklyDaySchema(schema);
   if (migrationIndex(targetMigration) >= 127) assertGeminiNotionCreatedPagesSchema(schema);
   if (migrationIndex(targetMigration) >= 128) assertFacebookImagePostsSchema(schema);
+  if (migrationIndex(targetMigration) >= 130) assertFacebookImagePublisherSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2659,6 +2707,7 @@ async function preflight(targetMigration) {
   assert0127NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0128NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0129NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0130NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2705,12 +2754,17 @@ async function preflight(targetMigration) {
     rolloutReadiness = "READY_0128";
   } else if (targetIndex === 129) {
     rolloutReadiness = "READY_0129";
+  } else if (targetIndex === 130) {
+    rolloutReadiness = "READY_0130";
   }
   const additivePreservationBefore = targetIndex >= 123
     ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
     : null;
   const geminiSchedulerBefore = targetIndex === 126
     ? geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath, schema)
+    : null;
+  const facebookPostsBefore = targetIndex === 130
+    ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM facebook_image_posts")
     : null;
   const reviewCountBefore = targetIndex >= 63
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
@@ -2755,6 +2809,7 @@ async function preflight(targetMigration) {
     rolloutReadiness,
     additivePreservationBefore,
     geminiSchedulerBefore,
+    facebookPostsBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -2778,6 +2833,7 @@ async function preflight(targetMigration) {
     rolloutReadiness,
     additivePreservationCounts: additivePreservationBefore ? Object.fromEntries(Object.entries(additivePreservationBefore.tables).map(([table, value]) => [table, value.count])) : null,
     geminiSchedulerSettingsCount: geminiSchedulerBefore?.count ?? null,
+    facebookPostsBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -2811,6 +2867,7 @@ async function apply(targetMigration) {
   assert0127NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0128NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0129NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0130NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 129) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
@@ -2889,6 +2946,17 @@ async function verify(targetMigration) {
       invariant(scalarCount(databaseName, prepared.configPath,
         "SELECT COUNT(*) AS count FROM facebook_image_posts") === 0,
         "0128 Facebook image posts table must be empty immediately after first apply");
+    if (targetIndex === 130) {
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM facebook_image_posts") === internal.facebookPostsBefore,
+        "0130 unexpectedly changed existing Facebook image posts count");
+      if (!internal.targetApplied) {
+        for (const table of ["facebook_image_publisher_settings", "facebook_image_publish_attempts"])
+          invariant(scalarCount(databaseName, prepared.configPath,
+            `SELECT COUNT(*) AS count FROM ${table}`) === 0,
+            "0130 new Facebook publisher tables must start empty: " + table);
+      }
+    }
   }
 
   const after = dataSnapshot(databaseName, prepared.configPath);
@@ -3053,6 +3121,7 @@ async function verify(targetMigration) {
     geminiSchedulerWeeklyDaySchema: targetIndex >= 126 ? "PASS" : null,
     geminiSchedulerSettingsPreserved: targetIndex === 126 ? "PASS" : null,
     facebookImagePostsSchema: targetIndex >= 128 ? "PASS" : null,
+    facebookImagePublisherSchema: targetIndex >= 130 ? "PASS" : null,
     geminiSchedulerSettingsCount,
     dynamicEntityIdentity: targetIndex >= 109 ? {
       indexes: DYNAMIC_ENTITY_IDENTITY_INDEXES,
