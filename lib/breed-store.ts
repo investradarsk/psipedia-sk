@@ -372,6 +372,11 @@ export function buildManagedBreedUpdateStatements(
     database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`).bind(...values(value),nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt),
     database.prepare("SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard"),
     ...breedRelationStatements(database,id,value,user),
+    // Read the exact committed version and relations before the batch commits.
+    // A later writer must not leak its version into this caller's editor.
+    database.prepare(`${select} WHERE id=?`).bind(id),
+    database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),
+    database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id),
   ];
 }
 
@@ -383,6 +388,13 @@ export async function updateManagedBreed(
   try {
     const results=await database.batch(buildManagedBreedUpdateStatements(database,id,input,user,expectedUpdatedAt,now));
     if (results[0]?.results?.length !== 1) throw new BreedUpdateConflictError();
+    const [breedResult, articleResult, directoryResult] = results.slice(-3);
+    const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
+    if (!row) throw new BreedUpdateConflictError();
+    return fromRow(row, {
+      articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
+      directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
+    });
   } catch (error) {
     // A CAS miss leaves the old row and all its links intact.
     // Genuine validation/foreign-key errors on a current row still propagate.
@@ -390,7 +402,7 @@ export async function updateManagedBreed(
     if (!current || current.updated_at !== expectedUpdatedAt) throw new BreedUpdateConflictError();
     throw error;
   }
-  return getManagedBreed(id);
+  // All successful paths returned the snapshot read inside the transaction.
 }
 export async function deleteManagedBreed(id:number){const database=requireDb();await ensure(database);await database.batch([database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM managed_breeds WHERE id=?").bind(id)]);}
 
