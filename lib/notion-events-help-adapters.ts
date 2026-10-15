@@ -520,9 +520,18 @@ export async function createCanonicalFromNotion(
   agenda: BidirectionalAgendaKey,
   values: Record<string, ReconciliationValue>,
   database: D1Database,
+  trustedGemini = false,
 ) {
-  if (!readyForCreate(agenda, values)) {
+  // Only the server-side provenance registry can set trustedGemini. No Notion text
+  // or manually editable approval state permits bypassing the legacy Ready gate.
+  if (!trustedGemini && !readyForCreate(agenda, values)) {
     throw new Error("Notion záznam nie je v stave pripravenom na vytvorenie canonical Psipedia záznamu.");
+  }
+  if (trustedGemini) {
+    const title = agenda === "adoptions" ? s(values["Meno"]) : s(values["Názov"]);
+    if (!title || !s(values["Slug"])) throw Error("GEMINI_CANONICAL_DRAFT_INCOMPLETE");
+    if (agenda === "lost-found" && !s(values["Typ"])) throw Error("GEMINI_LOST_FOUND_TYPE_REQUIRED");
+    if (agenda === "help-cases" && !s(values["Kategória"])) throw Error("GEMINI_HELP_CATEGORY_REQUIRED");
   }
   if (agenda === "events") {
     return createManagedEvent(eventInput(values, null, true), NOTION_EVENTS_HELP_SYSTEM_ACTOR);
@@ -551,8 +560,15 @@ export async function createCanonicalFromNotion(
       NOTION_EVENTS_HELP_SYSTEM_ACTOR,
     );
   }
+  const safeLostFound = trustedGemini
+    ? { ...values,
+      // Private exact location/contact data must never enter public canonical fields.
+      "Latitude": null, "Longitude": null, "Presnosť lokality": "",
+      "Miesto": s(values["Mesto"]), "Verejný kontakt": "",
+    }
+    : values;
   return createAdminDogReport(
-    lostFoundPayload(values, null, true),
+    lostFoundPayload(safeLostFound, null, true),
     NOTION_EVENTS_HELP_SYSTEM_ACTOR,
   );
 }
