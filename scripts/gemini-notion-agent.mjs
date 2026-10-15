@@ -579,7 +579,7 @@ async function runAgent() {
           if (turn === AGENT_TURNS_LIMIT) throw Error("AGENT_TURN_LIMIT");
           completionRecovery = true;
           response = await gemini({
-            input: "Vyhľadávanie a kontrola duplicít nie sú dokončením úlohy. Vyhodnoť všetkých doložených kandidátov z predchádzajúceho Google Search. Ak existuje bezpečne overený a neduplicitný kandidát, pokračuj search_notion (ak ešte neprebehlo) a potom create_notion_draft. Ak neexistuje, skonči presne jedným JSON objektom bez ďalšieho textu: {\\"outcome\\":\\"no_relevant_candidate\\"} alebo {\\"outcome\\":\\"duplicate_only\\"} alebo {\\"outcome\\":\\"insufficient_evidence\\"} alebo {\\"outcome\\":\\"exhausted\\"}. Nevytváraj záznam bez overenia.",
+            input: "Vyhľadávanie a kontrola duplicít nie sú dokončením úlohy. Vyhodnoť všetkých doložených kandidátov z predchádzajúceho Google Search. Ak existuje bezpečne overený a neduplicitný kandidát, pokračuj search_notion (ak ešte neprebehlo) a potom create_notion_draft. Ak neexistuje, skonči presne jedným JSON objektom bez ďalšieho textu: {\"outcome\":\"no_relevant_candidate\"} alebo {\"outcome\":\"duplicate_only\"} alebo {\"outcome\":\"insufficient_evidence\"} alebo {\"outcome\":\"exhausted\"}. Nevytváraj záznam bez overenia.",
             previous_interaction_id: response.id, tools: functionTools,
           }, "functions");
           continue;
