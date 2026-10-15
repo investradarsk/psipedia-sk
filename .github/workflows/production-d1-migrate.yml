@@ -74,6 +74,7 @@ on:
           - 0124_gemini_notion_review_locks.sql
           - 0125_gemini_category_prompts.sql
           - 0126_gemini_scheduler_admin_v2.sql
+          - 0127_gemini_notion_created_pages.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -168,6 +169,7 @@ jobs:
             0124_gemini_notion_review_locks.sql) expected_confirmation="APPLY-0124-psipedia-sk-db" ;;
             0125_gemini_category_prompts.sql) expected_confirmation="APPLY-0125-psipedia-sk-db" ;;
             0126_gemini_scheduler_admin_v2.sql) expected_confirmation="APPLY-0126-psipedia-sk-db" ;;
+            0127_gemini_notion_created_pages.sql) expected_confirmation="APPLY-0127-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
