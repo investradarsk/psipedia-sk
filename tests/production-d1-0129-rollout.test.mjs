@@ -15,9 +15,10 @@ const workflow = readFileSync(new URL("../.github/workflows/production-d1-migrat
 const target = "0129_gemini_external_manual_queue.sql";
 const predecessor = "0128_facebook_image_posts.sql";
 
-test("0129 is the sole next supported production target, pinned to exact PR #852 SQL", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), predecessor);
+test("0129 remains approved and pinned while 0130 is a later separate target", () => {
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), predecessor);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0130_facebook_image_publisher.sql");
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(migration).digest("hex"), APPROVED_0129_SHA256);
   assert.doesNotThrow(() => assertApproved0129Target("psipedia-sk-db", APPROVED_0129_SHA256));
