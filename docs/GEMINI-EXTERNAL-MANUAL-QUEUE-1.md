@@ -11,16 +11,16 @@ Keď už jeden externý Gemini → Notion pracovník beží, druhá výslovne po
 - Práve bežiacu úlohu s neistým výsledkom systém sám neopakuje. Poradovník ostáva zastavený, kým operátor nevyhodnotí RUNNING/timeout.
 - Nemení sa Gemini prompt, ochrana HMAC callbacku, proveniencia Notion stránok, import ani publikovanie.
 
-## Nová pripravená migrácia D1 0129 (NOT APPLIED)
+## Produkčná migrácia D1 0129 (schválený rollout #855)
 `drizzle/0129_gemini_external_manual_queue.sql` nahradí historický globálny unikátny index na stav QUEUED/RUNNING globálnym unikátnym indexom **iba na RUNNING**. Index jedného aktívneho jobu na kategóriu zostáva nedotknutý.
 
-SQL je pripravené pre samostatný schvaľovaný rollout; táto vývojová úloha migráciu **neaplikuje**. Preto:
+SQL bolo začlenené do samostatného schváleného rollout PR #855. Táto vetva migráciu **neaplikuje**. Pred merge funkcie overiť postflight produkčného behu #0129 a úspešný stav. Preto:
 
-1. Overiť nasadený produkčný stav migrácií a úspešne aplikovať/overiť predchádzajúcu 0128 samostatným povoleným procesom, pokiaľ ešte nebola aplikovaná.
-2. Samostatne schváliť bezpečný read-only preflight a rollout **0129**, keď už nebežia Gemini pracovníci; až potom merge/nasadenie nového backendu.
-3. Pred live zapnutím overiť prítomnosť `idx_gemini_manual_only_one_running` a neprítomnosť `idx_gemini_manual_only_one_active`. Neaplikovať priamo bez autorizácie.
+1. Overiť dokončený produkčný GitHub Actions rollout **0129** vrátane postflight a úplne zelenej migrácie.
+2. Overiť prítomnosť `idx_gemini_manual_only_one_running` a neprítomnosť `idx_gemini_manual_only_one_active`; kontrola má byť v migračnom postflighte.
+3. Až potom mergovať túto aplikačnú vetvu; tento PR nikdy neopakuje aplikovanie migrácie.
 
-`scripts/production-d1-migrate.mjs` registruje 0129 ako `PREPARED`, nie `SUPPORTED`. Prevádzková aplikácia musí byť autorizovaná samostatne ako doterajšie migrácie.
+Produkčný migračný runner z PR #855 registruje 0129 ako `SUPPORTED` s chráneným manuálnym APPLY. Tento PR nemení runner, workflow ani SQL.
 
 ## Akceptácia
 - Pri obsadenom pracovníkovi kliknúť na druhú kategóriu: zobrazí sa „zaradená do poradovníka“, aj v zozname „Úlohy na pozadí“.
