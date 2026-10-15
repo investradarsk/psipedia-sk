@@ -10,6 +10,14 @@ import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
 import { AdminGeminiAgendaDraftEditor } from "@/components/admin-gemini-agenda-draft-editor";
 type ReviewDraft = GeminiDirectoryDraft | GeminiAgendaDraft;
 import styles from "./admin-gemini-automation.module.css";
+function canonicalEditorUrl(draft: ReviewDraft): string | null {
+  if (!draft.psipediaId || !/^[1-9][0-9]*$/.test(draft.psipediaId)) return null;
+  const section = "agenda" in draft
+    ? ({ events: "podujatia", organizations: "organizacie", adoptions: "adopcie",
+      "help-cases": "pomoc", "lost-found": "stratene-najdene" } as Record<string, string>)[draft.agenda]
+    : "adresar";
+  return section ? "/admin/" + section + "/" + draft.psipediaId : null;
+}
 
 export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [filter, setFilter] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
@@ -101,9 +109,15 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
                       {draft.reviewState === "APPROVED" && draft.syncError && <span role="status">Synchronizácia: {draft.syncError}</span>}
                       {draft.reviewState === "REJECTED" && <span>Dôvod: {draft.rejectionReason || "Bez uvedenia dôvodu"}</span>}
                     </div>
-                    <button type="button" className={styles.notionOpenDraft} disabled={opening} onClick={() => void openDraft(draft)}>
-                      Otvoriť editor →
-                    </button>
+                    {canonicalEditorUrl(draft) ? (
+                      <a className={styles.notionOpenDraft} href={canonicalEditorUrl(draft)!}>
+                        Otvoriť editor →
+                      </a>
+                    ) : (
+                      <button type="button" className={styles.notionOpenDraft} disabled={opening} onClick={() => void openDraft(draft)}>
+                        Otvoriť editor →
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
