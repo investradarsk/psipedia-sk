@@ -9,7 +9,7 @@ import { directoryProfileValues, hasMinimumVeterinarianContact } from "../script
 import { readFileSync } from "node:fs";
 import {
   externalAgentEnabled, externalAgentScheduledEnabled, ExternalAgentError, dispatchExternalGemini,
-  sweepExternalGemini, completeExternalGemini,
+  sweepExternalGemini, completeExternalGemini, enqueueExternalGemini, dispatchPendingExternalGemini,
 } from "../lib/gemini-external-agent.ts";
 
 function fakeDb(promptOverride = null) {
@@ -189,12 +189,13 @@ test("manual external opt-in never starts a scheduled job without separate conse
   assert.deepEqual(await sweepExternalGemini({ db, env }), {
     dispatched: 0, reason: "SCHEDULE_DISABLED",
   });
-  assert.equal(queries.length, 0, "No database job should be reserved");
+  assert.ok(queries.some(sql => sql.includes("FROM gemini_manual_background_jobs")), "Cron may inspect explicitly queued manual jobs");
+  assert.ok(!queries.some(sql => sql.includes("INSERT INTO gemini_manual_background_jobs")), "No paid job should be reserved");
   await assert.rejects(
     dispatchExternalGemini({ db, env, stableKey: "directory.veterinari", trigger: "SCHEDULED" }),
     (error) => error instanceof ExternalAgentError && error.code === "DISABLED",
   );
-  assert.equal(queries.length, 0);
+  assert.ok(!queries.some(sql => sql.includes("INSERT INTO gemini_manual_background_jobs")));
   assert.equal(externalAgentScheduledEnabled({
     ...env, GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "true",
   }), true);
@@ -522,4 +523,112 @@ test("signed callback wrong Notion parent cannot register or finish; partial reg
     assert.equal(f.createdPages.size, 1);
     assert.equal(f.runs.length, 1);
   } finally { globalThis.fetch = previousFetch; }
+});
+
+function externalQueueDb() {
+  const jobs = [];
+  const sqlStatements = [];
+  const db = {
+    prepare(sql) {
+      sqlStatements.push(sql);
+      let args = [];
+      const stmt = {
+        bind(...values) { args = values; return stmt; },
+        async first() {
+          if (sql.includes("FROM gemini_category_prompts")) return null;
+          if (sql.includes("FROM gemini_automation_settings")) {
+            const cat = geminiAutomationCatalog.findIndex(item => item.stableKey === args[0]);
+            return cat < 0 ? null : { id: cat + 1, max_new_concepts: 1,
+              cadence_minutes: 720, weekly_day: null, enabled: 0, next_run_at: null };
+          }
+          if (sql.includes("FROM gemini_manual_background_jobs")) {
+            if (sql.includes("status IN ('QUEUED','RUNNING')"))
+              return jobs.findLast(row => row.stable_key === args[0] && ["QUEUED","RUNNING"].includes(row.status)) ?? null;
+            if (sql.includes("status='RUNNING'"))
+              return jobs.find(row => row.status === "RUNNING") ?? null;
+            if (sql.includes("status='QUEUED'"))
+              return jobs.find(row => row.status === "QUEUED" && row.error_code === "EXT_MANUAL_PENDING") ?? null;
+          }
+          return null;
+        },
+        async all() { return { results: [] }; },
+        async run() {
+          if (sql.includes("INSERT INTO gemini_manual_background_jobs")) {
+            const category = args[1];
+            if (jobs.some(row => row.stable_key === category && ["QUEUED","RUNNING"].includes(row.status)))
+              throw Error("UNIQUE_ACTIVE_CATEGORY");
+            const pending = sql.includes("'EXT_MANUAL_PENDING'");
+            if (pending && jobs.filter(row => row.status === "QUEUED").length >= 22)
+              return { meta: { changes: 0, last_row_id: 0 } };
+            if (!pending && jobs.some(row => row.status === "RUNNING")) throw Error("UNIQUE_RUNNING");
+            const job = { id: jobs.length + 1, setting_id: args[0], stable_key: category,
+              status: pending ? "QUEUED" : "RUNNING", error_code: pending ? "EXT_MANUAL_PENDING" : args[2] };
+            jobs.push(job);
+            return { meta: { changes: 1, last_row_id: job.id } };
+          }
+          if (sql.startsWith("UPDATE gemini_manual_background_jobs SET status='RUNNING'")) {
+            const [date, marker, jobId, settingId, stableKey] = args;
+            const row = jobs.find(job => job.id === jobId && job.setting_id === settingId &&
+              job.stable_key === stableKey && job.status === "QUEUED");
+            if (!row || jobs.some(job => job.status === "RUNNING") ||
+                jobs.some(job => job.status === "QUEUED" && job.id < jobId))
+              return { meta: { changes: 0 } };
+            row.status = "RUNNING"; row.error_code = marker; row.claimed_at = date;
+            return { meta: { changes: 1 } };
+          }
+          if (sql.startsWith("UPDATE gemini_manual_background_jobs SET status=?")) {
+            const row = jobs.find(job => job.id === args[3] && job.status === "RUNNING");
+            if (!row) return { meta: { changes: 0 } };
+            row.status = args[0]; row.error_code = args[1];
+            return { meta: { changes: 1 } };
+          }
+          return { meta: { changes: 1 } };
+        },
+      };
+      return stmt;
+    },
+  };
+  return { db, jobs, sqlStatements };
+}
+
+test("explicit manual requests queue across categories, never parallelize or duplicate billing", async () => {
+  const { db, jobs } = externalQueueDb();
+  const env = {
+    GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+    GITHUB_ACTIONS_DISPATCH_TOKEN: "TEST_ONLY",
+    GEMINI_AGENT_CALLBACK_SECRET: "TEST_ONLY",
+    GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "false",
+  };
+  const categoryA = "directory.veterinari";
+  const categoryB = "help.adopcia";
+  const a = await enqueueExternalGemini({ db, env, stableKey: categoryA });
+  const b = await enqueueExternalGemini({ db, env, stableKey: categoryB });
+  assert.deepEqual(a, { jobId: 1, status: "QUEUED", alreadyQueued: false });
+  assert.deepEqual(b, { jobId: 2, status: "QUEUED", alreadyQueued: false });
+  assert.deepEqual(await enqueueExternalGemini({ db, env, stableKey: categoryB }),
+    { jobId: 2, status: "QUEUED", alreadyQueued: true });
+  assert.equal(jobs.filter(job => job.status === "QUEUED").length, 2);
+  const originalFetch = globalThis.fetch;
+  const launched = [];
+  globalThis.fetch = async (_url, options) => {
+    launched.push(JSON.parse(options.body).inputs);
+    return new Response(null, { status: 204 });
+  };
+  try {
+    const first = await sweepExternalGemini({ db, env });
+    assert.deepEqual(first, { dispatched: 1, jobId: 1 });
+    assert.equal(jobs[0].status, "RUNNING");
+    assert.equal(jobs[1].status, "QUEUED");
+    assert.deepEqual(await dispatchPendingExternalGemini({ db, env }),
+      { dispatched: 0, reason: "BUSY" });
+    assert.equal(launched.length, 1, "Only one paid GitHub dispatch allowed");
+    jobs[0].status = "SUCCESS"; // signed callback is tested separately
+    const second = await sweepExternalGemini({ db, env });
+    assert.deepEqual(second, { dispatched: 1, jobId: 2 });
+    assert.equal(jobs[1].status, "RUNNING");
+    assert.equal(launched.length, 2);
+    assert.deepEqual(launched.map(item => item.stable_key), [categoryA, categoryB]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
