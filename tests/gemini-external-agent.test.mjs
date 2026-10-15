@@ -27,6 +27,11 @@ function fakeDb(promptOverride = null) {
   };
   let failRegistryAfterInsertOnce = false;
   const db = {
+    async batch(statements) {
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      return results;
+    },
     prepare(sql) {
       queries.push(sql);
       let args = [];
@@ -78,6 +83,7 @@ function fakeDb(promptOverride = null) {
             if (!job || job.status !== "RUNNING") return { meta: { changes: 0 } };
             job.status = args[0];
             job.error_code = args[1];
+            job.run_id = runs.length ? 21 : null;
             return { meta: { changes: 1 } };
           }
           if (sql.includes("INSERT INTO gemini_automation_runs")) {
@@ -397,7 +403,7 @@ test("all 22 categories dispatch their distinct effective editable prompt (no re
 
 for (const outcome of ["no_relevant_candidate", "duplicate_only", "insufficient_evidence", "exhausted"]) {
   test("signed zero-result outcome persists without changing SUCCESS: " + outcome, async () => {
-    const { db, runs } = fakeDb();
+    const { db, runs, getJob } = fakeDb();
     const env = { GEMINI_EXTERNAL_AGENT_ENABLED: "true",
       GITHUB_ACTIONS_DISPATCH_TOKEN: "test", GEMINI_AGENT_CALLBACK_SECRET: "test" };
     const original = globalThis.fetch;
@@ -412,7 +418,9 @@ for (const outcome of ["no_relevant_candidate", "duplicate_only", "insufficient_
     assert.deepEqual(await completeExternalGemini({ db, env, body, signature }), { status: 200, ok: true });
     assert.equal(runs.length, 1);
     assert.equal(runs[0][2], "SUCCESS");
-    assert.equal(runs[0][12], "NO_RESULT_" + outcome.toUpperCase());
+    assert.equal(runs[0][12], null, "0113 run table allows only provider errors");
+    assert.equal(getJob().error_code, "NO_RESULT_" + outcome.toUpperCase());
+    assert.equal(getJob().run_id, 21);
   });
 }
 test("signed callback rejects unknown, fabricated, or conflicting zero-result codes", async () => {

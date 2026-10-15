@@ -27,10 +27,22 @@ function fixture() {
   const sqlite = new DatabaseSync(":memory:");
   for (const file of ["0113_gemini_automation_foundation.sql",
     "0119_gemini_manual_background_jobs.sql", "0125_gemini_category_prompts.sql",
-    "0126_gemini_scheduler_admin_v2.sql"]) {
+    "0126_gemini_scheduler_admin_v2.sql", "0127_gemini_notion_created_pages.sql"]) {
     sqlite.exec(read("drizzle/" + file));
   }
   const db = {
+    async batch(statements) {
+      sqlite.exec("BEGIN IMMEDIATE");
+      try {
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (error) {
+        sqlite.exec("ROLLBACK");
+        throw error;
+      }
+    },
     prepare(sql) {
       const stmt = sqlite.prepare(sql);
       let bindings = [];
@@ -74,6 +86,56 @@ async function noNetwork(fn) {
   try { return { result: await fn(), attempts }; }
   finally { globalThis.fetch = original; }
 }
+test("signed duplicate-only result persists atomically in applied 0113/0119/0127 schema", async () => {
+  const { sqlite, db } = fixture();
+  await populate(db, [geminiAutomationCatalog.find(x => x.stableKey === "directory.veterinari")]);
+  try {
+    await noNetwork(async () => {
+      const job = await dispatchExternalGemini({ db, env, stableKey: "directory.veterinari",
+        trigger: "MANUAL", now });
+      const body = JSON.stringify({ job_id: job.jobId, status: "SUCCESS",
+        concept_count: 0, duplicate_count: 0, request_count: 2, search_count: 1,
+        error_code: null, outcome_code: "duplicate_only", created_pages: [] });
+      const signature = "sha256=" + createHmac("sha256", env.GEMINI_AGENT_CALLBACK_SECRET)
+        .update(body).digest("hex");
+      assert.deepEqual(await completeExternalGemini({ db, env, body, signature }), { status: 200, ok: true });
+      const recorded = sqlite.prepare("SELECT status,run_id,error_code FROM gemini_manual_background_jobs WHERE id=?").get(job.jobId);
+      assert.equal(recorded.status, "SUCCESS");
+      assert.ok(recorded.run_id > 0);
+      assert.equal(recorded.error_code, "NO_RESULT_DUPLICATE_ONLY");
+      const run = sqlite.prepare("SELECT status,error_code FROM gemini_automation_runs WHERE id=?").get(recorded.run_id);
+      assert.equal(run.status, "SUCCESS");
+      assert.equal(run.error_code, null, "0113 CHECK rejects NO_RESULT_* in run.error_code");
+      assert.ok(sqlite.prepare("SELECT last_run_at FROM gemini_automation_settings WHERE stable_key=?").get("directory.veterinari").last_run_at);
+      assert.deepEqual(await completeExternalGemini({ db, env, body, signature }), { status: 200, ok: true });
+      assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM gemini_automation_runs").get().n, 1);
+    });
+  } finally { sqlite.close(); }
+});
+
+test("failed D1 run insert rolls back job completion; same signed receipt can safely retry without Gemini", async () => {
+  const { sqlite, db } = fixture();
+  await populate(db, [geminiAutomationCatalog.find(x => x.stableKey === "directory.veterinari")]);
+  try {
+    await noNetwork(async () => {
+      const job = await dispatchExternalGemini({ db, env, stableKey: "directory.veterinari",
+        trigger: "MANUAL", now });
+      const body = JSON.stringify({ job_id: job.jobId, status: "SUCCESS",
+        concept_count: 0, duplicate_count: 0, request_count: 2, search_count: 1,
+        error_code: null, outcome_code: "duplicate_only" });
+      const signature = "sha256=" + createHmac("sha256", env.GEMINI_AGENT_CALLBACK_SECRET)
+        .update(body).digest("hex");
+      sqlite.exec("CREATE TRIGGER block_run BEFORE INSERT ON gemini_automation_runs BEGIN SELECT RAISE(FAIL,'simulated D1 failure'); END;");
+      await assert.rejects(completeExternalGemini({ db, env, body, signature }), /simulated D1 failure/);
+      assert.equal(sqlite.prepare("SELECT status FROM gemini_manual_background_jobs WHERE id=?").get(job.jobId).status, "RUNNING");
+      assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM gemini_automation_runs").get().n, 0);
+      assert.equal(sqlite.prepare("SELECT last_run_at FROM gemini_automation_settings WHERE stable_key=?").get("directory.veterinari").last_run_at, null);
+      sqlite.exec("DROP TRIGGER block_run");
+      assert.deepEqual(await completeExternalGemini({ db, env, body, signature }), { status: 200, ok: true });
+    });
+  } finally { sqlite.close(); }
+});
+
 test("22 exact category recommendations, defaults disabled; existing choices preserved", async () => {
   assert.equal(geminiAutomationCatalog.length, 22);
   assert.equal(new Set(geminiAutomationCatalog.map(item => item.stableKey)).size, 22);
@@ -149,7 +211,7 @@ test("all 22 due together: one dispatch at a time, no duplicate, no missed suppo
 
 test("22 category admin controls share one safe external route; manual jobs not capped monthly", async () => {
   const cards = read("components/admin-gemini-automation-settings.tsx");
-  assert.match(cards, /settings\.filter\(\(item\) => item\.section === section\.key\)/);
+  assert.match(cards, /liveSettings\.filter\(\(item\) => item\.section === section\.key\)/);
   assert.match(cards, /Spustiť vyhľadávanie teraz/);
   assert.match(cards, /Upraviť prompt/);
   assert.match(cards, /weekly_day: weeklyDay/);

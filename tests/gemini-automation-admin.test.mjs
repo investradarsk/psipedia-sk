@@ -26,6 +26,7 @@ const migration = source("drizzle/0113_gemini_automation_foundation.sql");
 function fixture() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(migration);
+  sqlite.exec(source("drizzle/0119_gemini_manual_background_jobs.sql"));
   sqlite.exec(source("drizzle/0126_gemini_scheduler_admin_v2.sql"));
   return {
     sqlite,

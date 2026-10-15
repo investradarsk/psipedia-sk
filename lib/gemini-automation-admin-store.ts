@@ -83,9 +83,10 @@ export async function listRecentGeminiRuns(db: GeminiD1, limit = 30): Promise<Ge
     SELECT r.id, s.stable_key, s.section, s.subcategory, r.started_at,
       r.trigger_type, r.status, r.model, r.request_count, r.grounded_search_query_count,
       r.candidate_count, r.duplicate_count, r.concept_count, r.error_count,
-      r.completed_at, r.error_code
+      r.completed_at, COALESCE(j.error_code, r.error_code) AS error_code
     FROM gemini_automation_runs r
     JOIN gemini_automation_settings s ON s.id = r.setting_id
+    LEFT JOIN gemini_manual_background_jobs j ON j.run_id = r.id
     ORDER BY r.started_at DESC, r.id DESC
     LIMIT ?
   `).bind(bounded).all<{

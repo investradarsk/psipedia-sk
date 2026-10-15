@@ -1,6 +1,7 @@
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
+import { listGeminiManualBackgroundJobs } from "@/lib/gemini-automation-background-queue";
 import { GeminiSettingsValidationError, parseGeminiSettingsInput } from "@/lib/gemini-automation-admin-settings";
 import {
   getGeminiSetting, listGeminiSettings, listRecentGeminiRuns,
@@ -19,10 +20,19 @@ export async function GET(request: Request) {
   try {
     const db = requireGeminiAdminD1();
     if (key) {
-      return Response.json({ setting: await getGeminiSetting(db, key) }, { headers: NO_STORE });
+      const [setting, job] = await Promise.all([
+        getGeminiSetting(db, key),
+        db.prepare(
+          "SELECT id,stable_key,status,run_id,error_code,created_at,claimed_at,completed_at " +
+          "FROM gemini_manual_background_jobs WHERE stable_key=? ORDER BY id DESC LIMIT 1"
+        ).bind(key).first(),
+      ]);
+      return Response.json({ setting, job }, { headers: NO_STORE });
     }
-    const [settings, runs] = await Promise.all([listGeminiSettings(db), listRecentGeminiRuns(db)]);
-    return Response.json({ settings, runs }, { headers: NO_STORE });
+    const [settings, runs, jobs] = await Promise.all([
+      listGeminiSettings(db), listRecentGeminiRuns(db), listGeminiManualBackgroundJobs(db, 50),
+    ]);
+    return Response.json({ settings, runs, jobs }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Gemini konfigurácie nie sú dostupné. Over migrácie 0113 a 0126." }, { status: 503, headers: NO_STORE });
   }

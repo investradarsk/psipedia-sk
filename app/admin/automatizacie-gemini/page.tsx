@@ -27,7 +27,7 @@ function formatDate(value: string | null) {
 
 const zeroResultLabels: Record<string, string> = {
   NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt.",
-  NO_RESULT_DUPLICATE_ONLY: "Nájdené boli iba existujúce duplicity.",
+  NO_RESULT_DUPLICATE_ONLY: "Gemini označilo kandidátov za duplicity; nový koncept nevznikol. Automatické potvrdenie zhody nie je evidované.",
   NO_RESULT_INSUFFICIENT_EVIDENCE: "Chýbajú dostatočne overiteľné informácie.",
   NO_RESULT_EXHAUSTED: "Možnosti vyhľadávania boli vyčerpané.",
 };
@@ -84,14 +84,15 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
 function GeminiQueueHistory({jobs}:{jobs:GeminiQueuedJob[]}) {
   return <section className={styles.history} aria-label="Gemini úlohy na pozadí">
     <h2>Úlohy na pozadí</h2>
+    <p>Aktuálne GitHub Actions: <a href="https://github.com/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml" target="_blank" rel="noreferrer">Gemini Notion agent ↗</a>. Beh je potrebné spárovať podľa času spustenia; číslo úlohy nie je číslo GitHub behu.</p>
     {!jobs.length ? <p className={styles.empty}>Zatiaľ žiadne úlohy na pozadí.</p> :
       <div className={styles.tableScroll}><table className={styles.historyTable}>
         <thead><tr><th>ID</th><th>Podkategória</th><th>Stav</th><th>Vytvorené</th><th>Beh</th><th>Chyba</th></tr></thead>
         <tbody>{jobs.map(job=><tr key={job.id}>
           <td>{job.id}</td>
           <td>{geminiAutomationCatalog.find(category=>category.stableKey===job.stable_key)?.label??job.stable_key}</td>
-          <td>{job.status}</td><td>{formatDate(job.created_at)}</td>
-          <td>{job.run_id??"—"}</td><td>{job.error_code??"—"}</td>
+          <td>{job.status === "SUCCESS" && !job.run_id ? "NEÚPLNÝ ZÁPIS" : job.status}</td><td>{formatDate(job.created_at)}</td>
+          <td>{job.run_id??"—"}</td><td>{job.error_code ?? (job.status === "SUCCESS" && !job.run_id ? "Chýba potvrdený záznam behu" : "—")}</td>
         </tr>)}</tbody>
       </table></div>}
     <p>Ak úloha zostane v stave RUNNING po neočakávanom prerušení, vyžaduje manuálnu diagnostiku. Systém nikdy nezačne platené opakovanie automaticky.</p>

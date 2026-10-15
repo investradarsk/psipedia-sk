@@ -239,8 +239,12 @@ export async function completeExternalGemini(input: {
     const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), receiptEnv);
     if (!parsed) return { status: 400, ok: false };
     try {
-      await verifyGeminiCreatedPages(receiptEnv, parsed.pages);
-      await registerGeminiCreatedPages(input.db, Number(jobId), parsed);
+      // A signed zero-result receipt has no new Notion pages to read back or
+      // register. Do not require a Notion token for an empty identity set.
+      if (parsed.pages.length > 0) {
+        await verifyGeminiCreatedPages(receiptEnv, parsed.pages);
+        await registerGeminiCreatedPages(input.db, Number(jobId), parsed);
+      }
     } catch {
       // Never complete the job on an uncertain or foreign page receipt.
       return { status: 503, ok: false };
@@ -248,28 +252,39 @@ export async function completeExternalGemini(input: {
   }
   const now = new Date().toISOString();
   const trigger = job.error_code.startsWith("EXT_SCHEDULED") ? "SCHEDULED" : "MANUAL";
-  const updated = await input.db.prepare(
-    "UPDATE gemini_manual_background_jobs SET status=?,error_code=?,completed_at=? " +
-    "WHERE id=? AND status='RUNNING' AND error_code LIKE 'EXT_%'"
-  ).bind(status, code ?? null, now, jobId).run();
-  if (updated.meta.changes !== 1) return { status: 409, ok: false };
-  const run = await input.db.prepare(
-    "INSERT INTO gemini_automation_runs(setting_id,trigger_type,status,started_at,completed_at," +
-    "model,request_count,grounded_search_query_count,candidate_count,duplicate_count,concept_count," +
-    "error_count,error_code) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
-  ).bind(job.setting_id, trigger, status,
-    now, now, "gemini-3.8-flash", requests, searches, Number(count) + Number(duplicates),
-    duplicates, count, status === "SUCCESS" ? 0 : 1,
-    status === "SUCCESS" ? (count === 0 && typeof outcome === "string" ? "NO_RESULT_" + outcome.toUpperCase() : null) : (
-      ["RATE_LIMITED", "RESOURCE_EXHAUSTED", "QUOTA_EXCEEDED", "INSUFFICIENT_CREDIT"].includes(String(code))
-        ? "RATE_LIMITED" : "PROVIDER_ERROR")).run();
-  const runId = Number(run.meta.last_row_id);
-  await input.db.prepare(
-    "UPDATE gemini_manual_background_jobs SET run_id=? WHERE id=?"
-  ).bind(runId, jobId).run();
-  await input.db.prepare(
-    "UPDATE gemini_automation_settings SET last_run_at=? WHERE id=?"
-  ).bind(now, job.setting_id).run();
+  // The 0113 run table deliberately restricts error_code to provider errors.
+  // Human-readable "NO_RESULT_*" outcomes belong to the background job, whose
+  // error_code is unrestricted; history joins that job to display the outcome.
+  const runError = status === "SUCCESS" ? null :
+    (["RATE_LIMITED", "RESOURCE_EXHAUSTED", "QUOTA_EXCEEDED", "INSUFFICIENT_CREDIT"].includes(String(code))
+      ? "RATE_LIMITED" : "PROVIDER_ERROR");
+  const jobOutcome = status === "SUCCESS"
+    ? (count === 0 && typeof outcome === "string" ? "NO_RESULT_" + outcome.toUpperCase() : null)
+    : (typeof code === "string" ? code : "PROVIDER_ERROR");
+
+  // D1 batch is a transaction. Do not mark the job SUCCESS before its run
+  // and settings are durable: otherwise the worker receives HTTP 503 while
+  // the admin misleadingly displays SUCCESS and no run ID.
+  const written = await input.db.batch([
+    input.db.prepare(
+      "INSERT INTO gemini_automation_runs(setting_id,trigger_type,status,started_at,completed_at," +
+      "model,request_count,grounded_search_query_count,candidate_count,duplicate_count,concept_count," +
+      "error_count,error_code) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (" +
+      "SELECT 1 FROM gemini_manual_background_jobs WHERE id=? AND status='RUNNING' AND error_code LIKE 'EXT_%')"
+    ).bind(job.setting_id, trigger, status, now, now, "gemini-3.8-flash", requests, searches,
+      Number(count) + Number(duplicates), duplicates, count, status === "SUCCESS" ? 0 : 1,
+      runError, jobId),
+    input.db.prepare(
+      "UPDATE gemini_manual_background_jobs " +
+      "SET status=?,error_code=?,completed_at=?,run_id=last_insert_rowid() " +
+      "WHERE id=? AND status='RUNNING' AND error_code LIKE 'EXT_%'"
+    ).bind(status, jobOutcome, now, jobId),
+    input.db.prepare(
+      "UPDATE gemini_automation_settings SET last_run_at=? WHERE id=? AND EXISTS (" +
+      "SELECT 1 FROM gemini_manual_background_jobs WHERE id=? AND run_id IS NOT NULL AND status=?)"
+    ).bind(now, job.setting_id, jobId, status),
+  ]);
+  if (written.some(step => step.meta.changes !== 1)) return { status: 409, ok: false };
   // Native Psipedia admin notice: this is metadata only, no candidate processing.
   try {
     const { enqueueAutomationActionAdminNotification } = await import("./admin-notifications.ts");
