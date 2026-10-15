@@ -148,6 +148,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0126_gemini_scheduler_admin_v2.sql",
     "0127_gemini_notion_created_pages.sql",
     "0128_facebook_image_posts.sql",
+    "0129_gemini_external_manual_queue.sql",
   ]);
 });
 
