@@ -112,3 +112,34 @@ test("help source identity survives renamed title and long descriptions retain e
     "Popis": { type: "rich_text", rich_text: properties.Popis.rich_text } } };
   rejects(() => assertNotionEventsHelpUnique({ section: "help", args, rows: [row], scanComplete: true }), "DUPLICATE");
 });
+
+// Active worker contract; legacy helper tests above remain for existing callers.
+const { buildGeminiNotionDraft, notionDraftProperty } = await import("../scripts/gemini-notion-directory-fields.mjs");
+const target = { section: "events", categoryValue: "Výstava" };
+const simple = args => buildGeminiNotionDraft({ args, properties: { ...events, "Gemini poznámka": field("rich_text") }, rows: [], target });
+test("active worker accepts short incomplete private concepts, without inventing missing data", () => {
+  const p = simple({ name: "Koncept", description: "Krátky opis" }).properties;
+  assert.equal(p.Stav.select.name, "Nápad");
+  assert.equal(p.Začiatok, undefined);
+  assert.equal(p["Gemini poznámka"], undefined);
+  assert.equal(p.Popis.rich_text[0].text.content, "Krátky opis");
+  assert.throws(() => simple({ gemini_note: "Žiadny subjekt" }), /NAME_REQUIRED/);
+});
+test("active worker normalizes minor formats, omits invalid optional facts and keeps notes separate", () => {
+  const d = buildGeminiNotionDraft({ args: { name: "Koncept", start_date: "1.4.2027", start_time: "8.05", end_date: "2027-02-30", website_url: "javascript:alert(1)", gemini_note: "Overte aktuálnosť" },
+    properties: { ...events, "Čas začiatku": field("rich_text"), "Gemini poznámka": field("rich_text") }, rows: [], target });
+  assert.equal(d.properties.Začiatok.date.start, "2027-04-01");
+  assert.equal(d.properties["Čas začiatku"].rich_text[0].text.content, "08:05");
+  assert.equal(d.properties.Koniec, undefined);
+  assert.equal(d.properties.Web, undefined);
+  assert.match(d.properties["Gemini poznámka"].rich_text[0].text.content, /Overte aktuálnosť/);
+  assert.equal(d.properties.Popis, undefined);
+});
+test("actual Notion types and existing options control encoding; no schema mutation", () => {
+  assert.deepEqual(notionDraftProperty(field("select", ["Výstava"]), "vystava"), { select: { name: "Výstava" } });
+  assert.equal(notionDraftProperty(field("select", ["Výstava"]), "unknown"), null);
+  assert.deepEqual(notionDraftProperty({ type: "status", status: { options: [{ name: "Koncept" }] } }, "Koncept"), { status: { name: "Koncept" } });
+  assert.deepEqual(notionDraftProperty(field("number"), "3,5"), { number: 3.5 });
+  assert.equal(notionDraftProperty(field("date"), "2027-02-30"), null);
+  assert.equal(notionDraftProperty(field("url"), "https://127.0.0.1/"), null);
+});

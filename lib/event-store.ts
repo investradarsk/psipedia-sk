@@ -240,15 +240,15 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa podujatia nie je platná.");
   if (getPortalSubpage("podujatia", slug)) throw new Error("Túto adresu už používa podsekcia portálu. Uprav adresu podujatia.");
   if (!eventType) throw new Error("Vyber typ podujatia.");
-  if (!validDate(startDate)) throw new Error("Vyber platný dátum začiatku.");
+  if ((status === "published" || startDate) && !validDate(startDate)) throw new Error("Vyber platný dátum začiatku.");
   if (endDate && !validDate(endDate)) throw new Error("Dátum konca nie je platný.");
   if (endDate && endDate < startDate) throw new Error("Koniec podujatia nemôže byť pred začiatkom.");
   if (!validTime(startTime) || !validTime(endTime ?? "")) throw new Error("Čas podujatia nie je platný.");
-  if (!city) throw new Error("Doplň mesto alebo označ podujatie ako online.");
-  if (!region) throw new Error("Vyber kraj.");
-  if (!organizer) throw new Error("Doplň organizátora.");
-  if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (description.length < 30) throw new Error("Popis podujatia by mal mať aspoň 30 znakov.");
+  if (status === "published" && !city) throw new Error("Doplň mesto alebo označ podujatie ako online.");
+  if (status === "published" && !region) throw new Error("Vyber kraj.");
+  if (status === "published" && !organizer) throw new Error("Doplň organizátora.");
+  if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
+  if (status === "published" && description.length < 30) throw new Error("Popis podujatia by mal mať aspoň 30 znakov.");
 
   const imageUrl = payload.imageUrl?.trim() || null;
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) {
@@ -259,7 +259,7 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     slug, title, excerpt, eventType, status, startDate, startTime, endDate, endTime,
     venue: payload.venue?.trim() ?? "",
     city,
-    region,
+    region: region ?? "",
     address: payload.address?.trim() ?? "",
     organizer,
     description,

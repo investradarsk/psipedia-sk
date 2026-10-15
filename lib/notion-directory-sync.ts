@@ -1,5 +1,4 @@
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
-import { sameDirectoryIdentity, pageDirectoryIdentities } from "../scripts/gemini-notion-identity.mjs";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import {
   archiveManagedDirectoryProfile,
@@ -777,8 +776,6 @@ function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
   return editorialState === "Ready" || editorialState === "Publikované";
 }
 
-class GeminiCanonicalDuplicateError extends Error {}
-
 async function createProfileFromNotion(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
@@ -786,13 +783,7 @@ async function createProfileFromNotion(input: {
   trustedGemini?: boolean;
 }) {
   const desired = notionSnapshot(input.page);
-  if (input.trustedGemini) {
-    const known = await input.database.prepare(
-      "SELECT name, city, website_url AS website FROM directory_profiles",
-    ).all<{ name: string; city: string; website: string }>();
-    if ((known.results ?? []).some(row => pageDirectoryIdentities(input.page).some(identity => sameDirectoryIdentity(identity, row))))
-      throw new GeminiCanonicalDuplicateError("Gemini koncept zodpovedá existujúcemu profilu; vyžaduje manuálne posúdenie duplicity.");
-  }
+  if (input.trustedGemini && !desired.slug) desired.slug = "gemini-" + input.page.id.replaceAll("-", "");
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
@@ -1451,10 +1442,8 @@ export async function runNotionDirectorySyncSweep(input: {
       await markPageError(input.bindings, page.id, error);
       // Preserve an uncertain import lock for explicit reconciliation. Never
       // create a second profile after a lost response or mapping failure.
-      if (!(error instanceof GeminiCanonicalDuplicateError)) {
-        release = null;
-        releaseImport = null;
-      }
+      release = null;
+      releaseImport = null;
     } finally {
       if (releaseImport) await releaseImport();
       if (release) await release();
