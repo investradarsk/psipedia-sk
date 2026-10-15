@@ -44,7 +44,7 @@ test("0129 workflow is manually protected and requires target-specific consent o
 test("0129 requires exact 0128 ledger predecessor without skipped migrations", () => {
   const history = [
     ...Array.from({ length: 62 }, (_, index) => String(index).padStart(4, "0") + "_fixture.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(name => name !== "0130_facebook_image_publisher.sql"),
   ];
   const old = history.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(old, history, target),
