@@ -28,7 +28,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const loading=opening||settledQuery!==queryKey;
   const dirty=!!editor && JSON.stringify(form)!==baseline;
   useEffect(()=>{const abort=new AbortController();
-    fetch(`/api/admin/facebook-images?month=${month}&status=${status}&page=${page}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json();if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");setData(body);setError("");}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setSettledQuery(queryKey);});
+    fetch(`/api/admin/facebook-images?month=${month}&status=${status}&page=${page}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as Data & {error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");setData(body);setError("");}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setSettledQuery(queryKey);});
     return()=>abort.abort();
   },[month,status,page,refresh,queryKey]);
   useEffect(()=>{if(editor&&!dialog.current?.open)dialog.current?.showModal();},[editor]);
@@ -39,7 +39,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     origin.current=document.activeElement as HTMLElement;setEditorError("");setNotice("");openRequest.current?.abort();
     if(!post){const next=blank(date);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:null});return;}
     const abort=new AbortController();openRequest.current=abort;setOpening(true);
-    fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json();if(!r.ok)throw new Error(body.error);if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
+    fetch(`/api/admin/facebook-images/${post.id}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as {post:FacebookImagePost;error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");if(abort.signal.aborted)return;const next=formFor(body.post);setForm(next);setBaseline(JSON.stringify(next));setEditor({post:body.post});}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setOpening(false);});
   }
   async function upload(file:File){if(lock.current)return;lock.current=true;setBusy(true);setEditorError("");
     try{if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("Použi JPG, PNG alebo WebP.");const image=await uploadAdminImage(file,"facebook-images");setForm(old=>({...old,imageUrl:image.imageUrl,imageKey:image.imageKey}));}
@@ -52,7 +52,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       if(editor.post?.scheduledAt && !payload.repeatedHour && !cancel){const prior=facebookWallTime(editor.post.scheduledAt);if(prior.date===payload.date&&prior.time===payload.time){
         const {facebookScheduleInstant}=await import("@/lib/facebook-image-post");payload={...payload,repeatedHour:Date.parse(facebookScheduleInstant(payload.date,payload.time,"earlier"))===Date.parse(editor.post.scheduledAt)?"earlier":"later"};
       }}
-      const r=await fetch(`/api/admin/facebook-images${editor.post?`/${editor.post.id}`:""}`,{method:editor.post?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const body=await r.json();if(!r.ok)throw new Error(body.error||"Uloženie zlyhalo.");
+      const r=await fetch(`/api/admin/facebook-images${editor.post?`/${editor.post.id}`:""}`,{method:editor.post?"PUT":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});const body=await r.json() as {error?:string};if(!r.ok)throw new Error(body.error||"Uloženie zlyhalo.");
       dialog.current?.close();setEditor(null);setRefresh(v=>v+1);setNotice(cancel?"Naplánovanie zrušené.":"Príspevok uložený. Nič sa neodoslalo na Facebook.");origin.current?.focus();
     }catch(e){setEditorError(e instanceof Error?e.message:"Uloženie zlyhalo.");}finally{lock.current=false;setBusy(false);}
   }
