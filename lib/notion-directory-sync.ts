@@ -783,9 +783,10 @@ async function createProfileFromNotion(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
   page: NotionPage;
+  trustedGemini?: boolean;
 }) {
   const desired = notionSnapshot(input.page);
-  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
+  if (input.trustedGemini) {
     const known = await input.database.prepare(
       "SELECT name, city, website_url AS website FROM directory_profiles",
     ).all<{ name: string; city: string; website: string }>();
@@ -796,7 +797,7 @@ async function createProfileFromNotion(input: {
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
   let payload = newProfileInput(desired);
-  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
+  if (input.trustedGemini) {
     // Fail closed, regardless of unexpected Notion status/defaults.
     payload = { ...payload, status: "draft" };
   }
@@ -1317,6 +1318,7 @@ export async function runNotionDirectorySyncSweep(input: {
           database: input.database,
           bindings: input.bindings,
           page,
+          trustedGemini,
         });
         let created = creation.profile;
         const syncedAt = new Date().toISOString();
