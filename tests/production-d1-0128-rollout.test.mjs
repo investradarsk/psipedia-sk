@@ -22,7 +22,8 @@ const workflow=readFileSync(path.join(root,".github/workflows/production-d1-migr
 
 test("0128 exact immutable SQL, canonical D1 target and one-at-a-time approval",()=>{
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS,[]);
+  // 0128 is supported; the later 0129 queue migration is prepared-only.
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS,["0129_gemini_external_manual_queue.sql"]);
   assert.equal(createHash("sha256").update(source).digest("hex"),APPROVED_0128_SHA256);
   assert.doesNotThrow(()=>assertApproved0128Target("psipedia-sk-db",APPROVED_0128_SHA256));
   assert.throws(()=>assertApproved0128Target("wrong-db",APPROVED_0128_SHA256),/canonical psipedia-sk-db/);
