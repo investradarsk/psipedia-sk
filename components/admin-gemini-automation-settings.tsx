@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import { geminiSchedulerOptions, geminiWeekdays, recommendedGeminiCadence } from "@/lib/gemini-automation-schedule";
 import type { GeminiSettingView } from "@/lib/gemini-automation-admin-settings";
+import type { GeminiQueuedJob } from "@/lib/gemini-automation-background-queue";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
 
@@ -24,8 +25,28 @@ type PilotResult = {
   groundedSearchQueryCount: number; model: string;
 };
 
-function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: GeminiSettingView; available: boolean; externalEnabled: boolean }) {
+const outcomeLabels: Record<string, string> = {
+  NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt",
+  NO_RESULT_DUPLICATE_ONLY: "Nájdené boli iba duplicity",
+  NO_RESULT_INSUFFICIENT_EVIDENCE: "Nedostatok overiteľných údajov",
+  NO_RESULT_EXHAUSTED: "Vyhľadávanie vyčerpalo dostupných kandidátov",
+};
+
+function jobStatus(job: GeminiQueuedJob) {
+  if (job.status === "QUEUED") return "Čaká na spustenie";
+  if (job.status === "RUNNING") return "Vyhľadáva / spracúva výsledok";
+  if (job.status === "FAILED") return "Zlyhalo: " + (job.error_code ?? "neznáma chyba");
+  if (job.run_id == null) return "Neúplný zápis výsledku — vyžaduje kontrolu";
+  return outcomeLabels[job.error_code ?? ""] ??
+    (job.error_code ? "Dokončené: " + job.error_code : "Dokončené");
+}
+
+function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: {
+  initial: GeminiSettingView; available: boolean; externalEnabled: boolean;
+  latestJob: GeminiQueuedJob | null;
+}) {
   const [setting, setSetting] = useState(initial);
+  useEffect(() => setSetting(initial), [initial]);
   const [enabled, setEnabled] = useState(initial.enabled);
   const [cadence, setCadence] = useState(
     geminiSchedulerOptions.some((option) => option.minutes === initial.cadenceMinutes)
@@ -184,9 +205,16 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
         </label>
       </div>
       <dl className={styles.timestamps}>
-        <div><dt>Posledné spustenie</dt><dd>{formatDate(setting.lastRunAt)}</dd></div>
+        <div><dt>Posledné spustenie</dt><dd>{formatDate(latestJob?.created_at ?? setting.lastRunAt)}</dd></div>
         <div><dt>Ďalšie plánované</dt><dd>{formatDate(setting.nextRunAt)}</dd></div>
       </dl>
+      {latestJob && <p role="status" aria-live="polite"
+        className={latestJob.status === "FAILED" || (latestJob.status === "SUCCESS" && !latestJob.run_id)
+          ? styles.pilotError : styles.feedback}>
+        Úloha #{latestJob.id}: {jobStatus(latestJob)}
+        {latestJob.completed_at ? " · Dokončené " + formatDate(latestJob.completed_at) : ""}
+        {latestJob.run_id ? " · Beh #" + latestJob.run_id : ""}
+      </p>}
       <div className={styles.cardBottom}>
         <Link href={"/admin/automatizacie-gemini/prompty?stable_key=" + encodeURIComponent(setting.stableKey)}>
           Upraviť prompt
@@ -244,17 +272,51 @@ export function AdminGeminiAutomationSettings({ sections, settings, available, e
   available: boolean;
   externalEnabled: boolean;
 }) {
+  const [liveSettings, setLiveSettings] = useState(settings);
+  const [jobs, setJobs] = useState<GeminiQueuedJob[]>([]);
+  useEffect(() => {
+    if (!available || !externalEnabled) return;
+    let cancelled = false;
+    let inFlight = false;
+    const refresh = async () => {
+      if (cancelled || inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
+      try {
+        const response = await fetch("/api/admin/gemini-automation", {
+          credentials: "same-origin", cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = await response.json() as {
+          settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[];
+        };
+        if (!cancelled) {
+          if (Array.isArray(data.settings)) setLiveSettings(data.settings);
+          if (Array.isArray(data.jobs)) setJobs(data.jobs);
+        }
+      } catch {
+        // A temporary network failure does not start or repeat any paid work.
+      } finally {
+        inFlight = false;
+      }
+    };
+    void refresh();
+    const id = window.setInterval(() => void refresh(), 10000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [available, externalEnabled]);
+
   return (
     <div className={styles.sections}>
       {sections.map((section) => (
         <section key={section.key} aria-labelledby={"gemini-section-" + section.key}>
           <div className={styles.sectionHeader}>
             <h2 id={"gemini-section-" + section.key}>{section.label}</h2>
-            <span>{settings.filter((setting) => setting.section === section.key).length} podkategórií</span>
+            <span>{liveSettings.filter((setting) => setting.section === section.key).length} podkategórií</span>
           </div>
           <div className={styles.grid}>
-            {settings.filter((item) => item.section === section.key).map((setting) =>
-              <GeminiSettingsCard key={setting.stableKey} initial={setting} available={available} externalEnabled={externalEnabled} />)}
+            {liveSettings.filter((item) => item.section === section.key).map((setting) =>
+              <GeminiSettingsCard key={setting.stableKey} initial={setting}
+                available={available} externalEnabled={externalEnabled}
+                latestJob={jobs.find(job => job.stable_key === setting.stableKey) ?? null} />)}
           </div>
         </section>
       ))}
