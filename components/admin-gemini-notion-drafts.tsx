@@ -54,7 +54,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
 
   const counts = geminiReviewCounts(drafts);
   const visible = drafts.filter(draft => filter === "ALL" || (filter === "ACTIVE"
-    ? ["NEW", "IN_PROGRESS", "APPROVED"].includes(draft.reviewState) : draft.reviewState === filter));
+    ? ["NEW", "IN_PROGRESS", "APPROVED", "IMPORTED"].includes(draft.reviewState) : draft.reviewState === filter));
   async function openDraft(draft: ReviewDraft) {
     if (opening) return;
     setOpening(true); setError("");
