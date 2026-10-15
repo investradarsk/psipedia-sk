@@ -474,3 +474,27 @@ test("approved Help concept remains protected from stale moderator decisions", a
     assert.equal(f.writes.length, 1);
   });
 });
+
+
+test("merged #837 scheduler controls and #838 review panel coexist for 22 categories", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const settings = await readFile(
+    new URL("../components/admin-gemini-automation-settings.tsx", import.meta.url), "utf8");
+  const scheduler = await readFile(
+    new URL("../lib/gemini-automation-schedule.ts", import.meta.url), "utf8");
+  assert.equal(geminiAutomationCatalog.length, 22);
+  assert.equal((settings.match(/<AdminGeminiNotionDrafts\s+stableKey=\{setting\.stableKey\}/g) ?? []).length, 1,
+    "one shared review panel across all category cards");
+  assert.match(settings, /\{externalEnabled && \(\s*<AdminGeminiNotionDrafts/s);
+  assert.doesNotMatch(settings, /Editor konceptov Podujatí a Pomoci psom doplní/);
+  assert.match(settings, /geminiSchedulerOptions/);
+  assert.match(settings, /geminiWeekdays/);
+  assert.match(settings, /recommendedGeminiCadence/);
+  assert.match(settings, /weekly_day: weeklyDay/);
+  assert.match(settings, /cadence_minutes: cadenceMinutes/);
+  assert.match(settings, /\/admin\/automatizacie-gemini\/prompty\?stable_key=/);
+  assert.match(settings, /Spustiť vyhľadávanie teraz/);
+  assert.match(settings, /canManuallyRun/);
+  assert.match(scheduler, /geminiSchedulerOptions/);
+  assert.match(scheduler, /geminiWeekdays/);
+});

@@ -139,3 +139,15 @@ Update the **single existing Gemini Notion worker** to write explicit, stable ow
 ### PR #837 compatibility
 
 **Resolved in existing branch:** #837 has merged to main and been integrated into #838 as a two-parent merge. The merged `components/admin-gemini-automation-settings.tsx` retains #837 cadence, custom minutes, weekdays, prompt link, run confirmation and external dispatch; removes its temporary Events/Help placeholder; and mounts precisely one real `AdminGeminiNotionDrafts` component for all external-enabled categories. No paid Gemini call or schedule activation was performed.
+
+
+## Completed merge of #837 scheduler into existing #838 branch — 15 October 2026
+
+- Main `a687d2e4d72cd7d2048c33003a5d402a0e322e21` includes merged PR #837. It has been integrated **into the existing #838 branch only**; no merge of #838 into main and no production writes.
+- Resolved the sole overlapping settings UI component by retaining #837's `geminiSchedulerOptions`, custom minute interval, weekday configuration, recommended cadence, prompt link, save API `weekly_day` and manual search launch. Replaced #837's temporary non-directory placeholder with the **same real** `AdminGeminiNotionDrafts` component for all external-enabled categories. Exactly one review panel per category; no parallel worker or planner code copied.
+- Added a regression contract covering the integration of the 22-category catalog, scheduling controls, prompts/manual action and one actual review panel with no placeholder. Existing mocked Notion tests cover title updates across all 12 non-directory categories and the original Directory tests cover the other ten.
+- Read-only retrieval of canonical Help data source `3ed793fc-1d18-819c-bb39-000b753d0002` after #837 merger confirms 47 properties and **neither** `Gemini kontrola` nor `Dôvod odmietnutia`. Consequently internal Help decisions remain correctly **disabled** until a separate explicit schema approval; editing and saving supported fields do not publish.
+- The evidence signature is still *candidate discovery only*, not an immutable ownership claim. Full Gemini worker provenance requires a separate change to the **existing** worker and likely schema approval.
+- All 21 Directory category filter properties are optional for **basic profile editing**; they remain unprovisioned and full structured category-facet parity is not claimed. Advanced media widgets and Notion's lack of atomic page-property CAS are additional known limitations.
+
+**Merge assessment:** Core review/edit preservation and scheduler UI integration are technically validated, but PR #838 remains **Draft / BLOCKED for the complete 22-category moderation promise** until canonical Help review schema is approved and a non-directory provenance contract is implemented. Do not treat current CI as proof of those missing production capabilities.
