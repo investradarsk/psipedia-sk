@@ -1,6 +1,9 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog";
 import { eventTypeFromPortalSlug } from "./events";
-import { agendaEditableFields, type BidirectionalAgendaKey } from "./notion-events-help-adapters";
+import {
+  agendaEditableFields, GEMINI_HELP_REVIEW_PROPERTY, GEMINI_HELP_REJECTION_PROPERTY,
+  GEMINI_HELP_REVIEW_STATES, type BidirectionalAgendaKey,
+} from "./notion-events-help-adapters";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { notionRequest, type NotionPage } from "./notion-sync-shared";
 import type { GeminiReviewState } from "./gemini-notion-review-state";
@@ -23,7 +26,7 @@ export type GeminiAgendaDraft = {
   id: string; stableKey: string; agenda: BidirectionalAgendaKey; name: string;
   city: string; reviewState: GeminiReviewState; syncError: string; rejectionReason: string;
   lastEditedAt: string; notionUrl: string; psipediaId: string; fields: GeminiAgendaField[];
-  missingFields: string[]; attribution: "EVIDENCE_SIGNATURE_ONLY";
+  missingFields: string[]; attribution: "EVIDENCE_SIGNATURE_ONLY"; reviewAvailable: boolean;
 };
 export class GeminiAgendaReviewError extends Error {
   readonly code: "CATEGORY" | "CONFIG" | "NOT_FOUND" | "CONFLICT" | "LOCKED" | "STATE" | "SCHEMA";
@@ -125,7 +128,18 @@ async function dataSource(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgend
   if (schema.properties[title]?.type !== "title" ||
       !schema.properties[status] || !["select", "rich_text"].includes(schema.properties[status].type ?? ""))
     throw new GeminiAgendaReviewError("SCHEMA");
-  return { id, schema: schema.properties, title, status };
+  const helpReview = schema.properties[GEMINI_HELP_REVIEW_PROPERTY];
+  const helpReason = schema.properties[GEMINI_HELP_REJECTION_PROPERTY];
+  // Read/save remains available before schema rollout, but decisions fail
+  // closed. Partial or invalid schema must not silently permit decisions.
+  const reviewAvailable = agenda === "help-cases" && Boolean(helpReview);
+  if (agenda === "help-cases" && (helpReview || helpReason)) {
+    const options = helpReview?.select?.options?.map(option => option.name) ?? [];
+    if (helpReview?.type !== "select" || helpReason?.type !== "rich_text" ||
+        !GEMINI_HELP_REVIEW_STATES.every(option => options.includes(option)))
+      throw new GeminiAgendaReviewError("SCHEMA");
+  }
+  return { id, schema: schema.properties, title, status, reviewAvailable };
 }
 function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
   source: Awaited<ReturnType<typeof dataSource>>): GeminiAgendaDraft {
@@ -152,7 +166,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
         name, type: definition.type ?? "", value: textValue(property), synced: true,
         options: definition.select?.options?.map(option => option.name),
         editable: !immutable.has(name) &&
-          !(agenda === "help-cases" && name === "Slug") &&
+          !(agenda === "help-cases" && name === "Slug" && !source.reviewAvailable) &&
           !(agenda === "lost-found" && lostFoundRestricted.has(name)) &&
           !structuredText && !dateRange && editableTypes.has(definition.type ?? ""),
       };
@@ -165,17 +179,23 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
       })),
   ];
   const status = txt(page, source.status);
+  const internalReview = source.reviewAvailable ? txt(page, GEMINI_HELP_REVIEW_PROPERTY) : "";
+  if (source.reviewAvailable && internalReview &&
+      !(GEMINI_HELP_REVIEW_STATES as readonly string[]).includes(internalReview))
+    throw new GeminiAgendaReviewError("SCHEMA");
   const reviewState: GeminiReviewState = txt(page, "Psipedia ID") ? "IMPORTED"
+    : internalReview === "Odmietnuté" ? "REJECTED"
+    : internalReview === "Schválené" ? "APPROVED"
     : ["Archív", "ARCHIVED"].includes(status) ? "REJECTED"
     : status === "Ready" || status === "PENDING" ? "APPROVED" : "NEW";
   return {
     id: page.id, stableKey: key, agenda, name: txt(page, source.title),
     city: txt(page, "Mesto"), reviewState, syncError: txt(page, "Sync chyba"),
-    rejectionReason: "", lastEditedAt: page.last_edited_time ?? "",
+    rejectionReason: source.reviewAvailable ? txt(page, GEMINI_HELP_REJECTION_PROPERTY) : "", lastEditedAt: page.last_edited_time ?? "",
     notionUrl: "https://www.notion.so/" + normalized(page.id),
     psipediaId: txt(page, "Psipedia ID"), fields,
     missingFields: names.filter(name => !source.schema[name]),
-    attribution: "EVIDENCE_SIGNATURE_ONLY",
+    attribution: "EVIDENCE_SIGNATURE_ONLY", reviewAvailable: source.reviewAvailable,
   };
 }
 /** The canonical Notion -> D1 sync mapping can precede Notion's Psipedia ID
@@ -327,20 +347,33 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
       if (typeof nextTitle !== "string" || !nextTitle.trim()) throw new GeminiAgendaReviewError("STATE");
     } else {
       if (input.confirm !== true) throw new GeminiAgendaReviewError("STATE");
-      // Help-cases uses draft/published as a PUBLICATION gate, not a review
-      // decision. Never convert an approval click into an automatic public post,
-      // or invent an unrecognized rejection state. A separate contract is needed.
-      if (draft.agenda === "help-cases") throw new GeminiAgendaReviewError("SCHEMA");
       if (action === "approve" && !draft.name.trim()) throw new GeminiAgendaReviewError("STATE");
       if (action === "approve" && !draft.fields.some(field =>
         field.name === "Slug" && typeof field.value === "string" && field.value.trim()))
         throw new GeminiAgendaReviewError("STATE");
-      const target = action === "approve"
-        ? draft.agenda === "lost-found" ? "PENDING" : "Ready"
-        : action === "reject" ? draft.agenda === "lost-found" ? "ARCHIVED" : "Archív"
-        : draft.agenda === "lost-found" ? "DRAFT" : "Na kontrolu";
-      patch[source.status] = encoded(source.schema[source.status].type ?? "", target,
-        source.schema[source.status].select?.options ?? []);
+      if (draft.agenda === "help-cases") {
+        // Only the dedicated internal review field changes. Public Psipedia
+        // stav stays draft; canonical sync later imports a D1 DRAFT.
+        if (!source.reviewAvailable) throw new GeminiAgendaReviewError("SCHEMA");
+        const target = action === "approve" ? "Schválené" :
+          action === "reject" ? "Odmietnuté" : "Na kontrolu";
+        if (action === "reject") {
+          const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+          if (!reason || reason.length > 1000) throw new GeminiAgendaReviewError("STATE");
+          patch[GEMINI_HELP_REJECTION_PROPERTY] = encoded("rich_text", reason);
+        } else {
+          patch[GEMINI_HELP_REJECTION_PROPERTY] = encoded("rich_text", "");
+        }
+        patch[GEMINI_HELP_REVIEW_PROPERTY] = encoded("select", target,
+          source.schema[GEMINI_HELP_REVIEW_PROPERTY].select?.options ?? []);
+      } else {
+        const target = action === "approve"
+          ? draft.agenda === "lost-found" ? "PENDING" : "Ready"
+          : action === "reject" ? draft.agenda === "lost-found" ? "ARCHIVED" : "Archív"
+          : draft.agenda === "lost-found" ? "DRAFT" : "Na kontrolu";
+        patch[source.status] = encoded(source.schema[source.status].type ?? "", target,
+          source.schema[source.status].select?.options ?? []);
+      }
     }
     // Notion REST has no CAS for page properties; re-read immediately under
     // cross-isolate D1 lock, then fail closed on a transport-uncertain PATCH.
