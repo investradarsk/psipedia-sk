@@ -15,6 +15,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   onSaved: () => void;
 }) {
   const [values, setValues] = useState<Values>(() => initial(draft));
+  const [baseline, setBaseline] = useState<Values>(() => initial(draft));
   const [revision, setRevision] = useState(draft.lastEditedAt);
   const [reviewState, setReviewState] = useState(draft.reviewState);
   const [busy, setBusy] = useState(false);
@@ -27,7 +28,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
     // PATCH only actually edited fields. Preserves rich-text mentions, formatted
     // fragments and datetime values that a plain HTML input cannot round-trip.
     const changed = Object.fromEntries(draft.fields.filter(field =>
-      field.editable && !Object.is(values[field.name], field.value))
+      field.editable && !Object.is(values[field.name], baseline[field.name]))
       .map(field => [field.name, values[field.name]]));
     if (action === "save" && Object.keys(changed).length === 0) {
       setMessage("Žiadne zmeny na uloženie.");
@@ -45,6 +46,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       const data = await response.json() as { draft?: GeminiAgendaDraft; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Notion neodpovedá. Over stav konceptu pred opakovaním.");
       setValues(initial(data.draft));
+      setBaseline(initial(data.draft));
       setRevision(data.draft.lastEditedAt);
       setReviewState(data.draft.reviewState);
       setConfirm(null);
@@ -58,6 +60,8 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   }
 
   const readOnly = !["NEW", "IN_PROGRESS"].includes(reviewState);
+  const supportedFields = draft.fields.filter(field => field.synced);
+  const otherFields = draft.fields.filter(field => !field.synced);
   return (
     <div className="admin-event-editor">
       <p>Upravuješ pôvodnú Notion stránku, nie importovanú D1 entitu. Stav publikovania je oddelený od uloženia.</p>
@@ -68,10 +72,11 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         </p>
       )}
       {draft.attribution === "EVIDENCE_SIGNATURE_ONLY" && <p role="status">Gemini pôvod je zatiaľ odhadnutý podľa zdrojových dôkazov. Jednoznačné označenie vyžaduje úpravu existujúceho pracovníka Gemini.</p>}
+      {draft.agenda === "help-cases" && <p>Slug je pri návrhu zablokovaný, pretože v existujúcej synchronizácii by mohol vytvoriť D1 koncept bez schválenia. Detail možno skontrolovať v Notione.</p>}
       {draft.agenda === "help-cases" && <p role="alert">Schválenie aj odmietnutie prípadov Pomoc psom je dočasne zablokované: ich Notion schéma používa iba publikačný stav draft/published. Schválenie nesmie automaticky publikovať. Úpravy a uloženie konceptu zostávajú dostupné.</p>}
       <form onSubmit={event => { event.preventDefault(); void submit("save"); }}>
         <div className="admin-field-grid">
-          {draft.fields.map(field => (
+          {supportedFields.map(field => (
             <div className="admin-field" key={field.name}>
               <label htmlFor={"gemini-agenda-" + field.name}>{field.name}{!field.editable ? " · iba na čítanie" : ""}</label>
               {field.type === "checkbox" ? (
@@ -79,6 +84,14 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
                   disabled={readOnly || !field.editable || busy}
                   checked={Boolean(values[field.name] ?? field.value)}
                   onChange={event => setValues(previous => ({ ...previous, [field.name]: event.target.checked }))} />
+              ) : field.type === "select" && field.editable ? (
+                <select id={"gemini-agenda-" + field.name}
+                  disabled={readOnly || busy}
+                  value={String(values[field.name] ?? "")}
+                  onChange={event => setValues(previous => ({ ...previous, [field.name]: event.target.value }))}>
+                  <option value="">Bez hodnoty</option>
+                  {(field.options ?? []).map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
               ) : field.type === "rich_text" && ["Popis", "Praktické info", "Krátky popis", "Perex", "Zdravotné poznámky", "Povaha", "Špeciálne potreby"].includes(field.name) ? (
                 <textarea id={"gemini-agenda-" + field.name} rows={field.name === "Popis" ? 10 : 4}
                   disabled={readOnly || !field.editable || busy}
@@ -97,6 +110,17 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
             </div>
           ))}
         </div>
+        {otherFields.length > 0 && (
+          <details>
+            <summary>Ďalšie údaje z Notionu (iba na čítanie, {otherFields.length})</summary>
+            <dl>
+              {otherFields.map(field => <div key={field.name}>
+                <dt>{field.name} ({field.type})</dt>
+                <dd>{String(field.value ?? "") || "—"} · detailné úpravy iba v Notione</dd>
+              </div>)}
+            </dl>
+          </details>
+        )}
         {error && <p role="alert">{error}</p>}
         {message && <p role="status">{message}</p>}
         <div className="admin-editor-actions">
@@ -109,7 +133,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
           )}
           {!readOnly && (
             <button type="button" disabled={busy || draft.agenda === "help-cases"} onClick={() => setConfirm("approve")}>
-              Schváliť na publikovanie
+              Schváliť koncept
             </button>
           )}
         </div>
