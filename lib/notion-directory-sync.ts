@@ -869,7 +869,11 @@ async function applyNotionToProfile(input: {
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || current.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name || current.name;
   let payload = fullProfileInput(desired, current);
-  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
+  const createdByGemini = await input.database.prepare(
+    "SELECT notion_page_id FROM gemini_notion_created_pages WHERE notion_page_id=? " +
+    "AND import_agenda='directory' AND canonical_entity_id=?"
+  ).bind(input.page.id, current.id).first<{ notion_page_id: string }>();
+  if (createdByGemini) {
     // Notion cannot publish or unpublish a Gemini-created profile.
     // Only the explicit canonical admin publish action can change its status.
     payload = { ...payload, status: current.status };
