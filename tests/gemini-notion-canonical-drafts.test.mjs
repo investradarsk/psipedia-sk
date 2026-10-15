@@ -60,7 +60,7 @@ function adapterHarness() {
   const exports = {};
   runInNewContext(js, { exports, require, URL, Error, console, Date }, { timeout: 1000 });
   assert.equal(typeof exports.createCanonicalFromNotion, "function");
-  return { create: exports.createCanonicalFromNotion, changes };
+  return { create: exports.createCanonicalFromNotion, isPrivate: exports.trustedGeminiSourceIsPrivateDraft, changes };
 }
 function valuesFor(item) {
   const [section, subcategory] = item.stableKey.split(".");
@@ -327,4 +327,37 @@ test("offline 22-category provenance-to-mapping: one private canonical ID per pa
   } finally {
     sqlite.close();
   }
+});
+
+
+test("all 12 trusted Events/Help categories refuse public, archived or rejected Notion rows", () => {
+  const { isPrivate } = adapterHarness();
+  assert.equal(typeof isPrivate, "function");
+  for (const item of geminiAutomationCatalog.filter(row => geminiImportAgenda(row.stableKey) !== "directory")) {
+    const agenda = geminiImportAgenda(item.stableKey);
+    const values = valuesFor(item);
+    if (agenda === "events" || agenda === "organizations" || agenda === "adoptions") {
+      for (const allowed of ["Nápad", "Na kontrolu", "Koncept", "Ready"]) {
+        assert.equal(isPrivate(agenda, { ...values, "Stav": allowed }), true, item.stableKey + "/" + allowed);
+      }
+      for (const refused of ["Publikované", "Archív", "Odmietnuté", ""]) {
+        assert.equal(isPrivate(agenda, { ...values, "Stav": refused }), false, item.stableKey + "/" + refused);
+      }
+    } else if (agenda === "help-cases") {
+      assert.equal(isPrivate(agenda, { ...values, "Psipedia stav": "draft" }), true, item.stableKey);
+      for (const refused of ["published", "ARCHIVED", "rejected", ""]) {
+        assert.equal(isPrivate(agenda, { ...values, "Psipedia stav": refused }), false, item.stableKey);
+      }
+    } else {
+      for (const allowed of ["DRAFT", "PENDING"]) {
+        assert.equal(isPrivate(agenda, { ...values, "Psipedia stav": allowed }), true, item.stableKey);
+      }
+      for (const refused of ["ARCHIVED", "PUBLISHED", "published", ""]) {
+        assert.equal(isPrivate(agenda, { ...values, "Psipedia stav": refused }), false, item.stableKey);
+      }
+    }
+  }
+  const sync = readFileSync(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(sync, /trustedGemini && !trustedGeminiSourceIsPrivateDraft/);
+  assert.match(sync, /GEMINI_PRIVATE_DRAFT_REQUIRED/);
 });
