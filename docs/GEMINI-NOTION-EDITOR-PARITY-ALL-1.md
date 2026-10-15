@@ -199,3 +199,58 @@ Before any authorized single-page import: read-only inspect `directory_notion_sy
 **Branch/integration:** PR #838 still diverges from main after #841. This amendment has **not** merged main into the feature branch or merged the PR. Recheck conflicts and incorporate all #841 worker/callback changes before any merge.
 
 **Release verdict: BLOCKED** for the full 22-category automatic mirror and live Fénix rollout until complete provenance, event/help draft integration, and main rebase/integration pass. No production D1/Notion/R2 writes, worker API calls, or automated schedule activation were performed by this change.
+
+
+## 15 Oct 2026 — 22-category automatic import: proposed provenance migration (APPROVAL REQUIRED; NOT APPLIED)
+
+### Existing verified contracts
+
+The external worker obtains an authenticated numeric `job_id`, a canonical `stable_key`, and receives Notion `notion_page_id` from each successful create. However, its signed completion callback currently only sends aggregate metrics, not created page identities. The existing D1 `gemini_manual_background_jobs` records the job/category, and `directory_notion_sync`, `event_notion_sync`, `notion_agenda_sync` map canonical entities to Notion pages **after** import. The latter mappings cannot independently prove which Gemini job created an as-yet-unmapped page. Textual evidence in the description can be forged and must not trigger import.
+
+### Proposed minimal D1 migration — not created or run
+
+Create a *provenance registry within the existing synchronization contract*, not a new worker/automation system:
+
+```sql
+CREATE TABLE gemini_notion_created_pages (
+  notion_page_id TEXT PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES gemini_manual_background_jobs(id),
+  stable_key TEXT NOT NULL,
+  notion_data_source_id TEXT NOT NULL,
+  import_agenda TEXT NOT NULL CHECK (import_agenda IN
+    ('directory','events','organizations','adoptions','help-cases','lost-found')),
+  directory_profile_id INTEGER,
+  canonical_entity_id INTEGER,
+  registered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  imported_at TEXT,
+  UNIQUE (job_id, notion_page_id)
+);
+CREATE INDEX gemini_created_pages_by_category
+  ON gemini_notion_created_pages(stable_key, imported_at);
+```
+
+Before acceptance, confirm production D1 FK compatibility, active migration number, and adjust to the canonical existing ID type. The table is server-managed and is not an editorial Notion property. It must not store private contact/location payloads or raw Gemini answers. The `notion_page_id` and `job_id` linkage is immutable; `stable_key` and `import_agenda` must match the existing 22-category registry and its canonical data-source allowlist. An optional Notion read-only display of job/category can be proposed later, **not used as proof of provenance**.
+
+**Only with schema approval:** extend the existing HMAC signed callback to include a bounded `created_pages: [{notion_page_id,stable_key}]` list captured from *confirmed* Notion create responses. On receipt, verify HMAC, job ownership and category, expected data-source, allowed count, exact UUIDs, successful outcome, idempotent identity and unchanged prior provenance; atomically register first. Never trust a page property claiming Gemini origin. Unknown/duplicate/wrong-source IDs fail closed. The existing Notion↔D1 synchronization sweep then reads only registered, still-unmapped pages; loads exact Notion pages, validates immutable registry and canonical source, enforces agenda-specific quality/privacy checks, and creates canonical non-public records with `draft`/equivalent draft status. Keep existing mapping unique constraints and conflict decisions. Persist provenance linkage to the created entity transactionally or use a recovery state to prevent retry double-creation. A lost callback/rejected registration must not trigger blind create.
+
+For **events** require valid event date/type/organizer and canonical `draft`; do not infer publication from Notion `Ready`. For **organizations** force `DRAFT`; for **adoptions** force `DRAFT` with source/evidence privacy checks; for **help-cases** force `draft` and separate internal review from public state; for **lost-found** force `DRAFT` and strip or withhold exact private location and protected contacts under the existing privacy contract. Each canonical admin editor must load via its existing ID and route. Editing conflicts must refuse writes, not use newest-timestamp wins. No new public route and no automatic publish action.
+
+### Acceptance matrix (not yet implemented)
+
+10 Directory categories: existing private-creation gate works in source and had focused green checks. 6 Events and 6 Help categories: provenance registration + canonical draft-only import and edit routing **not implemented**, therefore **BLOCKED**. Test all 22 distinct stable keys with network-mocked Notion creation, duplicated callback, duplicate identity, wrong category/source, lost-response uncertainty, mapping retry, editor edits, bidirectional conflicts, status transition blocked, and dedicated Lost/Found privacy redaction. A successful Notion write is not sufficient for READY unless its canonical imported record and linked editor are verified.
+
+### Fénix single-page preflight — read-only only
+
+Notion `3fa793fc-1d18-8108-af1b-c7dd5414a0b9`, canonical data source `84e0664c-ca47-405f-9d54-31b20287bc8c`. Production D1 mapping and identity **not verified**, because no connected read-only Cloudflare D1 executor is available here. Before operator-authorized import run read-only:
+
+```sql
+SELECT notion_page_id, directory_profile_id FROM directory_notion_sync
+ WHERE notion_page_id='3fa793fc-1d18-8108-af1b-c7dd5414a0b9';
+SELECT id,name,city,website_url,status FROM directory_profiles
+ WHERE lower(name) LIKE '%fénix%' OR lower(name) LIKE '%fenix%'
+    OR lower(website_url) LIKE '%salonprepsovfenix.sk%';
+```
+
+Independently compare canonical title/city/website and the Notion source, and only if mapping and duplicates are absent, schedule one separately approved existing targeted sync with `targetPageId`. Validate `draft`, single mapping, `/admin/adresar?status=draft`, editor route, no public URL; never blind-retry on uncertainty.
+
+**Review gate:** Explicitly approve or reject the proposed D1 provenance registry/migration before implementation, and separately approve any later production test. Never claim this proposal implements all 22, integrates main, or passes final-HEAD CI without verified results.
