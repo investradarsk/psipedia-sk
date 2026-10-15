@@ -1077,7 +1077,7 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  let notionWins = notionChanged && !profileChanged;
+  const notionWins = notionChanged && !profileChanged;
   if (notionChanged && profileChanged) {
     // Never last-write-wins over a human editor. Leave both sides intact,
     // so an operator can explicitly resolve the conflict.
