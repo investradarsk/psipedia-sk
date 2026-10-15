@@ -132,7 +132,8 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
         const annotations = entry.annotations as Record<string, unknown> | undefined;
         return (entry.type && entry.type !== "text") || Boolean(entry.href) ||
           Boolean((entry.text as { link?: unknown } | undefined)?.link) ||
-          Boolean(annotations && Object.entries(annotations).some(([key, value]) =>\n            key === "color" ? value !== "default" : value === true));
+          Boolean(annotations && Object.entries(annotations).some(([key, value]) =>
+            key === "color" ? value !== "default" : value === true));
       });
       const dateRange = Boolean((property?.date as { end?: string | null } | undefined)?.end);
       return {
