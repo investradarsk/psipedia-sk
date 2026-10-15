@@ -136,7 +136,8 @@ async function dataSource(env: GeminiAgendaReviewEnv, agenda: BidirectionalAgend
   if (agenda === "help-cases" && (helpReview || helpReason)) {
     const options = helpReview?.select?.options?.map(option => option.name) ?? [];
     if (helpReview?.type !== "select" || helpReason?.type !== "rich_text" ||
-        (options.length !== GEMINI_HELP_REVIEW_STATES.length ||\n        !GEMINI_HELP_REVIEW_STATES.every(option => options.includes(option))))
+        (options.length !== GEMINI_HELP_REVIEW_STATES.length ||
+        !GEMINI_HELP_REVIEW_STATES.every(option => options.includes(option))))
       throw new GeminiAgendaReviewError("SCHEMA");
   }
   return { id, schema: schema.properties, title, status, reviewAvailable };
