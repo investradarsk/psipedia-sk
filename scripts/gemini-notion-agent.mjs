@@ -675,6 +675,7 @@ async function callback(status, code = null) {
     job_id: jobId, status, ...metrics,
     error_code: code,
     outcome_code: status === "SUCCESS" && metrics.concept_count === 0 ? noDraftOutcome : null,
+    created_pages: pageIds.map((id) => ({ notion_page_id: id, stable_key: stableKey, notion_data_source_id: category().dataSourceId })),
   });
   const signature = createHmac("sha256", secret).update(body).digest("hex");
   const response = await fetch(callbackUrl, {
