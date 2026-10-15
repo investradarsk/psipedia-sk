@@ -162,6 +162,20 @@ export function helpCaseMayEnterCanonicalSync(
   return !/(?:^|\n)Dôkazy:\s*\n|(?:^|\n)Zdroje a dôkazy:\s*\n/u.test(s(description));
 }
 
+/** Trusted provenance authorizes only a private source draft, never a
+ * published, archived or rejected Notion page. This is separate from legacy
+ * human-managed Ready/import semantics.
+ */
+export function trustedGeminiSourceIsPrivateDraft(
+  agenda: BidirectionalAgendaKey,
+  values: Record<string, ReconciliationValue>,
+) {
+  if (agenda === "events" || agenda === "organizations" || agenda === "adoptions")
+    return ["Nápad", "Na kontrolu", "Koncept", "Ready"].includes(s(values["Stav"]));
+  if (agenda === "help-cases") return s(values["Psipedia stav"]) === "draft";
+  return ["DRAFT", "PENDING"].includes(s(values["Psipedia stav"]));
+}
+
 export function readyForCreate(agenda: BidirectionalAgendaKey, values: Record<string, ReconciliationValue>) {
   if (agenda === "events" || agenda === "organizations" || agenda === "adoptions") {
     return s(values["Stav"]) === "Ready";
