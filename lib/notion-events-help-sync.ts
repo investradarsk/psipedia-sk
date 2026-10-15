@@ -1172,6 +1172,20 @@ async function syncAgenda(input: {
       const source = sourcesById.get(entityId);
       if (!source) throw new Error("Nový canonical záznam sa po create nenašiel.");
       const hash = await snapshotHash(input.definition.key, editableSnapshot(input.definition.key, source.properties, schema));
+      // Persist the canonical one-to-one mapping BEFORE uncertain remote Notion
+      // PATCH. A timeout after canonical INSERT must not create a second profile
+      // on the next sweep, even when the provider never returned a response.
+      const preWriteAt = new Date().toISOString();
+      await saveMapping({
+        database: input.database,
+        agenda: input.definition.key,
+        pageId: page.id,
+        entityId,
+        hash,
+        notionLastEditedTime: page.last_edited_time ?? null,
+        psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
+        syncedAt: preWriteAt,
+      });
       const written = await writeSourceToNotion({
         bindings: input.bindings,
         dataSourceId: target.dataSourceId,
