@@ -239,8 +239,12 @@ export async function completeExternalGemini(input: {
     const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), receiptEnv);
     if (!parsed) return { status: 400, ok: false };
     try {
-      await verifyGeminiCreatedPages(receiptEnv, parsed.pages);
-      await registerGeminiCreatedPages(input.db, Number(jobId), parsed);
+      // A signed zero-result receipt has no new Notion pages to read back or
+      // register. Do not require a Notion token for an empty identity set.
+      if (parsed.pages.length > 0) {
+        await verifyGeminiCreatedPages(receiptEnv, parsed.pages);
+        await registerGeminiCreatedPages(input.db, Number(jobId), parsed);
+      }
     } catch {
       // Never complete the job on an uncertain or foreign page receipt.
       return { status: 503, ok: false };
