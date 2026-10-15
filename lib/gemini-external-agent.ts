@@ -198,7 +198,33 @@ export async function completeExternalGemini(input: {
   const job = await input.db.prepare(
     "SELECT id,setting_id,error_code,stable_key,status FROM gemini_manual_background_jobs WHERE id=?"
   ).bind(jobId).first<{ id: number; setting_id: number; error_code: string; stable_key: string; status: string }>();
-  if (!job || job.status !== "RUNNING" || !job.error_code.startsWith("EXT_"))
+  if (!job) return { status: 409, ok: false };
+  // At-least-once callback transport: accept identical completed receipts,
+  // never replay state changes or accept a different list of Notion identities.
+  if (job.status === status && result.created_pages !== undefined) {
+    const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), input.env);
+    if (!parsed) return { status: 400, ok: false };
+    const priorRun = await input.db.prepare(
+      "SELECT concept_count,duplicate_count,request_count,grounded_search_query_count,status " +
+      "FROM gemini_automation_runs WHERE id=(SELECT run_id FROM gemini_manual_background_jobs WHERE id=?)"
+    ).bind(jobId).first<{ concept_count: number; duplicate_count: number;
+      request_count: number; grounded_search_query_count: number; status: string }>();
+    if (!priorRun || priorRun.status !== status || priorRun.concept_count !== count ||
+        priorRun.duplicate_count !== duplicates || priorRun.request_count !== requests ||
+        priorRun.grounded_search_query_count !== searches) return { status: 409, ok: false };
+    const saved = await input.db.prepare(
+      "SELECT notion_page_id,stable_key,import_agenda FROM gemini_notion_created_pages WHERE job_id=?"
+    ).bind(jobId).all<{ notion_page_id: string; stable_key: string; import_agenda: string }>();
+    const expected = parsed.pages.map(page => page.notion_page_id.toLowerCase()).sort();
+    const actual = (saved.results ?? []).map(page => page.notion_page_id.toLowerCase()).sort();
+    if (actual.length !== expected.length ||
+        actual.some((id, index) => id !== expected[index]) ||
+        (saved.results ?? []).some(page =>
+          page.stable_key !== job.stable_key || page.import_agenda !== parsed.agenda))
+      return { status: 409, ok: false };
+    return { status: 200, ok: true };
+  }
+  if (job.status !== "RUNNING" || !job.error_code.startsWith("EXT_"))
     return { status: 409, ok: false };
   // Signed worker receipts only; old workers without created_pages stay compatible,
   // but their pages do NOT receive the trusted origin required for auto-import.
