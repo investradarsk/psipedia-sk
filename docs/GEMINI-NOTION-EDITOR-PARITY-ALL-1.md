@@ -1,6 +1,6 @@
 # GEMINI-NOTION-EDITOR-PARITY-ALL-1 — audit and limitations
 
-Base: main f9b9af89d414b7e20fb7c5f79e70d9b381a8f32c, integrated as a two-parent merge of main into existing #838 (including #834, #836, #839 and #840 / production D1 0126 rollout). Scope: existing admin Notion concept component, existing Notion APIs, editor field adapters, and mocked tests. No new CMS, database migrations, Gemini calls, or Notion schema mutations.
+Base: current main a687d2e4d72cd7d2048c33003a5d402a0e322e21, integrated into existing PR #838, including #834, #836, #839, #840 (D1 0126 rollout) and now merged #837 Gemini scheduler. The PR #838 itself remains unmerged. Scope: existing admin Notion concept component, existing Notion APIs, editor field adapters, and mocked tests. No new CMS, database migrations, Gemini calls, or Notion schema mutations.
 
 ## Category routing (22 catalog entries)
 
@@ -83,7 +83,7 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 
 **GEMINI-WORKER-PROVENANCE-1 (existing worker, separate PR):** Write a consistent explicit origin marker or stable job ID to each supported Notion data source. The current evidence signature provides no cryptographic or complete provenance guarantee and must not be described as verified Gemini origin; do not add another worker.
 
-**Review UX parity:** This PR now mounts the existing `AdminGeminiNotionDrafts` panel for all 22 category cards whenever external Gemini is enabled. This changes only the panel visibility condition in `components/admin-gemini-automation-settings.tsx`; no schedule, prompt, worker or dispatcher settings are changed. Parallel PR #837 also touches that component and contains a temporary non-directory placeholder, so after #837 merge resolve the one overlapping UI hunk by retaining #837 cadence/prompt functionality and #838 real shared panel, removing the placeholder. The existing shared form uses `agendaEditableFields`: it exposes every other Notion schema field in an expandable read-only panel, renders schema-valid select choices and marks complex formatted rich text/date ranges read-only to prevent lossy writes; it does not replace a native Events/Help editor; exact visual feature parity (including R2 image upload, image cropping, Google place selection and custom field widgets) is therefore not achieved by #838.
+**Review UX parity:** This PR now mounts the existing `AdminGeminiNotionDrafts` panel for all 22 category cards whenever external Gemini is enabled. This changes only the panel visibility condition in `components/admin-gemini-automation-settings.tsx`; no schedule, prompt, worker or dispatcher settings are changed. Merged #837 scheduler integration retains its cadence/prompt functionality and the #838 real shared review panel, with the temporary placeholder removed. The existing shared form uses `agendaEditableFields`: it exposes every other Notion schema field in an expandable read-only panel, renders schema-valid select choices and marks complex formatted rich text/date ranges read-only to prevent lossy writes; it does not replace a native Events/Help editor; exact visual feature parity (including R2 image upload, image cropping, Google place selection and custom field widgets) is therefore not achieved by #838.
 
 **Release verdict: BLOCKED/DRAFT** until follow-on contracts, provenance and operator checks pass, notwithstanding green CI. Never merge solely because CI passes.
 
@@ -100,7 +100,7 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 
 ## PR #840 integration and conditional Help review — 15 October 2026
 
-Merged the user-confirmed main `f9b9af89d414b7e20fb7c5f79e70d9b381a8f32c` into **the existing PR branch**. This preserves already merged #840 manual production migration 0126 workflow and tests. We did **not** execute, repeat or modify the production 0126 migration itself. PR #837 scheduler is still a separate unmerged branch.
+Merged the user-confirmed main `f9b9af89d414b7e20fb7c5f79e70d9b381a8f32c` into **the existing PR branch**. This preserves already merged #840 manual production migration 0126 workflow and tests. We did **not** execute, repeat or modify the production 0126 migration itself. PR #837 scheduler was subsequently merged into main and is now integrated into this existing PR branch, without changing its cadence or dispatch semantics.
 
 ### Minimal live Notion change requiring operator approval
 
@@ -138,4 +138,4 @@ Update the **single existing Gemini Notion worker** to write explicit, stable ow
 
 ### PR #837 compatibility
 
-Do not merge or rewrite #837 in this PR. #837 edits `components/admin-gemini-automation-settings.tsx` for cadence, weekdays and prompts. After it is merged, retain those scheduler features and replace only its temporary Events/Help placeholder with the real `AdminGeminiNotionDrafts` panel from #838. Never reintroduce a duplicate or enable a paid worker.
+**Resolved in existing branch:** #837 has merged to main and been integrated into #838 as a two-parent merge. The merged `components/admin-gemini-automation-settings.tsx` retains #837 cadence, custom minutes, weekdays, prompt link, run confirmation and external dispatch; removes its temporary Events/Help placeholder; and mounts precisely one real `AdminGeminiNotionDrafts` component for all external-enabled categories. No paid Gemini call or schedule activation was performed.
