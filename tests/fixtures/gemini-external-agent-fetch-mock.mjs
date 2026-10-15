@@ -194,6 +194,15 @@ globalThis.fetch = async (url, options = {}) => {
     if (geminiCalls === 1) {
       if (body.tools?.length !== 1 || body.tools[0].type !== "google_search")
         throw Error("SEARCH_NOT_ISOLATED");
+      if (scenario === "many_records") {
+        const marker = "Zoznam existujúcich záznamov (JSON): ";
+        const start = body.input.lastIndexOf(marker);
+        if (start < 0) throw Error("EXISTING_RECORDS_NOT_SENT_BEFORE_SEARCH");
+        const records = JSON.parse(body.input.slice(start + marker.length));
+        if (records.length !== 151 || records[0].nazov !== "Record 0" ||
+            records[150].nazov !== "Record 150")
+          throw Error("EXISTING_RECORDS_LIST_INCOMPLETE");
+      }
       if (scenario === "http_400_tools")
         return json({ error: { status: "INVALID_ARGUMENT", message: "TOOLS unsupported combination" } }, 400);
       if (scenario === "in_progress")

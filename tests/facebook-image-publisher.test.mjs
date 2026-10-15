@@ -8,7 +8,7 @@ import {
 } from "../lib/facebook-image-publisher.ts";
 
 const migration128=readFileSync(new URL("../drizzle/0128_facebook_image_posts.sql",import.meta.url),"utf8");
-const migration129=readFileSync(new URL("../drizzle/0129_facebook_image_publisher.sql",import.meta.url),"utf8");
+const migration129=readFileSync(new URL("../drizzle/0130_facebook_image_publisher.sql",import.meta.url),"utf8");
 const bindings={FB_PAGE_ID:"123456789012345",FB_PAGE_ACCESS_TOKEN:"FAKE_TEST_TOKEN_DO_NOT_USE_ABCDEF",FACEBOOK_IMAGE_PUBLISH_ENABLED:"true"};
 const date="2030-02-10T12:00:00.000Z", now=new Date(date);
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;

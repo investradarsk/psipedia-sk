@@ -21,10 +21,10 @@ Scope: next phase of Facebook Images admin. D1 remains authoritative; Notion syn
 
 ## Database and rollout
 
-- Migration `0129_facebook_image_publisher.sql` is **PREPARED ONLY**. It adds a global settings singleton (default off) and an immutable per-post attempt ledger with FK/index; it changes no existing Facebook images or other user data.
-- Stage 1 image editor remains available when 0129 is absent, but publisher settings are unavailable and no publishing can occur.
+- Migration `0130_facebook_image_publisher.sql` is **PREPARED ONLY**. It adds a global settings singleton (default off) and an immutable per-post attempt ledger with FK/index; it changes no existing Facebook images or other user data.
+- Stage 1 image editor remains available when 0130 is absent, but publisher settings are unavailable and no publishing can occur.
 - No merge, production migration, secret change, deployment, paid request or Meta POST in this PR. Approval of this PR does not authorize any of those operations.
-- After green CI and separately authorized rollout of 0129, configure Page ID and Page access token in Cloudflare secrets, then a specific pilot activation. Test with one intentionally approved throwaway scheduled post; verify Facebook Page, D1 remote ID and admin status. Only then enable broad publishing.
+- After green CI and separately authorized rollout of 0130, configure Page ID and Page access token in Cloudflare secrets, then a specific pilot activation. Test with one intentionally approved throwaway scheduled post; verify Facebook Page, D1 remote ID and admin status. Only then enable broad publishing.
 
 ## Offline verification
 

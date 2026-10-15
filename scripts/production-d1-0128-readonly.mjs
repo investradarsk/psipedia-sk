@@ -10,7 +10,7 @@ import path from "node:path";
 import {
   APPROVED_0128_SHA256, assertApproved0128Target,
   assertFacebookImagePostsSchema, assertGeminiNotionCreatedPagesSchema,
-  targetSchemaObjects, validateProductionTargetHistory,
+  targetSchemaObjects, validateProductionTargetHistory, PREPARED_PRODUCTION_TARGETS, SUPPORTED_PRODUCTION_TARGETS,
 } from "./production-d1-migrate.mjs";
 
 export const TARGET_0128 = "0128_facebook_image_posts.sql";
@@ -30,10 +30,16 @@ export function classify0128(mode, ledger, objects, canonicalNames) {
       ledger.some(row => typeof row?.name !== "string") ||
       objects.some(row => typeof row?.name !== "string" || typeof row?.sql !== "string" || typeof row?.type !== "string"))
     throw Error("0128_AUDIT_INVALID_INPUT");
-  if (canonicalNames.at(-1) !== TARGET_0128 || new Set(objects.map(row => row.name)).size !== objects.length)
+  const targetIndex = canonicalNames.indexOf(TARGET_0128);
+  // A later canonical migration must not invalidate the historical 0128 audit.
+  // Require the future list to contain only recognized supported/prepared migrations.
+  if (targetIndex < 0 ||
+      canonicalNames.slice(targetIndex + 1).some(name =>
+        !SUPPORTED_PRODUCTION_TARGETS.includes(name) && !PREPARED_PRODUCTION_TARGETS.includes(name)) ||
+      new Set(objects.map(row => row.name)).size !== objects.length)
     throw Error("0128_AUDIT_INVALID_CANONICAL_STATE");
   const history = ledger.map(row => row.name);
-  const status = validateProductionTargetHistory(history, canonicalNames, TARGET_0128);
+  const status = validateProductionTargetHistory(history, canonicalNames.slice(0,targetIndex+1), TARGET_0128);
   const schema = { objects };
   assertGeminiNotionCreatedPagesSchema(schema);
   if (mode === "preflight") {
@@ -81,7 +87,7 @@ async function main() {
     readFile(path.join(root, "drizzle", TARGET_0128), "utf8"),
     readdir(path.join(root, "drizzle")),
   ]);
-  const canonicalNames = allFiles.filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name) && Number(name.slice(0,4))<=128).sort();
+  const canonicalNames = allFiles.filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort();
   const outcome = await audit0128({ mode: process.env.D1_0128_AUDIT_MODE,
     resources: JSON.parse(resources), migration, canonicalNames, env: process.env });
   process.stdout.write(JSON.stringify(outcome, null, 2) + "\n");

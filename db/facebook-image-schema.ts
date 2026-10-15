@@ -16,7 +16,7 @@ export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   uniqueIndex("facebook_image_posts_notion_idx").on(t.notionPageId).where(sql`${t.notionPageId} IS NOT NULL`),
 ]);
 
-/** Optional V2 objects: migration 0129 is prepared until separately approved. */
+/** Optional V2 objects: migration 0130 is prepared until separately approved. */
 export const facebookImagePublisherSettings=sqliteTable("facebook_image_publisher_settings",{
   id:integer("id").primaryKey().notNull(),
   enabled:integer("enabled").notNull().default(0),
