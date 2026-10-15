@@ -9,8 +9,18 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// All canonical migrations through 0128 are recognized, but production APPLY still requires a protected manual workflow and confirmation.
+// All canonical migrations through 0129 are recognized, but production APPLY
+// still requires a separate protected manual workflow and confirmation.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0129_SHA256 = "ef44cca9fc23decee10714c2d7ba54fb54be49428856e82c5fd782cd19e37b1d";
+export function assertApproved0129Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0129 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0129_SHA256, "0129 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0129NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0129_gemini_external_manual_queue.sql")
+    invariant(!targetApplied, "0129 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0128_SHA256 = "9f8b23e2420f354089f38490d9105707346527e5ab8fc544f55234d8283a098a";
 export function assertApproved0128Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0128 requires the canonical psipedia-sk-db database");
@@ -144,6 +154,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0126_gemini_scheduler_admin_v2.sql",
   "0127_gemini_notion_created_pages.sql",
   "0128_facebook_image_posts.sql",
+  "0129_gemini_external_manual_queue.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -651,6 +662,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0127Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0128_facebook_image_posts.sql")
     assertApproved0128Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0129_gemini_external_manual_queue.sql")
+    assertApproved0129Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1236,6 +1249,13 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0128_facebook_image_posts.sql") {
     return { partial: ["facebook_image_posts", "facebook_image_posts_schedule_idx",
       "facebook_image_posts_updated_idx", "facebook_image_posts_notion_idx"].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0129_gemini_external_manual_queue.sql") {
+    // A removed original index is also partial drift; the migration must start
+    // from the exact 0119 index layout, without half-applied 0129 objects.
+    return { partial: !names.has("idx_gemini_manual_only_one_active") ||
+      names.has("idx_gemini_manual_only_one_running") ||
+      names.has("idx_gemini_manual_external_pending") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2176,7 +2196,7 @@ export function assertFacebookImagePostsSchema(schema) {
 
 export function assertRolloutChainSchema(schema, targetMigration) {
   const target = migrationIndex(targetMigration);
-  if (target < 123 || target > 128) return;
+  if (target < 123 || target > 129) return;
   if (target >= 124) assertStructuredAddressSchema(schema);
   if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
   if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
@@ -2190,9 +2210,14 @@ export function assertRolloutChainSchema(schema, targetMigration) {
     targetSchemaObjects(schema, "0126_gemini_scheduler_admin_v2.sql"));
   if (target >= 127) {
     assertGeminiSchedulerWeeklyDaySchema(schema);
-    assertGeminiManualQueueSchema(schema);
+    // In the same-run preflight 0129 is still under old 0119 uniqueness;
+    // postflight has the new running-only index and no old index.
+    const migrated0129 = target === 129 &&
+      objectMap(schema.objects).has("idx_gemini_manual_only_one_running");
+    assertGeminiManualQueueSchema(schema, migrated0129);
   }
   if (target >= 128) assertGeminiNotionCreatedPagesSchema(schema);
+  if (target >= 129) assertFacebookImagePostsSchema(schema);
   if (target < 128) assertPendingTargetSchemaClean("0128_facebook_image_posts.sql",
     targetSchemaObjects(schema, "0128_facebook_image_posts.sql"));
 }
@@ -2245,7 +2270,8 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
   if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
   if (migrationIndex(targetMigration) >= 118) assertEventImageDisplaySchema(schema);
-  if (migrationIndex(targetMigration) >= 119) assertGeminiManualQueueSchema(schema);
+  if (migrationIndex(targetMigration) >= 119)
+    assertGeminiManualQueueSchema(schema, migrationIndex(targetMigration) >= 129);
   if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
   if (migrationIndex(targetMigration) >= 121) assertArticleImageDisplayConfigSchema(schema);
   if (migrationIndex(targetMigration) >= 122) assertEntityImageDisplaySchema(schema);
@@ -2258,13 +2284,24 @@ function assertTargetSchema(schema, targetMigration) {
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
-export function assertGeminiManualQueueSchema(schema) {
+export function assertGeminiManualQueueSchema(schema, runningOnly = false) {
   const names=objectMap(schema.objects);
   const table=names.get("gemini_manual_background_jobs");
   invariant(table?.type==="table","Missing Gemini manual queue table");
   for(const key of ["idx_gemini_manual_queue","idx_gemini_manual_active_category",
-    "idx_gemini_manual_only_one_active"])
+    ...(runningOnly
+      ? ["idx_gemini_manual_only_one_running","idx_gemini_manual_external_pending"]
+      : ["idx_gemini_manual_only_one_active"])])
     invariant(names.get(key)?.type==="index","Missing Gemini queue index: "+key);
+  if (runningOnly) {
+    invariant(!names.has("idx_gemini_manual_only_one_active"), "0129 retained obsolete global waiting-job index");
+    const running = String(names.get("idx_gemini_manual_only_one_running")?.sql ?? "");
+    const pending = String(names.get("idx_gemini_manual_external_pending")?.sql ?? "");
+    invariant(running.includes("ON gemini_manual_background_jobs ((1))") &&
+      running.includes("WHERE status = 'RUNNING'"), "0129 running-only uniqueness drift");
+    invariant(pending.includes("ON gemini_manual_background_jobs(status, error_code, id)"),
+      "0129 FIFO waiting index drift");
+  }
   const sql=String(table.sql??"");
   for(const column of ["setting_id","stable_key","status","run_id","error_code","claimed_at","completed_at"])
     invariant(sql.includes(column),"Missing Gemini queue column: "+column);
@@ -2621,6 +2658,7 @@ async function preflight(targetMigration) {
   const state = targetState(history, schema, targetMigration, prepared.selection.selected);
   assert0127NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0128NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0129NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2628,6 +2666,12 @@ async function preflight(targetMigration) {
   const snapshot = dataSnapshot(databaseName, prepared.configPath);
   const targetIndex = prepared.selection.targetIndex;
   let rolloutReadiness = null;
+  if (targetIndex === 129) {
+    // The index swap must not happen while a paid run or legacy queued job exists.
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
+      "0129 requires an empty active Gemini queue before index migration");
+  }
   if (targetIndex === 123 || targetIndex === 124) {
     // Re-evaluate the existing READ-ONLY classifier against live schema and ledger
     // within this protected, same-run preflight. A successful old workflow run is
@@ -2659,6 +2703,8 @@ async function preflight(targetMigration) {
     rolloutReadiness = "READY_0127";
   } else if (targetIndex === 128) {
     rolloutReadiness = "READY_0128";
+  } else if (targetIndex === 129) {
+    rolloutReadiness = "READY_0129";
   }
   const additivePreservationBefore = targetIndex >= 123
     ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
@@ -2764,6 +2810,12 @@ async function apply(targetMigration) {
   }
   assert0127NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0128NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0129NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  if (prepared.selection.targetIndex === 129) {
+    invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
+      "0129 active queue changed after preflight; refusing APPLY");
+  }
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
