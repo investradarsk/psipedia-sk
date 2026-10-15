@@ -21,6 +21,8 @@ import {
   applyNotionToCanonical,
   canonicalUpdatedAt,
   createCanonicalFromNotion,
+  GEMINI_HELP_REVIEW_PROPERTY,
+  helpCaseMayEnterCanonicalSync,
   readyForCreate,
   type BidirectionalAgendaKey,
 } from "./notion-events-help-adapters.ts";
@@ -1079,6 +1081,15 @@ async function syncAgenda(input: {
     const psipediaId = clean(pageProperty(page, "Psipedia ID"));
     if (psipediaId) continue;
     const values = pageSnapshot(input.definition.key, page, schema);
+    // Internal Gemini moderation is separate from public draft/published.
+    // Never auto-import an unapproved/rejected source-evidenced Help concept.
+    // Keep unmarked, pre-existing manual Notion imports compatible.
+    if (input.definition.key === "help-cases" &&
+        !helpCaseMayEnterCanonicalSync(
+          pageProperty(page, GEMINI_HELP_REVIEW_PROPERTY), values["Popis"])) {
+      summary.unchanged += 1;
+      continue;
+    }
     if (!readyForCreate(input.definition.key, values)) {
       summary.unchanged += 1;
       continue;
