@@ -4,6 +4,7 @@ import "./gemini-lost-found-contract.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { geminiHttpCode, inspectInteraction } from "../scripts/gemini-interactions-contract.mjs";
 
@@ -33,6 +34,7 @@ function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") 
         ? "3ed793fc-1d18-8141-bc25-000bc25ab39b"
         : "3ed793fc-1d18-8122-95b9-000b05c3c6bd",
       AGENT_STABLE_KEY: stableKey,
+      AGENT_CATEGORY_PROMPT: "Testovací redakčný prompt pre kategóriu " + stableKey + ". Vyhľadaj len overené fakty a vytvor iba neverejný koncept.",
       AGENT_MAX_NEW_CONCEPTS: maxNew,
       PSIPEDIA_AGENT_CALLBACK_SECRET: "offline-test-secret",
       PSIPEDIA_AGENT_CALLBACK_URL: "https://psipedia.sk/api/internal/gemini-agent/callback",
@@ -256,12 +258,12 @@ for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","n
 }
 
 for (const [scenario, status, requests, concepts, error] of [
-  ["pilot_duplicate_done", "SUCCESS", 4, 0, null],
+  ["pilot_duplicate_done", "SUCCESS", 5, 0, null],
   ["pilot_duplicate_loop", "SUCCESS", 6, 0, null],
   ["pilot_search_loop", "SUCCESS", 5, 0, null],
   ["pilot_duplicate_new", "SUCCESS", 4, 1, null],
   ["pilot_duplicate_recover", "SUCCESS", 5, 1, null],
-  ["pilot_empty", "SUCCESS", 3, 0, null],
+  ["pilot_empty", "SUCCESS", 4, 0, null],
   ["pilot_limit", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
   ["pilot_limit_write", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
   ["pilot_malformed_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
@@ -395,3 +397,28 @@ for (const key of remainingKeys) {
     assert.equal(run.callback.status,"SUCCESS");
   });
 }
+
+const allWorkerKeys = [...remainingKeys, "help.stratene-a-najdene"];
+test("the offline zero-draft matrix contains all 22 canonical worker categories", () => {
+  assert.equal(allWorkerKeys.length, 22);
+  assert.equal(new Set(allWorkerKeys).size, 22);
+});
+for (const key of allWorkerKeys) {
+  test("no premature success: Google Search -> Notion search -> explicit no-draft outcome: " + key, () => {
+    const run = runOffline("pilot_empty", key);
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.callback.status, "SUCCESS");
+    assert.equal(run.callback.concept_count, 0);
+    assert.equal(run.callback.outcome_code, "no_relevant_candidate");
+    assert.deepEqual(run.counts, { geminiCalls: 4, notionPosts: 0, callbacks: 1 });
+    assert.ok(run.callback.request_count <= 9);
+    assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
+  });
+}
+
+test("all four no-draft terminal reasons stay callback-safe, without provider text", () => {
+  const worker = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  assert.match(worker, /outcome_code: status === "SUCCESS" && metrics.concept_count === 0/);
+  assert.match(worker, /parseNoDraftOutcome\(answer\)/);
+  assert.doesNotMatch(worker, /outcome_code: answer/);
+});
