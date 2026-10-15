@@ -45,7 +45,7 @@ test("0128 preflight is READY only with exact 0127 ledger and no partial Faceboo
     await assert.rejects(() => audit0128({mode:"preflight",resources,migration,canonicalNames,env,query}),
       /0128_AUDIT_NOT_CLEAN/);
     await assert.rejects(() => audit0128({mode:"postflight",resources,migration,canonicalNames,env,query}),
-      /expected exactly 0127|history/);
+      /0128_AUDIT_NOT_APPLIED/);
     db.exec("INSERT INTO d1_migrations(id,name) VALUES(129,'0128_facebook_image_posts.sql')");
     assert.equal((await audit0128({mode:"postflight",resources,migration,canonicalNames,env,query})).result,
       "APPLIED_AND_VERIFIED");
@@ -82,7 +82,7 @@ test("0128 classify refuses duplicate ledger, unexpected mode, incomplete object
     const objects=db.prepare(SQL_OBJECTS_0128).all();
     assert.throws(()=>classify0128("wrong",ledger,objects,canonicalNames),/INVALID_INPUT/);
     assert.throws(()=>classify0128("preflight",ledger,objects.concat(objects[0]),canonicalNames),/INVALID_CANONICAL_STATE/);
-    assert.throws(()=>classify0128("postflight",ledger,objects,canonicalNames),/expected exactly 0127|history/);
+    assert.throws(()=>classify0128("postflight",ledger,objects,canonicalNames),/0128_AUDIT_NOT_APPLIED/);
     const missing=objects.filter(row=>row.name!=="gemini_notion_created_pages");
     assert.throws(()=>classify0128("preflight",ledger,missing,canonicalNames),/Missing 0127/);
   }finally{db.close();}
