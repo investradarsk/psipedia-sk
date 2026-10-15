@@ -1,5 +1,6 @@
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { getGeminiCategoryPrompt } from "./gemini-automation-category-prompt-store.ts";
 import { nextGeminiRunAt } from "./gemini-automation-schedule.ts";
 
 export type GeminiExternalEnv = {
@@ -44,6 +45,14 @@ export async function dispatchExternalGemini(input: {
   ).bind(stableKey).first<Setting>();
   if (!setting) throw new ExternalAgentError("SETTING");
   if (setting.max_new_concepts <= 0) throw new ExternalAgentError("LIMIT");
+  // Resolve the effective admin-edited category prompt BEFORE reserving a paid job.
+  // Missing migration/configuration fails closed; read never seeds D1.
+  let categoryPrompt: string;
+  try {
+    const view = await getGeminiCategoryPrompt(db, stableKey);
+    if (!view?.effectivePrompt || view.effectivePrompt.length > 6000) throw Error("PROMPT_INVALID");
+    categoryPrompt = view.effectivePrompt;
+  } catch { throw new ExternalAgentError("CONFIG"); }
   const now = input.now ?? new Date();
   const startedAt = now.toISOString();
   if (trigger === "SCHEDULED" && (!setting.enabled || !setting.next_run_at || setting.next_run_at > startedAt))
@@ -95,6 +104,7 @@ export async function dispatchExternalGemini(input: {
           job_id: String(jobId), stable_key: stableKey,
           max_new_concepts: String(Math.min(5, setting.max_new_concepts)),
           trigger_type: trigger,
+          category_prompt: categoryPrompt,
         },
       }),
       signal: AbortSignal.timeout(10000),
