@@ -54,14 +54,9 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     await expect(nav).toHaveCSS("position", "sticky");
-    // Wait for the Escape handler, not just the server-rendered <details>.
-    await expect(nav).toHaveAttribute("data-admin-nav-hydrated", "true");
-    const overviewTrigger = nav.getByText("Prehľad", { exact: true });
-    await overviewTrigger.click();
+    await expect(nav).toHaveAttribute("data-admin-sidebar", "true");
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
-    await page.keyboard.press("Escape");
-    await expect(nav.locator("summary").filter({ hasText: "Prehľad" })).toBeFocused();
-    await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toBeHidden();
+    await expect(nav.getByRole("link", { name: "Články", exact: true })).toBeVisible();
     await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.locator(".site-footer")).toBeHidden();
     expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -70,7 +65,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     const headingBox = await page.getByRole("heading", { name: "Pracovný prehľad", exact: true }).boundingBox();
     expect(navBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
-    expect((navBox?.y ?? 0) + (navBox?.height ?? 0)).toBeLessThan(headingBox?.y ?? Infinity);
+    expect((navBox?.x ?? 0) + (navBox?.width ?? 0)).toBeLessThan(headingBox?.x ?? Infinity);
   }
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -128,7 +123,6 @@ test("legacy article-list URLs preserve filters and the explicit article route o
     await expect(menuButton).toBeFocused();
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
-    await nav.getByText("Obsah", { exact: true }).click();
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveAttribute("aria-current", "page");
   }
 

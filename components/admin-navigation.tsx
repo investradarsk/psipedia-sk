@@ -17,7 +17,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   return (
     <>
       {adminNavigationGroups.map((group, groupIndex) => (
-        <div className={mobile ? styles.mobileGroup : "admin-nav-group"} key={group.label}>
+        <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label}>
           <span>{group.label}</span>
           <div>
             {group.items.map((item, itemIndex) => {
@@ -56,39 +56,13 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const closeMenus = () => {
-      desktopRef.current?.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((item) => {
-        // Keep panel hidden immediately, including while native toggle settles.
-        item.open = false;
-        const popup = item.querySelector<HTMLElement>("[data-admin-desktop-popup]");
-        if (popup) popup.style.display = "none";
-      });
-    };
-    const pointer = (event: PointerEvent) => {
-      if (!desktopRef.current?.contains(event.target as Node)) closeMenus();
-    };
-    const keyboard = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      const expanded = desktopRef.current?.querySelector<HTMLDetailsElement>("details[open]");
-      if (!expanded) return;
-      event.preventDefault();
-      event.stopPropagation();
-      expanded.open = false;
-      const popup = expanded.querySelector<HTMLElement>("[data-admin-desktop-popup]");
-      if (popup) popup.style.display = "none";
-      expanded.querySelector<HTMLElement>("summary")?.focus();
-    };
-    document.addEventListener("pointerdown", pointer);
-    document.addEventListener("keydown", keyboard);
-    // A desktop <details> element can open before React hydration attaches
-    // Escape handling. Mark readiness only after installing the listener.
-    const desktop = desktopRef.current;
-    desktop?.setAttribute("data-admin-nav-hydrated", "true");
-    return () => {
-      desktop?.removeAttribute("data-admin-nav-hydrated");
-      document.removeEventListener("pointerdown", pointer);
-      document.removeEventListener("keydown", keyboard);
-    };
+    const nav = desktopRef.current;
+    const current = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !current || getComputedStyle(nav).display === "none") return;
+    const viewport = nav.getBoundingClientRect();
+    const item = current.getBoundingClientRect();
+    if (item.bottom > viewport.bottom) nav.scrollTop += item.bottom - viewport.bottom + 12;
+    else if (item.top < viewport.top) nav.scrollTop += item.top - viewport.top - 12;
   }, [pathname]);
 
   useEffect(() => {
@@ -135,34 +109,8 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
 
   return (
     <>
-      <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sticky-nav>
-        {adminNavigationGroups.map((group, index) => (
-          <details
-            key={group.label}
-            name="admin-primary"
-            className={styles.desktopGroup}
-          >
-            <summary
-              className={styles.groupTrigger}
-              data-active={group.items.some((item) => item.href === active?.href) ? "true" : undefined}
-              onClick={(event) => {
-                // Summary click runs before the browser updates details.open.
-                // This also restores a panel previously hidden synchronously by Escape.
-                const disclosure = event.currentTarget.parentElement as HTMLDetailsElement;
-                const popup = disclosure.querySelector<HTMLElement>("[data-admin-desktop-popup]");
-                if (popup) popup.style.display = disclosure.open ? "none" : "grid";
-              }}
-            >
-              <span>{group.label}</span><span className={styles.chevron} aria-hidden="true">⌄</span>
-            </summary>
-            <div className={styles.desktopMenu} id={"admin-menu-" + index} data-admin-desktop-popup>
-              {group.items.map((item) => {
-                const current = active?.href === item.href;
-                return <Link href={item.href} key={item.href} aria-current={current ? "page" : undefined}>{item.label}</Link>;
-              })}
-            </div>
-          </details>
-        ))}
+      <nav ref={desktopRef} className={["admin-section-nav", styles.desktopNavigation, stickyClassName].join(" ")} aria-label="Redakčné moduly" data-admin-sidebar>
+        <NavigationGroups />
       </nav>
 
       <div className={`${stickyClassName} ${styles.mobileBar}`} data-admin-sticky-nav>

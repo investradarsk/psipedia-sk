@@ -111,6 +111,29 @@ function useAdminDialog(open: boolean) {
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog) return;
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])',
+      )).filter(control => control.tabIndex >= 0 && control.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener("keydown", trapFocus);
+    return () => dialog.removeEventListener("keydown", trapFocus);
+  }, [open]);
+
   function restoreFocus() {
     requestAnimationFrame(() => restoreFocusRef.current?.focus());
   }

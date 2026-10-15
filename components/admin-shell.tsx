@@ -85,24 +85,28 @@ export function AdminShell({
           </div>
         </header>
 
-        <AdminNavigation stickyClassName={styles.stickyNav} />
-        <AdminBreadcrumbs />
+        <div className={styles.workspace}>
+          <AdminNavigation stickyClassName={styles.stickyNav} />
+          <div className={styles.workspaceMain}>
+            <AdminBreadcrumbs />
 
-        <div className={`admin-heading ${styles.headingAnchor}`}>
-          <div>
-            <span className="admin-eyebrow">{eyebrow}</span>
-            <h1>{title}</h1>
-            {description && <p>{description}</p>}
+            <div className={`admin-heading ${styles.headingAnchor}`}>
+              <div>
+                <span className="admin-eyebrow">{eyebrow}</span>
+                <h1>{title}</h1>
+                {description && <p>{description}</p>}
+              </div>
+              {actions && <div className="admin-heading-actions">{actions}</div>}
+            </div>
+
+            <div className={styles.contentArea}>{children}</div>
+
+            <footer className="admin-footer">
+              <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
+
+            </footer>
           </div>
-          {actions && <div className="admin-heading-actions">{actions}</div>}
         </div>
-
-        <div className={styles.contentArea}>{children}</div>
-
-        <footer className="admin-footer">
-          <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
-
-        </footer>
       </div>
     </main>
   );

@@ -84,7 +84,7 @@
 .contentArea,
 .contentArea :global([id]),
 .contentArea :global(:focus-visible) {
-  scroll-margin-top: var(--admin-sticky-stack, 178px);
+  scroll-margin-top: calc(var(--admin-sticky-stack, 178px) + var(--admin-editor-nav-height, 0px) + 12px);
 }
 
 .contentArea {
@@ -105,7 +105,7 @@
   .contentArea,
   .contentArea :global([id]),
   .contentArea :global(:focus-visible) {
-    scroll-margin-top: var(--admin-sticky-stack, 150px);
+    scroll-margin-top: calc(var(--admin-sticky-stack, 150px) + var(--admin-editor-nav-height, 0px) + 12px);
   }
 }
 
@@ -118,7 +118,20 @@
 .backToWeb:hover { background: rgba(255,255,255,.12); }
 .backToWeb:focus-visible { outline: 3px solid #f5c865; outline-offset: 2px; }
 @media (max-width: 760px) {
-  .backToWeb { padding: 0 10px; }
+  .backToWeb { width: 44px; padding: 0; flex: none; }
   .backToWeb span { display: none; }
   .topbarActions { gap: 5px; }
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  margin-top: 20px;
+}
+.workspaceMain { min-width: 0; }
+
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 12px; }
 }

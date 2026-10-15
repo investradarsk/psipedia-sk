@@ -9,3 +9,102 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   padding: 12px 16px; border-radius: 10px; color: #fff; background: #102f25;
 }
 .admin-skip-link:focus { top: 12px; }
+
+/* Shared admin presentation only: endpoint/state ownership stays in each editor. */
+[data-admin-workspace] {
+  --admin-control-border: #b9c8be;
+  --admin-control-background: #fbfcf9;
+  --admin-focus: #996b20;
+}
+[data-admin-workspace] .admin-heading {
+  align-items: flex-start;
+  gap: 20px;
+  padding: 0 0 24px;
+}
+[data-admin-workspace] .admin-heading > div { min-width: 0; }
+[data-admin-workspace] .admin-heading h1 {
+  margin: 4px 0 8px;
+  font-family: inherit;
+  font-size: clamp(1.6rem, 2.4vw, 2.15rem);
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+[data-admin-workspace] .admin-heading p { margin: 0; font-size: .9rem; line-height: 1.55; }
+[data-admin-workspace] .admin-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 0;
+}
+[data-admin-workspace] .admin-primary-action { background: #173f2d; box-shadow: none; }
+[data-admin-workspace] .admin-primary-action:hover { background: #0f3425; }
+[data-admin-workspace] .admin-form-card { min-width: 0; padding: 20px; }
+[data-admin-workspace] .admin-field,
+[data-admin-workspace] .admin-field-grid > * { min-width: 0; }
+[data-admin-workspace] .admin-field > label,
+[data-admin-workspace] .admin-field > span {
+  color: #314f44;
+  font-size: .8rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+[data-admin-workspace] .admin-field :is(input, select, textarea) {
+  border-color: var(--admin-control-border);
+  background: var(--admin-control-background);
+  font-family: inherit;
+  font-size: 1rem;
+}
+[data-admin-workspace] .admin-field :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+[data-admin-workspace] .admin-field [aria-invalid="true"] { border-color: #943823; }
+[data-admin-workspace] :is(a, button, summary):focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+[data-admin-workspace] :is(.admin-editor-actions, .admin-heading-actions) :is(a, button) {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: normal;
+}
+[data-admin-workspace] .admin-editor-message {
+  overflow-wrap: anywhere;
+  border: 1px solid #b9c8be;
+  border-radius: 12px;
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+[data-admin-workspace] .admin-editor-message.is-error { border-color: #b97867; }
+[data-admin-workspace] .admin-editor-message.is-success { border-color: #91b29b; }
+[data-admin-workspace] .admin-table-scroll:focus-visible { outline: 3px solid var(--admin-focus); outline-offset: 2px; }
+
+@media (max-width: 1320px) {
+  [data-admin-workspace] .admin-editor.has-preview { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  [data-admin-workspace] .admin-heading { gap: 16px; padding-bottom: 20px; }
+  [data-admin-workspace] .admin-heading-actions > * { flex: 1 1 10rem; }
+  [data-admin-workspace] .admin-form-card { padding: 16px; }
+}
+@media (max-width: 420px) {
+  [data-admin-workspace] .admin-topbar { padding: 8px; gap: 6px; }
+  [data-admin-workspace] .admin-brand { gap: 6px; min-width: 0; }
+  [data-admin-workspace] .admin-brand strong { font-size: .95rem; }
+  [data-admin-workspace] .admin-brand > span { width: 32px; height: 32px; flex: none; }
+  [data-admin-workspace] .admin-account { gap: 0; }
+  [data-admin-workspace] .admin-account > a { min-height: 44px; display: inline-flex; align-items: center; padding-inline: 8px; }
+}
+[data-admin-workspace] .admin-eyebrow { color: #a94431; }
+[data-admin-workspace] :is(.admin-live-preview, .admin-event-preview) dt { color: #52665d; }
+[data-admin-workspace] .admin-editor-actions :is([data-admin-action], .admin-save-draft, .admin-publish, .admin-unpublish) {
+  font-size: .84rem;
+  line-height: 1.3;
+}
+[data-admin-workspace] .admin-editor-actions .admin-publish { color: #fff; background: #173f2d; }
+[data-admin-workspace] .admin-editor-actions .admin-publish:hover:not(:disabled) { background: #0f3425; }
+[data-admin-workspace] .admin-editor-actions .admin-save-draft { border: 1px solid #9eaea4; color: #173f2d; background: #fff; }

@@ -488,7 +488,7 @@ export function AdminDirectoryEditor({
     <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
-      <div className={styles.editorTopline}>
+      <div className={styles.editorTopline} data-admin-editor-navigation-container>
         <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
         <div className={styles.toplineActions}>
           {profile && (
