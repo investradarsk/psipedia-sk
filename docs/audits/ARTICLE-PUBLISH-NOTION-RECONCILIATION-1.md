@@ -8,6 +8,24 @@
 - PR #826 calls `writeBackPublishedArticleToNotion` only after a successful explicit Admin `non-published → published` change, so time-based publication never causes the Notion writeback. A failed manual writeback also has no automatic replay.
 - PRs #806/#807 protect Notion draft imports, article editor blocks and optimistic `updated_at` writes; none of those content paths are changed here.
 
+## Legacy published articles without a timestamp
+
+The canonical schema in `db/schema.ts` defines `managed_articles.published_at` as nullable (`text("published_at")`, without `.notNull()`). The prior editorial migration `drizzle/0043_editorial_content_foundation.sql` adds author/rich-text fields but imposes no `published_at` requirement. The article store also maps this field as `string | null`. Therefore legacy `status='published' AND published_at IS NULL` records cannot be ruled out from code/schema alone.
+
+**Fail closed; no historical-date inference.** The hourly D1 query excludes published rows where `published_at IS NULL`. The shared writeback independently returns `missing-publication-date` before looking up any mapping or calling Notion when the date is null, blank or unparsable. The D1 article, Notion page and mapping timestamps remain unchanged; manual reconciliation must establish a reliable publication date separately under an authorized process. Never use `now`, `created_at`, `updated_at`, Notion sync times or worker execution time as a substitute.
+
+A read-only production diagnostic (separately approved) can enumerate the backlog:
+
+```sql
+SELECT a.id, a.slug, a.status, a.published_at, m.notion_page_id
+FROM managed_articles AS a
+LEFT JOIN article_notion_sync AS m ON m.article_id = a.id
+WHERE a.status = 'published' AND a.published_at IS NULL
+ORDER BY a.id;
+```
+
+Repeated hourly-run tests verify no Notion PATCH for these legacy rows and a single PATCH total for a normally timestamped published article.
+
 ## Mechanism
 
 The existing *hourly* Notion article task runs two sequential phases, never inside a public request:
@@ -20,6 +38,7 @@ The two systems cannot be updated atomically. Notion's page PATCH offers no D1/N
 
 ## Offline acceptance matrix
 
+- Legacy published with null/unparseable date: no Notion GET/PATCH, no fabricated timestamp or D1 sync acknowledgement; read-only queue diagnosis.
 - Explicit manual publish: existing `draft|scheduled → published` Admin route and post-commit Notion writeback remain intact.
 - Due scheduled: `scheduled` and `published_at <= now` becomes Notion `Publikované` with canonical URL and original publish timestamp, while D1 remains `scheduled`.
 - Future scheduled, draft, disabled sync and unmapped article: no remote publication.
