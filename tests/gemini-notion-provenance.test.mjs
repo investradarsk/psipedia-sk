@@ -110,13 +110,18 @@ test("offline source contracts require registry and enforce private-only canonic
   assert.match(a, /GEMINI_PUBLICATION_REQUIRES_CANONICAL_EDITOR/);
   assert.match(worker, /created_pages: pageIds\.map/);
 });
-test("prepared migration enforces unique page identity and never authorizes production rollout", () => {
+test("0127 receipt identity remains unique and the applied rollout stays guarded", () => {
   const sql = readFileSync(new URL("../drizzle/0127_gemini_notion_created_pages.sql", import.meta.url), "utf8");
   const runner = readFileSync(new URL("../scripts/production-d1-migrate.mjs", import.meta.url), "utf8");
   assert.match(sql, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(sql, /REFERENCES gemini_manual_background_jobs\(id\)/);
   assert.match(sql, /UNIQUE \(import_agenda, canonical_entity_id\)/);
-  assert.match(runner, /PREPARED_PRODUCTION_TARGETS = Object\.freeze\(\["0127_gemini_notion_created_pages\.sql"\]\)/);
+  assert.match(runner, /PREPARED_PRODUCTION_TARGETS = Object\.freeze\(\[\]\)/);
+  assert.match(runner, /"0127_gemini_notion_created_pages\.sql",/);
+  assert.match(runner, /export const APPROVED_0127_SHA256 = "[a-f0-9]{64}"/);
+  assert.match(runner, /export function assertApproved0127Target/);
+  assert.match(runner, /export function assert0127NotAlreadyApplied/);
+  assert.match(runner, /invariant\(!targetApplied, "0127 already applied; refusing repeated production APPLY"\)/);
 });
 
 
