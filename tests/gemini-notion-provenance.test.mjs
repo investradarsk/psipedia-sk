@@ -7,6 +7,7 @@ import {
 } from "../lib/gemini-notion-provenance.ts";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import { PREPARED_PRODUCTION_TARGETS, SUPPORTED_PRODUCTION_TARGETS, prepareScopedMigration } from "../scripts/production-d1-migrate.mjs";
 
 const ID = "a1111111-1111-4111-8111-111111111111";
 const ID2 = "b2222222-2222-4222-8222-222222222222";
@@ -110,13 +111,16 @@ test("offline source contracts require registry and enforce private-only canonic
   assert.match(a, /GEMINI_PUBLICATION_REQUIRES_CANONICAL_EDITOR/);
   assert.match(worker, /created_pages: pageIds\.map/);
 });
-test("0127 receipt identity remains unique and the applied rollout stays guarded", () => {
+test("0127 receipt identity remains unique and the applied rollout stays guarded", async () => {
   const sql = readFileSync(new URL("../drizzle/0127_gemini_notion_created_pages.sql", import.meta.url), "utf8");
   const runner = readFileSync(new URL("../scripts/production-d1-migrate.mjs", import.meta.url), "utf8");
   assert.match(sql, /notion_page_id TEXT PRIMARY KEY/);
   assert.match(sql, /REFERENCES gemini_manual_background_jobs\(id\)/);
   assert.match(sql, /UNIQUE \(import_agenda, canonical_entity_id\)/);
-  assert.match(runner, /PREPARED_PRODUCTION_TARGETS = Object\.freeze\(\[\]\)/);
+  assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes("0127_gemini_notion_created_pages.sql"));
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0128_facebook_image_posts.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0128_facebook_image_posts.sql"), false);
+  await assert.rejects(prepareScopedMigration({ targetMigration: "0128_facebook_image_posts.sql" }), /Unsupported production migration target/);
   assert.match(runner, /"0127_gemini_notion_created_pages\.sql",/);
   assert.match(runner, /export const APPROVED_0127_SHA256 = "[a-f0-9]{64}"/);
   assert.match(runner, /export function assertApproved0127Target/);
