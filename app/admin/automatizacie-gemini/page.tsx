@@ -82,6 +82,7 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
 }
 
 function GeminiQueueHistory({jobs}:{jobs:GeminiQueuedJob[]}) {
+  const waiting = jobs.filter(job => job.status === "QUEUED").map(job => job.id).sort((a,b) => a-b);
   return <section className={styles.history} aria-label="Gemini úlohy na pozadí">
     <h2>Úlohy na pozadí</h2>
     <p>Aktuálne GitHub Actions: <a href="https://github.com/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml" target="_blank" rel="noreferrer">Gemini Notion agent ↗</a>. Beh je potrebné spárovať podľa času spustenia; číslo úlohy nie je číslo GitHub behu.</p>
@@ -91,11 +92,14 @@ function GeminiQueueHistory({jobs}:{jobs:GeminiQueuedJob[]}) {
         <tbody>{jobs.map(job=><tr key={job.id}>
           <td>{job.id}</td>
           <td>{geminiAutomationCatalog.find(category=>category.stableKey===job.stable_key)?.label??job.stable_key}</td>
-          <td>{job.status === "SUCCESS" && !job.run_id ? "NEÚPLNÝ ZÁPIS" : job.status}</td><td>{formatDate(job.created_at)}</td>
+          <td>{job.status === "QUEUED" ? "V poradovníku · " + (waiting.indexOf(job.id) + 1) + ". v poradí" :
+            job.status === "RUNNING" ? "Pracuje" :
+            job.status === "SUCCESS" && !job.run_id ? "NEÚPLNÝ ZÁPIS" : job.status}</td><td>{formatDate(job.created_at)}</td>
           <td>{job.run_id??"—"}</td><td>{job.error_code ?? (job.status === "SUCCESS" && !job.run_id ? "Chýba potvrdený záznam behu" : "—")}</td>
         </tr>)}</tbody>
       </table></div>}
-    <p>Ak úloha zostane v stave RUNNING po neočakávanom prerušení, vyžaduje manuálnu diagnostiku. Systém nikdy nezačne platené opakovanie automaticky.</p>
+    <p>Manuálne potvrdené úlohy sa vykonávajú postupne podľa poradia; kontrola fronty prebieha každých 5 minút.
+      Ak úloha zostane v stave RUNNING po neočakávanom prerušení, vyžaduje manuálnu diagnostiku. Systém nikdy automaticky nezopakuje neistý platený beh.</p>
   </section>;
 }
 export default async function AdminGeminiAutomationPage() {
