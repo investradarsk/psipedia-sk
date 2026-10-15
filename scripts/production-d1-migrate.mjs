@@ -2071,7 +2071,7 @@ export function assertGeminiSchedulerWeeklyDaySchema(schema) {
   invariant(Number(column.notnull) === 0 && Number(column.pk) === 0 && column.dflt_value == null,
     "weekly_day must be nullable, without a default or primary key");
   const sql = String(table.sql ?? "");
-  invariant(/\\bweekly_day\\s+INTEGER\\s+CHECK\\s*\\(\\s*weekly_day\\s+IS\\s+NULL\\s+OR\\s+weekly_day\\s+BETWEEN\\s+1\\s+AND\\s+7\\s*\\)/i.test(sql),
+  invariant(/\bweekly_day\s+INTEGER\s+CHECK\s*\(\s*weekly_day\s+IS\s+NULL\s+OR\s+weekly_day\s+BETWEEN\s+1\s+AND\s+7\s*\)/i.test(sql),
     "weekly_day must enforce CHECK (weekly_day IS NULL OR weekly_day BETWEEN 1 AND 7)");
 }
 
