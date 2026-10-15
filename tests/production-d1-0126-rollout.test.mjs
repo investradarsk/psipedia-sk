@@ -99,7 +99,7 @@ test("full 0123-0126 chain refuses gaps and execution before 0125", () => {
 
 test("0126 preserves every stored category, enabled flag, cadence, quota and due timestamp", () => {
   const db = fixture();
-  const before = db.prepare("SELECT * FROM gemini_automation_settings ORDER BY id").all();
+  const before = db.prepare("SELECT * FROM gemini_automation_settings ORDER BY id").all().map(row => ({ ...row }));
   for (const name of stages.slice(0, 3)) apply(db, name);
   assert.doesNotThrow(() => assertRolloutChainSchema(schema(db), target));
   assert.deepEqual(targetSchemaObjects(schema(db), target), { partial: false });
