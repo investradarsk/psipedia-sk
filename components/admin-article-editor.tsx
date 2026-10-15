@@ -254,7 +254,7 @@ export function AdminArticleEditor({
     // Preserve the true historical publish time if the schedule has elapsed.
     const effectivePublishedAt = nextStatus === "published" && status === "scheduled" && displayedStatus === "published" && confirmedPublishedAt
       ? new Date(confirmedPublishedAt)
-      : nextStatus === "published" && requestedPublishedAt && requestedPublishedAt.getTime() > Date.now()
+      : nextStatus === "published" && requestedPublishedAt && requestedPublishedAt.getTime() > statusClock
         ? new Date()
         : requestedPublishedAt;
     const preservedMetadata = preservedEditorArticleMetadata(article, {
@@ -335,7 +335,6 @@ export function AdminArticleEditor({
 
       setStatus(data.article.status);
       setConfirmedPublishedAt(data.article.publishedAt);
-      setStatusClock(Date.now());
       lastSavedUpdatedAtRef.current = data.article.updatedAt;
       setPublishedAt(dateTimeValue(data.article.publishedAt));
       setEditorDirty(false);
