@@ -19,6 +19,10 @@ on:
       - "drizzle/0124_gemini_notion_review_locks.sql"
       - "drizzle/0127_gemini_notion_created_pages.sql"
       - "tests/gemini-notion-provenance.test.mjs"
+      - "tests/gemini-notion-canonical-drafts.test.mjs"
+      - "tests/production-d1-0127-readonly.test.mjs"
+      - "scripts/production-d1-0127-readonly.mjs"
+      - ".github/workflows/production-d1-0127-readonly.yml"
       - "components/admin-gemini-notion-*.tsx"
       - "tests/gemini-notion-drafts.test.mjs"
       - "scripts/gemini-notion-agent.mjs"
@@ -68,6 +72,10 @@ jobs:
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
         run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs tests/gemini-notion-provenance.test.mjs
+      - name: Trusted Gemini-to-canonical draft adapters (12 agendas, no external calls)
+        run: node --experimental-strip-types --test tests/gemini-notion-canonical-drafts.test.mjs
+      - name: Production D1 0127 read-only preflight/postflight simulation
+        run: node --test tests/production-d1-0127-readonly.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
