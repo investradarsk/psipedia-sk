@@ -45,7 +45,7 @@ test("admin list SQL filters, rows and counters agree on effective status with o
       const actual = db.prepare("SELECT id, " + articleEffectiveStatusSql() + " AS effective_status FROM managed_articles " + sql.where + " ORDER BY id ASC")
         .all(now, ...sql.bindings).map(row => Number(row.id));
       assert.deepEqual(actual, expected, "filter " + status);
-      assert.deepEqual(sql.bindings, [now, status]);
+      assert.deepEqual(sql.bindings, ["clanky", now, status]);
     }
     const expression = articleEffectiveStatusSql();
     const counters = db.prepare(`SELECT
