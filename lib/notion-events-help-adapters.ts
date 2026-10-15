@@ -593,6 +593,33 @@ export async function applyNotionToCanonical(
   values: Record<string, ReconciliationValue>,
   database: D1Database,
 ) {
+  const origin = await database.prepare(
+    "SELECT notion_page_id FROM gemini_notion_created_pages " +
+    "WHERE import_agenda=? AND canonical_entity_id=?"
+  ).bind(agenda, entityId).first<{ notion_page_id: string }>();
+  if (origin) {
+    const table = ({
+      events: "managed_events", organizations: "help_organizations",
+      adoptions: "adoption_dogs", "help-cases": "help_cases",
+      "lost-found": "lost_found_dog_reports",
+    } as const)[agenda];
+    const row = await database.prepare(`SELECT status FROM ${table} WHERE id=?`)
+      .bind(entityId).first<{ status: string }>();
+    if (!row) throw Error("GEMINI_CANONICAL_MAPPING_MISSING");
+    const nextStatus = agenda === "events" ? eventStatusFromNotion(s(values["Stav"]))
+      : agenda === "organizations" ? organizationStatusFromNotion(s(values["Stav"]))
+      : agenda === "adoptions" ? adoptionStatusFromNotion(s(values["Stav"]))
+      : agenda === "help-cases" ? helpStatusFromNotion(s(values["Psipedia stav"]))
+      : lostFoundStatusFromNotion(s(values["Psipedia stav"]));
+    if (row.status !== nextStatus)
+      throw Error("GEMINI_PUBLICATION_REQUIRES_CANONICAL_EDITOR");
+    if (agenda === "lost-found" && (
+      values["Latitude"] != null && values["Latitude"] !== "" ||
+      values["Longitude"] != null && values["Longitude"] !== "" ||
+      s(values["Verejný kontakt"]) ||
+      s(values["Miesto"]) !== s(values["Mesto"])
+    )) throw Error("GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED");
+  }
   if (agenda === "events") {
     const existing = await getManagedEventById(entityId);
     if (!existing) throw new Error(`Podujatie #${entityId} neexistuje.`);
