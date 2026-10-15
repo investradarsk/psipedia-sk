@@ -266,7 +266,7 @@ test("two hourly reconciler runs skip legacy NULL published_at and avoid a dupli
               async all() {
                 // Model the SQL predicate, not a prefiltered hardcoded result.
                 const excludesNull = sql.includes("a.status = 'published' AND a.published_at IS NOT NULL");
-                return { results: candidates.filter((row) => excludesNull || row.published_at !== null) };
+                return { results: excludesNull ? candidates.filter((row) => row.published_at !== null) : candidates };
               },
             };
           }
@@ -292,7 +292,7 @@ test("two hourly reconciler runs skip legacy NULL published_at and avoid a dupli
     database: db, bindings: valid.bindings, now: "2026-10-15T11:00:00Z",
   });
   assert.deepEqual(seen, [12, 12], "legacy published NULL rows must not be selected");
-  assert.match(queries[0], /a\\.status = 'published' AND a\\.published_at IS NOT NULL/);
+  assert.ok(queries[0].includes("a.status = 'published' AND a.published_at IS NOT NULL"));
   assert.equal(first.checked, 1);
   assert.equal(first.updated, 1);
   assert.equal(second.checked, 1);
