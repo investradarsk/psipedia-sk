@@ -44,6 +44,7 @@ function payload(overrides = {}) {
     editorial: { overview: "Odborný text", healthTip: "Preventívne prehliadky" },
     sports: [{ key: "field-trials", label: "Field trials", rating: 5 }],
     relatedBreedIds: [3], relatedArticleIds: [10], directoryProfileIds: [20],
+    searchText: "Labrador retriever",
     editorialComplete: true, origin: "Veľká Británia", group: "Retriever",
     size: "Stredný", weight: "25–36 kg", height: "54–57 cm", lifespan: "10–14 rokov",
     coat: "Krátka", energy: 5, trainability: 5, family: 5, children: 5,
