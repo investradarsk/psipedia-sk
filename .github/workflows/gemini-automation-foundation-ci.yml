@@ -17,6 +17,12 @@ on:
       - "scripts/gemini-notion-*.mjs"
       - "tests/gemini-notion-*.test.mjs"
       - "drizzle/0124_gemini_notion_review_locks.sql"
+      - "drizzle/0127_gemini_notion_created_pages.sql"
+      - "tests/gemini-notion-provenance.test.mjs"
+      - "tests/gemini-notion-canonical-drafts.test.mjs"
+      - "tests/production-d1-0127-readonly.test.mjs"
+      - "scripts/production-d1-0127-readonly.mjs"
+      - ".github/workflows/production-d1-0127-readonly.yml"
       - "components/admin-gemini-notion-*.tsx"
       - "tests/gemini-notion-drafts.test.mjs"
       - "scripts/gemini-notion-agent.mjs"
@@ -65,9 +71,13 @@ jobs:
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
-        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs tests/gemini-notion-provenance.test.mjs
+      - name: Trusted Gemini-to-canonical draft adapters (12 agendas, no external calls)
+        run: node --experimental-strip-types --test tests/gemini-notion-canonical-drafts.test.mjs
+      - name: Production D1 0127 read-only preflight/postflight simulation
+        run: node --test tests/production-d1-0127-readonly.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
@@ -77,13 +87,13 @@ jobs:
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint
-        run: npx eslint lib/gemini-external-agent.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs
+        run: npx eslint lib/gemini-external-agent.ts lib/gemini-notion-provenance.ts app/api/internal/gemini-agent/callback/route.ts scripts/gemini-notion-agent.mjs
       - name: Targeted Gemini admin lint coverage
         run: npx eslint app/admin/automatizacie-gemini/page.tsx app/api/admin/gemini-automation components/admin-gemini-automation-settings.tsx lib/gemini-automation-pilot.ts lib/gemini-automation-store.ts lib/gemini-automation-admin-store.ts
       - name: Gemini review, rejection and canonical lifecycle lint
         run: npx eslint app/admin/automatizacie-gemini app/api/admin/gemini-automation components/admin-gemini-concept-review.tsx lib/gemini-automation-concept-review.ts lib/gemini-automation-dedupe-store.ts lib/directory-store.ts
       - name: Gemini Event contract, canonical and review lint
-        run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts components/admin-gemini-event-concept-review.tsx
+        run: npx eslint lib/gemini-automation-event-*.ts lib/notion-events-help-adapters.ts lib/notion-events-help-sync.ts lib/gemini-notion-agenda-review.ts components/admin-gemini-event-concept-review.tsx components/admin-gemini-agenda-draft-editor.tsx
       - name: Agent JavaScript syntax (without executing or billing)
         run: node --check scripts/gemini-notion-agent.mjs
       - name: Production build and typecheck

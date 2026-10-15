@@ -196,14 +196,8 @@ function GeminiSettingsCard({ initial, available, externalEnabled }: { initial: 
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
-      {externalEnabled && setting.section === "directory" && (
+      {externalEnabled && (
         <AdminGeminiNotionDrafts stableKey={setting.stableKey} />
-      )}
-      {externalEnabled && setting.section !== "directory" && (
-        <section className={styles.notionDrafts} aria-label="Koncepty z automatizácie">
-          <strong>Koncepty z automatizácie</strong>
-          <p>Editor konceptov Podujatí a Pomoci psom doplní spoločný komponent z úlohy #03.</p>
-        </section>
       )}
       {(canManuallyRun || setting.section === "help") && (
         <div className={styles.pilot}>

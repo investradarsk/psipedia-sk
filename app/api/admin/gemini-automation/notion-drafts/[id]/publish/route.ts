@@ -3,6 +3,7 @@ import { requireAdminMutation } from "@/lib/admin-auth";
 import {
   approveGeminiDirectoryDraft, GeminiNotionReviewError,
 } from "@/lib/gemini-notion-directory-review";
+import { geminiAgendaForKey, mutateGeminiAgendaDraft, GeminiAgendaReviewError } from "@/lib/gemini-notion-agenda-review";
 
 export const dynamic = "force-dynamic";
 const NO_STORE = { "cache-control": "no-store" };
@@ -16,9 +17,17 @@ export async function POST(request: Request, { params }: Props) {
     const body = await request.json();
     if (body?.confirm !== true || typeof body.lastEditedAt !== "string")
       return Response.json({ error: "Vyžaduje sa potvrdenie a aktuálna verzia konceptu." }, { status: 400, headers: NO_STORE });
-    const result = await approveGeminiDirectoryDraft(env, id, body.lastEditedAt, auth.user.email);
+    const key = new URL(request.url).searchParams.get("stable_key") ?? "";
+    const result = key && geminiAgendaForKey(key)
+      ? { status: "PENDING_SYNC", draft: await mutateGeminiAgendaDraft(env, key, id,
+          { action: "approve", confirm: true, lastEditedAt: body.lastEditedAt }, auth.user.email) }
+      : await approveGeminiDirectoryDraft(env, id, body.lastEditedAt, auth.user.email);
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
+    if (error instanceof GeminiAgendaReviewError) {
+      return Response.json({ error: error.code === "SCHEMA" ? "Schvaľovanie blokuje schéma Notionu." : "Koncept nie je možné bezpečne schváliť." },
+        { status: ["CONFLICT", "LOCKED", "STATE"].includes(error.code) ? 409 : 503, headers: NO_STORE });
+    }
     if (error instanceof GeminiNotionReviewError) {
       const status = error.code === "ID" ? 400 :
         error.code === "NOT_FOUND" ? 404 : error.code === "STATE" || error.code === "CONFLICT" || error.code === "LOCKED" ? 409 : 503;
