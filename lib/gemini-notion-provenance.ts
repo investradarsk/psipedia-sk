@@ -44,6 +44,7 @@ export function parseGeminiCreatedPages(value: unknown, jobKey: string, count: n
   const agenda = geminiImportAgenda(jobKey);
   if (!agenda || !Array.isArray(value) || value.length !== count || count < 0 || count > 5) return null;
   const source = expectedGeminiNotionSource(env, agenda);
+  if (count === 0) return { pages: [], agenda };
   if (!UUID.test(source)) return null;
   const seen = new Set<string>();
   const pages: GeminiCreatedPage[] = [];
