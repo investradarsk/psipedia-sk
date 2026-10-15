@@ -1,0 +1,119 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
+import {
+  geminiImportAgenda, parseGeminiCreatedPages, registerGeminiCreatedPages,
+  expectedGeminiNotionSource,
+} from "../lib/gemini-notion-provenance.ts";
+import { readFileSync } from "node:fs";
+
+const ID = "a1111111-1111-4111-8111-111111111111";
+const ID2 = "b2222222-2222-4222-8222-222222222222";
+const SOURCES = {
+  directory: "d1111111-1111-4111-8111-111111111111",
+  events: "e1111111-1111-4111-8111-111111111111",
+  organizations: "01111111-1111-4111-8111-111111111111",
+  adoptions: "a2222222-2222-4222-8222-222222222222",
+  "help-cases": "c1111111-1111-4111-8111-111111111111",
+  "lost-found": "f1111111-1111-4111-8111-111111111111",
+};
+const ENV = {
+  NOTION_DIRECTORY_DATA_SOURCE_ID: SOURCES.directory,
+  NOTION_EVENTS_DATA_SOURCE_ID: SOURCES.events,
+  NOTION_ORGANIZATIONS_DATA_SOURCE_ID: SOURCES.organizations,
+  NOTION_ADOPTIONS_DATA_SOURCE_ID: SOURCES.adoptions,
+  NOTION_HELP_DATA_SOURCE_ID: SOURCES["help-cases"],
+  NOTION_LOST_FOUND_DATA_SOURCE_ID: SOURCES["lost-found"],
+};
+const receipt = (stableKey, pageId=ID) => ({
+  notion_page_id: pageId, stable_key: stableKey,
+  notion_data_source_id: expectedGeminiNotionSource(ENV, geminiImportAgenda(stableKey)),
+});
+
+test("all 22 registered categories map to exactly one canonical D1 agenda", () => {
+  assert.equal(geminiAutomationCatalog.length, 22);
+  const byAgenda = new Map();
+  for (const { stableKey } of geminiAutomationCatalog) {
+    const agenda = geminiImportAgenda(stableKey);
+    assert.ok(agenda, stableKey);
+    byAgenda.set(agenda, (byAgenda.get(agenda) ?? 0) + 1);
+    const parsed = parseGeminiCreatedPages([receipt(stableKey)], stableKey, 1, ENV);
+    assert.equal(parsed?.agenda, agenda, stableKey);
+    assert.equal(parsed?.pages.length, 1);
+    assert.equal(parsed?.pages[0].notion_page_id, ID);
+    assert.deepEqual(parseGeminiCreatedPages([], stableKey, 0, {}), { pages: [], agenda });
+  }
+  assert.equal(byAgenda.get("directory"), 10);
+  assert.equal(byAgenda.get("events"), 6);
+  assert.equal([...byAgenda.entries()].filter(([agenda]) => !["directory","events"].includes(agenda))
+    .reduce((sum, [, n]) => sum + n, 0), 6);
+});
+test("signature is necessary but never bypasses job/category/target/UUID checks", () => {
+  const key = "help.stratene-a-najdene";
+  assert.equal(parseGeminiCreatedPages([receipt(key)], "events.vystavy", 1, ENV), null);
+  assert.equal(parseGeminiCreatedPages([{ ...receipt(key), stable_key: "help.adopcia" }], key, 1, ENV), null);
+  assert.equal(parseGeminiCreatedPages([{ ...receipt(key), notion_data_source_id: SOURCES.events }], key, 1, ENV), null);
+  assert.equal(parseGeminiCreatedPages([{ ...receipt(key), notion_page_id: "PRIVATE CONTACT" }], key, 1, ENV), null);
+  assert.equal(parseGeminiCreatedPages([receipt(key), receipt(key)], key, 2, ENV), null);
+  assert.equal(parseGeminiCreatedPages([receipt(key)], key, 2, ENV), null);
+  assert.equal(parseGeminiCreatedPages([receipt(key), receipt(key, ID2)], key, 2, ENV)?.pages.length, 2);
+  assert.equal(parseGeminiCreatedPages([receipt(key)], key, 1, {}), null);
+  assert.equal(parseGeminiCreatedPages([{ ...receipt(key), extra: "raw model text" }], key, 1, ENV), null);
+});
+
+function fakeRegistry() {
+  const rows = new Map();
+  return { rows, db: {
+    prepare(sql) {
+      let args = [];
+      const stmt = {
+        bind(...values) { args = values; return stmt; },
+        async run() {
+          if (!sql.includes("INSERT INTO gemini_notion_created_pages")) throw Error("Unexpected SQL");
+          if (!rows.has(args[0])) rows.set(args[0], {
+            job_id: args[1], stable_key: args[2], notion_data_source_id: args[3],
+            import_agenda: args[4],
+          });
+          return { meta: { changes: 1 } };
+        },
+        async first() {
+          if (!sql.includes("FROM gemini_notion_created_pages")) throw Error("Unexpected SQL");
+          return rows.get(args[0]) ?? null;
+        },
+      };
+      return stmt;
+    },
+  }};
+}
+test("registration is idempotent, and another job cannot claim an already registered page", async () => {
+  const { rows, db } = fakeRegistry();
+  const parsed = parseGeminiCreatedPages([receipt("help.adopcia")], "help.adopcia", 1, ENV);
+  await registerGeminiCreatedPages(db, 23, parsed);
+  await registerGeminiCreatedPages(db, 23, parsed);
+  assert.equal(rows.size, 1);
+  await assert.rejects(() => registerGeminiCreatedPages(db, 24, parsed), /GEMINI_PROVENANCE_COLLISION/);
+});
+test("offline source contracts require registry and enforce private-only canonical writes", () => {
+  const d = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const h = readFileSync(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const a = readFileSync(new URL("../lib/notion-events-help-adapters.ts", import.meta.url), "utf8");
+  const worker = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  assert.match(d, /gemini_notion_created_pages/);
+  assert.match(d, /if \(trustedGemini\)/);
+  assert.match(d, /status: "draft"/);
+  assert.match(h, /gemini_notion_created_pages/);
+  assert.match(h, /trustedGemini/);
+  assert.match(h, /GEMINI_PROVENANCE_IMPORT_CONFLICT/);
+  assert.match(a, /forceDraft \? "DRAFT"/);
+  assert.match(a, /"Latitude": null, "Longitude": null/);
+  assert.match(a, /GEMINI_PUBLICATION_REQUIRES_CANONICAL_EDITOR/);
+  assert.match(worker, /created_pages: pageIds\.map/);
+});
+test("prepared migration enforces unique page identity and never authorizes production rollout", () => {
+  const sql = readFileSync(new URL("../drizzle/0127_gemini_notion_created_pages.sql", import.meta.url), "utf8");
+  const runner = readFileSync(new URL("../scripts/production-d1-migrate.mjs", import.meta.url), "utf8");
+  assert.match(sql, /notion_page_id TEXT PRIMARY KEY/);
+  assert.match(sql, /REFERENCES gemini_manual_background_jobs\(id\)/);
+  assert.match(sql, /UNIQUE \(import_agenda, canonical_entity_id\)/);
+  assert.match(runner, /PREPARED_PRODUCTION_TARGETS = Object\.freeze\(\["0127_gemini_notion_created_pages\.sql"\]\)/);
+});
