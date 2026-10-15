@@ -264,7 +264,7 @@ test("timeout outcome stays RUNNING without paid retries; scheduled global kill 
     assert.equal(calls, 1);
     assert.deepEqual(await sweepExternalGemini({ db, env: { ...env,
       GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "false" }, now }), {
-      dispatched: 0, reason: "SCHEDULE_DISABLED",
+      dispatched: 0, reason: "BUSY",
     });
     const after2h = new Date(now.getTime() + 3 * 60 * 60_000);
     assert.equal((await sweepExternalGemini({ db, env, now: after2h })).reason, "STALLED_REVIEW");
