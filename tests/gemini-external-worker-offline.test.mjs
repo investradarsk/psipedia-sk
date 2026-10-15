@@ -33,6 +33,7 @@ function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") 
         ? "3ed793fc-1d18-8141-bc25-000bc25ab39b"
         : "3ed793fc-1d18-8122-95b9-000b05c3c6bd",
       AGENT_STABLE_KEY: stableKey,
+      AGENT_CATEGORY_PROMPT: "Testovací redakčný prompt pre kategóriu " + stableKey + ". Vyhľadaj len overené fakty a vytvor iba neverejný koncept.",
       AGENT_MAX_NEW_CONCEPTS: maxNew,
       PSIPEDIA_AGENT_CALLBACK_SECRET: "offline-test-secret",
       PSIPEDIA_AGENT_CALLBACK_URL: "https://psipedia.sk/api/internal/gemini-agent/callback",
