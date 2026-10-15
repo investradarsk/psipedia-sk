@@ -22,6 +22,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [confirm, setConfirm] = useState<"approve" | "reject" | "restore" | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
   async function submit(action: "save" | "approve" | "reject" | "restore") {
     if (busy) return;
     setError(""); setMessage("");
@@ -41,7 +42,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, lastEditedAt: revision,
-          ...(action === "save" ? { fields: changed } : { confirm: true }) }),
+          ...(action === "save" ? { fields: changed } : { confirm: true, ...(action === "reject" ? { reason: rejectionReason.trim() } : {}) }) }),
       });
       const data = await response.json() as { draft?: GeminiAgendaDraft; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Notion neodpovedá. Over stav konceptu pred opakovaním.");
@@ -50,6 +51,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       setRevision(data.draft.lastEditedAt);
       setReviewState(data.draft.reviewState);
       setConfirm(null);
+      setRejectionReason("");
       setMessage(action === "save" ? "Koncept bol uložený v pôvodnej Notion stránke bez publikovania."
         : action === "approve" ? "Schválené na následné spracovanie synchronizáciou." :
           action === "reject" ? "Koncept odmietnutý." : "Koncept obnovený.");
@@ -72,8 +74,8 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         </p>
       )}
       {draft.attribution === "EVIDENCE_SIGNATURE_ONLY" && <p role="status">Gemini pôvod je zatiaľ odhadnutý podľa zdrojových dôkazov. Jednoznačné označenie vyžaduje úpravu existujúceho pracovníka Gemini.</p>}
-      {draft.agenda === "help-cases" && <p>Slug je pri návrhu zablokovaný, pretože v existujúcej synchronizácii by mohol vytvoriť D1 koncept bez schválenia. Detail možno skontrolovať v Notione.</p>}
-      {draft.agenda === "help-cases" && <p role="alert">Schválenie aj odmietnutie prípadov Pomoc psom je dočasne zablokované: ich Notion schéma používa iba publikačný stav draft/published. Schválenie nesmie automaticky publikovať. Úpravy a uloženie konceptu zostávajú dostupné.</p>}
+      {draft.agenda === "help-cases" && !draft.reviewAvailable && <p role="alert">Interná kontrola Pomoci psom zatiaľ nie je nakonfigurovaná v Notione. Slug ani schvaľovanie a odmietanie konceptu nie sú povolené. Ostatné úpravy možno uložiť bez publikovania.</p>}
+      {draft.agenda === "help-cases" && draft.reviewAvailable && <p>Schválenie mení výlučne interné pole Gemini kontrola. Verejné publikovanie sa nevykoná; koncept spracuje existujúca synchronizácia až následne.</p>}
       <form onSubmit={event => { event.preventDefault(); void submit("save"); }}>
         <div className="admin-field-grid">
           {supportedFields.map(field => (
@@ -126,13 +128,13 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         <div className="admin-editor-actions">
           <button type="submit" disabled={busy || readOnly}>{busy ? "Ukladám…" : "Uložiť ako koncept"}</button>
           {!draft.psipediaId && reviewState !== "APPROVED" && (
-            <button type="button" disabled={busy || draft.agenda === "help-cases"}
+            <button type="button" disabled={busy || (draft.agenda === "help-cases" && !draft.reviewAvailable)}
               onClick={() => setConfirm(reviewState === "REJECTED" ? "restore" : "reject")}>
               {reviewState === "REJECTED" ? "Obnoviť" : "Odmietnuť"}
             </button>
           )}
           {!readOnly && (
-            <button type="button" disabled={busy || draft.agenda === "help-cases"} onClick={() => setConfirm("approve")}>
+            <button type="button" disabled={busy || (draft.agenda === "help-cases" && !draft.reviewAvailable)} onClick={() => setConfirm("approve")}>
               Schváliť koncept
             </button>
           )}
@@ -143,7 +145,13 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
           <p>{confirm === "approve" ? "Schváliť tento Notion koncept na následné spracovanie? Uloženie konceptu samo osebe nepublikuje."
             : confirm === "reject" ? "Odmietnuť tento koncept?"
               : "Obnoviť odmietnutý koncept?"}</p>
-          <button type="button" disabled={busy} onClick={() => void submit(confirm)}>Áno, potvrdiť</button>
+          {confirm === "reject" && draft.agenda === "help-cases" && (
+            <label>Dôvod odmietnutia (povinný)
+              <textarea value={rejectionReason} maxLength={1000} rows={3}
+                disabled={busy} onChange={event => setRejectionReason(event.target.value)} />
+            </label>
+          )}
+          <button type="button" disabled={busy || (confirm === "reject" && draft.agenda === "help-cases" && !rejectionReason.trim())} onClick={() => void submit(confirm)}>Áno, potvrdiť</button>
           <button type="button" disabled={busy} onClick={() => setConfirm(null)}>Zrušiť</button>
         </div>
       )}
