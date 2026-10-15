@@ -1141,6 +1141,14 @@ export async function writeBackPublishedArticleToNotion(args: {
   if (args.article.status !== "published" && !dueScheduled) {
     return { linked: false, updated: false, reason: "not-published" as const };
   }
+  // Some legacy published rows have no reliable published_at. Never replace
+  // that missing historical fact with the current Cron/Admin request time:
+  // a later run would interpret the fabricated date as a publication conflict.
+  // Leave the Notion page and D1 mapping untouched for individual review.
+  const publishedAt = args.article.publishedAt;
+  if (!publishedAt || !Number.isFinite(Date.parse(publishedAt))) {
+    return { linked: false, updated: false, reason: "missing-publication-date" as const };
+  }
 
   const mapping = await args.database.prepare(
     "SELECT notion_page_id FROM article_notion_sync WHERE article_id = ? LIMIT 1",
@@ -1149,7 +1157,6 @@ export async function writeBackPublishedArticleToNotion(args: {
     return { linked: false, updated: false, reason: "not-linked" as const };
   }
 
-  const publishedAt = args.article.publishedAt ?? now;
   const publicUrl = SITE_URL + articleHref({
     slug: args.article.slug,
     portalSection: args.article.portalSection,
