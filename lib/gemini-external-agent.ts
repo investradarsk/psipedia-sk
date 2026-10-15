@@ -2,8 +2,9 @@ import { externalWorkerCategorySupported } from "../scripts/gemini-notion-catego
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { getGeminiCategoryPrompt } from "./gemini-automation-category-prompt-store.ts";
 import { nextGeminiRunAt } from "./gemini-automation-schedule.ts";
+import { parseGeminiCreatedPages, verifyGeminiCreatedPages, registerGeminiCreatedPages, type GeminiProvenanceEnv } from "./gemini-notion-provenance.ts";
 
-export type GeminiExternalEnv = {
+export type GeminiExternalEnv = GeminiProvenanceEnv & {
   GEMINI_EXTERNAL_AGENT_ENABLED?: string;
   GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED?: string;
   GITHUB_ACTIONS_DISPATCH_TOKEN?: string;
@@ -199,6 +200,19 @@ export async function completeExternalGemini(input: {
   ).bind(jobId).first<{ id: number; setting_id: number; error_code: string; stable_key: string; status: string }>();
   if (!job || job.status !== "RUNNING" || !job.error_code.startsWith("EXT_"))
     return { status: 409, ok: false };
+  // Signed worker receipts only; old workers without created_pages stay compatible,
+  // but their pages do NOT receive the trusted origin required for auto-import.
+  if (result.created_pages !== undefined) {
+    const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), input.env);
+    if (!parsed) return { status: 400, ok: false };
+    try {
+      await verifyGeminiCreatedPages(input.env, parsed.pages);
+      await registerGeminiCreatedPages(input.db, Number(jobId), parsed);
+    } catch {
+      // Never complete the job on an uncertain or foreign page receipt.
+      return { status: 503, ok: false };
+    }
+  }
   const now = new Date().toISOString();
   const trigger = job.error_code.startsWith("EXT_SCHEDULED") ? "SCHEDULED" : "MANUAL";
   const updated = await input.db.prepare(
