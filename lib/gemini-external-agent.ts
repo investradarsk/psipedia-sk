@@ -89,7 +89,7 @@ export async function dispatchExternalGemini(input: {
     throw new ExternalAgentError("BUSY");
   }
   // Reserve the exact due occurrence before making an uncertain paid network call.
-  // The existing global unique RUNNING/QUEUED index serializes all categories.
+  // The running-only partial unique index serializes all categories.
   if (dueAt) {
     const next = nextGeminiRunAt(new Date(dueAt), setting.cadence_minutes, setting.weekly_day, now);
     const reserved = await db.prepare(
@@ -177,7 +177,7 @@ export async function enqueueExternalGemini(input: {
     const inserted = await db.prepare(
       "INSERT INTO gemini_manual_background_jobs(setting_id,stable_key,status,error_code,created_at) " +
       "SELECT ?,?,'QUEUED','EXT_MANUAL_PENDING',? WHERE " +
-      "(SELECT COUNT(*) FROM gemini_manual_background_jobs WHERE status='QUEUED') < 22"
+      "NOT EXISTS (SELECT 1 FROM gemini_manual_background_jobs WHERE status='QUEUED' LIMIT 1 OFFSET 21)"
     ).bind(setting.id, stableKey, now).run();
     if (inserted.meta.changes !== 1) throw new ExternalAgentError("BUSY");
     const jobId = Number(inserted.meta.last_row_id);
