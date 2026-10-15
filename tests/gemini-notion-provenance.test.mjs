@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import {
   geminiImportAgenda, parseGeminiCreatedPages, registerGeminiCreatedPages,
-  expectedGeminiNotionSource,
+  expectedGeminiNotionSource, verifyGeminiCreatedPages,
 } from "../lib/gemini-notion-provenance.ts";
 import { readFileSync } from "node:fs";
 
@@ -116,4 +116,30 @@ test("prepared migration enforces unique page identity and never authorizes prod
   assert.match(sql, /REFERENCES gemini_manual_background_jobs\(id\)/);
   assert.match(sql, /UNIQUE \(import_agenda, canonical_entity_id\)/);
   assert.match(runner, /PREPARED_PRODUCTION_TARGETS = Object\.freeze\(\["0127_gemini_notion_created_pages\.sql"\]\)/);
+});
+
+
+test("provider read-back verifies immutable Notion page and canonical source before registry insert", async () => {
+  const key = "directory.veterinari";
+  const pages = parseGeminiCreatedPages([receipt(key)], key, 1, ENV).pages;
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => Response.json({
+      id: ID, parent: { type: "data_source_id", data_source_id: SOURCES.directory },
+      archived: false, in_trash: false, properties: {},
+    });
+    await verifyGeminiCreatedPages({ NOTION_API_TOKEN: "offline" }, pages);
+    globalThis.fetch = async () => Response.json({
+      id: ID, parent: { type: "data_source_id", data_source_id: SOURCES.events },
+      archived: false, in_trash: false, properties: {},
+    });
+    await assert.rejects(() => verifyGeminiCreatedPages({ NOTION_API_TOKEN: "offline" }, pages),
+      /GEMINI_PROVENANCE_PAGE_MISMATCH/);
+    globalThis.fetch = async () => Response.json({
+      id: ID, parent: { type: "data_source_id", data_source_id: SOURCES.directory },
+      archived: true, properties: {},
+    });
+    await assert.rejects(() => verifyGeminiCreatedPages({ NOTION_API_TOKEN: "offline" }, pages),
+      /GEMINI_PROVENANCE_PAGE_MISMATCH/);
+  } finally { globalThis.fetch = original; }
 });
