@@ -125,6 +125,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0123_event_organization_structured_address.sql",
   "0124_gemini_notion_review_locks.sql",
   "0125_gemini_category_prompts.sql",
+  "0126_gemini_scheduler_admin_v2.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -737,6 +738,7 @@ function schemaState(databaseName, configPath) {
   const organizationLocationColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('organization_locations')");
   const geminiNotionReviewLockColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_notion_review_locks')");
   const geminiCategoryPromptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_category_prompts')");
+  const geminiAutomationSettingsColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_automation_settings')");
   const adminPushSubscriptionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_push_subscriptions')");
   const adminNotificationReadReceiptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_notification_read_receipts')");
   const adminNotificationReadReceiptForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('admin_notification_read_receipts')");
@@ -773,6 +775,7 @@ function schemaState(databaseName, configPath) {
     organizationLocationColumns,
     geminiNotionReviewLockColumns,
     geminiCategoryPromptColumns,
+    geminiAutomationSettingsColumns,
     adminPushSubscriptionColumns,
     adminNotificationReadReceiptColumns,
     adminNotificationReadReceiptForeignKeys,
@@ -1200,6 +1203,9 @@ export function targetSchemaObjects(schema, targetMigration) {
   }
   if (targetMigration === "0125_gemini_category_prompts.sql") {
     return { partial: names.has("gemini_category_prompts") || (schema.geminiCategoryPromptColumns ?? []).length > 0 };
+  }
+  if (targetMigration === "0126_gemini_scheduler_admin_v2.sql") {
+    return { partial: (schema.geminiAutomationSettingsColumns ?? []).some(column => String(column.name) === "weekly_day") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2057,17 +2063,35 @@ export function assertGeminiCategoryPromptsSchema(schema) {
     "gemini_category_prompts user_prompt CHECK (length(trim(...)) BETWEEN 40 AND 6000) missing");
 }
 
+export function assertGeminiSchedulerWeeklyDaySchema(schema) {
+  const table = objectMap(schema.objects ?? []).get("gemini_automation_settings");
+  invariant(table?.type === "table", "Missing gemini_automation_settings table");
+  const columns = schema.geminiAutomationSettingsColumns ?? [];
+  const weekly = columns.filter(column => String(column.name) === "weekly_day");
+  invariant(weekly.length === 1, "gemini_automation_settings.weekly_day must exist exactly once");
+  const column = weekly[0];
+  invariant(String(column.type).toUpperCase() === "INTEGER", "weekly_day must be INTEGER");
+  invariant(Number(column.notnull) === 0 && Number(column.pk) === 0 && column.dflt_value == null,
+    "weekly_day must be nullable, without a default or primary key");
+  const sql = String(table.sql ?? "");
+  invariant(/\bweekly_day\s+INTEGER\s+CHECK\s*\(\s*weekly_day\s+IS\s+NULL\s+OR\s+weekly_day\s+BETWEEN\s+1\s+AND\s+7\s*\)/i.test(sql),
+    "weekly_day must enforce CHECK (weekly_day IS NULL OR weekly_day BETWEEN 1 AND 7)");
+}
+
 export function assertRolloutChainSchema(schema, targetMigration) {
   const target = migrationIndex(targetMigration);
-  if (target < 123 || target > 125) return;
+  if (target < 123 || target > 126) return;
   if (target >= 124) assertStructuredAddressSchema(schema);
   if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
+  if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
   // A future table must not pre-exist a pending earlier migration, even when the
   // requested target's own schema is absent. Fail before any Wrangler apply.
   if (target < 124) assertPendingTargetSchemaClean("0124_gemini_notion_review_locks.sql",
     targetSchemaObjects(schema, "0124_gemini_notion_review_locks.sql"));
   if (target < 125) assertPendingTargetSchemaClean("0125_gemini_category_prompts.sql",
     targetSchemaObjects(schema, "0125_gemini_category_prompts.sql"));
+  if (target < 126) assertPendingTargetSchemaClean("0126_gemini_scheduler_admin_v2.sql",
+    targetSchemaObjects(schema, "0126_gemini_scheduler_admin_v2.sql"));
 }
 
 
@@ -2125,6 +2149,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 123) assertStructuredAddressSchema(schema);
   if (migrationIndex(targetMigration) >= 124) assertGeminiNotionReviewLocksSchema(schema);
   if (migrationIndex(targetMigration) >= 125) assertGeminiCategoryPromptsSchema(schema);
+  if (migrationIndex(targetMigration) >= 126) assertGeminiSchedulerWeeklyDaySchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2236,6 +2261,29 @@ export function assertAdditiveRolloutPreserved(before, after) {
       && before.tables?.[table]?.digest === after.tables?.[table]?.digest,
       `Pre-existing ${table} data changed during additive D1 migration`);
   }
+}
+
+/** Snapshot all pre-existing scheduler settings (including enablement, cadence, category and due dates). */
+function geminiSchedulerSettingsSnapshot(databaseName, configPath, schema, originalColumns = null) {
+  const columns = originalColumns ?? (schema.geminiAutomationSettingsColumns ?? [])
+    .map(column => String(column.name)).filter(name => name !== "weekly_day");
+  const required = ["id", "stable_key", "section", "subcategory", "enabled",
+    "cadence_minutes", "max_new_concepts", "last_run_at", "next_run_at", "created_at", "updated_at"];
+  for (const name of required) invariant(columns.includes(name), `Scheduler snapshot lacks ${name}`);
+  const currentColumns = new Set((schema.geminiAutomationSettingsColumns ?? []).map(column => String(column.name)));
+  invariant(columns.every(name => currentColumns.has(name)) && !columns.includes("weekly_day"),
+    "Original scheduler columns changed during 0126 rollout");
+  const names = columns.map(name => '"' + name.replace(/"/g, '""') + '"').join(", ");
+  const rows = d1Execute(databaseName, configPath,
+    `SELECT ${names} FROM gemini_automation_settings ORDER BY id`);
+  return { columns, count: rows.length, digest: stableHash(rows) };
+}
+
+export function assertGeminiSchedulerSettingsPreserved(before, after) {
+  invariant(before && after, "0126 scheduler preservation snapshots required");
+  invariant(JSON.stringify(before.columns) === JSON.stringify(after.columns)
+    && before.count === after.count && before.digest === after.digest,
+    "Pre-existing Gemini scheduler settings, enabled categories, cadence or due dates changed during 0126 rollout");
 }
 
 function safeCounts(snapshot) {
@@ -2498,9 +2546,14 @@ async function preflight(targetMigration) {
     rolloutReadiness = result.classification;
   } else if (targetIndex === 125) {
     rolloutReadiness = state.targetApplied ? "APPLIED_0125" : "READY_0125";
+  } else if (targetIndex === 126) {
+    rolloutReadiness = state.targetApplied ? "APPLIED_0126" : "READY_0126";
   }
   const additivePreservationBefore = targetIndex >= 123
     ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
+    : null;
+  const geminiSchedulerBefore = targetIndex === 126
+    ? geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath, schema)
     : null;
   const reviewCountBefore = targetIndex >= 63
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
@@ -2544,6 +2597,7 @@ async function preflight(targetMigration) {
     partnerAuthBefore,
     rolloutReadiness,
     additivePreservationBefore,
+    geminiSchedulerBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -2566,6 +2620,7 @@ async function preflight(targetMigration) {
     partnerAuthBefore,
     rolloutReadiness,
     additivePreservationCounts: additivePreservationBefore ? Object.fromEntries(Object.entries(additivePreservationBefore.tables).map(([table, value]) => [table, value.count])) : null,
+    geminiSchedulerSettingsCount: geminiSchedulerBefore?.count ?? null,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -2591,6 +2646,11 @@ async function apply(targetMigration) {
   invariant(JSON.stringify(liveState.historyNames) === JSON.stringify(internal.historyNames)
     && liveState.targetApplied === internal.targetApplied,
     "Production D1 changed after preflight; refusing apply");
+  if (prepared.selection.targetIndex === 126) {
+    const latest = geminiSchedulerSettingsSnapshot(prepared.resources.d1.database_name, prepared.configPath,
+      liveSchema, internal.geminiSchedulerBefore?.columns);
+    assertGeminiSchedulerSettingsPreserved(internal.geminiSchedulerBefore, latest);
+  }
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
@@ -2624,6 +2684,19 @@ async function verify(targetMigration) {
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
   const targetIndex = migrationIndex(targetMigration);
+  let geminiSchedulerSettingsCount = null;
+  if (targetIndex === 126) {
+    const snapshot = geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath,
+      schema, internal.geminiSchedulerBefore?.columns);
+    assertGeminiSchedulerSettingsPreserved(internal.geminiSchedulerBefore, snapshot);
+    geminiSchedulerSettingsCount = snapshot.count;
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_automation_settings WHERE weekly_day IS NOT NULL AND (typeof(weekly_day) != 'integer' OR weekly_day NOT BETWEEN 1 AND 7)") === 0,
+      "weekly_day contains a value outside NULL or ISO 1-7");
+    if (!internal.targetApplied) invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_automation_settings WHERE weekly_day IS NOT NULL") === 0,
+      "0126 must initialize weekly_day to NULL for every existing setting");
+  }
   if (targetIndex >= 123) {
     const afterPreservation = additiveRolloutPreservationSnapshot(databaseName, prepared.configPath,
       schema, internal.additivePreservationBefore?.columns);
@@ -2804,6 +2877,9 @@ async function verify(targetMigration) {
     structuredAddressSchema: targetIndex >= 123 ? "PASS" : null,
     geminiNotionReviewLocksSchema: targetIndex >= 124 ? "PASS" : null,
     geminiCategoryPromptsSchema: targetIndex >= 125 ? "PASS" : null,
+    geminiSchedulerWeeklyDaySchema: targetIndex >= 126 ? "PASS" : null,
+    geminiSchedulerSettingsPreserved: targetIndex === 126 ? "PASS" : null,
+    geminiSchedulerSettingsCount,
     dynamicEntityIdentity: targetIndex >= 109 ? {
       indexes: DYNAMIC_ENTITY_IDENTITY_INDEXES,
     } : null,
