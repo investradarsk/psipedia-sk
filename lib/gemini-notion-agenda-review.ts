@@ -82,7 +82,7 @@ function identifiable(page: Page, agenda: BidirectionalAgendaKey, sourceId: stri
   if (normalized(page.parent?.data_source_id ?? "") !== normalized(sourceId) ||
       !categoryMatches(page, key, agenda)) return false;
   const status = txt(page, agenda === "help-cases" || agenda === "lost-found" ? "Psipedia stav" : "Stav");
-  const drafts = agenda === "help-cases" ? ["draft", "published"] : agenda === "lost-found"
+  const drafts = agenda === "help-cases" ? ["draft"] : agenda === "lost-found"
     ? ["DRAFT", "PENDING", "ARCHIVED"] : ["Nápad", "Na kontrolu", "Ready", "Koncept", "Archív"];
   if (!drafts.includes(status)) return false;
   const description = txt(page, "Popis");
@@ -154,7 +154,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
   const status = txt(page, source.status);
   const reviewState: GeminiReviewState = txt(page, "Psipedia ID") ? "IMPORTED"
     : ["Archív", "ARCHIVED"].includes(status) ? "REJECTED"
-    : status === "Ready" || status === "PENDING" || status === "published" ? "APPROVED" : "NEW";
+    : status === "Ready" || status === "PENDING" ? "APPROVED" : "NEW";
   return {
     id: page.id, stableKey: key, agenda, name: txt(page, source.title),
     city: txt(page, "Mesto"), reviewState, syncError: txt(page, "Sync chyba"),
