@@ -1238,6 +1238,9 @@ export async function runNotionDirectoryBootstrapSweep(input: {
 export async function runNotionDirectorySyncSweep(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
+  // Optional one-page operator recovery, using the exact existing sync pipeline.
+  // Never automatically invoked or used for routine sweep scheduling.
+  targetPageId?: string;
 }): Promise<NotionDirectorySyncSummary> {
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
   const summary: NotionDirectorySyncSummary = {
@@ -1262,7 +1265,17 @@ export async function runNotionDirectorySyncSweep(input: {
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
 
-  const pages = await recentNotionPages(input.bindings, dataSourceId);
+  let pages: NotionPage[];
+  if (input.targetPageId !== undefined) {
+    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
+      throw new Error("NOTION_TARGET_PAGE_INVALID");
+    const targetPage = await fetchNotionPage(input.bindings, input.targetPageId);
+    if (targetPage.parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+      throw new Error("NOTION_TARGET_DATA_SOURCE_MISMATCH");
+    pages = [targetPage];
+  } else {
+    pages = await recentNotionPages(input.bindings, dataSourceId);
+  }
   summary.notionScanned = pages.length;
 
   for (const candidate of pages) {
@@ -1401,7 +1414,8 @@ export async function runNotionDirectorySyncSweep(input: {
     }
   }
 
-  const changedIds = await changedProfileIds(input.database);
+  // A targeted import must not touch unrelated canonical profiles.
+  const changedIds = input.targetPageId ? [] : await changedProfileIds(input.database);
   for (const profileId of changedIds) {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;
