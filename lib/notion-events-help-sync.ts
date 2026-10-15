@@ -1107,6 +1107,11 @@ async function syncAgenda(input: {
       continue;
     }
     const trustedGemini = Boolean(provenance);
+    if (!trustedGemini && clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia") {
+      // A Notion text property does not establish signed worker provenance.
+      summary.unchanged += 1;
+      continue;
+    }
     if (trustedGemini) {
       const [section, subcategory] = provenance!.stable_key.split(".");
       const expected = notionCategoryValue(section, subcategory);
