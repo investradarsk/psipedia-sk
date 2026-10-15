@@ -49,7 +49,7 @@ Added \`tests/gemini-notion-agenda-review.test.mjs\` to existing Gemini CI (mock
 
 **Current release gates:** Notion Help schema, review/rejection contract and offline tests are completed. Remaining: immutable Gemini origin for 12 non-directory categories, separately authorized live moderation acceptance, and Lost/Found privacy signoff. The optional 21 Directory category filters and advanced media/editor parity are not blockers for basic draft editing. Keep PR Draft/BLOCKED for complete production moderation.
 
-## Read-only verification against six live Notion data sources — 14 October 2026
+## Read-only verification of six Notion data sources — 14 October baseline; Help refreshed 15 October
 
 The connected Notion workspace was inspected using **read-only fetch** (no schema edits or page mutations). Notion UI reports property type `text` for REST `rich_text`; all properties listed in `agendaEditableFields` for the five non-directory agendas are present in the canonical data source, with supported types. The actual data source IDs, not matching database titles, are authoritative.
 
@@ -93,7 +93,7 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 - Main `c78b827caa78b0885059acf3c67c63308e69f927` was merged into the same PR branch with **no changes to the scheduler or worker**; #839 D1 rollout migration pipeline remains intact.
 - Shared concept review card is now mounted in all 22 existing external-enabled Gemini category cards, rather than only the ten Directory cards. Do not enable billing or runs from this PR.
 - The existing editor exposes all Notion schema properties, including status/metadata fields it cannot edit, under a labelled read-only section. Only fields in the **current** `agendaEditableFields` sync contract are editable; unsupported data cannot be accidentally sent on PATCH. Date ranges and decorated rich-text fields are deliberately read-only, with a link to the original Notion page for advanced editing. Select fields use the actual source schema options rather than a free-text box.
-- Help-case `published` records are excluded from the draft queue. Help-case `Slug` remains read-only while the review fields are missing, then becomes editable when both required fields are verified. Saving does not publish; internal approval/rejection/restore is enabled only with a valid provisioned schema.
+- Help-case `published` records are excluded from the draft queue. Both review fields are now live and correctly typed, so `Slug` and the internal approve/reject/restore controls are schema-enabled for draft-only pages. If a later schema regression removes the fields, the controls fail closed. Saving does not publish.
 - The tests cover each of the 12 non-directory categories for saving, and all 22 keys for catalog routing, plus Notion source parent, evidence, rich formatting/date intervals, field omissions, published help records and Lost/Found privacy. Directory's original dedicated mocked contracts remain in place.
 - **Explicit limitation:** Notion has no page-property CAS and non-directory provenance remains inferred from evidence signatures, not definitive. Native media upload/crop, Google Place picker and certain bespoke field widgets are not reproducible in this Notion-only path; do not claim full native UX parity. The proposed 21 directory filters remain absent from live Notion schema.
 
@@ -102,7 +102,7 @@ The "Pomoc psom" parent database also exposes `01d07d71-88e7-45fc-8188-8de4146c5
 
 Merged the user-confirmed main `f9b9af89d414b7e20fb7c5f79e70d9b381a8f32c` into **the existing PR branch**. This preserves already merged #840 manual production migration 0126 workflow and tests. We did **not** execute, repeat or modify the production 0126 migration itself. PR #837 scheduler was subsequently merged into main and is now integrated into this existing PR branch, without changing its cadence or dispatch semantics.
 
-### Minimal live Notion change requiring operator approval
+### Completed Help review schema provisioning (operator-approved on 15 October 2026)
 
 **Canonical target:** `3ed793fc-1d18-819c-bb39-000b753d0002` (Pomoc psom – prípady only). The similarly titled `01d07d71-88e7-45fc-8188-8de4146c5479` is **not** a valid target.
 
@@ -111,7 +111,7 @@ Merged the user-confirmed main `f9b9af89d414b7e20fb7c5f79e70d9b381a8f32c` into *
 | `Gemini kontrola` | Select | `Na kontrolu`, `Schválené`, `Odmietnuté` | Internal moderation only; never public visibility |
 | `Dôvod odmietnutia` | Rich text | Free-text, nonempty and at most 1000 chars on rejection | Persisted on rejection; cleared by restore/approval |
 
-No new database, no D1 columns or migrations, no new worker. Until these properties are provisioned, the Help review API can open/edit/save the same Notion draft but cannot approve or reject it. An incomplete or wrong-type schema fails closed. Once both properties are present, the existing review API can approve, reject with reason, restore and update the same page; status `Psipedia stav` remains `draft`. The existing canonical sync checks `Gemini kontrola` before importing evidence-marked new pages and creates D1 **draft** only after `Schválené`. A legacy manual Notion page without the evidence signature and without review state retains the existing import path. Definitive differentiation between Gemini and human entries is deferred to the worker-origin follow-up, so operator must validate the dry-run cohorts before activating schema in production.
+No new database, D1 columns, migrations or worker were introduced. **Both approved fields are present in production and were read-only verified (49 properties)**. The existing Help review API can now approve, reject with a mandatory reason and restore matching Notion-only drafts; invalid schema would still fail closed. Only internal properties are written, while public `Psipedia stav` remains `draft`. Existing canonical sync requires `Gemini kontrola = Schválené` for evidence-marked candidate first imports and creates D1 **draft** only. Legacy manual pages retain their existing import behavior; reliable differentiation of Gemini versus manual pages remains a worker follow-up. No live moderation test or worker activation was performed in this PR.
 
 ### 21 category filters: required vs optional
 
