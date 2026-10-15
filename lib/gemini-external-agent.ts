@@ -2,7 +2,7 @@ import { externalWorkerCategorySupported } from "../scripts/gemini-notion-catego
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { getGeminiCategoryPrompt } from "./gemini-automation-category-prompt-store.ts";
 import { nextGeminiRunAt } from "./gemini-automation-schedule.ts";
-import { parseGeminiCreatedPages, verifyGeminiCreatedPages, registerGeminiCreatedPages, type GeminiProvenanceEnv } from "./gemini-notion-provenance.ts";
+import { parseGeminiCreatedPages, verifyGeminiCreatedPages, registerGeminiCreatedPages, resolveGeminiCallbackSource, geminiImportAgenda, type GeminiProvenanceEnv } from "./gemini-notion-provenance.ts";
 
 export type GeminiExternalEnv = GeminiProvenanceEnv & {
   GEMINI_EXTERNAL_AGENT_ENABLED?: string;
@@ -199,10 +199,17 @@ export async function completeExternalGemini(input: {
     "SELECT id,setting_id,error_code,stable_key,status FROM gemini_manual_background_jobs WHERE id=?"
   ).bind(jobId).first<{ id: number; setting_id: number; error_code: string; stable_key: string; status: string }>();
   if (!job) return { status: 409, ok: false };
+  let receiptEnv: GeminiProvenanceEnv = input.env;
+  if (result.created_pages !== undefined && Number(count) > 0) {
+    const agenda = geminiImportAgenda(job.stable_key);
+    if (!agenda) return { status: 400, ok: false };
+    try { receiptEnv = await resolveGeminiCallbackSource(input.db, input.env, agenda); }
+    catch { return { status: 503, ok: false }; }
+  }
   // At-least-once callback transport: accept identical completed receipts,
   // never replay state changes or accept a different list of Notion identities.
   if (job.status === status && result.created_pages !== undefined) {
-    const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), input.env);
+    const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), receiptEnv);
     if (!parsed) return { status: 400, ok: false };
     const priorRun = await input.db.prepare(
       "SELECT concept_count,duplicate_count,request_count,grounded_search_query_count,status " +
@@ -229,10 +236,10 @@ export async function completeExternalGemini(input: {
   // Signed worker receipts only; old workers without created_pages stay compatible,
   // but their pages do NOT receive the trusted origin required for auto-import.
   if (result.created_pages !== undefined) {
-    const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), input.env);
+    const parsed = parseGeminiCreatedPages(result.created_pages, job.stable_key, Number(count), receiptEnv);
     if (!parsed) return { status: 400, ok: false };
     try {
-      await verifyGeminiCreatedPages(input.env, parsed.pages);
+      await verifyGeminiCreatedPages(receiptEnv, parsed.pages);
       await registerGeminiCreatedPages(input.db, Number(jobId), parsed);
     } catch {
       // Never complete the job on an uncertain or foreign page receipt.
