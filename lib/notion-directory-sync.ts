@@ -772,7 +772,8 @@ function notionProfileReadyForCreate(page: NotionPage) {
   // Gemini-generated Notion drafts enter the existing canonical directory as
   // private drafts immediately. Approval and publication are separate actions.
   if (propertyText(page, "Vytvoril") === "Gemini automatizácia")
-    return ["", "Nápad", "Na kontrolu", "Ready", "Koncept"].includes(editorialState) &&\n      propertyText(page, "Psipedia stav") === "Koncept";
+    return ["", "Nápad", "Na kontrolu", "Ready", "Koncept"].includes(editorialState) &&
+      propertyText(page, "Psipedia stav") === "Koncept";
   return editorialState === "Ready" || editorialState === "Publikované";
 }
 
