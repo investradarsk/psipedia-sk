@@ -118,9 +118,9 @@ test("0127 receipt identity remains unique and the applied rollout stays guarded
   assert.match(sql, /REFERENCES gemini_manual_background_jobs\(id\)/);
   assert.match(sql, /UNIQUE \(import_agenda, canonical_entity_id\)/);
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes("0127_gemini_notion_created_pages.sql"));
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0128_facebook_image_posts.sql"]);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0128_facebook_image_posts.sql"), false);
-  await assert.rejects(prepareScopedMigration({ targetMigration: "0128_facebook_image_posts.sql" }), /Unsupported production migration target/);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0128_facebook_image_posts.sql"), true);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0129_gemini_external_manual_queue.sql"), true);
   assert.match(runner, /"0127_gemini_notion_created_pages\.sql",/);
   assert.match(runner, /export const APPROVED_0127_SHA256 = "[a-f0-9]{64}"/);
   assert.match(runner, /export function assertApproved0127Target/);
