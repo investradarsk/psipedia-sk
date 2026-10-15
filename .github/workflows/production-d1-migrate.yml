@@ -76,6 +76,7 @@ on:
           - 0126_gemini_scheduler_admin_v2.sql
           - 0127_gemini_notion_created_pages.sql
           - 0128_facebook_image_posts.sql
+          - 0129_gemini_external_manual_queue.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -172,6 +173,7 @@ jobs:
             0126_gemini_scheduler_admin_v2.sql) expected_confirmation="APPLY-0126-psipedia-sk-db" ;;
             0127_gemini_notion_created_pages.sql) expected_confirmation="APPLY-0127-psipedia-sk-db" ;;
             0128_facebook_image_posts.sql) expected_confirmation="APPLY-0128-psipedia-sk-db" ;;
+            0129_gemini_external_manual_queue.sql) expected_confirmation="APPLY-0129-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
