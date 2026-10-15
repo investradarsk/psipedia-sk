@@ -14,7 +14,12 @@ function post(row: Row): FacebookImagePost { return {id:row.id,title:row.title,i
 const columns = "id,title,image_url,image_key,caption,scheduled_at,status,version,created_at,updated_at,approval_status,facebook_post_id";
 async function hasPublisherSchema(db:D1Database) {
   try {await db.prepare("SELECT post_id,state,error_code FROM facebook_image_publish_attempts LIMIT 0").all();return true;}
-  catch {return false;} // Admin drafts remain editable until separately authorized 0129 rollout.
+  catch(error) {
+    // Only a genuinely missing migration may fall back to V1. A transient
+    // D1 failure must fail closed or an in-flight post might become editable.
+    if(error instanceof Error && /no such table:\\s*facebook_image_publish_attempts|table.*facebook_image_publish_attempts.*does not exist/i.test(error.message))return false;
+    throw error;
+  }
 }
 function selectColumns(publisher:boolean) {
   const base=columns.split(",").map(name=>`p.${name}`).join(",");
