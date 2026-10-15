@@ -129,7 +129,7 @@ test("review rejects non-agent, already synced, or already published records", a
 });
 
 test("only directory catalog keys are valid and new worker tags its drafts", async () => {
-  const source = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../scripts/gemini-notion-directory-fields.mjs", import.meta.url), "utf8");
   assert.match(source, /"Vytvoril": "Gemini automatizácia"/);
   await assert.rejects(listGeminiDirectoryDrafts(env, "events.vystavy"),
     (error) => error instanceof GeminiNotionReviewError && error.code === "CATEGORY");

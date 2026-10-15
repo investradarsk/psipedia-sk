@@ -21,6 +21,7 @@ function runOffline(scenario, stableKey = "directory.veterinari", maxNew = "2") 
     env: {
       ...process.env,
       MOCK_SCENARIO: scenario,
+      GITHUB_RUN_ATTEMPT: scenario === "workflow_replay" ? "2" : "1",
       GEMINI_AGENT_PAID_ENABLED: "true", // Child process only; all network blocked by preload.
       AGENT_GEMINI_ACCESS_KEY: "mock-key",
       AGENT_NOTION_ACCESS_TOKEN: "mock-token",
@@ -143,7 +144,7 @@ for (const key of ["events.vystavy", "events.preteky", "events.seminare", "event
     assert.equal(run.counts.geminiCalls, 3, "limit stops further requests");
     const properties = run.pages[0].properties;
     assert.doesNotMatch(JSON.stringify(properties), /Publikované|published|Ready|Sync stav/);
-    assert.match(JSON.stringify(properties.Popis), /Dôkazy/);
+    assert.doesNotMatch(JSON.stringify(properties.Popis), /Dôkazy/);
     if (key.startsWith("events")) {
       assert.equal(properties["Čas začiatku"].rich_text[0].text.content, "10:00");
       assert.equal(properties["Organizátor"].rich_text[0].text.content, "Organizátor");
@@ -151,8 +152,7 @@ for (const key of ["events.vystavy", "events.preteky", "events.seminare", "event
   });
 }
 for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
-  for (const scenario of ["wrong_database", "wrong_type", "missing_source", "invalid_source", "ungrounded", "missing_evidence",
-    "missing_grounding", "incomplete_scan", "malformed_scan", "partial_property", "gemini_timeout"]) {
+  for (const scenario of ["wrong_database", "incomplete_scan", "malformed_scan", "gemini_timeout"]) {
     test(key + " refuses " + scenario + " without write", () => {
       const run = runOffline(scenario, key);
       assert.equal(run.exitCode, 1, run.stderr);
@@ -162,10 +162,11 @@ for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
     });
   }
   for (const scenario of ["duplicate", "ambiguous"]) {
-    test(key + " fresh final scan blocks " + scenario, () => {
+    test(key + " possible duplicate remains a private review draft: " + scenario, () => {
       const run = runOffline(scenario, key);
       assert.equal(run.exitCode, 0, run.stderr);
-      assert.equal(run.counts.notionPosts, 0);
+      assert.equal(run.counts.notionPosts, 1);
+      assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /duplicita/);
       assert.equal(run.callback.duplicate_count, 1);
     });
   }
@@ -193,7 +194,7 @@ for (const key of ["directory.veterinari", "events.vystavy", "help.zbierky", "he
     assert.equal(run.exitCode, 0, run.stderr);
     assert.equal(run.counts.notionPosts, 1);
     assert.equal(run.callback.concept_count, 1);
-    assert.equal(run.callback.duplicate_count, 1);
+    assert.equal(run.callback.duplicate_count, 0, "technical replay is not a business duplicate");
   });
 }
 
@@ -206,10 +207,11 @@ test("help.adopcia creates canonical Nápad without identity/publication or pers
   assert.equal(p.Meno.title[0].text.content,"Nový psík");
   for(const key of ["Psipedia ID","Slug","Latitude","Longitude","Verejný kontakt"])assert.equal(p[key],undefined);
 });
-test("help.adopcia rejects private phone from Gemini before writing Notion", () => {
+test("help.adopcia omits private phone without discarding the draft", () => {
   const run=runOffline("adoption_private","help.adopcia");
-  assert.equal(run.counts.notionPosts,0);
-  assert.equal(run.callback.error_code,"NOTION_ADOPTION_CONTRACT_INVALID");
+  assert.equal(run.counts.notionPosts,1);
+  assert.doesNotMatch(JSON.stringify(run.pages), /905 123 456/);
+  assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /Súkromné/);
 });
 test("event worker completes initial and final paginated scans before creating", () => {
   const run = runOffline("paginated", "events.vystavy");
@@ -229,10 +231,9 @@ test("shelter creates only a canonical Organization draft (SHELTER/Nápad)", () 
   assert.equal(page.properties.Kategória, undefined);
   assert.equal(page.properties.Adresa, undefined);
   assert.equal(page.properties.Latitude, undefined);
-  assert.match(JSON.stringify(page.properties.Popis), /dôkazy/i);
+  assert.doesNotMatch(JSON.stringify(page.properties.Popis), /dôkazy/i);
 });
-for (const scenario of ["wrong_database","wrong_type","missing_source","missing_evidence","ungrounded",
-  "incomplete_scan","malformed_scan","partial_property","shelter_unverified","shelter_private"]) {
+for (const scenario of ["wrong_database","wrong_type","incomplete_scan","malformed_scan"]) {
   test("shelter rejects " + scenario + " before POST", () => {
     const run = runOffline(scenario, "help.utulky");
     assert.equal(run.exitCode, 1, run.stderr);
@@ -241,10 +242,11 @@ for (const scenario of ["wrong_database","wrong_type","missing_source","missing_
   });
 }
 for (const scenario of ["duplicate","ambiguous","shelter_other_type"]) {
-  test("shelter blocks cross-type or uncertain organization identity: " + scenario, () => {
+  test("shelter warns about organization identity: " + scenario, () => {
     const run = runOffline(scenario, "help.utulky");
     assert.equal(run.exitCode, 0, run.stderr);
-    assert.equal(run.counts.notionPosts, 0);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /duplicita/);
     assert.equal(run.callback.duplicate_count, 1);
   });
 }
@@ -258,11 +260,11 @@ for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","n
 }
 
 for (const [scenario, status, requests, concepts, error] of [
-  ["pilot_duplicate_done", "SUCCESS", 5, 0, null],
-  ["pilot_duplicate_loop", "SUCCESS", 6, 0, null],
+  ["pilot_duplicate_done", "SUCCESS", 3, 1, null],
+  ["pilot_duplicate_loop", "SUCCESS", 3, 1, null],
   ["pilot_search_loop", "SUCCESS", 5, 0, null],
-  ["pilot_duplicate_new", "SUCCESS", 4, 1, null],
-  ["pilot_duplicate_recover", "SUCCESS", 5, 1, null],
+  ["pilot_duplicate_new", "SUCCESS", 3, 1, null],
+  ["pilot_duplicate_recover", "SUCCESS", 3, 1, null],
   ["pilot_empty", "SUCCESS", 4, 0, null],
   ["pilot_limit", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
   ["pilot_limit_write", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
@@ -310,6 +312,7 @@ test("Lost/Found E2E LOST: exact parent, DRAFT-only properties, one signed callb
   assert.equal(run.counts.notionPosts, 1);
   assert.equal(run.counts.callbacks, 1);
   const page = run.pages[0];
+  assert.match(JSON.stringify(page.properties["Gemini poznámka"]), /Overte dostupnosť/);
   assert.equal(page.parent.data_source_id, "3ed793fc-1d18-8122-95b9-000b05c3c6bd");
   assert.equal(page.properties.Typ.rich_text[0].text.content, "LOST");
   assert.equal(page.properties["Psipedia stav"].rich_text[0].text.content, "DRAFT");
@@ -332,10 +335,8 @@ test("Lost/Found E2E FOUND: same canonical database, never published", () => {
   assert.equal(run.pages[0].properties.Typ.rich_text[0].text.content,"FOUND");
   assert.equal(run.pages[0].properties["Psipedia stav"].rich_text[0].text.content,"DRAFT");
 });
-for (const scenario of ["wrong_config", "wrong_database","wrong_type", "missing_source",
-  "invalid_source", "ungrounded", "missing_evidence", "missing_grounding",
-  "lost_private", "lost_gps", "lost_private_text", "lost_stale", "lost_resolved",
-  "incomplete_scan", "malformed_scan", "partial_property", "gemini_timeout"]) {
+for (const scenario of ["wrong_config", "wrong_database","wrong_type",
+  "incomplete_scan", "malformed_scan", "gemini_timeout"]) {
   test("Lost/Found E2E blocks "+scenario+" without a POST", () => {
     const run=runOffline(scenario, LF);
     assert.equal(run.exitCode,1,run.stderr);
@@ -347,10 +348,11 @@ for (const scenario of ["wrong_config", "wrong_database","wrong_type", "missing_
   });
 }
 for (const scenario of ["duplicate","ambiguous"]) {
-  test("Lost/Found re-scans whole Notion source to refuse "+scenario,()=>{
+  test("Lost/Found keeps a private draft with warning: "+scenario,()=>{
     const run=runOffline(scenario,LF);
     assert.equal(run.exitCode,0,run.stderr);
-    assert.equal(run.counts.notionPosts,0);
+    assert.equal(run.counts.notionPosts,1);
+    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /duplicita/);
     assert.equal(run.callback.duplicate_count,1);
   });
 }
@@ -373,7 +375,7 @@ test("Lost/Found retains confirmed drafts across stale Notion reads",()=>{
   const run=runOffline("repeat_create",LF);
   assert.equal(run.exitCode,0,run.stderr);
   assert.equal(run.callback.concept_count,1);
-  assert.equal(run.callback.duplicate_count,1);
+  assert.equal(run.callback.duplicate_count,0);
   assert.equal(run.counts.notionPosts,1);
 });
 const remainingKeys=[
@@ -395,6 +397,7 @@ for (const key of remainingKeys) {
     assert.equal(run.exitCode,0,run.stderr);
     assert.equal(run.counts.notionPosts,1);
     assert.equal(run.callback.status,"SUCCESS");
+    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /Overte dostupnosť/);
   });
 }
 
@@ -421,4 +424,35 @@ test("all four no-draft terminal reasons stay callback-safe, without provider te
   assert.match(worker, /outcome_code: status === "SUCCESS" && metrics.concept_count === 0/);
   assert.match(worker, /parseNoDraftOutcome\(answer\)/);
   assert.doesNotMatch(worker, /outcome_code: answer/);
+});
+
+for (const key of ["events.vystavy", "help.zbierky", "help.adopcia", "help.utulky", LF]) {
+  for (const scenario of ["missing_source", "invalid_source", "ungrounded", "missing_evidence", "missing_grounding", "partial_property", "missing_organizer"]) {
+    test(key + " keeps usable draft despite optional gap: " + scenario, () => {
+      const run = runOffline(scenario, key, "1");
+      assert.equal(run.exitCode, 0, run.stderr);
+      assert.equal(run.counts.notionPosts, 1);
+      assert.ok(!JSON.stringify(run.pages).includes("http://example"));
+    });
+  }
+}
+for (const scenario of ["lost_private", "lost_gps", "lost_private_text", "lost_stale", "lost_resolved", "shelter_private", "shelter_unverified"]) {
+  test("private fields omitted; editorial uncertainty goes to note: " + scenario, () => {
+    const run = runOffline(scenario, scenario.startsWith("shelter") ? "help.utulky" : LF, "1");
+    assert.equal(run.exitCode, 0, run.stderr);
+    assert.equal(run.counts.notionPosts, 1);
+    assert.doesNotMatch(JSON.stringify(run.pages), /905 123 456|48\.123456|Hlavná 42|private@example/);
+  });
+}
+
+test("all 151 records are available through explicit Notion tool pagination", () => {
+  const run = runOffline("many_records", "directory.veterinari", "1");
+  assert.equal(run.exitCode, 0, run.stderr);
+  assert.equal(run.callback.concept_count, 1);
+  assert.equal(run.counts.notionPosts, 1);
+});
+test("re-running an existing workflow cannot repeat uncertain technical writes", () => {
+  const run = runOffline("workflow_replay");
+  assert.equal(run.callback.error_code, "AGENT_REPLAY_REQUIRES_REVIEW");
+  assert.deepEqual(run.counts, { geminiCalls: 0, notionPosts: 0, callbacks: 1 });
 });

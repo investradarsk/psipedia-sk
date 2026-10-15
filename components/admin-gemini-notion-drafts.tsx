@@ -106,6 +106,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
                     <div>
                       <strong>{draft.name}</strong>
                       <span>{[draft.city, geminiReviewLabels[draft.reviewState], draft.reviewState === "APPROVED" ? "Čaká na synchronizáciu" : ""].filter(Boolean).join(" · ")}</span>
+                      {draft.geminiNote && <aside aria-label="Gemini poznámka"><strong>Gemini poznámka</strong><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{draft.geminiNote}</p></aside>}
                       {draft.reviewState === "APPROVED" && draft.syncError && <span role="status">Synchronizácia: {draft.syncError}</span>}
                       {draft.reviewState === "REJECTED" && <span>Dôvod: {draft.rejectionReason || "Bez uvedenia dôvodu"}</span>}
                     </div>
@@ -132,6 +133,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         onClose={() => setSelectedDraft(null)}
         className={styles.notionEditorDialog}
       >
+        {selectedDraft?.geminiNote && <aside aria-label="Gemini poznámka"><strong>Gemini poznámka</strong><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{selectedDraft.geminiNote}</p></aside>}
         {selectedDraft && ("agenda" in selectedDraft ? (
           <AdminGeminiAgendaDraftEditor
             key={selectedDraft.id}

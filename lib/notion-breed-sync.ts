@@ -263,7 +263,7 @@ async function syncOneBreed(
     const mergedPayload = mergeNotionBreedInput(existing, basePayload);
     const { payload, prepared } = await preparePayloadWithImage(bindings, page, mergedPayload, existing);
     try {
-      const updated = await updateManagedBreed(existing.id, payload, SYNC_ACTOR);
+      const updated = await updateManagedBreed(existing.id, payload, SYNC_ACTOR, existing.updatedAt);
       if (!updated) throw new Error("Prepojené plemeno sa nepodarilo aktualizovať.");
       await cleanupNotionImageKeys(bindings.BUCKET, prepared.replacedKeys);
       await upsertMapping(database, page, updated.id, contentHash, now);

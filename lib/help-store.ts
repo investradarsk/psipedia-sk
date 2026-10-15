@@ -291,11 +291,11 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
   if (category === "utulky") throw new Error("Útulky a organizácie sa spravujú v canonical sekcii Organizácie.");
   if (!isHelpAdminCreateCategory(category) && !(options.allowLegacyUrgent && category === "urgentne-pripady")) throw new Error("Táto kategória nepatrí do generic Help CRUD.");
   if (allHelpCategories.some((item) => item.slug === slug)) throw new Error("Túto adresu používa kategória. Uprav adresu prípadu.");
-  if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
-  if (!organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
-  if (!city) throw new Error("Doplň mesto alebo uveď Online.");
-  if (!region) throw new Error("Vyber kraj.");
+  if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
+  if (status === "published" && description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
+  if (status === "published" && !organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
+  if (status === "published" && !city) throw new Error("Doplň mesto alebo uveď Online.");
+  if (status === "published" && !region) throw new Error("Vyber kraj.");
   if (category === "zbierky" && status === "published" && (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))) {
     throw new Error("Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.");
   }
@@ -316,7 +316,7 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
     breed: payload.breed?.trim() ?? "",
     ageNote: payload.ageNote?.trim() ?? "",
     city,
-    region,
+    region: region ?? "",
     locationNote: payload.locationNote?.trim() ?? "",
     reportedDate: normalizeDate(payload.reportedDate, "Dátum prípadu"),
     deadlineDate: normalizeDate(payload.deadlineDate, "Termín pomoci"),

@@ -49,6 +49,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     consider:breed?.consider.join("\n")??"",editorial:breed?.editorial??{},sports:breed?.sports??[],relatedBreedIds:breed?.relatedBreedIds??[],relatedArticleIds:breed?.relatedArticleIds??[],directoryProfileIds:breed?.directoryProfileIds??[],sources:breed?.sources?.length?breed.sources:[{...emptySource}],accent:breed?.accent??"forest",seo:breed?.seo??{},
   });
   const [slugEdited,setSlugEdited]=useState(Boolean(breed));
+  const [expectedUpdatedAt,setExpectedUpdatedAt]=useState(breed?.updatedAt??"");
   const [saving,setSaving]=useState(false);
   const [uploading,setUploading]=useState(false);
   const [message,setMessage]=useState("");
@@ -98,10 +99,11 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     try{
       const response=await fetch(breed?`/api/admin/breeds/${breed.id}`:"/api/admin/breeds",{
         method:breed?"PUT":"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim())})
+        body:JSON.stringify({...form,fciNumber:form.fciNumber?Number(form.fciNumber):null,validStandardDate:form.validStandardDate||null,importKey:form.importKey||null,status,family:form.children,healthRisks:lines(form.healthRisks),goodFor:lines(form.goodFor),consider:lines(form.consider),sources:form.sources.filter((item)=>item.label.trim()&&item.url.trim()),...(breed?{expectedUpdatedAt}:{})})
       });
       const data=await response.json() as {breed?:ManagedBreed;error?:string};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
+      setExpectedUpdatedAt(data.breed.updatedAt);
       setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
       if(!breed)window.location.assign(`/admin/plemena/${data.breed.id}`);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}

@@ -21,6 +21,7 @@ export type GeminiDirectoryDraft = {
   syncError: string;
   rejectionReason: string;
   notes: string;
+  geminiNote?: string;
   id: string;
   name: string;
   category: string;
@@ -128,6 +129,7 @@ function renderDraft(page: DirectoryNotionPage): GeminiDirectoryDraft {
   const lastRejection = audit.findLast(event => event.action === "REJECT");
   return {
     notes,
+    geminiNote: notionPreservedText(page, "Gemini poznámka"),
     syncError: notionDraftText(page, "Sync chyba"),
     rejectionReason: lastRejection?.reason ?? "",
     reviewState: geminiReviewState({

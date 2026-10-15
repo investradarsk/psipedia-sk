@@ -255,14 +255,15 @@ test("legacy multi-value contact stays untouched during unrelated edits", () => 
 });
 
 test("Gemini Notion proposals become private canonical drafts without approval or public status", () => {
-  const gate = syncSource.slice(syncSource.indexOf("function notionProfileReadyForCreate"), syncSource.indexOf("class GeminiCanonicalDuplicateError"));
+  const gate = syncSource.slice(syncSource.indexOf("function notionProfileReadyForCreate"), syncSource.indexOf("async function createProfileFromNotion"));
   assert.match(gate, /Gemini automatizácia/);
   assert.match(gate, /"Nápad", "Na kontrolu", "Ready", "Koncept"/);
   assert.match(gate, /propertyText\(page, "Psipedia stav"\) === "Koncept"/);
   assert.doesNotMatch(gate, /editorialState === "Publikované" &&/);
   const creation = syncSource.slice(syncSource.indexOf("async function createProfileFromNotion"), syncSource.indexOf("async function applyNotionToProfile"));
   assert.match(creation, /status: "draft"/);
-  assert.match(creation, /GeminiCanonicalDuplicateError/);
+  assert.match(creation, /gemini-/);
+  assert.doesNotMatch(creation, /sameDirectoryIdentity|GeminiCanonicalDuplicateError/);
   assert.match(syncSource, /await saveMapping\(\{/);
 });
 test("Gemini mapped drafts never auto-publish and editorial conflicts remain unresolved", () => {
