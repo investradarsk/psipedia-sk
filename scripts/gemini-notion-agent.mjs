@@ -572,10 +572,19 @@ async function runAgent() {
         .map(block => block.text).join("").trim();
       if (finalizing) {
         if (answer !== '{"outcome":"exhausted"}') throw Error("AGENT_NO_PROGRESS");
+        console.log("Agent no-draft outcome: exhausted");
       } else if (requiresNoDraftRecovery(metrics.concept_count)) {
         // A model may finish immediately after search_notion. This is not a
         // researched outcome. Continue the SAME interaction exactly once.
         if (!completionRecovery) {
+          // An already explicit, valid reason requires no extra paid request.
+          try {
+            const outcome = parseNoDraftOutcome(answer);
+            console.log("Agent no-draft outcome:", outcome);
+            return;
+          } catch (error) {
+            if (error?.message !== "AGENT_OUTCOME_MISSING") throw error;
+          }
           if (turn === AGENT_TURNS_LIMIT) throw Error("AGENT_TURN_LIMIT");
           completionRecovery = true;
           response = await gemini({
