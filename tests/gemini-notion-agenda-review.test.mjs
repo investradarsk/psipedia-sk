@@ -1,5 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  planHelpGeminiReviewSchema, CANONICAL_HELP_DATABASE_ID,
+  CANONICAL_HELP_DATA_SOURCE_ID,
+} from "../lib/gemini-help-notion-schema-rollout.ts";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import {
   geminiAgendaForKey, listGeminiAgendaDrafts, mutateGeminiAgendaDraft,
@@ -497,4 +501,80 @@ test("merged #837 scheduler controls and #838 review panel coexist for 22 catego
   assert.match(settings, /canManuallyRun/);
   assert.match(scheduler, /geminiSchedulerOptions/);
   assert.match(scheduler, /geminiWeekdays/);
+});
+
+
+test("production Help schema preflight is read-only, canonical and idempotent", () => {
+  const input = {
+    databaseId: CANONICAL_HELP_DATABASE_ID,
+    dataSourceId: CANONICAL_HELP_DATA_SOURCE_ID,
+    schema: {
+      "Názov": { type: "title" }, "Psipedia stav": { type: "text" },
+      "Psipedia ID": { type: "text" }, "Slug": { type: "text" },
+    },
+  };
+  const first = planHelpGeminiReviewSchema(input);
+  assert.equal(first.existingProperties, 4);
+  assert.equal(first.additions.length, 2);
+  assert.equal(first.statements,
+    'ADD COLUMN "Gemini kontrola" SELECT(\'Na kontrolu\':gray, \'Schválené\':green, \'Odmietnuté\':red); ADD COLUMN "Dôvod odmietnutia" RICH_TEXT');
+  assert.equal(first.noOp, false);
+  const review = {
+    type: "select",
+    options: [{ name: "Na kontrolu" }, { name: "Schválené" }, { name: "Odmietnuté" }],
+  };
+  const oneExisting = planHelpGeminiReviewSchema({
+    ...input, schema: { ...input.schema, "Gemini kontrola": review },
+  });
+  assert.deepEqual(oneExisting.additions, ['ADD COLUMN "Dôvod odmietnutia" RICH_TEXT']);
+  const alreadyDone = planHelpGeminiReviewSchema({
+    ...input,
+    schema: {
+      ...input.schema, "Gemini kontrola": review,
+      "Dôvod odmietnutia": { type: "text" },
+    },
+  });
+  assert.equal(alreadyDone.noOp, true);
+  assert.equal(alreadyDone.statements, "");
+});
+
+test("production Help schema preflight rejects wrong source, wrong parent or incompatible duplicates", () => {
+  const correct = {
+    databaseId: CANONICAL_HELP_DATABASE_ID,
+    dataSourceId: CANONICAL_HELP_DATA_SOURCE_ID,
+    schema: {
+      "Názov": { type: "title" }, "Psipedia stav": { type: "text" },
+      "Psipedia ID": { type: "text" }, "Slug": { type: "text" },
+    },
+  };
+  assert.throws(() => planHelpGeminiReviewSchema({
+    ...correct, dataSourceId: "01d07d71-88e7-45fc-8188-8de4146c5479",
+  }), /WRONG_CANONICAL_HELP_DATA_SOURCE/);
+  assert.throws(() => planHelpGeminiReviewSchema({
+    ...correct, databaseId: "00000000-0000-0000-0000-000000000000",
+  }), /WRONG_CANONICAL_HELP_DATA_SOURCE/);
+  assert.throws(() => planHelpGeminiReviewSchema({
+    ...correct, schema: { "Name": { type: "title" } },
+  }), /NOT_CANONICAL_HELP_SCHEMA/);
+  assert.throws(() => planHelpGeminiReviewSchema({
+    ...correct, schema: {
+      ...correct.schema,
+      "Gemini kontrola": { type: "select", options: [
+        { name: "Na kontrolu" }, { name: "Schválené" }, { name: "Odmietnuté" },
+        { name: "Publikované" },
+      ] },
+    },
+  }), /GEMINI_REVIEW_SCHEMA_CONFLICT/);
+  assert.throws(() => planHelpGeminiReviewSchema({
+    ...correct, schema: { ...correct.schema, "Dôvod odmietnutia": { type: "number" } },
+  }), /GEMINI_REJECTION_SCHEMA_CONFLICT/);
+});
+
+test("Help review decision refuses options beyond the exact approved moderation choices", async () => {
+  const f = withInternalHelpReview(fixture("help.zbierky"));
+  f.schema.properties["Gemini kontrola"].select.options.push({ name: "Publikované" });
+  await mockedFetch(f.request, async () => {
+    await assert.rejects(() => listGeminiAgendaDrafts(f.env, "help.zbierky"), { code: "SCHEMA" });
+    assert.equal(f.writes.length, 0);
+  });
 });

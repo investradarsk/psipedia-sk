@@ -151,3 +151,30 @@ Update the **single existing Gemini Notion worker** to write explicit, stable ow
 - All 21 Directory category filter properties are optional for **basic profile editing**; they remain unprovisioned and full structured category-facet parity is not claimed. Advanced media widgets and Notion's lack of atomic page-property CAS are additional known limitations.
 
 **Merge assessment:** Core review/edit preservation and scheduler UI integration are technically validated, but PR #838 remains **Draft / BLOCKED for the complete 22-category moderation promise** until canonical Help review schema is approved and a non-directory provenance contract is implemented. Do not treat current CI as proof of those missing production capabilities.
+
+
+## Production Help Notion schema preflight and explicit confirmation gate — 15 October 2026
+
+**STATUS: PREPARED / NOT APPLIED.** The user approved the _choice_ of exactly two moderation properties but explicitly withheld authorization for an actual production schema write until a further direct confirmation. Do not call the Notion schema mutation tool, apply SQL, edit Notion records or activate automation on this stage.
+
+Read-only Notion fetch on 15 October 2026 verified:
+
+- Parent database: `4a883a05-35af-45b8-b7cc-5ad7ac5670e9`; two data sources with the same title `Pomoc psom`.
+- **Only intended canonical source:** `collection://3ed793fc-1d18-819c-bb39-000b753d0002`, 47 properties, `Názov` title and `Psipedia stav`, `Psipedia ID`, `Slug` text.
+- **Invalid sibling:** `collection://01d07d71-88e7-45fc-8188-8de4146c5479`, `Name` title only; never mutate.
+- Both target properties are **absent**. All other 47 properties must remain unchanged.
+
+### Exact approved DDL (NOT executed)
+
+The Notion tool `notion_update_data_source` supports the following SQL DDL statements on the exact canonical collection ID:
+
+```sql
+ADD COLUMN "Gemini kontrola" SELECT('Na kontrolu':gray, 'Schválené':green, 'Odmietnuté':red);
+ADD COLUMN "Dôvod odmietnutia" RICH_TEXT
+```
+
+**When and only when the user explicitly confirms the production schema write:** (1) refetch parent database and exact child data source; (2) use pure `planHelpGeminiReviewSchema` with fetched schema to assert canonical identity and options; (3) if both fields exist and exactly match, do nothing; if one exists correctly, create ONLY the missing property; if either exists with wrong type/options or the parent/schema has changed, abort and report; (4) submit only the computed ADD COLUMN statements to `notion_update_data_source`, with no page layout, title, page data or publication changes; (5) refetch canonical data source and verify both properties and existing 47 properties. Expected count after both additions: 49. No migration of existing page values and no automatic publication.
+
+Do not infer confirmation from the original selection approval. Do not run a production test by modifying existing Notion pages. The live review API must still disable Help decisions until the actual schema is verified. Existing offline tests, including approval, required rejection reason, restore, stale revision, no `Psipedia stav` mutation and D1-draft-only mapping, can be verified now with GitHub CI. **End-to-end live approval/rejection cannot be claimed until the separately authorized schema change and safe manual operator testing.**
+
+After schema provisioning, the remaining independent blocker is reliable Gemini provenance for non-directory categories (existing external worker change, with separate schema/field decision). The 21 Directory category filters are optional for basic draft editing. PR #838 stays Draft; no automatic merge.
