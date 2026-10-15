@@ -7,7 +7,7 @@ import {
 } from "../scripts/production-d1-0128-readonly.mjs";
 
 const canonicalNames = readdirSync(new URL("../drizzle/", import.meta.url))
-  .filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort();
+  .filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name) && Number(name.slice(0,4))<=128).sort();
 const migration = readFileSync(new URL("../drizzle/0128_facebook_image_posts.sql", import.meta.url), "utf8");
 const previous = readFileSync(new URL("../drizzle/0127_gemini_notion_created_pages.sql", import.meta.url), "utf8");
 const resources = { account_id: "offline", d1: { database_name: "psipedia-sk-db", database_id: "offline-db-id" } };
