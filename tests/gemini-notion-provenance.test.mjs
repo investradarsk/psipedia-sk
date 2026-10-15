@@ -7,7 +7,7 @@ import {
 } from "../lib/gemini-notion-provenance.ts";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { PREPARED_PRODUCTION_TARGETS, SUPPORTED_PRODUCTION_TARGETS, prepareScopedMigration } from "../scripts/production-d1-migrate.mjs";
+import { PREPARED_PRODUCTION_TARGETS, SUPPORTED_PRODUCTION_TARGETS } from "../scripts/production-d1-migrate.mjs";
 
 const ID = "a1111111-1111-4111-8111-111111111111";
 const ID2 = "b2222222-2222-4222-8222-222222222222";
@@ -121,6 +121,10 @@ test("0127 receipt identity remains unique and the applied rollout stays guarded
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0128_facebook_image_posts.sql"), true);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes("0129_gemini_external_manual_queue.sql"), true);
+  assert.match(runner, /export const APPROVED_0128_SHA256 = "[a-f0-9]{64}"/);
+  assert.match(runner, /export function assertApproved0128Target/);
+  assert.match(runner, /export function assert0128NotAlreadyApplied/);
+  assert.match(runner, /invariant\(!targetApplied, "0128 already applied; refusing repeated production APPLY"\)/);
   assert.match(runner, /"0127_gemini_notion_created_pages\.sql",/);
   assert.match(runner, /export const APPROVED_0127_SHA256 = "[a-f0-9]{64}"/);
   assert.match(runner, /export function assertApproved0127Target/);
