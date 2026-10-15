@@ -335,3 +335,27 @@ test("external dispatch transports the saved prompt for the selected category wi
     assert.equal(payload.inputs.max_new_concepts, "5");
   } finally { globalThis.fetch = original; }
 });
+
+test("all 22 categories dispatch their distinct effective editable prompt (no real GitHub calls)", async () => {
+  const original = globalThis.fetch;
+  const mapped = new Map();
+  globalThis.fetch = async (_url, options) => {
+    const data = JSON.parse(options.body);
+    mapped.set(data.inputs.stable_key, data.inputs.category_prompt);
+    return new Response(null, { status: 204 });
+  };
+  try {
+    for (const category of geminiAutomationCatalog) {
+      const { db } = fakeDb();
+      await dispatchExternalGemini({ db, env: {
+        GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+        GITHUB_ACTIONS_DISPATCH_TOKEN: "synthetic",
+        GEMINI_AGENT_CALLBACK_SECRET: "synthetic",
+      }, stableKey: category.stableKey, trigger: "MANUAL" });
+    }
+    assert.equal(mapped.size, 22);
+    assert.equal(new Set(mapped.values()).size, 22);
+    for (const [key, prompt] of mapped)
+      assert.ok(prompt.length >= 40 && prompt.length <= 6000, key);
+  } finally { globalThis.fetch = original; }
+});
