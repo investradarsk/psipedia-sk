@@ -191,11 +191,11 @@ globalThis.fetch = async (url, options = {}) => {
       if (scenario === "pilot_limit_write" && geminiCalls === 9) return action("create_notion_draft", candidate);
       if (["pilot_limit", "pilot_limit_write"].includes(scenario)) return action("search_notion", { query: "different-" + geminiCalls });
       if (geminiCalls === 2) return action("search_notion", { query: "Test Veterinár" });
-      if (scenario === "pilot_empty") return done();
+      if (scenario === "pilot_empty") return done(geminiCalls === 3 ? "Done" : '{"outcome":"no_relevant_candidate"}');
       if (["pilot_search_loop", "pilot_ignores_stop", "pilot_unresolved_stop", "pilot_malformed_stop"].includes(scenario))
         return action("search_notion", { query: "  test veterinar  " });
       if (geminiCalls === 3) return action("create_notion_draft", candidate);
-      if (scenario === "pilot_duplicate_done") return done();
+      if (scenario === "pilot_duplicate_done") return done(geminiCalls === 4 ? "Done" : '{"outcome":"duplicate_only"}');
       if (scenario === "pilot_duplicate_new" || scenario === "pilot_duplicate_recover" && geminiCalls === 5) return action("create_notion_draft", {
         ...candidate, name: "Another clinic", city: "Nitra", source_url: "https://other.example/about",
         website_url: "https://other.example", phone: "+421 905 999 999", email: "other@example.com",
