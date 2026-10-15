@@ -62,8 +62,20 @@ function textValue(property: unknown): string | number | boolean | null {
   if (typeof p.phone_number === "string") return p.phone_number;
   if (typeof p.number === "number") return p.number;
   if (typeof p.checkbox === "boolean") return p.checkbox;
-  if (p.date && typeof p.date === "object") return (p.date as { start?: string }).start ?? "";
+  if (p.date && typeof p.date === "object") {
+    const date = p.date as { start?: string; end?: string | null };
+    return date.end ? (date.start ?? "") + " – " + date.end : date.start ?? "";
+  }
   if (p.select && typeof p.select === "object") return (p.select as { name?: string }).name ?? "";
+  if (p.status && typeof p.status === "object") return (p.status as { name?: string }).name ?? "";
+  if (Array.isArray(p.multi_select)) return p.multi_select.map((entry: { name?: string }) => entry.name ?? "").join(", ");
+  if (Array.isArray(p.files)) return p.files.map((entry: { name?: string }) => entry.name ?? "").join(", ");
+  if (Array.isArray(p.relation)) return p.relation.map((entry: { id?: string }) => entry.id ?? "").join(", ");
+  if (p.formula && typeof p.formula === "object") {
+    const formula = p.formula as Record<string, unknown>;
+    const answer = formula[typeof formula.type === "string" ? formula.type : "string"];
+    if (typeof answer === "string" || typeof answer === "number" || typeof answer === "boolean") return answer;
+  }
   return "";
 }
 const txt = (page: Page, field: string) => String(textValue(page.properties?.[field]) ?? "");
