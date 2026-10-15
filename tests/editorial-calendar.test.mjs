@@ -56,7 +56,7 @@ test("calendar maps elapsed scheduled posts to effective published and offers re
   const api = read("app/api/admin/articles/route.ts");
   const editor = read("components/admin-article-editor.tsx");
   const editPage = read("app/admin/clanky/[id]/page.tsx");
-  assert.match(read("lib/editorial-calendar.ts"), /CASE WHEN status = 'scheduled' AND published_at <= \? THEN 'published'/);
+  assert.ok(read("lib/editorial-calendar.ts").includes("articleEffectiveStatusSql()"));
   assert.match(calendar, /effectiveArticleStatus/);
   assert.match(calendar, /CalendarDraftPlanner/);
   assert.match(calendar, /openDraftPicker/);

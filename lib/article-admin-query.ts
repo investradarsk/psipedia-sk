@@ -1,4 +1,5 @@
 import type { ArticlePortalSection } from "./portal.ts";
+import { articleEffectiveStatusSql } from "./article-effective-status.ts";
 import {
   adminContainsNeedle,
   boundedAdminPage,
@@ -79,6 +80,7 @@ export function articleAdminListHref(
 export function buildArticleAdminListQuery(
   filters: ArticleAdminListFilters,
   portalSection?: ArticlePortalSection,
+  now = new Date().toISOString(),
 ) {
   const clauses: string[] = [];
   const bindings: Array<string | number> = [];
@@ -87,8 +89,8 @@ export function buildArticleAdminListQuery(
     bindings.push(portalSection);
   }
   if (filters.status !== "all") {
-    clauses.push("status = ?");
-    bindings.push(filters.status);
+    clauses.push(`(${articleEffectiveStatusSql()}) = ?`);
+    bindings.push(now, filters.status);
   }
   if (filters.topicId) {
     clauses.push("EXISTS (SELECT 1 FROM article_topic_assignments ata WHERE ata.article_id = managed_articles.id AND ata.topic_id = ?)");

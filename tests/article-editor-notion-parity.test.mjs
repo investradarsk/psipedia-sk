@@ -92,9 +92,9 @@ test("ARTICLE-EDITOR-NOTION-PARITY-1 minimal draft defaults and changed picture/
 });
 
 test("ARTICLE-EDITOR-NOTION-PARITY-1 normal draft save cannot change published or scheduled state implicitly", () => {
-  assert.match(editor, /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); void save\(status\); \}\}/);
-  assert.match(editor, /status === "published" \? "Uložiť zmeny"/);
-  assert.match(editor, /status === "scheduled" \? "Uložiť plánovaný článok"/);
+  assert.match(editor, /onSubmit=\{\(event\) => \{ event\.preventDefault\(\); void save\(displayedStatus\); \}\}/);
+  assert.match(editor, /displayedStatus === "published" \? "Uložiť zmeny"/);
+  assert.match(editor, /displayedStatus === "scheduled" \? "Uložiť plánovaný článok"/);
   assert.match(editor, /onClick=\{\(\) => void save\("published"\)\}/);
   assert.match(editor, /onClick=\{\(\) => void save\("scheduled"\)\}/);
   assert.match(editor, /data-article-current-status/);
