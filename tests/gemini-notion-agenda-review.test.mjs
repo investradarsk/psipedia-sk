@@ -390,3 +390,87 @@ test("published help cases are never reclassified as Gemini drafts", async () =>
     assert.equal(f.writes.length, 0);
   });
 });
+
+
+function withInternalHelpReview(f) {
+  f.schema.properties["Gemini kontrola"] = { type: "select",
+    select: { options: ["Na kontrolu", "Schválené", "Odmietnuté"].map(name => ({ name })) } };
+  f.schema.properties["Dôvod odmietnutia"] = { type: "rich_text" };
+  f.value.properties["Gemini kontrola"] = { type: "select", select: null };
+  f.value.properties["Dôvod odmietnutia"] = rich("");
+  return f;
+}
+
+test("help internal review becomes available with both exact Notion properties, never published", async () => {
+  for (const key of ["help.docasna-opatera", "help.zbierky", "help.dobrovolnictvo"]) {
+    const f = withInternalHelpReview(fixture(key));
+    await mockedFetch(f.request, async () => {
+      const draft = (await listGeminiAgendaDrafts(f.env, key))[0];
+      assert.equal(draft.reviewAvailable, true, key);
+      assert.equal(draft.fields.find(item => item.name === "Slug")?.editable, true);
+      const approved = await mutateGeminiAgendaDraft(f.env, key, draft.id, {
+        action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+      }, "admin@example.sk");
+      assert.equal(approved.reviewState, "APPROVED");
+      assert.equal(f.writes.length, 1);
+      assert.deepEqual(Object.keys(f.writes[0]).sort(), ["Dôvod odmietnutia", "Gemini kontrola"].sort());
+      assert.equal(f.writes[0]["Gemini kontrola"].select.name, "Schválené");
+      assert.equal(f.value.properties["Psipedia stav"].rich_text[0].plain_text, "draft",
+        "approval must never publish");
+      assert.equal(f.writes[0]["Psipedia stav"], undefined);
+      assert.equal(f.writes[0].Stav, undefined);
+      assert.equal(f.writes[0]["Psipedia ID"], undefined);
+    });
+  }
+});
+
+test("help rejection requires a reason, can be restored, and never changes publication", async () => {
+  const f = withInternalHelpReview(fixture("help.zbierky"));
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.zbierky"))[0];
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "reject", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+    const rejected = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "reject", confirm: true, reason: "Nedostatočné dôkazy",
+      lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(rejected.reviewState, "REJECTED");
+    assert.equal(rejected.rejectionReason, "Nedostatočné dôkazy");
+    assert.equal(f.writes[0]["Gemini kontrola"].select.name, "Odmietnuté");
+    assert.equal(f.writes[0]["Dôvod odmietnutia"].rich_text[0].text.content, "Nedostatočné dôkazy");
+    assert.equal(f.value.properties["Psipedia stav"].rich_text[0].plain_text, "draft");
+    const restored = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "restore", confirm: true, lastEditedAt: rejected.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(restored.reviewState, "NEW");
+    assert.equal(restored.rejectionReason, "");
+    assert.equal(f.writes[1]["Gemini kontrola"].select.name, "Na kontrolu");
+    assert.equal(f.value.properties["Psipedia stav"].rich_text[0].plain_text, "draft");
+  });
+});
+
+test("partial or incompatible help schema fails closed on concept listing", async () => {
+  const f = fixture("help.zbierky");
+  f.schema.properties["Gemini kontrola"] = { type: "select", select: { options: [{ name: "Schválené" }] } };
+  await mockedFetch(f.request, async () => {
+    await assert.rejects(() => listGeminiAgendaDrafts(f.env, "help.zbierky"), { code: "SCHEMA" });
+    assert.equal(f.writes.length, 0);
+  });
+});
+
+test("approved Help concept remains protected from stale moderator decisions", async () => {
+  const f = withInternalHelpReview(fixture("help.zbierky"));
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.zbierky"))[0];
+    await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk");
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "reject", confirm: true, reason: "Konfliktný zápis",
+      lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk"), { code: "CONFLICT" });
+    assert.equal(f.writes.length, 1);
+  });
+});
