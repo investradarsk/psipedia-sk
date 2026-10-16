@@ -15,3 +15,28 @@ export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   index("facebook_image_posts_schedule_idx").on(t.status,t.scheduledAt,t.id),index("facebook_image_posts_updated_idx").on(t.updatedAt,t.id),
   uniqueIndex("facebook_image_posts_notion_idx").on(t.notionPageId).where(sql`${t.notionPageId} IS NOT NULL`),
 ]);
+
+/** Optional V2 objects: migration 0130 is prepared until separately approved. */
+export const facebookImagePublisherSettings=sqliteTable("facebook_image_publisher_settings",{
+  id:integer("id").primaryKey().notNull(),
+  enabled:integer("enabled").notNull().default(0),
+  updatedAt:text("updated_at").notNull(),
+  updatedBy:text("updated_by").notNull(),
+},t=>[
+  check("facebook_image_publisher_settings_singleton",sql`${t.id}=1`),
+  check("facebook_image_publisher_settings_enabled",sql`${t.enabled} IN (0,1)`),
+]);
+export const facebookImagePublishAttempts=sqliteTable("facebook_image_publish_attempts",{
+  postId:text("post_id").primaryKey().notNull().references(()=>facebookImagePosts.id,{onDelete:"restrict"}),
+  snapshotVersion:integer("snapshot_version").notNull(),
+  state:text("state").notNull().default("SENDING"),
+  remoteId:text("remote_id"),
+  startedAt:text("started_at").notNull(),
+  completedAt:text("completed_at"),
+  errorCode:text("error_code"),
+},t=>[
+  check("facebook_image_publish_attempts_snapshot_version",sql`${t.snapshotVersion}>=1`),
+  check("facebook_image_publish_attempts_state",sql`${t.state} IN ('SENDING','PUBLISHED','UNCERTAIN')`),
+  check("facebook_image_publish_attempts_remote_id",sql`(${t.state}='PUBLISHED' AND ${t.remoteId} IS NOT NULL AND ${t.completedAt} IS NOT NULL) OR (${t.state}<>'PUBLISHED' AND ${t.remoteId} IS NULL)`),
+  index("facebook_image_publish_attempts_state_idx").on(t.state,t.startedAt),
+]);

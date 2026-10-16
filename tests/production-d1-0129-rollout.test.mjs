@@ -18,7 +18,7 @@ const predecessor = "0128_facebook_image_posts.sql";
 test("0129 is the sole next supported production target, pinned to exact PR #852 SQL", () => {
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), predecessor);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0130_facebook_image_publisher.sql"]);
   assert.equal(createHash("sha256").update(migration).digest("hex"), APPROVED_0129_SHA256);
   assert.doesNotThrow(() => assertApproved0129Target("psipedia-sk-db", APPROVED_0129_SHA256));
   assert.throws(() => assertApproved0129Target("wrong", APPROVED_0129_SHA256), /canonical psipedia-sk-db/);

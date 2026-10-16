@@ -1,4 +1,5 @@
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
+import { runFacebookImagePublishSweep } from "../lib/facebook-image-publisher.ts";
 import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
 import { externalAgentEnabled, sweepExternalGemini } from "../lib/gemini-external-agent.ts";
 import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
@@ -38,6 +39,9 @@ interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
   ADMIN_EMAILS?: string;
+  FB_PAGE_ID?: string;
+  FB_PAGE_ACCESS_TOKEN?: string;
+  FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
   AUTH_MODE?: "cloudflare-access";
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
@@ -259,6 +263,17 @@ const worker = {
   },
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
+    // The dedicated per-minute trigger is strictly isolated from the legacy five-minute/hourly sweeps.
+    if (controller.cron === "* * * * *") {
+      try {
+        const summary=await runFacebookImagePublishSweep({db:env.DB,bindings:env,now:new Date(controller.scheduledTime??Date.now())});
+        console.info(JSON.stringify({event:"facebook_image_publish_sweep",...summary}));
+      }catch {
+        // Never log provider response, access token or potentially sensitive payload.
+        console.error(JSON.stringify({event:"facebook_image_publish_sweep",result:"failed"}));
+      }
+      return;
+    }
     // Dispatch only. Paid Gemini/Notion research NEVER runs inside this Worker.
     // This feature flag is intentionally absent from wrangler.jsonc.
     if (externalAgentEnabled(env)) {
