@@ -16,10 +16,10 @@ const target = "0129_gemini_external_manual_queue.sql";
 const predecessor = "0128_facebook_image_posts.sql";
 
 test("0129 remains approved and pinned while 0130 is a later separate target", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), predecessor);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0130_facebook_image_publisher.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0131_facebook_image_trash.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4), predecessor);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0130_facebook_image_publisher.sql");
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(migration).digest("hex"), APPROVED_0129_SHA256);
   assert.doesNotThrow(() => assertApproved0129Target("psipedia-sk-db", APPROVED_0129_SHA256));
   assert.throws(() => assertApproved0129Target("wrong", APPROVED_0129_SHA256), /canonical psipedia-sk-db/);
@@ -44,7 +44,7 @@ test("0129 workflow is manually protected and requires target-specific consent o
 test("0129 requires exact 0128 ledger predecessor without skipped migrations", () => {
   const history = [
     ...Array.from({ length: 62 }, (_, index) => String(index).padStart(4, "0") + "_fixture.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS.filter(name => name !== "0130_facebook_image_publisher.sql"),
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 129),
   ];
   const old = history.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(old, history, target),

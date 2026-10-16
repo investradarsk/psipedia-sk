@@ -78,6 +78,7 @@ on:
           - 0128_facebook_image_posts.sql
           - 0129_gemini_external_manual_queue.sql
           - 0130_facebook_image_publisher.sql
+          - 0131_facebook_image_trash.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -176,6 +177,7 @@ jobs:
             0128_facebook_image_posts.sql) expected_confirmation="APPLY-0128-psipedia-sk-db" ;;
             0129_gemini_external_manual_queue.sql) expected_confirmation="APPLY-0129-psipedia-sk-db" ;;
             0130_facebook_image_publisher.sql) expected_confirmation="APPLY-0130-psipedia-sk-db" ;;
+            0131_facebook_image_trash.sql) expected_confirmation="APPLY-0131-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
