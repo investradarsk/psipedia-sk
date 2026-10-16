@@ -21,6 +21,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const ready=useSyncExternalStore(subscribe,()=>true,()=>false);
   const[data,setData]=useState(initial),[month,setMonth]=useState(initialMonth),[status,setStatus]=useState("all"),[page,setPage]=useState(1);
   const[opening,setOpening]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[day,setDay]=useState<string|null>(null),[refresh,setRefresh]=useState(0);
+  const[publisher,setPublisher]=useState<{enabled:boolean;connected:boolean;technicallyEnabled:boolean}|null>(null);
+  const[publisherError,setPublisherError]=useState(""),[publisherBusy,setPublisherBusy]=useState(false);
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${page}|${refresh}`;
@@ -31,6 +33,31 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     fetch(`/api/admin/facebook-images?month=${month}&status=${status}&page=${page}`,{signal:abort.signal,cache:"no-store"}).then(async r=>{const body=await r.json() as Data & {error?:string};if(!r.ok)throw new Error(body.error||"Načítanie zlyhalo.");setData(body);setError("");}).catch(e=>{if(!abort.signal.aborted)setError(e.message);}).finally(()=>{if(!abort.signal.aborted)setSettledQuery(queryKey);});
     return()=>abort.abort();
   },[month,status,page,refresh,queryKey]);
+  useEffect(()=>{const controller=new AbortController();
+    fetch("/api/admin/facebook-images/publisher",{cache:"no-store",signal:controller.signal})
+      .then(async response=>{const data=await response.json() as {enabled:boolean;connected:boolean;technicallyEnabled:boolean;error?:string};
+        if(!response.ok)throw new Error(data.error||"Publikovanie nie je dostupné.");setPublisher(data);setPublisherError("");})
+      .catch(error=>{if(!controller.signal.aborted)setPublisherError(error instanceof Error?error.message:"Nastavenie nie je dostupné.");});
+    return()=>controller.abort();
+  },[refresh]);
+  async function setAutomatic(enabled:boolean){
+    if(publisherBusy||!publisher)return;setPublisherBusy(true);setPublisherError("");
+    try{const response=await fetch("/api/admin/facebook-images/publisher",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({enabled})});
+      const body=await response.json() as {enabled:boolean;connected:boolean;technicallyEnabled:boolean;error?:string};
+      if(!response.ok)throw new Error(body.error||"Nastavenie sa neuložilo.");
+      setPublisher(body);setNotice(enabled?"Automatické publikovanie povolené.":"Automatické publikovanie vypnuté. Jednotlivo schválené príspevky zostávajú povolené.");
+    }catch(error){setPublisherError(error instanceof Error?error.message:"Nastavenie sa neuložilo.");}finally{setPublisherBusy(false);}
+  }
+  async function setApproval(approved:boolean) {
+    if(busy||lock.current||!editor?.post||dirty)return;setBusy(true);setEditorError("");
+    try{const response=await fetch(`/api/admin/facebook-images/${editor.post.id}/approval`,{
+      method:"PUT",headers:{"content-type":"application/json"},
+      body:JSON.stringify({approved,expectedVersion:editor.post.version})});
+      const body=await response.json() as {post:FacebookImagePost;error?:string};
+      if(!response.ok||!body.post)throw new Error(body.error||"Schválenie zlyhalo.");
+      setEditor({post:body.post});setNotice(approved?"Príspevok individuálne schválený.":"Individuálne schválenie zrušené.");setRefresh(v=>v+1);
+    }catch(error){setEditorError(error instanceof Error?error.message:"Schválenie zlyhalo.");}finally{setBusy(false);}
+  }
   useEffect(()=>{if(editor&&!dialog.current?.open)dialog.current?.showModal();},[editor]);
   useEffect(()=>{if(!dirty)return;const prevent=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue="";};window.addEventListener("beforeunload",prevent);return()=>window.removeEventListener("beforeunload",prevent);},[dirty]);
   useEffect(()=>()=>openRequest.current?.abort(),[]);
@@ -57,11 +84,21 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     }catch(e){setEditorError(e instanceof Error?e.message:"Uloženie zlyhalo.");}finally{lock.current=false;setBusy(false);}
   }
   const entry=(post:FacebookImagePost)=><AdminActionButton type="button" key={post.id} className={`${shared.entry} ${styles.entry}`} disabled={loading||!ready} onClick={()=>edit(post)}>
-    <span className={styles[post.status]}>{labels[post.status]}</span><span className={shared.entryTitle}>{post.title}</span>{post.scheduledAt&&<time dateTime={post.scheduledAt}>{facebookWallTime(post.scheduledAt).time}</time>}
+    <span className={styles[post.status]}>{post.publicationState==="UNCERTAIN"?"Na preverenie":post.publicationState==="SENDING"?"Odosiela sa":labels[post.status]}</span><span className={shared.entryTitle}>{post.title}</span>{post.scheduledAt&&<time dateTime={post.scheduledAt}>{facebookWallTime(post.scheduledAt).time}</time>}
   </AdminActionButton>;
   const published=editor?.post?.status==="published";
+  const attempted=editor?.post?.publicationState && editor.post.publicationState!=="PENDING";
+  const locked=Boolean(published||attempted);
   return <div className={styles.root} data-interactive={ready?"true":"false"}>
-    <p>Plánovanie v Europe/Bratislava. Termín iba ukladáme — publikovanie na Facebook nie je zapnuté.</p>
+    <p>Plánovanie v Europe/Bratislava. Príspevky sa posielajú po termíne, iba ak je Facebook pripojený a príslušný príspevok povolený.</p>
+    <section className="admin-form-card" aria-label="Nastavenie automatického publikovania">
+      <h2>Automatické publikovanie na Facebook</h2>
+      <label><input type="checkbox" checked={publisher?.enabled??false} disabled={!publisher||publisherBusy} onChange={e=>void setAutomatic(e.target.checked)}/>
+        Povolené – automaticky publikovať všetky naplánované obrázky</label>
+      <p>Ak je vypnuté, v termíne sa publikujú iba jednotlivo schválené príspevky. Bez limitov na počet, hodiny alebo rozostupy.</p>
+      {publisher&&!publisher.technicallyEnabled&&<p role="status">Facebook zatiaľ nie je technicky pripojený. Doplň Page ID, Page token a povolenie publikovania v bezpečných nastaveniach Cloudflare.</p>}
+      {publisherError&&<p role="alert" className="admin-message admin-message--error">{publisherError}</p>}
+    </section>
     {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}{notice&&<p role="status" className="admin-message">{notice}</p>}
     <div className={shared.toolbar}><div className={shared.monthNav}><AdminActionButton type="button" variant="secondary" disabled={loading||!ready} onClick={()=>{setMonth(moveCalendarMonth(month,-1));setDay(null);}}>Predošlý mesiac</AdminActionButton><h2>{calendarMonthLabel(month)}</h2><AdminActionButton type="button" variant="secondary" disabled={loading||!ready} onClick={()=>{setMonth(moveCalendarMonth(month,1));setDay(null);}}>Ďalší mesiac</AdminActionButton></div>
       <AdminActionButton type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
@@ -80,23 +117,33 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     </section>
     <section className="admin-form-card" aria-labelledby="facebook-posts-heading"><h2 id="facebook-posts-heading">Prehľad príspevkov ({data.total})</h2>
       {!data.items.length&&<p>Zatiaľ tu nie sú žiadne príspevky.</p>}
-      <div className={styles.list}>{data.items.map(post=><article key={post.id} className={styles.listItem}>{post.imageUrl&&<img src={post.imageUrl} alt="" width={100} height={100}/>}<div>{entry(post)}<p>{post.scheduledAt?`${facebookWallTime(post.scheduledAt).date} ${facebookWallTime(post.scheduledAt).time} · Europe/Bratislava`:"Bez dátumu"}</p></div></article>)}</div>
+      <div className={styles.list}>{data.items.map(post=><article key={post.id} className={styles.listItem}>{post.imageUrl&&<img src={post.imageUrl} alt="" width={100} height={100}/>}<div>{entry(post)}<p>{post.scheduledAt?`${facebookWallTime(post.scheduledAt).date} ${facebookWallTime(post.scheduledAt).time} · Europe/Bratislava`:"Bez dátumu"}{post.approvalStatus==="APPROVED"?" · Individuálne schválený":""}{post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}</p></div></article>)}</div>
       <div className="admin-actions"><AdminActionButton type="button" variant="secondary" disabled={page<=1||loading} onClick={()=>setPage(p=>p-1)}>Predošlá strana</AdminActionButton><span>Strana {data.page} / {data.pages}</span><AdminActionButton type="button" variant="secondary" disabled={page>=data.pages||loading} onClick={()=>setPage(p=>p+1)}>Ďalšia strana</AdminActionButton></div>
     </section>
     <dialog ref={dialog} className={styles.dialog} onCancel={e=>{e.preventDefault();close();}} onClick={e=>{if(e.target===e.currentTarget){const b=e.currentTarget.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)close();}}} aria-labelledby="facebook-editor-heading">
       {editor&&<><header className={styles.dialogHeader}><h2 id="facebook-editor-heading">{editor.post?"Upraviť príspevok":"Nový Facebook obrázok"}</h2><AdminActionButton type="button" variant="secondary" disabled={busy} onClick={close}>Zavrieť</AdminActionButton></header>
         <p>ID: {editor.post?.id??"Vytvorí sa pri uložení"}{editor.post?` · verzia ${editor.post.version}`:""}</p>
         {editorError&&<p role="alert" className="admin-message admin-message--error">{editorError}</p>}
-        <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||published} className={styles.fields}>
+        <form onSubmit={e=>{e.preventDefault();void save("draft");}}><fieldset disabled={busy||locked} className={styles.fields}>
           <label>Názov<input autoFocus required maxLength={200} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/></label>
           <label>Obrázok (JPG, PNG, WebP, max. 8 MB)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files?.[0];if(file)void upload(file);e.target.value="";}}/></label>
           {form.imageUrl&&<img className={styles.preview} src={form.imageUrl} alt="Náhľad Facebook obrázka"/>}
           <label htmlFor="facebook-caption">Popis na Facebook</label><textarea id="facebook-caption" rows={6} maxLength={15000} value={form.caption} onChange={e=>setForm({...form,caption:e.target.value})}/>
           <div className={styles.dateFields}><label>Dátum<input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value,time:e.target.value?(form.time||"09:00"):"",repeatedHour:""})}/></label><label>Čas (Bratislava)<input type="time" value={form.time} onChange={e=>setForm({...form,time:e.target.value,repeatedHour:""})}/></label></div>
           <label>Ak sa hodina pri zmene zimného času opakuje<select value={form.repeatedHour} onChange={e=>setForm({...form,repeatedHour:e.target.value})}><option value="">Vybrať pri opakovanej hodine</option><option value="earlier">Prvý výskyt (letný čas)</option><option value="later">Druhý výskyt (zimný čas)</option></select></label>
-          <p>Stav: {editor.post?labels[editor.post.status]:"Koncept"}. Uloženie naplánovania nepublikuje obrázok.</p>
+          <p>Stav: {editor.post?labels[editor.post.status]:"Koncept"}. Uloženie naplánovania samo o sebe okamžite nepublikuje obrázok.</p>
           <div className={styles.actions}><AdminActionButton type="submit" variant="secondary">Uložiť koncept</AdminActionButton><AdminActionButton type="button" variant="primary" onClick={()=>void save("scheduled")}>Uložiť naplánovanie</AdminActionButton>{editor.post?.status==="scheduled"&&<AdminActionButton type="button" variant="secondary" onClick={()=>void save("draft",true)}>Zrušiť naplánovanie</AdminActionButton>}</div>
-        </fieldset></form>{busy&&<p role="status">Prebieha ukladanie alebo upload…</p>}{published&&<p>Publikovaný príspevok je iba na čítanie.</p>}
+        </fieldset></form>
+        {editor.post?.status==="scheduled"&&!locked&&<div className={styles.actions}>
+          <p>Individuálne schválenie: <strong>{editor.post.approvalStatus==="APPROVED"?"Áno":"Nie"}</strong>. Zmenou obsahu alebo termínu sa schválenie zruší.</p>
+          <AdminActionButton type="button" variant="secondary" disabled={busy||dirty||!publisher} onClick={()=>void setApproval(editor.post?.approvalStatus!=="APPROVED")}>
+            {editor.post.approvalStatus==="APPROVED"?"Zrušiť individuálne schválenie":"Schváliť na automatické zverejnenie"}
+          </AdminActionButton>
+          {dirty&&<p>Najprv ulož zmeny príspevku.</p>}
+        </div>}
+        {editor.post?.publicationState==="UNCERTAIN"&&<p role="alert">Výsledok odoslania je neistý ({editor.post.publicationError??"neznáma chyba"}). Príspevok sa automaticky neodošle znova. Najskôr skontroluj Facebook stránku.</p>}
+        {editor.post?.publicationState==="SENDING"&&<p role="status">Odoslanie sa začalo. Pri prerušení je potrebné manuálne preverenie, aby nevznikla duplicita.</p>}
+        {busy&&<p role="status">Prebieha ukladanie alebo upload…</p>}{locked&&<p>Príspevok sa odosiela, bol odoslaný alebo vyžaduje preverenie; úpravy sú blokované.</p>}
       </>}
     </dialog>
   </div>;
