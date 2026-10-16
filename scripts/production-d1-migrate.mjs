@@ -11,7 +11,7 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // All canonical migrations through 0129 are recognized, but production APPLY
 // still requires a separate protected manual workflow and confirmation.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0131_facebook_image_trash.sql"]);
 export const APPROVED_0130_SHA256 = "b198096d6c83fb63c4f1b9058735bfc4f3dc7b3a777cb3a60a65177e026e21bb";
 export function assertApproved0130Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0130 requires canonical psipedia-sk-db");
