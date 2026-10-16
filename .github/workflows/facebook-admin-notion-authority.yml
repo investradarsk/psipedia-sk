@@ -9,6 +9,9 @@ on:
       - "package.json"
       - ".github/workflows/facebook-admin-notion-authority.yml"
   workflow_dispatch:
+concurrency:
+  group: facebook-admin-notion-authority-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
