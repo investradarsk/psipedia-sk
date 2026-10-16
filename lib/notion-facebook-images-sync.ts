@@ -100,6 +100,9 @@ export async function runNotionFacebookImagesSync({
     throw new Error("Missing Notion API token or R2 bucket.");
   await db.prepare("SELECT notion_page_id,sync_hash FROM facebook_image_posts LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
+  let trashReady=false;
+  try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
+  catch(error){if(!(error instanceof Error && /no such column:\s*deleted_at/i.test(error.message)))throw error;}
   const pages:Page[]=[];
   let cursor:string|null=null;
   do {
@@ -120,6 +123,12 @@ export async function runNotionFacebookImagesSync({
     try {
       if(!/^[a-f0-9-]{36}$/i.test(page.id)){out.invalid++;continue;}
       const current=await linked(db,page.id);
+      // Linked Notion tombstone is preserved: never re-import or write back a trashed post.
+      if(current&&trashReady) {
+        const deleted=await db.prepare("SELECT deleted_at FROM facebook_image_posts WHERE id=?")
+          .bind(current.id).first<{deleted_at:string|null}>();
+        if(deleted?.deleted_at){out.unchanged++;continue;}
+      }
       if(current&&(current.status==="published"||current.attempt_state)) {
         if(await writeBack(bindings,page,current))out.writtenBack++;
         else out.unchanged++;
@@ -152,7 +161,7 @@ export async function runNotionFacebookImagesSync({
         const sql="UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,"+
           "scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,sync_hash=?,"+
           "version=version+1,updated_at=?,updated_by=? WHERE id=? AND sync_hash=? "+
-          "AND updated_by=? AND status IN ('draft','scheduled') "+
+          "AND updated_by=? AND status IN ('draft','scheduled') ${trashReady?"AND deleted_at IS NULL":""} "+
           "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)";
         const result=await db.prepare(sql).bind(
           snap.name,image.url,image.key,snap.caption,
