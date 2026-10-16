@@ -75,7 +75,7 @@ export async function listFacebookImagePosts(
   end.setUTCMonth(end.getUTCMonth()+1);
   const from=new Date(start.getTime()-8*86400000).toISOString();
   const to=new Date(end.getTime()+8*86400000).toISOString();
-  const where:string[]=[],values:unknown[]=[];
+  const where:string[]=[],values:string[]=[];
   if(trash)where.push(status==="trash"?"p.deleted_at IS NOT NULL":"p.deleted_at IS NULL");
   else if(status==="trash")where.push("1=0");
   if(["draft","scheduled","published"].includes(status)){
