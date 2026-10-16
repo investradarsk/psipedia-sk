@@ -40,9 +40,12 @@ export async function setIndividualApproval(db: PublisherDatabase, id: string, e
   await requirePublisherSchema(db);
   if(!/^[a-f\d-]{36}$/i.test(id) || !Number.isSafeInteger(expectedVersion)||expectedVersion<1) throw new Error("Neplatná verzia príspevku.");
   const now=clock(new Date());
+  let trashReady=false;
+  try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
+  catch(error) {if(!(error instanceof Error && /no such column:\s*deleted_at/i.test(error.message)))throw error;}
   const row=await db.prepare(`UPDATE facebook_image_posts
      SET approval_status=?,approved_at=?,approved_by=?,version=version+1,updated_at=?,updated_by=?
-     WHERE id=? AND version=? AND status='scheduled'
+     WHERE id=? AND version=? AND status='scheduled' ${trashReady?"AND deleted_at IS NULL":""}
        AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
      RETURNING id,version,approval_status`).bind(
       approved?"APPROVED":"UNREVIEWED",approved?now:null,approved?actor:null,now,actor,id,expectedVersion
@@ -79,6 +82,12 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
   if(!summary.configured) return summary;
   // Missing 0129 never falls back to unguarded external publishing.
   await requirePublisherSchema(db);
+  // Soft-trash migration is additive; existing publishing remains operational before APPLY.
+  let trashReady=false;
+  try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
+  catch(error) {
+    if(!(error instanceof Error && /no such column:\s*deleted_at/i.test(error.message)))throw error;
+  }
   const timestamp=clock(now);
   // Recover a successful Graph response that was already recorded before a
   // subsequent metadata write failed. Never issue another Meta request.
@@ -90,7 +99,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED' AND a.remote_id IS NOT NULL)`)
       .bind(timestamp).run();
   const candidates=await db.prepare(`SELECT id,image_key,caption,version,scheduled_at,approval_status FROM facebook_image_posts
-    WHERE status='scheduled' AND scheduled_at<=? AND image_key<>''
+    WHERE status='scheduled' AND scheduled_at<=? AND image_key<>'' ${trashReady?"AND deleted_at IS NULL":""}
       AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
       AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
            OR approval_status='APPROVED')
@@ -102,7 +111,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     const claimed=await db.prepare(`INSERT OR IGNORE INTO facebook_image_publish_attempts
        (post_id,snapshot_version,state,started_at)
        SELECT id,version,'SENDING',? FROM facebook_image_posts WHERE id=? AND version=?
-         AND status='scheduled' AND scheduled_at<=? AND image_key=?
+         AND status='scheduled' AND scheduled_at<=? AND image_key=? ${trashReady?"AND deleted_at IS NULL":""}
          AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
            OR approval_status='APPROVED')
          AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)

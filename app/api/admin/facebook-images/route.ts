@@ -6,7 +6,7 @@ export const dynamic="force-dynamic";
 export async function GET(request:Request){
   if(!await getAdminApiUser())return unauthorizedAdminResponse();
   const p=new URL(request.url).searchParams;
-  try{return Response.json(await listFacebookImagePosts(p.get("month")||facebookWallTime(new Date().toISOString()).date.slice(0,7),p.get("status")||"all",Number(p.get("page")||1)),{headers:{"cache-control":"no-store"}});}
+  try{return Response.json(await listFacebookImagePosts(p.get("month")||facebookWallTime(new Date().toISOString()).date.slice(0,7),p.get("status")||"all",Number(p.get("page")||1),undefined,p.get("source")||"all"),{headers:{"cache-control":"no-store"}});}
   catch(error){return facebookImageError(error);}
 }
 export async function POST(request:Request){

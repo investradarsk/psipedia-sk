@@ -6,6 +6,10 @@ export type FacebookImagePost = {
   scheduledAt: string | null; status: FacebookImageStatus; version: number;
   createdAt: string; updatedAt: string;
   approvalStatus?: string; publicationState?: string; publicationError?: string | null; facebookPostId?: string | null;
+  source?: "notion" | "manual"; notionPageId?: string | null;
+  publishedAt?: string | null; approvedAt?: string | null; approvedBy?: string | null;
+  attemptStartedAt?: string | null; attemptCompletedAt?: string | null;
+  deletedAt?: string | null; deletedBy?: string | null;
 };
 const wallFormat = new Intl.DateTimeFormat("en-CA", { timeZone: FACEBOOK_IMAGE_TIME_ZONE,
   year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
