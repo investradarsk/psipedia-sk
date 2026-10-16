@@ -1,3 +1,4 @@
+import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {downloadRemoteImage,notionFlagEnabled,notionRequest,sha256Text,type NotionSyncBindings} from "@/lib/notion-sync-shared";
 import {notionFacebookImageSnapshot,notionFacebookSnapshotFingerprint,facebookImagePermalink,type NotionFacebookImagePage} from "@/lib/notion-facebook-images-model";
 
@@ -7,6 +8,7 @@ const ACTOR="notion-facebook-images-sync@psipedia.sk";
 export type FacebookImagesSyncBindings=NotionSyncBindings & {
   NOTION_FACEBOOK_IMAGES_SYNC_ENABLED?:string;
   NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?:string;
+  NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?:string;
 };
 type Page=NotionFacebookImagePage;
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
@@ -15,7 +17,7 @@ type Linked={id:string;status:string;image_url:string;image_key:string;updated_b
   attempt_state:string|null;error_code:string|null};
 export type FacebookImagesSyncSummary={enabled:boolean;scanned:number;created:number;
   updated:number;unchanged:number;conflicts:number;failed:number;invalid:number;
-  writtenBack:number;hasMore:boolean};
+  writtenBack:number;hasMore:boolean;adminExport?:Awaited<ReturnType<typeof exportFacebookAdminChanges>>};
 function textProperty(page:Page,key:string):string {
   const value=page.properties?.[key] as {rich_text?:Array<{plain_text?:string}>}|undefined;
   return (value?.rich_text??[]).map(p=>p.plain_text??"").join("");
@@ -100,6 +102,7 @@ export async function runNotionFacebookImagesSync({
     throw new Error("Missing Notion API token or R2 bucket.");
   await db.prepare("SELECT notion_page_id,sync_hash FROM facebook_image_posts LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
+  out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
   let trashReady=false;
   try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
   catch(error){if(!(error instanceof Error && /no such column:\s*deleted_at/i.test(error.message)))throw error;}
@@ -141,7 +144,7 @@ export async function runNotionFacebookImagesSync({
       const hash=await sha256Text(notionFacebookSnapshotFingerprint(snap));
       if(current?.sync_hash===hash){out.unchanged++;continue;}
       // Psipedia manual changes take precedence over the Notion import.
-      if(current&&current.updated_by!==ACTOR){out.conflicts++;continue;}
+      if(current&&current.updated_by!==ACTOR){out.unchanged++;continue;} // Admin-owned: never overwritten from Notion.
       const image=await imageForPage(bindings,snap.image,current);
       const scheduled=snap.ready;
       const updatedAt=now.toISOString();
