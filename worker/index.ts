@@ -1,5 +1,6 @@
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
 import { runFacebookImagePublishSweep } from "../lib/facebook-image-publisher.ts";
+import { runNotionFacebookImagesSync } from "../lib/notion-facebook-images-sync.ts";
 import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
 import { externalAgentEnabled, sweepExternalGemini } from "../lib/gemini-external-agent.ts";
 import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
@@ -62,6 +63,8 @@ interface Env {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_ESHOP_SYNC_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_SYNC_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
@@ -273,6 +276,18 @@ const worker = {
         console.error(JSON.stringify({event:"facebook_image_publish_sweep",result:"failed"}));
       }
       return;
+    }
+    // Existing five-minute Cron: standalone Notion image import + published result writeback.
+    // Strict feature gate is OFF unless explicitly enabled; this is never a new Cron.
+    if (controller.cron === "*/5 * * * *" && pushTaskEnabled(env.NOTION_FACEBOOK_IMAGES_SYNC_ENABLED)) {
+      const notionFacebookImagesTask = runNotionFacebookImagesSync({database:env.DB,bindings:env})
+        .then((summary) => {
+          console.info(JSON.stringify({event:"notion_facebook_images_sync",...summary}));
+        }).catch(() => {
+          // No provider payloads, signed image URLs, secrets or raw error messages.
+          console.error(JSON.stringify({event:"notion_facebook_images_sync",result:"failed"}));
+        });
+      _ctx.waitUntil(notionFacebookImagesTask);
     }
     // Dispatch only. Paid Gemini/Notion research NEVER runs inside this Worker.
     // This feature flag is intentionally absent from wrangler.jsonc.
