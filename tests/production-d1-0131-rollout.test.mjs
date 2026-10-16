@@ -84,7 +84,7 @@ test("0131 ALTER is additive, preserves every old post field, notion identity an
     assertFacebookImagePublisherSchema(f.schema());
     assert.deepEqual(f.db.prepare("SELECT id,title,image_url,image_key,caption,scheduled_at,status,notion_page_id,version,created_at,updated_at,created_by,updated_by FROM facebook_image_posts").all(),oldCols);
     assert.deepEqual(f.db.prepare("SELECT * FROM facebook_image_publish_attempts").all(),oldAttempt);
-    assert.deepEqual(f.db.prepare("SELECT deleted_at,deleted_by FROM facebook_image_posts").all(),[{deleted_at:null,deleted_by:null}]);
+    assert.deepEqual(f.db.prepare("SELECT deleted_at,deleted_by FROM facebook_image_posts").all().map(row=>({...row})),[{deleted_at:null,deleted_by:null}]);
     assert.throws(()=>f.db.exec(migration),/duplicate column name/);
   }finally{f.db.close();}
 });
