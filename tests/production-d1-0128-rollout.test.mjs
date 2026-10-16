@@ -22,8 +22,8 @@ const workflow=readFileSync(path.join(root,".github/workflows/production-d1-migr
 
 test("0128 exact immutable SQL, canonical D1 target and one-at-a-time approval",()=>{
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),"0129_gemini_external_manual_queue.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0130_facebook_image_publisher.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),"0130_facebook_image_publisher.sql");
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS,[]);
   assert.equal(createHash("sha256").update(source).digest("hex"),APPROVED_0128_SHA256);
   assert.doesNotThrow(()=>assertApproved0128Target("psipedia-sk-db",APPROVED_0128_SHA256));
   assert.throws(()=>assertApproved0128Target("wrong-db",APPROVED_0128_SHA256),/canonical psipedia-sk-db/);
@@ -61,10 +61,10 @@ test("0128 workflow is manual on main with exact explicit confirmation; existing
 
 test("0128 ledger requires exact 0127 predecessor, only one pending migration, no gaps and no repeat",()=>{
   const names=[...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_fixture.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS,"0130_future.sql"];
+    ...SUPPORTED_PRODUCTION_TARGETS,"0131_future.sql"];
   const selected=selectMigrationsThrough(names,target);
   assert.equal(selected.selected.at(-1),target);
-  assert.deepEqual(selected.excludedFuture,["0129_gemini_external_manual_queue.sql","0130_future.sql"]);
+  assert.deepEqual(selected.excludedFuture,["0129_gemini_external_manual_queue.sql","0130_facebook_image_publisher.sql","0131_future.sql"]);
   const prior=selected.selected.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(prior,selected.selected,target),{latestIndex:127,targetApplied:false});
   assert.throws(()=>validateProductionTargetHistory(prior.slice(0,-1),selected.selected,target),/expected exactly 0127/);
