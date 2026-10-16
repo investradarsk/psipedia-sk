@@ -97,7 +97,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       if(!response.ok||!body.summary)throw new Error(body.error||"Synchronizácia Notion zlyhala.");
       const result=body.summary;
       setNotice(!result.enabled?"Prepojenie Notion Facebook obrázky ešte nie je technicky povolené.":
-        `Notion: spracované ${result.scanned}, nové ${result.created}, aktualizované ${result.updated}, spätný zápis ${result.writtenBack}, konflikty ${result.conflicts}, neúplné ${result.invalid}, chyby ${result.failed}.`);
+        `Notion: spracované ${result.scanned}, nové ${result.created}, aktualizované ${result.updated}, spätný zápis ${result.writtenBack}, konflikty ${result.conflicts}, neúplné ${result.invalid}, chyby ${result.failed}. Admin → Notion: nové ${result.adminExport?.created??0}, úpravy ${result.adminExport?.updated??0}, kôš ${result.adminExport?.trashed??0}, obnovené ${result.adminExport?.restored??0}, chyby ${result.adminExport?.failed??0}.`);
       setRefresh(v=>v+1);
     }catch(e){setError(e instanceof Error?e.message:"Synchronizácia Notion zlyhala.");}
     finally{setNotionBusy(false);}
