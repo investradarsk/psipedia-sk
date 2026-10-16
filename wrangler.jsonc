@@ -21,6 +21,8 @@
   },
   "vars": {
     "AUTH_MODE": "cloudflare-access",
+    "FB_PAGE_ID": "1172082959332114",
+    "FACEBOOK_IMAGE_PUBLISH_ENABLED": "false",
     "GEMINI_MODEL": "gemini-3.8-flash",
     "GEMINI_ASYNC_MANUAL_ENABLED": "true",
     "GEMINI_EXTERNAL_AGENT_ENABLED": "true",
