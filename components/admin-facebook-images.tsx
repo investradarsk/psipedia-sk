@@ -23,6 +23,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[opening,setOpening]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[day,setDay]=useState<string|null>(null),[refresh,setRefresh]=useState(0);
   const[publisher,setPublisher]=useState<{enabled:boolean;connected:boolean;technicallyEnabled:boolean}|null>(null);
   const[publisherError,setPublisherError]=useState(""),[publisherBusy,setPublisherBusy]=useState(false);
+  const[notionBusy,setNotionBusy]=useState(false);
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${page}|${refresh}`;
@@ -47,6 +48,20 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       if(!response.ok)throw new Error(body.error||"Nastavenie sa neuložilo.");
       setPublisher(body);setNotice(enabled?"Automatické publikovanie povolené.":"Automatické publikovanie vypnuté. Jednotlivo schválené príspevky zostávajú povolené.");
     }catch(error){setPublisherError(error instanceof Error?error.message:"Nastavenie sa neuložilo.");}finally{setPublisherBusy(false);}
+  }
+  async function syncNotion() {
+    if(notionBusy)return;
+    setNotionBusy(true);setError("");setNotice("");
+    try {
+      const response=await fetch("/api/admin/notion-facebook-images-sync",{method:"POST"});
+      const body=await response.json() as {summary?:{enabled:boolean;scanned:number;created:number;updated:number;writtenBack:number;failed:number;conflicts:number;invalid:number};error?:string};
+      if(!response.ok||!body.summary)throw new Error(body.error||"Synchronizácia Notion zlyhala.");
+      const result=body.summary;
+      setNotice(!result.enabled?"Prepojenie Notion Facebook obrázky ešte nie je technicky povolené.":
+        `Notion: spracované ${result.scanned}, nové ${result.created}, aktualizované ${result.updated}, spätný zápis ${result.writtenBack}, konflikty ${result.conflicts}, neúplné ${result.invalid}, chyby ${result.failed}.`);
+      setRefresh(v=>v+1);
+    }catch(e){setError(e instanceof Error?e.message:"Synchronizácia Notion zlyhala.");}
+    finally{setNotionBusy(false);}
   }
   async function setApproval(approved:boolean) {
     if(busy||lock.current||!editor?.post||dirty)return;setBusy(true);setEditorError("");
@@ -98,6 +113,10 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       <p>Ak je vypnuté, v termíne sa publikujú iba jednotlivo schválené príspevky. Bez limitov na počet, hodiny alebo rozostupy.</p>
       {publisher&&!publisher.technicallyEnabled&&<p role="status">Facebook zatiaľ nie je technicky pripojený. Doplň Page ID, Page token a povolenie publikovania v bezpečných nastaveniach Cloudflare.</p>}
       {publisherError&&<p role="alert" className="admin-message admin-message--error">{publisherError}</p>}
+    </section>
+    <section className="admin-form-card" aria-label="Notion Facebook obrázky"><h2>Notion – Facebook obrázky</h2>
+      <p>Importuje iba novú samostatnú databázu. Publikovanie z Notion vyžaduje stav Schválené, zaškrtnuté Povoliť publikovanie, obrázok a budúci termín.</p>
+      <AdminActionButton type="button" variant="secondary" disabled={!ready||notionBusy||loading} onClick={()=>void syncNotion()}>{notionBusy?"Synchronizujem…":"Synchronizovať Notion"}</AdminActionButton>
     </section>
     {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}{notice&&<p role="status" className="admin-message">{notice}</p>}
     <div className={shared.toolbar}><div className={shared.monthNav}><AdminActionButton type="button" variant="secondary" disabled={loading||!ready} onClick={()=>{setMonth(moveCalendarMonth(month,-1));setDay(null);}}>Predošlý mesiac</AdminActionButton><h2>{calendarMonthLabel(month)}</h2><AdminActionButton type="button" variant="secondary" disabled={loading||!ready} onClick={()=>{setMonth(moveCalendarMonth(month,1));setDay(null);}}>Ďalší mesiac</AdminActionButton></div>
