@@ -30,7 +30,8 @@ export function notionImageSource(page: NotionFacebookImagePage) {
     : file.type === "external" ? record(file.external).url : null;
   const url = typeof address === "string" ? address : "";
   // Uploaded file IDs remain stable when Notion refreshes the signed URL.
-  const identity = typeof file.id === "string" && file.id ? file.id : url;
+  const stableAddress = (() => { try { const parsed = new URL(url); return parsed.origin + parsed.pathname; } catch { return url; } })();
+  const identity = typeof file.id === "string" && file.id ? file.id : stableAddress;
   return { url, identity };
 }
 export type FacebookImageSnapshot = {
