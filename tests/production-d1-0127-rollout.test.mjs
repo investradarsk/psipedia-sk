@@ -68,8 +68,8 @@ function schema(db) {
 
 test("0127 remains approved and pinned even when 0128 is a later supported target", () => {
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), "0130_facebook_image_publisher.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0131_facebook_image_trash.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0130_facebook_image_publisher.sql");
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   const bytes = readFileSync(path.join(root, "drizzle", target));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), APPROVED_0127_SHA256);
   assert.doesNotThrow(() => assertApproved0127Target("psipedia-sk-db", APPROVED_0127_SHA256));
@@ -85,7 +85,7 @@ test("0127 scoped rollout never includes later 0128 even after its authorization
   const earlier = Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_fixture.sql");
   const { selected, excludedFuture } = selectMigrationsThrough([...earlier, ...SUPPORTED_PRODUCTION_TARGETS], target);
   assert.deepEqual(selected, [...earlier, ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 127)]);
-  assert.deepEqual(excludedFuture, [later, "0129_gemini_external_manual_queue.sql", "0130_facebook_image_publisher.sql"]);
+  assert.deepEqual(excludedFuture, [later, "0129_gemini_external_manual_queue.sql", "0130_facebook_image_publisher.sql", "0131_facebook_image_trash.sql"]);
   const workflow = readFileSync(path.join(root, ".github/workflows/production-d1-migrate.yml"), "utf8");
   assert.match(workflow, /0128_facebook_image_posts/);
 });
