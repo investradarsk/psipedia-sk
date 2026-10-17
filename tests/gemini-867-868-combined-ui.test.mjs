@@ -128,7 +128,7 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
         const url = new URL(route.request().url());
         const method = route.request().method();
         if (url.pathname === "/") {
-          return route.fulfill({ contentType:"text/html", body:
+          return route.fulfill({ contentType:"text/html; charset=utf-8", body:
             '<!doctype html><html lang="sk"><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;padding:12px;background:#f5f6f3;color:#132b21;font-family:Arial,sans-serif}' + css + '</style></head><body class="admin-body"><main class="admin-workspace"><header style="padding:12px 0"><strong>Psipedia Admin</strong><h1>Automatizácie Gemini</h1></header><div id="root"></div></main><script>' + script + '</script></body></html>' });
         }
         if (method !== "GET") {
@@ -150,7 +150,7 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
           return route.fulfill({json:{draft:directoryDraft}});
         }
         if (url.pathname === "/admin/podujatia/321") {
-          return route.fulfill({contentType:"text/html",body:"<h1>Canonical podujatie 321</h1>"});
+          return route.fulfill({contentType:"text/html; charset=utf-8",body:"<h1>Canonical podujatie 321</h1>"});
         }
         return route.fulfill({json:{items:[],regions:[],districts:[],cities:[]}});
       });
