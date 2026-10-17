@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { notionDirectoryUpdateSafety } from "../lib/notion-directory-update-safety.ts";
+import { mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
+import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 
 const syncSource = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
 const workerSource = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
@@ -281,4 +283,66 @@ test("one-page Fénix import is scoped to exact Notion ID and does not process u
   assert.match(sweep, /NOTION_TARGET_DATA_SOURCE_MISMATCH/);
   assert.match(sweep, /pages = \[targetPage\]/);
   assert.match(sweep, /input.targetPageId \? \[\] : await changedProfileIds/);
+});
+
+test("Gemini 22 scope enumerates exactly 10 Directory, 6 Events and 6 Help stable keys", () => {
+  const keys = [
+    ...["veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+      "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
+      "vencenie", "fyzioterapia", "dalsie-sluzby"].map(x => "directory." + x),
+    ...["vystavy", "preteky", "seminare", "treningy", "stretnutia", "dalsie"].map(x => "events." + x),
+    ...["docasna-opatera", "zbierky", "dobrovolnictvo", "utulky",
+      "adopcia", "stratene-a-najdene"].map(x => "help." + x),
+  ];
+  assert.equal(keys.length, 22);
+  assert.equal(new Set(keys).size, 22);
+  for (const key of keys) assert.equal(externalWorkerCategorySupported(key), true, key);
+});
+
+test("Gemini 22 Directory: Notion enrichment preserves canonical ownership and blank fields", () => {
+  const canonical = {
+    slug: "existing", category: "veterinari", status: "published",
+    name: "Clinic", excerpt: "Old", description: "Existing description",
+    services: ["chirurgia"], qualifications: ["MVDr."],
+    region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
+    address: "Výstavná 4", postalCode: "94901", street: "Výstavná",
+    houseNumber: "4", addressFormat: "STREET",
+    confirmedServiceLocation: true, verified: true, featured: true,
+    internalEmail: "admin@example.org", qualityResolutions: {phone:"RESOLVED"},
+    qualityCheckedAt: "2026-10-01",
+    seo: {title:"Old SEO", description:"Existing", noindex:true},
+  };
+  const notion = {
+    ...canonical, slug: "unsafe", status: "draft", category: "salony-a-sluzby",
+    name: "Clinic Updated", excerpt: "", description: "Improved",
+    services: [], qualifications: ["MVDr.", "PhD."],
+    region: "Bratislavský kraj", district: "Bratislava", city: "Bratislava",
+    address: "", postalCode: "", street: "", houseNumber: "",
+    confirmedServiceLocation: false, verified: false, featured: false,
+    internalEmail: "notion@example.org",
+    qualityResolutions: {phone:"IGNORE"}, qualityCheckedAt: "",
+    seo: { title: "Better SEO", description: "", noindex: false },
+  };
+  const result = mergeGeminiDirectoryPriority({
+    canonical, notion, confirmedGooglePlace: true,
+  });
+  assert.equal(result.name, "Clinic Updated");
+  assert.equal(result.description, "Improved");
+  assert.equal(result.excerpt, "Old");
+  assert.deepEqual(result.services, ["chirurgia"]);
+  assert.deepEqual(result.qualifications, ["MVDr.", "PhD."]);
+  assert.equal(result.slug, "existing");
+  assert.equal(result.category, "veterinari");
+  assert.equal(result.status, "published");
+  assert.equal(result.region, "Nitriansky kraj");
+  assert.equal(result.address, "Výstavná 4");
+  assert.equal(result.confirmedServiceLocation, true);
+  assert.equal(result.verified, true);
+  assert.equal(result.featured, true);
+  assert.equal(result.internalEmail, "admin@example.org");
+  assert.equal(result.qualityResolutions.phone, "RESOLVED");
+  assert.equal(result.seo.title, "Better SEO");
+  assert.equal(result.seo.description, "Existing");
+  assert.equal(result.seo.noindex, true);
+  assert.equal(canonical.description, "Existing description");
 });
