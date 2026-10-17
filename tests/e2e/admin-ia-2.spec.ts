@@ -35,7 +35,10 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   if (mobile) {
     const menuButton = page.getByRole("button", { name: "Menu", exact: true });
     await expect(menuButton).toBeVisible();
-    await menuButton.click();
+    await expect.poll(async () => {
+      if (await menuButton.getAttribute("aria-expanded") !== "true") await menuButton.click();
+      return menuButton.getAttribute("aria-expanded");
+    }).toBe("true");
     const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
     await expect(dialog).toBeVisible();
 
@@ -53,15 +56,15 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     await expect(menuButton).toBeFocused();
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
-    await expect(nav).toHaveCSS("position", "sticky");
-    // Wait for the Escape handler, not just the server-rendered <details>.
-    await expect(nav).toHaveAttribute("data-admin-nav-hydrated", "true");
-    const overviewTrigger = nav.getByText("Prehľad", { exact: true });
-    await overviewTrigger.click();
+    await expect(page.locator("[data-admin-sidebar-shell]")).toHaveCSS("position", "sticky");
+    await expect(nav).toHaveCSS("position", "static");
+    await expect(nav).toHaveAttribute("data-admin-sidebar", "true");
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
-    await page.keyboard.press("Escape");
-    await expect(nav.locator("summary").filter({ hasText: "Prehľad" })).toBeFocused();
-    await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toBeHidden();
+    await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
+    const contentGroup = nav.getByRole("button", { name: "Obsah", exact: true });
+    await contentGroup.click();
+    await expect(contentGroup).toHaveAttribute("aria-expanded", "true");
+    await expect(nav.getByRole("link", { name: "Články", exact: true })).toBeVisible();
     await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.locator(".site-footer")).toBeHidden();
     expect(await nav.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
@@ -70,7 +73,7 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     const headingBox = await page.getByRole("heading", { name: "Pracovný prehľad", exact: true }).boundingBox();
     expect(navBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
-    expect((navBox?.y ?? 0) + (navBox?.height ?? 0)).toBeLessThan(headingBox?.y ?? Infinity);
+    expect((navBox?.x ?? 0) + (navBox?.width ?? 0)).toBeLessThan(headingBox?.x ?? Infinity);
   }
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -113,7 +116,10 @@ test("legacy article-list URLs preserve filters and the explicit article route o
 
   if (mobile) {
     const menuButton = page.getByRole("button", { name: "Menu", exact: true });
-    await menuButton.click();
+    await expect.poll(async () => {
+      if (await menuButton.getAttribute("aria-expanded") !== "true") await menuButton.click();
+      return menuButton.getAttribute("aria-expanded");
+    }).toBe("true");
     const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
     const nav = dialog.getByRole("navigation", { name: "Redakčné moduly" });
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveAttribute("aria-current", "page");
@@ -128,10 +134,67 @@ test("legacy article-list URLs preserve filters and the explicit article route o
     await expect(menuButton).toBeFocused();
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
-    await nav.getByText("Obsah", { exact: true }).click();
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveAttribute("aria-current", "page");
   }
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
+});
+
+test("V3 all seven navigation groups, focus and header actions work at 1440px, 390px and 320px", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  for (const width of mobile ? [390, 320] : [1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/operations", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    await expect(page.getByTestId("admin-notification-bell")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Návrat na Psipedia.sk" })).toBeVisible();
+    if (!mobile) await expect(page.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
+    const groups = ["Prehľad", "Obsah", "Adresár", "Komunita", "Automatizácie", "Kvalita dát", "Nastavenia"];
+    let nav = page.getByRole("navigation", { name: "Redakčné moduly" });
+    if (mobile) {
+      const menu = page.getByRole("button", { name: "Menu", exact: true });
+      const bell = page.getByTestId("admin-notification-bell");
+      const back = page.getByRole("link", { name: "Návrat na Psipedia.sk" });
+      await expect(bell).toBeInViewport();
+      const [menuBox, bellBox, backBox] = await Promise.all([menu.boundingBox(), bell.boundingBox(), back.boundingBox()]);
+      expect(menuBox && bellBox && backBox).toBeTruthy();
+      // Visibility alone is insufficient: an absolutely positioned drawer
+      // trigger can cover a visible, keyboard-focusable notification icon.
+      expect((backBox?.x ?? 0) + (backBox?.width ?? 0)).toBeLessThanOrEqual((bellBox?.x ?? 0) + 1);
+      expect((bellBox?.x ?? 0) + (bellBox?.width ?? 0)).toBeLessThanOrEqual((menuBox?.x ?? 0) + 1);
+      await expect.poll(async () => {
+        if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
+        return menu.getAttribute("aria-expanded");
+      }).toBe("true");
+      const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
+      await expect(dialog.getByRole("group", { name: "Používateľ administrácie" })).toBeVisible();
+      await expect(dialog.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
+      nav = dialog.getByRole("navigation", { name: "Redakčné moduly" });
+    } else {
+      await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
+    }
+    for (const label of groups) {
+      const group = nav.locator(`[data-admin-nav-group="${label}"]`);
+      await expect(group).toHaveCount(1);
+      if (!mobile) {
+        const button = group.getByRole("button", { name: label, exact: true });
+        if (await button.getAttribute("aria-expanded") !== "true") {
+          await button.focus();
+          await page.keyboard.press("Enter");
+        }
+        await expect(button).toHaveAttribute("aria-expanded", "true");
+      }
+      await expect(group.getByRole("link").first()).toBeVisible();
+      if (label === "Prehľad") {
+        await expect(nav.getByRole("link", { name: "Upozornenia", exact: true })).toHaveAttribute("href", "/admin/operations");
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectAxeClean(page);
+    if (mobile) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Navigácia administrácie" })).toHaveCount(0);
+    }
+  }
 });

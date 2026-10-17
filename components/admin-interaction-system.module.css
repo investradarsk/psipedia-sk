@@ -368,7 +368,7 @@
 
 .editorNavigation {
   position: sticky;
-  top: 0.75rem;
+  top: var(--admin-sticky-stack, 96px);
   z-index: 12;
   min-width: 0;
   margin-bottom: 1rem;
@@ -522,7 +522,7 @@
   }
 
   .editorNavigation {
-    top: 0.4rem;
+    top: var(--admin-sticky-stack, 150px);
   }
 
   .editorNavigationLinks {

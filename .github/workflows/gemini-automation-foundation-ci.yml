@@ -82,13 +82,40 @@ jobs:
       - name: Production D1 0127 read-only preflight/postflight simulation
         run: node --test tests/production-d1-0127-readonly.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-concept-manager-v3.test.mjs tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
         run: npx playwright install --with-deps chromium
       - name: Gemini modal desktop and mobile (mocked API only)
+        env:
+          GEMINI_TEST_SCREENSHOTS: test-artifacts/gemini-concept-review-v3
         run: node --test tests/gemini-notion-review-ui.test.mjs
+      - name: Upload isolated Gemini UI screenshots (mocked data only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-concept-manager-v3-screenshots-${{ github.event.pull_request.number }}
+          path: test-artifacts/gemini-concept-review-v3/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Load current compact Dashboard PR 867 snapshot (read-only)
+        run: |
+          git fetch --no-tags --depth=1 origin refs/pull/867/head
+          echo "GEMINI_DASHBOARD_SHA=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"
+          echo "Combined UI uses Dashboard PR #867 snapshot: $(git rev-parse FETCH_HEAD)"
+      - name: Combined PR 867 dashboard and PR 868 manager browser acceptance
+        env:
+          GEMINI_INTEGRATION_SCREENSHOTS: test-artifacts/gemini-dashboard-integrated-v3
+        run: node --test tests/gemini-867-868-combined-ui.test.mjs
+      - name: Upload combined Dashboard V3 integration screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-dashboard-867-868-integrated-${{ github.event.pull_request.number }}
+          path: test-artifacts/gemini-dashboard-integrated-v3/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint
