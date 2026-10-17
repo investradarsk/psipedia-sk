@@ -35,7 +35,7 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
-import { mergeNotionEventPriority } from "./notion-event-priority.ts";
+import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import {
   appendNotionReview,
   canClearResolvedNotionConflict,
@@ -56,6 +56,7 @@ import {
 export type NotionEventsHelpSyncBindings = NotionSyncBindings & {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
+  NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
 };
 
 export type NotionEventsHelpMode = "dry-run" | "bootstrap" | "sync";
@@ -913,7 +914,9 @@ async function syncAgenda(input: {
       // This reconciles actual two-sided changes and also prevents a later
       // canonical-only edit from silently overwriting filled Notion editorial data.
       // Retain identity/publication authority and the current Google Places lock.
-      if (input.definition.key === "events" && decision.decision !== "UNCHANGED") {
+      if (input.definition.key === "events"
+        && decision.decision !== "UNCHANGED"
+        && notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED)) {
         const confirmedGooglePlace = await hasCurrentGooglePlace(
           input.database, "MANAGED_EVENT", entityId,
         );
