@@ -60,7 +60,13 @@ async function mockedNotion(page,callback){
     if(String(url).includes("s3.example.test"))return new Response(imageBytes,{
       headers:{"content-type":"image/jpeg","content-length":String(imageBytes.byteLength)},
     });
-    if(String(url).includes("/pages/"))return Response.json({id:pageId});
+    if(String(url).includes("/pages/")){
+      if(init.method==="PATCH"&&init.body){
+        const body=JSON.parse(init.body);
+        if(body.properties)Object.assign(page.properties,body.properties);
+      }
+      return Response.json({id:pageId});
+    }
     throw Error("Unexpected network request "+url);
   };
   try{return await callback(calls);}finally{globalThis.fetch=old;}
@@ -122,7 +128,7 @@ test("published D1 record writes back to Notion once and cannot reimport",async(
         bindings:{...bindings,BUCKET:f.bucket},now:time});
       assert.equal(result.writtenBack,1);
       assert.equal(f.objects.size,1);
-      assert.equal(calls.filter(c=>c.url.includes("/pages/")).length,1);
+      assert.equal(calls.filter(c=>c.url.includes("/pages/")).length,2);
     });
   }finally{f.close();}
 });
@@ -193,7 +199,7 @@ test("admin-authority keeps Notion-origin approvals as drafts until Psipedia adm
       assert.equal(f.get().approval_status,"UNREVIEWED");
       assert.equal(f.get().status,"draft");
       assert.equal(f.get().notion_page_id,pageId);
-      assert.equal(calls.filter(c=>c.url.includes("/pages/")&&c.method==="PATCH").length,1);
+      assert.equal(calls.filter(c=>c.url.includes("/pages/")&&c.method==="PATCH").length,2);
     });
   }finally{f.close();}
 });
