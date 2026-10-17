@@ -6,7 +6,7 @@
 import {
   serviceFilterCategories, serviceFiltersForCategory,
   type DirectoryFilterDefinition,
-} from "./directory-filter-contract";
+} from "./directory-filter-contract.ts";
 
 export type DirectoryPublicFacets = Record<string, string>;
 type RawParams = Record<string, string | string[] | undefined>;
