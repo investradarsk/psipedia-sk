@@ -8,7 +8,7 @@ import { HorizontalCarouselControls } from "@/components/horizontal-carousel-con
 import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   PublicActionLink,
   PublicContentList,
@@ -167,13 +167,18 @@ function SearchBox({
   ];
 
   return (
-    <SectionHeroSearch
+    <HomePortalSearch
       action="/hladat"
+      panelLabel={`Vyhľadávanie: ${label}`}
+      eyebrow="ČO POTREBUJEŠ VYRIEŠIŤ?"
+      title={subpage ? `Hľadať v téme ${subpage.label}` : sectionConfig.label}
+      shortcuts={[]}
       id={`section-search-${sectionSlug}-${subpage?.slug ?? "all"}`}
       label={label}
       placeholder={placeholder}
       buttonLabel={sectionConfig.button}
       hidden={hidden}
+      searchScope={sectionSlug}
     />
   );
 }
@@ -302,7 +307,7 @@ export async function EditorialSectionHub({
             title={section.label}
             intro={<><p>{section.description}</p><p>{section.intro}</p></>}
             visual={heroVisual}
-            searchSlot={<SearchBox sectionSlug={sectionSlug} />}
+            portalSearchSlot={<SearchBox sectionSlug={sectionSlug} />}
           />
         </UnifiedSectionHeroShell>
 
@@ -462,7 +467,7 @@ export async function EditorialSectionTopic({
             title={subpage.label}
             intro={subpage.description}
             visual={heroVisual}
-            searchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage} />}
+            portalSearchSlot={<SearchBox sectionSlug={sectionSlug} subpage={subpage} />}
           />
         </UnifiedSectionHeroShell>
 
