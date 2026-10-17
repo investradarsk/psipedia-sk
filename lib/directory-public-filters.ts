@@ -40,8 +40,8 @@ export function parsePublicDirectoryFacets(params: RawParams, category: string):
   return facets;
 }
 
-export function directoryPublicFacetQueryFields(category: string, facets: DirectoryPublicFacets = {}) {
-  return serviceFiltersForCategory(category)
+export function directoryPublicFacetQueryFields(facets: DirectoryPublicFacets = {}) {
+  return serviceFilterCategories.flatMap((category) => serviceFiltersForCategory(category))
     .filter((definition) => publicDirectoryFacetOptions(definition).includes(facets[definition.id]))
     .map((definition) => ({ name: publicDirectoryFacetKey(definition.id), value: facets[definition.id] }));
 }
