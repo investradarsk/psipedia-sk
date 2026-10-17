@@ -43,7 +43,7 @@ async function verifyCompactLayout(page: Page, width: number) {
       [".microcopy", "Compact explanatory text"],
     ] as const;
     const channels = (color: string): number[] => {
-      const match = color.match(/[0-9]+(?:\\.[0-9]+)?/g);
+      const match = color.match(/[0-9]+(?:\.[0-9]+)?/g);
       if (!match || match.length < 3) throw new Error("Unparseable browser color: " + color);
       return match.slice(0, 3).map(Number);
     };
@@ -57,7 +57,7 @@ async function verifyCompactLayout(page: Page, width: number) {
     const backgroundFor = (element: Element) => {
       for (let parent: Element | null = element; parent; parent = parent.parentElement) {
         const background = getComputedStyle(parent).backgroundColor;
-        const match = background.match(/[0-9]+(?:\\.[0-9]+)?/g);
+        const match = background.match(/[0-9]+(?:\.[0-9]+)?/g);
         if (match && match.length === 3) return background;
         if (match && match.length > 3 && Number(match[3]) >= 1) return background;
       }
