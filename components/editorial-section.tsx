@@ -138,9 +138,13 @@ function HealthUrgent({ cta }: { cta: ContentHubCtaDecision }) {
 function SearchBox({
   sectionSlug,
   subpage,
+  placeholder: managedPlaceholder,
+  buttonLabel: managedButtonLabel,
 }: {
   sectionSlug: EditorialSectionSlug;
   subpage?: PortalSubpage;
+  placeholder?: string;
+  buttonLabel?: string;
 }) {
   const sectionConfig = {
     steniatka: {
@@ -175,8 +179,9 @@ function SearchBox({
       shortcuts={[]}
       id={`section-search-${sectionSlug}-${subpage?.slug ?? "all"}`}
       label={label}
-      placeholder={placeholder}
-      buttonLabel={sectionConfig.button}
+      placeholder={managedPlaceholder ?? placeholder}
+      buttonLabel={managedButtonLabel ?? sectionConfig.button}
+      allowEmpty
       hidden={hidden}
       searchScope={sectionSlug}
     />
