@@ -342,3 +342,38 @@
   .hero :global([data-section-hero-search]), .hero :global([data-section-hero-search]:has(select)) { grid-template-columns: 1fr; }
   .hero :global([data-section-hero-search] button) { width: 100%; }
 }
+
+/* Homepage is the canonical reference for photographic landing heroes.
+   The search panel overlaps the photograph, while task/compact headers retain
+   their intentionally different treatment. */
+.hero[data-hero-variant="homepage-style"] .visual,
+.hero[data-hero-variant="homepage-style"] .copy {
+  min-height: 520px;
+}
+.hero[data-hero-variant="homepage-style"] .copy {
+  padding-bottom: 72px;
+}
+.hero[data-hero-variant="homepage-style"] .tools {
+  width: 100%;
+  margin-top: -42px;
+  border-radius: 22px;
+}
+.portalSearch {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  margin-top: -42px;
+}
+.portalSearch :global(.home-search-panel) {
+  width: 100%;
+}
+@media (max-width: 620px) {
+  .hero[data-hero-variant="homepage-style"] .visual,
+  .hero[data-hero-variant="homepage-style"] .copy { min-height: 430px; }
+  .hero[data-hero-variant="homepage-style"] .copy {
+    padding: 34px 22px 38px;
+    justify-content: flex-end;
+  }
+  .hero[data-hero-variant="homepage-style"] .tools,
+  .portalSearch { margin-top: -26px; }
+}

@@ -88,6 +88,7 @@ export async function UnifiedSectionHero({
   intro,
   visual,
   searchSlot,
+  portalSearchSlot,
   ctaSlot,
   metaSlot,
   className,
@@ -99,6 +100,8 @@ export async function UnifiedSectionHero({
   intro?: ReactNode;
   visual: ResolvedSectionVisual;
   searchSlot?: ReactNode;
+  /** Full homepage-style search panel; never combine with searchSlot. */
+  portalSearchSlot?: ReactNode;
   ctaSlot?: ReactNode;
   metaSlot?: ReactNode;
   className?: string;
@@ -109,7 +112,7 @@ export async function UnifiedSectionHero({
   const managedIntro = visual.heroContent?.intro || intro;
   const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
-  const resolvedSearch = managedSearch(searchSlot, config);
+  const resolvedSearch = portalSearchSlot ? null : managedSearch(searchSlot, config);
   const resolvedCta = managedCta(config, ctaSlot);
   const quickLinks = (config.quickLinks ?? []).filter((item) => item.visible !== false && item.label && item.href);
   const hasTools = Boolean(resolvedSearch || resolvedCta || metaSlot || config.metaLabel || quickLinks.length);
@@ -136,6 +139,12 @@ export async function UnifiedSectionHero({
           {managedIntro ? <div className={styles.intro} data-section-hero-intro>{managedIntro}</div> : null}
         </div>
       </div>
+
+      {portalSearchSlot ? (
+        <div className={styles.portalSearch} data-unified-hero-portal-search>
+          {portalSearchSlot}
+        </div>
+      ) : null}
 
       {hasTools ? (
         <div className={styles.tools} data-unified-section-hero-tools data-section-hero-panel>
