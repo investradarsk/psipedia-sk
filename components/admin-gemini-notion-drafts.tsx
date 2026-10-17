@@ -41,6 +41,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectBusy, setRejectBusy] = useState(false);
   const iframeDirtyInstalled = useRef<Document | null>(null);
+  const loadRevision = useRef(0);
 
   const category = getGeminiCatalogItem(stableKey)?.label ?? stableKey;
   const counts = geminiReviewCounts(drafts);
@@ -58,7 +59,9 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   }, [selectedDraft, dirty]);
 
   async function load() {
-    if (loading) return;
+    // A completed review/save must always refresh; an older response must
+    // never overwrite the state returned by the newest request.
+    const revision = ++loadRevision.current;
     setLoading(true);
     setError("");
     try {
@@ -70,12 +73,16 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       if (!response.ok || !Array.isArray(json.drafts)) {
         throw Error(json.error || "Nepodarilo sa načítať koncepty.");
       }
-      setDrafts(json.drafts);
-      setLoaded(true);
+      if (revision === loadRevision.current) {
+        setDrafts(json.drafts);
+        setLoaded(true);
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Nepodarilo sa načítať koncepty.");
+      if (revision === loadRevision.current) {
+        setError(cause instanceof Error ? cause.message : "Nepodarilo sa načítať koncepty.");
+      }
     } finally {
-      setLoading(false);
+      if (revision === loadRevision.current) setLoading(false);
     }
   }
 
