@@ -36,7 +36,8 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDraft, setSelectedDraft] = useState<ReviewDraft | null>(null);
-  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  const editorSurfaceRef = useRef<HTMLDivElement>(null);
   const [rejectTarget, setRejectTarget] = useState<ReviewDraft | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectBusy, setRejectBusy] = useState(false);
@@ -48,15 +49,26 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const visible = drafts.filter(draft => filter === "ALL" ||
     (filter === "ACTIVE" ? REVIEWABLE.includes(draft.reviewState) : draft.reviewState === filter));
 
+  function markDirty() {
+    // Do not rerender a mounted canonical editor on each input event:
+    // its own controlled textarea values and confirmation state own the edit.
+    dirtyRef.current = true;
+    editorSurfaceRef.current?.setAttribute("data-dirty", "true");
+  }
+  function clearDirty() {
+    dirtyRef.current = false;
+    editorSurfaceRef.current?.removeAttribute("data-dirty");
+  }
   useEffect(() => {
-    if (!selectedDraft || !dirty) return;
+    if (!selectedDraft) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [selectedDraft, dirty]);
+  }, [selectedDraft]);
 
   async function load() {
     // A completed review/save must always refresh; an older response must
@@ -110,7 +122,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       } else {
         setCanonicalProfile(null);
       }
-      setDirty(false);
+      clearDirty();
       iframeDirtyInstalled.current = null;
       setSelectedDraft(data.draft);
     } catch (cause) {
@@ -121,12 +133,12 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   }
 
   function closeEditor(force = false) {
-    if (!force && dirty && !window.confirm("Koncept obsahuje neuložené zmeny. Naozaj zavrieť editor bez uloženia?")) {
+    if (!force && dirtyRef.current && !window.confirm("Koncept obsahuje neuložené zmeny. Naozaj zavrieť editor bez uloženia?")) {
       return;
     }
     setSelectedDraft(null);
     setCanonicalProfile(null);
-    setDirty(false);
+    clearDirty();
     iframeDirtyInstalled.current = null;
   }
 
@@ -146,7 +158,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       const safetyStyle = doc.createElement("style");
       safetyStyle.textContent = "[data-canonical-draft-delete] { display: none !important; }";
       doc.head?.appendChild(safetyStyle);
-      const mark = () => setDirty(true);
+      const mark = () => markDirty();
       doc.addEventListener("input", mark, { capture: true });
       doc.addEventListener("change", mark, { capture: true });
     } catch {
@@ -294,9 +306,9 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         onClose={() => closeEditor()}
         className={styles.editorDialog}
       >
-        <div className={styles.editorSurface} onInputCapture={() => setDirty(true)}
-          onChangeCapture={() => setDirty(true)}>
-          {dirty && <p role="status" className={styles.dirtyWarning}>Máš rozpracované úpravy. Pred zatvorením ich ulož.</p>}
+        <div ref={editorSurfaceRef} className={styles.editorSurface}
+          onInputCapture={markDirty} onChangeCapture={markDirty}>
+          {selectedDraft && <p role="status" className={styles.dirtyWarning}>Máš rozpracované úpravy. Pred zatvorením ich ulož.</p>}
           {selectedDraft && !canonicalUrl &&
             <p className={styles.dialogLead}>Notion koncept nemá overenú canonical D1 identitu. Úpravy zostávajú neverejné do výslovného schválenia.</p>}
           {selectedDraft?.geminiNote &&
