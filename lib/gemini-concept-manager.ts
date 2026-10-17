@@ -43,3 +43,13 @@ export function geminiConceptDate(value: string): string {
     dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Bratislava",
   }).format(parsed);
 }
+
+/** Local-only filter: API pagination can make this a subset of all Notion drafts. */
+export function geminiConceptMatchesSearch(
+  draft: { name: string; city?: string | null }, search: string,
+): boolean {
+  const fold = (value: string) => value.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("sk-SK");
+  const query = fold(search.trim());
+  return !query || fold(draft.name).includes(query) || fold(draft.city ?? "").includes(query);
+}
