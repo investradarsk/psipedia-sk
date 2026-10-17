@@ -74,7 +74,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Gemini foundation focused tests (network mocked)
-        run: node --experimental-strip-types --test tests/gemini-concept-manager-v3.test.mjs tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
         run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs tests/gemini-notion-provenance.test.mjs
       - name: Trusted Gemini-to-canonical draft adapters (12 agendas, no external calls)
@@ -82,7 +82,7 @@ jobs:
       - name: Production D1 0127 read-only preflight/postflight simulation
         run: node --test tests/production-d1-0127-readonly.test.mjs
       - name: Notion category review contracts (mocked, no paid calls)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-concept-manager-v3.test.mjs tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs
       - name: Gemini review API authorization
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
