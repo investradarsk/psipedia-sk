@@ -64,7 +64,7 @@ test("0128 ledger requires exact 0127 predecessor, only one pending migration, n
     ...SUPPORTED_PRODUCTION_TARGETS,"0132_future.sql"];
   const selected=selectMigrationsThrough(names,target);
   assert.equal(selected.selected.at(-1),target);
-  assert.deepEqual(selected.excludedFuture,["0129_gemini_external_manual_queue.sql","0130_facebook_image_publisher.sql","0131_facebook_image_trash.sql","0132_future.sql"]);
+  assert.deepEqual(selected.excludedFuture,["0129_gemini_external_manual_queue.sql","0130_facebook_image_publisher.sql","0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql","0132_future.sql"]);
   const prior=selected.selected.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(prior,selected.selected,target),{latestIndex:127,targetApplied:false});
   assert.throws(()=>validateProductionTargetHistory(prior.slice(0,-1),selected.selected,target),/expected exactly 0127/);
