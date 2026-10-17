@@ -8,7 +8,7 @@ import {
   assertApproved0132Target, assert0132NotAlreadyApplied,
   assertFacebookImagePostsSchema, assertFacebookImagePublisherSchema,
   assertFacebookImageTrashSchema, assertFacebookImageDirectConsentSchema,
-  assertRolloutChainSchema, assertPendingTargetSchemaClean,
+  assertPendingTargetSchemaClean,
   targetSchemaObjects, validateProductionTargetHistory,
 } from "../scripts/production-d1-migrate.mjs";
 
@@ -79,7 +79,7 @@ test("0132 adds only DENY-by-default consent columns and preserves old posts, No
     assertFacebookImagePostsSchema(f.schema());
     assertFacebookImagePublisherSchema(f.schema());
     assertFacebookImageTrashSchema(f.schema());
-    assertRolloutChainSchema(f.schema(), target);
+    // Full-chain integrity is tested by the clean D1 CI job. This fixture contains only Facebook tables.
     assert.deepEqual(targetSchemaObjects(f.schema(), target), { partial: false });
     assert.doesNotThrow(() => assertPendingTargetSchemaClean(target, targetSchemaObjects(f.schema(), target)));
     assert.throws(() => assertFacebookImageDirectConsentSchema(f.schema()), /0132/);
