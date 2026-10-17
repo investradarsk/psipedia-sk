@@ -61,12 +61,11 @@ test("homepage search defaults stay unchanged and event search follows the hero 
     await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toBeVisible();
     const bounds = await page.locator("[data-unified-section-hero-visual]").boundingBox();
     const panel = await page.locator(".home-search-panel").boundingBox();
-    // GLOBAL-DESIGN-UNIFICATION-1 intentionally moves the event search below the hero.
-    // Preserve the no-overlap, compact-gap and bounded-width layout contract.
+    // Homepage reference: the white search panel overlaps the photograph.
     const heroBottom = bounds!.y + bounds!.height;
-    expect(panel!.y).toBeGreaterThanOrEqual(heroBottom);
-    expect(panel!.y - heroBottom).toBeLessThanOrEqual(80);
-    expect(panel!.width).toBeLessThanOrEqual(781);
+    const expectedOverlap = width <= 620 ? 26 : 42;
+    expect(Math.abs((heroBottom - panel!.y) - expectedOverlap)).toBeLessThanOrEqual(3);
+    expect(panel!.width).toBeLessThanOrEqual(width);
     expect(panel!.x).toBeGreaterThanOrEqual(0);
     expect(panel!.x + panel!.width).toBeLessThanOrEqual(width + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
