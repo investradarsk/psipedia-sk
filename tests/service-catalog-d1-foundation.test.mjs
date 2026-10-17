@@ -14,8 +14,8 @@ const migration=read("drizzle/0132_services_canonical_admin_foundation.sql");
 // while retaining the exact original D1 parameter mapping (including repeats).
 class Stmt {
   constructor(sqlite,sql){
-    this.positions=[...sql.matchAll(/\\?(\\d+)/g)].map(m=>Number(m[1])-1);
-    this.statement=sqlite.prepare(sql.replace(/\\?\\d+/g,"?"));
+    this.positions=[...sql.matchAll(/\?(\d+)/g)].map(m=>Number(m[1])-1);
+    this.statement=sqlite.prepare(sql.replace(/\?\d+/g,"?"));
     this.bound=[];
   }
   bind(...values){this.bound=values;return this;}
