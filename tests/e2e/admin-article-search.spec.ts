@@ -19,10 +19,14 @@ test("article admin search finds an accented article beyond page one and keeps U
 
   const filterForm = page.locator('form[role="search"][action="/admin/clanky"]');
   const search = filterForm.getByPlaceholder("Názov, slug, perex alebo téma");
+  // Verify the actual V3 layout at 1440px; do not bypass pointer hit-testing.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await search.fill("zubky");
   await filterForm.locator('select[name="status"]').selectOption("draft");
   await filterForm.locator('select[name="section"]').selectOption("clanky");
-  await filterForm.getByRole("button", { name: "Filtrovať" }).click();
+  const submit = filterForm.getByRole("button", { name: "Filtrovať" });
+  await expect(submit).toBeInViewport();
+  await submit.click();
 
   await expect(page).toHaveURL(/query=zubky/);
   await expect(page).toHaveURL(/status=draft/);
@@ -51,4 +55,9 @@ test("article admin list is keyboard-usable, axe-clean and fits desktop/mobile v
   await expect(page.getByRole("status").filter({ hasText: "Nájdené" })).toContainText("61");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
+  if (testInfo.project.name === "mobile-chromium") {
+    await page.setViewportSize({ width: 320, height: 800 });
+    await expect(page.locator('form[role="search"][action="/admin/clanky"]').getByRole("button", { name: "Filtrovať" })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
 });

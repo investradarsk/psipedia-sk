@@ -140,3 +140,49 @@ test("legacy article-list URLs preserve filters and the explicit article route o
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
+
+test("V3 all seven navigation groups, focus and header actions work at 1440px, 390px and 320px", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  for (const width of mobile ? [390, 320] : [1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const response = await page.goto("/admin/operations", { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBe(200);
+    await expect(page.getByTestId("admin-notification-bell")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Návrat na Psipedia.sk" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
+    const groups = ["Prehľad", "Obsah", "Adresár", "Komunita", "Automatizácie", "Kvalita dát", "Nastavenia"];
+    let nav = page.getByRole("navigation", { name: "Redakčné moduly" });
+    if (mobile) {
+      const menu = page.getByRole("button", { name: "Menu", exact: true });
+      await expect.poll(async () => {
+        if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
+        return menu.getAttribute("aria-expanded");
+      }).toBe("true");
+      nav = page.getByRole("dialog", { name: "Navigácia administrácie" }).getByRole("navigation", { name: "Redakčné moduly" });
+    } else {
+      await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
+    }
+    for (const label of groups) {
+      const group = nav.locator("[data-admin-nav-group]").filter({ has: nav.locator("button,span").getByText(label, { exact: true }) });
+      await expect(group).toHaveCount(1);
+      if (!mobile) {
+        const button = group.getByRole("button", { name: label, exact: true });
+        if (await button.getAttribute("aria-expanded") !== "true") {
+          await button.focus();
+          await page.keyboard.press("Enter");
+        }
+        await expect(button).toHaveAttribute("aria-expanded", "true");
+      }
+      await expect(group.getByRole("link").first()).toBeVisible();
+      if (label === "Prehľad") {
+        await expect(nav.getByRole("link", { name: "Upozornenia", exact: true })).toHaveAttribute("href", "/admin/operations");
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectAxeClean(page);
+    if (mobile) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Navigácia administrácie" })).toHaveCount(0);
+    }
+  }
+});

@@ -56,7 +56,18 @@ test("alerts center, shared bell and active/history controls are accessible and 
   }
 
   const adminNavigation = page.getByRole("navigation", { name: "Redakčné moduly" });
-  if (!mobile) await adminNavigation.getByText("Prehľad", { exact: true }).click();
+  if (!mobile) {
+    // V3 opens the current section on load. Verify this before exercising the
+    // disclosure using the keyboard, rather than closing it with an old click.
+    const overview = adminNavigation.getByRole("button", { name: "Prehľad", exact: true });
+    await expect(adminNavigation).toHaveAttribute("data-admin-hydrated", "true");
+    await expect(overview).toHaveAttribute("aria-expanded", "true");
+    await overview.focus();
+    await page.keyboard.press("Enter");
+    await expect(overview).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Enter");
+    await expect(overview).toHaveAttribute("aria-expanded", "true");
+  }
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toBeVisible();
   await expect(adminNavigation.getByRole("link", { name: "Upozornenia", exact: true })).toHaveAttribute("aria-current", "page");
   if (!mobile) await adminNavigation.getByText("Kvalita dát", { exact: true }).click();
@@ -75,7 +86,8 @@ test("alerts center, shared bell and active/history controls are accessible and 
     await expect(page.getByRole("dialog", { name: "Navigácia administrácie" })).toHaveCount(0);
     await expect(menuButton).toBeFocused();
   } else {
-    await expect(adminNavigation).toHaveCSS("position", "sticky");
+    await expect(page.locator("[data-admin-sidebar-shell]")).toHaveCSS("position", "sticky");
+    await expect(adminNavigation).toHaveCSS("position", "static");
   }
   await expect(page.getByRole("heading", { name: "Lokality pre budúcu mapu", exact: true })).toHaveCount(0);
 

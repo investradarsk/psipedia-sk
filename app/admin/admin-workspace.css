@@ -182,3 +182,34 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
 
 /* V3 Axe regression: small footer text must exceed WCAG AA contrast on light canvas. */
 [data-admin-workspace] .admin-footer { color: #496052; }
+
+/* V3 responsive article search: the desktop sidebar reduces the available
+   work area. Keep every existing filter and the submit action in normal flow. */
+[data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+[data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] .admin-search {
+  flex: 1 1 260px;
+  min-width: min(100%, 220px);
+  width: auto;
+}
+[data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] .admin-select-filter {
+  flex: 1 1 170px;
+  min-width: min(100%, 170px);
+}
+[data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] :is(button[type="submit"], a) {
+  flex: 0 0 auto;
+  min-height: 44px;
+}
+@media (max-width: 760px) {
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] .admin-search {
+    flex-basis: 100%;
+  }
+  [data-admin-workspace] form.admin-toolbar[role="search"][action="/admin/clanky"] :is(button[type="submit"], a) {
+    flex: 1 1 140px;
+  }
+}
