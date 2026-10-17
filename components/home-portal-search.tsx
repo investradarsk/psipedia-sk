@@ -63,7 +63,7 @@ export function HomePortalSearch({
             <span>Rýchlo:</span>
             {shortcuts.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
           </div>
-        )
+        )}
       </div>
     </section>
   );
