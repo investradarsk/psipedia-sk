@@ -5,7 +5,7 @@ import type { ManagedDirectoryProfile } from "@/lib/directory";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
 import { geminiReviewLabels, geminiReviewCounts, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
-import { geminiCanonicalEditorUrl, geminiCanRejectConcept, geminiConceptDate, geminiSupportsRejectionReason } from "@/lib/gemini-concept-manager";
+import { geminiCanonicalEditorUrl, geminiCanRejectConcept, geminiConceptDate, geminiSupportsRejectionReason, geminiConceptMatchesSearch } from "@/lib/gemini-concept-manager";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminGeminiAgendaDraftEditor } from "@/components/admin-gemini-agenda-draft-editor";
@@ -34,6 +34,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
 
 function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
   const [filter, setFilter] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
+  const [search, setSearch] = useState("");
   const [canonicalProfile, setCanonicalProfile] = useState<ManagedDirectoryProfile | null>(null);
   const [opening, setOpening] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -53,8 +54,9 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
   const category = getGeminiCatalogItem(stableKey)?.label ?? stableKey;
   const currentDrafts = loadedCategory === stableKey ? drafts : [];
   const counts = geminiReviewCounts(currentDrafts);
-  const visible = currentDrafts.filter(draft => filter === "ALL" ||
+  const statusFiltered = currentDrafts.filter(draft => filter === "ALL" ||
     (filter === "ACTIVE" ? REVIEWABLE.includes(draft.reviewState) : draft.reviewState === filter));
+  const visible = statusFiltered.filter(draft => geminiConceptMatchesSearch(draft, search));
 
   function markDirty() {
     // Do not rerender a mounted canonical editor on each input event:
@@ -218,16 +220,33 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
                 {Object.entries(geminiReviewLabels).map(([key, label]) =>
                   label + ": " + counts[key as GeminiReviewState]).join(" · ")}
               </p>
-              <label className={styles.filter}>
-                Stav konceptu
+              <div className={styles.filterBar}>
+                <label className={styles.search}>
+                  Hľadať koncept v načítaných záznamoch
+                  <input type="search" value={search} autoComplete="off"
+                    placeholder="Názov alebo lokalita…" onChange={event => setSearch(event.target.value)}
+                    aria-describedby="gemini-search-scope" />
+                </label>
+                <label className={styles.filter}>
+                  Stav konceptu
                 <select value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>
                   <option value="ACTIVE">Aktívne koncepty</option>
                   <option value="ALL">Všetky stavy</option>
                   {Object.entries(geminiReviewLabels).map(([key, label]) =>
                     <option key={key} value={key}>{label} ({counts[key as GeminiReviewState]})</option>)}
                 </select>
-              </label>
-              {!visible.length && <p className={styles.note}>Tomuto filtru nezodpovedá žiadny koncept.</p>}
+                </label>
+              </div>
+              <p className={styles.note} id="gemini-search-scope">
+                Hľadanie iba v načítaných záznamoch tejto kategórie, nie vo všetkých stránkach Notionu.
+              </p>
+              <p className={styles.resultCount} role="status" aria-live="polite">
+                Zobrazené: {visible.length} z {currentDrafts.length} načítaných konceptov.
+              </p>
+              {!visible.length && <p className={styles.note}>
+                {search.trim() ? "Žiadny načítaný koncept nezodpovedá hľadanému názvu alebo lokalite a zvolenému stavu."
+                  : "Tomuto filtru stavu nezodpovedá žiadny načítaný koncept."}
+              </p>
               <ul className={styles.list}>
                 {visible.map(draft => {
                   const editorUrl = geminiCanonicalEditorUrl(draft);
