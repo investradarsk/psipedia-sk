@@ -11,10 +11,12 @@ const adminSections = {
 
 export type GeminiConceptIdentity = {
   psipediaId: string;
+  canonicalVerified?: boolean;
   agenda?: keyof typeof adminSections;
 };
 
 export function geminiCanonicalEditorUrl(draft: GeminiConceptIdentity): string | null {
+  if (draft.canonicalVerified !== true) return null;
   const id = draft.psipediaId;
   if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))) return null;
   const section = draft.agenda ? adminSections[draft.agenda] : "adresar";
