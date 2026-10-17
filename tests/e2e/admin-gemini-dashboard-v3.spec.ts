@@ -34,6 +34,52 @@ async function verifyCompactLayout(page: Page, width: number) {
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+  // Measure real computed foreground/background colors in the rendered browser.
+  // Keep axe's complete WCAG color-contrast rule enabled below.
+  const colorSamples = await page.evaluate(() => {
+    const selectors = [
+      [".panelHeader span", "Panel heading metadata"],
+      [".dashboard .fields label small", "Form secondary guidance"],
+      [".microcopy", "Compact explanatory text"],
+    ] as const;
+    const channels = (color: string): number[] => {
+      const match = color.match(/[0-9]+(?:\\.[0-9]+)?/g);
+      if (!match || match.length < 3) throw new Error("Unparseable browser color: " + color);
+      return match.slice(0, 3).map(Number);
+    };
+    const luminance = (color: string) => {
+      const components = channels(color).map((part) => {
+        const value = part / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return components[0] * 0.2126 + components[1] * 0.7152 + components[2] * 0.0722;
+    };
+    const backgroundFor = (element: Element) => {
+      for (let parent: Element | null = element; parent; parent = parent.parentElement) {
+        const background = getComputedStyle(parent).backgroundColor;
+        const match = background.match(/[0-9]+(?:\\.[0-9]+)?/g);
+        if (match && match.length === 3) return background;
+        if (match && match.length > 3 && Number(match[3]) >= 1) return background;
+      }
+      return "rgb(255, 255, 255)";
+    };
+    return selectors.map(([selector, label]) => {
+      const element = document.querySelector(selector);
+      if (!element) throw new Error("Missing accessible secondary text: " + selector);
+      const foreground = getComputedStyle(element).color;
+      const background = backgroundFor(element);
+      const a = luminance(foreground);
+      const b = luminance(background);
+      return { label, foreground, background, contrast: Number(
+        ((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2),
+      ) };
+    });
+  });
+  for (const sample of colorSamples) {
+    console.log("Gemini contrast measured: " + JSON.stringify(sample));
+    expect(sample.contrast, sample.label + " text contrast").toBeGreaterThanOrEqual(5);
+  }
+
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
