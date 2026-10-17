@@ -58,10 +58,12 @@ export function HomePortalSearch({
           />
           <button type="submit">{buttonLabel}</button>
         </form>
-        <div className="home-search-shortcuts" aria-label="Rýchle vstupy">
-          <span>Rýchlo:</span>
-          {shortcuts.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
-        </div>
+        {shortcuts.length > 0 && (
+          <div className="home-search-shortcuts" aria-label="Rýchle vstupy">
+            <span>Rýchlo:</span>
+            {shortcuts.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
+          </div>
+        )
       </div>
     </section>
   );
