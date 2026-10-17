@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { GeminiSectionKey } from "@/lib/gemini-automation-catalog";
 import { geminiSchedulerOptions, geminiWeekdays, recommendedGeminiCadence } from "@/lib/gemini-automation-schedule";
 import type { GeminiSettingView } from "@/lib/gemini-automation-admin-settings";
 import type { GeminiQueuedJob } from "@/lib/gemini-automation-background-queue";
+import type { GeminiRecentRun } from "@/lib/gemini-automation-admin-store";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
 
@@ -41,9 +42,11 @@ function jobStatus(job: GeminiQueuedJob) {
     (job.error_code ? "Dokončené: " + job.error_code : "Dokončené");
 }
 
-function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: {
+function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, onSaved, onDirtyChange }: {
   initial: GeminiSettingView; available: boolean; externalEnabled: boolean;
   latestJob: GeminiQueuedJob | null;
+  onSaved: (setting: GeminiSettingView) => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const [setting, setSetting] = useState(initial);
   const [enabled, setEnabled] = useState(initial.enabled);
@@ -69,6 +72,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
   const unsavedChanges = setting.enabled !== enabled ||
     setting.cadenceMinutes !== cadenceMinutes || setting.weeklyDay !== weeklyDay ||
     setting.maxNewConcepts !== Number(maximum);
+  useEffect(() => onDirtyChange(unsavedChanges), [onDirtyChange, unsavedChanges]);
   const canPilot = canManuallyRun && available && setting.saved && !unsavedChanges &&
     Number(maximum) > 0 && !saving && !running;
   const id = "gemini-" + setting.stableKey.replaceAll(".", "-");
@@ -101,6 +105,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
         setMessage(data.error ?? "Nastavenia sa nepodarilo uložiť.");
       } else {
         setSetting(data.setting);
+        onSaved(data.setting);
         setConfirming(false);
         setMessage(externalEnabled ? "Nastavenia uložené. Plánovač Psipedie ich použije pri ďalšom termíne." : "Nastavenia uložené. Automatizácia sa zatiaľ nespúšťa.");
       }
@@ -230,9 +235,6 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
         </button>
         <span role="status" aria-live="polite" className={styles.feedback}>{message}</span>
       </div>
-      {externalEnabled && (
-        <AdminGeminiNotionDrafts stableKey={setting.stableKey} />
-      )}
       {(canManuallyRun || setting.section === "help") && (
         <div className={styles.pilot}>
           <strong>{externalEnabled ? "Spustiť externého Gemini pracovníka" : "Manuálne spustenie Gemini"}</strong>
@@ -242,7 +244,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
           {confirming && <p role="alert">{externalEnabled ? "Potvrď zaradenie do poradovníka. Ak je platený režim na GitHube povolený, po uvoľnení pracovníka sa automaticky vykonajú platené Gemini volania a môžu vzniknúť koncepty v Notione." : "Potvrď spustenie: vykoná sa jedno platené API volanie a môžu vzniknúť nepublikované koncepty."}</p>}
           <div className={styles.pilotActions}>
-            <button type="button" className="admin-primary-action"
+            <button type="button" className={styles.runButton}
               disabled={!canPilot} onClick={onPilotClick}>
               {running ? "Zaraďujem úlohu…" : confirming ? (externalEnabled ? "Potvrdiť a zaradiť" : "Potvrdiť a spustiť") : (externalEnabled ? "Zaradiť vyhľadávanie" : "Spustiť vyhľadávanie teraz")}
             </button>
@@ -272,14 +274,256 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob }: 
   );
 }
 
-export function AdminGeminiAutomationSettings({ sections, settings, available, externalEnabled }: {
+
+type DraftLookupItem = {
+  id: string;
+  name: string;
+  city?: string | null;
+  reviewState: string;
+  psipediaId?: string | null;
+  agenda?: string;
+};
+
+function editorHref(draft: DraftLookupItem): string | null {
+  if (!draft.psipediaId || !/^[1-9][0-9]*$/.test(draft.psipediaId)) return null;
+  const agendaSegments: Record<string, string> = {
+    events: "podujatia", organizations: "organizacie", adoptions: "adopcie",
+    "help-cases": "pomoc", "lost-found": "stratene-najdene",
+  };
+  const section = draft.agenda ? agendaSegments[draft.agenda] : "adresar";
+  return section ? "/admin/" + section + "/" + draft.psipediaId : null;
+}
+
+/** Search is explicit/on-demand; the canonical draft/editor component below owns all edits. */
+function GeminiConceptLookup({ stableKey }: { stableKey: string }) {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("ALL");
+  const [drafts, setDrafts] = useState<DraftLookupItem[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setDrafts(null);
+    setQuery("");
+    setStatus("ALL");
+    setError("");
+  }, [stableKey]);
+
+  async function load() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(
+        "/api/admin/gemini-automation/notion-drafts?stable_key=" + encodeURIComponent(stableKey),
+        { credentials: "same-origin", cache: "no-store" },
+      );
+      const data = await response.json() as { drafts?: DraftLookupItem[]; error?: string };
+      if (!response.ok || !Array.isArray(data.drafts)) {
+        throw new Error(data.error ?? "Nepodarilo sa načítať koncepty.");
+      }
+      setDrafts(data.drafts);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Načítanie konceptov zlyhalo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filtered = (drafts ?? []).filter((item) =>
+    (status === "ALL" || item.reviewState === status) &&
+    (item.name + " " + (item.city ?? "")).toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk").trim()),
+  );
+
+  return (
+    <details className={styles.lookup}>
+      <summary>Vyhľadávanie a filtrovanie konceptov</summary>
+      <div className={styles.lookupControls}>
+        <label>
+          Hľadať podľa názvu alebo mesta
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)}
+            placeholder="Názov alebo mesto" />
+        </label>
+        <label>
+          Stav konceptu
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="ALL">Všetky stavy</option>
+            <option value="NEW">Nový</option>
+            <option value="IN_PROGRESS">Rozpracovaný</option>
+            <option value="APPROVED">Schválený</option>
+            <option value="IMPORTED">Importovaný</option>
+            <option value="REJECTED">Zamietnutý</option>
+          </select>
+        </label>
+        <button type="button" onClick={() => void load()} disabled={loading}>
+          {loading ? "Načítavam…" : drafts ? "Obnoviť výsledky" : "Načítať koncepty"}
+        </button>
+      </div>
+      {error && <p role="alert" className={styles.pilotError}>{error}</p>}
+      {drafts && (
+        <div role="status" className={styles.lookupResults}>
+          <p>Zobrazených {filtered.length} z {drafts.length} načítaných konceptov.</p>
+          <ul>
+            {filtered.map((draft) => (
+              <li key={draft.id}>
+                <span><strong>{draft.name}</strong><small>{draft.city || "Bez mesta"} · {draft.reviewState}</small></span>
+                {editorHref(draft)
+                  ? <Link href={editorHref(draft)!}>Otvoriť editor →</Link>
+                  : <small>Neimportovaný koncept upravíš v paneli nižšie.</small>}
+              </li>
+            ))}
+          </ul>
+          {filtered.length === 0 && <p>Pre zadaný filter nie sú výsledky.</p>}
+        </div>
+      )}
+    </details>
+  );
+}
+
+const runOutcomeLabels: Record<string, string> = {
+  NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt.",
+  NO_RESULT_DUPLICATE_ONLY: "Len možné duplicity; nový koncept nevznikol.",
+  NO_RESULT_INSUFFICIENT_EVIDENCE: "Nedostatok overiteľných informácií.",
+  NO_RESULT_EXHAUSTED: "Možnosti vyhľadávania boli vyčerpané.",
+};
+
+function runLabel(status: string) {
+  if (status === "SUCCESS") return "Dokončené";
+  if (status === "FAILED") return "Chyba";
+  if (status === "RUNNING") return "Prebieha";
+  return status;
+}
+
+function GeminiHistory({ runs, selectedKey, settings }: {
+  runs: readonly GeminiRecentRun[];
+  selectedKey: string;
+  settings: readonly GeminiSettingView[];
+}) {
+  const selectedRuns = runs.filter((run) => run.stableKey === selectedKey);
+  const byKey = new Map(settings.map((setting) => [setting.stableKey, setting.label]));
+  const label = (run: GeminiRecentRun) => byKey.get(run.stableKey) ?? run.subcategory;
+  const renderRun = (run: GeminiRecentRun) => (
+    <li key={run.id} className={styles.runItem}>
+      <div className={styles.runSummary}>
+        <div>
+          <strong>{label(run)}</strong>
+          <small>{formatDate(run.startedAt)} · Beh #{run.id}</small>
+        </div>
+        <span className={run.status === "FAILED" ? styles.statusError : styles.statusPlain}>
+          {runLabel(run.status)} · {run.conceptCount} konceptov
+        </span>
+      </div>
+      {(run.errorCode || run.errorCount > 0) && (
+        <p className={styles.runError}>Kód: {run.errorCode ?? "Nezaznamenaný"} · Chyby: {run.errorCount}</p>
+      )}
+      {run.status === "SUCCESS" && run.conceptCount === 0 && (
+        <p className={styles.runNote}>
+          {runOutcomeLabels[run.errorCode ?? ""] ?? "Bez nového konceptu (dôvod nezaznamenaný)."}
+        </p>
+      )}
+      <details className={styles.runDetails}>
+        <summary>Technické podrobnosti</summary>
+        <dl className={styles.runMetadata}>
+          <div><dt>Spustenie</dt><dd>{run.trigger}</dd></div>
+          <div><dt>Stav</dt><dd>{run.status}</dd></div>
+          <div><dt>Model</dt><dd>{run.model}</dd></div>
+          <div><dt>API volania</dt><dd>{run.requestCount}</dd></div>
+          <div><dt>Google dotazy</dt><dd>{run.groundedSearchQueryCount}</dd></div>
+          <div><dt>Kandidáti</dt><dd>{run.candidateCount}</dd></div>
+          <div><dt>Duplicity</dt><dd>{run.duplicateCount}</dd></div>
+          <div><dt>Koncepty</dt><dd>{run.conceptCount}</dd></div>
+          <div><dt>Chyby</dt><dd>{run.errorCount}</dd></div>
+          <div><dt>Dokončenie</dt><dd>{formatDate(run.completedAt)}</dd></div>
+          <div><dt>Kód / výsledok</dt><dd>{run.errorCode ?? "—"}</dd></div>
+        </dl>
+      </details>
+    </li>
+  );
+  return (
+    <section className={styles.panel} aria-labelledby="gemini-history-title">
+      <div className={styles.panelHeader}>
+        <h2 id="gemini-history-title">História behov</h2>
+        <span>Posledných {runs.length} záznamov</span>
+      </div>
+      {selectedRuns.length
+        ? <ul className={styles.runList}>{selectedRuns.slice(0, 4).map(renderRun)}</ul>
+        : <p className={styles.emptyCompact}>Pre zvolenú kategóriu zatiaľ nie je zaznamenaný beh.</p>}
+      <details className={styles.fold}>
+        <summary>Všetky dostupné behy ({runs.length})</summary>
+        {runs.length
+          ? <ul className={styles.runList}>{runs.map(renderRun)}</ul>
+          : <p className={styles.emptyCompact}>Zatiaľ nie sú zaznamenané žiadne behy.</p>}
+      </details>
+    </section>
+  );
+}
+
+function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
+  const waiting = jobs.filter((job) => job.status === "QUEUED").map((job) => job.id).sort((a, b) => a - b);
+  return (
+    <section className={styles.panel} aria-labelledby="gemini-queue-title">
+      <div className={styles.panelHeader}>
+        <h2 id="gemini-queue-title">FIFO fronta</h2>
+        <a href="https://github.com/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml"
+          target="_blank" rel="noreferrer">GitHub Actions ↗</a>
+      </div>
+      {jobs.filter((job) => job.status === "RUNNING" || job.status === "QUEUED").length === 0
+        ? <p className={styles.emptyCompact}>Žiadna úloha nečaká ani nebeží.</p>
+        : <ul className={styles.queueList}>
+          {jobs.filter((job) => job.status === "RUNNING" || job.status === "QUEUED").map((job) => (
+            <li key={job.id}><strong>Úloha #{job.id}</strong> · {job.stable_key}
+              <span>{job.status === "QUEUED"
+                ? "Čaká · " + (waiting.indexOf(job.id) + 1) + ". v poradí" : "Prebieha"}</span>
+            </li>
+          ))}
+        </ul>}
+      <details className={styles.fold}>
+        <summary>Celá história fronty ({jobs.length})</summary>
+        <ul className={styles.queueList}>{jobs.map((job) => (
+          <li key={job.id}>
+            <strong>Úloha #{job.id} · {job.stable_key}</strong>
+            <span>{job.status === "QUEUED" ? "V poradovníku · " + (waiting.indexOf(job.id) + 1) + ". v poradí"
+              : job.status === "RUNNING" ? "Pracuje"
+                : job.status === "SUCCESS" && !job.run_id ? "NEÚPLNÝ ZÁPIS" : job.status}</span>
+            <small>Vytvorené: {formatDate(job.created_at)} · Beh: {job.run_id ?? "—"}</small>
+            {(job.error_code || (job.status === "SUCCESS" && !job.run_id)) && (
+              <small className={styles.runError}>
+                Kód: {job.error_code ?? "Chýba potvrdený záznam behu"}</small>
+            )}
+          </li>
+        ))}</ul>
+      </details>
+      <p className={styles.microcopy}>Číslo D1 úlohy nie je číslo GitHub behu. Úlohy sa spracúvajú postupne;
+        nejasný platený beh sa automaticky neopakuje. Kontrola fronty prebieha každých 5 minút.</p>
+    </section>
+  );
+}
+
+export function AdminGeminiAutomationSettings({
+  sections, settings, available, externalEnabled, queueEnabled, initialJobs, recentRuns,
+}: {
   sections: readonly { key: GeminiSectionKey; label: string }[];
   settings: readonly GeminiSettingView[];
   available: boolean;
   externalEnabled: boolean;
+  queueEnabled: boolean;
+  initialJobs: readonly GeminiQueuedJob[];
+  recentRuns: readonly GeminiRecentRun[];
 }) {
   const [liveSettings, setLiveSettings] = useState(settings);
-  const [jobs, setJobs] = useState<GeminiQueuedJob[]>([]);
+  const [jobs, setJobs] = useState<GeminiQueuedJob[]>([...initialJobs]);
+  const [selectedKey, setSelectedKey] = useState(settings[0]?.stableKey ?? "");
+  const [dirty, setDirty] = useState(false);
+  const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
+  const onSaved = useCallback((next: GeminiSettingView) => {
+    setLiveSettings((previous) => previous.map((item) => item.stableKey === next.stableKey ? next : item));
+  }, []);
+
+  useEffect(() => {
+    setLiveSettings(settings);
+    setJobs([...initialJobs]);
+  }, [settings, initialJobs]);
+
   useEffect(() => {
     if (!available || !externalEnabled) return;
     let cancelled = false;
@@ -310,22 +554,111 @@ export function AdminGeminiAutomationSettings({ sections, settings, available, e
     return () => { cancelled = true; window.clearInterval(id); };
   }, [available, externalEnabled]);
 
+  const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
+  const waiting = jobs.filter((job) => job.status === "QUEUED").length;
+  const running = jobs.filter((job) => job.status === "RUNNING").length;
+  const enabled = liveSettings.filter((item) => item.enabled).length;
+  const latestRun = recentRuns[0];
+
+  function chooseCategory(key: string) {
+    if (selected?.stableKey === key) return;
+    if (dirty && !window.confirm("Máš neuložené nastavenia. Opustiť kategóriu bez uloženia?")) return;
+    setDirty(false);
+    setSelectedKey(key);
+  }
+
   return (
-    <div className={styles.sections}>
-      {sections.map((section) => (
-        <section key={section.key} aria-labelledby={"gemini-section-" + section.key}>
-          <div className={styles.sectionHeader}>
-            <h2 id={"gemini-section-" + section.key}>{section.label}</h2>
-            <span>{liveSettings.filter((setting) => setting.section === section.key).length} podkategórií</span>
-          </div>
-          <div className={styles.grid}>
-            {liveSettings.filter((item) => item.section === section.key).map((setting) =>
-              <GeminiSettingsCard key={setting.stableKey} initial={setting}
-                available={available} externalEnabled={externalEnabled}
-                latestJob={jobs.find(job => job.stable_key === setting.stableKey) ?? null} />)}
-          </div>
-        </section>
-      ))}
+    <div className={styles.dashboard}>
+      <div className={styles.metrics} aria-label="Súhrn Gemini automatizácií">
+        <div className={styles.metric}>
+          <small>Plánovač Gemini</small>
+          <strong>{externalEnabled ? "Externý pracovník zapnutý" : "Externý pracovník vypnutý"}</strong>
+          <span>{enabled} z {liveSettings.length} kategórií má zapnutý plán</span>
+        </div>
+        <div className={styles.metric}>
+          <small>Čakajúce a bežiace úlohy</small>
+          <strong>{!available ? "Údaje nedostupné" : queueEnabled ? waiting + " čaká · " + running + " beží" : "Fronta nie je aktivovaná"}</strong>
+          <span>{queueEnabled ? "Podľa evidencie úloh na pozadí" : "Bez aktívneho pracovného režimu"}</span>
+        </div>
+        <div className={styles.metric}>
+          <small>Koncepty na kontrolu</small>
+          <strong>Načítať podľa kategórie</strong>
+          <span>Počet sa zistí až po otvorení konceptov z Notionu</span>
+        </div>
+        <div className={styles.metric}>
+          <small>Posledný zaznamenaný beh</small>
+          <strong>{!available ? "Údaje nedostupné" : latestRun ? runLabel(latestRun.status) : "Zatiaľ bez behu"}</strong>
+          <span>{latestRun ? formatDate(latestRun.startedAt) : "—"}
+            {latestRun?.errorCode ? " · " + latestRun.errorCode : ""}</span>
+        </div>
+      </div>
+
+      <div className={styles.workGrid}>
+        <div className={styles.column}>
+          <section className={styles.panel} aria-labelledby="gemini-category-title">
+            <div className={styles.panelHeader}>
+              <h2 id="gemini-category-title">Nastavenie kategórie</h2>
+              <span>{liveSettings.length} kategórií</span>
+            </div>
+            <label className={styles.categorySelect} htmlFor="gemini-selected-category">
+              Kategória
+              <select id="gemini-selected-category" value={selected?.stableKey ?? ""}
+                onChange={(event) => chooseCategory(event.target.value)}>
+                {sections.map((section) => (
+                  <optgroup key={section.key} label={section.label}>
+                    {liveSettings.filter((item) => item.section === section.key).map((item) => (
+                      <option key={item.stableKey} value={item.stableKey}>{item.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            {selected && <GeminiSettingsCard key={selected.stableKey} initial={selected}
+              available={available} externalEnabled={externalEnabled}
+              latestJob={jobs.find((job) => job.stable_key === selected.stableKey) ?? null}
+              onSaved={onSaved} onDirtyChange={onDirtyChange} />}
+            {selected && <p className={styles.microcopy}>
+              Upravené nastavenia sa používajú len pre kategóriu {selected.label}.
+              {selected.section === "help" && !externalEnabled
+                ? " Manuálne platené spustenie vyžaduje externého pracovníka." : ""}
+            </p>}
+          </section>
+        </div>
+
+        <div className={styles.column}>
+          <GeminiHistory runs={recentRuns} selectedKey={selected?.stableKey ?? ""} settings={liveSettings} />
+          {queueEnabled && <GeminiQueue jobs={jobs} />}
+          <section className={styles.panel} aria-labelledby="gemini-drafts-title">
+            <div className={styles.panelHeader}>
+              <h2 id="gemini-drafts-title">Koncepty z automatizácie</h2>
+              <Link href="/admin/automatizacie-gemini/koncepty">Všetky koncepty →</Link>
+            </div>
+            {externalEnabled && selected ? (
+              <>
+                <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam načítaj na požiadanie; úpravy zostávajú v existujúcom editore.</p>
+                <GeminiConceptLookup key={selected.stableKey} stableKey={selected.stableKey} />
+                <AdminGeminiNotionDrafts key={selected.stableKey} stableKey={selected.stableKey} />
+              </>
+            ) : <p className={styles.emptyCompact}>
+              {externalEnabled ? "Vyber kategóriu pre prístup ku konceptom." :
+                "Externý pracovník nie je aktivovaný. Koncepty otvor cez samostatnú stránku."}
+            </p>}
+          </section>
+        </div>
+      </div>
+      {running > 0 && <p role="status" className={styles.warning}>
+        Práve beží platená úloha. Ak zostane v stave RUNNING viac než dve hodiny,
+        ďalšie spustenia ostanú blokované do manuálnej diagnostiky v GitHub Actions.
+      </p>}
+      <details className={styles.rules}>
+        <summary>Prevádzkové pravidlá a obmedzenia</summary>
+        <p>{externalEnabled
+          ? "Externý GitHub pracovník je zapnutý. Plánovanie kategórií a ich zapnutie nie je potvrdením práve prebiehajúceho plateného behu. Platený režim má samostatný vypínač na GitHube."
+          : "Externý GitHub pracovník nie je aktivovaný. Uloženie nastavení samo nespúšťa platené vyhľadávanie."}</p>
+        <p>Mesačný počet úloh Psipedia neobmedzuje. Platené volania však podliehajú kvótam,
+          limitom jednotlivého behu a rozpočtu u poskytovateľa Gemini. Rozpočet 5 € nie je zárukou zo strany Psipedie.
+          Úlohy s neistým výsledkom sa automaticky neopakujú.</p>
+      </details>
     </div>
   );
 }
