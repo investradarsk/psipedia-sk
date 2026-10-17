@@ -159,8 +159,17 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
         if (screenshotDir) await page.screenshot({path:join(screenshotDir,`${name}-${width}.png`),fullPage:name.includes("list")});
       };
 
-      await page.goto("https://fixture.test/");
-      await page.getByRole("heading", {name:"Automatizácie Gemini"}).waitFor();
+      const navigation = await page.goto("https://fixture.test/");
+      if (screenshotDir) await page.screenshot({path:join(screenshotDir,`00-integration-boot-${width}.png`)});
+      const heading = page.getByRole("heading", {name:"Automatizácie Gemini"});
+      if (!(await heading.isVisible())) {
+        const html = await page.content();
+        console.error("COMBINED_BOOT_DIAGNOSTICS", JSON.stringify({
+          width, status:navigation?.status(), url:page.url(), headings:await page.locator("h1").allTextContents(),
+          htmlPrefix:html.slice(0,1400), runtimeErrors:errors,
+        }));
+      }
+      await heading.waitFor({timeout:5000});
       assert.equal(await page.locator('section[aria-label="Koncepty vytvorené automatizáciou"]').count(),1);
       await page.getByRole("button", {name:/Koncepty z automatizácie/}).click();
       await page.getByRole("searchbox", {name:/Hľadať koncept/}).waitFor();
