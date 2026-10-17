@@ -134,7 +134,9 @@ test("only directory catalog keys are valid and new worker tags its drafts", asy
   await assert.rejects(listGeminiDirectoryDrafts(env, "events.vystavy"),
     (error) => error instanceof GeminiNotionReviewError && error.code === "CATEGORY");
   const screen = readFileSync(new URL("../components/admin-gemini-automation-settings.tsx", import.meta.url), "utf8");
-  assert.match(screen, /<AdminGeminiNotionDrafts stableKey=\{setting.stableKey\}/);
+  assert.match(screen, /<AdminGeminiNotionDrafts key=\{selected\.stableKey\} stableKey=\{selected\.stableKey\}/);
+  assert.equal((screen.match(/<AdminGeminiNotionDrafts\b/g) ?? []).length, 1);
+  assert.doesNotMatch(screen, /GeminiConceptLookup/);
   const sync = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
   assert.match(sync, /status: desired\.status === "published" \? "published" : "draft"/);
 });

@@ -488,9 +488,12 @@ test("merged #837 scheduler controls and #838 review panel coexist for 22 catego
   const scheduler = await readFile(
     new URL("../lib/gemini-automation-schedule.ts", import.meta.url), "utf8");
   assert.equal(geminiAutomationCatalog.length, 22);
-  assert.equal((settings.match(/<AdminGeminiNotionDrafts\s+stableKey=\{setting\.stableKey\}/g) ?? []).length, 1,
-    "one shared review panel across all category cards");
-  assert.match(settings, /\{externalEnabled && \(\s*<AdminGeminiNotionDrafts/s);
+  assert.equal((settings.match(/<AdminGeminiNotionDrafts\b/g) ?? []).length, 1,
+    "exactly one canonical review panel is mounted for the selected category");
+  assert.match(settings, /\{externalEnabled && selected \? \(/);
+  assert.match(settings, /<AdminGeminiNotionDrafts key=\{selected\.stableKey\} stableKey=\{selected\.stableKey\}/);
+  assert.match(settings, /<GeminiSettingsCard key=\{selected\.stableKey\}/);
+  assert.doesNotMatch(settings, /<GeminiConceptLookup/);
   assert.doesNotMatch(settings, /Editor konceptov Podujatí a Pomoci psom doplní/);
   assert.match(settings, /geminiSchedulerOptions/);
   assert.match(settings, /geminiWeekdays/);
