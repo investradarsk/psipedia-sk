@@ -38,9 +38,9 @@ async function verifyCompactLayout(page: Page, width: number) {
   // Keep axe's complete WCAG color-contrast rule enabled below.
   const colorSamples = await page.evaluate(() => {
     const selectors = [
-      [".panelHeader span", "Panel heading metadata"],
-      [".dashboard .fields label small", "Form secondary guidance"],
-      [".microcopy", "Compact explanatory text"],
+      ["[class*=\"panelHeader\"] > span", "Panel heading metadata"],
+      ["[class*=\"dashboard\"] [class*=\"fields\"] label small", "Form secondary guidance"],
+      ["[class*=\"microcopy\"]", "Compact explanatory text"],
     ] as const;
     const channels = (color: string): number[] => {
       const match = color.match(/[0-9]+(?:\.[0-9]+)?/g);
