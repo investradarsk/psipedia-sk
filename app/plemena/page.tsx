@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BreedBrowser } from "@/components/breed-browser";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { BreedCrawlIndex } from "@/components/breed-crawl-index";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
@@ -67,11 +68,32 @@ export default async function BreedsPage({ searchParams }: Props) {
               title={breedSection?.label ?? "Plemená"}
               intro="Nájdi plemeno podľa názvu, pôvodu, FCI skupiny alebo sekcie."
               visual={heroVisual}
+              portalSearchSlot={
+                <HomePortalSearch
+                  action="/plemena"
+                  id="breed-hero-search"
+                  label="Hľadať plemeno"
+                  panelLabel="Vyhľadávanie plemien"
+                  eyebrow="AKÉ PLEMENO HĽADÁŠ?"
+                  title="Objav plemená podľa svojich potrieb"
+                  placeholder="Hľadať plemeno, krajinu alebo FCI skupinu..."
+                  buttonLabel="Hľadať"
+                  defaultValue={initialFilters.query}
+                  allowEmpty
+                  hidden={[
+                    ...(initialFilters.fciGroup ? [{ name: "fciGroup", value: initialFilters.fciGroup }] : []),
+                    ...(initialFilters.fciSection ? [{ name: "fciSection", value: initialFilters.fciSection }] : []),
+                    ...(initialFilters.origin ? [{ name: "origin", value: initialFilters.origin }] : []),
+                  ]}
+                  shortcuts={[]}
+                  searchScope="breeds"
+                />
+              }
             />
           </UnifiedSectionHeroShell>
           <section className="page-body">
             <PublicContentShell variant="listing">
-            <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} actions={breedSection ? (
+            <BreedBrowser breeds={breeds} groups={fciGroups} initialFilters={initialFilters} hidePrimarySearch actions={breedSection ? (
               <section className={styles.atlasActions} aria-labelledby="breed-actions-heading" data-breed-primary-actions>
                 <PublicLandingSectionHeading
                   eyebrow="Plemená podľa cieľa"

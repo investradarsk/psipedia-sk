@@ -113,9 +113,8 @@ export async function UnifiedSectionHero({
   const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
   const resolvedSearch = portalSearchSlot ? null : managedSearch(searchSlot, config);
-  const resolvedPortalSearch = managedSearch(portalSearchSlot, config);
   const resolvedCta = managedCta(config, ctaSlot);
-  const quickLinks = (portalSearchSlot ? [] : (config.quickLinks ?? [])).filter((item) => item.visible !== false && item.label && item.href);
+  const quickLinks = (config.quickLinks ?? []).filter((item) => item.visible !== false && item.label && item.href);
   const hasTools = Boolean(resolvedSearch || resolvedCta || metaSlot || config.metaLabel || quickLinks.length);
 
   return (
@@ -143,12 +142,12 @@ export async function UnifiedSectionHero({
 
       {portalSearchSlot ? (
         <div className={styles.portalSearch} data-unified-hero-portal-search>
-          {resolvedPortalSearch}
+          {portalSearchSlot}
         </div>
       ) : null}
 
       {hasTools ? (
-        <div className={[styles.tools, portalSearchSlot ? styles.additionalTools : ""].filter(Boolean).join(" ")} data-unified-section-hero-tools data-section-hero-panel>
+        <div className={styles.tools} data-unified-section-hero-tools data-section-hero-panel>
           {resolvedSearch ? <div className={styles.search}>{resolvedSearch}</div> : null}
           {resolvedCta ? <div className={styles.cta}>{resolvedCta}</div> : null}
           {(config.metaLabel || metaSlot) ? (

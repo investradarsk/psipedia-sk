@@ -19,7 +19,7 @@ const shortGroupLabels: Record<number, string> = {
   6: "Duriče", 7: "Stavače", 8: "Retrievery", 9: "Spoločenské", 10: "Chrty",
 };
 
-export function BreedBrowser({ breeds, groups, initialFilters, actions }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters; actions?: ReactNode }) {
+export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrimarySearch = false }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters; actions?: ReactNode; hidePrimarySearch?: boolean }) {
   const [query, setQuery] = useState(initialFilters.query);
   const [selectedGroup, setSelectedGroup] = useState(initialFilters.fciGroup || "all");
   const [selectedSection, setSelectedSection] = useState(() => validFciSectionForGroup(breeds, initialFilters.fciGroup, initialFilters.fciSection));
@@ -62,11 +62,11 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions }: { bree
   return (
     <div>
       <div className="browser-toolbar breed-search-wrap">
-        <label className="inline-search breed-search-primary">
+        {!hidePrimarySearch && <label className="inline-search breed-search-primary">
           <SearchIcon size={22} />
           <span className="sr-only">Hľadať plemeno podľa názvu, pôvodu alebo FCI skupiny</span>
           <input value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno, krajinu alebo FCI skupinu" />
-        </label>
+        </label>}
         <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
       </div>
       {actions}

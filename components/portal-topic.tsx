@@ -4,7 +4,7 @@ import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
 import { PublicContentShell, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { HomePortalSearch } from "@/components/home-portal-search";
+import { SectionHeroSearch } from "@/components/section-hero-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory, getNewsCategoryGuidance } from "@/lib/news";
@@ -127,13 +127,8 @@ export async function PortalTopic({
             title={subpage.label}
             intro={subpage.description}
             visual={reviewHeroVisual}
-            portalSearchSlot={
-              <HomePortalSearch
-                panelLabel="Vyhľadávanie recenzií"
-                eyebrow="ČO HĽADÁŠ?"
-                title={`Nájdi testy: ${subpage.label}`}
-                shortcuts={[]}
-                searchScope="reviews"
+            searchSlot={
+              <SectionHeroSearch
                 action="/hladat"
                 id={`review-topic-search-${subpage.slug}`}
                 label={`Hľadať v kategórii ${subpage.label}`}
