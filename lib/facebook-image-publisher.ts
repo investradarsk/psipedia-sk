@@ -62,7 +62,7 @@ export async function setDirectPublishConsent(db: PublisherDatabase,id:string,ex
   await requirePublisherSchema(db);
   // The additive migration must exist before a permission may be granted.
   await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();
-  if(!/^[a-f\\d-]{36}$/i.test(id)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)
+  if(!/^[a-f\d-]{36}$/i.test(id)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)
     throw new Error("Neplatná verzia príspevku.");
   const now=clock(new Date());
   const row=await db.prepare(`UPDATE facebook_image_posts SET
