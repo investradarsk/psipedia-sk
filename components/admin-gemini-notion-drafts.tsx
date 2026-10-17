@@ -134,6 +134,11 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       const doc = element.contentDocument;
       if (!doc || iframeDirtyInstalled.current === doc) return;
       iframeDirtyInstalled.current = doc;
+      // The canonical page contains its own irreversible D1 delete control.
+      // It must NOT be presented as Gemini's restore-capable Trash action.
+      const safetyStyle = doc.createElement("style");
+      safetyStyle.textContent = "[data-canonical-draft-delete] { display: none !important; }";
+      doc.head?.appendChild(safetyStyle);
       const mark = () => setDirty(true);
       doc.addEventListener("input", mark, { capture: true });
       doc.addEventListener("change", mark, { capture: true });
