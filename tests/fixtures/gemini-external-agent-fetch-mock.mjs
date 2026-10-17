@@ -6,6 +6,8 @@ import { createHmac } from "node:crypto";
 
 const scenario = process.env.MOCK_SCENARIO ?? "success";
 let geminiCalls = 0;
+let failedResearchRequests = 0;
+let originalResearchPayload = null;
 let notionPosts = 0;
 let callbacks = 0;
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
@@ -182,16 +184,29 @@ globalThis.fetch = async (url, options = {}) => {
   if (address === "https://generativelanguage.googleapis.com/v1beta/interactions") {
     geminiCalls++;
     const body = JSON.parse(options.body);
+    if (scenario.startsWith("gemini_503_") && !body.previous_interaction_id) {
+      if (originalResearchPayload !== null && originalResearchPayload !== options.body)
+        throw Error("RESEARCH_RETRY_CHANGED_PAYLOAD");
+      originalResearchPayload ??= options.body;
+      const failures = scenario === "gemini_503_always" ? 3
+        : scenario === "gemini_503_twice" ? 2
+          : scenario === "gemini_503_once" ? 1 : 0;
+      if (failedResearchRequests < failures) {
+        failedResearchRequests++;
+        return json({ error: { status: "UNAVAILABLE" } }, 503);
+      }
+    }
+    const successfulCallNumber = geminiCalls - failedResearchRequests;
     if (scenario.startsWith("dynamic_")) {
-      if (geminiCalls <= 2 && (!body.input.includes('"Ďalší overený fakt"') || !body.input.includes('"multi_select"') || !body.input.includes('Malé psy') || !body.input.includes('08/2024'))) throw Error("LIVE_SCHEMA_NOT_PROVIDED");
-      if (geminiCalls > 1) {
+      if (successfulCallNumber <= 2 && (!body.input.includes('"Ďalší overený fakt"') || !body.input.includes('"multi_select"') || !body.input.includes('Malé psy') || !body.input.includes('08/2024'))) throw Error("LIVE_SCHEMA_NOT_PROVIDED");
+      if (successfulCallNumber > 1) {
         const fields = body.tools.find(tool => tool.name === "create_notion_draft")?.parameters?.properties?.fields?.properties;
         if (!fields?.["Ďalší overený fakt"] || !fields?.["Počet miest"] || fields?.["Psipedia ID"] || fields?.["Publikovať"] || fields?.["Interný e-mail"] || fields?.Stav) throw Error("UNSAFE_DYNAMIC_TOOL_SCHEMA");
       }
     }
     if (body.model !== "gemini-3.8-flash") throw Error("WRONG_MODEL");
     if (scenario === "gemini_timeout") throw new DOMException("Mock timeout", "TimeoutError");
-    if (geminiCalls === 1) {
+    if (successfulCallNumber === 1) {
       if (body.tools?.length !== 1 || body.tools[0].type !== "google_search")
         throw Error("SEARCH_NOT_ISOLATED");
       if (scenario === "many_records") {
@@ -217,50 +232,52 @@ globalThis.fetch = async (url, options = {}) => {
         ],
       });
     }
+    if (scenario === "gemini_503_functions" && successfulCallNumber === 2)
+      return json({ error: { status: "UNAVAILABLE" } }, 503);
     if (body.tools?.some(tool => tool.type !== "function"))
       throw Error("MIXED_TOOL_REQUEST");
-    if (body.previous_interaction_id !== (geminiCalls === 2 ? "research-1" : "functions-" + (geminiCalls - 2)))
+    if (body.previous_interaction_id !== (successfulCallNumber === 2 ? "research-1" : "functions-" + (successfulCallNumber - 2)))
       throw Error("WRONG_PREVIOUS_INTERACTION");
     if (scenario.startsWith("pilot_")) {
       const candidate = { name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
         website_url: "https://example.com", phone: "+421 905 123 456", email: "clinic@example.com" };
-      const action = (name, args) => json({ id: "functions-" + (geminiCalls - 1),
-        status: "requires_action", steps: [step(name, "call-" + geminiCalls, args)] });
-      const done = (text = "Done") => json({ id: "functions-" + (geminiCalls - 1), status: "completed",
+      const action = (name, args) => json({ id: "functions-" + (successfulCallNumber - 1),
+        status: "requires_action", steps: [step(name, "call-" + successfulCallNumber, args)] });
+      const done = (text = "Done") => json({ id: "functions-" + (successfulCallNumber - 1), status: "completed",
         steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
       if (body.tools.length === 0) {
         if (scenario === "pilot_ignores_stop") return action("search_notion", { query: "Test Veterinár" });
         if (scenario === "pilot_malformed_stop") return done("Done");
         return done(scenario === "pilot_unresolved_stop" ? '{"outcome":"unresolved"}' : '{"outcome":"exhausted"}');
       }
-      if (scenario === "pilot_limit_write" && geminiCalls === 9) return action("create_notion_draft", candidate);
-      if (["pilot_limit", "pilot_limit_write"].includes(scenario)) return action("search_notion", { query: "different-" + geminiCalls });
-      if (geminiCalls === 2) return action("search_notion", { query: "Test Veterinár" });
-      if (scenario === "pilot_empty") return done(geminiCalls === 3 ? "Done" : '{"outcome":"no_relevant_candidate"}');
+      if (scenario === "pilot_limit_write" && successfulCallNumber === 9) return action("create_notion_draft", candidate);
+      if (["pilot_limit", "pilot_limit_write"].includes(scenario)) return action("search_notion", { query: "different-" + successfulCallNumber });
+      if (successfulCallNumber === 2) return action("search_notion", { query: "Test Veterinár" });
+      if (scenario === "pilot_empty") return done(successfulCallNumber === 3 ? "Done" : '{"outcome":"no_relevant_candidate"}');
       if (["pilot_search_loop", "pilot_ignores_stop", "pilot_unresolved_stop", "pilot_malformed_stop"].includes(scenario))
         return action("search_notion", { query: "  test veterinar  " });
-      if (geminiCalls === 3) return action("create_notion_draft", candidate);
-      if (scenario === "pilot_duplicate_done") return done(geminiCalls === 4 ? "Done" : '{"outcome":"duplicate_only"}');
-      if (scenario === "pilot_duplicate_new" || scenario === "pilot_duplicate_recover" && geminiCalls === 5) return action("create_notion_draft", {
+      if (successfulCallNumber === 3) return action("create_notion_draft", candidate);
+      if (scenario === "pilot_duplicate_done") return done(successfulCallNumber === 4 ? "Done" : '{"outcome":"duplicate_only"}');
+      if (scenario === "pilot_duplicate_new" || scenario === "pilot_duplicate_recover" && successfulCallNumber === 5) return action("create_notion_draft", {
         ...candidate, name: "Another clinic", city: "Nitra", source_url: "https://other.example/about",
         website_url: "https://other.example", phone: "+421 905 999 999", email: "other@example.com",
       });
       return action("create_notion_draft", { ...candidate, name: "TEST VETERINÁR", description: "Changed prose" });
     }
     if (scenario === "many_records") {
-      const action = (name, args) => json({ id: "functions-" + (geminiCalls - 1), status: "requires_action", steps: [step(name, "page-call-" + geminiCalls, args)] });
-      if (geminiCalls === 2) return action("search_notion", { query: "", offset: 0 });
+      const action = (name, args) => json({ id: "functions-" + (successfulCallNumber - 1), status: "requires_action", steps: [step(name, "page-call-" + successfulCallNumber, args)] });
+      if (successfulCallNumber === 2) return action("search_notion", { query: "", offset: 0 });
       const result = JSON.parse(body.input[0].result[0].text);
-      if (geminiCalls === 3) {
+      if (successfulCallNumber === 3) {
         if (result.matches.length !== 100 || !result.has_more || result.next_offset !== 100) throw Error("PAGINATION_TRUNCATED");
         return action("search_notion", { query: "", offset: result.next_offset });
       }
-      if (geminiCalls === 4) {
+      if (successfulCallNumber === 4) {
         if (result.matches.length !== 51 || result.has_more || result.next_offset !== null || result.matches[50].title !== "Record 150") throw Error("PAGINATION_LOST_RECORDS");
         return action("create_notion_draft", { name: "New candidate" });
       }
     }
-    if (geminiCalls === 2) {
+    if (successfulCallNumber === 2) {
       if (scenario === "unknown_tool")
         return json({ id: "functions-1", status: "requires_action", steps: [step("not_allowed", "call-a")] });
       if (scenario === "empty_action")
@@ -273,7 +290,7 @@ globalThis.fetch = async (url, options = {}) => {
         step("search_notion", "call-a", { query: "Test Veterinár" }),
       ] });
     }
-    if (geminiCalls === 3) {
+    if (successfulCallNumber === 3) {
       const inputText = JSON.stringify(body.input);
       if (scenario === "out_of_order") {
         if (!inputText.includes("search_notion_required_first")) throw Error("MISSING_SEARCH_GATE");
@@ -291,20 +308,20 @@ globalThis.fetch = async (url, options = {}) => {
         }),
       ] });
     }
-    if (geminiCalls === 4 && scenario === "dynamic_replay")
+    if (successfulCallNumber === 4 && scenario === "dynamic_replay")
       return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "dynamic-again", { ...dynamicArgs, fields: { ...dynamicArgs.fields, "Ďalší overený fakt": "Upravený opis toho istého kandidáta" } })] });
-    if (geminiCalls === 4 && scenario === "repeat_create")
+    if (successfulCallNumber === 4 && scenario === "repeat_create")
       return json({ id: "functions-3", status: "requires_action", steps: [step("create_notion_draft", "call-c", section === "directory" ? {
         name: "Test Veterinár", city: "Sereď", source_url: "https://example.com/about",
         website_url: "https://example.com", phone: "+421 905 123 456", email: "clinic@example.com",
       } : categoryArgs)] });
-    if (geminiCalls === 5 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario))
+    if (successfulCallNumber === 5 && ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario))
       return json({ id: "functions-4", status: "completed", steps: [
         { type: "model_output", content: [{ type: "text", text: '{"outcome":"duplicate_only"}' }] },
       ] });
-    if (geminiCalls === 5 && ["repeat_create", "many_records", "dynamic_replay"].includes(scenario))
+    if (successfulCallNumber === 5 && ["repeat_create", "many_records", "dynamic_replay"].includes(scenario))
       return json({ id: "functions-4", status: "completed", steps: [] });
-    if (geminiCalls === 4)
+    if (successfulCallNumber === 4)
       return json({ id: "functions-3", status: "completed", steps: [
         { type: "model_output", content: [{ type: "text", text: "Done" }] },
       ] });

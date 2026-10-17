@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { geminiHttpCode, inspectInteraction } from "../scripts/gemini-interactions-contract.mjs";
+import { retryInitialResearch503 } from "../scripts/gemini-research-retry.mjs";
 
 const worker = fileURLToPath(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url));
 const fixture = fileURLToPath(new URL("./fixtures/gemini-external-agent-fetch-mock.mjs", import.meta.url));
@@ -84,6 +85,52 @@ for (const [scenario, error, requests] of [
     assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
   });
 }
+
+test("initial research HTTP 503 retries at most twice, counting every paid request", () => {
+  for (const [scenario, requests, expectedStatus, concepts, searches] of [
+    ["gemini_503_once", 5, "SUCCESS", 1, 1],
+    ["gemini_503_twice", 6, "SUCCESS", 1, 1],
+    ["gemini_503_always", 3, "FAILED", 0, 0],
+  ]) {
+    const run = runOffline(scenario, "directory.chovatelske-stanice");
+    assert.equal(run.exitCode, expectedStatus === "SUCCESS" ? 0 : 1, scenario + ": " + run.stderr);
+    assert.equal(run.callback.status, expectedStatus, scenario);
+    assert.equal(run.callback.error_code, expectedStatus === "FAILED" ? "GEMINI_HTTP_503" : null);
+    assert.equal(run.callback.request_count, requests, scenario);
+    assert.equal(run.callback.search_count, searches, scenario);
+    assert.equal(run.callback.concept_count, concepts, scenario);
+    assert.deepEqual(run.counts, { geminiCalls: requests, notionPosts: concepts, callbacks: 1 }, scenario);
+  }
+});
+
+test("HTTP 503 after initial research never retries a continuation or Notion write", () => {
+  const run = runOffline("gemini_503_functions");
+  assert.equal(run.exitCode, 1, run.stderr);
+  assert.equal(run.callback.error_code, "GEMINI_HTTP_503");
+  assert.equal(run.callback.request_count, 2);
+  assert.equal(run.callback.search_count, 1);
+  assert.deepEqual(run.counts, { geminiCalls: 2, notionPosts: 0, callbacks: 1 });
+});
+
+test("HTTP 503 retry respects the remaining global request budget", async () => {
+  for (const startUsed of [8, 7]) {
+    let used = startUsed;
+    let calls = 0;
+    const delays = [];
+    await assert.rejects(() => retryInitialResearch503({
+      request: async () => {
+        calls++;
+        used++;
+        throw Error("GEMINI_HTTP_503");
+      },
+      canRetry: () => used < 9,
+      wait: async (ms) => { delays.push(ms); },
+    }), /GEMINI_HTTP_503/);
+    assert.equal(calls, 9 - startUsed);
+    assert.equal(used, 9);
+    assert.deepEqual(delays, startUsed === 8 ? [] : [400]);
+  }
+});
 
 test("offline create-before-Notion-search is rejected without side effects", () => {
   const run = runOffline("out_of_order");
