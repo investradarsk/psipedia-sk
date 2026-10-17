@@ -26,6 +26,7 @@ import {
   organizationStatusFromNotion,
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
+import { mergeNotionEventPriority } from "../lib/notion-event-priority.ts";
 import {
   mergeNotionSeo,
   notionSeoPropertyNames,
@@ -631,4 +632,68 @@ test("Help Gemini moderation gate: only reviewed concepts import; manual legacy 
   assert.equal(helpCaseMayEnterCanonicalSync("Nepodporované", evidence), false);
   assert.equal(readyForCreate("help-cases", { Názov: "X", Slug: "x", Kategória: "zbierky" }), true,
     "base canonical required-fields contract remains unchanged");
+});
+
+test("Events Notion A: nonempty editorial updates win without clearing canonical fields", () => {
+  const canonical = {
+    "Názov": "Výstava", "Slug": "stable-event-url", "Stav": "Publikované",
+    "Typ podujatia": "Iné", "Perex": "Pôvodný krátky popis",
+    "Popis": "Pôvodný text", "Praktické info": "Pôvodné informácie",
+    "Web": "https://psipedia.sk/", "Registrácia": "https://registracia.example/",
+    "Miesto": "Agrokomplex", "Mesto": "Nitra", "Kraj": "Nitriansky kraj",
+    "Adresa": "Výstavná 4", "Zrušené": true, "Noindex": true,
+  };
+  const notion = {
+    "Názov": "Výstava aktualizovaná", "Slug": "bad-new-url", "Stav": "Nápad",
+    "Typ podujatia": "Výstava", "Perex": "Lepší popis z Notionu",
+    "Popis": "Upravený popis", "Praktické info": "  ", "Web": "",
+    "Registrácia": null, "Miesto": "Výstavisko Agrokomplex Nitra",
+    "Mesto": "Nitra", "Kraj": "", "Adresa": "", "Zrušené": false,
+    "Noindex": false,
+  };
+  const result = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
+  assert.equal(result["Názov"], "Výstava aktualizovaná");
+  assert.equal(result["Typ podujatia"], "Výstava");
+  assert.equal(result["Perex"], "Lepší popis z Notionu");
+  assert.equal(result["Popis"], "Upravený popis");
+  assert.equal(result["Praktické info"], "Pôvodné informácie");
+  assert.equal(result["Registrácia"], canonical["Registrácia"]);
+  assert.equal(result["Web"], canonical["Web"]);
+  assert.equal(result["Adresa"], "Výstavná 4");
+  assert.equal(result["Kraj"], "Nitriansky kraj");
+  assert.equal(result["Miesto"], "Výstavisko Agrokomplex Nitra");
+  assert.equal(result["Stav"], "Publikované");
+  assert.equal(result["Slug"], "stable-event-url");
+  assert.equal(result["Zrušené"], false); // Explicit checkbox false is not empty.
+  assert.equal(result["Noindex"], false);
+  assert.equal(canonical["Popis"], "Pôvodný text");
+  assert.equal(notion["Popis"], "Upravený popis");
+});
+
+test("Events Notion A: confirmed Google locks ALL location fields, not editorial fields", () => {
+  const canonical = {
+    "Adresa": "Google-confirmed address", "Miesto": "Google-confirmed venue",
+    "Mesto": "Vysoké Tatry", "Kraj": "Prešovský kraj",
+    "Popis": "Pôvodný popis", "Perex": "Pôvodný perex",
+  };
+  const notion = {
+    "Adresa": "Different", "Miesto": "Different",
+    "Mesto": "Bratislava", "Kraj": "Bratislavský kraj",
+    "Popis": "Kvalitnejší popis", "Perex": "",
+  };
+  const merged = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: true });
+  for (const field of ["Adresa", "Miesto", "Mesto", "Kraj"]) {
+    assert.equal(merged[field], canonical[field]);
+  }
+  assert.equal(merged["Popis"], "Kvalitnejší popis");
+  assert.equal(merged["Perex"], "Pôvodný perex");
+  const unconfirmed = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
+  assert.equal(unconfirmed["Adresa"], "Different");
+});
+
+test("Events Notion A: missing values never erase values; 0 and false remain explicit", () => {
+  const canonical = { "Popis": "Saved", "Čas začiatku": "09:00", "Nulový údaj": 10, "Zrušené": true };
+  const notion = { "Popis": null, "Čas začiatku": "\t\n", "Nulový údaj": 0, "Zrušené": false, "Cudzie pole": "ignored" };
+  const merged = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
+  assert.deepEqual(merged, { "Popis": "Saved", "Čas začiatku": "09:00", "Nulový údaj": 0, "Zrušené": false });
 });
