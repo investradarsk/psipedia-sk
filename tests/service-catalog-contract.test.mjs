@@ -100,6 +100,8 @@ test("Admin-only new-option contract and Notion mirror",async()=>{
  assert.deepEqual(p.selectedStates,["yes","no"]);
  assert.equal(p.untouchedLegacyIsNo,false);
  assert.throws(()=>validateCatalogOptionDraft({name:"RTG vyšetrenie",category:"veterinari",kind:"service",group:"Diagnostika"}),/already exists/i);
+ assert.throws(()=>validateCatalogOptionDraft({name:"Hydroterapia",category:"treneri",kind:"service",group:"Iné"}),/already exists/i);
+ assert.throws(()=>validateCatalogOptionDraft({name:"Röntgenové vyšetrenie",category:"treneri",kind:"service",group:"Iné"}),/already exists/i);
  assert.throws(()=>validateCatalogOptionDraft({name:"",category:"veterinari",kind:"service",group:"Diagnostika"}),/name/i);
  assert.throws(()=>validateCatalogOptionDraft({name:"Nova sluzba",category:"other",kind:"service",group:"Diagnostika"}),/category/i);
  assert.deepEqual(validateCatalogOptionDraft({name:" Nová očná metóda ",category:"veterinari",kind:"service",group:"Diagnostika"}),{name:"Nová očná metóda",category:"veterinari",kind:"service",group:"Diagnostika"});
