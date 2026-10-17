@@ -117,7 +117,7 @@ export async function exportFacebookAdminChanges(args:{
   catch(error){if(isMissingTrashColumn(error))trash=false;else throw error;}
   let consent=false;
   try{await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();consent=true;}
-  catch(error){if(!(error instanceof Error&&/no such column:\\s*direct_publish_consent/i.test(error.message)))throw error;}
+  catch(error){if(!(error instanceof Error&&/no such column:\s*direct_publish_consent/i.test(error.message)))throw error;}
   const where="updated_by<>? AND (sync_hash IS NULL OR sync_hash <> '"+ACK_PREFIX+"' || version)";
   const rows=await db.prepare("SELECT id,title,image_key,caption,scheduled_at,status,version,"+
     "approval_status,"+(consent?"direct_publish_consent":"0 AS direct_publish_consent")+
