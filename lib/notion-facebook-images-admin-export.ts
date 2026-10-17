@@ -18,7 +18,7 @@ export type AdminExportSummary={enabled:boolean;scanned:number;created:number;up
 export type AdminImageRow={
   id:string;title:string;image_key:string;caption:string;
   scheduled_at:string|null;status:string;version:number;
-  approval_status:string;notion_page_id:string|null;sync_hash:string|null;
+  approval_status:string;direct_publish_consent?:number;notion_page_id:string|null;sync_hash:string|null;
   updated_by:string;deleted_at:string|null;facebook_post_id:string|null;published_at:string|null;
 };
 function rich(value:string){
@@ -49,6 +49,8 @@ export function facebookAdminNotionProperties(row:AdminImageRow){
     "Stav":{status:{name:row.status==="published"?"Publikované":
       row.status==="scheduled"?"Naplánované":"Koncept"}},
     "Povoliť publikovanie":{checkbox:row.approval_status==="APPROVED"},
+    // This is a D1 admin-owned projection. Notion cannot grant owner consent.
+    "Súhlas majiteľa – priame publikovanie":{checkbox:row.direct_publish_consent===1},
     "Dátum a čas publikovania":{date:row.scheduled_at?{start:row.scheduled_at}:null},
     "Facebook Post ID":{rich_text:rich(row.facebook_post_id||"")},
     "Facebook URL":{url:row.facebook_post_id?facebookImagePermalink(row.facebook_post_id):null},
@@ -113,9 +115,13 @@ export async function exportFacebookAdminChanges(args:{
   let trash=true;
   try{await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();}
   catch(error){if(isMissingTrashColumn(error))trash=false;else throw error;}
+  let consent=false;
+  try{await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();consent=true;}
+  catch(error){if(!(error instanceof Error&&/no such column:\\s*direct_publish_consent/i.test(error.message)))throw error;}
   const where="updated_by<>? AND (sync_hash IS NULL OR sync_hash <> '"+ACK_PREFIX+"' || version)";
   const rows=await db.prepare("SELECT id,title,image_key,caption,scheduled_at,status,version,"+
-    "approval_status,notion_page_id,sync_hash,updated_by,"+
+    "approval_status,"+(consent?"direct_publish_consent":"0 AS direct_publish_consent")+
+    ",notion_page_id,sync_hash,updated_by,"+
     (trash?"deleted_at":"NULL AS deleted_at")+",facebook_post_id,published_at "+
     "FROM facebook_image_posts WHERE "+where+" ORDER BY updated_at DESC,id LIMIT 100")
     .bind(IMPORT_ACTOR).all<AdminImageRow>();
