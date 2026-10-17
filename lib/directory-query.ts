@@ -1,4 +1,5 @@
 import type { DirectoryFilters } from "@/lib/directory-store";
+import { directoryPublicFacetQueryFields } from "@/lib/directory-public-filters";
 
 /** One canonical directory GET serializer for search, filters and pagination. */
 export function directoryQueryFields(
@@ -23,6 +24,7 @@ export function directoryQueryFields(
   for (const [name, value] of values) {
     if (!omit.includes(name) && value.trim()) fields.push({ name, value });
   }
+  if (!omit.includes("facets")) fields.push(...directoryPublicFacetQueryFields(filters.facets));
   return fields;
 }
 
