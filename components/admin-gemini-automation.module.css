@@ -193,3 +193,71 @@
 
 /* Use the admin work area's typography rather than public serif heading rules. */
 .dashboard :is(.panelHeader h2, .cardTitle h3) { font-family: inherit; }
+
+/*
+ * GEMINI DASHBOARD V3 — approved compact surface.
+ * Scope the shared shell's heading through THIS module's dashboard class.
+ * Does not change AdminShell/AdminNavigation or global CSS; compatible with #847.
+ */
+:global(.admin-root):has(.dashboard) :global(.admin-heading) {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px 12px;
+}
+:global(.admin-root):has(.dashboard) :global(.admin-heading) h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.16;
+  font-family: inherit;
+  font-weight: 700;
+}
+:global(.admin-root):has(.dashboard) :global(.admin-heading) p {
+  margin: 4px 0 0;
+  font-size: .88rem;
+  line-height: 1.4;
+}
+:global(.admin-root):has(.dashboard) :global(.admin-heading-actions) {
+  align-self: center;
+  padding-bottom: 0;
+}
+:global(.admin-root):has(.dashboard) :global(.admin-heading-actions) :global(.admin-primary-action) {
+  min-height: 44px;
+}
+.dashboard { gap: 12px; }
+.dashboard .metrics,
+.dashboard .workGrid,
+.dashboard .column { gap: 12px; }
+.dashboard .metric,
+.dashboard .panel { padding: 14px; }
+.dashboard .panel { gap: 12px; }
+.dashboard .categorySelect select,
+.dashboard .fields :is(select, input) { height: 44px; }
+.dashboard .cardBottom > a,
+.dashboard .cardBottom button,
+.dashboard .promptPreview button { min-height: 44px; }
+.dashboard .cardBottom > a { display: inline-flex; align-items: center; }
+@media (max-width: 760px) {
+  :global(.admin-root):has(.dashboard) :global(.admin-heading) {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 2px 8px;
+  }
+  :global(.admin-root):has(.dashboard) :global(.admin-heading) h1 {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+  :global(.admin-root):has(.dashboard) :global(.admin-heading-actions) {
+    align-self: stretch;
+  }
+}
+@media (max-width: 540px) {
+  .dashboard,
+  .dashboard .metrics,
+  .dashboard .workGrid,
+  .dashboard .column,
+  .dashboard .panel { gap: 10px; }
+  .dashboard .metric,
+  .dashboard .panel { padding: 12px; }
+  .dashboard .toggle { min-height: 44px; }
+  .dashboard :is(button, select, input:not([type="checkbox"]), summary) { min-height: 44px; }
+}
