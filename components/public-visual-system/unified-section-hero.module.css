@@ -1,6 +1,6 @@
 .shell {
   min-width: 0;
-  padding-top: clamp(14px, 1.8vw, 20px);
+  padding-top: 18px;
   padding-bottom: 16px;
 }
 
@@ -308,7 +308,7 @@
 }
 
 @media (max-width: 620px) {
-  .shell { padding-top: 0; padding-bottom: 12px; }
+  .shell { padding-top: 12px; padding-bottom: 12px; }
 
   /* Only the photo goes full-bleed; content/tools retain the canonical gutter. */
   .visual {
