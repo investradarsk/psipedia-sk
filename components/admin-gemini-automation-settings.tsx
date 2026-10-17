@@ -499,6 +499,10 @@ export function AdminGeminiAutomationSettings({
   function chooseCategory(key: string) {
     if (selected?.stableKey === key) return;
     if (dirty && !window.confirm("Máš neuložené nastavenia. Opustiť kategóriu bez uloženia?")) return;
+    // PR #868's canonical draft manager marks edited content via data-dirty.
+    // Never unmount that editor silently when changing categories.
+    if (document.querySelector('[data-dirty="true"]') &&
+      !window.confirm("V otvorenom editore máš neuložené zmeny konceptu. Opustiť kategóriu?")) return;
     setDirty(false);
     setSelectedKey(key);
   }
