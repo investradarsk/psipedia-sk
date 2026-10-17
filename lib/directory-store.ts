@@ -264,7 +264,7 @@ export type DirectoryFilters = {
   fciGroup: string;
   organization: string;
   profileType: string;
-  facets: DirectoryPublicFacets;
+  facets?: DirectoryPublicFacets;
   sort: DirectorySort;
   page: number;
 };
