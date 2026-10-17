@@ -14,6 +14,7 @@ type Row = {id:string;title:string;image_url:string;image_key:string;caption:str
   updated_at:string;approval_status:string;attempt_state?:string|null;error_code?:string|null;
   facebook_post_id?:string|null;published_at?:string|null;notion_page_id?:string|null;
   approved_at?:string|null;approved_by?:string|null;attempt_started_at?:string|null;
+  direct_publish_consent?:number;direct_consent_at?:string|null;direct_consent_by?:string|null;
   attempt_completed_at?:string|null;deleted_at?:string|null;deleted_by?:string|null;
 };
 function post(row:Row):FacebookImagePost {
@@ -26,7 +27,9 @@ function post(row:Row):FacebookImagePost {
     approvedAt:row.approved_at??null,approvedBy:row.approved_by??null,
     attemptStartedAt:row.attempt_started_at??null,
     attemptCompletedAt:row.attempt_completed_at??null,
-    deletedAt:row.deleted_at??null,deletedBy:row.deleted_by??null};
+    deletedAt:row.deleted_at??null,deletedBy:row.deleted_by??null,
+    directPublishConsent:row.direct_publish_consent===1,
+    directConsentAt:row.direct_consent_at??null,directConsentBy:row.direct_consent_by??null};
 }
 const columns="id,title,image_url,image_key,caption,scheduled_at,status,version,created_at,updated_at,approval_status,facebook_post_id,published_at,notion_page_id,approved_at,approved_by";
 async function hasPublisherSchema(db:D1Database) {
@@ -43,22 +46,32 @@ async function hasTrashSchema(db:D1Database) {
     throw error;
   }
 }
-function selectColumns(publisher:boolean,trash:boolean) {
+async function hasDirectConsentSchema(db:D1Database) {
+  try {await db.prepare("SELECT direct_publish_consent,direct_consent_at,direct_consent_by FROM facebook_image_posts LIMIT 0").all();return true;}
+  catch(error) {
+    if(error instanceof Error && /no such column:\\s*direct_(publish_consent|consent_at|consent_by)/i.test(error.message))return false;
+    throw error;
+  }
+}
+function selectColumns(publisher:boolean,trash:boolean,consent:boolean) {
   const base=columns.split(",").map(name=>"p."+name).join(",");
   return base+","+(publisher?"a.state":"NULL")+" AS attempt_state,"+
     (publisher?"a.error_code":"NULL")+" AS error_code,"+
     (publisher?"a.started_at":"NULL")+" AS attempt_started_at,"+
     (publisher?"a.completed_at":"NULL")+" AS attempt_completed_at,"+
     (trash?"p.deleted_at":"NULL")+" AS deleted_at,"+
-    (trash?"p.deleted_by":"NULL")+" AS deleted_by";
+    (trash?"p.deleted_by":"NULL")+" AS deleted_by,"+
+    (consent?"p.direct_publish_consent":"0")+" AS direct_publish_consent,"+
+    (consent?"p.direct_consent_at":"NULL")+" AS direct_consent_at,"+
+    (consent?"p.direct_consent_by":"NULL")+" AS direct_consent_by";
 }
 function publisherJoin(publisher:boolean) {
   return publisher?" LEFT JOIN facebook_image_publish_attempts a ON a.post_id=p.id":"";
 }
 export async function getFacebookImagePost(id:string,db=facebookImageDb()) {
   await requireFacebookImageSchema(db);
-  const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db);
-  const row=await db.prepare(`SELECT ${selectColumns(publisher,trash)}
+  const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db),consent=await hasDirectConsentSchema(db);
+  const row=await db.prepare(`SELECT ${selectColumns(publisher,trash,consent)}
     FROM facebook_image_posts p${publisherJoin(publisher)} WHERE p.id=?`).bind(id).first<Row>();
   return row?post(row):null;
 }
@@ -67,17 +80,16 @@ export async function listFacebookImagePosts(
 ) {
   await requireFacebookImageSchema(db);
   if(!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month))throw new Error("Neplatný mesiac.");
-  if(!["all","draft","scheduled","published","sending","review","trash"].includes(status))
+  if(!["all","draft","scheduled","published","sending","review"].includes(status))
     throw new Error("Neplatný filter.");
   if(!["all","manual","notion"].includes(source))throw new Error("Neplatný zdroj.");
-  const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db);
+  const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db),consent=await hasDirectConsentSchema(db);
   const start=new Date(month+"-01T00:00:00Z"),end=new Date(start);
   end.setUTCMonth(end.getUTCMonth()+1);
   const from=new Date(start.getTime()-8*86400000).toISOString();
   const to=new Date(end.getTime()+8*86400000).toISOString();
   const where:string[]=[],values:string[]=[];
-  if(trash)where.push(status==="trash"?"p.deleted_at IS NOT NULL":"p.deleted_at IS NULL");
-  else if(status==="trash")where.push("1=0");
+  if(trash)where.push("p.deleted_at IS NULL");
   if(["draft","scheduled","published"].includes(status)){
     where.push("p.status=?");values.push(status);
   }
@@ -88,7 +100,7 @@ export async function listFacebookImagePosts(
   if(source==="notion")where.push("p.notion_page_id IS NOT NULL");
   else if(source==="manual")where.push("p.notion_page_id IS NULL");
   const clause=where.length?where.join(" AND "):"1=1";
-  const join=publisherJoin(publisher),select=selectColumns(publisher,trash);
+  const join=publisherJoin(publisher),select=selectColumns(publisher,trash,consent);
   const totalRow=await db.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts p"+join+
     " WHERE "+clause).bind(...values).first<{n:number}>();
   const total=totalRow?.n??0,pages=Math.max(1,Math.ceil(total/50));
@@ -124,11 +136,11 @@ export async function saveFacebookImagePost(id:string|null,raw:unknown,actor:str
   await requireFacebookImageSchema(db);
   const input=normalizeFacebookImageInput(raw);await verifyImage(input);
   const now=new Date().toISOString();
-  const publisher=await hasPublisherSchema(db);
+  const publisher=await hasPublisherSchema(db),consent=await hasDirectConsentSchema(db);
   if(id){
     const expected=(raw as {expectedVersion?:unknown}).expectedVersion;
     if (!Number.isSafeInteger(expected) || Number(expected)<1)throw new FacebookImageConflict();
-    const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status='UNREVIEWED',approved_at=NULL,approved_by=NULL,version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?"AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)":""} RETURNING ${columns}`)
+    const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status='UNREVIEWED',approved_at=NULL,approved_by=NULL,${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?"AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)":""} RETURNING ${columns}`)
       .bind(input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,input.status,now,actor,id,expected).first<Row>();
     if(!row)throw new FacebookImageConflict();return post(row);
   }
