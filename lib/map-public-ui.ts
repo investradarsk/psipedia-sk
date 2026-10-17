@@ -1,5 +1,5 @@
-import { directoryFilterRegistry } from "./directory-filter-contract";
-import { directoryPublicFacetQueryFields, parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters";
+import { directoryFilterRegistry } from "./directory-filter-contract.ts";
+import { directoryPublicFacetQueryFields, parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters.ts";
 import type {
   MapBbox,
   MapCategory,
