@@ -23,6 +23,7 @@ export type GeminiAgendaField = {
   editable: boolean; synced: boolean; options?: string[];
 };
 export type GeminiAgendaDraft = {
+  canonicalVerified?: boolean;
   geminiNote?: string;
   id: string; stableKey: string; agenda: BidirectionalAgendaKey; name: string;
   city: string; reviewState: GeminiReviewState; syncError: string; rejectionReason: string;
@@ -191,6 +192,7 @@ function toDraft(page: Page, key: string, agenda: BidirectionalAgendaKey,
     : ["Archív", "ARCHIVED"].includes(status) ? "REJECTED"
     : status === "Ready" || status === "PENDING" ? "APPROVED" : "NEW";
   return {
+    canonicalVerified: false,
     geminiNote: txt(page, "Gemini poznámka"),
     id: page.id, stableKey: key, agenda, name: txt(page, source.title),
     city: txt(page, "Mesto"), reviewState, syncError: txt(page, "Sync chyba"),
@@ -221,6 +223,7 @@ async function enrichCanonicalMappings(env: GeminiAgendaReviewEnv, agenda: Bidir
     for (const draft of batch) {
       const mapped = byPage.get(normalized(draft.id));
       if (mapped) {
+        draft.canonicalVerified = true;
         draft.psipediaId = String(mapped);
         draft.reviewState = "IMPORTED";
       }
