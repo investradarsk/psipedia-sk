@@ -113,14 +113,28 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
         <fieldset className={styles.group} data-directory-public-facets>
           <legend>Služby a vlastnosti</legend>
           <p className={styles.facetsHelp}>Zobrazujeme iba výslovne potvrdené hodnoty. Neznáme údaje sa ako „Áno“ ani „Nie“ nezapočítajú.</p>
-          {facets.map((facet) =>
+          {facets.map((facet) => facet.valueType === "tri_state" ? (
+            <fieldset className={styles.facetChoice} key={facet.id}>
+              <legend>{facet.label}</legend>
+              <div className={styles.choiceOptions}>
+                {["", ...publicDirectoryFacetOptions(facet)].map((value) => (
+                  <label className={styles.choiceOption} key={value || "any"}>
+                    <input type="radio" name={publicDirectoryFacetKey(facet.id)} value={value}
+                      defaultChecked={(filters.facets?.[facet.id] ?? "") === value} />
+                    <span>{value ? publicDirectoryFacetLabels(value) : "Nezáleží"}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : (
             <label key={facet.id}><span>{facet.label}</span>
               <select name={publicDirectoryFacetKey(facet.id)} defaultValue={filters.facets?.[facet.id] ?? ""}>
                 <option value="">Nezáleží</option>
                 {publicDirectoryFacetOptions(facet).map((value) =>
                   <option value={value} key={value}>{publicDirectoryFacetLabels(value)}</option>)}
               </select>
-            </label>)}
+            </label>
+          ))}
         </fieldset>
       )}
       <label><span>Zoradenie</span><select name="sort" defaultValue={filters.sort}>

@@ -203,3 +203,52 @@
   .mobileToolbar > * { padding-inline: 8px; font-size: .8rem; }
   .dialog .sidebarForm { padding: 12px; }
 }
+
+/* Consistent three-way explicit choice UI for both approved variants. */
+.facetChoice { min-width: 0; margin: 0; padding: 0; border: 0; }
+.facetChoice legend { padding: 0 0 6px; font-size: .73rem; font-weight: 800; color: var(--ink-2); }
+.choiceOptions { display: flex; min-width: 0; flex-wrap: wrap; gap: 5px; }
+.sidebarForm .choiceOption {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  min-height: 37px;
+  gap: 0;
+  align-items: stretch;
+  cursor: pointer;
+}
+.choiceOption input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.sidebarForm .choiceOption > span {
+  display: inline-flex;
+  min-height: 37px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 9px;
+  border: 1px solid rgba(23,75,56,.19);
+  border-radius: 9px;
+  color: var(--forest);
+  background: #fff;
+  font-size: .73rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.choiceOption input:checked + span {
+  border-color: var(--forest);
+  background: var(--sage-light);
+  color: var(--forest-dark);
+}
+.choiceOption input:focus-visible + span {
+  outline: 3px solid rgba(23,75,56,.35);
+  outline-offset: 2px;
+}
+@media (max-width: 340px) {
+  .sidebarForm .choiceOption > span { padding-inline: 7px; font-size: .7rem; }
+}

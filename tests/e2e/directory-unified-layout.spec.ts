@@ -152,12 +152,12 @@ test("SERVICES-V2 approved hybrid: desktop sidebar and mobile modal, facets, map
         await mobileToolbar.locator("button").click();
         const dialog = page.locator("#directory-filter-dialog");
         await expect(dialog).toBeVisible();
-        await expect(dialog.locator('[name="f.veterinari.emergency"]')).toBeVisible();
+        await expect(dialog.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
         await expect(dialog.locator('[name="f.veterinari.facility_type"]')).toBeVisible();
         await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-dialog.png`), fullPage: true });
         const axe = await new AxeBuilder({ page }).include("#directory-filter-dialog").analyze();
         expect(axe.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
-        await dialog.locator('[name="f.veterinari.emergency"]').selectOption("yes");
+        await dialog.locator('input[type="radio"][name="f.veterinari.emergency"][value="yes"]').check();
         await Promise.all([
           page.waitForURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("f.veterinari.emergency") === "yes"),
           dialog.locator('button[type="submit"]').click(),
