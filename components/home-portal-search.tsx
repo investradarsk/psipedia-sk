@@ -4,6 +4,7 @@ import { SearchIcon } from "@/components/icons";
 export function HomePortalSearch({
   action = "/hladat",
   id = "home-search",
+  inputName = "q",
   label = "Hľadať na Psipedii",
   panelLabel = "Vyhľadávanie na Psipedii",
   eyebrow = "Čo potrebuješ vyriešiť?",
@@ -23,6 +24,7 @@ export function HomePortalSearch({
 }: {
   action?: string;
   id?: string;
+  inputName?: string;
   label?: string;
   panelLabel?: string;
   eyebrow?: string;
@@ -48,7 +50,7 @@ export function HomePortalSearch({
           <label className="sr-only" htmlFor={id}>{label}</label>
           <input
             id={id}
-            name="q"
+            name={inputName}
             placeholder={placeholder}
             defaultValue={defaultValue}
             autoComplete="off"
