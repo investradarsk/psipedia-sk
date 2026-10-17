@@ -97,7 +97,7 @@
 .panel { padding: 17px; background: #fff; border: 1px solid #e4eae6; border-radius: 15px; min-width: 0; display: grid; gap: 13px; box-shadow: 0 4px 18px rgba(7, 42, 25, .045); }
 .panelHeader { display: flex; gap: 8px 12px; justify-content: space-between; align-items: baseline; flex-wrap: wrap; min-width: 0; }
 .panelHeader h2 { margin: 0; font-size: 1rem; line-height: 1.35; }
-.panelHeader span { font-size: .74rem; color: #678073; }
+.panelHeader span { font-size: .74rem; color: #526b60; }
 .panelHeader a { color: #125738; font-weight: 700; font-size: .78rem; }
 .categorySelect { display: grid; gap: 6px; font-size: .83rem; font-weight: 700; }
 .categorySelect select { height: 42px; min-width: 0; width: 100%; padding: 8px 12px; border: 1px solid #cad8cd; border-radius: 9px; background: #fafcfb; color: #123728; font: inherit; font-weight: 500; }
@@ -108,7 +108,7 @@
 .dashboard .toggle { font-weight: 600; font-size: .85rem; }
 .dashboard .fields { gap: 10px; }
 .dashboard .fields label { font-size: .8rem; gap: 5px; }
-.dashboard .fields label small { font-size: .72rem; color: #748377; font-weight: 400; }
+.dashboard .fields label small { font-size: .72rem; color: #556858; font-weight: 400; }
 .dashboard .fields select, .dashboard .fields input { height: 40px; font-size: .85rem; }
 .dashboard .timestamps { padding-top: 10px; gap: 10px; }
 .dashboard .timestamps dt { font-size: .74rem; }
@@ -144,7 +144,7 @@
 .fold[open] > .runList, .fold[open] > .queueList { margin-top: 12px; }
 .queueList li { display: grid; gap: 3px; font-size: .8rem; }
 .queueList li span { font-size: .75rem; color: #3d634d; }
-.emptyCompact, .microcopy { margin: 0; font-size: .78rem; line-height: 1.5; color: #697f71; overflow-wrap: anywhere; }
+.emptyCompact, .microcopy { margin: 0; font-size: .78rem; line-height: 1.5; color: #52675a; overflow-wrap: anywhere; }
 .lookup { border: 1px solid #e2eae4; border-radius: 9px; background: #f9fbf9; padding: 10px; }
 .lookupControls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .lookupControls label { display: grid; gap: 5px; font-size: .76rem; font-weight: 650; min-width: 0; }
