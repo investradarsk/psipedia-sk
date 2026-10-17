@@ -22,15 +22,9 @@ test("ordinary admin save serializes managed items only", () => {
   assert.doesNotMatch(editorSource, /JSON\.stringify\(\{[^}]*automaticChildren/);
 });
 
-test("desktop admin disclosure uses native open state and CSS-only popup visibility", async () => {
+test("desktop admin navigation exposes the existing module hierarchy without popup state", async () => {
   const source = await readFile(new URL("../components/admin-navigation.tsx", import.meta.url), "utf8");
-  const css = await readFile(new URL("../components/admin-navigation.module.css", import.meta.url), "utf8");
-  assert.match(source, /<details[\s\S]*name="admin-primary"/);
-  assert.match(source, /data-admin-desktop-popup/);
-  assert.match(source, /expanded\.open = false/);
-  assert.match(css, /\.desktopGroup:not\(\[open\]\) > \.desktopMenu \{ display: none !important; \}/);
-  assert.match(source, /popup\.style\.display = "none"/);
-  assert.match(source, /popup\.style\.display = disclosure\.open \? "none" : "grid"/);
-  assert.doesNotMatch(source, /onToggle=|data-admin-desktop-popup style=/);
-  assert.doesNotMatch(source, /preventDefault\(\);[\s\S]*setExpandedDesktopGroup/);
+  assert.match(source, /data-admin-sidebar/);
+  assert.match(source, /<NavigationGroups \/>/);
+  assert.doesNotMatch(source, /<details|<summary|data-admin-desktop-popup|setExpandedDesktopGroup/);
 });

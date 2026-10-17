@@ -199,12 +199,32 @@ test("legacy push remains drain-only and universal push does not create a parall
   assert.doesNotMatch(migration,/email_outbox|recipient_email/);
 });
 
-test("one five-minute cron preserves hourly full work while allowing bounded automation due checks",()=>{
+test("five-minute admin push and isolated per-minute Facebook publishing preserve hourly work and due checks",()=>{
   const wrangler=read("wrangler.jsonc");
   const worker=read("worker/index.ts");
   const pushCron="*/5 * * * *";
-  assert.ok(wrangler.includes(`"crons": ["${pushCron}"]`));
+  const facebookCron="* * * * *";
+  // Match the actual cron array, not an outdated exact-one-trigger string.
+  // The set and length must match exactly: no missing, duplicate or extra triggers.
+  const cronArray=wrangler.match(/"crons"\s*:\s*(\[[^\]]*\])/);
+  assert.ok(cronArray,"wrangler must declare its Cron Triggers");
+  const configuredCrons=JSON.parse(cronArray[1]);
+  assert.deepEqual(
+    [...configuredCrons].sort(),
+    [pushCron,facebookCron].sort(),
+    "only the existing five-minute and per-minute triggers are allowed",
+  );
   assert.ok(worker.includes(`ADMIN_PUSH_CRON = "${pushCron}"`));
+  // The one-minute Facebook publisher must return before the five-minute and
+  // hourly work so frequent publishing never triggers unrelated sweeps.
+  const minuteStart=worker.indexOf(`if (controller.cron === "${facebookCron}")`);
+  const fiveMinuteStart=worker.indexOf(`if (controller.cron === "${pushCron}" &&`,minuteStart);
+  assert.ok(minuteStart>0 && fiveMinuteStart>minuteStart,"per-minute dispatch must precede five-minute work");
+  const minuteBranch=worker.slice(minuteStart,fiveMinuteStart);
+  assert.match(minuteBranch,/runFacebookImagePublishSweep/);
+  assert.match(minuteBranch,/return;/);
+  assert.doesNotMatch(minuteBranch,/runScheduledAdminPush|runDataAutomationSweep|runNotionArticleSyncSweep/);
+  assert.match(worker,/if \(controller\.cron !== ADMIN_PUSH_CRON\) return true;/);
   assert.match(worker,/scheduledTime/);
   assert.match(worker,/getUTCMinutes\(\) === 0/);
   const fastBranch=worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"),worker.indexOf("const [summary, editorial"));

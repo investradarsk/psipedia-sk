@@ -135,11 +135,11 @@ test("reschedule persists on the server, removes the old item and links to the n
   await expect(page.getByLabel("Čas publikovania")).toHaveValue("14:30");
 });
 
-test("calendar toolbar stays below sticky admin navigation while scrolling", async ({ page }) => {
+test("calendar toolbar stays below sticky admin topbar while scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 620 });
   const calendar = await scheduledCalendar(page);
   const toolbar = calendar.locator('[class*="toolbar"]');
-  const navigation = page.locator('[data-admin-sticky-nav]:visible');
+  const navigation = page.locator('[data-admin-topbar]');
   await expect(toolbar).toBeVisible();
   await toolbar.evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY + 220));
   await expect.poll(async () => {

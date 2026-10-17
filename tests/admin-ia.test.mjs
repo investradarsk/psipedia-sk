@@ -51,6 +51,8 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin/adresar/navrhy",
     "/admin/partners",
     "/admin/automatizacie",
+    "/admin/automatizacie-gemini",
+    "/admin/facebook-obrazky",
     "/admin/kvalita",
     "/admin/nastroje",
     "/admin/nastavenia",
@@ -110,19 +112,23 @@ test("admin shell renders shared active navigation, breadcrumbs, sticky position
   const navigation = read("components/admin-navigation.tsx");
   const navigationCss = read("components/admin-navigation.module.css");
 
-  assert.match(shell, /<AdminNavigation stickyClassName={styles\.stickyNav} \/>/);
+  assert.ok(shell.includes("<AdminNavigation"));
+  assert.ok(shell.includes("stickyClassName={styles.stickyNav}"));
+  assert.ok(shell.includes('signOutHref={chatGPTSignOutPath("/", user.authProvider)}'));
+  assert.ok(shell.includes("userDisplayName={user.displayName}"));
+  assert.ok(navigation.includes("<a href={signOutHref}>Odhlásiť</a>"));
   assert.match(shell, /<AdminBreadcrumbs \/>/);
   assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /href="\/admin\/operations"/);
   assert.match(shell, /activeCount > 99 \? "99\+" : activeCount/);
   assert.match(shellCss, /\.stickyNav\s*\{[^}]*position:\s*sticky;[^}]*top:\s*var\(--admin-sticky-top,\s*76px\);/s);
   assert.match(shellCss, /@media \(max-width:\s*760px\)[\s\S]*\.stickyNav\s*\{[^}]*top:\s*var\(--admin-sticky-top,\s*68px\);/);
-  assert.match(shellCss, /scroll-margin-top:\s*var\(--admin-sticky-stack,\s*178px\)/);
+  assert.match(shellCss, /scroll-margin-top:\s*calc\(var\(--admin-sticky-stack,\s*178px\)/);
   const metrics = read("components/admin-sticky-metrics.tsx");
   assert.match(metrics, /new ResizeObserver\(update\)/);
   assert.match(metrics, /--admin-sticky-stack/);
   assert.match(navigation, /data-admin-sticky-nav/);
-  assert.match(navigationCss, /flex-wrap:\s*nowrap/);
+  assert.match(navigationCss, /overflow-y:\s*auto/);
   assert.match(navigation, /aria-current=\{current \? "page" : undefined\}/);
   assert.match(navigation, /aria-label="Drobečková navigácia"/);
   assert.match(navigationCss, /a\[aria-current="page"\]/);
@@ -268,8 +274,24 @@ test("ADMIN-NAVIGATION-V2 isolates chrome and uses semantic accessible menus", (
   assert.match(adminLayout, /data-admin-workspace/);
   assert.match(chrome, /body:has\(\[data-admin-workspace\]\) > \.site-header/);
   assert.match(chrome, /body:has\(\[data-admin-workspace\]\) > \.site-footer/);
-  assert.match(nav, /<details/);
-  assert.match(nav, /<summary/);
-  assert.match(navCss, /overflow:\s*visible/);
+  assert.match(nav, /data-admin-sidebar/);
+  assert.match(nav, /<NavigationGroups \/>/);
+  assert.match(navCss, /overflow-y:\s*auto/);
   assert.doesNotMatch(navCss, /overflow-x:\s*auto/);
+});
+
+test("V3 shared shell exposes owner-approved sidebar, responsive drawer and preserves Gemini/Facebook navigation", () => {
+  const shell = read("components/admin-shell.tsx");
+  const shellCss = read("components/admin-shell.module.css");
+  const nav = read("components/admin-navigation.tsx");
+  const navCss = read("components/admin-navigation.module.css");
+  const registry = read("lib/admin-navigation.ts");
+  assert.match(shell, /data-admin-sidebar-shell/);
+  assert.match(shell, /Psipedia Admin/);
+  assert.match(shellCss, /#092d21/);
+  assert.match(navCss, /groupButton/);
+  assert.match(navCss, /max-width: 1100px/);
+  assert.match(nav, /aria-label="Menu"/);
+  assert.match(registry, /\/admin\/facebook-obrazky/);
+  assert.match(registry, /\/admin\/automatizacie-gemini/);
 });
