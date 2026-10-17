@@ -11,10 +11,12 @@ export function ArticleBrowser({
   articles,
   initialCategory = "Všetky",
   initialQuery = "",
+  hidePrimarySearch = false,
 }: {
   articles: Article[];
   initialCategory?: string;
   initialQuery?: string;
+  hidePrimarySearch?: boolean;
 }) {
   const [category, setCategory] = useState(initialCategory);
   const [query, setQuery] = useState(initialQuery);
@@ -43,11 +45,11 @@ export function ArticleBrowser({
             </button>
           ))}
         </div>
-        <label className="inline-search">
+        {!hidePrimarySearch && <label className="inline-search">
           <SearchIcon size={19} />
           <span className="sr-only">Hľadať v magazíne</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať v magazíne" />
-        </label>
+        </label>}
       </div>
 
       <p className="result-count" aria-live="polite">
