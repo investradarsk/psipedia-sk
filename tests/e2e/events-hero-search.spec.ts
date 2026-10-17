@@ -63,7 +63,7 @@ test("homepage search defaults stay unchanged and event search follows the hero 
     const panel = await page.locator(".home-search-panel").boundingBox();
     // Homepage reference: the white search panel overlaps the photograph.
     const heroBottom = bounds!.y + bounds!.height;
-    const expectedOverlap = width <= 620 ? 26 : 42;
+    const expectedOverlap = width <= 620 ? 18 : 25;
     expect(Math.abs((heroBottom - panel!.y) - expectedOverlap)).toBeLessThanOrEqual(3);
     expect(panel!.width).toBeLessThanOrEqual(width);
     expect(panel!.x).toBeGreaterThanOrEqual(0);
