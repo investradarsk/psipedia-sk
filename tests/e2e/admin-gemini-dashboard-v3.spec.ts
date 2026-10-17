@@ -63,11 +63,16 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
   expect(paidPosts).toBe(0);
 
   if (mobile) {
+    // Capture a pristine 320px viewport, not a page scrolled to the dirty form.
+    // Sticky navigation must start at the top of the full-page screenshot.
     await page.setViewportSize({ width: 320, height: 800 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page.getByRole("heading", { name: "Automatizácie Gemini", exact: true })).toBeVisible();
     await page.screenshot({
       path: ".e2e-artifacts/gemini-dashboard-v3/mobile-320.png",
       fullPage: true,
     });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });
