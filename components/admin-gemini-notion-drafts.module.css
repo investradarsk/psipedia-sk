@@ -96,3 +96,5 @@
   }
   .editorFrame { min-height: calc(100dvh - 210px); }
 }
+
+.editorSurface[data-dirty="true"] .dirtyWarning { display: block; }
