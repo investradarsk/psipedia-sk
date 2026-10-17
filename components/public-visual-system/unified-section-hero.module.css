@@ -346,9 +346,6 @@
 /* Homepage V2 is the canonical visual contract, including its final
    module-scoped overrides (not the older app/globals.css rules). */
 .hero[data-hero-variant="homepage-style"] .visual { border-radius: 0; }
-.hero[data-hero-variant="homepage-style"] .tools {
-  margin-top: -25px;
-}
 .portalSearch {
   position: relative;
   z-index: 2;
