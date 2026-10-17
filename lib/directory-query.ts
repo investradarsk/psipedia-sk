@@ -1,5 +1,5 @@
 import type { DirectoryFilters } from "@/lib/directory-store";
-import { directoryPublicFacetQueryFields } from "@/lib/directory-public-filters";
+import { directoryPublicFacetQueryFields } from "./directory-public-filters.ts";
 
 /** One canonical directory GET serializer for search, filters and pagination. */
 export function directoryQueryFields(
