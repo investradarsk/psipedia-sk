@@ -34,3 +34,8 @@ export function mergeNotionEventPriority(input: {
   }
   return merged;
 }
+
+/** Separate release gate: never activate bulk Events precedence on deploy. */
+export function notionEventPriorityAEnabled(flag: string | undefined) {
+  return ["true", "1"].includes((flag ?? "").trim().toLowerCase());
+}
