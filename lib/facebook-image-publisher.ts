@@ -126,7 +126,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     WHERE status='scheduled' AND scheduled_at<=? AND image_key<>'' ${trashReady?"AND deleted_at IS NULL":""}
       AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
       AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
-           AND approval_status='APPROVED')
+           AND approval_status='APPROVED' AND approved_at IS NOT NULL AND approved_by IS NOT NULL)
     ORDER BY scheduled_at,id LIMIT 50`).bind(timestamp).all<Candidate>();
   summary.due=candidates.results.length;
   for(const item of candidates.results){
@@ -137,7 +137,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
        SELECT id,version,'SENDING',? FROM facebook_image_posts WHERE id=? AND version=?
          AND status='scheduled' AND scheduled_at<=? AND image_key=? ${trashReady?"AND deleted_at IS NULL":""}
          AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
-           AND approval_status='APPROVED')
+           AND approval_status='APPROVED' AND approved_at IS NOT NULL AND approved_by IS NOT NULL)
          AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
        RETURNING post_id`).bind(timestamp,item.id,item.version,timestamp,item.image_key).first<{post_id:string}>();
     if(!claimed)continue;
