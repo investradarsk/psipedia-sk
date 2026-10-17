@@ -82,9 +82,9 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
 async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null>{
   const item=serviceCatalog.find(x=>x.id===id);
   if(item)return item.categories;
-  const row=await db.prepare("SELECT kind,status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
-    .bind(id).first<{kind:string;status:string;categories_json:string}>();
-  return row?.kind==="service"&&row.status==="ACTIVE"?categories(row.categories_json):null;
+  const row=await db.prepare("SELECT kind,status,notion_mirror_status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
+    .bind(id).first<{kind:string;status:string;notion_mirror_status:string;categories_json:string}>();
+  return row?.kind==="service"&&row.status==="ACTIVE"&&row.notion_mirror_status==="SYNCED"?categories(row.categories_json):null;
 }
 /** An explicit yes/no write with version=0 insert-if-absent and CAS updates. */
 export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,actorRaw:string,now=new Date()){
