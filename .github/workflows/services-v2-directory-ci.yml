@@ -43,6 +43,7 @@ jobs:
       - name: Focused directory and URL contracts
         run: |
           node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-unified-layout.test.mjs tests/directory-public-filters.test.mjs
+          node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs
           npm run test:public-landing-alignment
           npm run test:unified-section-hero
           npm run test:map-public-ui
