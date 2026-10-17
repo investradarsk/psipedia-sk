@@ -335,3 +335,12 @@
 .toolbar { width: 100%; max-width: 780px; grid-template-columns: minmax(0, 1fr) auto auto; border-radius: var(--ps-radius-filter, 18px); }
 .card { border-radius: var(--ps-radius-card, 22px); }
 @media (max-width: 760px) { .toolbar { grid-template-columns: minmax(0, 1fr); } .browserTop { padding-top: 12px; } }
+
+/* The canonical query is in the hero; this toolbar contains facets only. */
+.toolbar[data-help-secondary-filters] { grid-template-columns: minmax(0, 1fr); }
+.toolbar[data-help-secondary-filters] .filterToggle { justify-self: start; }
+.toolbar[data-help-secondary-filters] .secondaryFiltersOpen { grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto; }
+@media (max-width: 760px) {
+  .toolbar[data-help-secondary-filters] .filterToggle { width: 100%; }
+  .toolbar[data-help-secondary-filters] .secondaryFiltersOpen { grid-template-columns: minmax(0, 1fr); }
+}
