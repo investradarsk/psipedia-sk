@@ -51,6 +51,8 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin/adresar/navrhy",
     "/admin/partners",
     "/admin/automatizacie",
+    "/admin/automatizacie-gemini",
+    "/admin/facebook-obrazky",
     "/admin/kvalita",
     "/admin/nastroje",
     "/admin/nastavenia",
@@ -272,4 +274,20 @@ test("ADMIN-NAVIGATION-V2 isolates chrome and uses semantic accessible menus", (
   assert.match(nav, /<NavigationGroups \/>/);
   assert.match(navCss, /overflow-y:\s*auto/);
   assert.doesNotMatch(navCss, /overflow-x:\s*auto/);
+});
+
+test("V3 shared shell exposes owner-approved sidebar, responsive drawer and preserves Gemini/Facebook navigation", () => {
+  const shell = read("components/admin-shell.tsx");
+  const shellCss = read("components/admin-shell.module.css");
+  const nav = read("components/admin-navigation.tsx");
+  const navCss = read("components/admin-navigation.module.css");
+  const registry = read("lib/admin-navigation.ts");
+  assert.match(shell, /data-admin-sidebar-shell/);
+  assert.match(shell, /Psipedia Admin/);
+  assert.match(shellCss, /#092d21/);
+  assert.match(navCss, /groupButton/);
+  assert.match(navCss, /max-width: 1100px/);
+  assert.match(nav, /aria-label="Menu"/);
+  assert.match(registry, /\/admin\/facebook-obrazky/);
+  assert.match(registry, /\/admin\/automatizacie-gemini/);
 });

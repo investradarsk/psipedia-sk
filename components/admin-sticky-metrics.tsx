@@ -14,7 +14,10 @@ export function AdminStickyMetrics() {
     const update = () => {
       const nav = navs.find((element) => getComputedStyle(element).display !== "none");
       const stickyTop = Math.ceil(topbar.getBoundingClientRect().height) + 8;
-      const stack = stickyTop + (nav ? Math.ceil(nav.getBoundingClientRect().height) : 0) + 8;
+      // The V3 mobile menu shares the topbar row; it does not add a second sticky row.
+      const inlineMobileMenu = nav?.closest("[data-admin-sidebar-shell]") &&
+        getComputedStyle(nav).position === "fixed";
+      const stack = stickyTop + (nav && !inlineMobileMenu ? Math.ceil(nav.getBoundingClientRect().height) : 0) + 8;
       root.style.setProperty("--admin-sticky-top", `${stickyTop}px`);
       root.style.setProperty("--admin-sticky-stack", `${stack}px`);
       root.style.setProperty("--admin-editor-nav-height", `${editorNav ? Math.ceil(editorNav.getBoundingClientRect().height) : 0}px`);

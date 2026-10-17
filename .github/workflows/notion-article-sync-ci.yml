@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - "lib/notion-article-sync.ts"
+      - "lib/article-publish-notion-reconciliation.ts"
+      - "worker/index.ts"
       - "lib/article-subsection-taxonomy.ts"
       - "lib/notion-breed-sync.ts"
       - "lib/notion-event-sync.ts"
       - "lib/notion-directory-sync.ts"
+      # Canonical directory writes are shared by Notion synchronization and Google GEO confirmation.
+      - "lib/directory-store.ts"
       - "lib/notion-sync-shared.ts"
       - "app/api/admin/notion-sync/**"
       - "app/api/admin/notion-breeds-sync/**"
@@ -28,6 +32,7 @@ on:
       - "components/admin-data-quality-dashboard.tsx"
       - "tests/media-source-quality.test.mjs"
       - "tests/notion-article-sync.test.mjs"
+      - "tests/article-publish-notion-reconciliation.test.mjs"
       - "tests/notion-breed-sync.test.mjs"
       - "tests/notion-event-sync.test.mjs"
       - "tests/notion-directory-sync.test.mjs"
@@ -75,7 +80,7 @@ jobs:
         run: npm run test:migration-safety
 
       - name: Notion sync safety contract
-        run: node --test tests/notion-article-sync.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs
+        run: node --test tests/notion-article-sync.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs
 
       - name: Production build
         run: npm run build

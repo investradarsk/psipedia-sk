@@ -31,6 +31,7 @@ import {
 } from "@/lib/editorial-content";
 import { normalizeEditorialExternalVideo } from "@/lib/editorial-video";
 import { buildArticleAdminListQuery, type ArticleAdminDirection, type ArticleAdminSort, type ArticleAdminStatus } from "@/lib/article-admin-query";
+import { articleEffectiveStatusSql } from "@/lib/article-effective-status";
 import type { AdminListAvailability } from "@/lib/admin-list-query";
 import {
   getArticleTopicsByArticleId,
@@ -977,7 +978,8 @@ export async function listManagedArticleSummaries(options: {
     page: options.page ?? 1,
     pageSize: options.pageSize ?? 50,
   } as const;
-  const filteredQuery = buildArticleAdminListQuery(filters, options.portalSection);
+  const now = new Date().toISOString();
+  const filteredQuery = buildArticleAdminListQuery(filters, options.portalSection, now);
   const globalWhere = options.portalSection ? "WHERE portal_section = ?" : "";
   const globalBindings = options.portalSection ? [options.portalSection] : [];
   const [filteredCountResult, countResult] = await database.batch([
@@ -986,12 +988,15 @@ export async function listManagedArticleSummaries(options: {
     database.prepare(`
       SELECT
         COUNT(*) AS total,
-        COALESCE(SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END), 0) AS published,
-        COALESCE(SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END), 0) AS scheduled,
-        COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
-      FROM managed_articles
+        COALESCE(SUM(CASE WHEN effective_status = 'published' THEN 1 ELSE 0 END), 0) AS published,
+        COALESCE(SUM(CASE WHEN effective_status = 'scheduled' THEN 1 ELSE 0 END), 0) AS scheduled,
+        COALESCE(SUM(CASE WHEN effective_status = 'draft' THEN 1 ELSE 0 END), 0) AS draft
+      FROM (
+        SELECT portal_section, ${articleEffectiveStatusSql()} AS effective_status
+        FROM managed_articles
+      ) AS article_statuses
       ${globalWhere}
-    `).bind(...globalBindings),
+    `).bind(now, ...globalBindings),
   ]);
   const resultCount = Number((filteredCountResult.results?.[0] as { total?: number } | undefined)?.total ?? 0);
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as ArticleCountRow | null;
@@ -1003,14 +1008,15 @@ export async function listManagedArticleSummaries(options: {
   };
   const totalPages = Math.max(1, Math.ceil(resultCount / filteredQuery.pageSize));
   const page = Math.min(filteredQuery.page, totalPages);
-  const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection);
+  const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection, now);
   const listResult = await database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, news_category, status, accent, image_url, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json, updated_at
+    SELECT id, slug, title, excerpt, category, portal_section, news_category,
+      ${articleEffectiveStatusSql()} AS status, accent, image_url, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json, updated_at
     FROM managed_articles
     ${pageQuery.where}
     ORDER BY ${pageQuery.orderBy}
     LIMIT ? OFFSET ?
-  `).bind(...pageQuery.bindings, pageQuery.pageSize, pageQuery.offset).all<ArticleSummaryRow>();
+  `).bind(now, ...pageQuery.bindings, pageQuery.pageSize, pageQuery.offset).all<ArticleSummaryRow>();
   return {
     articles: listResult.results.map(rowToManagedArticleSummary),
     counts,

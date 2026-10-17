@@ -1,5 +1,6 @@
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { nextGeminiRunAt } from "./gemini-automation-schedule.ts";
 import {
   geminiSettingView, geminiSettingViews,
   type GeminiSettingRow, type GeminiSettingsInput,
@@ -24,7 +25,7 @@ export type GeminiRecentRun = {
   errorCode: string | null;
 };
 
-const SETTING_COLUMNS = "id, stable_key, section, subcategory, enabled, cadence_minutes, max_new_concepts, last_run_at, next_run_at";
+const SETTING_COLUMNS = "id, stable_key, section, subcategory, enabled, cadence_minutes, weekly_day, max_new_concepts, last_run_at, next_run_at";
 
 export async function listGeminiSettings(db: GeminiD1) {
   const rows = await db.prepare("SELECT " + SETTING_COLUMNS + " FROM gemini_automation_settings ORDER BY stable_key ASC")
@@ -44,23 +45,34 @@ export async function saveGeminiSetting(db: GeminiD1, input: GeminiSettingsInput
   const item = getGeminiCatalogItem(input.stableKey);
   if (!item) throw new Error("GEMINI_UNKNOWN_CATEGORY");
   const timestamp = now.toISOString();
-  // This is a configuration timestamp only. No cron invokes the Gemini runner.
-  const next = input.enabled ? new Date(now.getTime() + input.cadenceMinutes * 60000).toISOString() : null;
+  const existing = await db.prepare(
+    "SELECT enabled, cadence_minutes, weekly_day, next_run_at FROM gemini_automation_settings WHERE stable_key = ?"
+  ).bind(item.stableKey).first<Pick<GeminiSettingRow, "enabled" | "cadence_minutes" | "weekly_day" | "next_run_at">>();
+  // Editing the maximum count must not erase an already due slot. A changed
+  // interval/week day starts from the save instant, not from stale history.
+  const unchanged = existing?.enabled === 1 &&
+    existing.cadence_minutes === input.cadenceMinutes &&
+    (existing.weekly_day ?? null) === input.weeklyDay;
+  const next = !input.enabled ? null
+    : unchanged && existing?.next_run_at ? existing.next_run_at
+      : nextGeminiRunAt(now, input.cadenceMinutes, input.weeklyDay);
   await db.prepare(`
     INSERT INTO gemini_automation_settings
-      (stable_key, section, subcategory, enabled, cadence_minutes, max_new_concepts, next_run_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (stable_key, section, subcategory, enabled, cadence_minutes, weekly_day, max_new_concepts, next_run_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(stable_key) DO UPDATE SET
       section = excluded.section,
       subcategory = excluded.subcategory,
       enabled = excluded.enabled,
       cadence_minutes = excluded.cadence_minutes,
+      weekly_day = excluded.weekly_day,
       max_new_concepts = excluded.max_new_concepts,
       next_run_at = excluded.next_run_at,
       updated_at = excluded.updated_at
   `).bind(
     item.stableKey, item.section, item.subcategory,
-    input.enabled ? 1 : 0, input.cadenceMinutes, input.maxNewConcepts, next, timestamp,
+    input.enabled ? 1 : 0, input.cadenceMinutes, input.weeklyDay,
+    input.maxNewConcepts, next, timestamp,
   ).run();
   return getGeminiSetting(db, input.stableKey);
 }
@@ -71,9 +83,10 @@ export async function listRecentGeminiRuns(db: GeminiD1, limit = 30): Promise<Ge
     SELECT r.id, s.stable_key, s.section, s.subcategory, r.started_at,
       r.trigger_type, r.status, r.model, r.request_count, r.grounded_search_query_count,
       r.candidate_count, r.duplicate_count, r.concept_count, r.error_count,
-      r.completed_at, r.error_code
+      r.completed_at, COALESCE(j.error_code, r.error_code) AS error_code
     FROM gemini_automation_runs r
     JOIN gemini_automation_settings s ON s.id = r.setting_id
+    LEFT JOIN gemini_manual_background_jobs j ON j.run_id = r.id
     ORDER BY r.started_at DESC, r.id DESC
     LIMIT ?
   `).bind(bounded).all<{

@@ -3,18 +3,60 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { classifyPreparedMigrations } from "./production-d1-0123-0124-preflight.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// Reviewed SQL prepared for local rehearsal only. Activation requires a separate
-// rollout change with production pre/postflight assertions and workflow approval.
-// These targets are intentionally NOT accepted by prepareScopedMigration/apply.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
-  "0123_event_organization_structured_address.sql",
-  "0124_gemini_notion_review_locks.sql",
-]);
+// Prepared migrations are excluded from production until independently approved.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0131_SHA256 = "d07c3a675ea3466954e7c34e3fa9ced41f301be5bdedf37682009ef41147a54a";
+export function assertApproved0131Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0131 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0131_SHA256, "0131 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0131NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0131_facebook_image_trash.sql")
+    invariant(!targetApplied, "0131 already applied; refusing repeated production APPLY");
+}
+export const APPROVED_0130_SHA256 = "b198096d6c83fb63c4f1b9058735bfc4f3dc7b3a777cb3a60a65177e026e21bb";
+export function assertApproved0130Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0130 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0130_SHA256, "0130 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0130NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0130_facebook_image_publisher.sql")
+    invariant(!targetApplied, "0130 already applied; refusing repeated production APPLY");
+}
+export const APPROVED_0129_SHA256 = "ef44cca9fc23decee10714c2d7ba54fb54be49428856e82c5fd782cd19e37b1d";
+export function assertApproved0129Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0129 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0129_SHA256, "0129 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0129NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0129_gemini_external_manual_queue.sql")
+    invariant(!targetApplied, "0129 already applied; refusing repeated production APPLY");
+}
+export const APPROVED_0128_SHA256 = "9f8b23e2420f354089f38490d9105707346527e5ab8fc544f55234d8283a098a";
+export function assertApproved0128Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0128 requires the canonical psipedia-sk-db database");
+  invariant(sha256 === APPROVED_0128_SHA256, "0128 SQL SHA256 differs from the approved rollout bytes");
+}
+export function assert0128NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0128_facebook_image_posts.sql")
+    invariant(!targetApplied, "0128 already applied; refusing repeated production APPLY");
+}
+// 0127 remains pinned to the SQL approved by the 2026-10-15 read-only audit.
+export const APPROVED_0127_SHA256 = "11188f4c5f08e9bfa15c20add40c7df08b07f95ea6f555bbdd46ca73b08bd03e";
+export function assertApproved0127Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0127 requires the canonical psipedia-sk-db database");
+  invariant(sha256 === APPROVED_0127_SHA256, "0127 SQL SHA256 differs from the approved production preflight");
+}
+export function assert0127NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0127_gemini_notion_created_pages.sql")
+    invariant(!targetApplied, "0127 already applied; refusing repeated production APPLY");
+}
 
 export const REVIEW_TABLES = Object.freeze([
   "review_authors",
@@ -123,6 +165,15 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0120_article_image_presentation.sql",
   "0121_article_image_display_config.sql",
   "0122_entity_image_display_config.sql",
+  "0123_event_organization_structured_address.sql",
+  "0124_gemini_notion_review_locks.sql",
+  "0125_gemini_category_prompts.sql",
+  "0126_gemini_scheduler_admin_v2.sql",
+  "0127_gemini_notion_created_pages.sql",
+  "0128_facebook_image_posts.sql",
+  "0129_gemini_external_manual_queue.sql",
+  "0130_facebook_image_publisher.sql",
+  "0131_facebook_image_trash.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -626,6 +677,16 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
   const selection = selectMigrationsThrough(files, targetMigration);
   const targetMigrationBytes = await fs.readFile(path.join(repoRoot, "drizzle", targetMigration));
   const targetMigrationSha256 = createHash("sha256").update(targetMigrationBytes).digest("hex");
+  if (targetMigration === "0127_gemini_notion_created_pages.sql")
+    assertApproved0127Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0128_facebook_image_posts.sql")
+    assertApproved0128Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0129_gemini_external_manual_queue.sql")
+    assertApproved0129Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0130_facebook_image_publisher.sql")
+    assertApproved0130Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0131_facebook_image_trash.sql")
+    assertApproved0131Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -732,12 +793,17 @@ function schemaState(databaseName, configPath) {
   const automationDiscoveryRunColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_discovery_runs')");
   const automationSourceColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_sources')");
   const automationDirectRefreshColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('automation_direct_refresh_settings')");
+  const organizationLocationColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('organization_locations')");
+  const geminiNotionReviewLockColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_notion_review_locks')");
+  const geminiCategoryPromptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_category_prompts')");
+  const geminiAutomationSettingsColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_automation_settings')");
   const adminPushSubscriptionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_push_subscriptions')");
   const adminNotificationReadReceiptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_notification_read_receipts')");
   const adminNotificationReadReceiptForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('admin_notification_read_receipts')");
   const partnerPasswordCredentialForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_password_credentials')");
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
+  const facebookImagePostColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('facebook_image_posts')");
   const objects = d1Execute(
     databaseName,
     configPath,
@@ -765,12 +831,17 @@ function schemaState(databaseName, configPath) {
     automationDiscoveryRunColumns,
     automationSourceColumns,
     automationDirectRefreshColumns,
+    organizationLocationColumns,
+    geminiNotionReviewLockColumns,
+    geminiCategoryPromptColumns,
+    geminiAutomationSettingsColumns,
     adminPushSubscriptionColumns,
     adminNotificationReadReceiptColumns,
     adminNotificationReadReceiptForeignKeys,
     partnerPasswordCredentialForeignKeys,
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
+    facebookImagePostColumns,
     objects,
   };
 }
@@ -1180,6 +1251,45 @@ export function targetSchemaObjects(schema, targetMigration) {
       partial: ENTITY_IMAGE_DISPLAY_SCHEMA_TABLES.some(([, columnsKey]) =>
         (schema[columnsKey] ?? []).some(column => ENTITY_IMAGE_DISPLAY_FIELDS.includes(String(column.name)))),
     };
+  }
+  if (targetMigration === "0123_event_organization_structured_address.sql") {
+    return { partial: [
+      ["managedEventColumns", ["district", "postal_code", "street", "house_number", "address_format"]],
+      ["organizationLocationColumns", ["postal_code", "street", "house_number", "address_format"]],
+    ].some(([key, fields]) => (schema[key] ?? []).some(col => fields.includes(String(col.name)))) };
+  }
+  if (targetMigration === "0124_gemini_notion_review_locks.sql") {
+    return { partial: names.has("gemini_notion_review_locks") || (schema.geminiNotionReviewLockColumns ?? []).length > 0 };
+  }
+  if (targetMigration === "0125_gemini_category_prompts.sql") {
+    return { partial: names.has("gemini_category_prompts") || (schema.geminiCategoryPromptColumns ?? []).length > 0 };
+  }
+  if (targetMigration === "0126_gemini_scheduler_admin_v2.sql") {
+    return { partial: (schema.geminiAutomationSettingsColumns ?? []).some(column => String(column.name) === "weekly_day") };
+  }
+  if (targetMigration === "0127_gemini_notion_created_pages.sql") {
+    return { partial: ["gemini_notion_created_pages", "idx_gemini_notion_created_pages_job",
+      "idx_gemini_notion_created_pages_pending"].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0128_facebook_image_posts.sql") {
+    return { partial: ["facebook_image_posts", "facebook_image_posts_schedule_idx",
+      "facebook_image_posts_updated_idx", "facebook_image_posts_notion_idx"].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0129_gemini_external_manual_queue.sql") {
+    // A removed original index is also partial drift; the migration must start
+    // from the exact 0119 index layout, without half-applied 0129 objects.
+    return { partial: !names.has("idx_gemini_manual_only_one_active") ||
+      names.has("idx_gemini_manual_only_one_running") ||
+      names.has("idx_gemini_manual_external_pending") };
+  }
+  if (targetMigration === "0130_facebook_image_publisher.sql") {
+    return { partial: ["facebook_image_publisher_settings", "facebook_image_publish_attempts",
+      "facebook_image_publish_attempts_state_idx"].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0131_facebook_image_trash.sql") {
+    return { partial: (schema.facebookImagePostColumns ?? []).some(col =>
+      ["deleted_at", "deleted_by"].includes(String(col.name))) ||
+      names.has("facebook_image_posts_trash_idx") };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -1968,6 +2078,239 @@ export function assertEntityImageDisplaySchema(schema) {
   }
 }
 
+
+const ROLLOUT_ADDRESS_FIELDS = Object.freeze({
+  managed_events: ["district", "postal_code", "street", "house_number", "address_format"],
+  organization_locations: ["postal_code", "street", "house_number", "address_format"],
+});
+const ROLLOUT_TABLES = Object.freeze([
+  ["managed_events", "managedEventColumns"],
+  ["organization_locations", "organizationLocationColumns"],
+]);
+
+function requireTextColumn(columns, table, name, { primaryKey = false, defaultValue = null } = {}) {
+  const column = (columns ?? []).find(row => String(row.name) === name);
+  invariant(column, `${table}.${name} missing`);
+  invariant(String(column.type).toUpperCase() === "TEXT" && Number(column.notnull) === 1,
+    `${table}.${name} must be TEXT NOT NULL`);
+  if (primaryKey) invariant(Number(column.pk) === 1, `${table}.${name} must be primary key`);
+  else invariant(Number(column.pk) === 0, `${table}.${name} must not be primary key`);
+  if (defaultValue !== null) {
+    invariant(String(column.dflt_value ?? "").replace(/\s+/g, "") === defaultValue,
+      `${table}.${name} has invalid default`);
+  }
+}
+
+function assertTimestampDefault(columns, table) {
+  const field = columns.find(row => String(row.name) === "created_at" || String(row.name) === "updated_at");
+  invariant(/strftime\s*\(\s*'%Y-%m-%dT%H:%M:%fZ'\s*,\s*'now'\s*\)/i.test(String(field?.dflt_value ?? "")),
+    `${table} timestamp default must be canonical UTC strftime`);
+}
+
+export function assertStructuredAddressSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  for (const [table, key] of ROLLOUT_TABLES) {
+    invariant(objects.get(table)?.type === "table", `Missing ${table} table`);
+    const columns = schema[key] ?? [];
+    for (const name of ROLLOUT_ADDRESS_FIELDS[table]) {
+      requireTextColumn(columns, table, name, { defaultValue: "''" });
+    }
+    const sql = String(objects.get(table).sql ?? "").replace(/\s+/g, " ");
+    const check = new RegExp(
+      `CONSTRAINT\\s+${table}_address_format_check\\s+CHECK\\s*\\(\\s*address_format\\s+IN\\s*\\(\\s*''\\s*,\\s*'STREET'\\s*,\\s*'MUNICIPALITY_NUMBER'\\s*\\)\\s*\\)`, "i");
+    invariant(check.test(sql), `${table} address_format CHECK constraint mismatch`);
+  }
+}
+
+export function assertGeminiNotionReviewLocksSchema(schema) {
+  const table = objectMap(schema.objects ?? []).get("gemini_notion_review_locks");
+  invariant(table?.type === "table", "Missing gemini_notion_review_locks table");
+  const columns = schema.geminiNotionReviewLockColumns ?? [];
+  invariant(columns.length === 3, "gemini_notion_review_locks must have exactly three columns");
+  requireTextColumn(columns, "gemini_notion_review_locks", "notion_page_id", { primaryKey: true });
+  requireTextColumn(columns, "gemini_notion_review_locks", "owner");
+  requireTextColumn(columns, "gemini_notion_review_locks", "created_at");
+  assertTimestampDefault(columns, "gemini_notion_review_locks");
+}
+
+export function assertGeminiCategoryPromptsSchema(schema) {
+  const table = objectMap(schema.objects ?? []).get("gemini_category_prompts");
+  invariant(table?.type === "table", "Missing gemini_category_prompts table");
+  const columns = schema.geminiCategoryPromptColumns ?? [];
+  invariant(columns.length === 3, "gemini_category_prompts must have exactly three columns");
+  requireTextColumn(columns, "gemini_category_prompts", "stable_key", { primaryKey: true });
+  requireTextColumn(columns, "gemini_category_prompts", "user_prompt");
+  requireTextColumn(columns, "gemini_category_prompts", "updated_at");
+  assertTimestampDefault(columns, "gemini_category_prompts");
+  const sql = String(table.sql ?? "");
+  invariant(/CHECK\s*\(\s*length\s*\(\s*trim\s*\(\s*user_prompt\s*\)\s*\)\s*BETWEEN\s+40\s+AND\s+6000\s*\)/i.test(sql),
+    "gemini_category_prompts user_prompt CHECK (length(trim(...)) BETWEEN 40 AND 6000) missing");
+}
+
+export function assertGeminiNotionCreatedPagesSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("gemini_notion_created_pages");
+  invariant(table?.type === "table", "Missing 0127 Gemini Notion receipt table");
+  const sql = String(table.sql ?? "");
+  for (const clause of [
+    "notion_page_id TEXT PRIMARY KEY NOT NULL",
+    "CHECK (length(notion_page_id) = 36)",
+    "job_id INTEGER NOT NULL REFERENCES gemini_manual_background_jobs(id)",
+    "stable_key TEXT NOT NULL",
+    "notion_data_source_id TEXT NOT NULL",
+    "import_agenda TEXT NOT NULL CHECK",
+    "'directory','events','organizations','adoptions','help-cases','lost-found'",
+    "canonical_entity_id INTEGER",
+    "registered_at TEXT NOT NULL DEFAULT",
+    "imported_at TEXT",
+    "canonical_entity_id IS NULL AND imported_at IS NULL",
+    "canonical_entity_id > 0 AND imported_at IS NOT NULL",
+    "UNIQUE (import_agenda, canonical_entity_id)",
+  ]) invariant(sql.includes(clause), "0127 receipt schema drift: " + clause);
+  const indexes = [
+    ["idx_gemini_notion_created_pages_job", "ON gemini_notion_created_pages(job_id, stable_key)"],
+    ["idx_gemini_notion_created_pages_pending", "ON gemini_notion_created_pages(import_agenda, stable_key, registered_at)"],
+  ];
+  for (const [name, definition] of indexes) {
+    const index = objects.get(name);
+    invariant(index?.type === "index" && index.tbl_name === "gemini_notion_created_pages"
+      && String(index.sql ?? "").includes(definition), "0127 receipt index missing or changed: " + name);
+  }
+  invariant(String(objects.get("idx_gemini_notion_created_pages_pending")?.sql ?? "").includes("WHERE imported_at IS NULL"),
+    "0127 pending receipt partial-index predicate missing");
+}
+
+export function assertGeminiSchedulerWeeklyDaySchema(schema) {
+  const table = objectMap(schema.objects ?? []).get("gemini_automation_settings");
+  invariant(table?.type === "table", "Missing gemini_automation_settings table");
+  const columns = schema.geminiAutomationSettingsColumns ?? [];
+  const weekly = columns.filter(column => String(column.name) === "weekly_day");
+  invariant(weekly.length === 1, "gemini_automation_settings.weekly_day must exist exactly once");
+  const column = weekly[0];
+  invariant(String(column.type).toUpperCase() === "INTEGER", "weekly_day must be INTEGER");
+  invariant(Number(column.notnull) === 0 && Number(column.pk) === 0 && column.dflt_value == null,
+    "weekly_day must be nullable, without a default or primary key");
+  const sql = String(table.sql ?? "");
+  invariant(/\bweekly_day\s+INTEGER\s+CHECK\s*\(\s*weekly_day\s+IS\s+NULL\s+OR\s+weekly_day\s+BETWEEN\s+1\s+AND\s+7\s*\)/i.test(sql),
+    "weekly_day must enforce CHECK (weekly_day IS NULL OR weekly_day BETWEEN 1 AND 7)");
+}
+
+export function assertFacebookImagePostsSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const table = objects.get("facebook_image_posts");
+  invariant(table?.type === "table", "Missing 0128 Facebook image posts table");
+  const sql = String(table.sql ?? "");
+  for (const clause of [
+    "id TEXT PRIMARY KEY NOT NULL", "title TEXT NOT NULL",
+    "image_url TEXT NOT NULL DEFAULT ''", "image_key TEXT NOT NULL DEFAULT ''",
+    "caption TEXT NOT NULL DEFAULT ''", "scheduled_at TEXT",
+    "time_zone TEXT NOT NULL DEFAULT 'Europe/Bratislava'",
+    "CHECK (time_zone='Europe/Bratislava')",
+    "status TEXT NOT NULL DEFAULT 'draft'",
+    "CHECK (status IN ('draft','scheduled','published'))",
+    "version INTEGER NOT NULL DEFAULT 1", "CHECK (version>=1)",
+    "approval_status TEXT NOT NULL DEFAULT 'UNREVIEWED'",
+    "approved_at TEXT", "approved_by TEXT", "facebook_post_id TEXT",
+    "published_at TEXT", "notion_page_id TEXT", "sync_hash TEXT",
+    "created_at TEXT NOT NULL", "updated_at TEXT NOT NULL",
+    "created_by TEXT NOT NULL", "updated_by TEXT NOT NULL",
+    "CHECK ((image_url='' AND image_key='') OR (image_key<>'' AND image_url='/media/' || image_key))",
+    "CHECK (status<>'scheduled' OR (scheduled_at IS NOT NULL AND image_key<>''))",
+  ]) invariant(sql.includes(clause), "0128 Facebook image table schema drift: " + clause);
+  for (const [name, definition] of [
+    ["facebook_image_posts_schedule_idx", "CREATE INDEX facebook_image_posts_schedule_idx ON facebook_image_posts(status,scheduled_at,id)"],
+    ["facebook_image_posts_updated_idx", "CREATE INDEX facebook_image_posts_updated_idx ON facebook_image_posts(updated_at,id)"],
+    ["facebook_image_posts_notion_idx", "CREATE UNIQUE INDEX facebook_image_posts_notion_idx ON facebook_image_posts(notion_page_id) WHERE notion_page_id IS NOT NULL"],
+  ]) {
+    const idx = objects.get(name);
+    invariant(idx?.type === "index" && idx.tbl_name === "facebook_image_posts"
+      && String(idx.sql ?? "").includes(definition), "0128 Facebook image index schema drift: " + name);
+  }
+}
+
+/** Exact prepared 0130 schema contract: settings are disabled by default, attempts have
+ * single-claim identity/FK/index, and no provider credentials are persisted. */
+export function assertFacebookImagePublisherSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const settings = objects.get("facebook_image_publisher_settings");
+  const attempts = objects.get("facebook_image_publish_attempts");
+  invariant(settings?.type === "table" && attempts?.type === "table", "Missing 0130 Facebook publisher tables");
+  const settingsSql = String(settings.sql ?? "");
+  const attemptsSql = String(attempts.sql ?? "");
+  for (const clause of [
+    "id INTEGER PRIMARY KEY NOT NULL CHECK (id=1)",
+    "enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0,1))",
+    "updated_at TEXT NOT NULL",
+    "updated_by TEXT NOT NULL",
+  ]) invariant(settingsSql.includes(clause), "0130 Facebook settings schema drift: " + clause);
+  for (const clause of [
+    "post_id TEXT PRIMARY KEY NOT NULL REFERENCES facebook_image_posts(id) ON DELETE RESTRICT",
+    "snapshot_version INTEGER NOT NULL CHECK (snapshot_version>=1)",
+    "state TEXT NOT NULL DEFAULT 'SENDING' CHECK (state IN ('SENDING','PUBLISHED','UNCERTAIN'))",
+    "remote_id TEXT", "started_at TEXT NOT NULL", "completed_at TEXT", "error_code TEXT",
+    "CHECK ((state='PUBLISHED' AND remote_id IS NOT NULL AND completed_at IS NOT NULL)",
+    "OR (state<>'PUBLISHED' AND remote_id IS NULL))",
+  ]) invariant(attemptsSql.includes(clause), "0130 Facebook attempt schema drift: " + clause);
+  const idx = objects.get("facebook_image_publish_attempts_state_idx");
+  invariant(idx?.type === "index" && idx.tbl_name === "facebook_image_publish_attempts" &&
+    String(idx.sql ?? "").includes("CREATE INDEX facebook_image_publish_attempts_state_idx ON facebook_image_publish_attempts(state,started_at)"),
+    "0130 Facebook attempt state index drift");
+  invariant(!/FB_PAGE_ACCESS_TOKEN|FB_PAGE_ID|ACCESS_TOKEN/i.test(settingsSql + attemptsSql),
+    "0130 must not store Meta credentials in D1");
+}
+
+
+/** Exact 0131 postflight: two nullable text tombstones and the matching index.
+ * A partial/manual ALTER before migration is a hard preflight failure. */
+export function assertFacebookImageTrashSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const posts = objects.get("facebook_image_posts");
+  invariant(posts?.type === "table", "0131 requires facebook_image_posts table");
+  const cols = schema.facebookImagePostColumns ?? [];
+  for (const name of ["deleted_at", "deleted_by"]) {
+    const matches = cols.filter(col => String(col.name) === name);
+    invariant(matches.length === 1, "0131 missing or duplicated column: " + name);
+    const col = matches[0];
+    invariant(String(col.type).toUpperCase() === "TEXT" &&
+      Number(col.notnull) === 0 && Number(col.pk) === 0 && col.dflt_value == null,
+      "0131 column must be nullable TEXT without default: " + name);
+  }
+  const index = objects.get("facebook_image_posts_trash_idx");
+  invariant(index?.type === "index" && index.tbl_name === "facebook_image_posts" &&
+    /^CREATE INDEX facebook_image_posts_trash_idx\s+ON facebook_image_posts\(deleted_at,\s*updated_at DESC,\s*id\)$/i.test(String(index.sql ?? "").trim()),
+    "0131 trash index missing or changed");
+}
+
+export function assertRolloutChainSchema(schema, targetMigration) {
+  const target = migrationIndex(targetMigration);
+  if (target < 123 || target > 131) return;
+  if (target >= 124) assertStructuredAddressSchema(schema);
+  if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
+  if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
+  // A future table must not pre-exist a pending earlier migration, even when the
+  // requested target's own schema is absent. Fail before any Wrangler apply.
+  if (target < 124) assertPendingTargetSchemaClean("0124_gemini_notion_review_locks.sql",
+    targetSchemaObjects(schema, "0124_gemini_notion_review_locks.sql"));
+  if (target < 125) assertPendingTargetSchemaClean("0125_gemini_category_prompts.sql",
+    targetSchemaObjects(schema, "0125_gemini_category_prompts.sql"));
+  if (target < 126) assertPendingTargetSchemaClean("0126_gemini_scheduler_admin_v2.sql",
+    targetSchemaObjects(schema, "0126_gemini_scheduler_admin_v2.sql"));
+  if (target >= 127) {
+    assertGeminiSchedulerWeeklyDaySchema(schema);
+    // In the same-run preflight 0129 is still under old 0119 uniqueness;
+    // postflight has the new running-only index and no old index.
+    const migrated0129 = target >= 129 &&
+      objectMap(schema.objects).has("idx_gemini_manual_only_one_running");
+    assertGeminiManualQueueSchema(schema, migrated0129);
+  }
+  if (target >= 128) assertGeminiNotionCreatedPagesSchema(schema);
+  if (target >= 129) assertFacebookImagePostsSchema(schema);
+  if (target >= 131) assertFacebookImagePublisherSchema(schema);
+  if (target < 128) assertPendingTargetSchemaClean("0128_facebook_image_posts.sql",
+    targetSchemaObjects(schema, "0128_facebook_image_posts.sql"));
+}
+
+
 function assertTargetSchema(schema, targetMigration) {
   assertFoundationSchema(schema);
   if (migrationIndex(targetMigration) >= 63) assertPartnerClaimsSchema(schema);
@@ -2015,20 +2358,40 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 115) assertGeminiBridgeSchema(schema);
   if (migrationIndex(targetMigration) >= 116) assertAdminAutomationPushSchema(schema);
   if (migrationIndex(targetMigration) >= 118) assertEventImageDisplaySchema(schema);
-  if (migrationIndex(targetMigration) >= 119) assertGeminiManualQueueSchema(schema);
+  if (migrationIndex(targetMigration) >= 119)
+    assertGeminiManualQueueSchema(schema, migrationIndex(targetMigration) >= 129);
   if (migrationIndex(targetMigration) >= 120) assertArticleImagePresentationSchema(schema);
   if (migrationIndex(targetMigration) >= 121) assertArticleImageDisplayConfigSchema(schema);
   if (migrationIndex(targetMigration) >= 122) assertEntityImageDisplaySchema(schema);
+  if (migrationIndex(targetMigration) >= 123) assertStructuredAddressSchema(schema);
+  if (migrationIndex(targetMigration) >= 124) assertGeminiNotionReviewLocksSchema(schema);
+  if (migrationIndex(targetMigration) >= 125) assertGeminiCategoryPromptsSchema(schema);
+  if (migrationIndex(targetMigration) >= 126) assertGeminiSchedulerWeeklyDaySchema(schema);
+  if (migrationIndex(targetMigration) >= 127) assertGeminiNotionCreatedPagesSchema(schema);
+  if (migrationIndex(targetMigration) >= 128) assertFacebookImagePostsSchema(schema);
+  if (migrationIndex(targetMigration) >= 130) assertFacebookImagePublisherSchema(schema);
+  if (migrationIndex(targetMigration) >= 131) assertFacebookImageTrashSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
-export function assertGeminiManualQueueSchema(schema) {
+export function assertGeminiManualQueueSchema(schema, runningOnly = false) {
   const names=objectMap(schema.objects);
   const table=names.get("gemini_manual_background_jobs");
   invariant(table?.type==="table","Missing Gemini manual queue table");
   for(const key of ["idx_gemini_manual_queue","idx_gemini_manual_active_category",
-    "idx_gemini_manual_only_one_active"])
+    ...(runningOnly
+      ? ["idx_gemini_manual_only_one_running","idx_gemini_manual_external_pending"]
+      : ["idx_gemini_manual_only_one_active"])])
     invariant(names.get(key)?.type==="index","Missing Gemini queue index: "+key);
+  if (runningOnly) {
+    invariant(!names.has("idx_gemini_manual_only_one_active"), "0129 retained obsolete global waiting-job index");
+    const running = String(names.get("idx_gemini_manual_only_one_running")?.sql ?? "");
+    const pending = String(names.get("idx_gemini_manual_external_pending")?.sql ?? "");
+    invariant(running.includes("ON gemini_manual_background_jobs ((1))") &&
+      running.includes("WHERE status = 'RUNNING'"), "0129 running-only uniqueness drift");
+    invariant(pending.includes("ON gemini_manual_background_jobs(status, error_code, id)"),
+      "0129 FIFO waiting index drift");
+  }
   const sql=String(table.sql??"");
   for(const column of ["setting_id","stable_key","status","run_id","error_code","claimed_at","completed_at"])
     invariant(sql.includes(column),"Missing Gemini queue column: "+column);
@@ -2102,6 +2465,57 @@ function dataSnapshot(databaseName, configPath) {
     resourceDigest: stableHash(resourceRows),
     membershipDigest: stableHash(membershipRows),
   };
+}
+
+
+function additiveRolloutPreservationSnapshot(databaseName, configPath, schema, originalColumns = null) {
+  const columns = originalColumns ?? Object.fromEntries(ROLLOUT_TABLES.map(([table, key]) =>
+    [table, (schema[key] ?? []).map(row => String(row.name))]));
+  const tables = {};
+  for (const [table] of ROLLOUT_TABLES) {
+    invariant(columns[table]?.includes("id") && columns[table].length > 0,
+      `Cannot snapshot canonical ${table} rows`);
+    const current = new Set((schema[table === "managed_events" ? "managedEventColumns" : "organizationLocationColumns"] ?? [])
+      .map(row => String(row.name)));
+    invariant(columns[table].every(name => current.has(name)), `Original ${table} columns disappeared`);
+    const quoted = columns[table].map(name => `"${name.replace(/"/g, '""')}"`).join(", ");
+    const rows = d1Execute(databaseName, configPath,
+      `SELECT ${quoted} FROM "${table}" ORDER BY "id"`);
+    tables[table] = { count: rows.length, digest: stableHash(rows) };
+  }
+  return { columns, tables };
+}
+
+export function assertAdditiveRolloutPreserved(before, after) {
+  invariant(before && after, "Additive rollout preservation snapshots required");
+  for (const [table] of ROLLOUT_TABLES) {
+    invariant(before.tables?.[table]?.count === after.tables?.[table]?.count
+      && before.tables?.[table]?.digest === after.tables?.[table]?.digest,
+      `Pre-existing ${table} data changed during additive D1 migration`);
+  }
+}
+
+/** Snapshot all pre-existing scheduler settings (including enablement, cadence, category and due dates). */
+function geminiSchedulerSettingsSnapshot(databaseName, configPath, schema, originalColumns = null) {
+  const columns = originalColumns ?? (schema.geminiAutomationSettingsColumns ?? [])
+    .map(column => String(column.name)).filter(name => name !== "weekly_day");
+  const required = ["id", "stable_key", "section", "subcategory", "enabled",
+    "cadence_minutes", "max_new_concepts", "last_run_at", "next_run_at", "created_at", "updated_at"];
+  for (const name of required) invariant(columns.includes(name), `Scheduler snapshot lacks ${name}`);
+  const currentColumns = new Set((schema.geminiAutomationSettingsColumns ?? []).map(column => String(column.name)));
+  invariant(columns.every(name => currentColumns.has(name)) && !columns.includes("weekly_day"),
+    "Original scheduler columns changed during 0126 rollout");
+  const names = columns.map(name => '"' + name.replace(/"/g, '""') + '"').join(", ");
+  const rows = d1Execute(databaseName, configPath,
+    `SELECT ${names} FROM gemini_automation_settings ORDER BY id`);
+  return { columns, count: rows.length, digest: stableHash(rows) };
+}
+
+export function assertGeminiSchedulerSettingsPreserved(before, after) {
+  invariant(before && after, "0126 scheduler preservation snapshots required");
+  invariant(JSON.stringify(before.columns) === JSON.stringify(after.columns)
+    && before.count === after.count && before.digest === after.digest,
+    "Pre-existing Gemini scheduler settings, enabled categories, cadence or due dates changed during 0126 rollout");
 }
 
 function safeCounts(snapshot) {
@@ -2241,6 +2655,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const historyNames = history.map((row) => String(row.name));
   const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
+  assertRolloutChainSchema(schema, targetMigration);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -2331,12 +2746,71 @@ async function preflight(targetMigration) {
   assertProductionIdentity(prepared.resources, prepared.generated, info);
   const schema = schemaState(databaseName, prepared.configPath);
   const state = targetState(history, schema, targetMigration, prepared.selection.selected);
+  assert0127NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0128NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0129NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0130NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0131NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
   assertExactMigrationHistory(state.historyNames, expectedPreflightHistory, "Preflight");
   const snapshot = dataSnapshot(databaseName, prepared.configPath);
   const targetIndex = prepared.selection.targetIndex;
+  let rolloutReadiness = null;
+  if (targetIndex === 129) {
+    // The index swap must not happen while a paid run or legacy queued job exists.
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
+      "0129 requires an empty active Gemini queue before index migration");
+  }
+  if (targetIndex === 123 || targetIndex === 124) {
+    // Re-evaluate the existing READ-ONLY classifier against live schema and ledger
+    // within this protected, same-run preflight. A successful old workflow run is
+    // not accepted as proof of READY_0123.
+    const files = (await migrationFileNames()).filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
+      .sort((a, b) => migrationIndex(a) - migrationIndex(b));
+    const objects = objectMap(schema.objects);
+    const result = classifyPreparedMigrations({
+      historyNames: state.historyNames, expectedNames: files,
+      columnsByTable: {
+        managed_events: schema.managedEventColumns,
+        organization_locations: schema.organizationLocationColumns,
+        gemini_notion_review_locks: schema.geminiNotionReviewLockColumns,
+      },
+      tableSql: Object.fromEntries(["managed_events", "organization_locations", "gemini_notion_review_locks"]
+        .map(name => [name, String(objects.get(name)?.sql ?? "")])),
+    });
+    const expected = targetIndex === 123
+      ? (state.targetApplied ? "READY_0124" : "READY_0123")
+      : (state.targetApplied ? "COMPLETE" : "READY_0124");
+    invariant(result.classification === expected,
+      `Read-only audit blocked production migration: ${result.classification}; required ${expected}`);
+    rolloutReadiness = result.classification;
+  } else if (targetIndex === 125) {
+    rolloutReadiness = state.targetApplied ? "APPLIED_0125" : "READY_0125";
+  } else if (targetIndex === 126) {
+    rolloutReadiness = state.targetApplied ? "APPLIED_0126" : "READY_0126";
+  } else if (targetIndex === 127) {
+    rolloutReadiness = "READY_0127";
+  } else if (targetIndex === 128) {
+    rolloutReadiness = "READY_0128";
+  } else if (targetIndex === 129) {
+    rolloutReadiness = "READY_0129";
+  } else if (targetIndex === 130) {
+    rolloutReadiness = "READY_0130";
+  } else if (targetIndex === 131) {
+    rolloutReadiness = "READY_0131";
+  }
+  const additivePreservationBefore = targetIndex >= 123
+    ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
+    : null;
+  const geminiSchedulerBefore = targetIndex === 126
+    ? geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath, schema)
+    : null;
+  const facebookPostsBefore = (targetIndex === 130 || targetIndex === 131)
+    ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM facebook_image_posts")
+    : null;
   const reviewCountBefore = targetIndex >= 63
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews")
     : null;
@@ -2377,6 +2851,10 @@ async function preflight(targetMigration) {
     partnerRebuildBefore,
     geoCountBefore,
     partnerAuthBefore,
+    rolloutReadiness,
+    additivePreservationBefore,
+    geminiSchedulerBefore,
+    facebookPostsBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -2397,11 +2875,15 @@ async function preflight(targetMigration) {
     partnerRebuildBefore,
     geoCountBefore,
     partnerAuthBefore,
+    rolloutReadiness,
+    additivePreservationCounts: additivePreservationBefore ? Object.fromEntries(Object.entries(additivePreservationBefore.tables).map(([table, value]) => [table, value.count])) : null,
+    geminiSchedulerSettingsCount: geminiSchedulerBefore?.count ?? null,
+    facebookPostsBefore,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
 
-  console.log(`[production-d1] preflight PASS — target=${targetMigration}; applied=${state.targetApplied}; latest=${state.historyNames.at(-1) ?? "<none>"}`);
+  console.log(`[production-d1] preflight PASS — target=${targetMigration}; applied=${state.targetApplied}; latest=${state.historyNames.at(-1) ?? "<none>"}; readiness=${rolloutReadiness ?? "legacy"}`);
   console.log(`[production-d1] target DB — account=${prepared.resources.account_id}; name=${databaseName}; id=${prepared.resources.d1.database_id}; worker=${prepared.generated.name}`);
   console.log(`[production-d1] recovery bookmark — ${bookmark}`);
   console.log(`[production-d1] counts — directory=${snapshot.directoryProfiles}; organizations=${snapshot.helpOrganizations}; resources=${snapshot.partnerResources}; memberships=${snapshot.partnerMemberships}; missingDirectory=${snapshot.missingDirectoryAnchors}; missingOrganizations=${snapshot.missingOrganizationAnchors}`);
@@ -2414,6 +2896,29 @@ async function apply(targetMigration) {
   invariant(internal.targetMigration === targetMigration, "Preflight target does not match requested target");
   invariant(internal.databaseId === prepared.resources.d1.database_id, "Preflight database does not match canonical target");
   invariant(internal.targetMigrationSha256 === prepared.targetMigrationSha256, "Target migration content changed after preflight");
+  // Guard against ledger/schema drift between the protected read-only preflight
+  // and the only remote mutation. Never blindly trust a stored preflight report.
+  const liveHistory = migrationHistory(prepared.resources.d1.database_name, prepared.configPath);
+  const liveSchema = schemaState(prepared.resources.d1.database_name, prepared.configPath);
+  const liveState = targetState(liveHistory, liveSchema, targetMigration, prepared.selection.selected);
+  invariant(JSON.stringify(liveState.historyNames) === JSON.stringify(internal.historyNames)
+    && liveState.targetApplied === internal.targetApplied,
+    "Production D1 changed after preflight; refusing apply");
+  if (prepared.selection.targetIndex === 126) {
+    const latest = geminiSchedulerSettingsSnapshot(prepared.resources.d1.database_name, prepared.configPath,
+      liveSchema, internal.geminiSchedulerBefore?.columns);
+    assertGeminiSchedulerSettingsPreserved(internal.geminiSchedulerBefore, latest);
+  }
+  assert0127NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0128NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0129NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0130NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0131NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  if (prepared.selection.targetIndex === 129) {
+    invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
+      "0129 active queue changed after preflight; refusing APPLY");
+  }
   if (internal.targetApplied) {
     console.log(`[production-d1] ${targetMigration} is already applied; apply is a no-op`);
     return;
@@ -2446,6 +2951,64 @@ async function verify(targetMigration) {
   invariant(state.targetApplied, `Target migration is still not recorded as applied: ${targetMigration}`);
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
+  const targetIndex = migrationIndex(targetMigration);
+  let geminiSchedulerSettingsCount = null;
+  if (targetIndex === 126) {
+    const snapshot = geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath,
+      schema, internal.geminiSchedulerBefore?.columns);
+    assertGeminiSchedulerSettingsPreserved(internal.geminiSchedulerBefore, snapshot);
+    geminiSchedulerSettingsCount = snapshot.count;
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_automation_settings WHERE weekly_day IS NOT NULL AND (typeof(weekly_day) != 'integer' OR weekly_day NOT BETWEEN 1 AND 7)") === 0,
+      "weekly_day contains a value outside NULL or ISO 1-7");
+    if (!internal.targetApplied) invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_automation_settings WHERE weekly_day IS NOT NULL") === 0,
+      "0126 must initialize weekly_day to NULL for every existing setting");
+  }
+  if (targetIndex >= 123) {
+    const afterPreservation = additiveRolloutPreservationSnapshot(databaseName, prepared.configPath,
+      schema, internal.additivePreservationBefore?.columns);
+    assertAdditiveRolloutPreserved(internal.additivePreservationBefore, afterPreservation);
+    if (!internal.targetApplied && targetIndex === 123) {
+      for (const [table, columns] of Object.entries(ROLLOUT_ADDRESS_FIELDS)) {
+        const changed = scalarCount(databaseName, prepared.configPath,
+          `SELECT COUNT(*) AS count FROM "${table}" WHERE ${columns.map(column => `"${column}" <> ''`).join(" OR ")}`);
+        invariant(changed === 0, `0123 is additive only; nonempty structured address values found in ${table}`);
+      }
+    }
+    if (!internal.targetApplied && targetIndex === 124)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM gemini_notion_review_locks") === 0,
+        "0124 lock table must be empty immediately after first apply");
+    if (!internal.targetApplied && targetIndex === 125)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM gemini_category_prompts") === 0,
+        "0125 prompt table must be empty immediately after first apply");
+    if (!internal.targetApplied && targetIndex === 127)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM gemini_notion_created_pages") === 0,
+        "0127 receipt table must be empty immediately after first apply");
+    if (!internal.targetApplied && targetIndex === 128)
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM facebook_image_posts") === 0,
+        "0128 Facebook image posts table must be empty immediately after first apply");
+    if (targetIndex === 130 || targetIndex === 131) {
+      invariant(scalarCount(databaseName, prepared.configPath,
+        "SELECT COUNT(*) AS count FROM facebook_image_posts") === internal.facebookPostsBefore,
+        targetIndex === 131 ? "0131 unexpectedly changed existing Facebook image posts count" : "0130 unexpectedly changed existing Facebook image posts count");
+      if (targetIndex === 131 && !internal.targetApplied) {
+        invariant(scalarCount(databaseName, prepared.configPath,
+          "SELECT COUNT(*) AS count FROM facebook_image_posts WHERE deleted_at IS NOT NULL OR deleted_by IS NOT NULL") === 0,
+          "0131 must initialize new trash fields to NULL for all existing posts");
+      }
+      if (targetIndex === 130 && !internal.targetApplied) {
+        for (const table of ["facebook_image_publisher_settings", "facebook_image_publish_attempts"])
+          invariant(scalarCount(databaseName, prepared.configPath,
+            `SELECT COUNT(*) AS count FROM ${table}`) === 0,
+            "0130 new Facebook publisher tables must start empty: " + table);
+      }
+    }
+  }
 
   const after = dataSnapshot(databaseName, prepared.configPath);
   const before = internal.before;
@@ -2473,7 +3036,6 @@ async function verify(targetMigration) {
   }
 
   const reviewCount = scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM profile_reviews");
-  const targetIndex = migrationIndex(targetMigration);
   if (targetIndex === 62 && !internal.targetApplied) {
     invariant(reviewCount === 0, "profile_reviews must remain empty on first 0062 foundation rollout");
   }
@@ -2602,6 +3164,16 @@ async function verify(targetMigration) {
       integrity: partnerH3Integrity,
     } : null,
     historyVerifiedThrough: targetMigration,
+    rolloutReadinessBeforeApply: internal.rolloutReadiness ?? null,
+    additiveRolloutPreservation: targetIndex >= 123 ? "PASS" : null,
+    structuredAddressSchema: targetIndex >= 123 ? "PASS" : null,
+    geminiNotionReviewLocksSchema: targetIndex >= 124 ? "PASS" : null,
+    geminiCategoryPromptsSchema: targetIndex >= 125 ? "PASS" : null,
+    geminiSchedulerWeeklyDaySchema: targetIndex >= 126 ? "PASS" : null,
+    geminiSchedulerSettingsPreserved: targetIndex === 126 ? "PASS" : null,
+    facebookImagePostsSchema: targetIndex >= 128 ? "PASS" : null,
+    facebookImagePublisherSchema: targetIndex >= 130 ? "PASS" : null,
+    geminiSchedulerSettingsCount,
     dynamicEntityIdentity: targetIndex >= 109 ? {
       indexes: DYNAMIC_ENTITY_IDENTITY_INDEXES,
     } : null,

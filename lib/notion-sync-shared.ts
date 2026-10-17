@@ -490,3 +490,24 @@ export async function cleanupNotionImageKeys(
   const unique = [...new Set(keys.filter((value): value is string => Boolean(value)))];
   await Promise.all(unique.map((key) => bucket.delete(key).catch(() => undefined)));
 }
+
+/**
+ * D1 can commit even when its response is lost. Only delete a newly uploaded
+ * R2 object when a successful canonical query proves it is not referenced.
+ * A failed verification intentionally leaves an orphan for later recovery.
+ */
+export async function cleanupUnreferencedNotionUpload(
+  database: D1Database,
+  bucket: R2Bucket | undefined,
+  uploadedKey: string | null | undefined,
+) {
+  if (!uploadedKey) return;
+  try {
+    const referenced = await database.prepare(
+      "SELECT 1 AS used FROM directory_profiles WHERE image_key = ? LIMIT 1",
+    ).bind(uploadedKey).first<{ used: number }>();
+    if (!referenced) await cleanupNotionImageKeys(bucket, [uploadedKey]);
+  } catch {
+    // Unknown D1 state: never assume a failed response means a failed commit.
+  }
+}

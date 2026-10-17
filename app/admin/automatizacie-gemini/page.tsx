@@ -25,6 +25,13 @@ function formatDate(value: string | null) {
   }).format(parsed);
 }
 
+const zeroResultLabels: Record<string, string> = {
+  NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt.",
+  NO_RESULT_DUPLICATE_ONLY: "Gemini označilo kandidátov za duplicity; nový koncept nevznikol. Automatické potvrdenie zhody nie je evidované.",
+  NO_RESULT_INSUFFICIENT_EVIDENCE: "Chýbajú dostatočne overiteľné informácie.",
+  NO_RESULT_EXHAUSTED: "Možnosti vyhľadávania boli vyčerpané.",
+};
+
 function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
   const labels = new Map(geminiAutomationCatalog.map((item) => [item.stableKey, item.label]));
   return (
@@ -47,7 +54,7 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
               <th scope="col">Koncepty</th>
               <th scope="col">Chyby</th>
               <th scope="col">Dokončenie</th>
-              <th scope="col">Kód chyby</th>
+              <th scope="col">Výsledok / kód chyby</th>
             </tr></thead>
             <tbody>{runs.map((run) => (
               <tr key={run.id}>
@@ -63,7 +70,9 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
                 <td>{run.conceptCount}</td>
                 <td>{run.errorCount}</td>
                 <td>{formatDate(run.completedAt)}</td>
-                <td>{run.errorCode ?? "—"}</td>
+                <td>{run.status === "SUCCESS" && run.conceptCount === 0
+                  ? zeroResultLabels[run.errorCode ?? ""] ?? "Bez nového konceptu (dôvod nezaznamenaný)."
+                  : run.errorCode ?? "—"}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -73,19 +82,24 @@ function GeminiRunHistory({ runs }: { runs: GeminiRecentRun[] }) {
 }
 
 function GeminiQueueHistory({jobs}:{jobs:GeminiQueuedJob[]}) {
+  const waiting = jobs.filter(job => job.status === "QUEUED").map(job => job.id).sort((a,b) => a-b);
   return <section className={styles.history} aria-label="Gemini úlohy na pozadí">
     <h2>Úlohy na pozadí</h2>
+    <p>Aktuálne GitHub Actions: <a href="https://github.com/investradarsk/psipedia-sk/actions/workflows/gemini-notion-agent.yml" target="_blank" rel="noreferrer">Gemini Notion agent ↗</a>. Beh je potrebné spárovať podľa času spustenia; číslo úlohy nie je číslo GitHub behu.</p>
     {!jobs.length ? <p className={styles.empty}>Zatiaľ žiadne úlohy na pozadí.</p> :
       <div className={styles.tableScroll}><table className={styles.historyTable}>
         <thead><tr><th>ID</th><th>Podkategória</th><th>Stav</th><th>Vytvorené</th><th>Beh</th><th>Chyba</th></tr></thead>
         <tbody>{jobs.map(job=><tr key={job.id}>
           <td>{job.id}</td>
           <td>{geminiAutomationCatalog.find(category=>category.stableKey===job.stable_key)?.label??job.stable_key}</td>
-          <td>{job.status}</td><td>{formatDate(job.created_at)}</td>
-          <td>{job.run_id??"—"}</td><td>{job.error_code??"—"}</td>
+          <td>{job.status === "QUEUED" ? "V poradovníku · " + (waiting.indexOf(job.id) + 1) + ". v poradí" :
+            job.status === "RUNNING" ? "Pracuje" :
+            job.status === "SUCCESS" && !job.run_id ? "NEÚPLNÝ ZÁPIS" : job.status}</td><td>{formatDate(job.created_at)}</td>
+          <td>{job.run_id??"—"}</td><td>{job.error_code ?? (job.status === "SUCCESS" && !job.run_id ? "Chýba potvrdený záznam behu" : "—")}</td>
         </tr>)}</tbody>
       </table></div>}
-    <p>Ak úloha zostane v stave RUNNING po neočakávanom prerušení, vyžaduje manuálnu diagnostiku. Systém nikdy nezačne platené opakovanie automaticky.</p>
+    <p>Manuálne potvrdené úlohy sa vykonávajú postupne podľa poradia; kontrola fronty prebieha každých 5 minút.
+      Ak úloha zostane v stave RUNNING po neočakávanom prerušení, vyžaduje manuálnu diagnostiku. Systém nikdy automaticky nezopakuje neistý platený beh.</p>
   </section>;
 }
 export default async function AdminGeminiAutomationPage() {
@@ -109,10 +123,10 @@ export default async function AdminGeminiAutomationPage() {
       user={user}
       eyebrow="Automatizácie a kvalita"
       title="Automatizácie Gemini"
-      description="Samostatné nastavenia nového systému pre služby, podujatia a pomoc psom."
+      description="Správa externého Gemini vyhľadávania pre všetkých 22 kategórií."
     >
       {!ready && <p className={styles.warning} role="alert">
-        Gemini databázové nastavenia nie sú dostupné. Over, či bola aplikovaná migrácia 0113.
+        Gemini databázové nastavenia nie sú dostupné. Over, či boli aplikované migrácie 0113 a 0126.
         Ukladanie je dočasne vypnuté.
       </p>}
       <p className={styles.notice}>
@@ -120,13 +134,18 @@ export default async function AdminGeminiAutomationPage() {
           ? "Samostatný GitHub pracovník pre Gemini + Notion je zapnutý. Tu nastavíš frekvenciu, kategóriu a počet konceptov. Platené volania podliehajú ďalšiemu vypínaču priamo v GitHube. Výsledky uvidíš v histórii."
           : "Externý GitHub pracovník zatiaľ nie je aktivovaný. Uloženie nastavenia samo nespúšťa platené vyhľadávanie; starý manuálny režim zostáva oddelený."}
       </p>
+      <p className={styles.notice}>Mesačný počet úloh Psipedia neobmedzuje. Platené volania stále podliehajú nastaveniam GitHubu, limitom jedného behu a kreditu alebo kvóte u poskytovateľa Gemini. Rozpočet 5 € nastavený u poskytovateľa nie je garanciou Psipedie.</p>
+      {queuedJobs.some((job) => job.status === "RUNNING") && <p role="status" className={styles.warning}>Gemini úloha práve beží. Ak zostane v stave RUNNING dlhšie než dve hodiny, ďalšie platené spustenia ostanú zablokované do manuálneho overenia v GitHub Actions. Systém ju automaticky neopakuje.</p>}
+      <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/prompty">
+        Upraviť prompty pre 22 kategórií →
+      </Link></p>
       {externalEnabled && runs.some(run => run.status === "SUCCESS" && run.conceptCount > 0) && (
         <p role="status" className={styles.notice}>
           Gemini vytvorilo {runs.find(run => run.status === "SUCCESS" && run.conceptCount > 0)?.conceptCount} nových konceptov pri poslednom úspešnom behu s novými výsledkami.
         </p>
       )}
       {externalEnabled
-        ? <p>Nové externé koncepty služieb nájdeš priamo pod kartami jednotlivých kategórií. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
+        ? <p>Koncepty služieb nájdeš pod kartami. Kontrolu konceptov Podujatí a Pomoci psom sprístupní spoločný editor zo súbežnej úlohy #03. Načítajú sa z Notionu aj pred synchronizáciou do adresára.</p>
         : <p><Link className="admin-primary-action" href="/admin/automatizacie-gemini/koncepty">Koncepty Gemini →</Link></p>}
       <AdminGeminiAutomationSettings sections={geminiAutomationSections} settings={settings} available={ready} externalEnabled={externalEnabled} />
       {showQueue && <GeminiQueueHistory jobs={queuedJobs} />}

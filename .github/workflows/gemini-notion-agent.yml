@@ -18,6 +18,10 @@ on:
         description: "MANUAL or SCHEDULED"
         required: true
         type: string
+      category_prompt:
+        description: "Effective reviewed category instructions from Psipedia admin"
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -41,9 +45,13 @@ jobs:
           NOTION_DIRECTORY_DATA_SOURCE_ID: ${{ vars.NOTION_DIRECTORY_DATA_SOURCE_ID }}
           NOTION_EVENTS_DATA_SOURCE_ID: ${{ vars.NOTION_EVENTS_DATA_SOURCE_ID }}
           NOTION_HELP_DATA_SOURCE_ID: ${{ vars.NOTION_HELP_DATA_SOURCE_ID }}
+          NOTION_ORGANIZATIONS_DATA_SOURCE_ID: ${{ vars.NOTION_ORGANIZATIONS_DATA_SOURCE_ID }}
+          NOTION_ADOPTIONS_DATA_SOURCE_ID: ${{ vars.NOTION_ADOPTIONS_DATA_SOURCE_ID }}
+          NOTION_LOST_FOUND_DATA_SOURCE_ID: ${{ vars.NOTION_LOST_FOUND_DATA_SOURCE_ID }}
           PSIPEDIA_AGENT_CALLBACK_SECRET: ${{ secrets.PSIPEDIA_AGENT_CALLBACK_SECRET }}
           PSIPEDIA_AGENT_CALLBACK_URL: https://psipedia.sk/api/internal/gemini-agent/callback
           AGENT_JOB_ID: ${{ inputs.job_id }}
           AGENT_STABLE_KEY: ${{ inputs.stable_key }}
+          AGENT_CATEGORY_PROMPT: ${{ inputs.category_prompt }}
           AGENT_MAX_NEW_CONCEPTS: ${{ inputs.max_new_concepts }}
         run: node scripts/gemini-notion-agent.mjs

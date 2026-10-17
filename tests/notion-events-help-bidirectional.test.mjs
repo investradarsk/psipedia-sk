@@ -19,6 +19,9 @@ import {
   eventStatusFromNotion,
   assertGeminiEventNotionPublicationAllowed,
   helpStatusFromNotion,
+  helpCaseMayEnterCanonicalSync,
+  GEMINI_HELP_REVIEW_PROPERTY,
+  GEMINI_HELP_REJECTION_PROPERTY,
   lostFoundStatusFromNotion,
   organizationStatusFromNotion,
   readyForCreate,
@@ -520,7 +523,10 @@ test("create-from-Notion gate keeps event/org/adoption Ready and validates help/
   assert.equal(readyForCreate("organizations", { Stav: "Ready" }), true);
   assert.equal(readyForCreate("adoptions", { Stav: "Ready" }), true);
   assert.equal(readyForCreate("help-cases", { Názov: "X", Slug: "x", Kategória: "zbierky" }), true);
-  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST" }), true);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST" }), false);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST", "Psipedia stav": "DRAFT" }), false);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST", "Psipedia stav": "ARCHIVED" }), false);
+  assert.equal(readyForCreate("lost-found", { Názov: "X", Slug: "x", Typ: "LOST", "Psipedia stav": "PENDING" }), true);
 });
 
 test("migration is additive and persists agenda mapping plus target identity", async () => {
@@ -606,4 +612,23 @@ test("P0 publication gate: Gemini draft cannot become published through Notion",
   assert.equal(observed.length,1);
   const nonGemini={prepare:()=>({bind:()=>({first:async()=>null})})};
   await assertGeminiEventNotionPublicationAllowed(nonGemini,77,"draft","Publikované");
+});
+
+
+test("Help Gemini moderation gate: only reviewed concepts import; manual legacy flow retained", () => {
+  assert.equal(GEMINI_HELP_REVIEW_PROPERTY, "Gemini kontrola");
+  assert.equal(GEMINI_HELP_REJECTION_PROPERTY, "Dôvod odmietnutia");
+  const evidence = "Obsah\n\nDôkazy:\nhttps://source.example/dog";
+  for (const state of ["", "Na kontrolu", "Odmietnuté"]) {
+    assert.equal(helpCaseMayEnterCanonicalSync(state, evidence), false, state);
+  }
+  assert.equal(helpCaseMayEnterCanonicalSync("Schválené", evidence), true);
+  assert.equal(helpCaseMayEnterCanonicalSync(undefined, evidence), false,
+    "pre-schema worker concept with evidence must be held back");
+  assert.equal(helpCaseMayEnterCanonicalSync(undefined, "Manuálne vytvorený záznam"), true,
+    "pre-existing manual Notion records must remain eligible");
+  assert.equal(helpCaseMayEnterCanonicalSync("Odmietnuté", "Manuálne vytvorený záznam"), false);
+  assert.equal(helpCaseMayEnterCanonicalSync("Nepodporované", evidence), false);
+  assert.equal(readyForCreate("help-cases", { Názov: "X", Slug: "x", Kategória: "zbierky" }), true,
+    "base canonical required-fields contract remains unchanged");
 });

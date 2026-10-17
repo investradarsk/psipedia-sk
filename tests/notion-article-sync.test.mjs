@@ -97,8 +97,13 @@ test("Notion retry cannot overwrite a manually edited or concurrently updated Ad
   assert.match(syncSource, /if \(existing\.updatedBy !== SYNC_ACTOR\)/);
   assert.match(syncSource, /Prepojený koncept bol upravený v administrácii/);
   assert.match(syncSource, /updateManagedArticle\(existing\.id, prepared\.payload, SYNC_ACTOR, existing, \{ updatedAt: existing\.updatedAt, status: "draft" \}\)/);
-  assert.match(articleStoreSource, /WHERE id = \?\$\{schedulingPrecondition/);
-  assert.match(articleStoreSource, /AND status = 'draft' AND updated_at = \?/);
+  assert.match(articleStoreSource, /WHERE id = \?/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR updated_at = \?\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
+  assert.match(articleStoreSource, /const \[articleResult\] = await database\.batch\(\[articleStatement\]\)/);
+  assert.match(articleStoreSource, /if \(!result && schedulingPrecondition\) throw new ArticleUpdateConflictError\(\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR updated_at = \?\)/);
+  assert.match(articleStoreSource, /AND \(\? IS NULL OR status = \?\)/);
   assert.match(syncSource, /if \(!updated\) \{/);
   assert.match(syncSource, /cleanupImageKeys\(bindings\.BUCKET, \[prepared\.uploadedKey\]\)/);
 });
@@ -195,7 +200,10 @@ test("hourly article sync survives unrelated Promise.all rejections and logs run
   const siblings = workerSource.slice(dispatch, workerSource.indexOf("    // Run push after the editorial sweep", dispatch));
 
   assert.match(isolated, /notionArticleTask = observeScheduledAutomation\(/);
-  assert.match(isolated, /execute: \(\) => runNotionArticleSyncSweep\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.match(isolated, /execute: async \(\) => \{/);
+  assert.match(isolated, /await runArticlePublishNotionReconciliation\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.match(isolated, /const imported = await runNotionArticleSyncSweep\(\{ database: env\.DB, bindings: env \}\)/);
+  assert.ok(isolated.indexOf("await runArticlePublishNotionReconciliation") < isolated.indexOf("await runNotionArticleSyncSweep"), "publish reconciliation must precede Ready imports");
   assert.match(isolated, /_ctx\.waitUntil\(notionArticleTask\)/);
   assert.match(isolated, /\.then\(\(result\) =>/);
   assert.match(isolated, /\.catch\(\(error\) =>/);
@@ -244,7 +252,8 @@ test("Notion publication writeback is best-effort and does not block the admin p
 test("ARTICLE-TOPICS manual assignments survive Notion article updates", () => {
   assert.doesNotMatch(syncSource, /topicIds\s*:/);
   assert.match(articleStoreSource, /payload\.topicIds === undefined \? undefined/);
-  assert.match(articleStoreSource, /if \(topicIds !== undefined\) statements\.push/);
+  assert.match(articleStoreSource, /if \(topicIds !== undefined\) \{/);
+  assert.match(articleStoreSource, /await database\.batch\(replaceArticleTopicStatements\(database, id, topicIds, now\)\)/);
   assert.match(articleStoreSource, /topicIds === undefined \? existing\.topics/);
 });
 

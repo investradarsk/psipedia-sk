@@ -7,6 +7,7 @@ import {
   useState,
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
+  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import styles from "./admin-interaction-system.module.css";
@@ -88,6 +89,40 @@ export function AdminBulkActionToolbar({
   );
 }
 
+// Native showModal makes the background inert. Explicitly wrap the edge case where
+// Shift+Tab or Tab would otherwise leave the dialog on some browser versions.
+function keepAdminDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
+  if (event.key !== "Tab") return;
+  const dialog = event.currentTarget;
+  if (!dialog.open) return;
+  // A nested dialog's Tab event can bubble through an ancestor dialog.
+  // Only the innermost originating dialog may wrap its own focus.
+  if (event.target instanceof Element && event.target.closest("dialog") !== dialog) return;
+  const candidates = Array.from(dialog.querySelectorAll<HTMLElement>(
+    'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  )).filter((element) =>
+    element.tabIndex >= 0 &&
+    !element.matches(":disabled") &&
+    getComputedStyle(element).visibility !== "hidden" &&
+    !element.closest('[inert], [hidden], [aria-hidden="true"]') &&
+    element.getClientRects().length > 0
+  );
+  if (!candidates.length) {
+    event.preventDefault();
+    dialog.focus();
+    return;
+  }
+  const active = document.activeElement;
+  const current = candidates.indexOf(active as HTMLElement);
+  const next = current < 0
+    ? (event.shiftKey ? candidates.length - 1 : 0)
+    : (current + (event.shiftKey ? -1 : 1) + candidates.length) % candidates.length;
+  // Resolve every key press explicitly: native browser edge handling differs
+  // between Chromium and WebKit when modal focus begins at the first control.
+  event.preventDefault();
+  candidates[next].focus();
+}
+
 function useAdminDialog(open: boolean) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -109,29 +144,6 @@ function useAdminDialog(open: boolean) {
     }
 
     if (!open && dialog.open) dialog.close();
-  }, [open]);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!open || !dialog) return;
-    const trapFocus = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
-      const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
-        'a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])',
-      )).filter(control => control.tabIndex >= 0 && control.getClientRects().length > 0);
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (!first || !last) return;
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    dialog.addEventListener("keydown", trapFocus);
-    return () => dialog.removeEventListener("keydown", trapFocus);
   }, [open]);
 
   function restoreFocus() {
@@ -173,6 +185,7 @@ export function AdminModalDialog({
         onClose();
       }}
       onClose={restoreFocus}
+      onKeyDown={keepAdminDialogFocus}
     >
       <div className={styles.dialogHeader}>
         <div>
@@ -266,6 +279,7 @@ export function AdminDrawer({
         onClose();
       }}
       onClose={restoreFocus}
+      onKeyDown={keepAdminDialogFocus}
     >
       <div className={styles.drawerHeader}>
         <div>

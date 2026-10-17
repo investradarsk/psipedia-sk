@@ -100,15 +100,65 @@ test("shared navigation keeps its layout and active section after client navigat
   await page.setViewportSize({ width: mobile ? 320 : 1440, height: 900 });
   await page.goto("/admin");
   for (const [label, path] of [["Články", "/admin/clanky"], ["Plemená", "/admin/plemena"]]) {
-    if (mobile) await page.getByRole("button", { name: "Menu", exact: true }).click();
-    const nav = page.getByRole("navigation", { name: "Redakčné moduly", exact: true });
+    if (mobile) {
+      const menu = page.getByRole("button", { name: "Menu", exact: true });
+      await expect.poll(async () => {
+        if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
+        return menu.getAttribute("aria-expanded");
+      }).toBe("true");
+    }
+    const nav = mobile
+      ? page.getByRole("dialog", { name: "Navigácia administrácie" }).getByRole("navigation", { name: "Redakčné moduly", exact: true })
+      : page.getByRole("navigation", { name: "Redakčné moduly", exact: true });
+    if (!mobile) {
+      const contentGroup = nav.getByRole("button", { name: "Obsah", exact: true });
+      if (await contentGroup.getAttribute("aria-expanded") !== "true") await contentGroup.click();
+    }
     await nav.getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await noOverflow(page);
-    if (mobile) await page.getByRole("button", { name: "Menu", exact: true }).click();
-    const currentNav = page.getByRole("navigation", { name: "Redakčné moduly", exact: true });
+    if (mobile) {
+      const menu = page.getByRole("button", { name: "Menu", exact: true });
+      await expect.poll(async () => {
+        if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
+        return menu.getAttribute("aria-expanded");
+      }).toBe("true");
+    }
+    const currentNav = mobile
+      ? page.getByRole("dialog", { name: "Navigácia administrácie" }).getByRole("navigation", { name: "Redakčné moduly", exact: true })
+      : page.getByRole("navigation", { name: "Redakčné moduly", exact: true });
     await expect(currentNav.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
     if (mobile) await page.keyboard.press("Escape");
     else await expect(currentNav).toHaveCSS("display", "grid");
+  }
+});
+
+test("approved V3 shell renders navigation and captures desktop/mobile evidence", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  await page.setViewportSize({ width: mobile ? 390 : 1440, height: 900 });
+  const response = await page.goto("/admin", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBe(200);
+  if (mobile) {
+    await expect(page.getByRole("link", { name: "Psipedia Admin – pracovný prehľad" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Menu", exact: true })).toBeVisible();
+  } else {
+    const nav = page.getByRole("navigation", { name: "Redakčné moduly", exact: true });
+    await expect(nav).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Prehľad", exact: true })).toHaveAttribute("aria-expanded", "true");
+  }
+  await noOverflow(page);
+  await accessible(page);
+  await mkdir(".e2e-artifacts/admin-ux-unification/approved-v3", { recursive: true });
+  await page.screenshot({
+    path: `.e2e-artifacts/admin-ux-unification/approved-v3/admin-shell-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+  if (mobile) {
+    await page.setViewportSize({ width: 320, height: 800 });
+    await noOverflow(page);
+    await page.screenshot({
+      path: ".e2e-artifacts/admin-ux-unification/approved-v3/admin-shell-mobile-320.png",
+      fullPage: true,
+    });
   }
 });

@@ -1,3 +1,4 @@
+import "./gemini-scheduler-admin-v2.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
@@ -8,28 +9,70 @@ import { directoryProfileValues, hasMinimumVeterinarianContact } from "../script
 import { readFileSync } from "node:fs";
 import {
   externalAgentEnabled, externalAgentScheduledEnabled, ExternalAgentError, dispatchExternalGemini,
-  sweepExternalGemini, completeExternalGemini,
+  sweepExternalGemini, completeExternalGemini, enqueueExternalGemini, dispatchPendingExternalGemini,
 } from "../lib/gemini-external-agent.ts";
 
-function fakeDb() {
+function fakeDb(promptOverride = null) {
   let job = null;
   const runs = [];
   const queries = [];
+  const createdPages = new Map();
+  const sources = {
+    directory: "d1111111-1111-4111-8111-111111111111",
+    events: "e1111111-1111-4111-8111-111111111111",
+    organizations: "01111111-1111-4111-8111-111111111111",
+    adoptions: "a2222222-2222-4222-8222-222222222222",
+    "help-cases": "c1111111-1111-4111-8111-111111111111",
+    "lost-found": "f1111111-1111-4111-8111-111111111111",
+  };
+  let failRegistryAfterInsertOnce = false;
   const db = {
+    async batch(statements) {
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      return results;
+    },
     prepare(sql) {
       queries.push(sql);
       let args = [];
       const stmt = {
         bind(...values) { args = values; return stmt; },
+        async all() {
+          if (sql.includes("FROM gemini_notion_created_pages WHERE job_id=?")) return {
+            results: [...createdPages.values()].filter(row => row.job_id === args[0])
+              .map(row => ({ notion_page_id: row.notion_page_id,
+                stable_key: row.stable_key, import_agenda: row.import_agenda })),
+          };
+          return { results: [{ stable_key: "directory.veterinari" }] };
+        },
         async first() {
+          if (sql.includes("FROM gemini_category_prompts")) return promptOverride ? { stable_key: args[0], user_prompt: promptOverride, updated_at: "2026-10-15T00:00:00Z" } : null;
           if (sql.includes("FROM gemini_automation_settings")) {
-            if (sql.includes("next_run_at")) return { stable_key: "directory.veterinari" };
-            return { id: 42, max_new_concepts: 8, cadence_minutes: 720 };
+            if (sql.startsWith("SELECT stable_key FROM gemini_automation_settings")) return { stable_key: "directory.veterinari" };
+            return { id: 42, max_new_concepts: 8, cadence_minutes: 720, weekly_day: null,
+              enabled: 1, next_run_at: "2026-10-11T01:00:00.000Z" };
           }
+          if (sql.includes("FROM gemini_automation_runs")) return runs.length
+            ? { concept_count: runs[0][10], duplicate_count: runs[0][9],
+                request_count: runs[0][6], grounded_search_query_count: runs[0][7],
+                status: runs[0][2] } : null;
           if (sql.includes("FROM gemini_manual_background_jobs")) return job;
+          if (sql.includes("FROM notion_agenda_targets")) return { data_source_id: sources[args[0]] };
+          if (sql.includes("FROM gemini_notion_created_pages")) return createdPages.get(args[0]) ?? null;
           return null;
         },
         async run() {
+          if (sql.includes("INSERT INTO gemini_notion_created_pages")) {
+            if (!createdPages.has(args[0])) createdPages.set(args[0], {
+              notion_page_id: args[0], job_id: args[1], stable_key: args[2],
+              notion_data_source_id: args[3], import_agenda: args[4],
+            });
+            if (failRegistryAfterInsertOnce) {
+              failRegistryAfterInsertOnce = false;
+              throw Error("MOCK_D1_ACK_LOST");
+            }
+            return { meta: { changes: 1 } };
+          }
           if (sql.includes("INSERT INTO gemini_manual_background_jobs")) {
             if (job && job.status === "RUNNING") throw Error("busy");
             job = { id: 7, setting_id: 42, stable_key: args[1],
@@ -40,6 +83,7 @@ function fakeDb() {
             if (!job || job.status !== "RUNNING") return { meta: { changes: 0 } };
             job.status = args[0];
             job.error_code = args[1];
+            job.run_id = runs.length ? 21 : null;
             return { meta: { changes: 1 } };
           }
           if (sql.includes("INSERT INTO gemini_automation_runs")) {
@@ -52,7 +96,8 @@ function fakeDb() {
       return stmt;
     },
   };
-  return { db, queries, runs, getJob: () => job };
+  return { db, queries, runs, sources, createdPages, getJob: () => job,
+    simulateLostRegistryAck() { failRegistryAfterInsertOnce = true; } };
 }
 
 test("external agent remains entirely off by default and avoids all external traffic", async () => {
@@ -93,8 +138,9 @@ test("external dispatch sends only bounded routing metadata to GitHub (no data p
     const parsed = JSON.parse(request.options.body);
     assert.equal(parsed.ref, "main");
     assert.deepEqual(Object.keys(parsed.inputs).sort(),
-      ["job_id", "max_new_concepts", "stable_key", "trigger_type"].sort());
+      ["job_id", "max_new_concepts", "stable_key", "trigger_type", "category_prompt"].sort());
     assert.equal(parsed.inputs.max_new_concepts, "5");
+    assert.match(parsed.inputs.category_prompt, /veterinár|veterinari|starostlivosť/i);
     assert.doesNotMatch(request.options.body, /GEMINI_API_KEY|NOTION_API_TOKEN|https:\/\/api.notion.com/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -143,12 +189,13 @@ test("manual external opt-in never starts a scheduled job without separate conse
   assert.deepEqual(await sweepExternalGemini({ db, env }), {
     dispatched: 0, reason: "SCHEDULE_DISABLED",
   });
-  assert.equal(queries.length, 0, "No database job should be reserved");
+  assert.ok(queries.some(sql => sql.includes("FROM gemini_manual_background_jobs")), "Cron may inspect explicitly queued manual jobs");
+  assert.ok(!queries.some(sql => sql.includes("INSERT INTO gemini_manual_background_jobs")), "No paid job should be reserved");
   await assert.rejects(
     dispatchExternalGemini({ db, env, stableKey: "directory.veterinari", trigger: "SCHEDULED" }),
     (error) => error instanceof ExternalAgentError && error.code === "DISABLED",
   );
-  assert.equal(queries.length, 0);
+  assert.ok(!queries.some(sql => sql.includes("INSERT INTO gemini_manual_background_jobs")));
   assert.equal(externalAgentScheduledEnabled({
     ...env, GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "true",
   }), true);
@@ -196,8 +243,9 @@ test("Notion category values preserve directory slugs and canonical singular eve
   assert.equal(notionCategoryValue("events", "../../secret"), null);
   const worker = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
   assert.match(worker, /notionCategoryValue\(section, subcategory\)/);
-  assert.match(worker, /"Typ podujatia": target\.categoryValue/);
-  assert.match(worker, /"Kategória": target\.categoryValue/);
+  assert.match(worker, /buildGeminiNotionDraft/);
+  const fields = readFileSync(new URL("../scripts/gemini-notion-directory-fields.mjs", import.meta.url), "utf8");
+  assert.match(fields, /"Typ podujatia" : "Kategória"/);
 });
 
 
@@ -274,19 +322,16 @@ test("vector logos can be saved independently without being sent to raster image
   assert.equal(fallback["Alt text obrázka"], "Logo Clinic");
 });
 
-test("Gemini worker offers actual Notion email/phone encoders and gates empty veterinary drafts", () => {
+test("Gemini worker uses schema-aware encoding without minimum contact quality vetoes", () => {
   const source = readFileSync(new URL("../scripts/gemini-notion-agent.mjs", import.meta.url), "utf8");
-  assert.match(source, /if \(schema.type === "email"\) return \{ email: value \}/);
-  assert.match(source, /if \(schema.type === "phone_number"\) return \{ phone_number: value \}/);
-  assert.match(source, /directoryProfileValues\(args\)/);
-  assert.match(source, /hasMinimumVeterinarianContact\(properties\)/);
-  assert.match(source, /logo_url: \{ type: "string"/);
-  assert.match(source, /image_url: \{ type: "string"/);
-  assert.match(source, /"insufficient_verified_contact_details"/);
+  assert.match(source, /buildGeminiNotionDraft/);
+  assert.doesNotMatch(source, /hasMinimumVeterinarianContact|insufficient_verified_contact_details|sourceEvidence/);
+  assert.match(source, /fields: \{ type: "object"/);
+  assert.match(source, /geminiNotionSchema\(snapshot.properties, target\)/);
 });
 
-test("dedicated help agendas cannot reserve or dispatch an external job", async () => {
-  for (const stableKey of ["help.adopcia", "help.utulky", "help.stratene-a-najdene"]) {
+test("remaining unsupported dedicated help agendas cannot reserve or dispatch", async () => {
+  for (const stableKey of ["help.nepodporovana"]) {
     const { db, queries } = fakeDb();
     await assert.rejects(dispatchExternalGemini({ db, stableKey, trigger: "MANUAL", env: {
       GEMINI_EXTERNAL_AGENT_ENABLED: "true", GITHUB_ACTIONS_DISPATCH_TOKEN: "mock", GEMINI_AGENT_CALLBACK_SECRET: "mock",
@@ -300,13 +345,290 @@ test("concurrent signed callbacks confirm the original job and history exactly o
   const env = { GEMINI_EXTERNAL_AGENT_ENABLED: "true", GITHUB_ACTIONS_DISPATCH_TOKEN: "mock", GEMINI_AGENT_CALLBACK_SECRET: "mock" };
   const original = globalThis.fetch;
   globalThis.fetch = async () => new Response(null, { status: 204 });
-  try { await dispatchExternalGemini({ db, env, stableKey: "events.vystavy", trigger: "MANUAL" }); }
+  try { await dispatchExternalGemini({ db, env, stableKey: "help.stratene-a-najdene", trigger: "MANUAL" }); }
   finally { globalThis.fetch = original; }
   const body = JSON.stringify({ job_id: 7, status: "SUCCESS", concept_count: 1, duplicate_count: 0, request_count: 3, search_count: 1 });
   const signature = "sha256=" + createHmac("sha256", "mock").update(body).digest("hex");
   const responses = await Promise.all([completeExternalGemini({ db, env, body, signature }), completeExternalGemini({ db, env, body, signature })]);
   assert.deepEqual(responses.map(v => v.status).sort(), [200, 409]);
-  assert.equal(getJob().stable_key, "events.vystavy");
+  assert.equal(getJob().stable_key, "help.stratene-a-najdene");
   assert.equal(runs.length, 1);
   assert.equal((await completeExternalGemini({ db, env, body: body.replace('"concept_count":1', '"concept_count":2'), signature })).status, 401);
+});
+
+test("external dispatch transports the saved prompt for the selected category without changing safe limits", async () => {
+  const custom = "Over oficiálne informácie o kynologických kluboch na Slovensku a priprav iba interný koncept bez publikovania.";
+  const { db } = fakeDb(custom);
+  const original = globalThis.fetch;
+  let payload;
+  globalThis.fetch = async (_url, options) => {
+    payload = JSON.parse(options.body);
+    return new Response(null, { status: 204 });
+  };
+  try {
+    await dispatchExternalGemini({ db, env: {
+      GEMINI_EXTERNAL_AGENT_ENABLED: "true", GITHUB_ACTIONS_DISPATCH_TOKEN: "test",
+      GEMINI_AGENT_CALLBACK_SECRET: "test",
+    }, stableKey: "directory.kynologicke-kluby", trigger: "MANUAL" });
+    assert.equal(payload.inputs.category_prompt, custom);
+    assert.equal(payload.inputs.stable_key, "directory.kynologicke-kluby");
+    assert.equal(payload.inputs.max_new_concepts, "5");
+  } finally { globalThis.fetch = original; }
+});
+
+test("all 22 categories dispatch their distinct effective editable prompt (no real GitHub calls)", async () => {
+  const original = globalThis.fetch;
+  const mapped = new Map();
+  globalThis.fetch = async (_url, options) => {
+    const data = JSON.parse(options.body);
+    mapped.set(data.inputs.stable_key, data.inputs.category_prompt);
+    return new Response(null, { status: 204 });
+  };
+  try {
+    for (const category of geminiAutomationCatalog) {
+      const { db } = fakeDb();
+      await dispatchExternalGemini({ db, env: {
+        GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+        GITHUB_ACTIONS_DISPATCH_TOKEN: "synthetic",
+        GEMINI_AGENT_CALLBACK_SECRET: "synthetic",
+      }, stableKey: category.stableKey, trigger: "MANUAL" });
+    }
+    assert.equal(mapped.size, 22);
+    assert.equal(new Set(mapped.values()).size, 22);
+    for (const [key, prompt] of mapped)
+      assert.ok(prompt.length >= 40 && prompt.length <= 6000, key);
+  } finally { globalThis.fetch = original; }
+});
+
+for (const outcome of ["no_relevant_candidate", "duplicate_only", "insufficient_evidence", "exhausted"]) {
+  test("signed zero-result outcome persists without changing SUCCESS: " + outcome, async () => {
+    const { db, runs, getJob } = fakeDb();
+    const env = { GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+      GITHUB_ACTIONS_DISPATCH_TOKEN: "test", GEMINI_AGENT_CALLBACK_SECRET: "test" };
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => new Response(null, { status: 204 });
+    try { await dispatchExternalGemini({ db, env, stableKey: "directory.veterinari", trigger: "MANUAL" }); }
+    finally { globalThis.fetch = original; }
+    const payload = { job_id: 7, status: "SUCCESS", concept_count: 0,
+      duplicate_count: outcome === "duplicate_only" ? 1 : 0,
+      request_count: 4, search_count: 1, error_code: null, outcome_code: outcome };
+    const body = JSON.stringify(payload);
+    const signature = "sha256=" + createHmac("sha256", "test").update(body).digest("hex");
+    assert.deepEqual(await completeExternalGemini({ db, env, body, signature }), { status: 200, ok: true });
+    assert.equal(runs.length, 1);
+    assert.equal(runs[0][2], "SUCCESS");
+    assert.equal(runs[0][12], null, "0113 run table allows only provider errors");
+    assert.equal(getJob().error_code, "NO_RESULT_" + outcome.toUpperCase());
+    assert.equal(getJob().run_id, 21);
+  });
+}
+test("signed callback rejects unknown, fabricated, or conflicting zero-result codes", async () => {
+  for (const [status, count, outcome] of [
+    ["SUCCESS", 0, "raw Gemini response"], ["SUCCESS", 1, "exhausted"],
+    ["FAILED", 0, "exhausted"], ["SUCCESS", 0, { private: "secret" }],
+  ]) {
+    const { db } = fakeDb();
+    const body = JSON.stringify({ job_id: 7, status, concept_count: count,
+      duplicate_count: 0, request_count: 4, search_count: 1,
+      error_code: status === "FAILED" ? "ERROR" : null, outcome_code: outcome });
+    const signature = "sha256=" + createHmac("sha256", "test").update(body).digest("hex");
+    assert.equal((await completeExternalGemini({ db, env: {
+      GEMINI_EXTERNAL_AGENT_ENABLED: "true", GEMINI_AGENT_CALLBACK_SECRET: "test",
+    }, body, signature })).status, 400);
+  }
+});
+
+
+test("signed callback persists only provider-verified immutable receipts for all 22 Gemini categories", async () => {
+  for (const [index, item] of geminiAutomationCatalog.entries()) {
+    const { db, sources, createdPages, getJob, runs } = fakeDb();
+    const secret = "hmac-test-secret";
+    const env = { GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+      GITHUB_ACTIONS_DISPATCH_TOKEN: "offline-gh",
+      GEMINI_AGENT_CALLBACK_SECRET: secret,
+      NOTION_API_TOKEN: "offline-notion",
+      NOTION_DIRECTORY_DATA_SOURCE_ID: sources.directory,
+    };
+    const pageId = "c3333333-3333-4333-8333-" + String(index + 1).padStart(12, "0");
+    const agenda = item.stableKey.startsWith("directory.") ? "directory" :
+      item.stableKey.startsWith("events.") ? "events" :
+      item.stableKey === "help.utulky" ? "organizations" :
+      item.stableKey === "help.adopcia" ? "adoptions" :
+      item.stableKey === "help.stratene-a-najdene" ? "lost-found" : "help-cases";
+    const previousFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => new Response(null, { status: 204 });
+      await dispatchExternalGemini({ db, env, stableKey: item.stableKey, trigger: "MANUAL" });
+      globalThis.fetch = async () => Response.json({
+        id: pageId, parent: { type: "data_source_id", data_source_id: sources[agenda] },
+        archived: false, in_trash: false,
+      });
+      const body = JSON.stringify({
+        job_id: 7, status: "SUCCESS", concept_count: 1, duplicate_count: 0,
+        request_count: 3, search_count: 1, error_code: null,
+        created_pages: [{
+          notion_page_id: pageId, stable_key: item.stableKey,
+          notion_data_source_id: sources[agenda],
+        }],
+      });
+      const signature = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
+      assert.deepEqual(await completeExternalGemini({ db, env, body, signature }),
+        { status: 200, ok: true }, item.stableKey);
+      assert.equal(createdPages.size, 1, item.stableKey);
+      assert.equal(getJob().status, "SUCCESS");
+      assert.equal(runs.length, 1);
+      assert.equal(createdPages.get(pageId).import_agenda, agenda);
+      assert.deepEqual(await completeExternalGemini({ db, env, body, signature }),
+        { status: 200, ok: true }, "repeated signed callback must be idempotent");
+      assert.equal(createdPages.size, 1);
+      assert.equal(runs.length, 1);
+    } finally { globalThis.fetch = previousFetch; }
+  }
+});
+
+test("signed callback wrong Notion parent cannot register or finish; partial registry acknowledgement can safely retry", async () => {
+  const f = fakeDb();
+  const secret = "offline-secret";
+  const env = { GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+    GITHUB_ACTIONS_DISPATCH_TOKEN: "offline-gh",
+    GEMINI_AGENT_CALLBACK_SECRET: secret, NOTION_API_TOKEN: "offline-notion",
+    NOTION_DIRECTORY_DATA_SOURCE_ID: f.sources.directory,
+  };
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(null, { status: 204 });
+    await dispatchExternalGemini({ db: f.db, env, stableKey: "directory.salony-a-sluzby", trigger: "MANUAL" });
+    const key = "directory.salony-a-sluzby";
+    const page = {
+      notion_page_id: "c3333333-3333-4333-8333-000000000099",
+      stable_key: key, notion_data_source_id: f.sources.directory,
+    };
+    const body = JSON.stringify({ job_id: 7, status: "SUCCESS",
+      concept_count: 1, duplicate_count: 0, request_count: 3,
+      search_count: 1, created_pages: [page] });
+    const sig = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
+    globalThis.fetch = async () => Response.json({ id: page.notion_page_id,
+      parent: { type: "data_source_id", data_source_id: f.sources.events } });
+    assert.equal((await completeExternalGemini({ db: f.db, env, body, signature: sig })).status, 503);
+    assert.equal(f.createdPages.size, 0);
+    assert.equal(f.getJob().status, "RUNNING");
+    globalThis.fetch = async () => Response.json({ id: page.notion_page_id,
+      parent: { type: "data_source_id", data_source_id: f.sources.directory } });
+    f.simulateLostRegistryAck();
+    assert.equal((await completeExternalGemini({ db: f.db, env, body, signature: sig })).status, 503);
+    assert.equal(f.createdPages.size, 1, "database committed despite lost acknowledgement");
+    assert.equal(f.getJob().status, "RUNNING");
+    assert.deepEqual(await completeExternalGemini({ db: f.db, env, body, signature: sig }),
+      { status: 200, ok: true });
+    assert.equal(f.createdPages.size, 1);
+    assert.equal(f.runs.length, 1);
+  } finally { globalThis.fetch = previousFetch; }
+});
+
+function externalQueueDb() {
+  const jobs = [];
+  const sqlStatements = [];
+  const db = {
+    prepare(sql) {
+      sqlStatements.push(sql);
+      let args = [];
+      const stmt = {
+        bind(...values) { args = values; return stmt; },
+        async first() {
+          if (sql.includes("FROM gemini_category_prompts")) return null;
+          if (sql.includes("FROM gemini_automation_settings")) {
+            const cat = geminiAutomationCatalog.findIndex(item => item.stableKey === args[0]);
+            return cat < 0 ? null : { id: cat + 1, max_new_concepts: 1,
+              cadence_minutes: 720, weekly_day: null, enabled: 0, next_run_at: null };
+          }
+          if (sql.includes("FROM gemini_manual_background_jobs")) {
+            if (sql.includes("status IN ('QUEUED','RUNNING')"))
+              return jobs.findLast(row => row.stable_key === args[0] && ["QUEUED","RUNNING"].includes(row.status)) ?? null;
+            if (sql.includes("status='RUNNING'"))
+              return jobs.find(row => row.status === "RUNNING") ?? null;
+            if (sql.includes("status='QUEUED'"))
+              return jobs.find(row => row.status === "QUEUED" && row.error_code === "EXT_MANUAL_PENDING") ?? null;
+          }
+          return null;
+        },
+        async all() { return { results: [] }; },
+        async run() {
+          if (sql.includes("INSERT INTO gemini_manual_background_jobs")) {
+            const category = args[1];
+            if (jobs.some(row => row.stable_key === category && ["QUEUED","RUNNING"].includes(row.status)))
+              throw Error("UNIQUE_ACTIVE_CATEGORY");
+            const pending = sql.includes("'EXT_MANUAL_PENDING'");
+            if (pending && jobs.filter(row => row.status === "QUEUED").length >= 22)
+              return { meta: { changes: 0, last_row_id: 0 } };
+            if (!pending && jobs.some(row => row.status === "RUNNING")) throw Error("UNIQUE_RUNNING");
+            const job = { id: jobs.length + 1, setting_id: args[0], stable_key: category,
+              status: pending ? "QUEUED" : "RUNNING", error_code: pending ? "EXT_MANUAL_PENDING" : args[2] };
+            jobs.push(job);
+            return { meta: { changes: 1, last_row_id: job.id } };
+          }
+          if (sql.startsWith("UPDATE gemini_manual_background_jobs SET status='RUNNING'")) {
+            const [date, marker, jobId, settingId, stableKey] = args;
+            const row = jobs.find(job => job.id === jobId && job.setting_id === settingId &&
+              job.stable_key === stableKey && job.status === "QUEUED");
+            if (!row || jobs.some(job => job.status === "RUNNING") ||
+                jobs.some(job => job.status === "QUEUED" && job.id < jobId))
+              return { meta: { changes: 0 } };
+            row.status = "RUNNING"; row.error_code = marker; row.claimed_at = date;
+            return { meta: { changes: 1 } };
+          }
+          if (sql.startsWith("UPDATE gemini_manual_background_jobs SET status=?")) {
+            const row = jobs.find(job => job.id === args[3] && job.status === "RUNNING");
+            if (!row) return { meta: { changes: 0 } };
+            row.status = args[0]; row.error_code = args[1];
+            return { meta: { changes: 1 } };
+          }
+          return { meta: { changes: 1 } };
+        },
+      };
+      return stmt;
+    },
+  };
+  return { db, jobs, sqlStatements };
+}
+
+test("explicit manual requests queue across categories, never parallelize or duplicate billing", async () => {
+  const { db, jobs } = externalQueueDb();
+  const env = {
+    GEMINI_EXTERNAL_AGENT_ENABLED: "true",
+    GITHUB_ACTIONS_DISPATCH_TOKEN: "TEST_ONLY",
+    GEMINI_AGENT_CALLBACK_SECRET: "TEST_ONLY",
+    GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED: "false",
+  };
+  const categoryA = "directory.veterinari";
+  const categoryB = "help.adopcia";
+  const a = await enqueueExternalGemini({ db, env, stableKey: categoryA });
+  const b = await enqueueExternalGemini({ db, env, stableKey: categoryB });
+  assert.deepEqual(a, { jobId: 1, status: "QUEUED", alreadyQueued: false });
+  assert.deepEqual(b, { jobId: 2, status: "QUEUED", alreadyQueued: false });
+  assert.deepEqual(await enqueueExternalGemini({ db, env, stableKey: categoryB }),
+    { jobId: 2, status: "QUEUED", alreadyQueued: true });
+  assert.equal(jobs.filter(job => job.status === "QUEUED").length, 2);
+  const originalFetch = globalThis.fetch;
+  const launched = [];
+  globalThis.fetch = async (_url, options) => {
+    launched.push(JSON.parse(options.body).inputs);
+    return new Response(null, { status: 204 });
+  };
+  try {
+    const first = await sweepExternalGemini({ db, env });
+    assert.deepEqual(first, { dispatched: 1, jobId: 1 });
+    assert.equal(jobs[0].status, "RUNNING");
+    assert.equal(jobs[1].status, "QUEUED");
+    assert.deepEqual(await dispatchPendingExternalGemini({ db, env }),
+      { dispatched: 0, reason: "BUSY" });
+    assert.equal(launched.length, 1, "Only one paid GitHub dispatch allowed");
+    jobs[0].status = "SUCCESS"; // signed callback is tested separately
+    const second = await sweepExternalGemini({ db, env });
+    assert.deepEqual(second, { dispatched: 1, jobId: 2 });
+    assert.equal(jobs[1].status, "RUNNING");
+    assert.equal(launched.length, 2);
+    assert.deepEqual(launched.map(item => item.stable_key), [categoryA, categoryB]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

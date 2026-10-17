@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import type { ManagedArticle } from "@/lib/article-store";
+import { effectiveArticleStatus as resolveArticleEffectiveStatus } from "@/lib/article-effective-status";
 import { CalendarDraftPlanner } from "@/components/calendar-draft-planner";
 import type { EditorialCalendarItem } from "@/lib/editorial-calendar";
 import { formatArticleLocalDateTime, parseArticleLocalDateTime } from "@/lib/article-schedule-time";
@@ -25,8 +26,7 @@ function monthUrl(year: number, month: number) {
 }
 
 function effectiveArticleStatus(article: ManagedArticle): ManagedArticle["status"] {
-  return article.status === "scheduled" && article.publishedAt && Date.parse(article.publishedAt) <= Date.now()
-    ? "published" : article.status;
+  return resolveArticleEffectiveStatus(article.status, article.publishedAt);
 }
 
 function statusLabel(status: EditorialCalendarItem["status"] | ManagedArticle["status"]) {

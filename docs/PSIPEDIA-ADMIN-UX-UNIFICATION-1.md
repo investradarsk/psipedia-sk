@@ -1,3 +1,26 @@
+# ADMIN VISUAL SYSTEM V3 — schválený smer (17. 10. 2026)
+
+Majiteľ Psipedia.sk výslovne schválil referenčný obrázok s tmavozeleným sidebarom,
+svetlým pracovným priestorom a kompaktným mobilným panelom. Tento PR mení iba
+spoločný admin shell/navigáciu/štýlové tokeny; staršie výsledky testov a screenshoty
+v nasledujúcom pôvodnom audite dokumentujú pôvodnú fázu V1, nie nový V3 HEAD.
+
+- Nový desktop sidebar obsahuje 7 pôvodných hierarchických skupín. Skupiny
+  sa otvárajú bez zmeny existujúceho registry/deep linkov; aktívna skupina
+  a položka sú zvýraznené.
+- Na mobile je zachovaný existujúci drawer a všetky položky. Ikonové tlačidlo
+  Menu funguje od 320px, existujúce upozornenia/návrat na web/odhlásenie ostávajú.
+- Spoločný panel nemení editorové data state, routy, API, publikovanie ani D1.
+- Komponent `admin-interaction-system.tsx` používa už novšiu implementáciu z main
+  (ochrana fokusu), preto sa staršie pôvodné zmeny doň neprenášajú.
+- CI ADMIN-IA-2 ukladá nové V3 screenshoty do artefaktu
+  `admin-ia-2-screenshots-*` v zložke
+  `.e2e-artifacts/admin-ux-unification/approved-v3/`.
+- Pozor: testy a CI nového HEAD sa musia vyhodnotiť osobitne; nižšie uvedené
+  historické výsledky nie sú dôkazom zeleného V3 buildu.
+
+---
+
 # PSIPEDIA-ADMIN-UX-UNIFICATION-1
 
 Audit a cielená úprava existujúcej administrácie, 14. 10. 2026.

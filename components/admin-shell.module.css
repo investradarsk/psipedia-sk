@@ -135,3 +135,142 @@
 @media (max-width: 1100px) {
   .workspace { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 12px; }
 }
+
+/* ADMIN VISUAL SYSTEM V3: approved common shell; no editor data/state changes. */
+.shellV3 { width: 100%; max-width: none; }
+.workspace {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  min-height: 100dvh;
+}
+.sidebarFrame {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 22px 10px 12px;
+  color: #f4fbf6;
+  background: linear-gradient(159deg, #092d21 0%, #103f2e 58%, #092a20 100%);
+  box-shadow: 5px 0 24px rgba(8, 47, 31, .08);
+}
+.sidebarBrand {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 62px;
+  padding: 4px 12px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.13);
+  color: #fff;
+  text-decoration: none;
+}
+.sidebarBrand > span, .mobileBrand > span { display: grid; gap: 0; font-size: 1rem; line-height: 1.15; font-weight: 850; }
+.sidebarBrand small, .mobileBrand small { font-size: .79rem; font-weight: 600; }
+.sidebarFrame :global([data-admin-sidebar]) {
+  position: static;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+}
+.workspacePage { min-width: 0; min-height: 100dvh; background: #f6f8f7; }
+.workspaceMain { min-width: 0; padding: 20px clamp(15px, 2.25vw, 35px) 0; }
+.topbarSticky {
+  position: sticky;
+  top: 0;
+  z-index: 46;
+  min-height: 70px;
+  padding: 10px clamp(15px, 2.25vw, 35px);
+  border: 0;
+  border-bottom: 1px solid #e5ebe7;
+  border-radius: 0;
+  color: #193d2e;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: 0 4px 18px rgba(21, 58, 42, .035);
+  backdrop-filter: blur(12px);
+}
+.topbarCaption { min-width: 0; color: #526a5e; font-size: .78rem; font-weight: 800; }
+.mobileBrand { display: none; }
+.topbarActions { margin-left: auto; gap: 10px; }
+.notificationLink {
+  color: #193f30;
+  border-color: #e1e9e3;
+  background: #f7faf8;
+}
+.notificationLink:hover { border-color: #bdd0c4; background: #eaf3ed; }
+.badge {
+  color: #fff;
+  background: #c63842;
+  border-color: #fff;
+}
+.backToWeb {
+  color: #19422f;
+  border-color: #dfe9e2;
+  background: #eff5f0;
+}
+.backToWeb:hover { background: #e0ebe2; }
+.account { color: #183c2d; gap: 8px; }
+.account :global(small) { color: #677c70; }
+.account > a {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid #e1e9e3;
+  color: #234b39;
+  background: #f7faf8;
+}
+.logoutSymbol { display: none; }
+@media (max-width: 1100px) {
+  .workspace { display: block; margin: 0; }
+  .sidebarFrame { display: contents; }
+  .sidebarBrand { display: none; }
+  .workspacePage { min-height: 100dvh; }
+  .workspaceMain { padding: 16px 16px 0; }
+  .topbarSticky { min-height: 65px; padding: 10px 64px 10px 15px; }
+  .topbarCaption { display: none; }
+  .mobileBrand {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 7px;
+    color: #103e2c;
+    text-decoration: none;
+  }
+  .mobileBrand > span { font-size: .87rem; }
+  .mobileBrand small { font-size: .72rem; }
+  .sidebarFrame :global([data-admin-sticky-nav]) {
+    position: fixed;
+    z-index: 60;
+    top: 10px;
+    right: 11px;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+  }
+  .topbarActions { gap: 5px; }
+}
+@media (max-width: 760px) {
+  .account > span { display: none; }
+  .account > a {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+  }
+  .logoutText { display: none; }
+  .logoutSymbol { display: block; font-size: 1.25rem; }
+}
+@media (max-width: 390px) {
+  .workspaceMain { padding: 14px 12px 0; }
+  .topbarSticky { padding: 9px 60px 9px 10px; }
+  .mobileBrand { gap: 4px; }
+  .mobileBrand svg { width: 23px; }
+  .mobileBrand > span { font-size: .8rem; }
+  .backToWeb { width: 44px; min-width: 44px; }
+  .topbarActions { gap: 2px; }
+}

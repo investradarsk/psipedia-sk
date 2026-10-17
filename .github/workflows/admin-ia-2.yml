@@ -115,7 +115,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: admin-ia-2-screenshots-${{ github.run_attempt }}
-          path: .e2e-artifacts/admin-ia-2/
+          path: |
+            .e2e-artifacts/admin-ia-2/
+            .e2e-artifacts/admin-ux-unification/
           if-no-files-found: warn
           retention-days: 14
 

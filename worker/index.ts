@@ -1,4 +1,6 @@
 import { observeScheduledAutomation } from "../lib/admin-scheduled-observer.ts";
+import { runFacebookImagePublishSweep } from "../lib/facebook-image-publisher.ts";
+import { runNotionFacebookImagesSync } from "../lib/notion-facebook-images-sync.ts";
 import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
 import { externalAgentEnabled, sweepExternalGemini } from "../lib/gemini-external-agent.ts";
 import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
@@ -15,6 +17,7 @@ import { runPartnerNotificationSweep } from "../lib/partner-email";
 import { cleanupPartnerMedia } from "../lib/partner-media";
 import { runReviewAuthorNotificationSweep } from "../lib/review-author-email";
 import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
+import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
@@ -37,6 +40,9 @@ interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
   ADMIN_EMAILS?: string;
+  FB_PAGE_ID?: string;
+  FB_PAGE_ACCESS_TOKEN?: string;
+  FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
   AUTH_MODE?: "cloudflare-access";
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
@@ -57,6 +63,9 @@ interface Env {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_ESHOP_SYNC_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_SYNC_ENABLED?: string;
+  NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?: string;
+  NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?: string;
   NOTION_API_TOKEN?: string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
@@ -258,6 +267,29 @@ const worker = {
   },
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
+    // The dedicated per-minute trigger is strictly isolated from the legacy five-minute/hourly sweeps.
+    if (controller.cron === "* * * * *") {
+      try {
+        const summary=await runFacebookImagePublishSweep({db:env.DB,bindings:env,now:new Date(controller.scheduledTime??Date.now())});
+        console.info(JSON.stringify({event:"facebook_image_publish_sweep",...summary}));
+      }catch {
+        // Never log provider response, access token or potentially sensitive payload.
+        console.error(JSON.stringify({event:"facebook_image_publish_sweep",result:"failed"}));
+      }
+      return;
+    }
+    // Existing five-minute Cron: standalone Notion image import + published result writeback.
+    // Strict feature gate is OFF unless explicitly enabled; this is never a new Cron.
+    if (controller.cron === "*/5 * * * *" && pushTaskEnabled(env.NOTION_FACEBOOK_IMAGES_SYNC_ENABLED)) {
+      const notionFacebookImagesTask = runNotionFacebookImagesSync({database:env.DB,bindings:env})
+        .then((summary) => {
+          console.info(JSON.stringify({event:"notion_facebook_images_sync",...summary}));
+        }).catch(() => {
+          // No provider payloads, signed image URLs, secrets or raw error messages.
+          console.error(JSON.stringify({event:"notion_facebook_images_sync",result:"failed"}));
+        });
+      _ctx.waitUntil(notionFacebookImagesTask);
+    }
     // Dispatch only. Paid Gemini/Notion research NEVER runs inside this Worker.
     // This feature flag is intentionally absent from wrangler.jsonc.
     if (externalAgentEnabled(env)) {
@@ -287,8 +319,29 @@ const worker = {
         database: env.DB, scheduledTime: controller.scheduledTime,
         system: "notion", automationId: "articles", label: "Notion — články",
         active: pushTaskEnabled(env.NOTION_ARTICLE_SYNC_ENABLED),
-        execute: () => runNotionArticleSyncSweep({ database: env.DB, bindings: env }),
-        summarize: (r) => ({ enabled: r.enabled, checked: r.scanned, created: r.created, updated: r.updated, errors: r.failed }),
+        execute: async () => {
+          // Reconcile the canonical D1 publication before importing Ready Notion
+          // drafts. This prevents a due scheduled article from being marked as an
+          // import error just because the D1 status remains "scheduled".
+          let publication = { checked: 0, updated: 0, unchanged: 0, skipped: 0, failed: 0 };
+          try {
+            publication = await runArticlePublishNotionReconciliation({ database: env.DB, bindings: env });
+          } catch {
+            publication.failed += 1;
+            console.error("notion_article_publication_reconciliation_sweep_failed");
+          }
+          // A reconciliation outage must not cancel the ordinary Notion import.
+          const imported = await runNotionArticleSyncSweep({ database: env.DB, bindings: env });
+          return { ...imported, publication };
+        },
+        summarize: (r) => ({
+          enabled: r.enabled, checked: r.scanned, created: r.created,
+          updated: r.updated, errors: r.failed,
+          publicationChecked: r.publication.checked,
+          publicationUpdated: r.publication.updated,
+          publicationUnchanged: r.publication.unchanged,
+          publicationFailed: r.publication.failed,
+        }),
       }).then((result) => {
         console.info(JSON.stringify({
           event: "notion_article_sync_sweep",

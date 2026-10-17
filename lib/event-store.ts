@@ -15,7 +15,7 @@ import {
 import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
-import { reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
+import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
 import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
@@ -240,15 +240,15 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
   if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Adresa podujatia nie je platná.");
   if (getPortalSubpage("podujatia", slug)) throw new Error("Túto adresu už používa podsekcia portálu. Uprav adresu podujatia.");
   if (!eventType) throw new Error("Vyber typ podujatia.");
-  if (!validDate(startDate)) throw new Error("Vyber platný dátum začiatku.");
+  if ((status === "published" || startDate) && !validDate(startDate)) throw new Error("Vyber platný dátum začiatku.");
   if (endDate && !validDate(endDate)) throw new Error("Dátum konca nie je platný.");
   if (endDate && endDate < startDate) throw new Error("Koniec podujatia nemôže byť pred začiatkom.");
   if (!validTime(startTime) || !validTime(endTime ?? "")) throw new Error("Čas podujatia nie je platný.");
-  if (!city) throw new Error("Doplň mesto alebo označ podujatie ako online.");
-  if (!region) throw new Error("Vyber kraj.");
-  if (!organizer) throw new Error("Doplň organizátora.");
-  if (excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
-  if (description.length < 30) throw new Error("Popis podujatia by mal mať aspoň 30 znakov.");
+  if (status === "published" && !city) throw new Error("Doplň mesto alebo označ podujatie ako online.");
+  if (status === "published" && !region) throw new Error("Vyber kraj.");
+  if (status === "published" && !organizer) throw new Error("Doplň organizátora.");
+  if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
+  if (status === "published" && description.length < 30) throw new Error("Popis podujatia by mal mať aspoň 30 znakov.");
 
   const imageUrl = payload.imageUrl?.trim() || null;
   if (imageUrl && !imageUrl.startsWith("/media/") && !imageUrl.startsWith("/images/") && !/^https:\/\//i.test(imageUrl)) {
@@ -259,7 +259,7 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
     slug, title, excerpt, eventType, status, startDate, startTime, endDate, endTime,
     venue: payload.venue?.trim() ?? "",
     city,
-    region,
+    region: region ?? "",
     address: payload.address?.trim() ?? "",
     organizer,
     description,
@@ -380,6 +380,58 @@ export async function getManagedEventById(id: number) {
   await ensureEventStore(database);
   const row = await database.prepare("SELECT * FROM managed_events WHERE id = ? LIMIT 1").bind(id).first<EventRow>();
   return row ? rowToEvent(row) : null;
+}
+
+/** Location-only Google confirmation; never rewrites unrelated event/editorial fields. */
+export async function updateManagedEventLocationFromGooglePlace(
+  id: number,
+  place: { formattedAddress: string; address?: { locality?: string; region?: string } },
+  editorEmail: string,
+  expectedUpdatedAt: string,
+  databaseInput?: D1Database,
+  expectedGeoRevision?: string | null,
+) {
+  const database = requireD1Binding(databaseInput);
+  const existing = await database.prepare(
+    "SELECT id,region,city,address,updated_at FROM managed_events WHERE id=? LIMIT 1",
+  ).bind(id).first<{id:number;region:string;city:string;address:string;updated_at:string}>();
+  if (!existing) return null;
+  if (existing.updated_at !== expectedUpdatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if ([existing.region, existing.city].some((value) => value?.trim().toLowerCase() === "online")) {
+    throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
+  }
+  const address = place.formattedAddress?.trim();
+  const city = place.address?.locality?.trim() || existing.city;
+  const region = place.address?.region?.trim() || existing.region;
+  if (!address || !city || !region) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
+  // A missing component is not an instruction to erase editorial details.
+  // Changing city/region without complete location evidence requires manual review.
+  if ((city !== existing.city || region !== existing.region) && (!place.address?.locality?.trim() || !place.address?.region?.trim())) {
+    throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
+  }
+  const now = new Date().toISOString();
+  const geo = await prepareGoogleSourceGeoInvalidation(
+    "MANAGED_EVENT", id, database, expectedGeoRevision,
+    { sql: "SELECT 1 FROM managed_events WHERE id=? AND updated_at=?", args: [id, now] },
+  );
+  const sourceStatement = database.prepare(`
+    UPDATE managed_events SET city=?,region=?,address=?,updated_at=?,updated_by=?
+    WHERE id=? AND updated_at=? AND ${geo.sourceGuard}
+    RETURNING id
+  `).bind(city,region,address,now,editorEmail,id,expectedUpdatedAt,...geo.sourceGuardArgs);
+  const results = await database.batch([sourceStatement, ...(geo.invalidation ? [geo.invalidation] : [])]);
+  const updated = results[0]?.results?.[0] as { id: number } | undefined;
+  if (!updated) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  if (geo.invalidation && results[1]?.meta?.changes !== 1) throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED");
+  try {
+    const reconciled = await reconcileGeoAfterSourceMutation({
+      targetType: "MANAGED_EVENT", targetId: id, actorRef: editorEmail, actorType: "ADMIN", expectedGeoRevision: geo.current ? geo.now : null,
+    }, database);
+    return { id: updated.id, address, city, region, updatedAt: now,
+      googleConfirmationGeoRevision: reconciled.point?.updatedAt ?? null };
+  } catch (cause) {
+    throw Object.assign(new Error("GOOGLE_SOURCE_COMMITTED_GEO_FAILED", { cause }), { sourceCommitted: true });
+  }
 }
 
 export async function transitionManagedEventCancellation(

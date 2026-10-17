@@ -51,13 +51,13 @@ test("article search is accent-insensitive and escapes wildcard control characte
     topicId: 17,
     page: 2,
     pageSize: 50,
-  }, "clanky");
+  }, "clanky", "2026-10-15T20:00:00.000Z");
   assert.match(query.where, /portal_section = \?/);
-  assert.match(query.where, /status = \?/);
+  assert.match(query.where, /CASE WHEN status = 'scheduled'/);
   assert.match(query.where, /article_topic_assignments/);
   assert.match(query.where, /ata\.topic_id = \?/);
   assert.match(query.where, /LIKE \? ESCAPE/);
-  assert.deepEqual(query.bindings.slice(0, 3), ["clanky", "published", 17]);
+  assert.deepEqual(query.bindings.slice(0, 4), ["clanky", "2026-10-15T20:00:00.000Z", "published", 17]);
   assert.equal(query.bindings.at(-1), "%zuby%");
   assert.equal(query.orderBy, "title COLLATE NOCASE ASC, id ASC");
   assert.equal(query.offset, 50);

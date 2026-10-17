@@ -1,0 +1,29 @@
+name: Facebook admin Notion authority validation
+on:
+  pull_request:
+    paths:
+      - "lib/notion-facebook-images-admin-export.ts"
+      - "lib/notion-facebook-images-sync.ts"
+      - "components/admin-facebook-images.tsx"
+      - "tests/notion-facebook-images-admin-export.test.mjs"
+      - "package.json"
+      - ".github/workflows/facebook-admin-notion-authority.yml"
+  workflow_dispatch:
+concurrency:
+  group: facebook-admin-notion-authority-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  notion-admin-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Validate new admin-to-Notion scenarios and prior importer contracts
+        run: npm run test:notion-facebook-images

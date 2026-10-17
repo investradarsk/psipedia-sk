@@ -3,6 +3,7 @@ import {
   applyGooglePlaceResolution,
   getGeoPointForTarget,
   getGeoSourceLocation,
+  getGoogleMapsWorkflowSnapshot,
   hasExplicitPrivateGeoDecision,
   initializeGeoPointForTarget,
   resetGoogleMapsNotRequired,
@@ -13,7 +14,10 @@ import {
   googlePlaceActionForSource,
   googlePlaceConfirmationForSource,
 } from "@/lib/google-place-target-discovery";
-import { updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
+import { getManagedDirectoryProfileById, updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
+import { getManagedEventById, updateManagedEventLocationFromGooglePlace } from "@/lib/event-store";
+import { adaptAddressGeo, adaptDirectoryAddress } from "@/lib/admin-address-adapters";
+import { previewGoogleAddressChange } from "@/lib/admin-google-address-preview";
 import { updateOrganizationLocationFromGooglePlace } from "@/lib/organization-location-admin-write";
 
 export type AdminGooglePlaceConfirmationInput = {
@@ -31,6 +35,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   const source = await getGeoSourceLocation(input.targetType, input.targetId);
   if (!source) throw new Error("Canonical target sa nenašiel.");
+  const initialMapsWorkflow = await getGoogleMapsWorkflowSnapshot(input.targetType, input.targetId);
 
   const discoveryPolicy = googlePlaceActionForSource(source);
   if (!discoveryPolicy.available) throw new Error(discoveryPolicy.reason);
@@ -46,6 +51,11 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   const effectiveTargetType: GeoTargetType = input.targetType;
   const effectiveTargetId = input.targetId;
   const effectiveSource = source;
+  // Discovery is remote: reject edits which landed while Google was searched.
+  const latestSource = await getGeoSourceLocation(effectiveTargetType, effectiveTargetId);
+  if (!latestSource || JSON.stringify(latestSource) !== JSON.stringify(source)) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
 
   const confirmationPolicy = googlePlaceConfirmationForSource(effectiveSource);
   if (!confirmationPolicy.available) throw new Error(confirmationPolicy.reason);
@@ -55,6 +65,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
     throw new Error("Poloha má manuálny GEO override. Google Place ho nesmie potichu prepísať.");
   }
 
+  const originalGeoRevision = point?.updatedAt ?? null;
   const explicitPrivate = await hasExplicitPrivateGeoDecision(effectiveTargetType, effectiveTargetId);
   const publicLocation = input.publicLocation !== false;
   const allowPrivateOverride = input.allowPrivateOverride === true;
@@ -63,9 +74,31 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   }
 
   let profile = null;
+  let sourceMutated = false;
+  let ownedGeoRevision: string | null | undefined;
+  try {
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
-    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef);
+    const before = await getManagedDirectoryProfileById(effectiveTargetId);
+    if (!before) throw new Error("Profil sa nenašiel.");
+    const preview = previewGoogleAddressChange({
+      snapshot: adaptDirectoryAddress(before, adaptAddressGeo(point, explicitPrivate)),
+      candidate: selected, intent: "ADMIN_RECONFIRM", expectedRevision: before.updatedAt,
+    });
+    if (!preview.readyForAuthorization) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED: " + preview.reviewReasons.join("; "));
+    profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt, originalGeoRevision);
     if (!profile) throw new Error("Profil sa nenašiel.");
+    sourceMutated = true;
+    ownedGeoRevision = profile.googleConfirmationGeoRevision;
+  }
+
+  if (effectiveTargetType === "MANAGED_EVENT") {
+    const before = await getManagedEventById(effectiveTargetId);
+    if (!before) throw new Error("Podujatie sa nenašlo.");
+    if ([before.city, before.region].some((value) => value?.trim().toLowerCase() === "online")) throw new Error("GOOGLE_ONLINE_EVENT_FORBIDDEN");
+    const updatedEvent = await updateManagedEventLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, before.updatedAt, undefined, originalGeoRevision);
+    if (!updatedEvent) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    sourceMutated = true;
+    ownedGeoRevision = updatedEvent.googleConfirmationGeoRevision;
   }
 
   if (effectiveTargetType === "ORGANIZATION_LOCATION") {
@@ -78,13 +111,31 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       effectiveTargetId,
       selected,
       input.actorRef,
+      undefined,
+      {
+        address: effectiveSource.address ?? "",
+        city: effectiveSource.city ?? "",
+        district: effectiveSource.district ?? "",
+        region: effectiveSource.region ?? "",
+        countryCode: effectiveSource.countryCode ?? "SK",
+      },
+      originalGeoRevision,
     );
     if (!location) throw new Error("Adresu organizácie sa nepodarilo aktualizovať.");
+    sourceMutated = true;
+    ownedGeoRevision = location.googleConfirmationGeoRevision;
   }
 
   point = await getGeoPointForTarget(effectiveTargetType, effectiveTargetId);
+  // The source writer owns one exact post-commit GEO revision. A newer admin
+  // decision must not be reinterpreted as authorization to publish the point.
+  if (ownedGeoRevision === undefined || (point?.updatedAt ?? null) !== ownedGeoRevision) {
+    throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+  }
   if (!point) {
-    point = (await initializeGeoPointForTarget(effectiveTargetType, effectiveTargetId, input.actorRef)).point;
+    const initialized = await initializeGeoPointForTarget(effectiveTargetType, effectiveTargetId, input.actorRef);
+    if (!initialized.created) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
+    point = initialized.point;
   }
   if (point.manualOverride) {
     throw new Error("Poloha má manuálny GEO override. Google Place ho nesmie prepísať.");
@@ -92,6 +143,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   if (!publicLocation) {
     point = await setGeoVisibility({
+      expectedGeoRevision: point.updatedAt,
       targetType: effectiveTargetType,
       targetId: effectiveTargetId,
       visibility: "HIDDEN",
@@ -104,6 +156,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
 
   if (point.publicVisibility !== "EXACT_PUBLIC" || point.publicPrecision !== "EXACT") {
     point = await setGeoVisibility({
+      expectedGeoRevision: point.updatedAt,
       targetType: effectiveTargetType,
       targetId: effectiveTargetId,
       visibility: "EXACT_PUBLIC",
@@ -114,6 +167,7 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   }
 
   point = await applyGooglePlaceResolution({
+    expectedGeoRevision: point.updatedAt,
     targetType: effectiveTargetType,
     targetId: effectiveTargetId,
     place: {
@@ -122,12 +176,27 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
       longitude: selected.longitude,
     },
   });
+  if (!point || point.geocodeStatus !== "RESOLVED" || point.provider !== "google_places") {
+    throw new Error("GOOGLE_CONFIRMATION_INCOMPLETE");
+  }
   await resetGoogleMapsNotRequired({
     targetType: effectiveTargetType,
     targetId: effectiveTargetId,
     actorRef: input.actorRef,
+    expectedWorkflowRevision: initialMapsWorkflow.eventId,
+    expectedGeoRevision: point.updatedAt,
   });
 
   return { profile, point, googlePlaceId: selected.id, createdSiteId: null };
-
+  } catch (error) {
+    const committedBeforeFailure = sourceMutated
+      || (error instanceof Error && "sourceCommitted" in error && error.sourceCommitted === true);
+    // Do not run unguarded reconciliation here: another admin may have changed
+    // visibility, manual coordinates or the canonical address after our commit.
+    // Explicit repair is safer than overwriting the winner of that race.
+    if (committedBeforeFailure) {
+      throw new Error("GOOGLE_CONFIRMATION_REPAIR_REQUIRED", { cause: error });
+    }
+    throw error;
+  }
 }

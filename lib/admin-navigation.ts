@@ -39,6 +39,7 @@ export const adminNavigationGroups: readonly AdminNavigationGroup[] = [
  { label: "Automatizácie", items: [
   { label: "Automatizácie", href: "/admin/automatizacie", matches: ["/admin/operations/automation"] },
   { label: "Automatizácie Gemini", href: "/admin/automatizacie-gemini" },
+  { label: "Facebook obrázky", href: "/admin/facebook-obrazky" },
  ] },
  { label: "Kvalita dát", items: [
   { label: "Kvalita údajov", href: "/admin/kvalita" },

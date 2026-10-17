@@ -1,3 +1,5 @@
+import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
+import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
 import {
   loadNotionBulkEvents,
   loadNotionBulkOrganizations,
@@ -21,7 +23,10 @@ import {
   applyNotionToCanonical,
   canonicalUpdatedAt,
   createCanonicalFromNotion,
+  GEMINI_HELP_REVIEW_PROPERTY,
+  helpCaseMayEnterCanonicalSync,
   readyForCreate,
+  trustedGeminiSourceIsPrivateDraft,
   type BidirectionalAgendaKey,
 } from "./notion-events-help-adapters.ts";
 import {
@@ -1079,7 +1084,91 @@ async function syncAgenda(input: {
     const psipediaId = clean(pageProperty(page, "Psipedia ID"));
     if (psipediaId) continue;
     const values = pageSnapshot(input.definition.key, page, schema);
-    if (!readyForCreate(input.definition.key, values)) {
+    // Immutable signed-worker provenance, never a user-editable description tag.
+    const provenance = await input.database.prepare(
+      "SELECT stable_key,import_agenda,notion_data_source_id,canonical_entity_id " +
+      "FROM gemini_notion_created_pages WHERE notion_page_id=?"
+    ).bind(page.id).first<{
+      stable_key: string; import_agenda: string; notion_data_source_id: string;
+      canonical_entity_id: number | null;
+    }>();
+    if (provenance && (
+      provenance.import_agenda !== input.definition.key ||
+      provenance.notion_data_source_id.replaceAll("-", "").toLowerCase() !==
+        target.dataSourceId.replaceAll("-", "").toLowerCase() ||
+      geminiImportAgenda(provenance.stable_key) !== input.definition.key ||
+      provenance.canonical_entity_id !== null
+    )) {
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id, reason: "GEMINI_PROVENANCE_MISMATCH",
+        fields: ["Psipedia ID"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
+    const trustedGemini = Boolean(provenance);
+    if (trustedGemini && !trustedGeminiSourceIsPrivateDraft(input.definition.key, values)) {
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id, reason: "GEMINI_PRIVATE_DRAFT_REQUIRED",
+        fields: ["Stav", "Psipedia stav"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
+    if (!trustedGemini && clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia") {
+      // A Notion text property does not establish signed worker provenance.
+      summary.unchanged += 1;
+      continue;
+    }
+    if (trustedGemini) {
+      const [section, subcategory] = provenance!.stable_key.split(".");
+      const expected = notionCategoryValue(section, subcategory);
+      const actual = input.definition.key === "events" ? clean(values["Typ podujatia"])
+        : input.definition.key === "help-cases" ? clean(values["Kategória"])
+        : input.definition.key === "organizations" ? clean(values["Typ"]) : "";
+      const categoryInvalid = (
+        (input.definition.key === "events" || input.definition.key === "help-cases") &&
+          (!expected || actual !== expected)
+      ) || (input.definition.key === "organizations" && actual !== "SHELTER");
+      if (categoryInvalid) {
+        summary.conflicts += 1;
+        appendNotionReview(summary.reviewQueue, {
+          entityId: null, notionPageId: page.id, reason: "GEMINI_CATEGORY_MISMATCH",
+          fields: ["Typ podujatia", "Kategória", "Typ"],
+          baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+        });
+        continue;
+      }
+    }
+    if (trustedGemini && input.definition.key === "lost-found" && (
+      values["Latitude"] != null && values["Latitude"] !== "" ||
+      values["Longitude"] != null && values["Longitude"] !== "" ||
+      clean(values["Verejný kontakt"]) ||
+      clean(values["Miesto"]) !== clean(values["Mesto"])
+    )) {
+      // Never discard protected Notion evidence by overwriting it from a
+      // sanitized public canonical snapshot. Require explicit private review.
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: null, notionPageId: page.id,
+        reason: "GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED",
+        fields: ["Latitude", "Longitude", "Miesto", "Verejný kontakt"],
+        baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
+    // Internal Gemini moderation is separate from public draft/published.
+    // Never auto-import an unapproved/rejected source-evidenced Help concept.
+    // Keep unmarked, pre-existing manual Notion imports compatible.
+    if (!trustedGemini && input.definition.key === "help-cases" &&
+        !helpCaseMayEnterCanonicalSync(
+          pageProperty(page, GEMINI_HELP_REVIEW_PROPERTY), values["Popis"])) {
+      summary.unchanged += 1;
+      continue;
+    }
+    if (!trustedGemini && !readyForCreate(input.definition.key, values)) {
       summary.unchanged += 1;
       continue;
     }
@@ -1109,7 +1198,9 @@ async function syncAgenda(input: {
     }
 
     try {
-      const created = await createCanonicalFromNotion(input.definition.key, values, input.database) as { id?: number } | null;
+      const draftValues = trustedGemini && !clean(values["Slug"])
+        ? { ...values, "Slug": "gemini-" + page.id.replaceAll("-", "") } : values;
+      const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, trustedGemini) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {
         throw new Error("Canonical create nevrátil platné ID.");
@@ -1119,6 +1210,20 @@ async function syncAgenda(input: {
       const source = sourcesById.get(entityId);
       if (!source) throw new Error("Nový canonical záznam sa po create nenašiel.");
       const hash = await snapshotHash(input.definition.key, editableSnapshot(input.definition.key, source.properties, schema));
+      // Persist the canonical one-to-one mapping BEFORE uncertain remote Notion
+      // PATCH. A timeout after canonical INSERT must not create a second profile
+      // on the next sweep, even when the provider never returned a response.
+      const preWriteAt = new Date().toISOString();
+      await saveMapping({
+        database: input.database,
+        agenda: input.definition.key,
+        pageId: page.id,
+        entityId,
+        hash,
+        notionLastEditedTime: page.last_edited_time ?? null,
+        psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
+        syncedAt: preWriteAt,
+      });
       const written = await writeSourceToNotion({
         bindings: input.bindings,
         dataSourceId: target.dataSourceId,
@@ -1138,6 +1243,13 @@ async function syncAgenda(input: {
         psipediaUpdatedAt: updatedAt,
         syncedAt,
       });
+      if (trustedGemini) {
+        const marked = await input.database.prepare(
+          "UPDATE gemini_notion_created_pages SET canonical_entity_id=?,imported_at=? " +
+          "WHERE notion_page_id=? AND import_agenda=? AND canonical_entity_id IS NULL"
+        ).bind(entityId, syncedAt, page.id, input.definition.key).run();
+        if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
+      }
       summary.createdFromNotion += 1;
     } catch (error) {
       logFailure(summary, {

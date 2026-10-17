@@ -1,11 +1,10 @@
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
-import { sameDirectoryIdentity, pageDirectoryIdentities } from "../scripts/gemini-notion-identity.mjs";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import {
   archiveManagedDirectoryProfile,
   createManagedDirectoryProfile,
   getManagedDirectoryProfileById,
-  restoreManagedDirectoryProfile,
+  normalizeManagedDirectoryProfileInput,
   updateManagedDirectoryProfile,
   type ManagedDirectoryProfileInput,
 } from "@/lib/directory-store";
@@ -25,6 +24,7 @@ import {
 } from "@/lib/directory-address-save";
 import {
   cleanupNotionImageKeys,
+  cleanupUnreferencedNotionUpload,
   notionFlagEnabled,
   notionPropertyRecord,
   notionRequest,
@@ -765,32 +765,52 @@ function newProfileInput(
   };
 }
 
-function notionProfileReadyForCreate(page: NotionPage) {
+function notionProfileReadyForCreate(page: NotionPage, trustedGemini = false) {
   if (propertyText(page, "Psipedia ID")) return false;
   const editorialState = propertyText(page, "Stav");
-  if (propertyText(page, "Vytvoril") === "Gemini automatizácia")
-    return editorialState === "Publikované" && propertyText(page, "Psipedia stav") === "Publikované";
+  // Textual creator marker is never sufficient to grant automatic import.
+  if (trustedGemini)
+    return ["", "Nápad", "Na kontrolu", "Ready", "Koncept"].includes(editorialState) &&
+      propertyText(page, "Psipedia stav") === "Koncept";
+  if (propertyText(page, "Vytvoril") === "Gemini automatizácia") return false;
   return editorialState === "Ready" || editorialState === "Publikované";
 }
-
-class GeminiCanonicalDuplicateError extends Error {}
 
 async function createProfileFromNotion(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
   page: NotionPage;
+  trustedGemini?: boolean;
 }) {
   const desired = notionSnapshot(input.page);
-  if (propertyText(input.page, "Vytvoril") === "Gemini automatizácia") {
-    const known = await input.database.prepare(
-      "SELECT name, city, website_url AS website FROM directory_profiles",
-    ).all<{ name: string; city: string; website: string }>();
-    if ((known.results ?? []).some(row => pageDirectoryIdentities(input.page).some(identity => sameDirectoryIdentity(identity, row))))
-      throw new GeminiCanonicalDuplicateError("Gemini koncept zodpovedá existujúcemu profilu; vyžaduje manuálne posúdenie duplicity.");
-  }
+  if (input.trustedGemini && !desired.slug) desired.slug = "gemini-" + input.page.id.replaceAll("-", "");
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
+  let payload = newProfileInput(desired);
+  if (input.trustedGemini) {
+    // Fail closed, regardless of unexpected Notion status/defaults.
+    payload = { ...payload, status: "draft" };
+  }
+  let verified = null;
+
+  if (desired.confirmedServiceLocation) {
+    const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
+    verified = await verifyDirectoryCanonicalAddress({
+      region: desired.region,
+      district: desired.district,
+      city: desired.city,
+      street: desired.street,
+      houseNumber: desired.houseNumber,
+      addressFormat,
+      revalidateStreet: addressFormat === "STREET",
+    });
+    payload = withVerifiedDirectoryAddress(payload, verified);
+  } else {
+    payload = { ...payload, clearServiceAddressConfirmation: true };
+  }
+
+  normalizeManagedDirectoryProfileInput(payload);
   const prepared = sourceImageUrl
     ? await prepareNotionMainImage({
         bindings: input.bindings,
@@ -804,27 +824,7 @@ async function createProfileFromNotion(input: {
     : null;
 
   try {
-    let payload = newProfileInput(
-      desired,
-      prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
-    );
-    let verified = null;
-
-    if (desired.confirmedServiceLocation) {
-      const addressFormat = desired.addressFormat || (desired.street ? "STREET" : "MUNICIPALITY_NUMBER");
-      verified = await verifyDirectoryCanonicalAddress({
-        region: desired.region,
-        district: desired.district,
-        city: desired.city,
-        street: desired.street,
-        houseNumber: desired.houseNumber,
-        addressFormat,
-        revalidateStreet: addressFormat === "STREET",
-      });
-      payload = withVerifiedDirectoryAddress(payload, verified);
-    } else {
-      payload = { ...payload, clearServiceAddressConfirmation: true };
-    }
+    if (prepared) payload = { ...payload, imageUrl: prepared.imageUrl, imageKey: prepared.imageKey };
 
     const created = await createManagedDirectoryProfile(payload, SYSTEM_ACTOR, input.database);
     return {
@@ -836,7 +836,7 @@ async function createProfileFromNotion(input: {
     };
   } catch (error) {
     if (prepared?.uploadedKey) {
-      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+      await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, prepared.uploadedKey);
     }
     throw error;
   }
@@ -849,7 +849,7 @@ async function applyNotionToProfile(input: {
   profile: ManagedDirectoryProfile;
 }) {
   const desired = notionSnapshot(input.page);
-  let current = input.profile;
+  const current = input.profile;
 
   if (desired.status === "archived") {
     const archived = await archiveManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
@@ -857,32 +857,19 @@ async function applyNotionToProfile(input: {
     return archived;
   }
 
-  if (current.status === "archived") {
-    const restored = await restoreManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
-    if (!restored) throw new Error("Archivovaný profil sa pri synchronizácii nepodarilo obnoviť.");
-    current = restored;
-  }
-
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || current.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name || current.name;
-  const prepared = sourceImageUrl
-    ? await prepareNotionMainImage({
-        bindings: input.bindings,
-        sourceUrl: sourceImageUrl,
-        sourcePageUrl,
-        altText: imageAltText,
-        folder: "directory",
-        existingImageUrl: current.imageUrl,
-        existingImageKey: current.imageKey,
-      })
-    : null;
-
-  let payload = fullProfileInput(
-    desired,
-    current,
-    prepared ? { imageUrl: prepared.imageUrl, imageKey: prepared.imageKey } : null,
-  );
+  let payload = fullProfileInput(desired, current);
+  const createdByGemini = await input.database.prepare(
+    "SELECT notion_page_id FROM gemini_notion_created_pages WHERE notion_page_id=? " +
+    "AND import_agenda='directory' AND canonical_entity_id=?"
+  ).bind(input.page.id, current.id).first<{ notion_page_id: string }>();
+  if (createdByGemini) {
+    // Notion cannot publish or unpublish a Gemini-created profile.
+    // Only the explicit canonical admin publish action can change its status.
+    payload = { ...payload, status: current.status };
+  }
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
   const safety = notionDirectoryUpdateSafety({
     physicalAddressChanged: addressChanged,
@@ -919,6 +906,25 @@ async function applyNotionToProfile(input: {
     payload = { ...payload, clearServiceAddressConfirmation: true };
   }
 
+  normalizeManagedDirectoryProfileInput(payload, current.importData, {
+    currentServiceAddressConfirmation: current.serviceAddressConfirmation,
+    legacyAddress: current.address,
+  });
+
+  const prepared = sourceImageUrl
+    ? await prepareNotionMainImage({
+        bindings: input.bindings,
+        sourceUrl: sourceImageUrl,
+        sourcePageUrl,
+        altText: imageAltText,
+        folder: "directory",
+        existingImageUrl: current.imageUrl,
+        existingImageKey: current.imageKey,
+      })
+    : null;
+
+  if (prepared) payload = { ...payload, imageUrl: prepared.imageUrl, imageKey: prepared.imageKey };
+
   try {
     const updated = await updateManagedDirectoryProfile(
       current.id,
@@ -926,8 +932,9 @@ async function applyNotionToProfile(input: {
       SYSTEM_ACTOR,
       current,
       input.database,
+      { expectedUpdatedAt: current.updatedAt, restoreArchived: current.status === "archived" },
     );
-    if (!updated) throw new Error("Profil sa pri synchronizácii nepodarilo uložiť.");
+    if (!updated) throw new Error("CONFLICT: Profil bol súbežne upravený; Notion zápis sa neuskutočnil.");
 
     if (prepared && sourceImageUrl) {
       await upsertMediaSourceMonitor({
@@ -939,7 +946,9 @@ async function applyNotionToProfile(input: {
         sourceContentHash: prepared.sourceContentHash,
         activeImageKey: prepared.imageKey,
       });
-      await cleanupNotionImageKeys(input.bindings.BUCKET, prepared.replacedKeys);
+      for (const key of prepared.replacedKeys) {
+        await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, key);
+      }
     }
 
     if (verified) {
@@ -959,7 +968,7 @@ async function applyNotionToProfile(input: {
     return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
   } catch (error) {
     if (prepared?.uploadedKey) {
-      await cleanupNotionImageKeys(input.bindings.BUCKET, [prepared.uploadedKey]);
+      await cleanupUnreferencedNotionUpload(input.database, input.bindings.BUCKET, prepared.uploadedKey);
     }
     throw error;
   }
@@ -1065,11 +1074,11 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  let notionWins = notionChanged && !profileChanged;
+  const notionWins = notionChanged && !profileChanged;
   if (notionChanged && profileChanged) {
-    const notionTime = Date.parse(page.last_edited_time ?? "");
-    const profileTime = Date.parse(profile.updatedAt);
-    notionWins = Number.isFinite(notionTime) && (!Number.isFinite(profileTime) || notionTime > profileTime);
+    // Never last-write-wins over a human editor. Leave both sides intact,
+    // so an operator can explicitly resolve the conflict.
+    throw new Error("CONFLICT: Notion aj Psipedia boli upravené od poslednej synchronizácie.");
   }
 
   if (notionWins) {
@@ -1226,6 +1235,9 @@ export async function runNotionDirectoryBootstrapSweep(input: {
 export async function runNotionDirectorySyncSweep(input: {
   database: D1Database;
   bindings: NotionDirectorySyncBindings;
+  // Optional one-page operator recovery, using the exact existing sync pipeline.
+  // Never automatically invoked or used for routine sweep scheduling.
+  targetPageId?: string;
 }): Promise<NotionDirectorySyncSummary> {
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
   const summary: NotionDirectorySyncSummary = {
@@ -1250,7 +1262,44 @@ export async function runNotionDirectorySyncSweep(input: {
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
 
-  const pages = await recentNotionPages(input.bindings, dataSourceId);
+  let pages: NotionPage[];
+  if (input.targetPageId !== undefined) {
+    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
+      throw new Error("NOTION_TARGET_PAGE_INVALID");
+    const targetPage = await fetchNotionPage(input.bindings, input.targetPageId);
+    const parent = (targetPage as NotionPage & { parent?: { data_source_id?: string } }).parent;
+    if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
+      throw new Error("NOTION_TARGET_DATA_SOURCE_MISMATCH");
+    pages = [targetPage];
+  } else {
+    pages = await recentNotionPages(input.bindings, dataSourceId);
+    // The normal recent-page window alone can starve older Gemini drafts.
+    // Drain the immutable provenance queue in bounded oldest-first batches,
+    // reusing the SAME mapping/duplicate/conflict path as ordinary sync.
+    const queued = await input.database.prepare(
+      "SELECT notion_page_id FROM gemini_notion_created_pages " +
+      "WHERE import_agenda='directory' AND notion_data_source_id=? " +
+      "AND imported_at IS NULL ORDER BY registered_at ASC LIMIT 20"
+    ).bind(dataSourceId).all<{ notion_page_id: string }>();
+    const seen = new Set(pages.map(page => page.id));
+    for (const entry of queued.results ?? []) {
+      if (seen.has(entry.notion_page_id)) continue;
+      try {
+        const fetched = await fetchNotionPage(input.bindings, entry.notion_page_id);
+        const parent = (fetched as NotionPage & { parent?: { data_source_id?: string } }).parent;
+        if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !==
+            dataSourceId.replaceAll("-", "").toLowerCase()) {
+          summary.failed += 1;
+          continue;
+        }
+        pages.push(fetched);
+        seen.add(fetched.id);
+      } catch {
+        // A temporarily inaccessible page remains pending for later review.
+        summary.failed += 1;
+      }
+    }
+  }
   summary.notionScanned = pages.length;
 
   for (const candidate of pages) {
@@ -1258,20 +1307,26 @@ export async function runNotionDirectorySyncSweep(input: {
     let release: (() => Promise<void>) | null = null;
     let releaseImport: (() => Promise<void>) | null = null;
     try {
-      if (propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+      const registered = await input.database.prepare(
+        "SELECT notion_page_id FROM gemini_notion_created_pages " +
+        "WHERE notion_page_id=? AND import_agenda='directory' AND stable_key=? AND notion_data_source_id=?"
+      ).bind(page.id, "directory." + propertyText(page, "Kategória"), dataSourceId)
+        .first<{ notion_page_id: string }>();
+      const trustedGemini = Boolean(registered);
+      if (trustedGemini || propertyText(page, "Vytvoril") === "Gemini automatizácia") {
         // Rejected/not-yet-approved Notion-only records cannot recover a mapping
         // or create/modify a canonical profile.
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
-        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page)) continue;
+        if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
       if (!mapping) mapping = await recoverMappingFromPage({ database: input.database, page });
 
-      if (!mapping && notionProfileReadyForCreate(page)) {
-        if (propertyText(page, "Vytvoril") === "Gemini automatizácia") {
+      if (!mapping && notionProfileReadyForCreate(page, trustedGemini)) {
+        if (trustedGemini) {
           // Serialize canonical duplicate-check + INSERT across different Notion IDs.
           releaseImport = await acquireGeminiNotionLock(input.database, "directory-import");
           if (!releaseImport) continue;
@@ -1280,6 +1335,7 @@ export async function runNotionDirectorySyncSweep(input: {
           database: input.database,
           bindings: input.bindings,
           page,
+          trustedGemini,
         });
         let created = creation.profile;
         const syncedAt = new Date().toISOString();
@@ -1299,6 +1355,13 @@ export async function runNotionDirectorySyncSweep(input: {
           syncedAt,
         });
 
+        if (trustedGemini) {
+          const marked = await input.database.prepare(
+            "UPDATE gemini_notion_created_pages SET canonical_entity_id=?,imported_at=? " +
+            "WHERE notion_page_id=? AND canonical_entity_id IS NULL AND import_agenda='directory'"
+          ).bind(created.id, syncedAt, page.id).run();
+          if (marked.meta.changes !== 1) throw Error("GEMINI_PROVENANCE_IMPORT_CONFLICT");
+        }
         if (creation.prepared && creation.sourceImageUrl) {
           await upsertMediaSourceMonitor({
             database: input.database,
@@ -1379,17 +1442,16 @@ export async function runNotionDirectorySyncSweep(input: {
       await markPageError(input.bindings, page.id, error);
       // Preserve an uncertain import lock for explicit reconciliation. Never
       // create a second profile after a lost response or mapping failure.
-      if (!(error instanceof GeminiCanonicalDuplicateError)) {
-        release = null;
-        releaseImport = null;
-      }
+      release = null;
+      releaseImport = null;
     } finally {
       if (releaseImport) await releaseImport();
       if (release) await release();
     }
   }
 
-  const changedIds = await changedProfileIds(input.database);
+  // A targeted import must not touch unrelated canonical profiles.
+  const changedIds = input.targetPageId ? [] : await changedProfileIds(input.database);
   for (const profileId of changedIds) {
     const mapping = await loadMappingByProfile(input.database, profileId);
     if (!mapping) continue;

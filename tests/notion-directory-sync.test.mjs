@@ -122,12 +122,11 @@ test("directory Notion mapping is one-to-one and idempotent", () => {
   assert.match(syncSource, /ON CONFLICT\(directory_profile_id\) DO UPDATE SET/);
 });
 
-test("bidirectional conflict resolution uses last common hash and newest real edit", () => {
+test("bidirectional conflict resolution protects simultaneous editor and Notion changes", () => {
   assert.match(syncSource, /profileHash !== lastHash/);
   assert.match(syncSource, /pageHash !== lastHash/);
-  assert.match(syncSource, /Date\.parse\(page\.last_edited_time/);
-  assert.match(syncSource, /Date\.parse\(profile\.updatedAt\)/);
-  assert.match(syncSource, /notionTime > profileTime/);
+  assert.match(syncSource, /if \(notionChanged && profileChanged\)/);
+  assert.match(syncSource, /throw new Error\("CONFLICT: Notion aj Psipedia/);
   assert.match(syncSource, /forcePsipediaPush/);
 });
 
@@ -253,4 +252,33 @@ test("legacy multi-value contact stays untouched during unrelated edits", () => 
   assert.equal(notionDirectoryUpdateSafety({ ...base, notionPublicPhone: "replacement" }).preserveUnchangedCanonicalPhone, false);
   assert.match(syncSource, /if \(safety\.verifyExactAddress\)/);
   assert.match(syncSource, /publicPhone: undefined/);
+});
+
+test("Gemini Notion proposals become private canonical drafts without approval or public status", () => {
+  const gate = syncSource.slice(syncSource.indexOf("function notionProfileReadyForCreate"), syncSource.indexOf("async function createProfileFromNotion"));
+  assert.match(gate, /Gemini automatizácia/);
+  assert.match(gate, /"Nápad", "Na kontrolu", "Ready", "Koncept"/);
+  assert.match(gate, /propertyText\(page, "Psipedia stav"\) === "Koncept"/);
+  assert.doesNotMatch(gate, /editorialState === "Publikované" &&/);
+  const creation = syncSource.slice(syncSource.indexOf("async function createProfileFromNotion"), syncSource.indexOf("async function applyNotionToProfile"));
+  assert.match(creation, /status: "draft"/);
+  assert.match(creation, /gemini-/);
+  assert.doesNotMatch(creation, /sameDirectoryIdentity|GeminiCanonicalDuplicateError/);
+  assert.match(syncSource, /await saveMapping\(\{/);
+});
+test("Gemini mapped drafts never auto-publish and editorial conflicts remain unresolved", () => {
+  const section = syncSource.slice(syncSource.indexOf("async function applyNotionToProfile"), syncSource.indexOf("async function recentNotionPages"));
+  assert.match(section, /status: current.status/);
+  const mapped = syncSource.slice(syncSource.indexOf("async function syncMappedPage"), syncSource.indexOf("async function recoverMappingFromPage"));
+  assert.match(mapped, /if \(notionChanged && profileChanged\)/);
+  assert.match(mapped, /throw new Error\("CONFLICT/);
+});
+
+test("one-page Fénix import is scoped to exact Notion ID and does not process unrelated profiles", () => {
+  const sweep = syncSource.slice(syncSource.indexOf("export async function runNotionDirectorySyncSweep"));
+  assert.match(sweep, /targetPageId\?: string/);
+  assert.match(sweep, /NOTION_TARGET_PAGE_INVALID/);
+  assert.match(sweep, /NOTION_TARGET_DATA_SOURCE_MISMATCH/);
+  assert.match(sweep, /pages = \[targetPage\]/);
+  assert.match(sweep, /input.targetPageId \? \[\] : await changedProfileIds/);
 });

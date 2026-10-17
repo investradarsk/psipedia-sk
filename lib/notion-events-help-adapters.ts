@@ -139,6 +139,43 @@ export function lostFoundStatusFromNotion(value: string) {
   return normalized;
 }
 
+/** Separate internal Gemini review contract: NOT a public publication state.
+ * These fields are intentionally excluded from agendaEditableFields, so the
+ * canonical D1 -> Notion sync can never overwrite the moderator's decision.
+ */
+export const GEMINI_HELP_REVIEW_PROPERTY = "Gemini kontrola";
+export const GEMINI_HELP_REJECTION_PROPERTY = "Dôvod odmietnutia";
+export const GEMINI_HELP_REVIEW_STATES = ["Na kontrolu", "Schválené", "Odmietnuté"] as const;
+export type GeminiHelpReviewState = (typeof GEMINI_HELP_REVIEW_STATES)[number];
+
+/** The worker currently has no immutable provenance on Help cases. The evidence
+ * suffix is used only to FAIL CLOSED for probable agent drafts, never to assert
+ * certain Gemini attribution. Legacy manual Notion records without a review
+ * state keep their existing import behavior.
+ */
+export function helpCaseMayEnterCanonicalSync(
+  reviewState: ReconciliationValue | undefined,
+  description: ReconciliationValue | undefined,
+) {
+  const state = s(reviewState);
+  if (state) return state === "Schválené";
+  return !/(?:^|\n)Dôkazy:\s*\n|(?:^|\n)Zdroje a dôkazy:\s*\n/u.test(s(description));
+}
+
+/** Trusted provenance authorizes only a private source draft, never a
+ * published, archived or rejected Notion page. This is separate from legacy
+ * human-managed Ready/import semantics.
+ */
+export function trustedGeminiSourceIsPrivateDraft(
+  agenda: BidirectionalAgendaKey,
+  values: Record<string, ReconciliationValue>,
+) {
+  if (agenda === "events" || agenda === "organizations" || agenda === "adoptions")
+    return ["Nápad", "Na kontrolu", "Koncept", "Ready"].includes(s(values["Stav"]));
+  if (agenda === "help-cases") return s(values["Psipedia stav"]) === "draft";
+  return ["DRAFT", "PENDING"].includes(s(values["Psipedia stav"]));
+}
+
 export function readyForCreate(agenda: BidirectionalAgendaKey, values: Record<string, ReconciliationValue>) {
   if (agenda === "events" || agenda === "organizations" || agenda === "adoptions") {
     return s(values["Stav"]) === "Ready";
@@ -146,7 +183,11 @@ export function readyForCreate(agenda: BidirectionalAgendaKey, values: Record<st
   if (agenda === "help-cases") {
     return Boolean(s(values["Názov"]) && s(values["Slug"]) && s(values["Kategória"]));
   }
-  return Boolean(s(values["Názov"]) && s(values["Slug"]) && s(values["Typ"]));
+  // Lost/Found must have explicit moderation approval. A draft with a
+  // reviewer-assigned slug remains in Notion until its existing PENDING state
+  // is set. ARCHIVED/REJECTED entries must never be imported as new D1 dogs.
+  return s(values["Psipedia stav"]).toUpperCase() === "PENDING" &&
+    Boolean(s(values["Názov"]) && s(values["Slug"]) && s(values["Typ"]));
 }
 
 function eventInput(
@@ -493,9 +534,18 @@ export async function createCanonicalFromNotion(
   agenda: BidirectionalAgendaKey,
   values: Record<string, ReconciliationValue>,
   database: D1Database,
+  trustedGemini = false,
 ) {
-  if (!readyForCreate(agenda, values)) {
+  // Only the server-side provenance registry can set trustedGemini. No Notion text
+  // or manually editable approval state permits bypassing the legacy Ready gate.
+  if (!trustedGemini && !readyForCreate(agenda, values)) {
     throw new Error("Notion záznam nie je v stave pripravenom na vytvorenie canonical Psipedia záznamu.");
+  }
+  if (trustedGemini) {
+    const title = agenda === "adoptions" ? s(values["Meno"]) : s(values["Názov"]);
+    if (!title || !s(values["Slug"])) throw Error("GEMINI_CANONICAL_DRAFT_INCOMPLETE");
+    if (agenda === "lost-found" && !s(values["Typ"])) throw Error("GEMINI_LOST_FOUND_TYPE_REQUIRED");
+    if (agenda === "help-cases" && !s(values["Kategória"])) throw Error("GEMINI_HELP_CATEGORY_REQUIRED");
   }
   if (agenda === "events") {
     return createManagedEvent(eventInput(values, null, true), NOTION_EVENTS_HELP_SYSTEM_ACTOR);
@@ -524,8 +574,15 @@ export async function createCanonicalFromNotion(
       NOTION_EVENTS_HELP_SYSTEM_ACTOR,
     );
   }
+  const safeLostFound = trustedGemini
+    ? { ...values,
+      // Private exact location/contact data must never enter public canonical fields.
+      "Latitude": null, "Longitude": null, "Presnosť lokality": "",
+      "Miesto": s(values["Mesto"]), "Verejný kontakt": "",
+    }
+    : values;
   return createAdminDogReport(
-    lostFoundPayload(values, null, true),
+    lostFoundPayload(safeLostFound, null, true),
     NOTION_EVENTS_HELP_SYSTEM_ACTOR,
   );
 }
@@ -550,6 +607,33 @@ export async function applyNotionToCanonical(
   values: Record<string, ReconciliationValue>,
   database: D1Database,
 ) {
+  const origin = await database.prepare(
+    "SELECT notion_page_id FROM gemini_notion_created_pages " +
+    "WHERE import_agenda=? AND canonical_entity_id=?"
+  ).bind(agenda, entityId).first<{ notion_page_id: string }>();
+  if (origin) {
+    const table = ({
+      events: "managed_events", organizations: "help_organizations",
+      adoptions: "adoption_dogs", "help-cases": "help_cases",
+      "lost-found": "lost_found_dog_reports",
+    } as const)[agenda];
+    const row = await database.prepare(`SELECT status FROM ${table} WHERE id=?`)
+      .bind(entityId).first<{ status: string }>();
+    if (!row) throw Error("GEMINI_CANONICAL_MAPPING_MISSING");
+    const nextStatus = agenda === "events" ? eventStatusFromNotion(s(values["Stav"]))
+      : agenda === "organizations" ? organizationStatusFromNotion(s(values["Stav"]))
+      : agenda === "adoptions" ? adoptionStatusFromNotion(s(values["Stav"]))
+      : agenda === "help-cases" ? helpStatusFromNotion(s(values["Psipedia stav"]))
+      : lostFoundStatusFromNotion(s(values["Psipedia stav"]));
+    if (row.status !== nextStatus)
+      throw Error("GEMINI_PUBLICATION_REQUIRES_CANONICAL_EDITOR");
+    if (agenda === "lost-found" && (
+      values["Latitude"] != null && values["Latitude"] !== "" ||
+      values["Longitude"] != null && values["Longitude"] !== "" ||
+      s(values["Verejný kontakt"]) ||
+      s(values["Miesto"]) !== s(values["Mesto"])
+    )) throw Error("GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED");
+  }
   if (agenda === "events") {
     const existing = await getManagedEventById(entityId);
     if (!existing) throw new Error(`Podujatie #${entityId} neexistuje.`);

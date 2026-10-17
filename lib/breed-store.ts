@@ -13,6 +13,13 @@ import { breedCompletenessIssues, validateBulkBreedStatus, type BreedCompletenes
 import { isSuspiciousNumericText, isSuspiciousPlaceholderText } from "./public-integrity.ts";
 
 export type BreedStatus = "draft" | "published";
+
+export class BreedUpdateConflictError extends Error {
+  constructor() {
+    super("Plemeno sa medzičasom zmenilo. Obnov editor, skontroluj novšie údaje a až potom úpravy zopakuj.");
+    this.name = "BreedUpdateConflictError";
+  }
+}
 export type BreedEditorial = {
   overview?: string;
   coatCare?: string;
@@ -342,9 +349,61 @@ function clean(input:ManagedBreedInput){
 }
 function values(value:ReturnType<typeof clean>){return [value.slug,value.name,value.status,value.image,value.imageKey,JSON.stringify(value.gallery),value.fciNumber,value.fciGroup,value.fciSection,value.fciSectionNumber,value.officialFciName,value.validStandardDate,value.workingTrial,value.importKey,JSON.stringify(value.fciStandard),JSON.stringify(value.editorial),JSON.stringify(value.sports),JSON.stringify(value.relatedBreedIds),value.searchText,value.editorialComplete?1:0,value.origin,value.group,value.size,value.weight,value.height,value.lifespan,value.coat,value.energy,value.trainability,value.family,value.children,value.otherDogs,value.apartment,value.grooming,value.shedding,value.preyDrive,value.intro,value.character,value.needs,value.history,value.exercise,value.training,value.health,JSON.stringify(value.healthRisks),JSON.stringify(value.goodFor),JSON.stringify(value.consider),JSON.stringify(value.sources),value.accent,JSON.stringify(value.seo)];}
 
-async function syncRelations(database:D1Database,breedId:number,value:ReturnType<typeof clean>,user:string){const now=new Date().toISOString();const statements=[database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(breedId),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(breedId)];for(const articleId of value.relatedArticleIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT ?,id,?,? FROM managed_articles WHERE id=?").bind(breedId,now,user,articleId));for(const profileId of value.directoryProfileIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) SELECT ?,id,CASE WHEN category='chovatelske-stanice' THEN 'breeding-station' ELSE 'breed-club' END,'manual',?,? FROM directory_profiles WHERE id=? AND category IN ('chovatelske-stanice','chovatelske-kluby')").bind(breedId,now,user,profileId));await database.batch(statements);}
+function breedRelationStatements(database:D1Database,breedId:number,value:ReturnType<typeof clean>,user:string){const now=new Date().toISOString();const statements=[database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(breedId),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(breedId)];for(const articleId of value.relatedArticleIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_article_relations (breed_id,article_id,created_at,created_by) SELECT ?,id,?,? FROM managed_articles WHERE id=?").bind(breedId,now,user,articleId));for(const profileId of value.directoryProfileIds)statements.push(database.prepare("INSERT OR IGNORE INTO breed_directory_relations (breed_id,profile_id,relation_type,source,created_at,created_by) SELECT ?,id,CASE WHEN category='chovatelske-stanice' THEN 'breeding-station' ELSE 'breed-club' END,'manual',?,? FROM directory_profiles WHERE id=? AND category IN ('chovatelske-stanice','chovatelske-kluby')").bind(breedId,now,user,profileId));return statements;}
+async function syncRelations(database:D1Database,breedId:number,value:ReturnType<typeof clean>,user:string){await database.batch(breedRelationStatements(database,breedId,value,user));}
 export async function createManagedBreed(input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();const placeholders=Array.from({length:54},()=>"?").join(",");const result=await database.prepare(`INSERT INTO managed_breeds (slug,name,status,image_url,image_key,gallery_json,fci_number,fci_group,fci_section,fci_section_number,official_fci_name,valid_standard_date,working_trial,import_key,fci_standard_json,editorial_json,sports_json,related_breeds_json,search_text,editorial_complete,origin,group_name,size,weight,height,lifespan,coat,energy,trainability,family,children,other_dogs,apartment,grooming,shedding,prey_drive,intro,character,needs,history,exercise,training,health,health_risks_json,good_for_json,consider_json,sources_json,accent,seo_json,created_at,updated_at,published_at,created_by,updated_by) VALUES (${placeholders})`).bind(...values(value),now,now,value.status==="published"?now:null,user,user).run();const id=Number(result.meta.last_row_id);await syncRelations(database,id,value,user);return getManagedBreed(id);}
-export async function updateManagedBreed(id:number,input:ManagedBreedInput,user:string){const database=requireDb();await ensure(database);const value=clean(input);const now=new Date().toISOString();await database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=?`).bind(...values(value),now,value.status,now,user,id).run();await syncRelations(database,id,value,user);return getManagedBreed(id);}
+function nextBreedVersion(expectedUpdatedAt:string) {
+  const previous = Date.parse(expectedUpdatedAt);
+  if (!Number.isFinite(previous)) throw new BreedUpdateConflictError();
+  return new Date(Math.max(Date.now(), previous + 1)).toISOString();
+}
+
+/**
+ * D1.batch runs these statements inside one transaction. The assertion must be
+ * immediately after UPDATE: a failed compare-and-swap raises a SQLite error
+ * and rolls back the entire batch, so stale requests cannot rewrite relations.
+ */
+export function buildManagedBreedUpdateStatements(
+  database:D1Database,id:number,input:ManagedBreedInput,user:string,
+  expectedUpdatedAt:string,nextUpdatedAt:string,
+) {
+  const value=clean(input);
+  return [
+    database.prepare(`UPDATE managed_breeds SET slug=?,name=?,status=?,image_url=?,image_key=?,gallery_json=?,fci_number=?,fci_group=?,fci_section=?,fci_section_number=?,official_fci_name=?,valid_standard_date=?,working_trial=?,import_key=?,fci_standard_json=?,editorial_json=?,sports_json=?,related_breeds_json=?,search_text=?,editorial_complete=?,origin=?,group_name=?,size=?,weight=?,height=?,lifespan=?,coat=?,energy=?,trainability=?,family=?,children=?,other_dogs=?,apartment=?,grooming=?,shedding=?,prey_drive=?,intro=?,character=?,needs=?,history=?,exercise=?,training=?,health=?,health_risks_json=?,good_for_json=?,consider_json=?,sources_json=?,accent=?,seo_json=?,updated_at=?,published_at=CASE WHEN ?='published' THEN COALESCE(published_at,?) ELSE published_at END,updated_by=? WHERE id=? AND updated_at=? RETURNING id`).bind(...values(value),nextUpdatedAt,value.status,nextUpdatedAt,user,id,expectedUpdatedAt),
+    database.prepare("SELECT CASE WHEN changes() = 1 THEN 1 ELSE json_extract('BREED_UPDATE_CONFLICT', '$') END AS breed_update_guard"),
+    ...breedRelationStatements(database,id,value,user),
+    // Read the exact committed version and relations before the batch commits.
+    // A later writer must not leak its version into this caller's editor.
+    database.prepare(`${select} WHERE id=?`).bind(id),
+    database.prepare("SELECT article_id AS id FROM breed_article_relations WHERE breed_id=? ORDER BY article_id").bind(id),
+    database.prepare("SELECT profile_id AS id FROM breed_directory_relations WHERE breed_id=? ORDER BY profile_id").bind(id),
+  ];
+}
+
+export async function updateManagedBreed(
+  id:number,input:ManagedBreedInput,user:string,expectedUpdatedAt:string,
+) {
+  const database=requireDb();await ensure(database);
+  const now=nextBreedVersion(expectedUpdatedAt);
+  try {
+    const results=await database.batch(buildManagedBreedUpdateStatements(database,id,input,user,expectedUpdatedAt,now));
+    if (results[0]?.results?.length !== 1) throw new BreedUpdateConflictError();
+    const [breedResult, articleResult, directoryResult] = results.slice(-3);
+    const row = (breedResult.results?.[0] ?? null) as unknown as Row | null;
+    if (!row) throw new BreedUpdateConflictError();
+    return fromRow(row, {
+      articles: (articleResult.results as RelationIdRow[]).map((item) => item.id),
+      directory: (directoryResult.results as RelationIdRow[]).map((item) => item.id),
+    });
+  } catch (error) {
+    // A CAS miss leaves the old row and all its links intact.
+    // Genuine validation/foreign-key errors on a current row still propagate.
+    const current=await database.prepare("SELECT updated_at FROM managed_breeds WHERE id=?").bind(id).first<{updated_at:string}>();
+    if (!current || current.updated_at !== expectedUpdatedAt) throw new BreedUpdateConflictError();
+    throw error;
+  }
+  // All successful paths returned the snapshot read inside the transaction.
+}
 export async function deleteManagedBreed(id:number){const database=requireDb();await ensure(database);await database.batch([database.prepare("DELETE FROM breed_article_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM breed_directory_relations WHERE breed_id=?").bind(id),database.prepare("DELETE FROM managed_breeds WHERE id=?").bind(id)]);}
 
 
@@ -352,7 +411,7 @@ export async function bulkUpdateManagedBreedStatus(input: unknown, user: string)
   const { breeds, status } = validateBulkBreedStatus(input);
   const database = requireDb();
   await ensure(database);
-  const now = new Date().toISOString();
+  const now = new Date(Math.max(Date.now(), ...breeds.map((breed) => Date.parse(breed.updatedAt) + 1))).toISOString();
   const result = await database.prepare(`
     WITH requested AS (
       SELECT

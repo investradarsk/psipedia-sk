@@ -70,6 +70,15 @@ on:
           - 0120_article_image_presentation.sql
           - 0121_article_image_display_config.sql
           - 0122_entity_image_display_config.sql
+          - 0123_event_organization_structured_address.sql
+          - 0124_gemini_notion_review_locks.sql
+          - 0125_gemini_category_prompts.sql
+          - 0126_gemini_scheduler_admin_v2.sql
+          - 0127_gemini_notion_created_pages.sql
+          - 0128_facebook_image_posts.sql
+          - 0129_gemini_external_manual_queue.sql
+          - 0130_facebook_image_publisher.sql
+          - 0131_facebook_image_trash.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -160,6 +169,15 @@ jobs:
             0120_article_image_presentation.sql) expected_confirmation="APPLY-0120-psipedia-sk-db" ;;
              0121_article_image_display_config.sql) expected_confirmation="APPLY-0121-psipedia-sk-db" ;;
             0122_entity_image_display_config.sql) expected_confirmation="APPLY-0122-psipedia-sk-db" ;;
+            0123_event_organization_structured_address.sql) expected_confirmation="APPLY-0123-psipedia-sk-db" ;;
+            0124_gemini_notion_review_locks.sql) expected_confirmation="APPLY-0124-psipedia-sk-db" ;;
+            0125_gemini_category_prompts.sql) expected_confirmation="APPLY-0125-psipedia-sk-db" ;;
+            0126_gemini_scheduler_admin_v2.sql) expected_confirmation="APPLY-0126-psipedia-sk-db" ;;
+            0127_gemini_notion_created_pages.sql) expected_confirmation="APPLY-0127-psipedia-sk-db" ;;
+            0128_facebook_image_posts.sql) expected_confirmation="APPLY-0128-psipedia-sk-db" ;;
+            0129_gemini_external_manual_queue.sql) expected_confirmation="APPLY-0129-psipedia-sk-db" ;;
+            0130_facebook_image_publisher.sql) expected_confirmation="APPLY-0130-psipedia-sk-db" ;;
+            0131_facebook_image_trash.sql) expected_confirmation="APPLY-0131-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"
@@ -209,6 +227,9 @@ jobs:
 
       - name: Repository migration safety
         run: npm run db:check-migrations
+
+      - name: Offline migration safety regressions
+        run: npm run test:migration-safety
 
       - name: Build exact production artifact and generated Wrangler config
         run: npm run build

@@ -13,13 +13,33 @@ import styles from "./admin-navigation.module.css";
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
+  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<string | null>(null);
+  const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
 
   return (
     <>
-      {adminNavigationGroups.map((group, groupIndex) => (
-        <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label}>
-          <span>{group.label}</span>
-          <div>
+      {adminNavigationGroups.map((group, groupIndex) => {
+        const groupActive = group.items.some((item) => item.href === active?.href);
+        const expanded = mobile || (expandedDesktopGroup === group.label || (expandedDesktopGroup === null && groupActive));
+        return (
+        <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label} data-admin-nav-group={group.label}>
+          {mobile ? (
+            <span>{group.label}</span>
+          ) : (
+            <button
+              type="button"
+              className={styles.groupButton}
+              aria-expanded={expanded}
+              aria-controls={`admin-group-${groupIndex}`}
+              data-active={groupActive ? "true" : undefined}
+              onClick={() => setExpandedDesktopGroup(expanded ? "" : group.label)}
+            >
+              <span className={styles.groupGlyph} aria-hidden="true">{groupGlyphs[groupIndex]}</span>
+              <span>{group.label}</span>
+              <span className={styles.groupChevron} aria-hidden="true">{expanded ? "⌃" : "⌄"}</span>
+            </button>
+          )}
+          <div id={mobile ? undefined : `admin-group-${groupIndex}`} hidden={!expanded}>
             {group.items.map((item, itemIndex) => {
               const current = active?.href === item.href;
               return (
@@ -35,7 +55,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
             })}
           </div>
         </div>
-      ))}
+      );})}
     </>
   );
 }
@@ -122,12 +142,14 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
           ref={triggerRef}
           type="button"
           className={styles.menuButton}
+          aria-label="Menu"
           aria-expanded={open}
           aria-controls="admin-mobile-menu"
           aria-haspopup="dialog"
           onClick={() => setOpenPath(pathname)}
         >
-          Menu
+          <span aria-hidden="true">☰</span>
+          <span className={styles.menuText}>Menu</span>
         </button>
       </div>
 

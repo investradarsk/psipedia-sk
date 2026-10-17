@@ -68,7 +68,11 @@ test("global five-minute cron checks database-backed automation due slots withou
     read("worker/index.ts"),
     read("wrangler.jsonc"),
   ]);
-  assert.match(wrangler, /"crons": \["\*\/5 \* \* \* \*"\]/);
+  // The existing five-minute job is unchanged; the new one-minute trigger
+  // belongs only to the Facebook image publisher.
+  assert.deepEqual(JSON.parse(wrangler).triggers.crons, ["*/5 * * * *", "* * * * *"]);
+  assert.ok(worker.includes('controller.cron === "* * * * *"'));
+  assert.match(worker, /runFacebookImagePublishSweep/);
   assert.match(worker, /five_minute_due_check/);
   assert.match(worker, /runDataAutomationSweep/);
   assert.match(worker, /runDataAutomationDiscoverySweep/);
