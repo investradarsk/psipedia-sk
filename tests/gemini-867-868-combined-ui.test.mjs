@@ -33,7 +33,7 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
   if (screenshotDir) await mkdir(screenshotDir, { recursive: true });
   let browser;
 
-  const input = String.raw\`
+  const input = String.raw`
     import React from "react";
     import { createRoot } from "react-dom/client";
     import { AdminGeminiAutomationSettings } from "./components/admin-gemini-automation-settings";
@@ -56,7 +56,7 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
         available={true} externalEnabled={true} queueEnabled={false}
         initialJobs={[]} recentRuns={[]} />
     );
-  \`.replace(/\\\`/g, "\`");
+  `;
   // Use a string literal rather than a second production page.
   const inputScript = input;
   try {
@@ -153,7 +153,7 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
       });
 
       const shot = async name => {
-        if (screenshotDir) await page.screenshot({path:join(screenshotDir,\`\${name}-\${width}.png\`),fullPage:name.includes("list")});
+        if (screenshotDir) await page.screenshot({path:join(screenshotDir,`${name}-${width}.png`),fullPage:name.includes("list")});
       };
 
       await page.goto("https://fixture.test/");
