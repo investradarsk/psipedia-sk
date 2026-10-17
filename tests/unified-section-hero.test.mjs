@@ -93,11 +93,14 @@ test("editorial subsections use subsection visual keys and real topic search sco
   assert.match(searchPage, /podsekcia/);
 });
 
-test("Novinky uses section.novinky and keeps search only in ArticleBrowser", () => {
+test("Novinky uses one homepage hero search and keeps the ArticleBrowser category filters", () => {
   assert.match(news, /getSectionHeroVisual\("section\.novinky"\)/);
   assert.doesNotMatch(news, /articles\.find\([^)]*article\.image/);
-  assert.doesNotMatch(news, /SectionHeroSearch/);
+  assert.match(news, /portalSearchSlot=/);
+  assert.match(news, /<HomePortalSearch/);
+  assert.match(news, /inputName="hladat"/);
   assert.match(news, /<ArticleBrowser/);
+  assert.match(news, /hidePrimarySearch/);
   assert.match(news, /initialQuery=\{scalar\(params\.hladat\) \?\? ""\}/);
 });
 
