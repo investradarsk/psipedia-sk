@@ -41,4 +41,6 @@ test("fixture stays development-only and requires confirmation before local publ
   assert.match(demo, /setPublishConfirm\(true\)/);
   assert.match(demo, /Potvrdiť lokálne publikovanie/);
   assert.match(demo, /setSaved\(\{ \.\.\.draft \}\)/);
+  assert.match(demo, /disabled=\{!hydrated\}/);
+  assert.match(demo, /data-demo-hydrated=\{hydrated/);
 });

@@ -131,10 +131,10 @@ export function EditorPreview({
   children: ReactNode;
 }) {
   return (
-    <aside className={styles.preview} aria-label={title} data-editor-preview>
+    <section className={styles.preview} aria-label={title} data-editor-preview>
       <h2>{title}</h2>
       <div className={styles.previewInner}>{children}</div>
-    </aside>
+    </section>
   );
 }
 

@@ -59,3 +59,12 @@ Browser: npx playwright test tests/e2e/admin-editor-workspace-v3.spec.ts --worke
 Acceptance covers modal/page desktop, mobile 390px and 320px, editing/section navigation, preview, confirm stay/discard, focus restore, explicit publish, and Axe serious/critical A/AA checks.
 
 Local CI D1 schema setup is isolated only. No production writes.
+
+
+## 17 October 2026: Playwright hydration regression
+
+Original run 39027180371 had 7 failures and 1 pass. Archived video, screenshots, trace events and browser-console messages establish that Playwright interacted with SSR-visible buttons/combobox **before Vite/React client hydration**. For instance, desktop clicked at trace time 2630.999 while Vite connected at 2655.544 and React DevTools information appeared at 2937.679. No page exception or failed development-only route was recorded. The select changed natively without updating editor mode; the button consumed a pre-hydration click without showing the modal.
+
+Fix: the isolated demo detects hydration with useSyncExternalStore, disables SSR-visible actionable controls until hydrated and Playwright explicitly confirms readiness. The actual canonical editor workspace remains unmodified except for using a labelled section for the preview's accessible region semantics. This is **not** a timeout increase or removal of acceptance assertions.
+
+Expanded acceptance verifies 1440, 390, and 320px, no document overflow, native Escape, Tab/Shift+Tab trapping, restored opener focus, navigation persistence, preview, draft-only save, publish confirmation, discard confirmation, Axe, no page JS errors and zero write-method browser requests. CI publishes real screenshots under artifact \`admin-editor-v3-visual-acceptance\` even on partial failure. Visual approval requires inspecting generated images; a passing test does not alone grant it.

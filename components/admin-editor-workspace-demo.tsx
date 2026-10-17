@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
 import {
   EditorActionBar,
@@ -21,8 +21,13 @@ const sections: EditorWorkspaceSection[] = [
   { id: "demo-contact", label: "Kontakt" },
 ];
 
+const subscribeHydration = () => () => {};
+const clientHydrated = () => true;
+const serverUnhydrated = () => false;
+
 // Only the development-only preview route imports this component.
 export function AdminEditorWorkspaceDemo() {
+  const hydrated = useSyncExternalStore(subscribeHydration, clientHydrated, serverUnhydrated);
   const [mode, setMode] = useState<"modal" | "page">("modal");
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<LocalDraft>(example);
@@ -43,17 +48,17 @@ export function AdminEditorWorkspaceDemo() {
   };
 
   return (
-    <div style={{ maxWidth: "94rem", margin: "2rem auto", padding: "1rem" }}>
+    <div data-demo-hydrated={hydrated ? "true" : "false"} style={{ maxWidth: "94rem", margin: "2rem auto", padding: "1rem" }}>
       <h1>Izolovaný test spoločného editora V3</h1>
       <p>Výhradne development, fiktívne údaje, žiadne API požiadavky ani publikovanie.</p>
       <label htmlFor="demo-mode">Zobrazenie</label>
-      <select id="demo-mode" value={mode} onChange={(event) => setMode(event.target.value as "modal" | "page")}>
+      <select id="demo-mode" disabled={!hydrated} value={mode} onChange={(event) => setMode(event.target.value as "modal" | "page")}>
         <option value="modal">Modálne okno</option>
         <option value="page">Samostatná stránka</option>
       </select>
       {mode === "modal" && (
         <p>
-          <AdminActionButton variant="primary" onClick={() => setOpen(true)}>
+          <AdminActionButton variant="primary" disabled={!hydrated} onClick={() => setOpen(true)}>
             Otvoriť testovací editor
           </AdminActionButton>
         </p>
