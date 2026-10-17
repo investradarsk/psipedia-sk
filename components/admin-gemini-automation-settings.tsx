@@ -432,7 +432,7 @@ function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
 }
 
 export function AdminGeminiAutomationSettings({
-  sections, settings, available, externalEnabled, queueEnabled, initialJobs, recentRuns,
+  sections, settings, available, externalEnabled, queueEnabled, initialJobs, recentRuns, initialSelectedKey,
 }: {
   sections: readonly { key: GeminiSectionKey; label: string }[];
   settings: readonly GeminiSettingView[];
@@ -441,11 +441,12 @@ export function AdminGeminiAutomationSettings({
   queueEnabled: boolean;
   initialJobs: readonly GeminiQueuedJob[];
   recentRuns: readonly GeminiRecentRun[];
+  initialSelectedKey?: string;
 }) {
   const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[] } | null>(null);
   const liveSettings = remote?.settings ?? settings;
   const jobs = remote?.jobs ?? initialJobs;
-  const [selectedKey, setSelectedKey] = useState(settings[0]?.stableKey ?? "");
+  const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
   const onSaved = useCallback((next: GeminiSettingView) => {
@@ -532,6 +533,15 @@ export function AdminGeminiAutomationSettings({
             {latestRun?.errorCode ? " · " + latestRun.errorCode : ""}</span>
         </div>
       </div>
+
+      <Link href="/admin/automatizacie-gemini/koncepty" className={styles.allConceptsCta}>
+        <span className={styles.allConceptsCtaCopy}>
+          <small>CENTRÁLNY PREHĽAD · 22 KATEGÓRIÍ</small>
+          <strong>Všetky koncepty</strong>
+          <span>Služby pre psov · Podujatia · Pomoc psom — prehľad v kompaktných riadkoch</span>
+        </span>
+        <span className={styles.allConceptsCtaAction} aria-hidden="true">Otvoriť všetky →</span>
+      </Link>
 
       <div className={styles.workGrid}>
         <div className={styles.column}>
