@@ -11,6 +11,7 @@ on:
       - "scripts/validate-clean-d1.mjs"
       - "scripts/production-d1-migrate.mjs"
       - "tests/production-d1-migration.test.mjs"
+      - "tests/production-d1-0132-rollout.test.mjs"
       - "tests/production-d1-0123-0125-rollout.test.mjs"
       - "package.json"
       - ".github/workflows/production-d1-migrate.yml"
