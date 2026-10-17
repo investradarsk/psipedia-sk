@@ -213,3 +213,17 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
     flex: 1 1 140px;
   }
 }
+
+/* The generic <=420px admin-topbar rule must not reclaim the 44px
+   reserved for the fixed drawer trigger: keep Back + Bell hittable. */
+@media (max-width: 1100px) {
+  [data-admin-workspace] .admin-topbar[data-admin-topbar] {
+    padding-right: 64px;
+  }
+}
+@media (max-width: 420px) {
+  [data-admin-workspace] .admin-topbar[data-admin-topbar] {
+    padding: 8px 64px 8px 10px;
+    gap: 4px;
+  }
+}

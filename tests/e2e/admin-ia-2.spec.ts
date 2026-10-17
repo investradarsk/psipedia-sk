@@ -154,6 +154,15 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
     let nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     if (mobile) {
       const menu = page.getByRole("button", { name: "Menu", exact: true });
+      const bell = page.getByTestId("admin-notification-bell");
+      const back = page.getByRole("link", { name: "Návrat na Psipedia.sk" });
+      await expect(bell).toBeInViewport();
+      const [menuBox, bellBox, backBox] = await Promise.all([menu.boundingBox(), bell.boundingBox(), back.boundingBox()]);
+      expect(menuBox && bellBox && backBox).toBeTruthy();
+      // Visibility alone is insufficient: an absolutely positioned drawer
+      // trigger can cover a visible, keyboard-focusable notification icon.
+      expect((backBox?.x ?? 0) + (backBox?.width ?? 0)).toBeLessThanOrEqual((bellBox?.x ?? 0) + 1);
+      expect((bellBox?.x ?? 0) + (bellBox?.width ?? 0)).toBeLessThanOrEqual((menuBox?.x ?? 0) + 1);
       await expect.poll(async () => {
         if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
         return menu.getAttribute("aria-expanded");
