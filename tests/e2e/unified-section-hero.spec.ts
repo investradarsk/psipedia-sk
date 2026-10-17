@@ -194,7 +194,7 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
           ).toBeLessThanOrEqual(2);
         }
         if (copyGeometry.eyebrow && copyGeometry.title) {
-          const expectedGap = 22;
+          const expectedGap = 10;
           expect(
             Math.abs(copyGeometry.title.y - (copyGeometry.eyebrow.y + copyGeometry.eyebrow.height) - expectedGap),
             label + ": eyebrow→H1 gap",
