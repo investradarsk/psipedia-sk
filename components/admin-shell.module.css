@@ -274,3 +274,9 @@
   .backToWeb { width: 44px; min-width: 44px; }
   .topbarActions { gap: 2px; }
 }
+
+/* Do not let the fixed mobile menu obscure the account action at 320–390px.
+   It is provided in the accessible drawer instead. */
+@media (max-width: 1100px) {
+  .account { display: none; }
+}

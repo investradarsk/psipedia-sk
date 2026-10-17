@@ -77,7 +77,11 @@ export function AdminShell({
               <PawMark size={31} />
               <span>Psipedia<small>Admin</small></span>
             </Link>
-            <AdminNavigation stickyClassName={styles.stickyNav} />
+            <AdminNavigation
+              stickyClassName={styles.stickyNav}
+              signOutHref={chatGPTSignOutPath("/", user.authProvider)}
+              userDisplayName={user.displayName}
+            />
           </aside>
           <div className={styles.workspacePage}>
             <header className={`admin-topbar ${styles.topbarSticky}`} data-admin-topbar>

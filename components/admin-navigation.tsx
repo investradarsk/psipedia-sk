@@ -68,7 +68,15 @@ function focusableElements(root: HTMLElement) {
   )).filter((element) => !element.hasAttribute("hidden"));
 }
 
-export function AdminNavigation({ stickyClassName }: { stickyClassName: string }) {
+export function AdminNavigation({
+  stickyClassName,
+  signOutHref,
+  userDisplayName,
+}: {
+  stickyClassName: string;
+  signOutHref?: string;
+  userDisplayName?: string;
+}) {
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
   const [openPath, setOpenPath] = useState<string | null>(null);
@@ -190,6 +198,12 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
               <Link href="/adresar" target="_blank" rel="noreferrer">Služby pre psov ↗</Link>
               <Link href="/pomoc-psom" target="_blank" rel="noreferrer">Pomoc psom ↗</Link>
             </div>
+            {signOutHref && (
+              <div className={styles.mobileAccount} role="group" aria-label="Používateľ administrácie">
+                {userDisplayName && <span>{userDisplayName}</span>}
+                <a href={signOutHref}>Odhlásiť</a>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

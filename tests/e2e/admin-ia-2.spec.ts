@@ -149,7 +149,7 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
     expect(response?.status()).toBe(200);
     await expect(page.getByTestId("admin-notification-bell")).toBeVisible();
     await expect(page.getByRole("link", { name: "Návrat na Psipedia.sk" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
+    if (!mobile) await expect(page.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
     const groups = ["Prehľad", "Obsah", "Adresár", "Komunita", "Automatizácie", "Kvalita dát", "Nastavenia"];
     let nav = page.getByRole("navigation", { name: "Redakčné moduly" });
     if (mobile) {
@@ -158,7 +158,10 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
         if (await menu.getAttribute("aria-expanded") !== "true") await menu.click();
         return menu.getAttribute("aria-expanded");
       }).toBe("true");
-      nav = page.getByRole("dialog", { name: "Navigácia administrácie" }).getByRole("navigation", { name: "Redakčné moduly" });
+      const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
+      await expect(dialog.getByRole("group", { name: "Používateľ administrácie" })).toBeVisible();
+      await expect(dialog.getByRole("link", { name: "Odhlásiť" })).toBeVisible();
+      nav = dialog.getByRole("navigation", { name: "Redakčné moduly" });
     } else {
       await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
     }
