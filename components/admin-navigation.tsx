@@ -13,16 +13,16 @@ import styles from "./admin-navigation.module.css";
 function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
-  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<string | null>(null);
-  // Client route changes must reveal the newly active agenda even after manual accordion use.
-  useEffect(() => { if (!mobile) setExpandedDesktopGroup(null); }, [pathname, mobile]);
+  // Remember manual disclosure per route; a route change naturally reverts to its active group.
+  const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<{ pathname: string; group: string } | null>(null);
+  const selectedGroup = expandedDesktopGroup?.pathname === pathname ? expandedDesktopGroup.group : null;
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
 
   return (
     <>
       {adminNavigationGroups.map((group, groupIndex) => {
         const groupActive = group.items.some((item) => item.href === active?.href);
-        const expanded = mobile || (expandedDesktopGroup === group.label || (expandedDesktopGroup === null && groupActive));
+        const expanded = mobile || (selectedGroup === group.label || (selectedGroup === null && groupActive));
         return (
         <div className={mobile ? styles.mobileGroup : styles.desktopGroup} key={group.label} data-admin-nav-group={group.label}>
           {mobile ? (
@@ -34,7 +34,7 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
               aria-expanded={expanded}
               aria-controls={`admin-group-${groupIndex}`}
               data-active={groupActive ? "true" : undefined}
-              onClick={() => setExpandedDesktopGroup(expanded ? "" : group.label)}
+              onClick={() => setExpandedDesktopGroup({ pathname, group: expanded ? "" : group.label })}
             >
               <span className={styles.groupGlyph} aria-hidden="true">{groupGlyphs[groupIndex]}</span>
               <span>{group.label}</span>
