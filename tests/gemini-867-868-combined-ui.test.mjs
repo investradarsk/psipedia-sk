@@ -80,7 +80,7 @@ test("PR #867 compact dashboard and PR #868 concept manager work together", asyn
             contents: a.path === "navigation"
               ? 'export function useRouter(){return {refresh(){}}}'
               : 'import React from "react";export default function Link(props){return React.createElement("a", props)}',
-            loader:"jsx",
+            loader:"jsx", resolveDir:process.cwd(),
           }));
         }},
       ],
