@@ -154,7 +154,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
           await expect(mobileToolbar).toBeHidden();
           await expect(desktopForm.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
           const columns = await page.locator("[data-directory-columns]").evaluate(el =>
-            getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+            getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
           expect(columns).toBe(3);
           await page.screenshot({ path: join(artifactDir, "hybrid-desktop-1440.png"), animations: "disabled", timeout: 20_000 });
         }, { timeout: 40_000 });
@@ -184,13 +184,13 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
             dialog.locator('button[type="submit"]').click({ timeout: 15_000 }),
           ]);
           await expect(page.locator('[data-directory-active-filters]')).toBeVisible();
-          await expect(page.locator('[data-directory-map-cta] a')).toHaveAttribute("href", /f\\.veterinari\\.emergency=yes/);
+          await expect(page.locator('[data-directory-map-cta] a')).toHaveAttribute("href", /f\.veterinari\.emergency=yes/);
           await expect(page.locator("[data-directory-results]")).toBeVisible();
           await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-results.png`), animations: "disabled", timeout: 20_000 });
           const remove = page.locator('[data-directory-active-filters] a[aria-label*="Pohotovosť"]');
           await expect(remove).toBeVisible();
           await remove.click({ timeout: 15_000 });
-          await expect(page).not.toHaveURL(/f\\.veterinari\\.emergency=yes/);
+          await expect(page).not.toHaveURL(/f\.veterinari\.emergency=yes/);
         }, { timeout: 65_000 });
 
         await test.step("Escape closes dialog and restores focus", async () => {
