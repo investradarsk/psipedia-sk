@@ -41,12 +41,15 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [rejectTarget, setRejectTarget] = useState<ReviewDraft | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectBusy, setRejectBusy] = useState(false);
-  const iframeDirtyInstalled = useRef<Document | null>(null);
   const loadRevision = useRef(0);
+  const activeCategoryRef = useRef(stableKey);
+  activeCategoryRef.current = stableKey;
+  const [loadedCategory, setLoadedCategory] = useState<string | null>(null);
 
   const category = getGeminiCatalogItem(stableKey)?.label ?? stableKey;
-  const counts = geminiReviewCounts(drafts);
-  const visible = drafts.filter(draft => filter === "ALL" ||
+  const currentDrafts = loadedCategory === stableKey ? drafts : [];
+  const counts = geminiReviewCounts(currentDrafts);
+  const visible = currentDrafts.filter(draft => filter === "ALL" ||
     (filter === "ACTIVE" ? REVIEWABLE.includes(draft.reviewState) : draft.reviewState === filter));
 
   function markDirty() {
@@ -59,6 +62,20 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     dirtyRef.current = false;
     editorSurfaceRef.current?.removeAttribute("data-dirty");
   }
+  useEffect(() => {
+    // Invalidate older category responses before they can update this panel.
+    loadRevision.current++;
+    setLoaded(false);
+    setLoadedCategory(null);
+    setDrafts([]);
+    setFilter("ACTIVE");
+    setSelectedDraft(null);
+    setCanonicalProfile(null);
+    clearDirty();
+    setError("");
+    setExpanded(false);
+  }, [stableKey]);
+
   useEffect(() => {
     if (!selectedDraft) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -74,6 +91,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     // A completed review/save must always refresh; an older response must
     // never overwrite the state returned by the newest request.
     const revision = ++loadRevision.current;
+    const requestCategory = stableKey;
     setLoading(true);
     setError("");
     try {
@@ -85,21 +103,23 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       if (!response.ok || !Array.isArray(json.drafts)) {
         throw Error(json.error || "Nepodarilo sa načítať koncepty.");
       }
-      if (revision === loadRevision.current) {
+      if (revision === loadRevision.current && requestCategory === activeCategoryRef.current) {
         setDrafts(json.drafts);
+        setLoadedCategory(requestCategory);
         setLoaded(true);
       }
     } catch (cause) {
-      if (revision === loadRevision.current) {
+      if (revision === loadRevision.current && requestCategory === activeCategoryRef.current) {
         setError(cause instanceof Error ? cause.message : "Nepodarilo sa načítať koncepty.");
       }
     } finally {
-      if (revision === loadRevision.current) setLoading(false);
+      if (revision === loadRevision.current && requestCategory === activeCategoryRef.current) setLoading(false);
     }
   }
 
   async function openDraft(draft: ReviewDraft) {
     if (opening) return;
+    const requestCategory = stableKey;
     setOpening(true);
     setError("");
     try {
@@ -107,10 +127,17 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         { credentials: "same-origin", cache: "no-store" });
       const data = await response.json() as { draft?: ReviewDraft; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Koncept sa nepodarilo otvoriť.");
+      if (requestCategory !== activeCategoryRef.current) return;
+      // Imported agenda items must use the canonical page, not a second editor.
+      // Never fall back to editable Notion-only mode when an import is known.
+      if ("agenda" in data.draft && data.draft.psipediaId) {
+        setError("Koncept bol importovaný do D1. Obnov zoznam a otvor overený canonical editor v príslušnej sekcii.");
+        void load();
+        return;
+      }
 
-      // The canonical Adresár editor is embedded directly. Other imported
-      // categories use their existing full canonical editor route in a same-origin
-      // frame, avoiding a second editor implementation or a duplicate D1 entity.
+      // Directory reuses its canonical editor; non-directory imports use a direct
+      // link to the native editor without an unsafe nested admin shell.
       if (geminiCanonicalEditorUrl(data.draft) && !("agenda" in data.draft)) {
         const canonical = await fetch(
           "/api/admin/directory/" + encodeURIComponent(data.draft.psipediaId),
@@ -123,10 +150,9 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         setCanonicalProfile(null);
       }
       clearDirty();
-      iframeDirtyInstalled.current = null;
-      setSelectedDraft(data.draft);
+      if (requestCategory === activeCategoryRef.current) setSelectedDraft(data.draft);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Načítanie zlyhalo.");
+      if (requestCategory === activeCategoryRef.current) setError(cause instanceof Error ? cause.message : "Načítanie zlyhalo.");
     } finally {
       setOpening(false);
     }
@@ -139,32 +165,11 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     setSelectedDraft(null);
     setCanonicalProfile(null);
     clearDirty();
-    iframeDirtyInstalled.current = null;
   }
 
   function saved() {
     closeEditor(true);
     void load();
-  }
-
-  function frameLoaded(element: HTMLIFrameElement) {
-    // Only observe DOM changes in our own origin; do not introspect another site.
-    try {
-      const doc = element.contentDocument;
-      if (!doc || iframeDirtyInstalled.current === doc) return;
-      iframeDirtyInstalled.current = doc;
-      // The canonical page contains its own irreversible D1 delete control.
-      // It must NOT be presented as Gemini's restore-capable Trash action.
-      const safetyStyle = doc.createElement("style");
-      safetyStyle.textContent = "[data-canonical-draft-delete] { display: none !important; }";
-      doc.head?.appendChild(safetyStyle);
-      const mark = () => markDirty();
-      doc.addEventListener("input", mark, { capture: true });
-      doc.addEventListener("change", mark, { capture: true });
-    } catch {
-      // Browser frame policy may forbid inspection; the full canonical route
-      // remains available as a normal link next to the embedded editor.
-    }
   }
 
   async function reject() {
@@ -196,7 +201,6 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   }
 
   const canonicalUrl = selectedDraft ? geminiCanonicalEditorUrl(selectedDraft) : null;
-  const embeddedCanonical = selectedDraft && "agenda" in selectedDraft && canonicalUrl;
 
   return (
     <section className={styles.manager} aria-label="Koncepty vytvorené automatizáciou">
@@ -205,7 +209,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
           onClick={() => { const next = !expanded; setExpanded(next); if (next && !loaded) void load(); }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
           Koncepty z automatizácie
-          {loaded && <span aria-label={drafts.length + " konceptov"}>({drafts.length})</span>}
+          {loadedCategory === stableKey && <span aria-label={currentDrafts.length + " konceptov"}>({currentDrafts.length})</span>}
         </button>
         {expanded && (
           <div className={styles.headerActions}>
@@ -219,8 +223,8 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         <div className={styles.body}>
           {loading && !loaded && <p className={styles.note} role="status">Načítavam aktuálne koncepty z Notionu…</p>}
           {error && <p className={styles.error} role="alert">{error}</p>}
-          {loaded && !drafts.length && <p className={styles.note}>V kategórii {category} zatiaľ nie sú koncepty Gemini.</p>}
-          {loaded && drafts.length > 0 && (
+          {loadedCategory === stableKey && !currentDrafts.length && <p className={styles.note}>V kategórii {category} zatiaľ nie sú koncepty Gemini.</p>}
+          {loadedCategory === stableKey && currentDrafts.length > 0 && (
             <>
               <p className={styles.stats}>
                 {Object.entries(geminiReviewLabels).map(([key, label]) =>
@@ -242,6 +246,8 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
                   const reasonSupported = geminiSupportsRejectionReason(draft) &&
                     (!("agenda" in draft) || draft.reviewAvailable);
                   const canReject = geminiCanRejectConcept(draft);
+                  const agendaImported = "agenda" in draft && Boolean(draft.psipediaId);
+                  const mappingUnknown = Boolean(draft.psipediaId) && !editorUrl;
                   return (
                     <li className={styles.item} key={draft.id}>
                       <div className={styles.summary}>
@@ -271,21 +277,23 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
                           </span>}
                       </div>
                       <div className={styles.actions}>
-                        <button type="button" className={styles.primary} aria-label="Otvoriť editor"
-                          disabled={opening} onClick={() => void openDraft(draft)}>
-                          {opening ? "Otváram…" : "Upraviť"}
-                        </button>
-                        {editorUrl && <a className={styles.actionLink} href={editorUrl}>Otvoriť v sekcii ↗</a>}
+                        {agendaImported ? (editorUrl ? (
+                          <a className={styles.primary} href={editorUrl}>Upraviť v sekcii →</a>
+                        ) : <span role="status" className={styles.availability}>D1 mapovanie nie je potvrdené — úprava zablokovaná</span>) : mappingUnknown ? (
+                          <span role="status" className={styles.availability}>Bez overenej D1 identity nie je možné bezpečne upravovať</span>
+                        ) : (
+                          <button type="button" className={styles.primary} aria-label="Otvoriť editor"
+                            disabled={opening} onClick={() => void openDraft(draft)}>
+                            {opening ? "Otváram…" : "Upraviť"}
+                          </button>
+                        )}
+                        {editorUrl && !agendaImported && <a className={styles.actionLink} href={editorUrl}>Otvoriť v sekcii ↗</a>}
                         {canReject && reasonSupported &&
                           <button type="button" className={styles.destructive}
                             onClick={() => { setRejectReason(""); setRejectTarget(draft); setError(""); }}>
                             Odmietnuť
                           </button>}
-                        {draft.reviewState !== "PUBLISHED" &&
-                          <button type="button" className={styles.secondary} disabled
-                            title="Obnoviteľný kôš vyžaduje schválený spoločný Notion/D1 kontrakt.">
-                            Kôš
-                          </button>}
+
                       </div>
                     </li>
                   );
@@ -315,16 +323,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
             <aside className={styles.extra} aria-label="Gemini poznámka">
               <strong>Gemini poznámka</strong><p>{selectedDraft.geminiNote}</p>
             </aside>}
-          {selectedDraft && embeddedCanonical ? (
-            <>
-              <p className={styles.dialogLead}>Importovaný koncept: zobrazuje sa pôvodný kanonický editor z administrácie, nie paralelná kópia formulára.</p>
-              <div className={styles.dialogActions}>
-                <a className={styles.actionLink} href={canonicalUrl ?? undefined}>Otvoriť editor samostatne ↗</a>
-              </div>
-              <iframe title={"Kanonický editor " + selectedDraft.name} src={canonicalUrl ?? undefined}
-                className={styles.editorFrame} onLoad={event => frameLoaded(event.currentTarget)} />
-            </>
-          ) : selectedDraft && "agenda" in selectedDraft ? (
+          {selectedDraft && "agenda" in selectedDraft ? (
             <AdminGeminiAgendaDraftEditor key={selectedDraft.id} draft={selectedDraft} onSaved={saved} />
           ) : selectedDraft ? (
             <AdminDirectoryEditor key={selectedDraft.id} profile={canonicalProfile ?? undefined}
