@@ -23,6 +23,7 @@ import {
   applyNotionToCanonical,
   canonicalUpdatedAt,
   hasCurrentGooglePlace,
+  hasCurrentOrganizationGooglePlace,
   createCanonicalFromNotion,
   GEMINI_HELP_REVIEW_PROPERTY,
   helpCaseMayEnterCanonicalSync,
@@ -36,6 +37,7 @@ import {
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
+import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
 import {
   appendNotionReview,
   canClearResolvedNotionConflict,
@@ -57,6 +59,7 @@ export type NotionEventsHelpSyncBindings = NotionSyncBindings & {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
+  NOTION_GEMINI_22_PRIORITY_A_ENABLED?: string;
 };
 
 export type NotionEventsHelpMode = "dry-run" | "bootstrap" | "sync";
@@ -975,6 +978,72 @@ async function syncAgenda(input: {
           hash: await snapshotHash("events", editableSnapshot("events", resolvedSource.properties, schema)),
           notionLastEditedTime: written.last_edited_time ?? syncedAt,
           psipediaUpdatedAt: await canonicalUpdatedAt("events", entityId, input.database),
+          syncedAt,
+        });
+        if (changedFields.length) summary.pulledFromNotion += 1;
+        else summary.pushedToNotion += 1;
+        continue;
+      }
+
+      // 10 Directory categories use the separate Directory synchronizer.
+      // Four Help adapters cover all six Gemini Help category routes.
+      if (input.definition.key !== "events"
+        && decision.decision !== "UNCHANGED"
+        && gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED)) {
+        const agenda = input.definition.key;
+        const confirmedGooglePlace = agenda === "organizations"
+          ? await hasCurrentOrganizationGooglePlace(input.database, entityId)
+          : false;
+        const desired = mergeGeminiHelpPriority({
+          agenda,
+          canonical: sourceSnapshot,
+          notion: notionSnapshot,
+          confirmedGooglePlace,
+        });
+        const changedFields = differingAgendaSnapshotFields(agenda, sourceSnapshot, desired);
+
+        if (input.mode !== "sync") {
+          if (decision.decision === "CONFLICT") {
+            summary.conflicts += 1;
+            appendNotionReview(summary.reviewQueue, {
+              entityId, notionPageId: page.id, reason: "BIDIRECTIONAL_CONFLICT",
+              fields: differingAgendaSnapshotFields(agenda, sourceSnapshot, notionSnapshot),
+              baselineAvailable: true, notionChanged: decision.notionChanged,
+              psipediaChanged: decision.psipediaChanged,
+            });
+          }
+          if (changedFields.length) summary.pulledFromNotion += 1;
+          else summary.pushedToNotion += 1;
+          continue;
+        }
+
+        let resolvedSource = source;
+        if (changedFields.length) {
+          // Existing canonical adapters enforce review, private contacts,
+          // publication and moderation lifecycle independently.
+          await applyNotionToCanonical(agenda, entityId, desired, input.database);
+          sources = await input.definition.load(input.database);
+          sourcesById = sourceById(sources);
+          const reloaded = sourcesById.get(entityId);
+          if (!reloaded) throw new Error("Canonical Help item missing after Notion priority merge.");
+          resolvedSource = reloaded;
+        }
+        const written = await writeSourceToNotion({
+          bindings: input.bindings,
+          dataSourceId: target.dataSourceId,
+          source: resolvedSource,
+          schema,
+          pageId: page.id,
+        });
+        const syncedAt = new Date().toISOString();
+        await saveMapping({
+          database: input.database,
+          agenda,
+          pageId: page.id,
+          entityId,
+          hash: await snapshotHash(agenda, editableSnapshot(agenda, resolvedSource.properties, schema)),
+          notionLastEditedTime: written.last_edited_time ?? syncedAt,
+          psipediaUpdatedAt: await canonicalUpdatedAt(agenda, entityId, input.database),
           syncedAt,
         });
         if (changedFields.length) summary.pulledFromNotion += 1;
