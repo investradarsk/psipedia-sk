@@ -112,7 +112,11 @@ test("admin shell renders shared active navigation, breadcrumbs, sticky position
   const navigation = read("components/admin-navigation.tsx");
   const navigationCss = read("components/admin-navigation.module.css");
 
-  assert.match(shell, /<AdminNavigation stickyClassName={styles\.stickyNav} \/>/);
+  assert.ok(shell.includes("<AdminNavigation"));
+  assert.ok(shell.includes("stickyClassName={styles.stickyNav}"));
+  assert.ok(shell.includes('signOutHref={chatGPTSignOutPath("/", user.authProvider)}'));
+  assert.ok(shell.includes("userDisplayName={user.displayName}"));
+  assert.ok(navigation.includes("<a href={signOutHref}>Odhlásiť</a>"));
   assert.match(shell, /<AdminBreadcrumbs \/>/);
   assert.match(shell, /loadExactAdminAttentionSummary/);
   assert.match(shell, /href="\/admin\/operations"/);
