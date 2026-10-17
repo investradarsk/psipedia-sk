@@ -140,11 +140,13 @@ function SearchBox({
   subpage,
   placeholder: managedPlaceholder,
   buttonLabel: managedButtonLabel,
+  shortcuts: managedShortcuts,
 }: {
   sectionSlug: EditorialSectionSlug;
   subpage?: PortalSubpage;
   placeholder?: string;
   buttonLabel?: string;
+  shortcuts?: Array<{ href: string; label: string }>;
 }) {
   const sectionConfig = {
     steniatka: {
@@ -176,7 +178,7 @@ function SearchBox({
       panelLabel={`Vyhľadávanie: ${label}`}
       eyebrow="ČO POTREBUJEŠ VYRIEŠIŤ?"
       title={subpage ? `Hľadať v téme ${subpage.label}` : sectionConfig.label}
-      shortcuts={[]}
+      shortcuts={managedShortcuts ?? []}
       id={`section-search-${sectionSlug}-${subpage?.slug ?? "all"}`}
       label={label}
       placeholder={managedPlaceholder ?? placeholder}
