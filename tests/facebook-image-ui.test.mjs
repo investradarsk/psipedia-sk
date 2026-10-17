@@ -39,7 +39,13 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth),0);
   await dialog.getByRole('button',{name:'Uložiť naplánovanie',exact:true}).click();await expect(dialog).not.toBeVisible();
   const row=sqlite.prepare('SELECT * FROM facebook_image_posts WHERE title=?').get(`Príspevok ${width}`);assert.equal(row.scheduled_at,'2026-10-25T01:30:00.000Z');assert.equal(row.status,'scheduled');
-  await expect(page.getByRole('region',{name:'Kalendár Facebook obrázkov'}).getByRole('button').filter({hasText:`Príspevok ${width}`})).toBeVisible();
+  const calendar=page.getByRole('region',{name:'Kalendár Facebook obrázkov'});
+  const dateControl=calendar.getByRole('button',{name:'Zobraziť príspevky 2026-10-25',exact:true});
+  await expect(dateControl).toBeVisible();
+  const cellHeight=await dateControl.evaluate(button=>button.parentElement.getBoundingClientRect().height);
+  assert.ok(cellHeight<=(width>600?95:60),`Calendar too tall at ${width}px: ${cellHeight}px`);
+  if(width<=600)await dateControl.click();
+  await expect(calendar.getByRole('button').filter({hasText:`Príspevok ${width}`})).toBeVisible();
   await expect(page.locator('article button').filter({hasText:`Príspevok ${width}`})).toBeEnabled();await page.locator('article button').filter({hasText:`Príspevok ${width}`}).click();await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Popis na Facebook',{exact:true})).toHaveValue('Uložený popis');await expect(dialog.getByLabel('Čas (Bratislava)',{exact:true})).toHaveValue('02:30');
   await dialog.getByLabel('Popis na Facebook',{exact:true}).fill('Neuložený popis');page.once('dialog',d=>d.dismiss());await dialog.getByRole('button',{name:'Zavrieť',exact:true}).click();await expect(dialog).toBeVisible();
