@@ -27,7 +27,8 @@ import {
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
-import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "../lib/notion-gemini-22-priority.ts";
+import { gemini22PriorityEnabled, mergeGeminiHelpPriority, mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
+import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 import {
   mergeNotionSeo,
   notionSeoPropertyNames,
@@ -759,4 +760,56 @@ test("Gemini 22 Help: unconfirmed locations can receive nonempty Notion updates"
     agenda: "organizations", canonical, notion, confirmedGooglePlace: false,
   });
   assert.deepEqual(merged, { "Mesto": "Trnava", "Kraj": "Nitriansky kraj", "Popis": "Edited", "Perex": "saved" });
+});
+
+test("Gemini 22: all 10 Directory, 6 Events and 6 Help category routes retain existing mappings", () => {
+  const categoryGroups = [
+    ["directory", ["veterinari","treneri","kynologicke-kluby","chovatelske-kluby",
+      "chovatelske-stanice","salony-a-sluzby","hotely-a-opatrovanie",
+      "vencenie","fyzioterapia","dalsie-sluzby"]],
+    ["events", ["vystavy","preteky","seminare","treningy","stretnutia","dalsie"]],
+    ["help", ["docasna-opatera","zbierky","dobrovolnictvo","utulky","adopcia","stratene-a-najdene"]],
+  ];
+  let total = 0;
+  for (const [section, slugs] of categoryGroups) {
+    for (const slug of slugs) {
+      assert.equal(externalWorkerCategorySupported(section + "." + slug), true, section + "." + slug);
+      total += 1;
+    }
+  }
+  assert.equal(total, 22);
+});
+
+test("Gemini Directory A: fill only nonempty Notion editorial fields; never demote Google location", () => {
+  const current = {
+    slug:"id", category:"veterinari", status:"published", name:"Original",
+    excerpt:"Original excerpt", description:"Old description",
+    services:["chirurgia"], city:"Nitra", region:"Nitriansky kraj",
+    address:"Výstavná 4", confirmedServiceLocation:true, verified:true,
+    seo:{title:"Old SEO",description:"Existing SEO",noindex:true},
+  };
+  const notion = {
+    slug:"new-url", category:"salony-a-sluzby", status:"draft", name:"New name",
+    excerpt:"", description:"Better description",
+    services:[], city:"Bratislava", region:"Bratislavský kraj",
+    address:"Different address", confirmedServiceLocation:false, verified:false,
+    seo:{title:"New SEO",description:"",noindex:false},
+  };
+  const merged = mergeGeminiDirectoryPriority({
+    canonical: current, notion, confirmedGooglePlace: true,
+  });
+  assert.equal(merged.slug,"id");
+  assert.equal(merged.category,"veterinari");
+  assert.equal(merged.status,"published");
+  assert.equal(merged.name,"New name");
+  assert.equal(merged.excerpt,"Original excerpt");
+  assert.equal(merged.description,"Better description");
+  assert.deepEqual(merged.services,["chirurgia"]);
+  assert.equal(merged.city,"Nitra");
+  assert.equal(merged.address,"Výstavná 4");
+  assert.equal(merged.confirmedServiceLocation,true);
+  assert.equal(merged.verified,true);
+  assert.equal(merged.seo.title,"New SEO");
+  assert.equal(merged.seo.description,"Existing SEO");
+  assert.equal(merged.seo.noindex,true);
 });
