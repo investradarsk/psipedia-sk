@@ -10,6 +10,7 @@ export type FacebookImagePost = {
   publishedAt?: string | null; approvedAt?: string | null; approvedBy?: string | null;
   attemptStartedAt?: string | null; attemptCompletedAt?: string | null;
   deletedAt?: string | null; deletedBy?: string | null;
+  directPublishConsent?: boolean; directConsentAt?: string | null; directConsentBy?: string | null;
 };
 const wallFormat = new Intl.DateTimeFormat("en-CA", { timeZone: FACEBOOK_IMAGE_TIME_ZONE,
   year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
