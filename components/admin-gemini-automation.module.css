@@ -261,3 +261,17 @@
   .dashboard .toggle { min-height: 44px; }
   .dashboard :is(button, select, input:not([type="checkbox"]), summary) { min-height: 44px; }
 }
+
+/* Approved Gemini V4 variant B: prominent, responsive link to all category drafts. */
+.allConceptsCta { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 22px 24px; border-radius: 15px; background: #08432f; color: #fff; text-decoration: none; box-shadow: 0 5px 17px rgba(7, 55, 35, .12); }
+.allConceptsCtaCopy { display: grid; gap: 5px; min-width: 0; }
+.allConceptsCtaCopy small { color: #bfe2ce; font-size: .7rem; font-weight: 750; letter-spacing: .08em; }
+.allConceptsCtaCopy strong { color: #fff; font-size: clamp(1.35rem, 2.3vw, 1.9rem); line-height: 1.2; }
+.allConceptsCtaCopy > span { color: #e0f1e6; font-size: .82rem; line-height: 1.4; }
+.allConceptsCtaAction { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 9px 15px; border-radius: 9px; font-size: .83rem; font-weight: 750; background: #fff; color: #114932; }
+.allConceptsCta:hover { background: #0b523a; }
+.dashboard .allConceptsCta:focus-visible { outline: 3px solid #e5ad32; outline-offset: 3px; }
+@media (max-width: 540px) {
+  .allConceptsCta { padding: 17px; }
+  .allConceptsCtaAction { width: 100%; }
+}
