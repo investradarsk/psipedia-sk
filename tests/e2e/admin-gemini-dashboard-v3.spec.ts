@@ -166,3 +166,121 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
 });
+
+
+test("AdminShell V3 navigation and canonical Gemini concept editor integrate without writes", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 });
+
+  const draftId = "00000000-0000-4000-8000-000000000001";
+  const fixture = {
+    id: draftId,
+    name: "E2E veterinárna ambulancia",
+    reviewState: "NEW",
+    canonicalVerified: false,
+    psipediaId: "",
+    category: "veterinari",
+    city: "Nitra",
+    address: "",
+    region: "Nitriansky kraj",
+    phone: "",
+    email: "",
+    website: "",
+    logoUrl: "",
+    imageUrl: "",
+    summary: "Neverejný testovací koncept.",
+    description: "",
+    services: "",
+    source: "",
+    editorialState: "Koncept",
+    psipediaStatus: "Koncept",
+    createdAt: "2026-10-17T12:00:00Z",
+    lastEditedAt: "2026-10-17T12:00:00Z",
+    slug: "",
+    district: "Nitra",
+    postalCode: "",
+    street: "",
+    houseNumber: "",
+    addressFormat: "",
+    qualifications: "",
+    priceNote: "",
+    facebook: "",
+    instagram: "",
+    internalEmail: "",
+    imageKey: "",
+    verified: false,
+    featured: false,
+    qualityResolutions: {},
+    syncError: "",
+    rejectionReason: "",
+    notes: "",
+    notionUrl: "",
+    seo: {
+      title: "", description: "", focusKeyword: "", canonicalUrl: "",
+      ogTitle: "", ogDescription: "", ogImage: "", noindex: true,
+    },
+  };
+  let listCalls = 0;
+  let detailCalls = 0;
+  let writes = 0;
+  await page.route(/\/api\/admin\/gemini-automation\/notion-drafts(?:\?|\/)/, async (route) => {
+    const request = route.request();
+    if (request.method() !== "GET") {
+      writes++;
+      await route.abort();
+      return;
+    }
+    if (new URL(request.url()).pathname.endsWith("/" + draftId)) {
+      detailCalls++;
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ draft: fixture }) });
+    } else {
+      listCalls++;
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ drafts: [fixture] }) });
+    }
+  });
+  await page.route("**/api/admin/gemini-automation/run", route => {
+    if (route.request().method() === "POST") writes++;
+    return route.abort();
+  });
+
+  await page.goto("/admin/automatizacie-gemini", { waitUntil: "domcontentloaded" });
+  if (mobile) {
+    const menu = page.getByRole("button", { name: "Menu", exact: true });
+    await expect(menu).toBeVisible();
+    await menu.click();
+    const drawer = page.getByRole("dialog", { name: "Navigácia administrácie" });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole("link", { name: "Automatizácie Gemini" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(drawer).not.toBeVisible();
+    await expect(menu).toBeFocused();
+  } else {
+    await expect(page.getByRole("navigation", { name: "Redakčné moduly" }).first()).toBeVisible();
+    await expect(page.locator('[data-admin-sidebar] [aria-current="page"]')).toContainText("Automatizácie Gemini");
+  }
+
+  const category = page.getByRole("combobox", { name: "Kategória", exact: true });
+  await category.selectOption("directory.veterinari");
+  const conceptPanel = page.getByRole("button", { name: /Koncepty z automatizácie/ });
+  await conceptPanel.click();
+  await expect(page.getByRole("textbox", { name: /Hľadať koncept v načítaných záznamoch/ })).toBeVisible();
+  expect(listCalls).toBe(1);
+
+  const search = page.getByRole("textbox", { name: /Hľadať koncept v načítaných záznamoch/ });
+  await search.fill("e2e veterinárna");
+  await expect(page.getByText("E2E veterinárna ambulancia")).toBeVisible();
+  await search.fill("nezodpovedajúci dotaz");
+  await expect(page.getByText(/Žiadny načítaný koncept nezodpovedá/)).toBeVisible();
+  await search.fill("");
+  await page.getByRole("combobox", { name: "Stav konceptu" }).selectOption("NEW");
+  expect(listCalls).toBe(1);
+
+  const edit = page.getByRole("button", { name: "Upraviť", exact: true });
+  await edit.click();
+  await expect(page.getByRole("dialog", { name: /Upraviť koncept – E2E veterinárna ambulancia/ })).toBeVisible();
+  expect(detailCalls).toBe(1);
+  expect(writes).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
