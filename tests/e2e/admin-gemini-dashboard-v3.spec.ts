@@ -246,6 +246,7 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
   });
 
   await page.goto("/admin/automatizacie-gemini", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("[data-admin-sidebar]")).toHaveAttribute("data-admin-hydrated", "true");
   if (mobile) {
     const menu = page.getByRole("button", { name: "Menu", exact: true });
     await expect(menu).toBeVisible();
@@ -265,10 +266,10 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
   await category.selectOption("directory.veterinari");
   const conceptPanel = page.getByRole("button", { name: /Koncepty z automatizácie/ });
   await conceptPanel.click();
-  await expect(page.getByRole("textbox", { name: /Hľadať koncept v načítaných záznamoch/ })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: /Hľadať koncept v načítaných záznamoch/ })).toBeVisible();
   expect(listCalls).toBe(1);
 
-  const search = page.getByRole("textbox", { name: /Hľadať koncept v načítaných záznamoch/ });
+  const search = page.getByRole("searchbox", { name: /Hľadať koncept v načítaných záznamoch/ });
   await search.fill("e2e veterinárna");
   await expect(page.getByText("E2E veterinárna ambulancia")).toBeVisible();
   await search.fill("nezodpovedajúci dotaz");
