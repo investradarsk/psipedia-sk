@@ -1,8 +1,46 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
+
+async function verifyCompactLayout(page: Page, width: number) {
+  const mobile = width <= 760;
+  const h1 = page.getByRole("heading", { name: "Automatizácie Gemini", exact: true });
+  const heading = page.locator(".admin-heading");
+  const metrics = page.getByLabel("Súhrn Gemini automatizácií");
+  const history = page.getByRole("heading", { name: "História behov" }).locator("xpath=../..");
+  const category = page.getByRole("combobox", { name: "Kategória", exact: true });
+  const computed = await h1.evaluate(element => ({
+    size: getComputedStyle(element).fontSize,
+    family: getComputedStyle(element).fontFamily,
+  }));
+  expect(computed.size).toBe(mobile ? "24px" : "32px");
+  expect(computed.family).not.toMatch(/Georgia|Times New Roman/i);
+  expect(await heading.evaluate(element => getComputedStyle(element).paddingBottom))
+    .toBe(mobile ? "8px" : "12px");
+  const gap = mobile && width <= 540 ? "10px" : "12px";
+  expect(await metrics.evaluate(element => getComputedStyle(element).gap)).toBe(gap);
+  expect(await history.evaluate(element => getComputedStyle(element).paddingTop))
+    .toBe(mobile ? "12px" : "14px");
+  await expect(page.getByRole("link", { name: /Prompty kategórií/ })).toBeVisible();
+  if (mobile) {
+    const controlHeight = await category.evaluate(element => element.getBoundingClientRect().height);
+    expect(controlHeight).toBeGreaterThanOrEqual(44);
+    const minTapSize = await page.getByRole("button", { name: "Zaradiť vyhľadávanie", exact: true })
+      .evaluate(element => element.getBoundingClientRect().height);
+    expect(minTapSize).toBeGreaterThanOrEqual(44);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const serious = accessibility.violations.filter(item =>
+    item.impact === "critical" || item.impact === "serious");
+  expect(serious, serious.map(item => item.id + ": " + item.help).join("; ")).toEqual([]);
+}
 
 // Isolated local Cloudflare D1, preview-only admin identity, no provider credentials.
 // The test NEVER confirms a paid action or issues the Gemini POST.
@@ -34,6 +72,11 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
     "href", /stable_key=directory\.veterinari/,
   );
   await expect(page.getByRole("button", { name: /Koncepty z automatizácie/ })).toBeVisible();
+  await verifyCompactLayout(page, mobile ? 390 : 1440);
+  await category.focus();
+  await expect(category).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(category).not.toBeFocused();
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({
@@ -69,6 +112,7 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(page.getByRole("heading", { name: "Automatizácie Gemini", exact: true })).toBeVisible();
+    await verifyCompactLayout(page, 320);
     await page.screenshot({
       path: ".e2e-artifacts/gemini-dashboard-v3/mobile-320.png",
       fullPage: true,
