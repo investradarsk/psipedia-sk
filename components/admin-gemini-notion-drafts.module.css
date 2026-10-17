@@ -16,11 +16,15 @@
   font: inherit; font-weight: 700; padding: 9px 12px; cursor: pointer;
 }
 .manager button:disabled { opacity: .52; cursor: not-allowed; }
-.manager :is(button, a, select):focus-visible, .editorDialog :is(button, a):focus-visible {
+.manager :is(button, a, select, input):focus-visible, .editorDialog :is(button, a):focus-visible {
   outline: 3px solid #d9a342; outline-offset: 3px;
 }
 .body { display: grid; gap: 12px; padding-top: 14px; }
 .stats { color: #587063; font-size: .82rem; line-height: 1.5; margin: 0; }
+.filterBar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; min-width: 0; }
+.search { display: grid; gap: 5px; flex: 1 1 240px; min-width: 0; color: #355547; font-size: .83rem; font-weight: 700; }
+.search input { width: 100%; min-width: 0; padding: 10px 12px; font: inherit; font-weight: 500; color: #122d21; border: 1px solid #cbdcd1; background: #fff; border-radius: 9px; }
+.resultCount { margin: 0; font-size: .82rem; color: #395d4c; font-weight: 650; }
 .filter { display: grid; gap: 5px; color: #355547; font-weight: 700; font-size: .83rem; width: min(280px, 100%); }
 .filter select {
   background: #fff; color: #122d21; border: 1px solid #cbdcd1;
@@ -97,3 +101,9 @@
 }
 
 .editorSurface[data-dirty="true"] .dirtyWarning { display: block; }
+
+@media (max-width: 620px) {
+  .filterBar { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .filter { width: 100%; }
+  .search { width: 100%; }
+}
