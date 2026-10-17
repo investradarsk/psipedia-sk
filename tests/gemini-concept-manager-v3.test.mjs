@@ -4,7 +4,7 @@ import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { geminiAgendaForKey } from "../lib/gemini-notion-agenda-review.ts";
 import {
   geminiCanonicalEditorUrl, geminiCanRejectConcept,
-  geminiSupportsRejectionReason, geminiConceptDate,
+  geminiSupportsRejectionReason, geminiConceptDate, geminiConceptMatchesSearch,
 } from "../lib/gemini-concept-manager.ts";
 
 const canonicalAdminRoute = {
@@ -59,4 +59,18 @@ test("concept date displays missing/invalid values without crashing", () => {
   assert.equal(geminiConceptDate(""), "—");
   assert.equal(geminiConceptDate("not-a-date"), "—");
   assert.match(geminiConceptDate("2026-10-17T10:51:00.000Z"), /2026/);
+});
+
+test("loaded-only search matches Slovak names and cities, case/diacritic insensitive", () => {
+  const drafts = [
+    { name: "Veterinárna klinika Žilina", city: "Žilina" },
+    { name: "Chovateľská stanica", city: "Nové Zámky" },
+    { name: "Psí salón", city: "" },
+  ];
+  assert.deepEqual(drafts.filter(d => geminiConceptMatchesSearch(d, "ZILINA")), [drafts[0]]);
+  assert.deepEqual(drafts.filter(d => geminiConceptMatchesSearch(d, "zamky")), [drafts[1]]);
+  assert.deepEqual(drafts.filter(d => geminiConceptMatchesSearch(d, "  psí SALON ")), [drafts[2]]);
+  assert.equal(drafts.filter(d => geminiConceptMatchesSearch(d, "nenájdený")).length, 0);
+  assert.deepEqual(drafts.filter(d => geminiConceptMatchesSearch(d, "  ")), drafts);
+  assert.equal(geminiConceptMatchesSearch({ name: "Test" }, "Žilina"), false);
 });
