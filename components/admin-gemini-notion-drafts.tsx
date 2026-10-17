@@ -246,7 +246,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
               {!visible.length && <p className={styles.note}>
                 {search.trim() ? "Žiadny načítaný koncept nezodpovedá hľadanému názvu alebo lokalite a zvolenému stavu."
                   : "Tomuto filtru stavu nezodpovedá žiadny načítaný koncept."}
-              </p>
+              </p>}
               <ul className={styles.list}>
                 {visible.map(draft => {
                   const editorUrl = geminiCanonicalEditorUrl(draft);
