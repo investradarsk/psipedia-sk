@@ -240,7 +240,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
                             <p>{draft.geminiNote}</p>
                           </aside>
                         )}
-                        {!editorUrl && <span className={styles.availability}>Zatiaľ iba koncept v Notione</span>}
+                        {!editorUrl && <span className={styles.availability}>{draft.psipediaId ? "D1 identita zatiaľ nepotvrdená – odkaz je pozastavený" : "Zatiaľ iba koncept v Notione"}</span>}
                         {canReject && !reasonSupported &&
                           <span className={styles.availability}>
                             Dôvod odmietnutia sa pre tento typ zatiaľ neukladá. Dostupné je existujúce odmietnutie v editore.
@@ -286,7 +286,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
           onChangeCapture={() => setDirty(true)}>
           {dirty && <p role="status" className={styles.dirtyWarning}>Máš rozpracované úpravy. Pred zatvorením ich ulož.</p>}
           {selectedDraft && !canonicalUrl &&
-            <p className={styles.dialogLead}>Zatiaľ iba koncept v Notione. Úpravy zostávajú neverejné do výslovného schválenia.</p>}
+            <p className={styles.dialogLead}>Notion koncept nemá overenú canonical D1 identitu. Úpravy zostávajú neverejné do výslovného schválenia.</p>}
           {selectedDraft?.geminiNote &&
             <aside className={styles.extra} aria-label="Gemini poznámka">
               <strong>Gemini poznámka</strong><p>{selectedDraft.geminiNote}</p>
