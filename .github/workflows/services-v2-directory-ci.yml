@@ -52,7 +52,7 @@ jobs:
         run: npm run build
 
   visual:
-    if: github.head_ref == 'feat/services-v2-directory-unified-layout'
+    if: github.head_ref == 'feat/services-v2-directory-unified-layout' || github.head_ref == 'services-v2-public-filters-final'
     needs: contracts
     runs-on: ubuntu-latest
     timeout-minutes: 35

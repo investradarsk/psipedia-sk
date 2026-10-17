@@ -41,7 +41,7 @@ test("SERVICES-V2 desktop/mobile matrix uses one search, accessible categories a
         await expect(page.locator('form[data-public-search-form="services"] input[name="q"]')).toHaveCount(1);
         await expect(page.locator("[data-directory-category-navigation] [data-public-subcategory-item]")).toHaveCount(11);
         await expect(page.locator("[data-directory-columns]")).toBeVisible();
-        await expect(page.locator("[data-directory-filter-form]")).toHaveCount(1);
+        await expect(page.locator("[data-directory-filter-form]")).toHaveCount(2);
         await expect(page.locator("[data-directory-results]")).toBeVisible();
         await expect(page.locator("[data-directory-map-cta] a")).toHaveAttribute("href", /\/mapa\?category=services/);
         await expect(page.locator("[data-directory-provider-cta] a")).toHaveAttribute("href", "/o-nas#kontakt");
@@ -123,8 +123,62 @@ test("SERVICES-V2 all ten canonical service categories share the same public lay
     await expect(page.locator("[data-unified-section-hero]")).toHaveAttribute("data-section-visual-key", "directory." + slug);
     await expect(page.locator("[data-directory-results]")).toBeVisible();
     await expect(page.locator('[data-directory-category-navigation] [aria-current="page"]')).toHaveCount(1);
-    await expect(page.locator("[data-directory-filter-form]")).toHaveCount(1);
+    await expect(page.locator("[data-directory-filter-form]")).toHaveCount(2);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth), route + " mobile overflow")
       .toBeLessThanOrEqual(391);
+  }
+});
+
+
+test("SERVICES-V2 approved hybrid: desktop sidebar and mobile modal, facets, map and accessibility", async ({ browser }) => {
+  test.setTimeout(5 * 60 * 1000);
+  mkdirSync(artifactDir, { recursive: true });
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 720 }]) {
+    const context = await browser.newContext({ viewport, baseURL: process.env.E2E_BASE_URL });
+    const page = await context.newPage();
+    try {
+      await open(page, "/adresar/veterinari");
+      const desktopForm = page.locator('[data-directory-filter-form][data-directory-modal="false"]');
+      const mobileToolbar = page.locator("[data-directory-mobile-filters]");
+      if (viewport.width > 820) {
+        await expect(desktopForm).toBeVisible();
+        await expect(mobileToolbar).toBeHidden();
+        await expect(desktopForm.locator('[name="f.veterinari.emergency"]')).toBeVisible();
+        await page.screenshot({ path: join(artifactDir, "hybrid-desktop-1440.png"), fullPage: true });
+      } else {
+        await expect(desktopForm).toBeHidden();
+        await expect(mobileToolbar.locator('button[aria-haspopup="dialog"]')).toBeVisible();
+        await expect(mobileToolbar.locator('a[href*="/mapa?"]')).toBeVisible();
+        await mobileToolbar.locator("button").click();
+        const dialog = page.locator("#directory-filter-dialog");
+        await expect(dialog).toBeVisible();
+        await expect(dialog.locator('[name="f.veterinari.emergency"]')).toBeVisible();
+        await expect(dialog.locator('[name="f.veterinari.facility_type"]')).toBeVisible();
+        await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-dialog.png`), fullPage: true });
+        const axe = await new AxeBuilder({ page }).include("#directory-filter-dialog").analyze();
+        expect(axe.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
+        await dialog.locator('[name="f.veterinari.emergency"]').selectOption("yes");
+        await Promise.all([
+          page.waitForURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("f.veterinari.emergency") === "yes"),
+          dialog.locator('button[type="submit"]').click(),
+        ]);
+        await expect(page.locator('[data-directory-active-filters]')).toBeVisible();
+        await expect(page.locator('[data-directory-map-cta] a')).toHaveAttribute("href", /f\.veterinari\.emergency=yes/);
+        await expect(page.locator("[data-directory-results]")).toBeVisible();
+        await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-results.png`), fullPage: true });
+        const remove = page.locator('[data-directory-active-filters] a[aria-label*="Pohotovosť"]');
+        await expect(remove).toBeVisible();
+        await remove.click();
+        await expect(page).not.toHaveURL(/f\.veterinari\.emergency=yes/);
+        // Native dialog must be dismissed with Escape and return focus to trigger.
+        await mobileToolbar.locator("button").click();
+        await expect(dialog).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toBeHidden();
+        await expect(mobileToolbar.locator("button")).toBeFocused();
+      }
+      const size = await page.evaluate(() => ({ screen: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+      expect(size.scroll).toBeLessThanOrEqual(size.screen + 1);
+    } finally { await context.close(); }
   }
 });
