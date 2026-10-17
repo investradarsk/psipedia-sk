@@ -184,3 +184,9 @@
 @media (max-width: 350px) {
   .metrics, .dashboard .fields, .dashboard .timestamps { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+.promptPreview { border: 1px solid #e6eee7; border-radius: 8px; padding: 9px 11px; background: #f9fbfa; }
+.promptPreview summary { font-size: .79rem; font-weight: 700; color: #236044; cursor: pointer; }
+.promptPreview button { margin-top: 9px; padding: 7px 10px; border: 1px solid #cadacb; border-radius: 7px; background: #f0f6f0; color: #195339; font: inherit; font-size: .77rem; cursor: pointer; }
+.promptPreview p { font-size: .76rem; line-height: 1.55; overflow-wrap: anywhere; margin: 9px 0 0; color: #546f5d; }
