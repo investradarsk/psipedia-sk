@@ -36,6 +36,7 @@ function mapHref(filters: DirectoryFilters, category?: DirectoryCategorySlug) {
     district: filters.district,
     city: filters.city,
     search: filters.query,
+    facets: filters.facets,
   });
   return "/mapa?" + params.toString();
 }
@@ -112,6 +113,7 @@ export async function DirectoryPage({
                   options={result.options}
                   basePath={basePath}
                   category={active?.slug}
+                  mapHref={mapHref(filters, active?.slug)}
                 />
               </aside>
 

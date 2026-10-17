@@ -8,6 +8,13 @@ on:
       - "components/directory-**"
       - "components/section-hero-search.tsx"
       - "lib/directory-query.ts"
+      - "lib/directory-store.ts"
+      - "lib/directory-public-filters.ts"
+      - "lib/map-public-ui.ts"
+      - "lib/map-contract.ts"
+      - "lib/map-query.ts"
+      - "components/map/map-experience.tsx"
+      - "tests/directory-public-filters.test.mjs"
       - "tests/directory-unified-layout.test.mjs"
       - "tests/e2e/directory-unified-layout.spec.ts"
       - "tests/public-landing-alignment.test.mjs"
@@ -23,7 +30,7 @@ concurrency:
 
 jobs:
   contracts:
-    if: github.head_ref == 'feat/services-v2-directory-unified-layout'
+    if: github.head_ref == 'feat/services-v2-directory-unified-layout' || github.head_ref == 'services-v2-public-filters-final'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -35,7 +42,8 @@ jobs:
       - run: npm ci
       - name: Focused directory and URL contracts
         run: |
-          node --experimental-strip-types --test tests/directory-unified-layout.test.mjs
+          node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-unified-layout.test.mjs tests/directory-public-filters.test.mjs
+          node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs
           npm run test:public-landing-alignment
           npm run test:unified-section-hero
           npm run test:map-public-ui
@@ -45,7 +53,7 @@ jobs:
         run: npm run build
 
   visual:
-    if: github.head_ref == 'feat/services-v2-directory-unified-layout'
+    if: github.head_ref == 'feat/services-v2-directory-unified-layout' || github.head_ref == 'services-v2-public-filters-final'
     needs: contracts
     runs-on: ubuntu-latest
     timeout-minutes: 35

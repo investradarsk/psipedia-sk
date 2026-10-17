@@ -5,6 +5,7 @@ import {
   parseDirectoryFacetValues,
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
+import { parsePublicDirectoryFacets, directoryPublicFacetSql, type DirectoryPublicFacets } from "@/lib/directory-public-filters";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
@@ -263,6 +264,7 @@ export type DirectoryFilters = {
   fciGroup: string;
   organization: string;
   profileType: string;
+  facets?: DirectoryPublicFacets;
   sort: DirectorySort;
   page: number;
 };
@@ -291,7 +293,7 @@ function firstParam(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
 }
 
-export function parseDirectoryFilters(params: DirectorySearchParams): DirectoryFilters {
+export function parseDirectoryFilters(params: DirectorySearchParams, pathCategory?: DirectoryCategorySlug): DirectoryFilters {
   const rawSort = firstParam(params.sort);
   const rawCategory = firstParam(params.category);
   const sort: DirectorySort = ["recommended", "name-asc", "name-desc", "newest"].includes(rawSort) ? rawSort as DirectorySort : "recommended";
@@ -306,6 +308,7 @@ export function parseDirectoryFilters(params: DirectorySearchParams): DirectoryF
     fciGroup: firstParam(params.fci).slice(0, 80),
     organization: firstParam(params.organization).slice(0, 160),
     profileType: firstParam(params.type).slice(0, 160),
+    facets: parsePublicDirectoryFacets(params, pathCategory ?? (isDirectoryCategory(rawCategory) ? rawCategory : "")),
     sort,
     page: Math.max(1, Number.parseInt(firstParam(params.page) || "1", 10) || 1),
   };
@@ -983,6 +986,9 @@ export async function listPublishedDirectoryProfiles(options: {
   addSourceFacet(options.filters.fciGroup, DIRECTORY_SOURCE_FACETS.fciGroup);
   addSourceFacet(options.filters.organization, DIRECTORY_SOURCE_FACETS.organization);
   addSourceFacet(options.filters.profileType, DIRECTORY_SOURCE_FACETS.profileType);
+  const publicFacets = directoryPublicFacetSql(category ?? "", options.filters.facets);
+  baseClauses.push(...publicFacets.clauses);
+  baseBindings.push(...publicFacets.bindings);
 
   // The three location options share the active non-location WHERE, but
   // their cascading region/district scopes remain independent.
