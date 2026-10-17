@@ -3,7 +3,7 @@
  * A caller MUST first enforce trusted Admin authorization and the rollout gates.
  * No Notion mutations, public projections, implicit changes or free-text inference.
  */
-import {serviceCatalog,attributeCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {serviceCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import {validateCatalogOptionDraft,type CatalogOptionDraft} from "./service-option-governance-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
 
