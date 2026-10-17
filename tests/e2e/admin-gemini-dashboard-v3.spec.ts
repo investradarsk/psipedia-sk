@@ -18,7 +18,7 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
   expect(response?.status()).toBeLessThan(400);
 
   await expect(page.getByRole("heading", { name: "Automatizácie Gemini", exact: true })).toBeVisible();
-  const category = page.getByLabel("Kategória", { exact: true });
+  const category = page.getByRole("combobox", { name: "Kategória", exact: true });
   await expect(category.locator("option")).toHaveCount(22);
   await expect(page.getByRole("heading", { name: "História behov" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Koncepty z automatizácie" })).toBeVisible();
@@ -51,7 +51,7 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
   await page.getByRole("button", { name: "Zrušiť", exact: true }).click();
 
   // Unsaved settings require an explicit cancellation/approval before category unmount.
-  const maximum = page.getByLabel("Max. nových konceptov");
+  const maximum = page.getByRole("spinbutton", { name: "Max. nových konceptov" });
   const previous = await maximum.inputValue();
   await maximum.fill(previous === "2" ? "3" : "2");
   page.once("dialog", async (dialog) => {
