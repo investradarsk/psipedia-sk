@@ -94,7 +94,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
       }
       if (revision === loadRevision.current) {
         setDrafts(json.drafts);
-        setLoadedCategory(requestCategory);
+        setLoadedCategory(stableKey);
         setLoaded(true);
       }
     } catch (cause) {
