@@ -39,14 +39,22 @@ test("dashboard uses real D1 run/queue data and does not invent draft counts", (
   assert.match(workspace, /timeZone: "Europe\/Bratislava"/);
 });
 
-test("draft search is opt-in; existing draft editor and approval remain canonical", () => {
-  assert.match(workspace, /function GeminiConceptLookup/);
-  assert.match(workspace, /onClick=\{\(\) => void load\(\)\}/);
-  assert.match(workspace, /<AdminGeminiNotionDrafts key=\{selected\.stableKey\}/);
+test("one opt-in canonical Notion review panel handles drafts without duplicate GETs", () => {
+  assert.equal((workspace.match(/<AdminGeminiNotionDrafts\b/g) ?? []).length, 1);
+  assert.match(workspace, /<AdminGeminiNotionDrafts key=\{selected\.stableKey\} stableKey=\{selected\.stableKey\}/);
+  assert.doesNotMatch(workspace, /GeminiConceptLookup/);
+  assert.doesNotMatch(workspace, /\/api\/admin\/gemini-automation\/notion-drafts\?/);
+  assert.match(canonicalDrafts, /GeminiReviewState/);
   assert.match(canonicalDrafts, /<AdminModalDialog/);
   assert.match(canonicalDrafts, /<AdminDirectoryEditor/);
   assert.match(canonicalDrafts, /<AdminGeminiAgendaDraftEditor/);
-  assert.doesNotMatch(workspace, /\/api\/admin\/gemini-automation\/notion-drafts\/" \+ encodeURIComponent\(draft\.id\)/);
+  assert.match(workspace, /window\.confirm\("Máš neuložené nastavenia/);
+});
+
+test("settings polling never writes synchronous effect-derived state", () => {
+  assert.doesNotMatch(workspace, /setLiveSettings\(settings\)/);
+  assert.doesNotMatch(workspace, /setDrafts\(null\)/);
+  assert.match(workspace, /setRemote\(\(previous\) =>/);
 });
 
 test("dashboard is responsive with accessible compact panels, no 960px grid requirement", () => {
