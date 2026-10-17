@@ -153,3 +153,47 @@ test("Notion import preserves newer manual admin edits without re-approving publ
     });
   }finally{f.close();}
 });
+
+test("admin-authority keeps Notion-origin approvals as drafts until Psipedia admin approves",async()=>{
+  const f=fixture(),page=notionPage(true);
+  const authoritative={...bindings,BUCKET:f.bucket,
+    NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED:"true"};
+  try {
+    await mockedNotion(page,async calls=>{
+      const imported=await runNotionFacebookImagesSync({
+        database:f.db,bindings:authoritative,now:time,
+      });
+      assert.equal(imported.adminExport.enabled,true);
+      assert.equal(imported.created,1);
+      assert.equal(imported.failed,0);
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().scheduled_at,null);
+      assert.equal(f.get().approval_status,"UNREVIEWED");
+      const noPublish=await runFacebookImagePublishSweep({
+        db:f.db,now:time,
+        bindings:{FB_PAGE_ID:"1172082959332114",
+          FB_PAGE_ACCESS_TOKEN:"FAKE_FAKE_FAKE_FAKE_FAKE_TOKEN",
+          FACEBOOK_IMAGE_PUBLISH_ENABLED:"true"},
+        fetcher:async()=>{throw Error("Notion approval must never trigger Meta publication in admin-authority mode");},
+      });
+      assert.equal(noPublish.claimed,0);
+      const stable=await runNotionFacebookImagesSync({database:f.db,bindings:authoritative,now:time});
+      assert.equal(stable.unchanged,1);
+      assert.equal(f.objects.size,1);
+      // Manual admin edit is authoritative: exporter updates existing Notion identity,
+      // while the same Notion approval must not undo the admin change.
+      f.sqlite.prepare("UPDATE facebook_image_posts SET caption=?,version=version+1,updated_by=? WHERE notion_page_id=?")
+        .run("Nová verzia schválená v administrácii","editor@psipedia.sk",pageId);
+      const afterAdmin=await runNotionFacebookImagesSync({
+        database:f.db,bindings:authoritative,now:time,
+      });
+      assert.equal(afterAdmin.adminExport.updated,1);
+      assert.equal(afterAdmin.updated,0);
+      assert.equal(f.get().caption,"Nová verzia schválená v administrácii");
+      assert.equal(f.get().approval_status,"UNREVIEWED");
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(calls.filter(c=>c.url.includes("/pages/")&&c.method==="PATCH").length,1);
+    });
+  }finally{f.close();}
+});
