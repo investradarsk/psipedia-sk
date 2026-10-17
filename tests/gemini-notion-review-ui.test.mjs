@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { chromium } from '@playwright/test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,7 +14,8 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
     await build({ stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client';
       import {AdminGeminiNotionDrafts} from './components/admin-gemini-notion-drafts';
       import './app/admin/admin-workspace.css'; import './app/admin/admin-legacy-scoped.css';
-      createRoot(document.getElementById('root')).render(<AdminGeminiNotionDrafts stableKey="directory.veterinari"/>);`,
+      const category = new URLSearchParams(location.search).get('category') ?? 'directory.veterinari';
+      createRoot(document.getElementById('root')).render(<AdminGeminiNotionDrafts stableKey={category}/>);`,
       loader: 'tsx', resolveDir: process.cwd() }, bundle: true, outfile: join(dir, 'app.js'), jsx: 'automatic',
       define: { 'process.env.NODE_ENV': '"production"' },
       plugins: [{ name: 'next-link-fixture', setup(b) {
@@ -25,7 +26,9 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
     const js = await readFile(join(dir, 'app.js'), 'utf8');
     const css = await readFile(join(dir, 'app.css'), 'utf8');
     browser = await chromium.launch({ headless: true, ...(process.env.GEMINI_TEST_CHROMIUM ? { executablePath: process.env.GEMINI_TEST_CHROMIUM, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--disable-gpu-sandbox', '--no-zygote'] } : {}) });
-    for (const width of [390, 1280]) {
+    const shotDir = process.env.GEMINI_TEST_SCREENSHOTS;
+    if (shotDir) await mkdir(shotDir, { recursive: true });
+    for (const width of [320, 390, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       let draft = { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', name: 'Test veterinár', category: 'veterinari',
@@ -50,7 +53,9 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       await page.goto('https://fixture.test/');
       await page.getByRole('button', { name: 'Koncepty z automatizácie' }).click();
       await page.getByLabel('Gemini poznámka', { exact: true }).first().waitFor({ state: 'visible' });
+      if (shotDir) await page.screenshot({ path: join(shotDir, `01-directory-list-${width}.png`), fullPage: true });
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
+      if (shotDir) await page.screenshot({ path: join(shotDir, `02-directory-modal-${width}.png`) });
       await page.getByRole('button', { name: 'Odmietnuť koncept', exact: true }).click();
       assert.equal(writes.length, 0, 'opening and confirmation do not write');
       await page.getByLabel('Dôvod odmietnutia (voliteľný)').fill('Mimo kategórie');
@@ -58,6 +63,7 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       await page.getByLabel('Stav konceptu').selectOption('REJECTED');
       try {
         await page.getByText('Dôvod: Mimo kategórie').waitFor({ timeout: 8000 });
+        if (shotDir) await page.screenshot({ path: join(shotDir, `03-directory-rejected-${width}.png`) });
       } catch (error) {
         // Print actionable fixture state instead of waiting 30 seconds on a
         // silent mismatch between Notion update and the visible review list.
@@ -85,7 +91,48 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       assert.equal(overflow, false, `no horizontal page overflow at ${width}`);
       assert.deepEqual(writes.map(x => x.body.action), ['reject', 'restore', undefined]);
       assert.deepEqual(errors, []);
-      if (process.env.GEMINI_TEST_SCREENSHOTS) await page.screenshot({ path: join(process.env.GEMINI_TEST_SCREENSHOTS, `gemini-review-${width}.png`) });
+
+      await page.close();
+    }
+    for (const width of [320, 390, 1440]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const draft = {
+        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        name: 'Výstava psov Nitra', agenda: 'events', stableKey: 'events.vystavy',
+        city: 'Nitra', reviewState: 'IMPORTED', psipediaId: '321',
+        canonicalVerified: true, lastEditedAt: '2026-10-17T10:00:00Z',
+        geminiNote: 'Testovacie údaje', fields: [], reviewAvailable: true,
+      };
+      const writes = [];
+      await page.route('**/*', async route => {
+        const url = new URL(route.request().url());
+        if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body:
+          `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;padding:12px}${css}</style></head><body class="admin-body"><div class="admin-workspace" id="root"></div><script>${js}</script></body></html>` });
+        if (url.pathname === '/api/admin/gemini-automation/notion-drafts') {
+          return route.fulfill({ json: { drafts: [draft] } });
+        }
+        if (url.pathname.startsWith('/api/admin/gemini-automation/notion-drafts/')) {
+          writes.push(route.request().method());
+          return route.fulfill({ status: 500, json: { error: 'Imported agenda must not enter Notion-only editor' } });
+        }
+        if (url.pathname === '/admin/podujatia/321') {
+          return route.fulfill({ contentType: 'text/html', body: '<h1>Canonical podujatie #321 — testovacia route</h1>' });
+        }
+        return route.fulfill({ status: 404, body: 'Unexpected fixture URL: ' + url.pathname });
+      });
+      await page.goto('https://fixture.test/?category=events.vystavy');
+      await page.getByRole('button', { name: 'Koncepty z automatizácie' }).click();
+      const editor = page.getByRole('link', { name: 'Upraviť v sekcii' });
+      await editor.waitFor();
+      assert.equal(await editor.getAttribute('href'), '/admin/podujatia/321');
+      assert.equal(await page.locator('iframe').count(), 0, 'imported agenda never creates an admin iframe');
+      assert.equal(await page.getByRole('button', { name: 'Otvoriť editor' }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: 'Kôš' }).count(), 0);
+      assert.deepEqual(writes, [], 'listing/import link cannot mutate or open a second Notion editor');
+      if (shotDir) await page.screenshot({ path: join(shotDir, `04-imported-event-list-${width}.png`), fullPage: true });
+      await editor.click();
+      assert.equal(new URL(page.url()).pathname, '/admin/podujatia/321');
+      await page.getByText('Canonical podujatie #321').waitFor();
       await page.close();
     }
   } finally { await browser?.close(); await rm(dir, { recursive: true, force: true }); }
