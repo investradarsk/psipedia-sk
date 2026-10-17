@@ -143,7 +143,7 @@ test("SERVICES-V2 approved hybrid: desktop sidebar and mobile modal, facets, map
       if (viewport.width > 820) {
         await expect(desktopForm).toBeVisible();
         await expect(mobileToolbar).toBeHidden();
-        await expect(desktopForm.locator('[name="f.veterinari.emergency"]')).toBeVisible();
+        await expect(desktopForm.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
         await page.screenshot({ path: join(artifactDir, "hybrid-desktop-1440.png"), fullPage: true });
       } else {
         await expect(desktopForm).toBeHidden();
