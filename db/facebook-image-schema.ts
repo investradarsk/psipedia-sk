@@ -6,6 +6,8 @@ export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   scheduledAt:text("scheduled_at"),timeZone:text("time_zone").notNull().default("Europe/Bratislava"),status:text("status").notNull().default("draft"),version:integer("version").notNull().default(1),
   approvalStatus:text("approval_status").notNull().default("UNREVIEWED"),approvedAt:text("approved_at"),approvedBy:text("approved_by"),
   facebookPostId:text("facebook_post_id"),publishedAt:text("published_at"),notionPageId:text("notion_page_id"),syncHash:text("sync_hash"),
+  directPublishConsent:integer("direct_publish_consent").notNull().default(0),
+  directConsentAt:text("direct_consent_at"),directConsentBy:text("direct_consent_by"),
   createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),createdBy:text("created_by").notNull(),updatedBy:text("updated_by").notNull(),
 },t=>[
   check("facebook_image_posts_status_check",sql`${t.status} IN ('draft','scheduled','published')`),
