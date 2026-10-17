@@ -367,8 +367,12 @@ test("all 12 trusted Events/Help categories refuse public, archived or rejected 
 test("all 22 mapped canonical IDs link to an existing native administration editor route", () => {
   const layout = readFileSync(
     new URL("../components/admin-gemini-notion-drafts.tsx", import.meta.url), "utf8");
-  assert.match(layout, /function canonicalEditorUrl\(draft:/);
-  assert.match(layout, /draft\.psipediaId/);
+  const routing = readFileSync(
+    new URL("../lib/gemini-concept-manager.ts", import.meta.url), "utf8");
+  assert.match(routing, /function geminiCanonicalEditorUrl\(draft:/);
+  assert.match(routing, /draft\.psipediaId/);
+  assert.match(routing, /draft\.canonicalVerified !== true/);
+  assert.match(layout, /geminiCanonicalEditorUrl/);
   const segments = {
     directory: "adresar",
     events: "podujatia",
@@ -378,7 +382,7 @@ test("all 22 mapped canonical IDs link to an existing native administration edit
     "lost-found": "stratene-najdene",
   };
   for (const [agenda, segment] of Object.entries(segments)) {
-    assert.ok(layout.includes(agenda === "directory" ? ': "adresar"' : segment),
+    assert.ok(routing.includes(agenda === "directory" ? ': "adresar"' : segment),
       agenda + " must be routed to its native editor");
     assert.equal(existsSync(new URL("../app/admin/" + segment + "/[id]/page.tsx", import.meta.url)),
       true, "missing canonical editor: " + agenda);
