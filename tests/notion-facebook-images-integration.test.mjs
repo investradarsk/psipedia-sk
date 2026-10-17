@@ -126,3 +126,30 @@ test("published D1 record writes back to Notion once and cannot reimport",async(
     });
   }finally{f.close();}
 });
+
+test("Notion import preserves newer manual admin edits without re-approving publication",async()=>{
+  const f=fixture(),page=notionPage(true);
+  try {
+    await mockedNotion(page,async()=>{
+      const first=await runNotionFacebookImagesSync({
+        database:f.db,bindings:{...bindings,BUCKET:f.bucket},now:time,
+      });
+      assert.equal(first.created,1);
+      const oldHash=f.get().sync_hash;
+      f.sqlite.prepare("UPDATE facebook_image_posts SET caption=?,approval_status='UNREVIEWED',version=version+1,updated_by=? WHERE notion_page_id=?")
+        .run("Novší text z administrácie","editor@psipedia.sk",pageId);
+      page.properties["Text na Facebook"].rich_text=[{plain_text:"Staršia verzia v Notione"}];
+      const imported=await runNotionFacebookImagesSync({
+        database:f.db,bindings:{...bindings,BUCKET:f.bucket},now:time,
+      });
+      assert.equal(imported.updated,0);
+      assert.equal(imported.unchanged,1);
+      assert.equal(imported.failed,0);
+      assert.equal(f.get().caption,"Novší text z administrácie");
+      assert.equal(f.get().approval_status,"UNREVIEWED");
+      assert.equal(f.get().updated_by,"editor@psipedia.sk");
+      assert.equal(f.get().sync_hash,oldHash);
+      assert.equal(f.objects.size,1);
+    });
+  }finally{f.close();}
+});
