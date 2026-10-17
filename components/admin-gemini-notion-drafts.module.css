@@ -52,6 +52,8 @@
   appearance: none; border: 1px solid #0b4b34; border-radius: 9px;
   background: #06452f; color: #fff; font: inherit; font-weight: 700;
   cursor: pointer; padding: 9px 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center; text-decoration: none; font-size: .85rem; line-height: 1.3;
 }
 .actionLink {
   border: 1px solid #d2e0d6; border-radius: 9px; background: #fff;
@@ -72,9 +74,7 @@
 }
 .editorSurface { min-width: 0; }
 .dirtyWarning { padding: 8px 11px; background: #fff5dc; color: #704d18; border-radius: 8px; margin: 0 0 12px; font-size: .83rem; }
-.editorFrame { display: block; width: 100%; min-height: min(70dvh, 850px); border: 1px solid #d2e0d6; border-radius: 10px; background: #fff; }
 .dialogLead { color: #54685c; line-height: 1.45; font-size: .85rem; margin: 0 0 12px; }
-.dialogActions { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
 .rejectForm { display: grid; gap: 12px; }
 .rejectForm p { margin: 0; line-height: 1.55; }
 .rejectForm label { display: grid; gap: 7px; font-size: .86rem; font-weight: 700; }
@@ -94,7 +94,6 @@
     width: 100vw; max-width: 100vw; height: 100dvh;
     max-height: 100dvh; margin: 0; border: 0; border-radius: 0;
   }
-  .editorFrame { min-height: calc(100dvh - 210px); }
 }
 
 .editorSurface[data-dirty="true"] .dirtyWarning { display: block; }
