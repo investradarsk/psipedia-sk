@@ -12,7 +12,7 @@ import {
   UnifiedSectionHero,
   UnifiedSectionHeroShell,
 } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import type { HelpCategorySlug } from "@/lib/help";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./help-public.module.css";
@@ -148,13 +148,20 @@ export async function HelpOverview({
             title="Pomoc psom"
             intro="Adopcie, útulky, dočasná opatera, zbierky a stratené psy. Vyberte si kategóriu alebo hľadajte priamo."
             visual={heroVisual}
-            searchSlot={
-              <SectionHeroSearch
+            portalSearchSlot={
+              <HomePortalSearch
                 action="/hladat"
                 id="help-root-hero-query"
                 label="Hľadať v Pomoci psom"
+                panelLabel="Vyhľadávanie Pomoci psom"
+                eyebrow="ČO POTREBUJEŠ VYRIEŠIŤ?"
+                title="Nájdi pomoc pre psa"
                 placeholder="Hľadať psa, organizáciu alebo mesto…"
+                buttonLabel="Hľadať"
+                allowEmpty
                 hidden={[{ name: "sekcia", value: "pomoc-psom" }]}
+                shortcuts={[]}
+                searchScope="help"
               />
             }
             ctaSlot={
