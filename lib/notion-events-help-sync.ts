@@ -22,6 +22,7 @@ import {
   agendaEditableFields,
   applyNotionToCanonical,
   canonicalUpdatedAt,
+  hasCurrentGooglePlace,
   createCanonicalFromNotion,
   GEMINI_HELP_REVIEW_PROPERTY,
   helpCaseMayEnterCanonicalSync,
@@ -34,6 +35,7 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
+import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import {
   appendNotionReview,
   canClearResolvedNotionConflict,
@@ -54,6 +56,7 @@ import {
 export type NotionEventsHelpSyncBindings = NotionSyncBindings & {
   NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
+  NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED?: string;
 };
 
 export type NotionEventsHelpMode = "dry-run" | "bootstrap" | "sync";
@@ -906,6 +909,78 @@ async function syncAgenda(input: {
         notionHash,
         psipediaHash: canonicalHash,
       });
+
+      // Approved Events-only precedence (NOT applied to Help/Organizations).
+      // This reconciles actual two-sided changes and also prevents a later
+      // canonical-only edit from silently overwriting filled Notion editorial data.
+      // Retain identity/publication authority and the current Google Places lock.
+      if (input.definition.key === "events"
+        && decision.decision !== "UNCHANGED"
+        && notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED)) {
+        const confirmedGooglePlace = await hasCurrentGooglePlace(
+          input.database, "MANAGED_EVENT", entityId,
+        );
+        const desired = mergeNotionEventPriority({
+          canonical: sourceSnapshot,
+          notion: notionSnapshot,
+          confirmedGooglePlace,
+        });
+        const changedFields = differingAgendaSnapshotFields(
+          "events", sourceSnapshot, desired,
+        );
+
+        if (input.mode !== "sync") {
+          // Dry-run is strictly non-mutating. Preserve visible conflict
+          // diagnostics instead of incorrectly reporting an applied repair.
+          if (decision.decision === "CONFLICT") {
+            summary.conflicts += 1;
+            appendNotionReview(summary.reviewQueue, {
+              entityId, notionPageId: page.id, reason: "BIDIRECTIONAL_CONFLICT",
+              fields: differingAgendaSnapshotFields("events", sourceSnapshot, notionSnapshot),
+              baselineAvailable: true, notionChanged: decision.notionChanged,
+              psipediaChanged: decision.psipediaChanged,
+            });
+          }
+          if (changedFields.length) summary.pulledFromNotion += 1;
+          else summary.pushedToNotion += 1;
+          continue;
+        }
+
+        let resolvedSource = source;
+        if (changedFields.length) {
+          await applyNotionToCanonical("events", entityId, desired, input.database);
+          sources = await input.definition.load(input.database);
+          sourcesById = sourceById(sources);
+          const reloaded = sourcesById.get(entityId);
+          if (!reloaded) throw new Error("Canonical event missing after approved Notion merge.");
+          resolvedSource = reloaded;
+        }
+
+        // Export the actual canonical snapshot back to Notion, including
+        // preserved values and protected Google coordinates/Place identity.
+        // Refresh the baseline only AFTER this PATCH succeeds.
+        const written = await writeSourceToNotion({
+          bindings: input.bindings,
+          dataSourceId: target.dataSourceId,
+          source: resolvedSource,
+          schema,
+          pageId: page.id,
+        });
+        const syncedAt = new Date().toISOString();
+        await saveMapping({
+          database: input.database,
+          agenda: "events",
+          pageId: page.id,
+          entityId,
+          hash: await snapshotHash("events", editableSnapshot("events", resolvedSource.properties, schema)),
+          notionLastEditedTime: written.last_edited_time ?? syncedAt,
+          psipediaUpdatedAt: await canonicalUpdatedAt("events", entityId, input.database),
+          syncedAt,
+        });
+        if (changedFields.length) summary.pulledFromNotion += 1;
+        else summary.pushedToNotion += 1;
+        continue;
+      }
 
       if (decision.decision === "CONFLICT") {
         summary.conflicts += 1;
