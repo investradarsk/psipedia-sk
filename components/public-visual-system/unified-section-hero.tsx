@@ -30,6 +30,7 @@ export type UnifiedSectionHeroVariant = "homepage-style" | "compact" | "task";
 type SearchElementProps = {
   placeholder?: string;
   buttonLabel?: string;
+  shortcuts?: Array<{ href: string; label: string }>;
 };
 
 function visualStyle(visual: ResolvedSectionVisual): VisualStyle {
@@ -48,6 +49,11 @@ function managedSearch(searchSlot: ReactNode, config: SectionHeroConfig) {
   const overrides: SearchElementProps = {};
   if (config.searchPlaceholder) overrides.placeholder = config.searchPlaceholder;
   if (config.searchButtonLabel) overrides.buttonLabel = config.searchButtonLabel;
+  if (config.quickLinks?.length) {
+    overrides.shortcuts = config.quickLinks
+      .filter((item) => item.visible !== false && item.label && item.href)
+      .map(({ href, label }) => ({ href, label }));
+  }
   return Object.keys(overrides).length
     ? cloneElement(searchSlot as ReactElement<SearchElementProps>, overrides)
     : searchSlot;
