@@ -55,7 +55,22 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       await page.getByLabel('Gemini poznámka', { exact: true }).first().waitFor({ state: 'visible' });
       if (shotDir) await page.screenshot({ path: join(shotDir, `01-directory-list-${width}.png`), fullPage: true });
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
+      await page.getByLabel('Názov profilu', { exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('dialog').waitFor({ state: 'visible' });
       if (shotDir) await page.screenshot({ path: join(shotDir, `02-directory-modal-${width}.png`) });
+      if (width === 390) {
+        await page.getByLabel('Názov profilu', { exact: true }).fill('Rozpracované – neuložiť');
+        let guardSeen = false;
+        page.once('dialog', async (dialog) => {
+          guardSeen = true;
+          assert.equal(dialog.type(), 'confirm');
+          await dialog.dismiss();
+        });
+        await page.keyboard.press('Escape');
+        await page.getByRole('dialog').waitFor({ state: 'visible' });
+        assert.equal(guardSeen, true, 'Escape with unsaved edits asks for confirmation');
+        assert.equal(await page.getByLabel('Názov profilu', { exact: true }).inputValue(), 'Rozpracované – neuložiť');
+      }
       await page.getByRole('button', { name: 'Odmietnuť koncept', exact: true }).click();
       assert.equal(writes.length, 0, 'opening and confirmation do not write');
       await page.getByLabel('Dôvod odmietnutia (voliteľný)').fill('Mimo kategórie');
