@@ -5,6 +5,9 @@ import {fixture,png} from './facebook-image-test-fixture.mjs';
 import {GET,POST} from '../app/api/admin/facebook-images/route.ts';
 import {GET as detail,PUT} from '../app/api/admin/facebook-images/[id]/route.ts';
 import {POST as upload} from '../app/api/admin/uploads/route.ts';
+import {GET as getPublisher,PUT as putPublisher} from '../app/api/admin/facebook-images/publisher/route.ts';
+import {PUT as putApproval} from '../app/api/admin/facebook-images/[id]/approval/route.ts';
+import {DELETE as permanentDelete} from '../app/api/admin/facebook-images/[id]/trash/route.ts';
 
 test('desktop/mobile real component + SQLite/API fixture: popup, upload, scheduling, reload, unsaved changes and conflict',async t=>{
  const {sqlite,images}=fixture(t);const dir=path.resolve('outputs/facebook-image-ui');mkdirSync(dir,{recursive:true});
@@ -17,6 +20,9 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
    const request=new Request(url,{method:req.method,headers:req.headers,...(req.method==='GET'?{}:{body:Buffer.concat(chunks)})});
    if(url.pathname==='/api/admin/uploads')response=await upload(request);
    else if(url.pathname==='/api/admin/facebook-images')response=req.method==='GET'?await GET(request):await POST(request);
+   else if(url.pathname==='/api/admin/facebook-images/publisher')response=req.method==='GET'?await getPublisher():await putPublisher(request);
+   else if(url.pathname.endsWith('/approval'))response=await putApproval(request,{params:Promise.resolve({id:url.pathname.split('/').at(-2)})});
+   else if(url.pathname.endsWith('/trash'))response=await permanentDelete(request,{params:Promise.resolve({id:url.pathname.split('/').at(-2)})});
    else{const params=Promise.resolve({id:url.pathname.split('/').at(-1)});response=req.method==='GET'?await detail(request,{params}):await PUT(request,{params});}
   }else if(url.pathname.startsWith('/media/')){const obj=images.get(url.pathname.slice(7));response=obj?new Response(obj.body,{headers:{'content-type':obj.httpMetadata.contentType}}):new Response('',{status:404});}
   else if(url.pathname==='/entry.js'||url.pathname==='/entry.css')response=new Response(readFileSync(path.join(dir,url.pathname.slice(1))),{headers:{'content-type':url.pathname.endsWith('.css')?'text/css':'text/javascript'}});
@@ -48,14 +54,32 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   await expect(calendar.getByRole('button').filter({hasText:`Príspevok ${width}`})).toBeVisible();
   await expect(page.locator('article button').filter({hasText:`Príspevok ${width}`})).toBeEnabled();await page.locator('article button').filter({hasText:`Príspevok ${width}`}).click();await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Popis na Facebook',{exact:true})).toHaveValue('Uložený popis');await expect(dialog.getByLabel('Čas (Bratislava)',{exact:true})).toHaveValue('02:30');
+  await expect(dialog.getByRole('button',{name:'Povoliť publikovanie',exact:true})).toBeEnabled();
+  await dialog.getByRole('button',{name:'Povoliť publikovanie',exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'Odvolať povolenie publikovania'})).toBeVisible();
+  await expect(dialog.getByRole('button',{name:'Udeliť súhlas majiteľa'})).toBeEnabled();
+  await dialog.getByRole('button',{name:'Udeliť súhlas majiteľa'}).click();
+  assert.equal(sqlite.prepare('SELECT approval_status FROM facebook_image_posts WHERE id=?').get(row.id).approval_status,'APPROVED');
+  assert.equal(sqlite.prepare('SELECT direct_publish_consent FROM facebook_image_posts WHERE id=?').get(row.id).direct_publish_consent,1);
+  await page.screenshot({path:path.join(dir,`controls-${width}.png`)});
   await dialog.getByLabel('Popis na Facebook',{exact:true}).fill('Neuložený popis');page.once('dialog',d=>d.dismiss());await dialog.getByRole('button',{name:'Zavrieť',exact:true}).click();await expect(dialog).toBeVisible();
   page.once('dialog',d=>d.dismiss());await page.keyboard.press('Escape');await expect(dialog).toBeVisible();
   sqlite.prepare('UPDATE facebook_image_posts SET version=version+1,caption=? WHERE id=?').run('Novšia úprava',row.id);
   await dialog.getByRole('button',{name:'Uložiť koncept',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('medzičasom');await expect(dialog.getByLabel('Popis na Facebook',{exact:true})).toHaveValue('Neuložený popis');
   page.once('dialog',d=>d.accept());await dialog.getByRole('button',{name:'Zavrieť',exact:true}).click();await expect(dialog).not.toBeVisible();
   await page.locator('article button').filter({hasText:`Príspevok ${width}`}).click();await expect(dialog).toBeVisible();await expect(dialog.getByLabel('Popis na Facebook',{exact:true})).toHaveValue('Novšia úprava');
-  await dialog.getByRole('button',{name:'Zrušiť naplánovanie',exact:true}).click();await expect(dialog).not.toBeVisible();assert.equal(sqlite.prepare('SELECT scheduled_at FROM facebook_image_posts WHERE id=?').get(row.id).scheduled_at,null);
-  await page.screenshot({path:path.join(dir,`calendar-${width}.png`)});await context.close();
+  await dialog.getByRole('button',{name:'Zrušiť naplánovanie',exact:true}).click();await expect(dialog).not.toBeVisible();
+  assert.equal(sqlite.prepare('SELECT scheduled_at FROM facebook_image_posts WHERE id=?').get(row.id).scheduled_at,null);
+  assert.equal(sqlite.prepare('SELECT direct_publish_consent FROM facebook_image_posts WHERE id=?').get(row.id).direct_publish_consent,0);
+  assert.equal(sqlite.prepare('SELECT approval_status FROM facebook_image_posts WHERE id=?').get(row.id).approval_status,'UNREVIEWED');
+  await page.screenshot({path:path.join(dir,`calendar-${width}.png`)});
+  const permanent=page.locator('article button').filter({hasText:'Natrvalo odstrániť'}).last();
+  await expect(permanent).toBeVisible();
+  page.once('dialog',confirmation=>confirmation.accept());
+  await permanent.click();
+  await expect.poll(()=>sqlite.prepare('SELECT deleted_at FROM facebook_image_posts WHERE id=?').get(row.id).deleted_at).not.toBeNull();
+  await expect(page.locator('article button').filter({hasText:`Príspevok ${width}`})).toHaveCount(0);
+  await context.close();
  }
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM facebook_image_posts WHERE facebook_post_id IS NOT NULL OR published_at IS NOT NULL').get().n,0);
 });
