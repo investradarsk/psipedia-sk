@@ -27,10 +27,12 @@ function fixture(full=true) {
   }
   const db={prepare(sql){return wrap(sql)}};
   function add(n,opts={}) {
-    sqlite.prepare("INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,notion_page_id,created_at,updated_at,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    sqlite.prepare("INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,approved_at,approved_by,notion_page_id,created_at,updated_at,created_by,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
       .run(id(n),"Post "+n,"/media/"+imageKey(n),imageKey(n),"Test",
         "2030-01-02T09:50:00.000Z",opts.status??"scheduled",
-        opts.approval??"APPROVED",opts.notion??null,ts,ts,"tester","tester");
+        opts.approval??"APPROVED",(opts.approval??"APPROVED")==="APPROVED"?ts:null,
+        (opts.approval??"APPROVED")==="APPROVED"?"admin@test":null,
+        opts.notion??null,ts,ts,"tester","tester");
   }
   const post=n=>sqlite.prepare("SELECT * FROM facebook_image_posts WHERE id=?").get(id(n));
   const remove=(n,version=1)=>permanentlyDeleteFacebookImage({db,id:id(n),expectedVersion:version,actor:"owner"});
