@@ -124,3 +124,43 @@ test("import actor, lease, explicit marker and long captions",()=>{
     assert.equal(facebookAdminNotionProperties({...r,caption:"A".repeat(4100)})["Text na Facebook"].rich_text.length,3);
   }finally{f.close();}
 });
+
+test("Notion checkbox reflects D1 individual approval, not status or global publisher",()=>{
+  const f=setup();
+  try {
+    const base=f.read();
+    const cases=[
+      {name:"unapproved draft",status:"draft",approval:"UNREVIEWED",state:"Koncept",allow:false},
+      {name:"approved scheduled",status:"scheduled",approval:"APPROVED",state:"Naplánované",allow:true},
+      {name:"unapproved scheduled",status:"scheduled",approval:"UNREVIEWED",state:"Naplánované",allow:false},
+      {name:"individually approved published",status:"published",approval:"APPROVED",state:"Publikované",allow:true},
+      {name:"globally published without individual approval",status:"published",approval:"UNREVIEWED",state:"Publikované",allow:false},
+    ];
+    for(const item of cases){
+      const properties=facebookAdminNotionProperties({...base,status:item.status,approval_status:item.approval});
+      assert.equal(properties["Stav"].status.name,item.state,item.name);
+      assert.equal(properties["Povoliť publikovanie"].checkbox,item.allow,item.name);
+      assert.equal(properties["Dátum a čas publikovania"].date.start,base.scheduled_at,item.name);
+    }
+    assert.equal(facebookAdminNotionProperties({...base,approval_status:"UNKNOWN"})["Povoliť publikovanie"].checkbox,false);
+  }finally{f.close();}
+});
+
+test("changing individual approval updates existing Notion page without duplicate or new identity",async()=>{
+  const mock=notionMock(),f=setup();
+  const run=()=>exportFacebookAdminChanges({db:f.db,bindings:settings,now:new Date(NOW)});
+  try {
+    assert.equal((await run()).created,1);
+    assert.equal(mock.pages.get(PAGE).properties["Povoliť publikovanie"].checkbox,true);
+    f.sql.prepare("UPDATE facebook_image_posts SET approval_status='UNREVIEWED',version=version+1,updated_by=? WHERE id=?")
+      .run("editor@psipedia.sk",POST);
+    assert.equal((await run()).updated,1);
+    assert.equal(f.read().notion_page_id,PAGE);
+    assert.equal(f.read().sync_hash,adminExportAck(2));
+    assert.equal(mock.pages.get(PAGE).properties["Povoliť publikovanie"].checkbox,false);
+    assert.equal(mock.pages.get(PAGE).properties["Stav"].status.name,"Naplánované");
+    assert.equal(mock.pages.size,1);
+    assert.equal(mock.calls.filter(c=>c.path==="/pages"&&c.method==="POST").length,1);
+    assert.equal(mock.calls.filter(c=>c.path==="/pages/"+PAGE&&c.method==="PATCH"&&c.body.properties).length,1);
+  }finally{f.close();mock.restore();}
+});
