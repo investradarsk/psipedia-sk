@@ -130,55 +130,85 @@ test("SERVICES-V2 all ten canonical service categories share the same public lay
 });
 
 
-test("SERVICES-V2 approved hybrid: desktop sidebar and mobile modal, facets, map and accessibility", async ({ browser }) => {
-  test.setTimeout(5 * 60 * 1000);
-  mkdirSync(artifactDir, { recursive: true });
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 720 }]) {
+// The hybrid acceptance matrix is split into independent viewport cases so
+// a stalled browser action cannot consume the entire desktop+mobile matrix.
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 720 }]) {
+  test(`SERVICES-V2 hybrid accepted UI — ${viewport.width}px`, async ({ browser }) => {
+    test.setTimeout(150_000);
+    mkdirSync(artifactDir, { recursive: true });
     const context = await browser.newContext({ viewport, baseURL: process.env.E2E_BASE_URL });
     const page = await context.newPage();
+    page.setDefaultTimeout(15_000);
+    page.setDefaultNavigationTimeout(25_000);
     try {
-      await open(page, "/adresar/veterinari");
+      await test.step("Load category and verify responsive shell", async () => {
+        await open(page, "/adresar/veterinari");
+        await expect(page.locator("[data-directory-columns]")).toBeVisible();
+      }, { timeout: 35_000 });
+
       const desktopForm = page.locator('[data-directory-filter-form][data-directory-modal="false"]');
       const mobileToolbar = page.locator("[data-directory-mobile-filters]");
       if (viewport.width > 820) {
-        await expect(desktopForm).toBeVisible();
-        await expect(mobileToolbar).toBeHidden();
-        await expect(desktopForm.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
-        await page.screenshot({ path: join(artifactDir, "hybrid-desktop-1440.png"), fullPage: true });
+        await test.step("Desktop sidebar preserves existing three columns and 21-facet registry", async () => {
+          await expect(desktopForm).toBeVisible();
+          await expect(mobileToolbar).toBeHidden();
+          await expect(desktopForm.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
+          const columns = await page.locator("[data-directory-columns]").evaluate(el =>
+            getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+          expect(columns).toBe(3);
+          await page.screenshot({ path: join(artifactDir, "hybrid-desktop-1440.png"), animations: "disabled", timeout: 20_000 });
+        }, { timeout: 40_000 });
       } else {
-        await expect(desktopForm).toBeHidden();
-        await expect(mobileToolbar.locator('button[aria-haspopup="dialog"]')).toBeVisible();
-        await expect(mobileToolbar.locator('a[href*="/mapa?"]')).toBeVisible();
-        await mobileToolbar.locator("button").click();
         const dialog = page.locator("#directory-filter-dialog");
-        await expect(dialog).toBeVisible();
-        await expect(dialog.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
-        await expect(dialog.locator('[name="f.veterinari.facility_type"]')).toBeVisible();
-        await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-dialog.png`), fullPage: true });
-        const axe = await new AxeBuilder({ page }).include("#directory-filter-dialog").analyze();
-        expect(axe.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
-        await dialog.locator('input[type="radio"][name="f.veterinari.emergency"][value="yes"]').check();
-        await Promise.all([
-          page.waitForURL((url) => url.pathname === "/adresar/veterinari" && url.searchParams.get("f.veterinari.emergency") === "yes"),
-          dialog.locator('button[type="submit"]').click(),
-        ]);
-        await expect(page.locator('[data-directory-active-filters]')).toBeVisible();
-        await expect(page.locator('[data-directory-map-cta] a')).toHaveAttribute("href", /f\.veterinari\.emergency=yes/);
-        await expect(page.locator("[data-directory-results]")).toBeVisible();
-        await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-results.png`), fullPage: true });
-        const remove = page.locator('[data-directory-active-filters] a[aria-label*="Pohotovosť"]');
-        await expect(remove).toBeVisible();
-        await remove.click();
-        await expect(page).not.toHaveURL(/f\.veterinari\.emergency=yes/);
-        // Native dialog must be dismissed with Escape and return focus to trigger.
-        await mobileToolbar.locator("button").click();
-        await expect(dialog).toBeVisible();
-        await page.keyboard.press("Escape");
-        await expect(dialog).toBeHidden();
-        await expect(mobileToolbar.locator("button")).toBeFocused();
+        await test.step("Mobile Filter and Map buttons open category-specific native dialog", async () => {
+          await expect(desktopForm).toBeHidden();
+          await expect(mobileToolbar.locator('button[aria-haspopup="dialog"]')).toBeVisible();
+          await expect(mobileToolbar.locator('a[href*="/mapa?"]')).toBeVisible();
+          await mobileToolbar.locator("button").click();
+          await expect(dialog).toBeVisible();
+          await expect(dialog.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
+          await expect(dialog.locator('[name="f.veterinari.facility_type"]')).toBeVisible();
+          await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-dialog.png`), animations: "disabled", timeout: 20_000 });
+        }, { timeout: 45_000 });
+
+        await test.step("Mobile native dialog meets axe serious/critical accessibility", async () => {
+          const axe = await new AxeBuilder({ page }).include("#directory-filter-dialog").analyze();
+          expect(axe.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
+        }, { timeout: 35_000 });
+
+        await test.step("GET selected facet preserves map state, and removable chip resets URL", async () => {
+          await dialog.locator('input[type="radio"][name="f.veterinari.emergency"][value="yes"]').check();
+          await Promise.all([
+            page.waitForURL(url =>
+              url.pathname === "/adresar/veterinari" && url.searchParams.get("f.veterinari.emergency") === "yes"),
+            dialog.locator('button[type="submit"]').click({ timeout: 15_000 }),
+          ]);
+          await expect(page.locator('[data-directory-active-filters]')).toBeVisible();
+          await expect(page.locator('[data-directory-map-cta] a')).toHaveAttribute("href", /f\\.veterinari\\.emergency=yes/);
+          await expect(page.locator("[data-directory-results]")).toBeVisible();
+          await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-results.png`), animations: "disabled", timeout: 20_000 });
+          const remove = page.locator('[data-directory-active-filters] a[aria-label*="Pohotovosť"]');
+          await expect(remove).toBeVisible();
+          await remove.click({ timeout: 15_000 });
+          await expect(page).not.toHaveURL(/f\\.veterinari\\.emergency=yes/);
+        }, { timeout: 65_000 });
+
+        await test.step("Escape closes dialog and restores focus", async () => {
+          await mobileToolbar.locator("button").click();
+          await expect(dialog).toBeVisible();
+          await page.keyboard.press("Escape");
+          await expect(dialog).toBeHidden();
+          await expect(mobileToolbar.locator("button")).toBeFocused();
+        }, { timeout: 25_000 });
       }
-      const size = await page.evaluate(() => ({ screen: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
-      expect(size.scroll).toBeLessThanOrEqual(size.screen + 1);
-    } finally { await context.close(); }
-  }
-});
+      await test.step("No horizontal overflow", async () => {
+        const size = await page.evaluate(() => ({
+          viewport: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth,
+        }));
+        expect(size.scroll).toBeLessThanOrEqual(size.viewport + 1);
+      }, { timeout: 10_000 });
+    } finally {
+      await context.close();
+    }
+  });
+}
