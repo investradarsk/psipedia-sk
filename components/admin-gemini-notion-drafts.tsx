@@ -26,7 +26,13 @@ function reviewDescription(draft: ReviewDraft) {
   return geminiReviewLabels[draft.reviewState];
 }
 
+// A keyed boundary prevents a response for category A from ever mutating the
+// visible concept manager for category B, without effect-driven state resets.
 export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
+  return <AdminGeminiNotionDraftsForKey key={stableKey} stableKey={stableKey} />;
+}
+
+function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
   const [filter, setFilter] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
   const [canonicalProfile, setCanonicalProfile] = useState<ManagedDirectoryProfile | null>(null);
   const [opening, setOpening] = useState(false);
@@ -42,8 +48,6 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectBusy, setRejectBusy] = useState(false);
   const loadRevision = useRef(0);
-  const activeCategoryRef = useRef(stableKey);
-  activeCategoryRef.current = stableKey;
   const [loadedCategory, setLoadedCategory] = useState<string | null>(null);
 
   const category = getGeminiCatalogItem(stableKey)?.label ?? stableKey;
@@ -63,20 +67,6 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     editorSurfaceRef.current?.removeAttribute("data-dirty");
   }
   useEffect(() => {
-    // Invalidate older category responses before they can update this panel.
-    loadRevision.current++;
-    setLoaded(false);
-    setLoadedCategory(null);
-    setDrafts([]);
-    setFilter("ACTIVE");
-    setSelectedDraft(null);
-    setCanonicalProfile(null);
-    clearDirty();
-    setError("");
-    setExpanded(false);
-  }, [stableKey]);
-
-  useEffect(() => {
     if (!selectedDraft) return;
     const warn = (event: BeforeUnloadEvent) => {
       if (!dirtyRef.current) return;
@@ -91,7 +81,6 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
     // A completed review/save must always refresh; an older response must
     // never overwrite the state returned by the newest request.
     const revision = ++loadRevision.current;
-    const requestCategory = stableKey;
     setLoading(true);
     setError("");
     try {
@@ -103,23 +92,22 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
       if (!response.ok || !Array.isArray(json.drafts)) {
         throw Error(json.error || "Nepodarilo sa načítať koncepty.");
       }
-      if (revision === loadRevision.current && requestCategory === activeCategoryRef.current) {
+      if (revision === loadRevision.current) {
         setDrafts(json.drafts);
         setLoadedCategory(requestCategory);
         setLoaded(true);
       }
     } catch (cause) {
-      if (revision === loadRevision.current && requestCategory === activeCategoryRef.current) {
+      if (revision === loadRevision.current) {
         setError(cause instanceof Error ? cause.message : "Nepodarilo sa načítať koncepty.");
       }
     } finally {
-      if (revision === loadRevision.current && requestCategory === activeCategoryRef.current) setLoading(false);
+      if (revision === loadRevision.current) setLoading(false);
     }
   }
 
   async function openDraft(draft: ReviewDraft) {
     if (opening) return;
-    const requestCategory = stableKey;
     setOpening(true);
     setError("");
     try {
@@ -127,7 +115,7 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         { credentials: "same-origin", cache: "no-store" });
       const data = await response.json() as { draft?: ReviewDraft; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Koncept sa nepodarilo otvoriť.");
-      if (requestCategory !== activeCategoryRef.current) return;
+      
       // Imported agenda items must use the canonical page, not a second editor.
       // Never fall back to editable Notion-only mode when an import is known.
       if ("agenda" in data.draft && data.draft.psipediaId) {
@@ -150,9 +138,9 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
         setCanonicalProfile(null);
       }
       clearDirty();
-      if (requestCategory === activeCategoryRef.current) setSelectedDraft(data.draft);
+      setSelectedDraft(data.draft);
     } catch (cause) {
-      if (requestCategory === activeCategoryRef.current) setError(cause instanceof Error ? cause.message : "Načítanie zlyhalo.");
+      setError(cause instanceof Error ? cause.message : "Načítanie zlyhalo.");
     } finally {
       setOpening(false);
     }
