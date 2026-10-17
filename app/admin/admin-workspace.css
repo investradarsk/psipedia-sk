@@ -179,3 +179,6 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
   [data-admin-workspace] .admin-heading-actions { width: 100%; }
   [data-admin-workspace] .admin-heading-actions > * { flex: 1 1 100%; }
 }
+
+/* V3 Axe regression: small footer text must exceed WCAG AA contrast on light canvas. */
+[data-admin-workspace] .admin-footer { color: #496052; }

@@ -60,7 +60,10 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     await expect(nav).toHaveCSS("position", "static");
     await expect(nav).toHaveAttribute("data-admin-sidebar", "true");
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
-    await nav.getByRole("button", { name: "Obsah", exact: true }).click();
+    await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
+    const contentGroup = nav.getByRole("button", { name: "Obsah", exact: true });
+    await contentGroup.click();
+    await expect(contentGroup).toHaveAttribute("aria-expanded", "true");
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toBeVisible();
     await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.locator(".site-footer")).toBeHidden();

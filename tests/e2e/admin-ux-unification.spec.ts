@@ -99,6 +99,7 @@ test("shared navigation keeps its layout and active section after client navigat
   const mobile = testInfo.project.name === "mobile-chromium";
   await page.setViewportSize({ width: mobile ? 320 : 1440, height: 900 });
   await page.goto("/admin");
+  await expect(page.locator("[data-admin-sidebar]")).toHaveAttribute("data-admin-hydrated", "true");
   for (const [label, path] of [["Články", "/admin/clanky"], ["Plemená", "/admin/plemena"]]) {
     if (mobile) {
       const menu = page.getByRole("button", { name: "Menu", exact: true });

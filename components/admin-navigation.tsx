@@ -77,6 +77,14 @@ export function AdminNavigation({ stickyClassName }: { stickyClassName: string }
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Hydration marker for genuine interactive readiness in browser tests.
+  // DOM-only synchronization avoids React state churn or early SSR click races.
+  useEffect(() => {
+    const element = desktopRef.current;
+    element?.setAttribute("data-admin-hydrated", "true");
+    return () => element?.removeAttribute("data-admin-hydrated");
+  }, []);
+
   useEffect(() => {
     const nav = desktopRef.current;
     const current = nav?.querySelector<HTMLElement>('[aria-current="page"]');
