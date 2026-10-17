@@ -36,6 +36,7 @@ function mapHref(filters: DirectoryFilters, category?: DirectoryCategorySlug) {
     district: filters.district,
     city: filters.city,
     search: filters.query,
+    facets: filters.facets,
   });
   return "/mapa?" + params.toString();
 }
