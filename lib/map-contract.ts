@@ -1,6 +1,6 @@
 import { eventTypes, slovakRegions, type EventType } from "./events";
-import { directoryFilterRegistry } from "./directory-filter-contract";
-import { parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters";
+import { directoryFilterRegistry } from "./directory-filter-contract.ts";
+import { parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters.ts";
 
 export const mapCategories = ["services", "organizations", "events"] as const;
 export type MapCategory = (typeof mapCategories)[number];
