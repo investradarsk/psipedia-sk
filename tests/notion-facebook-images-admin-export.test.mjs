@@ -12,7 +12,7 @@ const settings={NOTION_API_TOKEN:"OFFLINE_FAKE_TOKEN",NOTION_FACEBOOK_IMAGES_DAT
 function setup(){
   const sql=new DatabaseSync(":memory:");sql.exec("PRAGMA foreign_keys=ON;");
   for(const file of ["0128_facebook_image_posts.sql","0130_facebook_image_publisher.sql",
-    "0131_facebook_image_trash.sql"])sql.exec(readFileSync(new URL("../drizzle/"+file,import.meta.url),"utf8"));
+    "0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql"])sql.exec(readFileSync(new URL("../drizzle/"+file,import.meta.url),"utf8"));
   const db={prepare(stmt){let params=[];return {bind(...a){params=a;return this;},
     all(){return {results:sql.prepare(stmt).all(...params)};},
     first(){return sql.prepare(stmt).get(...params)??null;},
@@ -65,13 +65,14 @@ test("export flag disabled: no Notion calls or D1 writes",async()=>{
     assert.equal(out.enabled,false);assert.equal(mock.calls.length,0);assert.equal(f.read().notion_page_id,null);
   }finally{f.close();mock.restore();}
 });
-test("admin create/edit/publish/trash/restore stays linked to a single Notion page",async()=>{
+test("admin create/edit/publish/permanent archive stays linked to a single Notion page",async()=>{
   const mock=notionMock(),f=setup(),run=()=>exportFacebookAdminChanges({db:f.db,bindings:settings,now:new Date(NOW)});
   try{
     assert.equal((await run()).created,1);assert.equal(f.read().notion_page_id,PAGE);
     assert.equal(f.read().sync_hash,adminExportAck(1));
     assert.equal(mock.pages.get(PAGE).properties["Stav"].status.name,"Naplánované");
     assert.equal(mock.pages.get(PAGE).properties["Povoliť publikovanie"].checkbox,true);
+    assert.equal(mock.pages.get(PAGE).properties["Súhlas majiteľa – priame publikovanie"].checkbox,false);
     assert.equal((await run()).scanned,0);
     f.sql.prepare("UPDATE facebook_image_posts SET title=?,version=version+1,updated_by=? WHERE id=?")
       .run("Zmenené v admine","editor@psipedia.sk",POST);
@@ -85,10 +86,8 @@ test("admin create/edit/publish/trash/restore stays linked to a single Notion pa
     f.sql.prepare("UPDATE facebook_image_posts SET deleted_at=?,version=version+1,updated_by=? WHERE id=?")
       .run(NOW,"editor@psipedia.sk",POST);
     assert.equal((await run()).trashed,1);assert.equal(mock.pages.get(PAGE).in_trash,true);
-    f.sql.prepare("UPDATE facebook_image_posts SET deleted_at=NULL,version=version+1,updated_by=? WHERE id=?")
-      .run("editor@psipedia.sk",POST);
-    assert.equal((await run()).restored,1);assert.equal(mock.pages.get(PAGE).in_trash,false);
     assert.equal(mock.pages.size,1);
+    assert.equal(mock.pages.get(PAGE).in_trash,true);
   }finally{f.close();mock.restore();}
 });
 test("lost Notion creation response: lookup marker prevents duplicate",async()=>{
@@ -162,5 +161,19 @@ test("changing individual approval updates existing Notion page without duplicat
     assert.equal(mock.pages.size,1);
     assert.equal(mock.calls.filter(c=>c.path==="/pages"&&c.method==="POST").length,1);
     assert.equal(mock.calls.filter(c=>c.path==="/pages/"+PAGE&&c.method==="PATCH"&&c.body.properties).length,1);
+  }finally{f.close();mock.restore();}
+});
+
+test("direct owner consent projects to one existing Notion page; revocation synchronizes",async()=>{
+  const mock=notionMock(),f=setup(),run=()=>exportFacebookAdminChanges({db:f.db,bindings:settings,now:new Date(NOW)});
+  try {
+    await run();
+    f.sql.prepare("UPDATE facebook_image_posts SET direct_publish_consent=1,direct_consent_by='owner',direct_consent_at=?,version=version+1,updated_by='owner' WHERE id=?").run(NOW,POST);
+    assert.equal((await run()).updated,1);
+    assert.equal(mock.pages.get(PAGE).properties["Súhlas majiteľa – priame publikovanie"].checkbox,true);
+    f.sql.prepare("UPDATE facebook_image_posts SET direct_publish_consent=0,direct_consent_by=NULL,direct_consent_at=NULL,version=version+1,updated_by='owner' WHERE id=?").run(POST);
+    assert.equal((await run()).updated,1);
+    assert.equal(mock.pages.get(PAGE).properties["Súhlas majiteľa – priame publikovanie"].checkbox,false);
+    assert.equal(mock.pages.size,1);
   }finally{f.close();mock.restore();}
 });
