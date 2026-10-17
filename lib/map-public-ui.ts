@@ -1,3 +1,5 @@
+import { directoryFilterRegistry } from "./directory-filter-contract";
+import { directoryPublicFacetQueryFields, parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters";
 import type {
   MapBbox,
   MapCategory,
@@ -27,6 +29,7 @@ export type MapUiFilters = {
   search: string;
   eventType: string;
   eventTiming: MapEventTiming;
+  facets?: DirectoryPublicFacets;
 };
 
 export type MapViewport = {
@@ -44,6 +47,7 @@ export const EMPTY_MAP_FILTERS: MapUiFilters = {
   search: "",
   eventType: "",
   eventTiming: "active",
+  facets: {},
 };
 
 const shareableKeys = [
@@ -81,6 +85,7 @@ export function parseMapUiFilters(
     search: first(params.search).slice(0, 80),
     eventType: first(params.eventType).slice(0, 80),
     eventTiming: validTiming(first(params.eventTiming)),
+    facets: parsePublicDirectoryFacets(params, validCategory(first(params.category)) === "services" ? first(params.subcategory) : ""),
   };
 }
 
@@ -92,6 +97,7 @@ export function serializeMapUiFilters(filters: MapUiFilters) {
     if (key === "eventTiming" && value === "active") continue;
     params.set(key, value);
   }
+  for (const field of directoryPublicFacetQueryFields(filters.facets)) params.set(field.name, field.value);
   return params;
 }
 
@@ -101,6 +107,11 @@ export function mapFiltersFromSearchParams(searchParams: URLSearchParams) {
     const value = searchParams.get(key);
     if (value) raw[key] = value;
   }
+  for (const definition of directoryFilterRegistry) {
+    const key = "f." + definition.id;
+    const values = searchParams.getAll(key);
+    if (values.length) raw[key] = values.length === 1 ? values[0] : "";
+  }
   return parseMapUiFilters(raw);
 }
 
@@ -109,6 +120,7 @@ export function mapFiltersForCategory(filters: MapUiFilters, category: MapUiFilt
     ...filters,
     category,
     subcategory: category === "services" ? filters.subcategory : "",
+    facets: category === "services" ? filters.facets : {},
     eventType: category === "events" ? filters.eventType : "",
     eventTiming: category === "events" ? filters.eventTiming : "active",
   } satisfies MapUiFilters;
@@ -138,6 +150,7 @@ export function buildMapApiUrl(viewport: Pick<MapViewport, "bbox" | "zoom">, fil
   if (filters.search.trim().length >= 2) params.set("search", filters.search.trim());
   if (filters.eventType) params.set("eventType", filters.eventType);
   if (filters.eventTiming !== "active") params.set("eventTiming", filters.eventTiming);
+  for (const field of directoryPublicFacetQueryFields(filters.facets)) params.set(field.name, field.value);
   return `/api/map?${params.toString()}`;
 }
 
@@ -249,6 +262,7 @@ export function mapQueryInputPreview(viewport: Pick<MapViewport, "bbox" | "zoom"
       ? filters.eventType as MapQueryInput["eventType"]
       : undefined,
     eventTiming: filters.eventTiming,
+    facets: filters.facets,
   };
 }
 
