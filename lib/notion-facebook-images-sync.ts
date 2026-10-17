@@ -14,7 +14,8 @@ type Page=NotionFacebookImagePage;
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
 type Linked={id:string;status:string;image_url:string;image_key:string;updated_by:string;
   sync_hash:string|null;facebook_post_id:string|null;published_at:string|null;
-  attempt_state:string|null;error_code:string|null};
+  attempt_state:string|null;error_code:string|null;
+  approval_status:string;direct_publish_consent:number};
 export type FacebookImagesSyncSummary={enabled:boolean;scanned:number;created:number;
   updated:number;unchanged:number;conflicts:number;failed:number;invalid:number;
   writtenBack:number;hasMore:boolean;adminExport?:Awaited<ReturnType<typeof exportFacebookAdminChanges>>};
@@ -30,12 +31,34 @@ function urlProperty(page:Page) {
   const value=page.properties?.["Facebook URL"] as {url?:string|null}|undefined;
   return value?.url??"";
 }
-async function linked(db:D1Database,pageId:string) {
-  const sql="SELECT p.id,p.status,p.image_url,p.image_key,p.updated_by,p.sync_hash,"+
-    "p.facebook_post_id,p.published_at,a.state AS attempt_state,a.error_code "+
+async function linked(db:D1Database,pageId:string,consentReady:boolean) {
+  const sql="SELECT p.id,p.status,p.image_url,p.image_key,p.updated_by,p.sync_hash,p.approval_status,"+
+    (consentReady?"p.direct_publish_consent":"0 AS direct_publish_consent")+
+    ",p.facebook_post_id,p.published_at,a.state AS attempt_state,a.error_code "+
     "FROM facebook_image_posts p LEFT JOIN facebook_image_publish_attempts a ON a.post_id=p.id "+
     "WHERE p.notion_page_id=?";
   return db.prepare(sql).bind(pageId).first<Linked>();
+}
+/** Notion checkbox edits are NOT owner approval. Converge both checkboxes
+ * back to the canonical D1 values, including on newly imported drafts.
+ */
+async function mirrorApprovalToNotion(bindings:FacebookImagesSyncBindings,page:Page,post:Linked|null){
+  if(!post)return false;
+  const expected=post.approval_status==="APPROVED";
+  const direct=post.direct_publish_consent===1;
+  const a=(page.properties?.["Povoliť publikovanie"] as {checkbox?:boolean}|undefined)?.checkbox===true;
+  const b=(page.properties?.["Súhlas majiteľa – priame publikovanie"] as {checkbox?:boolean}|undefined)?.checkbox===true;
+  if(a===expected&&b===direct)return false;
+  await notionRequest(bindings,"/pages/"+encodeURIComponent(page.id),{
+    method:"PATCH",body:JSON.stringify({properties:{
+      "Povoliť publikovanie":{checkbox:expected},
+      "Súhlas majiteľa – priame publikovanie":{checkbox:direct},
+    }}),
+  });
+  page.properties={...page.properties,
+    "Povoliť publikovanie":{checkbox:expected},
+    "Súhlas majiteľa – priame publikovanie":{checkbox:direct}};
+  return true;
 }
 async function writeBack(bindings:FacebookImagesSyncBindings,page:Page,post:Linked):Promise<boolean> {
   let properties:Record<string,unknown>|null=null;
@@ -103,6 +126,9 @@ export async function runNotionFacebookImagesSync({
   await db.prepare("SELECT notion_page_id,sync_hash FROM facebook_image_posts LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
   out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
+  let consentReady=false;
+  try{await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();consentReady=true;}
+  catch(error){if(!(error instanceof Error&&/no such column:\s*direct_publish_consent/i.test(error.message)))throw error;}
   let trashReady=false;
   try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
   catch(error){if(!(error instanceof Error && /no such column:\s*deleted_at/i.test(error.message)))throw error;}
@@ -125,13 +151,14 @@ export async function runNotionFacebookImagesSync({
     out.scanned++;
     try {
       if(!/^[a-f0-9-]{36}$/i.test(page.id)){out.invalid++;continue;}
-      const current=await linked(db,page.id);
+      const current=await linked(db,page.id,consentReady);
       // Linked Notion tombstone is preserved: never re-import or write back a trashed post.
       if(current&&trashReady) {
         const deleted=await db.prepare("SELECT deleted_at FROM facebook_image_posts WHERE id=?")
           .bind(current.id).first<{deleted_at:string|null}>();
         if(deleted?.deleted_at){out.unchanged++;continue;}
       }
+      if(current&&await mirrorApprovalToNotion(bindings,page,current))out.writtenBack++;
       if(current&&(current.status==="published"||current.attempt_state)) {
         if(await writeBack(bindings,page,current))out.writtenBack++;
         else out.unchanged++;
@@ -161,7 +188,11 @@ export async function runNotionFacebookImagesSync({
           scheduled?"APPROVED":"UNREVIEWED",scheduled?updatedAt:null,scheduled?ACTOR:null,
           page.id,hash,updatedAt,updatedAt,ACTOR,ACTOR,
         ).run();
-        if(result.meta.changes===1)out.created++;else out.conflicts++;
+        if(result.meta.changes===1){
+          out.created++;
+          if(await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady)))
+            out.writtenBack++;
+        }else out.conflicts++;
       }else {
         const sql="UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,"+
           "scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,sync_hash=?,"+
