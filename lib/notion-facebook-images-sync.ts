@@ -146,8 +146,9 @@ export async function runNotionFacebookImagesSync({
       // Psipedia manual changes take precedence over the Notion import.
       if(current&&current.updated_by!==ACTOR){out.unchanged++;continue;} // Admin-owned: never overwritten from Notion.
       const image=await imageForPage(bindings,snap.image,current);
-      // With admin authority enabled, Notion may introduce drafts but cannot approve or schedule publication.
-      const scheduled=snap.ready&&!notionFlagEnabled(bindings.NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED);
+      // Notion is never an authorization source. All imported new/edited items
+      // remain drafts until separately saved and approved in Psipedia Admin.
+      const scheduled=false;
       const updatedAt=now.toISOString();
       if(!current) {
         const sql="INSERT OR IGNORE INTO facebook_image_posts "+
