@@ -166,7 +166,7 @@ test("V3 all seven navigation groups, focus and header actions work at 1440px, 3
       await expect(nav).toHaveAttribute("data-admin-hydrated", "true");
     }
     for (const label of groups) {
-      const group = nav.locator("[data-admin-nav-group]").filter({ has: nav.locator("button,span").getByText(label, { exact: true }) });
+      const group = nav.locator(`[data-admin-nav-group="${label}"]`);
       await expect(group).toHaveCount(1);
       if (!mobile) {
         const button = group.getByRole("button", { name: label, exact: true });
