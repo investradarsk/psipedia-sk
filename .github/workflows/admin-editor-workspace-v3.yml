@@ -1,0 +1,73 @@
+name: ADMIN-EDITOR-WORKSPACE-V3 foundation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/admin-editor-workspace.tsx"
+      - "components/admin-editor-workspace.module.css"
+      - "components/admin-editor-workspace-demo.tsx"
+      - "app/admin/editor-workspace-preview/**"
+      - "tests/admin-editor-workspace-v3.test.mjs"
+      - "tests/e2e/admin-editor-workspace-v3.spec.ts"
+      - "docs/PSIPEDIA-UNIFIED-ADMIN-EDITOR-V3.md"
+      - ".github/workflows/admin-editor-workspace-v3.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Scoped contract tests
+        run: node --test tests/admin-editor-workspace-v3.test.mjs
+      - name: Scoped lint
+        run: npx eslint components/admin-editor-workspace.tsx components/admin-editor-workspace-demo.tsx app/admin/editor-workspace-preview/page.tsx tests/e2e/admin-editor-workspace-v3.spec.ts
+      - name: Build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Local test D1 setup only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Start local Vite app
+        run: |
+          nohup npm exec vite -- --host 127.0.0.1 > /tmp/admin-editor-v3.log 2>&1 &
+          echo $! > /tmp/admin-editor-v3.pid
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -100 /tmp/admin-editor-v3.log
+          exit 1
+      - name: Desktop and mobile Playwright acceptance
+        run: npx playwright test tests/e2e/admin-editor-workspace-v3.spec.ts --workers=1 --retries=0
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f /tmp/admin-editor-v3.pid ]; then kill "$(cat /tmp/admin-editor-v3.pid)" 2>/dev/null || true; fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-editor-v3-failure
+          path: |
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
