@@ -92,6 +92,10 @@ test("same composition supports page layout", async ({ page }) => {
   const root = page.locator("[data-editor-page]");
   await expect(root.getByRole("heading", { name: "Upraviť koncept — lokálna ukážka" })).toBeVisible();
   await root.getByLabel("Názov profilu").fill("Stránkový editor");
+  if (test.info().project.name === "mobile-chromium") {
+    // On mobile the preview is a separate panel; verify the required explicit switch.
+    await root.getByRole("button", { name: "Náhľad" }).click();
+  }
   await expect(root.getByRole("region", { name: "Náhľad profilu" })).toContainText("Stránkový editor");
   await verifyNoHorizontalOverflow(page);
   await screenshot(page, "standalone-page-" + (test.info().project.name === "mobile-chromium" ? "mobile-390" : "desktop-1440"));

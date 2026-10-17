@@ -68,3 +68,10 @@ Original run 39027180371 had 7 failures and 1 pass. Archived video, screenshots,
 Fix: the isolated demo detects hydration with useSyncExternalStore, disables SSR-visible actionable controls until hydrated and Playwright explicitly confirms readiness. The actual canonical editor workspace remains unmodified except for using a labelled section for the preview's accessible region semantics. This is **not** a timeout increase or removal of acceptance assertions.
 
 Expanded acceptance verifies 1440, 390, and 320px, no document overflow, native Escape, Tab/Shift+Tab trapping, restored opener focus, navigation persistence, preview, draft-only save, publish confirmation, discard confirmation, Axe, no page JS errors and zero write-method browser requests. CI publishes real screenshots under artifact \`admin-editor-v3-visual-acceptance\` even on partial failure. Visual approval requires inspecting generated images; a passing test does not alone grant it.
+
+
+## 17 October 2026: second CI run and isolated visual polish
+
+Run 39044179888: 11/12 Playwright checks passed; the only failing check assumed the mobile inline/page preview region was visible without using the explicit "Náhľad" toggle. The UI intentionally hides its preview until the toggle is activated on mobile. The acceptance test now performs the actual user action before asserting the **same live content and region**; it does not remove the verification. This also exercises mobile page-mode preview accessibility.
+
+Review of generated screenshot artifact 12104749798 found that global app typography was not suitable for the new isolated workspace: default serif headings, oversize heading hierarchy and unstyled input/textarea primitives. The workspace-only CSS adds accessible compact heading, label, input and preview card styling in its own CSS module; no PR #847 or existing editor files touched. Fresh screenshots are required before final visual verdict.

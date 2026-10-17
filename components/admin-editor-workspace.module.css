@@ -200,3 +200,88 @@ dialog.workspaceModal[open] > div:nth-child(3) {
 @media (prefers-reduced-motion: reduce) {
   .content { scroll-behavior: auto; }
 }
+
+
+/* Workspace-only typography and controls; does not restyle any canonical editor. */
+dialog.workspaceModal[open],
+.pageWorkspace {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.91rem;
+  line-height: 1.55;
+}
+dialog.workspaceModal[open] :is(h2, h3),
+.pageWorkspace :is(h1, h2, h3) {
+  font-family: inherit;
+  letter-spacing: -0.015em;
+}
+.content [data-admin-editor-section] {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  min-width: 0;
+  border: 0;
+}
+.content [data-admin-editor-section] + [data-admin-editor-section] {
+  padding-top: 1rem;
+  border-top: 1px solid #e4ebe5;
+}
+.content [data-admin-editor-section] h2 {
+  margin: 0 0 0.4rem;
+  color: #173f2d;
+  font-size: clamp(1rem, 1.35vw, 1.12rem);
+  font-weight: 800;
+  line-height: 1.35;
+}
+.content [data-admin-editor-section] label {
+  display: block;
+  margin: 0;
+  color: #375748;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.content [data-admin-editor-section] :is(input:not([type="checkbox"]), select, textarea) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #b9c9bf;
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #17352b;
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.content [data-admin-editor-section] textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+.content [data-admin-editor-section] [aria-invalid="true"] {
+  border-color: #a94737;
+}
+.preview {
+  background: #f7faf7;
+}
+.preview h2 {
+  font-weight: 800;
+}
+.previewInner [data-demo-preview] {
+  padding: 1.1rem;
+  border: 1px solid #dbe6dc;
+  border-radius: 0.85rem;
+  background: #fff;
+  box-shadow: 0 0.3rem 0.85rem rgb(12 65 40 / 4%);
+  overflow-wrap: anywhere;
+}
+.previewInner [data-demo-preview] h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #173f2d;
+}
+.previewInner [data-demo-preview] p {
+  margin: 0.45rem 0;
+  font-size: 0.87rem;
+  color: #54685c;
+}
