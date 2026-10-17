@@ -9,16 +9,24 @@ import {
 
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0132_services_canonical_admin_foundation.sql");
+// D1 accepts SQLite numbered ?1 placeholders; node:sqlite's positional
+// binder does not. Expand numbered references to anonymous placeholders
+// while retaining the exact original D1 parameter mapping (including repeats).
 class Stmt {
-  constructor(statement){this.statement=statement;this.bound=[];}
+  constructor(sqlite,sql){
+    this.positions=[...sql.matchAll(/\\?(\\d+)/g)].map(m=>Number(m[1])-1);
+    this.statement=sqlite.prepare(sql.replace(/\\?\\d+/g,"?"));
+    this.bound=[];
+  }
   bind(...values){this.bound=values;return this;}
-  async first(){return this.statement.get(...this.bound)??null;}
-  async all(){return {results:this.statement.all(...this.bound)};}
-  async run(){return {meta:this.statement.run(...this.bound)};}
+  resolved(){return this.positions.map(i=>this.bound[i]);}
+  async first(){return this.statement.get(...this.resolved())??null;}
+  async all(){return {results:this.statement.all(...this.resolved())};}
+  async run(){return {meta:this.statement.run(...this.resolved())};}
 }
 class TestD1 {
   constructor(sqlite){this.sqlite=sqlite;}
-  prepare(sql){return new Stmt(this.sqlite.prepare(sql));}
+  prepare(sql){return new Stmt(this.sqlite,sql);}
 }
 function setup(){
   const sqlite=new DatabaseSync(":memory:");
