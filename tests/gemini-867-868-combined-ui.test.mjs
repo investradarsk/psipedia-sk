@@ -7,10 +7,12 @@ import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// Read *actual* PR #867 dashboard source at the approved compact layout SHA.
-// No cherry-pick, no second PR, no writes to the #867 branch.
-// The main repository (PR #868) retains its own canonical draft manager.
-const DASHBOARD_SHA = "0509a333f5c84a1e68c86d7d1deedcae5551db12";
+// Read the actual PR #867 dashboard at the single FETCH_HEAD snapshot
+// captured by CI, without touching that branch or changing the #868 checkout.
+// The SHA printed in test logs identifies the precise combined source.
+const DASHBOARD_SHA = process.env.GEMINI_DASHBOARD_SHA || execFileSync(
+  "git", ["rev-parse", "FETCH_HEAD"], { cwd: process.cwd(), encoding:"utf8" },
+).trim();
 const fromDashboardPR = (path) => {
   try {
     return execFileSync("git", ["show", DASHBOARD_SHA + ":" + path], {
@@ -23,6 +25,7 @@ const fromDashboardPR = (path) => {
 };
 
 test("PR #867 compact dashboard and PR #868 concept manager work together", async () => {
+  console.log("INTEGRATION_DASHBOARD_PR_867_SHA", DASHBOARD_SHA);
   const dashboard = fromDashboardPR("components/admin-gemini-automation-settings.tsx");
   const dashboardCSS = fromDashboardPR("components/admin-gemini-automation.module.css");
   assert.equal((dashboard.match(/<AdminGeminiNotionDrafts\b/g) ?? []).length, 1,
