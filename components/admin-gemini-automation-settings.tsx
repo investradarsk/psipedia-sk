@@ -219,6 +219,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, on
         <div><dt>Posledné spustenie</dt><dd>{formatDate(latestJob?.created_at ?? initial.lastRunAt)}</dd></div>
         <div><dt>Ďalšie plánované</dt><dd>{formatDate(setting.nextRunAt)}</dd></div>
       </dl>
+      <GeminiPromptPreview stableKey={setting.stableKey} />
       {latestJob && <p role="status" aria-live="polite"
         className={latestJob.status === "FAILED" || (latestJob.status === "SUCCESS" && !latestJob.run_id)
           ? styles.pilotError : styles.feedback}>
@@ -274,6 +275,42 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, on
   );
 }
 
+
+function GeminiPromptPreview({ stableKey }: { stableKey: string }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  async function load() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(
+        "/api/admin/gemini-automation/prompts?stable_key=" + encodeURIComponent(stableKey),
+        { credentials: "same-origin", cache: "no-store" },
+      );
+      const data = await response.json() as { prompt?: { effectivePrompt?: string }; error?: string };
+      if (!response.ok || !data.prompt) throw new Error(data.error ?? "Prompt nie je dostupný.");
+      const content = (data.prompt.effectivePrompt ?? "").replace(/\s+/g, " ").trim();
+      setPreview(content ? (content.length > 260 ? content.slice(0, 260) + "…" : content)
+        : "Pre túto kategóriu nie je dostupný text promptu.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Načítanie promptu zlyhalo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <details className={styles.promptPreview}>
+      <summary>Krátky náhľad promptu</summary>
+      {preview === null && <button type="button" disabled={loading} onClick={() => void load()}>
+        {loading ? "Načítavam…" : "Načítať náhľad"}
+      </button>}
+      {preview !== null && <p>{preview}</p>}
+      {error && <p role="alert" className={styles.pilotError}>{error}</p>}
+    </details>
+  );
+}
 
 type DraftLookupItem = {
   id: string;
