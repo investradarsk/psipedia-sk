@@ -14,6 +14,8 @@ function NavigationGroups({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
   const active = findActiveAdminNavigationItem(pathname);
   const [expandedDesktopGroup, setExpandedDesktopGroup] = useState<string | null>(null);
+  // Client route changes must reveal the newly active agenda even after manual accordion use.
+  useEffect(() => { if (!mobile) setExpandedDesktopGroup(null); }, [pathname, mobile]);
   const groupGlyphs = ["⌂", "▤", "♧", "⚙", "◎", "◇", "⚙"];
 
   return (

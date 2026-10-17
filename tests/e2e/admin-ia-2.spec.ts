@@ -35,7 +35,10 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   if (mobile) {
     const menuButton = page.getByRole("button", { name: "Menu", exact: true });
     await expect(menuButton).toBeVisible();
-    await menuButton.click();
+    await expect.poll(async () => {
+      if (await menuButton.getAttribute("aria-expanded") !== "true") await menuButton.click();
+      return menuButton.getAttribute("aria-expanded");
+    }).toBe("true");
     const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
     await expect(dialog).toBeVisible();
 
@@ -53,9 +56,11 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
     await expect(menuButton).toBeFocused();
   } else {
     const nav = page.getByRole("navigation", { name: "Redakčné moduly" });
-    await expect(nav).toHaveCSS("position", "sticky");
+    await expect(page.locator("[data-admin-sidebar-shell]")).toHaveCSS("position", "sticky");
+    await expect(nav).toHaveCSS("position", "static");
     await expect(nav).toHaveAttribute("data-admin-sidebar", "true");
     await expect(nav.getByRole("link", { name: "Pracovný prehľad", exact: true })).toHaveAttribute("aria-current", "page");
+    await nav.getByRole("button", { name: "Obsah", exact: true }).click();
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toBeVisible();
     await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.locator(".site-footer")).toBeHidden();
@@ -108,7 +113,10 @@ test("legacy article-list URLs preserve filters and the explicit article route o
 
   if (mobile) {
     const menuButton = page.getByRole("button", { name: "Menu", exact: true });
-    await menuButton.click();
+    await expect.poll(async () => {
+      if (await menuButton.getAttribute("aria-expanded") !== "true") await menuButton.click();
+      return menuButton.getAttribute("aria-expanded");
+    }).toBe("true");
     const dialog = page.getByRole("dialog", { name: "Navigácia administrácie" });
     const nav = dialog.getByRole("navigation", { name: "Redakčné moduly" });
     await expect(nav.getByRole("link", { name: "Články", exact: true })).toHaveAttribute("aria-current", "page");
