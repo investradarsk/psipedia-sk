@@ -228,7 +228,7 @@ type ProtectedGeoTarget = "MANAGED_EVENT" | "ORGANIZATION_LOCATION";
  * Google Places selection belongs to the Psipedia administrator. Editorial
  * edits in Notion must not invalidate its canonical location fingerprint.
  */
-async function hasCurrentGooglePlace(
+export async function hasCurrentGooglePlace(
   database: D1Database,
   target: ProtectedGeoTarget,
   targetId: number,
