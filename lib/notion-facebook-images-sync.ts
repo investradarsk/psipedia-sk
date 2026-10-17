@@ -168,7 +168,11 @@ export async function runNotionFacebookImagesSync({
       if(!snap.name){out.invalid++;continue;}
       if(snap.warning)out.invalid++;
       if(!current&&["Publikované","Chyba"].includes(snap.notionState)){out.invalid++;continue;}
-      const hash=await sha256Text(notionFacebookSnapshotFingerprint(snap));
+      // Notion checkboxes are observational only; their toggling cannot change
+      // the canonical import fingerprint, nor trigger a permission transition.
+      const hash=await sha256Text(notionFacebookSnapshotFingerprint({
+        ...snap,allowed:false,directRequested:false,
+      }));
       if(current?.sync_hash===hash){out.unchanged++;continue;}
       // Psipedia manual changes take precedence over the Notion import.
       if(current&&current.updated_by!==ACTOR){out.unchanged++;continue;} // Admin-owned: never overwritten from Notion.
