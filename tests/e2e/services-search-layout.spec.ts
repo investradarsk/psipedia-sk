@@ -5,7 +5,8 @@ import { expect, test, type Page } from "@playwright/test";
 // and three-column directory contract. Legacy root category previews and the
 // embedded .directory-results toolbar were intentionally retired.
 const searchForm = 'form[data-public-search-form="services"]';
-const filterForm = '[data-directory-filter-form]';
+const filterForm = '[data-directory-filter-form][data-directory-modal="false"]';
+const modalForm = '[data-directory-filter-form][data-directory-modal="true"]';
 const filterPanel = '[data-directory-filter-disclosure]';
 const categories = '[data-directory-category-navigation]';
 const results = '[data-directory-results]';
@@ -32,12 +33,13 @@ async function expectSeriousCriticalAxeClean(page: Page, include: string, label:
 }
 
 async function openMobileFilters(page: Page) {
-  const form = page.locator(filterForm);
-  await expect(form).toHaveAttribute("data-public-search-ready", "true");
-  const panel = page.locator(filterPanel);
-  await expect(panel).not.toHaveAttribute("open", "");
-  await panel.locator("summary").click();
-  await expect(panel).toHaveAttribute("open", "");
+  const trigger = page.locator('[data-directory-mobile-filters] button[aria-haspopup="dialog"]');
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  const panel = page.locator("#directory-filter-dialog");
+  await expect(panel).toBeVisible();
+  const form = page.locator(modalForm);
+  await expect(form).toBeVisible();
   return form;
 }
 
@@ -61,7 +63,7 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     await expectSeriousCriticalAxeClean(page, "main#obsah", "desktop directory");
   });
 
-  test("mobile keeps one search above an accessible, collapsible filter panel", async ({ page }, testInfo) => {
+  test("mobile keeps one search above an accessible modal filter sheet", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "mobile-chromium", "Mobile contract");
     await page.setViewportSize({ width: 390, height: 844 });
     await openDirectory(page, "/adresar");
@@ -72,9 +74,10 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     for (const name of ["region","district","city","sort"]) {
       await expect(form.locator('select[name="' + name + '"]')).toBeVisible();
     }
-    await page.locator(filterPanel + " summary").click();
-    await expect(page.locator(filterPanel)).not.toHaveAttribute("open", "");
-    await expectNoHorizontalOverflow(page, "mobile filter disclosure");
+    await page.getByRole("button", { name: "Zavrieť filtre" }).click();
+    await expect(page.locator("#directory-filter-dialog")).toBeHidden();
+    await expect(page.locator('[data-directory-mobile-filters] button')).toBeFocused();
+    await expectNoHorizontalOverflow(page, "mobile modal filter sheet");
     await expectSeriousCriticalAxeClean(page, "main#obsah", "mobile directory");
     await testInfo.attach("services-v2-mobile-390", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
   });
@@ -148,12 +151,10 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
       form.getByRole("button",{name:"Použiť filtre"}).click(),
     ]);
     await expect(page.locator(filterForm+' select[name="sort"]')).toHaveValue("name-asc");
-    await expect(page.locator(filterPanel + " summary")).toContainText("(1)");
-    // Use the same hydrated native-details opening contract that passed
-    // in the combined GET filter scenario. The SSR open attribute is not
-    // reliable until the mobile client has initialized its disclosure.
+    await expect(page.locator('[data-directory-mobile-filters] button')).toContainText("(1)");
+    // Reopen the accessible modal rather than the legacy inline details fallback.
     const resetForm = await openMobileFilters(page);
-    const reset = resetForm.getByRole("link", { name: "Zrušiť filtre" });
+    const reset = resetForm.getByRole("link", { name: "Zrušiť všetky filtre" });
     await expect(reset).toBeVisible();
     await reset.click();
     await expect(page).toHaveURL(/\/adresar\/veterinari$/);
@@ -172,6 +173,8 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
       await expect(page.locator(searchForm+' input[name="q"]')).toHaveValue("publikovana");
       await expect(page.locator(searchForm)).toHaveCount(1);
       await expect(page.locator(filterForm)).toHaveCount(1);
+      await expect(page.locator(modalForm)).toHaveCount(1);
+      await expect(page.locator('[data-directory-mobile-filters] button')).toBeVisible();
       await expect(page.locator(categories+' [data-public-subcategory-item]')).toHaveCount(11);
       await expectNoHorizontalOverflow(page,"services "+width);
     }
@@ -187,6 +190,8 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
       const option=document.createElement("option");
       option.value=raw;option.textContent=raw;option.selected=true;(el as HTMLSelectElement).append(option);
     },value);
+    await expectNoHorizontalOverflow(page,"very long modal filter content");
+    await page.getByRole("button", { name: "Zavrieť filtre" }).click();
     await page.locator(searchForm+' input[name="q"]').fill(value);
     const card=page.locator("[data-directory-card]").first();
     if(await card.count())await card.locator("strong").first().evaluate((el,raw)=>{el.textContent=raw;},value);
@@ -213,11 +218,11 @@ test.describe("public services search layout — SERVICES-V2 3/10", () => {
     ]);
     await expect(page.locator(searchForm+' input[name="q"]')).toHaveValue("publikovana kontrola");
     await expectNoHorizontalOverflow(page,"combined search");
-    // Navigation remounts a collapsed mobile disclosure. Do not click the
-    // hidden reset link until hydration completes and the native panel opens.
-    await openMobileFilters(page);
-    await expect(page.locator(filterForm+' a[href="/adresar/veterinari"]')).toBeVisible();
-    await page.locator(filterForm+' a[href="/adresar/veterinari"]').click();
+    // The reset link is accessible inside the approved mobile modal.
+    const mobileForm = await openMobileFilters(page);
+    const clear = mobileForm.getByRole("link", { name: "Zrušiť všetky filtre" });
+    await expect(clear).toBeVisible();
+    await clear.click();
     await expect(page.locator(searchForm+' input[name="q"]')).toHaveValue("");
   });
 
