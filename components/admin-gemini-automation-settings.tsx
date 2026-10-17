@@ -312,111 +312,6 @@ function GeminiPromptPreview({ stableKey }: { stableKey: string }) {
   );
 }
 
-type DraftLookupItem = {
-  id: string;
-  name: string;
-  city?: string | null;
-  reviewState: string;
-  psipediaId?: string | null;
-  agenda?: string;
-};
-
-function editorHref(draft: DraftLookupItem): string | null {
-  if (!draft.psipediaId || !/^[1-9][0-9]*$/.test(draft.psipediaId)) return null;
-  const agendaSegments: Record<string, string> = {
-    events: "podujatia", organizations: "organizacie", adoptions: "adopcie",
-    "help-cases": "pomoc", "lost-found": "stratene-najdene",
-  };
-  const section = draft.agenda ? agendaSegments[draft.agenda] : "adresar";
-  return section ? "/admin/" + section + "/" + draft.psipediaId : null;
-}
-
-/** Search is explicit/on-demand; the canonical draft/editor component below owns all edits. */
-function GeminiConceptLookup({ stableKey }: { stableKey: string }) {
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("ALL");
-  const [drafts, setDrafts] = useState<DraftLookupItem[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setDrafts(null);
-    setQuery("");
-    setStatus("ALL");
-    setError("");
-  }, [stableKey]);
-
-  async function load() {
-    if (loading) return;
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch(
-        "/api/admin/gemini-automation/notion-drafts?stable_key=" + encodeURIComponent(stableKey),
-        { credentials: "same-origin", cache: "no-store" },
-      );
-      const data = await response.json() as { drafts?: DraftLookupItem[]; error?: string };
-      if (!response.ok || !Array.isArray(data.drafts)) {
-        throw new Error(data.error ?? "Nepodarilo sa načítať koncepty.");
-      }
-      setDrafts(data.drafts);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Načítanie konceptov zlyhalo.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const filtered = (drafts ?? []).filter((item) =>
-    (status === "ALL" || item.reviewState === status) &&
-    (item.name + " " + (item.city ?? "")).toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk").trim()),
-  );
-
-  return (
-    <details className={styles.lookup}>
-      <summary>Vyhľadávanie a filtrovanie konceptov</summary>
-      <div className={styles.lookupControls}>
-        <label>
-          Hľadať podľa názvu alebo mesta
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)}
-            placeholder="Názov alebo mesto" />
-        </label>
-        <label>
-          Stav konceptu
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="ALL">Všetky stavy</option>
-            <option value="NEW">Nový</option>
-            <option value="IN_PROGRESS">Rozpracovaný</option>
-            <option value="APPROVED">Schválený</option>
-            <option value="IMPORTED">Importovaný</option>
-            <option value="REJECTED">Zamietnutý</option>
-          </select>
-        </label>
-        <button type="button" onClick={() => void load()} disabled={loading}>
-          {loading ? "Načítavam…" : drafts ? "Obnoviť výsledky" : "Načítať koncepty"}
-        </button>
-      </div>
-      {error && <p role="alert" className={styles.pilotError}>{error}</p>}
-      {drafts && (
-        <div role="status" className={styles.lookupResults}>
-          <p>Zobrazených {filtered.length} z {drafts.length} načítaných konceptov.</p>
-          <ul>
-            {filtered.map((draft) => (
-              <li key={draft.id}>
-                <span><strong>{draft.name}</strong><small>{draft.city || "Bez mesta"} · {draft.reviewState}</small></span>
-                {editorHref(draft)
-                  ? <Link href={editorHref(draft)!}>Otvoriť editor →</Link>
-                  : <small>Neimportovaný koncept upravíš v paneli nižšie.</small>}
-              </li>
-            ))}
-          </ul>
-          {filtered.length === 0 && <p>Pre zadaný filter nie sú výsledky.</p>}
-        </div>
-      )}
-    </details>
-  );
-}
-
 const runOutcomeLabels: Record<string, string> = {
   NO_RESULT_NO_RELEVANT_CANDIDATE: "Nenašiel sa vhodný nový subjekt.",
   NO_RESULT_DUPLICATE_ONLY: "Len možné duplicity; nový koncept nevznikol.",
@@ -547,18 +442,18 @@ export function AdminGeminiAutomationSettings({
   initialJobs: readonly GeminiQueuedJob[];
   recentRuns: readonly GeminiRecentRun[];
 }) {
-  const [liveSettings, setLiveSettings] = useState(settings);
-  const [jobs, setJobs] = useState<GeminiQueuedJob[]>([...initialJobs]);
+  const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[] } | null>(null);
+  const liveSettings = remote?.settings ?? settings;
+  const jobs = remote?.jobs ?? initialJobs;
   const [selectedKey, setSelectedKey] = useState(settings[0]?.stableKey ?? "");
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
   const onSaved = useCallback((next: GeminiSettingView) => {
-    setLiveSettings((previous) => previous.map((item) => item.stableKey === next.stableKey ? next : item));
-  }, []);
-
-  useEffect(() => {
-    setLiveSettings(settings);
-    setJobs([...initialJobs]);
+    setRemote((previous) => ({
+      settings: (previous?.settings ?? settings).map((item) =>
+        item.stableKey === next.stableKey ? next : item),
+      jobs: previous?.jobs ?? [...initialJobs],
+    }));
   }, [settings, initialJobs]);
 
   useEffect(() => {
@@ -577,8 +472,12 @@ export function AdminGeminiAutomationSettings({
           settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[];
         };
         if (!cancelled) {
-          if (Array.isArray(data.settings)) setLiveSettings(data.settings);
-          if (Array.isArray(data.jobs)) setJobs(data.jobs);
+          if (Array.isArray(data.settings) || Array.isArray(data.jobs)) {
+            setRemote((previous) => ({
+              settings: Array.isArray(data.settings) ? data.settings : previous?.settings ?? settings,
+              jobs: Array.isArray(data.jobs) ? data.jobs : previous?.jobs ?? [...initialJobs],
+            }));
+          }
         }
       } catch {
         // A temporary network failure does not start or repeat any paid work.
@@ -589,7 +488,7 @@ export function AdminGeminiAutomationSettings({
     void refresh();
     const id = window.setInterval(() => void refresh(), 10000);
     return () => { cancelled = true; window.clearInterval(id); };
-  }, [available, externalEnabled]);
+  }, [available, externalEnabled, settings, initialJobs]);
 
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
   const waiting = jobs.filter((job) => job.status === "QUEUED").length;
@@ -672,8 +571,7 @@ export function AdminGeminiAutomationSettings({
             </div>
             {externalEnabled && selected ? (
               <>
-                <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam načítaj na požiadanie; úpravy zostávajú v existujúcom editore.</p>
-                <GeminiConceptLookup key={selected.stableKey} stableKey={selected.stableKey} />
+                <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam a filtrovanie otvor na požiadanie; úpravy zostávajú v existujúcom kanonickom editore.</p>
                 <AdminGeminiNotionDrafts key={selected.stableKey} stableKey={selected.stableKey} />
               </>
             ) : <p className={styles.emptyCompact}>
