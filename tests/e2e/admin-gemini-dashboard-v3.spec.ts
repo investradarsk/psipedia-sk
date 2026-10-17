@@ -278,7 +278,7 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
   await page.getByRole("combobox", { name: "Stav konceptu" }).selectOption("NEW");
   expect(listCalls).toBe(1);
 
-  const edit = page.getByRole("button", { name: "Upraviť", exact: true });
+  const edit = page.getByRole("button", { name: "Otvoriť editor", exact: true });
   await edit.click();
   await expect(page.getByRole("dialog", { name: /Upraviť koncept – E2E veterinárna ambulancia/ })).toBeVisible();
   expect(detailCalls).toBe(1);
