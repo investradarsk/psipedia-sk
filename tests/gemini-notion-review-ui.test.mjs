@@ -56,7 +56,16 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       await page.getByLabel('Dôvod odmietnutia (voliteľný)').fill('Mimo kategórie');
       await page.getByRole('button', { name: 'Áno, odmietnuť' }).click();
       await page.getByLabel('Stav konceptu').selectOption('REJECTED');
-      await page.getByText('Dôvod: Mimo kategórie').waitFor();
+      try {
+        await page.getByText('Dôvod: Mimo kategórie').waitFor({ timeout: 8000 });
+      } catch (error) {
+        // Print actionable fixture state instead of waiting 30 seconds on a
+        // silent mismatch between Notion update and the visible review list.
+        console.error('Gemini review fixture diagnostics', JSON.stringify({
+          width, latestDraft: draft, writes, visibleText: await page.locator('body').innerText(),
+        }));
+        throw error;
+      }
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
       assert.equal(await page.getByRole('button', { name: 'Publikovať profil', exact: true }).isDisabled(), true);
       await page.getByRole('button', { name: 'Obnoviť koncept', exact: true }).click();
