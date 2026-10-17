@@ -9,7 +9,7 @@ import {
  servicesForCategory,resolveApprovedServiceName,translateLegacyFacetValue
 } from "../lib/service-catalog-contract.ts";
 test("static contract: 10 categories, globally unique IDs, semantic checks",()=>{
- assert.equal(SERVICE_CATALOG_VERSION,"0.2");assert.doesNotThrow(validateServiceCatalogContract);
+ assert.equal(SERVICE_CATALOG_VERSION,"0.3");assert.doesNotThrow(validateServiceCatalogContract);
  assert.equal(serviceFilterCategories.length,10);assert.ok(serviceCatalog.length>=60);
  assert.equal(new Set([...serviceCatalog,...attributeCatalog,...providerTypeCatalog].map(x=>x.id)).size,serviceCatalog.length+attributeCatalog.length+providerTypeCatalog.length);
  for(const cat of serviceFilterCategories)assert.ok(servicesForCategory(cat).length>0,cat);
@@ -66,4 +66,41 @@ test("contract is not imported by live writers, filters, editors or maps",()=>{
  for(const path of["lib/directory-store.ts","lib/directory-query.ts","lib/map-query.ts","lib/notion-directory-sync.ts","components/admin-directory-editor.tsx","components/directory-page.tsx","lib/gemini-notion-directory-review.ts"]){
   assert.ok(!readFileSync(path,"utf8").includes("service-catalog-contract"),path);
  }
+});
+
+test("V0.3 expands SAME approved registry, preserving legacy mappings",()=>{
+ assert.equal(serviceCatalog.length,91);
+ assert.equal(attributeCatalog.length,28);
+ assert.equal(providerTypeCatalog.length,2);
+ assert.doesNotThrow(validateServiceCatalogContract);
+ assert.equal(legacyFacetMappings.length,21);
+ for(const id of ["svc.vet.eye_exam","svc.vet.orthopedic_exam","svc.vet.echocardiography","svc.vet.dental_xray","svc.vet.dental_scaling","svc.vet.dental_extraction","svc.vet.laparoscopy"])
+  assert.ok(servicesForCategory("veterinari").some(x=>x.id===id),id);
+});
+test("exam families and vet focus do not imply all procedures",()=>{
+ assert.ok(getAttributeById("attr.vet.focus_areas").allowedValues.includes("ophthalmology"));
+ const exam=getAttributeById("attr.training.exam_families");
+ assert.deepEqual(exam.categories,["treneri","kynologicke-kluby"]);
+ assert.ok(exam.allowedValues.includes("retriever"));
+ assert.ok(!exam.allowedValues.includes("all"));
+ assert.equal(resolveApprovedServiceName("Príprava na všetky skúšky","treneri"),null);
+ assert.notEqual(getServiceById("svc.vet.orthopedic_exam").id,getServiceById("svc.vet.orthopedic_surgery").id);
+});
+test("eight added dog sports share one canonical ID across trainers/clubs",()=>{
+ for(const id of ["svc.training.obedience","svc.training.hoopers","svc.training.flyball","svc.training.dogfrisbee","svc.training.dogdancing","svc.training.canicross","svc.training.mantrailing","svc.training.bikejoring"]){
+  assert.deepEqual(getServiceById(id).categories,["treneri","kynologicke-kluby"],id);
+  assert.equal(serviceCatalog.filter(x=>x.id===id).length,1);
+ }
+});
+test("Admin-only new-option contract and Notion mirror",async()=>{
+ const {SERVICE_OPTION_GOVERNANCE:p,validateCatalogOptionDraft}=await import("../lib/service-option-governance-contract.ts");
+ assert.equal(p.creator,"psipedia_admin");
+ assert.equal(p.notion,"mirror_only");
+ assert.equal(p.gemini,"proposal_only");
+ assert.deepEqual(p.selectedStates,["yes","no"]);
+ assert.equal(p.untouchedLegacyIsNo,false);
+ assert.throws(()=>validateCatalogOptionDraft({name:"RTG vyšetrenie",category:"veterinari",kind:"service",group:"Diagnostika"}),/already exists/i);
+ assert.throws(()=>validateCatalogOptionDraft({name:"",category:"veterinari",kind:"service",group:"Diagnostika"}),/name/i);
+ assert.throws(()=>validateCatalogOptionDraft({name:"Nova sluzba",category:"other",kind:"service",group:"Diagnostika"}),/category/i);
+ assert.deepEqual(validateCatalogOptionDraft({name:" Nová očná metóda ",category:"veterinari",kind:"service",group:"Diagnostika"}),{name:"Nová očná metóda",category:"veterinari",kind:"service",group:"Diagnostika"});
 });

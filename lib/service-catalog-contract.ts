@@ -4,7 +4,7 @@
  */
 import {directoryFilterRegistry,getDirectoryFilterDefinition,normalizeDirectoryFilterValue,serviceFilterCategories} from "./directory-filter-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
-export const SERVICE_CATALOG_VERSION="0.2" as const;
+export const SERVICE_CATALOG_VERSION="0.3" as const;
 export const SERVICE_SELECTION_POLICY={defaultMode:"all",supportedModes:["all","any"]} as const;
 export const TRI_STATE_VALUES=["yes","no","unknown"] as const;
 export type ServiceDefinition=Readonly<{id:string;label:string;categories:readonly ServiceFilterCategory[];group:string;aliases:readonly string[];meaning:string}>;
@@ -781,6 +781,307 @@ export const serviceCatalog:readonly ServiceDefinition[]=[
     "group": "Ostatné",
     "aliases": [],
     "meaning": "Nie automaticky preprava tela."
+  },
+  {
+    "id": "svc.vet.eye_exam",
+    "label": "Oftalmologické vyšetrenie",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Špecializované vyšetrenia",
+    "aliases": [
+      "Očné vyšetrenie"
+    ],
+    "meaning": "Očné vyšetrenie nie je atestácia ani očná operácia."
+  },
+  {
+    "id": "svc.vet.orthopedic_exam",
+    "label": "Ortopedické vyšetrenie",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Špecializované vyšetrenia",
+    "aliases": [
+      "Vyšetrenie kĺbov"
+    ],
+    "meaning": "Ortopedické vyšetrenie nie je ortopedická operácia."
+  },
+  {
+    "id": "svc.vet.dysplasia_screening",
+    "label": "Vyšetrenie dysplázie DBK/DLK",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Špecializované vyšetrenia",
+    "aliases": [
+      "Vyšetrenie dysplázie"
+    ],
+    "meaning": "Vyšetrenie nie je automaticky oficiálne posúdenie výsledkov."
+  },
+  {
+    "id": "svc.vet.echocardiography",
+    "label": "Echokardiografia (ECHO srdca)",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Špecializované vyšetrenia",
+    "aliases": [
+      "ECHO srdca"
+    ],
+    "meaning": "ECHO nie je EKG."
+  },
+  {
+    "id": "svc.vet.dental_scaling",
+    "label": "Odstránenie zubného kameňa",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Zákroky",
+    "aliases": [],
+    "meaning": "Stomatológia všeobecne nie je dôkaz tohto výkonu."
+  },
+  {
+    "id": "svc.vet.dental_extraction",
+    "label": "Extrakcie zubov",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Zákroky",
+    "aliases": [
+      "Trhanie zubov"
+    ],
+    "meaning": "Extrakcie nie sú čistenie zubov."
+  },
+  {
+    "id": "svc.vet.dental_xray",
+    "label": "Dentálny RTG",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Špecializované vyšetrenia",
+    "aliases": [
+      "Zubný RTG"
+    ],
+    "meaning": "Dentálny RTG nevyplýva z bežného RTG."
+  },
+  {
+    "id": "svc.vet.laparoscopy",
+    "label": "Laparoskopické zákroky",
+    "categories": [
+      "veterinari"
+    ],
+    "group": "Zákroky",
+    "aliases": [
+      "Laparoskopia"
+    ],
+    "meaning": "Všeobecná chirurgia neimplikuje laparoskopiu."
+  },
+  {
+    "id": "svc.training.recall",
+    "label": "Tréning privolania",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Výchova a správanie",
+    "aliases": [
+      "Privolanie"
+    ],
+    "meaning": "Samostatne ponúkané privolanie."
+  },
+  {
+    "id": "svc.training.leash_walking",
+    "label": "Chôdza na vôdzke",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Výchova a správanie",
+    "aliases": [
+      "Chôdza na vodítku"
+    ],
+    "meaning": "Samostatne ponúkaný tréning na vôdzke."
+  },
+  {
+    "id": "svc.training.separation",
+    "label": "Tréning zvládania samoty",
+    "categories": [
+      "treneri"
+    ],
+    "group": "Výchova a správanie",
+    "aliases": [
+      "Separačné problémy"
+    ],
+    "meaning": "Tréning samoty nie je automaticky klinická terapia."
+  },
+  {
+    "id": "svc.training.reactivity",
+    "label": "Práca s reaktivitou a strachom",
+    "categories": [
+      "treneri"
+    ],
+    "group": "Výchova a správanie",
+    "aliases": [
+      "Reaktivita psa"
+    ],
+    "meaning": "Práca s reaktivitou bez automatickej záruky výsledku."
+  },
+  {
+    "id": "svc.training.social_walks",
+    "label": "Socializačné prechádzky",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Výchova a správanie",
+    "aliases": [],
+    "meaning": "Nie automaticky skupinový výcvik."
+  },
+  {
+    "id": "svc.training.hunting",
+    "label": "Poľovnícky výcvik",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Špecializovaný výcvik",
+    "aliases": [],
+    "meaning": "Neimplikuje prípravu na všetky poľovnícke skúšky."
+  },
+  {
+    "id": "svc.training.rescue",
+    "label": "Záchranársky výcvik",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Špecializovaný výcvik",
+    "aliases": [],
+    "meaning": "Neimplikuje skúšobnú certifikáciu."
+  },
+  {
+    "id": "svc.training.obedience",
+    "label": "Obedience",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [
+      "Športová poslušnosť"
+    ],
+    "meaning": "Šport obedience nie je všeobecná poslušnosť."
+  },
+  {
+    "id": "svc.training.hoopers",
+    "label": "Hoopers",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [],
+    "meaning": "Nie automaticky agility."
+  },
+  {
+    "id": "svc.training.flyball",
+    "label": "Flyball",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [],
+    "meaning": "Samostatná športová disciplína."
+  },
+  {
+    "id": "svc.training.dogfrisbee",
+    "label": "Dogfrisbee",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [
+      "Dog frisbee"
+    ],
+    "meaning": "Samostatná športová disciplína."
+  },
+  {
+    "id": "svc.training.dogdancing",
+    "label": "Dogdancing",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [],
+    "meaning": "Samostatná športová disciplína."
+  },
+  {
+    "id": "svc.training.canicross",
+    "label": "Canicross",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [],
+    "meaning": "Beh so psom nie je bikejoring."
+  },
+  {
+    "id": "svc.training.mantrailing",
+    "label": "Mantrailing",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [],
+    "meaning": "Sledovanie individuálnej ľudskej pachovej stopy."
+  },
+  {
+    "id": "svc.training.bikejoring",
+    "label": "Bikejoring",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "group": "Psie športy",
+    "aliases": [
+      "Bikejöring"
+    ],
+    "meaning": "Ťah bicykla nie je canicross."
+  },
+  {
+    "id": "svc.groom.dematt",
+    "label": "Rozčesávanie splstnatenej srsti",
+    "categories": [
+      "salony-a-sluzby"
+    ],
+    "group": "Úprava srsti",
+    "aliases": [],
+    "meaning": "Nie bežné vyčesávanie."
+  },
+  {
+    "id": "svc.care.pickup",
+    "label": "Vyzdvihnutie a dovoz psa",
+    "categories": [
+      "hotely-a-opatrovanie"
+    ],
+    "group": "Opatrovanie",
+    "aliases": [],
+    "meaning": "Transport ku opatrovateľovi nie je všeobecné pet taxi."
+  },
+  {
+    "id": "svc.physio.therapeutic_massage",
+    "label": "Terapeutické masáže",
+    "categories": [
+      "fyzioterapia"
+    ],
+    "group": "Fyzioterapia",
+    "aliases": [],
+    "meaning": "Nie automaticky manuálna terapia."
   }
 ];
 export const attributeCatalog:readonly PropertyDefinition[]=[
@@ -1064,6 +1365,49 @@ export const attributeCatalog:readonly PropertyDefinition[]=[
     "valueKind": "tri_state",
     "allowedValues": [],
     "meaning": "Registrácia, nie prepravná služba."
+  },
+  {
+    "id": "attr.vet.focus_areas",
+    "label": "Odborné zameranie pracoviska",
+    "categories": [
+      "veterinari"
+    ],
+    "valueKind": "multi_select",
+    "allowedValues": [
+      "ophthalmology",
+      "orthopedics",
+      "dentistry",
+      "dermatology",
+      "cardiology",
+      "neurology",
+      "oncology",
+      "endocrinology",
+      "gastroenterology",
+      "urology",
+      "reproduction",
+      "rehabilitation"
+    ],
+    "meaning": "Zameranie pracoviska nie je dôkaz konkrétnych výkonov ani špecializačnej kvalifikácie."
+  },
+  {
+    "id": "attr.training.exam_families",
+    "label": "Skúšobné systémy prípravy",
+    "categories": [
+      "treneri",
+      "kynologicke-kluby"
+    ],
+    "valueKind": "multi_select",
+    "allowedValues": [
+      "bh_vt",
+      "national_obedience",
+      "igp",
+      "obedience",
+      "rally_obedience",
+      "hunting",
+      "retriever",
+      "rescue"
+    ],
+    "meaning": "Výslovne označené skúšobné oblasti. Príprava na skúšky neznamená všetky skúšky."
   }
 ];
 export const providerTypeCatalog:readonly PropertyDefinition[]=[

@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - "lib/service-catalog-contract.ts"
+      - "lib/service-option-governance-contract.ts"
       - "lib/directory-filter-contract.ts"
       - "tests/service-catalog-contract.test.mjs"
       - "docs/SERVICE-CATALOG-V0.2-PHASE1.md"
+      - "docs/SERVICE-CATALOG-V0.3-PHASE1.md"
       - ".github/workflows/service-catalog-contract-ci.yml"
   workflow_dispatch:
 permissions:
