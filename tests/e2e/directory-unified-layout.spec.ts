@@ -160,11 +160,19 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         }, { timeout: 40_000 });
       } else {
         const dialog = page.locator("#directory-filter-dialog");
+        await test.step("First-visit consent is handled using the real necessary-only action", async () => {
+          const cookieConsent = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
+          await expect(cookieConsent).toBeVisible();
+          await cookieConsent.getByRole("button", { name: "Odmietnuť analytiku" }).click();
+          await expect(cookieConsent).toBeHidden();
+        }, { timeout: 20_000 });
         await test.step("Mobile Filter and Map buttons open category-specific native dialog", async () => {
           await expect(desktopForm).toBeHidden();
           await expect(mobileToolbar.locator('button[aria-haspopup="dialog"]')).toBeVisible();
           await expect(mobileToolbar.locator('a[href*="/mapa?"]')).toBeVisible();
-          await mobileToolbar.locator("button").click();
+          const trigger = mobileToolbar.locator('button[aria-haspopup="dialog"]');
+          await trigger.evaluate(el => el.scrollIntoView({ block: "center", inline: "nearest" }));
+          await trigger.click();
           await expect(dialog).toBeVisible();
           await expect(dialog.locator('input[type="radio"][name="f.veterinari.emergency"]')).toHaveCount(3);
           await expect(dialog.locator('[name="f.veterinari.facility_type"]')).toBeVisible();
@@ -194,7 +202,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         }, { timeout: 65_000 });
 
         await test.step("Escape closes dialog and restores focus", async () => {
-          await mobileToolbar.locator("button").click();
+          const trigger = mobileToolbar.locator('button[aria-haspopup="dialog"]');
+          await trigger.evaluate(el => el.scrollIntoView({ block: "center", inline: "nearest" }));
+          await trigger.click();
           await expect(dialog).toBeVisible();
           await page.keyboard.press("Escape");
           await expect(dialog).toBeHidden();
