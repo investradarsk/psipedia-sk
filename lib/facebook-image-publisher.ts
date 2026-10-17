@@ -53,6 +53,30 @@ export async function setIndividualApproval(db: PublisherDatabase, id: string, e
   if(!row) throw new Error("Príspevok sa zmenil, nie je naplánovaný alebo sa už odosiela. Obnov údaje.");
   return row;
 }
+/** Owner-confirmed permission; never publishes by itself.
+ * A separate authenticated, replay-safe authorization path will be needed
+ * before ChatGPT/direct integrations can consume this flag.
+ */
+export async function setDirectPublishConsent(db: PublisherDatabase,id:string,expectedVersion:number,
+  consent:boolean,actor:string) {
+  await requirePublisherSchema(db);
+  // The additive migration must exist before a permission may be granted.
+  await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();
+  if(!/^[a-f\\d-]{36}$/i.test(id)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)
+    throw new Error("Neplatná verzia príspevku.");
+  const now=clock(new Date());
+  const row=await db.prepare(`UPDATE facebook_image_posts SET
+      direct_publish_consent=?,direct_consent_at=?,direct_consent_by=?,
+      version=version+1,updated_at=?,updated_by=?
+      WHERE id=? AND version=? AND status IN ('draft','scheduled')
+        AND deleted_at IS NULL AND (image_key<>'' OR ?=0)
+        AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
+      RETURNING id,version,direct_publish_consent`)
+    .bind(consent?1:0,consent?now:null,consent?actor:null,now,actor,
+      id,expectedVersion,consent?1:0).first<{id:string;version:number;direct_publish_consent:number}>();
+  if(!row)throw new Error("Súhlas sa nezmenil: príspevok je neaktuálny, odstránený alebo sa už odosiela.");
+  return row;
+}
 export async function publishPhotoToMeta(photo: { imageKey:string; caption:string }, bindings: FacebookPublisherBindings,
   fetcher: typeof fetch = fetch): Promise<string> {
   if (!publisherConfigured(bindings)) throw new Error("FACEBOOK_NOT_CONFIGURED");
