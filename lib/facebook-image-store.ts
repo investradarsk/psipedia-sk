@@ -49,7 +49,7 @@ async function hasTrashSchema(db:D1Database) {
 async function hasDirectConsentSchema(db:D1Database) {
   try {await db.prepare("SELECT direct_publish_consent,direct_consent_at,direct_consent_by FROM facebook_image_posts LIMIT 0").all();return true;}
   catch(error) {
-    if(error instanceof Error && /no such column:\\s*direct_(publish_consent|consent_at|consent_by)/i.test(error.message))return false;
+    if(error instanceof Error && /no such column:\s*direct_(publish_consent|consent_at|consent_by)/i.test(error.message))return false;
     throw error;
   }
 }
