@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArticleBrowser } from "@/components/article-browser";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { ArticlePromo } from "@/components/article-promo";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
@@ -66,6 +67,24 @@ export default async function ArticlesPage({ searchParams }: Props) {
             title="Novinky zo sveta psov"
             intro="Články, novinky, praktické návody a ďalší obsah, ktorý pomáha lepšie sa orientovať vo svete psov."
             visual={heroVisual}
+            portalSearchSlot={
+              <HomePortalSearch
+                action="/clanky"
+                id="article-hero-search"
+                inputName="hladat"
+                label="Hľadať v magazíne"
+                panelLabel="Vyhľadávanie článkov"
+                eyebrow="ČO HĽADÁŠ?"
+                title="Nájdi článok alebo radu"
+                placeholder="Hľadať článok, tému alebo návod..."
+                buttonLabel="Hľadať"
+                defaultValue={scalar(params.hladat) ?? ""}
+                allowEmpty
+                hidden={scalar(params.tema) ? [{ name: "tema", value: scalar(params.tema) ?? "" }] : []}
+                shortcuts={[]}
+                searchScope="articles"
+              />
+            }
           />
         </UnifiedSectionHeroShell>
         <section className="page-body">
@@ -74,6 +93,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
             <div className={styles.main}>
               <ArticleBrowser
                 articles={articles}
+                hidePrimarySearch
                 initialQuery={scalar(params.hladat) ?? ""}
                 initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}
               />
