@@ -99,6 +99,22 @@ jobs:
           path: test-artifacts/gemini-concept-review-v3/*.png
           if-no-files-found: warn
           retention-days: 14
+      - name: Load pinned compact Dashboard PR 867 snapshot (read-only)
+        run: |
+          git fetch --no-tags --depth=1 origin refs/pull/867/head
+          test "$(git rev-parse FETCH_HEAD)" = "0509a333f5c84a1e68c86d7d1deedcae5551db12"
+      - name: Combined PR 867 dashboard and PR 868 manager browser acceptance
+        env:
+          GEMINI_INTEGRATION_SCREENSHOTS: test-artifacts/gemini-dashboard-integrated-v3
+        run: node --test tests/gemini-867-868-combined-ui.test.mjs
+      - name: Upload combined Dashboard V3 integration screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-dashboard-867-868-integrated-${{ github.event.pull_request.number }}
+          path: test-artifacts/gemini-dashboard-integrated-v3/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint
