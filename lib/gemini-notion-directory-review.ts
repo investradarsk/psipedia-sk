@@ -17,6 +17,7 @@ export type GeminiNotionReviewEnv = {
 };
 
 export type GeminiDirectoryDraft = {
+  canonicalVerified?: boolean;
   reviewState: GeminiReviewState;
   syncError: string;
   rejectionReason: string;
@@ -132,6 +133,7 @@ function renderDraft(page: DirectoryNotionPage): GeminiDirectoryDraft {
     geminiNote: notionPreservedText(page, "Gemini poznámka"),
     syncError: notionDraftText(page, "Sync chyba"),
     rejectionReason: lastRejection?.reason ?? "",
+    canonicalVerified: false,
     reviewState: geminiReviewState({
       editorialState: notionSelectProperty(page, "Stav"),
       psipediaStatus: notionSelectProperty(page, "Psipedia stav"),
@@ -346,6 +348,7 @@ async function enrichCanonical(env: GeminiNotionReviewEnv, drafts: GeminiDirecto
     for (const draft of batch) {
       const row = mapped.get(draft.id);
       if (row) {
+        draft.canonicalVerified = true;
         draft.psipediaId = String(row.id);
         draft.reviewState = row.status === "published" ? "PUBLISHED" : "IMPORTED";
       }
