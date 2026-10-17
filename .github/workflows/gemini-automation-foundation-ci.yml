@@ -74,7 +74,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Gemini foundation focused tests (network mocked)
-        run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
+        run: node --experimental-strip-types --test tests/gemini-concept-manager-v3.test.mjs tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
         run: node --experimental-strip-types --test tests/gemini-external-agent.test.mjs tests/gemini-external-worker-offline.test.mjs tests/gemini-notion-events-help-fields.test.mjs tests/gemini-notion-provenance.test.mjs
       - name: Trusted Gemini-to-canonical draft adapters (12 agendas, no external calls)
@@ -88,7 +88,17 @@ jobs:
       - name: Install Chromium for isolated admin UI test
         run: npx playwright install --with-deps chromium
       - name: Gemini modal desktop and mobile (mocked API only)
+        env:
+          GEMINI_TEST_SCREENSHOTS: test-artifacts/gemini-concept-review-v3
         run: node --test tests/gemini-notion-review-ui.test.mjs
+      - name: Upload isolated Gemini UI screenshots (mocked data only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-concept-manager-v3-screenshots-${{ github.event.pull_request.number }}
+          path: test-artifacts/gemini-concept-review-v3/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: External worker syntax
         run: node --check scripts/gemini-notion-agent.mjs
       - name: External worker lint
