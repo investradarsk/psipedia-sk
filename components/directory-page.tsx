@@ -113,6 +113,7 @@ export async function DirectoryPage({
                   options={result.options}
                   basePath={basePath}
                   category={active?.slug}
+                  mapHref={mapHref(filters, active?.slug)}
                 />
               </aside>
 

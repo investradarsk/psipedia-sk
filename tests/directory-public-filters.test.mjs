@@ -126,3 +126,26 @@ test("public source mounts wire map/sql facets, while admin, Notion and editor p
   assert.match(category, /parseDirectoryFilters\(rawSearchParams, category\.slug\)/);
   assert.doesNotMatch(filter, /DirectoryCategoryFilterFields/);
 });
+
+
+test("approved desktop A and mobile B render a single canonical set of category controls", () => {
+  const component = read("components/directory-filter-form.tsx");
+  const css = read("components/directory-filter-form.module.css");
+  const directory = read("components/directory-page.tsx");
+  assert.match(component, /serviceFiltersForCategory\(activeCategory\)/);
+  assert.match(component, /publicDirectoryFacetKey\(facet\.id\)/);
+  assert.match(component, /publicDirectoryFacetOptions\(facet\)/);
+  assert.match(component, /data-directory-public-facets/);
+  assert.match(component, /"page", "facets"/);
+  assert.match(component, /<dialog id="directory-filter-dialog"/);
+  assert.match(component, /\.showModal\(\)/);
+  assert.match(component, /aria-haspopup="dialog"/);
+  assert.match(component, /data-directory-active-filters/);
+  assert.match(component, /directoryQueryFields\(filters, \["page"\]\)/);
+  assert.match(directory, /mapHref=\{mapHref\(filters, active\?\.slug\)\}/);
+  assert.match(css, /@media \(max-width: 820px\)/);
+  assert.match(css, /\.dialog::backdrop/);
+  assert.match(css, /@media \(max-width: 340px\)/);
+  // No new map or category registry or DB writes.
+  assert.doesNotMatch(component, /GoogleMap|GoogleMaps|fetch\(|\.prepare\(/);
+});
