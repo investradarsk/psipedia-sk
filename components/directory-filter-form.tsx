@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ChangeEvent } from "react";
 import type { DirectoryCategorySlug } from "@/lib/directory";
 import { serviceFiltersForCategory } from "@/lib/directory-filter-contract";
 import {
@@ -149,15 +149,20 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
   );
 }
 
+// Server and first hydration render match; no synchronous setState-in-effect.
+const subscribeHydration = () => () => {};
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
+
 export function DirectoryFilterForm(props: Props) {
   const { filters, basePath, category, mapHref } = props;
   const disclosure = useRef<HTMLDetailsElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = useSyncExternalStore(subscribeHydration, clientHydrationSnapshot, serverHydrationSnapshot);
   useEffect(() => {
     // Without JavaScript, the regular open details form remains available.
     if (window.matchMedia("(max-width: 820px)").matches) disclosure.current?.removeAttribute("open");
-    setHydrated(true);
+    disclosure.current?.querySelector("form")?.setAttribute("data-public-search-ready", "true");
     return () => { dialog.current?.close(); };
   }, []);
 
