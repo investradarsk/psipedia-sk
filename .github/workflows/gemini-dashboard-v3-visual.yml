@@ -41,14 +41,14 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Configure isolated local preview only
         run: |
-          cat > .dev.vars <<'EOF'
-          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
-          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
-          TURNSTILE_SITE_KEY=1x00000000000000000000AA
-          PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
-          GEMINI_EXTERNAL_AGENT_ENABLED=1
-          GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED=0
-          EOF
+          {
+            printf 'PII_ENCRYPTION_KEY=%s\n' "$(openssl rand -base64 32)"
+            printf 'PII_HASH_KEY=%s\n' "$(openssl rand -base64 32)"
+            printf '%s\n' 'TURNSTILE_SITE_KEY=1x00000000000000000000AA'
+            printf '%s\n' 'PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1'
+            printf '%s\n' 'GEMINI_EXTERNAL_AGENT_ENABLED=1'
+            printf '%s\n' 'GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED=0'
+          } > .dev.vars
       - name: Apply schema to disposable local D1 only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
