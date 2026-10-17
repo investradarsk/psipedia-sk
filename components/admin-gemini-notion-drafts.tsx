@@ -295,9 +295,9 @@ export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
             <>
               <p className={styles.dialogLead}>Importovaný koncept: zobrazuje sa pôvodný kanonický editor z administrácie, nie paralelná kópia formulára.</p>
               <div className={styles.dialogActions}>
-                <a className={styles.actionLink} href={canonicalUrl}>Otvoriť editor samostatne ↗</a>
+                <a className={styles.actionLink} href={canonicalUrl ?? undefined}>Otvoriť editor samostatne ↗</a>
               </div>
-              <iframe title={"Kanonický editor " + selectedDraft.name} src={canonicalUrl}
+              <iframe title={"Kanonický editor " + selectedDraft.name} src={canonicalUrl ?? undefined}
                 className={styles.editorFrame} onLoad={event => frameLoaded(event.currentTarget)} />
             </>
           ) : selectedDraft && "agenda" in selectedDraft ? (
