@@ -70,39 +70,55 @@ export function AdminShell({
   return (
     <main id="obsah" className="admin-root" data-admin-shell>
       <AdminStickyMetrics />
-      <div className="admin-shell shell">
-        <header className={`admin-topbar ${styles.topbarSticky}`} data-admin-topbar>
-          <Link href="/admin" className="admin-brand" aria-label="Psipedia redakcia – pracovný prehľad">
-            <span><PawMark size={23} /></span><strong>Psipedia</strong><small>redakcia</small>
-          </Link>
-          <div className={styles.topbarActions}>
-            <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">← <span>Späť na web</span></Link>
-            <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
-            <div className="admin-account">
-              <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
-              <a href={chatGPTSignOutPath("/", user.authProvider)}>Odhlásiť</a>
+      <div className={`admin-shell shell ${styles.shellV3}`}>
+        <div className={styles.workspace}>
+          <aside className={styles.sidebarFrame} data-admin-sidebar-shell aria-label="Bočný panel Psipedia Admin">
+            <Link href="/admin" className={styles.sidebarBrand} aria-label="Psipedia Admin – pracovný prehľad">
+              <PawMark size={31} />
+              <span>Psipedia<small>Admin</small></span>
+            </Link>
+            <AdminNavigation
+              stickyClassName={styles.stickyNav}
+              signOutHref={chatGPTSignOutPath("/", user.authProvider)}
+              userDisplayName={user.displayName}
+            />
+          </aside>
+          <div className={styles.workspacePage}>
+            <header className={`admin-topbar ${styles.topbarSticky}`} data-admin-topbar>
+              <Link href="/admin" className={styles.mobileBrand} aria-label="Psipedia Admin – pracovný prehľad">
+                <PawMark size={25} />
+                <span>Psipedia<small>Admin</small></span>
+              </Link>
+              <span className={styles.topbarCaption}>Psipedia · Administrácia</span>
+              <div className={styles.topbarActions}>
+                <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>
+                <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
+                <div className={`admin-account ${styles.account}`}>
+                  <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
+                  <a href={chatGPTSignOutPath("/", user.authProvider)} aria-label="Odhlásiť">
+                    <span className={styles.logoutText}>Odhlásiť</span>
+                    <span className={styles.logoutSymbol} aria-hidden="true">↪</span>
+                  </a>
+                </div>
+              </div>
+            </header>
+            <div className={styles.workspaceMain}>
+              <AdminBreadcrumbs />
+              <div className={`admin-heading ${styles.headingAnchor}`}>
+                <div>
+                  <span className="admin-eyebrow">{eyebrow}</span>
+                  <h1>{title}</h1>
+                  {description && <p>{description}</p>}
+                </div>
+                {actions && <div className="admin-heading-actions">{actions}</div>}
+              </div>
+              <div className={styles.contentArea}>{children}</div>
+              <footer className="admin-footer">
+                <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
+              </footer>
             </div>
           </div>
-        </header>
-
-        <AdminNavigation stickyClassName={styles.stickyNav} />
-        <AdminBreadcrumbs />
-
-        <div className={`admin-heading ${styles.headingAnchor}`}>
-          <div>
-            <span className="admin-eyebrow">{eyebrow}</span>
-            <h1>{title}</h1>
-            {description && <p>{description}</p>}
-          </div>
-          {actions && <div className="admin-heading-actions">{actions}</div>}
         </div>
-
-        <div className={styles.contentArea}>{children}</div>
-
-        <footer className="admin-footer">
-          <span>Zmeny sa na verejnom webe ukážu až po publikovaní obsahu.</span>
-
-        </footer>
       </div>
     </main>
   );

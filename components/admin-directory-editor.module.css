@@ -3,6 +3,11 @@
 }
 
 .editorTopline {
+  position: sticky;
+  top: var(--admin-sticky-stack, 96px);
+  z-index: 12;
+  background: #eef1eb;
+  padding-bottom: .5rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -21,6 +26,11 @@
 
 @media (max-width: 720px) {
   .editorTopline {
+  position: sticky;
+  top: var(--admin-sticky-stack, 96px);
+  z-index: 12;
+  background: #eef1eb;
+  padding-bottom: .5rem;
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -86,3 +96,5 @@
     justify-content: center;
   }
 }
+
+.editorTopline :global([data-admin-editor-navigation]) { position: static; }
