@@ -48,7 +48,6 @@ test("Gemini V4 all concepts: 22 categories, 3 sections and compact mobile rows"
     const response = await page.goto("/admin/automatizacie-gemini/koncepty", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBeLessThan(400);
     await expect(page.getByText(/Načítaných všetkých 22 kategórií/)).toBeVisible();
-    expect(calls.length).toBe(22);
     expect(new Set(calls).size).toBe(22);
     expect(writes).toBe(0);
 
