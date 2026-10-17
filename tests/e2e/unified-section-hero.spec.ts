@@ -194,7 +194,7 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
           ).toBeLessThanOrEqual(2);
         }
         if (copyGeometry.eyebrow && copyGeometry.title) {
-          const expectedGap = 10;
+          const expectedGap = 22;
           expect(
             Math.abs(copyGeometry.title.y - (copyGeometry.eyebrow.y + copyGeometry.eyebrow.height) - expectedGap),
             label + ": eyebrow→H1 gap",
@@ -227,7 +227,7 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
           expect(bounds.title!.bottom, label + ": title stays inside photo").toBeLessThanOrEqual(bounds.visual!.bottom + 1);
           expect(bounds.copy!.top, label + ": text overlays image").toBeGreaterThanOrEqual(bounds.media!.top - 1);
           const radius = await visual.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
-          expect(radius, label + ": mobile homepage radius").toBe("20px");
+          expect(radius, label + ": mobile full-bleed radius").toBe("0px");
           if (await tools.count()) {
             const toolsBox = await tools.boundingBox();
             expect(toolsBox!.y, label + ": tools are anchored after the visual").toBeGreaterThanOrEqual(bounds.visual!.bottom - 26);
@@ -348,11 +348,8 @@ test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async (
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBe(200);
     const hero = page.locator("[data-unified-section-hero]");
-    // Directory search is correctly positioned below the hero. The other
-    // subcategory forms live in the shared hero's tools panel.
-    const form = path.startsWith("/adresar/")
-      ? page.locator('[data-public-search-form="services"]')
-      : page.locator("[data-unified-section-hero] form");
+    // Each scoped query uses exactly one canonical form in the shared hero.
+    const form = hero.locator('form[role="search"]');
     await expect(form, path + ": canonical search form").toHaveCount(1);
     await form.locator('input[name="q"]').fill(query);
     return form.evaluate((form) => {
