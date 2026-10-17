@@ -22,9 +22,9 @@ function fixture() {
  }}
  const db={prepare(sql){return wrap(sqlite.prepare(sql))}};
  function add(n,approval="UNREVIEWED",scheduled_at="2030-02-10T11:59:00.000Z",status="scheduled"){
-   sqlite.prepare("INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+   sqlite.prepare("INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,approved_at,approved_by,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
      .run(id(n),"Test "+n,`/media/facebook-images/2030/${id(n)}.jpg`,`facebook-images/2030/${id(n)}.jpg`,
-       "Toto je pôvodný popis "+n,scheduled_at,status,approval,date,date,"admin","admin");
+       "Toto je pôvodný popis "+n,scheduled_at,status,approval,approval==="APPROVED"?date:null,approval==="APPROVED"?"admin@test":null,date,date,"admin","admin");
  }
  const attempt=n=>sqlite.prepare("SELECT * FROM facebook_image_publish_attempts WHERE post_id=?").get(id(n));
  const post=n=>sqlite.prepare("SELECT * FROM facebook_image_posts WHERE id=?").get(id(n));
@@ -156,5 +156,15 @@ test("STOP toggled after SQL claim but before Meta call releases unsubmitted cla
    assert.equal(result.published,0);assert.equal(calls.length,0);
    assert.equal(f.attempt(1),undefined);
    assert.equal(f.post(1).status,"scheduled");
+ }finally{f.close();}
+});
+
+test("legacy Notion APPROVED without admin provenance cannot trigger Meta POST",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"admin");
+   f.sqlite.prepare("UPDATE facebook_image_posts SET approved_at=NULL,approved_by=NULL WHERE id=?").run(id(1));
+   const calls=[];
+   const result=await runFacebookImagePublishSweep({db:f.db,bindings,now,fetcher:fakeMeta(calls)});
+   assert.equal(result.claimed,0);assert.equal(calls.length,0);
  }finally{f.close();}
 });
