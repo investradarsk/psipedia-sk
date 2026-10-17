@@ -95,8 +95,9 @@ test("event rows stay compact and date-first with an image presentation slot", (
 });
 
 test("events keep shared public primitives while event-specific styles stay scoped", () => {
-  assert.match(eventsPage, /Breadcrumbs, PageContainer/);
-  assert.match(eventsPage, /<PageContainer/);
+  assert.match(eventsPage, /import \{ Breadcrumbs \} from "@\/components\/page-system"/);
+  assert.match(eventsPage, /<UnifiedSectionHeroShell/);
+  assert.match(eventsPage, /portalSearchSlot=/);
   assert.match(listing, /<details/);
   assert.match(listing, /<form method="get" action=\{`\$\{pathname\}#events-list`\}/);
   assert.match(eventsPage, /events-public\.module\.css/);
