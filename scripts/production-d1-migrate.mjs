@@ -10,7 +10,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // Prepared migrations are excluded from production until independently approved.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// SERVICES V3 phase 2: schema file is staged, explicitly NOT approved for any production APPLY.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0132_services_canonical_admin_foundation.sql"]);
 export const APPROVED_0131_SHA256 = "d07c3a675ea3466954e7c34e3fa9ced41f301be5bdedf37682009ef41147a54a";
 export function assertApproved0131Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0131 requires canonical psipedia-sk-db");
