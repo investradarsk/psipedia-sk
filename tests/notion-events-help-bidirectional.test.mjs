@@ -26,7 +26,7 @@ import {
   organizationStatusFromNotion,
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
-import { mergeNotionEventPriority } from "../lib/notion-event-priority.ts";
+import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
 import {
   mergeNotionSeo,
   notionSeoPropertyNames,
@@ -696,4 +696,11 @@ test("Events Notion A: missing values never erase values; 0 and false remain exp
   const notion = { "Popis": null, "Čas začiatku": "\t\n", "Nulový údaj": 0, "Zrušené": false, "Cudzie pole": "ignored" };
   const merged = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
   assert.deepEqual(merged, { "Popis": "Saved", "Čas začiatku": "09:00", "Nulový údaj": 0, "Zrušené": false });
+});
+
+test("Events Notion A remains disabled without explicit separate production gate", () => {
+  assert.equal(notionEventPriorityAEnabled(undefined), false);
+  assert.equal(notionEventPriorityAEnabled("false"), false);
+  assert.equal(notionEventPriorityAEnabled(" true "), true);
+  assert.equal(notionEventPriorityAEnabled("1"), true);
 });
