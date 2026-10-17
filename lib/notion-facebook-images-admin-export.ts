@@ -48,7 +48,7 @@ export function facebookAdminNotionProperties(row:AdminImageRow){
     "Obrázok":{files:photo?[{name:filename,type:"external",external:{url:photo}}]:[]},
     "Stav":{status:{name:row.status==="published"?"Publikované":
       row.status==="scheduled"?"Naplánované":"Koncept"}},
-    "Povoliť publikovanie":{checkbox:true},
+    "Povoliť publikovanie":{checkbox:row.approval_status==="APPROVED"},
     "Dátum a čas publikovania":{date:row.scheduled_at?{start:row.scheduled_at}:null},
     "Facebook Post ID":{rich_text:rich(row.facebook_post_id||"")},
     "Facebook URL":{url:row.facebook_post_id?facebookImagePermalink(row.facebook_post_id):null},
