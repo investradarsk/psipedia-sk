@@ -29,7 +29,7 @@ export function geminiCanRejectConcept(draft: {
 }
 
 /** Other agenda types have no reliable reason audit property in the existing schema. */
-export function geminiSupportsRejectionReason(draft: { agenda?: string }) {
+export function geminiSupportsRejectionReason(draft: { agenda?: string; psipediaId: string }) {
   return !draft.agenda || draft.agenda === "help-cases";
 }
 
