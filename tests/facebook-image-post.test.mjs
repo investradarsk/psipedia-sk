@@ -90,6 +90,6 @@ test('prepared SQL and Drizzle agree; migration adds only its own table and inde
  const columns=sqlite.prepare('PRAGMA table_info(facebook_image_posts)').all();const config=getTableConfig(facebookImagePosts);
  assert.deepEqual(columns.map(c=>c.name),config.columns.map(c=>c.name));
  for(const column of config.columns){const sql=columns.find(c=>c.name===column.name);assert.equal(sql.type.toLowerCase(),column.getSQLType());assert.equal(Boolean(sql.notnull),column.notNull);}
- const indexes=sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
- assert.deepEqual(indexes,['facebook_image_posts_notion_idx','facebook_image_posts_schedule_idx','facebook_image_posts_updated_idx']);
+ const indexes=sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='facebook_image_posts' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
+ assert.deepEqual(indexes,['facebook_image_posts_notion_idx','facebook_image_posts_schedule_idx','facebook_image_posts_trash_idx','facebook_image_posts_updated_idx']);
 });

@@ -1,5 +1,9 @@
 import {FacebookImageConflict} from "@/lib/facebook-image-store";
 
+/** The tombstone, canonical Notion identity, Meta ID, media and attempt ledger are
+ * deliberately retained to prevent resurrection or repeated Meta publishing.
+ * The operation is irreversible through user-facing APIs (no restore endpoint).
+ */
 export async function facebookTrashSchemaReady(db:Pick<D1Database,"prepare">):Promise<boolean> {
   try {
     await db.prepare("SELECT deleted_at,deleted_by FROM facebook_image_posts LIMIT 0").all();
@@ -10,35 +14,28 @@ export async function facebookTrashSchemaReady(db:Pick<D1Database,"prepare">):Pr
   }
 }
 export class FacebookTrashMigrationNeeded extends Error {
-  constructor(){super("Kôš čaká na samostatne schválenú produkčnú migráciu 0131.");}
+  constructor(){super("Trvalé odstránenie vyžaduje schválenú D1 migráciu 0131.");}
 }
-export async function setFacebookImageTrashed(args:{
-  db:D1Database;id:string;expectedVersion:number;action:"trash"|"restore";actor:string;
+export async function permanentlyDeleteFacebookImage(args:{
+  db:D1Database;id:string;expectedVersion:number;actor:string;
 }) {
-  const {db,id,expectedVersion,action,actor}=args;
+  const {db,id,expectedVersion,actor}=args;
   if(!await facebookTrashSchemaReady(db))throw new FacebookTrashMigrationNeeded();
   if(!/^[a-f0-9-]{36}$/i.test(id)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)
     throw new FacebookImageConflict();
+  let consent=false;
+  try{await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();consent=true;}
+  catch(error){if(!(error instanceof Error&&/no such column:\s*direct_publish_consent/i.test(error.message)))throw error;}
   const now=new Date().toISOString();
-  // CAS ensures two editors cannot race. An in-flight Meta request cannot be hidden.
-  // The old post row (including Notion identity) and attempt ledger are NEVER deleted.
-  const sql=action==="trash"?
-    `UPDATE facebook_image_posts SET deleted_at=?,deleted_by=?,approval_status='UNREVIEWED',
-      approved_at=NULL,approved_by=NULL,version=version+1,updated_at=?,updated_by=?
+  const sql=`UPDATE facebook_image_posts SET deleted_at=?,deleted_by=?,
+      approval_status='UNREVIEWED',approved_at=NULL,approved_by=NULL,
+      ${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}
+      version=version+1,updated_at=?,updated_by=?
       WHERE id=? AND version=? AND deleted_at IS NULL
         AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a
           WHERE a.post_id=facebook_image_posts.id AND a.state='SENDING')
-      RETURNING id,version`:
-    `UPDATE facebook_image_posts SET deleted_at=NULL,deleted_by=NULL,
-      status=CASE WHEN status='published' THEN 'published' ELSE 'draft' END,
-      approval_status='UNREVIEWED',approved_at=NULL,approved_by=NULL,
-      version=version+1,updated_at=?,updated_by=?
-      WHERE id=? AND version=? AND deleted_at IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a
-          WHERE a.post_id=facebook_image_posts.id AND a.state='SENDING')
       RETURNING id,version`;
-  const result=await db.prepare(sql).bind(...(action==="trash"?
-    [now,actor,now,actor,id,expectedVersion]:[now,actor,id,expectedVersion]))
+  const result=await db.prepare(sql).bind(now,actor,now,actor,id,expectedVersion)
     .first<{id:string;version:number}>();
   if(!result)throw new FacebookImageConflict();
   return result;
