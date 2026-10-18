@@ -21,6 +21,7 @@ const shortGroupLabels: Record<number, string> = {
 
 export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrimarySearch = false }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters; actions?: ReactNode; hidePrimarySearch?: boolean }) {
   const [query, setQuery] = useState(initialFilters.query);
+  const [shown,setShown]=useState(60);
   // The only visible query input now lives in the shared photographic hero.
   // Keep the existing instant atlas filtering and its URL synchronization.
   useEffect(() => {
@@ -34,7 +35,6 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
   const [selectedGroup, setSelectedGroup] = useState(initialFilters.fciGroup || "all");
   const [selectedSection, setSelectedSection] = useState(() => validFciSectionForGroup(breeds, initialFilters.fciGroup, initialFilters.fciSection));
   const [selectedOrigin, setSelectedOrigin] = useState(initialFilters.origin || "all");
-  const [shown,setShown]=useState(60);
   const origins = useMemo(() => [...new Set(breeds.map((breed) => breed.origin).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"sk")), [breeds]);
   const sectionOptions = useMemo(() => listFciSectionOptions(breeds, selectedGroup === "all" ? "" : selectedGroup), [breeds, selectedGroup]);
 
