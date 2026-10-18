@@ -124,7 +124,8 @@ test("canonical identity protection includes provider types and cross-kind dupli
   await assert.rejects(()=>createAdminCatalogOption(db,item("Typ veterinárneho pracoviska"),"owner@example.com"),ServiceCatalogInputError);
   await assert.rejects(()=>createAdminCatalogOption(db,item("Typ poskytovateľa opatery"),"owner@example.com"),ServiceCatalogInputError);
   const first=await createAdminCatalogOption(db,{...item(" Nová   metóda výcviku "),kind:"attribute"},"owner@example.com");
-  assert.match(first.id,/^attr\\.admin\\.[0-9a-f]{32}$/);
+  assert.equal(first.id.startsWith("attr.admin."),true);
+  assert.match(first.id.slice("attr.admin.".length),/^[0-9a-f]{32}$/);
   assert.equal(first.kind,"attribute");
   await assert.rejects(()=>createAdminCatalogOption(db,{...item("NOVÁ METÓDA VÝCVIKU"),kind:"service"},"owner@example.com"),ServiceCatalogConflictError);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM service_catalog_admin_options").get().n,1);
