@@ -8,6 +8,8 @@ import { PublicLocationMap } from "@/components/map/public-location-map";
 import type { PublicEntityMapResult } from "@/lib/map-query";
 import type { PublicMapRuntime } from "@/lib/public-map-runtime";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { DetailHero, DetailFactsCard, DetailSection } from "./detail-primitives/detail-primitives";
+import detailStyles from "./detail-primitives/detail-primitives.module.css";
 import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
 import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, formatEventUpdatedAt, type DogEvent } from "@/lib/events";
 import styles from "./events-public.module.css";
@@ -52,25 +54,22 @@ export function EventDetail({
   const updatedLabel = formatEventUpdatedAt(event.updatedAt);
 
   return (
-    <main id="obsah">
+    <main id="obsah" className={styles.detailPage}>
       <PublicFoundation className={styles.foundation}>
-      <header className={styles.detailHeader} data-event-detail-header>
-        <PageContainer>
-          <Breadcrumbs className={styles.breadcrumbs}>
+      <DetailHero kind="event"
+        breadcrumbs={<><Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span>{category && <><Link href={category.href}>{category.label}</Link><span>/</span></>}<span>{event.title}</span>
-          </Breadcrumbs>
-          <div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div>
-
-          <div className={styles.detailGrid}>
-            <div className={styles.detailHeading}>
-              <div className={styles.detailTags}>
-                {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
-                {statusLabel && <b>{statusLabel}</b>}
-              </div>
-              <h1>{event.title}</h1>
-              {event.excerpt && <p className={styles.detailExcerpt}>{event.excerpt}</p>}
-
-              <dl className={styles.detailFacts} data-event-facts aria-label="Základné informácie o podujatí">
+          </Breadcrumbs><div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div></>}
+        media={event.imageUrl ? <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} context="detail" config={event.detailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt={event.title} loading="eager" fetchPriority="high" decoding="async" /> : null}
+        copy={<>
+          <div className={detailStyles.tags}>
+            {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
+            {statusLabel && <b>{statusLabel}</b>}
+          </div>
+          <h1>{event.title}</h1>
+          {event.city && <p className={detailStyles.location}>{event.city}{event.region && event.region !== "Online" ? ` · ${event.region}` : ""}</p>}
+          {event.excerpt && <p className={detailStyles.lead}>{event.excerpt}</p>}
+          <dl className={detailStyles.factTiles} data-event-facts aria-label="Základné informácie o podujatí">
                 <div>
                   <dt>Termín</dt>
                   <dd>
@@ -97,25 +96,21 @@ export function EventDetail({
                   </div>
                 )}
               </dl>
-
-              {hasActions && (
-                <div className={styles.detailActions} aria-label="Odkazy podujatia">
-                  {event.registrationUrl && <PublicActionLink href={event.registrationUrl} target="_blank" rel="noreferrer" icon={<ArrowIcon size={18} />}>Registrácia</PublicActionLink>}
-                  {event.websiteUrl && <PublicActionLink href={event.websiteUrl} variant="secondary" target="_blank" rel="noreferrer" icon={<ArrowIcon size={17} />}>Oficiálna stránka</PublicActionLink>}
-                </div>
-              )}
-            </div>
-
-            <figure className={styles.detailVisual} data-event-image>
-              <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} context="detail" config={event.detailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt={event.title} loading="eager" fetchPriority="high" decoding="async" />
-            </figure>
-          </div>
-        </PageContainer>
-      </header>
-
-      {event.region !== "Online" && publicMap?.items.length ? (
-        <PageContainer>
-          <PublicLocationMap
+          {hasActions && <nav className={detailStyles.heroActions} aria-label="Odkazy podujatia">
+            {event.registrationUrl && <PublicActionLink className={detailStyles.primaryAction} href={event.registrationUrl} target="_blank" rel="noreferrer" icon={<ArrowIcon size={18} />}>Registrácia</PublicActionLink>}
+            {event.websiteUrl && <PublicActionLink className={detailStyles.secondaryAction} href={event.websiteUrl} variant="secondary" target="_blank" rel="noreferrer" icon={<ArrowIcon size={17} />}>Oficiálna stránka</PublicActionLink>}
+          </nav>}
+        </>} />
+      <div className={`${detailStyles.shell} ${detailStyles.layout}`}>
+        <article className={detailStyles.body}>
+          {event.description && <DetailSection title="O podujatí"><EventMarkdown value={event.description} /></DetailSection>}
+          {event.practicalInfo && <DetailSection eyebrow="Pred návštevou" title="Praktické informácie"><EventMarkdown value={event.practicalInfo} /></DetailSection>}
+        </article>
+        <aside className={detailStyles.aside} aria-label="Organizátor a praktické informácie">
+          {event.organizer && <DetailFactsCard title="Organizátor" facts={[{ label: "Organizátor", value: event.organizer }, event.websiteUrl ? { label: "Oficiálna stránka", value: <a href={event.websiteUrl} target="_blank" rel="noreferrer">{event.websiteUrl}</a> } : null]} />}
+          <DetailFactsCard title="Termín a čas" facts={[{ label: "Termín", value: formatEventDate(event) }, timeLabel ? { label: "Čas", value: timeLabel } : null]} />
+          <DetailFactsCard title="Miesto konania" facts={[{ label: "Miesto", value: locationLines.join(" · ") }]} />
+          {event.region !== "Online" && publicMap?.items.length ?           <PublicLocationMap
             eyebrow="Miesto"
             title="Miesto podujatia"
             items={publicMap.items}
@@ -124,30 +119,9 @@ export function EventDetail({
             googleMapId={publicMap.googleMapId}
             rendererEnabled={publicMap.rendererEnabled}
             testRendererEnvironment={publicMap.testRendererEnvironment}
-          />
-        </PageContainer>
-      ) : null}
-
-      {(event.description || event.practicalInfo) && (
-        <PageContainer className={styles.detailBody}>
-          <article className={styles.detailCopy}>
-            {event.description && (
-              <section aria-labelledby="event-about-title">
-                <span className="eyebrow">O podujatí</span>
-                <h2 id="event-about-title">Čo potrebuješ vedieť</h2>
-                <EventMarkdown value={event.description} />
-              </section>
-            )}
-            {event.practicalInfo && (
-              <section className={styles.practicalInfo} aria-labelledby="event-practical-title">
-                <span className="eyebrow">Pred návštevou</span>
-                <h2 id="event-practical-title">Praktické informácie</h2>
-                <EventMarkdown value={event.practicalInfo} />
-              </section>
-            )}
-          </article>
-        </PageContainer>
-      )}
+          /> : null}
+        </aside>
+      </div>
 
       {related.length > 0 && (
         <section className={styles.relatedSection} aria-labelledby="event-related-title">

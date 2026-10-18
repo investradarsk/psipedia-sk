@@ -2038,3 +2038,10 @@
 .categorySearchShell.categorySearchShell:global(.home-search-shell) { margin-top: 14px; }
 .categorySearchShell :global(.home-search-panel) { width: 100%; max-width: 780px; margin-inline: auto; grid-template-columns: minmax(0, 1fr); border-radius: var(--ps-radius-filter, 18px); }
 @media (max-width: 620px) { .categorySearchShell.categorySearchShell:global(.home-search-shell) { margin-top: 12px; } .categorySearchShell :global(.home-search-panel) { padding: 13px; } }
+
+/* UNIFIED PUBLIC DETAILS V2: scoped to detail; listing/search styles stay intact. */
+.detailPage { composes: page from "./detail-primitives/detail-primitives.module.css"; }
+.detailPage .foundation { background: transparent; }
+.detailPage .relatedSection { margin-top: 8px; background: transparent; }
+.detailPage .relatedSection :global(.shell) { width: min(1120px, calc(100% - 32px)); }
+.detailPage .returnBar { margin: 0; font-size: .75rem; }
