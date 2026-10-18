@@ -21,7 +21,7 @@ const accountStatuses=["PENDING_VERIFICATION","ACTIVE","SUSPENDED","DEACTIVATED"
 
 export function normalizePartnerAccountAdminFilters(input:PartnerAccountAdminFilters={}){
   const positiveInt=(value:number|undefined,fallback:number,max:number)=>
-    Number.isSafeInteger(value)&&value!>=1?Math.min(value!,max):fallback;
+    typeof value==="number"&&Number.isSafeInteger(value)&&value>=1?Math.min(value,max):fallback;
   return {
     q:(input.q??"").trim().normalize("NFKC").slice(0,120),
     page:positiveInt(input.page,1,10000),
