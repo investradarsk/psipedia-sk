@@ -10,7 +10,16 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // Prepared migrations are excluded from production until independently approved.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0132_facebook_image_direct_consent.sql"]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0132_SHA256 = "62bd60ae8214e348b70bf3281bc22fa6a4195de9d0368de9de7bb1a93225ad20";
+export function assertApproved0132Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0132 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0132_SHA256, "0132 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0132NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0132_facebook_image_direct_consent.sql")
+    invariant(!targetApplied, "0132 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0131_SHA256 = "d07c3a675ea3466954e7c34e3fa9ced41f301be5bdedf37682009ef41147a54a";
 export function assertApproved0131Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0131 requires canonical psipedia-sk-db");
@@ -174,6 +183,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0129_gemini_external_manual_queue.sql",
   "0130_facebook_image_publisher.sql",
   "0131_facebook_image_trash.sql",
+  "0132_facebook_image_direct_consent.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -687,6 +697,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0130Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0131_facebook_image_trash.sql")
     assertApproved0131Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0132_facebook_image_direct_consent.sql")
+    assertApproved0132Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1290,6 +1302,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: (schema.facebookImagePostColumns ?? []).some(col =>
       ["deleted_at", "deleted_by"].includes(String(col.name))) ||
       names.has("facebook_image_posts_trash_idx") };
+  }
+  if (targetMigration === "0132_facebook_image_direct_consent.sql") {
+    return { partial: (schema.facebookImagePostColumns ?? []).some(col =>
+      ["direct_publish_consent", "direct_consent_at", "direct_consent_by"].includes(String(col.name))) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2281,9 +2297,31 @@ export function assertFacebookImageTrashSchema(schema) {
     "0131 trash index missing or changed");
 }
 
+/** 0132 adds independent owner consent to existing image posts and grants nothing by default. */
+export function assertFacebookImageDirectConsentSchema(schema) {
+  const posts = objectMap(schema.objects ?? []).get("facebook_image_posts");
+  invariant(posts?.type === "table", "0132 requires facebook_image_posts table");
+  const columns = schema.facebookImagePostColumns ?? [];
+  const required = [
+    ["direct_publish_consent", "INTEGER", 1, "0"],
+    ["direct_consent_at", "TEXT", 0, null],
+    ["direct_consent_by", "TEXT", 0, null],
+  ];
+  for (const [name, type, notnull, defaultValue] of required) {
+    const matching = columns.filter(col => String(col.name) === name);
+    invariant(matching.length === 1, "0132 missing/duplicated column: " + name);
+    const col = matching[0];
+    invariant(String(col.type).toUpperCase() === type && Number(col.notnull) === notnull
+      && Number(col.pk) === 0 && (col.dflt_value == null ? null : String(col.dflt_value)) === defaultValue,
+      "0132 invalid column definition: " + name);
+  }
+  invariant(String(posts.sql ?? "").includes("CHECK (direct_publish_consent IN (0,1))"),
+    "0132 owner consent binary CHECK constraint missing");
+}
+
 export function assertRolloutChainSchema(schema, targetMigration) {
   const target = migrationIndex(targetMigration);
-  if (target < 123 || target > 131) return;
+  if (target < 123 || target > 132) return;
   if (target >= 124) assertStructuredAddressSchema(schema);
   if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
   if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
@@ -2306,6 +2344,7 @@ export function assertRolloutChainSchema(schema, targetMigration) {
   if (target >= 128) assertGeminiNotionCreatedPagesSchema(schema);
   if (target >= 129) assertFacebookImagePostsSchema(schema);
   if (target >= 131) assertFacebookImagePublisherSchema(schema);
+  if (target >= 132) assertFacebookImageTrashSchema(schema);
   if (target < 128) assertPendingTargetSchemaClean("0128_facebook_image_posts.sql",
     targetSchemaObjects(schema, "0128_facebook_image_posts.sql"));
 }
@@ -2371,6 +2410,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 128) assertFacebookImagePostsSchema(schema);
   if (migrationIndex(targetMigration) >= 130) assertFacebookImagePublisherSchema(schema);
   if (migrationIndex(targetMigration) >= 131) assertFacebookImageTrashSchema(schema);
+  if (migrationIndex(targetMigration) >= 132) assertFacebookImageDirectConsentSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2751,6 +2791,7 @@ async function preflight(targetMigration) {
   assert0129NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0130NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0131NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0132NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2801,6 +2842,8 @@ async function preflight(targetMigration) {
     rolloutReadiness = "READY_0130";
   } else if (targetIndex === 131) {
     rolloutReadiness = "READY_0131";
+  } else if (targetIndex === 132) {
+    rolloutReadiness = "READY_0132";
   }
   const additivePreservationBefore = targetIndex >= 123
     ? additiveRolloutPreservationSnapshot(databaseName, prepared.configPath, schema)
@@ -2808,7 +2851,7 @@ async function preflight(targetMigration) {
   const geminiSchedulerBefore = targetIndex === 126
     ? geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath, schema)
     : null;
-  const facebookPostsBefore = (targetIndex === 130 || targetIndex === 131)
+  const facebookPostsBefore = (targetIndex >= 130 && targetIndex <= 132)
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM facebook_image_posts")
     : null;
   const reviewCountBefore = targetIndex >= 63
@@ -2914,6 +2957,7 @@ async function apply(targetMigration) {
   assert0129NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0130NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0131NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0132NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 129) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
@@ -2992,10 +3036,15 @@ async function verify(targetMigration) {
       invariant(scalarCount(databaseName, prepared.configPath,
         "SELECT COUNT(*) AS count FROM facebook_image_posts") === 0,
         "0128 Facebook image posts table must be empty immediately after first apply");
-    if (targetIndex === 130 || targetIndex === 131) {
+    if (targetIndex >= 130 && targetIndex <= 132) {
       invariant(scalarCount(databaseName, prepared.configPath,
         "SELECT COUNT(*) AS count FROM facebook_image_posts") === internal.facebookPostsBefore,
-        targetIndex === 131 ? "0131 unexpectedly changed existing Facebook image posts count" : "0130 unexpectedly changed existing Facebook image posts count");
+        `0${targetIndex} unexpectedly changed existing Facebook image posts count`);
+      if (targetIndex === 132 && !internal.targetApplied) {
+        invariant(scalarCount(databaseName, prepared.configPath,
+          "SELECT COUNT(*) AS count FROM facebook_image_posts WHERE direct_publish_consent<>0 OR direct_consent_at IS NOT NULL OR direct_consent_by IS NOT NULL") === 0,
+          "0132 must initialize every owner consent to DENY with empty audit fields");
+      }
       if (targetIndex === 131 && !internal.targetApplied) {
         invariant(scalarCount(databaseName, prepared.configPath,
           "SELECT COUNT(*) AS count FROM facebook_image_posts WHERE deleted_at IS NOT NULL OR deleted_by IS NOT NULL") === 0,
