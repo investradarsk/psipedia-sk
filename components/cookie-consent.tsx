@@ -93,7 +93,7 @@ async function sendPageView(pagePath: string) {
     // Consent can be withdrawn while gtag.js is loading.
     const currentConsent = window.localStorage.getItem(CONSENT_KEY);
     if (
-      analyticsWindow[\`ga-disable-\${MEASUREMENT_ID}\`] ||
+      analyticsWindow[`ga-disable-${MEASUREMENT_ID}`] ||
       (currentConsent !== "analytics" && currentConsent !== "advertising") ||
       isStoredInternalTraffic(window.localStorage.getItem(INTERNAL_TRAFFIC_STORAGE_KEY))
     ) {
