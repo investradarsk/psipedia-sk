@@ -20,6 +20,24 @@ export function ArticleBrowser({
 }) {
   const [category, setCategory] = useState(initialCategory);
   const [query, setQuery] = useState(initialQuery);
+  useEffect(() => {
+    if (!hidePrimarySearch) return;
+    const form = document.querySelector<HTMLFormElement>('form[data-public-search-form="articles"]');
+    if (!form) return;
+    const slugs: Record<string, string> = {
+      "Výcvik": "vycvik", "Zdravie": "zdravie", "Výživa": "vyziva", "Život so psom": "zivot-so-psom",
+    };
+    const slug = slugs[category] ?? "";
+    let field = form.querySelector<HTMLInputElement>('input[type="hidden"][name="tema"]');
+    if (!slug) { field?.remove(); return; }
+    if (!field) {
+      field = document.createElement("input");
+      field.type = "hidden";
+      field.name = "tema";
+      form.appendChild(field);
+    }
+    field.value = slug;
+  }, [category, hidePrimarySearch]);
   // Preserve live, client-side filtering while its only visible input is in the hero.
   useEffect(() => {
     if (!hidePrimarySearch) return;
@@ -75,7 +93,12 @@ export function ArticleBrowser({
           <span>🐾</span>
           <h2>Na túto stopu sme ešte nenarazili</h2>
           <p>Skús kratší výraz alebo inú tému.</p>
-          <button type="button" className="button button--dark" onClick={() => { setQuery(""); setCategory("Všetky"); }}>
+          <button type="button" className="button button--dark" onClick={() => {
+            setQuery("");
+            setCategory("Všetky");
+            const heroInput = document.getElementById("article-hero-search");
+            if (heroInput instanceof HTMLInputElement) heroInput.value = "";
+          }}>
             Zobraziť celý magazín
           </button>
         </div>
