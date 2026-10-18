@@ -27,6 +27,7 @@
 
 .mobileNameDay {
   display: flex;
+  text-decoration: none;
   min-width: 0;
   align-items: baseline;
   justify-content: center;
@@ -41,6 +42,15 @@
   text-align: center;
 }
 
+.mobileNameDay:hover,
+.desktopNameDay:hover {
+  background-color: rgba(185, 71, 50, .08);
+}
+.mobileNameDay:focus-visible,
+.desktopNameDay:focus-visible {
+  outline: 3px solid var(--brand-accent-strong);
+  outline-offset: -3px;
+}
 .mobileNameDay span,
 .desktopNameDay span {
   color: var(--brand-accent-strong);
@@ -144,6 +154,7 @@
 
   .desktopNameDay {
     display: inline-flex;
+    text-decoration: none;
     min-width: 0;
     grid-column: 2;
     align-items: center;
@@ -301,7 +312,16 @@
   }
 
   .desktopNav :global(.nav-news) {
-    color: #ffd0c3 !important;
+    color: #fff !important;
+    background: var(--brand-accent-strong) !important;
+    border-radius: 7px;
+    padding-inline: 10px;
+  }
+  .desktopNav :global(.nav-news):hover,
+  .desktopNav :global(.nav-news):focus-visible,
+  .desktopNav :global(.nav-news)[data-active="true"] {
+    color: #fff !important;
+    background: #973621 !important;
   }
 
   .desktopNav :global(.nav-news)::before {

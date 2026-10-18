@@ -151,6 +151,17 @@ export function buildSectionVisualRegistry(sections: PortalSection[] = portalSec
       defaultDesktopCrop: CENTER_CROP,
       defaultMobileCrop: HOME_MOBILE_CROP,
     }),
+    commonDefinition({
+      visualKey: "section.mapa",
+      name: "Mapa Psipedie — hlavný hero",
+      route: "/mapa",
+      target: "Používa sa nad interaktívnou mapou Psipedie.",
+      type: "section",
+      sectionSlug: null,
+      subsectionSlug: null,
+      defaultImageUrl: "/images/hero-labrador.webp",
+      defaultAltText: "Pes v prírode – vizuál mapy Psipedie",
+    }),
   ];
 
   for (const section of sections) {
