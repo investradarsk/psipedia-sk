@@ -76,7 +76,10 @@
   font-size: .78rem;
 }
 
-.breadcrumbs :where(a, span) {
+/* Some section pages provide their own breadcrumb component and color rules.
+   The photo hero must win those rules consistently on desktop and mobile. */
+.hero .breadcrumbs a,
+.hero .breadcrumbs span {
   color: #fff;
 }
 
