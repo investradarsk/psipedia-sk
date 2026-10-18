@@ -76,7 +76,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
                 panelLabel="Vyhľadávanie článkov"
                 eyebrow="ČO HĽADÁŠ?"
                 title="Nájdi článok alebo radu"
-                placeholder="Hľadať článok, tému alebo návod..."
+                placeholder="Hľadať v magazíne"
                 buttonLabel="Hľadať"
                 defaultValue={scalar(params.hladat) ?? ""}
                 allowEmpty
