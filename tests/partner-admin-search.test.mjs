@@ -32,7 +32,7 @@ async function setup(){
     const id="partner-"+String(i).padStart(4,"0");
     const email=await encryptPii("old-index-"+String(i).padStart(4,"0")+"@example.sk",key);
     // Same timestamp every five rows exercises the deterministic id tie-break.
-    const createdAt="2026-10-01T00:"+String(Math.floor(i/5)).padStart(2,"0")+":00.000Z";
+    const createdAt=new Date(Date.UTC(2026,9,1)+Math.floor(i/5)*60_000).toISOString();
     insert.run(id,email,i%2===0?"ACTIVE":"SUSPENDED",i%3===0?null:createdAt,createdAt);
   }
   member.run("active-a","partner-0007",null);
