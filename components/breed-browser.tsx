@@ -46,6 +46,25 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
       origin: selectedOrigin === "all" ? "" : selectedOrigin,
     });
     window.history.replaceState(null, "", href);
+    // Keep hero form facets in step with client-side FCI and origin changes.
+    const form = document.querySelector<HTMLFormElement>('form[data-public-search-form="breeds"]');
+    if (form) {
+      for (const [name, value] of [
+        ["fciGroup", selectedGroup === "all" ? "" : selectedGroup],
+        ["fciSection", selectedSection],
+        ["origin", selectedOrigin === "all" ? "" : selectedOrigin],
+      ]) {
+        let field = form.querySelector<HTMLInputElement>(`input[type="hidden"][name="${name}"]`);
+        if (!value) { field?.remove(); continue; }
+        if (!field) {
+          field = document.createElement("input");
+          field.type = "hidden";
+          field.name = name;
+          form.appendChild(field);
+        }
+        field.value = value;
+      }
+    }
   }, [query, selectedGroup, selectedSection, selectedOrigin]);
 
   const visible = useMemo(() => {
