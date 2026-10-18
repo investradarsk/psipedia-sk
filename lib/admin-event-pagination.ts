@@ -51,7 +51,7 @@ export function parseAdminEventListQuery(params: URLSearchParams): AdminEventLis
       type: pick("type", ["", ...eventTypes], ""),
       region: pick("region", ["", ...slovakRegions], ""),
       month: pick("month", ["", ...Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"))], ""),
-      year: /^\\d{4}$/.test(params.get("year") ?? "") ? params.get("year")! : "",
+      year: /^\d{4}$/.test(params.get("year") ?? "") ? params.get("year")! : "",
       sort: pick("sort", ["date", "updated", "created", "title"], defaultEventFilters.sort),
     },
   };
