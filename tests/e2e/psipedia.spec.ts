@@ -3,7 +3,6 @@ import { expect, test, type Page } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
 const NO_CONSENT_TEST = "@production cookie consent first visit navigation and rejection work";
-const COOKIE_TEST_PREFIX = "@production cookie consent";
 const GOOGLE_SCRIPTS = 'script[src*="googletagmanager.com"], script[src*="pagead2.googlesyndication.com"]';
 
 async function useNecessaryCookies(page: Page) {
@@ -142,7 +141,7 @@ async function expectSectionTabsClear(page: Page, path: string, minimumGap = 0) 
 
 test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.includes("@production")) testInfo.setTimeout(90_000);
-  if (!testInfo.title.startsWith(COOKIE_TEST_PREFIX)) await useNecessaryCookies(page);
+  if (!testInfo.title.includes("cookie consent ")) await useNecessaryCookies(page);
 });
 
 test("desktop and mobile menus expose the same primary destinations without hidden focus targets", async ({ page }) => {
@@ -627,7 +626,7 @@ test("@production cookie consent existing rejection survives navigation and relo
   expect(requests, "Tracking ran despite stored rejection").toEqual([]);
 });
 
-test("@production cookie consent opt-in and delayed GA4 revocation are safe", async ({ page }) => {
+test("cookie consent opt-in and delayed GA4 revocation are safe", async ({ page }) => {
   await seedCookieConsentOnce(page, null);
   const requests = captureConsentControlledRequests(page);
   await page.route("**/gtag/js?*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
