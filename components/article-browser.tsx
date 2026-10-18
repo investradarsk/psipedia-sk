@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Article } from "@/lib/content";
 import { ArticleCard } from "./article-card";
 import { SearchIcon } from "./icons";
@@ -20,6 +20,15 @@ export function ArticleBrowser({
 }) {
   const [category, setCategory] = useState(initialCategory);
   const [query, setQuery] = useState(initialQuery);
+  // Preserve live, client-side filtering while its only visible input is in the hero.
+  useEffect(() => {
+    if (!hidePrimarySearch) return;
+    const input = document.getElementById("article-hero-search");
+    if (!(input instanceof HTMLInputElement)) return;
+    const sync = () => setQuery(input.value);
+    input.addEventListener("input", sync);
+    return () => input.removeEventListener("input", sync);
+  }, [hidePrimarySearch]);
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("sk");
