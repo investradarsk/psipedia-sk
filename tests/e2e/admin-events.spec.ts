@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type APIRequestContext } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
 // Requires the dedicated local fixtures; other E2E suites keep their own DB.
@@ -9,6 +9,22 @@ test.beforeEach(async ({ page, baseURL }) => {
   test.skip(url.hostname !== 'localhost' || process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP !== '1', 'Only isolated localhost event fixtures are permitted.');
   await page.addInitScript(() => localStorage.setItem('psipedia-cookie-consent', 'necessary'));
 });
+
+async function collectAllAdminEvents(request: APIRequestContext) {
+  const firstResponse = await request.get('/api/admin/events');
+  expect(firstResponse.ok()).toBe(true);
+  const first = await firstResponse.json();
+  const events = [...first.events];
+  for (let page = 2; page <= first.pages; page++) {
+    const response = await request.get('/api/admin/events?page=' + page);
+    expect(response.ok()).toBe(true);
+    const result = await response.json();
+    events.push(...result.events);
+  }
+  expect(events).toHaveLength(first.total);
+  expect(new Set(events.map((event: {id: number}) => event.id)).size).toBe(first.total);
+  return { ...first, events };
+}
 
 async function expectNoAxeViolations(page: import('@playwright/test').Page) {
   const accessibility = await new AxeBuilder({ page }).analyze();
@@ -138,19 +154,19 @@ test('editor toolbar and live preview, old plain text, XSS stays inert', async (
 });
 
 test('bulk API refuses cross-origin and stale selections without changing DB',async({request})=>{
-  const before=await (await request.get('/api/admin/events')).json();
+  const before=await (await request.get('/api/admin/events?query=e2e-admin-event-175')).json();
   const row=before.events.find((e:{id:number})=>e.id===175);
   const payload={events:[{id:row.id,status:row.status,eventType:row.eventType,cancelled:row.cancelled,updatedAt:'stale'}],field:'status',value:'published',confirmedCount:1};
   const foreign=await request.post('/api/admin/events/bulk',{data:payload,headers:{Origin:'https://untrusted.example'}});
   expect(foreign.status()).toBe(403);
   const stale=await request.post('/api/admin/events/bulk',{data:payload,headers:{Origin:new URL(process.env.E2E_BASE_URL || 'http://localhost:5173').origin}});
   expect(stale.status()).toBe(409);
-  const after=await (await request.get('/api/admin/events')).json();expect(after).toEqual(before);
+  const after=await (await request.get('/api/admin/events?query=e2e-admin-event-175')).json();expect(after).toEqual(before);
 });
 
 
 test('time filters, start month/year and sorting work across the complete dataset', async ({ page, request }) => {
-  const data = await (await request.get('/api/admin/events')).json();
+  const data = await collectAllAdminEvents(request);
   await page.goto('/admin/podujatia');
   await page.getByRole('button', { name: 'Prebiehajúce', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Prebiehajúce', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -174,8 +190,10 @@ test('time filters, start month/year and sorting work across the complete datase
   await expect(page.locator('[data-count="all"] strong')).toHaveText('175');
   await page.getByRole('button', { name: 'Zrušiť filtre', exact: true }).click();
   await page.getByLabel('Zoradiť', { exact: true }).selectOption('title');
-  const names = data.events.map((e: { title: string }) => e.title).sort((a: string,b: string)=>a.localeCompare(b,'sk'));
-  await expect(page.locator('.admin-event-row-v2 h2')).toHaveText(names.slice(0,50));
+  const sortedResponse = await request.get('/api/admin/events?sort=title');
+  expect(sortedResponse.ok()).toBe(true);
+  const sorted = await sortedResponse.json();
+  await expect(page.locator('.admin-event-row-v2 h2')).toHaveText(sorted.events.map((e: { title: string }) => e.title));
   await page.getByLabel('Zoradiť', { exact: true }).selectOption('updated');
   await expect(page.locator('.admin-event-row-v2').first()).toContainText('Stretnutie majiteľov psov 175');
   await page.getByLabel('Zoradiť', { exact: true }).selectOption('created');
@@ -282,14 +300,14 @@ test('quick edit drawer is scoped, keyboard closable and restores trigger focus'
 });
 
 test('quick edit API rejects foreign origin and stale revision without changing fixture', async ({ request }) => {
-  const before=await (await request.get('/api/admin/events')).json();
+  const before=await (await request.get('/api/admin/events?query=e2e-admin-event-175')).json();
   const row=before.events.find((event:{id:number})=>event.id===175);
   const payload={eventType:'Preteky',cancelled:true,updatedAt:'stale'};
   const foreign=await request.patch('/api/admin/events/175',{data:payload,headers:{Origin:'https://untrusted.example'}});
   expect(foreign.status()).toBe(403);
   const stale=await request.patch('/api/admin/events/175',{data:payload,headers:{Origin:new URL(process.env.E2E_BASE_URL || 'http://localhost:5173').origin}});
   expect(stale.status()).toBe(409);
-  const after=await (await request.get('/api/admin/events')).json();
+  const after=await (await request.get('/api/admin/events?query=e2e-admin-event-175')).json();
   expect(after).toEqual(before);
   expect(row.eventType).toBe('Stretnutie');
 });
