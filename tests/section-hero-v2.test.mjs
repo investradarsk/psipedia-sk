@@ -47,7 +47,7 @@ test("desktop overlay text uses light contrast while the search panel is not in 
   assert.match(heroCss, /\.breadcrumbs[\s\S]*color:\s*#fff/);
   assert.match(heroCss, /\.eyebrow[\s\S]*background:\s*var\(--brand-accent-strong/);
   assert.match(heroCss, /\.copy h1[\s\S]*color:\s*#fff/);
-  assert.match(heroCss, /\.intro[\s\S]*color:\s*rgba\(255,255,255/);
+  assert.match(heroCss, /\.intro[\s\S]*color:\s*#fff/);
   assert.match(admin, /breadcrumb · eyebrow · H1 · intro/);
   assert.doesNotMatch(admin, /text · vyhľadávanie · CTA/);
 });

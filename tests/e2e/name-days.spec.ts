@@ -86,7 +86,12 @@ test("admin create/edit/publish/archive drives the fail-closed public header", a
   }
   await expectAxeClean(publicPage);
 
-  await publicPage.goto("/psie-meniny");
+  const dayLink = testInfo.project.name === "desktop-chromium"
+    ? publicPage.locator("[data-header-secondary]")
+    : publicPage.locator("[data-mobile-name-day]");
+  await expect(dayLink).toHaveAttribute("href", "/psie-meniny");
+  await dayLink.click();
+  await expect(publicPage).toHaveURL(/\/psie-meniny/);
   await expect(publicPage.locator("[data-name-day-selected-date]")).toContainText(uniqueName);
   const freshCalendarLookup = await publicPage.request.get("/api/name-days/month?month=" + String(month).padStart(2, "0"));
   expect(freshCalendarLookup.ok()).toBeTruthy();
