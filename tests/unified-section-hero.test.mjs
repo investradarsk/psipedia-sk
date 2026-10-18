@@ -61,7 +61,7 @@ test("mobile overlay uses a full-bleed square-corner photo and persisted crop", 
   assert.match(unifiedCss, /@media \(max-width: 620px\)/);
   assert.match(unifiedCss, /width:\s*100dvw/);
   assert.match(unifiedCss, /@media \(max-width: 620px\)[\s\S]*?\.visual\s*\{[^}]*border-radius:\s*0/);
-  assert.match(unifiedCss, /\.copy\s*\{[^}]*justify-content:\s*flex-end/s);
+  assert.match(unifiedCss, /\.copy\s*\{[^}]*justify-content:\s*flex-start/s);
   assert.match(read("lib/section-visual-contract.ts"), /SECTION_VISUAL_MOBILE_ASPECT = \[65, 53\]/);
 });
 
