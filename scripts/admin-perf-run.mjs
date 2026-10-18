@@ -55,6 +55,11 @@ async function performStep(page, screen, name) {
       : page.getByRole("link", { name: "Ďalšia →", exact: true });
     if (!(await target.count()) || !(await target.first().isEnabled())) return "not_applicable";
     await target.first().click();
+    if (screen.id === "directory") {
+      await page.waitForURL((url) => url.searchParams.get("page") === "2", { timeout: 10000 });
+    } else if (screen.id === "events") {
+      await page.getByText(/^Strana 2 z [0-9]+$/).waitFor({ state: "visible", timeout: 10000 });
+    }
     return "ok";
   }
   if (name === "filter") {
@@ -62,6 +67,7 @@ async function performStep(page, screen, name) {
       const input = page.getByLabel("Hľadať podujatie", { exact: true });
       if (!(await input.count())) return "not_applicable";
       await input.fill("e2e");
+      await page.waitForTimeout(300); // debounce floor is included in the interaction metric
       return "ok";
     }
     if (screen.id === "articles") {
@@ -69,6 +75,7 @@ async function performStep(page, screen, name) {
       if (!(await form.count())) return "not_applicable";
       await form.getByPlaceholder("Názov, slug, perex alebo téma").fill("e2e");
       await form.getByRole("button", { name: "Filtrovať" }).click();
+      await page.waitForURL((url) => url.searchParams.get("query") === "e2e", { timeout: 10000 });
       return "ok";
     }
     if (screen.id === "directory") {
@@ -77,6 +84,7 @@ async function performStep(page, screen, name) {
       if (!(await input.count()) || !(await button.count())) return "not_applicable";
       await input.fill("e2e");
       await button.click();
+      await page.waitForURL((url) => url.searchParams.get("q") === "e2e", { timeout: 10000 });
       return "ok";
     }
     if (screen.id === "partners") {
@@ -114,7 +122,7 @@ async function sample(browser, screen, device, index, origin) {
   const context = await browser.newContext({ viewport: DEVICES[device], serviceWorkers: "block" });
   const page = await context.newPage();
   const phases = { navigation: [] };
-  let phase = "navigation", blockedWrites = 0;
+  let phase = "navigation", blockedWrites = 0, blockedExternal = 0;
   const originUrl = new URL(origin);
   try {
     await page.addInitScript(() => { localStorage.setItem("psipedia-cookie-consent", "necessary"); });
@@ -124,6 +132,7 @@ async function sample(browser, screen, device, index, origin) {
       try { target = new URL(request.url()); } catch { return route.abort(); }
       if (target.origin !== originUrl.origin || !["GET", "HEAD", "OPTIONS"].includes(request.method())) {
         if (!["GET", "HEAD", "OPTIONS"].includes(request.method())) blockedWrites++;
+        if (target.origin !== originUrl.origin) blockedExternal++;
         return route.abort();
       }
       return route.continue();
@@ -161,7 +170,7 @@ async function sample(browser, screen, device, index, origin) {
       return { dom_content_loaded_ms: n?.domContentLoadedEventEnd ?? null,
         load_event_ms: n?.loadEventEnd > 0 ? n.loadEventEnd : null };
     });
-    const navigation = { ready_ms: safeNumber(ready),
+    const navigation = { blocked_external_requests: blockedExternal, ready_ms: safeNumber(ready),
       dom_content_loaded_ms: safeNumber(timings.dom_content_loaded_ms),
       load_event_ms: safeNumber(timings.load_event_ms),
       ...summarizeNetwork(phases.navigation.map((r) => r.info).filter(Boolean), settled) };
