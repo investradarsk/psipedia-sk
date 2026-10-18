@@ -82,6 +82,7 @@ test('bulk publish uses Foundation confirmation and sends exact reviewed selecti
   await page.goto('/admin/podujatia');
   await page.getByLabel('Publikačný stav',{exact:true}).selectOption('draft');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('e2e-admin-event-175');
+  await expect(page.locator('.admin-event-row-v2')).toHaveCount(1);
   await page.getByRole('checkbox',{name:/^Vybrať Stretnutie/}).check();
   let requests=0;
   await page.route('**/api/admin/events/bulk',async route=>{
@@ -237,6 +238,7 @@ test('select page and unpublish confirmation use only selected IDs with no produ
 test('bulk edit shell supports existing type and cancellation fields only', async ({ page }) => {
   await page.goto('/admin/podujatia');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('e2e-admin-event-175');
+  await expect(page.locator('.admin-event-row-v2')).toHaveCount(1);
   await page.getByRole('checkbox',{name:/^Vybrať Stretnutie/}).check();
 
   const requests: Array<{field:string;value:unknown;confirmedCount:number}> = [];
@@ -256,6 +258,7 @@ test('bulk edit shell supports existing type and cancellation fields only', asyn
   expect(requests[0]).toEqual({field:'eventType',value:'Preteky',confirmedCount:1});
 
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('e2e-admin-event-175');
+  await expect(page.locator('.admin-event-row-v2')).toHaveCount(1);
   await page.getByRole('checkbox',{name:/^Vybrať Stretnutie/}).check();
   await page.getByRole('button',{name:'Hromadne upraviť',exact:true}).click();
   await shell.getByLabel('Pole',{exact:true}).selectOption('cancelled');
@@ -268,7 +271,9 @@ test('bulk edit shell supports existing type and cancellation fields only', asyn
 test('quick edit drawer is scoped, keyboard closable and restores trigger focus', async ({ page }) => {
   await page.goto('/admin/podujatia');
   await page.getByLabel('Hľadať podujatie',{exact:true}).fill('e2e-admin-event-175');
+  await expect(page.locator('.admin-event-row-v2')).toHaveCount(1);
   const trigger=page.getByRole('button',{name:'Rýchla úprava',exact:true});
+  await expect(trigger).toBeEnabled();
   await trigger.focus();
   await trigger.click();
   const drawer=page.getByRole('dialog',{name:'Rýchla úprava'});
