@@ -6,15 +6,16 @@
 import {serviceCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import {validateCatalogOptionDraft,type CatalogOptionDraft} from "./service-option-governance-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
+import type {AdminCatalogOptionDto,CatalogOptionStatus,CatalogMirrorStatus,CatalogExplicitChoice} from "./service-catalog-admin-api-contract.ts";
 
 export class ServiceCatalogInputError extends Error {}
 export class ServiceCatalogConflictError extends Error {}
 export class ServiceCatalogSchemaError extends Error {}
 type DB=Pick<D1Database,"prepare">;
-type AdminOptionRow={id:string;kind:"service"|"attribute";label:string;normalized_label:string;group_name:string;meaning:string;primary_category:string;categories_json:string;status:string;notion_mirror_status:string;version:number};
+type AdminOptionRow={id:string;kind:"service"|"attribute";label:string;normalized_label:string;group_name:string;meaning:string;primary_category:string;categories_json:string;status:CatalogOptionStatus;notion_mirror_status:CatalogMirrorStatus;version:number};
 type ProfileRow={id:number;category:string;status:string};
 type ChoiceRow={profile_id:number;option_id:string;choice:string;version:number};
-export type ServiceChoiceInput={profileId:number;optionId:string;choice:"yes"|"no";expectedVersion:number};
+export type ServiceChoiceInput={profileId:number;optionId:string;choice:CatalogExplicitChoice;expectedVersion:number};
 function actorEmail(raw:string){
   const actor=raw.trim().toLowerCase();
   if(!actor||actor.length>254||!actor.includes("@"))throw new ServiceCatalogInputError("Authenticated Admin actor missing.");
@@ -24,7 +25,7 @@ function categories(raw:string):string[]{
   try{const a=JSON.parse(raw);return Array.isArray(a)&&a.every(x=>typeof x==="string")?a:[];}
   catch{return [];}
 }
-function mapOption(row:AdminOptionRow){
+function mapOption(row:AdminOptionRow):AdminCatalogOptionDto{
   return {id:row.id,kind:row.kind,label:row.label,group:row.group_name,meaning:row.meaning,
     categories:categories(row.categories_json),status:row.status,notionMirrorStatus:row.notion_mirror_status,version:row.version};
 }
