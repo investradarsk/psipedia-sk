@@ -510,12 +510,12 @@ export function SiteHeader({
         <a className="skip-link" href="#obsah">Preskočiť na obsah</a>
       </nav>
       {dogNameDays.length > 0 ? (
-        <div className={styles.mobileNameDay} data-mobile-name-day>
+        <Link href="/psie-meniny" className={styles.mobileNameDay} data-mobile-name-day aria-label="Otvoriť kalendár psích menín">
           <span>Psie meniny</span>
           <strong>{dogNameDays.join(", ")}</strong>
           {currentDateLabel ? <i className={styles.nameDayDivider} aria-hidden="true" /> : null}
           {currentDateLabel ? <time className={styles.currentDate}>{currentDateLabel}</time> : null}
-        </div>
+        </Link>
       ) : null}
 
       <header className="site-header" ref={headerRef}>
@@ -544,12 +544,12 @@ export function SiteHeader({
           </div>
 
           {dogNameDays.length > 0 ? (
-            <div className={styles.desktopNameDay} data-header-secondary>
+            <Link href="/psie-meniny" className={styles.desktopNameDay} data-header-secondary aria-label="Otvoriť kalendár psích menín">
               <span>Psie meniny</span>
               <strong>{dogNameDays.join(", ")}</strong>
               {currentDateLabel ? <i className={styles.nameDayDivider} aria-hidden="true" /> : null}
               {currentDateLabel ? <time className={styles.currentDate}>{currentDateLabel}</time> : null}
-            </div>
+            </Link>
           ) : null}
 
           <div className="header-actions">

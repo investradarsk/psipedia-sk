@@ -44,15 +44,63 @@ function visualStyle(visual: ResolvedSectionVisual): VisualStyle {
   };
 }
 
-function managedSearch(searchSlot: ReactNode, config: SectionHeroConfig) {
+
+const STANDARD_HERO_SHORTCUTS = [
+  { href: "/adresar", label: "Služby pre psov" },
+  { href: "/plemena", label: "Plemená" },
+  { href: "/podujatia", label: "Podujatia" },
+  { href: "/pomoc-psom", label: "Pomoc psom" },
+];
+const SECTION_HERO_SHORTCUTS: Record<string, Array<{ href: string; label: string }>> = {
+  "section.novinky": [
+    { href: "/clanky", label: "Všetky články" },
+    { href: "/starostlivost", label: "Zdravie psa" },
+    { href: "/aktivity", label: "Výcvik" },
+  ],
+  "section.adresar": [
+    { href: "/adresar/veterinari", label: "Veterinári" },
+    { href: "/adresar/treneri", label: "Tréneri" },
+    { href: "/mapa", label: "Zobraziť mapu" },
+  ],
+  "section.podujatia": [
+    { href: "/podujatia", label: "Kalendár podujatí" },
+    { href: "/mapa", label: "Na mape" },
+    { href: "/adresar", label: "Služby" },
+  ],
+  "section.pomoc-psom": [
+    { href: "/pomoc-psom/adopcia", label: "Adopcia" },
+    { href: "/pomoc-psom/stratene-psy", label: "Stratené psy" },
+    { href: "/mapa", label: "Mapa" },
+  ],
+  "section.mapa": [
+    { href: "/adresar", label: "Služby pre psov" },
+    { href: "/organizacie", label: "Organizácie" },
+    { href: "/podujatia", label: "Podujatia" },
+    { href: "/pomoc-psom", label: "Pomoc psom" },
+  ],
+};
+
+function defaultHeroQuickLinks(key: string): Array<{ href: string; label: string }> {
+  const sectionKey = key.startsWith("directory.") ? "section.adresar"
+    : key.startsWith("events.") ? "section.podujatia"
+    : key.startsWith("help.") ? "section.pomoc-psom"
+    : key.startsWith("reviews.") ? "section.recenzie"
+    : key.startsWith("subsection.") ? "section." + key.split(".")[1]
+    : key;
+  return SECTION_HERO_SHORTCUTS[sectionKey] ?? STANDARD_HERO_SHORTCUTS;
+}
+
+function managedSearch(searchSlot: ReactNode, config: SectionHeroConfig, fallbackShortcuts: Array<{ href: string; label: string }>) {
   if (!searchSlot || !isValidElement(searchSlot)) return searchSlot;
   const overrides: SearchElementProps = {};
   if (config.searchPlaceholder) overrides.placeholder = config.searchPlaceholder;
   if (config.searchButtonLabel) overrides.buttonLabel = config.searchButtonLabel;
-  if (config.quickLinks?.length) {
-    overrides.shortcuts = config.quickLinks
-      .filter((item) => item.visible !== false && item.label && item.href)
-      .map(({ href, label }) => ({ href, label }));
+  const configuredLinks = config.quickLinks?.filter((item) => item.visible !== false && item.label && item.href) ?? [];
+  const existingLinks = (searchSlot as ReactElement<SearchElementProps>).props.shortcuts;
+  if (configuredLinks.length) {
+    overrides.shortcuts = configuredLinks.map(({ href, label }) => ({ href, label }));
+  } else if (!existingLinks?.length) {
+    overrides.shortcuts = fallbackShortcuts;
   }
   return Object.keys(overrides).length
     ? cloneElement(searchSlot as ReactElement<SearchElementProps>, overrides)
@@ -118,10 +166,13 @@ export async function UnifiedSectionHero({
   const managedIntro = visual.heroContent?.intro || intro;
   const config: SectionHeroConfig = visual.heroContent?.config ?? {};
 
-  const resolvedSearch = portalSearchSlot ? null : managedSearch(searchSlot, config);
-  const resolvedPortalSearch = managedSearch(portalSearchSlot, config);
+  const configuredLinks = (config.quickLinks ?? []).filter((item) => item.visible !== false && item.label && item.href)
+    .map(({ href, label }) => ({ href, label }));
+  const activeShortcuts = configuredLinks.length ? configuredLinks : defaultHeroQuickLinks(visual.visualKey);
+  const resolvedSearch = portalSearchSlot ? null : managedSearch(searchSlot, config, activeShortcuts);
+  const resolvedPortalSearch = managedSearch(portalSearchSlot, config, activeShortcuts);
   const resolvedCta = managedCta(config, ctaSlot);
-  const quickLinks = (portalSearchSlot ? [] : (config.quickLinks ?? [])).filter((item) => item.visible !== false && item.label && item.href);
+  const quickLinks = portalSearchSlot ? [] : activeShortcuts;
   const hasTools = Boolean(resolvedSearch || resolvedCta || metaSlot || config.metaLabel || quickLinks.length);
 
   return (
@@ -165,6 +216,7 @@ export async function UnifiedSectionHero({
           ) : null}
           {quickLinks.length ? (
             <nav className={styles.quickLinks} aria-label="Rýchle odkazy" data-section-hero-quick-links>
+              <span className={styles.quickLinksLabel}>Rýchlo:</span>
               {quickLinks.map((item) => <a href={item.href} key={item.href + item.label}>{item.label}</a>)}
             </nav>
           ) : null}

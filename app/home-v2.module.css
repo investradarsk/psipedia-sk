@@ -2165,3 +2165,19 @@
     padding: 16px;
   }
 }
+
+/* Keep the approved homepage geometry; share the exact public hero accent. */
+.homeV2 :global(.hero-kicker) {
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 5px;
+  color: #fff;
+  background: var(--brand-accent-strong, #b94732);
+}
+.homeV2 :global(.hero-copy h1 em) {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: var(--brand-accent-strong, #b94732);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 5px;
+}
