@@ -99,14 +99,14 @@ export function compareReports(before, after) {
     const metricDelta = Object.fromEntries(METRICS.map((key) => {
       const a = original.metrics?.[key], b = newer?.metrics?.[key];
       return [key, compatible && a !== null && a !== undefined && b !== null && b !== undefined
-        ? safeNumber(b - a) : null];
+        ? Math.round((b - a) * 100) / 100 : null];
     }));
     const steps = {};
     for (const name of ["pagination", "filter", "editor"]) {
       const a = original.steps?.[name], b = newer?.steps?.[name];
       steps[name] = a?.status === "ok" && b?.status === "ok" && a.total_runs === b.total_runs
         && a.median_ms !== null && b.median_ms !== null
-        ? safeNumber(b.median_ms - a.median_ms) : null;
+        ? Math.round((b.median_ms - a.median_ms) * 100) / 100 : null;
     }
     return { screen: original.screen, device: original.device,
       comparable: Boolean(compatible), delta_after_minus_before: metricDelta, steps_delta_ms: steps };
