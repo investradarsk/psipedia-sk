@@ -252,19 +252,25 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Momentálne tu nie je otvorená výzva/);
   assert.match(html, /href="\/o-nas#kontakt"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
+  // Homepage alternates editorial and profile categories; banners live between
+  // their current neighbouring sections rather than in the old V2 positions.
   const magazineTitles = [
     "home-latest-title",
+    "home-services-featured-title",
     "home-steniatka-title",
     "home-starostlivost-title",
+    "home-services-secondary-title",
     "home-aktivity-title",
-    "home-plemena-title",
     "home-help-title",
+    "home-plemena-title",
   ];
   const titlePositions = magazineTitles.map((id) => html.indexOf(`id="${id}"`));
-  assert.ok(titlePositions.every((position) => position >= 0), "all magazine headings must render");
-  assert.ok(titlePositions.every((position, index) => index === 0 || position > titlePositions[index - 1]), "magazine sections stay in approved order");
-  assert.ok(html.indexOf('data-home-banner="profil"') < html.indexOf('id="home-steniatka-title"'));
-  assert.ok(html.indexOf('data-home-banner="podujatie"') < html.indexOf('id="home-starostlivost-title"'));
+  assert.ok(titlePositions.every((position) => position >= 0), "all homepage section headings must render");
+  assert.ok(titlePositions.every((position, index) => index === 0 || position > titlePositions[index - 1]), "editorial and profile sections retain their current order");
+  const profileBanner = html.indexOf('data-home-banner="profil"');
+  const eventBanner = html.indexOf('data-home-banner="podujatie"');
+  assert.ok(profileBanner > html.indexOf('id="home-steniatka-title"') && profileBanner < html.indexOf('id="home-starostlivost-title"'), "profile banner follows puppies and precedes care");
+  assert.ok(eventBanner > html.indexOf('id="home-aktivity-title"') && eventBanner < html.indexOf('id="home-help-title"'), "event banner follows activities and precedes help");
   assert.match(html, /href="\/partner\/profily\/novy"/);
   assert.match(html, /href="\/partner\/podujatia\/nove"/);
   assert.doesNotMatch(html, /Vybrané redakciou/);
