@@ -47,7 +47,8 @@ test("offline fixture aggregation and before/after comparison", () => {
       navigation: { ready_ms: ready + repeat, requests: 4, api_p95_ms: 30 },
       steps: { filter: { status: "ok", duration_ms: step, api_p95_ms: 12 } },
     }));
-    return { schema: 1, provenance: "local_synthetic", summary: summarizeSamples(samples) };
+    return { schema: 1, provenance: "local_synthetic", fixture_id: "fixture-v1", browser_version: "123.4",
+      repeats: 3, device: "both", summary: summarizeSamples(samples) };
   }
   const before = report(100, 50), after = report(80, 30);
   assert.equal(before.summary[0].metrics.ready_ms, 102);
@@ -60,6 +61,8 @@ test("offline fixture aggregation and before/after comparison", () => {
   incompatible.summary[0].total_runs = 1;
   assert.equal(compareReports(before, incompatible)[0].comparable, false);
   assert.throws(() => compareReports(before, { schema: 1, provenance: "production", summary: [] }));
+  assert.throws(() => compareReports(before, { ...after, fixture_id: "different" }));
+  assert.throws(() => compareReports(before, { ...after, browser_version: "other" }));
 });
 
 test("missing/unavailable interactions cannot be mistaken for fast success", () => {
