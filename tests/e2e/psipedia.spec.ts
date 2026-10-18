@@ -2,10 +2,39 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const CONSENT_KEY = "psipedia-cookie-consent";
-const NO_CONSENT_TEST = "@production cookie banner is operable and navigation works before consent";
+const NO_CONSENT_TEST = "@production cookie consent first visit navigation and rejection work";
+const COOKIE_TEST_PREFIX = "@production cookie consent";
+const GOOGLE_SCRIPTS = 'script[src*="googletagmanager.com"], script[src*="pagead2.googlesyndication.com"]';
 
 async function useNecessaryCookies(page: Page) {
   await page.addInitScript(([key]) => localStorage.setItem(key, "necessary"), [CONSENT_KEY]);
+}
+
+
+async function seedCookieConsentOnce(page: Page, choice: "necessary" | null) {
+  // Playwright re-runs init scripts on each navigation. Seed once to ensure
+  // reload and navigation tests observe the user's actual stored choice.
+  await page.addInitScript(({ key, choice }) => {
+    const sentinel = "psipedia-e2e-cookie-consent-seeded";
+    if (sessionStorage.getItem(sentinel) === "1") return;
+    sessionStorage.setItem(sentinel, "1");
+    if (choice === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, choice);
+  }, { key: CONSENT_KEY, choice });
+}
+
+function captureConsentControlledRequests(page: Page) {
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (/^https:\/\/(?:www\.googletagmanager\.com\/gtag\/js|(?:www|region1)\.google-analytics\.com\/(?:g\/)?collect|pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js)/i.test(request.url())) {
+      requests.push(request.url());
+    }
+  });
+  return requests;
+}
+
+async function readStoredConsent(page: Page) {
+  return page.evaluate((key) => localStorage.getItem(key), CONSENT_KEY);
 }
 
 async function gotoProductionPage(page: Page, path: string) {
@@ -113,7 +142,7 @@ async function expectSectionTabsClear(page: Page, path: string, minimumGap = 0) 
 
 test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.includes("@production")) testInfo.setTimeout(90_000);
-  if (testInfo.title !== NO_CONSENT_TEST) await useNecessaryCookies(page);
+  if (!testInfo.title.startsWith(COOKIE_TEST_PREFIX)) await useNecessaryCookies(page);
 });
 
 test("desktop and mobile menus expose the same primary destinations without hidden focus targets", async ({ page }) => {
@@ -552,20 +581,105 @@ test("@production robots and sitemaps are available and valid", async ({ request
 });
 
 test(NO_CONSENT_TEST, async ({ page }) => {
-  await page.addInitScript(([key]) => localStorage.removeItem(key), [CONSENT_KEY]);
-  await page.goto("/");
+  await seedCookieConsentOnce(page, null);
+  const requests = captureConsentControlledRequests(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible();
   const dialog = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
   await expect(dialog).toBeVisible();
-  await expect(page.locator('script[src*="googletagmanager.com"]')).toHaveCount(0);
+  await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
+  expect(requests, "Tracking ran before consent").toEqual([]);
+
   await Promise.all([
     page.waitForURL(/\/plemena$/, { waitUntil: "commit" }),
     page.locator(".home-search-shortcuts").getByRole("link", { name: "Plemená", exact: true }).click(),
   ]);
   await expect(page.locator("h1")).toBeVisible();
   await expect(dialog).toBeVisible();
+  await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
+  expect(requests, "Tracking ran during navigation without consent").toEqual([]);
+
   await dialog.getByRole("button", { name: "Odmietnuť analytiku" }).click();
   await expect(dialog).toBeHidden();
-  expect(await page.evaluate(([key]) => localStorage.getItem(key), [CONSENT_KEY])).toBe("necessary");
+  expect(await readStoredConsent(page)).toBe("necessary");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Nastavenia cookies" }).click();
+  await expect(dialog).toContainText("Aktuálna voľba: iba nevyhnutné údaje");
+  await dialog.getByRole("button", { name: "Odmietnuť analytiku" }).click();
+  await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
+  expect(requests, "Tracking ran after rejection").toEqual([]);
+});
+
+test("@production cookie consent existing rejection survives navigation and reload", async ({ page }) => {
+  await seedCookieConsentOnce(page, "necessary");
+  const requests = captureConsentControlledRequests(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("main")).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
+  await expect(dialog).toBeHidden();
+  await page.goto("/plemena", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("h1")).toBeVisible();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Nastavenia cookies" }).click();
+  await expect(dialog).toContainText("Aktuálna voľba: iba nevyhnutné údaje");
+  expect(await readStoredConsent(page)).toBe("necessary");
+  await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
+  expect(requests, "Tracking ran despite stored rejection").toEqual([]);
+});
+
+test("@production cookie consent opt-in and delayed GA4 revocation are safe", async ({ page }) => {
+  await seedCookieConsentOnce(page, null);
+  const requests = captureConsentControlledRequests(page);
+  await page.route("**/gtag/js?*", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const dialog = page.getByRole("dialog", { name: "Tvoje súkromie na Psipedii" });
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
+  expect(requests).toEqual([]);
+  await dialog.getByRole("button", { name: "Prijať analytiku", exact: true }).click();
+  expect(await readStoredConsent(page)).toBe("analytics");
+  await expect(page.locator('script[data-psipedia-ga4]')).toHaveCount(1);
+
+  // On reload, deliberately hold gtag.js in flight until the visitor revokes
+  // analytics. The queued page-view promise must check consent again.
+  await page.unroute("**/gtag/js?*");
+  let releaseScript = () => {};
+  const holdScript = new Promise<void>((resolve) => { releaseScript = resolve; });
+  await page.route("**/gtag/js?*", async (route) => {
+    await holdScript;
+    await route.fulfill({ status: 200, contentType: "application/javascript", body: "" });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  try {
+    await expect(page.locator('script[data-psipedia-ga4]')).toHaveCount(1);
+    await page.getByRole("button", { name: "Nastavenia cookies" }).click();
+    await expect(dialog).toContainText("Aktuálna voľba: povolená analytika");
+    await dialog.getByRole("button", { name: "Odmietnuť analytiku" }).click();
+    expect(await readStoredConsent(page)).toBe("necessary");
+  } finally {
+    releaseScript();
+  }
+  await page.evaluate(async () => {
+    const ga = window as typeof window & { psipediaGa4LoadPromise?: Promise<void> };
+    await ga.psipediaGa4LoadPromise;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+  const state = await page.evaluate(() => {
+    const ga = window as typeof window & { dataLayer?: Array<ArrayLike<unknown>> };
+    return {
+      disabled: (window as unknown as Record<string, unknown>)["ga-disable-G-Z6KV64S2CK"],
+      emittedPageView: (ga.dataLayer ?? []).some((args) => {
+        const values = Array.from(args);
+        return values[0] === "event" && values[1] === "page_view";
+      }),
+    };
+  });
+  expect(state.disabled, "GA4 should be disabled after revocation").toBe(true);
+  expect(state.emittedPageView, "Page view emitted after consent revocation").toBe(false);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Nastavenia cookies" }).click();
+  await expect(dialog).toContainText("Aktuálna voľba: iba nevyhnutné údaje");
+  await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
 });
 
 test("@production key public pages have no serious axe violations", async ({ page }) => {
