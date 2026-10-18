@@ -103,3 +103,49 @@
 .page :global(.directory-contact-form) { margin: 0; padding: 20px; border: 1px solid var(--detail-border); border-radius: 12px; background: var(--detail-surface); box-shadow: none; }
 .page :global(.directory-contact-form) h2 { font-size: clamp(1.5rem, 2.3vw, 1.9rem); }
 .page :global(.directory-contact-form) :global(.button--primary) { background: var(--detail-green); color: #fff; min-height: 44px; }
+
+/* UNIFIED PUBLIC DETAILS V2.1: scoped optical polish, without global chrome changes. */
+.heroFrame { gap: clamp(16px, 2.3vw, 26px); padding: clamp(16px, 2vw, 24px); border-radius: 14px; }
+.heroCopy h1 { margin-block: 12px 10px; font-size: clamp(1.85rem, 3.15vw, 3rem); line-height: 1.12; }
+.heroCopy h1[data-long-title] { font-size: clamp(1.7rem, 2.45vw, 2.35rem); line-height: 1.19; letter-spacing: -.025em; }
+.heroMedia { border: 1px solid var(--detail-border); border-radius: 11px; }
+.heroMedia img { border-radius: 10px; }
+.heroMedia:has([data-image-display="natural"]) { border: 0; }
+.factTiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr)); gap: 10px; margin-top: 16px; }
+.factTiles > div { padding: 12px 14px; border-radius: 10px; background: #f7f9f4; }
+.factTiles dt { font-size: .75rem; font-weight: 750; line-height: 1.4; }
+.factTiles dd { font-size: .875rem; line-height: 1.5; font-weight: 750; }
+.section, .card { border-radius: 12px; }
+.section h2 { margin-bottom: 16px; }
+.section h3 { margin-top: 20px; }
+.card h2, .card h3 { margin-bottom: 14px; }
+.facts > div, .contact { min-width: 0; padding-block: 10px; gap: 8px; }
+.facts dt, .contact span { font-size: .77rem; }
+.facts dd, .contact a, .contact strong { font-size: .875rem; line-height: 1.5; }
+.facts dd, .contact > :last-child { min-width: 0; overflow-wrap: anywhere; }
+.optionGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr)); gap: 10px; }
+.optionGrid li { background: #f7f9f4; }
+.primaryAction, .secondaryAction { min-height: 44px; padding: 10px 14px; border-radius: 9px; font-size: .85rem; }
+.aside [data-testid="public-location-map"] { padding: 16px; margin: 0; }
+.aside [data-testid="public-location-map"] [class*="mapWrap"] { height: 270px; min-height: 270px; }
+.aside [data-testid="public-location-map"] [class*="heading"] h2 { font: 750 1rem/1.35 "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif; }
+.tags > b[data-detail-state="current"] { color: #075342; background: #e4f4e9; border-color: #a6cdb8; }
+.tags > b[data-detail-state="past"] { color: #4c5b56; background: #eef0ee; border-color: #d1d9d4; }
+.tags > b[data-detail-state="cancelled"] { color: #92341e; background: #fff0e9; border-color: #edbea9; }
+.heroCopy [data-event-facts] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 800px) {
+  .heroFrame { padding: 14px; gap: 14px; }
+  .heroCopy h1 { font-size: clamp(1.9rem, 7vw, 2.7rem); }
+  .heroCopy h1[data-long-title] { font-size: clamp(1.65rem, 6vw, 2.15rem); }
+  .factTiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .heroActions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .heroActions > :first-child { grid-column: 1/-1; }
+  .aside [data-testid="public-location-map"] [class*="mapWrap"] { height: 320px; min-height: 320px; }
+}
+@media (max-width: 440px) { .heroCopy [data-event-facts] { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 380px) {
+  .heroActions { grid-template-columns: minmax(0, 1fr); }
+  .heroActions > :first-child { grid-column: auto; }
+  .factTiles > div { padding: 11px; }
+  .section, .card { padding: 15px; }
+}

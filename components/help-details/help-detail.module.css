@@ -22,3 +22,10 @@
 .trust { border-radius: 12px; background: #f3f7f0; margin-top: 0; }
 .safety { background: #fff7e4; border-color: #f5dba4; }
 @media(max-width:800px) { .safetyInner { grid-template-columns: auto minmax(0,1fr); } .safetyInner>a { grid-column: 1/-1; white-space: normal; } }
+
+/* Semantic state colors scoped to factual help statuses. */
+.tags .urgent { border-color: #edbea9; color: #92341e; background: #fff0e9; }
+.tags .resolved { border-color: #d5dcd7; color: #4c5b56; background: #f0f1ee; }
+.trust { border-radius: 12px; }
+.safetyIcon { color: #8b481a; }
+.progressNumbers { flex-wrap: wrap; }

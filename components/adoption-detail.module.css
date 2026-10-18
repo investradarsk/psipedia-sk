@@ -23,3 +23,13 @@
 .contactLinks, .verificationCard { display: grid; gap: 10px; }
 .organizationLink, .contactLinks a, .verificationCard a { color: #075342; overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: .16em; }
 @media (max-width: 600px) { .detailGallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* V2.1: legible facts and natural uncut gallery photographs. */
+.detailBreed { overflow-wrap: anywhere; }
+.detailGallery img { object-fit: contain; background: #f1f4ef; }
+.reservedBanner { border-color: #e8c989; border-left-color: #b78028; background: #fff7e5; color: #6e4912; }
+.staleNotice { border-color: #eadab7; border-left-color: #ae7c2e; background: #fffaf0; }
+.statusBadge { line-height: 1.35; }
+.detailFacts { gap: 10px; }
+.contactLinks a { min-height: 34px; }
+@media(max-width:800px) { .detailFacts { grid-template-columns: repeat(2, minmax(0,1fr)); } }

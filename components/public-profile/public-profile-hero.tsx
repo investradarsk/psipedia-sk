@@ -49,7 +49,7 @@ export function PublicProfileHero({
                 <span className={styles[badge.tone]} key={badge.tone + badge.label} title={badge.title} aria-label={badge.title ? `${badge.label} – ${badge.title}` : undefined}>{badge.label}</span>
               ))}
             </div>
-            <h1>{title}</h1>
+            <h1 data-long-title={title.length >= 70 ? "" : undefined}>{title}</h1>
             {location ? <p className={styles.location}>{location}</p> : null}
             {lead ? <p className={styles.lead}>{lead}</p> : null}
             {actions.length > 0 ? (

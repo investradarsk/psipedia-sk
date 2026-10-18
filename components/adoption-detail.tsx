@@ -58,6 +58,8 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
   ].filter((item): item is Fact => Boolean(item));
   const location = [dog.city, dog.district ? `okres ${dog.district}` : "", dog.region].filter(Boolean).join(" · ");
   const phoneHref = dog.contactPhone ? `tel:${dog.contactPhone.replace(/\s+/g, "")}` : null;
+  // Suppress only the generic repeated label, never a named mixed breed.
+  const genericBreedName = ["kríženec", "krizenec"].includes(dog.breedName.trim().toLocaleLowerCase("sk"));
 
   return <main id="obsah" tabIndex={-1} className={styles.detailShell} data-adoption-source="canonical">
     <DetailHero kind="adoption" breadcrumbs={    <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
@@ -68,7 +70,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         <span className={`${styles.statusBadge} ${dog.status === "RESERVED" ? styles.reserved : styles.active}`}>{adoptionDetailStatusLabels[dog.status]}</span>
         <h1>{dog.name}</h1>
         {location && <p className={styles.detailLocation}><LocationIcon size={16} /> {location}</p>}
-        {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
+        {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix && !genericBreedName ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
         {dog.shortDescription && <p className={styles.detailLead}>{dog.shortDescription}</p>}
         <Facts items={basicFacts} />
         {stale && <div className={styles.staleNotice}><strong>Profil potrebuje potvrdiť aktuálnosť</strong><span>Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou.</span></div>}

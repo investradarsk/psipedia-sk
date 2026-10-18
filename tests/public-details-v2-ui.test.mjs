@@ -9,7 +9,7 @@ import { join, extname } from 'node:path';
 
 // Real components, CSS and public snapshots. Only platform boundaries are mocked;
 // no D1, Google API or production writes. Synthetic variants are named explicitly.
-test('unified public details: responsive layout, honest media/data, actions and accessibility', { timeout: 180000 }, async () => {
+test('unified public details: responsive layout, honest media/data, actions and accessibility', { timeout: 240000 }, async () => {
  const dir = await mkdtemp(join(tmpdir(), 'public-details-v2-'));
  let browser;
  try {
@@ -32,8 +32,8 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const map = {...fixtures.maps.directory,...runtime};
  let view;
  if(name.startsWith('directory')) view=<DirectoryProfileDetail presentation={{...fixtures.directory,...(minimal?{imageUrl:null,phone:null,emails:[],websites:[],services:[],openingHours:'',address:'',health:null}:{}),...(name.includes('blur')?{detailImageDisplay:{mode:'blur',x:50,y:50,zoom:1}}:{}),...(name.includes('crop')?{detailImageDisplay:{mode:'crop',x:30,y:40,zoom:1.2}}:{}),...(name.includes('long')?{name:'Test dlhého názvu služby a nepretržitého kontaktu '.repeat(4)}:{})}} reviews={fixtures.review} publicMap={minimal?undefined:map}/>;
- else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name.includes('cancelled')?{cancelled:true}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
- else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{})}} organization={fixtures.organizationLink}/>;
+ else if(name.startsWith('event')) view=<EventDetail event={buildPublicEventPresentation({...fixtures.event,...(minimal?{imageUrl:null,organizer:'',websiteUrl:'',registrationUrl:''}:{}),...(name.includes('cancelled')?{cancelled:true}:{}),...(name.includes('long')?{title:'Test dlhého názvu kynologického podujatia a organizačných údajov '.repeat(3)}:{})})} publicMap={minimal?undefined:{...fixtures.maps.event,...runtime}}/>;
+ else if(name.startsWith('adoption')) view=<AdoptionDetail dog={{...fixtures.adoption,...(minimal?{mainImage:null,contactPhone:'',contactEmail:''}:{}),...(name.includes('reserved')?{status:'RESERVED'}:{}),...(name.includes('breed-duplicate')?{breedMix:true,breedName:'kríženec'}:{})}} organization={fixtures.organizationLink}/>;
  else if(name.startsWith('help')) {
  const category=name.split('-').slice(1).join('-');
  const item={id:1,slug:'synthetic-fixture',title:'Test rozloženia pomoci psom',category,status:'published',excerpt:'Testovací prípad bez fotografie a bez dopĺňania neoverených údajov.',description:'Testovací popis.',organization:'',dogName:'',breed:'',ageNote:'',city:'Trnava',region:'Trnavský kraj',locationNote:'',reportedDate:null,deadlineDate:null,actionLabel:'Podporiť výzvu',actionUrl:'https://example.test/support',contactNote:'',goalAmount:null,raisedAmount:null,imageUrl:null,imageKey:null,verified:false,urgent:false,resolved:false,createdAt:'2026-10-18',updatedAt:'2026-10-18',publishedAt:'2026-10-18',createdBy:'',updatedBy:''};
@@ -56,8 +56,8 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const shots=process.env.DETAIL_TEST_SCREENSHOTS;
  if(shots) await mkdir(shots,{recursive:true});
  const sources=JSON.parse(await readFile('tests/fixtures/unified-public-details-v2.json','utf8'));
- for(const name of ['directory','event','adoption','directory-minimal','directory-blur','directory-crop','directory-long','event-minimal','event-cancelled','adoption-minimal','adoption-reserved','help-docasna-opatera','help-zbierky','help-dobrovolnictvo','help-urgentne-pripady','help-adopcia','help-stratene-a-najdene','organization','lost','lost-resolved']) {
- for(const width of ([ 'directory','event','adoption'].includes(name)?[1440,390,375]:[1440,320])) {
+ for(const name of ['directory','event','adoption','directory-minimal','directory-blur','directory-crop','directory-long','event-minimal','event-cancelled','event-long','adoption-minimal','adoption-reserved','adoption-breed-duplicate','help-docasna-opatera','help-zbierky','help-dobrovolnictvo','help-urgentne-pripady','help-adopcia','help-stratene-a-najdene','organization','lost','lost-resolved']) {
+ for(const width of ([ 'directory','event','adoption'].includes(name)?[1440,390,375,320]:[1440,320])) {
  const context=await browser.newContext({viewport:{width,height:960}}); const page=await context.newPage(); const writes=[]; let rejectInquiry=true; const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{
  const url=new URL(route.request().url());
@@ -81,6 +81,9 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(await image.count()) { const photo=image.locator('img:not([aria-hidden="true"])').last(); const photoBox=await photo.boundingBox(); assert.ok(photoBox&&photoBox.width>0&&photoBox.height>0,`${name} ${width} actual image must have nonzero dimensions`); const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);else assert.ok(m.y<h.y,`${name} mobile media first`);}
  if(name==='organization') { const body=await page.locator('[data-public-profile-body]').boundingBox(); const aside=await page.locator('[data-public-profile-sidebar]').boundingBox(); if(width<=800) assert.ok(body.y+body.height<=aside.y+2,'organization content precedes sidebar on mobile'); else assert.ok(aside.x>body.x,'organization desktop sidebar on right'); }
  if(name.startsWith('adoption')) assert.ok(!/\b0 kg\b/.test(await page.locator('main').innerText()),'unknown weight hidden');
+ if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');
+ if(name.includes('long')) assert.equal(await hero.locator('h1[data-long-title]').count(),1,'long titles use compact typography');
+ if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
  if(name==='directory' || name==='adoption') { const img=image.locator('img').last(); const size=await img.evaluate(i=>({w:i.naturalWidth,h:i.naturalHeight,cw:i.getBoundingClientRect().width,ch:i.getBoundingClientRect().height})); assert.ok(size.w>0);assert.ok(Math.abs(size.cw/size.ch-size.w/size.h)<.02,'natural image ratio preserved'); }
  if(name.includes('minimal')&&!name.startsWith('event')) assert.equal(await image.count(),0);
  if(name==='event-minimal') assert.equal(await image.locator('[data-event-image-source="fallback"]').count(),1,'existing event illustration retained');
