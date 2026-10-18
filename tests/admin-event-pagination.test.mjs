@@ -92,7 +92,7 @@ test("combined filters, statuses, year, month, sort and cancellation retain sema
 test("global counters and year facets are independent of the selected page/search", () => {
   const db = fixture();
   const counts = db.prepare(adminEventGlobalCountsSql).get(today, today, today, today);
-  assert.deepEqual(counts, {
+  assert.deepEqual({ ...counts }, {
     all_count: 652, upcoming: 434, current: 1, past: 216,
     published: 131, draft: 521, cancelled: 1,
   });
