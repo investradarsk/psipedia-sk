@@ -10,8 +10,17 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // Prepared migrations are excluded from production until independently approved.
-// SERVICES V3 phase 2: staged schema only, not approved for production APPLY.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0133_services_canonical_admin_foundation.sql"]);
+// 0133 is now a separately owner-reviewed, manually gated production target.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0133_SHA256 = "656fcd963394076bfd5a7829e71b52a3bb83427e38a16f275e63af21b0f6eaef";
+export function assertApproved0133Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0133 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0133_SHA256, "0133 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0133NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0133_services_canonical_admin_foundation.sql")
+    invariant(!targetApplied, "0133 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0132_SHA256 = "62bd60ae8214e348b70bf3281bc22fa6a4195de9d0368de9de7bb1a93225ad20";
 export function assertApproved0132Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0132 requires canonical psipedia-sk-db");
@@ -185,6 +194,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0130_facebook_image_publisher.sql",
   "0131_facebook_image_trash.sql",
   "0132_facebook_image_direct_consent.sql",
+  "0133_services_canonical_admin_foundation.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -700,6 +710,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0131Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0132_facebook_image_direct_consent.sql")
     assertApproved0132Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0133_services_canonical_admin_foundation.sql")
+    assertApproved0133Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1307,6 +1319,13 @@ export function targetSchemaObjects(schema, targetMigration) {
   if (targetMigration === "0132_facebook_image_direct_consent.sql") {
     return { partial: (schema.facebookImagePostColumns ?? []).some(col =>
       ["direct_publish_consent", "direct_consent_at", "direct_consent_by"].includes(String(col.name))) };
+  }
+  if (targetMigration === "0133_services_canonical_admin_foundation.sql") {
+    return { partial: [
+      "service_catalog_admin_options", "service_catalog_admin_options_status_idx",
+      "service_catalog_admin_options_mirror_idx", "service_profile_option_choices",
+      "service_profile_option_choices_option_idx", "service_profile_property_values",
+    ].some(name => names.has(name)) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2320,9 +2339,51 @@ export function assertFacebookImageDirectConsentSchema(schema) {
     "0132 owner consent binary CHECK constraint missing");
 }
 
+/** 0133 must create exactly the prepared service catalog structures, never rewrite existing profiles. */
+export function assertServicesCanonicalAdminSchema(schema) {
+  const objects = objectMap(schema.objects ?? []);
+  const tables = [
+    "service_catalog_admin_options",
+    "service_profile_option_choices",
+    "service_profile_property_values",
+  ];
+  for (const name of tables) invariant(objects.get(name)?.type === "table", "0133 missing service table: " + name);
+  const optionsSql = String(objects.get(tables[0])?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
+  const selectionsSql = String(objects.get(tables[1])?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
+  const propertiesSql = String(objects.get(tables[2])?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
+  for (const fragment of [
+    "id text primary key not null", "normalized_label text not null unique",
+    "status text not null default 'draft'",
+    "notion_mirror_status text not null default 'pending'",
+    "check (json_valid(categories_json)",
+    "check (kind in ('service','attribute'))",
+    "version integer not null default 1",
+  ]) invariant(optionsSql.includes(fragment), "0133 options constraint drift: " + fragment);
+  for (const [name, sql] of [[tables[1], selectionsSql], [tables[2], propertiesSql]]) {
+    for (const fragment of [
+      "profile_id integer not null", "version integer not null default 1",
+      "foreign key (profile_id) references directory_profiles(id) on delete cascade",
+    ]) invariant(sql.includes(fragment), "0133 " + name + " constraint drift: " + fragment);
+  }
+  invariant(selectionsSql.includes("choice text not null check (choice in ('yes','no'))"), "0133 yes/no choice constraint missing");
+  invariant(selectionsSql.includes("primary key (profile_id,option_id)"), "0133 choice identity missing");
+  invariant(propertiesSql.includes("check (json_valid(value_json))"), "0133 property JSON validation missing");
+  invariant(propertiesSql.includes("primary key (profile_id,property_id)"), "0133 property identity missing");
+  const indexes = new Map([
+    ["service_catalog_admin_options_status_idx", "service_catalog_admin_options(status,kind,primary_category,id)"],
+    ["service_catalog_admin_options_mirror_idx", "service_catalog_admin_options(notion_mirror_status,id)"],
+    ["service_profile_option_choices_option_idx", "service_profile_option_choices(option_id,choice,profile_id)"],
+  ]);
+  for (const [name, definition] of indexes) {
+    const sql = String(objects.get(name)?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
+    invariant(objects.get(name)?.type === "index" && sql === "create index " + name + " on " + definition,
+      "0133 missing or changed canonical index: " + name);
+  }
+}
+
 export function assertRolloutChainSchema(schema, targetMigration) {
   const target = migrationIndex(targetMigration);
-  if (target < 123 || target > 132) return;
+  if (target < 123 || target > 133) return;
   if (target >= 124) assertStructuredAddressSchema(schema);
   if (target >= 125) assertGeminiNotionReviewLocksSchema(schema);
   if (target >= 126) assertGeminiCategoryPromptsSchema(schema);
@@ -2346,6 +2407,7 @@ export function assertRolloutChainSchema(schema, targetMigration) {
   if (target >= 129) assertFacebookImagePostsSchema(schema);
   if (target >= 131) assertFacebookImagePublisherSchema(schema);
   if (target >= 132) assertFacebookImageTrashSchema(schema);
+  if (target >= 133) assertFacebookImageDirectConsentSchema(schema);
   if (target < 128) assertPendingTargetSchemaClean("0128_facebook_image_posts.sql",
     targetSchemaObjects(schema, "0128_facebook_image_posts.sql"));
 }
@@ -2412,6 +2474,7 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 130) assertFacebookImagePublisherSchema(schema);
   if (migrationIndex(targetMigration) >= 131) assertFacebookImageTrashSchema(schema);
   if (migrationIndex(targetMigration) >= 132) assertFacebookImageDirectConsentSchema(schema);
+  if (migrationIndex(targetMigration) >= 133) assertServicesCanonicalAdminSchema(schema);
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2793,6 +2856,7 @@ async function preflight(targetMigration) {
   assert0130NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0131NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0132NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0133NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2959,6 +3023,7 @@ async function apply(targetMigration) {
   assert0130NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0131NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0132NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0133NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 129) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
@@ -3058,6 +3123,12 @@ async function verify(targetMigration) {
             "0130 new Facebook publisher tables must start empty: " + table);
       }
     }
+  }
+
+  if (targetIndex === 133 && !internal.targetApplied) {
+    for (const table of ["service_catalog_admin_options", "service_profile_option_choices", "service_profile_property_values"])
+      invariant(scalarCount(databaseName, prepared.configPath, `SELECT COUNT(*) AS count FROM "${table}"`) === 0,
+        "0133 new service catalog table must begin empty: " + table);
   }
 
   const after = dataSnapshot(databaseName, prepared.configPath);
