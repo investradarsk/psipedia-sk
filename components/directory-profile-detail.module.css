@@ -28,3 +28,15 @@
 .contactSection { width: min(1120px, calc(100% - 32px)); margin: 0 auto; scroll-margin-top: 100px; }
 .contactShell { width: 100%; max-width: none; padding: 0; }
 .hours { color: #455e66; font-size: .85rem; line-height: 1.65; }
+
+/* Keep raw source hours, no synthetic schedule. Full-width contact values. */
+.practicalItem { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.practicalItem dt { font-size: .74rem; font-weight: 750; }
+.practicalItem dd { font-size: .86rem; line-height: 1.55; }
+.practicalGrid { margin-top: 10px; }
+.hours { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.servicesList { grid-template-columns: repeat(auto-fit, minmax(min(100%, 195px), 1fr)); gap: 9px; }
+.servicesList li { display: flex; align-items: baseline; gap: 9px; min-height: 44px; padding: 12px 13px; font-size: .86rem; line-height: 1.5; background: #f7f9f4; }
+.servicesList li::before { content: ""; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: #7b9d8d; }
+.contactValues a { overflow-wrap: anywhere; }
+@media(max-width: 380px) { .servicesList { grid-template-columns: minmax(0, 1fr); } }
