@@ -93,6 +93,7 @@ async function performStep(page, screen, name) {
       if (!(await input.count()) || !(await button.count())) return "not_applicable";
       await input.fill("e2e");
       await button.click();
+      await page.waitForURL((url) => url.searchParams.get("q") === "e2e", { timeout: 10000 });
       return "ok";
     }
     return "not_applicable";
