@@ -23,7 +23,7 @@
 .heroCopy { min-width: 0; }
 .heroCopy h1 { margin: 14px 0 12px; font: 500 clamp(2rem, 3.8vw, 3.5rem)/1.06 Georgia, serif; letter-spacing: -.035em; color: var(--detail-ink, #092d36); overflow-wrap: anywhere; }
 .heroCopy p { line-height: 1.6; overflow-wrap: anywhere; }
-.heroMedia { min-width: 0; width: 100%; aspect-ratio: 4 / 3; align-self: stretch; overflow: hidden; border-radius: 10px; background: #f1f4ef; display: grid; align-content: center; }
+.heroMedia { min-width: 0; width: 100%; aspect-ratio: 4 / 3; align-self: stretch; overflow: hidden; border-radius: 10px; background: #f1f4ef; display: grid; align-content: stretch; }
 .heroMedia img { border-radius: 10px; }
 .heroMedia > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 /* ImageDisplay owns cropping, focal point, contain/blur and natural sizing. */

@@ -66,7 +66,7 @@ text-left/media-right rozloženiu. Testy nevynechávajú kontroly obsahu a konta
 - Získať CACT externé médium a zopakovať snímku s úspešne načítaným originálom.
 - Celorepozitárový TypeScript baseline obsahuje 698 existujúcich diagnostík;
   porovnanie identických základov neukázalo žiadnu novú diagnostiku.
-- D1/SSR integračný test patrí existujúcim seeded CI workflowom; v tomto behu
+- D1/SSR integračný test patrí existujúcim seeded CI workflowom; pri prvom overení
   sa neaplikovala žiadna migrácia a produkčné dáta sa nezapisovali.
 - Manuálne skontrolovať tri živé záznamy po prípadnom samostatne schválenom nasadení.
 
@@ -82,3 +82,22 @@ text-left/media-right rozloženiu. Testy nevynechávajú kontroly obsahu a konta
   fundraising, adopcie a ostatné kontroly zostali zachované; izolovaný browser
   test priamo kontroluje geometriu nového poradia.
 - Súvisiace source kontrakty: 27/27; pôvodná EventImage SSR sada: 9/9.
+
+### Reprodukcia poslednej chyby reálneho detailu
+
+Pôvodný návratový E2E našiel nulovú výšku obrázka v režime contain/blur.
+Príčina: `align-content: center` v novom grid ráme nechalo vnútorný rám
+s absolútne umiestneným obrázkom vysoký 0 px. Zmena na stretch zachová slot
+a všetky existujúce image nastavenia. Regresia priamo overuje nenulové rozmery
+skutočného img, nielen vonkajšieho kontajnera.
+
+Overené: pôvodný návratový test 2/2 desktop/mobile, mobilná events sada 15/15,
+spoločná detail sada 43/43, build PASS. Pred opravou zlyhal desktopový návratový
+test; ostatných 14 testov desktopovej sady prešlo.
+
+Lokálna reprodukcia použila pôvodný `events-final-local-fixtures.mjs` na prázdnej
+lokálnej SQLite/D1: iba existujúce schémové deklarácie a deterministické fixture,
+bez migračných dátových zápisov, nových migračných súborov a produkčného D1.
+Video záznam lokálne vypnutý pre nedostupný download Playwright FFmpeg (403);
+screenshoty, trace a všetky testové assertions zostali zapnuté. CI konfigurácia
+nahrávania sa nemenila. GitHub log/artifact download takisto vracal 403.

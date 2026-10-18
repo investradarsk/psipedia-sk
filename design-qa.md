@@ -58,7 +58,11 @@ vstup source+implementation chýba a nie je označený za úspešne vykonaný.
   9 social-metadata a 3 CSS-scope testy. Úplný TypeScript má rovnakých 698
   diagnostík ako nezmenený základ; žiadna nová.
 
-Nezamieňať s plným SSR/D1 integračným testom ani produkčným testom endpointov.
+Prvotná izolovaná sada nie je plný SSR/D1 integračný test ani produkčný test endpointov.
+Následná lokálna seeded reprodukcia reálnej routy odhalila a opravila nulovú výšku
+contain/blur obrázka; pôvodný návratový E2E potom prešiel desktop/mobile 2/2.
+Spoločná sada 43/43 teraz navyše kontroluje nenulovú výšku skutočného img.
+Post-fix snímky boli aktualizované; formálne porovnanie s referenciami ostáva blocked.
 Existujúce seeded Playwright workflowy sa zachovali a nový izolovaný test beží v CI.
 
 ## Zostávajúce kroky vizuálneho potvrdenia
