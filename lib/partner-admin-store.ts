@@ -12,14 +12,91 @@ function piiKey(key?: string) { const value=key ?? (env as unknown as Bindings).
 function validId(value:string){return /^[0-9a-f-]{20,64}$/i.test(value);}
 function auditActor(email:string){return `admin:${email.trim().toLowerCase()}`;}
 
-type AccountRow={id:string;emailCiphertext:string;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string;activeMembershipCount:number};
-export async function listPartnerAccountsAdmin(input:{q?:string;database?:D1Database;encryptionKey?:string}={}) {
-  const rows=(await db(input.database).prepare(`SELECT a.id,a.email_ciphertext emailCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt,
-    COUNT(m.id) activeMembershipCount FROM partner_accounts a LEFT JOIN partner_memberships m ON m.account_id=a.id AND m.revoked_at IS NULL
-    GROUP BY a.id ORDER BY a.created_at DESC LIMIT 250`).all<AccountRow>()).results;
-  const key=piiKey(input.encryptionKey); const q=(input.q??"").trim().toLocaleLowerCase("sk");
-  const items=await Promise.all(rows.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
-  return q?items.filter(item=>item.email.toLocaleLowerCase("sk").includes(q)||item.id.toLowerCase().includes(q)):items;
+type AccountRow={id:string;emailCiphertext:string;status:PartnerAccountStatus;emailVerifiedAt:string|null;createdAt:string};
+type PartnerAccountAdminFilters={q?:string;page?:number;pageSize?:number;status?:string;verified?:string;database?:D1Database;encryptionKey?:string};
+const ACCOUNT_PAGE_SIZE=25;
+const ACCOUNT_MAX_PAGE_SIZE=100;
+const ACCOUNT_SCAN_BATCH_SIZE=200;
+const accountStatuses=["PENDING_VERIFICATION","ACTIVE","SUSPENDED","DEACTIVATED"] as const;
+
+export function normalizePartnerAccountAdminFilters(input:PartnerAccountAdminFilters={}){
+  const positiveInt=(value:number|undefined,fallback:number,max:number)=>
+    Number.isSafeInteger(value)&&value!>=1?Math.min(value!,max):fallback;
+  return {
+    q:(input.q??"").trim().normalize("NFKC").slice(0,120),
+    page:positiveInt(input.page,1,10000),
+    pageSize:positiveInt(input.pageSize,ACCOUNT_PAGE_SIZE,ACCOUNT_MAX_PAGE_SIZE),
+    status:accountStatuses.includes(input.status as PartnerAccountStatus)?input.status as PartnerAccountStatus:"",
+    verified:input.verified==="VERIFIED"||input.verified==="UNVERIFIED"?input.verified:"",
+  };
+}
+
+export async function listPartnerAccountsAdmin(input:PartnerAccountAdminFilters={}){
+  const filters=normalizePartnerAccountAdminFilters(input);
+  const database=db(input.database);
+  const key=piiKey(input.encryptionKey);
+  const conditions:string[]=[];
+  const values:unknown[]=[];
+  if(filters.status){conditions.push("a.status=?");values.push(filters.status);}
+  if(filters.verified==="VERIFIED")conditions.push("a.email_verified_at IS NOT NULL");
+  if(filters.verified==="UNVERIFIED")conditions.push("a.email_verified_at IS NULL");
+  const where=conditions.length?" WHERE "+conditions.join(" AND "):"";
+  const select="SELECT a.id,a.email_ciphertext emailCiphertext,a.status,a.email_verified_at emailVerifiedAt,a.created_at createdAt FROM partner_accounts a";
+  const order=" ORDER BY a.created_at DESC,a.id DESC";
+  const offset=(filters.page-1)*filters.pageSize;
+  const normalizedQuery=filters.q.toLocaleLowerCase("sk");
+
+  let total=0;
+  let pageRows:Array<AccountRow & {email:string}>=[];
+  if(!normalizedQuery){
+    const [count,rows]=await Promise.all([
+      database.prepare("SELECT COUNT(*) total FROM partner_accounts a"+where).bind(...values).first<{total:number}>(),
+      database.prepare(select+where+order+" LIMIT ? OFFSET ?").bind(...values,filters.pageSize,offset).all<AccountRow>(),
+    ]);
+    total=Number(count?.total??0);
+    pageRows=await Promise.all(rows.results.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
+  }else{
+    // Email is AES-GCM encrypted: substring searches cannot run against SQL ciphertext
+    // or the exact-match HMAC email_hash. Scan *all* filtered accounts on the server
+    // in bounded keyset batches, decrypt there, and retain only the requested page.
+    let cursor:{createdAt:string;id:string}|null=null;
+    while(true){
+      const predicate=cursor
+        ?(where?" AND ":" WHERE ")+"(a.created_at < ? OR (a.created_at = ? AND a.id < ?))"
+        :"";
+      const params=cursor?[...values,cursor.createdAt,cursor.createdAt,cursor.id]:values;
+      const batch=(await database.prepare(select+where+predicate+order+" LIMIT ?")
+        .bind(...params,ACCOUNT_SCAN_BATCH_SIZE).all<AccountRow>()).results;
+      if(!batch.length)break;
+      const decrypted=await Promise.all(batch.map(async row=>({...row,email:await decryptPii(row.emailCiphertext,key)})));
+      for(const item of decrypted){
+        if(item.id.toLowerCase().includes(normalizedQuery)||item.email.toLocaleLowerCase("sk").includes(normalizedQuery)){
+          if(total>=offset&&pageRows.length<filters.pageSize)pageRows.push(item);
+          total++;
+        }
+      }
+      const last=batch[batch.length-1];
+      cursor={createdAt:last.createdAt,id:last.id};
+      if(batch.length<ACCOUNT_SCAN_BATCH_SIZE)break;
+    }
+  }
+
+  // Membership aggregation is limited to the selected page, not every scanned account.
+  const counts=new Map<string,number>();
+  if(pageRows.length){
+    const placeholders=pageRows.map(()=>"?").join(",");
+    const memberships=(await database.prepare(
+      "SELECT account_id accountId,COUNT(*) activeMembershipCount FROM partner_memberships WHERE revoked_at IS NULL AND account_id IN ("+placeholders+") GROUP BY account_id"
+    ).bind(...pageRows.map(row=>row.id)).all<{accountId:string;activeMembershipCount:number}>()).results;
+    for(const item of memberships)counts.set(item.accountId,Number(item.activeMembershipCount));
+  }
+  return {
+    items:pageRows.map(({emailCiphertext,...row})=>({...row,activeMembershipCount:counts.get(row.id)??0})),
+    total,
+    page:filters.page,
+    pageSize:filters.pageSize,
+    totalPages:Math.max(1,Math.ceil(total/filters.pageSize)),
+  };
 }
 
 export async function getPartnerAdminSummary(database?:D1Database){
