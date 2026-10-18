@@ -23,18 +23,20 @@ live login are prohibited. No GitHub Actions schedule is introduced.
    requirements; do not run the fixture bootstrap against real D1.
 2. Install Playwright Chromium using the existing `npm run e2e:install`.
 3. Record fixed inputs and at least three repetitions; keep the same
-   fixture row counts, machine, browser version, local server mode and cache
+   fixture row counts and identical --fixture-id, machine, browser version, local server mode and cache
    state across before/after runs.
 
 ```bash
 PSIPEDIA_ADMIN_PERF_LOCAL=1 node scripts/admin-perf-run.mjs \
   --base-url http://127.0.0.1:5173 \
-  --out reports/admin-perf/before.json --label before --repeats 3 --device both
+  --out reports/admin-perf/before.json --label before --repeats 3 --device both \
+  --fixture-id admin-e2e-20261019
 
 # After changes on the SAME fixture and comparable setup:
 PSIPEDIA_ADMIN_PERF_LOCAL=1 node scripts/admin-perf-run.mjs \
   --base-url http://127.0.0.1:5173 \
-  --out reports/admin-perf/after.json --label after --repeats 3 --device both
+  --out reports/admin-perf/after.json --label after --repeats 3 --device both \
+  --fixture-id admin-e2e-20261019
 
 node scripts/admin-perf-compare.mjs reports/admin-perf/before.json reports/admin-perf/after.json
 node --test tests/admin-perf-tooling.test.mjs
@@ -74,7 +76,7 @@ Do not merge that aggregate with browser route metrics as if correlated.
 
 ## Provenance and later production acceptance
 
-Every report uses `provenance: local_synthetic`. An offline mock/unit-test
+Every report uses `provenance: local_synthetic`. The comparison command refuses different fixture IDs, Chromium versions, devices or repetition counts; it does not prove fixture contents are unchanged. An offline mock/unit-test
 example is **fixture data, not a measured timing**: ready_ms before
 100/101/102 -> median 101; after 80/81/82 -> median 81; delta -20ms.
 Actual local baseline is still pending a bootstrapped fixture and Chromium.
