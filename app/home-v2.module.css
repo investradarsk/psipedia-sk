@@ -2181,3 +2181,218 @@
   text-decoration-thickness: 3px;
   text-underline-offset: 5px;
 }
+
+/* HOMEPAGE-COMPACT-1: homepage-only rhythm and typography; the shared hero stays untouched. */
+.homeV2 :global(.section.home-magazine-section) {
+  padding-block: clamp(18px, 2.2vw, 28px);
+}
+
+.homeV2 :global(.home-magazine-section .home-section-heading) {
+  margin-bottom: 14px;
+}
+
+.homeV2 :global(.home-magazine-section .home-section-heading h2),
+.homeV2 :global(.home-profile-categories .home-services-wide-copy h2) {
+  font-family: inherit;
+  font-size: clamp(1.7rem, 2.45vw, 2.3rem);
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  line-height: 1.13;
+}
+
+.homeV2 :global(.home-magazine-section .home-section-heading .eyebrow),
+.homeV2 :global(.home-profile-categories .eyebrow),
+.homeV2 :global(.home-magazine-banner .eyebrow) {
+  color: var(--coral-dark);
+  font-weight: 850;
+}
+
+.homeV2 :global(.home-magazine-main .home-latest-lead .article-card--featured .article-card-media),
+.homeV2 :global(.home-breed-feature-media),
+.homeV2 :global(.home-magazine-main .home-help-item:first-child .home-help-media) {
+  aspect-ratio: 16 / 7.5;
+}
+
+.homeV2 :global(.home-magazine-main .home-latest-layout) {
+  gap: 8px;
+}
+
+.homeV2 :global(.home-magazine-main .home-latest-item > [data-article-list-item]) {
+  padding-block: 10px;
+}
+
+.homeV2 :global(.home-magazine-side) {
+  gap: 12px;
+}
+
+.homeV2 :global(.home-magazine-sidebar-block) {
+  padding: 15px 15px 11px;
+}
+
+.homeV2 :global(.home-magazine-sidebar-heading h3),
+.homeV2 :global(.home-side-breed > strong),
+.homeV2 :global(.home-help-copy > strong),
+.homeV2 :global(.home-breed-feature-copy strong),
+.homeV2 :global(.home-magazine-banner h2) {
+  font-family: inherit;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.homeV2 :global(.home-magazine-banner) {
+  min-height: 0;
+  gap: 18px;
+  margin-block: 5px 8px;
+  padding: 18px clamp(18px, 2.4vw, 28px);
+  border-left: 3px solid var(--coral-dark);
+  border-radius: 14px;
+  background: linear-gradient(110deg, var(--sage-light), var(--paper));
+}
+
+.homeV2 :global(.home-magazine-banner h2) {
+  font-size: clamp(1.3rem, 1.9vw, 1.7rem);
+}
+
+.homeV2 :global(.home-magazine-banner p) {
+  margin-top: 5px;
+}
+
+.homeV2 :global(.home-profile-categories) {
+  padding-block: clamp(21px, 2.6vw, 32px);
+  border-color: rgba(23, 53, 43, 0.1);
+}
+
+.homeV2 :global(.home-profile-categories .home-services-wide-copy) {
+  max-width: 850px;
+}
+
+.homeV2 :global(.home-profile-categories .home-services-wide-copy h2) {
+  margin: 4px 0 6px;
+}
+
+.homeV2 :global(.home-profile-categories .home-services-wide-copy > p) {
+  max-width: 700px;
+  font-size: 0.84rem;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-carousel) {
+  grid-auto-columns: minmax(220px, calc((100% - 28px) / 3));
+  gap: 14px;
+  margin-top: 16px;
+  padding-bottom: 9px;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card) {
+  border-radius: 14px;
+  box-shadow: 0 3px 14px rgba(23, 53, 43, 0.045);
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-media) {
+  aspect-ratio: 16 / 8.5;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-media img) {
+  border-radius: 13px 13px 0 0;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-icon) {
+  left: 14px;
+  bottom: -19px;
+  width: 39px;
+  height: 39px;
+  border-width: 4px;
+  font-size: 1.02rem;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-copy) {
+  min-height: 120px;
+  gap: 6px;
+  padding: 27px 40px 16px 15px;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-copy > strong) {
+  font-family: inherit;
+  font-size: 1.13rem;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.22;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-copy > span:not(.home-service-card-arrow)) {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.76rem;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card-arrow) {
+  right: 11px;
+  bottom: 13px;
+  width: 30px;
+  height: 30px;
+}
+
+.homeV2 :global(.home-profile-categories .home-services-wide-link) {
+  min-height: 43px;
+  margin-top: 1px;
+  font-size: 0.82rem;
+}
+
+.homeV2 :global(.home-profile-categories .home-service-card:focus-visible),
+.homeV2 :global(.home-magazine-banner .button:focus-visible) {
+  outline: 3px solid var(--coral-dark);
+  outline-offset: 3px;
+}
+
+@media (max-width: 820px) {
+  .homeV2 :global(.home-profile-categories .home-service-carousel) {
+    grid-auto-columns: minmax(200px, 44%);
+  }
+}
+
+@media (max-width: 620px) {
+  .homeV2 :global(.section.home-magazine-section) {
+    padding-block: 18px;
+  }
+
+  .homeV2 :global(.home-magazine-section .home-section-heading) {
+    margin-bottom: 12px;
+  }
+
+  .homeV2 :global(.home-magazine-section .home-section-heading h2),
+  .homeV2 :global(.home-profile-categories .home-services-wide-copy h2) {
+    font-size: clamp(1.56rem, 7vw, 1.9rem);
+  }
+
+  .homeV2 :global(.home-profile-categories) {
+    padding-block: 23px;
+  }
+
+  .homeV2 :global(.home-profile-categories .home-service-carousel) {
+    grid-auto-columns: minmax(205px, 72%);
+    gap: 11px;
+    margin-top: 14px;
+    padding-bottom: 7px;
+  }
+
+  .homeV2 :global(.home-profile-categories .home-service-card-copy) {
+    min-height: 124px;
+    padding: 27px 39px 15px 14px;
+  }
+
+  .homeV2 :global(.home-magazine-banner) {
+    gap: 12px;
+    padding: 17px 16px;
+  }
+
+  .homeV2 :global(.home-magazine-main .home-latest-item > [data-article-list-item]) {
+    padding-block: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homeV2 :global(.home-profile-categories .home-service-carousel) {
+    scroll-behavior: auto;
+  }
+}
