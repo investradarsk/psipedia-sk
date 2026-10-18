@@ -60,7 +60,13 @@ async function mockedNotion(page,callback){
     if(String(url).includes("s3.example.test"))return new Response(imageBytes,{
       headers:{"content-type":"image/jpeg","content-length":String(imageBytes.byteLength)},
     });
-    if(String(url).includes("/pages/"))return Response.json({id:pageId});
+    if(String(url).includes("/pages/")){
+      if(init.method==="PATCH"&&init.body){
+        const body=JSON.parse(init.body);
+        if(body.properties)Object.assign(page.properties,body.properties);
+      }
+      return Response.json({id:pageId});
+    }
     throw Error("Unexpected network request "+url);
   };
   try{return await callback(calls);}finally{globalThis.fetch=old;}
@@ -75,15 +81,15 @@ test("sync flag off reads no Notion and writes no D1",async()=>{
     assert.equal(f.get(),undefined);
   }finally{f.close();}
 });
-test("approved checkbox + status creates only one D1 scheduled post with R2 image",async()=>{
+test("Notion approval creates only a draft, with no D1 publishing permission",async()=>{
   const f=fixture();const page=notionPage();
   try {
     await mockedNotion(page,async calls=>{
       const one=await runNotionFacebookImagesSync({database:f.db,
         bindings:{...bindings,BUCKET:f.bucket},now:time});
       assert.equal(one.created,1);assert.equal(one.failed,0);assert.equal(one.invalid,0);
-      assert.equal(f.get().status,"scheduled");
-      assert.equal(f.get().approval_status,"APPROVED");
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().approval_status,"UNREVIEWED");
       assert.equal(f.get().caption,"Jedna fotografia psa");
       assert.match(f.get().image_key,/^facebook-images\/\d{4}\/[a-f0-9-]+\.jpg$/);
       assert.equal(f.objects.size,1);
@@ -122,7 +128,7 @@ test("published D1 record writes back to Notion once and cannot reimport",async(
         bindings:{...bindings,BUCKET:f.bucket},now:time});
       assert.equal(result.writtenBack,1);
       assert.equal(f.objects.size,1);
-      assert.equal(calls.filter(c=>c.url.includes("/pages/")).length,1);
+      assert.equal(calls.filter(c=>c.url.includes("/pages/")).length,2);
     });
   }finally{f.close();}
 });
@@ -193,7 +199,23 @@ test("admin-authority keeps Notion-origin approvals as drafts until Psipedia adm
       assert.equal(f.get().approval_status,"UNREVIEWED");
       assert.equal(f.get().status,"draft");
       assert.equal(f.get().notion_page_id,pageId);
-      assert.equal(calls.filter(c=>c.url.includes("/pages/")&&c.method==="PATCH").length,1);
+      assert.equal(calls.filter(c=>c.url.includes("/pages/")&&c.method==="PATCH").length,2);
+    });
+  }finally{f.close();}
+});
+
+test("a changed Notion direct-consent checkbox is ignored by the D1 authorization gate",async()=>{
+  const f=fixture(),page=notionPage(true);
+  page.properties["Súhlas majiteľa – priame publikovanie"]={checkbox:true};
+  try{
+    await mockedNotion(page,async()=>{
+      await runNotionFacebookImagesSync({database:f.db,bindings:{...bindings,BUCKET:f.bucket},now:time});
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().approval_status,"UNREVIEWED");
+      page.properties["Súhlas majiteľa – priame publikovanie"].checkbox=false;
+      await runNotionFacebookImagesSync({database:f.db,bindings:{...bindings,BUCKET:f.bucket},now:time});
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().approval_status,"UNREVIEWED");
     });
   }finally{f.close();}
 });
