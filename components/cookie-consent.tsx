@@ -90,6 +90,16 @@ async function sendPageView(pagePath: string) {
 
   try {
     await loadAnalytics();
+    // Consent can be withdrawn while gtag.js is loading.
+    const currentConsent = window.localStorage.getItem(CONSENT_KEY);
+    if (
+      analyticsWindow[\`ga-disable-\${MEASUREMENT_ID}\`] ||
+      (currentConsent !== "analytics" && currentConsent !== "advertising") ||
+      isStoredInternalTraffic(window.localStorage.getItem(INTERNAL_TRAFFIC_STORAGE_KEY))
+    ) {
+      if (shouldTrackAiReferral) analyticsWindow.psipediaGa4AiReferralTracked = false;
+      return;
+    }
     analyticsWindow.gtag?.("event", "page_view", {
       send_to: MEASUREMENT_ID,
       page_location: window.location.href,
