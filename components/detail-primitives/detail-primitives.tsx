@@ -42,3 +42,24 @@ export function DetailContentLayout({ children, aside }: { children: ReactNode; 
   const className = aside ? `${styles.contentLayout} ${styles.contentLayoutWithAside}` : styles.contentLayout;
   return <div className={className}><div className={styles.contentMain}>{children}</div>{aside ? <aside className={styles.contentAside}>{aside}</aside> : null}</div>;
 }
+
+/** One visual frame; callers retain ownership of their data, actions and states. */
+export function DetailHero({ breadcrumbs, copy, media, kind }: {
+  breadcrumbs: ReactNode;
+  copy: ReactNode;
+  media?: ReactNode;
+  kind: "directory" | "event" | "adoption" | "help" | "lost-found" | "organization";
+}) {
+  return <header className={styles.hero} data-public-detail-hero={kind}
+    data-public-profile-hero={kind === "directory" || kind === "organization" ? "" : undefined}
+    data-directory-profile-hero={kind === "directory" ? "" : undefined}
+    data-event-detail-header={kind === "event" ? "" : undefined}>
+    <div className={styles.shell}>
+      <div className={styles.breadcrumbs}>{breadcrumbs}</div>
+      <div className={styles.heroFrame} data-has-media={media ? "true" : "false"}>
+        <div className={styles.heroCopy}>{copy}</div>
+        {media ? <div className={styles.heroMedia} data-public-profile-media data-event-image={kind === "event" ? "" : undefined}>{media}</div> : null}
+      </div>
+    </div>
+  </header>;
+}

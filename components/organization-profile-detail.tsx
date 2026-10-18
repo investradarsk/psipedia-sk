@@ -22,6 +22,7 @@ import {
   buildOrganizationProfilePresentation,
 } from "@/lib/organization-profile-presentation";
 import styles from "./organization-profile-detail.module.css";
+import detailStyles from "./detail-primitives/detail-primitives.module.css";
 
 function ContactLink({
   href,
@@ -104,6 +105,17 @@ export function OrganizationProfileDetail({
         }))}
       />
       <DetailFactsCard title="Základné informácie" facts={presentation.facts} />
+          {publicMap?.items.length ? (
+            <PublicLocationMap
+              title="Poloha organizácie"
+              items={publicMap.items}
+              attribution={publicMap.attribution}
+              googleApiKey={publicMap.googleApiKey}
+              googleMapId={publicMap.googleMapId}
+              rendererEnabled={publicMap.rendererEnabled}
+              testRendererEnvironment={publicMap.testRendererEnvironment}
+            />
+          ) : null}
       {presentation.actions.length > 0 ? (
         <DetailActions>
           {presentation.actions.map((action) => (
@@ -134,7 +146,7 @@ export function OrganizationProfileDetail({
       : { label: "Ďalšie organizácie", href: "/organizacie", external: false };
 
   return (
-    <main id="obsah" tabIndex={-1}>
+    <main id="obsah" tabIndex={-1} className={detailStyles.page}>
       <PublicProfileHero
         breadcrumbs={<>
           <Link href="/">Domov</Link><span aria-hidden="true">›</span>
@@ -165,17 +177,7 @@ export function OrganizationProfileDetail({
       />
 
       <PublicProfileContentLayout aside={aside}>
-          {publicMap?.items.length ? (
-            <PublicLocationMap
-              title="Poloha organizácie"
-              items={publicMap.items}
-              attribution={publicMap.attribution}
-              googleApiKey={publicMap.googleApiKey}
-              googleMapId={publicMap.googleMapId}
-              rendererEnabled={publicMap.rendererEnabled}
-              testRendererEnvironment={publicMap.testRendererEnvironment}
-            />
-          ) : null}
+
 
           {presentation.description ? (
             <DetailSection eyebrow="O organizácii" title="Kto sú a čo robia">
