@@ -39,6 +39,7 @@ export type FacebookImageSnapshot = {
   caption: string;
   notionState: string;
   allowed: boolean;
+  directRequested: boolean; // Informational only, NEVER grants owner consent on import.
   scheduledAt: string | null;
   image: { url: string; identity: string };
   ready: boolean;
@@ -49,6 +50,7 @@ export function notionFacebookImageSnapshot(page: NotionFacebookImagePage, now =
   const caption = textParts(property(page, "Text na Facebook").rich_text).slice(0, 15000);
   const notionState = selection(page, "Stav");
   const allowed = property(page, "Povoliť publikovanie").checkbox === true;
+  const directRequested = property(page, "Súhlas majiteľa – priame publikovanie").checkbox === true;
   const image = notionImageSource(page);
   const raw = record(property(page, "Dátum a čas publikovania").date).start;
   // Reject dates without explicit time zone: local wall-clock guesses risk a wrong publish.
@@ -63,7 +65,7 @@ export function notionFacebookImageSnapshot(page: NotionFacebookImagePage, now =
     : timestamp <= now.getTime() ? "Termín už uplynul; nastav nový čas."
     : null;
   return {
-    name, caption, notionState, allowed, scheduledAt, image,
+    name, caption, notionState, allowed, directRequested, scheduledAt, image,
     ready: requested && warning === null,
     warning,
   };
@@ -71,7 +73,7 @@ export function notionFacebookImageSnapshot(page: NotionFacebookImagePage, now =
 export function notionFacebookSnapshotFingerprint(snapshot: FacebookImageSnapshot) {
   return JSON.stringify({
     name: snapshot.name, caption: snapshot.caption, notionState: snapshot.notionState,
-    allowed: snapshot.allowed, scheduledAt: snapshot.scheduledAt,
+    allowed: snapshot.allowed, directRequested:snapshot.directRequested, scheduledAt: snapshot.scheduledAt,
     imageIdentity: snapshot.image.identity,
   });
 }

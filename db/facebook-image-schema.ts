@@ -7,6 +7,10 @@ export const facebookImagePosts=sqliteTable("facebook_image_posts",{
   approvalStatus:text("approval_status").notNull().default("UNREVIEWED"),approvedAt:text("approved_at"),approvedBy:text("approved_by"),
   facebookPostId:text("facebook_post_id"),publishedAt:text("published_at"),notionPageId:text("notion_page_id"),syncHash:text("sync_hash"),
   createdAt:text("created_at").notNull(),updatedAt:text("updated_at").notNull(),createdBy:text("created_by").notNull(),updatedBy:text("updated_by").notNull(),
+  // Additive 0131/0132 fields preserve the physical SQLite column order.
+  deletedAt:text("deleted_at"),deletedBy:text("deleted_by"),
+  directPublishConsent:integer("direct_publish_consent").notNull().default(0),
+  directConsentAt:text("direct_consent_at"),directConsentBy:text("direct_consent_by"),
 },t=>[
   check("facebook_image_posts_status_check",sql`${t.status} IN ('draft','scheduled','published')`),
   check("facebook_image_posts_zone_check",sql`${t.timeZone}='Europe/Bratislava'`),check("facebook_image_posts_version_check",sql`${t.version}>=1`),

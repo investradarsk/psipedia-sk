@@ -255,6 +255,16 @@ function canonicalOrganizationLocationForNotion<T extends { role: string; isPrim
   )[0] ?? null;
 }
 
+/** Canonical Google Place protection for Organizations (Gemini Help: utulky). */
+export async function hasCurrentOrganizationGooglePlace(
+  database: D1Database,
+  organizationId: number,
+): Promise<boolean> {
+  const locations = await listOrganizationLocationsAdmin(organizationId, database);
+  const current = canonicalOrganizationLocationForNotion(locations);
+  return Boolean(current && await hasCurrentGooglePlace(database, "ORGANIZATION_LOCATION", current.id));
+}
+
 async function assertOrganizationPlaceNotOverwritten(
   database: D1Database,
   organizationId: number,

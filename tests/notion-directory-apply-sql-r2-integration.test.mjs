@@ -153,6 +153,9 @@ function fixture(options = {}) {
     async writeProfileToNotion() { calls.push("notion-writeback"); },
     async archiveManagedDirectoryProfile() { throw Error("UNEXPECTED_ARCHIVE"); },
     SYSTEM_ACTOR: "notion-worker",
+    // The VM fixture extracts production functions without module imports.
+    // Default-OFF gate must leave the legacy SQL/R2/GEO path unchanged.
+    gemini22PriorityEnabled: () => false,
     Date, Error, Boolean,
   };
   runInNewContext(runtimeCode, ctx, { filename: "production-notion-directory-apply.cjs" });

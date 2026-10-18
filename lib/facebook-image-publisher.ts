@@ -53,6 +53,30 @@ export async function setIndividualApproval(db: PublisherDatabase, id: string, e
   if(!row) throw new Error("Príspevok sa zmenil, nie je naplánovaný alebo sa už odosiela. Obnov údaje.");
   return row;
 }
+/** Owner-confirmed permission; never publishes by itself.
+ * A separate authenticated, replay-safe authorization path will be needed
+ * before ChatGPT/direct integrations can consume this flag.
+ */
+export async function setDirectPublishConsent(db: PublisherDatabase,id:string,expectedVersion:number,
+  consent:boolean,actor:string) {
+  await requirePublisherSchema(db);
+  // The additive migration must exist before a permission may be granted.
+  await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();
+  if(!/^[a-f\d-]{36}$/i.test(id)||!Number.isSafeInteger(expectedVersion)||expectedVersion<1)
+    throw new Error("Neplatná verzia príspevku.");
+  const now=clock(new Date());
+  const row=await db.prepare(`UPDATE facebook_image_posts SET
+      direct_publish_consent=?,direct_consent_at=?,direct_consent_by=?,
+      version=version+1,updated_at=?,updated_by=?
+      WHERE id=? AND version=? AND status IN ('draft','scheduled')
+        AND deleted_at IS NULL AND (image_key<>'' OR ?=0)
+        AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
+      RETURNING id,version,direct_publish_consent`)
+    .bind(consent?1:0,consent?now:null,consent?actor:null,now,actor,
+      id,expectedVersion,consent?1:0).first<{id:string;version:number;direct_publish_consent:number}>();
+  if(!row)throw new Error("Súhlas sa nezmenil: príspevok je neaktuálny, odstránený alebo sa už odosiela.");
+  return row;
+}
 export async function publishPhotoToMeta(photo: { imageKey:string; caption:string }, bindings: FacebookPublisherBindings,
   fetcher: typeof fetch = fetch): Promise<string> {
   if (!publisherConfigured(bindings)) throw new Error("FACEBOOK_NOT_CONFIGURED");
@@ -82,7 +106,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
   if(!summary.configured) return summary;
   // Missing 0129 never falls back to unguarded external publishing.
   await requirePublisherSchema(db);
-  // Soft-trash migration is additive; existing publishing remains operational before APPLY.
+  // Soft-delete migration is additive; deleted posts never enter the publishing queue.
   let trashReady=false;
   try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
   catch(error) {
@@ -102,22 +126,33 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     WHERE status='scheduled' AND scheduled_at<=? AND image_key<>'' ${trashReady?"AND deleted_at IS NULL":""}
       AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
       AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
-           OR approval_status='APPROVED')
+           AND approval_status='APPROVED' AND approved_at IS NOT NULL AND approved_by IS NOT NULL)
     ORDER BY scheduled_at,id LIMIT 50`).bind(timestamp).all<Candidate>();
   summary.due=candidates.results.length;
   for(const item of candidates.results){
-    // The claim atomically checks the global toggle, item approval and content version.
+    // The claim atomically checks global STOP AND per-item approval and version.
     // Competing cron invocations cannot claim the same post twice.
     const claimed=await db.prepare(`INSERT OR IGNORE INTO facebook_image_publish_attempts
        (post_id,snapshot_version,state,started_at)
        SELECT id,version,'SENDING',? FROM facebook_image_posts WHERE id=? AND version=?
          AND status='scheduled' AND scheduled_at<=? AND image_key=? ${trashReady?"AND deleted_at IS NULL":""}
          AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
-           OR approval_status='APPROVED')
+           AND approval_status='APPROVED' AND approved_at IS NOT NULL AND approved_by IS NOT NULL)
          AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
        RETURNING post_id`).bind(timestamp,item.id,item.version,timestamp,item.image_key).first<{post_id:string}>();
     if(!claimed)continue;
     summary.claimed++;
+    // Best-effort race guard directly before entering the external request.
+    // If STOP was toggled after the SQL claim, remove ONLY our unsubmitted
+    // attempt: it has never left this invocation and is safe to reschedule.
+    // Once Meta POST starts it cannot be cancelled reliably.
+    const gate=await db.prepare("SELECT enabled FROM facebook_image_publisher_settings WHERE id=1")
+      .first<{enabled:number}>();
+    if(gate?.enabled!==1){
+      await db.prepare("DELETE FROM facebook_image_publish_attempts WHERE post_id=? AND state='SENDING'")
+        .bind(item.id).run();
+      continue;
+    }
     let remote:string;
     try {
       remote=await publishPhotoToMeta({imageKey:item.image_key,caption:item.caption},bindings,fetcher);
