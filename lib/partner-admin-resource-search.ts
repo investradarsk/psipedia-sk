@@ -37,7 +37,8 @@ export function createAdminPartnerResourceSearch(
       });
       if(!response.ok)throw new Error("HTTP "+response.status);
       const payload=await response.json() as {items?:unknown};
-      if(token!==sequence||controller.signal.aborted)return;
+      if(token!==sequence)return;
+      if(controller.signal.aborted)throw new Error("Search aborted or timed out");
       if(!Array.isArray(payload.items))throw new Error("Invalid resources response");
       callbacks.onResults(payload.items as AdminPartnerResource[]);
     }catch{
