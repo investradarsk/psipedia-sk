@@ -1,0 +1,53 @@
+.workspace { min-width: 0; display: grid; gap: 16px; color: #153729; }
+.intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; background: #073f2c; color: #fff; padding: 23px 25px; border-radius: 15px; }
+.intro > div:first-child { min-width: 0; flex: 1 1 320px; }
+.eyebrow { font-size: .72rem; font-weight: 750; letter-spacing: .08em; color: #b8dbca; }
+.intro h2 { color: #fff; margin: 6px 0 7px; font-size: clamp(1.2rem, 2vw, 1.65rem); line-height: 1.25; }
+.intro p { margin: 0; max-width: 750px; color: #dbede2; font-size: .86rem; line-height: 1.5; }
+.counter { min-width: 155px; display: grid; gap: 2px; text-align: right; }
+.counter strong { font-size: 2rem; line-height: 1; color: #fff; }
+.counter span { font-size: .74rem; color: #dbede2; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; padding: 14px; border: 1px solid #e2eae5; border-radius: 12px; background: #fff; }
+.toolbar label { display: grid; gap: 6px; flex: 1 1 170px; min-width: 0; font-size: .8rem; font-weight: 700; color: #315343; }
+.toolbar label:first-child { flex: 2 1 245px; }
+.toolbar input, .toolbar select { width: 100%; min-width: 0; height: 41px; padding: 8px 10px; background: #fff; color: #193d2e; font: inherit; font-weight: 500; border: 1px solid #cfddd2; border-radius: 8px; }
+.reload { min-height: 41px; padding: 8px 13px; background: #eef5f0; border: 1px solid #c7dacd; border-radius: 8px; font: inherit; font-size: .82rem; font-weight: 700; color: #195238; cursor: pointer; }
+.reload:disabled { opacity: .55; cursor: wait; }
+.workspace :is(input,select,button,a):focus-visible { outline: 3px solid #e8b247; outline-offset: 3px; }
+.progress { color: #556c5d; font-size: .82rem; margin: 0; }
+.warning { padding: 13px 17px; border-radius: 10px; border: 1px solid #e9ca91; background: #fff8e9; color: #795223; line-height: 1.5; font-size: .83rem; }
+.warning p { margin: 6px 0; } .warning ul { margin: 7px 0 0; padding-left: 20px; }
+.group { border: 1px solid #e1eae4; background: #fff; border-radius: 12px; overflow: hidden; min-width: 0; }
+.groupTitle { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; align-items: center; padding: 13px 16px; background: #f4f8f5; border-bottom: 1px solid #e4ece6; }
+.groupTitle h2 { margin: 0; font-size: 1.04rem; color: #154a33; }
+.groupTitle span { font-size: .77rem; font-weight: 700; color: #597360; }
+.rows { padding: 0; margin: 0; list-style: none; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, auto) auto; align-items: center; gap: 12px; border-top: 1px solid #ebf0ed; padding: 10px 16px; min-width: 0; }
+.row:first-child { border-top: none; }
+.identity { min-width: 0; display: grid; gap: 3px; }
+.identity strong { font-size: .87rem; color: #193b2c; overflow-wrap: anywhere; }
+.metadata { font-size: .75rem; color: #688072; overflow-wrap: anywhere; line-height: 1.4; }
+.status { justify-self: start; border-radius: 999px; padding: 5px 9px; white-space: nowrap; font-size: .73rem; font-weight: 750; background: #eef2f0; color: #43594c; }
+.status_new { background: #e9f2ff; color: #235e9c; }
+.status_in_progress, .status_imported { background: #fff3d8; color: #8a5500; }
+.status_approved { background: #e6f5ef; color: #0d6745; }
+.status_published { background: #dff6df; color: #14622f; }
+.status_rejected { background: #ffe5e5; color: #a12e2e; }
+.open { white-space: nowrap; border: 1px solid #cbdbd1; padding: 8px 11px; text-decoration: none; color: #115236; font-size: .79rem; font-weight: 700; border-radius: 8px; }
+.open:hover { background: #f1f8f3; }
+.empty { font-size: .82rem; color: #65796d; margin: 0; padding: 17px; }
+.footnote { font-size: .77rem; color: #607567; line-height: 1.5; margin: 0; }
+@media (max-width: 700px) {
+  .intro { padding: 17px; gap: 12px; }
+  .counter { text-align: left; }
+  .row { grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+  .identity { grid-column: 1 / -1; }
+  .status { grid-column: 1; }
+  .open { grid-column: 2; text-align: center; }
+  .groupTitle { padding: 12px; }
+  .row { padding: 11px 12px; }
+}
+@media (max-width: 360px) {
+  .toolbar { padding: 10px; }
+  .open { white-space: normal; max-width: 170px; }
+}

@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { AdminShell } from "@/components/admin-shell";
 import { AdminGeminiAutomationSettings } from "@/components/admin-gemini-automation-settings";
 import { requireAdminPageUser } from "@/lib/admin-auth";
-import { geminiAutomationSections } from "@/lib/gemini-automation-catalog";
+import { geminiAutomationSections, getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { geminiSettingViews } from "@/lib/gemini-automation-admin-settings";
 import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
 import {
@@ -21,8 +21,11 @@ import styles from "@/components/admin-gemini-automation.module.css";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminGeminiAutomationPage() {
+export default async function AdminGeminiAutomationPage({ searchParams }: { searchParams: Promise<{ stable_key?: string | string[] }> }) {
   const user = await requireAdminPageUser("/admin/automatizacie-gemini");
+  const requested = (await searchParams).stable_key;
+  const key = Array.isArray(requested) ? requested[0] : requested;
+  const initialSelectedKey = key && getGeminiCatalogItem(key) ? key : undefined;
   let settings = geminiSettingViews([]);
   let runs: GeminiRecentRun[] = [];
   let queuedJobs: GeminiQueuedJob[] = [];
@@ -68,6 +71,7 @@ export default async function AdminGeminiAutomationPage() {
         queueEnabled={queueEnabled}
         initialJobs={queuedJobs}
         recentRuns={runs}
+        initialSelectedKey={initialSelectedKey}
       />
     </AdminShell>
   );

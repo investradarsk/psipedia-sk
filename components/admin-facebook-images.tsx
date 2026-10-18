@@ -175,71 +175,145 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const attempted=editor?.post?.publicationState && editor.post.publicationState!=="PENDING";
   const locked=Boolean(published||attempted||editor?.post?.deletedAt);
   const link=facebookUrl(editor?.post?.facebookPostId);
+  const scheduledInMonth=data.calendar.filter(post=>post.status==="scheduled"&&!post.deletedAt&&post.scheduledAt)
+    .sort((a,b)=>(a.scheduledAt??"").localeCompare(b.scheduledAt??"")).slice(0,4);
+  const publisherReady=Boolean(publisher?.connected&&publisher.technicallyEnabled);
   return <div className={styles.root} data-interactive={ready?"true":"false"}>
-    <p>Plánovanie v Europe/Bratislava. Príspevky sa posielajú po termíne, iba ak je Facebook pripojený a príslušný príspevok povolený.</p>
-    <section className="admin-form-card" aria-label="Nastavenie automatického publikovania">
-      <h2>Automatické publikovanie na Facebook</h2>
-      <label><input type="checkbox" checked={publisher?.enabled??false} disabled={!publisher||publisherBusy} onChange={e=>void setAutomatic(e.target.checked)}/>
-        Povolené – automaticky publikovať všetky naplánované obrázky</label>
-      <p>Ak je vypnuté, v termíne sa publikujú iba jednotlivo schválené príspevky. Bez limitov na počet, hodiny alebo rozostupy.</p>
-      {publisher&&!publisher.technicallyEnabled&&<p role="status">Facebook zatiaľ nie je technicky pripojený. Doplň Page ID, Page token a povolenie publikovania v bezpečných nastaveniach Cloudflare.</p>}
-      {publisherError&&<p role="alert" className="admin-message admin-message--error">{publisherError}</p>}
-    </section>
-    <section className="admin-form-card" aria-label="Notion Facebook obrázky"><h2>Notion – Facebook obrázky</h2>
-      <p>Importuje iba novú samostatnú databázu. Publikovanie z Notion vyžaduje stav Schválené, zaškrtnuté Povoliť publikovanie, obrázok a budúci termín.</p>
-      <AdminActionButton type="button" variant="secondary" disabled={!ready||notionBusy||loading} onClick={()=>void syncNotion()}>{notionBusy?"Synchronizujem…":"Synchronizovať Notion"}</AdminActionButton>
-    </section>
-    <div className={styles.stats} aria-label="Počty príspevkov">
-      {(["draft","scheduled","sending","published","review","trash"] as const).map(kind=>
-        <button key={kind} type="button" className={`${styles.statCard} ${status===kind?styles.activeStat:""}`}
-          aria-pressed={status===kind} onClick={()=>{setStatus(kind);setPage(1);}}>
-          <span className={`${styles.statusPill} ${styles[kind]}`}>{filters[kind]}</span>
-          <strong>{data.counts?.[kind]??0}</strong>
-        </button>)}
-    </div>
-    <p className={styles.liveNote} aria-live="polite">Stavy sa automaticky obnovujú približne každých 12 sekúnd, keď je stránka otvorená.</p>
-    {data.trashAvailable===false&&<p role="status">Funkcia Kôš čaká na schválenú D1 migráciu 0131.</p>}
-    {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}{notice&&<p role="status" className="admin-message">{notice}</p>}
-    <div className={shared.toolbar}><div className={shared.monthNav}><AdminActionButton type="button" variant="secondary" disabled={loading||!ready} onClick={()=>{setMonth(moveCalendarMonth(month,-1));setDay(null);}}>Predošlý mesiac</AdminActionButton><h2>{calendarMonthLabel(month)}</h2><AdminActionButton type="button" variant="secondary" disabled={loading||!ready} onClick={()=>{setMonth(moveCalendarMonth(month,1));setDay(null);}}>Ďalší mesiac</AdminActionButton></div>
-      <AdminActionButton type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
-      <div className={styles.filters}>
-        <label>Stav <select disabled={loading||!ready} value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}>
-          {Object.entries(filters).map(([key,label])=><option key={key} value={key}>{label}</option>)}
-        </select></label>
-        <label>Zdroj <select disabled={loading||!ready} value={source} onChange={e=>{setSource(e.target.value);setPage(1);}}>
-          <option value="all">Všetky zdroje</option><option value="notion">Notion</option><option value="manual">Ručne</option>
-        </select></label>
-      </div>
-    </div>
-    <section aria-label="Kalendár Facebook obrázkov" aria-busy={loading}>
-      <p className={shared.caption}>Klikni na deň pre nový príspevok. Termíny sa môžu prekrývať. Koncept bez dátumu je iba v prehľade. Na mobile možno kalendár posúvať do strán.</p>
-      <div className={styles.scroll} tabIndex={0} aria-label="Posúvateľný mesačný kalendár"><div className={shared.grid}>
-        {calendarWeekdays.map(d=><div key={d} className={shared.weekday}>{d}</div>)}
-        {calendarMonthDays(month).map(cell=>{const posts=facebookPostsForDay(data.calendar,cell.date).filter(p=>!p.deletedAt);return <div key={cell.date} className={`${shared.day} ${styles.cell} ${!cell.inMonth?shared.blank:""}`}>
-          <AdminActionButton type="button" className={shared.dayButton} aria-label={`Vytvoriť príspevok ${cell.date}`} disabled={loading||!!error||!ready} onClick={()=>edit(null,cell.date)}><time dateTime={cell.date}>{cell.day}</time><span className={shared.count}>{posts.length}</span></AdminActionButton>
-          {posts.slice(0,3).map(entry)}{posts.length>3&&<AdminActionButton type="button" className={shared.more} onClick={()=>setDay(cell.date)}>Zobraziť všetky ({posts.length})</AdminActionButton>}
-        </div>;})}
-      </div></div>
-      {day&&<div className={shared.detail}><h3>Príspevky {day}</h3>{facebookPostsForDay(data.calendar,day).map(entry)}</div>}
-    </section>
-    <section className="admin-form-card" aria-labelledby="facebook-posts-heading"><h2 id="facebook-posts-heading">Prehľad príspevkov ({data.total})</h2>
-      {!data.items.length&&<p>Zatiaľ tu nie sú žiadne príspevky.</p>}
-      <div className={styles.list}>{data.items.map(post=><article key={post.id} className={`${styles.listItem} ${styles[visualStatus(post).kind+"Card"]??""}`}>
-        {post.imageUrl&&<img src={post.imageUrl} alt="" width={100} height={100}/>}
-        <div>{entry(post)}
-          <p>{post.source==="notion"?"Notion":"Ručne"} · {post.scheduledAt?`${facebookWallTime(post.scheduledAt).date} ${facebookWallTime(post.scheduledAt).time} · Bratislava`:"Bez dátumu"}
-          {post.approvalStatus==="APPROVED"?" · Individuálne schválený":""}
-          {post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}</p>
-          <div className={styles.itemActions}>
-            {facebookUrl(post.facebookPostId)&&<a href={facebookUrl(post.facebookPostId)??"#"} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
-            {data.trashAvailable&&post.publicationState!=="SENDING"&&
-              <button type="button" disabled={busy} onClick={()=>void moveToTrash(post)}>
-                {post.deletedAt?"Obnoviť z koša":"Presunúť do koša"}</button>}
+    <div className={styles.dashboard}>
+      <header className={styles.heading}>
+        <div>
+          <h2>Prehľad publikovania</h2>
+          <p>Príspevky z Notionu a administrácie · časové pásmo Bratislava</p>
+        </div>
+        <AdminActionButton type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
+      </header>
+      <section className={styles.stats} aria-label="Počty príspevkov v zobrazenom mesiaci">
+        {(["scheduled","draft","published","sending","review"] as const).map(kind=>
+          <button key={kind} type="button" className={[styles.statCard,status===kind?styles.activeStat:""].join(" ")}
+            aria-pressed={status===kind} onClick={()=>{setStatus(kind);setPage(1);}}>
+            <span className={[styles.statusPill,styles[kind]].join(" ")}>{filters[kind]}</span>
+            <strong>{data.counts?.[kind]??0}</strong>
+          </button>)}
+      </section>
+      <section className={styles.upcomingPanel} aria-label="Naplánované príspevky v mesiaci">
+        <div className={styles.sectionHead}>
+          <div><h2>Naplánované v mesiaci</h2><p>Najbližšie termíny zo zobrazeného mesiaca</p></div>
+          <span className={styles.monthLabel}>{calendarMonthLabel(month)}</span>
+        </div>
+        {scheduledInMonth.length? <div className={styles.upcomingList}>{scheduledInMonth.map(post=>
+          <AdminActionButton key={post.id} type="button" className={styles.upcomingRow} disabled={loading||!ready}
+            onClick={()=>edit(post)}>
+            {post.imageUrl?<img src={post.imageUrl} width={48} height={48} alt=""/>:
+              <span className={styles.imageFallback} aria-hidden="true">FB</span>}
+            <span className={styles.upcomingText}>
+              <strong>{post.title}</strong>
+              <small>{shownAt(post.scheduledAt)} · {post.approvalStatus==="APPROVED"?"Schválený":"Čaká na povolenie"}</small>
+            </span>
+            <span className={[styles.statusPill,styles.scheduled].join(" ")}>Naplánovaný</span>
+          </AdminActionButton>)}</div>:
+          <p className={styles.emptyNote}>V tomto mesiaci zatiaľ nie sú naplánované príspevky.</p>}
+      </section>
+      <aside className={styles.systemPanel} aria-label="Stav systému a synchronizácia">
+        <div className={styles.sectionHead}><div><h2>Stav systému</h2><p>Pripojenia a nastavenia</p></div></div>
+        <div className={styles.systemRow}><span>Facebook</span>
+          <strong className={publisherReady?styles.systemReady:styles.systemUnknown}>{publisher===null?"Načítavam…":publisherReady?"Konfigurácia pripravená":"Nie je pripravený"}</strong>
+        </div>
+        <div className={styles.systemRow}><span>Notion</span><strong>Synchronizácia príspevkov</strong></div>
+        <div className={styles.systemRow}><span>Publikovanie</span><strong>{publisher===null?"Načítavam…":publisher.enabled?"Automatika zapnutá":"Režim individuálneho schválenia"}</strong></div>
+        <AdminActionButton type="button" variant="secondary" disabled={!ready||notionBusy||loading}
+          onClick={()=>void syncNotion()}>{notionBusy?"Synchronizujem…":"Synchronizovať Notion"}</AdminActionButton>
+        <details className={styles.settingsDetails}>
+          <summary>Podrobné nastavenia</summary>
+          <div className={styles.settingsInner}>
+            <label className={styles.toggleLabel}><input type="checkbox" checked={publisher?.enabled??false}
+              disabled={!publisher||publisherBusy} onChange={e=>void setAutomatic(e.target.checked)}/>
+              Povoliť všetky naplánované obrázky</label>
+            <p>Aktuálne pravidlo: pri zapnutí môžu odísť aj individuálne neschválené naplánované príspevky.
+              Pri vypnutí sa individuálne schválené stále publikujú. Zmena tohto pravidla bude samostatnou úpravou.</p>
+            {publisher&&!publisher.technicallyEnabled&&<p role="status">Facebook nie je technicky pripravený. Over Page ID, token a povolenie publikovania.</p>}
+            {publisherError&&<p role="alert" className="admin-message admin-message--error">{publisherError}</p>}
+            <p>Import z Notionu používa samostatnú databázu Facebook obrázky.</p>
+          </div>
+        </details>
+      </aside>
+      <section className={styles.calendarPanel} aria-label="Kalendár Facebook obrázkov" aria-busy={loading}>
+        <div className={styles.sectionHead}>
+          <div><h2>Kalendár</h2><p>Vyber deň na zobrazenie príspevkov alebo vytvorenie nového</p></div>
+          <div className={styles.monthNav}>
+            <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
+              onClick={()=>{setMonth(moveCalendarMonth(month,-1));setDay(null);}} aria-label="Predošlý mesiac">‹</AdminActionButton>
+            <strong>{calendarMonthLabel(month)}</strong>
+            <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
+              onClick={()=>{setMonth(moveCalendarMonth(month,1));setDay(null);}} aria-label="Ďalší mesiac">›</AdminActionButton>
           </div>
         </div>
-      </article>)}</div>
-      <div className="admin-actions"><AdminActionButton type="button" variant="secondary" disabled={page<=1||loading} onClick={()=>setPage(p=>p-1)}>Predošlá strana</AdminActionButton><span>Strana {data.page} / {data.pages}</span><AdminActionButton type="button" variant="secondary" disabled={page>=data.pages||loading} onClick={()=>setPage(p=>p+1)}>Ďalšia strana</AdminActionButton></div>
-    </section>
+        <div className={[shared.grid,styles.compactGrid].join(" ")}>
+          {calendarWeekdays.map(d=><div key={d} className={[shared.weekday,styles.compactWeekday].join(" ")}>{d}</div>)}
+          {calendarMonthDays(month).map(cell=>{
+            const posts=facebookPostsForDay(data.calendar,cell.date).filter(post=>!post.deletedAt);
+            return <div key={cell.date} className={[shared.day,styles.calendarDay,!cell.inMonth?shared.blank:""].join(" ")}>
+              <AdminActionButton type="button" className={styles.calendarDayButton}
+                aria-label={posts.length?"Zobraziť príspevky "+cell.date:"Vytvoriť príspevok "+cell.date}
+                disabled={loading||!!error||!ready}
+                onClick={()=>posts.length?setDay(day===cell.date?null:cell.date):edit(null,cell.date)}>
+                <time dateTime={cell.date}>{cell.day}</time>
+                {posts.length>0&&<span className={styles.dayCount}>{posts.length}</span>}
+              </AdminActionButton>
+              {posts.slice(0,1).map(entry)}
+            </div>;
+          })}
+        </div>
+        {day&&<div className={styles.dayDetail}>
+          <div className={styles.sectionHead}>
+            <h3>Príspevky — {day}</h3>
+            <AdminActionButton type="button" variant="secondary" disabled={loading||!ready}
+              onClick={()=>edit(null,day)}>+ Nový v tento deň</AdminActionButton>
+          </div>
+          {facebookPostsForDay(data.calendar,day).filter(post=>!post.deletedAt).map(entry)}
+          {!facebookPostsForDay(data.calendar,day).filter(post=>!post.deletedAt).length&&<p>Na tento deň nie je naplánovaný príspevok.</p>}
+        </div>}
+      </section>
+      <section className={styles.listPanel} aria-labelledby="facebook-posts-heading">
+        <div className={styles.sectionHead}>
+          <div><h2 id="facebook-posts-heading">Všetky príspevky ({data.total})</h2><p>Zoznam a podrobnosti</p></div>
+          <div className={styles.filters}>
+            <label>Stav <select disabled={loading||!ready} value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}>
+              {Object.entries(filters).map(([key,label])=><option key={key} value={key}>{label}</option>)}
+            </select></label>
+            <label>Zdroj <select disabled={loading||!ready} value={source} onChange={e=>{setSource(e.target.value);setPage(1);}}>
+              <option value="all">Všetky zdroje</option><option value="notion">Notion</option><option value="manual">Ručne</option>
+            </select></label>
+          </div>
+        </div>
+        <p className={styles.liveNote} aria-live="polite">Stavy sa obnovujú približne každých 12 sekúnd pri otvorenej stránke.</p>
+        {data.trashAvailable===false&&<p role="status">Funkcia Kôš čaká na D1 migráciu 0131.</p>}
+        {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}
+        {notice&&<p role="status" className="admin-message">{notice}</p>}
+        {!data.items.length&&<p className={styles.emptyNote}>Žiadne príspevky pre zvolený filter.</p>}
+        <div className={styles.list}>{data.items.map(post=><article key={post.id}
+          className={[styles.listItem,styles[visualStatus(post).kind+"Card"]??""].join(" ")}>
+          {post.imageUrl?<img src={post.imageUrl} alt="" width={72} height={72}/>:
+            <span className={styles.imageFallback} aria-hidden="true">FB</span>}
+          <div className={styles.listText}>
+            <div className={styles.listTitle}>{entry(post)}</div>
+            <p>{post.source==="notion"?"Notion":"Ručne"} · {post.scheduledAt?
+              facebookWallTime(post.scheduledAt).date+" "+facebookWallTime(post.scheduledAt).time+" · Bratislava":"Bez dátumu"}
+              {post.approvalStatus==="APPROVED"?" · Individuálne schválený":""}
+              {post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}</p>
+            <div className={styles.itemActions}>
+              {facebookUrl(post.facebookPostId)&&<a href={facebookUrl(post.facebookPostId)??"#"} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
+              {data.trashAvailable&&post.publicationState!=="SENDING"&&<button type="button" disabled={busy}
+                onClick={()=>void moveToTrash(post)}>{post.deletedAt?"Obnoviť z koša":"Presunúť do koša"}</button>}
+            </div>
+          </div>
+        </article>)}</div>
+        <div className={styles.pagination}>
+          <AdminActionButton type="button" variant="secondary" disabled={page<=1||loading} onClick={()=>setPage(p=>p-1)}>Predošlá strana</AdminActionButton>
+          <span>Strana {data.page} / {data.pages}</span>
+          <AdminActionButton type="button" variant="secondary" disabled={page>=data.pages||loading} onClick={()=>setPage(p=>p+1)}>Ďalšia strana</AdminActionButton>
+        </div>
+      </section>
+    </div>
     <dialog ref={dialog} className={styles.dialog} onCancel={e=>{e.preventDefault();close();}} onClick={e=>{if(e.target===e.currentTarget){const b=e.currentTarget.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)close();}}} aria-labelledby="facebook-editor-heading">
       {editor&&<><header className={styles.dialogHeader}><h2 id="facebook-editor-heading">{editor.post?"Upraviť príspevok":"Nový Facebook obrázok"}</h2><AdminActionButton type="button" variant="secondary" disabled={busy} onClick={close}>Zavrieť</AdminActionButton></header>
         <p>ID: {editor.post?.id??"Vytvorí sa pri uložení"}{editor.post?` · verzia ${editor.post.version}`:""}</p>

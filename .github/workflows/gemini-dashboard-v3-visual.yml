@@ -77,7 +77,7 @@ jobs:
             exit 1
           fi
       - name: Real rendered UI Playwright — desktop 1440, mobile 390 and 320
-        run: npx playwright test tests/e2e/admin-gemini-dashboard-v3.spec.ts --workers=1 --retries=0
+        run: npx playwright test tests/e2e/admin-gemini-dashboard-v3.spec.ts tests/e2e/admin-gemini-all-concepts-v4.spec.ts --workers=1 --retries=0
       - name: Stop local app
         if: always()
         run: |
