@@ -241,7 +241,9 @@ test("renders the portal homepage", async () => {
   assert.match(html, /<h2 id="home-steniatka-title">Šteniatka<\/h2>/);
   assert.match(html, /Veterinárna starostlivosť na jednom mieste/);
   assert.match(html, /<h2 id="home-starostlivost-title">Zdravie a starostlivosť<\/h2>/);
-  assert.match(html, /Praktické služby pre každý deň so psom/);
+  // Homepage V3 separates directory categories into featured and secondary bands.
+  assert.match(html, /Nájdi odborníka pre svojho psa/);
+  assert.match(html, /Pomoc aj mimo bežného dňa/);
   assert.match(html, /<h2 id="home-aktivity-title">Výcvik a aktivity<\/h2>/);
   assert.match(html, /Pomoc psom/);
   assert.match(html, /Plemeno dňa/);
