@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { ArrowIcon, BowlIcon, PawMark, SearchIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { PublicCategoryTiles, PublicContentShell, PublicFoundation, PublicLandingSectionHeading, PublicSubcategoryNavigator, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { directoryCategories, getDirectoryCategory } from "@/lib/directory";
 import { ESHOP_RATING_FIELDS } from "@/lib/eshop-rating-domain";
@@ -117,8 +117,13 @@ export async function ReviewsHub({
             title="Recenzie a testy"
             intro="Redakčné testy produktov a reálne skúsenosti používateľov so službami pre psov na jednom mieste."
             visual={heroVisual}
-            searchSlot={
-              <SectionHeroSearch
+            portalSearchSlot={
+              <HomePortalSearch
+                panelLabel="Vyhľadávanie recenzií"
+                eyebrow="ČO HĽADÁŠ?"
+                title="Nájdi recenziu alebo test."
+                shortcuts={[]}
+                searchScope="reviews"
                 action="/hladat"
                 id="reviews-hub-query"
                 label="Hľadať v recenziách a testoch"

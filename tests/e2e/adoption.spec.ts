@@ -42,8 +42,10 @@ test("seeded adoption catalogue, filters and detail stay public-safe and accessi
   await expectNoCriticalAxeViolations(page);
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("textbox", { name: "Hľadať", exact: true }).fill("E2E Rex");
-  await page.getByRole("button", { name: "Filtrovať" }).click();
+  const heroSearch = page.locator('[data-unified-hero-portal-search] [data-public-search-form="adoptions"]');
+  await expect(heroSearch).toHaveCount(1);
+  await heroSearch.getByRole("textbox", { name: "Hľadať psa na adopciu" }).fill("E2E Rex");
+  await heroSearch.getByRole("button", { name: "Hľadať", exact: true }).click();
   await expect(page).toHaveURL(/q=E2E(?:\+|%20)Rex/);
   await expect(page.getByRole("link", { name: "E2E Rex", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E Luna", exact: true })).toHaveCount(0);

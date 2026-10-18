@@ -5,7 +5,7 @@ import { EditorialSectionHub } from "@/components/editorial-section";
 import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import type { DogEvent } from "@/lib/events";
@@ -116,8 +116,13 @@ export async function PortalHub({ section, articles, events, allSections = [] }:
           title={section.label}
           intro={<><p>{section.description}</p><p>{section.intro}</p></>}
           visual={heroVisual}
-          searchSlot={isReviews ? (
-            <SectionHeroSearch
+          portalSearchSlot={isReviews ? (
+            <HomePortalSearch
+              panelLabel="Vyhľadávanie recenzií"
+              eyebrow="ČO HĽADÁŠ?"
+              title="Nájdi recenziu alebo test."
+              shortcuts={[]}
+              searchScope="reviews"
               action="/hladat"
               id="portal-review-search-query"
               label="Hľadať v recenziách"

@@ -39,10 +39,12 @@ import {
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
 import { notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
+import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
   NOTION_DIRECTORY_DATA_SOURCE_ID?: string;
+  NOTION_GEMINI_22_PRIORITY_A_ENABLED?: string;
 };
 
 type NotionPage = {
@@ -847,8 +849,9 @@ async function applyNotionToProfile(input: {
   bindings: NotionDirectorySyncBindings;
   page: NotionPage;
   profile: ManagedDirectoryProfile;
+  desiredOverride?: EditableDirectorySnapshot;
 }) {
-  const desired = notionSnapshot(input.page);
+  const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const current = input.profile;
 
   if (desired.status === "archived") {
@@ -1072,6 +1075,45 @@ async function syncMappedPage(input: {
       return "pushed" as const;
     }
     return "unchanged" as const;
+  }
+
+  // Owner-approved Gemini 22 Notion priority A: apply only with the
+  // separate default-OFF production gate. Respect immutable directory
+  // identity/publication, canonical quality decisions and Google location.
+  if (gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED)) {
+    if (profile.status === "archived") {
+      throw new Error("REVIEW_REQUIRED: Archivovaný profil sa nezosúlaďuje bez obnovenia.");
+    }
+    const geo = await loadGeoMirror(input.database, profile.id);
+    const confirmedGooglePlace = Boolean(
+      geo?.google_place_id
+      && geo.google_place_source_fingerprint
+      && geo.source_fingerprint
+      && geo.google_place_source_fingerprint === geo.source_fingerprint,
+    );
+    const desired = mergeGeminiDirectoryPriority({
+      canonical: profileSnapshot(profile, currentSourceImageUrl),
+      notion: notionSnapshot(page),
+      confirmedGooglePlace,
+    });
+    const desiredHash = await snapshotHash(desired);
+    const updated = desiredHash === profileHash
+      ? profile
+      : await applyNotionToProfile({
+          database: input.database,
+          bindings: input.bindings,
+          page,
+          profile,
+          desiredOverride: desired,
+        });
+    await writeProfileToNotion({
+      database: input.database,
+      bindings: input.bindings,
+      dataSourceId: input.dataSourceId,
+      profile: updated,
+      pageId: page.id,
+    });
+    return desiredHash === profileHash ? "pushed" as const : "pulled" as const;
   }
 
   const notionWins = notionChanged && !profileChanged;

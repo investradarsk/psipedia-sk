@@ -101,8 +101,10 @@ test("lost-found hub is no longer a legacy page-hero route", () => {
   assert.match(lostFoundHub, /PublicContentShell variant="listing"/);
 });
 
-test("directory has one canonical post-hero search and category navigation", () => {
-  assert.match(directory, /data-directory-main-search/);
+test("directory has one canonical search in the homepage hero and category navigation", () => {
+  assert.match(directory, /portalSearchSlot=/);
+  assert.match(directory, /<HomePortalSearch/);
+  assert.doesNotMatch(directory, /data-directory-main-search/);
   assert.match(directory, /<DirectoryCategoryNavigation items=\{categoryItems\}/);
   assert.match(directory, /<PublicContentShell variant="listing" className=\{styles\.resultsShell\}>/);
   assert.match(directoryCss, /\.directoryColumns\s*\{/);
@@ -141,7 +143,7 @@ test("SERVICES-V2 has one main GET search, no category preview data path and no 
   const query = read("lib/directory-query.ts");
   assert.match(root, /listPublishedDirectoryProfiles\(\{ filters \}\)/);
   assert.doesNotMatch(root, /getDirectoryCategoryPreviews|getDirectoryCategoryCounts|showOverview/);
-  assert.match(directory, /SectionHeroSearch[\s\S]*formScope="services"/);
+  assert.match(directory, /HomePortalSearch[\s\S]*searchScope="services"/);
   assert.doesNotMatch(form, /<input name="q"/);
   assert.match(form, /directoryQueryFields\(filters/);
   assert.match(results, /directoryPageHref\(basePath, filters, result\.page/);
@@ -176,7 +178,7 @@ test("SERVICES-V2 category navigation preserves canonical hrefs and accessible m
 
 
 test("SERVICES-V2 renders search, categories, filters, cards and sidebar in approved order", () => {
-  const search = directory.indexOf("<SectionHeroSearch");
+  const search = directory.indexOf("<HomePortalSearch");
   const nav = directory.indexOf("<DirectoryCategoryNavigation");
   const filter = directory.indexOf("<DirectoryFilterForm");
   const results = directory.indexOf("<DirectoryResults");
