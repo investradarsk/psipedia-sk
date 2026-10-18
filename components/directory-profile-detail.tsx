@@ -55,7 +55,7 @@ function DirectoryProfileHero({
             {commercial?.premium ? <span className={styles.premiumBadge} title="Platené rozšírenie profilu.">Premium profil</span> : null}
             {commercial?.promoted ? <span className={styles.sponsoredBadge}>{commercial.sponsoredLabel ?? "Sponzorované"}</span> : null}
           </div>
-          <h1>{presentation.name}</h1>
+          <h1 data-long-title={presentation.name.length >= 70 ? "" : undefined}>{presentation.name}</h1>
           {hasLocation ? (
             <p className={styles.heroLocation}>
               {presentation.city ? <strong>{presentation.city}</strong> : null}

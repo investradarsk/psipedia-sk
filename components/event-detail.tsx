@@ -64,9 +64,9 @@ export function EventDetail({
         copy={<>
           <div className={detailStyles.tags}>
             {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}
-            {statusLabel && <b>{statusLabel}</b>}
+            {statusLabel && <b data-detail-state={event.cancelled ? "cancelled" : dateStatus === "past" ? "past" : "current"}>{statusLabel}</b>}
           </div>
-          <h1>{event.title}</h1>
+          <h1 data-long-title={event.title.length >= 70 ? "" : undefined}>{event.title}</h1>
           {event.city && <p className={detailStyles.location}>{event.city}{event.region && event.region !== "Online" ? ` · ${event.region}` : ""}</p>}
           {event.excerpt && <p className={detailStyles.lead}>{event.excerpt}</p>}
           <dl className={detailStyles.factTiles} data-event-facts aria-label="Základné informácie o podujatí">

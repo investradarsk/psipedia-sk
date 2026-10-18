@@ -71,7 +71,7 @@ export function HelpDetailShell({
               {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
               {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
             </div>
-            <h1>{heroTitle}</h1>
+            <h1 data-long-title={heroTitle.length >= 70 ? "" : undefined}>{heroTitle}</h1>
             {contextTitle && contextTitle !== heroTitle && <p className={styles.contextTitle}>{contextTitle}</p>}
 
             <div className={styles.heroMeta}>
