@@ -156,7 +156,7 @@ test("dynamic DRAFT, ACTIVE/PENDING, ACTIVE/CONFLICT and RETIRED options remain 
   sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(option.id);
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
   sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' WHERE id=?").run(option.id);
-  assert.deepEqual(await saveAdminServiceChoice(db,payload,"owner@example.com"),{...payload,version:1});
+  assert.deepEqual(await saveAdminServiceChoice(db,payload,"owner@example.com"),{profileId:1,optionId:option.id,choice:"yes",version:1});
   sqlite.prepare("UPDATE service_catalog_admin_options SET status='RETIRED' WHERE id=?").run(option.id);
   await assert.rejects(()=>saveAdminServiceChoice(db,{...payload,choice:"no",expectedVersion:1},"owner@example.com"),ServiceCatalogInputError);
   assert.equal(sqlite.prepare("SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?").get(option.id).choice,"yes");
