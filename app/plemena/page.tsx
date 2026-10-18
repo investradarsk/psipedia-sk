@@ -76,7 +76,7 @@ export default async function BreedsPage({ searchParams }: Props) {
                   panelLabel="Vyhľadávanie plemien"
                   eyebrow="AKÉ PLEMENO HĽADÁŠ?"
                   title="Objav plemená podľa svojich potrieb"
-                  placeholder="Hľadať plemeno, krajinu alebo FCI skupinu..."
+                  placeholder="Hľadať plemeno, krajinu alebo FCI skupinu"
                   buttonLabel="Hľadať"
                   defaultValue={initialFilters.query}
                   allowEmpty
