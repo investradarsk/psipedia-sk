@@ -71,3 +71,14 @@ text-left/media-right rozloženiu. Testy nevynechávajú kontroly obsahu a konta
 - Manuálne skontrolovať tri živé záznamy po prípadnom samostatne schválenom nasadení.
 
 Žiadny merge, auto-merge, deployment, D1 migrácia ani produkčný zápis.
+
+## CI follow-up (červené kontroly prvého commitu)
+
+- Podujatie bez vlastnej fotografie opäť používa pôvodný EventImage fallback.
+  Potvrdené pôvodnou sadou 6/6 desktop/mobile testov.
+- Image-editor kontrakt teraz kontroluje natural pravidlá v spoločnom DetailHero
+  a napojenie všetkých šiestich šablón namiesto už nepoužívaných CSS selektorov.
+- Organizačný E2E očakáva obsah pred sidebarom na mobile podľa V2. Kontakty,
+  fundraising, adopcie a ostatné kontroly zostali zachované; izolovaný browser
+  test priamo kontroluje geometriu nového poradia.
+- Súvisiace source kontrakty: 27/27; pôvodná EventImage SSR sada: 9/9.

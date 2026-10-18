@@ -60,7 +60,7 @@ export function EventDetail({
         breadcrumbs={<><Breadcrumbs className={styles.breadcrumbs}>
             <Link href="/">Domov</Link><span>/</span><Link href="/podujatia">Podujatia</Link><span>/</span>{category && <><Link href={category.href}>{category.label}</Link><span>/</span></>}<span>{event.title}</span>
           </Breadcrumbs><div className={styles.returnBar}><EventsBackLink fallbackHref={typeHref ?? "/podujatia"} /></div></>}
-        media={event.imageUrl ? <EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} context="detail" config={event.detailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt={event.title} loading="eager" fetchPriority="high" decoding="async" /> : null}
+        media={<EventImage imageUrl={event.imageUrl} eventType={event.eventType} mode={event.imageDisplay} context="detail" config={event.detailImageDisplay} sizes="(max-width: 760px) calc(100vw - 32px), (max-width: 980px) 640px, 480px" alt={event.title} loading="eager" fetchPriority="high" decoding="async" />}
         copy={<>
           <div className={detailStyles.tags}>
             {typeHref ? <Link href={typeHref}>{event.eventType}</Link> : <span>{event.eventType}</span>}

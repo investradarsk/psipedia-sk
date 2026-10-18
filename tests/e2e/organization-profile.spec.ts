@@ -317,8 +317,8 @@ test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserv
     const bodyBox = await body.boundingBox();
     expect(asideBox).not.toBeNull();
     expect(bodyBox).not.toBeNull();
-    if (width < 900) {
-      expect((asideBox?.y ?? 0) + (asideBox?.height ?? 0)).toBeLessThanOrEqual((bodyBox?.y ?? 0) + 2);
+    if (width <= 800) {
+      expect((bodyBox?.y ?? 0) + (bodyBox?.height ?? 0)).toBeLessThanOrEqual((asideBox?.y ?? 0) + 2);
     } else {
       expect(asideBox?.x ?? 0).toBeGreaterThan(bodyBox?.x ?? 0);
     }
