@@ -8,7 +8,7 @@ import {
 } from "../lib/service-catalog-admin-store.ts";
 
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
-const migration=read("drizzle/0132_services_canonical_admin_foundation.sql");
+const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
 // D1 accepts SQLite numbered ?1 placeholders; node:sqlite's positional
 // binder does not. Expand numbered references to anonymous placeholders
 // while retaining the exact original D1 parameter mapping (including repeats).
@@ -39,7 +39,7 @@ function setup(){
 const item=(name="Nová očná diagnostika")=>({
  name,category:"veterinari",kind:"service",group:"Vyšetrenia",meaning:"Konkrétne špecializované vyšetrenie bez implicitných výkonov."
 });
-test("0132 is additive schema-only and starts with no choices, dynamic options or properties",()=>{
+test("0133 is additive schema-only and starts with no choices, dynamic options or properties",()=>{
  assert.doesNotMatch(migration,/^\s*(?:INSERT|UPDATE|DELETE|DROP|ALTER)\b/im);
  const {sqlite}=setup();
  try{

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PawMark } from "@/components/icons";
 import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   adoptionCatalogAgeLabels,
   adoptionCatalogHref,
@@ -100,13 +100,31 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
         title="Psy na adopciu"
         intro="Vyhľadajte psa podľa plemena, veku, pohlavia, veľkosti alebo lokality. Zobrazené sú iba aktuálne adopčné a rezervované profily."
         visual={heroVisual}
-        searchSlot={
-          <SectionHeroSearch
+        portalSearchSlot={
+          <HomePortalSearch
             action="/pomoc-psom/adopcia"
             id="adoption-hero-query"
             label="Hľadať psa na adopciu"
+            panelLabel="Vyhľadávanie adopcií"
+            eyebrow="ČO HĽADÁŠ?"
+            title="Nájdi psa na adopciu"
             placeholder="Hľadať psa, plemeno alebo mesto…"
+            buttonLabel="Hľadať"
             defaultValue={filters.q}
+            allowEmpty
+            hidden={[
+              { name: "plemeno", value: filters.breedId ? String(filters.breedId) : "" },
+              { name: "kraj", value: filters.region },
+              { name: "pohlavie", value: filters.sex },
+              { name: "vek", value: filters.age },
+              { name: "velkost", value: filters.size },
+              { name: "deti", value: filters.children ? "1" : "" },
+              { name: "psy", value: filters.dogs ? "1" : "" },
+              { name: "macky", value: filters.cats ? "1" : "" },
+              { name: "stav", value: filters.status },
+            ].filter((field) => Boolean(field.value))}
+            shortcuts={[]}
+            searchScope="adoptions"
           />
         }
         metaSlot={<span><strong>{pagination.total}</strong> {pagination.total === 1 ? "publikovaný profil" : "publikovaných profilov"}</span>}
@@ -115,7 +133,7 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
 
     <PublicContentShell variant="listing">
     <form className={styles.filters} method="get" aria-label="Filtrovať psy na adopciu">
-      <div className={`${styles.field} ${styles.searchField}`}><label htmlFor="adoption-q">Hľadať</label><input id="adoption-q" name="q" defaultValue={filters.q} placeholder="meno, mesto, plemeno…" /></div>
+      <input type="hidden" name="q" value={filters.q} />
       <div className={styles.field}><label htmlFor="adoption-breed">Plemeno</label>{!breeds.available && filters.breedId ? <input type="hidden" name="plemeno" value={filters.breedId} /> : null}<select id="adoption-breed" name="plemeno" defaultValue={filters.breedId ? String(filters.breedId) : ""} disabled={!breeds.available}><option value="">{breeds.available ? "Všetky plemená" : "Plemená sú momentálne nedostupné"}</option>{breeds.options.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
       <div className={styles.field}><label htmlFor="adoption-age">Vek</label><select id="adoption-age" name="vek" defaultValue={filters.age}><option value="">Všetky veky</option>{Object.entries(adoptionCatalogAgeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
       <div className={styles.field}><label htmlFor="adoption-sex">Pohlavie</label><select id="adoption-sex" name="pohlavie" defaultValue={filters.sex}><option value="">Všetky</option><option value="MALE">Pes</option><option value="FEMALE">Sučka</option></select></div>

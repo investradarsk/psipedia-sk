@@ -39,9 +39,9 @@ function fixture() {
 }
 
 test("0131 rollout requires exact SQL hash, canonical database and protected manual workflow",()=>{
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2),previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0132_services_canonical_admin_foundation.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2),target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3),previous);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0133_services_canonical_admin_foundation.sql"]);
   assert.equal(createHash("sha256").update(migration).digest("hex"),APPROVED_0131_SHA256);
   assert.doesNotThrow(()=>assertApproved0131Target("psipedia-sk-db",APPROVED_0131_SHA256));
   assert.throws(()=>assertApproved0131Target("other-db",APPROVED_0131_SHA256),/canonical/);
@@ -57,7 +57,7 @@ test("0131 rollout requires exact SQL hash, canonical database and protected man
 });
 
 test("0131 refuses missing 0130 predecessor, stale ledger and repeated migration",()=>{
-  const chain=[...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS];
+  const chain=[...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS.filter(item=>Number(item.slice(0,4))<=131)];
   const before=chain.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(before,chain,target),{latestIndex:130,targetApplied:false});
   assert.deepEqual(validateProductionTargetHistory(chain,chain,target),{latestIndex:131,targetApplied:true});

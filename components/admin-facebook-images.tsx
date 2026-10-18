@@ -20,7 +20,7 @@ function formFor(post:FacebookImagePost):Form {
 const subscribe=()=>()=>{};
 const labels={draft:"Koncept",scheduled:"Naplánovaný",published:"Publikovaný"};
 const filters={all:"Všetky",draft:"Koncepty",scheduled:"Naplánované",sending:"Odosiela sa",
-  published:"Publikované",review:"Na preverenie",trash:"Kôš"};
+  published:"Publikované",review:"Na preverenie"};
 function visualStatus(post:FacebookImagePost){
   if(post.deletedAt)return {label:"V koši",kind:"trash"};
   if(post.publicationState==="SENDING")return {label:"Práve sa odosiela…",kind:"sending"};
@@ -85,7 +85,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     try{const response=await fetch("/api/admin/facebook-images/publisher",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({enabled})});
       const body=await response.json() as {enabled:boolean;connected:boolean;technicallyEnabled:boolean;error?:string};
       if(!response.ok)throw new Error(body.error||"Nastavenie sa neuložilo.");
-      setPublisher(body);setNotice(enabled?"Automatické publikovanie povolené.":"Automatické publikovanie vypnuté. Jednotlivo schválené príspevky zostávajú povolené.");
+      setPublisher(body);setNotice(enabled?"Hlavný STOP vypnutý. Automaticky sa odošlú iba individuálne schválené príspevky.":"Hlavný STOP zapnutý. Nezačne sa žiadne ďalšie automatické odosielanie na Facebook.");
     }catch(error){setPublisherError(error instanceof Error?error.message:"Nastavenie sa neuložilo.");}finally{setPublisherBusy(false);}
   }
   async function syncNotion() {
@@ -97,45 +97,43 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       if(!response.ok||!body.summary)throw new Error(body.error||"Synchronizácia Notion zlyhala.");
       const result=body.summary;
       setNotice(!result.enabled?"Prepojenie Notion Facebook obrázky ešte nie je technicky povolené.":
-        `Notion: spracované ${result.scanned}, nové ${result.created}, aktualizované ${result.updated}, spätný zápis ${result.writtenBack}, konflikty ${result.conflicts}, neúplné ${result.invalid}, chyby ${result.failed}. Admin → Notion: ${result.adminExport?.enabled?"zapnuté":"vypnuté"}; nové ${result.adminExport?.created??0}, úpravy ${result.adminExport?.updated??0}, kôš ${result.adminExport?.trashed??0}, obnovené ${result.adminExport?.restored??0}, chyby ${result.adminExport?.failed??0}.`);
+        `Notion: spracované ${result.scanned}, nové ${result.created}, aktualizované ${result.updated}, spätný zápis ${result.writtenBack}, konflikty ${result.conflicts}, neúplné ${result.invalid}, chyby ${result.failed}. Admin → Notion: ${result.adminExport?.enabled?"zapnuté":"vypnuté"}; nové ${result.adminExport?.created??0}, úpravy ${result.adminExport?.updated??0}, archivované v Notione ${result.adminExport?.trashed??0}, obnovené ${result.adminExport?.restored??0}, chyby ${result.adminExport?.failed??0}.`);
       setRefresh(v=>v+1);
     }catch(e){setError(e instanceof Error?e.message:"Synchronizácia Notion zlyhala.");}
     finally{setNotionBusy(false);}
   }
-  async function moveToTrash(post:FacebookImagePost) {
-    if(busy||notionBusy)return;
-    const restore=Boolean(post.deletedAt);
-    const prompt=restore?"Obnoviť príspevok do konceptov? Schválenie sa zruší.":
-      post.status==="published"?
-        "Presunúť publikovaný príspevok do koša? Na Facebooku ZOSTANE zverejnený.":
-        "Presunúť príspevok do koša? Z kalendára zmizne a neodošle sa.";
+  async function permanentlyRemove(post:FacebookImagePost) {
+    if(busy||notionBusy||post.publicationState==="SENDING")return;
+    const prompt=post.status==="published"?
+      "NATRVALO odstrániť z administrácie? Príspevok NA FACEBOOKU ZOSTANE zverejnený. Obnovenie v administrácii nebude možné.":
+      "NATRVALO odstrániť príspevok? Zmizne z prehľadu, kalendára a fronty, nebude možné ho obnoviť. Notion stránka sa archivuje pri synchronizácii.";
     if(!window.confirm(prompt))return;
     setBusy(true);setEditorError("");setError("");
     try {
       const response=await fetch(`/api/admin/facebook-images/${post.id}/trash`,{
-        method:"PUT",headers:{"content-type":"application/json"},
-        body:JSON.stringify({action:restore?"restore":"trash",expectedVersion:post.version}),
+        method:"DELETE",headers:{"content-type":"application/json"},
+        body:JSON.stringify({confirm:true,expectedVersion:post.version}),
       });
-      const data=await response.json() as {post?:FacebookImagePost;error?:string};
-      if(!response.ok||!data.post)throw new Error(data.error||"Operácia s košom zlyhala.");
+      const result=await response.json() as {deleted?:boolean;error?:string};
+      if(!response.ok||!result.deleted)throw new Error(result.error||"Trvalé odstránenie zlyhalo.");
       if(editor?.post?.id===post.id){dialog.current?.close();setEditor(null);}
-      setNotice(restore?"Príspevok obnovený ako koncept, bez automatického odoslania.":
-        "Príspevok presunutý do koša. Na Facebooku sa nič neodstránilo.");
+      setNotice("Príspevok odstránený z administrácie. Na Facebooku sa nič neodstránilo. Synchronizácia s Notionom môže dobehnúť neskôr.");
       setRefresh(value=>value+1);
     }catch(e){
-      const message=e instanceof Error?e.message:"Operácia s košom zlyhala.";
+      const message=e instanceof Error?e.message:"Trvalé odstránenie zlyhalo.";
       if(editor?.post?.id===post.id)setEditorError(message);
       else setError(message);
     }finally{setBusy(false);}
   }
-  async function setApproval(approved:boolean) {
+  async function setApproval(approved:boolean,mode:"scheduled"|"direct"="scheduled") {
     if(busy||lock.current||!editor?.post||dirty)return;setBusy(true);setEditorError("");
     try{const response=await fetch(`/api/admin/facebook-images/${editor.post.id}/approval`,{
       method:"PUT",headers:{"content-type":"application/json"},
-      body:JSON.stringify({approved,expectedVersion:editor.post.version})});
+      body:JSON.stringify({approved,expectedVersion:editor.post.version,mode})});
       const body=await response.json() as {post:FacebookImagePost;error?:string};
       if(!response.ok||!body.post)throw new Error(body.error||"Schválenie zlyhalo.");
-      setEditor({post:body.post});setNotice(approved?"Príspevok individuálne schválený.":"Individuálne schválenie zrušené.");setRefresh(v=>v+1);
+      setEditor({post:body.post});setNotice(mode==="direct"?(approved?"Súhlas majiteľa zaznamenaný. Priame publikovanie z ChatGPT zatiaľ vyžaduje samostatné bezpečné prepojenie.":"Súhlas majiteľa odvolaný."):
+  (approved?"Naplánované publikovanie individuálne povolené.":"Povolenie naplánovaného publikovania odvolané."));setRefresh(v=>v+1);
     }catch(error){setEditorError(error instanceof Error?error.message:"Schválenie zlyhalo.");}finally{setBusy(false);}
   }
   useEffect(()=>{if(editor&&!dialog.current?.open)dialog.current?.showModal();},[editor]);
@@ -219,7 +217,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <strong className={publisherReady?styles.systemReady:styles.systemUnknown}>{publisher===null?"Načítavam…":publisherReady?"Konfigurácia pripravená":"Nie je pripravený"}</strong>
         </div>
         <div className={styles.systemRow}><span>Notion</span><strong>Synchronizácia príspevkov</strong></div>
-        <div className={styles.systemRow}><span>Publikovanie</span><strong>{publisher===null?"Načítavam…":publisher.enabled?"Automatika zapnutá":"Režim individuálneho schválenia"}</strong></div>
+        <div className={styles.systemRow}><span>Publikovanie</span><strong>{publisher===null?"Načítavam…":publisher.enabled?"Automatika zapnutá (STOP vypnutý)":"STOP zapnutý — automatické odosielanie vypnuté"}</strong></div>
         <AdminActionButton type="button" variant="secondary" disabled={!ready||notionBusy||loading}
           onClick={()=>void syncNotion()}>{notionBusy?"Synchronizujem…":"Synchronizovať Notion"}</AdminActionButton>
         <details className={styles.settingsDetails}>
@@ -227,9 +225,9 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <div className={styles.settingsInner}>
             <label className={styles.toggleLabel}><input type="checkbox" checked={publisher?.enabled??false}
               disabled={!publisher||publisherBusy} onChange={e=>void setAutomatic(e.target.checked)}/>
-              Povoliť všetky naplánované obrázky</label>
-            <p>Aktuálne pravidlo: pri zapnutí môžu odísť aj individuálne neschválené naplánované príspevky.
-              Pri vypnutí sa individuálne schválené stále publikujú. Zmena tohto pravidla bude samostatnou úpravou.</p>
+              Automatické publikovanie zapnuté (hlavný STOP)</label>
+            <p>Vypnuté = žiadny nový automatický Meta POST. Zapnuté = iba osobitne schválené príspevky.
+              Odoslanie, ktoré sa už začalo, nemusí byť možné zastaviť.</p>
             {publisher&&!publisher.technicallyEnabled&&<p role="status">Facebook nie je technicky pripravený. Over Page ID, token a povolenie publikovania.</p>}
             {publisherError&&<p role="alert" className="admin-message admin-message--error">{publisherError}</p>}
             <p>Import z Notionu používa samostatnú databázu Facebook obrázky.</p>
@@ -286,7 +284,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           </div>
         </div>
         <p className={styles.liveNote} aria-live="polite">Stavy sa obnovujú približne každých 12 sekúnd pri otvorenej stránke.</p>
-        {data.trashAvailable===false&&<p role="status">Funkcia Kôš čaká na D1 migráciu 0131.</p>}
+        {data.trashAvailable===false&&<p role="status">Trvalé odstránenie čaká na D1 migráciu 0131.</p>}
         {error&&<p role="alert" className="admin-message admin-message--error">{error}</p>}
         {notice&&<p role="status" className="admin-message">{notice}</p>}
         {!data.items.length&&<p className={styles.emptyNote}>Žiadne príspevky pre zvolený filter.</p>}
@@ -298,12 +296,13 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
             <div className={styles.listTitle}>{entry(post)}</div>
             <p>{post.source==="notion"?"Notion":"Ručne"} · {post.scheduledAt?
               facebookWallTime(post.scheduledAt).date+" "+facebookWallTime(post.scheduledAt).time+" · Bratislava":"Bez dátumu"}
-              {post.approvalStatus==="APPROVED"?" · Individuálne schválený":""}
+              {post.approvalStatus==="APPROVED"?" · Povolené plánované publikovanie":""}
+              {post.directPublishConsent?" · Súhlas majiteľa s priamym publikovaním":""}
               {post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}</p>
             <div className={styles.itemActions}>
               {facebookUrl(post.facebookPostId)&&<a href={facebookUrl(post.facebookPostId)??"#"} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
               {data.trashAvailable&&post.publicationState!=="SENDING"&&<button type="button" disabled={busy}
-                onClick={()=>void moveToTrash(post)}>{post.deletedAt?"Obnoviť z koša":"Presunúť do koša"}</button>}
+                onClick={()=>void permanentlyRemove(post)}>Natrvalo odstrániť</button>}
             </div>
           </div>
         </article>)}</div>
@@ -333,12 +332,19 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <p>Stav: {editor.post?labels[editor.post.status]:"Koncept"}. Uloženie naplánovania samo o sebe okamžite nepublikuje obrázok.</p>
           <div className={styles.actions}><AdminActionButton type="submit" variant="secondary">Uložiť koncept</AdminActionButton><AdminActionButton type="button" variant="primary" onClick={()=>void save("scheduled")}>Uložiť naplánovanie</AdminActionButton>{editor.post?.status==="scheduled"&&<AdminActionButton type="button" variant="secondary" onClick={()=>void save("draft",true)}>Zrušiť naplánovanie</AdminActionButton>}</div>
         </fieldset></form>
-        {editor.post?.status==="scheduled"&&!locked&&<div className={styles.actions}>
-          <p>Individuálne schválenie: <strong>{editor.post.approvalStatus==="APPROVED"?"Áno":"Nie"}</strong>. Zmenou obsahu alebo termínu sa schválenie zruší.</p>
-          <AdminActionButton type="button" variant="secondary" disabled={busy||dirty||!publisher} onClick={()=>void setApproval(editor.post?.approvalStatus!=="APPROVED")}>
-            {editor.post.approvalStatus==="APPROVED"?"Zrušiť individuálne schválenie":"Schváliť na automatické zverejnenie"}
+        {editor.post&&!locked&&<div className={styles.actions}>
+          {editor.post.status==="scheduled"&&<>
+            <p>Povoliť publikovanie: <strong>{editor.post.approvalStatus==="APPROVED"?"Áno":"Nie"}</strong>. Platí pre naplánovaný termín.</p>
+            <AdminActionButton type="button" variant="secondary" disabled={busy||dirty||!publisher} onClick={()=>void setApproval(editor.post!.approvalStatus!=="APPROVED","scheduled")}>
+              {editor.post.approvalStatus==="APPROVED"?"Odvolať povolenie publikovania":"Povoliť publikovanie"}
+            </AdminActionButton>
+          </>}
+          <p>Súhlas majiteľa – priame publikovanie: <strong>{editor.post.directPublishConsent?"Áno":"Nie"}</strong>. Samostatný súhlas neodosiela nič bez zabezpečenej autorizovanej požiadavky.</p>
+          <AdminActionButton type="button" variant="secondary" disabled={busy||dirty||!publisher||!editor.post.imageKey}
+            onClick={()=>void setApproval(!editor.post!.directPublishConsent,"direct")}>
+            {editor.post.directPublishConsent?"Odvolať súhlas majiteľa":"Udeliť súhlas majiteľa"}
           </AdminActionButton>
-          {dirty&&<p>Najprv ulož zmeny príspevku.</p>}
+          {dirty&&<p>Najprv ulož zmeny príspevku. Každou úpravou obsahu alebo termínu sa obe povolenia zrušia.</p>}
         </div>}
         {editor.post?.publicationState==="UNCERTAIN"&&<p role="alert">Výsledok odoslania je neistý ({editor.post.publicationError??"neznáma chyba"}). Príspevok sa automaticky neodošle znova. Najskôr skontroluj Facebook stránku.</p>}
         {editor.post?.publicationState==="SENDING"&&<p role="status">Odoslanie sa začalo. Pri prerušení je potrebné manuálne preverenie, aby nevznikla duplicita.</p>}
@@ -347,17 +353,18 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <ol>
             <li>Vytvorený: {shownAt(editor.post.createdAt)}</li>
             <li>Posledná úprava: {shownAt(editor.post.updatedAt)}</li>
-            {editor.post.approvedAt&&<li>Schválený: {shownAt(editor.post.approvedAt)} · {editor.post.approvedBy}</li>}
+            {editor.post.approvedAt&&<li>Povolené plánovanie: {shownAt(editor.post.approvedAt)} · {editor.post.approvedBy}</li>}
+            {editor.post.directConsentAt&&<li>Súhlas majiteľa: {shownAt(editor.post.directConsentAt)} · {editor.post.directConsentBy}</li>}
             {editor.post.attemptStartedAt&&<li>Začiatok odosielania: {shownAt(editor.post.attemptStartedAt)}</li>}
             {editor.post.attemptCompletedAt&&<li>Výsledok odosielania: {shownAt(editor.post.attemptCompletedAt)} · {visualStatus(editor.post).label}</li>}
             {editor.post.publishedAt&&<li>Publikovaný: {shownAt(editor.post.publishedAt)}</li>}
-            {editor.post.deletedAt&&<li>Presunutý do koša: {shownAt(editor.post.deletedAt)} · {editor.post.deletedBy}</li>}
+            {editor.post.deletedAt&&<li>Natrvalo odstránený z administrácie: {shownAt(editor.post.deletedAt)} · {editor.post.deletedBy}</li>}
           </ol>
           {editor.post.facebookPostId&&<p>Facebook Post ID: {editor.post.facebookPostId}</p>}
         </section>}
         {editor.post&&data.trashAvailable&&editor.post.publicationState!=="SENDING"&&
           <div className={styles.actions}><AdminActionButton type="button" variant="secondary" disabled={busy}
-            onClick={()=>void moveToTrash(editor.post!)}>{editor.post.deletedAt?"Obnoviť z koša":"Presunúť do koša"}</AdminActionButton></div>}
+            onClick={()=>void permanentlyRemove(editor.post!)}>Natrvalo odstrániť</AdminActionButton></div>}
         {busy&&<p role="status">Prebieha ukladanie alebo upload…</p>}
         {locked&&<p>Príspevok sa odosiela, bol odoslaný alebo vyžaduje preverenie; úpravy sú blokované.</p>}
       </>}

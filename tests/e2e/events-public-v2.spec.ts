@@ -14,7 +14,8 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
   await expect(page.getByRole("heading", { level: 1, name: "Podujatia" })).toBeVisible();
   await expect(page.locator("[data-public-subcategory-mode=landing]")).toHaveCount(0);
   await expect(page.locator("[data-event-filters]")).toHaveCount(1);
-  await expect(page.locator("[data-unified-section-hero] input")).toHaveCount(0);
+  await expect(page.locator('[data-unified-section-hero] input[name="q"]:not([type="hidden"])')).toHaveCount(1);
+  await expect(page.locator('[data-unified-hero-portal-search] [data-public-search-form="events"]')).toHaveCount(1);
   await expect(page.locator('[data-public-search-form="events"]')).toHaveCount(1);
   await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveCount(1);
 

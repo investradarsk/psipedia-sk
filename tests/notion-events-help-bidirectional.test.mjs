@@ -26,6 +26,9 @@ import {
   organizationStatusFromNotion,
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
+import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
+import { gemini22PriorityEnabled, mergeGeminiHelpPriority, mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
+import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 import {
   mergeNotionSeo,
   notionSeoPropertyNames,
@@ -631,4 +634,182 @@ test("Help Gemini moderation gate: only reviewed concepts import; manual legacy 
   assert.equal(helpCaseMayEnterCanonicalSync("Nepodporované", evidence), false);
   assert.equal(readyForCreate("help-cases", { Názov: "X", Slug: "x", Kategória: "zbierky" }), true,
     "base canonical required-fields contract remains unchanged");
+});
+
+test("Events Notion A: nonempty editorial updates win without clearing canonical fields", () => {
+  const canonical = {
+    "Názov": "Výstava", "Slug": "stable-event-url", "Stav": "Publikované",
+    "Typ podujatia": "Iné", "Perex": "Pôvodný krátky popis",
+    "Popis": "Pôvodný text", "Praktické info": "Pôvodné informácie",
+    "Web": "https://psipedia.sk/", "Registrácia": "https://registracia.example/",
+    "Miesto": "Agrokomplex", "Mesto": "Nitra", "Kraj": "Nitriansky kraj",
+    "Adresa": "Výstavná 4", "Zrušené": true, "Noindex": true,
+  };
+  const notion = {
+    "Názov": "Výstava aktualizovaná", "Slug": "bad-new-url", "Stav": "Nápad",
+    "Typ podujatia": "Výstava", "Perex": "Lepší popis z Notionu",
+    "Popis": "Upravený popis", "Praktické info": "  ", "Web": "",
+    "Registrácia": null, "Miesto": "Výstavisko Agrokomplex Nitra",
+    "Mesto": "Nitra", "Kraj": "", "Adresa": "", "Zrušené": false,
+    "Noindex": false,
+  };
+  const result = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
+  assert.equal(result["Názov"], "Výstava aktualizovaná");
+  assert.equal(result["Typ podujatia"], "Výstava");
+  assert.equal(result["Perex"], "Lepší popis z Notionu");
+  assert.equal(result["Popis"], "Upravený popis");
+  assert.equal(result["Praktické info"], "Pôvodné informácie");
+  assert.equal(result["Registrácia"], canonical["Registrácia"]);
+  assert.equal(result["Web"], canonical["Web"]);
+  assert.equal(result["Adresa"], "Výstavná 4");
+  assert.equal(result["Kraj"], "Nitriansky kraj");
+  assert.equal(result["Miesto"], "Výstavisko Agrokomplex Nitra");
+  assert.equal(result["Stav"], "Publikované");
+  assert.equal(result["Slug"], "stable-event-url");
+  assert.equal(result["Zrušené"], false); // Explicit checkbox false is not empty.
+  assert.equal(result["Noindex"], false);
+  assert.equal(canonical["Popis"], "Pôvodný text");
+  assert.equal(notion["Popis"], "Upravený popis");
+});
+
+test("Events Notion A: confirmed Google locks ALL location fields, not editorial fields", () => {
+  const canonical = {
+    "Adresa": "Google-confirmed address", "Miesto": "Google-confirmed venue",
+    "Mesto": "Vysoké Tatry", "Kraj": "Prešovský kraj",
+    "Popis": "Pôvodný popis", "Perex": "Pôvodný perex",
+  };
+  const notion = {
+    "Adresa": "Different", "Miesto": "Different",
+    "Mesto": "Bratislava", "Kraj": "Bratislavský kraj",
+    "Popis": "Kvalitnejší popis", "Perex": "",
+  };
+  const merged = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: true });
+  for (const field of ["Adresa", "Miesto", "Mesto", "Kraj"]) {
+    assert.equal(merged[field], canonical[field]);
+  }
+  assert.equal(merged["Popis"], "Kvalitnejší popis");
+  assert.equal(merged["Perex"], "Pôvodný perex");
+  const unconfirmed = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
+  assert.equal(unconfirmed["Adresa"], "Different");
+});
+
+test("Events Notion A: missing values never erase values; 0 and false remain explicit", () => {
+  const canonical = { "Popis": "Saved", "Čas začiatku": "09:00", "Nulový údaj": 10, "Zrušené": true };
+  const notion = { "Popis": null, "Čas začiatku": "\t\n", "Nulový údaj": 0, "Zrušené": false, "Cudzie pole": "ignored" };
+  const merged = mergeNotionEventPriority({ canonical, notion, confirmedGooglePlace: false });
+  assert.deepEqual(merged, { "Popis": "Saved", "Čas začiatku": "09:00", "Nulový údaj": 0, "Zrušené": false });
+});
+
+test("Events Notion A remains disabled without explicit separate production gate", () => {
+  assert.equal(notionEventPriorityAEnabled(undefined), false);
+  assert.equal(notionEventPriorityAEnabled("false"), false);
+  assert.equal(notionEventPriorityAEnabled(" true "), true);
+  assert.equal(notionEventPriorityAEnabled("1"), true);
+});
+
+test("Gemini 22 priority A is disabled until separately enabled", () => {
+  assert.equal(gemini22PriorityEnabled(undefined), false);
+  assert.equal(gemini22PriorityEnabled("false"), false);
+  assert.equal(gemini22PriorityEnabled(" true "), true);
+});
+
+test("Gemini 22 Help priority preserves publication, identity, review and privacy", () => {
+  for (const agenda of ["organizations", "adoptions", "help-cases", "lost-found"]) {
+    const canonical = {
+      "Názov": "Original", "Popis": "Short", "Slug": "stable-id",
+      "Stav": "Publikované", "Psipedia stav": "Publikované",
+      "Mesto": "Vysoké Tatry", "Okres": "Poprad", "Kraj": "Prešovský kraj",
+      "Latitude": 49.2, "Longitude": 20.3, "Presnosť lokality": "APPROXIMATE",
+      "Verejný kontakt": "Private admin-approved", "Organizácia": "Pôvodná organizácia",
+      "Vyriešené": true, "Urgentné": true, "Typ": "LOST", "Kategória": "docasna-opatera",
+      "Perex": "Already full",
+    };
+    const notion = {
+      "Názov": "Repaired by Notion", "Popis": "Updated detailed information",
+      "Slug": "unsafe-new-url", "Stav": "Nápad", "Psipedia stav": "Koncept",
+      "Mesto": "Bratislava", "Okres": "Bratislava", "Kraj": "Bratislavský kraj",
+      "Latitude": 0, "Longitude": 0, "Presnosť lokality": "EXACT",
+      "Verejný kontakt": "Do not publish", "Organizácia": "Changed",
+      "Vyriešené": false, "Urgentné": false, "Typ": "FOUND", "Kategória": "zbierky",
+      "Perex": "",
+    };
+    const merged = mergeGeminiHelpPriority({ agenda, canonical, notion, confirmedGooglePlace: true });
+    assert.equal(merged["Názov"], "Repaired by Notion", agenda);
+    assert.equal(merged["Popis"], "Updated detailed information", agenda);
+    assert.equal(merged["Perex"], "Already full", agenda);
+    assert.equal(merged["Slug"], "stable-id", agenda);
+    assert.equal(merged["Stav"], "Publikované", agenda);
+    assert.equal(merged["Psipedia stav"], "Publikované", agenda);
+    assert.equal(merged["Mesto"], "Vysoké Tatry", agenda);
+    assert.equal(merged["Kraj"], "Prešovský kraj", agenda);
+    assert.equal(merged["Latitude"], 49.2, agenda);
+    assert.equal(merged["Longitude"], 20.3, agenda);
+    assert.equal(merged["Verejný kontakt"], "Private admin-approved", agenda);
+    assert.equal(merged["Vyriešené"], true, agenda);
+    assert.equal(merged["Urgentné"], true, agenda);
+    if (agenda === "adoptions") assert.equal(merged["Organizácia"], "Pôvodná organizácia");
+    if (agenda === "help-cases") assert.equal(merged["Kategória"], "docasna-opatera");
+    if (agenda === "lost-found") assert.equal(merged["Typ"], "LOST");
+  }
+});
+
+test("Gemini 22 Help: unconfirmed locations can receive nonempty Notion updates", () => {
+  const canonical = { "Mesto": "Nitra", "Kraj": "Nitriansky kraj", "Popis": "Old", "Perex": "saved" };
+  const notion = { "Mesto": "Trnava", "Kraj": "", "Popis": "Edited", "Perex": null };
+  const merged = mergeGeminiHelpPriority({
+    agenda: "organizations", canonical, notion, confirmedGooglePlace: false,
+  });
+  assert.deepEqual(merged, { "Mesto": "Trnava", "Kraj": "Nitriansky kraj", "Popis": "Edited", "Perex": "saved" });
+});
+
+test("Gemini 22: all 10 Directory, 6 Events and 6 Help category routes retain existing mappings", () => {
+  const categoryGroups = [
+    ["directory", ["veterinari","treneri","kynologicke-kluby","chovatelske-kluby",
+      "chovatelske-stanice","salony-a-sluzby","hotely-a-opatrovanie",
+      "vencenie","fyzioterapia","dalsie-sluzby"]],
+    ["events", ["vystavy","preteky","seminare","treningy","stretnutia","dalsie"]],
+    ["help", ["docasna-opatera","zbierky","dobrovolnictvo","utulky","adopcia","stratene-a-najdene"]],
+  ];
+  let total = 0;
+  for (const [section, slugs] of categoryGroups) {
+    for (const slug of slugs) {
+      assert.equal(externalWorkerCategorySupported(section + "." + slug), true, section + "." + slug);
+      total += 1;
+    }
+  }
+  assert.equal(total, 22);
+});
+
+test("Gemini Directory A: fill only nonempty Notion editorial fields; never demote Google location", () => {
+  const current = {
+    slug:"id", category:"veterinari", status:"published", name:"Original",
+    excerpt:"Original excerpt", description:"Old description",
+    services:["chirurgia"], city:"Nitra", region:"Nitriansky kraj",
+    address:"Výstavná 4", confirmedServiceLocation:true, verified:true,
+    seo:{title:"Old SEO",description:"Existing SEO",noindex:true},
+  };
+  const notion = {
+    slug:"new-url", category:"salony-a-sluzby", status:"draft", name:"New name",
+    excerpt:"", description:"Better description",
+    services:[], city:"Bratislava", region:"Bratislavský kraj",
+    address:"Different address", confirmedServiceLocation:false, verified:false,
+    seo:{title:"New SEO",description:"",noindex:false},
+  };
+  const merged = mergeGeminiDirectoryPriority({
+    canonical: current, notion, confirmedGooglePlace: true,
+  });
+  assert.equal(merged.slug,"id");
+  assert.equal(merged.category,"veterinari");
+  assert.equal(merged.status,"published");
+  assert.equal(merged.name,"New name");
+  assert.equal(merged.excerpt,"Original excerpt");
+  assert.equal(merged.description,"Better description");
+  assert.deepEqual(merged.services,["chirurgia"]);
+  assert.equal(merged.city,"Nitra");
+  assert.equal(merged.address,"Výstavná 4");
+  assert.equal(merged.confirmedServiceLocation,true);
+  assert.equal(merged.verified,true);
+  assert.equal(merged.seo.title,"New SEO");
+  assert.equal(merged.seo.description,"Existing SEO");
+  assert.equal(merged.seo.noindex,true);
 });

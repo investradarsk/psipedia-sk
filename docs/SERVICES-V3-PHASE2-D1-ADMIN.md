@@ -1,7 +1,9 @@
 # PSIPEDIA — SERVICES V3 / Fáza 2: kanonické D1 a Admin API
 
 ## Režim: izolovaný Draft PR — NEAKTIVOVAŤ
-Táto fáza iba pripravuje schému 0132, D1 store a dvojito vypnuté Admin API. **Nespúšťať produkčnú migráciu, nenastavovať nové flagy, nenasadzovať, nemergovať bez súhlasu majiteľa.** PR #864 zostáva nedotknutý.
+Táto fáza iba pripravuje schému 0133, D1 store a dvojito vypnuté Admin API. **Nespúšťať produkčnú migráciu, nenastavovať nové flagy, nenasadzovať, nemergovať bez súhlasu majiteľa.** PR #864 zostáva nedotknutý.
+
+**Číslovanie:** Migrácia 0132 Facebook Images bola aplikovaná v produkcii. Services V3 rezervuje číslo 0133 iba ako pripravenú migračnú schému, bez automatického APPLY. Spustiť ju možno až po samostatnom schválení majiteľa.
 
 ## Pripravené tabuľky (všetky po migrácii začínajú prázdne)
 - `service_catalog_admin_options`: dynamické možnosti vytvorené oprávneným Adminom, globálne jedinečné normalizované názvy a stabilné, serverom pridelené ID `svc.admin.* / attr.admin.*`; kategória, skupina, význam, verzia a história. Nová možnosť vždy začína ako `DRAFT` a čaká na Notion mirror (`PENDING`). Nie je automaticky verejná.

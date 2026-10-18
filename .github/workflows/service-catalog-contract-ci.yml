@@ -7,7 +7,7 @@ on:
       - "lib/service-catalog-admin-store.ts"
       - "app/api/admin/service-catalog/**"
       - "app/api/admin/directory/**/service-options/**"
-      - "drizzle/0132_services_canonical_admin_foundation.sql"
+      - "drizzle/0133_services_canonical_admin_foundation.sql"
       - "tests/service-catalog-d1-foundation.test.mjs"
       - "docs/SERVICES-V3-PHASE2-D1-ADMIN.md"
       - "lib/directory-filter-contract.ts"

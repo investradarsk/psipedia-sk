@@ -33,7 +33,7 @@ function handleDbError(error:unknown):never{
   if(/UNIQUE constraint|constraint failed/i.test(message))
     throw new ServiceCatalogConflictError("Option already exists or violates an integrity constraint.");
   if(/no such table|no such column/i.test(message))
-    throw new ServiceCatalogSchemaError("Schema 0132 is not provisioned.");
+    throw new ServiceCatalogSchemaError("Schema 0133 is not provisioned.");
   throw error;
 }
 function validateNewOption(value:unknown){

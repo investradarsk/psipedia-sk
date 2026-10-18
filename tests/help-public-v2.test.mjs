@@ -148,9 +148,12 @@ test("Help Admin mobile controls declare touch-safe targets without changing sha
 });
 
 
-test("Help category pages expose exactly one primary public search", () => {
+test("Help category pages expose one primary homepage-style search and preserve region/status facets", () => {
   assert.doesNotMatch(landing, /SectionHeroSearch/);
-  assert.match(browser, /data-public-search-form="help"/);
-  assert.match(browser, /placeholder="Názov, mesto, organizácia alebo plemeno"/);
+  assert.match(landing, /portalSearchSlot=/);
+  assert.match(landing, /searchScope="help"/);
+  assert.match(landing, /placeholder="Názov, mesto, organizácia alebo plemeno\.\.\."/);
+  assert.match(browser, /data-help-secondary-filters/);
+  assert.match(browser, /<input type="hidden" name="q"/);
   assert.match(browser, /Zobraziť celý zoznam/);
 });
