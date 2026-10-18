@@ -95,10 +95,7 @@ async function performStep(page, screen, name) {
     const hrefs = await links.evaluateAll((nodes) => nodes.map((n) => n.getAttribute("href")).filter(Boolean));
     const href = hrefs.find((h) => prefix.test(h));
     if (!href) return "not_applicable";
-    const link = links.filter({ has: page.locator("impossible-selector") }); // overwritten below
-    void link;
-    await page.locator("main#obsah a[href]").evaluateAll(() => {}); // stable DOM snapshot before click
-    const matching = page.locator("main#obsah a[href]").filter({ hasNotText: "___unreachable___" });
+    const matching = links;
     const count = await matching.count();
     for (let i = 0; i < count; i++) {
       if (await matching.nth(i).getAttribute("href") === href) {
