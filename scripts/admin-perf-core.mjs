@@ -91,6 +91,11 @@ export function compareReports(before, after) {
     || before?.provenance !== "local_synthetic" || after?.provenance !== "local_synthetic") {
     throw new Error("Only comparable, local synthetic schema v1 reports are accepted.");
   }
+  if (!before.fixture_id || before.fixture_id !== after.fixture_id || !before.browser_version
+    || before.browser_version !== after.browser_version || before.repeats !== after.repeats
+    || before.device !== after.device) {
+    throw new Error("Different fixture, browser, device or repetition configuration.");
+  }
   const byId = new Map(after.summary.map((row) => [row.screen + ":" + row.device, row]));
   return before.summary.map((original) => {
     const newer = byId.get(original.screen + ":" + original.device);
