@@ -3,7 +3,7 @@
  * Future write API must verify real Admin identity on the server, enforce CAS,
  * allocate immutable IDs and write to D1 before updating the Notion mirror.
  */
-import {serviceCatalog,attributeCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {serviceCatalog,attributeCatalog,providerTypeCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import {serviceFilterCategories,type ServiceFilterCategory} from "./directory-filter-contract.ts";
 export const SERVICE_OPTION_GOVERNANCE={
   creator:"psipedia_admin",sourceOfTruth:"d1",
@@ -22,7 +22,7 @@ export function validateCatalogOptionDraft(input:CatalogOptionDraft){
   // One global identity even when the same service is offered in another category.
   // Existing canonical options must be reused/extended by an authorized Admin;
   // creating a second ID with the same name or alias is invalid.
-  if([...serviceCatalog,...attributeCatalog].some(x=>normalizeCatalogLabel(x.label)===normalizeCatalogLabel(name)))
+  if([...serviceCatalog,...attributeCatalog,...providerTypeCatalog].some(x=>normalizeCatalogLabel(x.label)===normalizeCatalogLabel(name)))
     throw Error("Option already exists; reuse its canonical ID.");
   if(serviceCatalog.some(x=>x.aliases.some(a=>normalizeCatalogLabel(a)===normalizeCatalogLabel(name))))
     throw Error("Option already exists as alias; reuse its canonical ID.");
