@@ -4,7 +4,7 @@ import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
 import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
 import { lostFoundSubmissionEnabled } from "@/lib/submission-feature-flags";
@@ -82,9 +82,24 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
           title={title}
           intro={intro}
           visual={heroVisual}
-          searchSlot={
-            <SectionHeroSearch
+          portalSearchSlot={
+            <HomePortalSearch
               action={basePath}
+              panelLabel={`Vyhľadávanie: ${title}`}
+              eyebrow="ČO HĽADÁŠ?"
+              title={`Nájdi ${label} psa`}
+              shortcuts={[]}
+              searchScope="lost-found"
+              buttonLabel="Hľadať"
+              allowEmpty
+              hidden={[
+                { name: "region", value: region },
+                { name: "locality", value: locality },
+                { name: "date", value: date },
+                { name: "sex", value: sex },
+                { name: "size", value: size },
+                { name: "breed", value: breedId ? String(breedId) : "" },
+              ].filter((field) => Boolean(field.value))}
               id={`lost-found-hero-${type.toLowerCase()}`}
               label={`Hľadať medzi ${label} psami`}
               placeholder="Hľadať psa, plemeno alebo mesto…"
@@ -98,7 +113,7 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
 
       <PublicContentShell variant="listing" className={styles.listingShell}>
       <form className={styles.filters} method="get" aria-label={"Filtrovať " + label + " psy"}>
-        <div className={styles.field}><label htmlFor="lf-q">Hľadať</label><input id="lf-q" name="q" defaultValue={q} placeholder="meno, farba, popis…" /></div>
+        <input type="hidden" name="q" value={q} />
         <div className={styles.field}><label htmlFor="lf-region">Kraj</label><select id="lf-region" name="region" defaultValue={region}><option value="">Všetky kraje</option>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
         <div className={styles.field}><label htmlFor="lf-locality">Okres alebo lokalita</label><input id="lf-locality" name="locality" defaultValue={locality} placeholder="napr. Nitra" /></div>
         <div className={styles.field}><label htmlFor="lf-date">Dátum udalosti</label><input id="lf-date" name="date" type="date" defaultValue={date} /></div>

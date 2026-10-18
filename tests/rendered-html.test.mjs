@@ -803,8 +803,9 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   assert.match(trainersHtml, /Služby pre psov|Psí tréneri/);
   assert.match(trainersHtml, /Psí tréneri a psie školy/);
   // SERVICES-V2 uses a single accessible search above the navigable filters/results.
-  assert.match(trainersHtml, /data-directory-main-search/);
-  assert.match(trainersHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
+  assert.match(trainersHtml, /data-unified-hero-portal-search/);
+  assert.match(trainersHtml, /data-public-search-form="services"/);
+  assert.match(trainersHtml, /Hľadať.*alebo mesto/);
   assert.match(trainersHtml, /data-directory-filter-form/);
   assert.match(trainersHtml, /data-directory-results/);
   assert.match(trainersHtml, /Mesto\/obec/);
@@ -822,7 +823,8 @@ test("renders portal sections and the functional directory on stable URLs", asyn
   // SERVICES-V2 has one shared category navigator, one main search and filterable results.
   assert.match(directoryHtml, /data-directory-category-navigation/);
   assert.match(directoryHtml, /href="\/adresar\/veterinari"/);
-  assert.match(directoryHtml, /data-directory-main-search/);
+  assert.match(directoryHtml, /data-unified-hero-portal-search/);
+  assert.match(directoryHtml, /data-public-search-form="services"/);
   assert.match(directoryHtml, /Hľadať veterinára, trénera, salón alebo mesto/);
   assert.match(directoryHtml, /data-directory-filter-form/);
   assert.match(directoryHtml, /data-directory-results/);

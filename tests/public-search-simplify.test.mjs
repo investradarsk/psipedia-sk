@@ -60,7 +60,9 @@ test("Help category pages have one primary search and URL-backed SSR filters", (
   assert.doesNotMatch(helpPage, /SectionHeroSearch/);
   assert.doesNotMatch(helpBrowser, /"use client"|useState|useMemo|window\.history/);
   assert.match(helpBrowser, /method="get"/);
-  assert.match(helpBrowser, /data-public-search-form="help"/);
+  assert.match(helpPage, /searchScope="help"/);
+  assert.match(helpBrowser, /data-help-secondary-filters/);
+  assert.doesNotMatch(helpBrowser, /<input[^>]*name="q"[^>]*placeholder/);
   assert.match(helpBrowser, /name="q"/);
   assert.match(helpBrowser, /name="region"/);
   assert.match(helpBrowser, /name="stav"/);

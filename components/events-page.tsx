@@ -5,7 +5,7 @@ import homeStyles from "@/app/home-v2.module.css";
 import { calendarMonthDays, resolveCalendarMonth } from "@/lib/event-calendar-view";
 import { EventCalendar } from "@/components/event-calendar";
 import { RememberEventsListing } from "@/components/events-return-link";
-import { Breadcrumbs, PageContainer } from "@/components/page-system";
+import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContextBanner,
   PublicContentShell,
@@ -118,10 +118,8 @@ export async function EventsPage({
               title={title}
               intro={description}
               visual={heroVisualForPage}
-            />
-          </UnifiedSectionHeroShell>
-          <PageContainer className={isMainListing ? `home-search-shell ${styles.categorySearchShell}` : styles.categorySearchShell}>
-            <HomePortalSearch
+              portalSearchSlot={
+                <HomePortalSearch
               action={categoryHref ?? "/podujatia"}
               id="events-search"
               label="Hľadať podujatia"
@@ -136,7 +134,10 @@ export async function EventsPage({
               shortcuts={searchShortcuts}
               searchScope="events"
             />
-          </PageContainer>
+              }
+            />
+          </UnifiedSectionHeroShell>
+
         </div>
 
         <section className={styles.calendarSection} aria-label="Kalendár podujatí">

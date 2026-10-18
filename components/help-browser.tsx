@@ -4,7 +4,6 @@ import { HelpCard } from "@/components/help-card";
 import { PageContainer } from "@/components/page-system";
 import { PublicContentShell } from "@/components/public-visual-system";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
-import { SearchIcon } from "@/components/icons";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import type { HelpCase, HelpCategorySlug } from "@/lib/help";
 import styles from "./help-public.module.css";
@@ -60,22 +59,8 @@ export function HelpBrowser({
   return (
     <section className={styles.browserShell} aria-labelledby="help-results-heading">
       <PublicContentShell variant="listing" className={styles.browserTop}>
-        <form className={styles.toolbar} method="get" action={basePath} aria-label="Vyhľadávanie v Pomoci psom" data-public-search-form="help">
-          <label className={styles.primarySearch}>
-            <span className={styles.label}>Hľadať</span>
-            <div className={styles.searchBox}>
-              <SearchIcon size={18} />
-              <input
-                name="q"
-                defaultValue={query}
-                maxLength={120}
-                placeholder="Názov, mesto, organizácia alebo plemeno"
-              />
-            </div>
-          </label>
-
-          <button className={styles.searchSubmit} type="submit">Hľadať</button>
-
+        <form className={styles.toolbar} method="get" action={basePath} aria-label="Filtre Pomoci psom" data-help-secondary-filters>
+          <input type="hidden" name="q" value={query} />
           <PublicFilterDisclosure
             activeCount={activeSecondaryCount}
             buttonClassName={styles.filterToggle}
@@ -96,6 +81,7 @@ export function HelpBrowser({
                 <option value="vsetky">Aj ukončené</option>
               </select>
             </label>
+            <button className={styles.searchSubmit} type="submit">Použiť filtre</button>
             <Link className={styles.resetFilters} href={basePath}>Zrušiť filtre</Link>
           </PublicFilterDisclosure>
         </form>

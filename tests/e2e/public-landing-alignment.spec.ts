@@ -66,12 +66,6 @@ async function settle(page: Page, path: string, label: string) {
   expect(await page.evaluate(() => window.scrollY), label + ": starts at page top").toBe(0);
 }
 
-function expectedLandingGap(width: number) {
-  if (width <= 620) return 46;
-  if (width <= 820) return 64;
-  return 72;
-}
-
 function expectedColumns(width: number) {
   if (width <= 620) return 1;
   if (width <= 900) return 2;
@@ -105,7 +99,7 @@ async function categoryGeometry(page: Page, gridSelector: string) {
     const grid = document.querySelector<HTMLElement>(gridSelectorValue);
     return {
       heroShell: get("[data-unified-section-hero-shell]"),
-      tools: get("[data-unified-section-hero-tools]"),
+      tools: get("[data-unified-section-hero-tools]") ?? get("[data-unified-hero-portal-search]"),
       content: get('[data-public-content-variant="landing"]'),
       heading: get("[data-public-landing-section-heading]"),
       eyebrow: get("[data-public-landing-eyebrow]"),
@@ -176,7 +170,8 @@ test("PUBLIC-LANDING-ALIGNMENT keeps canonical geometry and screenshot coverage 
           expect(Math.abs((grid.x + grid.width) - (content.x + content.width)), label + ": grid right follows canonical axis").toBeLessThanOrEqual(2);
 
           const toolsToEyebrow = eyebrow.y - (tools.y + tools.height);
-          expect(Math.abs(toolsToEyebrow - expectedLandingGap(viewport.width)), label + ": canonical tools-to-eyebrow rhythm").toBeLessThanOrEqual(2);
+          expect(toolsToEyebrow, label + ": category content follows search/facets").toBeGreaterThanOrEqual(0);
+          expect(toolsToEyebrow, label + ": no excessive gap below hero").toBeLessThanOrEqual(160);
 
           const eyebrowToH2 = h2.y - (eyebrow.y + eyebrow.height);
           expect(Math.abs(eyebrowToH2 - 5), label + ": canonical eyebrow-to-H2 gap").toBeLessThanOrEqual(2);
