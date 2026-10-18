@@ -24,10 +24,12 @@ import {
   latestModified,
   NEWS_SITEMAP_WINDOW_MS,
   sitemapEntry,
+  sitemapCanonicalFromD1,
   SITEMAP_REDIRECT_SOURCES,
 } from "../lib/sitemap-seo.ts";
 import {
   loadSitemapStages,
+  runSitemapStageSync,
   SITEMAP_MAX_D1_CONCURRENCY,
   SitemapStageError,
 } from "../lib/sitemap-runtime.ts";
@@ -579,4 +581,118 @@ test("breed sitemap DTO stays lightweight and never probes R2 or static assets",
   const sitemapReader = source.slice(start, end);
   assert.match(sitemapReader, /SELECT slug,image_url,seo_json,updated_at/);
   assert.doesNotMatch(sitemapReader, /withAvailableBreedImages|BUCKET|ASSETS|HEAD|fci_standard_json/);
+});
+
+
+test("sitemap D1 canonical projection reproduces the SQLite scalar crash and safely excludes malformed canonicals", async () => {
+  const database = new DatabaseSync(":memory:");
+  const scalar = database.prepare(
+    "SELECT json_extract('{\"canonicalUrl\":17}', '$.canonicalUrl') AS canonical_url",
+  ).get().canonical_url;
+  assert.equal(typeof scalar, "number");
+  assert.throws(() => scalar?.trim(), TypeError);
+  assert.equal(sitemapCanonicalFromD1(null), "");
+  assert.equal(sitemapCanonicalFromD1(" /podujatia/valid "), "/podujatia/valid");
+  assert.equal(isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(scalar) }, "/podujatia/malformed"), false);
+
+  database.exec(`
+    CREATE TABLE directory_profiles (
+      id INTEGER PRIMARY KEY, slug TEXT, category TEXT, status TEXT,
+      updated_at TEXT, seo_json TEXT, archived_at TEXT
+    );
+    CREATE TABLE managed_events (
+      id INTEGER PRIMARY KEY, slug TEXT, status TEXT,
+      updated_at TEXT, image_url TEXT, seo_json TEXT
+    );
+    CREATE TABLE help_cases (
+      id INTEGER PRIMARY KEY, slug TEXT, category TEXT, status TEXT,
+      updated_at TEXT, image_url TEXT, seo_json TEXT
+    );
+    INSERT INTO directory_profiles VALUES
+      (1,'bad-canonical','veterinari','published',NULL,'{"canonicalUrl":17}',NULL),
+      (2,'valid','veterinari','published',NULL,'{"canonicalUrl":"/adresar/veterinari/valid"}',NULL);
+    INSERT INTO managed_events VALUES
+      (1,'bad-canonical','published',NULL,NULL,'{"canonicalUrl":true}'),
+      (2,'valid','published',NULL,NULL,'{"canonicalUrl":"/podujatia/valid"}');
+    INSERT INTO help_cases VALUES
+      (1,'bad-canonical','zbierky','published',NULL,NULL,'{"canonicalUrl":42}'),
+      (2,'valid','zbierky','published',NULL,NULL,'{"canonicalUrl":"/pomoc-psom/zbierky/valid"}');
+  `);
+  const d1 = {
+    prepare(sql) {
+      return {
+        bind(...bindings) {
+          return { async all() { return { results: database.prepare(sql).all(...bindings) }; } };
+        },
+      };
+    },
+  };
+  const [directory, events, help] = await Promise.all([
+    listPublishedDirectorySitemapRecords(d1),
+    listPublishedEventSitemapRecords(d1),
+    listPublishedHelpSitemapRecords(d1),
+  ]);
+  for (const [label, records, pathPrefix] of [
+    ["directory", directory, "/adresar/veterinari/"],
+    ["events", events, "/podujatia/"],
+    ["help", help, "/pomoc-psom/zbierky/"],
+  ]) {
+    assert.equal(records.length, 2, `${label} must not truncate its dataset`);
+    assert.equal(isSelfCanonical(records[0].seo, `${pathPrefix}bad-canonical`), false);
+    assert.equal(isSelfCanonical(records[1].seo, `${pathPrefix}valid`), true);
+  }
+  database.close();
+});
+
+test("sitemap fails closed at each of the eleven load phases, without replacing mandatory datasets with empty arrays", async () => {
+  const stages = [
+    "load-articles", "load-events", "load-directory", "load-breeding-station-landings",
+    "load-directory-location-landings", "load-help-cases", "load-managed-sections",
+    "load-breeds", "load-lost-found", "load-adoptions", "load-organizations",
+  ];
+  const successful = await loadSitemapStages(stages.map((stage, index) => ({
+    key: stage, stage, load: async () => [index],
+  })));
+  assert.equal(Object.keys(successful).length, stages.length);
+  assert.equal(Object.values(successful).flat().length, stages.length);
+
+  for (let failedIndex = 0; failedIndex < stages.length; failedIndex += 1) {
+    const executed = [];
+    const cause = new Error("D1 simulated failure");
+    await assert.rejects(
+      loadSitemapStages(stages.map((stage, index) => ({
+        key: stage,
+        stage,
+        load: async () => {
+          executed.push(stage);
+          if (index === failedIndex) throw cause;
+          return [index];
+        },
+      }))),
+      (error) => error instanceof SitemapStageError
+        && error.stage === stages[failedIndex]
+        && error.cause === cause,
+    );
+    assert.deepEqual(executed, stages.slice(0, failedIndex + 1));
+  }
+});
+
+test("sitemap parity and global validation remain fail-closed after canonical projection", () => {
+  const missingUrl = "https://psipedia.sk/podujatia/valid";
+  assert.throws(
+    () => runSitemapStageSync("parity-events", () => assertSitemapEntityParity(
+      "events", [{ slug: "valid", url: missingUrl, indexable: true, validStatus: true }], [],
+    )),
+    (error) => error instanceof SitemapStageError
+      && error.stage === "parity-events"
+      && String(error.cause).includes("missingUrls"),
+  );
+  assert.throws(
+    () => runSitemapStageSync("global-validation", () => assertValidSitemap([
+      { url: missingUrl }, { url: missingUrl },
+    ])),
+    (error) => error instanceof SitemapStageError
+      && error.stage === "global-validation"
+      && String(error.cause).includes("sitemap-duplicate-url"),
+  );
 });
