@@ -858,7 +858,7 @@ function summaryGroupSql(sources: readonly AdminAttentionQueueSourceType[]) {
   return `${paramsCte()}\n${queries.join("\nUNION ALL\n")}`;
 }
 
-async function probeSummarySources(
+async function probeSourcesSummary(
   db: AdminAttentionD1Database,
   now: Date,
 ): Promise<AdminAttentionSourceAvailability[]> {
@@ -1161,7 +1161,7 @@ function emptyPageSummary(bySource: Record<AdminAttentionQueueSourceType, number
 
 export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1Database, now = new Date()): Promise<AdminAttentionExactSummary> {
   const db = requireD1Binding(database);
-  const sourceAvailability = await probeSummarySources(db, now);
+  const sourceAvailability = await probeSourcesSummary(db, now);
   const bySource = sourceCounts(sourceAvailability);
   return {
     active: Object.values(bySource).reduce((sum, value) => sum + (value ?? 0), 0),
