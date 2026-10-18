@@ -53,7 +53,8 @@
 }
 .mobileNameDay span,
 .desktopNameDay span {
-  color: var(--brand-accent-strong);
+  /* Smaller label needs a darker brand-red shade, including on hover. */
+  color: #872f1e;
   font-size: .64rem;
   font-weight: 850;
   letter-spacing: .075em;
