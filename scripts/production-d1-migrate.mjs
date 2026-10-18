@@ -2348,9 +2348,9 @@ export function assertServicesCanonicalAdminSchema(schema) {
     "service_profile_property_values",
   ];
   for (const name of tables) invariant(objects.get(name)?.type === "table", "0133 missing service table: " + name);
-  const optionsSql = String(objects.get(tables[0])?.sql ?? "").replace(/\\s+/g, " ").toLowerCase();
-  const selectionsSql = String(objects.get(tables[1])?.sql ?? "").replace(/\\s+/g, " ").toLowerCase();
-  const propertiesSql = String(objects.get(tables[2])?.sql ?? "").replace(/\\s+/g, " ").toLowerCase();
+  const optionsSql = String(objects.get(tables[0])?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
+  const selectionsSql = String(objects.get(tables[1])?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
+  const propertiesSql = String(objects.get(tables[2])?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
   for (const fragment of [
     "id text primary key not null", "normalized_label text not null unique",
     "status text not null default 'draft'",
@@ -2375,7 +2375,7 @@ export function assertServicesCanonicalAdminSchema(schema) {
     ["service_profile_option_choices_option_idx", "service_profile_option_choices(option_id,choice,profile_id)"],
   ]);
   for (const [name, definition] of indexes) {
-    const sql = String(objects.get(name)?.sql ?? "").replace(/\\s+/g, " ").toLowerCase();
+    const sql = String(objects.get(name)?.sql ?? "").replace(/\s+/g, " ").toLowerCase().trim().replace(/;$/, "");
     invariant(objects.get(name)?.type === "index" && sql === "create index " + name + " on " + definition,
       "0133 missing or changed canonical index: " + name);
   }
