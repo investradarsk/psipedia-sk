@@ -58,3 +58,30 @@ test("banners point to protected existing partner paths, hero stays high priorit
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.hero-section\.shell\)[\s\S]*width: 100vw;/);
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.hero-card\)[\s\S]*border-radius: 0;/);
 });
+
+test("homepage alternates editorial topics, real directory categories and partner banners", async () => {
+  const [home, css] = await Promise.all([
+    source("app/page.tsx"),
+    source("app/home-v2.module.css"),
+  ]);
+  const render = home.slice(home.lastIndexOf('  return (\n    <main id="obsah"'));
+  const order = [
+    "<HomeLatestArticles",
+    'id="featured"',
+    'testId="steniatka"',
+    'testId="profil"',
+    'testId="starostlivost"',
+    'id="secondary"',
+    'testId="aktivity"',
+    'testId="podujatie"',
+    '<div data-home-help>',
+    'testId="plemena"',
+  ];
+  const positions = order.map((token) => render.indexOf(token));
+  assert.ok(positions.every((position) => position >= 0), "All homepage zones render");
+  assert.ok(positions.every((position, index) => index === 0 || position > positions[index - 1]), "Editorial and directory zones alternate");
+  assert.ok(home.includes("directoryCategoryHref(category)"));
+  assert.ok(home.includes("homeServiceCardImages[category.slug]"));
+  assert.match(css, /HOMEPAGE-COMPACT-1/);
+  assert.ok(css.includes("@media (max-width: 620px)"));
+});

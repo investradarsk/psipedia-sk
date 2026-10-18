@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { MapExperience } from "@/components/map/map-experience";
+import { Breadcrumbs } from "@/components/page-system";
+import { UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { buildListingPageMetadata } from "@/lib/listing-seo";
 import { googleMapsRendererConfigured, publicMapLaunchEnabled } from "@/config/runtime-env";
 import styles from "@/components/map/map-public.module.css";
@@ -45,8 +48,9 @@ function mapLaunchEnvironment() {
   };
 }
 
-export default function MapPage() {
+export default async function MapPage() {
   const mapUiTestMode = process.env.MAP_UI_TEST_RENDERER === "1";
+  const heroVisual = await getSectionHeroVisual("section.mapa");
   const launchEnv = mapLaunchEnvironment();
   const publicMapEnabled = publicMapLaunchEnabled(launchEnv);
   const googleRendererEnabled = publicMapEnabled && googleMapsRendererConfigured(launchEnv);
@@ -55,24 +59,15 @@ export default function MapPage() {
 
   return (
     <main id="obsah" className={styles.page}>
-      <section className={styles.hero}>
-        <div className={`shell public-shell ${styles.heroInner}`}>
-          <div className={styles.heroCopy}>
-            <span className="eyebrow">Objavujte miesta a podujatia</span>
-            <h1>Mapa Psipedie</h1>
-            <p>
-              Vyhľadajte služby, organizácie a podujatia vo svojom okolí. Pri citlivých
-              záznamoch zobrazujeme iba približnú oblasť.
-            </p>
-          </div>
-          <nav className={styles.heroLinks} aria-label="Súvisiace sekcie Psipedie">
-            <Link href="/adresar">Služby pre psov</Link>
-            <Link href="/organizacie">Organizácie</Link>
-            <Link href="/podujatia">Podujatia</Link>
-            <Link href="/pomoc-psom">Pomoc psom</Link>
-          </nav>
-        </div>
-      </section>
+      <UnifiedSectionHeroShell>
+        <UnifiedSectionHero
+          breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>Mapa Psipedie</span></Breadcrumbs>}
+          eyebrow="Objavujte miesta a podujatia"
+          title="Mapa Psipedie"
+          intro="Vyhľadajte služby, organizácie a podujatia vo svojom okolí. Pri citlivých záznamoch zobrazujeme iba približnú oblasť."
+          visual={heroVisual}
+        />
+      </UnifiedSectionHeroShell>
 
       <MapExperience
         googleApiKey={googleApiKey}

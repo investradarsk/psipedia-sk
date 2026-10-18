@@ -44,7 +44,7 @@ concurrency:
 
 jobs:
   source-contracts:
-    if: github.head_ref == 'codex/unified-section-hero-1' || github.head_ref == 'feat/services-v2-global-hero-unify' || github.head_ref == 'design/unified-homepage-hero-v1'
+    if: github.head_ref == 'codex/unified-section-hero-1' || github.head_ref == 'feat/services-v2-global-hero-unify' || github.head_ref == 'design/unified-homepage-hero-v1' || github.head_ref == 'fix/public-hero-brand-name-days-20261018'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -76,7 +76,7 @@ jobs:
         run: npm run build
 
   preview-visual:
-    if: github.head_ref == 'codex/unified-section-hero-1' || github.head_ref == 'feat/services-v2-global-hero-unify' || github.head_ref == 'design/unified-homepage-hero-v1'
+    if: github.head_ref == 'codex/unified-section-hero-1' || github.head_ref == 'feat/services-v2-global-hero-unify' || github.head_ref == 'design/unified-homepage-hero-v1' || github.head_ref == 'fix/public-hero-brand-name-days-20261018'
     needs: source-contracts
     runs-on: ubuntu-latest
     timeout-minutes: 40

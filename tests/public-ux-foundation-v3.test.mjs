@@ -21,7 +21,7 @@ test("shared mobile hero stays edge-to-edge without changing visual resolution o
   assert.match(hero, /border-radius: 0/);
   assert.match(hero, /--ps-control-min-height/);
   assert.match(resolver, /visual\.imageUrl/);
-  assert.match(resolver, /managedSearch\(searchSlot, config\)/);
+  assert.match(resolver, /managedSearch\(searchSlot, config, activeShortcuts\)/);
 });
 
 test("mobile Partner entry and the full public navigation remain present", () => {
