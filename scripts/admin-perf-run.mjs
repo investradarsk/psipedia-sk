@@ -13,8 +13,8 @@ const EDITORS = {
   partners: /^\/admin\/partners\/accounts\/[a-zA-Z0-9_-]+$/,
 };
 function parseArgs(args) {
-  const opts = { baseUrl: "", out: "reports/admin-perf/local-baseline.json", label: "baseline", repeats: 3, device: "both" };
-  const keys = { "--base-url": "baseUrl", "--out": "out", "--label": "label", "--repeats": "repeats", "--device": "device" };
+  const opts = { baseUrl: "", out: "reports/admin-perf/local-baseline.json", label: "baseline", repeats: 3, device: "both", fixtureId: "" };
+  const keys = { "--base-url": "baseUrl", "--out": "out", "--label": "label", "--repeats": "repeats", "--device": "device", "--fixture-id": "fixtureId" };
   if (args.length % 2) throw new Error("Each option requires a value.");
   for (let i = 0; i < args.length; i += 2) {
     if (!keys[args[i]]) throw new Error("Unknown option.");
@@ -25,6 +25,7 @@ function parseArgs(args) {
   if (!Number.isInteger(opts.repeats) || opts.repeats < 1 || opts.repeats > 10) throw new Error("1..10 repeats only.");
   if (!["both", "desktop", "mobile"].includes(opts.device)) throw new Error("Invalid device.");
   if (!/^[a-z0-9_-]{1,32}$/i.test(opts.label)) throw new Error("Invalid label.");
+  if (!/^[a-z0-9_-]{1,48}$/i.test(opts.fixtureId)) throw new Error("Explicit non-secret --fixture-id required.");
   if (!opts.out.endsWith(".json")) throw new Error("JSON output only.");
   return opts;
 }
@@ -206,7 +207,8 @@ export async function run(argv = process.argv.slice(2)) {
   const report = { schema: 1, provenance: "local_synthetic", scope: "isolated_local_fixture_only",
     label: opts.label, measured_at: new Date().toISOString(),
     checkout_sha: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA ?? "") ? process.env.GITHUB_SHA : null,
-    node_version: process.version, playwright_browser: "chromium",
+    node_version: process.version, playwright_browser: "chromium", browser_version: browser.version(),
+    fixture_id: opts.fixtureId,
     d1_attribution: "unavailable_without_server_instrumentation",
     repeats: opts.repeats, device: opts.device,
     samples, summary: summarizeSamples(samples) };
