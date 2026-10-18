@@ -75,10 +75,13 @@ const accentPairs: [string, string][] = [
 ];
 const searchableFields = ["title", "city", "venue", "organizer", "event_type", "region", "slug"];
 const joinedFields = searchableFields.map((field) => "COALESCE(" + field + ", '')").join(" || ' ' || ");
-const foldedFieldsSql = "lower(" + accentPairs.reduce((sql, [accent, ascii]) =>
-  "replace(replace(" + sql + ", '" + accent + "', '" + ascii + "'), '" + accent.toUpperCase() + "', '" + ascii + "')",
-  joinedFields,
-) + ")";
+function foldSql(expression: string) {
+  return "lower(" + accentPairs.reduce((sql, [accent, ascii]) =>
+    "replace(replace(" + sql + ", '" + accent + "', '" + ascii + "'), '" + accent.toUpperCase() + "', '" + ascii + "')",
+    expression,
+  ) + ")";
+}
+const foldedFieldsSql = foldSql(joinedFields);
 const endDateSql = "COALESCE(NULLIF(end_date, ''), start_date)";
 
 export function buildAdminEventPageSql(input: AdminEventListQuery, today: string) {
@@ -113,7 +116,7 @@ export function buildAdminEventPageSql(input: AdminEventListQuery, today: string
   const where = conditions.length ? conditions.map((value) => "(" + value + ")").join(" AND ") : "1=1";
   let order: string;
   let orderValues: (string | number)[] = [];
-  if (filters.sort === "title") order = "title COLLATE NOCASE ASC, id ASC";
+  if (filters.sort === "title") order = foldSql("title") + " ASC, title COLLATE NOCASE ASC, id ASC";
   else if (filters.sort === "updated") order = "updated_at DESC, id ASC";
   else if (filters.sort === "created") order = "created_at DESC, id ASC";
   else {
