@@ -19,3 +19,20 @@
 
 /* IMAGE-EDITOR-3: auto/natural detail preserves portrait proportions. */
 .detailImage:has([data-image-display="natural"]) { aspect-ratio: auto; overflow: visible; background: transparent; }
+
+/* Shared detail presentation only; listing/form rules above remain unchanged. */
+.detail { composes: page from "./detail-primitives/detail-primitives.module.css"; max-width: none; margin: 0; padding: 0 0 48px; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 7px; }
+.detailGrid { composes: shell layout from "./detail-primitives/detail-primitives.module.css"; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 16px; margin: 0 auto; }
+.detailCopy { composes: body from "./detail-primitives/detail-primitives.module.css"; gap: 16px; }
+.detailAside { composes: aside from "./detail-primitives/detail-primitives.module.css"; position: static; gap: 16px; }
+.panel { composes: card from "./detail-primitives/detail-primitives.module.css"; border-radius: 12px; }
+.detailCopy .panel h2 { font: 500 1.9rem/1.15 Georgia,serif; color: #092d36; }
+.safetyPanel, .trustPanel, .statusBanner { composes: note from "./detail-primitives/detail-primitives.module.css"; }
+.statusBanner { margin: 0 0 12px; flex-wrap: wrap; }
+.detailActions { composes: heroActions from "./detail-primitives/detail-primitives.module.css"; }
+.cta { composes: primaryAction from "./detail-primitives/detail-primitives.module.css"; }
+.detailMeta { composes: location from "./detail-primitives/detail-primitives.module.css"; }
+.detailMeta span { flex-wrap: wrap; }
+.gallery img { border-radius: 9px; }
+@media(max-width:800px) { .detailGrid { grid-template-columns: minmax(0,1fr); } }

@@ -37,6 +37,10 @@ on:
       - "lib/entity-sitemap.ts"
       - "lib/organization-sitemap.ts"
       - "lib/adoption-sitemap.ts"
+      - "tests/public-details-v2-ui.test.mjs"
+      - "tests/fixtures/unified-public-details-v2.json"
+      - "tests/fixtures/public-details-media/**"
+      - "components/public-profile/**"
       - "tests/sitewide-ai-entity-surface.test.mjs"
       - "tests/events-phase4.test.mjs"
       - "tests/adoption-detail.test.mjs"
@@ -83,6 +87,10 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
+      - name: Install isolated browser
+        run: npx playwright install --with-deps chromium
+      - name: Unified public detail browser regressions (no D1 or external writes)
+        run: node --test tests/public-details-v2-ui.test.mjs
       - name: Focused sitewide entity regressions
         run: npm run test:sitewide-ai-entity-surface
       - name: Structured data suite
