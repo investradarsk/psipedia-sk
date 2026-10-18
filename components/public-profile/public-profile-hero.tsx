@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DetailHero } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
 import type { ImageDisplayConfig } from "@/lib/image-display";
@@ -40,12 +41,8 @@ export function PublicProfileHero({
   badges?: PublicProfileBadge[];
   actions?: PublicProfileAction[];
 }) {
-  return (
-    <header className={styles.hero} data-public-profile-hero>
-      <div className="shell">
-        <Breadcrumbs label="Drobečková navigácia">{breadcrumbs}</Breadcrumbs>
-        <div className={[styles.heroGrid, imageUrl ? styles.hasMedia : ""].filter(Boolean).join(" ")}>
-          <div className={styles.heroCopy}>
+  return <DetailHero kind="organization" breadcrumbs={<Breadcrumbs label="Drobečková navigácia">{breadcrumbs}</Breadcrumbs>}
+    copy={<>
             <div className={styles.badges}>
               <span className={styles.typeBadge}>{typeLabel}</span>
               {badges.map((badge) => (
@@ -53,8 +50,8 @@ export function PublicProfileHero({
               ))}
             </div>
             <h1>{title}</h1>
-            {lead ? <p className={styles.lead}>{lead}</p> : null}
             {location ? <p className={styles.location}>{location}</p> : null}
+            {lead ? <p className={styles.lead}>{lead}</p> : null}
             {actions.length > 0 ? (
               <nav className={styles.actions} aria-label="Akcie profilu">
                 {actions.map((action) => (
@@ -71,25 +68,19 @@ export function PublicProfileHero({
                 ))}
               </nav>
             ) : null}
-          </div>
-          {imageUrl ? (
-            <div className={styles.media} data-public-profile-media style={imageConfig?.mode === "natural" ? { height: "auto", maxHeight: "none" } : undefined}>
-              <ImageDisplay roleHint="generic" context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </header>
-  );
+</>}
+    media={imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" /> : null} />;
+
 }
 
 export function PublicProfileContentLayout({ children, aside }: { children: ReactNode; aside: ReactNode }) {
   return (
-    <section className={["shell", styles.layout].join(" ")} data-public-profile-layout>
+    <section className={styles.layout} data-public-profile-layout>
+      <div className={styles.body} data-public-profile-body>{children}</div>
       <aside className={styles.aside} aria-label="Kontaktné a praktické informácie" data-public-profile-sidebar>
         {aside}
       </aside>
-      <div className={styles.body} data-public-profile-body>{children}</div>
+
     </section>
   );
 }

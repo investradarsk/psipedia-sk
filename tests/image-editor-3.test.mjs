@@ -92,16 +92,21 @@ test("IMAGE-EDITOR-3: every entity detail respects manual config, with natural f
 });
 
 test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail layout", () => {
-  for (const [path, selector] of [
-    ["components/public-profile/public-profile.module.css", "media"],
-    ["components/help-details/help-detail.module.css", "visual"],
-    ["components/events-public.module.css", "detailVisual"],
-    ["components/adoption-detail.module.css", "detailVisual"],
-    ["components/lost-found-dogs.module.css", "detailImage"],
-  ]) {
-    const css = read(path);
-    assert.ok(css.includes(`.${selector}:has([data-image-display="natural"])`), path);
-  }
+  const hero = read("components/detail-primitives/detail-primitives.tsx");
+  const css = read("components/detail-primitives/detail-primitives.module.css");
+  assert.ok(css.includes('.heroMedia:has([data-image-display="natural"])'));
+  assert.match(css, /\.heroMedia:has\(\[data-image-display="natural"\]\)\s*\{[^}]*aspect-ratio:\s*auto/);
+  assert.match(css, /\.heroMedia:has\(\[data-image-display="natural"\]\) img\s*\{[^}]*height:\s*auto/);
+  assert.match(hero, /className=\{styles\.heroMedia\}/);
+  for (const path of [
+    "components/public-profile/public-profile-hero.tsx",
+    "components/help-details/help-detail-shell.tsx",
+    "components/event-detail.tsx",
+    "components/adoption-detail.tsx",
+    "components/lost-found-dog-detail.tsx",
+    "components/directory-profile-detail.tsx",
+  ]) assert.match(read(path), /<DetailHero/, path);
+
 });
 
 test("IMAGE-EDITOR-3: editor keeps independent tabs, gestures and reset semantics", () => {

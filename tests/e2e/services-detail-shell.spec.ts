@@ -28,7 +28,7 @@ async function assertNoOverflow(page: Page) {
 }
 
 test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
-  test("all requested widths have photo-first responsive details, correct section order and working CTAs", async ({ page }, testInfo) => {
+  test("all requested widths have responsive split / media-first details, correct section order and working CTAs", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "One explicit viewport matrix is sufficient.");
     for (const width of [320, 390, 430, 768, 1180, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -42,20 +42,20 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
       if (await hero.locator(PHOTO).count()) {
         const photoY = await hero.locator(PHOTO).evaluate((node) => node.getBoundingClientRect().top);
         const titleY = await heading.evaluate((node) => node.getBoundingClientRect().top);
-        expect(photoY, "Photo must be before the heading at " + width).toBeLessThan(titleY);
+        if (width <= 800) expect(photoY, "Mobile photo before heading at " + width).toBeLessThan(titleY);
+        else expect((await hero.locator(PHOTO).boundingBox())!.x).toBeGreaterThan((await heading.boundingBox())!.x);
         await expect(hero.locator(PHOTO + " img")).toHaveAttribute("loading", "eager");
       }
 
       const body = main.locator("article[data-public-profile-body]");
       const h2 = await body.getByRole("heading", { level: 2 }).allTextContents();
       const aboutIndex = h2.indexOf("O službe");
-      const addressIndex = h2.indexOf(contact);
+      await expect(main.locator("aside").getByRole("heading", { name: contact, exact: true })).toBeVisible();
       const servicesIndex = h2.indexOf("Poskytované služby");
       const expertiseIndex = h2.indexOf("Odborné informácie");
       const reviewIndex = h2.indexOf("Recenzie");
       expect(aboutIndex).toBeGreaterThanOrEqual(0);
-      expect(addressIndex).toBeGreaterThan(aboutIndex);
-      expect(servicesIndex).toBeGreaterThan(addressIndex);
+      expect(servicesIndex).toBeGreaterThan(aboutIndex);
       expect(expertiseIndex).toBeGreaterThan(servicesIndex);
       expect(reviewIndex).toBeGreaterThan(expertiseIndex);
 
@@ -101,7 +101,8 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await expect.poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     const photoTop = await photo.evaluate((image) => image.getBoundingClientRect().top);
     const headingTop = await hero.getByRole("heading", { level: 1 }).evaluate((heading) => heading.getBoundingClientRect().top);
-    expect(photoTop).toBeLessThan(headingTop);
+    if ((page.viewportSize()?.width ?? 1440) <= 800) expect(photoTop).toBeLessThan(headingTop);
+    else expect((await photo.boundingBox())!.x).toBeGreaterThan((await hero.getByRole("heading", { level: 1 }).boundingBox())!.x);
     await page.screenshot({ path: ".e2e-artifacts/services-profile-ux/veterinary-photo.png", fullPage: true });
     const expert = rich.getByRole("heading", { name: "Veterinárna starostlivosť a vybavenie" }).locator("xpath=ancestor::section[1]");
     await expect(expert.getByText("Špecializácie", { exact: true })).toBeVisible();
