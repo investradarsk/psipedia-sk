@@ -159,3 +159,13 @@ export async function resetAdminServiceChoice(db:DB & Pick<D1Database,"batch">,
     return {profileId:removed.profile_id,optionId:removed.option_id,choice:"unknown" as const,version:0};
   }catch(err){return handleDbError(err);}
 }
+
+/** Fail closed if additive 0134 history schema has not been provisioned. */
+export async function requireServiceCatalogAuditSchema(db:DB){
+  try{await db.prepare("SELECT id FROM service_catalog_admin_change_audit LIMIT 1").first<{id:number}>();}
+  catch(error){
+    const message=error instanceof Error?error.message:String(error);
+    if(/no such table|no such column/i.test(message))throw new ServiceCatalogSchemaError("Services V3 audit schema 0134 is not provisioned.");
+    throw error;
+  }
+}
