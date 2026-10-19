@@ -69,7 +69,29 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   await expect(editorDelete).toBeEnabled();await editorDelete.click();
   const confirmDialog=page.getByRole('dialog',{name:'Natrvalo odstrániť príspevok?'});
   await expect(confirmDialog).toBeVisible();await expect(confirmDialog).toContainText('plánovanej publikačnej fronty');
-  await expect(confirmDialog.getByRole('button',{name:'Zrušiť',exact:true})).toBeFocused();
+  const safeCancel=confirmDialog.getByRole('button',{name:'Zrušiť',exact:true});
+  const destructiveConfirm=confirmDialog.getByRole('button',{name:'Natrvalo odstrániť',exact:true});
+  await expect(safeCancel).toBeFocused();
+  // Capture the real browser document.activeElement, not just React props or markup.
+  await expect.poll(()=>page.evaluate(()=>({
+    tag:document.activeElement?.tagName,
+    text:document.activeElement?.textContent?.trim(),
+    marked:document.activeElement?.getAttribute('data-admin-autofocus'),
+  })),{message:`Actual document.activeElement when deletion modal opens at ${width}px`})
+    .toEqual({tag:'BUTTON',text:'Zrušiť',marked:'true'});
+  await page.keyboard.press('Tab');await expect(destructiveConfirm).toBeFocused();
+  await page.keyboard.press('Shift+Tab');await expect(safeCancel).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(confirmDialog.getByRole('button',{name:'Zavrieť dialóg'})).toBeFocused();
+  await page.keyboard.press('Tab');await expect(safeCancel).toBeFocused();
+  for(const action of [safeCancel,destructiveConfirm]){
+    const rect=await action.evaluate(el=>{const r=el.getBoundingClientRect();return{
+      left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,
+      viewportWidth:window.innerWidth,viewportHeight:window.innerHeight};});
+    assert.ok(rect.width>=44&&rect.height>=44,`Confirmation action too small at ${width}px: ${JSON.stringify(rect)}`);
+    assert.ok(rect.left>=0&&rect.right<=rect.viewportWidth&&rect.top>=0&&rect.bottom<=rect.viewportHeight,
+      `Confirmation action outside viewport at ${width}px: ${JSON.stringify(rect)}`);
+  }
   await page.screenshot({path:path.join(dir,`delete-confirm-${width}.png`)});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth),0);
   await page.keyboard.press('Escape');await expect(confirmDialog).not.toBeVisible();
