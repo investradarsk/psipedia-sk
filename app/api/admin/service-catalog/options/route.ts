@@ -28,6 +28,6 @@ export async function POST(request:Request){
     return Response.json({option},{status:201});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Write failed."},
-      {status:error instanceof ServiceCatalogInputError?400:error instanceof ServiceCatalogConflictError?409:error instanceof ServiceCatalogSchemaError?503:500});
+      {status:error instanceof ServiceCatalogInputError||error instanceof SyntaxError?400:error instanceof ServiceCatalogConflictError?409:error instanceof ServiceCatalogSchemaError?503:500});
   }
 }
