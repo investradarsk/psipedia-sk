@@ -592,6 +592,11 @@ test("sitemap D1 canonical projection reproduces the SQLite scalar crash and saf
   assert.equal(typeof scalar, "number");
   assert.throws(() => scalar?.trim(), TypeError);
   assert.equal(sitemapCanonicalFromD1(null), "");
+  assert.equal(sitemapCanonicalFromD1(undefined), "");
+  assert.equal(sitemapCanonicalFromD1("  "), "");
+  for (const invalid of [0, 1, false, true, {}, []]) {
+    assert.equal(isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(invalid) }, "/podujatia/malformed"), false);
+  }
   assert.equal(sitemapCanonicalFromD1(" /podujatia/valid "), "/podujatia/valid");
   assert.equal(isSelfCanonical({ canonicalUrl: sitemapCanonicalFromD1(scalar) }, "/podujatia/malformed"), false);
 
@@ -640,6 +645,36 @@ test("sitemap D1 canonical projection reproduces the SQLite scalar crash and saf
     assert.equal(records.length, 2, `${label} must not truncate its dataset`);
     assert.equal(isSelfCanonical(records[0].seo, `${pathPrefix}bad-canonical`), false);
     assert.equal(isSelfCanonical(records[1].seo, `${pathPrefix}valid`), true);
+  }
+  // D1 guards invalid JSON before json_extract; missing SEO remains implicitly self-canonical.
+  database.exec(`
+    INSERT INTO directory_profiles VALUES
+      (3,'invalid-json','veterinari','published',NULL,'{broken',NULL),
+      (4,'noindex','veterinari','published',NULL,'{"canonicalUrl":null,"noindex":true}',NULL);
+    INSERT INTO managed_events VALUES
+      (3,'invalid-json','published',NULL,NULL,'{broken'),
+      (4,'noindex','published',NULL,NULL,'{"canonicalUrl":null,"noindex":true}');
+    INSERT INTO help_cases VALUES
+      (3,'invalid-json','zbierky','published',NULL,NULL,'{broken'),
+      (4,'noindex','zbierky','published',NULL,NULL,'{"canonicalUrl":null,"noindex":true}');
+  `);
+  const fallbackDatasets = await Promise.all([
+    listPublishedDirectorySitemapRecords(d1),
+    listPublishedEventSitemapRecords(d1),
+    listPublishedHelpSitemapRecords(d1),
+  ]);
+  for (const [records, prefix] of [
+    [fallbackDatasets[0], "/adresar/veterinari/"],
+    [fallbackDatasets[1], "/podujatia/"],
+    [fallbackDatasets[2], "/pomoc-psom/zbierky/"],
+  ]) {
+    assert.equal(records.length, 4, "invalid/empty SEO must not drop source rows");
+    assert.equal(records[2].seo.canonicalUrl, "");
+    assert.equal(records[2].seo.noindex, false);
+    assert.equal(isSelfCanonical(records[2].seo, `${prefix}invalid-json`), true);
+    assert.equal(records[3].seo.canonicalUrl, "");
+    assert.equal(records[3].seo.noindex, true);
+    assert.equal(isSelfCanonical(records[3].seo, `${prefix}noindex`), false);
   }
   database.close();
 });
