@@ -23,3 +23,26 @@
   .filterToggle{grid-column:1;grid-row:2;justify-content:space-between}
   .advancedFilters{grid-row:3}
 }
+
+/* Services V3 approved Variant A: one compact, truthful and accessible status disclosure. */
+.statusPanel{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:18px;row-gap:0;padding:10px 14px;background:#edf4ee;border:1px solid #cbdcd0;border-radius:11px;color:#315542;min-width:0;max-width:100%}
+.statusIntro{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:6px 0}
+.statusIcon{flex:none;display:grid;place-items:center;width:24px;height:24px;border:1.5px solid currentColor;border-radius:50%;font-family:inherit;font-size:.82rem;font-weight:800;line-height:1}
+.statusCopy{min-width:0;overflow-wrap:anywhere}
+.statusCopy h2{margin:0;font:inherit;font-weight:800;font-size:.93rem;line-height:1.35;color:#234c36}
+.statusCopy p{margin:3px 0 0;font-size:.83rem;line-height:1.45}
+.statusDetails{align-self:center;min-width:0;max-width:100%;font-size:.84rem}
+.statusDetails summary{display:list-item;min-height:44px;box-sizing:border-box;align-content:center;padding:11px 8px;border-radius:8px;font-weight:750;color:#1a6145;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.statusDetails summary:hover{background:#e0eddf}
+.statusDetails summary:focus-visible{outline:3px solid #d6a44c;outline-offset:2px}
+.statusDetails[open]{grid-column:1/-1;border-top:1px solid #cbdcd0;margin-top:8px;padding-top:3px;width:100%}
+.statusFacts{margin:0 0 4px;padding:0 8px 4px 24px;display:grid;gap:7px;overflow-wrap:anywhere;line-height:1.45}
+@media(max-width:600px){
+  .statusPanel{grid-template-columns:minmax(0,1fr);padding:8px 11px;row-gap:0}
+  .statusIntro{padding:5px 0 0;gap:9px}
+  .statusCopy h2{font-size:.9rem}
+  .statusCopy p{font-size:.81rem}
+  .statusDetails{width:100%}
+  .statusDetails summary{padding:9px 7px;min-height:44px}
+  .statusDetails[open]{margin-top:0}
+}
