@@ -99,9 +99,15 @@ test("no-consent smoke has one non-conflicting storage initializer", () => {
   const necessarySeedGuard = setup.split("\n").find((line) => line.includes("await useNecessaryCookies(page)"));
   assert.ok(necessarySeedGuard, "Regular smoke tests still seed necessary-only cookies");
   assert.match(necessarySeedGuard, /^\s*if\s*\(\s*!.*cookie consent.*\)\s*await useNecessaryCookies\(page\)/);
-  assert.equal(noConsentTest.match(/addInitScript/g)?.length, 1);
-  assert.match(noConsentTest, /localStorage\.removeItem\(key\)/);
-  assert.doesNotMatch(noConsentTest, /localStorage\.setItem\(key, "necessary"\)/);
+  const seedStart = smokeSource.indexOf("async function seedCookieConsentOnce(");
+  const seedEnd = smokeSource.indexOf("\n}\n", seedStart);
+  assert.ok(seedStart >= 0 && seedEnd > seedStart, "One-time cookie seeding helper is present");
+  const seedHelper = smokeSource.slice(seedStart, seedEnd);
+  assert.match(noConsentTest, /await seedCookieConsentOnce\(page, null\)/);
+  assert.equal(seedHelper.match(/addInitScript/g)?.length, 1);
+  assert.match(seedHelper, /localStorage\.removeItem\(key\)/);
+  assert.doesNotMatch(seedHelper, /localStorage\.setItem\(key, "necessary"\)/);
+  assert.doesNotMatch(noConsentTest, /addInitScript|useNecessaryCookies\(page\)/);
 });
 
 
