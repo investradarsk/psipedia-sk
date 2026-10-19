@@ -1,4 +1,5 @@
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { HELP_ADMIN_DOMAIN_SQL } from "./help-admin-query.ts";
 import type { EditableSeo } from "./content-seo.ts";
 import type { CanonicalSourceRecord, ReconciliationValue } from "./notion-bulk-reconciliation.ts";
 import { notionSeoSourceProperties } from "./notion-seo-contract.ts";
@@ -322,7 +323,8 @@ export async function loadNotionBulkAdoptions(database: D1Database) {
 export async function loadNotionBulkHelpCases(database: D1Database) {
   const sourceRows = await rows(database, `SELECT id,slug,title,category,status,excerpt,description,organization,dog_name,breed,age_note,city,region,
     location_note,reported_date,deadline_date,action_label,action_url,contact_note,goal_amount,raised_amount,image_url,urgent,resolved,
-    created_at,updated_at,published_at,seo_json FROM help_cases ORDER BY id ASC`);
+    created_at,updated_at,published_at,seo_json
+    FROM help_cases WHERE ${HELP_ADMIN_DOMAIN_SQL} ORDER BY id ASC`);
 
   return sourceRows.map((row) => {
     const category = s(row.category);

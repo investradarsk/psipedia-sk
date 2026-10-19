@@ -37,6 +37,7 @@ import {
   type NotionCanonicalTargetDefinition,
 } from "./notion-canonical-target.ts";
 import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirror.ts";
+import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
 import {
@@ -119,6 +120,14 @@ export type NotionAgendaSyncSummary = {
   }>;
   /** Value-free list of the first 100 conflicts for human review; no automatic winner. */
   reviewQueue: NotionReviewQueue;
+  /** Read-only canonical boundary diagnostics. Never deletes or remaps legacy pages. */
+  domainBoundary: {
+    outOfDomain: number;
+    missingCanonical: number;
+    unmappedOutOfDomain: number;
+    mappedNotionOutOfDomain: number;
+    samples: Array<{ entityId: number; reason: HelpSyncDomainReason }>;
+  };
   /** Number of obsolete conflict flags safely cleared after identical snapshots. */
   resolvedConflictFlags: number;
   staleConflictCandidates: number;
@@ -556,6 +565,7 @@ function emptyAgenda(definition: AgendaDefinition, isEnabled: boolean, ready: bo
     errors: [],
     conflictDetails: [],
     reviewQueue: emptyNotionReviewQueue(),
+    domainBoundary: { outOfDomain: 0, missingCanonical: 0, unmappedOutOfDomain: 0, mappedNotionOutOfDomain: 0, samples: [] },
     resolvedConflictFlags: 0,
     staleConflictCandidates: 0,
   };
@@ -629,6 +639,30 @@ async function syncAgenda(input: {
   const identities = pages.map(identityPage);
   const pagesById = new Map(pages.map((page) => [page.id, page]));
   let mappings = await loadMappings(input.database, input.definition.key);
+  if (input.definition.key === "help-cases") {
+    // All historical mappings remain reserved, including excluded categories
+    // and orphan IDs. The loader now returns only domain-valid canonical rows,
+    // so an orphan/dedicated mapping is NEVER pulled, patched, or recreated.
+    const audit = await auditHelpSyncMappings(input.database);
+    summary.domainBoundary.outOfDomain = audit.outOfDomain;
+    summary.domainBoundary.missingCanonical = audit.missingCanonical;
+    summary.domainBoundary.samples = audit.issues.slice(0, 25).map(
+      ({ entityId, reason }) => ({ entityId, reason }),
+    );
+    summary.conflicts += audit.missingCanonical;
+    for (const issue of audit.issues) {
+      if (issue.reason !== "MISSING_CANONICAL") continue;
+      appendNotionReview(summary.reviewQueue, {
+        entityId: issue.entityId,
+        notionPageId: issue.notionPageId,
+        reason: "MISSING_CANONICAL",
+        fields: ["Psipedia ID"],
+        baselineAvailable: false,
+        notionChanged: null,
+        psipediaChanged: null,
+      });
+    }
+  }
   const mappingByEntity = new Map(mappings.map((mapping) => [Number(mapping.entity_id), mapping]));
   const mappingByPage = new Map(mappings.map((mapping) => [mapping.notion_page_id, mapping]));
   let sourcesById = sourceById(sources);
@@ -780,6 +814,20 @@ async function syncAgenda(input: {
       appendNotionReview(summary.reviewQueue, {
         entityId, notionPageId: mapping.notion_page_id, reason: "MAPPING_CONFLICT",
         fields: [], baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
+
+    if (input.definition.key === "help-cases"
+      && isHelpSyncCategoryOutOfDomain(clean(pageProperty(page, "Kategória")))) {
+      // Canonical is still generic, but the mapped Notion page changed to a
+      // dedicated category. Never pull that reassignment or PATCH the page.
+      summary.domainBoundary.mappedNotionOutOfDomain += 1;
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId, notionPageId: page.id, reason: "OUT_OF_DOMAIN",
+        fields: ["Kategória"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
       });
       continue;
     }
@@ -1226,6 +1274,13 @@ async function syncAgenda(input: {
 
   for (const page of pages) {
     if (mappedPageIds.has(page.id)) continue;
+    // The generic Help editor does not own these categories, even when an
+    // unlinked Notion page is Ready or has trusted Gemini provenance.
+    if (input.definition.key === "help-cases"
+      && isHelpSyncCategoryOutOfDomain(clean(pageProperty(page, "Kategória")))) {
+      summary.domainBoundary.unmappedOutOfDomain += 1;
+      continue;
+    }
     const psipediaId = clean(pageProperty(page, "Psipedia ID"));
     if (psipediaId) continue;
     const values = pageSnapshot(input.definition.key, page, schema);
@@ -1448,6 +1503,24 @@ async function syncAgenda(input: {
     }
   }
 
+  if (input.definition.key === "help-cases" && (
+    summary.domainBoundary.outOfDomain
+    || summary.domainBoundary.missingCanonical
+    || summary.domainBoundary.unmappedOutOfDomain
+    || summary.domainBoundary.mappedNotionOutOfDomain
+  )) {
+    // One value-free aggregate per sweep, instead of one error per legacy row.
+    // MISSING_CANONICAL remains visible as a review conflict; OUT_OF_DOMAIN
+    // is expected legacy data, not a missing record or provider failure.
+    console.info(JSON.stringify({
+      event: "notion_help_domain_boundary",
+      agenda: "help-cases",
+      outOfDomain: summary.domainBoundary.outOfDomain,
+      missingCanonical: summary.domainBoundary.missingCanonical,
+      unmappedOutOfDomain: summary.domainBoundary.unmappedOutOfDomain,
+      mappedNotionOutOfDomain: summary.domainBoundary.mappedNotionOutOfDomain,
+    }));
+  }
   return summary;
 }
 
