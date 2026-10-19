@@ -6,8 +6,9 @@ const capture=async(page:Page,name:string,fullPage=true)=>{
   mkdirSync(root,{recursive:true});
   // Restore the natural top-of-page viewport before full-page capture. Sticky headers
   // otherwise get stitched into the middle of the full-page PNG after clicking a row.
-  await page.evaluate(()=>{window.scrollTo(0,0);if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
-  await page.waitForTimeout(100);
+  await page.evaluate(()=>{window.scrollTo({top:0,behavior:"instant"});if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
+  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled",scale:"css"});
 };
 
@@ -50,10 +51,11 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
     };
   },phase);
   await page.evaluate(()=>{
-    window.scrollTo(0,0);
+    window.scrollTo({top:0,behavior:"instant"});
     if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
   });
-  await page.waitForFunction(()=>window.scrollY===0);
+  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const top=await measure("top");
   expect(top.viewport,"browser viewport dimensions").toMatchObject({width,height});
   expect(top.header.position,"mobile header must remain sticky").toBe("sticky");
@@ -72,14 +74,26 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
   await page.screenshot({path:root+"/"+name+"-viewport-top.png",fullPage:false,animations:"disabled",scale:"css"});
   // Scroll so the search field is in the first unobstructed band below the
   // sticky header. This checks actual painted/hit-tested positions, not full-page layout.
-  await page.evaluate(()=>{
+  const scrollPlan=await page.evaluate(()=>{
     const header=document.querySelector<HTMLElement>("[data-admin-topbar]");
     const input=document.querySelector<HTMLInputElement>('section[aria-label="Katalóg služieb a vlastností"] input[type="search"]');
     if(!header||!input)throw new Error("Cannot find mobile header and catalog search");
-    const target=window.scrollY+input.getBoundingClientRect().top-header.getBoundingClientRect().bottom-16;
-    window.scrollTo(0,Math.max(0,target));
+    const requested=Math.max(0,window.scrollY+input.getBoundingClientRect().top-header.getBoundingClientRect().bottom-16);
+    const scroller=document.scrollingElement??document.documentElement;
+    const maxScroll=Math.max(0,scroller.scrollHeight-window.innerHeight);
+    const target=Math.min(requested,maxScroll);
+    // Use an immediate scroll regardless of document scroll-behavior:smooth.
+    window.scrollTo({top:target,behavior:"instant"});
+    return {requested,target,maxScroll};
   });
-  await page.waitForFunction(()=>window.scrollY>0);
+  // scrollY > 0 can be the FIRST FRAME of smooth scrolling; wait for the
+  // requested destination, clamped to the document's current maximum.
+  await page.waitForFunction(({target})=>{
+    const scroller=document.scrollingElement??document.documentElement;
+    const maxScroll=Math.max(0,scroller.scrollHeight-window.innerHeight);
+    return Math.abs(window.scrollY-Math.min(target,maxScroll))<=1;
+  },scrollPlan,{polling:"raf",timeout:10000});
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const scrolled=await measure("scrolled");
   expect(scrolled.header.top,name+" scrolled header top").toBeGreaterThanOrEqual(-2);
   expect(scrolled.header.top,name+" scrolled header top").toBeLessThanOrEqual(2);
@@ -100,11 +114,12 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
   await expect(toggle).toHaveAttribute("aria-expanded","true");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded","false");
-  writeFileSync(root+"/"+name+"-viewport-rectangles.json",JSON.stringify({top,scrolled},null,2)+"\n");
+  writeFileSync(root+"/"+name+"-viewport-rectangles.json",JSON.stringify({top,scrolled,scrollPlan},null,2)+"\n");
   await page.evaluate(()=>{
-    window.scrollTo(0,0);
+    window.scrollTo({top:0,behavior:"instant"});
     if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
   });
+  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
 };
 
 const noOverflow=async(page:Page,name:string)=>{
