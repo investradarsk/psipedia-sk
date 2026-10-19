@@ -3,6 +3,7 @@ import { requireAdminMutation } from "@/lib/admin-auth";
 import { summarizeNotionAuditBatch, type NotionAuditAgenda, type NotionAuditPage } from "@/lib/notion-data-quality-audit";
 import { resolveNotionCanonicalTarget } from "@/lib/notion-canonical-target";
 import { notionRequest, type NotionSyncBindings } from "@/lib/notion-sync-shared";
+import { loadAuditD1Evidence, analyzeAuditEvidence } from "@/lib/notion-data-quality-audit-v2";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,13 @@ export async function POST(request: Request) {
   if (body.cursor !== undefined && (typeof body.cursor !== "string" || body.cursor.length > 500 || !body.cursor)) {
     return Response.json({ error: "Neplatný stránkovací kurzor." }, { status: 400 });
   }
+  if (body.pass !== undefined && body.pass !== 1 && body.pass !== 2) {
+    return Response.json({ error: "Neplatné číslo kontrolného prechodu." }, { status: 400 });
+  }
+  if (body.sourceId !== undefined && (typeof body.sourceId !== "string" || body.sourceId.length > 100)) {
+    return Response.json({ error: "Neplatný identifikátor zdroja." }, { status: 400 });
+  }
+  const pass = body.pass === 2 ? 2 : 1;
   const agenda = body.agenda as NotionAuditAgenda;
 
   try {
@@ -74,7 +82,19 @@ export async function POST(request: Request) {
         allowCreate: false,
         persist: false,
       });
+      // Separate historical Notion sources (notably lost/found) must never
+      // be combined or silently resolved into an arbitrary winner.
+      if (target.duplicateDataSourceIds.length) {
+        return Response.json({
+          error: "MULTIPLE_NOTION_SOURCES_REQUIRE_REVIEW",
+          agenda,
+          readOnly: true,
+        }, { status: 409, headers: { "Cache-Control": "no-store" } });
+      }
       dataSourceId = target.dataSourceId ?? undefined;
+    }
+    if (body.sourceId && body.sourceId !== dataSourceId) {
+      return Response.json({ error: "AUDIT_SOURCE_CHANGED" }, { status: 409 });
     }
     if (!dataSourceId) {
       return Response.json({ error: "Notion data source pre túto kategóriu nie je dostupný." }, { status: 503 });
@@ -84,23 +104,50 @@ export async function POST(request: Request) {
       method: "POST",
       body: JSON.stringify({
         page_size: 100,
+        // Cursor pagination remains source-owned. Created-time ordering reduces
+        // reorder but equal timestamps and concurrent edits are still UNKNOWN.
+        sorts: [{ timestamp: "created_time", direction: "ascending" }],
         ...(body.cursor ? { start_cursor: body.cursor } : {}),
       }),
     });
 
+    const pages = response.results ?? [];
+    if (pages.length > 100) {
+      return Response.json({ error: "AUDIT_BATCH_LIMIT" }, { status: 502 });
+    }
+    const d1 = await loadAuditD1Evidence(bindings.DB, agenda, pages);
+    const independent = analyzeAuditEvidence(agenda, pages, d1);
+    const hasMore = Boolean(response.has_more);
+    const nextCursor = hasMore ? response.next_cursor ?? null : null;
     return Response.json({
       mode: "dry-run",
       readOnly: true,
       agenda,
       batchSize: 100,
-      ...summarizeNotionAuditBatch(agenda, response.results ?? []),
-      hasMore: Boolean(response.has_more),
-      nextCursor: response.has_more ? response.next_cursor ?? null : null,
-      truncated: Boolean(response.has_more && !response.next_cursor),
+      pass,
+      sourceId: dataSourceId,
+      ...summarizeNotionAuditBatch(agenda, pages),
+      independent,
+      productionCounts: "UNKNOWN",
+      checkedAgainstD1: d1.coverage === "VERIFIED",
+      comparisonBasis: "MAPPING_AND_CANONICAL_ID_ONLY",
+      summaryText: "Audit bez zápisov: " + pages.length + " Notion záznamov; D1 identita "
+        + (d1.coverage === "VERIFIED" ? "skontrolovaná" : "UNKNOWN")
+        + "; aktuálne snapshot hashe UNKNOWN; nerozhodnuté hodnoty vyžadujú REVIEW.",
+      hasMore,
+      nextCursor,
+      nextPass: !hasMore && pass === 1 ? 2 : null,
+      passesComplete: !hasMore && pass === 2,
+      resume: { agenda, pass, sourceId: dataSourceId, cursor: nextCursor },
+      cursorConsistency: "BEST_EFFORT_CREATED_TIME_ORDER",
+      truncated: Boolean(hasMore && !nextCursor),
     }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
+  } catch {
+    // Notion errors may include submitted property text. Never echo them.
     return Response.json({
-      error: error instanceof Error ? error.message : "Notion audit zlyhal.",
-    }, { status: 500, headers: { "Cache-Control": "no-store" } });
+      error: "NOTION_AUDIT_UNAVAILABLE",
+      readOnly: true,
+      productionCounts: "UNKNOWN",
+    }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
