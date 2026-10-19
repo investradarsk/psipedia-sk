@@ -1,4 +1,19 @@
 import type { GeminiReviewState } from "./gemini-notion-review-state";
+import { getGeminiCatalogItem } from "./gemini-automation-catalog";
+
+/** A Notion UUID locates a draft; it is never an authorization credential. */
+export function geminiValidNotionDraftId(value: string | null | undefined): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i.test(value);
+}
+
+export function geminiDraftDeepLink(stableKey: string, id: string): string | null {
+  if (!getGeminiCatalogItem(stableKey) || !geminiValidNotionDraftId(id)) return null;
+  return "/admin/automatizacie-gemini?stable_key=" +
+    encodeURIComponent(stableKey) + "&draft_id=" + encodeURIComponent(id) +
+    "#gemini-drafts-title";
+}
+
 
 /** Canonical routes come from verified D1 identity, never from Notion title/slug. */
 const adminSections = {

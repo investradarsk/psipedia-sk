@@ -675,7 +675,10 @@ test("cookie consent opt-in and delayed GA4 revocation are safe", async ({ page 
   });
   expect(state.disabled, "GA4 should be disabled after revocation").toBe(true);
   expect(state.emittedPageView, "Page view emitted after consent revocation").toBe(false);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  // DOMContentLoaded can precede hydration of the server-rendered footer button.
+  // Wait for the page load before exercising its React click handler after revocation.
+  await page.reload({ waitUntil: "load" });
+  expect(await readStoredConsent(page)).toBe("necessary");
   await page.getByRole("button", { name: "Nastavenia cookies" }).click();
   await expect(dialog).toContainText("Aktuálna voľba: iba nevyhnutné údaje");
   await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
