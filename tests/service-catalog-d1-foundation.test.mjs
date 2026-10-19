@@ -9,6 +9,7 @@ import {
 
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
+const auditMigration=read("drizzle/0134_services_admin_change_audit.sql");
 // D1 accepts SQLite numbered ?1 placeholders; node:sqlite's positional
 // binder does not. Expand numbered references to anonymous placeholders
 // while retaining the exact original D1 parameter mapping (including repeats).
@@ -33,6 +34,8 @@ function setup(){
   sqlite.exec("PRAGMA foreign_keys=ON");
   sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT NOT NULL, status TEXT NOT NULL)");
   sqlite.exec(migration);
+  // 3C writes depend on 0134; keep the earlier 0133 foundation assertions.
+  sqlite.exec(auditMigration);
   sqlite.exec("INSERT INTO directory_profiles (id,category,status) VALUES (1,'veterinari','published'),(2,'treneri','published'),(3,'veterinari','archived')");
   return {sqlite,db:new TestD1(sqlite)};
 }
