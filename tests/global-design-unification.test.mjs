@@ -8,18 +8,30 @@ test("shared hero has rounded desktop and full-bleed square mobile photography",
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.visual \{[\s\S]*?border-radius: 0;/);
   assert.match(css, /width: 100dvw;/);
 });
-test("each public listing preserves its main search and filter wiring", () => {
+test("each public listing uses one scoped canonical hero search and retains secondary filters", () => {
+  const portalSearch = source("components/home-portal-search.tsx");
   const directory = source("components/directory-page.tsx");
-  const help = source("components/help-browser.tsx");
+  const helpPage = source("components/help-page.tsx");
+  const helpBrowser = source("components/help-browser.tsx");
   const events = source("components/events-page.tsx");
   const reviews = source("components/reviews-hub.tsx");
-  assert.match(directory, /data-directory-main-search/);
-  assert.match(help, /data-public-search-form="help"/);
-  assert.match(events, /searchScope="events"/);
+
+  // Primary search is one semantic GET form; separate filter forms may keep q hidden.
+  assert.match(portalSearch, /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/);
+  assert.match(portalSearch, /name=\{inputName\}/);
+  for (const [scope, page] of [
+    ["services", directory], ["help", helpPage], ["events", events], ["reviews", reviews],
+  ]) {
+    assert.equal((page.match(/<HomePortalSearch\b/g) ?? []).length, 1, scope + " has one canonical main search");
+    assert.match(page, /portalSearchSlot=\{/);
+    assert.match(page, new RegExp('searchScope="' + scope + '"'));
+    assert.doesNotMatch(page, /<SectionHeroSearch\b/);
+  }
+  assert.match(directory, /hidden=\{directoryQueryFields\(filters, \["q", "page"\]\)\}/);
+  assert.match(directory, /<DirectoryFilterForm\b/);
+  assert.match(helpBrowser, /data-help-secondary-filters/);
   assert.match(reviews, /id="reviews-hub-query"/);
-  assert.equal((directory.match(/<SectionHeroSearch/g) ?? []).length, 1);
-  assert.equal((events.match(/<HomePortalSearch/g) ?? []).length, 1);
-  assert.equal((reviews.match(/<SectionHeroSearch/g) ?? []).length, 1);
+  assert.doesNotMatch(directory, /data-directory-main-search/);
 });
 test("breeds display the interactive atlas search before action cards and filters", () => {
   const browser = source("components/breed-browser.tsx");
