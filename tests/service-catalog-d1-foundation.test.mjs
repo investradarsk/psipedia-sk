@@ -117,3 +117,49 @@ test("Admin API requires verified server auth, same-origin, and two disabled-by-
  assert.doesNotMatch(wrangler,/"SERVICE_CATALOG_ADMIN_WRITES_ENABLED"/);
  assert.doesNotMatch(wrangler,/"SERVICE_CATALOG_NOTION_MIRROR_READY"/);
 });
+
+test("canonical identity protection includes provider types and cross-kind duplicates",async()=>{
+ const {sqlite,db}=setup();
+ try{
+  await assert.rejects(()=>createAdminCatalogOption(db,item("Typ veterinárneho pracoviska"),"owner@example.com"),ServiceCatalogInputError);
+  await assert.rejects(()=>createAdminCatalogOption(db,item("Typ poskytovateľa opatery"),"owner@example.com"),ServiceCatalogInputError);
+  const first=await createAdminCatalogOption(db,{...item(" Nová   metóda výcviku "),kind:"attribute"},"owner@example.com");
+  assert.equal(first.id.startsWith("attr.admin."),true);
+  assert.match(first.id.slice("attr.admin.".length),/^[0-9a-f]{32}$/);
+  assert.equal(first.kind,"attribute");
+  await assert.rejects(()=>createAdminCatalogOption(db,{...item("NOVÁ METÓDA VÝCVIKU"),kind:"service"},"owner@example.com"),ServiceCatalogConflictError);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM service_catalog_admin_options").get().n,1);
+ }finally{sqlite.close();}
+});
+
+test("invalid version, mirror/status values and explicit unknown writes are rejected without side effects",async()=>{
+ const {sqlite,db}=setup();
+ try{
+  const option=await createAdminCatalogOption(db,item(),"owner@example.com");
+  for(const [column,value] of [["status","QUEUED"],["notion_mirror_status","DONE"],["version",0]]){
+   assert.throws(()=>sqlite.prepare(`UPDATE service_catalog_admin_options SET ${column}=? WHERE id=?`).run(value,option.id),/CHECK constraint/i);
+  }
+  for(const choice of ["unknown",null,false,undefined]){
+   await assert.rejects(()=>saveAdminServiceChoice(db,{profileId:1,optionId:"svc.vet.ct",choice,expectedVersion:0},"owner@example.com"),ServiceCatalogInputError);
+  }
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM service_profile_option_choices").get().n,0);
+ }finally{sqlite.close();}
+});
+
+test("dynamic DRAFT, ACTIVE/PENDING, ACTIVE/CONFLICT and RETIRED options remain ineligible",async()=>{
+ const {sqlite,db}=setup();
+ try{
+  const option=await createAdminCatalogOption(db,item(),"owner@example.com");
+  const payload={profileId:1,optionId:option.id,choice:"yes",expectedVersion:0};
+  await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id);
+  await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(option.id);
+  await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' WHERE id=?").run(option.id);
+  assert.deepEqual(await saveAdminServiceChoice(db,payload,"owner@example.com"),{profileId:1,optionId:option.id,choice:"yes",version:1});
+  sqlite.prepare("UPDATE service_catalog_admin_options SET status='RETIRED' WHERE id=?").run(option.id);
+  await assert.rejects(()=>saveAdminServiceChoice(db,{...payload,choice:"no",expectedVersion:1},"owner@example.com"),ServiceCatalogInputError);
+  assert.equal(sqlite.prepare("SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?").get(option.id).choice,"yes");
+ }finally{sqlite.close();}
+});
