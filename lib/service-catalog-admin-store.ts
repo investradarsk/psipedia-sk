@@ -179,9 +179,13 @@ export async function requireServiceCatalogAuditSchema(db:DB){
     "service_catalog_admin_choice_audit_delete",
     "service_catalog_admin_audit_no_update",
     "service_catalog_admin_audit_no_delete",
+    "service_catalog_admin_receipt_no_update",
+    "service_catalog_admin_receipt_no_delete",
+    "service_catalog_admin_option_approval_receipt",
   ];
   try{
     await db.prepare("SELECT id FROM service_catalog_admin_change_audit LIMIT 1").first<{id:number}>();
+    await db.prepare("SELECT id FROM service_catalog_admin_notion_receipts LIMIT 1").first<{id:number}>();
     const placeholders=requiredTriggers.map((_,i)=>"?"+(i+1)).join(",");
     const result=await db.prepare(
       "SELECT COUNT(DISTINCT name) AS found FROM sqlite_schema WHERE type='trigger' AND name IN ("+placeholders+")"
