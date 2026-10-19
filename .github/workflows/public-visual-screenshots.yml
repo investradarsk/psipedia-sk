@@ -36,7 +36,7 @@ permissions:
 
 concurrency:
   group: public-visual-screenshots-${{ github.event.pull_request.number || github.ref || github.run_id }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   capture:
