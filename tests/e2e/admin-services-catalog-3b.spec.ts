@@ -27,7 +27,14 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    expect(r?.status()).toBe(200);
    await expect(page.getByRole("heading",{level:1,name:"Katalóg služieb a vlastností"})).toBeVisible();
    await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg",{exact:true})).toBeVisible();
-   await expect(page.getByText("Zápisy Services V3 sú zatiaľ vypnuté")).toBeVisible();
+   const panel=page.locator('[data-write-enabled="false"]');
+   const disclosure=panel.locator("details");
+   const summary=disclosure.locator("summary");
+   await expect(panel.getByRole("heading",{name:"Zápisy sú vypnuté"})).toBeVisible();
+   await expect(panel.getByText("Vytváranie a úpravy možností katalógu sú momentálne nedostupné.")).toBeVisible();
+   await expect(summary).toHaveText("Podrobnosti o katalógu");
+   await expect(disclosure).not.toHaveAttribute("open");
+   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeHidden();
    await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeDisabled();
    const toggle=page.getByRole("button",{name:/^Filtre/});
    const typeFilter=page.getByRole("combobox",{name:"Typ"});
@@ -71,7 +78,21 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
       expect(Math.abs(d!.x-l!.x),"mobile list/detail align").toBeLessThan(4);
    }else expect(d!.x,"desktop detail sits alongside list").toBeGreaterThan(l!.x+l!.width-3);
    await noOverflow(page,label(viewport.width));
-   await capture(page,"catalog-"+label(viewport.width));
+   await capture(page,"catalog-panel-collapsed-"+label(viewport.width));
+   // Native <summary> works with keyboard and announces expanded state through <details open>.
+   await summary.focus();
+   await expect(summary).toBeFocused();
+   await summary.press("Enter");
+   await expect(disclosure).toHaveAttribute("open","");
+   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeVisible();
+   await expect(panel.getByText("Vstavané statické možnosti nie sú editovateľné.")).toBeVisible();
+   await expect(panel.getByText("Vytvorenie konceptu neznamená automatické schválenie ani verejné publikovanie.")).toBeVisible();
+   await noOverflow(page,"expanded-"+label(viewport.width));
+   await capture(page,"catalog-panel-expanded-"+label(viewport.width));
+   await summary.press("Space");
+   await expect(disclosure).not.toHaveAttribute("open");
+   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeHidden();
+   await noOverflow(page,"collapsed-again-"+label(viewport.width));
    await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("RTG vyšetrenie");
    await expect(list.locator("button").first()).toContainText("RTG vyšetrenie");
    await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("not-a-real-service-741xyz");
