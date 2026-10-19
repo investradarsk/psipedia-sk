@@ -118,13 +118,16 @@ function AdminGeminiNotionDraftsForKey({ stableKey, deepLinkDraftId }: {
     if (deepLinkDraftId === undefined) return;
     const controller = new AbortController();
     let cancelled = false;
-    setExpanded(true);
-    setError("");
-    if (!geminiValidNotionDraftId(deepLinkDraftId)) {
-      setError("Neplatná identita konceptu. Žiadny záznam nebol otvorený.");
-      return () => controller.abort();
-    }
     const openRequested = async () => {
+      // The microtask boundary avoids a synchronous state cascade in an effect.
+      await Promise.resolve();
+      if (cancelled) return;
+      setExpanded(true);
+      setError("");
+      if (!geminiValidNotionDraftId(deepLinkDraftId)) {
+        setError("Neplatná identita konceptu. Žiadny záznam nebol otvorený.");
+        return;
+      }
       setOpening(true);
       try {
         const response = await fetch(draftApi(deepLinkDraftId, stableKey), {
