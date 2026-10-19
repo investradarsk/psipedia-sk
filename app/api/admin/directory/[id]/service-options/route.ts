@@ -1,6 +1,6 @@
 import {env} from "cloudflare:workers";
 import {requireAdminMutation} from "@/lib/admin-auth";
-import {saveAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
+import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
 export const dynamic="force-dynamic";
 type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
 type Props={params:Promise<{id:string}>};
@@ -20,8 +20,10 @@ export async function PATCH(request:Request,{params}:Props){
     if(!raw||typeof raw!=="object"||Array.isArray(raw)
        ||Object.keys(raw).some(k=>!["optionId","choice","expectedVersion"].includes(k)))
       return Response.json({error:"Unsupported selection payload."},{status:400});
-    const selection=await saveAdminServiceChoice(cfg.DB,
-      {profileId,...(raw as {optionId:string;choice:"yes"|"no";expectedVersion:number})},auth.user!.email);
+    const input=raw as {optionId:string;choice:"yes"|"no"|"unknown";expectedVersion:number};
+    const selection=input.choice==="unknown"
+      ?await resetAdminServiceChoice(cfg.DB,{profileId,optionId:input.optionId,expectedVersion:input.expectedVersion},auth.user!.email)
+      :await saveAdminServiceChoice(cfg.DB,{profileId,optionId:input.optionId,choice:input.choice,expectedVersion:input.expectedVersion},auth.user!.email);
     return Response.json({selection});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Selection failed."},
