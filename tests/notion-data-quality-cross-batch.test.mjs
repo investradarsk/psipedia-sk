@@ -26,7 +26,7 @@ function multipass(total = 230) {
   const records = Array.from({ length: total }, (_, i) => page(i + 1));
   const parts = [records.slice(0, 100), records.slice(100, 200), records.slice(200)];
   return [1, 2].flatMap((pass) => parts.map((rows, i) => batch({
-    pass, batchNumber: i + 1, records: rows,
+    pass, batchNumber: i + 1, records: rows.map((entry) => ({ ...entry })),
     requestCursorKey: CURSORS[i], nextCursorKey: i < 2 ? CURSORS[i + 1] : null,
     hasMore: i < 2,
   })));
@@ -177,7 +177,7 @@ test("input boundary rejects raw IDs, private fields, emails, URLs, contacts, ov
     [batch({ records: [{ notionKey: key(1), psipediaKey: "123" }] })],
     [batch({ records: [{ notionKey: key(1), psipediaKey: null, phone: "+421900000000" }] })],
     [batch({ records: Array.from({ length: 101 }, (_, i) => page(i)) })],
-    [batch({ requestCursorKey: undefined })],
+    [{ ...batch(), requestCursorKey: undefined }],
     [batch({ hasMore: "true" })],
     Array.from({ length: 501 }, () => batch()),
     null,
