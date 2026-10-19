@@ -232,6 +232,57 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
 
   return (
     <>
+      <AdminModalDialog
+        open={Boolean(decision)}
+        title={decision?.action === "reject" ? "Potvrdiť zamietnutie obrázkov" : "Potvrdiť schválenie obrázkov"}
+        description={decision?.ids.length === 1 ? decision.label : `Vybrané obrázky: ${decision?.ids.length ?? 0}`}
+        onClose={() => { if (busy === null) setDecision(null); }}
+        footer={<>
+          <AdminActionButton variant="neutral" disabled={busy !== null} onClick={() => setDecision(null)}>Zrušiť</AdminActionButton>
+          <AdminActionButton variant={decision?.action === "reject" ? "destructive" : "primary"}
+            disabled={busy !== null || !decision} onClick={() => void confirmMediaDecision()}>
+            {busy ? (decision?.action === "reject" ? "Zamietam…" : "Schvaľujem…")
+              : decision?.action === "reject" ? "Zamietnuť označené" : "Schváliť označené"}
+          </AdminActionButton>
+        </>}>
+        <div className={styles.confirmBody}>
+          <strong>Počet označených obrázkov: {decision?.ids.length ?? 0}</strong>
+          {singleDecisionItem?.monitor.candidateImageKey ? (
+            <img className={styles.confirmImage}
+              src={`/media/${singleDecisionItem.monitor.candidateImageKey}`}
+              alt={`Navrhovaný obrázok pre ${singleDecisionItem.label}`} />
+          ) : null}
+          {decision?.action === "reject" ? (
+            <p>Zamietnuté návrhy sa odstránia z aktuálnej kontroly. Aktuálne publikované obrázky sa tým nezmenia. Systém sa následne pokúsi nájsť iných kandidátov; náhrada nie je zaručená.</p>
+          ) : (
+            <p>Nové obrázky sa uložia k príslušným profilom alebo podujatiam a môžu nahradiť ich doterajšie obrázky.</p>
+          )}
+          {decision?.action === "reject" ? (
+            <p className={styles.reasonNotice}>Dôvod zamietnutia zatiaľ nie je možné bezpečne uložiť. Textové pole sa zobrazí až po schválení samostatnej auditnej persistence.</p>
+          ) : null}
+          {resultTone === "error" && message ? <p role="alert" className={styles.errorNotice}>{message}</p> : null}
+        </div>
+      </AdminModalDialog>
+      <AdminModalDialog open={Boolean(detailItem) && !decision}
+        title={detailItem ? `Porovnanie obrázkov – ${detailItem.label}` : "Porovnanie obrázkov"}
+        description="Detail aktuálneho a navrhovaného obrázka bez straty filtrov a výberu."
+        onClose={() => setDetailId(null)}
+        footer={<AdminActionButton variant="neutral" onClick={() => setDetailId(null)}>Späť na zoznam</AdminActionButton>}>
+        <div className={styles.detailPreview}>
+          {detailItem?.monitor.activeImageKey ? (
+            <figure>
+              <figcaption>Aktuálny obrázok</figcaption>
+              <img src={`/media/${detailItem.monitor.activeImageKey}`} alt={`Aktuálny obrázok pre ${detailItem.label}`} />
+            </figure>
+          ) : <p>Profil zatiaľ nemá aktuálny obrázok.</p>}
+          {detailItem?.monitor.candidateImageKey ? (
+            <figure>
+              <figcaption>Navrhovaný obrázok</figcaption>
+              <img src={`/media/${detailItem.monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${detailItem.label}`} />
+            </figure>
+          ) : null}
+        </div>
+      </AdminModalDialog>
       {data.availability.status === "PARTIAL" || data.availability.status === "UNAVAILABLE" ? (
         <section className="admin-panel" aria-live="polite">
           <p className="admin-message admin-message--error">
@@ -545,7 +596,14 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
               </Link>
             </div>
 
-            {message && <p className="admin-flash" role="status">{message}</p>}
+            {message && <p className="admin-flash" role={resultTone === "error" ? "alert" : "status"}>{message}</p>}
+            {failedItems.length > 0 ? (
+              <div className={styles.failedPanel} role="status">
+                <strong>Nepodarilo sa spracovať {failedItems.length} položiek</strong>
+                <ul>{failedItems.map(({ id, error }) => <li key={id}>ID {id}: {error}</li>)}</ul>
+                <p>Neúspešné položky zostanú označené, ak sú ešte na tejto strane.</p>
+              </div>
+            ) : null}
             {mediaUnavailable && (
               <p className="admin-message admin-message--error">
                 Monitoring obrázkov momentálne nie je dostupný. Skús obnoviť údaje.
@@ -579,33 +637,23 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                 )}
 
                 {reviewableMediaIds.length ? (
-                  <div className="admin-quality-summary-line" data-admin-quality-bulk>
+                  <div className={styles.selectAll}>
                     <label>
-                      <input
-                        type="checkbox"
-                        checked={allReviewableSelected}
-                        onChange={(event) => {
-                          setSelectedMedia(event.target.checked ? new Set(reviewableMediaIds) : new Set());
-                        }}
-                      />{" "}
-                      Označiť všetky obrázky na tejto strane
+                      <input type="checkbox" checked={allReviewableSelected}
+                        onChange={(event) => setSelectedMedia(event.target.checked
+                          ? new Set(reviewableMediaIds) : new Set())} />
+                      Označiť všetky obrázky na tejto strane ({reviewableMediaIds.length})
                     </label>
-                    <span>Označené {visibleSelectedMedia.size}</span>
-                    <button
-                      type="button"
-                      disabled={!visibleSelectedMedia.size || busy !== null}
-                      onClick={() => void bulkMediaAction("accept")}
-                    >
-                      {busy === "bulk-accept" ? "Schvaľujem…" : "Schváliť označené"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!visibleSelectedMedia.size || busy !== null}
-                      onClick={() => void bulkMediaAction("reject")}
-                    >
-                      {busy === "bulk-reject" ? "Zamietam…" : "Zamietnuť a hľadať iný"}
-                    </button>
                   </div>
+                ) : null}
+                {visibleSelectedMedia.size > 0 ? (
+                  <AdminBulkActionToolbar selectedCount={visibleSelectedMedia.size}
+                    selectionDescription="Výber platí len pre aktuálnu stranu."
+                    primaryAction={<AdminActionButton variant="primary" disabled={busy !== null}
+                      onClick={() => openMediaDecision("accept", [...visibleSelectedMedia])}>Schváliť označené</AdminActionButton>}
+                    destructiveAction={<AdminActionButton variant="destructive" disabled={busy !== null}
+                      onClick={() => openMediaDecision("reject", [...visibleSelectedMedia])}>Zamietnuť označené</AdminActionButton>}
+                    onClear={() => setSelectedMedia(new Set())} />
                 ) : null}
 
                 {data.media.length ? (
@@ -615,20 +663,20 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                       const hasCurrent = Boolean(monitor.activeImageKey);
                       return (
                         <article
-                          className={`admin-quality-media-card ${hasCandidate ? "has-candidate" : "is-source-issue"}`}
+                          className={`admin-quality-media-card ${styles.reviewCard} ${hasCandidate ? "has-candidate" : "is-source-issue"}`}
                           key={monitor.id}
                         >
-                          <div className="admin-quality-media-preview" aria-label={hasCandidate ? "Porovnanie obrázkov" : "Stav obrázka"}>
+                          <div className="admin-quality-media-preview" aria-label={hasCandidate ? `Porovnanie obrázkov – ${label}` : `Stav obrázka – ${label}`}>
                             {hasCurrent && hasCandidate ? (
                               <figure>
                                 <span>Aktuálny</span>
-                                <img src={`/media/${monitor.activeImageKey}`} alt="" />
+                                <img src={`/media/${monitor.activeImageKey}`} alt={`Aktuálny obrázok pre ${label}`} />
                               </figure>
                             ) : null}
                             {hasCandidate ? (
                               <figure>
                                 <span>{hasCurrent ? "Nový" : "Nájdený"}</span>
-                                <img src={`/media/${monitor.candidateImageKey}`} alt="" />
+                                <img src={`/media/${monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${label}`} />
                               </figure>
                             ) : (
                               <div className="admin-quality-media-placeholder" aria-hidden="true">!</div>
@@ -683,26 +731,20 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                             )}
                           </div>
 
-                          <div className="admin-quality-media-actions">
-                            {hasCandidate && (
+                          <div className={`admin-quality-media-actions ${styles.reviewActions}`}>
+                            {hasCandidate ? (
                               <>
-                                <button
-                                  className="is-primary"
-                                  type="button"
-                                  disabled={busy !== null}
-                                  onClick={() => acceptCandidate(monitor.id)}
-                                >
-                                  {busy === `accept-${monitor.id}` ? "Ukladám…" : "Schváliť obrázok"}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={busy !== null}
-                                  onClick={() => void bulkMediaAction("reject", [monitor.id])}
-                                >
-                                  Zamietnuť · hľadať iný
-                                </button>
+                                <AdminActionButton variant="primary" disabled={busy !== null}
+                                  aria-label={`Schváliť obrázok – ${label}`}
+                                  onClick={() => openMediaDecision("accept", [monitor.id])}>Schváliť obrázok</AdminActionButton>
+                                <AdminActionButton variant="destructive" disabled={busy !== null}
+                                  aria-label={`Zamietnuť obrázok – ${label}`}
+                                  onClick={() => openMediaDecision("reject", [monitor.id])}>Zamietnuť</AdminActionButton>
+                                <AdminActionButton variant="secondary" disabled={busy !== null}
+                                  aria-label={`Detailne porovnať obrázky – ${label}`}
+                                  onClick={() => setDetailId(monitor.id)}>Porovnať detailne</AdminActionButton>
                               </>
-                            )}
+                            ) : null}
                             <Link href={href}>Otvoriť {monitor.entityType === "MANAGED_EVENT" ? "podujatie" : "profil"}</Link>
                           </div>
                         </article>
