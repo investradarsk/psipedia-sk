@@ -89,6 +89,8 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
         run: npx playwright install --with-deps chromium
+      - name: Gemini publication browser lifecycle (22 categories, mocked API; desktop/mobile)
+        run: node --experimental-strip-types --test tests/gemini-published-browser.test.mjs
       - name: Gemini modal desktop and mobile (mocked API only)
         env:
           GEMINI_TEST_SCREENSHOTS: test-artifacts/gemini-concept-review-v3

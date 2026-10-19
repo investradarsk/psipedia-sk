@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { geminiAutomationCatalog, geminiAutomationSections, type GeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { geminiConceptDate, geminiConceptMatchesSearch, geminiCanonicalEditorUrl } from "@/lib/gemini-concept-manager";
@@ -23,6 +23,9 @@ export function AdminGeminiAllConcepts() {
   const [revision, setRevision] = useState(0);
   const [loaded, setLoaded] = useState<Record<string, Draft[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Preserve D1-confirmed publications when the visible rows are cleared on
+  // manual reload. A full page navigation recomputes state from canonical D1.
+  const publishedByCategory = useRef<Record<string, Set<string>>>({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("ALL");
   const [status, setStatus] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
@@ -43,7 +46,17 @@ export function AdminGeminiAllConcepts() {
             throw new Error(data.error || "Načítanie zlyhalo");
           }
           if (!controller.signal.aborted) {
-            setLoaded(previous => ({ ...previous, [key]: preserveGeminiPublished(previous[key] ?? [], data.drafts!) }));
+            const confirmed = publishedByCategory.current[key] ?? new Set<string>();
+            for (const draft of data.drafts) {
+              if (draft.reviewState === "PUBLISHED") confirmed.add(draft.id);
+            }
+            publishedByCategory.current[key] = confirmed;
+            const protectedRows = data.drafts.map(draft =>
+              confirmed.has(draft.id) ? { ...draft, reviewState: "PUBLISHED" as const } : draft
+            );
+            setLoaded(previous => ({
+              ...previous, [key]: preserveGeminiPublished(previous[key] ?? [], protectedRows),
+            }));
           }
         } catch (error) {
           if (!controller.signal.aborted) {

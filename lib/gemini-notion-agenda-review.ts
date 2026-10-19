@@ -105,7 +105,7 @@ function identifiable(page: Page, agenda: BidirectionalAgendaKey, sourceId: stri
   // profile is published and its new state is mirrored back into Notion.
   // Never treat a Notion-only "published" label as canonical publication.
   const mirroredPublic = ["Publikované", "published", "ACTIVE", "RESOLVED"].includes(status);
-  if (!drafts.includes(status) && !(trusted && mirroredPublic)) return false;
+  if (!drafts.includes(status) && !mirroredPublic) return false;
   const description = txt(page, "Popis");
   return trusted || description.includes(evidenceTag(agenda)) && /https:\/\/[^\s]+/.test(description);
 }
@@ -266,14 +266,26 @@ export async function listGeminiAgendaDrafts(env: GeminiAgendaReviewEnv, key: st
   const drafts: GeminiAgendaDraft[] = [];
   const trusted = await trustedPageIds(env, key, agenda, source.id);
   const seen = new Set<string>();
+  const unsignedPublished = new Set<string>();
   for (let i = 0; i < 40; i++) {
     const response: SourcePages = await notionRequest<SourcePages>(env, "/data_sources/" + encodeURIComponent(source.id) + "/query",
       { method: "POST", body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }) });
     if (!Array.isArray(response.results) || typeof response.has_more !== "boolean")
       throw new GeminiAgendaReviewError("SCHEMA");
-    for (const page of response.results) if (identifiable(page, agenda, source.id, key, trusted.has(normalized(page.id))))
-      drafts.push(toDraft(page, key, agenda, source, trusted.has(normalized(page.id))));
-    if (!response.has_more) return enrichCanonicalMappings(env, agenda, drafts);
+    for (const page of response.results) {
+      const signed = trusted.has(normalized(page.id));
+      if (!identifiable(page, agenda, source.id, key, signed)) continue;
+      const status = txt(page, source.status);
+      if (!signed && ["Publikované", "published", "ACTIVE", "RESOLVED"].includes(status))
+        unsignedPublished.add(normalized(page.id));
+      drafts.push(toDraft(page, key, agenda, source, signed));
+    }
+    if (!response.has_more) {
+      const enriched = await enrichCanonicalMappings(env, agenda, drafts);
+      // Unsigned, legacy evidence is insufficient on its own to expose an
+      // already-public page. Require verified canonical D1 mapping.
+      return enriched.filter(draft => !unsignedPublished.has(normalized(draft.id)) || draft.canonicalVerified);
+    }
     if (!response.next_cursor || seen.has(response.next_cursor)) throw new GeminiAgendaReviewError("SCHEMA");
     cursor = response.next_cursor;
     seen.add(cursor);
@@ -289,6 +301,9 @@ export async function getGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: stri
   const trusted = (await trustedPageIds(env, key, agenda, source.id)).has(normalized(page.id));
   if (!identifiable(page, agenda, source.id, key, trusted)) throw new GeminiAgendaReviewError("NOT_FOUND");
   const [draft] = await enrichCanonicalMappings(env, agenda, [toDraft(page, key, agenda, source, trusted)]);
+  const status = txt(page, source.status);
+  if (!trusted && ["Publikované", "published", "ACTIVE", "RESOLVED"].includes(status) && !draft.canonicalVerified)
+    throw new GeminiAgendaReviewError("NOT_FOUND");
   return { draft, page, source, trusted };
 }
 function chunks(value: string) {

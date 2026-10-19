@@ -665,3 +665,30 @@ test("publication is read from canonical D1 status, not Notion text, for all 12 
     });
   }
 });
+
+test("legacy source-evidence public records remain in Published history only with verified canonical D1 mapping", async () => {
+  for (const stableKey of ["events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", "help.stratene-a-najdene"]) {
+    const f = fixture(stableKey, false);
+    const agenda = geminiAgendaForKey(stableKey);
+    const field = ["help-cases", "lost-found"].includes(agenda) ? "Psipedia stav" : "Stav";
+    f.value.properties[field] = ["help-cases", "lost-found"].includes(agenda)
+      ? rich(agenda === "lost-found" ? "ACTIVE" : "published")
+      : select("Publikované");
+    await mockedFetch(f.request, async () => {
+      // Textual publication/evidence without the immutable D1 link is never sufficient.
+      assert.deepEqual(await listGeminiAgendaDrafts(f.env, stableKey), [], stableKey);
+      f.mapToCanonical(781, "draft");
+      const imported = await listGeminiAgendaDrafts(f.env, stableKey);
+      assert.equal(imported.length, 1, stableKey);
+      assert.equal(imported[0].reviewState, "IMPORTED", stableKey);
+      const publishedStatus = ({
+        events: "published", organizations: "PUBLISHED", adoptions: "ACTIVE",
+        "help-cases": "published", "lost-found": "ACTIVE",
+      })[agenda];
+      f.mapToCanonical(781, publishedStatus);
+      const history = await listGeminiAgendaDrafts(f.env, stableKey);
+      assert.equal(history.length, 1, stableKey);
+      assert.equal(history[0].reviewState, "PUBLISHED", stableKey);
+    });
+  }
+});
