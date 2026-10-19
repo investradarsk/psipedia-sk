@@ -108,7 +108,7 @@ function slotEvidence(row, repeats) {
   };
 }
 
-// Compare anonymous summaries. Deployment SHAs must be independently supplied from production records.
+/** Compare anonymous summaries. Deployment SHAs must be independently supplied from production records. */
 export function compareSummaries(before, after, { beforeDeploymentSha, afterDeploymentSha } = {}) {
   const a = validateSummary(before), b = validateSummary(after);
   const am = before.manifest, bm = after.manifest;
@@ -175,7 +175,7 @@ export function renderMarkdown(report) {
     `Comparable slots: **${t.comparable_slots}**; missing URL rows: **${t.missing_urls}**; unavailable URLs: **${t.unavailable_urls}**; incomplete slots: **${t.incomplete_slots}**.`,
     `Metric directions: **${t.improvements} improvements**, **${t.regressions} regressions**, ${t.unchanged} unchanged, ${t.unknown} UNKNOWN.`, '',
     '| URL | Device | Slot status | Metric | Before | After | Δ after−before | Δ % | Direction |',
-    '| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |',
+    '| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |',
   ];
   for (const slot of slots) {
     for (const [metric, spec] of Object.entries(METRICS)) {
