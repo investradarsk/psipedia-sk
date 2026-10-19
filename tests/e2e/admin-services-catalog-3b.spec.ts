@@ -1,10 +1,14 @@
 import {mkdirSync} from "node:fs";
 import {expect,test,type Page} from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 const root=".e2e-artifacts/services-v3-admin-3b";
 const label=(width:number)=>width===1440?"desktop-1440":"mobile-"+width;
 const capture=async(page:Page,name:string,fullPage=true)=>{
   mkdirSync(root,{recursive:true});
+  // Restore the natural top-of-page viewport before full-page capture. Sticky headers
+  // otherwise get stitched into the middle of the full-page PNG after clicking a row.
+  await page.evaluate(()=>{window.scrollTo(0,0);if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
+  await page.waitForTimeout(100);
+  if(name.startsWith("catalog-mobile-"))await page.screenshot({path:root+"/"+name+"-viewport.png",fullPage:false,animations:"disabled"});
   await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled"});
 };
 const noOverflow=async(page:Page,name:string)=>{
@@ -22,6 +26,7 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    const r=await page.goto("/admin/sluzby-pre-psov/katalog",{waitUntil:"domcontentloaded"});
    expect(r?.status()).toBe(200);
    await expect(page.getByRole("heading",{level:1,name:"Katalóg služieb a vlastností"})).toBeVisible();
+   await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg",{exact:true})).toBeVisible();
    await expect(page.getByText("Zápisy Services V3 sú zatiaľ vypnuté")).toBeVisible();
    await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeDisabled();
    const list=page.locator('[aria-label="Možnosti katalógu"]');
