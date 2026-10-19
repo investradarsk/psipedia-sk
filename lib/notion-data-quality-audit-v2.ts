@@ -1,8 +1,8 @@
 import {
   decideBidirectionalChange,
   differingAgendaSnapshotFields,
-} from "./notion-bidirectional-reconciliation";
-import type { NotionAuditAgenda, NotionAuditPage } from "./notion-data-quality-audit";
+} from "./notion-bidirectional-reconciliation.ts";
+import type { NotionAuditAgenda, NotionAuditPage } from "./notion-data-quality-audit.ts";
 
 /**
  * AUDIT 02 — read-only evidence analysis, separate from every write-capable sync.
