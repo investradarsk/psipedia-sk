@@ -1,0 +1,82 @@
+name: PSIPEDIA — Public Visual Screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      page:
+        description: Public page or curated group (no arbitrary URLs)
+        required: true
+        type: choice
+        default: homepage
+        options:
+          - homepage
+          - adresar
+          - plemena
+          - podujatia
+          - pomoc-psom
+          - clanky
+          - steniatka
+          - starostlivost
+          - aktivity
+          - recenzie
+          - mapa
+          - core
+          - content
+          - all
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/public-visual-screenshots.yml'
+      - 'scripts/public-visual-screenshots.mjs'
+      - 'tests/public-visual-screenshots.test.mjs'
+      - 'docs/public-visual-screenshots.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-visual-screenshots-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: Capture public production screenshots
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      VISUAL_PAGE: ${{ github.event_name == 'pull_request' && 'homepage' || inputs.page || 'homepage' }}
+      VISUAL_OUTPUT_DIR: public-visual-output
+    steps:
+      - name: Checkout this revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install existing dependencies
+        run: npm ci
+      - name: Validate screenshot configuration and failure handling
+        run: node --test tests/public-visual-screenshots.test.mjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture live production (read-only)
+        run: node scripts/public-visual-screenshots.mjs
+      - name: Publish Markdown run summary
+        if: always()
+        run: |
+          if test -f public-visual-output/reports/summary.md; then
+            cat public-visual-output/reports/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload screenshot PNGs and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psipedia-public-visual-screenshots-${{ github.run_id }}-${{ github.run_attempt }}
+          path: public-visual-output/
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 0
