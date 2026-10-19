@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
-import {createAdminCatalogOption,saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError} from "../lib/service-catalog-admin-store.ts";
+import {createAdminCatalogOption,saveAdminServiceChoice,resetAdminServiceChoice,requireServiceCatalogAuditSchema,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "../lib/service-catalog-admin-store.ts";
 import {mutateAdminCatalogOption,recordCatalogMirrorOutcome} from "../lib/service-catalog-admin-lifecycle.ts";
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
@@ -120,6 +120,45 @@ test("explicit tri-state attribute and YES/NO reset-to-UNKNOWN do not synthesize
   await assert.rejects(()=>resetAdminServiceChoice(db,{profileId:3,optionId:attr.optionId,expectedVersion:1},actor),ServiceCatalogConflictError);
   await assert.rejects(()=>saveAdminServiceChoice(db,{...attr,choice:"unknown"},actor),ServiceCatalogInputError);
   await assert.rejects(()=>saveAdminServiceChoice(db,{...attr,optionId:"attr.vet.focus_areas"},actor),ServiceCatalogInputError);
+  // An old browser still holding version 1 must not overwrite a new value
+  // after RESET and a reinsert (the classic compare-and-swap ABA problem).
+  const reinserted=await saveAdminServiceChoice(db,{...attr,choice:"no",expectedVersion:0},actor);
+  assert.equal(reinserted.version,2);
+  await assert.rejects(()=>saveAdminServiceChoice(db,{...attr,choice:"yes",expectedVersion:1},actor),ServiceCatalogConflictError);
+  const latest=await saveAdminServiceChoice(db,{...attr,choice:"yes",expectedVersion:2},actor);
+  assert.equal(latest.version,3);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND option_id=?").get(attr.optionId).n,5);
+
+ }finally{sqlite.close();}
+});
+
+test("0134 must exist completely, not just as a table without audit triggers",async()=>{
+ const missing=new DatabaseSync(":memory:");
+ try{
+   const db={prepare(sql){return new Statement(missing,sql);}};
+   await assert.rejects(()=>requireServiceCatalogAuditSchema(db),ServiceCatalogSchemaError);
+   missing.exec("CREATE TABLE service_catalog_admin_change_audit (id INTEGER PRIMARY KEY)");
+   await assert.rejects(()=>requireServiceCatalogAuditSchema(db),ServiceCatalogSchemaError);
+ }finally{missing.close();}
+ const {sqlite,db}=fixture();
+ try{
+   await requireServiceCatalogAuditSchema(db);
+   sqlite.exec("DROP TRIGGER service_catalog_admin_choice_audit_update");
+   await assert.rejects(()=>requireServiceCatalogAuditSchema(db),ServiceCatalogSchemaError);
+ }finally{sqlite.close();}
+});
+test("0134 history is append-only, RESET is attributed, and every physical delete is logged",async()=>{
+ const {sqlite,db}=fixture();
+ try{
+  await saveAdminServiceChoice(db,{profileId:1,optionId:"attr.vet.home_visits",choice:"yes",expectedVersion:0},actor);
+  assert.throws(()=>sqlite.exec("UPDATE service_catalog_admin_change_audit SET actor='forged'"),/append-only/);
+  assert.throws(()=>sqlite.exec("DELETE FROM service_catalog_admin_change_audit"),/append-only/);
+  await resetAdminServiceChoice(db,{profileId:1,optionId:"attr.vet.home_visits",expectedVersion:1},actor);
+  const changes=sqlite.prepare("SELECT operation,actor FROM service_catalog_admin_change_audit ORDER BY id").all();
+  assert.deepEqual(changes.map(x=>x.operation),["INSERT","RESET","DELETE"]);
+  assert.equal(changes[1].actor,actor);
+  assert.equal(changes[2].actor,"system:db_delete");
+  assert.equal(sqlite.prepare("PRAGMA foreign_key_check").all().length,0);
  }finally{sqlite.close();}
 });
 test("no migration 0133 replay, live Notion writer or public feature-flag activation",()=>{
