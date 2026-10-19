@@ -87,6 +87,7 @@ export function findActiveAdminNavigationItem(pathname: string) {
 function detailLabel(pathname: string) {
   const path = normalizedPath(pathname);
   if (/\/(novy|nove)$/.test(path)) return "Nový záznam";
+  if (/\/sluzby-pre-psov\/katalog$/.test(path)) return "Katalóg";
   if (/\/audit$/.test(path)) return "Audit";
   if (/\/pokrytie$/.test(path)) return "Pokrytie";
   if (/\/prehlad$/.test(path)) return "Prehľad";
