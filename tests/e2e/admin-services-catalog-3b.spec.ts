@@ -1,4 +1,4 @@
-import {mkdirSync} from "node:fs";
+import {mkdirSync,writeFileSync} from "node:fs";
 import {expect,test,type Page} from "@playwright/test";
 const root=".e2e-artifacts/services-v3-admin-3b";
 const label=(width:number)=>width===1440?"desktop-1440":"mobile-"+width;
@@ -8,9 +8,105 @@ const capture=async(page:Page,name:string,fullPage=true)=>{
   // otherwise get stitched into the middle of the full-page PNG after clicking a row.
   await page.evaluate(()=>{window.scrollTo(0,0);if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
   await page.waitForTimeout(100);
-  if(name.startsWith("catalog-mobile-"))await page.screenshot({path:root+"/"+name+"-viewport.png",fullPage:false,animations:"disabled",scale:"css"});
   await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled",scale:"css"});
 };
+
+// Viewport evidence is intentionally separate from full-page stitching. It captures
+// exactly what a mobile user sees both at the start and after scrolling.
+const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded",width:320|390)=>{
+  const height=width===320?720:844;
+  const name="catalog-panel-"+state+"-mobile-"+width;
+  const search=page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true});
+  const toggle=page.getByRole("button",{name:/^Filtre/});
+  const measure=async(phase:"top"|"scrolled")=>page.evaluate((phase)=>{
+    const topbar=document.querySelector<HTMLElement>("[data-admin-topbar]");
+    const section=document.querySelector<HTMLElement>('section[aria-label="Katalóg služieb a vlastností"]');
+    const heading=document.querySelector<HTMLElement>("h1");
+    const panel=section?.querySelector<HTMLElement>("[data-write-enabled]");
+    const search=section?.querySelector<HTMLInputElement>('input[type="search"]');
+    const summary=section?.querySelector<HTMLElement>("summary");
+    const buttons=Array.from(section?.querySelectorAll<HTMLButtonElement>("button")??[]);
+    const filters=buttons.find(button=>/^Filtre(?:\s|$)/.test(button.textContent?.trim()??""));
+    const create=buttons.find(button=>button.textContent?.includes("+ Nová možnosť"));
+    if(!topbar||!section||!heading||!panel||!search||!summary||!filters||!create){
+      throw new Error("Viewport evidence: required admin controls missing");
+    }
+    const rectangle=(element:Element)=>{
+      const r=element.getBoundingClientRect();
+      const x=r.left+r.width/2,y=r.top+r.height/2;
+      const inViewport=x>=0&&x<innerWidth&&y>=0&&y<innerHeight;
+      const hit=inViewport?document.elementFromPoint(x,y):null;
+      return {
+        top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height,
+        inViewport,centerHittable:!inViewport||hit===element||element.contains(hit),
+        centerCoveredByHeader:inViewport&&Boolean(hit&&(hit===topbar||topbar.contains(hit)))
+      };
+    };
+    return {
+      phase,scrollY:scrollY,viewport:{width:innerWidth,height:innerHeight},
+      header:{...rectangle(topbar),position:getComputedStyle(topbar).position},
+      heading:rectangle(heading),panel:rectangle(panel),summary:rectangle(summary),
+      search:rectangle(search),filters:rectangle(filters),create:rectangle(create)
+    };
+  },phase);
+  await page.evaluate(()=>{
+    window.scrollTo(0,0);
+    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+  });
+  await page.waitForFunction(()=>window.scrollY===0);
+  const top=await measure("top");
+  expect(top.viewport,"browser viewport dimensions").toMatchObject({width,height});
+  expect(top.header.position,"mobile header must remain sticky").toBe("sticky");
+  expect(top.header.top,"top viewport header placement").toBeGreaterThanOrEqual(-2);
+  expect(top.header.top,"top viewport header placement").toBeLessThanOrEqual(2);
+  expect(top.heading.top,"heading must begin below header").toBeGreaterThanOrEqual(top.header.bottom);
+  expect(top.panel.top,"status panel must begin below header").toBeGreaterThanOrEqual(top.header.bottom);
+  for(const key of ["search","filters","create"] as const){
+    const item=top[key];
+    if(item.inViewport&&item.top>=top.header.bottom&&item.bottom<=height){
+      expect(item.centerCoveredByHeader,name+" top "+key+" header overlap").toBe(false);
+      expect(item.centerHittable,name+" top "+key+" must be hit-testable").toBe(true);
+    }
+  }
+  mkdirSync(root,{recursive:true});
+  await page.screenshot({path:root+"/"+name+"-viewport-top.png",fullPage:false,animations:"disabled",scale:"css"});
+  // Scroll so the search field is in the first unobstructed band below the
+  // sticky header. This checks actual painted/hit-tested positions, not full-page layout.
+  await page.evaluate(()=>{
+    const header=document.querySelector<HTMLElement>("[data-admin-topbar]");
+    const input=document.querySelector<HTMLInputElement>('section[aria-label="Katalóg služieb a vlastností"] input[type="search"]');
+    if(!header||!input)throw new Error("Cannot find mobile header and catalog search");
+    const target=window.scrollY+input.getBoundingClientRect().top-header.getBoundingClientRect().bottom-16;
+    window.scrollTo(0,Math.max(0,target));
+  });
+  await page.waitForFunction(()=>window.scrollY>0);
+  const scrolled=await measure("scrolled");
+  expect(scrolled.header.top,name+" scrolled header top").toBeGreaterThanOrEqual(-2);
+  expect(scrolled.header.top,name+" scrolled header top").toBeLessThanOrEqual(2);
+  expect(scrolled.search.top,name+" search below sticky header").toBeGreaterThanOrEqual(scrolled.header.bottom+4);
+  expect(scrolled.search.bottom,name+" search visible after scroll").toBeLessThan(height);
+  for(const key of ["search","filters","create"] as const){
+    const item=scrolled[key];
+    if(item.inViewport&&item.top>=scrolled.header.bottom&&item.bottom<=height){
+      expect(item.centerCoveredByHeader,name+" scrolled "+key+" header overlap").toBe(false);
+      expect(item.centerHittable,name+" scrolled "+key+" must be hit-testable").toBe(true);
+    }
+  }
+  await page.screenshot({path:root+"/"+name+"-viewport-scrolled.png",fullPage:false,animations:"disabled",scale:"css"});
+  // Verify Playwright can actually use the controls at this scroll position.
+  await search.click();
+  await expect(search).toBeFocused();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded","true");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded","false");
+  writeFileSync(root+"/"+name+"-viewport-rectangles.json",JSON.stringify({top,scrolled},null,2)+"\n");
+  await page.evaluate(()=>{
+    window.scrollTo(0,0);
+    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+  });
+};
+
 const noOverflow=async(page:Page,name:string)=>{
   const {scroll,client}=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
   expect(scroll,name+" horizontal document overflow").toBeLessThanOrEqual(client+1);
@@ -78,6 +174,9 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
       expect(Math.abs(d!.x-l!.x),"mobile list/detail align").toBeLessThan(4);
    }else expect(d!.x,"desktop detail sits alongside list").toBeGreaterThan(l!.x+l!.width-3);
    await noOverflow(page,label(viewport.width));
+   if(viewport.width===320||viewport.width===390){
+     await captureMobileViewportEvidence(page,"collapsed",viewport.width);
+   }
    await capture(page,"catalog-panel-collapsed-"+label(viewport.width));
    // Native <summary> works with keyboard and announces expanded state through <details open>.
    await summary.focus();
@@ -88,6 +187,9 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await expect(panel.getByText("Vstavané statické možnosti nie sú editovateľné.")).toBeVisible();
    await expect(panel.getByText("Vytvorenie konceptu neznamená automatické schválenie ani verejné publikovanie.")).toBeVisible();
    await noOverflow(page,"expanded-"+label(viewport.width));
+   if(viewport.width===320||viewport.width===390){
+     await captureMobileViewportEvidence(page,"expanded",viewport.width);
+   }
    await capture(page,"catalog-panel-expanded-"+label(viewport.width));
    await summary.press("Space");
    await expect(disclosure).not.toHaveAttribute("open");

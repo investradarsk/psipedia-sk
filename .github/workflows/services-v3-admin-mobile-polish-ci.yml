@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   review:
-    name: Local authenticated Playwright, six screenshots and contracts
+    name: Local authenticated Playwright, 14 screenshots and contracts
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -84,7 +84,7 @@ jobs:
         run: npx playwright test tests/e2e/admin-services-catalog-3b.spec.ts --project=desktop-chromium --workers=1 --retries=0
       - name: Real mobile 390 and 320 Playwright and screenshots
         run: npx playwright test tests/e2e/admin-services-catalog-3b.spec.ts --project=mobile-chromium --workers=1 --retries=0
-      - name: Verify six actual rendered PNG outputs
+      - name: Verify six full-page and eight viewport PNG outputs
         run: |
           node --input-type=module <<'NODE'
           import {readFileSync} from 'node:fs';
@@ -101,13 +101,36 @@ jobs:
               console.log('verified: '+path);
             }
           }
+          for(const width of [390,320]){
+            const height=width===390?844:720;
+            for(const state of ['collapsed','expanded']){
+              const prefix=root+'catalog-panel-'+state+'-mobile-'+width;
+              const [top,scrolled]=['top','scrolled'].map(position=>{
+                const path=prefix+'-viewport-'+position+'.png';
+                const png=readFileSync(path);
+                assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a',path+' is not a PNG');
+                assert.equal(png.readUInt32BE(16),width,path+' wrong viewport width');
+                assert.equal(png.readUInt32BE(20),height,path+' wrong viewport height');
+                console.log('verified: '+path);
+                return png;
+              });
+              assert.ok(!top.equals(scrolled),prefix+' viewport must change after scroll');
+              const report=JSON.parse(readFileSync(prefix+'-viewport-rectangles.json','utf8'));
+              assert.ok(report.scrolled.scrollY>0,prefix+' did not scroll');
+              assert.equal(report.scrolled.header.position,'sticky',prefix+' header is not sticky');
+              assert.ok(report.scrolled.search.top>=report.scrolled.header.bottom+4,prefix+' search is covered');
+              console.log('verified DOM rectangles: '+prefix);
+            }
+          }
           NODE
-      - name: Upload six visual-review screenshots
+      - name: Upload 14 visual-review screenshots and viewport rectangle evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: services-v3-admin-mobile-polish-01-${{ github.run_attempt }}
-          path: .e2e-artifacts/services-v3-admin-3b/catalog-panel-*.png
+          path: |
+            .e2e-artifacts/services-v3-admin-3b/catalog-panel-*.png
+            .e2e-artifacts/services-v3-admin-3b/catalog-panel-*-viewport-rectangles.json
           if-no-files-found: warn
           retention-days: 14
       - name: Stop isolated local server
