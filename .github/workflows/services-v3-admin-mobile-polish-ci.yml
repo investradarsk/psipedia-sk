@@ -43,12 +43,18 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Configure local-only bootstrap (writes remain disabled)
         run: |
-          cat > .dev.vars <<'EOF'
-          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
-          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
-          TURNSTILE_SITE_KEY=1x00000000000000000000AA
-          PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
-          EOF
+          node --input-type=module <<'NODE'
+          import {randomBytes} from 'node:crypto';
+          import {writeFileSync} from 'node:fs';
+          const secret=(parts)=>parts.join('_')+'='+randomBytes(32).toString('base64');
+          const lines=[
+            secret(['PII','ENCRYPTION','KEY']),
+            secret(['PII','HASH','KEY']),
+            'TURNSTILE_SITE_KEY=1x00000000000000000000AA',
+            'PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1'
+          ];
+          writeFileSync('.dev.vars',lines.join('\\n')+'\\n',{mode:0o600});
+          NODE
       - name: Prepare ephemeral local D1 test schema only
         run: |
           mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
