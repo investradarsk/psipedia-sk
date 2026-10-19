@@ -106,14 +106,21 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
   if(!allowed||!allowed.includes(profile.category as ServiceFilterCategory))
     throw new ServiceCatalogInputError("Service is unknown, inactive or not eligible for this category.");
   const time=now.toISOString();
+  const dynamicOption=/^(svc|attr)\.admin\./.test(input.optionId);
   let saved:ChoiceRow|null;
   try{
     if(input.expectedVersion===0){
       const sql=[
         "INSERT INTO service_profile_option_choices",
         "(profile_id,option_id,choice,version,created_at,updated_at,created_by,updated_by)",
-        "SELECT ?1,?2,?3,1,?4,?4,?5,?5 WHERE EXISTS",
+        // Never recycle an old version after YES/NO -> UNKNOWN -> YES/NO.
+        // The 0134 ledger survives RESET and profile deletion; stale clients must
+        // not be able to overwrite a newly inserted row using an old version.
+        "SELECT ?1,?2,?3,(SELECT COALESCE(MAX(COALESCE(next_version,prior_version)),0)+1",
+        "FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND profile_id=?1 AND option_id=?2),?4,?4,?5,?5 WHERE EXISTS",
         "(SELECT 1 FROM directory_profiles WHERE id=?1 AND category=?6 AND status<>'archived')",
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?2 AND status='ACTIVE' AND notion_mirror_status='SYNCED'",
+          "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?6))"]:[]),
         "ON CONFLICT (profile_id,option_id) DO NOTHING RETURNING profile_id,option_id,choice,version"
       ].join(" ");
       saved=await db.prepare(sql).bind(input.profileId,input.optionId,input.choice,time,actor,profile.category).first<ChoiceRow>();
@@ -122,6 +129,8 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
         "UPDATE service_profile_option_choices SET choice=?1,version=version+1,updated_at=?2,updated_by=?3",
         "WHERE profile_id=?4 AND option_id=?5 AND version=?6",
         "AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?4 AND category=?7 AND status<>'archived')",
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?5 AND status='ACTIVE' AND notion_mirror_status='SYNCED'",
+          "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?7))"]:[]),
         "RETURNING profile_id,option_id,choice,version"
       ].join(" ");
       saved=await db.prepare(sql).bind(input.choice,time,actor,input.profileId,input.optionId,input.expectedVersion,profile.category).first<ChoiceRow>();
@@ -160,12 +169,29 @@ export async function resetAdminServiceChoice(db:DB & Pick<D1Database,"batch">,
   }catch(err){return handleDbError(err);}
 }
 
-/** Fail closed if additive 0134 history schema has not been provisioned. */
+/** Fail closed for a missing or partially applied/tampered 0134 schema. */
 export async function requireServiceCatalogAuditSchema(db:DB){
-  try{await db.prepare("SELECT id FROM service_catalog_admin_change_audit LIMIT 1").first<{id:number}>();}
-  catch(error){
+  const requiredTriggers=[
+    "service_catalog_admin_option_audit_insert",
+    "service_catalog_admin_option_audit_update",
+    "service_catalog_admin_choice_audit_insert",
+    "service_catalog_admin_choice_audit_update",
+    "service_catalog_admin_choice_audit_delete",
+    "service_catalog_admin_audit_no_update",
+    "service_catalog_admin_audit_no_delete",
+  ];
+  try{
+    await db.prepare("SELECT id FROM service_catalog_admin_change_audit LIMIT 1").first<{id:number}>();
+    const placeholders=requiredTriggers.map((_,i)=>"?"+(i+1)).join(",");
+    const result=await db.prepare(
+      "SELECT COUNT(DISTINCT name) AS found FROM sqlite_schema WHERE type='trigger' AND name IN ("+placeholders+")"
+    ).bind(...requiredTriggers).first<{found:number}>();
+    if(result?.found!==requiredTriggers.length)
+      throw new ServiceCatalogSchemaError("Services V3 audit schema 0134 is incomplete; write blocked.");
+  }catch(error){
     const message=error instanceof Error?error.message:String(error);
-    if(/no such table|no such column/i.test(message))throw new ServiceCatalogSchemaError("Services V3 audit schema 0134 is not provisioned.");
+    if(/no such table|no such column/i.test(message))
+      throw new ServiceCatalogSchemaError("Services V3 audit schema 0134 is not provisioned.");
     throw error;
   }
 }
