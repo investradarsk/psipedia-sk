@@ -1,5 +1,6 @@
 import { eventListingSql, EVENT_PAGE_SIZE, type EventListingFilters } from './event-listing';
 import { bulkEventUpdateSql, validateBulkEvents } from "./admin-events";
+import { adminEventGlobalCountsSql, adminEventYearsSql, buildAdminEventPageSql, type AdminEventListQuery, type AdminEventPageResult } from "./admin-event-pagination";
 import { env } from "cloudflare:workers";
 import { cache } from "react";
 import {
@@ -373,6 +374,46 @@ export async function listManagedEventSummaries() {
     ORDER BY start_date DESC, updated_at DESC, id DESC
   `).all<EventSummaryRow>();
   return result.results.map(rowToEventSummary);
+}
+
+
+/** Scoped administration query: only one SQL-limited page leaves D1. */
+export async function listManagedEventPage(input: AdminEventListQuery): Promise<AdminEventPageResult> {
+  const database = requireD1Binding();
+  const today = bratislavaDateKey();
+  const sql = buildAdminEventPageSql(input, today);
+  const [match, globals, yearsResult] = await Promise.all([
+    database.prepare("SELECT COUNT(*) AS total FROM managed_events WHERE " + sql.where)
+      .bind(...sql.values).first<{total: number}>(),
+    database.prepare(adminEventGlobalCountsSql)
+      .bind(today, today, today, today).first<{
+        all_count: number; upcoming: number; current: number; past: number;
+        published: number; draft: number; cancelled: number;
+      }>(),
+    database.prepare(adminEventYearsSql).all<{year: string}>(),
+  ]);
+  const total = Number(match?.total ?? 0);
+  const pages = Math.max(1, Math.ceil(total / input.pageSize));
+  const page = Math.min(input.page, pages);
+  const result = await database.prepare(
+    "SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, image_url, created_at, updated_at " +
+    "FROM managed_events WHERE " + sql.where + " ORDER BY " + sql.order + " LIMIT ? OFFSET ?",
+  ).bind(...sql.values, ...sql.orderValues, input.pageSize, (page - 1) * input.pageSize).all<EventSummaryRow>();
+
+  const counts = {
+    all: Number(globals?.all_count ?? 0),
+    upcoming: Number(globals?.upcoming ?? 0),
+    current: Number(globals?.current ?? 0),
+    past: Number(globals?.past ?? 0),
+    published: Number(globals?.published ?? 0),
+    draft: Number(globals?.draft ?? 0),
+    cancelled: Number(globals?.cancelled ?? 0),
+  };
+  return {
+    events: result.results.map(rowToEventSummary),
+    total, page, pages, pageSize: input.pageSize, counts,
+    years: yearsResult.results.map((row) => row.year),
+  };
 }
 
 export async function getManagedEventById(id: number) {
