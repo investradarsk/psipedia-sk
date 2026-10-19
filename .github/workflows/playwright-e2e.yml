@@ -1388,7 +1388,7 @@ jobs:
 
   cookie-consent-preview-e2e:
     name: Cookie consent preview — ${{ matrix.label }}
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 891
+    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 891 || github.event.pull_request.number == 897)
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30

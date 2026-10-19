@@ -1,7 +1,7 @@
 /**
  * SERVICES V3 phase 3A — types and *pure* lifecycle rules for the future Admin editor.
  * This module does not authorize requests or mutate D1 / Notion.
- * Lifecycle/mirror state writes are deliberately NOT exposed by current API routes.
+ * Phase 3C exposes gated lifecycle Admin mutations; mirror SUCCESS/CONFLICT is an internal-only reconciler outcome.
  */
 export const CATALOG_OPTION_STATES=["DRAFT","ACTIVE","RETIRED"] as const;
 export const CATALOG_MIRROR_STATES=["PENDING","SYNCED","CONFLICT"] as const;
@@ -34,6 +34,12 @@ export type SaveAdminServiceChoiceRequest=Readonly<{
   choice:CatalogExplicitChoice;
   expectedVersion:number; // 0 = insert only; positive integer = compare-and-swap
 }>;
+export type MutateAdminCatalogOptionRequest=Readonly<
+  |{action:"edit";expectedVersion:number;name:string;category:string;group:string;meaning:string}
+  |{action:"approve"|"retire"|"retryMirror";expectedVersion:number}
+>;
+export type ResetAdminServiceChoiceRequest=Readonly<{optionId:string;choice:"unknown";expectedVersion:number}>;
+export type AdminServiceChoiceWriteResult=AdminServiceChoiceDto|Readonly<{profileId:number;optionId:string;choice:"unknown";version:0}>;
 export type AdminServiceChoiceDto=Readonly<{
   profileId:number;
   optionId:string;
@@ -46,14 +52,14 @@ export function selectionForEditor(row:Pick<AdminServiceChoiceDto,"choice">|null
   return row?.choice??"unknown";
 }
 
-/** Prepared contract only: there is currently NO lifecycle mutation endpoint. */
+/** Lifecycle edge validation: always re-check it inside the CAS writer. */
 export function canTransitionCatalogStatus(from:CatalogOptionStatus,to:CatalogOptionStatus,mirror:CatalogMirrorStatus):boolean{
   if(from===to)return true; // unchanged status, not a transition
   if(from==="RETIRED")return false; // immutable retirement; create a new ID only after governance review
   if(to==="RETIRED")return true;
   return from==="DRAFT"&&to==="ACTIVE"&&mirror==="SYNCED";
 }
-/** Prepared contract only: Notion is a mirror, never the source of canonical IDs. */
+/** Notion is a mirror, never the source of canonical IDs. */
 export function canTransitionMirrorStatus(from:CatalogMirrorStatus,to:CatalogMirrorStatus):boolean{
   if(from===to)return true;
   if(from==="PENDING")return to==="SYNCED"||to==="CONFLICT";
