@@ -53,7 +53,7 @@ jobs:
             'TURNSTILE_SITE_KEY=1x00000000000000000000AA',
             'PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1'
           ];
-          writeFileSync('.dev.vars',lines.join('\\n')+'\\n',{mode:0o600});
+          writeFileSync('.dev.vars',lines.join('\n')+'\n',{mode:0o600});
           NODE
       - name: Prepare ephemeral local D1 test schema only
         run: |
