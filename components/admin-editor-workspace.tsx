@@ -36,7 +36,7 @@ export function EditorHeader({
   description,
   status,
   onClose,
-  closeLabel = "Zavrieť",
+  closeLabel,
 }: {
   title?: string;
   description?: string;
@@ -54,8 +54,8 @@ export function EditorHeader({
         {status && <div className={styles.statusLine}>{status}</div>}
       </div>
       {onClose && (
-        <AdminActionButton type="button" variant="neutral" onClick={onClose} aria-label={closeLabel}>
-          {closeLabel}
+        <AdminActionButton type="button" variant="neutral" onClick={onClose} aria-label={closeLabel ?? "Zavrieť editor"}>
+          {closeLabel ?? "Zavrieť"}
         </AdminActionButton>
       )}
     </header>
