@@ -1,5 +1,5 @@
 import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
-import { classifyHelpSyncCanonical } from "./notion-help-domain-boundary.ts";
+import { classifyHelpSyncCanonical, isHelpSyncCategoryOutOfDomain } from "./notion-help-domain-boundary.ts";
 import { mergeNotionSeo, notionSeoEditableFields } from "./notion-seo-contract.ts";
 import { notionGeoMirrorProperties } from "./notion-geo-mirror.ts";
 import {
@@ -717,6 +717,9 @@ export async function applyNotionToCanonical(
   }
 
   if (agenda === "help-cases") {
+    // A Notion category edit must not transfer ownership to a dedicated legacy
+    // domain even if the canonical row was previously generic.
+    if (isHelpSyncCategoryOutOfDomain(s(values["Kategória"]))) throw new Error("OUT_OF_DOMAIN");
     const existing = await getManagedHelpCaseById(entityId);
     if (!existing) {
       // The canonical row may exist in a dedicated legacy category which the
