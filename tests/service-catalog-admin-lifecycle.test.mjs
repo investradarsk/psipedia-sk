@@ -7,8 +7,10 @@ import {mutateAdminCatalogOption,recordCatalogMirrorOutcome} from "../lib/servic
 
 const read=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
+const auditMigration=read("drizzle/0134_services_admin_change_audit.sql");
 class Statement{
   constructor(sqlite,sql){
+    this.sql=sql;
     this.positions=[...sql.matchAll(/\?(\d+)/g)].map(m=>Number(m[1])-1);
     this.stmt=sqlite.prepare(sql.replace(/\?\d+/g,"?"));
     this.values=[];
@@ -17,14 +19,30 @@ class Statement{
   args(){return this.positions.map(i=>this.values[i]);}
   async first(){return this.stmt.get(...this.args())??null;}
   async all(){return {results:this.stmt.all(...this.args())};}
+  async run(){return {meta:this.stmt.run(...this.args())};}
 }
 function fixture(){
   const sqlite=new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
   sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT NOT NULL, status TEXT NOT NULL)");
   sqlite.exec(migration);
+  sqlite.exec(auditMigration);
   sqlite.exec("INSERT INTO directory_profiles (id,category,status) VALUES (1,'veterinari','published'),(2,'treneri','published'),(3,'veterinari','archived')");
-  return {sqlite,db:{prepare(sql){return new Statement(sqlite,sql);}}};
+  return {sqlite,db:{
+    prepare(sql){return new Statement(sqlite,sql);},
+    async batch(statements){
+      const results=[];
+      sqlite.exec("BEGIN");
+      try{
+        for(const statement of statements){
+          if(/^DELETE\s/i.test(statement.sql))results.push(await statement.all());
+          else{await statement.run();results.push({results:[]});}
+        }
+        sqlite.exec("COMMIT");
+        return results;
+      }catch(err){sqlite.exec("ROLLBACK");throw err;}
+    }
+  }};
 }
 const actor="admin@example.com";
 const option=()=>({name:"Nová veterinárna metóda",category:"veterinari",kind:"service",group:"Diagnostika",meaning:"Presne vymedzená diagnostická metóda."});
@@ -94,6 +112,10 @@ test("explicit tri-state attribute and YES/NO reset-to-UNKNOWN do not synthesize
   const reset=await resetAdminServiceChoice(db,{profileId:1,optionId:attr.optionId,expectedVersion:1},actor);
   assert.deepEqual(reset,{profileId:1,optionId:attr.optionId,choice:"unknown",version:0});
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM service_profile_option_choices").get().n,0);
+  const audit=sqlite.prepare("SELECT operation,actor,prior_json FROM service_catalog_admin_change_audit WHERE entity_type='choice' ORDER BY id DESC LIMIT 1").get();
+  assert.equal(audit.operation,"RESET");
+  assert.equal(audit.actor,actor);
+  assert.equal(JSON.parse(audit.prior_json).choice,"yes");
   await assert.rejects(()=>resetAdminServiceChoice(db,{profileId:1,optionId:attr.optionId,expectedVersion:1},actor),ServiceCatalogConflictError);
   await assert.rejects(()=>resetAdminServiceChoice(db,{profileId:3,optionId:attr.optionId,expectedVersion:1},actor),ServiceCatalogConflictError);
   await assert.rejects(()=>saveAdminServiceChoice(db,{...attr,choice:"unknown"},actor),ServiceCatalogInputError);
