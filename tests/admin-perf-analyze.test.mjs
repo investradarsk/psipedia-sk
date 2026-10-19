@@ -80,7 +80,7 @@ test("regression, unchanged and zero baseline remain distinguishable", () => {
   faster.samples[0].navigation.requests = 40;
   const changed = analyzeReports(report(OLD), faster, ENV, ENV);
   const first = row(changed, "dashboard");
-  assert.equal(first.metrics.requests.status, "regression");
+  assert.equal(first.metrics.requests.status, "improvement");
   assert.equal(first.metrics.requests.before, 10);
   assert.equal(first.metrics.requests.after, 8); // median of 8, 8, 40 = 8
   assert.equal(first.status, "improvement"); // one outlier does not change the median
@@ -135,7 +135,8 @@ test("report mismatch rejection: fixture, browser, runtime, scope, devices and r
     ["node_version", "v24"], ["device", "desktop"], ["repeats", 2],
   ];
   for (const [field, value] of cases) {
-    const after = report(NEW);
+    const after = field === "device" ? report(NEW, 1, { device: "desktop" })
+      : field === "repeats" ? report(NEW, 1, { repeats: 2 }) : report(NEW);
     after[field] = value;
     checkThrows(() => analyzeReports(report(OLD), after, ENV, ENV), "INCOMPARABLE_REPORT:" + field);
   }
