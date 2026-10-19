@@ -3,7 +3,7 @@
  * A caller MUST first enforce trusted Admin authorization and the rollout gates.
  * No Notion mutations, public projections, implicit changes or free-text inference.
  */
-import {serviceCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {serviceCatalog,attributeCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import {validateCatalogOptionDraft,type CatalogOptionDraft} from "./service-option-governance-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
 import type {AdminCatalogOptionDto,CatalogOptionStatus,CatalogMirrorStatus,CatalogExplicitChoice} from "./service-catalog-admin-api-contract.ts";
@@ -83,9 +83,11 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
 async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null>{
   const item=serviceCatalog.find(x=>x.id===id);
   if(item)return item.categories;
+  const attribute=attributeCatalog.find(x=>x.id===id&&x.valueKind==="tri_state");
+  if(attribute)return attribute.categories;
   const row=await db.prepare("SELECT kind,status,notion_mirror_status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
     .bind(id).first<{kind:string;status:string;notion_mirror_status:string;categories_json:string}>();
-  return row?.kind==="service"&&row.status==="ACTIVE"&&row.notion_mirror_status==="SYNCED"?categories(row.categories_json):null;
+  return (row?.kind==="service"||row?.kind==="attribute")&&row.status==="ACTIVE"&&row.notion_mirror_status==="SYNCED"?categories(row.categories_json):null;
 }
 /** An explicit yes/no write with version=0 insert-if-absent and CAS updates. */
 export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,actorRaw:string,now=new Date()){
@@ -127,4 +129,27 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
   }catch(e){return handleDbError(e);}
   if(!saved)throw new ServiceCatalogConflictError("Selection changed concurrently; reload before saving.");
   return {profileId:saved.profile_id,optionId:saved.option_id,choice:saved.choice,version:saved.version};
+}
+
+/**
+ * Explicit CAS reset to UNKNOWN (absence). No implicit 'no' and no mass deletion.
+ * A retired dynamic option may still be cleared from an existing profile.
+ * With schema 0133 alone, DELETE cannot preserve a durable actor history:
+ * the additional append-only audit migration is a separate rollout dependency.
+ */
+export async function resetAdminServiceChoice(db:DB,input:{profileId:number;optionId:string;expectedVersion:number},actorRaw:string){
+  actorEmail(actorRaw);
+  if(!input||!Number.isSafeInteger(input.profileId)||input.profileId<=0
+    ||typeof input.optionId!=="string"||!input.optionId.trim()
+    ||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<1)
+    throw new ServiceCatalogInputError("Invalid reset request; persisted version required.");
+  try{
+    const removed=await db.prepare([
+      "DELETE FROM service_profile_option_choices WHERE profile_id=?1 AND option_id=?2 AND version=?3",
+      "AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?1 AND status<>'archived')",
+      "RETURNING profile_id,option_id,version"
+    ].join(" ")).bind(input.profileId,input.optionId,input.expectedVersion).first<{profile_id:number;option_id:string;version:number}>();
+    if(!removed)throw new ServiceCatalogConflictError("Choice was removed or changed concurrently; reload before retry.");
+    return {profileId:removed.profile_id,optionId:removed.option_id,choice:"unknown" as const,version:0};
+  }catch(err){return handleDbError(err);}
 }
