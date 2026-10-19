@@ -116,6 +116,119 @@ jobs:
         if: github.event_name == 'pull_request' && steps.required-scope.outputs.seo_recovery == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
+
+  ds-0b-focused-regression:
+    name: PUBLIC DS-0B focused Node and directory Playwright
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 903 && needs.validate.result == 'success'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      checks: read
+    env:
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Verify test source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'pr_head_sha=%s\nchecked_out_sha=%s\nworkflow_sha=%s\n' "$PR_HEAD_SHA" "$actual" "${{ github.sha }}"
+          test "$actual" = "$PR_HEAD_SHA"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Execute DS-0B Node contracts (TAP assertions)
+        run: |
+          node --test \
+            tests/global-design-unification.test.mjs \
+            tests/public-search-simplify.test.mjs \
+            tests/public-landing-alignment.test.mjs
+      - name: Install Chromium for directory matrix
+        run: npx playwright install --with-deps chromium
+      - name: Resolve successful preview for exact PR HEAD
+        id: preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100"
+          preview_url=""
+          for attempt in $(seq 1 90); do
+            payload="$(curl --silent --show-error --fail \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" "$api")"
+            candidate="$(CHECK_PAYLOAD="$payload" node --input-type=module <<'NODE'
+          const expected = process.env.PR_HEAD_SHA;
+          const result = JSON.parse(process.env.CHECK_PAYLOAD ?? "{}");
+          const run = (result.check_runs ?? []).find(check =>
+            check.name === "Workers Builds: psipedia-sk" && check.head_sha === expected);
+          if (run?.status === "completed" && run.conclusion !== "success") {
+            console.error("Preview build not successful for exact PR HEAD");
+            process.exit(1);
+          }
+          if (run?.status === "completed" && run.conclusion === "success") {
+            const match = (run.output?.summary ?? "").match(/Preview URL:\s*(https:\/\/[^\s]+)/);
+            process.stdout.write(match?.[1] ?? "");
+          }
+          NODE
+            )"
+            if [ -n "$candidate" ]; then
+              preview_url="$candidate"
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$preview_url" ]; then
+            echo "::error::No successful exact-head Cloudflare preview available; directory Playwright BLOCKED."
+            exit 1
+          fi
+          PREVIEW_URL="$preview_url" node --input-type=module -e '
+            const url = new URL(process.env.PREVIEW_URL);
+            if (url.protocol !== "https:" || !url.hostname.endsWith(".workers.dev") ||
+                url.username || url.password || url.search || url.hash) {
+              throw new Error("Non-preview URL rejected");
+            }
+          '
+          echo "Verified exact-head Cloudflare preview: $preview_url"
+          echo "url=$preview_url" >> "$GITHUB_OUTPUT"
+      - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: |
+          mkdir -p .e2e-artifacts/services-v2-directory
+          npx playwright test tests/e2e/directory-unified-layout.spec.ts \
+            --project=desktop-chromium --workers=1 --retries=0
+      - name: Upload DS-0B directory screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ds-0b-directory-evidence-${{ github.run_attempt }}
+          path: .e2e-artifacts/services-v2-directory/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload DS-0B failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ds-0b-failure-diagnostics-${{ github.run_attempt }}
+          path: |
+            test-results/playwright/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
   pull-request-e2e:
     name: Breed CI bootstrap, all-breed regression and Playwright
     if: >-
