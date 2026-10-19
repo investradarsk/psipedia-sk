@@ -924,7 +924,10 @@ test("Help sweep fail-closed integration contracts preserve Gemini private revie
   assert.match(sync, /if \(mappedPageIds\.has\(page\.id\)\) continue/);
   assert.match(sync, /isHelpSyncCategoryOutOfDomain\(clean\(pageProperty\(page, "Kategória"\)\)\)/);
   assert.match(sync, /event: "notion_help_domain_boundary"/);
+  assert.match(sync, /summary\.domainBoundary\.mappedNotionOutOfDomain \+= 1/);
+  assert.match(sync, /reason: "OUT_OF_DOMAIN"/);
   assert.match(sync, /trustedGeminiSourceIsPrivateDraft/);
   assert.match(adapter, /if \(domain === "OUT_OF_DOMAIN"\) throw new Error\("OUT_OF_DOMAIN"\)/);
+  assert.match(adapter, /isHelpSyncCategoryOutOfDomain\(s\(values\["Kategória"\]\)\)/);
   assert.match(adapter, /if \(domain === "MISSING_CANONICAL"\) throw new Error\("MISSING_CANONICAL"\)/);
 });
