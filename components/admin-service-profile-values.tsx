@@ -4,7 +4,7 @@ import {useMemo,useState} from "react";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
-import type {AdminServiceChoiceDto} from "@/lib/service-catalog-admin-api-contract";
+import type {AdminServiceChoiceWriteResult} from "@/lib/service-catalog-admin-api-contract";
 import {selectionForEditor} from "@/lib/service-catalog-admin-api-contract";
 import styles from "./admin-service-catalog.module.css";
 
@@ -28,14 +28,18 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     try{
       for(const item of changed){
         const choice=draft[item.id];
-        if(choice==="unknown")continue; // Reset-to-unknown is not an authorized API operation.
         const response=await fetch(`/api/admin/directory/${profileId}/service-options`,{
           method:"PATCH",headers:{"content-type":"application/json"},cache:"no-store",
           body:JSON.stringify({optionId:item.id,choice,expectedVersion:saved[item.id]?.version??0}),
         });
-        const json=await response.json() as {error?:string;selection?:AdminServiceChoiceDto};
+        const json=await response.json() as {error?:string;selection?:AdminServiceChoiceWriteResult};
         if(!response.ok||!json.selection)throw new Error(json.error??"Uloženie služby nebolo potvrdené.");
-        setSaved(old=>({...old,[item.id]:{optionId:item.id,choice:json.selection!.choice,version:json.selection!.version}}));
+        setSaved(old=>{
+          const next={...old};
+          if(json.selection!.choice==="unknown")delete next[item.id];
+          else next[item.id]={optionId:item.id,choice:json.selection!.choice,version:json.selection!.version};
+          return next;
+        });
         setDraft(old=>{const next={...old};delete next[item.id];return next;});
         completed++;
       }
@@ -55,13 +59,13 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
         <span><strong>{item.label}</strong><small>{item.group}</small></span>
         <select aria-label={`Hodnota: ${item.label}`} value={value} disabled={!writeEnabled||Boolean(error)||busy}
           onChange={e=>setDraft(old=>({...old,[item.id]:e.target.value as InputChoice}))}>
-          <option value="unknown" disabled={Boolean(savedValue)}>Neznáme</option>
+          <option value="unknown">Neznáme</option>
           <option value="yes">Áno</option><option value="no">Nie</option>
         </select>
       </label>;
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
     <div className={styles.actions}><AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton><span aria-live="polite" aria-atomic="true">{message}</span></div>
-    <p className={styles.muted}>Zmena Áno/Nie využíva verziované API. Návrat uloženej hodnoty na Neznáme vyžaduje osobitnú bezpečnú operáciu a zatiaľ nie je povolený.</p>
+    <p className={styles.muted}>Zmena Áno/Nie využíva verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
     <h3>Vlastnosti ({attributes.length})</h3>
     <p className={styles.muted}>Vlastnosti majú samostatný dátový model. Ich úpravy zostávajú vypnuté do dokončenia API a synchronizácie Notionu.</p>
     {attributes.length>0&&<ul className={styles.attributeList}>{attributes.slice(0,30).map(a=><li key={a.id}>{a.label}</li>)}{attributes.length>30&&<li>Ďalšie vlastnosti sú dostupné v katalógu.</li>}</ul>}
