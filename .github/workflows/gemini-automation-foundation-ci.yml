@@ -92,7 +92,7 @@ jobs:
       - name: Gemini publication browser lifecycle (22 categories, mocked API; desktop/mobile)
         run: node --experimental-strip-types --test tests/gemini-published-browser.test.mjs
       - name: Gemini deep-link browser regression (22 categories, 320/390/1440; mocked GET only)
-        run: node --experimental-strip-types --test tests/gemini-direct-deep-link.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-direct-deep-link.test.mjs
       - name: Gemini modal desktop and mobile (mocked API only)
         env:
           GEMINI_TEST_SCREENSHOTS: test-artifacts/gemini-concept-review-v3
