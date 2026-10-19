@@ -116,8 +116,10 @@ BEFORE UPDATE OF status ON service_catalog_admin_options
 WHEN OLD.status='DRAFT' AND NEW.status='ACTIVE'
 BEGIN
   SELECT RAISE(ABORT,'Notion receipt required before canonical approval')
-  WHERE NOT EXISTS (
-    SELECT 1 FROM service_catalog_admin_notion_receipts
-    WHERE option_id=OLD.id AND option_version=OLD.version
-  );
+  WHERE OLD.notion_mirror_status<>'SYNCED'
+    OR NEW.notion_mirror_status<>'SYNCED'
+    OR NOT EXISTS (
+      SELECT 1 FROM service_catalog_admin_notion_receipts
+      WHERE option_id=OLD.id AND option_version=OLD.version
+    );
 END;
