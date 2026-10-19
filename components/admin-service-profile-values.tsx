@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import {useEffect,useMemo,useState} from "react";
+import {useMemo,useState} from "react";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
@@ -18,7 +18,6 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
   const [query,setQuery]=useState("");
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
-  useEffect(()=>{setSaved(Object.fromEntries(initialChoices.map(c=>[c.optionId,c])));setDraft({});},[initialChoices]);
   const services=useMemo(()=>entries.filter(x=>x.kind==="service"&&x.label.toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk"))),[entries,query]);
   const attributes=entries.filter(x=>x.kind==="attribute");
   const changed=entries.filter(x=>x.kind==="service"&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
