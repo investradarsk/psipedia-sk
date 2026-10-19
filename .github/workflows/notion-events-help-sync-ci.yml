@@ -67,6 +67,9 @@ jobs:
       - name: Audit 02 — read-only evidence regressions
         run: npm run test:notion-data-quality-audit
 
+      - name: Existing breed concurrency script regression
+        run: npm run test:breed-concurrency
+
       - name: Migration safety
         run: npm run test:migration-safety
 
