@@ -36,11 +36,13 @@ export function EditorHeader({
   description,
   status,
   onClose,
+  closeLabel = "Zavrieť",
 }: {
   title?: string;
   description?: string;
   status?: ReactNode;
   onClose?: () => void;
+  closeLabel?: string;
 }) {
   const headingId = useId();
   if (!title && !description && !status && !onClose) return null;
@@ -52,8 +54,8 @@ export function EditorHeader({
         {status && <div className={styles.statusLine}>{status}</div>}
       </div>
       {onClose && (
-        <AdminActionButton type="button" variant="neutral" onClick={onClose} aria-label="Zavrieť editor">
-          Zavrieť
+        <AdminActionButton type="button" variant="neutral" onClick={onClose} aria-label={closeLabel}>
+          {closeLabel}
         </AdminActionButton>
       )}
     </header>
@@ -211,6 +213,7 @@ export function EditorWorkspace({
   actions,
   dirty = false,
   onClose,
+  closeLabel,
   children,
 }: {
   mode?: "modal" | "page";
@@ -224,6 +227,7 @@ export function EditorWorkspace({
   actions?: ReactNode;
   dirty?: boolean;
   onClose?: () => void;
+  closeLabel?: string;
   children: ReactNode;
 }) {
   const [activeSection, setActiveSection] = useState(sections[0]?.id ?? "");
@@ -283,7 +287,7 @@ export function EditorWorkspace({
         </AdminModalDialog>
       ) : (
         <section className={styles.pageWorkspace} aria-label={title} data-editor-page>
-          <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} />
+          <EditorHeader title={title} description={description} status={status} onClose={onClose ? requestClose : undefined} closeLabel={closeLabel} />
           {body}
           {actions && <div className={styles.pageActions}>{actions}</div>}
         </section>
