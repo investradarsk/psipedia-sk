@@ -7,6 +7,8 @@ import {
   GeminiNotionReviewError,
 } from "@/lib/gemini-notion-directory-review";
 import { geminiAgendaForKey, getGeminiAgendaDraft, mutateGeminiAgendaDraft, GeminiAgendaReviewError } from "@/lib/gemini-notion-agenda-review";
+import { geminiValidNotionDraftId } from "@/lib/gemini-concept-manager";
+import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 
 export const dynamic = "force-dynamic";
 const HEADERS = { "cache-control": "no-store" };
@@ -44,8 +46,19 @@ export async function GET(request: Request, { params }: Props) {
   try {
     const { id } = await params;
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
-    if (key && geminiAgendaForKey(key))
-      return Response.json({ draft: (await getGeminiAgendaDraft(env, key, id)).draft }, { headers: HEADERS });
+    if (!geminiValidNotionDraftId(id))
+      return Response.json({ error: "Neplatná identita konceptu." }, { status: 400, headers: HEADERS });
+    if (key) {
+      const item = getGeminiCatalogItem(key);
+      if (!item) return Response.json({ error: "Neznáma kategória." }, { status: 400, headers: HEADERS });
+      if (geminiAgendaForKey(key))
+        return Response.json({ draft: (await getGeminiAgendaDraft(env, key, id)).draft }, { headers: HEADERS });
+      const draft = await getGeminiDirectoryDraft(env, id);
+      if (item.section !== "directory" || draft.category !== item.subcategory)
+        return Response.json({ error: "Koncept nepatrí do kategórie." }, { status: 404, headers: HEADERS });
+      return Response.json({ draft }, { headers: HEADERS });
+    }
+    // Legacy authenticated directory editor requests without a category still work.
     return Response.json({ draft: await getGeminiDirectoryDraft(env, id) }, { headers: HEADERS });
   } catch (error) { return fail(error); }
 }

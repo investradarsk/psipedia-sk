@@ -432,7 +432,7 @@ function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
 }
 
 export function AdminGeminiAutomationSettings({
-  sections, settings, available, externalEnabled, queueEnabled, initialJobs, recentRuns, initialSelectedKey,
+  sections, settings, available, externalEnabled, queueEnabled, initialJobs, recentRuns, initialSelectedKey, initialDraftId,
 }: {
   sections: readonly { key: GeminiSectionKey; label: string }[];
   settings: readonly GeminiSettingView[];
@@ -442,11 +442,13 @@ export function AdminGeminiAutomationSettings({
   initialJobs: readonly GeminiQueuedJob[];
   recentRuns: readonly GeminiRecentRun[];
   initialSelectedKey?: string;
+  initialDraftId?: string;
 }) {
   const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[] } | null>(null);
   const liveSettings = remote?.settings ?? settings;
   const jobs = remote?.jobs ?? initialJobs;
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
+  const [pendingDeepLinkId, setPendingDeepLinkId] = useState(initialDraftId);
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
   const onSaved = useCallback((next: GeminiSettingView) => {
@@ -505,6 +507,7 @@ export function AdminGeminiAutomationSettings({
     if (document.querySelector('[data-dirty="true"]') &&
       !window.confirm("V otvorenom editore máš neuložené zmeny konceptu. Opustiť kategóriu?")) return;
     setDirty(false);
+    setPendingDeepLinkId(undefined);
     setSelectedKey(key);
   }
 
@@ -583,10 +586,12 @@ export function AdminGeminiAutomationSettings({
               <h2 id="gemini-drafts-title">Koncepty z automatizácie</h2>
               <Link href="/admin/automatizacie-gemini/koncepty">Všetky koncepty →</Link>
             </div>
-            {externalEnabled && selected ? (
+            {(externalEnabled || Boolean(pendingDeepLinkId)) && selected ? (
               <>
                 <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam a filtrovanie otvor na požiadanie; úpravy zostávajú v existujúcom kanonickom editore.</p>
-                <AdminGeminiNotionDrafts key={selected.stableKey} stableKey={selected.stableKey} />
+                <AdminGeminiNotionDrafts key={selected.stableKey + ":" + (pendingDeepLinkId ?? "")}
+                  stableKey={selected.stableKey}
+                  deepLinkDraftId={selected.stableKey === initialSelectedKey ? pendingDeepLinkId : undefined} />
               </>
             ) : <p className={styles.emptyCompact}>
               {externalEnabled ? "Vyber kategóriu pre prístup ku konceptom." :

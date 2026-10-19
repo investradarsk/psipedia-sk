@@ -21,11 +21,15 @@ import styles from "@/components/admin-gemini-automation.module.css";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminGeminiAutomationPage({ searchParams }: { searchParams: Promise<{ stable_key?: string | string[] }> }) {
+export default async function AdminGeminiAutomationPage({ searchParams }: {
+  searchParams: Promise<{ stable_key?: string | string[]; draft_id?: string | string[] }>;
+}) {
   const user = await requireAdminPageUser("/admin/automatizacie-gemini");
-  const requested = (await searchParams).stable_key;
-  const key = Array.isArray(requested) ? requested[0] : requested;
+  const query = await searchParams;
+  const key = Array.isArray(query.stable_key) ? query.stable_key[0] : query.stable_key;
+  const requestedDraftId = Array.isArray(query.draft_id) ? query.draft_id[0] : query.draft_id;
   const initialSelectedKey = key && getGeminiCatalogItem(key) ? key : undefined;
+  const invalidDeepLinkCategory = Boolean(requestedDraftId && !initialSelectedKey);
   let settings = geminiSettingViews([]);
   let runs: GeminiRecentRun[] = [];
   let queuedJobs: GeminiQueuedJob[] = [];
@@ -63,7 +67,13 @@ export default async function AdminGeminiAutomationPage({ searchParams }: { sear
           Ukladanie a manuálne spustenie sú dočasne vypnuté; zobrazené údaje nemusia byť aktuálne.
         </p>
       )}
+      {invalidDeepLinkCategory && (
+        <p className={styles.warning} role="alert">
+          Požadovaná kategória konceptu neexistuje. Žiadny koncept nebol otvorený.
+        </p>
+      )}
       <AdminGeminiAutomationSettings
+        initialDraftId={invalidDeepLinkCategory ? undefined : requestedDraftId}
         sections={geminiAutomationSections}
         settings={settings}
         available={ready}
