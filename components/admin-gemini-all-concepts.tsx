@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { geminiAutomationCatalog, geminiAutomationSections, type GeminiCatalogItem } from "@/lib/gemini-automation-catalog";
-import { geminiConceptDate, geminiConceptMatchesSearch, geminiCanonicalEditorUrl } from "@/lib/gemini-concept-manager";
+import { geminiConceptDate, geminiConceptMatchesSearch, geminiCanonicalEditorUrl, geminiDraftDeepLink } from "@/lib/gemini-concept-manager";
 import { geminiReviewLabels, geminiActiveReviewCount, geminiActiveReviewState, preserveGeminiPublished, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
@@ -98,8 +98,7 @@ export function AdminGeminiAllConcepts() {
     // confirms the identity. Others must go through their existing Gemini
     // category manager instead of an unverified or guessed admin URL.
     const canonicalUrl = geminiCanonicalEditorUrl(draft);
-    const categoryUrl = "/admin/automatizacie-gemini?stable_key=" +
-      encodeURIComponent(item.stableKey) + "#gemini-drafts-title";
+    const categoryUrl = geminiDraftDeepLink(item.stableKey, draft.id);
     return (
       <li className={styles.row} key={item.stableKey + ":" + draft.id}>
         <div className={styles.identity}>
@@ -112,9 +111,11 @@ export function AdminGeminiAllConcepts() {
           {geminiReviewLabels[draft.reviewState]}
         </span>
         {draft.syncError && <span role="status" className={styles.warning}>Sync: {draft.syncError}</span>}
-        <Link className={styles.open} href={canonicalUrl ?? categoryUrl}>
-          {canonicalUrl ? "Upraviť v sekcii →" : "Otvoriť v kategórii →"}
-        </Link>
+        {canonicalUrl || categoryUrl ? (
+          <Link className={styles.open} href={canonicalUrl ?? categoryUrl!}>
+            {canonicalUrl ? "Upraviť v sekcii →" : "Otvoriť v kategórii →"}
+          </Link>
+        ) : <span className={styles.open}>Otvoriť v kategórii →</span>}
       </li>
     );
   }
