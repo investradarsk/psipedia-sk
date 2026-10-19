@@ -124,6 +124,7 @@ export type NotionAgendaSyncSummary = {
     outOfDomain: number;
     missingCanonical: number;
     unmappedOutOfDomain: number;
+    mappedNotionOutOfDomain: number;
     samples: Array<{ entityId: number; reason: HelpSyncDomainReason }>;
   };
   /** Number of obsolete conflict flags safely cleared after identical snapshots. */
@@ -563,7 +564,7 @@ function emptyAgenda(definition: AgendaDefinition, isEnabled: boolean, ready: bo
     errors: [],
     conflictDetails: [],
     reviewQueue: emptyNotionReviewQueue(),
-    domainBoundary: { outOfDomain: 0, missingCanonical: 0, unmappedOutOfDomain: 0, samples: [] },
+    domainBoundary: { outOfDomain: 0, missingCanonical: 0, unmappedOutOfDomain: 0, mappedNotionOutOfDomain: 0, samples: [] },
     resolvedConflictFlags: 0,
     staleConflictCandidates: 0,
   };
@@ -812,6 +813,20 @@ async function syncAgenda(input: {
       appendNotionReview(summary.reviewQueue, {
         entityId, notionPageId: mapping.notion_page_id, reason: "MAPPING_CONFLICT",
         fields: [], baselineAvailable: false, notionChanged: null, psipediaChanged: null,
+      });
+      continue;
+    }
+
+    if (input.definition.key === "help-cases"
+      && isHelpSyncCategoryOutOfDomain(clean(pageProperty(page, "Kategória")))) {
+      // Canonical is still generic, but the mapped Notion page changed to a
+      // dedicated category. Never pull that reassignment or PATCH the page.
+      summary.domainBoundary.mappedNotionOutOfDomain += 1;
+      summary.conflicts += 1;
+      appendNotionReview(summary.reviewQueue, {
+        entityId, notionPageId: page.id, reason: "OUT_OF_DOMAIN",
+        fields: ["Kategória"], baselineAvailable: false,
+        notionChanged: null, psipediaChanged: null,
       });
       continue;
     }
@@ -1487,6 +1502,7 @@ async function syncAgenda(input: {
     summary.domainBoundary.outOfDomain
     || summary.domainBoundary.missingCanonical
     || summary.domainBoundary.unmappedOutOfDomain
+    || summary.domainBoundary.mappedNotionOutOfDomain
   )) {
     // One value-free aggregate per sweep, instead of one error per legacy row.
     // MISSING_CANONICAL remains visible as a review conflict; OUT_OF_DOMAIN
@@ -1497,6 +1513,7 @@ async function syncAgenda(input: {
       outOfDomain: summary.domainBoundary.outOfDomain,
       missingCanonical: summary.domainBoundary.missingCanonical,
       unmappedOutOfDomain: summary.domainBoundary.unmappedOutOfDomain,
+      mappedNotionOutOfDomain: summary.domainBoundary.mappedNotionOutOfDomain,
     }));
   }
   return summary;
