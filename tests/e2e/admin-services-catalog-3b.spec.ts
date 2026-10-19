@@ -41,9 +41,9 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    }else expect(d!.x,"desktop detail sits alongside list").toBeGreaterThan(l!.x+l!.width-3);
    await noOverflow(page,label(viewport.width));
    await capture(page,"catalog-"+label(viewport.width));
-   await page.getByLabel("Vyhľadávanie").fill("RTG vyšetrenie");
+   await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("RTG vyšetrenie");
    await expect(list.locator("button").first()).toContainText("RTG vyšetrenie");
-   await page.getByLabel("Vyhľadávanie").fill("not-a-real-service-741xyz");
+   await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("not-a-real-service-741xyz");
    await expect(page.getByText("Pre zadané filtre neboli nájdené možnosti.")).toBeVisible();
  }
 });

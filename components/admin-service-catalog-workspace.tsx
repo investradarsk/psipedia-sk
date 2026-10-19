@@ -63,14 +63,14 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
         {visible.slice(0,200).map(item=><button key={item.id} type="button" className={styles.listItem}
           aria-pressed={selected?.id===item.id} onClick={()=>setSelectedId(item.id)}>
           <strong>{item.label}</strong><small>{item.kind==="service"?"Služba":"Vlastnosť"} · {item.group}</small>
-          <span className={styles.chips}><EditorStatus label={item.status} tone={statusTone(item.status)}/>{item.mirror!=="NOT_REQUIRED"&&<EditorStatus label={item.mirror} tone={statusTone(item.mirror)}/>}</span>
+          <span className={styles.chips}><EditorStatus label={item.status==="BUILT_IN"?"Vstavaná":item.status} tone={statusTone(item.status)}/>{item.mirror!=="NOT_REQUIRED"&&<EditorStatus label={item.mirror} tone={statusTone(item.mirror)}/>}</span>
         </button>)}
         {visible.length>200&&<p className={styles.count}>Zobrazených prvých 200 výsledkov. Spresni vyhľadávanie.</p>}
         {visible.length===0&&<p className={styles.count}>Pre zadané filtre neboli nájdené možnosti.</p>}
       </div>
       <div className={styles.detail} aria-label="Detail vybranej možnosti">
         {selected?<><h2>{selected.label}</h2><p className={styles.muted}>{selected.id}</p>
-          <div className={styles.chips}><EditorStatus label={selected.status} tone={statusTone(selected.status)}/><EditorStatus label={selected.mirror} tone={statusTone(selected.mirror)}/></div>
+          <div className={styles.chips}><EditorStatus label={selected.status==="BUILT_IN"?"Vstavaná":selected.status} tone={statusTone(selected.status)}/>{selected.mirror!=="NOT_REQUIRED"&&<EditorStatus label={selected.mirror} tone={statusTone(selected.mirror)}/>}</div>
           <dl className={styles.detailGrid}><dt>Typ</dt><dd>{selected.kind==="service"?"Služba":"Vlastnosť"}</dd><dt>Skupina</dt><dd>{selected.group}</dd><dt>Kategórie</dt><dd>{selected.categories.map(id=>categories.find(c=>c.id===id)?.label??id).join(", ")}</dd><dt>Význam</dt><dd>{selected.meaning}</dd><dt>Zdroj</dt><dd>{selected.source==="built_in"?"Schválený vstavaný katalóg":"Kanonická možnosť D1"}</dd><dt>Verzia</dt><dd>{selected.version??"—"}</dd></dl>
           <div className={styles.actions}><AdminActionButton disabled title="Úprava čaká na verziované Admin API.">Upraviť</AdminActionButton><AdminActionButton disabled title="Schvaľovacie API zatiaľ nie je pripravené.">Schváliť</AdminActionButton><AdminActionButton disabled variant="destructive" title="Archivácia čaká na Admin API.">Archivovať</AdminActionButton></div>
           <p className={styles.muted}>Úprava, schvaľovanie, retry synchronizácie a archivácia budú dostupné po dokončení bezpečných lifecycle API operácií.</p>
