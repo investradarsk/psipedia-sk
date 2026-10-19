@@ -14,3 +14,62 @@
 .publishButton:hover:not(:disabled) {
   background: #9f3a26;
 }
+
+/* Isolated canonical Events editor pilot. All rules stay within this workspace. */
+.eventPilot { min-width: 0; }
+.eventPilot :global([data-editor-page]) {
+  height: min(76dvh, 850px);
+  min-height: 0;
+}
+.eventPilot :global([data-editor-page]) > :global([data-editor-workspace]) {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+.eventForm {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+.eventForm :global(.admin-form-card), .seoSection { min-width: 0; }
+.eventForm :global(.admin-markdown-toolbar) { flex-wrap: wrap; }
+.eventForm :global(.admin-upload-row) { min-width: 0; }
+.seoSection { min-width: 0; }
+.liveSummary { min-width: 0; overflow-wrap: anywhere; }
+.liveSummary h2 { font-size: 1.15rem; margin: 0.8rem 0 0.45rem; }
+.liveSummary dl { display: grid; gap: 0.55rem; }
+.liveSummary dl > div { display: grid; gap: 0.1rem; }
+.liveSummary dd { margin: 0; }
+.errorText { color: #922f21; overflow-wrap: anywhere; }
+.eventPilot :global([data-editor-actionbar]) button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+@media (max-width: 820px) {
+  .eventPilot :global([data-editor-page]) { height: min(78dvh, 760px); }
+  .eventPilot :global([data-editor-page]) > :global([data-editor-workspace]) {
+    min-height: 0;
+    max-height: none;
+  }
+  .eventForm :global(.admin-slug-input),
+  .eventForm :global(.admin-upload-row) { min-width: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 380px) {
+  .eventPilot :global([data-editor-actionbar]) { gap: 0.35rem; }
+  .eventPilot :global([data-editor-actionbar] > div:last-child) {
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 0;
+  }
+  .eventPilot :global([data-editor-actionbar] > div:last-child > *) {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+}
