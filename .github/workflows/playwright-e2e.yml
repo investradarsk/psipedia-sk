@@ -118,8 +118,11 @@ jobs:
 
 
   ds-0b-focused-regression:
-    name: PUBLIC DS-0B focused Node and directory Playwright
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 903 && needs.validate.result == 'success'
+    name: PUBLIC DS-0B permanent Node and scoped directory Playwright
+    if: >-
+      needs.validate.result == 'success' &&
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -127,12 +130,13 @@ jobs:
       contents: read
       checks: read
     env:
-      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact PR HEAD
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Verify test source revision
         shell: bash
@@ -141,22 +145,67 @@ jobs:
           actual="$(git rev-parse HEAD)"
           printf 'pr_head_sha=%s\nchecked_out_sha=%s\nworkflow_sha=%s\n' "$PR_HEAD_SHA" "$actual" "${{ github.sha }}"
           test "$actual" = "$PR_HEAD_SHA"
+      - name: Select permanent DS-0B coverage from changed public files
+        id: ds0b_scope
+        shell: bash
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          test -n "$CI_BASE_SHA"
+          git cat-file -e "$CI_BASE_SHA^{commit}"
+          git cat-file -e "$PR_HEAD_SHA^{commit}"
+          git diff --name-only -z "$CI_BASE_SHA" "$PR_HEAD_SHA" > "$RUNNER_TEMP/ds0b-changed-files"
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const files = readFileSync(process.env.RUNNER_TEMP + "/ds0b-changed-files", "utf8").split("\0").filter(Boolean);
+          if (!files.length) throw new Error("Untrusted empty DS-0B diff range");
+          const publicContracts = [
+            /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$)/,
+            /^app\/(?:adresar\/|pomoc-psom\/|podujatia\/|recenzie|steniatka\/|starostlivost\/|aktivity\/|\[section\]\/)/,
+            /^lib\/(?:directory-|events?(?:-|\.ts$)|editorial-|help-|section-(?:visual|store))/,
+            /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment)\.test\.mjs$/,
+            /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+            /^\.github\/workflows\/playwright-e2e\.yml$/,
+          ];
+          const directoryMatrix = [
+            /^components\/(?:directory-|home-portal-search\.tsx$|public-visual-system\/unified-section-hero(?:\.|\/))/,
+            /^app\/adresar\//,
+            /^lib\/directory-/,
+            /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+          ];
+          const nodeRequired = files.some(file => publicContracts.some(pattern => pattern.test(file)));
+          const directoryRequired = files.some(file => directoryMatrix.some(pattern => pattern.test(file)));
+          if (directoryRequired && !nodeRequired) throw new Error("Directory contract must also run Node assertions");
+          const mode = process.env.GITHUB_EVENT_NAME === "pull_request" ? "pr" : "push";
+          console.log(JSON.stringify({ mode, base: process.env.CI_BASE_SHA, head: process.env.PR_HEAD_SHA,
+            files, nodeRequired, directoryRequired }, null, 2));
+          appendFileSync(process.env.GITHUB_OUTPUT, [
+            "node=" + nodeRequired,
+            "directory=" + (mode === "pr" && directoryRequired),
+            ""
+          ].join("\n"));
+          NODE
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
           cache: npm
       - name: Install dependencies
+        if: steps.ds0b_scope.outputs.node == 'true'
         run: npm ci
       - name: Execute DS-0B Node contracts (TAP assertions)
+        if: steps.ds0b_scope.outputs.node == 'true'
         run: |
           node --test \
             tests/global-design-unification.test.mjs \
             tests/public-search-simplify.test.mjs \
             tests/public-landing-alignment.test.mjs
       - name: Install Chromium for directory matrix
+        if: steps.ds0b_scope.outputs.directory == 'true'
         run: npx playwright install --with-deps chromium
       - name: Resolve successful preview for exact PR HEAD
+        if: steps.ds0b_scope.outputs.directory == 'true'
         id: preview
         shell: bash
         env:
@@ -204,6 +253,7 @@ jobs:
           echo "Verified exact-head Cloudflare preview: $preview_url"
           echo "url=$preview_url" >> "$GITHUB_OUTPUT"
       - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
+        if: steps.ds0b_scope.outputs.directory == 'true'
         env:
           E2E_BASE_URL: ${{ steps.preview.outputs.url }}
         run: |
@@ -211,7 +261,7 @@ jobs:
           npx playwright test tests/e2e/directory-unified-layout.spec.ts \
             --project=desktop-chromium --workers=1 --retries=0
       - name: Upload DS-0B directory screenshots
-        if: always()
+        if: always() && steps.ds0b_scope.outputs.directory == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ds-0b-directory-evidence-${{ github.run_attempt }}
