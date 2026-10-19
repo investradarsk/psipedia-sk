@@ -90,7 +90,15 @@ test("no-consent smoke has one non-conflicting storage initializer", () => {
   const testEnd = smokeSource.indexOf("\ntest(", testStart + 1);
   const noConsentTest = smokeSource.slice(testStart, testEnd);
 
-  assert.match(smokeSource, /if \(testInfo\.title !== NO_CONSENT_TEST\) await useNecessaryCookies\(page\)/);
+  // Guard the no-consent scenarios without pinning the smoke setup to a specific title comparison.
+  // The cookie Playwright suite verifies the actual storage and request behaviour.
+  const setupStart = smokeSource.indexOf("test.beforeEach(");
+  const setupEnd = smokeSource.indexOf("\\n});", setupStart);
+  assert.ok(setupStart >= 0 && setupEnd > setupStart, "Shared smoke setup is present");
+  const setup = smokeSource.slice(setupStart, setupEnd);
+  const necessarySeedGuard = setup.split("\\n").find((line) => line.includes("await useNecessaryCookies(page)"));
+  assert.ok(necessarySeedGuard, "Regular smoke tests still seed necessary-only cookies");
+  assert.match(necessarySeedGuard, /^\\s*if\\s*\\(\\s*!.*cookie consent.*\\)\\s*await useNecessaryCookies\\(page\\)/);
   assert.equal(noConsentTest.match(/addInitScript/g)?.length, 1);
   assert.match(noConsentTest, /localStorage\.removeItem\(key\)/);
   assert.doesNotMatch(noConsentTest, /localStorage\.setItem\(key, "necessary"\)/);
