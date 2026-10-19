@@ -44,6 +44,7 @@ on:
       - "tests/moderation-atomicity.test.mjs"
       - "tests/partner-multimethod-auth.test.mjs"
       - "tests/partner-memberships-admin.test.mjs"
+      - "tests/partner-admin-search.test.mjs"
       - "tests/partner-commercial-interest.test.mjs"
       - "tests/partner-commercial-agreements.test.mjs"
       - "tests/partner-claims-verification.test.mjs"
@@ -88,6 +89,8 @@ jobs:
         run: npm run db:validate-clean
       - name: Partner auth security tests
         run: npm run test:partner-auth
+      - name: Partner admin search, paging and loading regression tests
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/partner-admin-search.test.mjs
       - name: Moderation integrity CAS tests
         run: node --experimental-strip-types --test tests/moderation-atomicity.test.mjs
       - name: Lint
