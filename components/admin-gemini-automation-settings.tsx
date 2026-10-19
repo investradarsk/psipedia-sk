@@ -589,8 +589,7 @@ export function AdminGeminiAutomationSettings({
             {(externalEnabled || Boolean(pendingDeepLinkId)) && selected ? (
               <>
                 <p className={styles.microcopy}>Koncepty kategórie {selected.label}. Zoznam a filtrovanie otvor na požiadanie; úpravy zostávajú v existujúcom kanonickom editore.</p>
-                <AdminGeminiNotionDrafts key={selected.stableKey + ":" + (pendingDeepLinkId ?? "")}
-                  stableKey={selected.stableKey}
+                <AdminGeminiNotionDrafts key={selected.stableKey} stableKey={selected.stableKey}
                   deepLinkDraftId={selected.stableKey === initialSelectedKey ? pendingDeepLinkId : undefined} />
               </>
             ) : <p className={styles.emptyCompact}>
