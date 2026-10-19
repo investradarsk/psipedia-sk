@@ -49,9 +49,30 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     finally{setBusy(false);}
   }
   return <section className={styles.stack} aria-label="Katalóg služieb a vlastností">
-    <p className={styles.notice}>Kanonický register je v D1. Statické možnosti nie sú editovateľné. Nové možnosti začínajú ako DRAFT / PENDING a nie sú automaticky verejné.</p>
+    <div className={styles.statusPanel} data-write-enabled={writeEnabled ? "true" : "false"}>
+      <div className={styles.statusIntro}>
+        <span className={styles.statusIcon} aria-hidden="true">i</span>
+        <div className={styles.statusCopy}>
+          <h2>{!writeEnabled ? "Zápisy sú vypnuté" : loadError ? "Vytváranie konceptov je pozastavené" : "Vytváranie konceptov je dostupné"}</h2>
+          <p>{!writeEnabled
+            ? "Vytváranie a úpravy možností katalógu sú momentálne nedostupné."
+            : loadError
+              ? "Katalóg sa nepodarilo úplne načítať. Vytváranie konceptov je dočasne nedostupné."
+              : "Nové možnosti možno vytvoriť ako koncepty. Úpravy, schvaľovanie a archivácia zostávajú nedostupné."}</p>
+        </div>
+      </div>
+      <details className={styles.statusDetails}>
+        <summary>Podrobnosti o katalógu</summary>
+        <ul className={styles.statusFacts}>
+          <li>Kanonický register možností je v D1.</li>
+          <li>Vstavané statické možnosti nie sú editovateľné.</li>
+          <li>Nové možnosti začínajú ako DRAFT / PENDING.</li>
+          <li>Vytvorenie konceptu neznamená automatické schválenie ani verejné publikovanie.</li>
+          <li>Dostupnosť administračných operácií závisí od bezpečnostných a lifecycle podmienok.</li>
+        </ul>
+      </details>
+    </div>
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
-    {!writeEnabled&&<p className={styles.notice}>Zápisy Services V3 sú zatiaľ vypnuté. Nové možnosti, schvaľovanie a archivácia zostávajú uzamknuté.</p>}
     <div className={styles.filterBar}>
       <label className={styles.searchField}>Vyhľadávanie<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Služba, vlastnosť alebo ID"/></label>
       <button type="button" className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls="services-v3-catalog-advanced-filters"
