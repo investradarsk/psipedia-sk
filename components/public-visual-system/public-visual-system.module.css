@@ -157,7 +157,7 @@
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
-.action:hover {
+.action:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
@@ -175,7 +175,7 @@
   box-shadow: 0 5px 16px rgba(23, 53, 43, .12);
 }
 
-.actionPrimary:hover {
+.actionPrimary:hover:not(:disabled) {
   background: var(--forest-dark);
 }
 
@@ -185,7 +185,7 @@
   background: var(--white);
 }
 
-.actionSecondary:hover {
+.actionSecondary:hover:not(:disabled) {
   border-color: var(--forest);
   background: var(--sage-light);
 }
@@ -200,9 +200,60 @@
   text-underline-offset: .2em;
 }
 
-.actionTertiary:hover {
+.actionTertiary:hover:not(:disabled) {
   color: var(--forest-dark);
   background: rgba(237, 243, 233, .58);
+}
+
+
+/* DS-2A: native button states; links preserve navigation semantics. */
+.action:disabled {
+  opacity: .76;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.actionLoading:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+.action:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.actionPrimary:active:not(:disabled) {
+  background: var(--forest-dark);
+}
+
+.actionSecondary:active:not(:disabled) {
+  border-color: var(--forest);
+  background: var(--sage);
+}
+
+.actionTertiary:active:not(:disabled) {
+  color: var(--forest-dark);
+  background: var(--sage-light);
+}
+
+.loadingIndicator {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: publicActionSpin .8s linear infinite;
+}
+
+@keyframes publicActionSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action { transition: none; }
+  .loadingIndicator { animation: none; }
 }
 
 .icon {
@@ -702,7 +753,7 @@
   background: #fff;
 }
 
-.landingHeroActions .actionPrimary:hover {
+.landingHeroActions .actionPrimary:hover:not(:disabled) {
   background: #f7f5ee;
 }
 
@@ -711,7 +762,7 @@
   background: rgba(255,255,255,.08);
 }
 
-.landingHeroActions .actionSecondary:hover {
+.landingHeroActions .actionSecondary:hover:not(:disabled) {
   background: rgba(255,255,255,.16);
 }
 
