@@ -5,37 +5,40 @@ import {createRequire} from "node:module";
 import {runInNewContext} from "node:vm";
 import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
-import {build} from "esbuild";
+import ts from "typescript";
+import {readFileSync} from "node:fs";
 
-// Render the real TSX component, isolating only Next router and adjacent UI wrappers.
-// No D1, API requests, feature-flag activation or production data are involved.
-const compiled=await build({
-  entryPoints:[fileURLToPath(new URL("../components/admin-service-catalog-workspace.tsx",import.meta.url))],
-  bundle:true,platform:"node",format:"cjs",packages:"external",jsx:"automatic",write:false,
-  plugins:[{
-    name:"catalog-mobile-polish-test-isolation",
-    setup(b){
-      b.onResolve({filter:/^next\/navigation$/},()=>({path:"router",namespace:"catalog-mock"}));
-      b.onResolve({filter:/^@\/components\/admin-(interaction-system|editor-workspace)$/},()=>({path:"components",namespace:"catalog-mock"}));
-      b.onResolve({filter:/\.module\.css$/},()=>({path:"css",namespace:"catalog-mock"}));
-      b.onLoad({filter:/.*/,namespace:"catalog-mock"},({path})=>({
-        contents:path==="router"
-          ? "export const useRouter=()=>({refresh(){}});"
-          :path==="css"
-            ? "export default new Proxy({}, {get:(_target,key)=>String(key)});"
-            : `import React from "react";
-export function AdminActionButton({children,disabled,...props}){return React.createElement("button",{disabled},children);}
-export function EditorWorkspace(){return null;}
-export function EditorActionBar(){return null;}
-export function EditorStatus({label}){return React.createElement("span",null,label);}`,
-        loader:"js"
-      }));
-    }
-  }]
-});
+// Transpile the real TSX with the repository's declared TypeScript dependency.
+// Stub only the Next router and adjacent UI wrappers; retain real React rendering.
+const source=readFileSync(new URL("../components/admin-service-catalog-workspace.tsx",import.meta.url),"utf8");
+const transpiled=ts.transpileModule(source,{
+  fileName:"admin-service-catalog-workspace.tsx",
+  compilerOptions:{
+    jsx:ts.JsxEmit.ReactJSX,
+    module:ts.ModuleKind.CommonJS,
+    target:ts.ScriptTarget.ES2022,
+    esModuleInterop:true
+  }
+}).outputText;
+const actualRequire=createRequire(import.meta.url);
+const styles=new Proxy({}, {get:(_target,key)=>String(key)});
+const fakeRequire=(id)=>{
+  if(id==="react"||id==="react/jsx-runtime")return actualRequire(id);
+  if(id==="next/navigation")return {useRouter:()=>({refresh(){}})};
+  if(id.endsWith(".module.css"))return {__esModule:true,default:styles};
+  if(id==="@/components/admin-interaction-system")return {
+    AdminActionButton:({children,disabled})=>createElement("button",{disabled},children)
+  };
+  if(id==="@/components/admin-editor-workspace")return {
+    EditorActionBar:()=>null,
+    EditorWorkspace:()=>null,
+    EditorStatus:({label})=>createElement("span",null,label)
+  };
+  throw new Error("Unexpected dependency in catalog test: "+id);
+};
 const mod={exports:{}};
-runInNewContext(`(function(require,module,exports){${compiled.outputFiles[0].text}\n})`,
-  {process,console})(createRequire(import.meta.url),mod,mod.exports);
+runInNewContext("(function(require,module,exports){"+transpiled+"\n})",
+  {process,console})(fakeRequire,mod,mod.exports);
 const {AdminServiceCatalogWorkspace}=mod.exports;
 const html=({writeEnabled=false,loadError=null}={})=>renderToStaticMarkup(
   createElement(AdminServiceCatalogWorkspace,{items:[],categories:[],writeEnabled,loadError})
