@@ -823,9 +823,13 @@ function rowToSnapshot(sourceType: AdminAttentionQueueSourceType, row: Attention
   };
 }
 
-async function probeSources(db: AdminAttentionD1Database, now: Date): Promise<AttentionSourceSnapshot[]> {
+async function probeSources(
+  db: AdminAttentionD1Database,
+  now: Date,
+  sourceTypes: readonly AdminAttentionQueueSourceType[] = adminAttentionQueueSourceTypes,
+): Promise<AttentionSourceSnapshot[]> {
   const bindings = timeBindings(now);
-  return Promise.all(adminAttentionQueueSourceTypes.map(async (sourceType) => {
+  return Promise.all(sourceTypes.map(async (sourceType) => {
     try {
       const row = await db.prepare(sourceProbeSql(sourceType)).bind(...bindings).first<AttentionSourceProbeRow>();
       return rowToSnapshot(sourceType, row);
@@ -834,6 +838,67 @@ async function probeSources(db: AdminAttentionD1Database, now: Date): Promise<At
       return unavailableSnapshot(sourceType);
     }
   }));
+}
+
+// The shared bell only needs active counts, not the full priority/history probes
+// used by the operations queue. Five canonical sources per statement means
+// three round trips instead of fifteen, without merging source identities.
+export const ADMIN_ATTENTION_SUMMARY_GROUP_SIZE = 5;
+export const ADMIN_ATTENTION_SUMMARY_QUERY_COUNT = Math.ceil(
+  adminAttentionQueueSourceTypes.length / ADMIN_ATTENTION_SUMMARY_GROUP_SIZE,
+);
+type AttentionActiveCountRow = { sourceType: AdminAttentionQueueSourceType; activeCount: number };
+
+function summaryGroupSql(sources: readonly AdminAttentionQueueSourceType[]) {
+  const queries = sources.map((sourceType) => `
+    SELECT '${sourceType}' AS sourceType,
+      COALESCE(SUM(CASE WHEN activeRank=0 THEN 1 ELSE 0 END),0) AS activeCount
+    FROM (${ATTENTION_SOURCE_SELECTS[sourceType]})
+  `);
+  return `${paramsCte()}\n${queries.join("\nUNION ALL\n")}`;
+}
+
+async function probeSourcesSummary(
+  db: AdminAttentionD1Database,
+  now: Date,
+): Promise<AdminAttentionSourceAvailability[]> {
+  const sourceGroups: AdminAttentionQueueSourceType[][] = [];
+  for (let index = 0; index < adminAttentionQueueSourceTypes.length; index += ADMIN_ATTENTION_SUMMARY_GROUP_SIZE) {
+    sourceGroups.push(adminAttentionQueueSourceTypes.slice(index, index + ADMIN_ATTENTION_SUMMARY_GROUP_SIZE));
+  }
+  const bindings = timeBindings(now);
+  const results = await Promise.all(sourceGroups.map(async (sources) => {
+    try {
+      const response = await db.prepare(summaryGroupSql(sources))
+        .bind(...bindings).all<AttentionActiveCountRow>();
+      const counts = new Map<AdminAttentionQueueSourceType, number>();
+      for (const row of response.results) {
+        const count = Number(row.activeCount);
+        if (!sources.includes(row.sourceType) || counts.has(row.sourceType)
+          || !Number.isSafeInteger(count) || count < 0) {
+          throw new Error("Invalid admin attention summary group response.");
+        }
+        counts.set(row.sourceType, count);
+      }
+      if (counts.size !== sources.length) {
+        throw new Error("Incomplete admin attention summary group response.");
+      }
+      return sources.map((sourceType): AdminAttentionSourceAvailability => {
+        const activeCount = counts.get(sourceType)!;
+        return { sourceType, activeCount, state: activeCount > 0 ? "OK" : "EMPTY" };
+      });
+    } catch (error) {
+      // One unavailable table/source must not suppress the other counts.
+      // Retry only the failed group with the existing per-source read model.
+      console.warn("Admin attention summary group unavailable; retrying sources.", {
+        sourceTypes: sources,
+        errorCode: "ATTENTION_SOURCE_UNAVAILABLE",
+        errorMessage: error instanceof Error ? error.message : undefined,
+      });
+      return publicSourceAvailability(await probeSources(db, now, sources));
+    }
+  }));
+  return results.flat();
 }
 
 function publicSourceAvailability(sources: AttentionSourceSnapshot[]): AdminAttentionSourceAvailability[] {
@@ -1096,8 +1161,7 @@ function emptyPageSummary(bySource: Record<AdminAttentionQueueSourceType, number
 
 export async function loadExactAdminAttentionSummary(database?: AdminAttentionD1Database, now = new Date()): Promise<AdminAttentionExactSummary> {
   const db = requireD1Binding(database);
-  const snapshots = await probeSources(db, now);
-  const sourceAvailability = publicSourceAvailability(snapshots);
+  const sourceAvailability = await probeSourcesSummary(db, now);
   const bySource = sourceCounts(sourceAvailability);
   return {
     active: Object.values(bySource).reduce((sum, value) => sum + (value ?? 0), 0),
