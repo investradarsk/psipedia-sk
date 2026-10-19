@@ -82,3 +82,42 @@ BEFORE DELETE ON service_catalog_admin_change_audit
 BEGIN
   SELECT RAISE(ABORT,'Services V3 audit history is append-only');
 END;
+
+-- A SYNCED status alone is not evidence that Notion acknowledged these exact
+-- canonical semantics. There is deliberately NO Admin HTTP writer for receipts.
+-- A future trusted reconciler may insert a receipt only after independently
+-- reading/confirming the remote Notion page and its version/content.
+CREATE TABLE service_catalog_admin_notion_receipts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  option_id TEXT NOT NULL REFERENCES service_catalog_admin_options(id) ON DELETE RESTRICT,
+  option_version INTEGER NOT NULL CHECK(option_version>=1),
+  notion_page_id TEXT NOT NULL CHECK(length(notion_page_id)>=3),
+  notion_last_edited_at TEXT NOT NULL,
+  remote_payload_sha256 TEXT NOT NULL CHECK(length(remote_payload_sha256)=64),
+  verified_at TEXT NOT NULL,
+  verified_by TEXT NOT NULL,
+  UNIQUE(option_id,option_version)
+);
+CREATE TRIGGER service_catalog_admin_receipt_no_update
+BEFORE UPDATE ON service_catalog_admin_notion_receipts
+BEGIN
+  SELECT RAISE(ABORT,'Services V3 Notion receipts are append-only');
+END;
+CREATE TRIGGER service_catalog_admin_receipt_no_delete
+BEFORE DELETE ON service_catalog_admin_notion_receipts
+BEGIN
+  SELECT RAISE(ABORT,'Services V3 Notion receipts are append-only');
+END;
+-- Enforce verified proof at the D1 boundary, not merely in a route. There
+-- cannot be an ACTIVE promotion without a current-version receipt, even if a
+-- future caller skips the application-level authorization check.
+CREATE TRIGGER service_catalog_admin_option_approval_receipt
+BEFORE UPDATE OF status ON service_catalog_admin_options
+WHEN OLD.status='DRAFT' AND NEW.status='ACTIVE'
+BEGIN
+  SELECT RAISE(ABORT,'Notion receipt required before canonical approval')
+  WHERE NOT EXISTS (
+    SELECT 1 FROM service_catalog_admin_notion_receipts
+    WHERE option_id=OLD.id AND option_version=OLD.version
+  );
+END;
