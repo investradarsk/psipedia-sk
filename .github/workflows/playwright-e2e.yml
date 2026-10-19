@@ -1222,3 +1222,171 @@ jobs:
             test-results/playwright/
           if-no-files-found: warn
           retention-days: 14
+
+  cookie-consent-preview-e2e:
+    name: Cookie consent preview — ${{ matrix.label }}
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 891
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: desktop
+            project: desktop-chromium
+          - label: mobile
+            project: mobile-chromium
+    permissions:
+      contents: read
+      checks: read
+    env:
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PROJECT: ${{ matrix.project }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Assert checkout SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cookie-preview-e2e
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nchecked_out=%s\n' "$PR_HEAD_SHA" "$actual" | tee .cookie-preview-e2e/revision.txt
+          test "$actual" = "$PR_HEAD_SHA" || { echo "::error::CI configuration: wrong checkout SHA"; exit 1; }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Discover exact commit preview from Cloudflare GitHub Check
+        id: preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = process.env.PR_HEAD_SHA;
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error("Invalid head SHA");
+            const { owner, repo } = context.repo;
+            let last = "Cloudflare check missing";
+            for (let i = 0; i < 72; i++) {
+              const response = await github.rest.checks.listForRef({ owner, repo, ref: sha, per_page: 100 });
+              const checks = response.data.check_runs.filter((r) =>
+                r.name === "Workers Builds: psipedia-sk" &&
+                r.app?.slug === "cloudflare-workers-and-pages" && r.head_sha === sha);
+              if (checks.some((r) => r.status === "completed" && r.conclusion === "failure"))
+                throw new Error("Cloudflare preview build FAILED for " + sha);
+              const ready = checks.find((r) => r.status === "completed" && r.conclusion === "success");
+              last = checks.length ? checks.map((r) => r.status + "/" + r.conclusion).join(", ") : "Cloudflare check missing";
+              if (ready) {
+                const match = (ready.output?.summary || "").match(/^Preview URL:\s*(https:\/\/[^\s]+)/m);
+                if (match) {
+                  const url = new URL(match[1]);
+                  if (url.protocol !== "https:" ||
+                      !/^[a-f0-9]{8}-psipedia-sk\.martin-zabransky-5ff\.workers\.dev$/.test(url.hostname) ||
+                      url.port || url.username || url.password ||
+                      url.pathname !== "/" || url.search || url.hash)
+                    throw new Error("Untrusted or non-commit preview URL");
+                  core.setOutput("url", url.origin);
+                  core.info("HEAD=" + sha + " commit_preview=" + url.origin);
+                  require("node:fs").appendFileSync(".cookie-preview-e2e/revision.txt", "preview=" + url.origin + "\n");
+                  return;
+                }
+                last = "Cloudflare build succeeded without commit preview URL";
+              }
+              if (i < 71) await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+            throw new Error("Cloudflare commit preview unavailable: " + last);
+      - name: Install dependencies and Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Preview DNS, TLS and HTTP preflight — never follow redirects
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$E2E_BASE_URL" || { echo "::error::Missing preview URL"; exit 1; }
+          ready=0
+          for attempt in $(seq 1 18); do
+            set +e
+            metrics="$(curl --silent --show-error --proto '=https' \
+              --connect-timeout 10 --max-time 25 \
+              --dump-header .cookie-preview-e2e/http-headers.txt \
+              --output .cookie-preview-e2e/http-body.html \
+              --write-out '%{http_code}|%{remote_ip}|%{ssl_verify_result}|%{redirect_url}' \
+              "$E2E_BASE_URL/")"
+            code=$?
+            set -e
+            IFS='|' read -r http ip tls redirect <<< "$metrics"
+            printf 'attempt=%s exit=%s http=%s remote_ip=%s tls=%s redirect=%s\n' \
+              "$attempt" "$code" "$http" "$ip" "$tls" "$redirect" | tee -a .cookie-preview-e2e/preflight.log
+            if [[ "$http" =~ ^3[0-9][0-9]$ ]] || [ -n "$redirect" ]; then
+              echo "::error::Unexpected redirect: production fallback forbidden"
+              exit 1
+            fi
+            if [ "$code" -eq 0 ] && [ "$http" = 200 ] && [ "$tls" = 0 ] && [ -n "$ip" ]; then
+              ready=1
+              break
+            fi
+            if [ "$attempt" -lt 18 ]; then sleep 6; fi
+          done
+          test "$ready" -eq 1 || { echo "::error::Preview DNS/TLS/HTTP unavailable"; exit 1; }
+      - name: Execute existing cookie consent Playwright tests
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          PLAYWRIGHT_HTML_OUTPUT_DIR: .cookie-preview-e2e/html
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cookie-preview-e2e/results.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test tests/e2e/psipedia.spec.ts \
+            --grep "cookie consent" --project="$PROJECT" \
+            --workers=1 --retries=0 --trace on \
+            --reporter=list,html,json --output=.cookie-preview-e2e/traces \
+            2>&1 | tee .cookie-preview-e2e/playwright.log
+      - name: Count passed and failed tests; verify nonempty report
+        if: always()
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          fs.mkdirSync(".cookie-preview-e2e", { recursive: true });
+          const file = ".cookie-preview-e2e/results.json";
+          const lines = [
+            "expected_head=" + process.env.PR_HEAD_SHA,
+            "tested_preview=" + (process.env.PREVIEW_URL || "UNKNOWN"),
+            "project=" + process.env.PROJECT,
+            "analytics_check=see Playwright request assertions and trace network evidence"
+          ];
+          let fail = !fs.existsSync(file);
+          if (!fail) {
+            try {
+              const s = JSON.parse(fs.readFileSync(file, "utf8")).stats || {};
+              const passed = s.expected || 0, failed = s.unexpected || 0;
+              const flaky = s.flaky || 0, skipped = s.skipped || 0;
+              const executed = passed + failed + flaky;
+              lines.push("executed=" + executed + " passed=" + passed +
+                " failed=" + failed + " flaky=" + flaky + " skipped=" + skipped);
+              if (executed === 0 || failed || flaky || skipped) fail = true;
+            } catch (e) { lines.push("invalid_report=" + e.message); fail = true; }
+          } else lines.push("test_report=missing");
+          const result = lines.join("\n") + "\n";
+          console.log(result);
+          fs.writeFileSync(".cookie-preview-e2e/summary.txt", result);
+          if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "\n" + result);
+          if (fail) process.exitCode = 1;
+          NODE
+      - name: Upload preview Playwright HTML, screenshot, trace and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cookie-consent-preview-${{ matrix.label }}-${{ github.run_attempt }}
+          path: .cookie-preview-e2e/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
