@@ -72,12 +72,12 @@ export function validateEnvironment(env, report) {
 function assertComparable(before, after, envBefore, envAfter) {
   validateReport(before);
   validateReport(after);
-  validateEnvironment(envBefore, before);
-  validateEnvironment(envAfter, after);
   for (const key of ["fixture_id", "browser_version", "node_version",
     "playwright_browser", "scope", "provenance", "repeats", "device"]) {
     if (before[key] !== after[key]) fail("INCOMPARABLE_REPORT:" + key);
   }
+  validateEnvironment(envBefore, before);
+  validateEnvironment(envAfter, after);
   for (const key of ENV_KEYS) {
     if (envBefore[key] !== envAfter[key]) fail("INCOMPARABLE_ENVIRONMENT:" + key);
   }
