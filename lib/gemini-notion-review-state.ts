@@ -19,3 +19,30 @@ export function geminiReviewCounts(drafts: { reviewState: GeminiReviewState }[])
   for (const draft of drafts) counts[draft.reviewState]++;
   return counts;
 }
+
+/** Canonical D1 statuses only. Notion editorial approval does not mean public. */
+export type GeminiCanonicalAgenda = "events" | "organizations" | "adoptions" | "help-cases" | "lost-found";
+export function geminiCanonicalPublished(agenda: GeminiCanonicalAgenda, status: string): boolean {
+  switch (agenda) {
+    case "events":
+    case "help-cases": return status === "published";
+    case "organizations": return status === "PUBLISHED";
+    case "adoptions": return status === "ACTIVE";
+    case "lost-found": return status === "ACTIVE" || status === "RESOLVED";
+  }
+}
+export function geminiActiveReviewState(state: GeminiReviewState) {
+  return state !== "PUBLISHED" && state !== "REJECTED";
+}
+export function geminiActiveReviewCount(drafts: { reviewState: GeminiReviewState }[]) {
+  return drafts.filter(draft => geminiActiveReviewState(draft.reviewState)).length;
+}
+/** Monotonic within one mounted admin view: late API results must not revive
+ * a confirmed-published item. A page reload reads fresh authoritative D1 state. */
+export function preserveGeminiPublished<T extends { id: string; reviewState: GeminiReviewState }>(
+  previous: T[], incoming: T[],
+): T[] {
+  const published = new Set(previous.filter(draft => draft.reviewState === "PUBLISHED").map(draft => draft.id));
+  return incoming.map(draft => published.has(draft.id) && draft.reviewState !== "PUBLISHED"
+    ? { ...draft, reviewState: "PUBLISHED" as const } : draft);
+}

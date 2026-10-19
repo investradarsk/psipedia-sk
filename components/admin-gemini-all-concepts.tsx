@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { geminiAutomationCatalog, geminiAutomationSections, type GeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { geminiConceptDate, geminiConceptMatchesSearch, geminiCanonicalEditorUrl } from "@/lib/gemini-concept-manager";
-import { geminiReviewLabels, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
+import { geminiReviewLabels, geminiActiveReviewCount, geminiActiveReviewState, preserveGeminiPublished, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
 import styles from "./admin-gemini-all-concepts.module.css";
@@ -25,7 +25,7 @@ export function AdminGeminiAllConcepts() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("ALL");
-  const [status, setStatus] = useState<GeminiReviewState | "ALL">("ALL");
+  const [status, setStatus] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,7 +43,7 @@ export function AdminGeminiAllConcepts() {
             throw new Error(data.error || "Načítanie zlyhalo");
           }
           if (!controller.signal.aborted) {
-            setLoaded(previous => ({ ...previous, [key]: data.drafts! }));
+            setLoaded(previous => ({ ...previous, [key]: preserveGeminiPublished(previous[key] ?? [], data.drafts!) }));
           }
         } catch (error) {
           if (!controller.signal.aborted) {
@@ -66,7 +66,7 @@ export function AdminGeminiAllConcepts() {
   ), [loaded]);
   const visible = useMemo(() => all.filter(({ item, draft }) =>
     (category === "ALL" || item.stableKey === category) &&
-    (status === "ALL" || draft.reviewState === status) &&
+    (status === "ALL" || (status === "ACTIVE" ? geminiActiveReviewState(draft.reviewState) : draft.reviewState === status)) &&
     (geminiConceptMatchesSearch(draft, search) ||
       geminiConceptMatchesSearch({ name: item.label }, search))
   ).sort((left, right) =>
@@ -98,6 +98,7 @@ export function AdminGeminiAllConcepts() {
         <span className={styles.status + " " + (styles["status_" + draft.reviewState.toLowerCase()] ?? "")}>
           {geminiReviewLabels[draft.reviewState]}
         </span>
+        {draft.syncError && <span role="status" className={styles.warning}>Sync: {draft.syncError}</span>}
         <Link className={styles.open} href={canonicalUrl ?? categoryUrl}>
           {canonicalUrl ? "Upraviť v sekcii →" : "Otvoriť v kategórii →"}
         </Link>
@@ -114,8 +115,8 @@ export function AdminGeminiAllConcepts() {
           <p>Jeden zoznam z rovnakých zdrojov, ktoré používaš pri každej Gemini kategórii. Ostatné koncepty Notionu sem nepatria.</p>
         </div>
         <div className={styles.counter} aria-live="polite">
-          <strong>{all.length}</strong>
-          <span>{complete && !Object.keys(errors).length ? "Načítaných konceptov" : "Zatiaľ načítaných konceptov"}</span>
+          <strong>{geminiActiveReviewCount(all.map(entry => entry.draft))}</strong>
+          <span>{complete && !Object.keys(errors).length ? "Čakajúcich konceptov" : "Zatiaľ načítaných čakajúcich konceptov"}</span>
         </div>
       </section>
 
@@ -141,6 +142,7 @@ export function AdminGeminiAllConcepts() {
         <label>
           Stav
           <select value={status} onChange={event => setStatus(event.target.value as typeof status)}>
+            <option value="ACTIVE">Aktívne koncepty</option>
             <option value="ALL">Všetky stavy</option>
             {Object.entries(geminiReviewLabels).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
