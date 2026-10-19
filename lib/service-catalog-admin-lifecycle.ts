@@ -25,7 +25,7 @@ function exactFields(value:Record<string,unknown>,keys:readonly string[]){
   if(Object.keys(value).some(key=>!keys.includes(key)))throw new ServiceCatalogInputError("Unsupported or server-controlled lifecycle fields.");
 }
 function requireVersion(raw:unknown):number{
-  if(!Number.isSafeInteger(raw)||(raw as number)<1)throw new ServiceCatalogInputError("A positive expectedVersion is required.");
+  if(typeof raw!=="number"||!Number.isSafeInteger(raw)||raw<1)throw new ServiceCatalogInputError("A positive expectedVersion is required.");
   return raw as number;
 }
 function optionId(raw:unknown):string{
@@ -75,7 +75,7 @@ export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,a
   const row=await find(db,id);
   if(row.version!==version)throw new ServiceCatalogConflictError("Option changed concurrently; reload before saving.");
   const time=now.toISOString();
-  let sql:string,params:unknown[];
+  let sql:string,params:(string|number)[];
   if(action==="edit"){
     if(row.status!=="DRAFT"||row.notion_mirror_status==="CONFLICT")
       throw new ServiceCatalogConflictError("Edit is limited to non-conflicted DRAFT options.");
