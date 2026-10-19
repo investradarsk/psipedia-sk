@@ -11,6 +11,8 @@ export type NotionReviewReason =
   | "LEGACY_BASELINE_MISMATCH"
   | "IDENTITY_CONFLICT"
   | "MAPPING_CONFLICT"
+  | "MISSING_CANONICAL"
+  | "OUT_OF_DOMAIN"
   | "DUPLICATE_CONFLICT";
 
 export type NotionReviewItem = {
