@@ -1,4 +1,5 @@
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
+import { resolveGeminiPublicSlug } from "./gemini-public-slug";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import {
   archiveManagedDirectoryProfile,
@@ -785,7 +786,11 @@ async function createProfileFromNotion(input: {
   trustedGemini?: boolean;
 }) {
   const desired = notionSnapshot(input.page);
-  if (input.trustedGemini && !desired.slug) desired.slug = "gemini-" + input.page.id.replaceAll("-", "");
+  if (input.trustedGemini) {
+    desired.slug = await resolveGeminiPublicSlug(input.database, "directory", {
+      requestedSlug: desired.slug, name: desired.name, city: desired.city, notionPageId: input.page.id,
+    });
+  }
   const sourceImageUrl = externalSourceImageUrl(desired.imageUrl);
   const sourcePageUrl = propertyText(input.page, "Zdroj obrázka") || desired.websiteUrl || "";
   const imageAltText = propertyText(input.page, "Alt text obrázka") || desired.name;
@@ -871,7 +876,7 @@ async function applyNotionToProfile(input: {
   if (createdByGemini) {
     // Notion cannot publish or unpublish a Gemini-created profile.
     // Only the explicit canonical admin publish action can change its status.
-    payload = { ...payload, status: current.status };
+    payload = { ...payload, status: current.status, slug: current.slug };
   }
   const addressChanged = directoryPhysicalAddressChanged(current, payload);
   const safety = notionDirectoryUpdateSafety({

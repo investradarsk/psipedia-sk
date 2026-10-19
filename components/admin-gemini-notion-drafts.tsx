@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
-import { geminiReviewLabels, geminiReviewCounts, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
+import { geminiReviewLabels, geminiReviewCounts, geminiActiveReviewCount, geminiActiveReviewState, preserveGeminiPublished, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
 import { geminiCanonicalEditorUrl, geminiCanRejectConcept, geminiConceptDate, geminiSupportsRejectionReason, geminiConceptMatchesSearch } from "@/lib/gemini-concept-manager";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
@@ -13,7 +13,6 @@ import { AdminModalDialog } from "@/components/admin-interaction-system";
 import styles from "./admin-gemini-notion-drafts.module.css";
 
 type ReviewDraft = GeminiDirectoryDraft | GeminiAgendaDraft;
-const REVIEWABLE = ["NEW", "IN_PROGRESS", "APPROVED", "IMPORTED"];
 
 function draftApi(id: string, stableKey: string) {
   const base = "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(id);
@@ -55,7 +54,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
   const currentDrafts = loadedCategory === stableKey ? drafts : [];
   const counts = geminiReviewCounts(currentDrafts);
   const statusFiltered = currentDrafts.filter(draft => filter === "ALL" ||
-    (filter === "ACTIVE" ? REVIEWABLE.includes(draft.reviewState) : draft.reviewState === filter));
+    (filter === "ACTIVE" ? geminiActiveReviewState(draft.reviewState) : draft.reviewState === filter));
   const visible = statusFiltered.filter(draft => geminiConceptMatchesSearch(draft, search));
 
   function markDirty() {
@@ -95,7 +94,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
         throw Error(json.error || "Nepodarilo sa načítať koncepty.");
       }
       if (revision === loadRevision.current) {
-        setDrafts(json.drafts);
+        setDrafts(previous => preserveGeminiPublished(previous, json.drafts!));
         setLoadedCategory(stableKey);
         setLoaded(true);
       }
@@ -199,7 +198,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
           onClick={() => { const next = !expanded; setExpanded(next); if (next && !loaded) void load(); }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
           Koncepty z automatizácie
-          {loadedCategory === stableKey && <span aria-label={currentDrafts.length + " konceptov"}>({currentDrafts.length})</span>}
+          {loadedCategory === stableKey && <span aria-label={geminiActiveReviewCount(currentDrafts) + " čakajúcich konceptov"}>({geminiActiveReviewCount(currentDrafts)})</span>}
         </button>
         {expanded && (
           <div className={styles.headerActions}>
@@ -269,7 +268,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
                         </span>
                         {draft.reviewState === "REJECTED" &&
                           <span className={styles.availability}>Dôvod: {draft.rejectionReason || "Bez uvedenia dôvodu"}</span>}
-                        {draft.reviewState === "APPROVED" && draft.syncError &&
+                        {draft.syncError &&
                           <span role="status" className={styles.error}>Synchronizácia: {draft.syncError}</span>}
                         {draft.geminiNote && (
                           <aside className={styles.extra} aria-label="Gemini poznámka">

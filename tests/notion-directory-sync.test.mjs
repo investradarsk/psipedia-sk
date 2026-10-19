@@ -264,7 +264,8 @@ test("Gemini Notion proposals become private canonical drafts without approval o
   assert.doesNotMatch(gate, /editorialState === "Publikované" &&/);
   const creation = syncSource.slice(syncSource.indexOf("async function createProfileFromNotion"), syncSource.indexOf("async function applyNotionToProfile"));
   assert.match(creation, /status: "draft"/);
-  assert.match(creation, /gemini-/);
+  assert.match(creation, /resolveGeminiPublicSlug/);
+  assert.doesNotMatch(creation, /desired\\.slug = "gemini-" \\+/);
   assert.doesNotMatch(creation, /sameDirectoryIdentity|GeminiCanonicalDuplicateError/);
   assert.match(syncSource, /await saveMapping\(\{/);
 });
