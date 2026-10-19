@@ -3,7 +3,7 @@ import {useEffect,useRef,useState,useSyncExternalStore} from "react";
 import {calendarMonthDays,calendarMonthLabel,calendarWeekdays,moveCalendarMonth} from "@/lib/event-calendar-view";
 import {facebookWallTime,facebookPostsForDay,type FacebookImagePost} from "@/lib/facebook-image-post";
 import {uploadAdminImage} from "@/lib/admin-image-upload";
-import {AdminActionButton} from "@/components/admin-interaction-system";
+import {AdminActionButton,AdminModalDialog} from "@/components/admin-interaction-system";
 import shared from "./admin-editorial-calendar.module.css";
 import styles from "./admin-facebook-images.module.css";
 
@@ -45,6 +45,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
   const[publisherError,setPublisherError]=useState(""),[publisherBusy,setPublisherBusy]=useState(false);
   const[notionBusy,setNotionBusy]=useState(false);
   const[editor,setEditor]=useState<{post:FacebookImagePost|null}|null>(null),[form,setForm]=useState<Form>(blank()),[baseline,setBaseline]=useState(""),[editorError,setEditorError]=useState(""),[busy,setBusy]=useState(false);
+  const[deleteTarget,setDeleteTarget]=useState<FacebookImagePost|null>(null),[deleteError,setDeleteError]=useState("");
   const dialog=useRef<HTMLDialogElement>(null),origin=useRef<HTMLElement|null>(null),openRequest=useRef<AbortController|null>(null),lock=useRef(false);
   const queryKey=`${month}|${status}|${source}|${page}|${refresh}`;
   const[settledQuery,setSettledQuery]=useState(queryKey);
@@ -102,13 +103,22 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     }catch(e){setError(e instanceof Error?e.message:"Synchronizácia Notion zlyhala.");}
     finally{setNotionBusy(false);}
   }
-  async function permanentlyRemove(post:FacebookImagePost) {
-    if(busy||notionBusy||post.publicationState==="SENDING")return;
-    const prompt=post.status==="published"?
-      "NATRVALO odstrániť z administrácie? Príspevok NA FACEBOOKU ZOSTANE zverejnený. Obnovenie v administrácii nebude možné.":
-      "NATRVALO odstrániť príspevok? Zmizne z prehľadu, kalendára a fronty, nebude možné ho obnoviť. Notion stránka sa archivuje pri synchronizácii.";
-    if(!window.confirm(prompt))return;
-    setBusy(true);setEditorError("");setError("");
+  function requestPermanentRemoval(post:FacebookImagePost) {
+    // The editor may have diverged from its saved version. Never discard those changes by deleting.
+    if(busy||lock.current||notionBusy||post.publicationState==="SENDING"||
+      (editor?.post?.id===post.id&&dirty))return;
+    setDeleteError("");setEditorError("");setError("");setDeleteTarget(post);
+  }
+  function cancelPermanentRemoval() {
+    if(busy||lock.current)return;
+    setDeleteTarget(null);setDeleteError("");
+  }
+  async function permanentlyRemove() {
+    const post=deleteTarget;
+    // Execution-time guard matters independently of button state and dialog visibility.
+    if(!post||busy||lock.current||notionBusy||post.publicationState==="SENDING"||
+      (editor?.post?.id===post.id&&dirty))return;
+    lock.current=true;setBusy(true);setDeleteError("");setEditorError("");setError("");
     try {
       const response=await fetch(`/api/admin/facebook-images/${post.id}/trash`,{
         method:"DELETE",headers:{"content-type":"application/json"},
@@ -117,13 +127,19 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
       const result=await response.json() as {deleted?:boolean;error?:string};
       if(!response.ok||!result.deleted)throw new Error(result.error||"Trvalé odstránenie zlyhalo.");
       if(editor?.post?.id===post.id){dialog.current?.close();setEditor(null);}
-      setNotice("Príspevok odstránený z administrácie. Na Facebooku sa nič neodstránilo. Synchronizácia s Notionom môže dobehnúť neskôr.");
+      setDeleteTarget(null);
+      setNotice("Príspevok bol natrvalo odstránený z administrácie Psipedia. Na Facebooku zostal zverejnený, ak už bol publikovaný. Synchronizácia s Notionom môže prebehnúť neskôr.");
       setRefresh(value=>value+1);
+      // The row/editor trigger can disappear after a successful removal.
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        document.querySelector<HTMLElement>("[data-facebook-create-post]")?.focus();
+      }));
     }catch(e){
       const message=e instanceof Error?e.message:"Trvalé odstránenie zlyhalo.";
+      setDeleteError(message);
       if(editor?.post?.id===post.id)setEditorError(message);
       else setError(message);
-    }finally{setBusy(false);}
+    }finally{lock.current=false;setBusy(false);}
   }
   async function setApproval(approved:boolean,mode:"scheduled"|"direct"="scheduled") {
     if(busy||lock.current||!editor?.post||dirty)return;setBusy(true);setEditorError("");
@@ -183,7 +199,7 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           <h2>Prehľad publikovania</h2>
           <p>Príspevky z Notionu a administrácie · časové pásmo Bratislava</p>
         </div>
-        <AdminActionButton type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
+        <AdminActionButton data-facebook-create-post type="button" variant="primary" disabled={loading||!!error||!ready} onClick={()=>edit(null)}>Vytvoriť príspevok</AdminActionButton>
       </header>
       <section className={styles.stats} aria-label="Počty príspevkov v zobrazenom mesiaci">
         {(["scheduled","draft","published","sending","review"] as const).map(kind=>
@@ -301,8 +317,9 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
               {post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}</p>
             <div className={styles.itemActions}>
               {facebookUrl(post.facebookPostId)&&<a href={facebookUrl(post.facebookPostId)??"#"} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
-              {data.trashAvailable&&post.publicationState!=="SENDING"&&<button type="button" disabled={busy}
-                onClick={()=>void permanentlyRemove(post)}>Natrvalo odstrániť</button>}
+              {data.trashAvailable&&post.publicationState!=="SENDING"&&<AdminActionButton type="button" variant="destructive"
+                className={styles.deleteListAction} disabled={busy||notionBusy} aria-label={`Natrvalo odstrániť z Psipedie: ${post.title}`}
+                onClick={()=>requestPermanentRemoval(post)}>Natrvalo odstrániť</AdminActionButton>}
             </div>
           </div>
         </article>)}</div>
@@ -362,12 +379,38 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           </ol>
           {editor.post.facebookPostId&&<p>Facebook Post ID: {editor.post.facebookPostId}</p>}
         </section>}
-        {editor.post&&data.trashAvailable&&editor.post.publicationState!=="SENDING"&&
-          <div className={styles.actions}><AdminActionButton type="button" variant="secondary" disabled={busy}
-            onClick={()=>void permanentlyRemove(editor.post!)}>Natrvalo odstrániť</AdminActionButton></div>}
         {busy&&<p role="status">Prebieha ukladanie alebo upload…</p>}
         {locked&&<p>Príspevok sa odosiela, bol odoslaný alebo vyžaduje preverenie; úpravy sú blokované.</p>}
+        {editor.post&&data.trashAvailable&&<section className={styles.dangerZone} aria-labelledby="facebook-danger-heading">
+          <h3 id="facebook-danger-heading">Natrvalé odstránenie</h3>
+          <p>Odstráni sa záznam z administrácie Psipedia, nie už publikovaný príspevok na Facebooku. Túto akciu nemožno v administrácii vrátiť späť.</p>
+          {dirty&&<p role="status" className={styles.dangerHint}>Najprv ulož alebo zahoď neuložené zmeny.</p>}
+          {editor.post.publicationState==="SENDING"&&<p role="status" className={styles.dangerHint}>Počas odosielania nie je odstránenie dostupné.</p>}
+          <AdminActionButton type="button" variant="destructive" disabled={busy||notionBusy||dirty||editor.post.publicationState==="SENDING"}
+            onClick={()=>requestPermanentRemoval(editor.post!)}>Natrvalo odstrániť z Psipedie</AdminActionButton>
+        </section>}
       </>}
     </dialog>
+    <AdminModalDialog open={Boolean(deleteTarget)} title="Natrvalo odstrániť príspevok?"
+      description={deleteTarget?.status==="published"
+        ?"Príspevok sa natrvalo odstráni z administrácie Psipedia. Na Facebooku zostane zverejnený."
+        :"Príspevok sa natrvalo odstráni z administrácie Psipedia a príslušných prehľadov."}
+      onClose={cancelPermanentRemoval}
+      footer={<>
+        <AdminActionButton type="button" variant="neutral" data-admin-autofocus="true"
+          disabled={busy} onClick={cancelPermanentRemoval}>Zrušiť</AdminActionButton>
+        <AdminActionButton type="button" variant="destructive" disabled={busy||notionBusy}
+          onClick={()=>void permanentlyRemove()}>{busy?"Odstraňujem…":"Natrvalo odstrániť"}</AdminActionButton>
+      </>}>
+      {deleteTarget&&<div className={styles.deleteImpact}>
+        <p>Príspevok: <strong>{deleteTarget.title}</strong></p>
+        {deleteTarget.status!=="published"&&<p>{deleteTarget.status==="scheduled"
+          ?"Príspevok sa odstráni aj z plánovanej publikačnej fronty."
+          :"Koncept sa odstráni z prehľadov administrácie."}</p>}
+        {deleteTarget.source==="notion"&&<p>Prepojená Notion stránka sa môže pri neskoršej synchronizácii presunúť do koša podľa existujúcich pravidiel.</p>}
+        <p><strong>Odstránenie nemožno v administrácii vrátiť späť.</strong></p>
+        {deleteError&&<p role="alert" className="admin-message admin-message--error">{deleteError}</p>}
+      </div>}
+    </AdminModalDialog>
   </div>;
 }
