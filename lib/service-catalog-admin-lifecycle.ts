@@ -91,7 +91,14 @@ export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,a
     if(action==="approve"){
       if(row.status!=="DRAFT"||!canTransitionCatalogStatus(row.status,"ACTIVE",row.notion_mirror_status))
         throw new ServiceCatalogConflictError("Approval requires a DRAFT option with confirmed SYNCED mirror.");
-      sql="UPDATE service_catalog_admin_options SET status='ACTIVE',version=version+1,updated_at=?1,updated_by=?2 WHERE id=?3 AND version=?4 AND status='DRAFT' AND notion_mirror_status='SYNCED' RETURNING *";
+      // A plain SYNCED state or an internal caller-supplied origin string is
+      // not remote Notion evidence. The independently verified immutable
+      // receipt is mandatory and bound to exactly this CAS version.
+      const receipt=await db.prepare(
+        "SELECT id FROM service_catalog_admin_notion_receipts WHERE option_id=?1 AND option_version=?2 LIMIT 1"
+      ).bind(id,version).first<{id:number}>();
+      if(!receipt)throw new ServiceCatalogConflictError("Canonical approval needs a verified Notion receipt for this version.");
+      sql="UPDATE service_catalog_admin_options SET status='ACTIVE',version=version+1,updated_at=?1,updated_by=?2 WHERE id=?3 AND version=?4 AND status='DRAFT' AND notion_mirror_status='SYNCED' AND EXISTS (SELECT 1 FROM service_catalog_admin_notion_receipts WHERE option_id=?3 AND option_version=?4) RETURNING *";
       params=[time,actor,id,version];
     }else if(action==="retire"){
       if(row.status==="RETIRED"||!canTransitionCatalogStatus(row.status,"RETIRED",row.notion_mirror_status))
