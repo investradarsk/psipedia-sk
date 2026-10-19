@@ -80,6 +80,7 @@ test("approve needs real synced mirror outcome, conflicts need explicit retry, r
   // The existing internal hook accepts a string claim; this MUST NOT suffice
   // to approve a public option without separately verified remote evidence.
   await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{action:"approve",expectedVersion:synced.version},actor),ServiceCatalogConflictError);
+  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(created.id),/Notion receipt required/);
   // Model the future trusted Notion reader by explicitly inserting its unique
   // immutable receipt into the test-only database (no live Notion operation).
   sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
@@ -170,6 +171,34 @@ test("0134 history is append-only, RESET is attributed, and every physical delet
   assert.equal(changes[1].actor,actor);
   assert.equal(changes[2].actor,"system:db_delete");
   assert.equal(sqlite.prepare("PRAGMA foreign_key_check").all().length,0);
+ }finally{sqlite.close();}
+});
+
+test("concurrent administrators have only one CAS winner per option and explicit choice",async()=>{
+ const {sqlite,db}=fixture();
+ try{
+  const created=await createAdminCatalogOption(db,option(),actor);
+  const a={...edit(created),name:"Nová veterinárna metóda Alfa"};
+  const b={...edit(created),name:"Nová veterinárna metóda Beta"};
+  const edits=await Promise.allSettled([
+    mutateAdminCatalogOption(db,created.id,a,actor),
+    mutateAdminCatalogOption(db,created.id,b,actor)
+  ]);
+  assert.equal(edits.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal(edits.filter(x=>x.status==="rejected"&&x.reason instanceof ServiceCatalogConflictError).length,1);
+  assert.equal(sqlite.prepare("SELECT version FROM service_catalog_admin_options WHERE id=?").get(created.id).version,2);
+  const raw={profileId:1,optionId:"attr.vet.home_visits",choice:"yes",expectedVersion:0};
+  await saveAdminServiceChoice(db,raw,actor);
+  const choices=await Promise.allSettled([
+    saveAdminServiceChoice(db,{...raw,choice:"no",expectedVersion:1},actor),
+    resetAdminServiceChoice(db,{profileId:1,optionId:raw.optionId,expectedVersion:1},actor)
+  ]);
+  assert.equal(choices.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal(choices.filter(x=>x.status==="rejected"&&x.reason instanceof ServiceCatalogConflictError).length,1);
+  const stored=sqlite.prepare("SELECT choice,version FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?").get(raw.optionId);
+  const audit=sqlite.prepare("SELECT operation FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND option_id=? ORDER BY id").all(raw.optionId);
+  if(stored){assert.equal(stored.version,2);assert.deepEqual(audit.map(x=>x.operation),["INSERT","UPDATE"]);}
+  else assert.deepEqual(audit.map(x=>x.operation),["INSERT","RESET","DELETE"]);
  }finally{sqlite.close();}
 });
 test("no migration 0133 replay, live Notion writer or public feature-flag activation",()=>{
