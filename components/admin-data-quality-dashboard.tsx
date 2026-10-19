@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { AdminActionButton, AdminBulkActionToolbar, AdminModalDialog } from "@/components/admin-interaction-system";
+import { MAX_IMAGE_REVIEW_BATCH, summarizeMediaReviewOutcome, type MediaReviewAction } from "@/lib/admin-data-quality-image-review";
+import styles from "./admin-data-quality-image-review-v2.module.css";
 import type { DataQualityDashboard, DataQualityFieldSuggestion } from "@/lib/data-quality-store";
 
 function mediaStatusLabel(status: string) {
@@ -53,6 +56,12 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<Set<number>>(new Set());
+  const [decision, setDecision] = useState<{
+    action: MediaReviewAction; ids: number[]; label: string; expectedCandidates: Record<string, string>;
+  } | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const [failedItems, setFailedItems] = useState<Array<{ id: number; error: string }>>([]);
+  const [resultTone, setResultTone] = useState<"success" | "partial" | "error" | null>(null);
   const activeSection = searchParams.get("section") === "media" ? "media" : "profiles";
   const hasProfileFilters = data.category !== "all"
     || data.issue !== "all"
@@ -72,6 +81,9 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const visibleSelectedMedia = new Set([...selectedMedia].filter((id) => visibleReviewableIds.has(id)));
   const allReviewableSelected = reviewableMediaIds.length > 0
     && reviewableMediaIds.every((id) => visibleSelectedMedia.has(id));
+  const detailItem = data.media.find(({ monitor }) => monitor.id === detailId);
+  const singleDecisionItem = decision?.ids.length === 1
+    ? data.media.find(({ monitor }) => monitor.id === decision.ids[0]) : null;
 
   function pageHref(key: "page" | "mediaPage", value: number) {
     const query = new URLSearchParams(searchParams.toString());
@@ -119,47 +131,59 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     }
   }
 
-  async function bulkMediaAction(action: "accept" | "reject", ids = [...visibleSelectedMedia]) {
-    if (!ids.length) return;
-    setBusy(`bulk-${action}`);
-    setMessage("");
-    try {
-      const response = await fetch("/api/admin/data-quality/media/bulk", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, ids }),
-      });
-      const result = await response.json() as {
-        error?: string;
-        requested?: number;
-        updated?: number;
-        failed?: Array<{ id: number; error: string }>;
-      };
-      if (!response.ok && !result.updated) throw new Error(result.error || "Hromadná akcia sa nepodarila.");
-      const failed = result.failed?.length ?? 0;
-      setMessage(action === "accept"
-        ? `Schválené obrázky: ${result.updated ?? 0} z ${result.requested ?? ids.length}.${failed ? ` Zlyhalo: ${failed}.` : ""}`
-        : `Zamietnuté obrázky: ${result.updated ?? 0} z ${result.requested ?? ids.length}. Pre zamietnuté položky sa hneď hľadá ďalší vhodný kandidát.${failed ? ` Zlyhalo: ${failed}.` : ""}`);
-      setSelectedMedia(new Set());
-      router.refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Hromadná akcia sa nepodarila.");
-    } finally {
-      setBusy(null);
-    }
+  function openMediaDecision(action: MediaReviewAction, ids: number[]) {
+    if (busy !== null) return;
+    const requested = new Set(ids);
+    const items = data.media.filter(({ monitor }) =>
+      requested.has(monitor.id) && Boolean(monitor.candidateImageKey));
+    if (!items.length || items.length > MAX_IMAGE_REVIEW_BATCH) return;
+    const expectedCandidates = Object.fromEntries(items.map(({ monitor }) =>
+      [String(monitor.id), monitor.candidateImageKey as string]));
+    setDetailId(null);
+    setDecision({
+      action, ids: items.map(({ monitor }) => monitor.id),
+      label: items.length === 1 ? items[0].label : "", expectedCandidates,
+    });
   }
 
-  async function acceptCandidate(id: number) {
-    setBusy(`accept-${id}`);
+  async function confirmMediaDecision() {
+    if (!decision || busy !== null) return;
+    const { action, ids, expectedCandidates } = decision;
+    setBusy(`bulk-${action}`);
     setMessage("");
+    setFailedItems([]);
+    setResultTone(null);
     try {
-      const response = await fetch(`/api/admin/data-quality/media/${id}/accept`, { method: "POST" });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error || "Obrázok sa nepodarilo potvrdiť.");
-      setMessage("Obrázok bol schválený, uložený na Psipedii a prepojený s profilom alebo podujatím.");
+      const individualApproval = action === "accept" && ids.length === 1;
+      const response = await fetch(individualApproval
+        ? `/api/admin/data-quality/media/${ids[0]}/accept`
+        : "/api/admin/data-quality/media/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(individualApproval
+          ? { expectedCandidateImageKey: expectedCandidates[String(ids[0])] }
+          : { action, ids, expectedCandidates }),
+      });
+      const result = await response.json() as {
+        error?: string; requested?: number; updated?: number;
+        failed?: Array<{ id: number; error: string }>;
+      };
+      const normalized = individualApproval && response.ok
+        ? { requested: 1, updated: 1, failed: [] as Array<{ id: number; error: string }> }
+        : result;
+      if (!response.ok && !normalized.failed?.length)
+        throw new Error(result.error || "Operácia sa nepodarila.");
+      const summary = summarizeMediaReviewOutcome(action, ids, normalized);
+      setMessage(summary.message);
+      setFailedItems(summary.failed);
+      setResultTone(summary.tone);
+      setSelectedMedia(new Set(summary.failed.map(({ id }) => id)));
+      setDecision(null);
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Obrázok sa nepodarilo potvrdiť.");
+      setMessage(error instanceof Error ? error.message : "Operácia sa nepodarila.");
+      setResultTone("error");
+      // No automatic retry: a second request requires an explicit new click.
     } finally {
       setBusy(null);
     }
