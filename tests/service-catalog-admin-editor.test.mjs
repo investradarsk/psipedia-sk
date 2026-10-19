@@ -36,7 +36,7 @@ test("unknown remains absent and cannot be reset by unsupported writes",()=>{
 });
 test("draft/conflicted/retired dynamics are excluded on profile",()=>{
  assert.match(view,/item.status==="ACTIVE"&&item.mirror==="SYNCED"/);
- assert.match(profile,/item.kind==="service"/);
+ assert.match(profile,/x.kind==="service"/);
  assert.match(catalog,/DRAFT/);
  assert.match(catalog,/CONFLICT/);
  assert.match(catalog,/RETIRED/);

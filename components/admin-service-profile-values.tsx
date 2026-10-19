@@ -21,7 +21,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
   useEffect(()=>{setSaved(Object.fromEntries(initialChoices.map(c=>[c.optionId,c])));setDraft({});},[initialChoices]);
   const services=useMemo(()=>entries.filter(x=>x.kind==="service"&&x.label.toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk"))),[entries,query]);
   const attributes=entries.filter(x=>x.kind==="attribute");
-  const changed=services.filter(x=>draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
+  const changed=entries.filter(x=>x.kind==="service"&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
     setBusy(true);setMessage("");

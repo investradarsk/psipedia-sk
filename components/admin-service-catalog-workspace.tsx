@@ -32,7 +32,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       &&(category==="all"||item.categories.includes(category))
       &&(state==="all"||item.status===state||item.mirror===state);
   }),[items,query,kind,category,state]);
-  const selected=items.find(item=>item.id===selectedId)??visible[0]??null;
+  const selected=visible.find(item=>item.id===selectedId)??visible[0]??null;
   const dirty=Object.values(draft).some((value)=>value!==""&&value!=="service");
   const createReady=writeEnabled&&!loadError&&draft.name.trim().length>=3&&draft.group.trim().length>=2&&draft.meaning.trim().length>=10&&Boolean(draft.category);
   async function create(){
