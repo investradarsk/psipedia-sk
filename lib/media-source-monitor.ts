@@ -717,6 +717,7 @@ export async function rejectMediaSourceCandidate(input: {
   bindings: MonitorBindings;
   monitorId: number;
   actorRef: string;
+  expectedCandidateImageKey?: string;
   now?: Date;
 }) {
   if (!await mediaSourceMonitorSchemaReady(input.database)) throw new Error("Monitoring obrázkov zatiaľ nie je nasadený.");
@@ -725,6 +726,10 @@ export async function rejectMediaSourceCandidate(input: {
   ).bind(input.monitorId).first<MonitorRow>();
   if (!raw) throw new Error("Kontrola obrázka sa nenašla.");
   const row = rowToMonitor(raw);
+  if (input.expectedCandidateImageKey !== undefined &&
+      row.candidateImageKey !== input.expectedCandidateImageKey) {
+    throw new Error("Konflikt: kandidát obrázka sa zmenil. Obnov údaje pred rozhodnutím.");
+  }
   if (!row.candidateImageUrl) throw new Error("Táto položka nemá kandidáta na zamietnutie.");
 
   const rejected = [...rejectedCandidateUrls(row.lastError), row.candidateImageUrl];
@@ -757,6 +762,7 @@ export async function acceptMediaSourceCandidate(input: {
   bindings: MonitorBindings;
   monitorId: number;
   actorRef: string;
+  expectedCandidateImageKey?: string;
   now?: Date;
 }) {
   if (!await mediaSourceMonitorSchemaReady(input.database)) throw new Error("Monitoring obrázkov zatiaľ nie je nasadený.");
@@ -765,6 +771,10 @@ export async function acceptMediaSourceCandidate(input: {
   ).bind(input.monitorId).first<MonitorRow>();
   if (!raw) throw new Error("Kontrola obrázka sa nenašla.");
   const row = rowToMonitor(raw);
+  if (input.expectedCandidateImageKey !== undefined &&
+      row.candidateImageKey !== input.expectedCandidateImageKey) {
+    throw new Error("Konflikt: kandidát obrázka sa zmenil. Obnov údaje pred rozhodnutím.");
+  }
   if (!row.candidateImageKey || !row.candidateContentHash || !row.candidateImageUrl) {
     throw new Error("Táto položka nemá pripravený nový obrázok.");
   }
