@@ -60,10 +60,12 @@ test("deep-link reader opens only authenticated category-matching Notion drafts,
           contents:args.path.endsWith("directory-editor")
             ? 'import React from "react"; export function AdminDirectoryEditor(p){return React.createElement("div",{"data-testid":"selected-concept"},p.notionDraft?.name||p.profile?.name)}'
             : 'import React from "react"; export function AdminGeminiAgendaDraftEditor(p){return React.createElement("div",{"data-testid":"selected-concept"},p.draft.name)}',
+          resolveDir:process.cwd(),
         }));
         b.onResolve({filter:/^next\/link$/},()=>({path:"link",namespace:"fake-link"}));
         b.onLoad({filter:/.*/,namespace:"fake-link"},()=>({
           contents:'import React from "react"; export default function Link(p){return React.createElement("a",p)}',
+          resolveDir:process.cwd(),
         }));
       }}],
     });
