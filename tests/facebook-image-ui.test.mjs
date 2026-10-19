@@ -74,21 +74,19 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   await expect(safeCancel).toBeFocused();
   // Both dialogs remain modal: the Facebook editor underneath, confirmation on top.
   assert.equal(await page.locator('dialog[open]').count(),2,'Confirmation should overlay the open editor');
-  // Real browser computed styles and DOM geometry guard against CSS reset/top-left regressions.
+  // Use rendered browser geometry: getComputedStyle resolves auto margins to pixel lengths.
   const bounds=await confirmDialog.evaluate(element=>{
     const rect=element.getBoundingClientRect(),style=getComputedStyle(element);
     return {
       x:rect.x,y:rect.y,width:rect.width,height:rect.height,
       centerX:rect.x+rect.width/2,centerY:rect.y+rect.height/2,
       viewportWidth:document.documentElement.clientWidth,viewportHeight:window.innerHeight,
-      position:style.position,marginTop:style.marginTop,marginLeft:style.marginLeft,
+      position:style.position,
       inset:style.inset,scrollHeight:element.scrollHeight,clientHeight:element.clientHeight,
     };
   });
   console.info(`Facebook delete-confirm ${width}px computed styles + rect: ${JSON.stringify(bounds)}`);
   assert.equal(bounds.position,'fixed',`Modal must be viewport-positioned at ${width}px`);
-  assert.equal(bounds.marginLeft,'auto',`Modal margin-inline must be auto at ${width}px`);
-  assert.equal(bounds.marginTop,'auto',`Modal margin-block must be auto at ${width}px`);
   assert.ok(Math.abs(bounds.centerX-bounds.viewportWidth/2)<=3,
     `Modal not horizontally centered at ${width}px: ${JSON.stringify(bounds)}`);
   assert.ok(Math.abs(bounds.centerY-bounds.viewportHeight/2)<=3,

@@ -24,6 +24,13 @@ type AuditBatch = {
   mode: "dry-run";
   readOnly: true;
   batchSize: number;
+  pass: 1 | 2;
+  sourceId: string;
+  nextPass: 2 | null;
+  passesComplete: boolean;
+  resume: { agenda: Category; pass: 1 | 2; sourceId: string; cursor: string | null };
+  checkedAgainstD1: boolean;
+  independent: { totals: Record<"UPDATE" | "UNCHANGED" | "CONFLICT" | "REVIEW" | "SKIPPED", number>; reasons: Record<string, number>; unknown: string[] };
   examined: number;
   linked: number;
   syncErrors: number;
@@ -49,6 +56,14 @@ const errorLabels: Record<string, string> = {
   INVALID_WEBSITE: "Neplatný web",
   REMOTE_IMAGE_BLOCKED: "Externý obrázok sa nepodarilo načítať",
   BIDIRECTIONAL_CONFLICT: "Konflikt medzi Notionom a Psipediou",
+  REMOTE_IMAGE_HTTP_403: "Externý obrázok — HTTP 403",
+  REMOTE_IMAGE_HTTP_522: "Externý obrázok — HTTP 522",
+  INVALID_IMAGE_FORMAT: "Neplatný formát obrázka",
+  DUPLICATE_IDENTITY: "Duplicitná identita",
+  GOOGLE_PLACE_MISMATCH: "Rozdielne Google miesto",
+  CONFIRMED_SITE_REVIEW_REQUIRED: "Ochrana potvrdenej prevádzky",
+  PRIVACY_REVIEW_REQUIRED: "Súkromná lokalita vyžaduje kontrolu",
+  LEGACY_BASELINE_MISMATCH: "Zastaraný baseline",
   OTHER: "Ostatné chyby",
 };
 const reviewLabels: Record<ReviewItem["nextStep"], string> = {
@@ -101,10 +116,19 @@ export function AdminNotionDataQualityAudit() {
     currentGooglePlace: totals.googlePlaceCurrent,
     googleNotRequired: totals.googleNotRequired,
     errorTypes: totals.errorTypes,
-    remainingBatches: hasMore ? "unknown" : 0,
-    complete: batches.length > 0 && !hasMore && !lastBatch?.truncated,
+    remainingBatches: hasMore || lastBatch?.nextPass === 2 ? "unknown" : 0,
+    complete: batches.length > 0 && lastBatch?.passesComplete === true && !lastBatch.truncated,
+    passes: [...new Set(batches.map((batch) => batch.pass))],
+    countsByPass: [1, 2].map((pass) => ({
+      pass,
+      batches: batches.filter((batch) => batch.pass === pass).length,
+      reviewed: batches.filter((batch) => batch.pass === pass).reduce((sum, batch) => sum + batch.examined, 0),
+    })),
+    d1Evidence: batches.map((batch) => ({ pass: batch.pass, verified: batch.checkedAgainstD1, totals: batch.independent?.totals, reasons: batch.independent?.reasons })),
+    unresolvedEvidence: [...new Set(batches.flatMap((batch) => batch.independent?.unknown ?? []))],
+    checkpoint: lastBatch?.resume ?? null,
     reviewItems: totals.reviewItems,
-  }), [batches.length, category, categoryLabel, hasMore, lastBatch?.truncated, totals]);
+  }), [batches, category, categoryLabel, hasMore, lastBatch, totals]);
 
   function reset(nextCategory: Category) {
     if (running) return;
@@ -115,8 +139,8 @@ export function AdminNotionDataQualityAudit() {
   }
 
   async function checkNextBatch() {
-    if (running || (batches.length > 0 && !hasMore)) return;
-    if (batches.length > 0 && !nextCursor) {
+    if (running || (batches.length > 0 && !hasMore && lastBatch?.nextPass !== 2)) return;
+    if (hasMore && !nextCursor) {
       setError("Notion nevrátil ďalší kurzor. Pokračovanie nie je možné bezpečne overiť.");
       return;
     }
@@ -132,7 +156,9 @@ export function AdminNotionDataQualityAudit() {
         body: JSON.stringify({
           agenda: category,
           mode: "dry-run",
-          ...(batches.length > 0 ? { cursor: nextCursor } : {}),
+          pass: hasMore ? lastBatch?.pass ?? 1 : lastBatch?.nextPass ?? 1,
+          ...(lastBatch ? { sourceId: lastBatch.sourceId } : {}),
+          ...(hasMore ? { cursor: nextCursor } : {}),
         }),
       });
       const data = await response.json() as Partial<AuditBatch> & AuditError;
@@ -140,6 +166,7 @@ export function AdminNotionDataQualityAudit() {
       if (
         data.agenda !== category || data.mode !== "dry-run" || data.readOnly !== true
         || data.batchSize !== 100 || !Array.isArray(data.reviewItems)
+        || !data.sourceId || (data.pass !== 1 && data.pass !== 2)
         || typeof data.examined !== "number" || typeof data.hasMore !== "boolean"
       ) throw new Error("Server vrátil neočakávaný formát auditu.");
       setBatches((current) => [...current, data as AuditBatch]);
@@ -177,8 +204,8 @@ export function AdminNotionDataQualityAudit() {
               {categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
-          <button type="button" className="admin-primary-action" disabled={running || (batches.length > 0 && !hasMore) || (hasMore && !nextCursor)} onClick={checkNextBatch}>
-            {running ? "Kontrolujem…" : batches.length ? "Skontrolovať ďalších 100" : "Spustiť kontrolu prvých 100"}
+          <button type="button" className="admin-primary-action" disabled={running || (batches.length > 0 && !hasMore && lastBatch?.nextPass !== 2) || (hasMore && !nextCursor)} onClick={checkNextBatch}>
+            {running ? "Kontrolujem…" : lastBatch?.nextPass === 2 ? "Začať 2. prechod" : batches.length ? "Skontrolovať ďalších 100" : "Spustiť kontrolu prvých 100"}
           </button>
           {batches.length > 0 ? (
             <button type="button" className={styles.secondary} disabled={running} onClick={() => reset(category)}>Začať odznova</button>
@@ -188,7 +215,8 @@ export function AdminNotionDataQualityAudit() {
         {batches.length > 0 ? (
           <p className={styles.progress} role="status">
             Skontrolované: <strong>{totals.examined}</strong> záznamov v {batches.length} {batches.length === 1 ? "dávke" : "dávkach"}.
-            {hasMore ? " V Notione sú ďalšie záznamy." : " Dosiahnutý koniec kategórie."}
+            {hasMore ? " V Notione sú ďalšie záznamy." : lastBatch?.nextPass === 2 ? " Prvý prechod dokončený; druhý ešte nie." : " Druhý prechod ukončený."}
+            {" D1 overenie sa vzťahuje na identity, nie na aktuálne snapshot hashe. Počty zahŕňajú oba prechody."}
             {lastBatch?.truncated ? " Notion nepotvrdil kurzor; prehľad nemusí byť úplný." : ""}
           </p>
         ) : null}

@@ -106,7 +106,8 @@
     "test:facebook-publisher": "node --experimental-strip-types --test tests/facebook-image-publisher.test.mjs",
     "test:facebook-admin-v2": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-admin-v2.test.mjs",
     "test:notion-facebook-images": "node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/notion-facebook-images-sync.test.mjs tests/notion-facebook-images-integration.test.mjs tests/notion-facebook-images-admin-export.test.mjs",
-    "test:facebook-images-ui": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-ui.test.mjs tests/facebook-image-destructive-v4-contract.test.mjs"
+    "test:facebook-images-ui": "node --experimental-strip-types --experimental-loader ./tests/facebook-image-loader.mjs --test tests/facebook-image-ui.test.mjs tests/facebook-image-destructive-v4-contract.test.mjs",
+    "test:notion-data-quality-audit": "node --experimental-strip-types --test tests/notion-data-quality-audit-v2.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
