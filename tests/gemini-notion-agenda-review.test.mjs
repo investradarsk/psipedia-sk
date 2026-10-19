@@ -64,13 +64,14 @@ function fixture(key, signed = false) {
   const locks = new Set();
   const writes = [];
   let mappedEntityId = null;
+  let mappedCanonicalStatus = "draft";
   const db = { prepare(sql) { return { bind(...params) { return {
     async first() { return sql.includes("notion_agenda_targets") ? { data_source_id: sources[params[0]] } : null; },
     async all() {
       if (sql.includes("gemini_notion_created_pages")) return { results: signed ? [{ notion_page_id: pageId }] : [] };
       if (!sql.includes("event_notion_sync") && !sql.includes("notion_agenda_sync"))
         throw Error("Unexpected D1 read " + sql);
-      return { results: mappedEntityId === null ? [] : [{ notion_page_id: pageId, entity_id: mappedEntityId }] };
+      return { results: mappedEntityId === null ? [] : [{ notion_page_id: pageId, entity_id: mappedEntityId, canonical_status: mappedCanonicalStatus }] };
     },
     async run() {
       if (sql.startsWith("INSERT OR IGNORE")) {
@@ -110,7 +111,7 @@ function fixture(key, signed = false) {
     if (path.startsWith("/pages/")) return json(value);
     throw Error("Forbidden network endpoint " + path);
   };
-  return { env, value, schema, writes, request, mapToCanonical(entityId) { mappedEntityId = entityId; } };
+  return { env, value, schema, writes, request, mapToCanonical(entityId, status = "draft") { mappedEntityId = entityId; mappedCanonicalStatus = status; } };
 }
 
 async function mockedFetch(fn, runner) {
@@ -642,4 +643,52 @@ test("an ordinary unmarked Notion draft is not attributed to Gemini", async () =
   await mockedFetch(f.request, async () => {
     assert.deepEqual(await listGeminiAgendaDrafts(f.env, "events.vystavy"), []);
   });
+});
+
+test("publication is read from canonical D1 status, not Notion text, for all 12 agenda categories", async () => {
+  const published = {
+    events: "published", organizations: "PUBLISHED", adoptions: "ACTIVE",
+    "help-cases": "published", "lost-found": "ACTIVE",
+  };
+  for (const item of geminiAutomationCatalog.filter(item => item.section !== "directory")) {
+    const f = fixture(item.stableKey, true);
+    const agenda = geminiAgendaForKey(item.stableKey);
+    await mockedFetch(f.request, async () => {
+      f.mapToCanonical(781, "draft");
+      const imported = (await listGeminiAgendaDrafts(f.env, item.stableKey))[0];
+      assert.equal(imported.reviewState, "IMPORTED", item.stableKey);
+      assert.equal(imported.canonicalVerified, true, item.stableKey);
+      f.mapToCanonical(781, published[agenda]);
+      const released = (await listGeminiAgendaDrafts(f.env, item.stableKey))[0];
+      assert.equal(released.reviewState, "PUBLISHED", item.stableKey);
+      assert.equal(released.psipediaId, "781", item.stableKey);
+    });
+  }
+});
+
+test("legacy source-evidence public records remain in Published history only with verified canonical D1 mapping", async () => {
+  for (const stableKey of ["events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", "help.stratene-a-najdene"]) {
+    const f = fixture(stableKey, false);
+    const agenda = geminiAgendaForKey(stableKey);
+    const field = ["help-cases", "lost-found"].includes(agenda) ? "Psipedia stav" : "Stav";
+    f.value.properties[field] = ["help-cases", "lost-found"].includes(agenda)
+      ? rich(agenda === "lost-found" ? "ACTIVE" : "published")
+      : select("Publikované");
+    await mockedFetch(f.request, async () => {
+      // Textual publication/evidence without the immutable D1 link is never sufficient.
+      assert.deepEqual(await listGeminiAgendaDrafts(f.env, stableKey), [], stableKey);
+      f.mapToCanonical(781, "draft");
+      const imported = await listGeminiAgendaDrafts(f.env, stableKey);
+      assert.equal(imported.length, 1, stableKey);
+      assert.equal(imported[0].reviewState, "IMPORTED", stableKey);
+      const publishedStatus = ({
+        events: "published", organizations: "PUBLISHED", adoptions: "ACTIVE",
+        "help-cases": "published", "lost-found": "ACTIVE",
+      })[agenda];
+      f.mapToCanonical(781, publishedStatus);
+      const history = await listGeminiAgendaDrafts(f.env, stableKey);
+      assert.equal(history.length, 1, stableKey);
+      assert.equal(history[0].reviewState, "PUBLISHED", stableKey);
+    });
+  }
 });

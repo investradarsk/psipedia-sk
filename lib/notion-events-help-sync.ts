@@ -1,4 +1,5 @@
 import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
+import { resolveGeminiPublicSlug, type GeminiSlugAgenda } from "./gemini-public-slug.ts";
 import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
 import {
   loadNotionBulkEvents,
@@ -1397,8 +1398,12 @@ async function syncAgenda(input: {
     }
 
     try {
-      const draftValues = trustedGemini && !clean(values["Slug"])
-        ? { ...values, "Slug": "gemini-" + page.id.replaceAll("-", "") } : values;
+      const draftValues = trustedGemini
+        ? { ...values, "Slug": await resolveGeminiPublicSlug(input.database, input.definition.key as GeminiSlugAgenda, {
+          requestedSlug: clean(values["Slug"]),
+          name: clean(values[input.definition.key === "adoptions" ? "Meno" : "Názov"]),
+          city: clean(values["Mesto"]), notionPageId: page.id,
+        }) } : values;
       const created = await createCanonicalFromNotion(input.definition.key, draftValues, input.database, trustedGemini) as { id?: number } | null;
       const entityId = Number(created?.id ?? 0);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) {

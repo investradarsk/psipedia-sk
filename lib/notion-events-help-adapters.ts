@@ -628,8 +628,8 @@ export async function applyNotionToCanonical(
       adoptions: "adoption_dogs", "help-cases": "help_cases",
       "lost-found": "lost_found_dog_reports",
     } as const)[agenda];
-    const row = await database.prepare(`SELECT status FROM ${table} WHERE id=?`)
-      .bind(entityId).first<{ status: string }>();
+    const row = await database.prepare(`SELECT status, slug FROM ${table} WHERE id=?`)
+      .bind(entityId).first<{ status: string; slug: string }>();
     if (!row) throw Error("GEMINI_CANONICAL_MAPPING_MISSING");
     const nextStatus = agenda === "events" ? eventStatusFromNotion(s(values["Stav"]))
       : agenda === "organizations" ? organizationStatusFromNotion(s(values["Stav"]))
@@ -638,6 +638,9 @@ export async function applyNotionToCanonical(
       : lostFoundStatusFromNotion(s(values["Psipedia stav"]));
     if (row.status !== nextStatus)
       throw Error("GEMINI_PUBLICATION_REQUIRES_CANONICAL_EDITOR");
+    // Notion must not reapply a generated legacy gemini- slug or change the
+    // canonical public URL. Manual slug edits belong in the canonical editor.
+    values = { ...values, "Slug": row.slug };
     if (agenda === "lost-found" && (
       values["Latitude"] != null && values["Latitude"] !== "" ||
       values["Longitude"] != null && values["Longitude"] !== "" ||
