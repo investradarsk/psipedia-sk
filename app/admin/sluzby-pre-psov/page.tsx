@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminSectionHub } from "@/components/admin-section-hub";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -21,6 +22,7 @@ export default async function AdminDogServicesPage() {
       title="Služby pre psov"
       description="Rovnaké kategórie ako na verejnom webe. Vyber kategóriu a spravuj jej profily."
     >
+      <p><Link className="admin-primary-action" href="/admin/sluzby-pre-psov/katalog">Katalóg služieb a vlastností →</Link></p>
       <AdminSectionHub items={items} />
     </AdminShell>
   );

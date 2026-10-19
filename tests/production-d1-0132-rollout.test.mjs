@@ -45,8 +45,8 @@ function fixture() {
 }
 
 test("0132 is explicitly pinned and gated by manual approval on canonical main", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), previous);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), previous);
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0132_SHA256);
   assert.doesNotThrow(() => assertApproved0132Target("psipedia-sk-db", APPROVED_0132_SHA256));
@@ -63,7 +63,7 @@ test("0132 is explicitly pinned and gated by manual approval on canonical main",
 });
 
 test("0132 refuses missing predecessor, unexpected ledger, and a second APPLY", () => {
-  const chain = [...Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_prior.sql"), ...SUPPORTED_PRODUCTION_TARGETS];
+  const chain = [...Array.from({ length: 62 }, (_, i) => String(i).padStart(4, "0") + "_prior.sql"), ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 132)];
   const before = chain.slice(0, -1);
   assert.deepEqual(validateProductionTargetHistory(before, chain, target), { latestIndex: 131, targetApplied: false });
   assert.deepEqual(validateProductionTargetHistory(chain, chain, target), { latestIndex: 132, targetApplied: true });

@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { articles as seedArticles, type ArticleSeo } from "./content.ts";
+import { sitemapCanonicalFromD1 } from "./sitemap-seo.ts";
 
 const ARTICLE_PORTAL_SECTIONS = [
   "clanky",
@@ -81,7 +82,7 @@ type ArticleRow = {
   updated_at: string | null;
   published_at: string | null;
   image_url: string | null;
-  canonical_url: string | null;
+  canonical_url: unknown;
   noindex: number | string | null;
 };
 
@@ -90,7 +91,7 @@ type EventRow = {
   slug: string;
   updated_at: string | null;
   image_url: string | null;
-  canonical_url: string | null;
+  canonical_url: unknown;
   noindex: number | string | null;
 };
 
@@ -100,7 +101,7 @@ type HelpRow = {
   category: string;
   updated_at: string | null;
   image_url: string | null;
-  canonical_url: string | null;
+  canonical_url: unknown;
   noindex: number | string | null;
 };
 
@@ -116,9 +117,9 @@ function safeBatchSize(batchSize = ENTITY_SITEMAP_BATCH_SIZE) {
   );
 }
 
-function seoProjection(row: { canonical_url: string | null; noindex: number | string | null }): SeoProjection {
+function seoProjection(row: { canonical_url: unknown; noindex: number | string | null }): SeoProjection {
   return {
-    canonicalUrl: row.canonical_url?.trim() || "",
+    canonicalUrl: sitemapCanonicalFromD1(row.canonical_url),
     noindex: Number(row.noindex) === 1 || row.noindex === "true",
   };
 }

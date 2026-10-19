@@ -9,7 +9,7 @@ import {
 import { DirectoryCategoryNavigation } from "@/components/directory-category-navigation";
 import { DirectoryFilterForm } from "@/components/directory-filter-form";
 import { DirectoryResults } from "@/components/directory-results";
-import { SectionHeroSearch } from "@/components/section-hero-search";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import { ArticlePopularitySidebar } from "@/components/article-popularity-sidebar";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import {
@@ -85,24 +85,29 @@ export async function DirectoryPage({
             title={active?.heroTitle ?? "Služby pre psov"}
             intro={active?.intro ?? "Nájdi veterinára, trénera, klub, salón, opatrovanie alebo ďalšiu praktickú službu podľa kategórie a lokality."}
             visual={seoHeroVisual}
+            portalSearchSlot={
+              <HomePortalSearch
+                action={basePath}
+                id="directory-main-query"
+                label="Hľadať služby pre psov"
+                panelLabel="Vyhľadávanie služieb pre psov"
+                eyebrow="ČO POTREBUJEŠ?"
+                title={active ? `Nájdi ${active.label.toLowerCase()} vo svojom okolí` : "Nájdi službu pre svojho psa"}
+                placeholder={active ? `Hľadať ${active.label.toLowerCase()} alebo mesto...` : "Hľadať veterinára, trénera, salón alebo mesto..."}
+                defaultValue={filters.query}
+                buttonLabel="Hľadať"
+                allowEmpty
+                hidden={directoryQueryFields(filters, ["q", "page"])}
+                shortcuts={categoryItems.slice(0, 5).map((item) => ({ href: item.href, label: item.title }))}
+                searchScope="services"
+              />
+            }
             metaSlot={active ? `${result.total} ${profileCountLabel(result.total)}` : undefined}
           />
         </UnifiedSectionHeroShell>
 
         <section className={styles.resultsSection} aria-label="Adresár služieb pre psov">
           <PublicContentShell variant="listing" className={styles.resultsShell}>
-            <div className={styles.directorySearch} data-directory-main-search>
-              <SectionHeroSearch
-                action={basePath}
-                id="directory-main-query"
-                label="Hľadať služby pre psov"
-                placeholder="Hľadať veterinára, trénera, salón alebo mesto..."
-                defaultValue={filters.query}
-                buttonLabel="Hľadať"
-                formScope="services"
-                hidden={directoryQueryFields(filters, ["q", "page"])}
-              />
-            </div>
 
             <DirectoryCategoryNavigation items={categoryItems} />
 

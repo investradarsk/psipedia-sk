@@ -349,14 +349,14 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:5173
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/playwright/directory-desktop/html
-        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=desktop-chromium --output=.e2e-artifacts/playwright/directory-desktop/results
+        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts tests/e2e/admin-services-catalog-3b.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=desktop-chromium --output=.e2e-artifacts/playwright/directory-desktop/results
       - name: Directory Playwright — mobile
         id: directory_mobile
         if: ${{ always() && steps.directory_seed.outcome == 'success' && steps.directory_desktop.outcome == 'success' }}
         env:
           E2E_BASE_URL: http://localhost:5173
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/playwright/directory-mobile/html
-        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=mobile-chromium --output=.e2e-artifacts/playwright/directory-mobile/results
+        run: npm run e2e -- tests/e2e/admin-directory-filters.spec.ts tests/e2e/admin-services-catalog-3b.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=mobile-chromium --output=.e2e-artifacts/playwright/directory-mobile/results
       - name: Lost/found dogs Playwright + accessibility — desktop
         id: lost_found_desktop
         if: ${{ always() && steps.seed.outcome == 'success' && steps.lost_found_seed.outcome == 'success' }}
@@ -682,11 +682,11 @@ jobs:
       - name: Directory Playwright — desktop
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/directory-pr/desktop-html
-        run: npx playwright test tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/directory-pr/desktop-results
+        run: npx playwright test tests/e2e/admin-directory-filters.spec.ts tests/e2e/admin-services-catalog-3b.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=desktop-chromium --workers=1 --retries=0 --output=.e2e-artifacts/directory-pr/desktop-results
       - name: Directory Playwright — mobile
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: .e2e-artifacts/directory-pr/mobile-html
-        run: npx playwright test tests/e2e/admin-directory-filters.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/directory-pr/mobile-results
+        run: npx playwright test tests/e2e/admin-directory-filters.spec.ts tests/e2e/admin-services-catalog-3b.spec.ts tests/e2e/services-detail-shell.spec.ts tests/e2e/services-search-layout.spec.ts --project=mobile-chromium --workers=1 --retries=0 --output=.e2e-artifacts/directory-pr/mobile-results
       - name: Verify eight responsive profile screenshots
         if: success()
         run: |
@@ -713,6 +713,14 @@ jobs:
           if [ -f .e2e-artifacts/directory-pr/server.pid ]; then
             kill "$(cat .e2e-artifacts/directory-pr/server.pid)" 2>/dev/null || true
           fi
+      - name: Upload Services V3 Admin review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-v3-admin-3b-review-${{ github.run_attempt }}
+          path: .e2e-artifacts/services-v3-admin-3b/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload responsive profile screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -38,16 +38,16 @@ test("SECTION-HERO-V2 preview matches real homepage hero geometry", () => {
 test("mobile photo and text share one hero visual while tools remain outside", () => {
   assert.match(heroCss, /@media \(max-width: 620px\)/);
   assert.match(heroCss, /\.visual[\s\S]*width:\s*100dvw/);
-  assert.match(heroCss, /\.copy[\s\S]*justify-content:\s*flex-end/);
+  assert.match(heroCss, /\.copy[\s\S]*justify-content:\s*flex-start/);
   assert.match(heroCss, /\.shade[\s\S]*linear-gradient\(0deg/);
   assert.match(heroCss, /\.tools[\s\S]*margin:\s*12px auto 0/);
 });
 
 test("desktop overlay text uses light contrast while the search panel is not in its safe zone", () => {
-  assert.match(heroCss, /\.breadcrumbs[\s\S]*color:\s*rgba\(255,255,255/);
-  assert.match(heroCss, /\.eyebrow[\s\S]*color:\s*#f7d8c9/);
+  assert.match(heroCss, /\.breadcrumbs[\s\S]*color:\s*#fff/);
+  assert.match(heroCss, /\.eyebrow[\s\S]*background:\s*var\(--brand-accent-strong/);
   assert.match(heroCss, /\.copy h1[\s\S]*color:\s*#fff/);
-  assert.match(heroCss, /\.intro[\s\S]*color:\s*rgba\(255,255,255/);
+  assert.match(heroCss, /\.intro[\s\S]*color:\s*#fff/);
   assert.match(admin, /breadcrumb · eyebrow · H1 · intro/);
   assert.doesNotMatch(admin, /text · vyhľadávanie · CTA/);
 });

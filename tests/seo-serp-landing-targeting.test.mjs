@@ -27,7 +27,9 @@ test("SEO-SERP homepage category cards expose category-specific anchors with sep
   assert.match(source, /directoryCategoryHref\(category\)/);
   assert.match(source, /<strong>\{category\.heroTitle\}<\/strong>/);
   assert.match(source, /category\.description/);
-  assert.match(source, / — /);
+  // Homepage cards now separate the title and description in distinct semantic elements.
+  // Keep the SEO anchor contract without requiring a typographic em dash.
+  assert.match(source, /<strong>\{category\.heroTitle\}<\/strong>\s*<span>\{category\.description\}<\/span>/);
   assert.doesNotMatch(source, /<strong>\{category\.label\}<\/strong>\s*<span>\{category\.description\}<\/span>/);
   assert.match(source, /href="\/adresar\/veterinari"/);
 });

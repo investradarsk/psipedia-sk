@@ -41,7 +41,9 @@ test("Events 2.0 detail keeps shared structural primitives and route-owned JSON-
   const detail = readFileSync(new URL("../components/event-detail.tsx", import.meta.url), "utf8");
   assert.match(detail, /PageContainer/);
   assert.match(detail, /<Breadcrumbs/);
-  assert.match(detail, /data-event-detail-header/);
+  assert.match(detail, /<DetailHero kind="event"/);
+  const hero = readFileSync(new URL("../components/detail-primitives/detail-primitives.tsx", import.meta.url), "utf8");
+  assert.match(hero, /data-event-detail-header=\{kind === "event"/);
   assert.match(detail, /eventDateStatus\(event\)/);
   assert.doesNotMatch(detail, /application\/ld\+json|eventDateTimeIso/);
 });
@@ -54,11 +56,11 @@ test("detail exposes real event fields before optional media and never renders e
   assert.match(detail, /timeLabel && <span>/);
   assert.match(detail, /event\.registrationUrl && <PublicActionLink/);
   assert.match(detail, /event\.websiteUrl && <PublicActionLink/);
-  assert.match(detail, /locationLines\.length > 0/);
+  assert.match(detail, /DetailFactsCard title="Miesto konania"[\s\S]*locationLines\.join/);
   assert.match(detail, /event\.organizer &&/);
   assert.match(detail, /event\.description &&/);
   assert.match(detail, /event\.practicalInfo &&/);
-  assert.match(detail, /data-event-image[\s\S]*<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\}/);
+  assert.match(detail, /media=\{<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\}/);
   assert.doesNotMatch(detail, /PawMark|Program|Poplatky|Podmienky účasti/);
 });
 

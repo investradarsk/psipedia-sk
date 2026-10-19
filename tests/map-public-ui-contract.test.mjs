@@ -19,7 +19,9 @@ test("canonical /mapa route exists with SSR copy, shared listing metadata and no
   assert.match(page, /buildListingPageMetadata/);
   assert.match(page, /path:\s*"\/mapa"/);
   assert.match(page, /searchParams:\s*await searchParams/);
-  assert.match(page, /<h1>Mapa Psipedie<\/h1>/);
+  assert.match(page, /<UnifiedSectionHero/);
+  assert.match(page, /title="Mapa Psipedie"/);
+  assert.match(page, /getSectionHeroVisual\("section\.mapa"\)/);
   assert.match(page, /<MapExperience/);
   assert.doesNotMatch(navigation, /href:\s*"\/mapa"/);
 });

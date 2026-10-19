@@ -1,3 +1,4 @@
+import { DetailHero } from "./detail-primitives/detail-primitives";
 import { ImageDisplay } from "@/components/image-display";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -26,9 +27,6 @@ export async function lostFoundDogMetadata(type: DogReportType, slug: string): P
   };
 }
 
-function DetailImageFallback() {
-  return <div className={styles.detailImageFallback} aria-hidden="true"><span /></div>;
-}
 
 export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; slug: string }) {
   const report = await getPublicDogReport(type, slug);
@@ -73,20 +71,16 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
 
   return <main id="obsah" tabIndex={-1} className={styles.detail}>
     <StructuredData value={schema} />
-    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{report.dogName || report.slug}</span></nav>
-    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
-
-    <section className={styles.detailHero} aria-labelledby={`dog-report-${report.id}`}>
-      <div className={styles.detailImage}>{report.mainImage ? <ImageDisplay roleHint="generic" context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} /> : <DetailImageFallback />}</div>
-      <div className={styles.detailIntro}>
+    <DetailHero kind="lost-found" breadcrumbs={    <nav className={styles.crumbs} aria-label="Omrvinková navigácia"><Link href="/pomoc-psom">Pomoc psom</Link><span aria-hidden="true">/</span><Link href={dogReportBasePath(type)}>{type === "LOST" ? "Stratené psy" : "Nájdené psy"}</Link><span aria-hidden="true">/</span><span>{report.dogName || report.slug}</span></nav>}
+      copy={<>    <div className={styles.statusBanner} data-state={report.status}><strong>{dogReportStatusLabel[report.status]}</strong><span>{active ? "Hlásenie je stále aktuálne." : "Tento prípad už nie je vedený ako aktívny."}</span></div>
         <span className={`${styles.badge} ${type === "LOST" ? styles.lost : styles.found}`}>{dogReportTypeLabel(type)}</span>
         <h1 id={`dog-report-${report.id}`}>{report.dogName || report.breed || "Pes bez známeho mena"}</h1>
         <div className={styles.detailMeta}><span><strong>Lokalita</strong> {report.city}{report.district ? ` · ${report.district}` : ""} · {report.region}</span><span><strong>Dátum</strong> {formatDogReportDate(report.eventDate)}</span></div>
         {type === "LOST" && <div className={styles.lastSeen}><strong>Naposledy videný:</strong><span>{formatDogReportDate(report.lastSeenDateTime || report.eventDate, Boolean(report.lastSeenDateTime))} · {report.locationDescription || report.city}</span></div>}
         {type === "FOUND" && report.locationDescription && <div className={styles.foundAt}><strong>Miesto nájdenia</strong><span>{report.locationDescription}</span></div>}
         <div className={styles.detailActions}>{report.sourceUrl ? <a className={styles.cta} href={report.sourceUrl} target="_blank" rel="nofollow noreferrer">Otvoriť pôvodné hlásenie ↗</a> : active ? <Link className={styles.cta} href={relayHref}>Kontaktovať cez Psipediu</Link> : null}</div>
-      </div>
-    </section>
+</>}
+      media={report.mainImage ? <ImageDisplay roleHint="generic" context="detail" config={report.detailImageDisplay} src={report.mainImage} alt={report.dogName ? `${dogReportTypeShortLabel(type)} pes ${report.dogName}` : dogReportTypeLabel(type)} loading="eager" /> : null} />
 
     <div className={styles.detailGrid}><div className={styles.detailCopy}>
       <section className={styles.panel}><span className={styles.detailEyebrow}>Informácie o psovi</span><h2>Popis</h2><p>{report.description}</p>{report.distinguishingMarks && <><h3>Rozpoznávacie znaky</h3><p>{report.distinguishingMarks}</p></>}{report.collarDescription && <><h3>Obojok alebo postroj</h3><p>{report.collarDescription}</p></>}</section>

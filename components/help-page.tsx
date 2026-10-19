@@ -17,6 +17,7 @@ import {
   type HelpCategorySlug,
 } from "@/lib/help";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
+import { HomePortalSearch } from "@/components/home-portal-search";
 import styles from "./help-public.module.css";
 
 export type HelpCategoryCounts = Partial<Record<HelpCategorySlug, number>>;
@@ -66,6 +67,26 @@ export async function HelpPage({
             title={active?.label ?? "Pomoc psom"}
             intro={active?.description ?? "Adopcie, útulky, dočasná opatera, zbierky aj stratené psy na jednom mieste. Nájdite konkrétnu pomoc alebo spôsob, ako sa zapojiť."}
             visual={heroVisual}
+            portalSearchSlot={
+              <HomePortalSearch
+                action={active ? `/pomoc-psom/${active.slug}` : "/pomoc-psom"}
+                id="help-hero-search"
+                label="Hľadať v Pomoci psom"
+                panelLabel="Vyhľadávanie v Pomoci psom"
+                eyebrow="ČO POTREBUJEŠ VYRIEŠIŤ?"
+                title="Nájdi pomoc alebo organizáciu"
+                placeholder="Názov, mesto, organizácia alebo plemeno..."
+                buttonLabel="Hľadať"
+                defaultValue={initialQuery}
+                allowEmpty
+                hidden={[
+                  ...(initialRegion === "all" ? [] : [{ name: "region", value: initialRegion }]),
+                  ...(initialActiveOnly ? [] : [{ name: "stav", value: "vsetky" }]),
+                ]}
+                shortcuts={[]}
+                searchScope="help"
+              />
+            }
             metaSlot={
               <div className={styles.headerMeta}>
                 {activeCount !== null ? <span><strong>{activeCount}</strong> aktívnych záznamov</span> : null}

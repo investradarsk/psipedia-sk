@@ -1,0 +1,30 @@
+import {env} from "cloudflare:workers";
+import {requireAdminMutation} from "@/lib/admin-auth";
+import {saveAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
+export const dynamic="force-dynamic";
+type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
+type Props={params:Promise<{id:string}>};
+export async function PATCH(request:Request,{params}:Props){
+  const auth=await requireAdminMutation(request);
+  if(auth.response)return auth.response;
+  const cfg=env as unknown as Bindings;
+  if(cfg.SERVICE_CATALOG_ADMIN_WRITES_ENABLED!=="true"||cfg.SERVICE_CATALOG_NOTION_MIRROR_READY!=="true")
+    return Response.json({error:"Canonical selections are not activated."},{status:503});
+  if(!cfg.DB)return Response.json({error:"D1 is unavailable."},{status:503});
+  const rawId=(await params).id;
+  const profileId=Number(rawId);
+  if(!/^[1-9]\d*$/.test(rawId)||!Number.isSafeInteger(profileId))
+    return Response.json({error:"Invalid profile ID."},{status:400});
+  try{
+    const raw=await request.json();
+    if(!raw||typeof raw!=="object"||Array.isArray(raw)
+       ||Object.keys(raw).some(k=>!["optionId","choice","expectedVersion"].includes(k)))
+      return Response.json({error:"Unsupported selection payload."},{status:400});
+    const selection=await saveAdminServiceChoice(cfg.DB,
+      {profileId,...(raw as {optionId:string;choice:"yes"|"no";expectedVersion:number})},auth.user!.email);
+    return Response.json({selection});
+  }catch(error){
+    return Response.json({error:error instanceof Error?error.message:"Selection failed."},
+      {status:error instanceof ServiceCatalogInputError||error instanceof SyntaxError?400:error instanceof ServiceCatalogConflictError?409:error instanceof ServiceCatalogSchemaError?503:500});
+  }
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DetailHero } from "./detail-primitives/detail-primitives";
 import { LocationIcon } from "@/components/help-public-icons";
 import {
   adoptionDetailActivityLabels,
@@ -25,10 +26,6 @@ function Facts({ items }: { items: Fact[] }) {
   return <dl className={styles.detailFacts}>{items.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>;
 }
 
-function DetailImage({ dog }: { dog: PublicAdoptionDetailDog }) {
-  if (dog.mainImage) return <ImageDisplay roleHint="generic" context="detail" config={dog.detailImageDisplay} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} />;
-  return <div className={styles.detailImageFallback} aria-hidden="true"><span /></div>;
-}
 
 export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetailDog; organization: AdoptionPublicOrganizationLink | null }) {
   const sections = buildAdoptionDetailSections(dog);
@@ -40,7 +37,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
     age ? { label: "Vek", value: age } : null,
     dog.sex !== "UNKNOWN" ? { label: "Pohlavie", value: adoptionDetailSexLabels[dog.sex] } : null,
     dog.size !== "UNKNOWN" ? { label: "Veľkosť", value: adoptionDetailSizeLabels[dog.size] } : null,
-    dog.weight !== null ? { label: "Hmotnosť", value: `${dog.weight} kg` } : null,
+    dog.weight !== null && Number.isFinite(dog.weight) && dog.weight > 0 ? { label: "Hmotnosť", value: `${dog.weight} kg` } : null,
     dog.color.trim() ? { label: "Farba", value: dog.color } : null,
     dog.activityLevel !== "UNKNOWN" ? { label: "Aktivita", value: adoptionDetailActivityLabels[dog.activityLevel] } : null,
     updatedAt ? { label: "Aktualizované", value: updatedAt } : null,
@@ -61,29 +58,27 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
   ].filter((item): item is Fact => Boolean(item));
   const location = [dog.city, dog.district ? `okres ${dog.district}` : "", dog.region].filter(Boolean).join(" · ");
   const phoneHref = dog.contactPhone ? `tel:${dog.contactPhone.replace(/\s+/g, "")}` : null;
+  // Suppress only the generic repeated label, never a named mixed breed.
+  const genericBreedName = ["kríženec", "krizenec"].includes(dog.breedName.trim().toLocaleLowerCase("sk"));
 
   return <main id="obsah" tabIndex={-1} className={styles.detailShell} data-adoption-source="canonical">
-    <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
+    <DetailHero kind="adoption" breadcrumbs={    <nav className={styles.breadcrumbs} aria-label="Drobečková navigácia">
       <Link href="/">Domov</Link><span>/</span><Link href="/pomoc-psom">Pomoc psom</Link><span>/</span><Link href="/pomoc-psom/adopcia">Psy na adopciu</Link><span>/</span><span>{dog.name}</span>
-    </nav>
-
-    {dog.status === "RESERVED" && <div className={styles.reservedBanner} role="status"><strong>Rezervovaný</strong><span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span></div>}
-
-    <section className={styles.detailHero}>
-      <div className={styles.detailVisual}>
-        <DetailImage dog={dog} />
+    </nav>}
+      media={dog.mainImage ? <ImageDisplay roleHint="generic" context="detail" config={dog.detailImageDisplay} src={dog.mainImage} alt={`${dog.name} – pes na adopciu`} loading="eager" fetchPriority="high" /> : null}
+      copy={<>    {dog.status === "RESERVED" && <div className={styles.reservedBanner} role="status"><strong>Rezervovaný</strong><span>Tento pes je momentálne rezervovaný a nemusí byť dostupný na adopciu.</span></div>}
         <span className={`${styles.statusBadge} ${dog.status === "RESERVED" ? styles.reserved : styles.active}`}>{adoptionDetailStatusLabels[dog.status]}</span>
-      </div>
-      <div className={styles.detailIntro}>
-        <span className={styles.eyebrow}>Pomoc psom · adopcia</span>
         <h1>{dog.name}</h1>
         {location && <p className={styles.detailLocation}><LocationIcon size={16} /> {location}</p>}
-        {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
+        {dog.breedName && <p className={styles.detailBreed}>{dog.breedMix && !genericBreedName ? "Kríženec · " : ""}{dog.breedSlug ? <Link href={`/plemena/${dog.breedSlug}`}>{dog.breedName}</Link> : dog.breedName}</p>}
         {dog.shortDescription && <p className={styles.detailLead}>{dog.shortDescription}</p>}
         <Facts items={basicFacts} />
         {stale && <div className={styles.staleNotice}><strong>Profil potrebuje potvrdiť aktuálnosť</strong><span>Pred rozhodnutím si aktuálnu dostupnosť potvrďte priamo s organizáciou.</span></div>}
-      </div>
-    </section>
+
+<nav className={styles.heroActions} aria-label="Kontakt k adopcii">
+          {sections.contact && <a className={styles.primaryAction} href="#adoption-contact">Kontaktovať organizáciu</a>}
+          {organization && <Link className={styles.secondaryAction} href={`/organizacie/${organization.slug}`}>Zobraziť profil organizácie</Link>}
+        </nav></>} />
 
     <div className={styles.detailGrid}>
       <article className={styles.detailContent}>
@@ -96,7 +91,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
       </article>
 
       <aside className={styles.detailAside} aria-label="Kontakt a aktuálnosť profilu">
-        {sections.contact && <section className={styles.contactCard}>
+        {sections.contact && <section className={styles.contactCard} id="adoption-contact">
           <span className={styles.detailEyebrow}>Kontakt</span>
           <h2>{organization ? <Link className={styles.organizationLink} href={`/organizacie/${organization.slug}`}>{organization.name}</Link> : dog.organizationName || "Kontakt k adopcii"}</h2>
           {dog.status === "ACTIVE" ? <p>O dostupnosti a podmienkach adopcie rozhoduje uvedená organizácia alebo zodpovedná osoba.</p> : <p>Profil je rezervovaný. Aktuálny stav si overte priamo u uvedeného kontaktu.</p>}

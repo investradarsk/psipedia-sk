@@ -42,8 +42,8 @@ test("one search above categories and three-column layout reuse existing public 
   const card = read("components/directory-card.tsx");
   const filter = read("components/directory-filter-form.tsx");
   const css = read("components/directory-public.module.css");
-  assert.ok(page.indexOf("<UnifiedSectionHero") < page.indexOf("<SectionHeroSearch"));
-  assert.ok(page.indexOf("<SectionHeroSearch") < page.indexOf("<DirectoryCategoryNavigation"));
+  assert.ok(page.indexOf("<UnifiedSectionHero") < page.indexOf("<HomePortalSearch"));
+  assert.ok(page.indexOf("<HomePortalSearch") < page.indexOf("<DirectoryCategoryNavigation"));
   assert.ok(page.indexOf("<DirectoryCategoryNavigation") < page.indexOf("<DirectoryResults"));
   assert.match(page, /data-directory-columns/);
   assert.match(page, /serializeMapUiFilters/);

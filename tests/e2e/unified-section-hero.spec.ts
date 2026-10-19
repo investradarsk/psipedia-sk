@@ -19,13 +19,14 @@ const ROUTES = [
   { slug: "podujatia", path: "/podujatia", visualKey: "section.podujatia" },
   { slug: "vystavy", path: "/podujatia/vystavy", visualKey: "events.vystavy" },
   { slug: "pomoc", path: "/pomoc-psom", visualKey: "section.pomoc-psom" },
+  { slug: "mapa", path: "/mapa", visualKey: "section.mapa" },
   { slug: "adopcia", path: "/pomoc-psom/adopcia", visualKey: "help.adopcia" },
   { slug: "stratene", path: "/pomoc-psom/stratene-psy", visualKey: "help.stratene-a-najdene" },
   { slug: "recenzie", path: "/recenzie", visualKey: "section.recenzie" },
   { slug: "recenzie-krmiva", path: "/recenzie/krmiva", visualKey: "reviews.krmiva" },
 ] as const;
 
-const ROOT_ROUTE_SLUGS = new Set(["steniatka", "starostlivost", "aktivity", "novinky", "plemena", "adresar", "podujatia", "pomoc", "recenzie"]);
+const ROOT_ROUTE_SLUGS = new Set(["steniatka", "starostlivost", "aktivity", "novinky", "plemena", "adresar", "podujatia", "pomoc", "mapa", "recenzie"]);
 
 const VIEWPORTS = [
   { label: "mobile-320", width: 320, height: 720 },
@@ -108,6 +109,7 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
     let referenceVisualHeight: number | null = null;
     let referenceRootHeroOffsetFromHeader: number | null = null;
     let referenceRootHeroWidth: number | null = null;
+    let referenceRootTitleTop: number | null = null;
     try {
       for (const route of ROUTES) {
         const label = viewport.label + " " + route.path;
@@ -187,11 +189,15 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
         });
 
         if (copyGeometry.breadcrumbs && copyGeometry.eyebrow) {
-          const expectedGap = viewport.width <= 620 ? 10 : 12;
-          expect(
-            Math.abs(copyGeometry.eyebrow.y - (copyGeometry.breadcrumbs.y + copyGeometry.breadcrumbs.height) - expectedGap),
-            label + ": breadcrumb→eyebrow gap",
-          ).toBeLessThanOrEqual(2);
+          const gap = copyGeometry.eyebrow.y - (copyGeometry.breadcrumbs.y + copyGeometry.breadcrumbs.height);
+          expect(gap, label + ": breadcrumbs cannot overlap the canonical copy block").toBeGreaterThanOrEqual(10);
+          const white = await breadcrumbs.locator("a").first().evaluate((element) => getComputedStyle(element).color);
+          expect(white, label + ": image breadcrumb text must be white").toBe("rgb(255, 255, 255)");
+        }
+        if (ROOT_ROUTE_SLUGS.has(route.slug) && copyGeometry.title) {
+          const titleTop = copyGeometry.title.y - visualBox!.y;
+          if (referenceRootTitleTop === null) referenceRootTitleTop = titleTop;
+          expect(Math.abs(titleTop - referenceRootTitleTop), label + ": root hero title vertical alignment").toBeLessThanOrEqual(2);
         }
         if (copyGeometry.eyebrow && copyGeometry.title) {
           const expectedGap = 10;
@@ -227,7 +233,7 @@ test("UNIFIED-SECTION-HERO visual audit covers shared homepage-style overlay at 
           expect(bounds.title!.bottom, label + ": title stays inside photo").toBeLessThanOrEqual(bounds.visual!.bottom + 1);
           expect(bounds.copy!.top, label + ": text overlays image").toBeGreaterThanOrEqual(bounds.media!.top - 1);
           const radius = await visual.evaluate((element) => getComputedStyle(element).borderTopLeftRadius);
-          expect(radius, label + ": mobile homepage radius").toBe("20px");
+          expect(radius, label + ": mobile full-bleed radius").toBe("0px");
           if (await tools.count()) {
             const toolsBox = await tools.boundingBox();
             expect(toolsBox!.y, label + ": tools are anchored after the visual").toBeGreaterThanOrEqual(bounds.visual!.bottom - 26);
@@ -348,11 +354,8 @@ test("UNIFIED-SECTION-HERO scoped searches retain their canonical area", async (
     const response = await page.goto(path, { waitUntil: "domcontentloaded" });
     expect(response?.status(), path).toBe(200);
     const hero = page.locator("[data-unified-section-hero]");
-    // Directory search is correctly positioned below the hero. The other
-    // subcategory forms live in the shared hero's tools panel.
-    const form = path.startsWith("/adresar/")
-      ? page.locator('[data-public-search-form="services"]')
-      : page.locator("[data-unified-section-hero] form");
+    // Each scoped query uses exactly one canonical form in the shared hero.
+    const form = hero.locator('form[role="search"]');
     await expect(form, path + ": canonical search form").toHaveCount(1);
     await form.locator('input[name="q"]').fill(query);
     return form.evaluate((form) => {

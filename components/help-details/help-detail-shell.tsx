@@ -6,6 +6,7 @@ import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { formatHelpAmount, formatHelpDate, formatHelpUpdatedDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
 import {
+  DetailHero,
   DetailContactsCard,
   DetailFactsCard,
   DetailOptionGrid,
@@ -36,9 +37,6 @@ function safetyCopy(item: HelpCase) {
   }
 }
 
-function FallbackVisual() {
-  return <div className={styles.fallback} aria-hidden="true"><span className={styles.fallbackMark} /></div>;
-}
 
 export function HelpDetailShell({
   item,
@@ -61,39 +59,32 @@ export function HelpDetailShell({
   const imageAlt = item.dogName ? `${item.dogName} – ${item.title}` : item.title;
 
   return <main id="obsah" tabIndex={-1} className={styles.detail}>
-    <header className={styles.hero}>
-      <div className={styles.shell}>
-        <Breadcrumbs>
+    <DetailHero kind="help" breadcrumbs={<Breadcrumbs>
           <Link href="/">Domov</Link><span>/</span>
           <Link href="/pomoc-psom">Pomoc psom</Link><span>/</span>
           <Link href={`/pomoc-psom/${item.category}`}>{category?.label ?? "Pomoc psom"}</Link><span>/</span>
           <span>{heroTitle}</span>
-        </Breadcrumbs>
-        <div className={styles.heroGrid}>
-          <div className={styles.heroCopy}>
+        </Breadcrumbs>}
+      copy={<>
             <div className={styles.tags}>
               <span className={styles.tag}>{category?.singular ?? "Pomoc psom"}</span>
               {item.urgent && !item.resolved && <span className={styles.urgent}>Urgentné</span>}
               {item.resolved && <span className={styles.resolved}>Ukončené / vyriešené</span>}
             </div>
-            <h1>{heroTitle}</h1>
+            <h1 data-long-title={heroTitle.length >= 70 ? "" : undefined}>{heroTitle}</h1>
             {contextTitle && contextTitle !== heroTitle && <p className={styles.contextTitle}>{contextTitle}</p>}
-            {item.excerpt && <p className={styles.excerpt}>{item.excerpt}</p>}
+
             <div className={styles.heroMeta}>
               <span><strong>Lokalita</strong> {item.city}{item.region ? ` · ${item.region}` : ""}</span>
               {item.reportedDate && <span><strong>Dátum</strong> {formatHelpDate(item.reportedDate)}</span>}
             </div>
+            {item.excerpt && <p className={styles.excerpt}>{item.excerpt}</p>}
             <div className={styles.heroActions}>
               {externalAction(item) && <a className={styles.primaryAction} href={item.actionUrl ?? undefined} target="_blank" rel="noreferrer">{item.actionLabel || "Zistiť viac"} ↗</a>}
               <Link className={styles.secondaryAction} href={`/pomoc-psom/${item.category}`}>Späť na {category?.label?.toLocaleLowerCase("sk") ?? "prehľad"}</Link>
             </div>
-          </div>
-          <div className={styles.visual}>
-            {item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} /> : <FallbackVisual />}
-          </div>
-        </div>
-      </div>
-    </header>
+</>}
+      media={item.imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={item.detailImageDisplay} src={item.imageUrl} alt={imageAlt} loading="eager" /> : null} />
 
     <section className={styles.content}>
       <div className={`${styles.shell} ${styles.layout}`}>

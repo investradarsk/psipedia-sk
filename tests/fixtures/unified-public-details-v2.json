@@ -1,0 +1,234 @@
+{
+  "provenance": {
+    "capturedAt": "2026-10-18",
+    "sources": [
+      "https://psipedia.sk/adresar/veterinari/ab-vet-piestany",
+      "https://psipedia.sk/podujatia/cact-klubove-jesenne-skusky-retrieverov-kosorin-kosorin-2026-10-18-psi-0108",
+      "https://psipedia.sk/pomoc-psom/adopcia/beky-hlada-novy-domov"
+    ],
+    "note": "Read-only anonymous public HTML/JSON-LD snapshots. Technical fixture IDs are not imported into D1. Unknown optional fields remain empty. No mockup facts or generated images."
+  },
+  "directory": {
+    "id": 425,
+    "slug": "ab-vet-piestany",
+    "name": "AB-VET Piešťany",
+    "category": "veterinari",
+    "excerpt": "Veterinárna ambulancia v Piešťanoch s internou medicínou, chirurgiou, ortopédiou, stomatológiou a rozsiahlou diagnostikou.",
+    "services": [
+      "Preventívna medicína",
+      "Vakcinácia psov",
+      "Vakcinácia mačiek",
+      "Vakcinácia fretiek",
+      "Vakcinácia králikov",
+      "Čipovanie",
+      "Vystavenie pet pasu",
+      "Antiparazitárny program",
+      "Preventívna prehliadka",
+      "Chirurgia",
+      "Ortopédia",
+      "Kastrácie",
+      "Cisársky rez",
+      "Operácie brušnej dutiny",
+      "Onkologická chirurgia",
+      "Interná medicína",
+      "Dermatológia",
+      "Stomatológia",
+      "Dentálna hygiena",
+      "Extrakcia zubov"
+    ],
+    "qualifications": [],
+    "city": "Piešťany",
+    "district": "Piešťany",
+    "region": "Trnavský kraj",
+    "address": "Adama Trajana 4648/2, 921 01 Piešťany",
+    "priceNote": "",
+    "openingHours": "Po–Pi 9:00–12:00 a 13:00–17:30; So 9:00–12:00",
+    "imageUrl": "/media/directory/2026/61715d8b-340e-4418-b1f1-26cd81d00537.webp",
+    "detailImageDisplay": {
+      "mode": "natural",
+      "x": 50,
+      "y": 50,
+      "zoom": 1
+    },
+    "verified": false,
+    "featured": false,
+    "description": "AB-VET poskytuje preventívnu medicínu, internú medicínu, dermatológiu, chirurgiu a ortopédiu, stomatológiu, kvantovú terapiu, laboratórnu a zobrazovaciu diagnostiku. Oficiálny web uvádza USG, RTG, endoskopiu, hematológiu, biochémiu, cytológiu a diagnostiku vybraných infekčných, hormonálnych a dedičných ochorení. V naliehavých prípadoch je možné mimo ordinačných hodín kontaktovať ambulanciu SMS správou.",
+    "descriptionParagraphs": [
+      "AB-VET poskytuje preventívnu medicínu, internú medicínu, dermatológiu, chirurgiu a ortopédiu, stomatológiu, kvantovú terapiu, laboratórnu a zobrazovaciu diagnostiku. Oficiálny web uvádza USG, RTG, endoskopiu, hematológiu, biochémiu, cytológiu a diagnostiku vybraných infekčných, hormonálnych a dedičných ochorení. V naliehavých prípadoch je možné mimo ordinačných hodín kontaktovať ambulanciu SMS správou."
+    ],
+    "coverage": null,
+    "facts": [],
+    "health": null,
+    "phone": {
+      "value": "0908 983 487",
+      "href": "tel:0908983487"
+    },
+    "emails": [
+      {
+        "value": "ab-vet@ab-vet.sk",
+        "href": "mailto:ab-vet@ab-vet.sk"
+      }
+    ],
+    "websiteUrl": "https://www.ab-vet.sk/",
+    "facebookUrl": null,
+    "instagramUrl": null,
+    "navigationUrl": null,
+    "updatedAt": "2026-10-11T08:00:26.006Z"
+  },
+  "event": {
+    "id": 108,
+    "slug": "cact-klubove-jesenne-skusky-retrieverov-kosorin-kosorin-2026-10-18-psi-0108",
+    "title": "CACT Klubové jesenné skúšky retrieverov Kosorín",
+    "excerpt": "Slovenský retriever klub plánuje na 18. októbra 2026 v Kosoríne klubové jesenné skúšky retrieverov s udeľovaním CACT podľa pravidiel.",
+    "eventType": "Preteky",
+    "status": "published",
+    "startDate": "2026-10-18",
+    "endDate": "2026-10-18",
+    "startTime": "",
+    "endTime": null,
+    "venue": "Obecný úrad Kosorín",
+    "address": "",
+    "city": "Kosorín",
+    "region": "Banskobystrický kraj",
+    "organizer": "Slovenský retriever klub",
+    "description": "Slovenský retriever klub uvádza vo svojom kalendári na 18. októbra 2026 CACT Klubové jesenné skúšky retrieverov v Kosoríne. Ide o klubové pracovné skúšky zamerané na jesennú prácu retrieverov, s možnosťou udelenia čakateľstva CACT podľa príslušných pravidiel a výsledkov posudzovania. Oficiálny klubový kalendár obsahuje odkaz na propozície a prihlášky. Podľa propozícií je zraz o 9.00 pri Obecnom úrade Kosorín, uzávierka prihlášok bola 13. októbra a kapacita je najviac 15 psov. Pri prezentácii sa vyžaduje veterinárny preukaz a originál preukazu o pôvode psa. Výsledky zatiaľ nie sú v tomto profile potvrdené; aktuálne pokyny si treba overiť u organizátora.",
+    "practicalInfo": "Disciplína: Retriever skúšky.\n\nOkres: Žiar nad Hronom\n\nZdroje:\nhttps://slovak-retriever.org/kalendar/",
+    "websiteUrl": "https://slovak-retriever.org/kalendar/",
+    "registrationUrl": "https://slovensky-retriever-klub.dogres.cz/",
+    "imageUrl": "https://slovak-retriever.org/wp-content/uploads/2021/10/psicek.png",
+    "detailImageDisplay": {
+      "mode": "natural",
+      "x": 50,
+      "y": 50,
+      "zoom": 1
+    },
+    "cancelled": false,
+    "updatedAt": "2026-10-18T00:03:33.510Z"
+  },
+  "adoption": {
+    "id": 1,
+    "name": "Beky",
+    "slug": "beky-hlada-novy-domov",
+    "status": "ACTIVE",
+    "sex": "FEMALE",
+    "birthDate": null,
+    "approximateAgeMonths": 168,
+    "size": "UNKNOWN",
+    "weight": 0,
+    "breedId": null,
+    "breedName": "labrador",
+    "breedSlug": null,
+    "breedMix": false,
+    "color": "",
+    "city": "Trnava",
+    "district": "Trnava",
+    "region": "Trnavský kraj",
+    "organizationId": null,
+    "organizationName": "Združenie na ochranu zvierat Trnava",
+    "organizationSlug": null,
+    "mainImage": "/media/help/2026/beda7c39-cd2a-478d-ab51-c4b870c10b7c.avif",
+    "detailImageDisplay": {
+      "mode": "natural",
+      "x": 50,
+      "y": 50,
+      "zoom": 1
+    },
+    "gallery": [],
+    "shortDescription": "Aktuálne vedená v zozname Útulku Trnava ako štrnásťročná labradorka na adopciu.",
+    "description": "Beky je 14-ročná labradorka, ktorú Útulok Trnava uvádza medzi psami na adopciu. Podrobnosti o jej povahe je potrebné overiť priamo v útulku.",
+    "temperament": "",
+    "activityLevel": "UNKNOWN",
+    "suitableForChildren": "UNKNOWN",
+    "suitableForDogs": "UNKNOWN",
+    "suitableForCats": "UNKNOWN",
+    "suitableForOtherAnimals": "UNKNOWN",
+    "apartmentSuitable": null,
+    "beginnerSuitable": null,
+    "needsExperiencedOwner": false,
+    "vaccinationStatus": "UNKNOWN",
+    "chipped": null,
+    "neutered": null,
+    "healthNotes": "",
+    "specialNeeds": "",
+    "adoptionRequirements": "",
+    "externalSourceUrl": "https://www.trnava.utulok.sk/psy/beky",
+    "contactEmail": "inga.novakova@centrum.sk",
+    "contactPhone": "0903 450 832",
+    "contactUrl": "https://www.trnava.utulok.sk/psy/beky",
+    "lastVerifiedAt": "2026-09-13T00:00:00.000Z",
+    "updatedAt": "2026-10-10T00:02:22.368Z"
+  },
+  "organizationLink": {
+    "id": 1,
+    "name": "Združenie na ochranu zvierat Trnava",
+    "slug": "pomoc-zdruzenie-na-ochranu-zvierat-trnava"
+  },
+  "maps": {
+    "directory": {
+      "items": [
+        {
+          "id": "service:425",
+          "entityType": "service",
+          "entityId": 425,
+          "name": "AB-VET Piešťany",
+          "category": "services",
+          "href": "https://psipedia.sk/adresar/veterinari/ab-vet-piestany",
+          "latitude": 48.582917099999996,
+          "longitude": 17.8128146,
+          "googlePlaceId": "ChIJI3qsOl5Ua0cRDdxNKePwM1g",
+          "precision": "EXACT",
+          "displayLocation": "Adama Trajana 4648/2, 921 01 Piešťany",
+          "city": "Piešťany",
+          "region": "Trnavský kraj"
+        }
+      ],
+      "attribution": [],
+      "rendererEnabled": false,
+      "testRendererEnvironment": false
+    },
+    "event": {
+      "items": [
+        {
+          "id": "event:108",
+          "entityType": "event",
+          "entityId": 108,
+          "name": "CACT Klubové jesenné skúšky retrieverov Kosorín",
+          "category": "events",
+          "href": "https://psipedia.sk/podujatia/cact-klubove-jesenne-skusky-retrieverov-kosorin-kosorin-2026-10-18-psi-0108",
+          "latitude": 48.6500105,
+          "longitude": 18.8076179,
+          "googlePlaceId": "ChIJ_0906jcmFUcRsJrrxlSQQ28",
+          "precision": "EXACT",
+          "displayLocation": "Kosorín",
+          "city": "Kosorín",
+          "region": "Banskobystrický kraj"
+        }
+      ],
+      "attribution": [],
+      "rendererEnabled": false,
+      "testRendererEnvironment": false
+    }
+  },
+  "review": {
+    "resourceId": "directory-profile-425",
+    "summary": {
+      "count": 0,
+      "average": null,
+      "distribution": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0
+      },
+      "dimensions": []
+    },
+    "reviews": [],
+    "pagination": {
+      "page": 1,
+      "pageSize": 10,
+      "total": 0,
+      "totalPages": 0
+    }
+  }
+}
