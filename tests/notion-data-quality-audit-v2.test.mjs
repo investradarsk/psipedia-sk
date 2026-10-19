@@ -160,3 +160,57 @@ test("distinct error taxonomy preserves 403 vs 522 and never repairs Illegal inv
   ];
   for (const [message, type] of cases) assert.equal(classifyDirectorySyncError(message), type);
 });
+
+
+test("Audit 02 SELECT statements execute against actual migration-defined SQLite tables", async () => {
+  const { DatabaseSync } = await import("node:sqlite");
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    // The three canonical definitions are checked against the current Drizzle
+    // schema; mapping and other canonical tables are created by the repository's
+    // actual migrations, not mock response objects.
+    const canonicalSchema = await readFile(new URL("../db/schema.ts", import.meta.url), "utf8");
+    for (const table of ["directory_profiles", "managed_events", "help_cases"]) {
+      assert.ok(canonicalSchema.includes('"' + table + '"'), "canonical schema missing " + table);
+      sqlite.exec("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY)");
+    }
+    const migrationNames = [
+      "0030_lost_found_dogs.sql",
+      "0034_adoption_dogs_foundation.sql",
+      "0036_help_organizations_foundation.sql",
+      "0047_notion_event_sync.sql",
+      "0098_directory_notion_bidirectional_sync.sql",
+      "0108_notion_events_help_bidirectional_sync.sql",
+    ];
+    for (const migration of migrationNames) {
+      const content = await readFile(new URL("../drizzle/" + migration, import.meta.url), "utf8");
+      sqlite.exec(content);
+    }
+    const expectedColumns = {
+      directory_notion_sync: ["notion_page_id", "directory_profile_id", "content_hash", "notion_last_edited_time", "psipedia_updated_at"],
+      event_notion_sync: ["notion_page_id", "event_id", "content_hash", "notion_last_edited_time", "psipedia_updated_at"],
+      notion_agenda_sync: ["agenda", "notion_page_id", "entity_id", "content_hash", "notion_last_edited_time", "psipedia_updated_at"],
+    };
+    for (const [table, expected] of Object.entries(expectedColumns)) {
+      const actual = new Set(sqlite.prepare("PRAGMA table_info(" + table + ")").all().map(row => row.name));
+      for (const column of expected) assert.ok(actual.has(column), table + "." + column + " missing from migrations");
+    }
+    const db = {
+      prepare(sql) {
+        const stmt = sqlite.prepare(sql);
+        return {
+          bind(...params) {
+            return { async all() { return { results: stmt.all(...params) }; } };
+          },
+        };
+      },
+    };
+    for (const agenda of ["directory", "events", "organizations", "adoptions", "help-cases", "lost-found"]) {
+      const result = await loadAuditD1Evidence(db, agenda, [page("notion-test-" + agenda, 187)]);
+      assert.equal(result.coverage, "VERIFIED", agenda + " SQL did not execute against migration schema");
+      assert.deepEqual(result.canonicalIds, []);
+    }
+  } finally {
+    sqlite.close();
+  }
+});
