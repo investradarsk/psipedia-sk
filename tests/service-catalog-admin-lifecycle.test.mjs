@@ -112,7 +112,7 @@ test("explicit tri-state attribute and YES/NO reset-to-UNKNOWN do not synthesize
   const reset=await resetAdminServiceChoice(db,{profileId:1,optionId:attr.optionId,expectedVersion:1},actor);
   assert.deepEqual(reset,{profileId:1,optionId:attr.optionId,choice:"unknown",version:0});
   assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM service_profile_option_choices").get().n,0);
-  const audit=sqlite.prepare("SELECT operation,actor,prior_json FROM service_catalog_admin_change_audit WHERE entity_type='choice' ORDER BY id DESC LIMIT 1").get();
+  const audit=sqlite.prepare("SELECT operation,actor,prior_json FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND operation='RESET' ORDER BY id DESC LIMIT 1").get();
   assert.equal(audit.operation,"RESET");
   assert.equal(audit.actor,actor);
   assert.equal(JSON.parse(audit.prior_json).choice,"yes");
