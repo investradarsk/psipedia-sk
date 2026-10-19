@@ -20,6 +20,8 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
   const [kind,setKind]=useState("all");
   const [category,setCategory]=useState("all");
   const [state,setState]=useState("all");
+  const [filtersOpen,setFiltersOpen]=useState(false);
+  const activeFilterCount=Number(kind!=="all")+Number(category!=="all")+Number(state!=="all");
   const [selectedId,setSelectedId]=useState<string|null>(null);
   const [creating,setCreating]=useState(false);
   const [draft,setDraft]=useState<Draft>(blank);
@@ -51,10 +53,17 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
     {!writeEnabled&&<p className={styles.notice}>Zápisy Services V3 sú zatiaľ vypnuté. Nové možnosti, schvaľovanie a archivácia zostávajú uzamknuté.</p>}
     <div className={styles.filterBar}>
-      <label>Vyhľadávanie<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Služba, vlastnosť alebo ID"/></label>
-      <label>Typ<select value={kind} onChange={e=>setKind(e.target.value)}><option value="all">Všetky typy</option><option value="service">Služby</option><option value="attribute">Vlastnosti</option></select></label>
-      <label>Kategória<select value={category} onChange={e=>setCategory(e.target.value)}><option value="all">Všetky kategórie</option>{categories.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
-      <label>Stav<select value={state} onChange={e=>setState(e.target.value)}><option value="all">Všetky stavy</option>{["BUILT_IN","DRAFT","ACTIVE","RETIRED","PENDING","SYNCED","CONFLICT"].map(s=><option key={s}>{s}</option>)}</select></label>
+      <label className={styles.searchField}>Vyhľadávanie<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Služba, vlastnosť alebo ID"/></label>
+      <button type="button" className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls="services-v3-catalog-advanced-filters"
+        onClick={()=>setFiltersOpen(open=>!open)}>
+        <span>Filtre {activeFilterCount>0? `(${activeFilterCount})` : ""}</span>
+        <span aria-hidden="true">{filtersOpen?"−":"+"}</span>
+      </button>
+      <div id="services-v3-catalog-advanced-filters" className={styles.advancedFilters} data-expanded={filtersOpen}>
+        <label>Typ<select value={kind} onChange={e=>setKind(e.target.value)}><option value="all">Všetky typy</option><option value="service">Služby</option><option value="attribute">Vlastnosti</option></select></label>
+        <label>Kategória<select value={category} onChange={e=>setCategory(e.target.value)}><option value="all">Všetky kategórie</option>{categories.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
+        <label>Stav<select value={state} onChange={e=>setState(e.target.value)}><option value="all">Všetky stavy</option>{["BUILT_IN","DRAFT","ACTIVE","RETIRED","PENDING","SYNCED","CONFLICT"].map(s=><option key={s}>{s}</option>)}</select></label>
+      </div>
       <AdminActionButton variant="primary" onClick={()=>{setMessage("");setDraft(blank);setCreating(true);}} disabled={!writeEnabled||Boolean(loadError)}>+ Nová možnosť</AdminActionButton>
     </div>
     <p role="status" className={styles.count}>Nájdených možností: {visible.length}</p>

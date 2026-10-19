@@ -29,6 +29,32 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg",{exact:true})).toBeVisible();
    await expect(page.getByText("Zápisy Services V3 sú zatiaľ vypnuté")).toBeVisible();
    await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeDisabled();
+   const toggle=page.getByRole("button",{name:/^Filtre/});
+   const typeFilter=page.getByRole("combobox",{name:"Typ"});
+   if(viewport.width<=800){
+     await expect(toggle).toBeVisible();
+     await expect(toggle).toHaveAttribute("aria-expanded","false");
+     await expect(typeFilter).toBeHidden();
+     await toggle.click();
+     await expect(typeFilter).toBeVisible();
+     await typeFilter.selectOption("attribute");
+     await expect(toggle).toContainText("(1)");
+     await toggle.click();
+     await expect(typeFilter).toBeHidden();
+     await expect(toggle).toContainText("(1)");
+     await toggle.click();
+     await typeFilter.selectOption("all");
+     await toggle.click();
+   }else {
+     await expect(toggle).toBeHidden();
+     await expect(typeFilter).toBeVisible();
+   }
+   const skip=page.locator(".admin-skip-link");
+   await expect(skip).toHaveCSS("clip-path","inset(50%)");
+   await skip.focus();
+   await expect(skip).toBeFocused();
+   await expect(skip).toHaveCSS("clip-path","none");
+   await skip.evaluate((link:HTMLElement)=>link.blur());
    const list=page.locator('[aria-label="Možnosti katalógu"]');
    const detail=page.locator('[aria-label="Detail vybranej možnosti"]');
    const first=list.locator("button").first();

@@ -2,3 +2,24 @@
 @media(max-width:800px){.layout{grid-template-columns:minmax(0,1fr)}.list{max-height:44dvh}.detail{padding:14px}.filterBar{display:grid;grid-template-columns:minmax(0,1fr);padding:12px}.filterBar label{width:100%}.profileCard{padding:12px}.profileRow{grid-template-columns:minmax(0,1fr) minmax(112px,140px)}}
 /* Reuse Admin V3 sans-serif heading typography; avoid global editorial serif h2 rules. */
 .detail h2,.profileHeading h2{font-family:inherit;font-weight:800;letter-spacing:-.01em}
+
+/* Variant A polish: desktop keeps inline filters; mobile puts advanced controls behind one accessible disclosure. */
+.searchField{min-width:0}
+.advancedFilters{display:contents}
+.filterToggle{display:none}
+@media(max-width:800px){
+  .filterBar{grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
+  .filterBar .searchField{grid-column:1;grid-row:1;margin:0}
+  .filterToggle{display:flex;grid-column:2;grid-row:1;gap:8px;align-items:center;justify-content:center;min-height:44px;border:1px solid #b8cbbf;border-radius:10px;padding:9px 12px;background:#f4f8f5;color:#173d2e;font:inherit;font-size:.85rem;font-weight:800;cursor:pointer;white-space:nowrap}
+  .filterToggle[aria-expanded="true"]{background:#e7f2e9;border-color:#6f9a7d}
+  .filterToggle:focus-visible{outline:3px solid #d6a44c;outline-offset:2px}
+  .advancedFilters{display:none;grid-column:1/-1;grid-row:2;gap:10px;min-width:0}
+  .advancedFilters[data-expanded="true"]{display:grid}
+  .filterBar>.filterToggle+div+button{grid-column:1/-1}
+}
+@media(max-width:359px){
+  .filterBar{grid-template-columns:minmax(0,1fr)}
+  .filterBar .searchField{grid-column:1;grid-row:1}
+  .filterToggle{grid-column:1;grid-row:2;justify-content:space-between}
+  .advancedFilters{grid-row:3}
+}
