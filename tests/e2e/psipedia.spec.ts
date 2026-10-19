@@ -675,7 +675,27 @@ test("cookie consent opt-in and delayed GA4 revocation are safe", async ({ page 
   });
   expect(state.disabled, "GA4 should be disabled after revocation").toBe(true);
   expect(state.emittedPageView, "Page view emitted after consent revocation").toBe(false);
+  // The SSR footer button can be clickable before React mounts the settings listener.
+  // Observe the real listener registration on the next navigation; do not retry clicks.
+  await page.addInitScript(() => {
+    const original = window.addEventListener;
+    window.addEventListener = function (
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ) {
+      original.call(window, type, listener, options);
+      if (type === "psipedia:open-cookie-settings") {
+        (window as typeof window & { psipediaCookieSettingsReady?: boolean }).psipediaCookieSettingsReady = true;
+        window.addEventListener = original;
+      }
+    } as typeof window.addEventListener;
+  });
   await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() =>
+    (window as typeof window & { psipediaCookieSettingsReady?: boolean }).psipediaCookieSettingsReady === true,
+  );
+  expect(await readStoredConsent(page)).toBe("necessary");
   await page.getByRole("button", { name: "Nastavenia cookies" }).click();
   await expect(dialog).toContainText("Aktuálna voľba: iba nevyhnutné údaje");
   await expect(page.locator(GOOGLE_SCRIPTS)).toHaveCount(0);
