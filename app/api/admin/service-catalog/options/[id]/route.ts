@@ -1,7 +1,7 @@
 import {env} from "cloudflare:workers";
 import {requireAdminMutation} from "@/lib/admin-auth";
 import {mutateAdminCatalogOption} from "@/lib/service-catalog-admin-lifecycle";
-import {ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
+import {ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError,requireServiceCatalogAuditSchema} from "@/lib/service-catalog-admin-store";
 
 export const dynamic="force-dynamic";
 type Props={params:Promise<{id:string}>};
@@ -16,6 +16,7 @@ export async function PATCH(request:Request,{params}:Props){
     return Response.json({error:"Canonical catalog lifecycle is not activated."},{status:503});
   if(!cfg.DB)return Response.json({error:"D1 is unavailable."},{status:503});
   try{
+    await requireServiceCatalogAuditSchema(cfg.DB);
     const {id}=await params;
     const option=await mutateAdminCatalogOption(cfg.DB,id,await request.json(),auth.user!.email);
     return Response.json({option});
