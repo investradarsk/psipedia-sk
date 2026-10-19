@@ -13,6 +13,7 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
  const {sqlite,images}=fixture(t);const dir=path.resolve('outputs/facebook-image-ui');mkdirSync(dir,{recursive:true});
  writeFileSync(path.join(dir,'entry.tsx'),`import React from 'react';import{createRoot}from'react-dom/client';import{AdminFacebookImages}from'../../components/admin-facebook-images';import'../../app/globals.css';import'../../app/admin/admin-legacy-scoped.css';import'../../app/admin/admin-workspace.css';createRoot(document.getElementById('root')!).render(<div data-admin-workspace><main className="admin-root" style={{padding:12,fontFamily:"Arial, sans-serif"}}><h1>Facebook obrázky · testovacia fixture</h1><AdminFacebookImages initial={{items:[],calendar:[],page:1,pages:1,total:0}} initialMonth="2026-10"/></main></div>);`);
  await build({entryPoints:[path.join(dir,'entry.tsx')],outfile:path.join(dir,'entry.js'),bundle:true,format:'esm',platform:'browser',jsx:'automatic',conditions:['style'],external:['/images/*','/fonts/*','/media/*','/pwa/*']});
+ let deleteCalls=0;let failNextDelete=false;
  const server=createServer(async(req,res)=>{try{
   const base=`http://localhost:${server.address().port}`;const url=new URL(req.url,base);let response;
   if(url.pathname.startsWith('/api/')){
@@ -22,7 +23,9 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
    else if(url.pathname==='/api/admin/facebook-images')response=req.method==='GET'?await GET(request):await POST(request);
    else if(url.pathname==='/api/admin/facebook-images/publisher')response=req.method==='GET'?await getPublisher():await putPublisher(request);
    else if(url.pathname.endsWith('/approval'))response=await putApproval(request,{params:Promise.resolve({id:url.pathname.split('/').at(-2)})});
-   else if(url.pathname.endsWith('/trash'))response=await permanentDelete(request,{params:Promise.resolve({id:url.pathname.split('/').at(-2)})});
+   else if(url.pathname.endsWith('/trash')){deleteCalls++;response=failNextDelete
+     ?Response.json({error:"Simulované zlyhanie API."},{status:503})
+     :await permanentDelete(request,{params:Promise.resolve({id:url.pathname.split('/').at(-2)})});}
    else{const params=Promise.resolve({id:url.pathname.split('/').at(-1)});response=req.method==='GET'?await detail(request,{params}):await PUT(request,{params});}
   }else if(url.pathname.startsWith('/media/')){const obj=images.get(url.pathname.slice(7));response=obj?new Response(obj.body,{headers:{'content-type':obj.httpMetadata.contentType}}):new Response('',{status:404});}
   else if(url.pathname==='/entry.js'||url.pathname==='/entry.css')response=new Response(readFileSync(path.join(dir,url.pathname.slice(1))),{headers:{'content-type':url.pathname.endsWith('.css')?'text/css':'text/javascript'}});
@@ -62,7 +65,20 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   assert.equal(sqlite.prepare('SELECT approval_status FROM facebook_image_posts WHERE id=?').get(row.id).approval_status,'APPROVED');
   assert.equal(sqlite.prepare('SELECT direct_publish_consent FROM facebook_image_posts WHERE id=?').get(row.id).direct_publish_consent,1);
   await page.screenshot({path:path.join(dir,`controls-${width}.png`)});
-  await dialog.getByLabel('Popis na Facebook',{exact:true}).fill('Neuložený popis');page.once('dialog',d=>d.dismiss());await dialog.getByRole('button',{name:'Zavrieť',exact:true}).click();await expect(dialog).toBeVisible();
+  const editorDelete=dialog.getByRole('button',{name:'Natrvalo odstrániť z Psipedie',exact:true});
+  await expect(editorDelete).toBeEnabled();await editorDelete.click();
+  const confirmDialog=page.getByRole('dialog',{name:'Natrvalo odstrániť príspevok?'});
+  await expect(confirmDialog).toBeVisible();await expect(confirmDialog).toContainText('plánovanej publikačnej fronty');
+  await expect(confirmDialog.getByRole('button',{name:'Zrušiť',exact:true})).toBeFocused();
+  await page.screenshot({path:path.join(dir,`delete-confirm-${width}.png`)});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth),0);
+  await page.keyboard.press('Escape');await expect(confirmDialog).not.toBeVisible();
+  await expect(editorDelete).toBeFocused();
+  assert.equal(sqlite.prepare('SELECT deleted_at FROM facebook_image_posts WHERE id=?').get(row.id).deleted_at,null);
+  await dialog.getByLabel('Popis na Facebook',{exact:true}).fill('Neuložený popis');
+  await expect(editorDelete).toBeDisabled();
+  await expect(dialog).toContainText('Najprv ulož alebo zahoď neuložené zmeny.');
+  page.once('dialog',d=>d.dismiss());await dialog.getByRole('button',{name:'Zavrieť',exact:true}).click();await expect(dialog).toBeVisible();
   page.once('dialog',d=>d.dismiss());await page.keyboard.press('Escape');await expect(dialog).toBeVisible();
   sqlite.prepare('UPDATE facebook_image_posts SET version=version+1,caption=? WHERE id=?').run('Novšia úprava',row.id);
   await dialog.getByRole('button',{name:'Uložiť koncept',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('medzičasom');await expect(dialog.getByLabel('Popis na Facebook',{exact:true})).toHaveValue('Neuložený popis');
@@ -73,12 +89,30 @@ test('desktop/mobile real component + SQLite/API fixture: popup, upload, schedul
   assert.equal(sqlite.prepare('SELECT direct_publish_consent FROM facebook_image_posts WHERE id=?').get(row.id).direct_publish_consent,0);
   assert.equal(sqlite.prepare('SELECT approval_status FROM facebook_image_posts WHERE id=?').get(row.id).approval_status,'UNREVIEWED');
   await page.screenshot({path:path.join(dir,`calendar-${width}.png`)});
-  const permanent=page.locator('article button').filter({hasText:'Natrvalo odstrániť'}).last();
+  const permanent=page.locator('article [data-admin-action="destructive"]').last();
   await expect(permanent).toBeVisible();
-  page.once('dialog',confirmation=>confirmation.accept());
+  assert.ok(await permanent.evaluate(el=>el.getBoundingClientRect().height)>=44);
   await permanent.click();
+  await expect(confirmDialog).toBeVisible();await expect(confirmDialog).toContainText('Koncept sa odstráni');
+  await expect(confirmDialog.getByRole('button',{name:'Zrušiť',exact:true})).toBeFocused();
+  await confirmDialog.getByRole('button',{name:'Zrušiť',exact:true}).click();
+  await expect(confirmDialog).not.toBeVisible();await expect(permanent).toBeFocused();
+  assert.equal(sqlite.prepare('SELECT deleted_at FROM facebook_image_posts WHERE id=?').get(row.id).deleted_at,null);
+  await permanent.click();
+  if(width===390){
+    failNextDelete=true;
+    await confirmDialog.getByRole('button',{name:'Natrvalo odstrániť',exact:true}).click();
+    await expect(confirmDialog.getByRole('alert')).toContainText('Simulované zlyhanie API');
+    assert.equal(sqlite.prepare('SELECT deleted_at FROM facebook_image_posts WHERE id=?').get(row.id).deleted_at,null);
+    failNextDelete=false;
+  }
+  const before=deleteCalls;
+  await confirmDialog.getByRole('button',{name:'Natrvalo odstrániť',exact:true})
+    .evaluate(button=>{button.click();button.click();});
   await expect.poll(()=>sqlite.prepare('SELECT deleted_at FROM facebook_image_posts WHERE id=?').get(row.id).deleted_at).not.toBeNull();
+  assert.equal(deleteCalls,before+1,'Double click must submit only one DELETE');
   await expect(page.locator('article button').filter({hasText:`Príspevok ${width}`})).toHaveCount(0);
+  await expect(page.getByRole('status').filter({hasText:'natrvalo odstránený'})).toBeVisible();
   await context.close();
  }
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM facebook_image_posts WHERE facebook_post_id IS NOT NULL OR published_at IS NOT NULL').get().n,0);
