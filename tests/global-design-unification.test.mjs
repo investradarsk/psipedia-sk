@@ -40,7 +40,11 @@ test("breeds display the interactive atlas search before action cards and filter
   assert.ok(browser.indexOf("{actions}") < browser.indexOf('className="fci-filter-panel"'));
   assert.match(page, /actions=\{breedSection \? \(/);
 });
-test("editorial hubs and topics retain a single shared hero search each", () => {
+test("editorial hub and topic each render one canonical portal search", () => {
   const editorial = source("components/editorial-section.tsx");
-  assert.equal((editorial.match(/searchSlot=\{<SearchBox/g) ?? []).length, 2);
+  assert.match(editorial, /function SearchBox\(/);
+  assert.equal((editorial.match(/portalSearchSlot=\{<SearchBox\b/g) ?? []).length, 2);
+  assert.equal((editorial.match(/<HomePortalSearch\b/g) ?? []).length, 1);
+  assert.match(editorial, /searchScope=\{sectionSlug\}/);
+  assert.doesNotMatch(editorial, /searchSlot=\{<SearchBox/);
 });
