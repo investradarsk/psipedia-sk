@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 
 import {
   decideBidirectionalChange,
@@ -27,6 +28,8 @@ import {
   readyForCreate,
 } from "../lib/notion-events-help-adapters.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "../lib/notion-event-priority.ts";
+import { loadNotionBulkHelpCases } from "../lib/notion-bulk-sources.ts";
+import { auditHelpSyncMappings, classifyHelpSyncCanonical, isHelpSyncCategoryOutOfDomain } from "../lib/notion-help-domain-boundary.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority, mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 import {
@@ -812,4 +815,116 @@ test("Gemini Directory A: fill only nonempty Notion editorial fields; never demo
   assert.equal(merged.seo.title,"New SEO");
   assert.equal(merged.seo.description,"Existing SEO");
   assert.equal(merged.seo.noindex,true);
+});
+
+
+/** Real SQLite + D1-shaped read-only adapter for the production category SQL.
+ * No external Notion/Cloudflare calls and no writes performed by the sync code. */
+function helpBoundaryFixture() {
+  const db = new DatabaseSync(":memory:");
+  const columns = [
+    "id", "slug", "title", "category", "status", "excerpt", "description",
+    "organization", "dog_name", "breed", "age_note", "city", "region",
+    "location_note", "reported_date", "deadline_date", "action_label",
+    "action_url", "contact_note", "goal_amount", "raised_amount",
+    "image_url", "urgent", "resolved", "created_at", "updated_at",
+    "published_at", "seo_json",
+  ];
+  db.exec(`CREATE TABLE help_cases (
+    ${columns.map((column) => column === "id" ? "id INTEGER PRIMARY KEY" : `"${column}" TEXT`).join(", ")}
+  )`);
+  db.exec(`CREATE TABLE notion_agenda_sync (
+    agenda TEXT NOT NULL, entity_id INTEGER NOT NULL, notion_page_id TEXT NOT NULL,
+    PRIMARY KEY (agenda, entity_id)
+  )`);
+  for (const [id, category] of [
+    [136, "adopcia"], [138, "adopcia"], [140, "adopcia"],
+    [141, "utulky"], [142, "stratene-a-najdene"],
+    [200, "docasna-opatera"], [201, "zbierky"],
+    [202, "dobrovolnictvo"], [203, "urgentne-pripady"],
+  ]) {
+    db.prepare("INSERT INTO help_cases(id,slug,title,category,status) VALUES(?,?,?,?,?)")
+      .run(id, "item-" + id, "Case " + id, category, "draft");
+  }
+  for (const id of [136, 138, 140, 141, 142, 200, 201, 999]) {
+    db.prepare("INSERT INTO notion_agenda_sync(agenda,entity_id,notion_page_id) VALUES(?,?,?)")
+      .run("help-cases", id, "page-" + id);
+  }
+  let attemptedWrites = 0;
+  const database = {
+    prepare(sql) {
+      if (!/^\s*(SELECT|PRAGMA)\b/i.test(sql)) {
+        attemptedWrites += 1;
+        throw new Error("Unexpected mutation in read-only domain boundary");
+      }
+      const statement = db.prepare(sql);
+      const executor = (params) => ({
+        all: async () => ({ results: statement.all(...params) }),
+        first: async () => statement.get(...params) ?? null,
+      });
+      return {
+        ...executor([]),
+        bind: (...params) => executor(params),
+      };
+    },
+  };
+  return {
+    db, database,
+    attemptedWrites: () => attemptedWrites,
+    mappings: () => db.prepare(
+      "SELECT agenda,entity_id,notion_page_id FROM notion_agenda_sync ORDER BY entity_id"
+    ).all(),
+  };
+}
+
+test("Help domain boundary: real SQL loader only returns Admin-owned generic Help records", async () => {
+  const h = helpBoundaryFixture();
+  try {
+    const sources = await loadNotionBulkHelpCases(h.database);
+    assert.deepEqual(sources.map((row) => Number(row.id)), [200, 201, 202, 203]);
+    assert.equal(isHelpSyncCategoryOutOfDomain("adopcia"), true);
+    assert.equal(isHelpSyncCategoryOutOfDomain("utulky"), true);
+    assert.equal(isHelpSyncCategoryOutOfDomain("stratene-a-najdene"), true);
+    assert.equal(isHelpSyncCategoryOutOfDomain("zbierky"), false);
+    assert.equal(h.attemptedWrites(), 0);
+  } finally {
+    h.db.close();
+  }
+});
+
+test("Help mapping audit distinguishes OUT_OF_DOMAIN from MISSING_CANONICAL without touching historical identities", async () => {
+  const h = helpBoundaryFixture();
+  try {
+    const before = h.mappings();
+    const first = await auditHelpSyncMappings(h.database);
+    const again = await auditHelpSyncMappings(h.database);
+    assert.deepEqual(again, first, "repeat sweeps must be read-only and idempotent");
+    assert.deepEqual({ outOfDomain: first.outOfDomain, missingCanonical: first.missingCanonical }, {
+      outOfDomain: 5, missingCanonical: 1,
+    });
+    assert.deepEqual(first.issues.map((item) => [item.entityId, item.reason]), [
+      [136, "OUT_OF_DOMAIN"], [138, "OUT_OF_DOMAIN"], [140, "OUT_OF_DOMAIN"],
+      [141, "OUT_OF_DOMAIN"], [142, "OUT_OF_DOMAIN"], [999, "MISSING_CANONICAL"],
+    ]);
+    assert.equal(await classifyHelpSyncCanonical(h.database, 136), "OUT_OF_DOMAIN");
+    assert.equal(await classifyHelpSyncCanonical(h.database, 200), "IN_DOMAIN");
+    assert.equal(await classifyHelpSyncCanonical(h.database, 999), "MISSING_CANONICAL");
+    assert.deepEqual(h.mappings(), before, "no deletion or remapping of historical rows");
+    assert.equal(h.attemptedWrites(), 0);
+  } finally {
+    h.db.close();
+  }
+});
+
+test("Help sweep fail-closed integration contracts preserve Gemini private review and emit aggregate diagnostics", async () => {
+  const sync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  const adapter = await readFile(new URL("../lib/notion-events-help-adapters.ts", import.meta.url), "utf8");
+  assert.match(sync, /const audit = await auditHelpSyncMappings\(input\.database\)/);
+  assert.match(sync, /summary\.conflicts \+= audit\.missingCanonical/);
+  assert.match(sync, /if \(mappedPageIds\.has\(page\.id\)\) continue/);
+  assert.match(sync, /isHelpSyncCategoryOutOfDomain\(clean\(pageProperty\(page, "Kategória"\)\)\)/);
+  assert.match(sync, /event: "notion_help_domain_boundary"/);
+  assert.match(sync, /trustedGeminiSourceIsPrivateDraft/);
+  assert.match(adapter, /if \(domain === "OUT_OF_DOMAIN"\) throw new Error\("OUT_OF_DOMAIN"\)/);
+  assert.match(adapter, /if \(domain === "MISSING_CANONICAL"\) throw new Error\("MISSING_CANONICAL"\)/);
 });
