@@ -227,7 +227,7 @@ async function captureViewport(browser, pageName, viewport, output) {
     // Capture the genuine initial viewport before scrolling or changing page state.
     await page.waitForFunction(() => Array.from(document.images)
       .filter((img) => img.getBoundingClientRect().top < innerHeight && img.getBoundingClientRect().bottom > 0)
-      .every((img) => img.complete), { timeout: 8000 }).catch(() => {});
+      .every((img) => img.complete), null, { timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(250);
     const viewportPath = join(folder, viewport.name + "-viewport.png");
     try {
@@ -242,7 +242,7 @@ async function captureViewport(browser, pageName, viewport, output) {
 
     item.lazyScroll = await scrollForLazyImages(page, viewport.height);
     if (!item.lazyScroll.reachedBottom) item.errors.push("Lazy loading scan reached its 180-step limit");
-    await page.waitForFunction(() => Array.from(document.images).every((img) => img.complete), { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(() => Array.from(document.images).every((img) => img.complete), null, { timeout: 8000 }).catch(() => {});
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     await page.waitForTimeout(400);
@@ -258,6 +258,7 @@ async function captureViewport(browser, pageName, viewport, output) {
       await page.screenshot({ path: fullPath, fullPage: true, timeout: 45000 });
       const png = await readPngDimensions(fullPath);
       if (png.width !== viewport.width || png.height < viewport.height) throw new Error("Full-page PNG pixel dimensions invalid");
+      if (item.geometry.footerBottom === null) throw new Error("Footer not found: cannot verify full-page coverage");
       if (item.geometry.footerBottom !== null && png.height < item.geometry.footerBottom - 2) {
         throw new Error("Full-page PNG does not include measured footer");
       }
