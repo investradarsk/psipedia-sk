@@ -8,13 +8,15 @@ on:
       - 'lib/media-source-monitor.ts'
       - 'app/api/admin/data-quality/media/**'
       - 'tests/admin-data-quality-image-review-v2.test.mjs'
+      - 'tests/e2e/admin-image-review-v2*.ts'
+      - 'tests/e2e/fixtures/admin-image-review-v2/**'
       - '.github/workflows/admin-image-review-v2.yml'
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   isolated-contracts:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,3 +24,31 @@ jobs:
           node-version: '22'
       - name: Run isolated V2 regression suite
         run: node --experimental-strip-types --test tests/admin-data-quality-image-review-v2.test.mjs
+  chromium-visual-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Execute isolated React fixture + Playwright tests (no production network)
+        run: npx playwright test --config tests/e2e/admin-image-review-v2.config.ts
+      - name: Upload actual PNG screenshots, traces and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-image-review-v2-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/image-review-v2/
+            test-results/image-review-v2-report/
+          retention-days: 14
+          if-no-files-found: warn
+          compression-level: 0
