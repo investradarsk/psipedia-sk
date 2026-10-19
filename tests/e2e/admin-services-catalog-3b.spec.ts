@@ -8,8 +8,8 @@ const capture=async(page:Page,name:string,fullPage=true)=>{
   // otherwise get stitched into the middle of the full-page PNG after clicking a row.
   await page.evaluate(()=>{window.scrollTo(0,0);if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
   await page.waitForTimeout(100);
-  if(name.startsWith("catalog-mobile-"))await page.screenshot({path:root+"/"+name+"-viewport.png",fullPage:false,animations:"disabled"});
-  await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled"});
+  if(name.startsWith("catalog-mobile-"))await page.screenshot({path:root+"/"+name+"-viewport.png",fullPage:false,animations:"disabled",scale:"css"});
+  await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled",scale:"css"});
 };
 const noOverflow=async(page:Page,name:string)=>{
   const {scroll,client}=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth}));
