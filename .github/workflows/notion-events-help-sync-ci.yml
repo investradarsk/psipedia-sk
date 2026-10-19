@@ -61,8 +61,8 @@ jobs:
       - name: Focused TypeScript check — reconciliation core
         run: npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck lib/notion-bidirectional-reconciliation.ts
 
-      - name: Project TypeScript check
-        run: npx tsc --noEmit
+      - name: Focused Audit 02 TypeScript check
+        run: npx tsc --noEmit --strict --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types @cloudflare/workers-types,node lib/notion-data-quality-audit-v2.ts
 
       - name: Audit 02 — read-only evidence regressions
         run: npm run test:notion-data-quality-audit
