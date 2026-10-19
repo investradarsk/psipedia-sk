@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import {
   AdminActionButton,
@@ -22,20 +22,27 @@ import {
   type EventType,
 } from "@/lib/events";
 import {
-  adminEventCounts,
   defaultEventFilters,
-  filterAdminEvents,
   type AdminEventFilters,
   type AdminEventSummary,
   type BulkEventField,
 } from "@/lib/admin-events";
+import { ADMIN_EVENT_PAGE_SIZE, adminEventListSearchParams, type AdminEventPageResult } from "@/lib/admin-event-pagination";
 import styles from "./admin-event-dashboard.module.css";
 
 const timeLabels = { upcoming: "Nadchádzajúce", current: "Prebieha", past: "Ukončené" };
-const PAGE_SIZE = 50;
 const subscribeToHydration = () => () => {};
 
 type BulkValue = EventStatus | EventType | boolean;
+type AdminEventApiPage = AdminEventPageResult & { reviewedIds: number[] };
+
+async function fetchAdminEventPage(filters: AdminEventFilters, page: number, signal?: AbortSignal): Promise<AdminEventApiPage> {
+  const params = adminEventListSearchParams({ filters, page, pageSize: ADMIN_EVENT_PAGE_SIZE });
+  const response = await fetch("/api/admin/events?" + params.toString(), { signal, cache: "no-store" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Podujatia sa nepodarilo načítať.");
+  return data as AdminEventApiPage;
+}
 
 function selectionPayload(events: AdminEventSummary[]) {
   return events.map(({ id, status, eventType, cancelled, updatedAt }) => ({ id, status, eventType, cancelled, updatedAt }));
@@ -47,10 +54,15 @@ function matchesBulkValue(event: AdminEventSummary, field: BulkEventField, value
   return event.cancelled === value;
 }
 
-export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initialEvents: AdminEventSummary[]; reviewedIds?: number[] }) {
+export function AdminEventDashboard({ initialPage, reviewedIds: initialReviewedIds = [] }: { initialPage: AdminEventPageResult; reviewedIds?: number[] }) {
+  const [reviewedIds, setReviewedIds] = useState(initialReviewedIds);
   const reviewed = useMemo(() => new Set(reviewedIds), [reviewedIds]);
   const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
-  const [events, setEvents] = useState(initialEvents);
+  const [data, setData] = useState(initialPage);
+  const events = data.events;
+  const initialRequest = useRef(true);
+  const pendingRequest = useRef<AbortController | null>(null);
+  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState(defaultEventFilters);
   const [today, setToday] = useState(bratislavaDateKey);
   const [page, setPage] = useState(1);
@@ -68,16 +80,38 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
   const [quickCancelled, setQuickCancelled] = useState(false);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setToday(bratislavaDateKey()), 30_000);
+    const timer = window.setInterval(() => setToday((current) => {
+      const next = bratislavaDateKey();
+      return next === current ? current : next;
+    }), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const visible = useMemo(() => filterAdminEvents(events, filters, today), [events, filters, today]);
-  const counts = useMemo(() => adminEventCounts(events, today), [events, today]);
-  const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pages);
-  const rows = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const years = [...new Set(events.map((event) => event.startDate.slice(0, 4)))].sort();
+  useEffect(() => {
+    if (initialRequest.current) { initialRequest.current = false; return; }
+    const controller = new AbortController();
+    pendingRequest.current?.abort();
+    pendingRequest.current = controller;
+    setLoading(true);
+    const timer = window.setTimeout(() => {
+      void fetchAdminEventPage(filters, page, controller.signal).then((snapshot) => {
+        if (controller.signal.aborted) return;
+        setData(snapshot);
+        setReviewedIds(snapshot.reviewedIds);
+      }).catch((error) => {
+        if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Načítanie zlyhalo.");
+      }).finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    }, filters.query ? 250 : 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [filters, page, today]);
+
+  const counts = data.counts;
+  const pages = data.pages;
+  const currentPage = data.page;
+  const rows = events;
+  const years = data.years;
   const selectedEvents = events.filter((event) => selected.has(event.id));
   const pageAllSelected = rows.length > 0 && rows.every((event) => selected.has(event.id));
   const pageSomeSelected = rows.some((event) => selected.has(event.id)) && !pageAllSelected;
@@ -89,6 +123,7 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
     setPage(1);
     setSelected(new Set());
     setBulkEditOpen(false);
+    setMessage("");
   }
 
   function clearSelection() {
@@ -106,12 +141,13 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
   }
 
   async function reload() {
-    const response = await fetch("/api/admin/events");
-    const data = await response.json();
-    if (!response.ok) throw new Error("Obnov stránku, aby si videl aktuálne počty.");
-    setEvents(data.events);
+    pendingRequest.current?.abort();
+    const snapshot = await fetchAdminEventPage(filters, page);
+    setData(snapshot);
+    setReviewedIds(snapshot.reviewedIds);
     setSelected(new Set());
     setBulkEditOpen(false);
+    setLoading(false);
   }
 
   async function applyBulk(field: BulkEventField, value: BulkValue) {
@@ -223,14 +259,14 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
             <div><label htmlFor="admin-event-filter-year">Rok začiatku</label><select id="admin-event-filter-year" value={filters.year} onChange={(event) => changeFilter("year", event.target.value)}><option value="">Všetky roky</option>{years.map((value) => <option key={value}>{value}</option>)}</select></div>
             <div><label htmlFor="admin-event-filter-sort">Zoradiť</label><select id="admin-event-filter-sort" value={filters.sort} onChange={(event) => changeFilter("sort", event.target.value)}><option value="date">Podľa dátumu a priebehu</option><option value="updated">Posledná úprava</option><option value="created">Najnovšie vytvorené</option><option value="title">Podľa názvu A–Z</option></select></div>
           </div>
-          <button type="button" onClick={() => { setFilters(defaultEventFilters); setPage(1); clearSelection(); }}>Zrušiť filtre</button>
+          <button type="button" onClick={() => { setFilters(defaultEventFilters); setPage(1); clearSelection(); setMessage(""); }}>Zrušiť filtre</button>
         </fieldset>
 
         <div className="admin-event-bulk">
           <label>
             <input
               type="checkbox"
-              disabled={!hydrated || busy || !rows.length}
+              disabled={!hydrated || busy || loading || !rows.length}
               checked={pageAllSelected}
               ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }}
               onChange={(event) => {
@@ -311,15 +347,15 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
           </div>
         )}
 
-        <p className="admin-event-result-count" role="status">Nájdené: {visible.length} z {events.length} · Zobrazené: {rows.length}. Časové filtre nezahŕňajú zrušené podujatia.</p>
+        <p className="admin-event-result-count" role="status">Nájdené: {data.total} z {counts.all} · Zobrazené: {rows.length}. Časové filtre nezahŕňajú zrušené podujatia.</p>
         {message && <p className="admin-flash" role="status">{message}</p>}
 
-        <div className="admin-article-list" aria-busy={busy}>
+        <div className="admin-article-list" aria-busy={busy || loading}>
           {rows.map((event) => {
             const dateStatus = eventDateStatus(event, today);
             return (
               <article className={`admin-article-row admin-event-row admin-event-row-v2 ${dateStatus === "past" ? "is-past" : ""} ${styles.row}`} key={event.id}>
-                <input aria-label={`Vybrať ${event.title}`} type="checkbox" checked={selected.has(event.id)} disabled={!hydrated || busy} onChange={() => toggle(event.id)} />
+                <input aria-label={`Vybrať ${event.title}`} type="checkbox" checked={selected.has(event.id)} disabled={!hydrated || busy || loading} onChange={() => toggle(event.id)} />
                 <div className={styles.dateBlock}>
                   <strong>{event.startDate.slice(8, 10)}.{event.startDate.slice(5, 7)}.</strong>
                   <span>{event.startDate.slice(0, 4)}</span>
@@ -341,9 +377,9 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
                 <div className={`admin-row-actions ${styles.actions}`}>
                   <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={reviewed.has(event.id)} compact />
                   {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
-                  <AdminActionButton variant="neutral" disabled={!hydrated || busy} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
+                  <AdminActionButton variant="neutral" disabled={!hydrated || busy || loading} onClick={() => openQuickEdit(event)}>Rýchla úprava</AdminActionButton>
                   <Link className="admin-row-edit" href={`/admin/podujatia/${event.id}`}>Upraviť</Link>
-                  <AdminActionButton variant="destructive" disabled={!hydrated || busy} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
+                  <AdminActionButton variant="destructive" disabled={!hydrated || busy || loading} onClick={() => setDeleteTarget(event)}>Odstrániť</AdminActionButton>
                 </div>
               </article>
             );
@@ -352,9 +388,9 @@ export function AdminEventDashboard({ initialEvents, reviewedIds = [] }: { initi
 
         {!rows.length && <div className="admin-empty"><h2>Žiadne podujatia</h2><p>Skús zmeniť vyhľadávanie alebo filtre.</p></div>}
         <nav className="admin-event-pagination" aria-label="Stránky podujatí">
-          <button type="button" disabled={!hydrated || busy || currentPage === 1} onClick={() => { clearSelection(); setPage(currentPage - 1); }}>Predchádzajúca</button>
+          <button type="button" disabled={!hydrated || busy || loading || currentPage === 1} onClick={() => { clearSelection(); setPage(currentPage - 1); }}>Predchádzajúca</button>
           <span>Strana {currentPage} z {pages}</span>
-          <button type="button" disabled={!hydrated || busy || currentPage === pages} onClick={() => { clearSelection(); setPage(currentPage + 1); }}>Nasledujúca</button>
+          <button type="button" disabled={!hydrated || busy || loading || currentPage === pages} onClick={() => { clearSelection(); setPage(currentPage + 1); }}>Nasledujúca</button>
         </nav>
       </section>
 
