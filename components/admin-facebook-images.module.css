@@ -198,3 +198,22 @@
 .deleteImpact{display:grid;gap:10px;min-width:0;overflow-wrap:anywhere}
 .deleteImpact p{margin:0;line-height:1.5}
 @media(max-width:600px){.dangerZone button{width:100%}.deleteImpact{min-width:0}}
+
+/* FACEBOOK-IMAGES-DESTRUCTIVE-V4: scoped top-layer centering.
+   Tailwind's margin reset removes native <dialog> auto margins. The opt-in class
+   restores horizontal/vertical centering without changing other admin modals. */
+.root .deleteConfirmDialog{
+  position:fixed;
+  inset:0;
+  margin:auto;
+  max-width:calc(100vw - 2rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  max-height:calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+@media(max-width:600px){
+  .root .deleteConfirmDialog{
+    max-width:calc(100vw - 1rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    max-height:calc(100dvh - 1rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+}

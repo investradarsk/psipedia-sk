@@ -391,7 +391,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
         </section>}
       </>}
     </dialog>
-    <AdminModalDialog open={Boolean(deleteTarget)} preferExplicitAutofocus title="Natrvalo odstrániť príspevok?"
+    <AdminModalDialog open={Boolean(deleteTarget)} preferExplicitAutofocus
+      className={styles.deleteConfirmDialog} title="Natrvalo odstrániť príspevok?"
       description={deleteTarget?.status==="published"
         ?"Príspevok sa natrvalo odstráni z administrácie Psipedia. Na Facebooku zostane zverejnený."
         :"Príspevok sa natrvalo odstráni z administrácie Psipedia a príslušných prehľadov."}
