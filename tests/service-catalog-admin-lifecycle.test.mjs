@@ -77,6 +77,15 @@ test("approve needs real synced mirror outcome, conflicts need explicit retry, r
   await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{action:"retryMirror",expectedVersion:retry.version},actor),ServiceCatalogConflictError);
   const synced=await recordCatalogMirrorOutcome(db,result(created.id,retry.version,"SYNCED"),actor);
   await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{action:"approve",expectedVersion:retry.version},actor),ServiceCatalogConflictError);
+  // The existing internal hook accepts a string claim; this MUST NOT suffice
+  // to approve a public option without separately verified remote evidence.
+  await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{action:"approve",expectedVersion:synced.version},actor),ServiceCatalogConflictError);
+  // Model the future trusted Notion reader by explicitly inserting its unique
+  // immutable receipt into the test-only database (no live Notion operation).
+  sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
+    .run(created.id,synced.version,"notion-page-123","2026-10-19T12:00:00Z","a".repeat(64),"2026-10-19T12:01:00Z","trusted-reconciler");
+  assert.throws(()=>sqlite.prepare("DELETE FROM service_catalog_admin_notion_receipts").run(),/append-only/);
+  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_notion_receipts SET verified_by='attacker'").run(),/append-only/);
   const approved=await mutateAdminCatalogOption(db,created.id,{action:"approve",expectedVersion:synced.version},actor);
   assert.equal(approved.status,"ACTIVE");
   await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{...edit(approved),name:"Zakázané"},actor),ServiceCatalogConflictError);
@@ -153,6 +162,8 @@ test("0134 history is append-only, RESET is attributed, and every physical delet
   await saveAdminServiceChoice(db,{profileId:1,optionId:"attr.vet.home_visits",choice:"yes",expectedVersion:0},actor);
   assert.throws(()=>sqlite.exec("UPDATE service_catalog_admin_change_audit SET actor='forged'"),/append-only/);
   assert.throws(()=>sqlite.exec("DELETE FROM service_catalog_admin_change_audit"),/append-only/);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM service_catalog_admin_notion_receipts").get().n,0);
+
   await resetAdminServiceChoice(db,{profileId:1,optionId:"attr.vet.home_visits",expectedVersion:1},actor);
   const changes=sqlite.prepare("SELECT operation,actor FROM service_catalog_admin_change_audit ORDER BY id").all();
   assert.deepEqual(changes.map(x=>x.operation),["INSERT","RESET","DELETE"]);
