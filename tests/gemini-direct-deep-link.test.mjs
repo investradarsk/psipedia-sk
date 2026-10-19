@@ -135,6 +135,20 @@ test("deep-link reader opens only authenticated category-matching Notion drafts,
       await page.goto("https://fixture.test/?stable_key="+activeKey+"&draft_id=invalid");
       await page.getByRole("alert").getByText(/Neplatná identita/).waitFor();
       assert.equal(await page.getByTestId("selected-concept").count(),0);
+
+      // An unknown but well-formed UUID must fail closed, not open another row.
+      await page.goto("https://fixture.test/?stable_key="+activeKey+"&draft_id="+ids[0]);
+      await page.getByRole("alert").getByText(/Identity mismatch/).waitFor();
+      assert.equal(await page.getByTestId("selected-concept").count(),0);
+
+      // Browser history restores the exact Notion record instead of its category.
+      phase="NEW";
+      await page.goto("https://fixture.test/?stable_key="+activeKey+"&draft_id="+activeId);
+      await page.getByTestId("selected-concept").waitFor();
+      await page.goto("https://fixture.test/?stable_key="+activeKey);
+      await page.goBack();
+      await page.getByTestId("selected-concept").waitFor();
+      assert.equal(await page.getByTestId("selected-concept").innerText(),"Exact "+activeKey);
       assert.deepEqual(unexpected,[]);
       assert.deepEqual(errors,[]);
       await page.close();
