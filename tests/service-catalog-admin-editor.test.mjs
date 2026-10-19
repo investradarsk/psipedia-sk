@@ -42,6 +42,7 @@ test("draft/conflicted/retired dynamics are excluded on profile",()=>{
  assert.match(catalog,/RETIRED/);
 });
 test("navigation and cancel do not silently discard draft values",()=>{assert.match(catalog,/Zahodiť neuložený koncept/);assert.match(profile,/Zahodiť neuložené hodnoty služieb/);});
+test("Services profile feedback does not create a second generic status role in Directory editor",()=>{assert.doesNotMatch(profile,/<span role="status">/);assert.match(profile,/<span aria-live="polite" aria-atomic="true">/);});
 test("no lifecycle controls invoke unsupported mutation endpoint",()=>{
  assert.match(catalog,/Upraviť/);
  assert.match(catalog,/Schváliť/);

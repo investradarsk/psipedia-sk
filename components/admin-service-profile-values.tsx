@@ -60,7 +60,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
         </select>
       </label>;
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
-    <div className={styles.actions}><AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton><span role="status">{message}</span></div>
+    <div className={styles.actions}><AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton><span aria-live="polite" aria-atomic="true">{message}</span></div>
     <p className={styles.muted}>Zmena Áno/Nie využíva verziované API. Návrat uloženej hodnoty na Neznáme vyžaduje osobitnú bezpečnú operáciu a zatiaľ nie je povolený.</p>
     <h3>Vlastnosti ({attributes.length})</h3>
     <p className={styles.muted}>Vlastnosti majú samostatný dátový model. Ich úpravy zostávajú vypnuté do dokončenia API a synchronizácie Notionu.</p>
