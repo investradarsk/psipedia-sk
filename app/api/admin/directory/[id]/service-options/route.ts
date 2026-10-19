@@ -1,6 +1,6 @@
 import {env} from "cloudflare:workers";
 import {requireAdminMutation} from "@/lib/admin-auth";
-import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
+import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError,requireServiceCatalogAuditSchema} from "@/lib/service-catalog-admin-store";
 export const dynamic="force-dynamic";
 type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
 type Props={params:Promise<{id:string}>};
@@ -16,6 +16,7 @@ export async function PATCH(request:Request,{params}:Props){
   if(!/^[1-9]\d*$/.test(rawId)||!Number.isSafeInteger(profileId))
     return Response.json({error:"Invalid profile ID."},{status:400});
   try{
+    await requireServiceCatalogAuditSchema(cfg.DB);
     const raw=await request.json();
     if(!raw||typeof raw!=="object"||Array.isArray(raw)
        ||Object.keys(raw).some(k=>!["optionId","choice","expectedVersion"].includes(k)))
