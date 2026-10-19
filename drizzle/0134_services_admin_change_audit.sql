@@ -4,7 +4,7 @@
 CREATE TABLE service_catalog_admin_change_audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   entity_type TEXT NOT NULL CHECK(entity_type IN ('option','choice')),
-  operation TEXT NOT NULL CHECK(operation IN ('INSERT','UPDATE','RESET')),
+  operation TEXT NOT NULL CHECK(operation IN ('INSERT','UPDATE','RESET','DELETE')),
   option_id TEXT NOT NULL,
   profile_id INTEGER,
   actor TEXT NOT NULL,
@@ -54,3 +54,31 @@ BEGIN
 END;
 -- RESET is intentionally logged by the D1 batch transaction with the authenticated
 -- acting Admin, then CAS-deleted; a trigger cannot know the reset actor from OLD.
+
+-- Record deletes not initiated by the explicit RESET endpoint as well. For a
+-- RESET there are two events: its authenticated RESET intent and this physical
+-- DELETE. Cascade/maintenance deletes have no verified human actor, so record
+-- an explicit system marker instead of attributing them to OLD.updated_by.
+-- Historical rows deliberately have no cascading FK to live profile/option rows.
+CREATE TRIGGER service_catalog_admin_choice_audit_delete
+AFTER DELETE ON service_profile_option_choices
+BEGIN
+  INSERT INTO service_catalog_admin_change_audit
+    (entity_type,operation,option_id,profile_id,actor,occurred_at,prior_version,prior_json)
+  VALUES ('choice','DELETE',OLD.option_id,OLD.profile_id,'system:db_delete',
+    strftime('%Y-%m-%dT%H:%M:%fZ','now'),OLD.version,json_object('choice',OLD.choice));
+END;
+
+-- The history must remain append-only even if another code path tries to edit
+-- or purge an event. Database operators can still change schema; this is not
+-- cryptographic immutability.
+CREATE TRIGGER service_catalog_admin_audit_no_update
+BEFORE UPDATE ON service_catalog_admin_change_audit
+BEGIN
+  SELECT RAISE(ABORT,'Services V3 audit history is append-only');
+END;
+CREATE TRIGGER service_catalog_admin_audit_no_delete
+BEFORE DELETE ON service_catalog_admin_change_audit
+BEGIN
+  SELECT RAISE(ABORT,'Services V3 audit history is append-only');
+END;
