@@ -1,0 +1,123 @@
+name: SERVICES V3 Admin mobile UX polish 01
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/admin-service-catalog-workspace.tsx"
+      - "components/admin-service-catalog.module.css"
+      - "tests/service-catalog-mobile-polish.test.mjs"
+      - "tests/e2e/admin-services-catalog-3b.spec.ts"
+      - ".github/workflows/services-v3-admin-mobile-polish-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: services-v3-admin-mobile-polish-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Local authenticated Playwright, six screenshots and contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Actual rendered UI and existing lifecycle contracts
+        run: node --test tests/service-catalog-mobile-polish.test.mjs tests/service-catalog-admin-editor.test.mjs
+      - name: Focused lint
+        run: npx eslint components/admin-service-catalog-workspace.tsx tests/e2e/admin-services-catalog-3b.spec.ts tests/service-catalog-mobile-polish.test.mjs
+      - name: Production-compatible build only (no deploy)
+        run: npm run build
+      - name: Install isolated Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Configure local-only bootstrap (writes remain disabled)
+        run: |
+          cat > .dev.vars <<'EOF'
+          PII_ENCRYPTION_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY
+          PII_HASH_KEY=ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA
+          TURNSTILE_SITE_KEY=1x00000000000000000000AA
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP=1
+          EOF
+      - name: Prepare ephemeral local D1 test schema only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Seed isolated directory test fixtures
+        run: npx wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file tests/fixtures/directory-admin-e2e.sql
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/services-v3-admin-mobile-polish
+          nohup npm exec vite -- --host 127.0.0.1 > .e2e-artifacts/services-v3-admin-mobile-polish/server.log 2>&1 &
+          echo $! > .e2e-artifacts/services-v3-admin-mobile-polish/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/adresar >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then
+            tail -150 .e2e-artifacts/services-v3-admin-mobile-polish/server.log
+            exit 1
+          fi
+      - name: Real desktop 1440 Playwright and screenshots
+        run: npx playwright test tests/e2e/admin-services-catalog-3b.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Real mobile 390 and 320 Playwright and screenshots
+        run: npx playwright test tests/e2e/admin-services-catalog-3b.spec.ts --project=mobile-chromium --workers=1 --retries=0
+      - name: Verify six actual rendered PNG outputs
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const root='.e2e-artifacts/services-v3-admin-3b/';
+          for(const width of [1440,390,320]){
+            const label=width===1440?'desktop-1440':'mobile-'+width;
+            for(const state of ['collapsed','expanded']){
+              const path=root+'catalog-panel-'+state+'-'+label+'.png';
+              const png=readFileSync(path);
+              assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a',path+' is not a PNG');
+              assert.equal(png.readUInt32BE(16),width,path+' wrong viewport width');
+              assert.ok(png.readUInt32BE(20)>=700,path+' unexpectedly short');
+              console.log('verified: '+path);
+            }
+          }
+          NODE
+      - name: Upload six visual-review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-v3-admin-mobile-polish-01-${{ github.run_attempt }}
+          path: .e2e-artifacts/services-v3-admin-3b/catalog-panel-*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop isolated local server
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/services-v3-admin-mobile-polish/server.pid ]; then
+            kill "$(cat .e2e-artifacts/services-v3-admin-mobile-polish/server.pid)" 2>/dev/null || true
+          fi
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-v3-admin-mobile-polish-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/services-v3-admin-mobile-polish/
+            playwright-report/
+            test-results/playwright/
+          if-no-files-found: ignore
+          retention-days: 14
