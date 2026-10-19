@@ -21,7 +21,13 @@ const helpCategory = read("app/pomoc-psom/[category]/page.tsx");
 
 test("shared public disclosure is keyboard-native and reports active secondary filters", () => {
   assert.match(disclosure, /type="button"/);
-  assert.match(disclosure, /aria-expanded=\test("Services preserve one canonical GET search, secondary filters and URL state", () => {
+  assert.match(disclosure, /aria-expanded=\{open\}/);
+  assert.match(disclosure, /aria-controls=\{contentId\}/);
+  assert.match(disclosure, /data-public-filter-count/);
+  assert.match(disclosure, /Ďalšie filtre/);
+});
+
+test("Services preserve one canonical GET search, secondary filters and URL state", () => {
   assert.equal((directory.match(/<HomePortalSearch\b/g) ?? []).length, 1);
   assert.match(directory, /portalSearchSlot=\{/);
   assert.match(directory, /searchScope="services"/);
@@ -44,11 +50,6 @@ test("shared public disclosure is keyboard-native and reports active secondary f
   assert.match(servicesStore, /page: Math\.max\(1,/);
   assert.match(servicesStore, /query: firstParam\(params\.q\)\.slice\(0, 100\)/);
 });
-(page > 1\) params\.set\("page"/);
-  assert.match(servicesStore, /page: Math\.max\(1,/);
-  assert.match(servicesStore, /query: firstParam\(params\.q\)\.slice\(0, 100\)/);
-});
-
 test("Events use URL-backed server rendering instead of client dataset filtering", () => {
   assert.doesNotMatch(events, /"use client"|useState|useMemo|window\.history/);
   const results = read("components/event-listing-results.tsx");
