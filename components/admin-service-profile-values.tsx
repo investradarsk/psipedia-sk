@@ -44,7 +44,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     finally{setBusy(false);}
   }
   return <section className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
-    <div className={styles.profileHeading}><div><h2>Services V3 — hodnoty profilu</h2><p>Neznáme = bez potvrdenej hodnoty. Nikdy neznamená automaticky Nie.</p></div><Link href="/admin/sluzby-pre-psov/katalog">Správa katalógu →</Link></div>
+    <div className={styles.profileHeading}><div><h2>Services V3 — hodnoty profilu</h2><p>Neznáme = bez potvrdenej hodnoty. Nikdy neznamená automaticky Nie.</p></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!writeEnabled&&<p className={styles.notice}>Kanonické zápisy sú vypnuté. Aktuálne hodnoty môžeš čítať, ale nie meniť.</p>}
     <label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>

@@ -79,7 +79,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     </div>
     {creating&&<EditorWorkspace mode="modal" open title="Nová možnosť katalógu" description="Nové kanonické ID prideľuje iba server Psipedia." sections={[{id:"service-option-main",label:"Základné údaje"}]} dirty={dirty}
       onClose={()=>{setCreating(false);setMessage("");}} actions={<EditorActionBar message={message}
-        secondary={<AdminActionButton onClick={()=>setCreating(false)} disabled={busy}>Zrušiť</AdminActionButton>}
+        secondary={<AdminActionButton onClick={()=>{if(!dirty||window.confirm("Zahodiť neuložený koncept?")){setCreating(false);setMessage("");}}} disabled={busy}>Zrušiť</AdminActionButton>}
         primary={<AdminActionButton variant="primary" disabled={!createReady||busy} onClick={create}>{busy?"Ukladám…":"Uložiť koncept"}</AdminActionButton>}/>}>
       <section id="service-option-main" data-admin-editor-section tabIndex={-1} className={styles.formGrid}>
         <label>Názov<input value={draft.name} maxLength={100} onChange={e=>setDraft(p=>({...p,name:e.target.value}))}/></label>
