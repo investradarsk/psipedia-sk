@@ -13,6 +13,18 @@ export const SITEMAP_REDIRECT_SOURCES = new Set([
 
 export const NEWS_SITEMAP_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 
+/**
+ * SQLite json_extract returns native numbers/booleans as well as strings.
+ * An invalid non-string canonical must remain non-indexable, not become the
+ * empty (implicitly self-canonical) value and not throw during sitemap load.
+ */
+export function sitemapCanonicalFromD1(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return typeof value === "string"
+    ? value.trim()
+    : "https://invalid.invalid/sitemap-canonical-type-error";
+}
+
 const FORBIDDEN_PREFIXES = ["/admin", "/api", "/hladat", "/oblubene", "/media"];
 
 export function latestModified(values: Array<string | null | undefined>) {

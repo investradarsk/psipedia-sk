@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { ArticleSeo } from "./content.ts";
+import { sitemapCanonicalFromD1 } from "./sitemap-seo.ts";
 
 export const DIRECTORY_SITEMAP_BATCH_SIZE = 500;
 export const DIRECTORY_SITEMAP_MAX_BATCH_SIZE = 1000;
@@ -18,7 +19,7 @@ type DirectorySitemapRow = {
   slug: string;
   category: string;
   updated_at: string | null;
-  canonical_url: string | null;
+  canonical_url: unknown;
   noindex: number | string | null;
 };
 
@@ -72,7 +73,7 @@ function rowToDirectorySitemapRecord(row: DirectorySitemapRow): DirectorySitemap
     status: "published",
     updatedAt: row.updated_at || null,
     seo: {
-      canonicalUrl: row.canonical_url?.trim() || "",
+      canonicalUrl: sitemapCanonicalFromD1(row.canonical_url),
       noindex: Number(row.noindex) === 1 || row.noindex === "true",
     },
   };
