@@ -26,3 +26,8 @@
   .selectAll label { font-size:.78rem; }
   .detailPreview img { max-height:38vh; }
 }
+
+/* Restore semantic Admin V3 action colors against legacy media-row CSS specificity. */
+.reviewActions > button[data-admin-action="primary"] { color:#fff; background:var(--admin-v3-green,#0c3d2b); border-color:var(--admin-v3-green,#0c3d2b); }
+.reviewActions > button[data-admin-action="destructive"] { color:#a5232b; background:#fff2f2; border-color:#f1c4c5; }
+.reviewActions > button[data-admin-action="secondary"] { color:#183f2d; background:#fff; border-color:#cbdad0; }

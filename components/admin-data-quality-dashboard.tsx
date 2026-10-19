@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AdminActionButton, AdminBulkActionToolbar, AdminModalDialog } from "@/components/admin-interaction-system";
 import { MAX_IMAGE_REVIEW_BATCH, summarizeMediaReviewOutcome, type MediaReviewAction } from "@/lib/admin-data-quality-image-review";
 import styles from "./admin-data-quality-image-review-v2.module.css";
@@ -54,6 +54,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   const router = useRouter();
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
+  const decisionInFlight = useRef(false);
   const [message, setMessage] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<Set<number>>(new Set());
   const [decision, setDecision] = useState<{
@@ -147,7 +148,8 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
   }
 
   async function confirmMediaDecision() {
-    if (!decision || busy !== null) return;
+    if (!decision || busy !== null || decisionInFlight.current) return;
+    decisionInFlight.current = true;
     const { action, ids, expectedCandidates } = decision;
     setBusy(`bulk-${action}`);
     setMessage("");
@@ -185,6 +187,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
       setResultTone("error");
       // No automatic retry: a second request requires an explicit new click.
     } finally {
+      decisionInFlight.current = false;
       setBusy(null);
     }
   }

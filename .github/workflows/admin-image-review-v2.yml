@@ -1,0 +1,24 @@
+name: Admin Image Review V2 isolated tests
+on:
+  pull_request:
+    paths:
+      - 'components/admin-data-quality-dashboard.tsx'
+      - 'components/admin-data-quality-image-review-v2.module.css'
+      - 'lib/admin-data-quality-image-review.ts'
+      - 'lib/media-source-monitor.ts'
+      - 'app/api/admin/data-quality/media/**'
+      - 'tests/admin-data-quality-image-review-v2.test.mjs'
+      - '.github/workflows/admin-image-review-v2.yml'
+  workflow_dispatch:
+jobs:
+  isolated-contracts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated V2 regression suite
+        run: node --experimental-strip-types --test tests/admin-data-quality-image-review-v2.test.mjs
