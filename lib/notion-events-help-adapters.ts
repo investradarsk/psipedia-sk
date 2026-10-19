@@ -1,4 +1,5 @@
 import type { ReconciliationValue } from "./notion-bulk-reconciliation.ts";
+import { classifyHelpSyncCanonical } from "./notion-help-domain-boundary.ts";
 import { mergeNotionSeo, notionSeoEditableFields } from "./notion-seo-contract.ts";
 import { notionGeoMirrorProperties } from "./notion-geo-mirror.ts";
 import {
@@ -717,7 +718,14 @@ export async function applyNotionToCanonical(
 
   if (agenda === "help-cases") {
     const existing = await getManagedHelpCaseById(entityId);
-    if (!existing) throw new Error(`Prípad Pomoc psom #${entityId} neexistuje.`);
+    if (!existing) {
+      // The canonical row may exist in a dedicated legacy category which the
+      // generic Help editor correctly hides. Preserve identity; do not write.
+      const domain = await classifyHelpSyncCanonical(database, entityId);
+      if (domain === "OUT_OF_DOMAIN") throw new Error("OUT_OF_DOMAIN");
+      if (domain === "MISSING_CANONICAL") throw new Error("MISSING_CANONICAL");
+      throw new Error("HELP_CANONICAL_UNAVAILABLE");
+    }
     const desiredResolved = b(values["Vyriešené"]);
     const updated = await updateManagedHelpCase(
       entityId,
