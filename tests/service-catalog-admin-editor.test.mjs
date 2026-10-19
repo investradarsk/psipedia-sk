@@ -28,10 +28,10 @@ test("both write gates are mandatory and 0133 is never migrated from the editor"
  assert.match(catalog,/disabled={!writeEnabled/);
  assert.match(profile,/disabled={!writeEnabled/);
 });
-test("unknown remains absent and cannot be reset by unsupported writes",()=>{
+test("unknown remains absent and can be reset only by the guarded CAS endpoint",()=>{
  assert.match(profile,/selectionForEditor\(savedValue\)/);
- assert.match(profile,/if\(choice==="unknown"\)continue/);
- assert.match(profile,/disabled={Boolean\(savedValue\)}/);
+ assert.match(profile,/json\.selection!\.choice==="unknown"/);
+ assert.match(profile,/<option value="unknown">Neznáme<\/option>/);
  assert.match(profile,/expectedVersion:saved\[item.id\]\?\.version\?\?0/);
 });
 test("draft/conflicted/retired dynamics are excluded on profile",()=>{
