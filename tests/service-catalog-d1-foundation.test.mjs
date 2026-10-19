@@ -155,7 +155,15 @@ test("dynamic DRAFT, ACTIVE/PENDING, ACTIVE/CONFLICT and RETIRED options remain 
   const option=await createAdminCatalogOption(db,item(),"owner@example.com");
   const payload={profileId:1,optionId:option.id,choice:"yes",expectedVersion:0};
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
+  // Even direct SQL must refuse promotion without a synchronized mirror
+  // and a verified-version receipt.
+  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id),/Notion receipt required/);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' WHERE id=?").run(option.id);
+  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id),/Notion receipt required/);
+  sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
+    .run(option.id,1,"notion-test-page","2026-10-19T12:00:00Z","a".repeat(64),"2026-10-19T12:01:00Z","test-trusted-reconciler");
   sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='PENDING' WHERE id=?").run(option.id);
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
   sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(option.id);
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
