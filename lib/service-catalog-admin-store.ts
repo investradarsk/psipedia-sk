@@ -132,23 +132,29 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
 }
 
 /**
- * Explicit CAS reset to UNKNOWN (absence). No implicit 'no' and no mass deletion.
- * A retired dynamic option may still be cleared from an existing profile.
- * With schema 0133 alone, DELETE cannot preserve a durable actor history:
- * the additional append-only audit migration is a separate rollout dependency.
+ * Atomic audit+CAS reset to UNKNOWN (absence). D1 batch runs in one transaction.
+ * Requires additive 0134 audit schema, never a blind delete or implicit NO.
+ * The authenticated actor is recorded durably before the choice disappears.
  */
-export async function resetAdminServiceChoice(db:DB,input:{profileId:number;optionId:string;expectedVersion:number},actorRaw:string){
-  actorEmail(actorRaw);
+export async function resetAdminServiceChoice(db:DB & Pick<D1Database,"batch">,
+  input:{profileId:number;optionId:string;expectedVersion:number},actorRaw:string,now=new Date()){
+  const actor=actorEmail(actorRaw);
   if(!input||!Number.isSafeInteger(input.profileId)||input.profileId<=0
     ||typeof input.optionId!=="string"||!input.optionId.trim()
     ||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<1)
     throw new ServiceCatalogInputError("Invalid reset request; persisted version required.");
+  const where="profile_id=?1 AND option_id=?2 AND version=?3 AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?1 AND status<>'archived')";
+  const audit=db.prepare([
+    "INSERT INTO service_catalog_admin_change_audit",
+    "(entity_type,operation,option_id,profile_id,actor,occurred_at,prior_version,prior_json)",
+    "SELECT 'choice','RESET',option_id,profile_id,?4,?5,version,json_object('choice',choice)",
+    "FROM service_profile_option_choices WHERE "+where
+  ].join(" ")).bind(input.profileId,input.optionId,input.expectedVersion,actor,now.toISOString());
+  const remove=db.prepare("DELETE FROM service_profile_option_choices WHERE "+where+" RETURNING profile_id,option_id,version")
+    .bind(input.profileId,input.optionId,input.expectedVersion);
   try{
-    const removed=await db.prepare([
-      "DELETE FROM service_profile_option_choices WHERE profile_id=?1 AND option_id=?2 AND version=?3",
-      "AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?1 AND status<>'archived')",
-      "RETURNING profile_id,option_id,version"
-    ].join(" ")).bind(input.profileId,input.optionId,input.expectedVersion).first<{profile_id:number;option_id:string;version:number}>();
+    const results=await db.batch([audit,remove]);
+    const removed=results[1]?.results?.[0] as {profile_id:number;option_id:string;version:number}|undefined;
     if(!removed)throw new ServiceCatalogConflictError("Choice was removed or changed concurrently; reload before retry.");
     return {profileId:removed.profile_id,optionId:removed.option_id,choice:"unknown" as const,version:0};
   }catch(err){return handleDbError(err);}
