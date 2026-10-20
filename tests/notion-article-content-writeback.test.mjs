@@ -174,3 +174,25 @@ test("source contracts: outbox, content gating, no-publish and post-commit integ
   assert.match(route, /before\.status === "draft" && article\.status === "draft"/);
   assert.match(route, /writeBackPublishedArticleToNotion/);
 });
+
+
+test("Notion property type drift cannot be mistaken for an empty SEO, title or URL field", () => {
+  assert.throws(
+    () => notionEditorialPropertyText({ type: "select", select: null }, "rich_text"),
+    /NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT/,
+  );
+  assert.throws(
+    () => notionEditorialPropertyText({ type: "rich_text", rich_text: null }, "rich_text"),
+    /NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT/,
+  );
+  assert.throws(
+    () => notionEditorialPropertyText({ type: "url", url: { address: "malformed" } }, "url"),
+    /NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT/,
+  );
+  const p = page();
+  p["SEO title"] = { type: "number", number: 42 };
+  const a = article();
+  a.seoTitle = "Changed by Admin";
+  assert.throws(() => build(a, originalBlocks(), p), /NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT/);
+  assert.equal(notionEditorialPropertyText({ type: "url", url: null }, "url"), "");
+});
