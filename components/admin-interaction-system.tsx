@@ -123,7 +123,7 @@ function keepAdminDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
   candidates[next].focus();
 }
 
-function useAdminDialog(open: boolean) {
+function useAdminDialog(open: boolean, preferExplicitAutofocus = false) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
@@ -135,16 +135,30 @@ function useAdminDialog(open: boolean) {
       restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       dialog.showModal();
       requestAnimationFrame(() => {
-        const focusTarget = dialog.querySelector<HTMLElement>(
+        if (!dialog.open) return;
+        // Opt-in priority: querySelector with comma-separated selectors follows DOM order,
+        // so the header close button otherwise wins over an explicitly marked safe action.
+        // Other admin dialogs retain their previous initial-focus behavior.
+        const preferred = preferExplicitAutofocus
+          ? Array.from(dialog.querySelectorAll<HTMLElement>('[data-admin-autofocus="true"]')).find((element) =>
+              element.tabIndex >= 0 &&
+              !element.matches(":disabled") &&
+              !element.closest('[inert], [hidden], [aria-hidden="true"]') &&
+              getComputedStyle(element).visibility !== "hidden" &&
+              getComputedStyle(element).display !== "none" &&
+              element.getClientRects().length > 0
+            )
+          : null;
+        const fallback = dialog.querySelector<HTMLElement>(
           '[data-admin-autofocus="true"], button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
         );
-        focusTarget?.focus();
+        (preferred ?? fallback)?.focus();
       });
       return;
     }
 
     if (!open && dialog.open) dialog.close();
-  }, [open]);
+  }, [open, preferExplicitAutofocus]);
 
   function restoreFocus() {
     requestAnimationFrame(() => restoreFocusRef.current?.focus());
@@ -161,6 +175,7 @@ export function AdminModalDialog({
   footer,
   onClose,
   className,
+  preferExplicitAutofocus = false,
 }: {
   open: boolean;
   title: string;
@@ -169,10 +184,11 @@ export function AdminModalDialog({
   footer?: ReactNode;
   onClose: () => void;
   className?: string;
+  preferExplicitAutofocus?: boolean;
 }) {
   const titleId = useId();
   const descriptionId = useId();
-  const { dialogRef, restoreFocus } = useAdminDialog(open);
+  const { dialogRef, restoreFocus } = useAdminDialog(open, preferExplicitAutofocus);
 
   return (
     <dialog
