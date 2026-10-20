@@ -44,14 +44,15 @@ export function normalizeFacebookImageInput(input: unknown): FacebookImageInput 
     return value.trim();
   }
   const title = text("title",200), imageUrl = text("imageUrl",500), imageKey = text("imageKey",400), caption = text("caption",15000);
-  if (!title) throw new Error("Vyplň interný názov.");
+  // A title is useful internally but never a publishing prerequisite.
+  const normalizedTitle=title||"Facebook obrázok";
   if (row.status !== "draft" && row.status !== "scheduled") throw new Error("Povoľujeme iba koncept alebo naplánovanie.");
   if ((imageKey || imageUrl) && (!/^facebook-images\/\d{4}\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(imageKey) || imageUrl !== `/media/${imageKey}`)) throw new Error("Použi obrázok nahratý v tomto module.");
   const date = text("date",10), time = text("time",5);
   if (!date && time) throw new Error("Doplň dátum alebo vymaž čas.");
   const scheduledAt = date ? facebookScheduleInstant(date,time,text("repeatedHour",7)) : null;
   if (row.status === "scheduled" && (!scheduledAt || !imageKey)) throw new Error("Naplánovanie vyžaduje obrázok, dátum a čas.");
-  return {title,imageUrl,imageKey,caption,scheduledAt,status:row.status};
+  return {title:normalizedTitle,imageUrl,imageKey,caption,scheduledAt,status:row.status};
 }
 export function facebookPostsForDay(items: FacebookImagePost[], date: string) {
   return items.filter(item => item.scheduledAt && facebookWallTime(item.scheduledAt).date === date);

@@ -1,4 +1,5 @@
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
+import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
 import {downloadRemoteImage,notionFlagEnabled,notionRequest,sha256Text,type NotionSyncBindings} from "@/lib/notion-sync-shared";
 import {notionFacebookImageSnapshot,notionFacebookSnapshotFingerprint,facebookImagePermalink,type NotionFacebookImagePage} from "@/lib/notion-facebook-images-model";
 
@@ -9,10 +10,13 @@ export type FacebookImagesSyncBindings=NotionSyncBindings & {
   NOTION_FACEBOOK_IMAGES_SYNC_ENABLED?:string;
   NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?:string;
   NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?:string;
+  NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED?:string;
+  NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT?:string;
 };
 type Page=NotionFacebookImagePage;
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
-type Linked={id:string;status:string;image_url:string;image_key:string;updated_by:string;
+type Linked={id:string;status:string;title:string;caption:string;scheduled_at:string|null;
+  updated_at:string;version:number;image_url:string;image_key:string;updated_by:string;
   sync_hash:string|null;facebook_post_id:string|null;published_at:string|null;
   attempt_state:string|null;error_code:string|null;
   approval_status:string;direct_publish_consent:number};
@@ -32,7 +36,8 @@ function urlProperty(page:Page) {
   return value?.url??"";
 }
 async function linked(db:D1Database,pageId:string,consentReady:boolean) {
-  const sql="SELECT p.id,p.status,p.image_url,p.image_key,p.updated_by,p.sync_hash,p.approval_status,"+
+  const sql="SELECT p.id,p.status,p.title,p.caption,p.scheduled_at,p.updated_at,p.version,"+
+    "p.image_url,p.image_key,p.updated_by,p.sync_hash,p.approval_status,"+
     (consentReady?"p.direct_publish_consent":"0 AS direct_publish_consent")+
     ",p.facebook_post_id,p.published_at,a.state AS attempt_state,a.error_code "+
     "FROM facebook_image_posts p LEFT JOIN facebook_image_publish_attempts a ON a.post_id=p.id "+
@@ -88,6 +93,24 @@ async function writeBack(bindings:FacebookImagesSyncBindings,page:Page,post:Link
   });
   return true;
 }
+/** Mirror scheduling results without touching published canonical content. */
+async function mirrorV2ScheduleState(bindings:FacebookImagesSyncBindings,page:Page,
+  scheduled:boolean,wasScheduled:boolean,oldSchedule:string|null,snapSchedule:string|null){
+  let props:Record<string,unknown>|null=null;
+  if(scheduled&&statusProperty(page)!=="Naplánované")
+    props={"Stav":{status:{name:"Naplánované"}}};
+  else if(!scheduled&&wasScheduled){
+    props={"Stav":{status:{name:"Koncept"}}};
+    if(snapSchedule&&snapSchedule===oldSchedule&&statusProperty(page)==="Koncept")
+      props["Dátum a čas publikovania"]={date:null};
+  }
+  if(!props)return false;
+  await notionRequest(bindings,"/pages/"+encodeURIComponent(page.id),{
+    method:"PATCH",body:JSON.stringify({properties:props}),
+  });
+  page.properties={...page.properties,...props};
+  return true;
+}
 async function imageForPage(bindings:FacebookImagesSyncBindings,
   source:{url:string;identity:string},old:Linked|null) {
   if(!source.url)return {key:"",url:""};
@@ -123,9 +146,12 @@ export async function runNotionFacebookImagesSync({
     throw new Error("Unexpected Facebook images Notion source ID.");
   if(!bindings.NOTION_API_TOKEN?.trim()||!bindings.BUCKET)
     throw new Error("Missing Notion API token or R2 bucket.");
+  const policy=facebookImageScheduleV2Policy(bindings);
   await db.prepare("SELECT notion_page_id,sync_hash FROM facebook_image_posts LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
-  out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
+  // Legacy behavior is unchanged while V2 is disabled. V2 ingests newer
+  // Notion edits first, before the admin export could overwrite them.
+  if(!policy.enabled)out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
   let consentReady=false;
   try{await db.prepare("SELECT direct_publish_consent FROM facebook_image_posts LIMIT 0").all();consentReady=true;}
   catch(error){if(!(error instanceof Error&&/no such column:\s*direct_publish_consent/i.test(error.message)))throw error;}
@@ -158,15 +184,17 @@ export async function runNotionFacebookImagesSync({
           .bind(current.id).first<{deleted_at:string|null}>();
         if(deleted?.deleted_at){out.unchanged++;continue;}
       }
-      if(current&&await mirrorApprovalToNotion(bindings,page,current))out.writtenBack++;
+      if(!policy.enabled&&current&&await mirrorApprovalToNotion(bindings,page,current))out.writtenBack++;
       if(current&&(current.status==="published"||current.attempt_state)) {
         if(await writeBack(bindings,page,current))out.writtenBack++;
         else out.unchanged++;
         continue;
       }
       const snap=notionFacebookImageSnapshot(page,now);
-      if(!snap.name){out.invalid++;continue;}
-      if(snap.warning)out.invalid++;
+      if(!snap.name&&!policy.enabled){out.invalid++;continue;}
+      // A new Notion post needs only image + date/time; title is internal.
+      const title=snap.name||"Facebook obrázok";
+      if(!policy.enabled&&snap.warning)out.invalid++;
       if(!current&&["Publikované","Chyba"].includes(snap.notionState)){out.invalid++;continue;}
       // Notion checkboxes are observational only; their toggling cannot change
       // the canonical import fingerprint, nor trigger a permission transition.
@@ -174,12 +202,35 @@ export async function runNotionFacebookImagesSync({
         ...snap,allowed:false,directRequested:false,
       }));
       if(current?.sync_hash===hash){out.unchanged++;continue;}
-      // Psipedia manual changes take precedence over the Notion import.
-      if(current&&current.updated_by!==ACTOR){out.unchanged++;continue;} // Admin-owned: never overwritten from Notion.
+      const editedMs=Date.parse(page.last_edited_time??"");
+      const decision=notionFacebookScheduleV2Decision({
+        scheduledAt:snap.scheduledAt,imageAvailable:Boolean(snap.image.url),
+        notionState:snap.notionState,lastEditedAt:page.last_edited_time,now,
+        cutover:policy.cutover,wasScheduled:current?.status==="scheduled",
+        currentScheduledAt:current?.scheduled_at,
+      });
+      // An older Notion snapshot cannot revoke a current scheduled D1 post.
+      if(policy.enabled&&current&&!decision.fresh){out.unchanged++;continue;}
+      if(current&&current.updated_by!==ACTOR){
+        // D1 and Notion are bidirectional only for changes newer than the
+        // last local edit. If timestamps are absent/ambiguous, retain D1.
+        const localMs=Date.parse(current.updated_at);
+        if(!policy.enabled||!Number.isFinite(editedMs)
+          ||!Number.isFinite(localMs)||editedMs<=localMs){
+          out.unchanged++;continue;
+        }
+      }
       const image=await imageForPage(bindings,snap.image,current);
-      // Notion is never an authorization source. All imported new/edited items
-      // remain drafts until separately saved and approved in Psipedia Admin.
-      const scheduled=false;
+      const scheduled=policy.enabled
+        ?decision.eligible&&Boolean(image.key)
+        :false;
+      const targetStatus=scheduled?"scheduled":"draft";
+      const targetAt=scheduled?snap.scheduledAt:null;
+      if(policy.enabled&&current&&current.title===title&&current.caption===snap.caption
+        &&current.image_key===image.key&&current.status===targetStatus
+        &&current.scheduled_at===targetAt){
+        out.unchanged++;continue;
+      }
       const updatedAt=now.toISOString();
       if(!current) {
         const sql="INSERT OR IGNORE INTO facebook_image_posts "+
@@ -187,34 +238,44 @@ export async function runNotionFacebookImagesSync({
           "approved_at,approved_by,notion_page_id,sync_hash,created_at,updated_at,created_by,updated_by) "+
           "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         const result=await db.prepare(sql).bind(
-          crypto.randomUUID(),snap.name,image.url,image.key,snap.caption,
-          scheduled?snap.scheduledAt:null,scheduled?"scheduled":"draft",
+          crypto.randomUUID(),title,image.url,image.key,snap.caption,
+          targetAt,targetStatus,
           scheduled?"APPROVED":"UNREVIEWED",scheduled?updatedAt:null,scheduled?ACTOR:null,
           page.id,hash,updatedAt,updatedAt,ACTOR,ACTOR,
         ).run();
         if(result.meta.changes===1){
           out.created++;
-          if(await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady)))
+          if(!policy.enabled&&await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady)))
             out.writtenBack++;
+          if(policy.enabled&&await mirrorV2ScheduleState(bindings,page,scheduled,false,
+            null,snap.scheduledAt))out.writtenBack++;
         }else out.conflicts++;
       }else {
         const sql="UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,"+
           "scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,sync_hash=?,"+
           "version=version+1,updated_at=?,updated_by=? WHERE id=? AND sync_hash=? "+
-          "AND updated_by=? AND status IN ('draft','scheduled') "+(trashReady?"AND deleted_at IS NULL ":"")+
+          (policy.enabled?"AND version=? ":"AND updated_by=? ")+
+          "AND status IN ('draft','scheduled') "+(trashReady?"AND deleted_at IS NULL ":"")+
           "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)";
         const result=await db.prepare(sql).bind(
-          snap.name,image.url,image.key,snap.caption,
-          scheduled?snap.scheduledAt:null,scheduled?"scheduled":"draft",
+          title,image.url,image.key,snap.caption,
+          targetAt,targetStatus,
           scheduled?"APPROVED":"UNREVIEWED",scheduled?updatedAt:null,scheduled?ACTOR:null,
-          hash,updatedAt,ACTOR,current.id,current.sync_hash,ACTOR,
+          hash,updatedAt,ACTOR,current.id,current.sync_hash,
+          policy.enabled?current.version:ACTOR,
         ).run();
-        if(result.meta.changes===1)out.updated++;else out.conflicts++;
+        if(result.meta.changes===1){
+          out.updated++;
+          if(policy.enabled&&await mirrorV2ScheduleState(bindings,page,scheduled,
+            current.status==="scheduled",current.scheduled_at,snap.scheduledAt))
+            out.writtenBack++;
+        }else out.conflicts++;
       }
     }catch {
       // Signed Notion file URLs and OAuth/API credentials must never enter logs.
       out.failed++;
     }
   }
+  if(policy.enabled)out.adminExport=await exportFacebookAdminChanges({db,bindings,now});
   return out;
 }
