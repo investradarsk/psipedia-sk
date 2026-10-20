@@ -87,3 +87,30 @@ export function reconcileProfileFields(input: {
     merged, conflicts, notionFields, psipediaFields,
   };
 }
+
+
+/**
+ * An unchanged side (matching the last acknowledged mapping hash) is a
+ * cryptographically verified copy of the prior common editorial state.
+ * Reconstruct that baseline without requiring a new D1 table. When both
+ * sides diverge, only an independently stored, hash-verified baseline can
+ * prove which different fields can safely be combined.
+ *
+ * Equal current sides can also be adopted as a common state, even when a
+ * historical mapping hash is stale; no content is overwritten in that case.
+ * Caller-provided hashes MUST be computed from the actual snapshots.
+ */
+export function trustedProfileBaselineFromHashes(input: {
+  recorded: FieldSnapshot | null;
+  notion: FieldSnapshot;
+  psipedia: FieldSnapshot;
+  mappingHash: string;
+  notionHash: string;
+  psipediaHash: string;
+}): FieldSnapshot | null {
+  if (input.recorded) return input.recorded;
+  if (input.notionHash === input.psipediaHash) return input.psipedia;
+  if (input.notionHash === input.mappingHash) return input.notion;
+  if (input.psipediaHash === input.mappingHash) return input.psipedia;
+  return null;
+}
