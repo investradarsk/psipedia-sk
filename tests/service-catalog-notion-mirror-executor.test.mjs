@@ -5,7 +5,7 @@ import {DatabaseSync} from "node:sqlite";
 import {createAdminCatalogOption} from "../lib/service-catalog-admin-store.ts";
 import {executeServiceCatalogNotionMirror} from "../lib/service-catalog-notion-mirror-executor.ts";
 import {createServiceCatalogNotionHttpPort, createPsipediaServiceCatalogNotionHttpPort,
-  PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "../lib/service-catalog-notion-http-port.ts";
+  PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING, createPsipediaServiceCatalogReadOnlyRegistry} from "../lib/service-catalog-notion-http-port.ts";
 
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const sql133=read("drizzle/0133_services_canonical_admin_foundation.sql");
@@ -257,4 +257,95 @@ test("confirmed catalog adapter rejects page from Adresar data source",async()=>
     })})
   });
   await assert.rejects(()=>adapter.readPage(PAGE),/WRONG_CATALOG_DATA_SOURCE/);
+});
+
+const CATALOG_SOURCE=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+const REGISTRY_OPTION="svc.admin."+"a".repeat(32);
+const REGISTRY_OTHER_OPTION="attr.admin."+"b".repeat(32);
+function notionOptionPage(id=PAGE,optionId=REGISTRY_OPTION) {
+  const p=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties;
+  const rt=s=>({rich_text:[{plain_text:s}]});
+  const sel=s=>({select:{name:s}});
+  return {
+    id,parent:{type:"data_source_id",data_source_id:CATALOG_SOURCE},
+    archived:false,in_trash:false,
+    properties:{
+      [p.optionId]:rt(optionId),
+      [p.optionVersion]:{number:1},
+      [p.kind]:sel(optionId.startsWith("svc.")?"service":"attribute"),
+      [p.label]:{title:[{plain_text:"Mobilná veterinárna pomoc"}]},
+      [p.group]:rt("Veterinárna starostlivosť"),
+      [p.meaning]:rt("Starostlivosť o psa mimo ambulancie"),
+      [p.primaryCategory]:sel("veterinari"),
+      [p.categories]:{multi_select:[{name:"veterinari"}]},
+      [p.valueKind]:sel("tri_state")
+    }
+  };
+}
+function registryMock(responses,calls){
+  let index=0;
+  return createPsipediaServiceCatalogReadOnlyRegistry({
+    token:"offline-token",
+    fetcher:async (url,init)=>{
+      calls.push({url,method:init.method,body:JSON.parse(init.body),version:init.headers["Notion-Version"]});
+      const data=responses[Math.min(index++,responses.length-1)];
+      if(data instanceof Error)throw data;
+      return {ok:true,json:async()=>structuredClone(data)};
+    }
+  });
+}
+test("read-only catalog registry scans full pagination and correctly maps dynamic option identity",async()=>{
+  const calls=[];
+  const registry=registryMock([
+    {results:[notionOptionPage()],has_more:true,next_cursor:"next-page"},
+    {results:[notionOptionPage(OTHER_PAGE,REGISTRY_OTHER_OPTION)],has_more:false,next_cursor:null},
+  ],calls);
+  const all=await registry.list();
+  assert.deepEqual(all,[
+    {optionId:REGISTRY_OPTION,pageId:PAGE,dataSourceId:CATALOG_SOURCE},
+    {optionId:REGISTRY_OTHER_OPTION,pageId:OTHER_PAGE,dataSourceId:CATALOG_SOURCE}
+  ]);
+  assert.equal(calls.length,2);
+  assert.equal(calls[0].url,"https://api.notion.com/v1/data_sources/"+CATALOG_SOURCE+"/query");
+  assert.deepEqual(calls.map(x=>x.method),["POST","POST"]);
+  assert.equal(calls[0].version,"2025-09-03");
+  assert.deepEqual(calls[0].body,{page_size:100});
+  assert.deepEqual(calls[1].body,{page_size:100,start_cursor:"next-page"});
+  assert.deepEqual(await registry.get(REGISTRY_OTHER_OPTION),all[1]);
+});
+test("empty catalog returns no options; no page creation or profile lookups",async()=>{
+  const calls=[];
+  const registry=registryMock([{results:[],has_more:false,next_cursor:null}],calls);
+  assert.deepEqual(await registry.list(),[]);
+  assert.equal(await registry.get(REGISTRY_OPTION),null);
+  assert.equal(await registry.get("svc.vet.vaccination"),null);
+  assert.equal(calls.length,2);
+  assert.ok(calls.every(x=>x.method==="POST"&&x.url.includes("/data_sources/")));
+});
+test("registry must not quietly ignore duplicate owners, wrong parents or invalid option types",async()=>{
+  for (const pages of [
+    [notionOptionPage(),notionOptionPage(OTHER_PAGE,REGISTRY_OPTION)],
+    [{...notionOptionPage(),parent:{type:"data_source_id",data_source_id:"84e0664c-ca47-405f-9d54-31b20287bc8c"}}],
+    [{...notionOptionPage(),archived:true}],
+    [{...notionOptionPage(),properties:{}}],
+    [{...notionOptionPage(),properties:{
+      ...notionOptionPage().properties,
+      [PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties.optionId]:{rich_text:[{plain_text:"svc.vet.vaccination"}]}
+    }}]
+  ]) {
+    const registry=registryMock([{results:pages,has_more:false,next_cursor:null}],[]);
+    await assert.rejects(()=>registry.list(),/NOTION_REGISTRY_/);
+  }
+});
+test("truncated or malformed query result blocks complete ownership assertions",async()=>{
+  for (const item of [
+    {results:[],has_more:true,next_cursor:null},
+    {results:[],has_more:true,next_cursor:"loop"},
+    {results:[notionOptionPage()],has_more:false,next_cursor:"unexpected"},
+    {results:{bad:true},has_more:false},
+  ]) {
+    const responses=item.next_cursor==="loop"?[item,item]:[item];
+    const registry=registryMock(responses,[]);
+    await assert.rejects(()=>registry.list(),/NOTION_REGISTRY_/);
+  }
 });
