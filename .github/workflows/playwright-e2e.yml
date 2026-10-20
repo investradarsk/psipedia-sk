@@ -218,9 +218,10 @@ jobs:
             payload="$(curl --silent --show-error --fail \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" "$api")"
-            candidate="$(CHECK_PAYLOAD="$payload" node --input-type=module <<'NODE'
+            candidate="$(node --input-type=module -e '
+          import { readFileSync } from "node:fs";
           const expected = process.env.PR_HEAD_SHA;
-          const result = JSON.parse(process.env.CHECK_PAYLOAD ?? "{}");
+          const result = JSON.parse(readFileSync(0, "utf8"));
           const run = (result.check_runs ?? []).find(check =>
             check.name === "Workers Builds: psipedia-sk" && check.head_sha === expected);
           if (run?.status === "completed" && run.conclusion !== "success") {
@@ -231,7 +232,7 @@ jobs:
             const match = (run.output?.summary ?? "").match(/Preview URL:\s*(https:\/\/[^\s]+)/);
             process.stdout.write(match?.[1] ?? "");
           }
-          NODE
+          ' <<< "$payload"
             )"
             if [ -n "$candidate" ]; then
               preview_url="$candidate"
