@@ -1294,6 +1294,30 @@ export async function writeBackDraftArticleContentToNotion(args: {
     !checkboxProperty(page, "Odoslať na Psipedia")) {
     throw new Error("NOTION_DRAFT_WRITEBACK_NOT_APPROVED");
   }
+  // ManagedArticle keeps SEO under .seo, not as top-level editor fields.
+  // Retain the original Notion image URL when the R2 source fingerprint proves
+  // that the editor did not replace the hero image.
+  let mirroredHero = article.image ?? null;
+  const notionHero = urlProperty(page, "Hlavný obrázok URL");
+  if (article.imageKey && notionHero && args.bindings.BUCKET) {
+    const currentImage = await args.bindings.BUCKET.head(article.imageKey);
+    if (currentImage?.customMetadata?.notionSourceHash === await sha256(notionHero)) {
+      mirroredHero = notionHero;
+    }
+  }
+  const editorProjection = {
+    id: article.id, status: article.status, slug: article.slug, title: article.title,
+    intro: article.intro, introRichText: article.introRichText,
+    blocks: article.blocks ?? [],
+    seoTitle: article.seo?.title ?? "",
+    metaDescription: article.seo?.description ?? "",
+    focusKeyword: article.seo?.focusKeyword ?? "",
+    ogTitle: article.seo?.ogTitle ?? "",
+    ogDescription: article.seo?.ogDescription ?? "",
+    image: mirroredHero,
+    imageAlt: article.imageAlt ?? "",
+    imageCreditUrl: article.imageCreditUrl ?? "",
+  };
   const notionArticleId = richTextProperty(page, "Psipedia ID");
   if (notionArticleId && notionArticleId !== String(article.id)) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
@@ -1319,7 +1343,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     }
     const selected = selectNotionArticleBodyBlocks(remoteBlocks);
     plan = buildNotionEditorialPlan({
-      article, remoteBlocks: selected as RemoteArticleBlock[],
+      article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
     });
     const changed = plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
@@ -1389,7 +1413,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     !checkboxProperty(verifiedPage, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
   const verified = buildNotionEditorialPlan({
-    article, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
+    article: editorProjection, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
   });
   if (verified.blocks.length || Object.keys(verified.properties).length) {
