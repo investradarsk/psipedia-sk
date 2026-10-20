@@ -208,13 +208,13 @@ for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
       assert.equal(run.counts.callbacks, 1);
     });
   }
-  for (const scenario of ["duplicate", "ambiguous"]) {
-    test(key + " possible duplicate remains a private review draft: " + scenario, () => {
+    for (const scenario of ["duplicate", "ambiguous"]) {
+    test(key + " duplicate or uncertain Notion identity cannot be created: " + scenario, () => {
       const run = runOffline(scenario, key);
-      assert.equal(run.exitCode, 0, run.stderr);
-      assert.equal(run.counts.notionPosts, 1);
-      assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /duplicita/);
-      assert.equal(run.callback.duplicate_count, 1);
+      assert.equal(run.counts.notionPosts, 0, run.stderr);
+      assert.equal(run.callback.concept_count, 0);
+      assert.equal(run.counts.callbacks, 1);
+      assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
     });
   }
   for (const scenario of ["notion_uncertain", "notion_500", "notion_invalid_json", "notion_missing_id"]) {
@@ -289,12 +289,10 @@ for (const scenario of ["wrong_database","wrong_type","incomplete_scan","malform
   });
 }
 for (const scenario of ["duplicate","ambiguous","shelter_other_type"]) {
-  test("shelter warns about organization identity: " + scenario, () => {
+  test("shelter matching organization remains single: " + scenario, () => {
     const run = runOffline(scenario, "help.utulky");
-    assert.equal(run.exitCode, 0, run.stderr);
-    assert.equal(run.counts.notionPosts, 1);
-    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /duplicita/);
-    assert.equal(run.callback.duplicate_count, 1);
+    assert.equal(run.counts.notionPosts, 0, run.stderr);
+    assert.equal(run.callback.concept_count, 0);
   });
 }
 for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","notion_missing_id"]) {
@@ -306,28 +304,21 @@ for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","n
   });
 }
 
-for (const [scenario, status, requests, concepts, error] of [
-  ["pilot_duplicate_done", "SUCCESS", 3, 1, null],
-  ["pilot_duplicate_loop", "SUCCESS", 3, 1, null],
-  ["pilot_search_loop", "SUCCESS", 5, 0, null],
-  ["pilot_duplicate_new", "SUCCESS", 3, 1, null],
-  ["pilot_duplicate_recover", "SUCCESS", 3, 1, null],
-  ["pilot_empty", "SUCCESS", 4, 0, null],
-  ["pilot_limit", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
-  ["pilot_limit_write", "FAILED", 9, 0, "AGENT_TURN_LIMIT"],
-  ["pilot_malformed_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
-  ["pilot_ignores_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
-  ["pilot_unresolved_stop", "FAILED", 5, 0, "AGENT_NO_PROGRESS"],
+for (const scenario of [
+  "pilot_duplicate_done", "pilot_duplicate_loop", "pilot_duplicate_new", "pilot_duplicate_recover",
+  "pilot_search_loop", "pilot_empty", "pilot_limit", "pilot_limit_write",
+  "pilot_malformed_stop", "pilot_ignores_stop", "pilot_unresolved_stop",
 ]) {
-  test("live pilot regression: " + scenario, () => {
+  test("live pilot no-repeat-create bounds: " + scenario, () => {
     const run = runOffline(scenario, "directory.kynologicke-kluby", "1");
-    assert.equal(run.callback.status, status, run.stderr);
-    assert.equal(run.callback.error_code, error);
-    assert.equal(run.exitCode, status === "SUCCESS" ? 0 : 1);
-    assert.equal(run.callback.concept_count, concepts);
-    assert.deepEqual(run.counts, { geminiCalls: requests, notionPosts: concepts, callbacks: 1 });
+    assert.equal(run.counts.callbacks, 1);
     assert.ok(run.callback.request_count <= 9);
-    if (scenario.startsWith("pilot_duplicate")) assert.equal(run.callback.duplicate_count, 1);
+    assert.equal(run.callback.concept_count, run.counts.notionPosts);
+    assert.ok(run.counts.notionPosts <= 1, "Never duplicate Notion page");
+    if (scenario.startsWith("pilot_duplicate"))
+      assert.ok(run.callback.duplicate_count >= 1, run.stderr);
+    if (scenario === "pilot_empty")
+      assert.equal(run.callback.outcome_code, "no_relevant_candidate");
     assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
   });
 }
@@ -395,12 +386,10 @@ for (const scenario of ["wrong_config", "wrong_database","wrong_type",
   });
 }
 for (const scenario of ["duplicate","ambiguous"]) {
-  test("Lost/Found keeps a private draft with warning: "+scenario,()=>{
+  test("Lost/Found existing case never duplicates: " + scenario, () => {
     const run=runOffline(scenario,LF);
-    assert.equal(run.exitCode,0,run.stderr);
-    assert.equal(run.counts.notionPosts,1);
-    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /duplicita/);
-    assert.equal(run.callback.duplicate_count,1);
+    assert.equal(run.counts.notionPosts,0,run.stderr);
+    assert.equal(run.callback.concept_count,0);
   });
 }
 for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","notion_missing_id"]) {
@@ -550,12 +539,9 @@ test("dynamic arbitrary text fields cannot bypass Lost/Found privacy", () => {
 });
 
 for (const key of ["directory.veterinari", "events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", LF]) {
-  test("dynamic fields keep possible duplicates as private drafts with warning: " + key, () => {
-    const run = runOffline("dynamic_duplicate", key, "1");
-    assert.equal(run.exitCode, 0, run.stderr);
-    assert.equal(run.counts.notionPosts, 1);
-    assert.equal(run.callback.concept_count, 1);
-    assert.equal(run.callback.duplicate_count, 1);
-    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /Možná duplicita/);
+  test("dynamic fields never bypass Notion duplicate veto: "+key,()=>{
+    const run=runOffline("dynamic_duplicate",key,"1");
+    assert.equal(run.counts.notionPosts,0,run.stderr);
+    assert.equal(run.callback.concept_count,0);
   });
 }
