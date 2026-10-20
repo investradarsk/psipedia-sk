@@ -224,11 +224,13 @@ export function DirectoryFilterForm(props: Props) {
         <div className={styles.activeFilters} aria-label="Aktívne filtre" data-directory-active-filters>
           <span className={styles.activeTitle}>Aktívne filtre</span>
           {activeSelections.map(({ key, label, value }) =>
-            <Link className={styles.chip} key={key} href={clearOneHref(key)}
+            // Use native GET navigation: resetting a facet must not depend on
+            // the client router being hydrated or on an RSC prefetch completing.
+            <a className={styles.chip} key={key} href={clearOneHref(key)}
               aria-label={`Odstrániť filter ${label}: ${value}`}>
               <span>{label}: {value}</span><span aria-hidden="true">×</span>
-            </Link>)}
-          <Link className={styles.clearAll} href={basePath}>Vymazať všetko</Link>
+            </a>)}
+          <a className={styles.clearAll} href={basePath}>Vymazať všetko</a>
         </div>
       )}
     </>
