@@ -7,7 +7,7 @@ on:
       - "lib/notion-article-sync.ts"
       - "lib/notion-article-content-plan.ts"
       - "app/api/admin/articles/[id]/route.ts"
-      - "docs/proposals/0136_notion_article_editorial_outbox.sql"
+      - "docs/proposals/notion_article_editorial_outbox_UNNUMBERED_PROPOSAL.sql"
       - "tests/notion-article-content-writeback.test.mjs"
       - "tests/notion-article-editorial-retry.test.mjs"
       - "lib/article-publish-notion-reconciliation.ts"
