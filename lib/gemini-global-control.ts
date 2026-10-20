@@ -11,8 +11,10 @@ type ScheduleRow = {
 };
 
 export class GeminiGlobalControlError extends Error {
-  constructor(readonly code: "STOPPED" | "CONFLICT" | "UNAVAILABLE") {
+  readonly code: "STOPPED" | "CONFLICT" | "UNAVAILABLE";
+  constructor(code: "STOPPED" | "CONFLICT" | "UNAVAILABLE") {
     super(code);
+    this.code = code;
   }
 }
 
