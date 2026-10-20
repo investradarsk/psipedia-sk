@@ -153,6 +153,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0131_facebook_image_trash.sql",
     "0132_facebook_image_direct_consent.sql",
     "0133_services_canonical_admin_foundation.sql",
+    "0134_services_admin_change_audit.sql",
   ]);
 });
 
