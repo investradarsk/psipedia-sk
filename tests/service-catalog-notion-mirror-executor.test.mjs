@@ -895,7 +895,7 @@ test("new Services V3 manual route requires real Admin and strict origin before 
   assert.match(source,/ACTIONS=\["PROVISION_ONE","MIRROR_ONE"\]/);
   assert.match(source,/EXPLICIT_CONFIRMATION_REQUIRED/);
   assert.match(source,/UNEXPECTED_REQUEST_FIELDS/);
-  assert.match(source,/raw.length>1024/);
+  assert.match(source,/size>1024/);
   assert.match(source,/runServicesV3CatalogInternal/);
   assert.doesNotMatch(source,/listReadyNotionPages|runNotionDirectorySync|scheduled\(/);
 });
