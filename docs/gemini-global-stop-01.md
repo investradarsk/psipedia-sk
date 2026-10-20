@@ -34,7 +34,7 @@ CI workflow: `.github/workflows/gemini-global-stop-ci.yml` (read-only GitHub per
 
 ## Separate mandatory production acceptance
 
-1. Obtain independent approval for migration `0135_gemini_global_stop.sql`, assess existing production D1 schema and backups, and execute migration **once** in a separately authorized rollout.
+1. Obtain independent approval for migration `0136_gemini_global_stop.sql`, assess existing production D1 schema and backups, and execute migration **once** in a separately authorized rollout.
 2. Verify D1 control row, triggers, new `worker_started_at` column and queue constraints via read-only checks.
 3. Deploy code only in a separately authorized release after migration and smoke/read-only acceptance. Keep `GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED` and `GEMINI_AGENT_PAID_ENABLED` unchanged; do not activate them during rollout.
 4. In admin, check STOP/resume status, saved settings for all 22 categories, queue and job receipt states. Confirm no unexpected queued replay and no backfill of missed scheduled slots.
