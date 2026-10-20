@@ -37,7 +37,7 @@ jobs:
           npm run test:notion-data-quality-audit
       - name: Project TypeScript and lint
         run: |
-          npx tsc --noEmit
+          npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@cloudflare/workers-types lib/notion-conflict-quality-triage.ts
           npm run lint
       - name: Build only, never deploy
         run: npm run build
