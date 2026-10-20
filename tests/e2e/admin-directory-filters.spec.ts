@@ -243,7 +243,10 @@ test.describe("admin directory v2", () => {
     const api = await page.request.get(`/api/admin/directory/${id}`);
     expect(api.ok()).toBeTruthy();
     expect((await api.json()).profile.status).toBe("draft");
-    const cleanup = await page.request.delete(`/api/admin/directory/${id}`);
+    // APIRequestContext does not set browser Origin automatically; preserve strict CSRF provenance.
+    const cleanup = await page.request.delete(`/api/admin/directory/${id}`, {
+      headers: { Origin: new URL(page.url()).origin },
+    });
     expect(cleanup.ok()).toBeTruthy();
   });
 
