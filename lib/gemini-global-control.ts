@@ -97,7 +97,7 @@ export async function authorizeGeminiExternalWorker(input: {
   db: Pick<D1Database, "prepare">; jobId: number; stableKey: string; now?: Date;
 }): Promise<boolean> {
   if (!Number.isSafeInteger(input.jobId) || input.jobId < 1 ||
-      !/^(directory|events|help)\\.[a-z0-9-]+$/.test(input.stableKey)) return false;
+      !/^(directory|events|help)\.[a-z0-9-]+$/.test(input.stableKey)) return false;
   const result = await input.db.prepare(
     "UPDATE gemini_manual_background_jobs SET worker_started_at=? " +
     "WHERE id=? AND stable_key=? AND status='RUNNING' AND worker_started_at IS NULL " +
