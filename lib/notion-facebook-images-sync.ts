@@ -93,6 +93,24 @@ async function writeBack(bindings:FacebookImagesSyncBindings,page:Page,post:Link
   });
   return true;
 }
+/** Mirror scheduling results without touching published canonical content. */
+async function mirrorV2ScheduleState(bindings:FacebookImagesSyncBindings,page:Page,
+  scheduled:boolean,wasScheduled:boolean,oldSchedule:string|null,snapSchedule:string|null){
+  let props:Record<string,unknown>|null=null;
+  if(scheduled&&statusProperty(page)!=="Naplánované")
+    props={"Stav":{status:{name:"Naplánované"}}};
+  else if(!scheduled&&wasScheduled){
+    props={"Stav":{status:{name:"Koncept"}}};
+    if(snapSchedule&&snapSchedule===oldSchedule&&statusProperty(page)==="Koncept")
+      props["Dátum a čas publikovania"]={date:null};
+  }
+  if(!props)return false;
+  await notionRequest(bindings,"/pages/"+encodeURIComponent(page.id),{
+    method:"PATCH",body:JSON.stringify({properties:props}),
+  });
+  page.properties={...page.properties,...props};
+  return true;
+}
 async function imageForPage(bindings:FacebookImagesSyncBindings,
   source:{url:string;identity:string},old:Linked|null) {
   if(!source.url)return {key:"",url:""};
@@ -229,6 +247,8 @@ export async function runNotionFacebookImagesSync({
           out.created++;
           if(!policy.enabled&&await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady)))
             out.writtenBack++;
+          if(policy.enabled&&await mirrorV2ScheduleState(bindings,page,scheduled,false,
+            null,snap.scheduledAt))out.writtenBack++;
         }else out.conflicts++;
       }else {
         const sql="UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,"+
@@ -242,7 +262,12 @@ export async function runNotionFacebookImagesSync({
           scheduled?"APPROVED":"UNREVIEWED",scheduled?updatedAt:null,scheduled?ACTOR:null,
           hash,updatedAt,ACTOR,current.id,current.sync_hash,ACTOR,
         ).run();
-        if(result.meta.changes===1)out.updated++;else out.conflicts++;
+        if(result.meta.changes===1){
+          out.updated++;
+          if(policy.enabled&&await mirrorV2ScheduleState(bindings,page,scheduled,
+            current.status==="scheduled",current.scheduled_at,snap.scheduledAt))
+            out.writtenBack++;
+        }else out.conflicts++;
       }
     }catch {
       // Signed Notion file URLs and OAuth/API credentials must never enter logs.
