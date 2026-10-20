@@ -144,7 +144,6 @@ export function AdminDirectoryEditor({
   const [rejectionReason, setRejectionReason] = useState("");
   const notionReadOnly = Boolean(notionDraft && !["NEW", "IN_PROGRESS"].includes(reviewState ?? ""));
   const [notionVersion, setNotionVersion] = useState(notionDraft?.lastEditedAt ?? "");
-  const [publishConfirming, setPublishConfirming] = useState(false);
   const [logoUrl, setLogoUrl] = useState(notionDraft?.logoUrl ?? "");
   const [name, setName] = useState(profile?.name ?? notionDraft?.name ?? "");
   const [slug, setSlug] = useState(profile?.slug ?? notionDraft?.slug ?? (notionDraft?.name ? slugify(notionDraft.name) : ""));
@@ -266,7 +265,7 @@ export function AdminDirectoryEditor({
       const data = await response.json() as { draft?: GeminiDirectoryDraft; error?: string };
       if (!response.ok || !data.draft) throw new Error(data.error || "Zmenu sa nepodarilo potvrdiť. Obnov zoznam pred opakovaním.");
       setReviewState(data.draft.reviewState); setNotionVersion(data.draft.lastEditedAt);
-      setReviewConfirm(null); setPublishConfirming(false);
+      setReviewConfirm(null);
       setMessage(reviewConfirm === "reject" ? "Koncept bol odmietnutý." : "Koncept bol obnovený bez publikovania.");
       if (onNotionSaved) onNotionSaved(); else window.location.reload();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Zmena zlyhala."); }
@@ -311,7 +310,6 @@ export function AdminDirectoryEditor({
         setNotionVersion(data.draft.lastEditedAt);
         setReviewState(data.draft.reviewState);
         setMessage("Koncept je uložený priamo v Notione a zostáva neverejný.");
-        setPublishConfirming(false);
         onNotionSaved?.();
         return;
       }
@@ -709,7 +707,7 @@ export function AdminDirectoryEditor({
         {notionDraft && !notionDraft.psipediaId && (
           <div>
             {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
-              setPublishConfirming(false); setReviewConfirm(reviewState === "REJECTED" ? "restore" : "reject");
+              setReviewConfirm(reviewState === "REJECTED" ? "restore" : "reject");
             }}>{reviewState === "REJECTED" ? "Obnoviť koncept" : "Odmietnuť koncept"}</AdminActionButton> : <>
               <p role="alert">{reviewConfirm === "reject" ? "Odmietnuť tento koncept? Gemini ho nebude znova navrhovať." : "Obnoviť koncept na úpravy? Nebude publikovaný."}</p>
               {reviewConfirm === "reject" && <label>Dôvod odmietnutia (voliteľný)<textarea maxLength={1500} value={rejectionReason} onChange={event => setRejectionReason(event.target.value)} /></label>}
