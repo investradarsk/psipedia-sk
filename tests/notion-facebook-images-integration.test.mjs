@@ -276,3 +276,35 @@ test("V2: cutoff blocks legacy scheduling; missed genuinely pre-scheduled dates 
     });
   }finally{recent.close();}
 });
+
+test("V2: newer Notion edit wins over an older admin edit using D1 CAS; stale Notion edit does not",async()=>{
+  const f=fixture(),page=notionPage(false);
+  const enabled={...bindings,BUCKET:f.bucket,
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  page.last_edited_time="2030-01-02T09:55:00.000Z";
+  try{
+    await mockedNotion(page,async()=>{
+      await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      const post=f.get();
+      assert.equal(post.status,"scheduled");
+      f.sqlite.prepare("UPDATE facebook_image_posts SET caption=?,updated_at=?,updated_by=?,version=version+1 WHERE id=?")
+        .run("Nový admin text","2030-01-02T10:00:20.000Z","admin@psipedia.sk",post.id);
+      page.last_edited_time="2030-01-02T10:00:10.000Z";
+      page.properties["Text na Facebook"]={rich_text:[{plain_text:"Starý Notion text"}]};
+      const stale=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T10:00:30.000Z")});
+      assert.equal(stale.updated,0);
+      assert.equal(f.get().caption,"Nový admin text");
+      // Mock the next independent Notion editor change AFTER the admin edit.
+      page.last_edited_time="2030-01-02T10:01:00.000Z";
+      page.properties["Text na Facebook"]={rich_text:[{plain_text:"Najnovší text v Notione"}]};
+      const newer=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T10:02:00.000Z")});
+      assert.equal(newer.updated,1);
+      assert.equal(f.get().caption,"Najnovší text v Notione");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts").get().n,1);
+    });
+  }finally{f.close();}
+});
