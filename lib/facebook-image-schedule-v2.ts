@@ -30,7 +30,9 @@ export function notionFacebookScheduleV2Decision(input:{
     return {eligible:false,fresh:true};
   // A past date entered after it has elapsed is not an outage catch-up.
   // A genuinely pre-existing schedule may catch up after a worker outage.
-  if(when<=input.now.getTime()&&edited>when)
+  if(when<=input.now.getTime()&&edited>when
+    &&!(input.wasScheduled&&input.currentScheduledAt===input.scheduledAt
+      &&input.notionState==="Naplánované"))
     return {eligible:false,fresh:true};
   return {eligible:true,fresh:true};
 }
