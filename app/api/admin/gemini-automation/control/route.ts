@@ -10,7 +10,7 @@ export async function GET() {
   try {
     return Response.json({ control: await getGeminiGlobalControl(requireGeminiAdminD1()) }, { headers: HEADERS });
   } catch {
-    return Response.json({ error: "Globálne ovládanie nie je dostupné. Over neschválenú migráciu 0135." },
+    return Response.json({ error: "Globálne ovládanie nie je dostupné. Over neschválenú migráciu 0136." },
       { status: 503, headers: HEADERS });
   }
 }
