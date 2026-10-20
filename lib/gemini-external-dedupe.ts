@@ -61,8 +61,11 @@ export async function checkExternalGeminiIdentity(input: {
       Math.abs((input.now ?? Date.now()) - Number(data.issued_at)) > 120000) return blocked(400);
   const candidate = safeCandidate(data.candidate);
   if (!candidate) return blocked(400);
-  const job = await input.db.prepare("SELECT stable_key,status,error_code FROM gemini_manual_background_jobs WHERE id=?")
-    .bind(data.job_id).first<{ stable_key: string; status: string; error_code: string }>();
+  let job: { stable_key: string; status: string; error_code: string } | null;
+  try {
+    job = await input.db.prepare("SELECT stable_key,status,error_code FROM gemini_manual_background_jobs WHERE id=?")
+      .bind(data.job_id).first<{ stable_key: string; status: string; error_code: string }>();
+  } catch { return blocked(503); }
   if (!job || job.status !== "RUNNING" || !job.error_code?.startsWith("EXT_") ||
       job.stable_key !== data.stable_key) return blocked(409);
   const catalog = getGeminiCatalogItem(job.stable_key)!;
