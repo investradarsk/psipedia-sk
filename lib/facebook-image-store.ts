@@ -183,8 +183,8 @@ export async function saveFacebookImagePost(id:string|null,raw:unknown,actor:str
     const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?(safeRetry?
       "AND (NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id) "+
       "OR EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id "+
-        "AND a.state='UNCERTAIN' AND a.outcome_kind='PROVEN_REJECTED' "+
-        "AND a.snapshot_version=facebook_image_posts.version))":
+        "AND a.state='UNCERTAIN' AND a.outcome_kind IN ('PROVEN_REJECTED','SUPERSEDED') "+
+        "AND a.snapshot_version<=facebook_image_posts.version))":
       "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)"):""} RETURNING ${columns}`)
       .bind(input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,input.status,
         approvalStatus,approvedAt,approvedBy,now,actor,id,expected).first<Row>();
