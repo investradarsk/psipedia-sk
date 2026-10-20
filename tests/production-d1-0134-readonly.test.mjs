@@ -109,6 +109,8 @@ test("extra unapproved trigger on an existing Services table cannot masquerade a
   const report=classify0134(p);
   assert.equal(report.result,"SCHEMA_DRIFT_BLOCKED");
   assert.ok(report.unexpectedObjects.includes("UNEXPECTED_SERVICES_OBJECT"));
+  assert.equal(report.constraints,"BLOCKED");
+  assert.equal(report.referentialIntegrity,"NOT_CHECKED");
   assert.doesNotMatch(JSON.stringify(report),/rogue_private_trigger/);
  }finally{f.db.close();}
 });
@@ -237,6 +239,108 @@ test("not applied accepted from in-memory remote adapter without fabricated feat
   assert.equal(report.featureFlags.SERVICE_CATALOG_ADMIN_WRITES_ENABLED,"UNKNOWN");
  }finally{f.db.close();}
 });
+
+// Exact serialized JSON shape used by the production CLI (without invoking it).
+// All data comes from local in-memory SQLite or stubbed aggregate SELECTs.
+function outputJson(report) {
+ const printed=JSON.stringify(report,null,2)+"\n";
+ return JSON.parse(printed);
+}
+
+test("early 0134 DDL blocker keeps 0133 schema PASS but never claims referential PASS in JSON",async()=>{
+ const f=fixture({schema134:true,ledger134:true});
+ try {
+  const queried=[];
+  const report=outputJson(await safeRun(f,{query:async(db,sql)=>{
+   queried.push(sql);
+   const rows=await f.query(db,sql);
+   return sql===SQL_OBJECTS_0134 ? rows.filter(x=>x.name!==TRIGGERS_0134[0]) : rows;
+  }}));
+  assert.equal(report.result,"PARTIAL_OR_INCONSISTENT");
+  assert.equal(report.priorState,"PASS");
+  assert.equal(report.referentialIntegrity,"NOT_CHECKED");
+  assert.equal(report.constraints,"BLOCKED");
+  assert.deepEqual(queried,[SQL_LEDGER_0134,SQL_OBJECTS_0134]);
+ }finally{f.db.close();}
+});
+
+test("checked zero-orphan 0133 metrics make actual audited JSON referential PASS",async()=>{
+ const f=fixture({schema134:true,ledger134:true});
+ try {
+  const queried=[];
+  const report=outputJson(await safeRun(f,{query:async(db,sql)=>{
+   queried.push(sql);return f.query(db,sql);
+  }}));
+  assert.equal(report.result,"APPLIED_AND_VERIFIED");
+  assert.equal(report.priorState,"PASS");
+  assert.equal(report.referentialIntegrity,"PASS");
+  assert.deepEqual(queried,QUERIES_0134);
+ }finally{f.db.close();}
+});
+
+test("choice_orphans > 0 yields referential FAIL in complete output JSON",async()=>{
+ const f=fixture({schema134:true,ledger134:true});
+ try {
+  const queried=[];
+  const report=outputJson(await safeRun(f,{query:async(db,sql)=>{
+   queried.push(sql);
+   const rows=await f.query(db,sql);
+   return sql===SQL_METRICS_0133?[{...rows[0],choice_orphans:2}]:rows;
+  }}));
+  assert.equal(report.result,"SCHEMA_DRIFT_BLOCKED");
+  assert.equal(report.reason,"0133_ORPHANED_REFERENCES");
+  assert.equal(report.priorState,"PASS");
+  assert.equal(report.referentialIntegrity,"FAIL");
+  assert.deepEqual(queried,QUERIES_0134);
+ }finally{f.db.close();}
+});
+
+test("property_orphans > 0 yields referential FAIL in complete output JSON",async()=>{
+ const f=fixture({schema134:true,ledger134:true});
+ try {
+  const report=outputJson(await safeRun(f,{query:async(db,sql)=>{
+   const rows=await f.query(db,sql);
+   return sql===SQL_METRICS_0133?[{...rows[0],property_orphans:3}]:rows;
+  }}));
+  assert.equal(report.result,"SCHEMA_DRIFT_BLOCKED");
+  assert.equal(report.priorState,"PASS");
+  assert.equal(report.referentialIntegrity,"FAIL");
+ }finally{f.db.close();}
+});
+
+test("unexpected 0134-related trigger blocks EXACT_DDL and skips metrics in output JSON",async()=>{
+ const f=fixture();
+ try {
+  const queried=[];
+  const report=outputJson(await safeRun(f,{query:async(db,sql)=>{
+   queried.push(sql);
+   const rows=await f.query(db,sql);
+   return sql===SQL_OBJECTS_0134?
+    [...rows,{type:"trigger",name:"sensitive_unknown_trigger",tbl_name:"service_catalog_admin_options",
+      sql:"CREATE TRIGGER sensitive_unknown_trigger AFTER UPDATE ON service_catalog_admin_options BEGIN SELECT 1; END"}]:rows;
+  }}));
+  assert.equal(report.result,"SCHEMA_DRIFT_BLOCKED");
+  assert.equal(report.constraints,"BLOCKED");
+  assert.equal(report.priorState,"PASS");
+  assert.equal(report.referentialIntegrity,"NOT_CHECKED");
+  assert.ok(report.unexpectedObjects.includes("UNEXPECTED_SERVICES_OBJECT"));
+  assert.doesNotMatch(JSON.stringify(report),/sensitive_unknown_trigger/);
+  assert.deepEqual(queried,[SQL_LEDGER_0134,SQL_OBJECTS_0134]);
+ }finally{f.db.close();}
+});
+
+test("malformed aggregates are UNKNOWN, not PASS, in output JSON while 0133 schema is PASS",async()=>{
+ const f=fixture({schema134:true,ledger134:true});
+ try {
+  const report=outputJson(await safeRun(f,{query:async(db,sql)=>{
+   return sql===SQL_METRICS_0133 ? [{options_count:"invalid"}] : f.query(db,sql);
+  }}));
+  assert.equal(report.result,"UNKNOWN");
+  assert.equal(report.priorState,"PASS");
+  assert.equal(report.referentialIntegrity,"UNKNOWN");
+ }finally{f.db.close();}
+});
+
 test("workflow dispatch only, protected current-main guard, shared lock, no apply or deploy",()=>{
  assert.match(dispatch,/name: Production D1 0134 Read-only Verifier/);
  assert.match(dispatch,/workflow_dispatch:/);
