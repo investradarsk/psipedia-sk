@@ -17,6 +17,7 @@ on:
       - "tests/gemini-global-stop.test.mjs"
       - "docs/gemini-global-stop-01.md"
       - "tsconfig.gemini-global-stop.json"
+      - "scripts/gemini-global-stop-typecheck.mjs"
       - ".github/workflows/gemini-global-stop-ci.yml"
 
 concurrency:
@@ -46,6 +47,6 @@ jobs:
       - name: Lint and TypeScript
         run: |
           npm run lint
-          npx tsc --noEmit --pretty false --project tsconfig.gemini-global-stop.json
+          node scripts/gemini-global-stop-typecheck.mjs
       - name: Build without deploy
         run: npm run build
