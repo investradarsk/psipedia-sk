@@ -1,0 +1,39 @@
+name: NOTION CONFLICT QUALITY — read-only triage CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/notion-conflict-quality-triage.ts"
+      - "app/api/admin/notion-data-quality-audit/route.ts"
+      - "components/admin-notion-data-quality-audit.tsx"
+      - "components/admin-data-quality-dashboard.tsx"
+      - "tests/notion-conflict-quality-triage.test.mjs"
+      - "docs/notion-conflict-quality-01.md"
+      - ".github/workflows/notion-conflict-quality-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Triage and existing identity regressions
+        run: |
+          node --check tests/notion-conflict-quality-triage.test.mjs
+          node --experimental-strip-types --test tests/notion-conflict-quality-triage.test.mjs tests/notion-data-quality-cross-batch.test.mjs
+          npm run test:notion-data-quality-audit
+      - name: Project TypeScript and lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
+      - name: Build only, never deploy
+        run: npm run build

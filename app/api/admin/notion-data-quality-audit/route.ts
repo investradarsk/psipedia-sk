@@ -4,6 +4,7 @@ import { summarizeNotionAuditBatch, type NotionAuditAgenda, type NotionAuditPage
 import { resolveNotionCanonicalTarget } from "@/lib/notion-canonical-target";
 import { notionRequest, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { loadAuditD1Evidence, analyzeAuditEvidence } from "@/lib/notion-data-quality-audit-v2";
+import { triageNotionQuality } from "@/lib/notion-conflict-quality-triage";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,8 @@ export async function POST(request: Request) {
     }
     const d1 = await loadAuditD1Evidence(bindings.DB, agenda, pages);
     const independent = analyzeAuditEvidence(agenda, pages, d1);
+    const summary = summarizeNotionAuditBatch(agenda, pages);
+    const triage = triageNotionQuality(agenda, summary.reviewItems, independent);
     const hasMore = Boolean(response.has_more);
     const nextCursor = hasMore ? response.next_cursor ?? null : null;
     return Response.json({
@@ -126,8 +129,9 @@ export async function POST(request: Request) {
       batchSize: 100,
       pass,
       sourceId: dataSourceId,
-      ...summarizeNotionAuditBatch(agenda, pages),
+      ...summary,
       independent,
+      triage,
       productionCounts: "UNKNOWN",
       checkedAgainstD1: d1.coverage === "VERIFIED",
       comparisonBasis: "MAPPING_AND_CANONICAL_ID_ONLY",
