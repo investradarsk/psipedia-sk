@@ -29,7 +29,8 @@ export type NotionEditorialPlan = {
   blocks: NotionEditorialOperation[];
 };
 export class EditorialSyncConflict extends Error {
-  constructor(public readonly code: string) { super(code); this.name = "EditorialSyncConflict"; }
+  readonly code: string;
+  constructor(code: string) { super(code); this.name = "EditorialSyncConflict"; this.code = code; }
 }
 function fail(code: string): never { throw new EditorialSyncConflict(code); }
 function object(value: unknown): RecordValue {
@@ -105,7 +106,9 @@ function documentNodes(doc: EditorialRichTextDocument | null | undefined, plain:
   if (doc.type !== "doc" || doc.content.length !== 1 || doc.content[0]?.type !== expected) {
     return fail("UNSUPPORTED_RICH_TEXT_STRUCTURE");
   }
-  return richNodes(doc.content[0].content);
+  const nodes = (doc.content[0] as { content?: EditorialRichTextInline[] }).content;
+  if (!nodes) fail("UNSUPPORTED_RICH_TEXT_STRUCTURE");
+  return richNodes(nodes);
 }
 export function notionEditorialBlockShape(block: RemoteArticleBlock): string {
   return JSON.stringify(shape(block));
