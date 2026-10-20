@@ -1116,8 +1116,12 @@ async function syncMappedPage(input: {
     return "unchanged" as const;
   }
 
-  // Record-level modified times include our own sync writes. Three-way
-  // comparison NEVER infers which same-field human edit happened last.
+  // Preserve the existing separately owner-approved Gemini priority mode.
+  // When it is OFF, use the safer lossless field strategy. Neither mode
+  // changes the feature flag or authorizes production activation.
+  if (!gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED)) {
+    // Record-level modified times include our own sync writes. Three-way
+    // comparison NEVER infers which same-field human edit happened last.
   const storedBaseline = await readProfileFieldBaseline({
     database: input.database, agenda: "directory", entityId: profile.id,
     pageId: page.id, expectedHash: lastHash,
@@ -1168,6 +1172,7 @@ async function syncMappedPage(input: {
     profile: updated, pageId: page.id,
   });
   return await snapshotHash(desired) === profileHash ? "pushed" as const : "pulled" as const;
+  }
 
   // Owner-approved Gemini 22 Notion priority A: apply only with the
   // separate default-OFF production gate. Respect immutable directory
