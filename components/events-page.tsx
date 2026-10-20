@@ -152,6 +152,7 @@ export async function EventsPage({
                     ctaLabel="Pridať podujatie"
                     ctaHref="/podujatia/pridat-podujatie"
                     tone="coral"
+                    inline
                   />
                 </section>
               }
