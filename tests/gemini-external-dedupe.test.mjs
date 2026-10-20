@@ -80,7 +80,7 @@ test("published event with same identity and date forbids duplicate",async()=>{
     {httpStatus:200,status:"DUPLICATE"});
 });
 test("events on different dates are NEW",async()=>{
-  assert.deepEqual(await decision("events.vystavy",{event:{...eventMatch,start_date:"2026-12-20"}}),
+  assert.deepEqual(await decision("events.vystavy",{event:{...eventMatch,start_date:"2026-12-20",event_url:"https://other.sk/event",registration_url:null}}),
     {httpStatus:200,status:"NEW"});
 });
 test("unauthorized, stale or missing job fails closed",async()=>{
