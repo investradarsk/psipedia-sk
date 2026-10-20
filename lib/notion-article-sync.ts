@@ -1319,8 +1319,13 @@ export async function writeBackDraftArticleContentToNotion(args: {
     imageAlt: article.imageAlt ?? "",
     imageCreditUrl: article.imageCreditUrl ?? "",
   };
-  const notionArticleId = richTextProperty(page, "Psipedia ID");
-  if (notionArticleId && notionArticleId !== String(article.id)) {
+  // A mapping alone does not authorize writes to a page whose canonical
+  // identity was erased or changed. Require the matching persisted Notion ID
+  // on every read, including journal retries and final verification.
+  const matchesEditorialIdentity = (value: NotionPage) =>
+    value.id === mapping.notion_page_id &&
+    richTextProperty(value, "Psipedia ID") === String(article.id);
+  if (!matchesEditorialIdentity(page)) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   }
   let plan: NotionEditorialPlan;
@@ -1372,7 +1377,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const latest = await notionRequest<NotionPage>(
     args.bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
   );
-  if (latest.id !== page.id || selectProperty(latest, "Stav") !== "Ready" ||
+  if (!matchesEditorialIdentity(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+  if (selectProperty(latest, "Stav") !== "Ready" ||
     !checkboxProperty(latest, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
   const fields: Record<string, unknown> = {};
   for (const [name, expected] of Object.entries(plan.propertyAfter)) {
@@ -1410,6 +1416,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   const verifiedPage = await notionRequest<NotionPage>(
     args.bindings, "/pages/" + encodeURIComponent(page.id),
   );
+  if (!matchesEditorialIdentity(verifiedPage)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (selectProperty(verifiedPage, "Stav") !== "Ready" ||
     !checkboxProperty(verifiedPage, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
