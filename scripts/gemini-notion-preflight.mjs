@@ -115,3 +115,28 @@ export function geminiDirectoryQualityProposal(stableKey, properties) {
   };
   return Object.fromEntries(Object.entries(mapping).map(([key,name])=>[key,read(name)]).filter(([,val])=>val));
 }
+
+/** Public-only update candidates for existing approved Events and Help feeds.
+ * No exact address, private contacts, patient data, status or publishing fields.
+ * If no suitable public field exists, the signed gate returns NO_CHANGES.
+ */
+export function geminiFeedQualityProposal(stableKey, properties) {
+  if (!stableKey.startsWith("events.") && !stableKey.startsWith("help.")) return {};
+  const read=name=>{
+    const field=properties?.[name];
+    if (!field || typeof field!=="object")return "";
+    const direct=field.url;
+    if (typeof direct==="string")return direct.trim().slice(0,2048);
+    const values=field.rich_text??field.title??[];
+    return Array.isArray(values)?values.map(x=>x?.plain_text??x?.text?.content??"").join("").trim().slice(0,1024):"";
+  };
+  let mapping;
+  if(stableKey.startsWith("events.")) mapping={excerpt:"Perex",websiteUrl:"Web",registrationUrl:"Registrácia"};
+  else if(stableKey==="help.utulky")mapping={shortDescription:"Krátky popis",websiteUrl:"Web"};
+  else if(stableKey==="help.adopcia")mapping={shortDescription:"Krátky popis",breedName:"Plemeno",color:"Farba"};
+  else if(stableKey==="help.stratene-a-najdene")mapping={dogName:"Meno psa",breed:"Plemeno",color:"Farba"};
+  else if(["help.docasna-opatera","help.zbierky","help.dobrovolnictvo"].includes(stableKey))
+    mapping={excerpt:"Perex",actionUrl:"Web"};
+  else return {};
+  return Object.fromEntries(Object.entries(mapping).map(([key,name])=>[key,read(name)]).filter(([,value])=>value));
+}
