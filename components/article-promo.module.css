@@ -127,3 +127,34 @@
     white-space: normal;
   }
 }
+
+
+// DS-4: editorial promotions use the same compact banner geometry.
+.card {
+  gap: 14px 24px;
+  margin: clamp(16px, 2.2vw, 24px) 0;
+  padding: 18px clamp(16px, 2.4vw, 26px);
+  border-radius: var(--ps-banner-radius, 18px);
+}
+.compact {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: var(--ps-banner-radius, 18px);
+}
+.cta {
+  max-width: 100%;
+  border-radius: var(--ps-radius-control, 12px);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .card {
+    margin: 16px 0;
+    padding: 18px 16px;
+  }
+  .compact {
+    margin: 0;
+    padding: 16px;
+  }
+  .cta { min-height: 48px; }
+}

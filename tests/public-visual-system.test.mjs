@@ -379,3 +379,36 @@ test("mobile public shells use one 12px gutter and swipe-only grip stays out of 
   assert.match(siteHeader, /tabIndex=\{-1\}\s+data-menu-dismiss-grip/);
   assert.ok(siteHeader.includes('button:not([disabled]):not([tabindex="-1"])'));
 });
+
+
+// DS-4 regression contract: approved Hero and primary search are intentionally
+// outside this change; test only banner composition and responsive ownership.
+test("DS-4 contextual banners own organizer layout without page-local CSS overrides", () => {
+  const component = read("components/public-visual-system/public-context-banner.tsx");
+  const styles = read("components/public-visual-system/public-context-banner.module.css");
+  const events = read("components/events-page.tsx");
+  const eventsCss = read("components/events-public.module.css");
+  assert.match(component, /inline\?: boolean/);
+  assert.match(component, /data-public-context-banner-layout/);
+  assert.match(events, /<PublicContextBanner[\s\S]*?tone="coral"\s+inline/);
+  assert.match(styles, /\.inline > \.copy[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*\.inline > \.copy > a[\s\S]*min-height: 48px/);
+  assert.doesNotMatch(eventsCss, /\.calendarOrganizer \[data-public-context-banner\]/);
+});
+
+test("DS-4 promotional, image and safety banners preserve distinct content with shared mobile CTA sizing", () => {
+  const home = read("components/home-editorial.tsx");
+  const homeCss = read("app/home-v2.module.css");
+  const help = read("components/help-overview.tsx");
+  const helpCss = read("components/help-public.module.css");
+  const articleCss = read("components/article-promo.module.css");
+  const hubCss = read("components/content-hub-cta.module.css");
+  assert.match(home, /data-home-banner=\{testId\}/);
+  assert.match(homeCss, /\.homeV2 :global\(\.home-magazine-banner \.button\)[\s\S]*min-height: 48px/);
+  assert.match(help, /lostFoundSubmitPromo/);
+  assert.match(helpCss, /\.overviewPromo_(care|rescue|volunteer)\{/);
+  assert.match(helpCss, /\.reportBanner[\s\S]*border-left:4px solid var\(--help-accent\)/);
+  assert.match(helpCss, /DS-4:[\s\S]*\.overviewPromoCopy > a[\s\S]*min-height: 48px/);
+  assert.match(articleCss, /DS-4:[\s\S]*\.cta \{ min-height: 48px; \}/);
+  assert.match(hubCss, /DS-4:[\s\S]*\.primary, \.secondary[\s\S]*min-height: 48px/);
+});

@@ -38,3 +38,23 @@
   .actions { gap: 7px; }
   .primary, .secondary { padding-inline: 10px; }
 }
+
+
+// DS-4: informational hub banners share the compact geometry, not the
+// safety treatment reserved for urgent content.
+.card {
+  border-radius: var(--ps-banner-radius, 18px);
+  padding: 18px clamp(16px, 2.4vw, 24px);
+}
+.primary,
+.secondary {
+  border-radius: var(--ps-radius-control, 12px);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 620px) {
+  .actions { justify-content: stretch; }
+  .primary, .secondary {
+    flex: 1 1 100%;
+    min-height: 48px;
+  }
+}

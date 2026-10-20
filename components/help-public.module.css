@@ -344,3 +344,46 @@
   .toolbar[data-help-secondary-filters] .filterToggle { width: 100%; }
   .toolbar[data-help-secondary-filters] .secondaryFiltersOpen { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+// DS-4: contextual, photographic and safety banners share sizing and CTA rhythm.
+// Safety keeps its coral warning strip; the three photo placements remain distinct.
+.reportBanner {
+  min-width: 0;
+  border-radius: var(--ps-banner-radius, 18px);
+}
+.reportCopy > div,
+.overviewPromoCopy {
+  min-width: 0;
+}
+.reportCopy strong,
+.reportCopy p,
+.overviewPromoCopy h2,
+.overviewPromoCopy p,
+.closingCta h2,
+.closingCta p {
+  overflow-wrap: anywhere;
+}
+.reportBanner a,
+.overviewPromoCopy > a,
+.closingCta a {
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ps-radius-control, 12px);
+}
+@media (max-width: 650px) {
+  .reportBanner {
+    gap: 12px;
+    padding: 16px;
+  }
+  .overviewPromoCopy {
+    padding-block: 20px;
+  }
+  .reportBanner a,
+  .overviewPromoCopy > a,
+  .closingCta a {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+}
