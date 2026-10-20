@@ -251,7 +251,10 @@ export async function runNotionFacebookImagesSync({
       if(policy.enabled&&current&&current.title===title&&current.caption===snap.caption
         &&current.image_key===image.key&&current.status===targetStatus
         &&current.scheduled_at===targetAt){
-        out.unchanged++;continue;
+        if(current.outcome_kind==="PROVEN_REJECTED"&&current.attempt_state==="UNCERTAIN"
+          &&await writeBack(bindings,page,current))out.writtenBack++;
+        else out.unchanged++;
+        continue;
       }
       const updatedAt=now.toISOString();
       if(!current) {
