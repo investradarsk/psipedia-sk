@@ -65,7 +65,7 @@ test("public HTML allows normal anonymous HTML but blocks private/no-store and r
     "no-store", "public, NO-STORE", "no-cache", 'no-cache="Set-Cookie"',
     "must-revalidate", "proxy-revalidate", "max-age=0", "s-maxage=0",
     's-maxage="0"', "public, max-age=30", "public, s-maxage=44",
-    "max-age=bogus", "s-maxage", "max-age=-1",
+    "max-age=bogus", "s-maxage", "max-age=-1", "max-age=" + "9".repeat(320),
   ]) assert.equal(allowed(html(control)), false, control);
 });
 
