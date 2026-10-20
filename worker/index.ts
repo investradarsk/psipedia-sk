@@ -295,7 +295,7 @@ const worker = {
     }
     // Dispatch only. Paid Gemini/Notion research NEVER runs inside this Worker.
     // This feature flag is intentionally absent from wrangler.jsonc.
-    // Fail closed before migration 0135 and under STOP; D1 triggers guard races.
+    // Fail closed before migration 0136 and under STOP; D1 triggers guard races.
     let geminiDispatchAllowed = false;
     if (externalAgentEnabled(env) || geminiManualBackgroundEnabled(env)) {
       geminiDispatchAllowed = await requireGeminiRunning(env.DB).then(() => true).catch(() => false);
