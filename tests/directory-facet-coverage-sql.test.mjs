@@ -25,6 +25,10 @@ test("SQL counts only published, explicit values and emits no private fields", (
     ins.run("veterinari", "published", "{}");
     ins.run("veterinari", "published", "{broken");
     ins.run("veterinari", "published", JSON.stringify({ [k]: "invalid" }));
+    ins.run("veterinari", "published", JSON.stringify({ [k]: "" }));
+    ins.run("veterinari", "published", "[]");
+    ins.run("veterinari", "published", JSON.stringify({ [k]: true }));
+    ins.run("veterinari", "published", JSON.stringify({ [k]: "yes" }));
     ins.run("veterinari", "draft", JSON.stringify({ [k]: "yes" }));
     const rows = db.prepare(buildFacetCoverageSql()).all();
     assert.equal(rows.length, 21);
@@ -33,7 +37,11 @@ test("SQL counts only published, explicit values and emits no private fields", (
       Number(v.published_profiles), Number(v.confirmed_values),
       Number(v.explicit_unknown), Number(v.missing_values),
       Number(v.malformed_json), Number(v.invalid_values),
-    ], [6, 2, 1, 2, 1, 1]);
+    ], [10, 3, 1, 2, 2, 2]);
+    assert.equal(Number(v.confirmed_yes), 2);
+    assert.equal(Number(v.confirmed_no), 1);
+    assert.equal(Number(v.confirmed_ambulance), 0);
+    assert.equal(Number(v.published_profiles), ["confirmed_values", "explicit_unknown", "missing_values", "malformed_json", "invalid_values"].reduce((n, key) => n + Number(v[key]), 0));
     assert.equal(Number(rows.find((x) => x.facet === "vencenie.group_walks").published_profiles), 0);
     assert.ok(!JSON.stringify(rows).includes("secret@example.invalid"));
   } finally { db.close(); }
