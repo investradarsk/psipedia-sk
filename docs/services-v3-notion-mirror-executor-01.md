@@ -24,7 +24,7 @@ Related issue #917, merged #897 and #913. Existing contract: docs/services-v3-no
 - Remote timeout after PATCH: state unknown. Never insert receipt. Reacquire the cross-worker exclusive lease, pre-read existing page, repeat the same semantic PATCH, then require a fresh GET and D1 CAS.
 - Duplicate version/receipt and stale D1 edit: reject; no blind overwrite.
 - Remote 403/429/timeout, missing readback, wrong page/parent, content divergence: no verified receipt; explicit retry/review result.
-- No in-process fallback for the lease. A durable cross-instance lock, expiry and failure handling must be supplied by a separately approved future worker.
+- No in-process mutex fallback. A separately scoped, no-expiry cross-worker D1 lease is now implemented over the existing 0124 coordination table; uncertain outcomes retain the lock for operator review. It remains disconnected from production entrypoints.
 - Registry completeness, initial mappings, unique page ownership and actual Notion catalog schema require independent verification. 0134 has no global UNIQUE for Notion page ID. Existing receipts are checked in the transaction, but no new mapping migration is performed.
 - HTTP transport requires server-owned Notion token, approved catalog-specific data-source and distinct typed property map. Its writes default to disabled and require explicit allowWrites=true in a future approved internal worker. No Notion -> D1 catalog changes.
 - No new catalog, categorization, editors, public endpoints, Gemini or Facebook changes, profile migrations, bulk operations, deletion, or automatic approval.
@@ -33,8 +33,8 @@ Related issue #917, merged #897 and #913. Existing contract: docs/services-v3-no
 
 - **0134: APPLIED & VERIFIED on production (2026-10-20, run #39474059819).** Catalog/Notion feature activation remains BLOCKED for independent reasons.
 - Existing flags SERVICE_CATALOG_ADMIN_WRITES_ENABLED and SERVICE_CATALOG_NOTION_MIRROR_READY are untouched and not activated.
-- New executor-only flag mirrorExecutor is required by the injected worker dependencies, and defaults off; no environment variable, cron, worker or deployment is added.
-- Before any future Notion writer rollout: approve catalog-only Notion data-source schema and exact property mapping; verify static option ID/page ownership; provide durable cross-worker lease; complete staging acceptance, restricted token, observability, security/CI review, and separate owner approval for internal worker, feature flags and deployment. Never reapply 0134.
+- Internal runner now reads `SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED` and optional `SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED` gates; both default OFF and are absent from Wrangler. No route, cron, job or deployment is added.
+- Before any future Notion writer rollout: catalog schema is now verified, and a D1 lock adapter plus internal library coordinator exist. Still independently verify production 0124 lock availability, dynamic D1 options and page ownership; complete staging acceptance, restricted token, observability, security/CI review, operator-authenticated invocation and separate owner approval for flags and deployment. Never reapply 0134.
 
 ## Offline tests and CI
 
@@ -57,6 +57,18 @@ Tests use in-memory SQLite 0133+0134 and mocked Notion transport, with success, 
 - **Profile links are canonical D1 records**: option definitions from `service_catalog_admin_options` are associated with profile IDs through `service_profile_option_choices(profile_id, option_id)` and attribute values through `service_profile_property_values(profile_id, property_id)`. A Notion catalog entry is NOT a copy of a directory profile and there is no live Notion-to-Notion profile relation.
 - A new disabled-by-default, **read-only registry adapter** now discovers existing catalog pages through the pinned Notion `POST /v1/data_sources/{id}/query` endpoint (a read operation), exhausts pagination and refuses wrong parents, malformed fields, duplicate owners and incomplete results. It never creates pages or reads profile pages. Offline pagination/identity tests cover its contract.
 - Remaining before live sync: initial creation and approval of canonical option pages (currently zero) plus their complete page ownership; authenticated internal runner, durable cross-worker lease and staging acceptance. Feature flags and all Notion/D1 writes remain OFF pending separate approval.
+
+## Durable cross-worker lease and internal coordinator — implementation prepared, OFF
+
+- Reuses the existing D1 table `gemini_notion_review_locks` from migration **0124**, but exclusively under the separate key prefix `psipedia:services-v3:catalog:` followed by an immutable dynamic option ID. The Gemini Notion reviewer uses UUID-based page keys, so these namespaces do not overlap. **No new D1 migration or table** is added.
+- `createServicesV3CatalogD1Lease()` acquires its cross-worker exclusive lease by one atomic `INSERT OR IGNORE` with a random owner and releases only by owner-matched `DELETE` after `VERIFIED`, `CREATED_NEEDS_MIRROR`, `EXISTS` or read-only `BLOCKED` outcomes.
+- `REVIEW`, `RETRY` and exceptions retain the D1 lock indefinitely. **No expiry, automatic cleanup, or blind retry.** This deliberately prefers manual investigation to duplicate Notion POST/PATCH or an uncertain receipt. Any emergency recovery would require an independent owner-approved read-only assessment; the PR adds no unlock endpoint or mutation tool.
+- `inspectServicesV3CatalogLease()` exposes an explicit **read-only** per-option lock status. No lock token/owner is returned to untrusted callers.
+- `runServicesV3CatalogInternal()` is a **library-only** composition for precisely three actions: `INVENTORY`, `PROVISION_ONE`, `MIRROR_ONE`. It requires a trusted server-owned `authorize()` callback and a server-side `NOTION_API_TOKEN`; no HTTP route, Cron, queue or public UI calls it.
+- `INVENTORY` is read-only and may run with writes disabled. `PROVISION_ONE` and `MIRROR_ONE` require **all three** exact `true` gates: `SERVICE_CATALOG_ADMIN_WRITES_ENABLED`, `SERVICE_CATALOG_NOTION_MIRROR_READY`, `SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED`. Creation additionally requires `SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED=true`. These two latter variables are **not present** in production `wrangler.jsonc`. The Notion port itself also separately requires `allowWrites/allowCreates` for creation.
+- The transport is hard-pinned to the newly created catalog-only Notion data source. It never maps or writes the existing Notion Adresár `Služby` field, copies profiles, changes the static V0.3 catalog or automatically creates an unknown option.
+- The new lock/worker test coverage uses offline SQLite migrations 0124, 0133, 0134, simulated independent contenders and fake Notion responses. Passing these tests demonstrates code behavior, **not production authentication, end-to-end deployment or active sync**.
+- **Still to close:** a read-only production D1 count of `service_catalog_admin_options`, operator-authenticated invocation integration and review, staging sandbox Notion + D1 proof including cross-isolate interruption, independently approved live bootstrap/flag activation and real monitoring. Do not auto-apply 0133/0134 or provision any actual Notion option pages without separate owner authorization.
 
 ## Catalog page creation — manual-only code path, still NOT activated
 
