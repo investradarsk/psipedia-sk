@@ -26,7 +26,8 @@ function post(row:Row):FacebookImagePost {
     createdAt:row.created_at,updatedAt:row.updated_at,approvalStatus:row.approval_status,
     publicationState:row.outcome_kind==="SUPERSEDED"?"PENDING"
       :row.attempt_state==="UNCERTAIN"&&row.outcome_kind==="PROVEN_REJECTED"
-        ?"RETRY_PENDING":row.attempt_state??"PENDING",
+        ?row.retry_not_before?"RETRY_PENDING":"RETRY_EXHAUSTED"
+        :row.attempt_state??"PENDING",
     publicationError:row.error_code??null,
     retryNotBefore:row.outcome_kind==="PROVEN_REJECTED"?row.retry_not_before??null:null,
     retryCount:row.retry_count??0,
@@ -117,7 +118,8 @@ export async function listFacebookImagePosts(
   }
   if(status==="sending"||status==="review"){
     where.push(publisher?status==="review"&&retry
-      ?"a.state='UNCERTAIN' AND a.outcome_kind IN ('UNKNOWN','AMBIGUOUS')"
+      ?"(a.state='UNCERTAIN' AND (a.outcome_kind IN ('UNKNOWN','AMBIGUOUS') "+
+      "OR (a.outcome_kind='PROVEN_REJECTED' AND a.retry_not_before IS NULL)))"
       :"a.state=?":"1=0");
     if(publisher&&(status==="sending"||!retry))
       values.push(status==="sending"?"SENDING":"UNCERTAIN");
@@ -144,7 +146,9 @@ export async function listFacebookImagePosts(
     sum(active+" AND p.status='published'")+" AS published,"+
     sum(active+(publisher?" AND a.state='SENDING'":" AND 1=0"))+" AS sending,"+
     sum(active+(publisher?
-      " AND a.state='UNCERTAIN'"+(retry?" AND a.outcome_kind IN ('UNKNOWN','AMBIGUOUS')":"")
+      " AND a.state='UNCERTAIN'"+(retry?
+        " AND (a.outcome_kind IN ('UNKNOWN','AMBIGUOUS') OR "+
+        "(a.outcome_kind='PROVEN_REJECTED' AND a.retry_not_before IS NULL))":"")
       :" AND 1=0"))+" AS review,"+
     sum(trash?"p.deleted_at IS NOT NULL":"1=0")+" AS trash "+
     "FROM facebook_image_posts p"+join).first<Record<string,number>>();
