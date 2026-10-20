@@ -4,7 +4,8 @@ import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {createAdminCatalogOption} from "../lib/service-catalog-admin-store.ts";
 import {executeServiceCatalogNotionMirror} from "../lib/service-catalog-notion-mirror-executor.ts";
-import {createServiceCatalogNotionHttpPort} from "../lib/service-catalog-notion-http-port.ts";
+import {createServiceCatalogNotionHttpPort, createPsipediaServiceCatalogNotionHttpPort,
+  PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING} from "../lib/service-catalog-notion-http-port.ts";
 
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const sql133=read("drizzle/0133_services_canonical_admin_foundation.sql");
@@ -229,4 +230,31 @@ test("HTTP page read requires designated catalog data-source, not arbitrary prof
       id:PAGE,parent:{type:"data_source_id",data_source_id:OTHER_PAGE},properties:{}
     })})});
   await assert.rejects(()=>x.readPage(PAGE),/WRONG_CATALOG_DATA_SOURCE/);
+});
+
+test("confirmed Psipedia Notion catalog binding has exact 9 properties and stays write-disabled",async()=>{
+  const b=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING;
+  assert.equal(b.dataSourceId,"8785fd64-36c3-4acf-aade-ad99c30ad45d");
+  assert.deepEqual(b.properties,{
+    optionId:"Option ID",optionVersion:"Verzia",kind:"Typ",label:"Názov",
+    group:"Skupina",meaning:"Význam",primaryCategory:"Hlavná kategória",
+    categories:"Kategórie",valueKind:"Druh hodnoty"
+  });
+  assert.equal(Object.keys(b.properties).length,9);
+  assert.ok(!Object.values(b.properties).includes("Služby"));
+  const adapter=createPsipediaServiceCatalogNotionHttpPort({
+    token:"offline-test-only",
+    fetcher:async()=>{throw Error("Network unreachable when disabled");}
+  });
+  await assert.rejects(()=>adapter.writePage(PAGE,{}),/NOTION_WRITES_DISABLED/);
+});
+test("confirmed catalog adapter rejects page from Adresar data source",async()=>{
+  const adapter=createPsipediaServiceCatalogNotionHttpPort({
+    token:"offline-test-only",
+    fetcher:async()=>({ok:true,json:async()=>({
+      id:PAGE,parent:{type:"data_source_id",data_source_id:"84e0664c-ca47-405f-9d54-31b20287bc8c"},
+      properties:{}
+    })})
+  });
+  await assert.rejects(()=>adapter.readPage(PAGE),/WRONG_CATALOG_DATA_SOURCE/);
 });
