@@ -7,7 +7,7 @@ on:
       - 'lib/notion-events-help-sync.ts'
       - 'lib/notion-events-help-adapters.ts'
       - 'tests/notion-profile-field-reconciliation.test.mjs'
-      - 'drizzle/0135_notion_profile_field_baselines.sql'
+      - 'docs/proposals/notion-profile-field-baselines-0135.sql'
       - '.github/workflows/notion-profile-lossless-sync.yml'
   workflow_dispatch:
 
