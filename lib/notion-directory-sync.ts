@@ -41,6 +41,8 @@ import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-can
 import { SITE_URL } from "@/config/public-site";
 import { notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
+import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
+import { reconcileProfileFields } from "@/lib/notion-profile-field-reconciliation";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -659,6 +661,14 @@ async function writeProfileToNotion(input: {
     psipediaUpdatedAt: input.profile.updatedAt,
     syncedAt,
   });
+  // A successful remote PATCH plus equal returned editorial snapshot is the
+  // only safe occasion to advance a common per-field baseline.
+  if (page.properties && await snapshotHash(notionSnapshot(page)) === hash) {
+    await recordProfileFieldBaseline({
+      database: input.database, agenda: "directory", entityId: input.profile.id,
+      pageId: page.id, hash, snapshot: profileSnapshot(input.profile, sourceImageUrl), syncedAt,
+    });
+  }
   return page;
 }
 
@@ -859,6 +869,9 @@ async function applyNotionToProfile(input: {
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const current = input.profile;
 
+  if (desired.status !== current.status || desired.slug !== current.slug || desired.category !== current.category) {
+    throw new Error("REVIEW_REQUIRED: Stav, slug a kategória sa menia iba v kanonickom administrátorskom editore.");
+  }
   if (desired.status === "archived") {
     const archived = await archiveManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
     if (!archived) throw new Error("Profil sa pri synchronizácii nepodarilo archivovať.");
@@ -1049,6 +1062,9 @@ async function syncMappedPage(input: {
   // A mapping can already exist when the first Notion write-back failed.
   // Restore the canonical Psipedia ID/status before ordinary conflict resolution.
   if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
+    if (propertyText(page, "Psipedia ID")) {
+      throw new Error("IDENTITY_CONFLICT: Notion stránka je priradená inému Psipedia ID.");
+    }
     await writeProfileToNotion({
       database: input.database,
       bindings: input.bindings,
@@ -1079,8 +1095,59 @@ async function syncMappedPage(input: {
       });
       return "pushed" as const;
     }
+    await recordProfileFieldBaseline({
+      database: input.database, agenda: "directory", entityId: profile.id,
+      pageId: page.id, hash: profileHash,
+      snapshot: profileSnapshot(profile, currentSourceImageUrl),
+      syncedAt: new Date().toISOString(),
+    });
     return "unchanged" as const;
   }
+
+  // Record-level modified times include our own sync writes. Three-way
+  // comparison NEVER infers which same-field human edit happened last.
+  const baseline = await readProfileFieldBaseline({
+    database: input.database, agenda: "directory", entityId: profile.id,
+    pageId: page.id, expectedHash: lastHash,
+  });
+  const geoMirror = await loadGeoMirror(input.database, profile.id);
+  const canonicalSnapshot = profileSnapshot(profile, currentSourceImageUrl);
+  const notionEditorial = notionSnapshot(page);
+  const protectedFields = new Set([
+    "slug", "category", "status", "confirmedServiceLocation",
+    "verified", "featured", "internalEmail", "qualityCheckedAt",
+    "qualityResolutions.phone", "qualityResolutions.email",
+    "qualityResolutions.website", "qualityResolutions.image",
+    "qualityResolutions.address", "seo.noindex",
+  ]);
+  const confirmedGooglePlace = Boolean(
+    geoMirror?.google_place_id && geoMirror.google_place_source_fingerprint
+    && geoMirror.source_fingerprint
+    && geoMirror.google_place_source_fingerprint === geoMirror.source_fingerprint,
+  );
+  if (confirmedGooglePlace || profile.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") {
+    for (const field of ["region", "district", "city", "address", "postalCode",
+      "street", "houseNumber", "addressFormat"]) protectedFields.add(field);
+  }
+  const resolution = reconcileProfileFields({
+    baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
+  });
+  if (resolution.kind === "CONFLICT") {
+    throw new Error("CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (" +
+      resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1000) + ")");
+  }
+  const desired = resolution.merged as EditableDirectorySnapshot;
+  const updated = await snapshotHash(desired) === profileHash
+    ? profile
+    : await applyNotionToProfile({
+      database: input.database, bindings: input.bindings, page, profile,
+      desiredOverride: desired,
+    });
+  await writeProfileToNotion({
+    database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId,
+    profile: updated, pageId: page.id,
+  });
+  return await snapshotHash(desired) === profileHash ? "pushed" as const : "pulled" as const;
 
   // Owner-approved Gemini 22 Notion priority A: apply only with the
   // separate default-OFF production gate. Respect immutable directory
