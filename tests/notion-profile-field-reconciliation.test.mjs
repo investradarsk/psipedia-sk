@@ -190,3 +190,18 @@ test("changed Events/Help mappings never advance on an unverified Notion PATCH e
   assert.match(sync,
     /NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH[\s\S]{0,350}snapshot: verifiedSnapshot,/);
 });
+
+
+test("directory mapping and baseline cannot advance on a partial or wrong-page Notion echo", async () => {
+  const directory = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  const fn = directory.slice(directory.indexOf("async function writeProfileToNotion("),
+    directory.indexOf("function fullProfileInput("));
+  assert.ok(fn.length > 1000, "test must inspect the actual directory writeback function");
+  const guard = fn.indexOf('throw new Error("NOTION_DIRECTORY_EDITORIAL_WRITEBACK_ECHO_MISMATCH")');
+  const mapping = fn.indexOf("await saveMapping(");
+  const baselineWrite = fn.indexOf("await recordProfileFieldBaseline(");
+  assert.ok(guard > 0 && guard < mapping && mapping < baselineWrite,
+    "remote identity/payload must be checked before committing mapping and baseline");
+  assert.match(fn, /input\.pageId && page\.id !== input\.pageId/);
+  assert.match(fn, /!page\.properties \|\| await snapshotHash\(notionSnapshot\(page\)\) !== hash/);
+});
