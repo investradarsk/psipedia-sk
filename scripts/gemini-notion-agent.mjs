@@ -11,7 +11,7 @@ import { retryInitialResearch503 } from "./gemini-research-retry.mjs";
 import { createHmac } from "node:crypto";
 import { notionCategoryValue } from "./gemini-notion-category.mjs";
 import { buildGeminiNotionDraft, geminiNotionSchema, geminiDraftIdentity } from "./gemini-notion-directory-fields.mjs";
-import { classifyGeminiNotionIdentity, geminiDedupeCandidate } from "./gemini-notion-preflight.mjs";
+import { classifyGeminiNotionIdentity, geminiDedupeCandidate, geminiDirectoryQualityProposal } from "./gemini-notion-preflight.mjs";
 
 const env = process.env;
 const jobId = Number(env.AGENT_JOB_ID);
@@ -174,6 +174,25 @@ async function canonicalDedupe(target, properties) {
   catch { throw Error("GEMINI_DEDUPE_BLOCKED"); }
   if (!data || !["NEW", "DUPLICATE", "POSSIBLE_DUPLICATE", "REJECTED_BEFORE", "BLOCKED"].includes(data.status))
     throw Error("GEMINI_DEDUPE_BLOCKED");
+  if (data.status === "DUPLICATE" && stableKey.startsWith("directory.")) {
+    const proposal = geminiDirectoryQualityProposal(stableKey, properties);
+    if (Object.keys(proposal).length) {
+      const payload = JSON.stringify({
+        job_id:jobId,stable_key:stableKey,issued_at:Date.now(),
+        candidate:geminiDedupeCandidate(stableKey,properties),proposal,
+      });
+      const hmac = "sha256="+createHmac("sha256",env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+        .update(payload).digest("hex");
+      // This endpoint only creates an OPEN review suggestion in existing Data
+      // Quality. A failure must never turn a known duplicate into Notion create.
+      try {
+        await fetch("https://psipedia.sk/api/internal/gemini-agent/update-proposal",{
+          method:"POST",headers:{"Content-Type":"application/json","X-Psipedia-Signature":hmac},
+          body:payload,signal:AbortSignal.timeout(20000),
+        });
+      } catch { /* duplicate always stays a duplicate, no retry/write bypass */ }
+    }
+  }
   return data.status;
 }
 
