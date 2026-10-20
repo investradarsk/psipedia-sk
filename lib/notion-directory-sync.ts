@@ -739,7 +739,7 @@ function newProfileInput(
     category: desired.category,
     // New Notion Ready records must first enter canonical draft review.
     // Publication requires explicit Notion Psipedia stav = Publikované.
-    status: desired.status === "published" ? "published" : "draft",
+    status: "draft", // Notion-first creates never publish without canonical Admin action.
     excerpt: desired.excerpt,
     description: desired.description,
     services: desired.services,
