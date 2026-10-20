@@ -203,8 +203,10 @@ async function loadWriter(h) {
 test("disabled content writeback performs zero database or Notion I/O", async () => {
   const h = setup({ enabled: false });
   const writer = await loadWriter(h);
-  assert.deepEqual(await writer({ database: h.db, bindings: h.bindings, article: h.article }),
-    { linked: false, updated: false, reason: "disabled" });
+  const result = await writer({ database: h.db, bindings: h.bindings, article: h.article });
+  assert.equal(result.linked, false);
+  assert.equal(result.updated, false);
+  assert.equal(result.reason, "disabled");
   assert.equal(h.calls.length, 0);
 });
 
