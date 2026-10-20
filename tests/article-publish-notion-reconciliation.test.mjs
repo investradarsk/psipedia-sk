@@ -29,6 +29,7 @@ const syncDependencies = {
   "@/lib/portal": { articleHref: ({ portalSection, slug }) => "/" + portalSection + "/" + slug },
   "@/lib/article-subsection-taxonomy": {},
   "@/config/public-site": { SITE_URL: "https://psipedia.sk" },
+  "@/lib/notion-article-content-plan": {},
 };
 
 function publicationHarness({
