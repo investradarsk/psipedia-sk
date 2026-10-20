@@ -14,7 +14,6 @@ import {getAdminApiUser,requireAdminMutation,unauthorizedAdminResponse} from "@/
 import {runServicesV3CatalogInternal} from "@/lib/service-catalog-notion-internal-runner";
 
 export const dynamic="force-dynamic";
-export const runtime="edge";
 
 type Bindings={
   DB?:D1Database;
@@ -60,12 +59,25 @@ export async function POST(request:Request){
   const contentLength=request.headers.get("content-length");
   if(contentLength!==null&&(!/^\d+$/.test(contentLength)||Number(contentLength)>1024))
     return blocked("INVALID_REQUEST_SIZE",413);
+  // Bounded read also handles HTTP chunked requests without Content-Length.
   let body:unknown;
+  if(!request.body)return blocked("INVALID_JSON_BODY",400);
+  const reader=request.body.getReader();
+  const decoder=new TextDecoder("utf-8",{fatal:true});
+  let raw="",size=0,tooLarge=false;
   try{
-    const raw=await request.text();
-    if(raw.length>1024)return blocked("INVALID_REQUEST_SIZE",413);
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      size+=value.byteLength;
+      if(size>1024){tooLarge=true;await reader.cancel();break;}
+      raw+=decoder.decode(value,{stream:true});
+    }
+    if(tooLarge)return blocked("INVALID_REQUEST_SIZE",413);
+    raw+=decoder.decode();
     body=JSON.parse(raw);
   }catch{return blocked("INVALID_JSON_BODY",400);}
+  finally{reader.releaseLock();}
   if(!body||typeof body!=="object"||Array.isArray(body))
     return blocked("INVALID_REQUEST_BODY",400);
   const b=body as Record<string,unknown>;
