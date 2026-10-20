@@ -25,6 +25,8 @@ function visualStatus(post:FacebookImagePost){
   if(post.deletedAt)return {label:"V koši",kind:"trash"};
   if(post.publicationState==="SENDING")return {label:"Práve sa odosiela…",kind:"sending"};
   if(post.publicationState==="UNCERTAIN")return {label:"Na preverenie",kind:"review"};
+  if(post.publicationState==="RETRY_PENDING")return {label:"Čaká na automatické opakovanie",kind:"scheduled"};
+  if(post.publicationState==="RETRY_EXHAUSTED")return {label:"Opakovanie vyčerpané",kind:"review"};
   if(post.status==="published")return {label:"Publikovaný",kind:"published"};
   if(post.status==="scheduled")return {label:"Naplánovaný",kind:"scheduled"};
   return {label:"Koncept",kind:"draft"};
@@ -170,7 +172,10 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
     </AdminActionButton>;
   };
   const published=editor?.post?.status==="published";
-  const attempted=editor?.post?.publicationState && editor.post.publicationState!=="PENDING";
+  // Explicitly rejected Meta throttles are safe to cancel/replan. Unknown
+  // transport results and in-flight attempts remain immutable.
+  const attempted=editor?.post?.publicationState
+    && !["PENDING","RETRY_PENDING","RETRY_EXHAUSTED"].includes(editor.post.publicationState);
   const locked=Boolean(published||attempted||editor?.post?.deletedAt);
   const link=facebookUrl(editor?.post?.facebookPostId);
   const scheduledInMonth=data.calendar.filter(post=>post.status==="scheduled"&&!post.deletedAt&&post.scheduledAt)
@@ -298,7 +303,9 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
               facebookWallTime(post.scheduledAt).date+" "+facebookWallTime(post.scheduledAt).time+" · Bratislava":"Bez dátumu"}
               {post.approvalStatus==="APPROVED"?" · Povolené plánované publikovanie":""}
               {post.directPublishConsent?" · Súhlas majiteľa s priamym publikovaním":""}
-              {post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}</p>
+              {post.publicationState==="UNCERTAIN"?" · Neopakovať bez preverenia":""}
+              {post.publicationState==="RETRY_PENDING"?" · Opakovať po "+shownAt(post.retryNotBefore):""}
+              {post.publicationState==="RETRY_EXHAUSTED"?" · Vyčerpané bezpečné pokusy, zmeň termín alebo zruš":""}</p>
             <div className={styles.itemActions}>
               {facebookUrl(post.facebookPostId)&&<a href={facebookUrl(post.facebookPostId)??"#"} target="_blank" rel="noopener noreferrer">Otvoriť na Facebooku ↗</a>}
               {data.trashAvailable&&post.publicationState!=="SENDING"&&<button type="button" disabled={busy}
@@ -346,6 +353,8 @@ export function AdminFacebookImages({initial,initialMonth}:{initial:Data;initial
           </AdminActionButton>
           {dirty&&<p>Najprv ulož zmeny príspevku. Každou úpravou obsahu alebo termínu sa obe povolenia zrušia.</p>}
         </div>}
+        {editor.post?.publicationState==="RETRY_PENDING"&&<p role="status">Facebook odmietol odoslanie z dôvodu dočasného obmedzenia. Ďalší bezpečný pokus: {shownAt(editor.post.retryNotBefore)}. Môžeš zrušiť naplánovanie alebo zmeniť termín; pôvodný pokus zostane v histórii a nebude znovu odoslaný.</p>}
+        {editor.post?.publicationState==="RETRY_EXHAUSTED"&&<p role="status">Facebook dočasne odmietol všetky povolené pokusy. Príspevok sa už automaticky neopakuje; môžeš ho zrušiť alebo nastaviť nový termín, pretože odmietnutie bolo jednoznačné.</p>}
         {editor.post?.publicationState==="UNCERTAIN"&&<p role="alert">Výsledok odoslania je neistý ({editor.post.publicationError??"neznáma chyba"}). Príspevok sa automaticky neodošle znova. Najskôr skontroluj Facebook stránku.</p>}
         {editor.post?.publicationState==="SENDING"&&<p role="status">Odoslanie sa začalo. Pri prerušení je potrebné manuálne preverenie, aby nevznikla duplicita.</p>}
         {editor.post&&<section className={styles.timeline} aria-label="História príspevku">
