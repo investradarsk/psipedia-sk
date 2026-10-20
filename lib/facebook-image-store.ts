@@ -1,5 +1,6 @@
 import {env} from "cloudflare:workers";
 import {normalizeFacebookImageInput, type FacebookImagePost, type FacebookImageInput} from "@/lib/facebook-image-post";
+import {facebookImageScheduleV2Policy} from "@/lib/facebook-image-schedule-v2";
 export class FacebookImageSchemaUnavailable extends Error {
   constructor() { super("Modul čaká na schválenú D1 migráciu 0128. Žiadne údaje sa nezapisujú."); }
 }
@@ -135,16 +136,24 @@ async function verifyImage(input:FacebookImageInput) {
 export async function saveFacebookImagePost(id:string|null,raw:unknown,actor:string,db=facebookImageDb()) {
   await requireFacebookImageSchema(db);
   const input=normalizeFacebookImageInput(raw);await verifyImage(input);
+  const policy=facebookImageScheduleV2Policy(env as unknown as Parameters<typeof facebookImageScheduleV2Policy>[0]);
+  // The authenticated admin scheduling action itself is authorization in V2.
+  if(policy.enabled&&input.scheduledAt&&input.imageKey)input.status="scheduled";
   const now=new Date().toISOString();
+  const approved=policy.enabled&&input.status==="scheduled"&&Boolean(input.imageKey);
+  const approvalStatus=approved?"APPROVED":"UNREVIEWED";
+  const approvedAt=approved?now:null,approvedBy=approved?actor:null;
   const publisher=await hasPublisherSchema(db),consent=await hasDirectConsentSchema(db);
   if(id){
     const expected=(raw as {expectedVersion?:unknown}).expectedVersion;
     if (!Number.isSafeInteger(expected) || Number(expected)<1)throw new FacebookImageConflict();
-    const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status='UNREVIEWED',approved_at=NULL,approved_by=NULL,${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?"AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)":""} RETURNING ${columns}`)
-      .bind(input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,input.status,now,actor,id,expected).first<Row>();
+    const row=await db.prepare(`UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,${consent?"direct_publish_consent=0,direct_consent_at=NULL,direct_consent_by=NULL,":""}version=version+1,updated_at=?,updated_by=? WHERE id=? AND version=? AND status IN ('draft','scheduled') ${await hasTrashSchema(db)?"AND deleted_at IS NULL ":""}${publisher?"AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)":""} RETURNING ${columns}`)
+      .bind(input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,input.status,
+        approvalStatus,approvedAt,approvedBy,now,actor,id,expected).first<Row>();
     if(!row)throw new FacebookImageConflict();return post(row);
   }
-  const row=await db.prepare(`INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,version,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,1,?,?,?,?) RETURNING ${columns}`)
-    .bind(crypto.randomUUID(),input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,input.status,now,now,actor,actor).first<Row>();
+  const row=await db.prepare(`INSERT INTO facebook_image_posts(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,approved_at,approved_by,version,created_at,updated_at,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?,?) RETURNING ${columns}`)
+    .bind(crypto.randomUUID(),input.title,input.imageUrl,input.imageKey,input.caption,input.scheduledAt,
+      input.status,approvalStatus,approvedAt,approvedBy,now,now,actor,actor).first<Row>();
   if(!row)throw new Error("Príspevok sa nepodarilo uložiť.");return post(row);
 }
