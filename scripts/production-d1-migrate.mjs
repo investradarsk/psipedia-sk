@@ -4,14 +4,47 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPreparedMigrations } from "./production-d1-0123-0124-preflight.mjs";
+import { readFileSync } from "node:fs";
+import { PINNED_SHA256_0134, expected0134Objects, normalize0134Ddl, TABLES_0134, INDEXES_0134, TRIGGERS_0134, AUTO_INDEX_0134 } from "./production-d1-0134-readonly.mjs";
+import { PINNED_SHA256_0135, RETRY_0135_COLUMNS, OBJECTS_0135, assertFacebookRetry0135Schema as assert0135SchemaExact } from "./production-d1-0135-schema.mjs";
+import { PINNED_SHA256_0136, OBJECTS_0136, assertGeminiStop0136Schema as assert0136SchemaExact } from "./production-d1-0136-schema.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
-// Prepared migrations are excluded from production until independently approved.
-// 0133 is now a separately owner-reviewed, manually gated production target.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0134_services_admin_change_audit.sql","0135_facebook_image_safe_retry.sql"]);
+// 0134 was applied and verified in protected production run 39474059819.
+// 0135 is only eligible for a separate OWNER-DISPATCHED protected production workflow.
+// This code and a PR merge must never start the migration or enable retry flags.
+// 0136 must be owner-dispatched in the protected workflow, never by a PR merge or Cloudflare Workers Build.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0136_SHA256 = PINNED_SHA256_0136;
+export function assertApproved0136Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0136 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0136_SHA256, "0136 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0136NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0136_gemini_global_stop.sql")
+    invariant(!targetApplied, "0136 already applied; refusing repeated production APPLY");
+}
+export const APPROVED_0135_SHA256 = PINNED_SHA256_0135;
+export function assertApproved0135Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0135 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0135_SHA256, "0135 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0135NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0135_facebook_image_safe_retry.sql")
+    invariant(!targetApplied, "0135 already applied; refusing repeated production APPLY");
+}
+export const APPROVED_0134_SHA256 = PINNED_SHA256_0134;
+export function assertApproved0134Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0134 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0134_SHA256, "0134 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0134NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0134_services_admin_change_audit.sql")
+    invariant(!targetApplied, "0134 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0133_SHA256 = "656fcd963394076bfd5a7829e71b52a3bb83427e38a16f275e63af21b0f6eaef";
 export function assertApproved0133Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0133 requires canonical psipedia-sk-db");
@@ -195,6 +228,9 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0131_facebook_image_trash.sql",
   "0132_facebook_image_direct_consent.sql",
   "0133_services_canonical_admin_foundation.sql",
+  "0134_services_admin_change_audit.sql",
+  "0135_facebook_image_safe_retry.sql",
+  "0136_gemini_global_stop.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -712,6 +748,12 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0132Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0133_services_canonical_admin_foundation.sql")
     assertApproved0133Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0134_services_admin_change_audit.sql")
+    assertApproved0134Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0135_facebook_image_safe_retry.sql")
+    assertApproved0135Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0136_gemini_global_stop.sql")
+    assertApproved0136Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -822,6 +864,7 @@ function schemaState(databaseName, configPath) {
   const geminiNotionReviewLockColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_notion_review_locks')");
   const geminiCategoryPromptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_category_prompts')");
   const geminiAutomationSettingsColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_automation_settings')");
+  const geminiManualJobColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_manual_background_jobs')");
   const adminPushSubscriptionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_push_subscriptions')");
   const adminNotificationReadReceiptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_notification_read_receipts')");
   const adminNotificationReadReceiptForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('admin_notification_read_receipts')");
@@ -829,6 +872,7 @@ function schemaState(databaseName, configPath) {
   const partnerAuthIdentityForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('partner_auth_identities')");
   const moderationSubmissionForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('moderation_submissions')");
   const facebookImagePostColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('facebook_image_posts')");
+  const facebookImageAttemptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('facebook_image_publish_attempts')");
   const objects = d1Execute(
     databaseName,
     configPath,
@@ -860,6 +904,7 @@ function schemaState(databaseName, configPath) {
     geminiNotionReviewLockColumns,
     geminiCategoryPromptColumns,
     geminiAutomationSettingsColumns,
+    geminiManualJobColumns,
     adminPushSubscriptionColumns,
     adminNotificationReadReceiptColumns,
     adminNotificationReadReceiptForeignKeys,
@@ -867,6 +912,7 @@ function schemaState(databaseName, configPath) {
     partnerAuthIdentityForeignKeys,
     moderationSubmissionForeignKeys,
     facebookImagePostColumns,
+    facebookImageAttemptColumns,
     objects,
   };
 }
@@ -1326,6 +1372,21 @@ export function targetSchemaObjects(schema, targetMigration) {
       "service_catalog_admin_options_mirror_idx", "service_profile_option_choices",
       "service_profile_option_choices_option_idx", "service_profile_property_values",
     ].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0134_services_admin_change_audit.sql") {
+    const owned = new Set([...TABLES_0134, ...INDEXES_0134, ...TRIGGERS_0134, AUTO_INDEX_0134]);
+    return { partial: (schema.objects ?? []).some(row =>
+      owned.has(String(row.name)) ||
+      (row.type === "trigger" && ["service_catalog_admin_options", "service_profile_option_choices"].includes(String(row.tbl_name)))) };
+  }
+  if (targetMigration === "0135_facebook_image_safe_retry.sql") {
+    return { partial: (schema.facebookImageAttemptColumns ?? []).some(column =>
+        RETRY_0135_COLUMNS.includes(String(column.name))) ||
+      (schema.objects ?? []).some(row => OBJECTS_0135.includes(String(row.name))) };
+  }
+  if (targetMigration === "0136_gemini_global_stop.sql") {
+    return { partial: (schema.geminiManualJobColumns ?? []).some(column => column.name === "worker_started_at") ||
+      (schema.objects ?? []).some(row => OBJECTS_0136.includes(String(row.name))) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2475,6 +2536,55 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 131) assertFacebookImageTrashSchema(schema);
   if (migrationIndex(targetMigration) >= 132) assertFacebookImageDirectConsentSchema(schema);
   if (migrationIndex(targetMigration) >= 133) assertServicesCanonicalAdminSchema(schema);
+  if (migrationIndex(targetMigration) >= 134) assertServicesAdminAudit0134Schema(schema);
+  if (migrationIndex(targetMigration) >= 135) assertFacebookRetry0135Schema(schema);
+  if (migrationIndex(targetMigration) >= 136) assertGeminiStop0136Schema(schema);
+}
+
+/** Exact 0136 postflight with protected DDL verification. */
+export function assertGeminiStop0136Schema(schema) {
+  const sql = readFileSync(path.join(repoRoot, "drizzle/0136_gemini_global_stop.sql"), "utf8");
+  assertApproved0136Target("psipedia-sk-db", createHash("sha256").update(sql).digest("hex"));
+  return assert0136SchemaExact(schema, sql);
+}
+
+/** Exact 0135 postflight, including new columns, retry bounds, and immutable audit triggers. */
+export function assertFacebookRetry0135Schema(schema) {
+  const source=readFileSync(path.join(repoRoot,"drizzle/0135_facebook_image_safe_retry.sql"),"utf8");
+  assertApproved0135Target("psipedia-sk-db",createHash("sha256").update(source).digest("hex"));
+  return assert0135SchemaExact(schema,source);
+}
+
+/** Exact 0134 postflight: enforce approved DDL and all append-only/receipt triggers. */
+export function assertServicesAdminAudit0134Schema(schema) {
+  const migration = readFileSync(path.join(repoRoot, "drizzle/0134_services_admin_change_audit.sql"), "utf8");
+  assertApproved0134Target("psipedia-sk-db", createHash("sha256").update(migration).digest("hex"));
+  const expected = expected0134Objects(migration);
+  const observed = schema.objects ?? [];
+  const required = new Set([...expected.keys(), AUTO_INDEX_0134]);
+  for (const [name, want] of expected) {
+    const matches = observed.filter(row => row.name === name);
+    invariant(matches.length === 1, "0134 missing/duplicated canonical object: " + name);
+    const row = matches[0];
+    const parent = want.type === "table" ? name
+      : want.type === "index" ? TABLES_0134[0]
+      : name.startsWith("service_catalog_admin_option_") ? "service_catalog_admin_options"
+      : name.startsWith("service_catalog_admin_choice_") ? "service_profile_option_choices"
+      : name.startsWith("service_catalog_admin_receipt_") ? TABLES_0134[1] : TABLES_0134[0];
+    invariant(row.type === want.type && row.tbl_name === parent &&
+      normalize0134Ddl(row.sql) === want.sql, "0134 canonical DDL mismatch: " + name);
+  }
+  const implicit = observed.filter(row => row.name === AUTO_INDEX_0134);
+  invariant(implicit.length === 1 && implicit[0].type === "index" &&
+    implicit[0].tbl_name === TABLES_0134[1] && implicit[0].sql === null,
+    "0134 receipt UNIQUE index missing/modified");
+  for (const row of observed) {
+    if (TABLES_0134.includes(row.tbl_name) ||
+        (row.type === "trigger" && ["service_catalog_admin_options", "service_profile_option_choices"].includes(row.tbl_name))) {
+      invariant(required.has(row.name), "0134 unexpected related DDL object");
+    }
+  }
+  return true;
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2531,6 +2641,22 @@ function migrationHistory(databaseName, configPath) {
   return d1Execute(databaseName, configPath, "SELECT id,name,applied_at FROM d1_migrations ORDER BY id");
 }
 
+/** No captions, media URLs or access tokens are persisted in rollout reports. */
+function facebookRetryPreservationSnapshot(databaseName, configPath) {
+  const posts = d1Execute(databaseName, configPath,
+    "SELECT id,status,version,scheduled_at,approval_status,facebook_post_id,published_at,notion_page_id FROM facebook_image_posts ORDER BY id");
+  const attempts = d1Execute(databaseName, configPath,
+    "SELECT post_id,snapshot_version,state,remote_id,started_at,completed_at,error_code FROM facebook_image_publish_attempts ORDER BY post_id");
+  const settings = d1Execute(databaseName, configPath,
+    "SELECT id,enabled,updated_at,updated_by FROM facebook_image_publisher_settings ORDER BY id");
+  return {posts:posts.length,attempts:attempts.length,settings:settings.length,
+    postsSha:stableHash(posts),attemptsSha:stableHash(attempts),settingsSha:stableHash(settings)};
+}
+export function assertFacebookRetryPreserved(before, after) {
+  invariant(before && after, "0135 Facebook data snapshots are required");
+  for (const field of ["posts","attempts","settings","postsSha","attemptsSha","settingsSha"])
+    invariant(before[field] === after[field], "0135 changed existing Facebook publisher data: " + field);
+}
 function dataSnapshot(databaseName, configPath) {
   const directoryProfiles = scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM directory_profiles");
   const helpOrganizations = scalarCount(databaseName, configPath, "SELECT COUNT(*) AS count FROM help_organizations");
@@ -2760,6 +2886,8 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
   assertRolloutChainSchema(schema, targetMigration);
+  if (targetIndex >= 134) assertServicesCanonicalAdminSchema(schema);
+  if (targetIndex >= 136) assertFacebookRetry0135Schema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -2857,6 +2985,9 @@ async function preflight(targetMigration) {
   assert0131NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0132NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0133NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0134NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0135NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0136NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -2916,6 +3047,13 @@ async function preflight(targetMigration) {
   const geminiSchedulerBefore = targetIndex === 126
     ? geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath, schema)
     : null;
+  const facebookRetryBefore = targetIndex === 135
+    ? facebookRetryPreservationSnapshot(databaseName, prepared.configPath)
+    : null;
+  if (targetIndex === 135) invariant(
+    scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM facebook_image_publish_attempts WHERE state='SENDING'") === 0,
+    "0135 requires no in-flight Facebook publisher claims");
   const facebookPostsBefore = (targetIndex >= 130 && targetIndex <= 132)
     ? scalarCount(databaseName, prepared.configPath, "SELECT COUNT(*) AS count FROM facebook_image_posts")
     : null;
@@ -2963,6 +3101,7 @@ async function preflight(targetMigration) {
     additivePreservationBefore,
     geminiSchedulerBefore,
     facebookPostsBefore,
+    facebookRetryBefore,
     before: snapshot,
   };
   await writeJson(".production-d1/preflight-internal.json", internal);
@@ -2987,6 +3126,8 @@ async function preflight(targetMigration) {
     additivePreservationCounts: additivePreservationBefore ? Object.fromEntries(Object.entries(additivePreservationBefore.tables).map(([table, value]) => [table, value.count])) : null,
     geminiSchedulerSettingsCount: geminiSchedulerBefore?.count ?? null,
     facebookPostsBefore,
+    facebookRetryCountsBefore: facebookRetryBefore ? {posts:facebookRetryBefore.posts,
+      attempts:facebookRetryBefore.attempts,settings:facebookRetryBefore.settings} : null,
     pendingScopedMigrations: pending.split(/\r?\n/).filter(Boolean),
     schemaDrift: false,
   });
@@ -3024,6 +3165,16 @@ async function apply(targetMigration) {
   assert0131NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0132NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0133NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0134NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0135NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0136NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  if (prepared.selection.targetIndex === 135) {
+    invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM facebook_image_publish_attempts WHERE state='SENDING'") === 0,
+      "0135 in-flight publisher claim appeared since preflight");
+    assertFacebookRetryPreserved(internal.facebookRetryBefore,
+      facebookRetryPreservationSnapshot(prepared.resources.d1.database_name, prepared.configPath));
+  }
   if (prepared.selection.targetIndex === 129) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,
@@ -3062,6 +3213,14 @@ async function verify(targetMigration) {
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
   const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex === 136) {
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_global_control WHERE id=1 AND state='RUNNING' AND revision=0") === 1,
+      "0136 singleton control row is not in safe initial RUNNING state");
+  }
+  if (targetIndex === 135)
+    assertFacebookRetryPreserved(internal.facebookRetryBefore,
+      facebookRetryPreservationSnapshot(databaseName, prepared.configPath));
   let geminiSchedulerSettingsCount = null;
   if (targetIndex === 126) {
     const snapshot = geminiSchedulerSettingsSnapshot(databaseName, prepared.configPath,

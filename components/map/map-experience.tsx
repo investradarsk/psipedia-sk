@@ -78,7 +78,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
           <span>Typ služby</span>
           <select
             value={filters.subcategory}
-            onChange={(event) => onChange({ ...filters, subcategory: event.target.value })}
+            onChange={(event) => onChange({ ...filters, subcategory: event.target.value, facets: {} })}
           >
             <option value="">Všetky služby</option>
             {directoryCategories.map((category) => (

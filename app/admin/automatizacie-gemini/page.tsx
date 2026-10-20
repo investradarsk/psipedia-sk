@@ -16,7 +16,8 @@ import {
   listGeminiManualBackgroundJobs,
   type GeminiQueuedJob,
 } from "@/lib/gemini-automation-background-queue";
-import { externalAgentEnabled } from "@/lib/gemini-external-agent";
+import { externalAgentEnabled, externalAgentScheduledEnabled } from "@/lib/gemini-external-agent";
+import { getGeminiGlobalControl, type GeminiGlobalControl } from "@/lib/gemini-global-control";
 import styles from "@/components/admin-gemini-automation.module.css";
 
 export const dynamic = "force-dynamic";
@@ -39,12 +40,14 @@ export default async function AdminGeminiAutomationPage({ searchParams }: {
   );
   const queueEnabled = externalEnabled || backgroundEnabled;
   let ready = true;
+  let control: GeminiGlobalControl | null = null;
 
   try {
     const db = requireGeminiAdminD1();
-    [settings, runs] = await Promise.all([
+    [settings, runs, control] = await Promise.all([
       listGeminiSettings(db),
       listRecentGeminiRuns(db),
+      getGeminiGlobalControl(db),
     ]);
     if (queueEnabled) queuedJobs = await listGeminiManualBackgroundJobs(db);
   } catch {
@@ -79,6 +82,8 @@ export default async function AdminGeminiAutomationPage({ searchParams }: {
         available={ready}
         externalEnabled={externalEnabled}
         queueEnabled={queueEnabled}
+        scheduledEnabled={externalAgentScheduledEnabled(env)}
+        control={control}
         initialJobs={queuedJobs}
         recentRuns={runs}
         initialSelectedKey={initialSelectedKey}
