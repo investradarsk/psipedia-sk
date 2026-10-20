@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { reconcileProfileFields } from "../lib/notion-profile-field-reconciliation.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
 import {
   readProfileFieldBaseline, recordProfileFieldBaseline, profileFieldBaselineTableReady,
   profileFieldSnapshotHash,
@@ -204,4 +204,64 @@ test("directory mapping and baseline cannot advance on a partial or wrong-page N
     "remote identity/payload must be checked before committing mapping and baseline");
   assert.match(fn, /input\.pageId && page\.id !== input\.pageId/);
   assert.match(fn, /!page\.properties \|\| await snapshotHash\(notionSnapshot\(page\)\) !== hash/);
+});
+
+
+test("common baseline is inferred from one unchanged side without any new D1 table", () => {
+  const common = { name: "Old", web: "https://original.sk" };
+  const changedNotion = { ...common, name: "Notion title" };
+  const changedAdmin = { ...common, web: "https://admin.sk" };
+  const read = (notion, psipedia, nHash, pHash) =>
+    trustedProfileBaselineFromHashes({
+      recorded: null, notion, psipedia,
+      mappingHash: "last-good", notionHash: nHash, psipediaHash: pHash,
+    });
+
+  const notionBaseline = read(changedNotion, common, "notion-new", "last-good");
+  assert.deepEqual(notionBaseline, common);
+  assert.deepEqual(reconcileProfileFields({
+    baseline: notionBaseline, notion: changedNotion, psipedia: common,
+    protectedFields: new Set(),
+  }).merged, changedNotion);
+
+  const adminBaseline = read(common, changedAdmin, "last-good", "admin-new");
+  assert.deepEqual(adminBaseline, common);
+  assert.deepEqual(reconcileProfileFields({
+    baseline: adminBaseline, notion: common, psipedia: changedAdmin,
+    protectedFields: new Set(),
+  }).merged, changedAdmin);
+
+  // With two independent different edits there is no provable common field
+  // snapshot unless a separate, validated receipt has been stored.
+  assert.equal(read(changedNotion, changedAdmin, "notion-new", "admin-new"), null);
+  assert.equal(reconcileProfileFields({
+    baseline: null, notion: changedNotion, psipedia: changedAdmin,
+    protectedFields: new Set(),
+  }).kind, "CONFLICT");
+
+  // Both current sides have exactly the same values, so neither is overwritten.
+  assert.deepEqual(read(changedAdmin, changedAdmin, "same-new", "same-new"), changedAdmin);
+
+  const stored = common;
+  assert.deepEqual(trustedProfileBaselineFromHashes({
+    recorded: stored, notion: changedNotion, psipedia: changedAdmin,
+    mappingHash: "last-good", notionHash: "notion-new", psipediaHash: "admin-new",
+  }), common);
+});
+
+test("one-sided inferred baseline still refuses unauthorized clears and protected edits", () => {
+  const state = { title: "Original", status: "published" };
+  const change = { title: "", status: "published" };
+  const baseline = trustedProfileBaselineFromHashes({
+    recorded: null, notion: change, psipedia: state,
+    mappingHash: "last-good", notionHash: "notion-new", psipediaHash: "last-good",
+  });
+  assert.equal(reconcileProfileFields({
+    baseline, notion: change, psipedia: state,
+    protectedFields: new Set(["status"]),
+  }).conflicts[0].reason, "UNVERIFIED_DELETE");
+  assert.equal(reconcileProfileFields({
+    baseline, notion: { ...change, status: "draft" }, psipedia: state,
+    protectedFields: new Set(["status"]),
+  }).kind, "CONFLICT");
 });
