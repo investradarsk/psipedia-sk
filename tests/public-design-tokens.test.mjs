@@ -77,7 +77,10 @@ test("DS-1A baseline stays byte-identical before the approved DS-3 additive publ
   // Compare the exact original source before the uniquely marked DS-3 extension.
   const ds3Marker = "\n/* DS-3 PUBLIC SEARCH";
   assert.equal(css.split(ds3Marker).length, 2, "DS-3 public search extension must be unique");
-  const block = aliasBlock(css.split(ds3Marker)[0]);
+  // The additive DS-3 block is separated by one blank line; preserve the
+  // original stylesheet's single terminal newline for the byte-exact snapshot.
+  const ds1aBaseline = css.split(ds3Marker)[0].replace(/\n+$/, "\n");
+  const block = aliasBlock(ds1aBaseline);
   assert.equal(gitBlobSha(block.before + block.after), originalBlob);
   const lines = block.content.trimEnd().split("\n");
   assert.equal(lines.length, expected.size);
