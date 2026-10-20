@@ -1489,7 +1489,7 @@ async function syncOneNotionPage(
 ): Promise<"created" | "updated" | "unchanged"> {
   validateSyncGate(page);
   // An in-flight editor writeback is not a valid Notion import baseline.
-  // Check schema existence to keep the legacy import usable before 0135 runs.
+  // Check schema existence to keep legacy imports safe while the article outbox is only an unnumbered proposal.
   const journalTable = await database.prepare(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'article_notion_editorial_outbox'",
   ).first<{ name: string }>();
