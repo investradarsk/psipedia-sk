@@ -1045,15 +1045,19 @@ async function syncAgenda(input: {
           bindings: input.bindings, dataSourceId: target.dataSourceId,
           source: resolvedSource, schema, pageId: page.id,
         });
+        // A returned Notion page may be stale or partial. Never advance the
+        // common mapping hash unless its editorial payload matches canonical.
+        // Otherwise the next run could mistake an unacknowledged write for
+        // a successful synchronization.
+        if (!written.properties ||
+            await snapshotHash(agenda, pageSnapshot(agenda, written, schema)) !== verifiedHash) {
+          throw new Error("NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
+        }
         const syncedAt = new Date().toISOString();
         await saveMapping({
           database: input.database, agenda, pageId: page.id, entityId,
           hash: verifiedHash,
-          // Remote API echo must confirm exactly the same editorial values
-          // before a snapshot can become authoritative for future merges.
-          snapshot: written.properties
-            && await snapshotHash(agenda, pageSnapshot(agenda, written, schema)) === verifiedHash
-              ? verifiedSnapshot : undefined,
+          snapshot: verifiedSnapshot,
           notionLastEditedTime: written.last_edited_time ?? syncedAt,
           psipediaUpdatedAt: await canonicalUpdatedAt(agenda, entityId, input.database),
           syncedAt,
