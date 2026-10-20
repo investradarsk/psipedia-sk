@@ -202,8 +202,14 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
           await page.screenshot({ path: join(artifactDir, `hybrid-mobile-${viewport.width}-results.png`), animations: "disabled", timeout: 20_000 });
           const remove = page.locator('[data-directory-active-filters] a[aria-label*="Pohotovosť"]');
           await expect(remove).toBeVisible();
-          await remove.click({ timeout: 15_000 });
-          await expect(page).not.toHaveURL(/f\.veterinari\.emergency=yes/);
+          // A native GET anchor must clear the actual facet (not merely hide the chip).
+          await expect(remove).toHaveAttribute("href", "/adresar/veterinari");
+          await Promise.all([
+            page.waitForURL(url => url.pathname === "/adresar/veterinari" && !url.searchParams.has("f.veterinari.emergency")),
+            remove.click({ timeout: 15_000 }),
+          ]);
+          await expect(page.locator('[data-directory-active-filters] a[aria-label*="Pohotovosť"]')).toHaveCount(0);
+          await expect(page.locator('[data-directory-map-cta] a')).not.toHaveAttribute("href", /f\.veterinari\.emergency=yes/);
         }, { timeout: 65_000 });
 
         await test.step("Escape closes dialog and restores focus", async () => {
