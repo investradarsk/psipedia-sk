@@ -417,6 +417,18 @@ globalThis.fetch = async (url, options = {}) => {
     if (scenario === "d1_unavailable") return json({ status: "BLOCKED" }, 503);
     return json({ status: "NEW" });
   }
+  if (address === "https://psipedia.sk/api/internal/gemini-agent/update-proposal") {
+    const expected="sha256="+createHmac("sha256",process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+      .update(options.body).digest("hex");
+    if(options.headers["X-Psipedia-Signature"]!==expected)throw Error("BAD_QUALITY_SIGNATURE");
+    const payload=JSON.parse(options.body);
+    if(!payload.stable_key.startsWith("directory.")||payload.job_id!==7||
+      Object.keys(payload).length!==5||!payload.candidate?.name||!payload.proposal||
+      Object.keys(payload.proposal).some(key=>!["websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"].includes(key)))
+      throw Error("UNSAFE_QUALITY_PAYLOAD");
+    console.log("MOCK_QUALITY_PROPOSAL review_only");
+    return json({status:"REVIEW_SUBMITTED"});
+  }
   if (address === "https://psipedia.sk/api/internal/gemini-agent/callback") {
     callbacks++;
     const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
