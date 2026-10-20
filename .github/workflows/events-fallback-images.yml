@@ -17,6 +17,8 @@ on:
       - 'tests/e2e/events-fallback-images.spec.ts'
       - 'tests/e2e/events-listing-redesign.spec.ts'
       - 'tests/helpers/events-final-local-fixtures.mjs'
+      - 'tests/helpers/events-final-schema-parser.mjs'
+      - 'tests/events-final-schema-parser.test.mjs'
       - 'tests/events-fallback.playwright.config.ts'
       - 'tests/helpers/events-fallback-preview.*'
       - 'tests/helpers/events-preview-*'
@@ -104,6 +106,8 @@ jobs:
             sleep 1
           done
           test "$ready" = 1
+      - name: Regression test for local D1 schema parser
+        run: node --test tests/events-final-schema-parser.test.mjs
       - name: Existing schema and deterministic fixtures in local D1 only
         run: node tests/helpers/events-final-local-fixtures.mjs
       # The initial readiness request creates the isolated D1 storage before
