@@ -156,15 +156,18 @@ function inspect0134(objects, expected) {
   }
   return {found:names.size,missing,changed:[...new Set(changed)],unexpected};
 }
-function minimal(result,history,inspect,integrity,reason,sha,mainSha) {
+function minimal(result,history,inspect,schema0133,reason,sha,mainSha,referentialIntegrity="NOT_CHECKED") {
   return {
     auditId:"PSIPEDIA-D1-0134-READONLY-01",mainSha, migration:TARGET_0134,
     migrationSha256:sha,priorMigration:TARGET_0133,
-    priorState:integrity,history0134:history,
+    priorState:schema0133,history0134:history,
     expectedObjects:14,confirmedObjects:inspect.found-inspect.changed.length,
     missingObjects:inspect.missing,changedObjects:inspect.changed,
-    unexpectedObjects:inspect.unexpected, constraints:inspect.missing.length||inspect.changed.length?"BLOCKED":"EXACT_DDL",
-    referentialIntegrity:integrity==="PASS"?"PASS":"UNKNOWN",
+    unexpectedObjects:inspect.unexpected,
+    constraints:inspect.missing.length||inspect.changed.length||inspect.unexpected.length?"BLOCKED":"EXACT_DDL",
+    // The 0133 schema check is independent from the aggregate orphan check.
+    // Never report PASS unless SQL_METRICS_0133 returned valid zero-orphan aggregates.
+    referentialIntegrity,
     featureFlags:{SERVICE_CATALOG_ADMIN_WRITES_ENABLED:"UNKNOWN",SERVICE_CATALOG_NOTION_MIRROR_READY:"UNKNOWN"},
     result,reason
   };
@@ -181,7 +184,7 @@ export function classify0134({ledger,objects,metrics,canonicalNames,migration013
   const prior=expected0133Integrity(objects,migration0133);
   const state=inspect0134(objects,expected);
   if (prior!=="PASS") return minimal("SCHEMA_DRIFT_BLOCKED",history,state,"DRIFT","0133_SCHEMA_DRIFT",sha,mainSha);
-  if (history==="MISSING_0133") return minimal("PARTIAL_OR_INCONSISTENT",history,state,"UNKNOWN","0133_NOT_RECORDED",sha,mainSha);
+  if (history==="MISSING_0133") return minimal("PARTIAL_OR_INCONSISTENT",history,state,"PASS","0133_NOT_RECORDED",sha,mainSha);
   if (state.changed.length || state.unexpected.length)
     return minimal("SCHEMA_DRIFT_BLOCKED",history,state,"PASS","0134_DEFINITION_DRIFT",sha,mainSha);
   if (history==="NOT_RECORDED" && state.found>0)
@@ -191,11 +194,13 @@ export function classify0134({ledger,objects,metrics,canonicalNames,migration013
   if (!Array.isArray(metrics) || metrics.length!==1 ||
       ["options_count","choices_count","properties_count","choice_orphans","property_orphans"]
         .some(k=>!Number.isSafeInteger(metrics[0]?.[k])||metrics[0][k]<0))
-    return minimal("UNKNOWN",history,state,"UNKNOWN","INVALID_INTEGRITY_AGGREGATES",sha,mainSha);
+    return minimal("UNKNOWN",history,state,"PASS","INVALID_INTEGRITY_AGGREGATES",
+      sha,mainSha,metrics==null?"NOT_CHECKED":"UNKNOWN");
   if (metrics[0].choice_orphans!==0 || metrics[0].property_orphans!==0)
-    return minimal("SCHEMA_DRIFT_BLOCKED",history,state,"FAIL","0133_ORPHANED_REFERENCES",sha,mainSha);
+    return minimal("SCHEMA_DRIFT_BLOCKED",history,state,"PASS","0133_ORPHANED_REFERENCES",
+      sha,mainSha,"FAIL");
   return minimal(history==="APPLIED"?"APPLIED_AND_VERIFIED":"NOT_APPLIED_VERIFIED",
-    history,state,"PASS","CONSISTENT_LEDGER_AND_SCHEMA",sha,mainSha);
+    history,state,"PASS","CONSISTENT_LEDGER_AND_SCHEMA",sha,mainSha,"PASS");
 }
 export async function audit0134({resources,migration0133,migration0134,canonicalNames,env,query=remoteRead}) {
   // Preflight occurs BEFORE any remote query, including mocked transports.
@@ -222,8 +227,8 @@ export async function audit0134({resources,migration0133,migration0134,canonical
     const objects=await read(SQL_OBJECTS_0134);
     const base={ledger,objects,canonicalNames,migration0133,migration0134,mainSha:env.GITHUB_SHA};
     const prelim=classify0134({...base,metrics:null});
-    if (!["UNKNOWN"].includes(prelim.result) && prelim.reason!=="INVALID_INTEGRITY_AGGREGATES")
-      return {...prelim,database:IDENTITY.database,databaseId:IDENTITY.databaseId};
+    // If the ledger or DDL already blocks, do not run the metrics SELECT.
+    // The preliminary report explicitly records referentialIntegrity=NOT_CHECKED.
     if (prelim.reason!=="INVALID_INTEGRITY_AGGREGATES")
       return {...prelim,database:IDENTITY.database,databaseId:IDENTITY.databaseId};
     const metrics=await read(SQL_METRICS_0133);
