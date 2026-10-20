@@ -67,6 +67,7 @@ type NotionBlocksResponse = {
 type SyncMappingRow = {
   article_id: number;
   content_hash: string;
+  last_synced_at: string;
 };
 
 export type NotionArticleSyncSummary = {
@@ -1449,7 +1450,7 @@ async function sha256(value: string) {
 
 async function loadMapping(database: D1Database, pageId: string) {
   return database.prepare(
-    "SELECT article_id, content_hash FROM article_notion_sync WHERE notion_page_id = ? LIMIT 1",
+    "SELECT article_id, content_hash, last_synced_at FROM article_notion_sync WHERE notion_page_id = ? LIMIT 1",
   ).bind(pageId).first<SyncMappingRow>();
 }
 
@@ -1526,6 +1527,16 @@ async function syncOneNotionPage(
 
   if (mapping && existing) {
     if (mapping.content_hash === contentHash) {
+      // Hash equality proves only that Notion did not change. It does NOT
+      // prove a newer human Admin edit was written back successfully.
+      // Keep the last-success receipt intact until the editor revision has
+      // an acknowledged writeback, rather than falsely marking "synced".
+      const receiptTime = Date.parse(mapping.last_synced_at);
+      const adminTime = Date.parse(existing.updatedAt);
+      if (existing.updatedBy !== SYNC_ACTOR &&
+        (!Number.isFinite(receiptTime) || !Number.isFinite(adminTime) || adminTime > receiptTime)) {
+        throw new Error("ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION");
+      }
       await upsertMapping(database, page, existing.id, contentHash, now);
       await updateNotionSyncState(bindings, page.id, {
         state: "Synchronizované",
