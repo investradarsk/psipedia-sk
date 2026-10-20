@@ -7,8 +7,54 @@ const directory = resolve('.wrangler/state/v3/d1/miniflare-D1DatabaseObject');
 const files = readdirSync(directory).filter(name => name.endsWith('.sqlite') && name !== 'metadata.sqlite');
 if (files.length !== 1) throw new Error('Expected one isolated local D1 file.');
 const database = new DatabaseSync(resolve(directory, files[0]));
+
+// Migration comments may contain semicolons, and SQL strings may contain both
+// semicolons and "--". Neither can be used to split the actual SQL statements.
+// This parser is intentionally local to the isolated E2E schema bootstrap.
+function splitSqlStatements(source) {
+  const statements = [];
+  let current = '';
+  let quote = null;
+  let lineComment = false;
+  let blockComment = false;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    const next = source[i + 1];
+    if (lineComment) {
+      if (ch === '\n') { lineComment = false; current += '\n'; }
+      continue;
+    }
+    if (blockComment) {
+      if (ch === '*' && next === '/') { blockComment = false; i++; }
+      continue;
+    }
+    if (quote) {
+      current += ch;
+      if (ch === quote) {
+        if (next === quote) { current += next; i++; }
+        else quote = null;
+      }
+      continue;
+    }
+    if (ch === '-' && next === '-') { lineComment = true; current += ' '; i++; continue; }
+    if (ch === '/' && next === '*') { blockComment = true; current += ' '; i++; continue; }
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; current += ch; continue; }
+    if (ch === ';') {
+      if (current.trim()) statements.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) statements.push(current.trim());
+  return statements;
+}
+
 try {
-  const statements = readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort().flatMap(name => readFileSync('drizzle/'+name,'utf8').split(';').map(sql=>sql.replace(/^\s*(?:(?:--[^\r\n]*)(?:\r?\n|$)\s*)+/,'').trim()).filter(Boolean));
+  const statements = readdirSync('drizzle')
+    .filter(name => name.endsWith('.sql'))
+    .sort()
+    .flatMap(name => splitSqlStatements(readFileSync('drizzle/' + name, 'utf8')));
   // Reuse existing schema declarations, excluding all migration data writes.
   for (const sql of statements) if (/^CREATE TABLE\b/i.test(sql)) database.exec(sql.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i,'CREATE TABLE IF NOT EXISTS'));
   for (const sql of statements) if (/^ALTER TABLE\b[\s\S]*\bADD\b/i.test(sql)) {

@@ -152,7 +152,7 @@ test("Notion Ready creates canonical drafts; publication requires explicit Psipe
   assert.match(syncSource, /if \(propertyText\(page, "Psipedia ID"\)\) return false/);
   assert.match(syncSource, /editorialState === "Ready" \|\| editorialState === "Publikované"/);
   assert.match(syncSource, /function newProfileInput/);
-  assert.match(syncSource, /status: desired\.status === "published" \? "published" : "draft"/);
+  assert.match(syncSource.slice(syncSource.indexOf("function newProfileInput"), syncSource.indexOf("function notionProfileReadyForCreate")), /status: "draft"/);
   assert.match(syncSource, /createManagedDirectoryProfile\(payload, SYSTEM_ACTOR, input\.database\)/);
   assert.match(syncSource, /summary\.createdFromNotion \+= 1/);
   assert.match(syncSource, /await writeProfileToNotion\(\{/);

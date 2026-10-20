@@ -648,6 +648,27 @@ export async function applyNotionToCanonical(
       s(values["Miesto"]) !== s(values["Mesto"])
     )) throw Error("GEMINI_LOST_FOUND_PRIVACY_REVIEW_REQUIRED");
   }
+  // All mapped profiles (not only Gemini-origin drafts) have canonical
+  // publication, slug and identity controlled by their authorized Admin flow.
+  // A synchronizer never transitions draft/published/archived/resolved states.
+  const canonicalTable = ({
+    events: "managed_events", organizations: "help_organizations",
+    adoptions: "adoption_dogs", "help-cases": "help_cases",
+    "lost-found": "lost_found_dog_reports",
+  } as const)[agenda];
+  const persisted = await database.prepare(
+    `SELECT status,slug FROM ${canonicalTable} WHERE id=? LIMIT 1`,
+  ).bind(entityId).first<{ status: string; slug: string }>();
+  if (!persisted) throw new Error("CANONICAL_MAPPING_MISSING");
+  const requestedStatus = agenda === "events" ? eventStatusFromNotion(s(values["Stav"]))
+    : agenda === "organizations" ? organizationStatusFromNotion(s(values["Stav"]))
+    : agenda === "adoptions" ? adoptionStatusFromNotion(s(values["Stav"]), persisted.status)
+    : agenda === "help-cases" ? helpStatusFromNotion(s(values["Psipedia stav"]))
+    : lostFoundStatusFromNotion(s(values["Psipedia stav"]));
+  if (persisted.status !== requestedStatus || persisted.slug !== s(values["Slug"])) {
+    throw new Error("CANONICAL_PUBLICATION_OR_IDENTITY_LOCKED");
+  }
+
   if (agenda === "events") {
     const existing = await getManagedEventById(entityId);
     if (!existing) throw new Error(`Podujatie #${entityId} neexistuje.`);

@@ -6,7 +6,7 @@
   grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid rgba(23, 53, 43, .12);
-  border-radius: 18px;
+  border-radius: var(--ps-banner-radius, 18px);
   color: var(--context-banner-ink);
   background: var(--paper, #fffdf8);
 }
@@ -139,5 +139,56 @@
   .media {
     min-height: 0;
     aspect-ratio: 16 / 7;
+  }
+}
+
+
+/* DS-4: one owned compact layout for the events organizer banner. */
+/* Do not duplicate grid rules in the consuming page stylesheet. */
+.inline > .copy {
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+  padding: 20px clamp(20px, 3vw, 26px);
+}
+.inline > .copy > :not(a) {
+  grid-column: 1;
+}
+.inline > .copy > a {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: center;
+  justify-self: end;
+  margin: 0;
+}
+.inline .copy h2 {
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+}
+.banner h2,
+.text,
+.copy > a {
+  overflow-wrap: anywhere;
+}
+.copy > a {
+  max-width: 100%;
+  min-height: 44px;
+}
+
+@media (max-width: 720px) {
+  .inline > .copy {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 20px;
+  }
+  .inline > .copy > a {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    width: 100%;
+    min-height: 48px;
+  }
+  .copy > a {
+    min-height: 48px;
+    justify-content: center;
   }
 }
