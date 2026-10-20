@@ -389,6 +389,19 @@ globalThis.fetch = async (url, options = {}) => {
     }
     throw Error("UNEXPECTED_NOTION_ENDPOINT");
   }
+  if (address === "https://psipedia.sk/api/internal/gemini-agent/dedupe") {
+    const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+      .update(options.body).digest("hex");
+    if (options.headers["X-Psipedia-Signature"] !== expected) throw Error("BAD_DEDUPE_SIGNATURE");
+    const payload = JSON.parse(options.body);
+    if (payload.job_id !== 7 || payload.stable_key !== process.env.AGENT_STABLE_KEY ||
+        !payload.issued_at || !payload.candidate?.name ||
+        JSON.stringify(payload).includes("905 123 456")) throw Error("UNSAFE_DEDUPE_PAYLOAD");
+    if (scenario === "d1_duplicate") return json({ status: "DUPLICATE" });
+    if (scenario === "d1_possible") return json({ status: "POSSIBLE_DUPLICATE" });
+    if (scenario === "d1_unavailable") return json({ status: "BLOCKED" }, 503);
+    return json({ status: "NEW" });
+  }
   if (address === "https://psipedia.sk/api/internal/gemini-agent/callback") {
     callbacks++;
     const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
