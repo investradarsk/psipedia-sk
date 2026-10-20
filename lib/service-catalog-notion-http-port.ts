@@ -33,7 +33,7 @@ function selectValue(v:unknown):string{
 }
 function versionValue(v:unknown):number{
   const p=v as {number?:number}|undefined;
-  if(!p||!Number.isSafeInteger(p.number)||p.number!<0)throw new Error("NOTION_SCHEMA_MISMATCH");
+  if(!p||!Number.isSafeInteger(p.number)||p.number! < 0)throw new Error("NOTION_SCHEMA_MISMATCH");
   return p.number!;
 }
 function multiValue(v:unknown):string[]{
@@ -87,6 +87,7 @@ export function createServiceCatalogNotionHttpPort(config:{
       };
     },
     async writePage(pageId:string,local:Local){
+      if(config.allowWrites!==true)throw new Error("NOTION_WRITES_DISABLED");
       const props:Record<string,unknown>={
         [m.optionId]:textProp(local.id),[m.optionVersion]:{number:local.version},
         [m.kind]:selectProp(local.kind),[m.label]:{title:[{text:{content:local.label}}]},
