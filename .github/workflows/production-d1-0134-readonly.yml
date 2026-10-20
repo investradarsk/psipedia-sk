@@ -1,0 +1,83 @@
+name: Production D1 0134 Read-only Verifier
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-0134-state-psipedia-sk-db exactly (NEVER APPLY)
+        required: true
+        type: string
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Inspect 0133/0134 ledger, DDL, integrity (SELECT only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Require owner confirmation from current main only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          actual="$(node -e 'const e=require(process.env.GITHUB_EVENT_PATH); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$actual" = "AUDIT-0134-state-psipedia-sk-db"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Block stale checkout and branch races
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Mandatory offline regression suite and pinned SQL check
+        run: |
+          node --check scripts/production-d1-0134-readonly.mjs
+          node --test tests/production-d1-0134-readonly.test.mjs
+          npm run db:check-migrations
+
+      - name: Resolve exact canonical Cloudflare account identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+
+      - name: Read ONLY 0134 migration ledger and schema using allowlisted SELECT
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          mkdir -p .production-d1-0134-readonly
+          node scripts/production-d1-0134-readonly.mjs | tee .production-d1-0134-readonly/report.json
+
+      - name: Preserve sanitized read-only report if generated
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-d1-0134-readonly-${{ github.run_id }}
+          path: .production-d1-0134-readonly/report.json
+          if-no-files-found: warn
+          retention-days: 30
