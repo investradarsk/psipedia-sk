@@ -2398,8 +2398,8 @@
 }
 
 
-// DS-4: homepage partner banners retain their compact #887 spacing and order;
-// share the contextual-banner corner and mobile action contract.
+/* DS-4: homepage partner banners retain their compact #887 spacing and order; */
+/* share the contextual-banner corner and mobile action contract. */
 .homeV2 :global(.home-magazine-banner) {
   min-width: 0;
   border-radius: var(--ps-banner-radius, 18px);

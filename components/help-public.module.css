@@ -346,8 +346,8 @@
 }
 
 
-// DS-4: contextual, photographic and safety banners share sizing and CTA rhythm.
-// Safety keeps its coral warning strip; the three photo placements remain distinct.
+/* DS-4: contextual, photographic and safety banners share sizing and CTA rhythm. */
+/* Safety keeps its coral warning strip; the three photo placements remain distinct. */
 .reportBanner {
   min-width: 0;
   border-radius: var(--ps-banner-radius, 18px);

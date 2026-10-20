@@ -143,8 +143,8 @@
 }
 
 
-// DS-4: one owned compact layout for the events organizer banner.
-// Do not duplicate grid rules in the consuming page stylesheet.
+/* DS-4: one owned compact layout for the events organizer banner. */
+/* Do not duplicate grid rules in the consuming page stylesheet. */
 .inline > .copy {
   max-width: none;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -129,7 +129,7 @@
 }
 
 
-// DS-4: editorial promotions use the same compact banner geometry.
+/* DS-4: editorial promotions use the same compact banner geometry. */
 .card {
   gap: 14px 24px;
   margin: clamp(16px, 2.2vw, 24px) 0;
