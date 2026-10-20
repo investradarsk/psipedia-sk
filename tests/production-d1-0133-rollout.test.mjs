@@ -28,9 +28,9 @@ function fixture() {
 }
 
 test("0133 manually approved only by pinned SHA256, canonical database, protected Actions confirmation", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0135_facebook_image_safe_retry.sql","0136_gemini_global_stop.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4), previous);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0136_gemini_global_stop.sql"]);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0133_SHA256);
   assert.doesNotThrow(() => assertApproved0133Target("psipedia-sk-db", APPROVED_0133_SHA256));
   assert.throws(() => assertApproved0133Target("wrong-db", APPROVED_0133_SHA256), /canonical/);
