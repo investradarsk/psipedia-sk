@@ -127,6 +127,11 @@ function createHarness(status, injectConcurrentWrite = null) {
       blocks: [], relatedBreedIds: breeds, topics,
     }),
     getAdminApiUser: async () => ({ email: "admin@example.com" }),
+    // Model the real Admin mutation boundary in this CAS fixture.
+    requireAdminMutation: async (request) =>
+      request.headers.get("origin") === new URL(request.url).origin
+        ? { user: { email: "admin@example.com" }, response: null }
+        : { user: null, response: Response.json({ error: "Invalid origin" }, { status: 403 }) },
     parsedId: async () => 7,
     env: { BUCKET: { async delete(key) { deletes.push(key); } } },
     articleBlockImageKeys: () => [],
@@ -142,7 +147,7 @@ function createHarness(status, injectConcurrentWrite = null) {
     stripTypeScriptTypes(routeError + "\n" + routePut + "\nPUT"), scope);
   function request(expectedUpdatedAt = version) {
     return new Request("https://psipedia.sk/api/admin/articles/7", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
+      method: "PUT", headers: { "Content-Type": "application/json", Origin: "https://psipedia.sk", "Sec-Fetch-Site": "same-origin" },
       body: JSON.stringify({
         title: "Editor overwrite", status, expectedUpdatedAt,
         topicIds: [2], relatedBreedIds: [20],
