@@ -1,0 +1,49 @@
+name: GEMINI GLOBAL STOP 01 — offline safety CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "drizzle/0135_gemini_global_stop.sql"
+      - "lib/gemini-global-control.ts"
+      - "lib/gemini-external-agent.ts"
+      - "worker/index.ts"
+      - "scripts/gemini-notion-agent.mjs"
+      - "app/api/admin/gemini-automation/**"
+      - "app/api/internal/gemini-agent/authorize/**"
+      - "app/admin/automatizacie-gemini/page.tsx"
+      - "components/admin-gemini-automation-settings.tsx"
+      - "tests/gemini-global-stop.test.mjs"
+      - "docs/gemini-global-stop-01.md"
+      - ".github/workflows/gemini-global-stop-ci.yml"
+
+concurrency:
+  group: gemini-global-stop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Offline syntax and SQLite regressions (no Gemini/Notion/network requests)
+        run: |
+          node --check scripts/gemini-notion-agent.mjs
+          node --check tests/gemini-global-stop.test.mjs
+          node --experimental-strip-types --test tests/gemini-global-stop.test.mjs tests/gemini-scheduler-admin-v2.test.mjs tests/gemini-automation-admin.test.mjs
+          npm run db:check-migrations
+      - name: Lint and TypeScript
+        run: |
+          npm run lint
+          npx tsc --noEmit --pretty false
+      - name: Build without deploy
+        run: npm run build
