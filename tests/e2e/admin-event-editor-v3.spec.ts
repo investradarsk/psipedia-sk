@@ -128,6 +128,12 @@ for (const viewport of [
     await expect(markdown).toHaveValue("Prvý odsek\n\n**Dôležité informácie**");
     await expect(root.getByLabel("SEO title")).toHaveValue("Klubová výstava – SEO test");
     await checkNoHorizontalOverflow(page);
+    if (viewport.width > 820) {
+      const previewPanel = root.locator("[data-editor-preview]");
+      await expect(previewPanel).toHaveAttribute("tabindex", "0");
+      await previewPanel.focus();
+      await expect(previewPanel).toBeFocused();
+    }
     await image(page, "events-v3-" + viewport.width);
 
     const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
