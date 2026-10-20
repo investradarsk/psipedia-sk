@@ -86,7 +86,7 @@ jobs:
       - name: Gemini published cleanup and future SEO slugs (mocked, read-only)
         run: node --experimental-strip-types --test tests/gemini-published-cleanup.test.mjs tests/gemini-public-slug.test.mjs
       - name: Gemini canonical publish handoff (22 categories; offline)
-        run: node --experimental-strip-types --test tests/gemini-canonical-publish-handoff.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-canonical-publish-handoff.test.mjs
       - name: Gemini review API authorization
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
