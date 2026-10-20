@@ -2055,7 +2055,7 @@
 }
 .gridCard:hover {
   transform: translateY(-2px);
-  box-shadow: var(--ps-shadow-surface, var(--shadow-sm));
+  box-shadow: var(--shadow-sm);
 }
 .gridMedia { background: var(--sage-light); }
 .gridBody { padding: var(--ps-ds5-card-padding, 18px); }
