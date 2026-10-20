@@ -46,6 +46,17 @@ Tests use in-memory SQLite 0133+0134 and mocked Notion transport, with success, 
 
 **This isolated Draft PR performed no production D1/Notion writes, real synchronization, flags, merge or deployment.** The separate owner-approved 0134 deployment has since succeeded (see run #39474059819).
 
+## Dedicated Notion catalog created — 2026-10-20
+
+- Notion database: [Katalóg služieb V3](https://app.notion.com/p/0e111896e6a747439adac19cf76fde30), in Psipedia Editorial Hub.
+- Catalog data source (not Adresár): `8785fd64-36c3-4acf-aade-ad99c30ad45d`; `collection://8785fd64-36c3-4acf-aade-ad99c30ad45d`.
+- Confirmed Notion field names (nine typed fields): `optionId` = `Option ID` (text), `optionVersion` = `Verzia` (number), `kind` = `Typ` (select), `label` = `Názov` (title), `group` = `Skupina` (text), `meaning` = `Význam` (text), `primaryCategory` = `Hlavná kategória` (select), `categories` = `Kategórie` (multi_select), `valueKind` = `Druh hodnoty` (select).
+- Both category fields use the approved ten category slugs; type values `service`, `attribute`, value-kind `tri_state`.
+- Read-only query verified 0 catalog pages immediately after creation. Nothing migrated from Adresár, generated, published or synchronized.
+- The pinned `createPsipediaServiceCatalogNotionHttpPort` maps exactly this source; default write capability remains disabled, and no production runner calls it.
+- **Profile links are canonical D1 records**: option definitions from `service_catalog_admin_options` are associated with profile IDs through `service_profile_option_choices(profile_id, option_id)` and attribute values through `service_profile_property_values(profile_id, property_id)`. A Notion catalog entry is NOT a copy of a directory profile and there is no live Notion-to-Notion profile relation.
+- Remaining before live sync: complete option-to-page ownership registry, authenticated internal runner, durable per-option cross-worker lease and staging acceptance. Feature flags and all Notion/D1 writes remain OFF pending separate approval.
+
 ## Read-only Notion workspace check — 2026-10-20
 
 The connected Psipedia Editorial Hub lists a Notion **Adresár** database for directory/profile records, not a positively identified dedicated Services V3 catalog. A restricted workspace keyword search also did not verify a suitable catalog with the required nine distinct option properties. This is **not** evidence of global absence; the catalog may exist outside the searched scope.
