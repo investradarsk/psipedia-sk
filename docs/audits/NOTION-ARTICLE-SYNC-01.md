@@ -41,7 +41,7 @@ The importer remains draft-only. No automatic publication, status rollback, slug
 
 ## Deployment and acceptance blockers
 
-- Migration \`0136_notion_article_editorial_outbox.sql\` is **committed but NOT applied to production**. Verify numbering against other concurrent PRs and deploy it separately before enabling the writeback flag.
+- The article outbox SQL is only a **staged proposal** at \`docs/proposals/0136_notion_article_editorial_outbox.sql\`, not in the active \`drizzle/\` production migration chain. Facebook PR #923 owns migration 0135 (merged to main); before activating article writeback, independently verify 0134/0135 production schema and approve a sequential 0136 migration as a separate rollout. This PR does not approve or apply any migration.
 - Confirm live Notion Editorial Hub property types (especially OG) read-only, and verify real content block API semantics with synthetic pages, not published articles.
 - Check the D1 mapping baseline, skipped blocks, R2 source fingerprints, articles with Notion manifests, table children and multimedia formats. Review any unsupported/partial cases individually.
 - Validate the bounded test suite, CI build, and a read-only scan of draft mappings and outbox count. Start only with a specifically approved synthetic/controlled draft after separate authorization.
