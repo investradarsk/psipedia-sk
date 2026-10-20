@@ -1235,6 +1235,7 @@ async function syncAgenda(input: {
           await recordProfileFieldBaseline({
             database: input.database, agenda: input.definition.key,
             entityId, pageId: page.id, hash: canonicalHash,
+            snapshot: sourceSnapshot,
             syncedAt: new Date().toISOString(),
           });
         }
