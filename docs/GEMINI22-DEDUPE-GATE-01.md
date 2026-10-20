@@ -27,11 +27,24 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
   missing identity evidence, D1 outages or unsupported canonical models: BLOCKED.
 - Never send full candidate details, notes, contacts, unpublished GEO or D1 rows to
   the public endpoint response. HTTP no-store.
-- Do not attempt enrichment writes from the independent worker. The existing
-  Data Quality UI currently reads canonical `automation_update_suggestions` and
-  `automation_findings`; no authenticated, identity-confirmed ingestion contract
-  for 22 external worker types has been verified. **BLOCKED** pending a separate
-  authorized proposal pathway; never overwrite human edits.
+- **Directory (10 categories):** when the signed read-only preflight finds a
+  certain canonical duplicate, the worker may submit only business-public Web,
+  phone, e-mail, Facebook and Instagram as a **separately HMAC-signed review
+  proposal**. The receiving D1 service repeats authenticated job admission and
+  exact canonical identity checks (name + city + category + verified dedupe);
+  only then does it call existing `upsertDirectEntityUpdateSuggestion` to add an
+  OPEN `POSSIBLE_UPDATE` item in the existing **Kvalita údajov** section.
+  Nothing is published, automatically merged or overwritten. Stale or
+  uncertain identities, nonpublic/GEO fields, URL/phone validation failures and
+  unavailable D1 **fail closed**. Existing human decisions remain protected
+  by the original value-bound review mechanism.
+- **Events and Help (12 categories):** confirmed/possible duplicates still block
+  Notion creation, but the new Directory-only update-proposal endpoint refuses
+  them: `automation_update_suggestions` is schema-scoped to Directory and
+  organizations. Their feed-source findings require real registered source
+  provenance; do not invent or reuse unrelated source identities. Thus automated
+  field update ingestion for Events/Help remains **NOT IMPLEMENTED**.
+- No external worker gets D1 access, canonical IDs or admin approval rights.
 
 ## Known blockers before production acceptance
 1. Help 6/6 now has dedicated D1 read-only preflight and offline tests, but
@@ -48,7 +61,9 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
    Validate production sequencing and reconciliation before approving rollout.
 4. The existing Notion sync and callback mapping need authenticated, read-only
    production acceptance. CI alone is not proof of production behavior.
-5. Production release cannot be approved until new Worker endpoint is deployed,
+5. The Directory review proposal route requires offline HMAC and idempotency
+   tests, and live read-only category identity acceptance before rollout.
+6. Production release cannot be approved until new Worker endpoints are deployed,
    the GitHub workflow gate is updated on main, and approved read-only canary checks
    demonstrate stable API decisions. Prior versions of workflow may still run.
 
