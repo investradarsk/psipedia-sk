@@ -1,12 +1,12 @@
-import { checkExternalGeminiIdentity } from "./gemini-external-dedupe";
-import { checkGeminiCandidateDedupe } from "./gemini-automation-dedupe";
-import { getGeminiCatalogItem } from "./gemini-automation-catalog";
-import { readDirectoryPublicContacts } from "./directory-profile-metadata";
-import { directoryActionableProposal } from "./data-automation-directory-diff";
-import { upsertDirectEntityUpdateSuggestion } from "./data-automation-product-store";
-import type { GeminiD1 } from "./gemini-automation-store";
-import type { GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract";
-import type { AutomationDiff } from "./data-automation";
+import { checkExternalGeminiIdentity } from "./gemini-external-dedupe.ts";
+import { checkGeminiCandidateDedupe } from "./gemini-automation-dedupe.ts";
+import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
+import { upsertDirectEntityUpdateSuggestion } from "./data-automation-product-store.ts";
+import type { GeminiD1 } from "./gemini-automation-store.ts";
+import type { GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
+import type { AutomationDiff } from "./data-automation.ts";
 
 type Bindings = { GEMINI_AGENT_CALLBACK_SECRET?: string; GEMINI_EXTERNAL_AGENT_ENABLED?: string };
 type PublicIdentity = {
