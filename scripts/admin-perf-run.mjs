@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // Local-only, GET-only, read-only Chromium measurement; NOT a production browser test.
-import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEVICES, SCREENS, requireLocalOrigin, safeNumber, summarizeNetwork, summarizeSamples } from "./admin-perf-core.mjs";
+import { DEVICES, SCREENS, requireLocalOrigin, localBrowserContextOptions, navigateLocalAdmin, safeNumber, summarizeNetwork, summarizeSamples } from "./admin-perf-core.mjs";
 
 const EDITORS = {
   articles: /^\/admin\/clanky\/\d+$/,
@@ -31,16 +30,22 @@ function parseArgs(args) {
 }
 async function networkIdle(page) {
   try { await page.waitForLoadState("networkidle", { timeout: 5000 }); return true; }
-  catch { return false; }
+  catch (error) {
+    if (error?.name === "TimeoutError") return false;
+    throw error;
+  }
 }
-async function timedStep(page, name, fn, phases, changePhase) {
+export async function timedStep(page, name, fn, phases, changePhase) {
   const records = [];
   phases[name] = records;
   changePhase(name);
   const start = performance.now();
-  let status = "ok";
-  try { status = await fn() ?? "ok"; }
-  catch { status = "unavailable"; }
+  // Unexpected click/selector/navigation failures must abort the benchmark.
+  // Only a deliberate unavailable result or a network-idle timeout is unavailable.
+  const status = await fn() ?? "ok";
+  if (!["ok", "not_applicable", "unavailable"].includes(status)) {
+    throw new Error("Unexpected interaction status.");
+  }
   const settled = await networkIdle(page);
   await Promise.allSettled(records.map((r) => r.pending));
   const stats = summarizeNetwork(records.map((r) => r.info).filter(Boolean), settled);
@@ -119,8 +124,8 @@ async function performStep(page, screen, name) {
   }
   return "not_applicable";
 }
-async function sample(browser, screen, device, index, origin) {
-  const context = await browser.newContext({ viewport: DEVICES[device], serviceWorkers: "block" });
+export async function sample(browser, screen, device, index, origin) {
+  const context = await browser.newContext(localBrowserContextOptions(origin, device));
   const page = await context.newPage();
   const phases = { navigation: [] };
   let phase = "navigation", blockedWrites = 0, blockedExternal = 0;
@@ -157,11 +162,7 @@ async function sample(browser, screen, device, index, origin) {
       })();
     });
     const start = performance.now();
-    const response = await page.goto(screen.path, { waitUntil: "domcontentloaded", timeout: 30000 });
-    if (!response || response.status() !== 200 || new URL(page.url()).pathname !== screen.path) {
-      throw new Error("Not authenticated local admin, redirect, or HTTP error.");
-    }
-    await page.locator("main#obsah").waitFor({ state: "visible", timeout: 12000 });
+    await navigateLocalAdmin(page, screen.path, origin);
     const ready = performance.now() - start;
     const settled = await networkIdle(page);
     await Promise.allSettled(phases.navigation.map((r) => r.pending));
@@ -181,8 +182,7 @@ async function sample(browser, screen, device, index, origin) {
       if (!screen[name]) continue;
       if (name !== "pagination") {
         phase = "setup";
-        await page.goto(screen.path, { waitUntil: "domcontentloaded" });
-        await page.locator("main#obsah").waitFor({ state: "visible" });
+        await navigateLocalAdmin(page, screen.path, origin);
         await networkIdle(page);
       }
       steps[name] = await timedStep(page, name,
@@ -191,9 +191,6 @@ async function sample(browser, screen, device, index, origin) {
     }
     return { screen: screen.id, device, repeat: index, status: settled ? "ok" : "unavailable",
       navigation, steps, blocked_writes: blockedWrites, d1: null };
-  } catch {
-    return { screen: screen.id, device, repeat: index, status: "unavailable",
-      navigation: null, steps: {}, blocked_writes: blockedWrites, d1: null };
   } finally { await context.close(); }
 }
 export async function run(argv = process.argv.slice(2)) {
@@ -201,6 +198,8 @@ export async function run(argv = process.argv.slice(2)) {
     throw new Error("Explicit PSIPEDIA_ADMIN_PERF_LOCAL=1 required; production runs forbidden.");
   }
   const opts = parseArgs(argv);
+  // The offline regression suite imports this module without installing Chromium.
+  const { chromium } = await import("@playwright/test");
   const browser = await chromium.launch({ headless: true });
   const samples = [];
   try {
