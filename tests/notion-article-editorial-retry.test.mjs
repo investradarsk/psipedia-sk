@@ -296,3 +296,31 @@ test("initial, latest and verification reads each enforce immutable Notion canon
   assert.match(writer, /value\.id === mapping\.notion_page_id/);
   assert.match(writer, /richTextProperty\(value, "Psipedia ID"\) === String\(article\.id\)/);
 });
+
+
+test("later-block Notion human conflict aborts before the first SEO or block PATCH", async () => {
+  const h = setup();
+  h.blocks[3].heading_2.rich_text = rich("Human modified the second heading");
+  const writer = await loadWriter(h);
+  await assert.rejects(
+    writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_BLOCK_CONFLICT/,
+  );
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0,
+    "detect known later-block conflicts before any remote mutation");
+  assert.equal(h.notion.properties["SEO title"].rich_text[0].text.content, "Old SEO");
+  assert.equal(h.journal.deleted, undefined);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+});
+
+test("deleted planned Notion block aborts before any remote patch", async () => {
+  const h = setup();
+  h.blocks.pop();
+  const writer = await loadWriter(h);
+  await assert.rejects(
+    writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_BLOCK_IDENTITY_CONFLICT/,
+  );
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+  assert.equal(h.journal.deleted, undefined);
+});
