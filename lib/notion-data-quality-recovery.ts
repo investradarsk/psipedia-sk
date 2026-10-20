@@ -70,23 +70,41 @@ export function canClearResolvedNotionConflict(input: {
 }
 
 export type DirectorySyncErrorKind =
+  | "BIDIRECTIONAL_CONFLICT"
+  | "CONFIRMED_SITE_REVIEW_REQUIRED"
   | "MISSING_HOUSE_NUMBER"
   | "INVALID_LOCALITY"
   | "ILLEGAL_INVOCATION"
   | "INVALID_PHONE"
   | "INVALID_EMAIL"
   | "INVALID_WEBSITE"
+  | "REMOTE_IMAGE_HTTP_403"
+  | "REMOTE_IMAGE_HTTP_522"
+  | "INVALID_IMAGE_FORMAT"
   | "REMOTE_IMAGE_BLOCKED"
+  | "DUPLICATE_IDENTITY"
+  | "GOOGLE_PLACE_MISMATCH"
+  | "PRIVACY_REVIEW_REQUIRED"
+  | "LEGACY_BASELINE_MISMATCH"
   | "OTHER";
 
 export function classifyDirectorySyncError(message: string): DirectorySyncErrorKind {
   const error = message.trim().toLowerCase();
-  if (/illegal invocation|incorrect `this` reference/.test(error)) return "ILLEGAL_INVOCATION";
+  if (/^conflict:|bidirectional.conflict/.test(error)) return "BIDIRECTIONAL_CONFLICT";
+  if (/illegal invocation|incorrect .this. reference/.test(error)) return "ILLEGAL_INVOCATION";
+  if (/potvrden.*prevádz|confirmed.service.location/.test(error)) return "CONFIRMED_SITE_REVIEW_REQUIRED";
+  if (/duplic|duplicitn|identity already/.test(error)) return "DUPLICATE_IDENTITY";
+  if (/google.place.*mismatch|nesúlad.*google.miesto/.test(error)) return "GOOGLE_PLACE_MISMATCH";
+  if (/privacy|súkromn.*lokalit|verejn.*presnos/.test(error)) return "PRIVACY_REVIEW_REQUIRED";
+  if (/legacy.*baseline|stale baseline|baseline mismatch/.test(error)) return "LEGACY_BASELINE_MISMATCH";
   if (/číslo domu/.test(error)) return "MISSING_HOUSE_NUMBER";
   if (/kraj|okres|obec|lokalit/.test(error)) return "INVALID_LOCALITY";
   if (/telefón/.test(error)) return "INVALID_PHONE";
   if (/e-mail/.test(error)) return "INVALID_EMAIL";
   if (/webov/.test(error)) return "INVALID_WEBSITE";
-  if (/obrázok|http 403|http 404/.test(error)) return "REMOTE_IMAGE_BLOCKED";
+  if (/http[\s(:-]*403/.test(error)) return "REMOTE_IMAGE_HTTP_403";
+  if (/http[\s(:-]*522/.test(error)) return "REMOTE_IMAGE_HTTP_522";
+  if (/neplatn.*formát.*obráz|invalid.image.format|unsupported.image|image.*mime/.test(error)) return "INVALID_IMAGE_FORMAT";
+  if (/obrázok|http 404/.test(error)) return "REMOTE_IMAGE_BLOCKED";
   return "OTHER";
 }

@@ -1,0 +1,22 @@
+name: SERVICES-V3-NOTION-RECEIPT-PROOF-01
+on:
+  pull_request:
+    paths:
+      - 'lib/service-catalog-notion-receipt-proof.ts'
+      - 'tests/service-catalog-notion-receipt-proof.test.mjs'
+      - 'docs/services-v3-notion-receipt-proof-contract-01.md'
+      - '.github/workflows/services-v3-notion-receipt-proof-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  receipt-proof-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Offline proof contract tests — no secrets or network writes
+        run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs

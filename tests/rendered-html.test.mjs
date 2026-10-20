@@ -551,7 +551,9 @@ test("uses light admin lists and loads full records only for detail and save", a
   const context = { waitUntil() {}, passThroughOnException() {} };
   const adminRequest = (path, init = {}) => new Request(`http://localhost${path}`, {
     ...init,
-    headers: { accept: "text/html", "cf-access-jwt-assertion": token, ...(init.headers ?? {}) },
+    headers: { accept: "text/html", "cf-access-jwt-assertion": token,
+      ...(["POST", "PUT", "PATCH", "DELETE"].includes(init.method ?? "GET") ? { origin: "http://localhost", "sec-fetch-site": "same-origin" } : {}),
+      ...(init.headers ?? {}) },
   });
 
   try {

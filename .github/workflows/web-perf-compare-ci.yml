@@ -1,0 +1,34 @@
+name: Public Performance Comparator V2 offline tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/web-perf-compare.mjs'
+      - 'tests/web-perf-compare.test.mjs'
+      - 'docs/web-perf-compare.md'
+      - '.github/workflows/web-perf-compare-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  comparator-tests:
+    name: Full comparator suite (Node 22, offline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Check comparator and test syntax
+        run: |
+          node --check scripts/web-perf-compare.mjs
+          node --check tests/web-perf-compare.test.mjs
+      - name: Run every comparator test, including CLI/filesystem
+        run: node --test tests/web-perf-compare.test.mjs

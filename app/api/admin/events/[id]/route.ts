@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { deleteManagedEvent, getManagedEventById, isEventSlugConflict, quickEditManagedEvent, updateManagedEvent, type ManagedEventInput, type ManagedEventQuickEditInput } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
 
@@ -28,8 +28,9 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID podujatia." }, { status: 400 });
   try {
@@ -62,8 +63,9 @@ export async function PUT(request: Request, { params }: Props) {
 }
 
 export async function PATCH(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID podujatia." }, { status: 400 });
   if (request.headers.get("origin") !== new URL(request.url).origin || !request.headers.get("content-type")?.startsWith("application/json")) {
@@ -77,9 +79,9 @@ export async function PATCH(request: Request, { params }: Props) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+export async function DELETE(request: Request, { params }: Props) {
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID podujatia." }, { status: 400 });
   try {

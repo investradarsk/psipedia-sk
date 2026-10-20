@@ -138,7 +138,7 @@ function breedInputFromRow(row,overrides={}) {
 }
 
 async function api(worker,d1,path,body,method="POST") {
-  const headers={"content-type":"application/json","oai-authenticated-user-email":"admin@psipedia.sk"};
+  const headers={"content-type":"application/json","oai-authenticated-user-email":"admin@psipedia.sk","origin":"http://localhost","sec-fetch-site":"same-origin"};
   return worker.fetch(new Request(`http://localhost${path}`,{method,headers,body:JSON.stringify(body)}),{DB:d1,ADMIN_EMAILS:"admin@psipedia.sk",ASSETS:{fetch:async()=>new Response("Not found",{status:404})}},{waitUntil(){},passThroughOnException(){}});
 }
 

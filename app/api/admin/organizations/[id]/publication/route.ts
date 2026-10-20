@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import {
   changeOrganizationPublicationFromAdmin,
   isOrganizationPublicationConflict,
@@ -23,8 +23,9 @@ function parseId(value: string) {
 }
 
 export async function PUT(request: Request, { params }: RouteContext) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
 
   const id = parseId((await params).id);
   if (!id) return NextResponse.json({ error: "Neplatné ID organizácie." }, { status: 400 });

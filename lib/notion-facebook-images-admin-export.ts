@@ -55,6 +55,8 @@ export function facebookAdminNotionProperties(row:AdminImageRow){
     "Facebook Post ID":{rich_text:rich(row.facebook_post_id||"")},
     "Facebook URL":{url:row.facebook_post_id?facebookImagePermalink(row.facebook_post_id):null},
     "Publikované o":{date:row.published_at?{start:row.published_at}:null},
+    // Clear stale retry/error text when a guarded admin edit cancels or replans.
+    "Chyba publikovania":{rich_text:[]},
   };
 }
 type NotionPageResponse={id:string;in_trash?:boolean;archived?:boolean};

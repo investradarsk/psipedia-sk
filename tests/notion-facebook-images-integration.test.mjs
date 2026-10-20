@@ -5,7 +5,8 @@ import {readFileSync} from "node:fs";
 import {runNotionFacebookImagesSync,NOTION_FACEBOOK_IMAGES_SOURCE_ID} from "../lib/notion-facebook-images-sync.ts";
 import {runFacebookImagePublishSweep} from "../lib/facebook-image-publisher.ts";
 
-const migrations=["drizzle/0128_facebook_image_posts.sql","drizzle/0130_facebook_image_publisher.sql"];
+const migrations=["drizzle/0128_facebook_image_posts.sql","drizzle/0130_facebook_image_publisher.sql",
+  "drizzle/0135_facebook_image_safe_retry.sql"];
 const time=new Date("2030-01-02T10:00:00.000Z");
 const pageId="3e0793fc-1d18-8138-8bb7-f0e0a7495728";
 const imageBytes=Uint8Array.from([0xff,0xd8,0xff,0xe0,0x11,0x22,0x33]);
@@ -216,6 +217,158 @@ test("a changed Notion direct-consent checkbox is ignored by the D1 authorizatio
       await runNotionFacebookImagesSync({database:f.db,bindings:{...bindings,BUCKET:f.bucket},now:time});
       assert.equal(f.get().status,"draft");
       assert.equal(f.get().approval_status,"UNREVIEWED");
+    });
+  }finally{f.close();}
+});
+
+test("V2: explicit fresh Notion datetime schedules without checkboxes and cancellation returns a draft",async()=>{
+  const f=fixture(),page=notionPage(false);
+  page.last_edited_time="2030-01-02T09:55:00.000Z";
+  page.properties["Povoliť publikovanie"]={checkbox:false};
+  const enabled={...bindings,BUCKET:f.bucket,
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  try{
+    await mockedNotion(page,async()=>{
+      const first=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      assert.equal(first.created,1);assert.equal(first.failed,0);
+      assert.equal(f.get().status,"scheduled");
+      assert.equal(f.get().scheduled_at,"2030-01-02T11:00:00.000Z");
+      assert.equal(f.get().approval_status,"APPROVED");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(page.properties["Stav"].status.name,"Naplánované");
+      // An explicit cancellation in Notion clears the pending due date in D1.
+      page.properties["Dátum a čas publikovania"]={date:null};
+      page.properties["Stav"]={status:{name:"Koncept"}};
+      page.last_edited_time="2030-01-02T09:57:00.000Z";
+      const cancelled=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      assert.equal(cancelled.updated,1);
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().scheduled_at,null);
+      assert.equal(f.get().approval_status,"UNREVIEWED");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts").get().n,1);
+    });
+  }finally{f.close();}
+});
+
+test("V2: cutoff blocks legacy scheduling; missed genuinely pre-scheduled dates may catch up",async()=>{
+  const fresh={...bindings,
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  const old=fixture(),pageOld=notionPage();
+  pageOld.last_edited_time="2029-12-31T00:00:00.000Z";
+  try{
+    await mockedNotion(pageOld,async()=>{
+      await runNotionFacebookImagesSync({database:old.db,bindings:{...fresh,BUCKET:old.bucket},now:time});
+      assert.equal(old.get().status,"draft");
+      assert.equal(old.get().approval_status,"UNREVIEWED");
+    });
+  }finally{old.close();}
+  const recent=fixture(),page=notionPage();
+  page.last_edited_time="2030-01-02T09:52:00.000Z";
+  page.properties["Dátum a čas publikovania"]={date:{start:"2030-01-02T10:00:00+00:00"}};
+  try{
+    await mockedNotion(page,async()=>{
+      await runNotionFacebookImagesSync({database:recent.db,
+        bindings:{...fresh,BUCKET:recent.bucket},now:new Date("2030-01-02T10:03:00.000Z")});
+      assert.equal(recent.get().status,"scheduled");
+      assert.equal(recent.get().approval_status,"APPROVED");
+    });
+  }finally{recent.close();}
+});
+
+test("V2: newer Notion edit wins over an older admin edit using D1 CAS; stale Notion edit does not",async()=>{
+  const f=fixture(),page=notionPage(false);
+  const enabled={...bindings,BUCKET:f.bucket,
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  page.last_edited_time="2030-01-02T09:55:00.000Z";
+  try{
+    await mockedNotion(page,async()=>{
+      await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      const post=f.get();
+      assert.equal(post.status,"scheduled");
+      f.sqlite.prepare("UPDATE facebook_image_posts SET caption=?,updated_at=?,updated_by=?,version=version+1 WHERE id=?")
+        .run("Nový admin text","2030-01-02T10:00:20.000Z","admin@psipedia.sk",post.id);
+      page.last_edited_time="2030-01-02T10:00:10.000Z";
+      page.properties["Text na Facebook"]={rich_text:[{plain_text:"Starý Notion text"}]};
+      const stale=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T10:00:30.000Z")});
+      assert.equal(stale.updated,0);
+      assert.equal(f.get().caption,"Nový admin text");
+      // Mock the next independent Notion editor change AFTER the admin edit.
+      page.last_edited_time="2030-01-02T10:01:00.000Z";
+      page.properties["Text na Facebook"]={rich_text:[{plain_text:"Najnovší text v Notione"}]};
+      const newer=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T10:02:00.000Z")});
+      assert.equal(newer.updated,1);
+      assert.equal(f.get().caption,"Najnovší text v Notione");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts").get().n,1);
+    });
+  }finally{f.close();}
+});
+
+test("V2 safe retry: Notion cancellation supersedes throttled attempt without removing audit; new date reclaims",async()=>{
+  const f=fixture(),page=notionPage(false);
+  page.last_edited_time="2030-01-02T09:50:00.000Z";
+  page.properties["Dátum a čas publikovania"]={date:{start:"2030-01-02T11:00:00+01:00"}};
+  const enabled={...bindings,BUCKET:f.bucket,
+    FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  const meta={FB_PAGE_ID:"1172082959332114",
+    FB_PAGE_ACCESS_TOKEN:"FAKE_FAKE_FAKE_FAKE_FAKE_TOKEN",
+    FACEBOOK_IMAGE_PUBLISH_ENABLED:"true",
+    FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:"true",BUCKET:f.bucket};
+  try{
+    await mockedNotion(page,async()=>{
+      const created=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      assert.equal(created.created,1);
+      assert.equal(f.get().status,"scheduled");
+      f.sqlite.prepare("INSERT INTO facebook_image_publisher_settings (id,enabled,updated_at,updated_by) VALUES (1,1,?,?)")
+        .run(time.toISOString(),"operator");
+      const before=await runFacebookImagePublishSweep({db:f.db,bindings:meta,
+        now:new Date("2030-01-02T10:01:00.000Z"),
+        fetcher:async()=>Response.json({error:{code:4}},{status:429})});
+      assert.equal(before.retryable,1);
+      assert.equal(f.sqlite.prepare("SELECT outcome_kind FROM facebook_image_publish_attempts").get().outcome_kind,
+        "PROVEN_REJECTED");
+      const status=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T10:02:00.000Z")});
+      assert.equal(status.writtenBack,1);
+      assert.equal(page.properties["Stav"].status.name,"Naplánované");
+      page.properties["Dátum a čas publikovania"]={date:null};
+      page.properties["Stav"]={status:{name:"Koncept"}};
+      page.last_edited_time="2030-01-02T10:03:00.000Z";
+      const cancelled=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T10:04:00.000Z")});
+      assert.equal(cancelled.updated,1);
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().scheduled_at,null);
+      assert.equal(f.sqlite.prepare("SELECT outcome_kind FROM facebook_image_publish_attempts").get().outcome_kind,
+        "SUPERSEDED");
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_publish_attempt_history").get().n,1);
+      const noSend=await runFacebookImagePublishSweep({db:f.db,bindings:meta,
+        now:new Date("2030-01-02T10:10:00.000Z"),
+        fetcher:async()=>{throw Error("Cancelled schedule must not send");}});
+      assert.equal(noSend.claimed,0);
+      page.properties["Dátum a čas publikovania"]={date:{start:"2030-01-03T11:00:00+01:00"}};
+      page.last_edited_time="2030-01-02T11:00:00.000Z";
+      const renewed=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,
+        now:new Date("2030-01-02T11:01:00.000Z")});
+      assert.equal(renewed.updated,1);
+      assert.equal(f.get().status,"scheduled");
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts").get().n,1);
+      let posts=0;
+      const sent=await runFacebookImagePublishSweep({db:f.db,bindings:meta,
+        now:new Date("2030-01-03T10:01:00.000Z"),
+        fetcher:async()=>{posts++;return Response.json({id:"9988776655",post_id:"1172082959332114_9988776655"});}});
+      assert.equal(sent.published,1);
+      assert.equal(posts,1);
+      assert.equal(f.get().status,"published");
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_publish_attempt_history").get().n,2);
     });
   }finally{f.close();}
 });
