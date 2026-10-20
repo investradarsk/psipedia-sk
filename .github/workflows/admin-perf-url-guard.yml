@@ -1,0 +1,32 @@
+name: Admin Performance URL Guard — offline
+
+on:
+  pull_request:
+    paths:
+      - "scripts/admin-perf-run.mjs"
+      - "scripts/admin-perf-core.mjs"
+      - "tests/admin-perf-url.test.mjs"
+      - "tests/admin-perf-tooling.test.mjs"
+      - ".github/workflows/admin-perf-url-guard.yml"
+      - "docs/performance/admin-baseline.md"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-url-regressions:
+    name: Local URL safety and comparator compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax checks (no browser or application launch)
+        run: |
+          node --check scripts/admin-perf-run.mjs
+          node --check scripts/admin-perf-core.mjs
+          node --check tests/admin-perf-url.test.mjs
+      - name: Offline regressions (no Playwright browser, fixture, network or secrets)
+        run: node --test tests/admin-perf-url.test.mjs tests/admin-perf-tooling.test.mjs tests/admin-perf-analyze.test.mjs
