@@ -173,8 +173,13 @@ function fixture(options = {}) {
     // canonical snapshot from newer Notion/Admin edits; real field reconciliation
     // still decides if pulling is safe and which fields may be changed.
     async snapshotHash(value) {
-      return value.name === "Pôvodný profil" && value.imageUrl === current.imageUrl
-        ? "stable-profile-hash"
+      if (value.name === "Pôvodný profil" && value.imageUrl === current.imageUrl) {
+        return "stable-profile-hash";
+      }
+      // Different concurrent snapshots must NEVER be represented by the same
+      // fixture hash; production hashing uses actual full snapshot content.
+      return value.name === "Admin-specific change"
+        ? "changed-psipedia-hash"
         : "changed-notion-hash";
     },
     async writeProfileToNotion() { calls.push("notion-writeback"); },
