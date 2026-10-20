@@ -159,8 +159,20 @@ function targetBlocks(article: EditorialArticle, siteUrl: string) {
 }
 export function notionEditorialPropertyText(rawValue: unknown, type: "title" | "rich_text" | "url") {
   const raw = object(rawValue);
-  return type === "url" ? text(raw.url) : (Array.isArray(raw[type])
-    ? raw[type].map((record: unknown) => text(object(record).plain_text) || text(object(object(record).text).content)).join("") : "");
+  // A Notion schema change must never be misread as an empty editor field.
+  // Validate the returned property shape on both initial planning and retries.
+  if (typeof raw.type === "string" && raw.type !== type) {
+    fail("NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT");
+  }
+  if (type === "url") {
+    if (raw.url !== null && typeof raw.url !== "string") {
+      fail("NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT");
+    }
+    return text(raw.url);
+  }
+  if (!Array.isArray(raw[type])) fail("NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT");
+  return raw[type].map((record: unknown) =>
+    text(object(record).plain_text) || text(object(object(record).text).content)).join("");
 }
 export function buildNotionEditorialPlan(args: {
   article: EditorialArticle;
