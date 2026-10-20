@@ -24,7 +24,12 @@ async function open(page: Page, path: string) {
     if (attempt < 2) await page.waitForTimeout(500 * (attempt + 1));
   }
   expect(status, path + " must return 200").toBe(200);
-  await expect(page.locator("[data-directory-main-search]")).toBeVisible();
+  const mainSearch = page.locator('form[data-public-search-form="services"][role="search"]');
+  await expect(mainSearch).toHaveCount(1);
+  await expect(mainSearch).toBeVisible();
+  await expect(mainSearch).toHaveAttribute("method", "get");
+  await expect(mainSearch).toHaveAttribute("action", path);
+  await expect(mainSearch.locator('input[name="q"]')).toHaveCount(1);
 }
 
 test("SERVICES-V2 desktop/mobile matrix uses one search, accessible categories and bounded columns", async ({ browser }) => {
@@ -41,7 +46,7 @@ test("SERVICES-V2 desktop/mobile matrix uses one search, accessible categories a
         await expect(page.locator('form[data-public-search-form="services"] input[name="q"]')).toHaveCount(1);
         await expect(page.locator("[data-directory-category-navigation] [data-public-subcategory-item]")).toHaveCount(11);
         await expect(page.locator("[data-directory-columns]")).toBeVisible();
-        await expect(page.locator("[data-directory-filter-form]")).toHaveCount(1);
+        expect(await page.locator('form[data-directory-filter-form]').count()).toBeGreaterThanOrEqual(1);
         await expect(page.locator("[data-directory-results]")).toBeVisible();
         await expect(page.locator("[data-directory-map-cta] a")).toHaveAttribute("href", /\/mapa\?category=services/);
         await expect(page.locator("[data-directory-provider-cta] a")).toHaveAttribute("href", "/o-nas#kontakt");
@@ -123,7 +128,7 @@ test("SERVICES-V2 all ten canonical service categories share the same public lay
     await expect(page.locator("[data-unified-section-hero]")).toHaveAttribute("data-section-visual-key", "directory." + slug);
     await expect(page.locator("[data-directory-results]")).toBeVisible();
     await expect(page.locator('[data-directory-category-navigation] [aria-current="page"]')).toHaveCount(1);
-    await expect(page.locator("[data-directory-filter-form]")).toHaveCount(1);
+    expect(await page.locator('form[data-directory-filter-form]').count()).toBeGreaterThanOrEqual(1);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth), route + " mobile overflow")
       .toBeLessThanOrEqual(391);
   }

@@ -1,0 +1,26 @@
+name: Public HTML Cache Safety Guard (offline)
+
+on:
+  pull_request:
+    paths:
+      - 'worker/index.ts'
+      - 'tests/public-html-cache-safety.test.mjs'
+      - 'tests/public-html-cache.test.mjs'
+      - 'tests/worker-performance.test.mjs'
+      - '.github/workflows/public-html-cache-safety-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  public-html-cache-safety:
+    name: Public HTML cache restrictions and HIT/MISS regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Run cache and Worker regressions offline
+        run: node --experimental-strip-types --test tests/public-html-cache-safety.test.mjs tests/public-html-cache.test.mjs tests/worker-performance.test.mjs

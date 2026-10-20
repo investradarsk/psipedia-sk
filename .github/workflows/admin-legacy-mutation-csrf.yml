@@ -1,0 +1,35 @@
+name: Admin Legacy Mutation CSRF
+on:
+  pull_request:
+    paths:
+      - 'app/api/admin/directory/**'
+      - 'app/api/admin/articles/**'
+      - 'app/api/admin/article-topics/**'
+      - 'app/api/admin/article-feedback/**'
+      - 'app/api/admin/events/**'
+      - 'app/api/admin/organizations/**'
+      - 'app/api/admin/adoptions/**'
+      - 'app/api/admin/breeds/**'
+      - 'lib/admin-auth.ts'
+      - 'lib/admin-mutation-origin.ts'
+      - 'tests/admin-legacy-mutation-csrf.test.mjs'
+      - 'tests/admin-legacy-csrf-loader.mjs'
+      - '.github/workflows/admin-legacy-mutation-csrf.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  csrf-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check tests/admin-legacy-csrf-loader.mjs
+          node --check tests/admin-legacy-mutation-csrf.test.mjs
+          node --experimental-strip-types --check lib/admin-mutation-origin.ts
+      - name: Guard and route regression
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-legacy-csrf-loader.mjs --test tests/admin-legacy-mutation-csrf.test.mjs

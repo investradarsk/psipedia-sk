@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationAdminValidationError } from "@/lib/help-organization-admin-input";
 import { getOrganizationPublicationAdminById } from "@/lib/help-organization-admin-store";
 import {
@@ -22,8 +22,9 @@ function expectsJson(request: Request) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID organizácie." }, { status: 400 });
   if (!expectsJson(request)) return Response.json({ error: "Očakáva sa JSON požiadavka." }, { status: 415 });

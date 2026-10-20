@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { bulkUpdateEventStatus, getManagedEventById } from "@/lib/event-store";
 import { writeBackPublishedEventToNotion, type NotionEventSyncBindings } from "@/lib/notion-event-sync";
 
@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
 type RuntimeBindings = NotionEventSyncBindings & { DB?: D1Database };
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   if (request.headers.get("origin") !== new URL(request.url).origin || !request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "Neplatný pôvod požiadavky." }, { status: 403 });
   try {
     const result = await bulkUpdateEventStatus(await request.json(), user.email);

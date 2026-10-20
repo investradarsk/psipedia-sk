@@ -1,0 +1,21 @@
+# Public Design System — component ownership (DS-0B)
+
+**Status:** source-backed inventory of implemented public components. DS-0B changes tests/docs only; it is not a redesign proposal.
+
+| Area | Canonical owner | Supported variants / contract | Present use | Regression tests | Adoption rule |
+| --- | --- | --- | --- | --- | --- |
+| Hero | `components/public-visual-system/unified-section-hero.tsx`: `UnifiedSectionHero`, `UnifiedSectionHeroShell` | `homepage-style` (default), `compact`, `task`; either `searchSlot` or `portalSearchSlot` | Services, Events, Help, Reviews landing headers | `tests/unified-section-hero.test.mjs`, `tests/global-design-unification.test.mjs`, `tests/public-landing-alignment.test.mjs` | Use for section-level visual headers; never duplicate the shared hero |
+| Search | `components/home-portal-search.tsx`: `HomePortalSearch` | semantic GET form; `action`, `inputName` (`q` default), `searchScope`, `hidden`, `allowEmpty`, `shortcuts` | `directory-page.tsx`, `help-page.tsx`, `events-page.tsx`, `reviews-hub.tsx` | `tests/global-design-unification.test.mjs`, `tests/public-search-simplify.test.mjs`, `tests/e2e/directory-unified-layout.spec.ts` | One scoped main search per page; secondary filter forms are distinct |
+| Public actions | `components/public-visual-system/public-visual-system.tsx`: `PublicActionButton`, `PublicActionLink` | `primary`, `secondary`, `tertiary`; semantic button vs Link | Reusable public CTAs and composition in details where adopted | `tests/public-visual-system.test.mjs`, `tests/detail-primitives.test.mjs` | Prefer existing public CTA primitives over local duplicated controls; specific existing CTAs are not automatically replaced |
+| Content width / rhythm | `components/page-system.tsx`: `PageContainer`; `components/public-visual-system/public-landing-layout.tsx`: `PublicContentShell` | `plain` (default), `landing`, `listing` | Services, Events, Help, Adoption, editorial/listings | `tests/public-landing-alignment.test.mjs` | Reuse canonical width, gutters and vertical rhythm; no local parallel max-width shell |
+| Details | `components/detail-primitives/detail-primitives.tsx`: `DetailHero`, `DetailActions`, `DetailContentLayout`, `DetailSection`, `DetailParagraphs`, `DetailFactsCard`, `DetailContactsCard`, `DetailOptionGrid` | `DetailHero.kind`: `directory`, `event`, `adoption`, `help`, `lost-found`, `organization`; optional content-layout `aside`; others have no variant prop | Existing directory, event, help, organization and adoption detail composition | `tests/detail-primitives.test.mjs`, `tests/directory-detail-presentation.test.mjs`, `tests/help-detail-presentation.test.mjs` | Compose existing primitives, preserving domain-specific data, semantics and buttons. `DetailActions` is layout-only |
+
+## Current boundaries, dependencies and exceptions
+
+- Directory main search lives in `DirectoryPage` via `UnifiedSectionHero.portalSearchSlot` with `searchScope="services"`, category-specific `action` and `directoryQueryFields(filters, ["q", "page"])` hidden parameters; `DirectoryFilterForm` separately owns filters. `lib/directory-query.ts` serializes search/filter/pagination GET state and empty-query canonical redirects.
+- Help's primary search is in `components/help-page.tsx`; `components/help-browser.tsx` owns a separate URL-backed filter form. Events and Reviews also have a single scoped `HomePortalSearch`.
+- Existing specialized editorial/atlas searches, category navigation, map links and local detail composition remain separate where their semantics differ. DS-0B does not authorize replacing them.
+- PR #864 (open Draft; Services public filters) modifies secondary filter forms to support the hydrated desktop sidebar and mobile dialog. Their number can vary by hydration; never enforce exactly one secondary form globally. Validate #864 integration separately.
+- No runtime, SEO, API, database, URL, style, tokens or production effects are introduced by these test/documentation edits. Screenshot and production acceptance remain separate gates.
+
+Future phases: DS-1 tokens; DS-2 CTA/forms; DS-3 search/filters; DS-4 hero/banners; DS-5 cards; DS-6 component adoption; DS-7 visual acceptance. Each requires explicit approval and a fresh regression run.
