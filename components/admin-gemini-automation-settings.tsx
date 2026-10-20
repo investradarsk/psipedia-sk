@@ -138,7 +138,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning
         credentials: "same-origin",
         body: JSON.stringify({ stable_key: setting.stableKey }),
       });
-      const data = await response.json() as { error?: string; runId?: number; status?: string;jobId?:number; started?:boolean; alreadyQueued?:boolean } & Partial<PilotResult>;
+      const data = await response.json() as { error?: string; runId?: number; status?: "QUEUED" | "SUCCESS" | "FAILED";jobId?:number; started?:boolean; alreadyQueued?:boolean } & Partial<Omit<PilotResult, "status">>;
       if (response.ok && data.status === "QUEUED" && Number.isInteger(data.jobId)) {
         const label = "Gemini úloha #" + data.jobId;
         setQueuedMessage(externalEnabled
@@ -450,6 +450,7 @@ export function AdminGeminiAutomationSettings({
   initialDraftId?: string;
 }) {
   const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[]; control: GeminiGlobalControl | null } | null>(null);
+  const router = useRouter();
   const [controlPending, setControlPending] = useState(false);
   const [controlError, setControlError] = useState("");
   const liveControl = remote?.control ?? control;
