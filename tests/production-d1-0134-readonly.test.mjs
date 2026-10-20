@@ -102,6 +102,17 @@ test("missing single trigger detects partial schema",()=>{
   assert.equal(classify0134(p).result,"PARTIAL_OR_INCONSISTENT");
  }finally{f.db.close();}
 });
+test("extra unapproved trigger on an existing Services table cannot masquerade as not-applied",()=>{
+ const f=fixture();try{
+  const p=f.data();p.objects.push({type:"trigger",name:"rogue_private_trigger",
+   tbl_name:"service_catalog_admin_options",sql:"CREATE TRIGGER rogue_private_trigger AFTER UPDATE ON service_catalog_admin_options BEGIN SELECT 1; END"});
+  const report=classify0134(p);
+  assert.equal(report.result,"SCHEMA_DRIFT_BLOCKED");
+  assert.ok(report.unexpectedObjects.includes("UNEXPECTED_SERVICES_OBJECT"));
+  assert.doesNotMatch(JSON.stringify(report),/rogue_private_trigger/);
+ }finally{f.db.close();}
+});
+
 test("altered audit trigger body is SCHEMA_DRIFT_BLOCKED",()=>{
  const f=fixture({schema134:true,ledger134:true});try{
   const p=f.data();p.objects=p.objects.map(x=>x.name===TRIGGERS_0134[5]?
