@@ -11,6 +11,7 @@ import { retryInitialResearch503 } from "./gemini-research-retry.mjs";
 import { createHmac } from "node:crypto";
 import { notionCategoryValue } from "./gemini-notion-category.mjs";
 import { buildGeminiNotionDraft, geminiNotionSchema, geminiDraftIdentity } from "./gemini-notion-directory-fields.mjs";
+import { classifyGeminiNotionIdentity, geminiDedupeCandidate } from "./gemini-notion-preflight.mjs";
 
 const env = process.env;
 const jobId = Number(env.AGENT_JOB_ID);
@@ -147,6 +148,35 @@ function notionSearch(rows, query, target, offset = 0) {
   }));
 }
 
+async function canonicalDedupe(target, properties) {
+  // Reuse the existing private callback credential for a READ-ONLY identity
+  // verdict. No D1 credential or private profile data is available in Actions.
+  if (!env.PSIPEDIA_AGENT_CALLBACK_SECRET ||
+      env.PSIPEDIA_AGENT_CALLBACK_URL !== "https://psipedia.sk/api/internal/gemini-agent/callback")
+    throw Error("GEMINI_DEDUPE_BLOCKED");
+  const body = JSON.stringify({
+    job_id: jobId, stable_key: stableKey, issued_at: Date.now(),
+    candidate: geminiDedupeCandidate(stableKey, properties),
+  });
+  const signature = "sha256=" + createHmac("sha256", env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+    .update(body).digest("hex");
+  let response;
+  try {
+    response = await fetch("https://psipedia.sk/api/internal/gemini-agent/dedupe", {
+      method: "POST", headers: {
+        "Content-Type": "application/json", "X-Psipedia-Signature": signature,
+      }, body, signal: AbortSignal.timeout(20000),
+    });
+  } catch { throw Error("GEMINI_DEDUPE_BLOCKED"); }
+  if (!response.ok) throw Error("GEMINI_DEDUPE_BLOCKED");
+  let data;
+  try { data = await response.json(); }
+  catch { throw Error("GEMINI_DEDUPE_BLOCKED"); }
+  if (!data || !["NEW", "DUPLICATE", "POSSIBLE_DUPLICATE", "REJECTED_BEFORE", "BLOCKED"].includes(data.status))
+    throw Error("GEMINI_DEDUPE_BLOCKED");
+  return data.status;
+}
+
 async function createDraft(args, snapshot, target) {
   if (metrics.concept_count >= maxNew) return { status: "limit_reached" };
   let draft;
@@ -156,6 +186,25 @@ async function createDraft(args, snapshot, target) {
       return { status: "rejected", reason: error.message };
     throw error;
   }
+  // Refresh the authoritative Notion data source immediately before every
+  // proposed create. A stale first research scan never authorizes a new page.
+  const latest = await notionSnapshot(target.dataSourceId,
+    target.dedicatedLostFound ? "lost-found" :
+      target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
+  const known = new Set(latest.rows.map(page => page.id));
+  snapshot.rows = [...latest.rows, ...confirmedDrafts.filter(page => !known.has(page.id))];
+  const notionDecision = classifyGeminiNotionIdentity(stableKey, draft.properties, snapshot.rows);
+  if (notionDecision === "DUPLICATE") {
+    metrics.duplicate_count++;
+    return { status: "duplicate", reason: "NOTION_IDENTITY_CONFIRMED" };
+  }
+  if (notionDecision !== "NEW") throw Error("GEMINI_IDENTITY_REVIEW_REQUIRED");
+  const d1Decision = await canonicalDedupe(target, draft.properties);
+  if (d1Decision === "DUPLICATE" || d1Decision === "REJECTED_BEFORE") {
+    metrics.duplicate_count++;
+    return { status: "duplicate", reason: "CANONICAL_IDENTITY_CONFIRMED" };
+  }
+  if (d1Decision !== "NEW") throw Error("GEMINI_DEDUPE_BLOCKED");
   const created = await notion("/pages", "POST", {
     parent: { type: "data_source_id", data_source_id: target.dataSourceId }, properties: draft.properties,
   });
@@ -163,18 +212,17 @@ async function createDraft(args, snapshot, target) {
   confirmedDrafts.push({ id: created.id, properties: Object.fromEntries(Object.entries(draft.properties)
     .map(([key, value]) => [key, { type: Object.keys(value)[0], ...value }])) });
   snapshot.rows.push(confirmedDrafts.at(-1));
-  if (draft.possibleDuplicate) metrics.duplicate_count++;
   metrics.concept_count++;
   pageIds.push(created.id);
   return { status: "created", notion_page_id: created.id,
-    possible_duplicate: draft.possibleDuplicate, warnings: draft.warnings };
+    possible_duplicate: false, warnings: draft.warnings };
 }
 
 const tools = [
   { type: "google_search" },
   {
     type: "function", name: "search_notion",
-    description: "Read existing Notion records with explicit pagination. A possible duplicate is a review warning, not a creation veto.",
+    description: "Read existing Notion records with explicit pagination. Identity checks are mandatory; duplicates and uncertain matches cannot be created.",
     parameters: {
       type: "object", properties: {
         query: { type: "string", description: "Name, city or website; empty for all records." },
@@ -184,7 +232,7 @@ const tools = [
   },
   {
     type: "function", name: "create_notion_draft",
-    description: "Create a new DRAFT page in Notion after verifying public sources and checking duplicates. Never publish.",
+    description: "Request a new DRAFT only after checking Notion and canonical Psipedia. The server refuses confirmed and uncertain identities. Never publish.",
     parameters: {
       type: "object", properties: {
         gemini_note: { type: "string", description: "Optional private Gemini poznámka: missing/uncertain facts, possible duplicates or checks for the reviewer. Never include private contacts or exact locations in Lost/Found." },
@@ -291,8 +339,8 @@ async function runAgent() {
   });
   const instruction = "Pokračuj podľa používateľského promptu: " + categoryGuidance +
     ". Pozri existujúce Notion záznamy cez search_notion; odpoveď uvádza stránkovanie a next_offset. " +
-    "Následne vytvor použiteľné koncepty cez create_notion_draft. Prípadná duplicita je iba upozornenie " +
-    "v gemini_note, nie dôvod zakázať neverejný koncept. Nezistené údaje nechaj prázdne. " +
+    "Následne použi create_notion_draft iba pre skutočne nové identity. Duplicitné a neisté identity sa nevytvárajú. " +
+    "Ak existujú nové fakty pre známy subjekt, nevytváraj nový koncept; riešia sa v existujúcej Kvalite údajov. Nezistené údaje nechaj prázdne. " +
     "Nie je potrebné dokazovať každé pole ani presne zhodovať URL s citáciami Google. " +
     "Neopakuj technický zápis toho istého kandidáta. Nikdy nepublikuj. " +
     "Ak sa nenašiel žiadny použiteľný subjekt alebo prípad, nevytváraj falošný profil; " +
@@ -376,7 +424,7 @@ async function runAgent() {
         toolResult = previous ? { ...previous, already_processed: true }
           : searchedBeforeTurn ? await createDraft(args, snapshot, target)
             : { status: "rejected", reason: "search_notion_required_first" };
-        if (!previous && toolResult.status === "created") { completedCreates.set(key, toolResult); progress = true; }
+        if (!previous && ["created", "duplicate"].includes(toolResult.status)) { completedCreates.set(key, toolResult); progress = true; }
         if (toolResult.status === "created") searches.clear();
         if (toolResult.status === "rejected") unresolvedRejections.add(candidateKey(args));
         if (["created", "duplicate"].includes(toolResult.status)) unresolvedRejections.delete(candidateKey(args));
