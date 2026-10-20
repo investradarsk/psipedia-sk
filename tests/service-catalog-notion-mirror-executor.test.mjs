@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {createAdminCatalogOption} from "../lib/service-catalog-admin-store.ts";
+import {buildServicesV3NotionBootstrapInventory} from "../lib/service-catalog-notion-bootstrap-plan.ts";
 import {executeServiceCatalogNotionMirror} from "../lib/service-catalog-notion-mirror-executor.ts";
 import {createServiceCatalogNotionHttpPort, createPsipediaServiceCatalogNotionHttpPort,
   PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING, createPsipediaServiceCatalogReadOnlyRegistry} from "../lib/service-catalog-notion-http-port.ts";
@@ -348,4 +349,99 @@ test("truncated or malformed query result blocks complete ownership assertions",
     const registry=registryMock(responses,[]);
     await assert.rejects(()=>registry.list(),/NOTION_REGISTRY_/);
   }
+});
+
+
+test("bootstrap inventory reports absent catalog pages without D1 or Notion writes",async()=>{
+  const f=await fixture();
+  try{
+    const plan=await buildServicesV3NotionBootstrapInventory(f.db,{list:async()=>[]});
+    assert.equal(plan.mode,"READ_ONLY");
+    assert.equal(plan.canonicalDynamicCount,1);
+    assert.equal(plan.notionPageCount,0);
+    assert.equal(plan.receiptCount,0);
+    assert.equal(plan.safeForAutomaticWrite,false);
+    assert.equal(plan.blocked,false);
+    assert.deepEqual(plan.items,[{optionId:f.created.id,version:1,disposition:"NEEDS_PAGE"}]);
+    assert.deepEqual(plan.unmappedNotionOptionIds,[]);
+    assert.equal(f.local().notionMirrorStatus,"PENDING");
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("bootstrap inventory accepts existing exact catalog mapping but cannot assert write success",async()=>{
+  const f=await fixture();
+  try{
+    const src=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+    const result=await buildServicesV3NotionBootstrapInventory(f.db,{
+      list:async()=>[{optionId:f.created.id,pageId:PAGE,dataSourceId:src}]
+    });
+    assert.equal(result.safeForAutomaticWrite,false);
+    assert.equal(result.blocked,false);
+    assert.deepEqual(result.items,[{
+      optionId:f.created.id,version:1,disposition:"MAPPED_PENDING",pageId:PAGE
+    }]);
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("bootstrap inventory recognizes an already synced version only with matching immutable receipt",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
+      .run(f.created.id,2,PAGE,"2026-10-20T12:00:00Z","f".repeat(64),"2026-10-20T12:00:01Z","offline-fixture");
+    f.sqlite.prepare("UPDATE service_catalog_admin_options SET version=2,notion_mirror_status='SYNCED' WHERE id=?").run(f.created.id);
+    const p=await buildServicesV3NotionBootstrapInventory(f.db,{list:async()=>[{
+      optionId:f.created.id,pageId:PAGE,dataSourceId:PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId
+    }]});
+    assert.deepEqual(p.items,[{optionId:f.created.id,version:2,disposition:"SYNCED_VERIFIED",pageId:PAGE}]);
+    assert.equal(p.blocked,false);
+    assert.equal(p.receiptCount,1);
+  }finally{f.sqlite.close();}
+});
+test("bootstrap inventory detects invalid source, duplicate ownership, orphan page and stale receipt",async()=>{
+  const f=await fixture();
+  try{
+    const src=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+    const owner={optionId:f.created.id,pageId:PAGE,dataSourceId:src};
+    const dup={...owner,pageId:OTHER_PAGE};
+    await assert.rejects(()=>buildServicesV3NotionBootstrapInventory(f.db,{
+      list:async()=>[owner,dup]
+    }),/CATALOG_BOOTSTRAP_DUPLICATE_NOTION_MAPPING/);
+    await assert.rejects(()=>buildServicesV3NotionBootstrapInventory(f.db,{
+      list:async()=>[{...owner,dataSourceId:SOURCE}]
+    }),/CATALOG_BOOTSTRAP_INVALID_NOTION_MAPPING/);
+    const orphan=await buildServicesV3NotionBootstrapInventory(f.db,{
+      list:async()=>[owner,{optionId:"attr.admin."+"b".repeat(32),pageId:OTHER_PAGE,dataSourceId:src}]
+    });
+    assert.equal(orphan.blocked,true);
+    assert.deepEqual(orphan.unmappedNotionOptionIds,["attr.admin."+"b".repeat(32)]);
+    f.sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
+      .run(f.created.id,2,OTHER_PAGE,"2026-10-20T12:00:00Z","f".repeat(64),"2026-10-20T12:00:01Z","offline-fixture");
+    const conflict=await buildServicesV3NotionBootstrapInventory(f.db,{list:async()=>[owner]});
+    assert.equal(conflict.blocked,true);
+    assert.equal(conflict.items[0].disposition,"BLOCKED");
+    assert.equal(conflict.items[0].reason,"RECEIPT_OWNERSHIP_OR_VERSION_CONFLICT");
+  }finally{f.sqlite.close();}
+});
+test("bootstrap inventory requires complete 0134 schema before reading remote registry",async()=>{
+  const f=await fixture({no134:true});
+  try{
+    let called=false;
+    await assert.rejects(()=>buildServicesV3NotionBootstrapInventory(f.db,{
+      list:async()=>{called=true;return [];}
+    }),/0134|not provisioned/i);
+    assert.equal(called,false);
+  }finally{f.sqlite.close();}
+});
+test("bootstrap distinguishes empty dynamic D1 table from 91 static service definitions",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.prepare("DELETE FROM service_catalog_admin_options WHERE id=?").run(f.created.id);
+    const plan=await buildServicesV3NotionBootstrapInventory(f.db,{list:async()=>[]});
+    assert.deepEqual(plan.items,[]);
+    assert.equal(plan.canonicalDynamicCount,0);
+    assert.equal(plan.notionPageCount,0);
+    assert.equal(plan.blocked,false);
+    assert.equal(plan.safeForAutomaticWrite,false);
+    assert.ok(read("lib/service-catalog-contract.ts").includes("svc.vet.preventive_exam"));
+  }finally{f.sqlite.close();}
 });
