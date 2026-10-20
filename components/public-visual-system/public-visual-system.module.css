@@ -168,6 +168,20 @@
   outline-offset: 3px;
 }
 
+/* DS-2A: two-tone keyboard focus ring remains legible on dark Hero and light surfaces. */
+.action:focus-visible {
+  outline: 3px solid var(--forest-dark);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--white);
+}
+
+@media (forced-colors: active) {
+  .action:focus-visible {
+    outline-color: Highlight;
+    box-shadow: none;
+  }
+}
+
 .actionPrimary {
   border-color: var(--forest);
   color: var(--white);
