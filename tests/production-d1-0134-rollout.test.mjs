@@ -24,9 +24,9 @@ function fixture() {
   const schema = () => ({objects:db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE type IN ('table','index','trigger') ORDER BY type,name").all()});
   return {db,schema};
 }
-test("0134 is sole newly allowed target; 0135 is blocked, SQL SHA and database pinned", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0135_facebook_image_safe_retry.sql"]);
+test("0134 is independently approved, 0135 has separate gated approval", () => {
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), target);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(m134).digest("hex"), APPROVED_0134_SHA256);
   assert.doesNotThrow(() => assertApproved0134Target("psipedia-sk-db", APPROVED_0134_SHA256));
   assert.throws(() => assertApproved0134Target("other-db", APPROVED_0134_SHA256), /canonical/);
@@ -45,7 +45,7 @@ test("existing protected workflow requires manual main, production environment a
   assert.match(runner, /assert0134NotAlreadyApplied\(targetMigration, internal\.targetApplied \|\| liveState\.targetApplied\)/);
 });
 test("0134 requires exact 0133 predecessor; older target 0133 stays supported", () => {
-  const chain = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS];
+  const chain = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS.filter(name=>Number(name.slice(0,4))<=134)];
   const before=chain.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(before,chain,target),{latestIndex:133,targetApplied:false});
   assert.deepEqual(validateProductionTargetHistory(chain,chain,target),{latestIndex:134,targetApplied:true});

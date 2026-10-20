@@ -283,6 +283,26 @@ async function gemini(payload, phase) {
   return interaction;
 }
 
+async function authorizePaidStart() {
+  const secret = env.PSIPEDIA_AGENT_CALLBACK_SECRET;
+  if (!secret || env.PSIPEDIA_AGENT_CALLBACK_URL !== "https://psipedia.sk/api/internal/gemini-agent/callback")
+    throw Error("ADMISSION_CONFIG_MISSING");
+  const body = JSON.stringify({ job_id: jobId, stable_key: stableKey });
+  const signature = createHmac("sha256", secret).update(body).digest("hex");
+  // One attempt only. An uncertain acknowledgement MUST NOT repeat a billable
+  // search or obtain a second admission; operator review is required.
+  let response;
+  try {
+    response = await fetch("https://psipedia.sk/api/internal/gemini-agent/authorize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+        "X-Psipedia-Signature": "sha256=" + signature },
+      body, signal: AbortSignal.timeout(20000),
+    });
+  } catch { throw Error("AGENT_ADMISSION_UNCERTAIN"); }
+  if (!response.ok) throw Error("AGENT_ADMISSION_DENIED");
+}
+
 async function runAgent() {
   if (env.GEMINI_AGENT_PAID_ENABLED !== "true") throw Error("PAID_NOT_ENABLED");
   if (!env.AGENT_GEMINI_ACCESS_KEY || !env.AGENT_NOTION_ACCESS_TOKEN) throw Error("AGENT_SECRETS_MISSING");
@@ -295,6 +315,7 @@ async function runAgent() {
   const categoryGuidance = env.AGENT_CATEGORY_PROMPT?.trim();
   if (!categoryGuidance || categoryGuidance.length > 6000)
     throw Error("AGENT_CATEGORY_PROMPT_MISSING");
+  await authorizePaidStart();
   const snapshot = await notionSnapshot(target.dataSourceId, target.dedicatedLostFound ? "lost-found" : target.dedicatedAdoption ? "adoptions" : target.dedicatedShelter ? "shelters" : target.section);
   const liveSchema = geminiNotionSchema(snapshot.properties, target);
   const functionTools = notionFunctionTools(liveSchema);

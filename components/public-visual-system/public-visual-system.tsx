@@ -217,15 +217,30 @@ export function PublicActionButton({
   className,
   children,
   type = "button",
+  loading = false,
+  loadingLabel = "Spracúvam…",
+  disabled,
+  "aria-busy": ariaBusy,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: PublicActionVariant;
   icon?: ReactElement;
+  loading?: boolean;
+  loadingLabel?: string;
 }) {
   return (
-    <button {...props} type={type} className={cx(styles.action, actionVariantClass[variant], className)}>
-      <span>{children}</span>
-      {icon ? <PublicIcon icon={icon} size="sm" /> : null}
+    <button
+      {...props}
+      type={type}
+      disabled={disabled || loading}
+      aria-busy={loading ? true : ariaBusy}
+      aria-label={loading ? loadingLabel : props["aria-label"]}
+      className={cx(styles.action, actionVariantClass[variant], loading && styles.actionLoading, className)}
+    >
+      <span role={loading ? "status" : undefined} aria-live={loading ? "polite" : undefined}>
+        {loading ? loadingLabel : children}
+      </span>
+      {loading ? <span className={styles.loadingIndicator} aria-hidden="true" /> : icon ? <PublicIcon icon={icon} size="sm" /> : null}
     </button>
   );
 }

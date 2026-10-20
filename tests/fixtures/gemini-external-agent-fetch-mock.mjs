@@ -181,6 +181,18 @@ const row = { id: "existing", properties: {
 } };
 globalThis.fetch = async (url, options = {}) => {
   const address = String(url);
+  if (address === "https://psipedia.sk/api/internal/gemini-agent/authorize") {
+    const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+      .update(options.body).digest("hex");
+    const payload = JSON.parse(options.body);
+    if (options.method !== "POST" || options.headers["X-Psipedia-Signature"] !== expected ||
+        payload.job_id !== Number(process.env.AGENT_JOB_ID) ||
+        payload.stable_key !== process.env.AGENT_STABLE_KEY ||
+        Object.keys(payload).length !== 2) throw Error("UNSAFE_ADMISSION_REQUEST");
+    if (scenario === "admission_denied") return json({ ok: false }, 409);
+    if (scenario === "admission_uncertain") throw Error("OFFLINE_ADMISSION_TIMEOUT");
+    return json({ ok: true });
+  }
   if (address === "https://generativelanguage.googleapis.com/v1beta/interactions") {
     geminiCalls++;
     const body = JSON.parse(options.body);
