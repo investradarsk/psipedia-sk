@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { createAdoptionFromAdmin, isAdoptionAdminConflict } from "@/lib/adoption-admin-write";
 import type { ManagedAdoptionInput } from "@/lib/adoption";
 
@@ -13,8 +13,9 @@ function errorResponse(error: unknown) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     const body = await request.json() as Body;
     if (!isRecord(body) || !isRecord(body.payload)) return Response.json({ error: "Neplatný payload adopčného profilu." }, { status: 400 });

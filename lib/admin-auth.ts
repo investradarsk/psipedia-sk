@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { rejectUntrustedAdminMutationOrigin } from "@/lib/admin-mutation-origin";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -95,28 +96,13 @@ export function unauthorizedAdminResponse() {
   );
 }
 
-export async function requireAdminMutation(request: Request) {
+export async function requireAdminMutation(request: Request, options: { strictProvenance?: boolean } = {}) {
   const user = await getAdminApiUser();
   if (!user) return { response: unauthorizedAdminResponse() as Response, user: null };
 
-  const site = request.headers.get("sec-fetch-site");
-  if (site && site !== "same-origin" && site !== "none") {
-    return {
-      response: Response.json({ error: "Cross-site požiadavka bola odmietnutá." }, { status: 403 }),
-      user: null,
-    };
-  }
-
-  const origin = request.headers.get("origin");
-  if (origin) {
-    try {
-      if (new URL(origin).host !== new URL(request.url).host) {
-        return { response: Response.json({ error: "Neplatný origin." }, { status: 403 }), user: null };
-      }
-    } catch {
-      return { response: Response.json({ error: "Neplatný origin." }, { status: 403 }), user: null };
-    }
-  }
+  // Authorization is mandatory even for requests that already fail provenance checks.
+  const rejected = rejectUntrustedAdminMutationOrigin(request, { allowMissingProvenance: !options.strictProvenance });
+  if (rejected) return { response: rejected, user: null };
 
   return { response: null, user };
 }
