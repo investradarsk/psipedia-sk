@@ -1,6 +1,7 @@
 /** Isolated Notion Facebook-images contract. The old Facebook editorial database is not used. */
 export type NotionFacebookImagePage = {
   id: string;
+  last_edited_time?: string;
   properties?: Record<string, unknown>;
 };
 
