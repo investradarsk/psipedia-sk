@@ -1,0 +1,33 @@
+name: PRODUCTION-D1-0134-READONLY-OFFLINE-CI
+
+on:
+  pull_request:
+    paths:
+      - "scripts/production-d1-0134-readonly.mjs"
+      - "tests/production-d1-0134-readonly.test.mjs"
+      - ".github/workflows/production-d1-0134-readonly.yml"
+      - ".github/workflows/production-d1-0134-offline-ci.yml"
+      - "docs/production-d1-0134-readonly.md"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-0134-verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - run: npm ci
+      - name: Syntax check
+        run: |
+          node --check scripts/production-d1-0134-readonly.mjs
+          node --check tests/production-d1-0134-readonly.test.mjs
+      - name: Entire offline in-memory SQLite regression suite
+        run: node --test tests/production-d1-0134-readonly.test.mjs
+      - name: Static migration safety (no D1)
+        run: npm run db:check-migrations
