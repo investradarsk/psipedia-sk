@@ -133,7 +133,7 @@ test("D1 migration stores isolated agenda/page-bound baselines and rejects ID co
   assert.equal(await readProfileFieldBaseline({
     database, agenda: "events", entityId: 1, pageId: "a", expectedHash: "hash",
   }), null);
-  db.exec(await readFile(new URL("../docs/proposals/notion-profile-field-baselines-0135.sql", import.meta.url), "utf8"));
+  db.exec(await readFile(new URL("../docs/proposals/notion-profile-field-baselines-UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"));
   assert.equal(await profileFieldBaselineTableReady(database), true);
   const arg = {
     database, agenda: "events", entityId: 1, pageId: "notion-a",
