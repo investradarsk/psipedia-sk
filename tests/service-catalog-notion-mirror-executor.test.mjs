@@ -5,6 +5,7 @@ import {DatabaseSync} from "node:sqlite";
 import {createAdminCatalogOption} from "../lib/service-catalog-admin-store.ts";
 import {buildServicesV3NotionBootstrapInventory} from "../lib/service-catalog-notion-bootstrap-plan.ts";
 import {provisionServiceCatalogNotionPage} from "../lib/service-catalog-notion-page-provisioner.ts";
+import {createServicesV3CatalogD1Lease,inspectServicesV3CatalogLease,ServiceCatalogLeaseBusy} from "../lib/service-catalog-notion-durable-lease.ts";
 import {executeServiceCatalogNotionMirror} from "../lib/service-catalog-notion-mirror-executor.ts";
 import {createServiceCatalogNotionHttpPort, createPsipediaServiceCatalogNotionHttpPort,
   PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING, createPsipediaServiceCatalogReadOnlyRegistry} from "../lib/service-catalog-notion-http-port.ts";
@@ -579,4 +580,95 @@ test("creation primitive is double gated and posts ONLY nine canonical catalog p
   assert.deepEqual(Object.keys(calls[0].body.properties).sort(),
     Object.values(PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties).sort());
   assert.ok(!Object.keys(calls[0].body.properties).includes("Služby"));
+});
+
+
+test("durable Services V3 per-option lock excludes an independent caller before work",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    const a=createServicesV3CatalogD1Lease(f.db);
+    const b=createServicesV3CatalogD1Lease(f.db);
+    let releaseFirst;
+    let entered=false;
+    const first=a.runExclusive(f.created.id,async()=>{
+      entered=true;
+      await new Promise(resolve=>{releaseFirst=resolve;});
+      return {state:"VERIFIED"};
+    });
+    // The first async work callback has been entered after acquiring the D1 PK lock.
+    for(let n=0;n<20&&!entered;n++)await Promise.resolve();
+    assert.equal(entered,true);
+    await assert.rejects(()=>b.runExclusive(f.created.id,async()=>({state:"VERIFIED"})),
+      ServiceCatalogLeaseBusy);
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,true);
+    releaseFirst();
+    assert.equal((await first).state,"VERIFIED");
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,false);
+    assert.equal((await b.runExclusive(f.created.id,async()=>({state:"BLOCKED"}))).state,"BLOCKED");
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,false);
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("uncertain Notion outcome retains durable lock across subsequent invocations",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    const lease=createServicesV3CatalogD1Lease(f.db);
+    const result=await lease.runExclusive(f.created.id,async()=>({state:"REVIEW",reason:"CREATE_OUTCOME_UNKNOWN"}));
+    assert.equal(result.reason,"CREATE_OUTCOME_UNKNOWN");
+    const lock=await inspectServicesV3CatalogLease(f.db,f.created.id);
+    assert.equal(lock.held,true);
+    assert.ok(lock.createdAt);
+    await assert.rejects(()=>createServicesV3CatalogD1Lease(f.db)
+      .runExclusive(f.created.id,async()=>({state:"CREATED_NEEDS_MIRROR"})),ServiceCatalogLeaseBusy);
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("unknown thrown error also keeps lock, but verified safe states release owner-CAS",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    const lease=createServicesV3CatalogD1Lease(f.db);
+    await assert.rejects(()=>lease.runExclusive(f.created.id,async()=>{
+      throw Error("SIMULATED_UNCERTAIN_TRANSPORT");
+    }),/SIMULATED_UNCERTAIN_TRANSPORT/);
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,true);
+    // Unit fixture only: manual reset simulates separately approved operator recovery.
+    f.sqlite.prepare("DELETE FROM gemini_notion_review_locks WHERE notion_page_id=?")
+      .run("psipedia:services-v3:catalog:"+f.created.id);
+    assert.equal((await lease.runExclusive(f.created.id,
+      async()=>({state:"CREATED_NEEDS_MIRROR"}))).state,"CREATED_NEEDS_MIRROR");
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,false);
+  }finally{f.sqlite.close();}
+});
+test("Services V3 coordination namespace is disjoint from existing Gemini UUID locks",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    const key=f.created.id;
+    f.sqlite.prepare("INSERT INTO gemini_notion_review_locks(notion_page_id,owner) VALUES (?,?)")
+      .run(PAGE,"gemini-fixture");
+    const lease=createServicesV3CatalogD1Lease(f.db);
+    assert.equal((await lease.runExclusive(key,async()=>({state:"EXISTS"}))).state,"EXISTS");
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM gemini_notion_review_locks").get().n,1);
+    assert.equal(f.sqlite.prepare("SELECT owner FROM gemini_notion_review_locks WHERE notion_page_id=?")
+      .get(PAGE).owner,"gemini-fixture");
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("lease refuses invalid static IDs and lost-release ownership, without unlocking someone else",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    const lease=createServicesV3CatalogD1Lease(f.db);
+    await assert.rejects(()=>lease.runExclusive("svc.vet.vaccination",
+      async()=>({state:"VERIFIED"})),/SERVICES_V3_LEASE_INVALID_OPTION_ID/);
+    await assert.rejects(()=>lease.runExclusive(f.created.id,async()=>{
+      f.sqlite.prepare("UPDATE gemini_notion_review_locks SET owner='different-owner' WHERE notion_page_id=?")
+        .run("psipedia:services-v3:catalog:"+f.created.id);
+      return {state:"VERIFIED"};
+    }),/SERVICES_V3_LEASE_RELEASE_OWNERSHIP_LOST/);
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,true);
+  }finally{f.sqlite.close();}
 });
