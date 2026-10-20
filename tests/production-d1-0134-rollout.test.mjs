@@ -26,7 +26,7 @@ function fixture() {
 }
 test("0134 is independently approved, 0135 has separate gated approval", () => {
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0136_gemini_global_stop.sql"]);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(m134).digest("hex"), APPROVED_0134_SHA256);
   assert.doesNotThrow(() => assertApproved0134Target("psipedia-sk-db", APPROVED_0134_SHA256));
   assert.throws(() => assertApproved0134Target("other-db", APPROVED_0134_SHA256), /canonical/);
