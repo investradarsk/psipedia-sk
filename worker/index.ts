@@ -645,7 +645,7 @@ function responseForbidsSharedHtmlCache(value: string): boolean {
     if (name !== "max-age" && name !== "s-maxage") return false;
     if (equals < 0) return true; // malformed freshness directive: fail closed
     const seconds = part.slice(equals + 1).trim().replace(/^"|"$/g, "");
-    return !/^\d+$/.test(seconds) || Number(seconds) < PUBLIC_HTML_CACHE_TTL_SECONDS;
+    return !/^\d+$/.test(seconds) || !Number.isSafeInteger(Number(seconds)) || Number(seconds) < PUBLIC_HTML_CACHE_TTL_SECONDS;
   });
 }
 
