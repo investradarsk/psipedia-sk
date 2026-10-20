@@ -38,9 +38,15 @@ export const facebookImagePublishAttempts=sqliteTable("facebook_image_publish_at
   startedAt:text("started_at").notNull(),
   completedAt:text("completed_at"),
   errorCode:text("error_code"),
+  retryCount:integer("retry_count").notNull().default(0),
+  retryNotBefore:text("retry_not_before"),
+  outcomeKind:text("outcome_kind").notNull().default("UNKNOWN"),
 },t=>[
   check("facebook_image_publish_attempts_snapshot_version",sql`${t.snapshotVersion}>=1`),
   check("facebook_image_publish_attempts_state",sql`${t.state} IN ('SENDING','PUBLISHED','UNCERTAIN')`),
   check("facebook_image_publish_attempts_remote_id",sql`(${t.state}='PUBLISHED' AND ${t.remoteId} IS NOT NULL AND ${t.completedAt} IS NOT NULL) OR (${t.state}<>'PUBLISHED' AND ${t.remoteId} IS NULL)`),
+  check("facebook_image_publish_retry_count",sql`${t.retryCount} BETWEEN 0 AND 3`),
+  check("facebook_image_publish_outcome_kind",sql`${t.outcomeKind} IN ('UNKNOWN','PROVEN_REJECTED','AMBIGUOUS')`),
+  index("facebook_image_publish_retry_idx").on(t.outcomeKind,t.retryNotBefore,t.postId),
   index("facebook_image_publish_attempts_state_idx").on(t.state,t.startedAt),
 ]);
