@@ -411,4 +411,5 @@ test("DS-4 promotional, image and safety banners preserve distinct content with 
   assert.match(helpCss, /DS-4:[\s\S]*\.overviewPromoCopy > a[\s\S]*min-height: 48px/);
   assert.match(articleCss, /DS-4:[\s\S]*\.cta \{ min-height: 48px; \}/);
   assert.match(hubCss, /DS-4:[\s\S]*\.primary, \.secondary[\s\S]*min-height: 48px/);
+  assert.match(hubCss, /\.card\[data-health-urgent\][\s\S]*border-left: 4px solid/);
 });

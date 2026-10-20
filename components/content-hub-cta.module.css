@@ -40,11 +40,15 @@
 }
 
 
-/* DS-4: informational hub banners share the compact geometry, not the */
-/* safety treatment reserved for urgent content. */
+/* DS-4: informational hub banners share compact geometry; urgent health
+   content retains a clear safety cue separate from promotional CTAs. */
 .card {
   border-radius: var(--ps-banner-radius, 18px);
   padding: 18px clamp(16px, 2.4vw, 24px);
+}
+.card[data-health-urgent] {
+  border-left: 4px solid var(--brand-accent-strong, #b94732);
+  background: linear-gradient(110deg, #fff1e9, #fffdf8);
 }
 .primary,
 .secondary {
