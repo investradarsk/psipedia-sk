@@ -127,13 +127,15 @@ export function EditorContent({
 
 export function EditorPreview({
   title = "Živý náhľad",
+  focusable = false,
   children,
 }: {
   title?: string;
+  focusable?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className={styles.preview} aria-label={title} data-editor-preview>
+    <section className={styles.preview} aria-label={title} tabIndex={focusable ? 0 : undefined} data-editor-preview>
       <h2>{title}</h2>
       <div className={styles.previewInner}>{children}</div>
     </section>
@@ -210,6 +212,7 @@ export function EditorWorkspace({
   sections,
   preview,
   previewTitle,
+  previewFocusable = false,
   actions,
   dirty = false,
   onClose,
@@ -224,6 +227,7 @@ export function EditorWorkspace({
   sections: EditorWorkspaceSection[];
   preview?: ReactNode;
   previewTitle?: string;
+  previewFocusable?: boolean;
   actions?: ReactNode;
   dirty?: boolean;
   onClose?: () => void;
@@ -267,7 +271,7 @@ export function EditorWorkspace({
       />
       <div className={styles.columns} data-editor-columns={preview ? "with-preview" : "single"}>
         <EditorContent contentRef={contentRef}>{children}</EditorContent>
-        {preview && <EditorPreview title={previewTitle}>{preview}</EditorPreview>}
+        {preview && <EditorPreview title={previewTitle} focusable={previewFocusable}>{preview}</EditorPreview>}
       </div>
     </div>
   );
