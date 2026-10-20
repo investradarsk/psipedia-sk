@@ -7,6 +7,13 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
   re-reads the data source and includes locally acknowledged writes.
 - Existing D1 directory dedupe (`checkGeminiCandidateDedupe`) and events dedupe
   (`checkGeminiEventDedupe`), not another identity registry.
+- Help 6/6 now use **read-only** comparisons against their actual canonical D1 models:
+  generic `help_cases` (3 keys), `help_organizations` + Directory cross-check
+  (shelters), `adoption_dogs` and `lost_found_dog_reports`. Every historical
+  status counts, including unpublished, adopted, resolved and archived.
+  Help requires appropriate public identity evidence; weak/incomplete identity
+  yields BLOCKED, same source with uncertain identity yields POSSIBLE_DUPLICATE.
+  No private contacts, street addresses, exact GEO or user edits are queried.
 - Existing signed machine-to-machine callback secret and running-job identity.
   A separate, narrow **read-only** preflight endpoint returns only an enum.
 - D1 system still owns canonical IDs, Google-place confirmation and human edits;
@@ -27,9 +34,12 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
   authorized proposal pathway; never overwrite human edits.
 
 ## Known blockers before production acceptance
-1. All six Help categories remain **BLOCKED** at D1 preflight. They map to distinct
-   canonical models; the directory/event match policies must not be reused without
-   validated Help-specific selectors and read-only tests.
+1. Help 6/6 now has dedicated D1 read-only preflight and offline tests, but
+   **real schema/identity acceptance is still UNKNOWN**. Lost/Found requires
+   explicit LOST/FOUND type, event date, city and source URL; adoption requires
+   organization and public source. Unresolved identity fields BLOCKED rather
+   than forcing an unsafe NEW. Existing generic Help has no canonical source URL
+   column (only an action URL); cross-source identity is necessarily conservative.
 2. Directory and events rely on available public identity fields; insufficient
    name/city/date/source/organizer yields BLOCKED. Rebrands and verified Google
    place IDs require a separate conservative matching review, not implicit merge.
