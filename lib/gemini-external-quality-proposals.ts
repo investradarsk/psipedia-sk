@@ -1,6 +1,7 @@
 import { checkExternalGeminiIdentity } from "./gemini-external-dedupe.ts";
 import { checkGeminiCandidateDedupe } from "./gemini-automation-dedupe.ts";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
+import { safeGeminiFeedQualityFields, submitGeminiFeedQualityProposal } from "./gemini-external-feed-quality.ts";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
 import { directoryActionableProposal } from "./data-automation-directory-diff.ts";
 import { upsertDirectEntityUpdateSuggestion } from "./data-automation-product-store.ts";
@@ -85,7 +86,10 @@ export async function submitGeminiDirectoryQualityProposal(input:{
   if(!record(value)||Object.keys(value).length!==5||
     !["job_id","stable_key","issued_at","candidate","proposal"].every(x=>Object.hasOwn(value,x))||
     !record(value.candidate))return blocked(400);
-  const fields=safeFields(value.proposal);
+  const category=getGeminiCatalogItem(String(value.stable_key));
+  if(!category)return blocked(400);
+  const fields=category.section==="directory" ? safeFields(value.proposal)
+    : safeGeminiFeedQualityFields(String(value.stable_key),value.proposal);
   if(!fields)return blocked(400);
   // Authenticate the *entire* payload before deriving a second signed
   // read-only gate request. This cannot authorize an arbitrary job or identity.
@@ -98,8 +102,10 @@ export async function submitGeminiDirectoryQualityProposal(input:{
   });
   if(verdict.status!=="DUPLICATE"||verdict.httpStatus!==200)return blocked(verdict.httpStatus);
   const key=String(value.stable_key);
-  const category=getGeminiCatalogItem(key);
-  if(!category||category.section!=="directory")return blocked();
+  if(category.section!=="directory")return submitGeminiFeedQualityProposal({
+    db:input.db,key,candidate:value.candidate as PublicIdentity,proposal:fields,
+    now:input.now??Date.now(),
+  });
   const candidate=value.candidate as PublicIdentity;
   const source=publicUrl(candidate.source)||publicUrl(candidate.website);
   if(!source||!candidate.city.trim())return blocked();
