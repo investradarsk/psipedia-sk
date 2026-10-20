@@ -262,7 +262,7 @@ export function AdminDirectoryEditor({
         method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: reviewConfirm, confirm: true, lastEditedAt: notionVersion, reason: rejectionReason }),
       });
-      const data = await response.json() as { draft?: GeminiDirectoryDraft; error?: string };
+      const data = await response.json() as { draft?: GeminiDirectoryDraft; canonicalSave?: { state: string }; error?: string };
       if (!response.ok || !data.draft) throw new Error(data.error || "Zmenu sa nepodarilo potvrdiť. Obnov zoznam pred opakovaním.");
       setReviewState(data.draft.reviewState); setNotionVersion(data.draft.lastEditedAt);
       setReviewConfirm(null);
@@ -309,7 +309,9 @@ export function AdminDirectoryEditor({
         if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo uložiť v Notione.");
         setNotionVersion(data.draft.lastEditedAt);
         setReviewState(data.draft.reviewState);
-        setMessage("Koncept je uložený priamo v Notione a zostáva neverejný.");
+        setMessage(data.canonicalSave?.state === "CANONICAL_DRAFT_READY"
+          ? "Koncept uložený v Notione a prepojený s neverejným D1 profilom."
+          : "Koncept uložený v Notione; prípadný D1 import zostáva na kontrolu. Nič sa nepublikovalo.");
         onNotionSaved?.();
         return;
       }

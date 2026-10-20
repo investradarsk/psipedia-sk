@@ -31,10 +31,8 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
     const changed = Object.fromEntries(draft.fields.filter(field =>
       field.editable && !Object.is(values[field.name], baseline[field.name]))
       .map(field => [field.name, values[field.name]]));
-    if (action === "save" && Object.keys(changed).length === 0) {
-      setMessage("Žiadne zmeny na uloženie.");
-      return;
-    }
+    // Save is also the explicit request to reconcile this Notion draft into
+    // one canonical private D1 record; unchanged content may still need import.
     setBusy(true);
     try {
       const response = await fetch(api(draft), {
@@ -44,7 +42,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         body: JSON.stringify({ action, lastEditedAt: revision,
           ...(action === "save" ? { fields: changed } : { confirm: true, ...(action === "reject" ? { reason: rejectionReason.trim() } : {}) }) }),
       });
-      const data = await response.json() as { draft?: GeminiAgendaDraft; error?: string };
+      const data = await response.json() as { draft?: GeminiAgendaDraft; canonicalSave?: { state: string }; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Notion neodpovedá. Over stav konceptu pred opakovaním.");
       setValues(initial(data.draft));
       setBaseline(initial(data.draft));
@@ -52,7 +50,9 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       setReviewState(data.draft.reviewState);
       setConfirm(null);
       setRejectionReason("");
-      setMessage(action === "save" ? "Koncept bol uložený v pôvodnej Notion stránke bez publikovania."
+      setMessage(action === "save" ? (data.canonicalSave?.state === "CANONICAL_DRAFT_READY"
+        ? "Koncept uložený v Notione a prepojený s neverejným D1 profilom."
+        : "Koncept uložený v Notione; D1 import vyžaduje kontrolu. Nič sa nepublikovalo.")
         : action === "approve" ? "Koncept pripravený na import; D1 profil zostáva neverejný." :
           action === "reject" ? "Koncept odmietnutý." : "Koncept obnovený.");
       onSaved();
