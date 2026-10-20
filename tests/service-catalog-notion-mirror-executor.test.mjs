@@ -4,6 +4,7 @@ import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {createAdminCatalogOption} from "../lib/service-catalog-admin-store.ts";
 import {buildServicesV3NotionBootstrapInventory} from "../lib/service-catalog-notion-bootstrap-plan.ts";
+import {provisionServiceCatalogNotionPage} from "../lib/service-catalog-notion-page-provisioner.ts";
 import {executeServiceCatalogNotionMirror} from "../lib/service-catalog-notion-mirror-executor.ts";
 import {createServiceCatalogNotionHttpPort, createPsipediaServiceCatalogNotionHttpPort,
   PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING, createPsipediaServiceCatalogReadOnlyRegistry} from "../lib/service-catalog-notion-http-port.ts";
@@ -444,4 +445,138 @@ test("bootstrap distinguishes empty dynamic D1 table from 91 static service defi
     assert.equal(plan.safeForAutomaticWrite,false);
     assert.ok(read("lib/service-catalog-contract.ts").includes("svc.vet.preventive_exam"));
   }finally{f.sqlite.close();}
+});
+
+
+async function manualPageFixture(opts={}){
+  const f=await fixture(opts);
+  const counters={create:0,read:0,registry:0,lock:0};
+  const src=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+  let created=false;
+  const registry={
+    async list(){
+      counters.registry++;
+      const owned=created||opts.existingPage;
+      return owned?[{optionId:f.created.id,pageId:PAGE,dataSourceId:src}]:[];
+    }
+  };
+  const notion={
+    async createPage(local){
+      counters.create++;
+      if(opts.timeoutAfterCreate){created=true;throw Error("TIMEOUT_AFTER_WRITE");}
+      created=true;
+      if(opts.editDuringCreate){
+        f.sqlite.prepare("UPDATE service_catalog_admin_options SET label='Rival options',version=version+1 WHERE id=?").run(f.created.id);
+      }
+      return {pageId:PAGE};
+    },
+    async readPage(id){
+      counters.read++;
+      if(opts.readbackFailure)throw Error("NOTION_READ_503");
+      const x={...f.local()};
+      // A stale concurrent D1 edit must not change the Notion source being read.
+      const initial={...x,label:opts.editDuringCreate?"Mobilná veterinárna pomoc":x.label,version:1};
+      return {
+        pageId:id,dataSourceId:src,sourceOptionId:f.created.id,
+        sourceOptionVersion:initial.version,archived:false,inTrash:false,
+        fields:{kind:initial.kind,label:initial.label,group:initial.group,
+          meaning:initial.meaning,primaryCategory:initial.primaryCategory,
+          categories:initial.categories,valueKind:initial.valueKind}
+      };
+    }
+  };
+  const lease={async runExclusive(_id,fn){counters.lock++;return await fn();}};
+  const flags={adminWrites:"true",notionMirrorReady:"true",mirrorExecutor:"true",
+    allowPageProvisioning:"true"};
+  return {...f,counters,deps:{db:f.db,registry,lease,flags,notion}};
+}
+test("manual page creation requires four explicit gates and a lease",async()=>{
+  const f=await manualPageFixture();
+  try{
+    const flags={...f.deps.flags,allowPageProvisioning:"false"};
+    const stopped=await provisionServiceCatalogNotionPage({...f.deps,flags},f.created.id);
+    assert.deepEqual(stopped,{optionId:f.created.id,state:"BLOCKED",reason:"FEATURE_DISABLED"});
+    assert.equal(f.counters.create,0);
+    assert.equal(f.counters.lock,0);
+    const noLease=await provisionServiceCatalogNotionPage({...f.deps,lease:undefined},f.created.id);
+    assert.equal(noLease.state,"BLOCKED");
+    assert.equal(f.counters.create,0);
+  }finally{f.sqlite.close();}
+});
+test("manual provisioning creates just one page and never writes D1 receipt/option status",async()=>{
+  const f=await manualPageFixture();
+  try{
+    const first=await provisionServiceCatalogNotionPage(f.deps,f.created.id);
+    assert.deepEqual(first,{optionId:f.created.id,state:"CREATED_NEEDS_MIRROR",pageId:PAGE});
+    assert.equal(f.counters.create,1);
+    assert.equal(f.counters.read,1);
+    assert.equal(f.counters.lock,1);
+    assert.equal(f.count(),0);
+    assert.equal(f.local().notionMirrorStatus,"PENDING");
+    const second=await provisionServiceCatalogNotionPage(f.deps,f.created.id);
+    assert.deepEqual(second,{optionId:f.created.id,state:"EXISTS",pageId:PAGE});
+    assert.equal(f.counters.create,1);
+  }finally{f.sqlite.close();}
+});
+test("uncertain Notion create outcome is REVIEW, not retried or marked SYNCED",async()=>{
+  const f=await manualPageFixture({timeoutAfterCreate:true});
+  try{
+    const first=await provisionServiceCatalogNotionPage(f.deps,f.created.id);
+    assert.deepEqual(first,{optionId:f.created.id,state:"REVIEW",reason:"CREATE_OUTCOME_UNKNOWN"});
+    assert.equal(f.counters.create,1);
+    assert.equal(f.count(),0);
+    // Later independent ownership visibility must detect existing page, not re-POST.
+    const second=await provisionServiceCatalogNotionPage(f.deps,f.created.id);
+    assert.equal(second.state,"EXISTS");
+    assert.equal(f.counters.create,1);
+  }finally{f.sqlite.close();}
+});
+test("concurrent canonical edit after Notion create requires human reconciliation",async()=>{
+  const f=await manualPageFixture({editDuringCreate:true});
+  try{
+    const result=await provisionServiceCatalogNotionPage(f.deps,f.created.id);
+    assert.equal(result.state,"REVIEW");
+    assert.equal(result.reason,"STALE_CANONICAL_ROW");
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("missing independent Notion readback requires human reconciliation",async()=>{
+  const f=await manualPageFixture({readbackFailure:true});
+  try{
+    const result=await provisionServiceCatalogNotionPage(f.deps,f.created.id);
+    assert.deepEqual(result,{optionId:f.created.id,state:"REVIEW",
+      reason:"READBACK_UNAVAILABLE",pageId:PAGE});
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("creation primitive is double gated and posts ONLY nine canonical catalog properties",async()=>{
+  const data=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+  const payload={
+    id:REGISTRY_OPTION,version:1,kind:"service",label:"Mobilná veterinárna pomoc",
+    group:"Veterinárna starostlivosť",meaning:"Starostlivosť o psa mimo ambulancie",
+    primaryCategory:"veterinari",categories:["veterinari"],valueKind:"tri_state"
+  };
+  const calls=[];
+  const adapter=createPsipediaServiceCatalogNotionHttpPort({token:"offline",
+    fetcher:async(url,init)=>{
+      calls.push({url,body:JSON.parse(init.body),method:init.method});
+      return {ok:true,json:async()=>({id:PAGE,parent:{type:"data_source_id",data_source_id:data}})};
+    }
+  });
+  await assert.rejects(()=>adapter.createPage(payload),/NOTION_CREATES_DISABLED/);
+  assert.equal(calls.length,0);
+  const enabled=createPsipediaServiceCatalogNotionHttpPort({token:"offline",
+    allowWrites:true,allowCreates:true,fetcher:async(url,init)=>{
+      calls.push({url,body:JSON.parse(init.body),method:init.method});
+      return {ok:true,json:async()=>({id:PAGE,parent:{type:"data_source_id",data_source_id:data}})};
+    }
+  });
+  assert.deepEqual(await enabled.createPage(payload),{pageId:PAGE});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,"https://api.notion.com/v1/pages");
+  assert.equal(calls[0].method,"POST");
+  assert.deepEqual(calls[0].body.parent,{type:"data_source_id",data_source_id:data});
+  assert.deepEqual(Object.keys(calls[0].body.properties).sort(),
+    Object.values(PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties).sort());
+  assert.ok(!Object.keys(calls[0].body.properties).includes("Služby"));
 });
