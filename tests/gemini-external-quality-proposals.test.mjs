@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { submitGeminiDirectoryQualityProposal } from "../lib/gemini-external-quality-proposals.ts";
+import { register } from "node:module";
+register("./admin-events-loader.mjs", import.meta.url);
+const { submitGeminiDirectoryQualityProposal } = await import("../lib/gemini-external-quality-proposals.ts");
 import { geminiDirectoryQualityProposal } from "../scripts/gemini-notion-preflight.mjs";
 
 const SECRET="offline-quality-secret";
