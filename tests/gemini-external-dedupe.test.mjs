@@ -9,7 +9,7 @@ const events=["vystavy","preteky","seminare","treningy","stretnutia","dalsie"];
 const help=["docasna-opatera","zbierky","dobrovolnictvo","utulky","adopcia","stratene-a-najdene"];
 const sample={
   name:"Klinika Nitra",city:"Nitra",website:"https://klinika.sk/",source:"https://klinika.sk/o-nas",
-  start_date:"2026-11-20",organizer:"Klub Nitra",venue:"Nitra",
+  start_date:"2026-11-20",organizer:"Klub Nitra",venue:"Nitra",type:"LOST",
 };
 function db(stableKey,{profile=null,event=null,job=true,throws=false}={}){
   return {prepare(sql){
@@ -62,9 +62,9 @@ for(const category of events){
   });
 }
 for(const category of help){
-  test("help."+category+" is BLOCKED instead of claiming canonical check",async()=>{
+  test("help."+category+" has a signed public-only canonical preflight",async()=>{
     const r=await decision("help."+category);
-    assert.deepEqual(r,{httpStatus:200,status:"BLOCKED"});
+    assert.deepEqual(r,{httpStatus:200,status:"NEW"});
   });
 }
 test("published directory canonical row forbids duplicate",async()=>{
