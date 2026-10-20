@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import styles from "./admin-notion-data-quality-audit.module.css";
 
 const categories = [
@@ -19,6 +20,18 @@ type ReviewItem = {
   kind: string;
   nextStep: "REVIEW_FIELDS" | "VALIDATE_SOURCE" | "INVESTIGATE_RUNTIME";
 };
+type QualityVerdict = "CONFIRMED" | "STALE_OR_RESOLVED" | "NEEDS_REVIEW" | "UNKNOWN";
+type QualityItem = {
+  notionPageId: string;
+  psipediaId: string;
+  verdict: QualityVerdict;
+  issue: "IDENTITY" | "SYNC_CONFLICT" | "PROTECTION" | "CONTENT" | "RUNTIME" | "SYNC_ERROR";
+  basis: string;
+  reason: string | null;
+  historicKind: string | null;
+  editorHref: string | null;
+  fieldNames: string[] | null;
+};
 type AuditBatch = {
   agenda: Category;
   mode: "dry-run";
@@ -31,6 +44,7 @@ type AuditBatch = {
   resume: { agenda: Category; pass: 1 | 2; sourceId: string; cursor: string | null };
   checkedAgainstD1: boolean;
   independent: { totals: Record<"UPDATE" | "UNCHANGED" | "CONFLICT" | "REVIEW" | "SKIPPED", number>; reasons: Record<string, number>; unknown: string[] };
+  triage: { readOnly: true; scope: "ONE_AUDIT_BATCH"; counts: Record<QualityVerdict, number>; items: QualityItem[]; unknown: string[] };
   examined: number;
   linked: number;
   syncErrors: number;
@@ -98,7 +112,10 @@ export function AdminNotionDataQualityAudit() {
         errorTypes[kind] = (errorTypes[kind] ?? 0) + count;
       }
     }
-    return { ...counts, errorTypes, reviewItems: batches.flatMap((batch) => batch.reviewItems) };
+    const qualityCounts: Record<QualityVerdict, number> = { CONFIRMED: 0, STALE_OR_RESOLVED: 0, NEEDS_REVIEW: 0, UNKNOWN: 0 };
+    const qualityItems = batches.flatMap((batch) => batch.triage.items.map((item) => ({ ...item, pass: batch.pass })));
+    for (const batch of batches) for (const key of Object.keys(qualityCounts) as QualityVerdict[]) qualityCounts[key] += batch.triage.counts[key];
+    return { ...counts, errorTypes, qualityCounts, qualityItems };
   }, [batches]);
 
   const report = useMemo(() => ({
@@ -126,8 +143,9 @@ export function AdminNotionDataQualityAudit() {
     })),
     d1Evidence: batches.map((batch) => ({ pass: batch.pass, verified: batch.checkedAgainstD1, totals: batch.independent?.totals, reasons: batch.independent?.reasons })),
     unresolvedEvidence: [...new Set(batches.flatMap((batch) => batch.independent?.unknown ?? []))],
-    checkpoint: lastBatch?.resume ?? null,
-    reviewItems: totals.reviewItems,
+    checkpointVerified: Boolean(lastBatch?.passesComplete && !lastBatch.truncated),
+    qualityCounts: totals.qualityCounts,
+    qualityUnknown: [...new Set(batches.flatMap((batch) => batch.triage.unknown))],
   }), [batches, category, categoryLabel, hasMore, lastBatch, totals]);
 
   function reset(nextCategory: Category) {
@@ -167,6 +185,8 @@ export function AdminNotionDataQualityAudit() {
         data.agenda !== category || data.mode !== "dry-run" || data.readOnly !== true
         || data.batchSize !== 100 || !Array.isArray(data.reviewItems)
         || !data.sourceId || (data.pass !== 1 && data.pass !== 2)
+        || data.triage?.readOnly !== true || data.triage.scope !== "ONE_AUDIT_BATCH"
+        || !Array.isArray(data.triage.items)
         || typeof data.examined !== "number" || typeof data.hasMore !== "boolean"
       ) throw new Error("Server vrátil neočakávaný formát auditu.");
       setBatches((current) => [...current, data as AuditBatch]);
@@ -230,7 +250,7 @@ export function AdminNotionDataQualityAudit() {
               <div><strong>{totals.examined}</strong><span>Skontrolovaných</span></div>
               <div><strong>{totals.linked}</strong><span>S Psipedia ID</span></div>
               <div><strong>{totals.syncErrors}</strong><span>Hlásených chýb</span></div>
-              <div><strong>{totals.conflictErrors}</strong><span>Konfliktov</span></div>
+              <div><strong>{totals.conflictErrors}</strong><span>Historické príznaky konfliktov</span></div>
               <div><strong>{totals.addressPresent}</strong><span>Adresa / miesto</span></div>
               <div><strong>{totals.publicCoordinates}</strong><span>Súradnice</span></div>
               <div><strong>{totals.googlePlaceCurrent}</strong><span>Aktuálne Google miesto</span></div>
@@ -246,30 +266,38 @@ export function AdminNotionDataQualityAudit() {
             ) : <p>V doteraz skontrolovaných záznamoch nie je vyplnená žiadna chyba synchronizácie.</p>}
           </section>
 
-          {totals.reviewItems.length > 0 ? (
-            <section className={styles.panel} aria-labelledby="notion-audit-review">
-              <h2 id="notion-audit-review">Záznamy na preverenie</h2>
-              <p>Ide o existujúce označenia chýb, nie o automatické návrhy na prepis. Súkromné adresy a kontakty sa nezobrazujú.</p>
+          <section className={styles.panel} aria-labelledby="notion-audit-quality">
+            <h2 id="notion-audit-quality">Synchronizačné konflikty · Kvalita údajov</h2>
+            <p>Historické príznaky nie sú potvrdené aktuálne konflikty. Nižšie sú len zistenia v načítaných dávkach; prvý a druhý prechod sa sčítavajú ako pozorovania, nie jedinečné profily.</p>
+            <div className={styles.metrics}>
+              <div><strong>{totals.qualityCounts.CONFIRMED}</strong><span>Potvrdené dôkazmi v dávke</span></div>
+              <div><strong>{totals.qualityCounts.STALE_OR_RESOLVED}</strong><span>Historické / vyriešené</span></div>
+              <div><strong>{totals.qualityCounts.NEEDS_REVIEW}</strong><span>Vyžaduje kontrolu</span></div>
+              <div><strong>{totals.qualityCounts.UNKNOWN}</strong><span>Nedostatok dôkazov</span></div>
+            </div>
+            <p>Potvrdená kolízia identity nie je dôkazom obsahového konfliktu. Bez aktuálnych porovnateľných snapshotov nie je známa správna verzia údajov ani posledný dôveryhodný editor.</p>
+            {totals.qualityItems.length ? (
               <div className={styles.tableScroll}>
                 <table className={styles.table}>
-                  <thead><tr><th>Psipedia ID</th><th>Typ problému</th><th>Ďalší krok</th></tr></thead>
+                  <thead><tr><th>Agenda / ID</th><th>Typ</th><th>Vyhodnotenie</th><th>Kontrola</th></tr></thead>
                   <tbody>
-                    {totals.reviewItems.map((item) => (
-                      <tr key={item.notionPageId}>
-                        <td>{item.psipediaId || "—"}</td>
-                        <td>{errorLabels[item.kind] || item.kind}</td>
-                        <td>{reviewLabels[item.nextStep]}</td>
+                    {totals.qualityItems.map((item, index) => (
+                      <tr key={`${item.pass}-${item.notionPageId}-${index}`}>
+                        <td>{categoryLabel} · {item.psipediaId || "—"}</td>
+                        <td>{item.issue === "IDENTITY" ? "Mapovanie identity" : item.issue === "SYNC_CONFLICT" ? "Synchronizačný konflikt" : item.issue === "PROTECTION" ? "Ochranné blokovanie" : item.issue === "CONTENT" ? "Obsahová neúplnosť" : item.issue === "RUNTIME" ? "Technická chyba" : "Chyba synchronizácie"}</td>
+                        <td>{item.verdict}{item.reason ? ` · ${errorLabels[item.reason] || item.reason}` : ""}{item.fieldNames?.length ? ` · polia: ${item.fieldNames.join(", ")}` : ""}</td>
+                        <td>{item.editorHref ? <Link href={item.editorHref}>Otvoriť editor</Link> : "Individuálna kontrola identity"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </section>
-          ) : null}
+            ) : <p>V načítanej dávke zatiaľ nie sú zistené synchronizačné prípady vyžadujúce triedenie.</p>}
+          </section>
 
           <section className={styles.panel} aria-labelledby="notion-audit-export">
             <h2 id="notion-audit-export">Výsledok pre ďalšie opravy</h2>
-            <p>Skopíruj prehľad do chatu. Obsahuje počty, typy chýb a ID záznamov, nie ich súkromné kontaktné údaje.</p>
+            <p>Skopíruj iba sanitizované súhrnné počty a dôkazové obmedzenia. Výstup neobsahuje ID profilov, Notion zdroje, kurzory ani súkromné údaje.</p>
             <button className={styles.secondary} type="button" onClick={copyReport}>Skopírovať výsledok</button>
             {copyStatus ? <p role="status">{copyStatus}</p> : null}
             <details className={styles.details}>
