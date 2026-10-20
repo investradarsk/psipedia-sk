@@ -840,3 +840,45 @@ test("offline full internal D1 -> Notion create -> readback -> verified receipt 
     assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM service_profile_option_choices").get().n,0);
   }finally{f.sqlite.close();}
 });
+
+
+test("end-to-end unknown Notion create cannot perform a second POST across fresh worker calls",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    let createAttempts=0;
+    const fetcher=async(url,init)=>{
+      if(url.endsWith("/query"))
+        return {ok:true,json:async()=>({results:[],has_more:false,next_cursor:null})};
+      if(url==="https://api.notion.com/v1/pages"&&init.method==="POST"){
+        createAttempts++;
+        throw Error("TRANSPORT_TIMEOUT_AFTER_SEND");
+      }
+      throw Error("UNEXPECTED_REQUEST");
+    };
+    const request=()=>runServicesV3CatalogInternal({
+      action:"PROVISION_ONE",optionId:f.created.id,db:f.db,fetcher,
+      authorize:async()=>true,
+      env:{
+        NOTION_API_TOKEN:"offline-only",
+        SERVICE_CATALOG_ADMIN_WRITES_ENABLED:"true",
+        SERVICE_CATALOG_NOTION_MIRROR_READY:"true",
+        SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED:"true",
+        SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED:"true"
+      }
+    });
+    const first=await request();
+    assert.equal(first.state,"PROVISION");
+    assert.equal(first.result.state,"REVIEW");
+    assert.equal(first.result.reason,"CREATE_OUTCOME_UNKNOWN");
+    assert.equal(createAttempts,1);
+    assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,true);
+    const retry=await request();
+    assert.equal(retry.state,"PROVISION");
+    assert.equal(retry.result.state,"REVIEW");
+    assert.equal(retry.result.reason,"LEASE_OR_EXECUTION_FAILURE");
+    assert.equal(createAttempts,1,"second worker must NOT issue a duplicate POST");
+    assert.equal(f.count(),0);
+    assert.equal(f.local().notionMirrorStatus,"PENDING");
+  }finally{f.sqlite.close();}
+});
