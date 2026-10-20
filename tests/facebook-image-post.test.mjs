@@ -6,6 +6,8 @@ import {POST,GET} from '../app/api/admin/facebook-images/route.ts';
 import {PUT,GET as detail} from '../app/api/admin/facebook-images/[id]/route.ts';
 import {POST as upload} from '../app/api/admin/uploads/route.ts';
 import {fixture,png} from './facebook-image-test-fixture.mjs';
+import {runFacebookImagePublishSweep,setPublisherEnabled} from "../lib/facebook-image-publisher.ts";
+import {env} from "cloudflare:workers";
 const input=(more={})=>({title:'Ručný príspevok',caption:'Text na Facebook',imageUrl:'',imageKey:'',date:'',time:'',status:'draft',...more});
 const request=(url,body,method='POST',headers={})=>new Request('http://localhost:5173'+url,{method,headers:{'content-type':'application/json',...headers},body:JSON.stringify(body)});
 const uploadRequest=()=>new Request('http://localhost:5173/api/admin/uploads',{method:'POST',headers:{'content-type':'image/png','x-upload-folder':'facebook-images'},body:png});
@@ -92,4 +94,111 @@ test('prepared SQL and Drizzle agree; migration adds only its own table and inde
  for(const column of config.columns){const sql=columns.find(c=>c.name===column.name);assert.equal(sql.type.toLowerCase(),column.getSQLType());assert.equal(Boolean(sql.notnull),column.notNull);}
  const indexes=sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='facebook_image_posts' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
  assert.deepEqual(indexes,['facebook_image_posts_notion_idx','facebook_image_posts_schedule_idx','facebook_image_posts_trash_idx','facebook_image_posts_updated_idx']);
+});
+
+test("retry lifecycle: cancel to draft, keep append-only history, replan and publish once",async t=>{
+ const {db,sqlite,images}=fixture(t);
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="true";
+ env.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED="true";
+ env.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT="2029-01-01T00:00:00.000Z";
+ const key="facebook-images/2030/00000000-0000-4000-8000-000000001235.jpg";
+ images.set(key,{httpMetadata:{contentType:"image/jpeg"}});
+ const meta={FB_PAGE_ID:env.FB_PAGE_ID,FB_PAGE_ACCESS_TOKEN:env.FB_PAGE_ACCESS_TOKEN,
+   FACEBOOK_IMAGE_PUBLISH_ENABLED:"true",FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:"true",
+   BUCKET:env.BUCKET};
+ let post=await saveFacebookImagePost(null,input({
+   imageKey:key,imageUrl:"/media/"+key,date:"2030-01-02",time:"10:00",status:"scheduled"
+ }),"editor",db);
+ assert.equal(post.status,"scheduled");
+ assert.equal(post.approvalStatus,"APPROVED");
+ await setPublisherEnabled(db,true,"editor");
+ const first=await runFacebookImagePublishSweep({db,bindings:meta,now:new Date("2030-01-02T09:01:00.000Z"),
+   fetcher:async()=>Response.json({error:{code:4}},{status:429})});
+ assert.equal(first.retryable,1);
+ assert.equal(sqlite.prepare("SELECT outcome_kind FROM facebook_image_publish_attempts WHERE post_id=?")
+   .get(post.id).outcome_kind,"PROVEN_REJECTED");
+ post=await saveFacebookImagePost(post.id,input({
+   expectedVersion:post.version,imageKey:key,imageUrl:"/media/"+key,
+   date:"",time:"",status:"draft"
+ }),"editor",db);
+ assert.equal(post.status,"draft");
+ assert.equal(post.scheduledAt,null);
+ assert.equal(post.approvalStatus,"UNREVIEWED");
+ const superseded=sqlite.prepare("SELECT state,outcome_kind,retry_not_before FROM facebook_image_publish_attempts WHERE post_id=?").get(post.id);
+ assert.equal(superseded.state,"UNCERTAIN");
+ assert.equal(superseded.outcome_kind,"SUPERSEDED");
+ assert.equal(superseded.retry_not_before,null);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM facebook_image_publish_attempt_history WHERE post_id=?").get(post.id).n,1);
+ let network=0;
+ assert.equal((await runFacebookImagePublishSweep({db,bindings:meta,now:new Date("2030-01-02T09:12:00.000Z"),
+   fetcher:async()=>{network++;throw Error("Cancelled post must never publish");}})).claimed,0);
+ post=await saveFacebookImagePost(post.id,input({
+   expectedVersion:post.version,imageKey:key,imageUrl:"/media/"+key,
+   date:"2030-01-03",time:"10:00",status:"scheduled",
+ }),"editor",db);
+ assert.equal(post.status,"scheduled");
+ assert.equal(post.approvalStatus,"APPROVED");
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM facebook_image_posts").get().n,1);
+ const sent=await runFacebookImagePublishSweep({db,bindings:meta,now:new Date("2030-01-03T09:01:00.000Z"),
+   fetcher:async()=>{network++;return Response.json({id:"99887766554433",post_id:"123456789012345_99887766554433"});}});
+ assert.equal(sent.published,1);
+ assert.equal(network,1);
+ assert.equal(sqlite.prepare("SELECT snapshot_version,state FROM facebook_image_publish_attempts WHERE post_id=?")
+   .get(post.id).state,"PUBLISHED");
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM facebook_image_publish_attempt_history WHERE post_id=?").get(post.id).n,2);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM facebook_image_posts").get().n,1);
+ assert.equal((await runFacebookImagePublishSweep({db,bindings:meta,now:new Date("2030-01-03T10:00:00.000Z"),
+   fetcher:async()=>{network++;throw Error("Duplicated!");}})).claimed,0);
+ assert.equal(network,1);
+});
+
+test("retry lifecycle: ambiguous transport remains immutable and cannot be re-armed",async t=>{
+ const {db,sqlite,images}=fixture(t);
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="true";
+ env.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED="true";
+ env.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT="2029-01-01T00:00:00.000Z";
+ const key="facebook-images/2030/00000000-0000-4000-8000-000000001236.jpg";
+ images.set(key,{httpMetadata:{contentType:"image/jpeg"}});
+ const post=await saveFacebookImagePost(null,input({
+   imageKey:key,imageUrl:"/media/"+key,date:"2030-01-02",time:"10:00",status:"scheduled"
+ }),"editor",db);
+ await setPublisherEnabled(db,true,"editor");
+ const meta={FB_PAGE_ID:env.FB_PAGE_ID,FB_PAGE_ACCESS_TOKEN:env.FB_PAGE_ACCESS_TOKEN,
+   FACEBOOK_IMAGE_PUBLISH_ENABLED:"true",FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:"true",
+   BUCKET:env.BUCKET};
+ const result=await runFacebookImagePublishSweep({db,bindings:meta,
+   now:new Date("2030-01-02T09:01:00.000Z"),fetcher:async()=>{throw Error("TIMEOUT");}});
+ assert.equal(result.uncertain,1);
+ assert.equal(sqlite.prepare("SELECT outcome_kind FROM facebook_image_publish_attempts WHERE post_id=?")
+   .get(post.id).outcome_kind,"AMBIGUOUS");
+ await assert.rejects(()=>saveFacebookImagePost(post.id,input({
+   expectedVersion:post.version,imageKey:key,imageUrl:"/media/"+key,status:"draft"
+ }),"editor",db),FacebookImageConflict);
+ assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM facebook_image_publish_attempt_history").get().n,0);
+});
+
+test("retry operator state follows the live feature flag, not just durable history",async t=>{
+ const {db,sqlite,images}=fixture(t);
+ const key="facebook-images/2030/00000000-0000-4000-8000-000000001237.jpg";
+ images.set(key,{httpMetadata:{contentType:"image/jpeg"}});
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="false";
+ const item=await saveFacebookImagePost(null,input({
+   imageKey:key,imageUrl:"/media/"+key,date:"2030-01-03",time:"11:00",status:"scheduled"
+ }),"editor",db);
+ sqlite.prepare(`INSERT INTO facebook_image_publish_attempts
+   (post_id,snapshot_version,state,started_at,completed_at,error_code,outcome_kind,retry_not_before)
+   VALUES(?,?,'UNCERTAIN',?,?, 'META_RATE_LIMIT','PROVEN_REJECTED',?)`)
+   .run(item.id,item.version,"2030-01-03T09:00:00.000Z",
+     "2030-01-03T09:00:01.000Z","2030-01-03T09:03:00.000Z");
+ assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"UNCERTAIN");
+ assert.equal((await listFacebookImagePosts("2030-01","review",1,db)).counts.review,1);
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="true";
+ const active=await getFacebookImagePost(item.id,db);
+ assert.equal(active.publicationState,"RETRY_PENDING");
+ assert.equal(active.retryNotBefore,"2030-01-03T09:03:00.000Z");
+ assert.equal((await listFacebookImagePosts("2030-01","review",1,db)).counts.review,0);
+ sqlite.prepare("UPDATE facebook_image_publish_attempts SET retry_not_before=NULL WHERE post_id=?").run(item.id);
+ assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"RETRY_EXHAUSTED");
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="false";
+ assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"UNCERTAIN");
 });

@@ -1,5 +1,6 @@
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
+import {facebookSafeRetryEnabled} from "@/lib/facebook-image-publisher";
 import {downloadRemoteImage,notionFlagEnabled,notionRequest,sha256Text,type NotionSyncBindings} from "@/lib/notion-sync-shared";
 import {notionFacebookImageSnapshot,notionFacebookSnapshotFingerprint,facebookImagePermalink,type NotionFacebookImagePage} from "@/lib/notion-facebook-images-model";
 
@@ -12,6 +13,7 @@ export type FacebookImagesSyncBindings=NotionSyncBindings & {
   NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?:string;
   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED?:string;
   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT?:string;
+  FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string;
 };
 type Page=NotionFacebookImagePage;
 type Query={results?:Page[];has_more?:boolean;next_cursor?:string|null};
@@ -19,6 +21,7 @@ type Linked={id:string;status:string;title:string;caption:string;scheduled_at:st
   updated_at:string;version:number;image_url:string;image_key:string;updated_by:string;
   sync_hash:string|null;facebook_post_id:string|null;published_at:string|null;
   attempt_state:string|null;error_code:string|null;
+  outcome_kind:string|null;retry_not_before:string|null;retry_count:number;
   approval_status:string;direct_publish_consent:number};
 export type FacebookImagesSyncSummary={enabled:boolean;scanned:number;created:number;
   updated:number;unchanged:number;conflicts:number;failed:number;invalid:number;
@@ -35,11 +38,12 @@ function urlProperty(page:Page) {
   const value=page.properties?.["Facebook URL"] as {url?:string|null}|undefined;
   return value?.url??"";
 }
-async function linked(db:D1Database,pageId:string,consentReady:boolean) {
+async function linked(db:D1Database,pageId:string,consentReady:boolean,retryReady=false) {
   const sql="SELECT p.id,p.status,p.title,p.caption,p.scheduled_at,p.updated_at,p.version,"+
     "p.image_url,p.image_key,p.updated_by,p.sync_hash,p.approval_status,"+
     (consentReady?"p.direct_publish_consent":"0 AS direct_publish_consent")+
-    ",p.facebook_post_id,p.published_at,a.state AS attempt_state,a.error_code "+
+    ",p.facebook_post_id,p.published_at,a.state AS attempt_state,a.error_code,"+
+    (retryReady?"a.outcome_kind,a.retry_not_before,a.retry_count ":"NULL AS outcome_kind,NULL AS retry_not_before,0 AS retry_count ")+
     "FROM facebook_image_posts p LEFT JOIN facebook_image_publish_attempts a ON a.post_id=p.id "+
     "WHERE p.notion_page_id=?";
   return db.prepare(sql).bind(pageId).first<Linked>();
@@ -80,10 +84,14 @@ async function writeBack(bindings:FacebookImagesSyncBindings,page:Page,post:Link
       ...(post.published_at?{"Publikované o":{date:{start:post.published_at}}}:{}),
     };
   }else if(post.attempt_state==="UNCERTAIN") {
-    const message="Na preverenie: "+(post.error_code??"neznámy výsledok");
-    if(statusProperty(page)==="Chyba" && textProperty(page,"Chyba publikovania")===message)return false;
+    const scheduledRetry=post.outcome_kind==="PROVEN_REJECTED"&&Boolean(post.retry_not_before);
+    const message=scheduledRetry
+      ?"Facebook dočasne odmietol odoslanie. Automatický pokus po "+post.retry_not_before
+      :"Na preverenie: "+(post.error_code??"neznámy výsledok");
+    const state=scheduledRetry?"Naplánované":"Chyba";
+    if(statusProperty(page)===state&&textProperty(page,"Chyba publikovania")===message)return false;
     properties={
-      "Stav":{status:{name:"Chyba"}},
+      "Stav":{status:{name:state}},
       "Chyba publikovania":{rich_text:[{text:{content:message}}]},
     };
   }
@@ -100,7 +108,7 @@ async function mirrorV2ScheduleState(bindings:FacebookImagesSyncBindings,page:Pa
   if(scheduled&&statusProperty(page)!=="Naplánované")
     props={"Stav":{status:{name:"Naplánované"}}};
   else if(!scheduled&&wasScheduled){
-    props={"Stav":{status:{name:"Koncept"}}};
+    props={"Stav":{status:{name:"Koncept"}},"Chyba publikovania":{rich_text:[]}};
     if(snapSchedule&&snapSchedule===oldSchedule&&statusProperty(page)==="Koncept")
       props["Dátum a čas publikovania"]={date:null};
   }
@@ -147,6 +155,11 @@ export async function runNotionFacebookImagesSync({
   if(!bindings.NOTION_API_TOKEN?.trim()||!bindings.BUCKET)
     throw new Error("Missing Notion API token or R2 bucket.");
   const policy=facebookImageScheduleV2Policy(bindings);
+  const safeRetry=facebookSafeRetryEnabled(bindings);
+  if(safeRetry){
+    // Never silently fall back to an unsafe editor path without migration 0135.
+    await db.prepare("SELECT outcome_kind,retry_not_before FROM facebook_image_publish_attempts LIMIT 0").all();
+  }
   await db.prepare("SELECT notion_page_id,sync_hash FROM facebook_image_posts LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
   // Legacy behavior is unchanged while V2 is disabled. V2 ingests newer
@@ -177,7 +190,7 @@ export async function runNotionFacebookImagesSync({
     out.scanned++;
     try {
       if(!/^[a-f0-9-]{36}$/i.test(page.id)){out.invalid++;continue;}
-      const current=await linked(db,page.id,consentReady);
+      const current=await linked(db,page.id,consentReady,safeRetry);
       // Linked Notion tombstone is preserved: never re-import or write back a trashed post.
       if(current&&trashReady) {
         const deleted=await db.prepare("SELECT deleted_at FROM facebook_image_posts WHERE id=?")
@@ -185,7 +198,9 @@ export async function runNotionFacebookImagesSync({
         if(deleted?.deleted_at){out.unchanged++;continue;}
       }
       if(!policy.enabled&&current&&await mirrorApprovalToNotion(bindings,page,current))out.writtenBack++;
-      if(current&&(current.status==="published"||current.attempt_state)) {
+      const retryEditable=safeRetry&&policy.enabled&&current?.attempt_state==="UNCERTAIN"
+        &&["PROVEN_REJECTED","SUPERSEDED"].includes(current.outcome_kind??"");
+      if(current&&(current.status==="published"||(current.attempt_state&&!retryEditable))) {
         if(await writeBack(bindings,page,current))out.writtenBack++;
         else out.unchanged++;
         continue;
@@ -201,7 +216,14 @@ export async function runNotionFacebookImagesSync({
       const hash=await sha256Text(notionFacebookSnapshotFingerprint({
         ...snap,allowed:false,directRequested:false,
       }));
-      if(current?.sync_hash===hash){out.unchanged++;continue;}
+      if(current?.sync_hash===hash){
+        // No content edit: status/next retry time still needs Notion writeback.
+        // Do not perform a canonical D1 write or reauthorize an old schedule.
+        if(current.outcome_kind==="PROVEN_REJECTED"&&current.attempt_state==="UNCERTAIN"
+          &&await writeBack(bindings,page,current))out.writtenBack++;
+        else out.unchanged++;
+        continue;
+      }
       const editedMs=Date.parse(page.last_edited_time??"");
       const decision=notionFacebookScheduleV2Decision({
         scheduledAt:snap.scheduledAt,imageAvailable:Boolean(snap.image.url),
@@ -229,7 +251,10 @@ export async function runNotionFacebookImagesSync({
       if(policy.enabled&&current&&current.title===title&&current.caption===snap.caption
         &&current.image_key===image.key&&current.status===targetStatus
         &&current.scheduled_at===targetAt){
-        out.unchanged++;continue;
+        if(current.outcome_kind==="PROVEN_REJECTED"&&current.attempt_state==="UNCERTAIN"
+          &&await writeBack(bindings,page,current))out.writtenBack++;
+        else out.unchanged++;
+        continue;
       }
       const updatedAt=now.toISOString();
       if(!current) {
@@ -245,7 +270,7 @@ export async function runNotionFacebookImagesSync({
         ).run();
         if(result.meta.changes===1){
           out.created++;
-          if(!policy.enabled&&await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady)))
+          if(!policy.enabled&&await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady,safeRetry)))
             out.writtenBack++;
           if(policy.enabled&&await mirrorV2ScheduleState(bindings,page,scheduled,false,
             null,snap.scheduledAt))out.writtenBack++;
@@ -256,7 +281,12 @@ export async function runNotionFacebookImagesSync({
           "version=version+1,updated_at=?,updated_by=? WHERE id=? AND sync_hash=? "+
           (policy.enabled?"AND version=? ":"AND updated_by=? ")+
           "AND status IN ('draft','scheduled') "+(trashReady?"AND deleted_at IS NULL ":"")+
-          "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)";
+          (safeRetry&&policy.enabled?
+          "AND (NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id) "+
+          "OR EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id "+
+          "AND a.state='UNCERTAIN' AND a.outcome_kind IN ('PROVEN_REJECTED','SUPERSEDED') "+
+          "AND a.snapshot_version<=facebook_image_posts.version))":
+          "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)");
         const result=await db.prepare(sql).bind(
           title,image.url,image.key,snap.caption,
           targetAt,targetStatus,
