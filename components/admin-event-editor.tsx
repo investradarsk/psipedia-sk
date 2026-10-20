@@ -155,6 +155,7 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         status={<EditorStatus label={cancelled ? "Zrušené podujatie" : status === "published" ? "Publikované" : "Koncept"} tone={cancelled ? "warning" : status === "published" ? "success" : "neutral"} />}
         sections={EVENT_SECTIONS}
         preview={liveSummary}
+        previewFocusable
         previewTitle="Živý súhrn podujatia"
         dirty={dirty}
         onClose={() => router.push("/admin/podujatia")}
