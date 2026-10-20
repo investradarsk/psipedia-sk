@@ -41,7 +41,7 @@ function fixture() {
 test("0131 rollout requires exact SQL hash, canonical database and protected manual workflow",()=>{
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3),target);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4),previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0134_services_admin_change_audit.sql", "0135_notion_article_editorial_outbox.sql"]);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0134_services_admin_change_audit.sql"]);
   assert.equal(createHash("sha256").update(migration).digest("hex"),APPROVED_0131_SHA256);
   assert.doesNotThrow(()=>assertApproved0131Target("psipedia-sk-db",APPROVED_0131_SHA256));
   assert.throws(()=>assertApproved0131Target("other-db",APPROVED_0131_SHA256),/canonical/);
