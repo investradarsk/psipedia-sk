@@ -324,3 +324,16 @@ test("deleted planned Notion block aborts before any remote patch", async () => 
   assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
   assert.equal(h.journal.deleted, undefined);
 });
+
+
+test("reordered planned blocks never trigger partial Notion writes", async () => {
+  const h = setup();
+  [h.blocks[1], h.blocks[3]] = [h.blocks[3], h.blocks[1]];
+  const writer = await loadWriter(h);
+  await assert.rejects(
+    writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_BLOCK_ORDER_CONFLICT/,
+  );
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+});
