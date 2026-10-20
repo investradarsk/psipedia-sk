@@ -104,13 +104,13 @@ async function exact(db:GeminiD1,key:string,c:Identity):Promise<Match|null>{
  * a feed just to make a proposal eligible for the Data Quality review UI. */
 async function evidence(db:GeminiD1,entity:Entity,id:number,sourceUrl:string){
  const rows=(await db.prepare(
-   "SELECT DISTINCT s.id,o.id AS observation_id FROM automation_sources s "+
+   "SELECT s.id,MAX(o.id) AS observation_id FROM automation_sources s "+
    "JOIN automation_observations o ON o.source_id=s.id "+
    "JOIN canonical_external_provenance p ON p.entity_type=s.entity_type "+
    "AND p.canonical_entity_id=? AND p.external_source_url=COALESCE(o.source_url,'') "+
    "AND p.external_record_id=o.source_record_id "+
    "WHERE s.entity_type=? AND s.enabled=1 AND s.review_status='APPROVED' "+
-   "AND o.source_url=? LIMIT 2")
+   "AND o.source_url=? GROUP BY s.id LIMIT 2")
   .bind(id,entity,sourceUrl).all<{id:number;observation_id:number}>()).results;
  return rows?.length===1?rows[0]:null;
 }
