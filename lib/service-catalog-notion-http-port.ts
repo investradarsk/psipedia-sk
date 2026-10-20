@@ -45,7 +45,7 @@ function multiValue(v:unknown):string[]{
 export function createServiceCatalogNotionHttpPort(config:{
   token:string;dataSourceId:string;properties:Properties;
   // An explicit internal rollout gate; no writer otherwise.
-  allowWrites?:boolean;fetcher?:typeof fetch;
+  allowWrites?:boolean;allowCreates?:boolean;fetcher?:typeof fetch;
 }){
   const m=config.properties;
   if(!UUID.test(config.dataSourceId)||typeof config.token!=="string"||!config.token||
@@ -69,6 +69,34 @@ export function createServiceCatalogNotionHttpPort(config:{
     return page;
   }
   return {
+    async createPage(local:Local){
+      // Creation has separate explicit opt-in; a timeout is an UNKNOWN outcome.
+      // Callers must not retry blindly. This method never runs from an Admin route.
+      if(config.allowWrites!==true||config.allowCreates!==true)
+        throw new Error("NOTION_CREATES_DISABLED");
+      if(!/^(svc|attr)\.admin\.[a-f0-9]{32}$/.test(local.id)||
+         !Number.isSafeInteger(local.version)||local.version<1)
+        throw new Error("INVALID_CANONICAL_OPTION");
+      const props:Record<string,unknown>={
+        [m.optionId]:textProp(local.id),[m.optionVersion]:{number:local.version},
+        [m.kind]:selectProp(local.kind),[m.label]:{title:[{text:{content:local.label}}]},
+        [m.group]:textProp(local.group),[m.meaning]:textProp(local.meaning),
+        [m.primaryCategory]:selectProp(local.primaryCategory),
+        [m.categories]:{multi_select:local.categories.map(name=>({name}))},
+        [m.valueKind]:selectProp(local.valueKind)
+      };
+      const res=await client("https://api.notion.com/v1/pages",{
+        method:"POST",headers:{"Authorization":"Bearer "+config.token,
+          "Notion-Version":notionVersion,"Content-Type":"application/json"},
+        body:JSON.stringify({parent:{type:"data_source_id",data_source_id:config.dataSourceId},properties:props})
+      });
+      if(!res.ok)throw new Error("NOTION_CREATE_HTTP_"+res.status);
+      const created=await res.json() as NotionPage;
+      if(!UUID.test(created?.id??"")||created.parent?.type!=="data_source_id"||
+         created.parent.data_source_id?.replaceAll("-","").toLowerCase()!==config.dataSourceId.replaceAll("-","").toLowerCase())
+        throw new Error("NOTION_CREATE_UNVERIFIED_ACK");
+      return {pageId:created.id!};
+    },
     async readPage(pageId:string){
       const page=await request("GET",pageId);
       if(page.parent?.type!=="data_source_id"||
@@ -117,7 +145,7 @@ export const PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING = Object.freeze({
   }),
 });
 export function createPsipediaServiceCatalogNotionHttpPort(config: {
-  token: string; allowWrites?: boolean; fetcher?: typeof fetch;
+  token: string; allowWrites?: boolean;allowCreates?:boolean; fetcher?: typeof fetch;
 }) {
   return createServiceCatalogNotionHttpPort({
     ...config,
