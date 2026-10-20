@@ -219,19 +219,21 @@ export default async function SearchPage({ searchParams }: Props) {
           <span className="eyebrow">Celá Psipedia na jednom mieste</span>
           <h1>Čo hľadáš?</h1>
           <p>{section === "starostlivost" ? "Vyhľadávame iba v poradni Zdravie a starostlivosť." : section === "aktivity" ? "Vyhľadávame iba v sekcii Výcvik a aktivity." : section === "steniatka" ? "Vyhľadávame iba v sprievodcovi Šteniatka." : section === "novinky" ? "Vyhľadávame iba medzi Novinkami." : section === "recenzie" ? "Vyhľadávame iba medzi redakčnými recenziami a testami." : section === "pomoc-psom" ? "Vyhľadávame iba v sekcii Pomoc psom." : "Článok, plemeno, podujatie, veterinára, trénera, službu alebo pomoc nájdeš jedným vyhľadávaním."}</p>
-          <form action="/hladat" method="get" className="portal-search-form" role="search">
-            <SearchIcon size={24} />
+          <form action="/hladat" method="get" className="portal-search-form" role="search" data-public-search-ui="main">
             {section && <input type="hidden" name="sekcia" value={section} />}
             {section && subsection && <input type="hidden" name="podsekcia" value={subsection} />}
-            <label className="sr-only" htmlFor="portal-query">Hľadaný výraz</label>
-            <input
+            <span className="public-search-entry">
+              <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
+              <label className="sr-only" htmlFor="portal-query">Hľadaný výraz</label>
+              <input
               id="portal-query"
               name="q"
               defaultValue={query}
               maxLength={SEARCH_MAX_QUERY_LENGTH}
               placeholder="Hľadať na Psipedii"
               autoComplete="off"
-            />
+              />
+            </span>
             <button type="submit">Hľadať</button>
           </form>
         </div>
