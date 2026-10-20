@@ -43,7 +43,7 @@ function comparison(key, candidate, existing) {
     if (candidate.type && existing.type && !same(candidate.type, existing.type)) return "NEW";
     if (sharedSource(candidate.source, existing.source) &&
         (!candidate.date || !existing.date || candidate.date === existing.date)) return "DUPLICATE";
-    return name && same(candidate.city, existing.city) ? "POSSIBLE_DUPLICATE" : "NEW";
+    return name ? "POSSIBLE_DUPLICATE" : "NEW"; // Unknown location is ambiguity, not clearance.
   }
   if (key === "help.adopcia") {
     if (!name) return "NEW";
