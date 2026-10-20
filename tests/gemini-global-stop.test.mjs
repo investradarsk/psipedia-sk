@@ -27,7 +27,7 @@ function fixture(withMigration = true) {
     "0126_gemini_scheduler_admin_v2.sql"]) {
     sqlite.exec(read("drizzle/" + filename));
   }
-  if (withMigration) sqlite.exec(read("drizzle/0135_gemini_global_stop.sql"));
+  if (withMigration) sqlite.exec(read("drizzle/0136_gemini_global_stop.sql"));
   const db = {
     prepare(sql) {
       const stmt = sqlite.prepare(sql);
@@ -73,7 +73,7 @@ async function addJob(db, status = "QUEUED") {
   return result.meta.last_row_id;
 }
 
-test("0135 is additive, default RUNNING, and does not change 22 per-category settings", async () => {
+test("0136 is additive, default RUNNING, and does not change 22 per-category settings", async () => {
   const { db, sqlite } = fixture();
   const before = sqlite.prepare("SELECT COUNT(*) AS total FROM gemini_automation_settings").get().total;
   assert.equal(before, 0);
@@ -210,7 +210,7 @@ test("if a resume write fails, system stays RESUMING (fail closed) and can be re
   sqlite.close();
 });
 
-test("missing 0135 fails closed in API/Worker guards, not a silent enabled default", async () => {
+test("missing 0136 fails closed in API/Worker guards, not a silent enabled default", async () => {
   const { db, sqlite } = fixture(false);
   await assert.rejects(requireGeminiRunning(db),
     error => error instanceof GeminiGlobalControlError && error.code === "UNAVAILABLE");
@@ -241,7 +241,7 @@ test("control endpoint requires admin GET, CSRF mutation guard, and strict JSON 
 
 test("STOP is not coupled to Notion profile reconciliation or editorial synchronization", () => {
   const control = read("lib/gemini-global-control.ts");
-  const migration = read("drizzle/0135_gemini_global_stop.sql");
+  const migration = read("drizzle/0136_gemini_global_stop.sql");
   assert.doesNotMatch(control + migration, /notion_directory_sync|notion_event_sync|notion_help_sync|notion_pages/);
 });
 
