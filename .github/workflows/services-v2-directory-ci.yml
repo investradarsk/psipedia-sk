@@ -15,6 +15,8 @@ on:
       - "lib/map-query.ts"
       - "components/map/map-experience.tsx"
       - "tests/directory-public-filters.test.mjs"
+      - "scripts/directory-facet-coverage-sql.mjs"
+      - "tests/directory-facet-coverage-sql.test.mjs"
       - "tests/directory-unified-layout.test.mjs"
       - "tests/e2e/directory-unified-layout.spec.ts"
       - "tests/public-landing-alignment.test.mjs"
@@ -44,6 +46,7 @@ jobs:
         run: |
           node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/directory-unified-layout.test.mjs tests/directory-public-filters.test.mjs
           node --experimental-strip-types --test tests/service-catalog-contract.test.mjs tests/directory-filter-contract.test.mjs
+          node --experimental-strip-types --test tests/directory-facet-coverage-sql.test.mjs
           npm run test:public-landing-alignment
           npm run test:unified-section-hero
           npm run test:map-public-ui
