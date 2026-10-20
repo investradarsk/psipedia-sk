@@ -1,0 +1,28 @@
+name: Gemini 22 duplicate gate tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/gemini-notion-agent.mjs'
+      - 'scripts/gemini-notion-preflight.mjs'
+      - 'scripts/gemini-notion-directory-fields.mjs'
+      - 'lib/gemini-external-dedupe.ts'
+      - 'app/api/internal/gemini-agent/dedupe/route.ts'
+      - 'tests/gemini-notion-preflight.test.mjs'
+      - 'tests/gemini-external-worker-offline.test.mjs'
+      - 'tests/fixtures/gemini-external-agent-fetch-mock.mjs'
+      - '.github/workflows/gemini22-dedupe-gate-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check scripts/gemini-notion-preflight.mjs && node --check scripts/gemini-notion-agent.mjs
+      - run: node --test tests/gemini-notion-preflight.test.mjs
+      - run: node --test tests/gemini-external-worker-offline.test.mjs
