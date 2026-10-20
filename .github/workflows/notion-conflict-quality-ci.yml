@@ -12,6 +12,10 @@ on:
       - "docs/notion-conflict-quality-01.md"
       - ".github/workflows/notion-conflict-quality-ci.yml"
 
+concurrency:
+  group: notion-conflict-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
