@@ -21,12 +21,17 @@ type Row = {id:string;title:string;image_url:string;image_key:string;caption:str
   attempt_completed_at?:string|null;deleted_at?:string|null;deleted_by?:string|null;
 };
 function post(row:Row):FacebookImagePost {
+  // The D1 attempt ledger is persistent; the automation can be stopped independently.
+  // Never promise an automatic retry if the live feature flag is disabled.
+  const retryEnabled=facebookSafeRetryEnabled(env as unknown as {FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string});
   return {id:row.id,title:row.title,imageUrl:row.image_url,imageKey:row.image_key,
     caption:row.caption,scheduledAt:row.scheduled_at,status:row.status,version:row.version,
     createdAt:row.created_at,updatedAt:row.updated_at,approvalStatus:row.approval_status,
     publicationState:row.outcome_kind==="SUPERSEDED"?"PENDING"
       :row.attempt_state==="UNCERTAIN"&&row.outcome_kind==="PROVEN_REJECTED"
-        ?row.retry_not_before?"RETRY_PENDING":"RETRY_EXHAUSTED"
+        ?retryEnabled
+          ?row.retry_not_before?"RETRY_PENDING":"RETRY_EXHAUSTED"
+          :"UNCERTAIN"
         :row.attempt_state??"PENDING",
     publicationError:row.error_code??null,
     retryNotBefore:row.outcome_kind==="PROVEN_REJECTED"?row.retry_not_before??null:null,
