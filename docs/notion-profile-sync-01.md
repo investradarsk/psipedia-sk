@@ -31,15 +31,24 @@ catalog or new editor is introduced.
 - An optional new **verified common baseline** is stored in
   `notion_profile_field_baselines`, bound by agenda, canonical entity ID,
   Notion page ID and source hash. A mismatch disables automatic reconciliation.
-- A verified common baseline permits independent edits to separate fields to
-  merge in either direction. It does **not** prove edit order for changes to
-  the same field. **Current automatically resolved LWW fields: NONE.**
+- **No additional D1 migration is needed for one-sided changes.** When
+  one current editorial snapshot hashes exactly to the last acknowledged
+  mapping hash, that unchanged side authenticates the common baseline.
+  One-sided changes can therefore reconcile safely using existing tables;
+  explicit deletes and canonical-only fields still fail closed.
+- If both current snapshots are identical, that equality independently proves
+  their common values without overwriting either system.
+- A stored, hash-verified per-field baseline is **optional** for merging
+  independent changes when both sides diverge from the mapping hash. Without
+  it, simultaneous divergent changes remain an explicit conflict for review.
+  Neither record-level timestamp proves human edit order.
+  **Current automatically resolved LWW fields: NONE.**
 - Empty / omitted Notion values never prove explicit human deletion of filled
   content. An authorized field-specific deletion receipt would be required;
   this PR introduces no new such editor action or revision capture.
-- Without a baseline, conflicting snapshots, wrong identity, same-field
-  concurrent edits, or deletions without receipts, reconciliation requires
-  explicit human review. It must not select a winner.
+- Without either a hash-proven unchanged side or a verified stored baseline,
+  two-sided divergent edits, wrong identity, same-field concurrent edits, or
+  deletions without receipts require explicit human review. No speculative winner.
 - Protected publication, identity, confirmed Google Places, sensitive GEO,
   canonical moderation decisions and private contacts cannot be modified
   through ordinary Notion synchronization.
@@ -48,9 +57,11 @@ catalog or new editor is introduced.
 
 `docs/proposals/notion-profile-field-baselines-UNNUMBERED_PROPOSAL.sql` is **staged source**
 outside `drizzle/`: it does not alter the pinned canonical production
-migration chain or authorize an apply. Until an independently reviewed and
-approved rollout places an equivalent migration in that chain, the helper
-detects that the table is missing and safely refuses divergent field merges.
+migration chain or authorize an apply. **Production does not need this
+proposal for existing one-sided synchronization.** The helper detects a
+missing table and uses the authenticated unchanged side for that common
+baseline; only two-sided divergent field merges still require separately
+reviewed storage or manual conflict resolution.
 Production API calls, sync, flag activation, migrations and deployment are
 **out of scope for this Draft PR**.
 
