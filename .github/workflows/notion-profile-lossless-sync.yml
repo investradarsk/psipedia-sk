@@ -1,0 +1,27 @@
+name: Notion profile lossless sync (offline)
+on:
+  pull_request:
+    paths:
+      - 'lib/notion-profile-field-*.ts'
+      - 'lib/notion-directory-sync.ts'
+      - 'lib/notion-events-help-sync.ts'
+      - 'lib/notion-events-help-adapters.ts'
+      - 'tests/notion-profile-field-reconciliation.test.mjs'
+      - 'docs/proposals/notion-profile-field-baselines-UNNUMBERED_PROPOSAL.sql'
+      - '.github/workflows/notion-profile-lossless-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lossless-profile-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline per-field merge and mapping tests
+        run: node --experimental-strip-types --test tests/notion-profile-field-reconciliation.test.mjs
