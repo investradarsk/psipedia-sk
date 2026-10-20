@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SearchIcon } from "@/components/icons";
 
 export function SectionHeroSearch({
   action,
@@ -24,10 +25,11 @@ export function SectionHeroSearch({
   formScope?: string;
 }) {
   return (
-    <form action={action} method="get" role="search" aria-label={label} data-section-hero-search data-public-search-form={formScope}>
+    <form action={action} method="get" role="search" aria-label={label} data-section-hero-search data-public-search-form={formScope} data-public-search-ui="section">
       {hidden.map((field) => <input type="hidden" name={field.name} value={field.value} key={field.name} />)}
       {beforeInput}
-      <label htmlFor={id}>
+      <label className="public-search-entry" htmlFor={id}>
+        <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
         <span className="sr-only">{label}</span>
         <input id={id} name={inputName} defaultValue={defaultValue} maxLength={120} placeholder={placeholder} autoComplete="off" />
       </label>
