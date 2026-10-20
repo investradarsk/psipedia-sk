@@ -105,7 +105,8 @@
 }
 
 .homeV2 :global(.section) {
-  padding-block: 52px;
+  /* DS-6: default homepage sections stay compact; magazine/profile rhythms retain their explicit overrides. */
+  padding-block: clamp(24px, 2.8vw, 38px);
 }
 
 .homeV2 :global(.home-section-heading) {
