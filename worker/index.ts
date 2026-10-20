@@ -32,6 +32,7 @@ import {
 } from "../lib/notion-eshop-sync";
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
+import { eligiblePublicSitemapRequest, servePublicSitemap } from "../lib/sitemap-edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
@@ -191,6 +192,14 @@ const worker = {
     if (canonicalBreedPath) {
       url.pathname = canonicalBreedPath;
       return Response.redirect(url, 301);
+    }
+
+    // Public XML only: a warm POP may safely serve its most recent validated
+    // snapshot when D1/SSR has a transient error. Never cache authenticated,
+    // queried or private requests; public HTML caching remains separate.
+    if (eligiblePublicSitemapRequest(request)) {
+      const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
+      return servePublicSitemap(request, () => handler.fetch(request, env, ctx), storage, ctx);
     }
 
     const cache = publicHtmlCache(request, url, env.CF_VERSION_METADATA?.id);
