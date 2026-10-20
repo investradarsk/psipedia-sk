@@ -882,3 +882,30 @@ test("end-to-end unknown Notion create cannot perform a second POST across fresh
     assert.equal(f.local().notionMirrorStatus,"PENDING");
   }finally{f.sqlite.close();}
 });
+
+
+test("new Services V3 manual route requires real Admin and strict origin before mutation",()=>{
+  const source=read("app/api/admin/service-catalog/notion-mirror/route.ts");
+  assert.match(source,/getAdminApiUser\(\)/);
+  assert.match(source,/requireAdminMutation\(request,\{strictProvenance:true\}\)/);
+  assert.match(source,/SERVICE_CATALOG_ADMIN_WRITES_ENABLED!=="true"/);
+  assert.match(source,/SERVICE_CATALOG_NOTION_MIRROR_READY!=="true"/);
+  assert.match(source,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED!=="true"/);
+  assert.match(source,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED!=="true"/);
+  assert.match(source,/ACTIONS=\["PROVISION_ONE","MIRROR_ONE"\]/);
+  assert.match(source,/EXPLICIT_CONFIRMATION_REQUIRED/);
+  assert.match(source,/UNEXPECTED_REQUEST_FIELDS/);
+  assert.match(source,/raw.length>1024/);
+  assert.match(source,/runServicesV3CatalogInternal/);
+  assert.doesNotMatch(source,/listReadyNotionPages|runNotionDirectorySync|scheduled\(/);
+});
+test("manual Services V3 route and runner do not activate any environment flag or make GET mutate",()=>{
+  const route=read("app/api/admin/service-catalog/notion-mirror/route.ts");
+  const wrangler=read("wrangler.jsonc");
+  const routeGet=route.split("export async function GET(){")[1]?.split("export async function POST(request:Request)")[0];
+  assert.ok(routeGet);
+  assert.match(routeGet,/action:"INVENTORY"/);
+  assert.doesNotMatch(routeGet,/PROVISION_ONE|MIRROR_ONE|createPage\(/);
+  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_(?:ADMIN_WRITES_ENABLED|NOTION_MIRROR_READY|NOTION_EXECUTOR_ENABLED|NOTION_PAGE_CREATES_ENABLED)/);
+  assert.ok(!read(".github/workflows/services-v3-notion-mirror-offline.yml").includes("CLOUDFLARE_D1_API_TOKEN"));
+});
