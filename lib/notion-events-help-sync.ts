@@ -605,6 +605,7 @@ async function syncAgenda(input: {
   mode: NotionEventsHelpMode;
   isEnabled: boolean;
   ready: boolean;
+  targetPageId?: string;
 }) {
   const summary = emptyAgenda(input.definition, input.isEnabled, input.ready);
   if (!input.isEnabled || !input.ready) return summary;
@@ -638,6 +639,10 @@ async function syncAgenda(input: {
   summary.scanned = pages.length;
   const identities = pages.map(identityPage);
   const pagesById = new Map(pages.map((page) => [page.id, page]));
+  // Targeted admin save still reads full source for identity conflicts, but
+  // must never mutate a different Notion page or canonical profile.
+  if (input.targetPageId && !pagesById.has(input.targetPageId))
+    throw new Error("GEMINI_TARGETED_NOTION_PAGE_MISSING");
   let mappings = await loadMappings(input.database, input.definition.key);
   if (input.definition.key === "help-cases") {
     // All historical mappings remain reserved, including excluded categories
@@ -671,6 +676,7 @@ async function syncAgenda(input: {
     const entityId = sourceId(source);
     if (entityId === null) continue;
     let mapping = mappingByEntity.get(entityId) ?? null;
+    if (input.targetPageId && mapping?.notion_page_id !== input.targetPageId) continue;
     const sourceSnapshot = editableSnapshot(input.definition.key, source.properties, schema);
     const canonicalHash = await snapshotHash(input.definition.key, sourceSnapshot);
 
@@ -1273,6 +1279,7 @@ async function syncAgenda(input: {
   const mappedPageIds = new Set(mappings.map((mapping) => mapping.notion_page_id));
 
   for (const page of pages) {
+    if (input.targetPageId && page.id !== input.targetPageId) continue;
     if (mappedPageIds.has(page.id)) continue;
     // The generic Help editor does not own these categories, even when an
     // unlinked Notion page is Ready or has trusted Gemini provenance.
@@ -1476,6 +1483,7 @@ async function syncAgenda(input: {
   if (input.definition.key === "events" || input.definition.key === "organizations") {
     const liveMappings = input.mode === "sync" ? await loadMappings(input.database, input.definition.key) : mappings;
     for (const mapping of liveMappings) {
+      if (input.targetPageId && mapping.notion_page_id !== input.targetPageId) continue;
       const source = sourcesById.get(Number(mapping.entity_id));
       const page = pagesById.get(mapping.notion_page_id);
       if (!source || !page) continue;
@@ -1563,7 +1571,12 @@ export async function runNotionEventsHelpSyncSweep(input: {
   mode?: NotionEventsHelpMode;
   force?: boolean;
   agendas?: BidirectionalAgendaKey[];
+  targetPageId?: string;
 }): Promise<NotionEventsHelpSyncSummary> {
+  if (input.targetPageId !== undefined && (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.targetPageId) ||
+    input.agendas?.length !== 1
+  )) throw new Error("GEMINI_TARGETED_NOTION_SCOPE_INVALID");
   const mode = input.mode ?? "sync";
   const isEnabled = input.force === true || enabled(input.bindings);
   const ready = await schemaReady(input.database);
@@ -1580,6 +1593,7 @@ export async function runNotionEventsHelpSyncSweep(input: {
         mode,
         isEnabled,
         ready,
+        targetPageId: input.targetPageId,
       }));
     } catch (error) {
       const summary = emptyAgenda(definition, isEnabled, ready);
