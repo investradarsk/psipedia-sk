@@ -90,7 +90,9 @@ async function receipts(db:DB):Promise<ReceiptRow[]>{
 }
 function ownership(target:Target,all:Target[],receiptRows:ReceiptRow[]){
   if(all.some(x=>!x||!validTarget(x,x.optionId)))fail("INVALID_REGISTRY");
-  if(all.filter(x=>x.optionId===target.optionId).length!==1)fail("AMBIGUOUS_MAPPING");
+  const self=all.filter(x=>x.optionId===target.optionId);
+  if(self.length!==1||!sameUuid(self[0].pageId,target.pageId)||!sameUuid(self[0].dataSourceId,target.dataSourceId))
+    fail("AMBIGUOUS_MAPPING");
   if(all.some(x=>x.optionId!==target.optionId&&sameUuid(x.pageId,target.pageId)))fail("PAGE_OWNERSHIP_CONFLICT");
   if(receiptRows.some(x=>x.option_id!==target.optionId&&sameUuid(x.notion_page_id,target.pageId)))
     fail("PAGE_OWNERSHIP_CONFLICT");
