@@ -38,12 +38,14 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
   uncertain identities, nonpublic/GEO fields, URL/phone validation failures and
   unavailable D1 **fail closed**. Existing human decisions remain protected
   by the original value-bound review mechanism.
-- **Events and Help (12 categories):** confirmed/possible duplicates still block
-  Notion creation, but the new Directory-only update-proposal endpoint refuses
-  them: `automation_update_suggestions` is schema-scoped to Directory and
-  organizations. Their feed-source findings require real registered source
-  provenance; do not invent or reuse unrelated source identities. Thus automated
-  field update ingestion for Events/Help remains **NOT IMPLEMENTED**.
+- **Events and Help (12 categories):** confirmed duplicates are eligible for
+  a separate, exact identity recheck and a review-only proposal into existing
+  `automation_findings` / **Kvalita údajov**. No changes are proposed for
+  possible duplicates. Every finding must be bound to an already enabled and
+  approved `automation_sources` row, a real source observation, and its
+  canonical provenance receipt; unregistered/ambiguous identity returns BLOCKED.
+  The older `automation_update_suggestions` schema is NOT extended or
+  misused; no new migration or alternative review UI is needed.
 - No external worker gets D1 access, canonical IDs or admin approval rights.
 
 ## Known blockers before production acceptance
