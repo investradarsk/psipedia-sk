@@ -89,3 +89,20 @@ export async function setGeminiGlobalStop(db: D1Database, stopped: boolean, now 
   if (enabled.meta.changes !== 1) throw new GeminiGlobalControlError("CONFLICT");
   return getGeminiGlobalControl(db);
 }
+
+/** Authenticated signed external worker preflight; grants at most one start per
+ * D1 job. A STOP that commits before this UPDATE wins. A worker already admitted
+ * before STOP may finish normally. No retry on ambiguous network outcomes. */
+export async function authorizeGeminiExternalWorker(input: {
+  db: Pick<D1Database, "prepare">; jobId: number; stableKey: string; now?: Date;
+}): Promise<boolean> {
+  if (!Number.isSafeInteger(input.jobId) || input.jobId < 1 ||
+      !/^(directory|events|help)\\.[a-z0-9-]+$/.test(input.stableKey)) return false;
+  const result = await input.db.prepare(
+    "UPDATE gemini_manual_background_jobs SET worker_started_at=? " +
+    "WHERE id=? AND stable_key=? AND status='RUNNING' AND worker_started_at IS NULL " +
+    "AND error_code LIKE 'EXT_%' AND EXISTS " +
+    "(SELECT 1 FROM gemini_global_control WHERE id=1 AND state='RUNNING')"
+  ).bind((input.now ?? new Date()).toISOString(), input.jobId, input.stableKey).run();
+  return result.meta.changes === 1;
+}
