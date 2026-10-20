@@ -176,3 +176,28 @@ test("retry lifecycle: ambiguous transport remains immutable and cannot be re-ar
  }),"editor",db),FacebookImageConflict);
  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM facebook_image_publish_attempt_history").get().n,0);
 });
+
+test("retry operator state follows the live feature flag, not just durable history",async t=>{
+ const {db,sqlite,images}=fixture(t);
+ const key="facebook-images/2030/00000000-0000-4000-8000-000000001237.jpg";
+ images.set(key,{httpMetadata:{contentType:"image/jpeg"}});
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="false";
+ const item=await saveFacebookImagePost(null,input({
+   imageKey:key,imageUrl:"/media/"+key,date:"2030-01-03",time:"11:00",status:"scheduled"
+ }),"editor",db);
+ sqlite.prepare(`INSERT INTO facebook_image_publish_attempts
+   (post_id,snapshot_version,state,started_at,completed_at,error_code,outcome_kind,retry_not_before)
+   VALUES(?,?,'UNCERTAIN',?,?, 'META_RATE_LIMIT','PROVEN_REJECTED',?)`)
+   .run(item.id,item.version,"2030-01-03T09:00:00.000Z",
+     "2030-01-03T09:00:01.000Z","2030-01-03T09:03:00.000Z");
+ assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"UNCERTAIN");
+ assert.equal((await listFacebookImagePosts("2030-01","review",1,db)).counts.review,0);
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="true";
+ const active=await getFacebookImagePost(item.id,db);
+ assert.equal(active.publicationState,"RETRY_PENDING");
+ assert.equal(active.retryNotBefore,"2030-01-03T09:03:00.000Z");
+ sqlite.prepare("UPDATE facebook_image_publish_attempts SET retry_not_before=NULL WHERE post_id=?").run(item.id);
+ assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"RETRY_EXHAUSTED");
+ env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="false";
+ assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"UNCERTAIN");
+});
