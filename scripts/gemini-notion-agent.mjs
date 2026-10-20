@@ -11,7 +11,7 @@ import { retryInitialResearch503 } from "./gemini-research-retry.mjs";
 import { createHmac } from "node:crypto";
 import { notionCategoryValue } from "./gemini-notion-category.mjs";
 import { buildGeminiNotionDraft, geminiNotionSchema, geminiDraftIdentity } from "./gemini-notion-directory-fields.mjs";
-import { classifyGeminiNotionIdentity, geminiDedupeCandidate, geminiDirectoryQualityProposal } from "./gemini-notion-preflight.mjs";
+import { classifyGeminiNotionIdentity, geminiDedupeCandidate, geminiDirectoryQualityProposal, geminiFeedQualityProposal } from "./gemini-notion-preflight.mjs";
 
 const env = process.env;
 const jobId = Number(env.AGENT_JOB_ID);
@@ -174,8 +174,10 @@ async function canonicalDedupe(target, properties) {
   catch { throw Error("GEMINI_DEDUPE_BLOCKED"); }
   if (!data || !["NEW", "DUPLICATE", "POSSIBLE_DUPLICATE", "REJECTED_BEFORE", "BLOCKED"].includes(data.status))
     throw Error("GEMINI_DEDUPE_BLOCKED");
-  if (data.status === "DUPLICATE" && stableKey.startsWith("directory.")) {
-    const proposal = geminiDirectoryQualityProposal(stableKey, properties);
+  if (data.status === "DUPLICATE") {
+    const proposal = stableKey.startsWith("directory.")
+      ? geminiDirectoryQualityProposal(stableKey,properties)
+      : geminiFeedQualityProposal(stableKey,properties);
     if (Object.keys(proposal).length) {
       const payload = JSON.stringify({
         job_id:jobId,stable_key:stableKey,issued_at:Date.now(),
