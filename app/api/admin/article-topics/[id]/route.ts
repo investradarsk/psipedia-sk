@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   const id = Number.parseInt((await params).id, 10);

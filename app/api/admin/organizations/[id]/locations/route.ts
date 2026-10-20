@@ -29,7 +29,7 @@ function errorResponse(error: unknown) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
 
   const organizationId = parseId((await params).id);

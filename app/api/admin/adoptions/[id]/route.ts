@@ -14,7 +14,7 @@ function errorResponse(error: unknown) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   const id = await numericId(params);

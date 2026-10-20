@@ -4,7 +4,7 @@ import { bulkUpdateManagedBreedStatus } from "@/lib/breed-store";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   if (request.headers.get("origin") !== new URL(request.url).origin

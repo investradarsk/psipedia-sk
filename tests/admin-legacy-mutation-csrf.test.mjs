@@ -48,6 +48,13 @@ test("real requireAdminMutation rejects unauthorized identities before origin", 
   assert.equal((await requireAdminMutation(request({origin:"https://psipedia.sk"}))).response?.status, 401);
 });
 
+test("strictly migrated handlers fail on absent provenance without breaking other existing Admin callers", async () => {
+  authorized();
+  assert.equal((await requireAdminMutation(request(), { strictProvenance: true })).response?.status, 403);
+  assert.equal((await requireAdminMutation(request())).response, null);
+  assert.equal((await requireAdminMutation(request({ origin: "https://attacker.example" }))).response?.status, 403);
+});
+
 test("real requireAdminMutation checks Origin after successful identity", async () => {
   authorized();
   assert.equal((await requireAdminMutation(request({origin:"https://evil.example",site:"same-origin"}))).response?.status, 403);
@@ -92,7 +99,7 @@ test("every legacy mutator has centralized guard before request parsing; GET rem
     for (let i=0; i<methods.length; i++) {
       const method = methods[i][1];
       const section = source.slice(methods[i].index, i+1 < methods.length ? methods[i+1].index : undefined);
-      const guard = section.indexOf("requireAdminMutation(request)");
+      const guard = section.indexOf("requireAdminMutation(request, { strictProvenance: true })");
       if (method === "GET") {
         assert.equal(guard, -1, relativePath + " GET");
       } else {

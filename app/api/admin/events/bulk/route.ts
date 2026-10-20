@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 type RuntimeBindings = NotionEventSyncBindings & { DB?: D1Database };
 
 export async function POST(request: Request) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   if (request.headers.get("origin") !== new URL(request.url).origin || !request.headers.get("content-type")?.startsWith("application/json")) return Response.json({ error: "Neplatný pôvod požiadavky." }, { status: 403 });

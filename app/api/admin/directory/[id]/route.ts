@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
@@ -140,7 +140,7 @@ export async function PUT(request: Request, { params }: Props) {
 }
 
 export async function DELETE(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });
@@ -152,7 +152,7 @@ export async function DELETE(request: Request, { params }: Props) {
 }
 
 export async function PATCH(request: Request, { params }: Props) {
-  const auth = await requireAdminMutation(request);
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const user = auth.user;
   const id = await numericId(params); if (!id) return Response.json({ error: "Neplatné ID profilu." }, { status: 400 });

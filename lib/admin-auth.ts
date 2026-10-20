@@ -96,12 +96,12 @@ export function unauthorizedAdminResponse() {
   );
 }
 
-export async function requireAdminMutation(request: Request) {
+export async function requireAdminMutation(request: Request, options: { strictProvenance?: boolean } = {}) {
   const user = await getAdminApiUser();
   if (!user) return { response: unauthorizedAdminResponse() as Response, user: null };
 
   // Authorization is mandatory even for requests that already fail provenance checks.
-  const rejected = rejectUntrustedAdminMutationOrigin(request);
+  const rejected = rejectUntrustedAdminMutationOrigin(request, { allowMissingProvenance: !options.strictProvenance });
   if (rejected) return { response: rejected, user: null };
 
   return { response: null, user };

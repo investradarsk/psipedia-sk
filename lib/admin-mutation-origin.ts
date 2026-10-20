@@ -4,10 +4,11 @@
  * Accepted: exact scheme/host/port Origin; or (for clients that omit Origin)
  * an explicit Sec-Fetch-Site: same-origin. Sec-Fetch-Site cross-site/same-site
  * is always rejected, even if Origin is forged. Requests without both signals
- * fail closed: no legacy Admin endpoint has a machine-authenticated exception.
+ * fail closed on migrated legacy Admin routes. Other existing Admin callers
+ * retain their prior missing-header behavior for compatibility until audited.
  * This is independent of the identity check in requireAdminMutation().
  */
-export function rejectUntrustedAdminMutationOrigin(request: Request): Response | null {
+export function rejectUntrustedAdminMutationOrigin(request: Request, options: { allowMissingProvenance?: boolean } = {}): Response | null {
   const site = request.headers.get("sec-fetch-site");
   const origin = request.headers.get("origin");
 
@@ -18,7 +19,7 @@ export function rejectUntrustedAdminMutationOrigin(request: Request): Response |
   // A browser with no Origin may still supply the unforgeable Fetch Metadata
   // same-origin signal. 'none' cannot authenticate a mutating navigation.
   if (origin === null) {
-    return site === "same-origin"
+    return (site === "same-origin" || (options.allowMissingProvenance === true && (site === null || site === "none")))
       ? null
       : Response.json({ error: "Chýba dôveryhodný pôvod požiadavky." }, { status: 403 });
   }
