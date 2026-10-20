@@ -641,6 +641,16 @@ async function writeProfileToNotion(input: {
     ? await patchNotionPage(input.bindings, input.pageId, properties)
     : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
 
+  // A partial or stale Notion response is not evidence of a successful
+  // editorial write. Check page identity and the complete reflected snapshot
+  // BEFORE advancing the canonical mapping or the verified field baseline.
+  // The remote operation may have happened despite a rejected echo; retry
+  // conservatively against the unchanged previous mapping.
+  if (!page?.id || (input.pageId && page.id !== input.pageId)
+      || !page.properties || await snapshotHash(notionSnapshot(page)) !== hash) {
+    throw new Error("NOTION_DIRECTORY_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
+  }
+
   if (sourceImageUrl) {
     await upsertMediaSourceMonitor({
       database: input.database,
@@ -652,6 +662,9 @@ async function writeProfileToNotion(input: {
     });
   }
 
+  // The verified snapshot and the mapping must describe the same acknowledged
+  // Notion state. Failure to persist either keeps further divergent edits
+  // fail-closed; never assert success merely because PATCH returned HTTP 200.
   await saveMapping({
     database: input.database,
     pageId: page.id,
@@ -661,14 +674,10 @@ async function writeProfileToNotion(input: {
     psipediaUpdatedAt: input.profile.updatedAt,
     syncedAt,
   });
-  // A successful remote PATCH plus equal returned editorial snapshot is the
-  // only safe occasion to advance a common per-field baseline.
-  if (page.properties && await snapshotHash(notionSnapshot(page)) === hash) {
-    await recordProfileFieldBaseline({
-      database: input.database, agenda: "directory", entityId: input.profile.id,
-      pageId: page.id, hash, snapshot: profileSnapshot(input.profile, sourceImageUrl), syncedAt,
-    });
-  }
+  await recordProfileFieldBaseline({
+    database: input.database, agenda: "directory", entityId: input.profile.id,
+    pageId: page.id, hash, snapshot: profileSnapshot(input.profile, sourceImageUrl), syncedAt,
+  });
   return page;
 }
 
