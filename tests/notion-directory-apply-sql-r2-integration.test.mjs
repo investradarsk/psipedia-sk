@@ -6,6 +6,7 @@ import test from "node:test";
 import ts from "typescript";
 import { buildManagedDirectoryProfileUpdateStatement, normalizeManagedDirectoryProfileInput } from "../lib/directory-store.ts";
 import { cleanupUnreferencedNotionUpload } from "../lib/notion-sync-shared.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "../lib/notion-profile-field-reconciliation.ts";
 
 // Execute the real production Notion apply function, not a reimplementation of
 // its ordering. Canonical UPDATE SQL and R2 reference-check SQL execute on real
@@ -78,7 +79,8 @@ function fixture(options = {}) {
   };
   const read = () => sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get();
   const current = {
-    id: 1, status, updatedAt: version, publishedAt: null,
+    id: 1, name: initial.name, slug: initial.slug, category: initial.category,
+    status, updatedAt: version, publishedAt: null,
     imageUrl: initial.image_url, imageKey: initial.image_key,
     importData: {}, seo: {}, address: initial.address,
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION", websiteUrl: "",
@@ -91,10 +93,12 @@ function fixture(options = {}) {
     imageUrl: current.imageUrl, imageKey: current.imageKey,
   };
   const profileRow = row => row && ({
-    ...current, id: row.id, status: row.status, updatedAt: row.updated_at,
+    ...current, id: row.id, name: row.name, slug: row.slug, category: row.category,
+    status: row.status, updatedAt: row.updated_at,
     imageKey: row.image_key, imageUrl: row.image_url,
   });
   const desired = {
+    slug: "test-profil", category: "treneri",
     status: "draft", imageUrl: options.image === false ? "" : "https://images.example.org/new.webp",
     confirmedServiceLocation: true, name: "Nový profil", websiteUrl: "",
     region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
@@ -148,8 +152,25 @@ function fixture(options = {}) {
     async getManagedDirectoryProfileById() { return profileRow(read()); },
     async fetchNotionPage() { throw Error("UNEXPECTED_REMOTE_FETCH"); },
     async getMediaSourceMonitorForEntity() { return null; },
-    profileSnapshot() { return { origin: "psipedia" }; },
-    async snapshotHash(value) { return value.origin === "psipedia" ? "stable-profile-hash" : "changed-notion-hash"; },
+    // The production mapped worker now executes lossless field reconciliation.
+    // Keep snapshots structurally identical except for the two intended Notion edits.
+    profileSnapshot(profile) {
+      return {
+        slug: profile.slug, category: profile.category, status: profile.status,
+        imageUrl: profile.imageUrl, confirmedServiceLocation: true,
+        name: profile.name, websiteUrl: profile.websiteUrl || "",
+        region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
+      };
+    },
+    async snapshotHash(value) {
+      return value.name === "Pôvodný profil" && value.imageUrl === "/media/directory/old.webp"
+        ? "stable-profile-hash" : "changed-notion-hash";
+    },
+    async readProfileFieldBaseline() { return null; },
+    async recordProfileFieldBaseline() { calls.push("baseline-recorded"); },
+    async loadGeoMirror() { return null; },
+    trustedProfileBaselineFromHashes,
+    reconcileProfileFields,
     async writeProfileToNotion() { calls.push("notion-writeback"); },
     async archiveManagedDirectoryProfile() { throw Error("UNEXPECTED_ARCHIVE"); },
     SYSTEM_ACTOR: "notion-worker",
@@ -196,13 +217,12 @@ test("refused confirmed-address downgrade preserves D1 and R2", async () => {
   closes(f);
 });
 
-test("archived recovery commits restoration and image in one SQL UPDATE", async () => {
+test("Notion cannot restore an archived canonical profile or replace its image", async () => {
   const f = fixture({ status: "archived" });
-  const result = await f.run();
-  assert.equal(result.status, "draft");
-  assert.equal(f.read().archived_at, null);
-  assert.equal(f.read().image_key, "directory/new.webp");
-  assert.ok(f.calls.indexOf("d1-update") < f.calls.indexOf("geo-after-commit"));
+  await assert.rejects(f.run, /REVIEW_REQUIRED/);
+  assert.deepEqual(f.read(), f.initial);
+  assert.equal(f.calls.includes("r2-put"), false);
+  assert.equal(f.calls.includes("canonical-store"), false);
   closes(f);
 });
 
