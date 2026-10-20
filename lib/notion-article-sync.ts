@@ -1385,13 +1385,21 @@ export async function writeBackDraftArticleContentToNotion(args: {
   // or earlier blocks. The per-block GET below still checks the latest
   // preimage immediately before each actual PATCH.
   const preflightBlocks = await getPageBlocks(args.bindings, page.id);
-  const preflightById = new Map(preflightBlocks.map((block) => [block.id, block]));
+  const preflightById = new Map(preflightBlocks.map((block, index) => [block.id, { block, index }]));
+  if (preflightById.size !== preflightBlocks.length) {
+    throw new Error("NOTION_EDITORIAL_BLOCK_IDENTITY_CONFLICT");
+  }
+  let lastPlannedIndex = -1;
   for (const op of plan.blocks) {
-    const block = preflightById.get(op.id);
-    if (!block || block.type !== op.type) {
+    const current = preflightById.get(op.id);
+    if (!current || current.block.type !== op.type) {
       throw new Error("NOTION_EDITORIAL_BLOCK_IDENTITY_CONFLICT");
     }
-    const fingerprint = notionEditorialBlockShape(block);
+    if (current.index <= lastPlannedIndex) {
+      throw new Error("NOTION_EDITORIAL_BLOCK_ORDER_CONFLICT");
+    }
+    lastPlannedIndex = current.index;
+    const fingerprint = notionEditorialBlockShape(current.block);
     if (fingerprint !== op.before && fingerprint !== op.after) {
       throw new Error("NOTION_EDITORIAL_BLOCK_CONFLICT");
     }
