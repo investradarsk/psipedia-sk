@@ -4,14 +4,25 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPreparedMigrations } from "./production-d1-0123-0124-preflight.mjs";
+import { readFileSync } from "node:fs";
+import { PINNED_SHA256_0134, expected0134Objects, normalize0134Ddl, TABLES_0134, INDEXES_0134, TRIGGERS_0134, AUTO_INDEX_0134 } from "./production-d1-0134-readonly.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // Prepared migrations are excluded from production until independently approved.
-// 0133 is now a separately owner-reviewed, manually gated production target.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0134 is a protected, separately owner-confirmed migration target; 0135 remains blocked.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0135_facebook_image_safe_retry.sql"]);
+export const APPROVED_0134_SHA256 = PINNED_SHA256_0134;
+export function assertApproved0134Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0134 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0134_SHA256, "0134 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0134NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0134_services_admin_change_audit.sql")
+    invariant(!targetApplied, "0134 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0133_SHA256 = "656fcd963394076bfd5a7829e71b52a3bb83427e38a16f275e63af21b0f6eaef";
 export function assertApproved0133Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0133 requires canonical psipedia-sk-db");
@@ -195,6 +206,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0131_facebook_image_trash.sql",
   "0132_facebook_image_direct_consent.sql",
   "0133_services_canonical_admin_foundation.sql",
+  "0134_services_admin_change_audit.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -712,6 +724,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0132Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0133_services_canonical_admin_foundation.sql")
     assertApproved0133Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0134_services_admin_change_audit.sql")
+    assertApproved0134Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1326,6 +1340,12 @@ export function targetSchemaObjects(schema, targetMigration) {
       "service_catalog_admin_options_mirror_idx", "service_profile_option_choices",
       "service_profile_option_choices_option_idx", "service_profile_property_values",
     ].some(name => names.has(name)) };
+  }
+  if (targetMigration === "0134_services_admin_change_audit.sql") {
+    const owned = new Set([...TABLES_0134, ...INDEXES_0134, ...TRIGGERS_0134, AUTO_INDEX_0134]);
+    return { partial: (schema.objects ?? []).some(row =>
+      owned.has(String(row.name)) ||
+      (row.type === "trigger" && ["service_catalog_admin_options", "service_profile_option_choices"].includes(String(row.tbl_name)))) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2475,6 +2495,39 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 131) assertFacebookImageTrashSchema(schema);
   if (migrationIndex(targetMigration) >= 132) assertFacebookImageDirectConsentSchema(schema);
   if (migrationIndex(targetMigration) >= 133) assertServicesCanonicalAdminSchema(schema);
+  if (migrationIndex(targetMigration) >= 134) assertServicesAdminAudit0134Schema(schema);
+}
+
+/** Exact 0134 postflight: enforce approved DDL and all append-only/receipt triggers. */
+export function assertServicesAdminAudit0134Schema(schema) {
+  const migration = readFileSync(path.join(repoRoot, "drizzle/0134_services_admin_change_audit.sql"), "utf8");
+  assertApproved0134Target("psipedia-sk-db", createHash("sha256").update(migration).digest("hex"));
+  const expected = expected0134Objects(migration);
+  const observed = schema.objects ?? [];
+  const required = new Set([...expected.keys(), AUTO_INDEX_0134]);
+  for (const [name, want] of expected) {
+    const matches = observed.filter(row => row.name === name);
+    invariant(matches.length === 1, "0134 missing/duplicated canonical object: " + name);
+    const row = matches[0];
+    const parent = want.type === "table" ? name
+      : want.type === "index" ? TABLES_0134[0]
+      : name.startsWith("service_catalog_admin_option_") ? "service_catalog_admin_options"
+      : name.startsWith("service_catalog_admin_choice_") ? "service_profile_option_choices"
+      : name.startsWith("service_catalog_admin_receipt_") ? TABLES_0134[1] : TABLES_0134[0];
+    invariant(row.type === want.type && row.tbl_name === parent &&
+      normalize0134Ddl(row.sql) === want.sql, "0134 canonical DDL mismatch: " + name);
+  }
+  const implicit = observed.filter(row => row.name === AUTO_INDEX_0134);
+  invariant(implicit.length === 1 && implicit[0].type === "index" &&
+    implicit[0].tbl_name === TABLES_0134[1] && implicit[0].sql === null,
+    "0134 receipt UNIQUE index missing/modified");
+  for (const row of observed) {
+    if (TABLES_0134.includes(row.tbl_name) ||
+        (row.type === "trigger" && ["service_catalog_admin_options", "service_profile_option_choices"].includes(row.tbl_name))) {
+      invariant(required.has(row.name), "0134 unexpected related DDL object");
+    }
+  }
+  return true;
 }
 
 /** Production integrity gate for manually-enqueued, one-at-a-time Gemini jobs. */
@@ -2760,6 +2813,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const historyState = validateProductionTargetHistory(historyNames, expectedHistory, targetMigration);
   const targetObjects = targetSchemaObjects(schema, targetMigration);
   assertRolloutChainSchema(schema, targetMigration);
+  if (targetIndex >= 134) assertServicesCanonicalAdminSchema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -2857,6 +2911,7 @@ async function preflight(targetMigration) {
   assert0131NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0132NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0133NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0134NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -3024,6 +3079,7 @@ async function apply(targetMigration) {
   assert0131NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0132NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0133NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0134NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 129) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM gemini_manual_background_jobs WHERE status IN ('QUEUED','RUNNING')") === 0,

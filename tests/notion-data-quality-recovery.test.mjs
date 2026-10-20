@@ -54,7 +54,7 @@ test("directory errors remain separated by remediation and never invent an addre
     ["Telefónne číslo nie je platné.", "INVALID_PHONE"],
     ["E-mailová adresa nie je platná.", "INVALID_EMAIL"],
     ["Webová adresa nie je platná.", "INVALID_WEBSITE"],
-    ["Hlavný obrázok sa nepodarilo stiahnuť (HTTP 403).", "REMOTE_IMAGE_BLOCKED"],
+    ["Hlavný obrázok sa nepodarilo stiahnuť (HTTP 403).", "REMOTE_IMAGE_HTTP_403"],
     ["Unknown exception", "OTHER"],
   ];
   for (const [message, expected] of known) {

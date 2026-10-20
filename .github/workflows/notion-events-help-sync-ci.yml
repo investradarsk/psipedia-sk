@@ -6,6 +6,8 @@ on:
     paths:
       - "lib/notion-events-help-*.ts"
       - "lib/notion-data-quality-audit.ts"
+      - "lib/notion-data-quality-audit-v2.ts"
+      - "tests/notion-data-quality-audit-v2.test.mjs"
       - "lib/notion-data-quality-recovery.ts"
       - "app/api/admin/notion-data-quality-audit/**"
       - "app/admin/nastroje/notion-audit/**"
@@ -58,6 +60,15 @@ jobs:
 
       - name: Focused TypeScript check — reconciliation core
         run: npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck lib/notion-bidirectional-reconciliation.ts
+
+      - name: Focused Audit 02 TypeScript check
+        run: npx tsc --noEmit --strict --target ES2022 --lib ES2022,DOM --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types @cloudflare/workers-types,node lib/notion-data-quality-audit-v2.ts
+
+      - name: Audit 02 — read-only evidence regressions
+        run: npm run test:notion-data-quality-audit
+
+      - name: Existing breed concurrency script regression
+        run: npm run test:breed-concurrency
 
       - name: Migration safety
         run: npm run test:migration-safety

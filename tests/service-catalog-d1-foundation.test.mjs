@@ -9,6 +9,7 @@ import {
 
 const read=(path)=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
 const migration=read("drizzle/0133_services_canonical_admin_foundation.sql");
+const auditMigration=read("drizzle/0134_services_admin_change_audit.sql");
 // D1 accepts SQLite numbered ?1 placeholders; node:sqlite's positional
 // binder does not. Expand numbered references to anonymous placeholders
 // while retaining the exact original D1 parameter mapping (including repeats).
@@ -33,6 +34,8 @@ function setup(){
   sqlite.exec("PRAGMA foreign_keys=ON");
   sqlite.exec("CREATE TABLE directory_profiles (id INTEGER PRIMARY KEY, category TEXT NOT NULL, status TEXT NOT NULL)");
   sqlite.exec(migration);
+  // 3C writes depend on 0134; keep the earlier 0133 foundation assertions.
+  sqlite.exec(auditMigration);
   sqlite.exec("INSERT INTO directory_profiles (id,category,status) VALUES (1,'veterinari','published'),(2,'treneri','published'),(3,'veterinari','archived')");
   return {sqlite,db:new TestD1(sqlite)};
 }
@@ -152,7 +155,15 @@ test("dynamic DRAFT, ACTIVE/PENDING, ACTIVE/CONFLICT and RETIRED options remain 
   const option=await createAdminCatalogOption(db,item(),"owner@example.com");
   const payload={profileId:1,optionId:option.id,choice:"yes",expectedVersion:0};
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
+  // Even direct SQL must refuse promotion without a synchronized mirror
+  // and a verified-version receipt.
+  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id),/Notion receipt required/);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' WHERE id=?").run(option.id);
+  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id),/Notion receipt required/);
+  sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
+    .run(option.id,1,"notion-test-page","2026-10-19T12:00:00Z","a".repeat(64),"2026-10-19T12:01:00Z","test-trusted-reconciler");
   sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id);
+  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='PENDING' WHERE id=?").run(option.id);
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
   sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(option.id);
   await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);

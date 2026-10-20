@@ -1,6 +1,6 @@
 import {env} from "cloudflare:workers";
 import {getAdminApiUser,requireAdminMutation,unauthorizedAdminResponse} from "@/lib/admin-auth";
-import {createAdminCatalogOption,listAdminCatalogOptions,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError} from "@/lib/service-catalog-admin-store";
+import {createAdminCatalogOption,listAdminCatalogOptions,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError,requireServiceCatalogAuditSchema} from "@/lib/service-catalog-admin-store";
 
 export const dynamic="force-dynamic";
 type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
@@ -24,6 +24,7 @@ export async function POST(request:Request){
   const db=settings().DB;
   if(!db)return Response.json({error:"D1 is unavailable."},{status:503});
   try{
+    await requireServiceCatalogAuditSchema(db);
     const option=await createAdminCatalogOption(db,await request.json(),auth.user!.email);
     return Response.json({option},{status:201});
   }catch(error){

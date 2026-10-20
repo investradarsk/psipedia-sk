@@ -423,6 +423,11 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
             <strong>{count(data.summary.changedMedia)}</strong>
             <small>na schválenie · {count(data.summary.mediaIssues)} problémov spolu</small>
           </Link>
+          <Link href="/admin/nastroje/notion-audit">
+            <span>Sync Notion ↔ D1</span>
+            <strong>→</strong>
+            <small>bezpečná diagnostika, nie automatická oprava</small>
+          </Link>
           <Link href="/admin/kvalita/seo">
             <span>SEO audit</span>
             <strong>→</strong>
