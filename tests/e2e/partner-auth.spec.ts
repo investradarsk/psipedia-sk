@@ -359,8 +359,16 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
-    await page.getByLabel(/^Kraj/).selectOption("Trnavský kraj");
-    await page.getByLabel(/^Okres/).selectOption("Trnava");
+    // The SSR edit page may become visible before the controlled location
+    // selector finishes hydration. Retry the region change until the district
+    // options actually reflect it, instead of racing selectOption("Trnava").
+    const editRegion = page.getByLabel(/^Kraj/);
+    const editDistrict = page.getByLabel(/^Okres/);
+    await expect.poll(async () => {
+      await editRegion.selectOption("Trnavský kraj");
+      return editDistrict.locator('option[value="Trnava"]').count();
+    }, { timeout: 12_000 }).toBe(1);
+    await editDistrict.selectOption("Trnava");
     const editMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
     await editMunicipality.fill("trnava");
     await editMunicipality.press("ArrowDown");
