@@ -103,3 +103,25 @@ export function createServiceCatalogNotionHttpPort(config:{
     }
   };
 }
+
+/**
+ * Confirmed Services V3 Notion catalog; intentionally not Adresar profiles.
+ * The writer stays disconnected and disabled unless separately activated.
+ */
+export const PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING = Object.freeze({
+  dataSourceId: "8785fd64-36c3-4acf-aade-ad99c30ad45d",
+  properties: Object.freeze({
+    optionId: "Option ID", optionVersion: "Verzia", kind: "Typ", label: "Názov",
+    group: "Skupina", meaning: "Význam", primaryCategory: "Hlavná kategória",
+    categories: "Kategórie", valueKind: "Druh hodnoty",
+  }),
+});
+export function createPsipediaServiceCatalogNotionHttpPort(config: {
+  token: string; allowWrites?: boolean; fetcher?: typeof fetch;
+}) {
+  return createServiceCatalogNotionHttpPort({
+    ...config,
+    dataSourceId: PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId,
+    properties: {...PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties},
+  });
+}
