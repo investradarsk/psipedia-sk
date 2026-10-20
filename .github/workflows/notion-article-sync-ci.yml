@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "lib/notion-article-sync.ts"
+      - "lib/notion-article-content-plan.ts"
+      - "app/api/admin/articles/[id]/route.ts"
+      - "drizzle/0135_notion_article_editorial_outbox.sql"
+      - "tests/notion-article-content-writeback.test.mjs"
       - "lib/article-publish-notion-reconciliation.ts"
       - "worker/index.ts"
       - "lib/article-subsection-taxonomy.ts"
@@ -80,7 +84,10 @@ jobs:
         run: npm run test:migration-safety
 
       - name: Notion sync safety contract
-        run: node --test tests/notion-article-sync.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs
+        run: node --test tests/notion-article-sync.test.mjs tests/notion-article-content-writeback.test.mjs tests/article-publish-notion-reconciliation.test.mjs tests/notion-breed-sync.test.mjs tests/notion-event-sync.test.mjs tests/notion-directory-sync.test.mjs tests/media-source-quality.test.mjs
+
+      - name: Article content writeback focused test
+        run: node --experimental-strip-types --test tests/notion-article-content-writeback.test.mjs
 
       - name: Production build
         run: npm run build
