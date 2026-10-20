@@ -112,6 +112,8 @@ export async function listFacebookImagePosts(
   if(!["all","manual","notion"].includes(source))throw new Error("Neplatný zdroj.");
   const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db),consent=await hasDirectConsentSchema(db);
   const retry=publisher&&await hasRetrySchema(db);
+  // Disabling the feature returns durable pending retry claims to manual review.
+  const activeRetry=retry&&facebookSafeRetryEnabled(env as unknown as {FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string});
   const start=new Date(month+"-01T00:00:00Z"),end=new Date(start);
   end.setUTCMonth(end.getUTCMonth()+1);
   const from=new Date(start.getTime()-8*86400000).toISOString();
@@ -122,11 +124,11 @@ export async function listFacebookImagePosts(
     where.push("p.status=?");values.push(status);
   }
   if(status==="sending"||status==="review"){
-    where.push(publisher?status==="review"&&retry
+    where.push(publisher?status==="review"&&activeRetry
       ?"(a.state='UNCERTAIN' AND (a.outcome_kind IN ('UNKNOWN','AMBIGUOUS') "+
       "OR (a.outcome_kind='PROVEN_REJECTED' AND a.retry_not_before IS NULL)))"
       :"a.state=?":"1=0");
-    if(publisher&&(status==="sending"||!retry))
+    if(publisher&&(status==="sending"||!activeRetry))
       values.push(status==="sending"?"SENDING":"UNCERTAIN");
   }
   if(source==="notion")where.push("p.notion_page_id IS NOT NULL");
@@ -151,7 +153,7 @@ export async function listFacebookImagePosts(
     sum(active+" AND p.status='published'")+" AS published,"+
     sum(active+(publisher?" AND a.state='SENDING'":" AND 1=0"))+" AS sending,"+
     sum(active+(publisher?
-      " AND a.state='UNCERTAIN'"+(retry?
+      " AND a.state='UNCERTAIN'"+(activeRetry?
         " AND (a.outcome_kind IN ('UNKNOWN','AMBIGUOUS') OR "+
         "(a.outcome_kind='PROVEN_REJECTED' AND a.retry_not_before IS NULL))":"")
       :" AND 1=0"))+" AS review,"+
