@@ -136,10 +136,11 @@ function expected0133Integrity(objects,migration) {
 function inspect0134(objects, expected) {
   const required=[...expected.keys(),AUTO_INDEX_0134];
   const observed=objects.filter(x=>required.includes(x?.name) ||
-    TABLES_0134.includes(x?.tbl_name));
+    TABLES_0134.includes(x?.tbl_name) ||
+    (x?.type==="trigger" && ["service_catalog_admin_options","service_profile_option_choices"].includes(x?.tbl_name)));
   const found=observed.filter(x=>required.includes(x.name));
   const names=new Set(found.map(x=>x.name));
-  const unexpected=observed.filter(x=>!required.includes(x.name)).map(x=>x.name);
+  const unexpected=observed.filter(x=>!required.includes(x.name)).map(()=>"UNEXPECTED_SERVICES_OBJECT");
   const missing=required.filter(n=>!names.has(n));
   const changed=[];
   for (const row of found) {
