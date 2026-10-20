@@ -79,7 +79,7 @@ test("DS-1A original CSS is byte-identical after excluding the isolated DS-5 ext
   assert.equal(block.after.split(ds5Start).length, 2, "exactly one DS-5 extension is required");
   const extensionAt = block.after.indexOf(ds5Start);
   assert.ok(extensionAt >= 0 && block.after.endsWith(ds5End), "DS-5 may only be appended after original CSS");
-  const originalAfter = block.after.slice(0, extensionAt) + "\n";
+  const originalAfter = block.after.slice(0, extensionAt);
   assert.equal(gitBlobSha(block.before + originalAfter), originalBlob);
   const lines = block.content.trimEnd().split("\n");
   assert.equal(lines.length, expected.size);
