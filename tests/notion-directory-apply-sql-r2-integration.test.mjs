@@ -83,6 +83,7 @@ function fixture(options = {}) {
   const read = () => sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get();
   const current = {
     id: 1, status, updatedAt: version, publishedAt: null,
+    slug: initial.slug, category: initial.category, name: initial.name,
     imageUrl: initial.image_url, imageKey: initial.image_key,
     importData: {}, seo: {}, address: initial.address,
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION", websiteUrl: "",
@@ -99,7 +100,9 @@ function fixture(options = {}) {
     imageKey: row.image_key, imageUrl: row.image_url,
   });
   const desired = {
-    status: "draft", imageUrl: options.image === false ? "" : "https://images.example.org/new.webp",
+    status: options.notionStatus ?? "draft",
+    slug: initial.slug, category: initial.category,
+    imageUrl: options.image === false ? "" : "https://images.example.org/new.webp",
     confirmedServiceLocation: true, name: "Nový profil", websiteUrl: "",
     region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
   };
@@ -162,7 +165,7 @@ function fixture(options = {}) {
     profileSnapshot(profile) {
       return {
         ...desired,
-        name: options.canonicalName ?? "Pôvodný profil",
+        name: options.canonicalName ?? profile.name ?? "Pôvodný profil",
         imageUrl: profile.imageUrl,
       };
     },
