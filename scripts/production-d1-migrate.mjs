@@ -17,7 +17,9 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // 0135 is only eligible for a separate OWNER-DISPATCHED protected production workflow.
 // This code and a PR merge must never start the migration or enable retry flags.
 // 0136 must be owner-dispatched in the protected workflow, never by a PR merge or Cloudflare Workers Build.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// 0137 is deliberately prepared-only: it may be validated offline but MUST NOT
+// be accepted by the production migration runner until explicitly approved.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0137_media_source_review_decisions.sql"]);
 export const APPROVED_0136_SHA256 = PINNED_SHA256_0136;
 export function assertApproved0136Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0136 requires canonical psipedia-sk-db");
