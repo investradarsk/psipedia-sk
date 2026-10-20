@@ -69,7 +69,7 @@ test("0135 creates immutable history and leaves original Facebook attempt record
  assert.deepEqual(targetSchemaObjects(f.schema(),target),{partial:true});
  assert.equal(assertFacebookRetry0135Schema(f.schema()),true);
  assert.deepEqual(f.db.prepare("SELECT post_id,snapshot_version,state,remote_id,started_at,completed_at,error_code FROM facebook_image_publish_attempts WHERE post_id=?").get(id),prior);
- assert.deepEqual(f.db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts WHERE post_id=?").get(id),
+ assert.deepEqual({...f.db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts WHERE post_id=?").get(id)},
    {retry_count:0,retry_not_before:null,outcome_kind:"UNKNOWN"});
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM facebook_image_publish_attempt_history").get().n,0);
  f.db.prepare("UPDATE facebook_image_publish_attempts SET outcome_kind='PROVEN_REJECTED',retry_not_before=? WHERE post_id=?")
