@@ -165,6 +165,7 @@ export async function upsertMediaSourceMonitor(input: {
       source_content_hash=COALESCE(excluded.source_content_hash, media_source_monitors.source_content_hash),
       active_image_key=COALESCE(excluded.active_image_key, media_source_monitors.active_image_key),
       updated_at=excluded.updated_at
+    WHERE media_source_monitors.review_claim_token IS NULL
   `).bind(
     input.entityType,
     input.entityId,
@@ -395,7 +396,7 @@ async function setMonitorResult(input: {
   const issueStartedAt = input.status === "OK"
     ? null
     : input.row.issueStartedAt ?? input.now;
-  await input.database.prepare(`
+  const result = await input.database.prepare(`
     UPDATE media_source_monitors
     SET source_image_url=COALESCE(?, source_image_url),
         source_content_hash=COALESCE(?, source_content_hash),
@@ -425,6 +426,7 @@ async function setMonitorResult(input: {
     input.row.id,
     input.row.candidateImageKey,
   ).run();
+  return result.meta.changes === 1;
 }
 
 async function mediaEntityContext(database: D1Database, row: MediaSourceMonitor) {
@@ -470,7 +472,7 @@ async function monitorOne(input: {
         requireIdentityMatch: context.sharedSource,
       });
     } catch (error) {
-      await setMonitorResult({
+      const applied = await setMonitorResult({
         database: input.database,
         row,
         status: "ERROR",
@@ -478,18 +480,20 @@ async function monitorOne(input: {
         error: error instanceof Error ? error.message : String(error),
         httpStatus: httpStatusFromError(error),
       });
+      if (!applied) return "skipped" as const;
       return "error" as const;
     }
   }
 
   if (!sourceImageUrl) {
-    await setMonitorResult({
+    const applied = await setMonitorResult({
       database: input.database,
       row,
       status: "MISSING",
       now: input.now,
       error: rejectedCandidateMarker(rejectedUrls) ?? "Na zdrojovej stránke sa nepodarilo nájsť použiteľný obrázok.",
     });
+    if (!applied) return "skipped" as const;
     return "missing" as const;
   }
 
@@ -504,7 +508,7 @@ async function monitorOne(input: {
       );
 
     if (!needsCandidate) {
-      await setMonitorResult({
+      const applied = await setMonitorResult({
         database: input.database,
         row,
         status: "OK",
@@ -513,6 +517,7 @@ async function monitorOne(input: {
         sourceContentHash: row.sourceContentHash ?? remote.contentHash,
         httpStatus: 200,
       });
+      if (!applied) return "skipped" as const;
       return "ok" as const;
     }
 
@@ -523,7 +528,7 @@ async function monitorOne(input: {
       sourceImageUrl,
     });
     // Preserve any previous candidate object until D1 has accepted the new state.
-    await setMonitorResult({
+    const applied = await setMonitorResult({
       database: input.database,
       row,
       status: row.activeImageKey && row.sourceContentHash ? "CHANGED" : "CANDIDATE",
@@ -535,6 +540,7 @@ async function monitorOne(input: {
       httpStatus: 200,
       error: rejectedCandidateMarker(rejectedUrls),
     });
+    if (!applied) return "skipped" as const;
     return row.activeImageKey && row.sourceContentHash ? "changed" as const : "candidate" as const;
   } catch (error) {
     const status = httpStatusFromError(error);
@@ -552,7 +558,7 @@ async function monitorOne(input: {
             entityId: row.entityId,
             sourceImageUrl: discovered,
           });
-          await setMonitorResult({
+          const applied = await setMonitorResult({
             database: input.database,
             row,
             status: row.activeImageKey ? "CHANGED" : "CANDIDATE",
@@ -564,6 +570,7 @@ async function monitorOne(input: {
             httpStatus: status,
             error: rejectedCandidateMarker(rejectedUrls) ?? "Pôvodný obrázok už nie je dostupný; našiel sa nový kandidát na zdrojovej stránke.",
           });
+          if (!applied) return "skipped" as const;
           return row.activeImageKey ? "changed" as const : "candidate" as const;
         }
       } catch {
@@ -571,7 +578,7 @@ async function monitorOne(input: {
       }
     }
 
-    await setMonitorResult({
+    const applied = await setMonitorResult({
       database: input.database,
       row,
       status: status === 404 || status === 410 ? "MISSING" : "ERROR",
@@ -579,6 +586,7 @@ async function monitorOne(input: {
       httpStatus: status,
       error: error instanceof Error ? error.message : String(error),
     });
+    if (!applied) return "skipped" as const;
     return status === 404 || status === 410 ? "missing" as const : "error" as const;
   }
 }
@@ -591,7 +599,7 @@ export async function runMediaSourceMonitorSweep(input: {
   force?: boolean;
 }) {
   if (!await mediaSourceMonitorSchemaReady(input.database)) {
-    return { schemaReady: false, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 0 };
+    return { schemaReady: false, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 0, skipped: 0 };
   }
   const nowDate = input.now ?? new Date();
   const now = nowDate.toISOString();
@@ -616,7 +624,7 @@ export async function runMediaSourceMonitorSweep(input: {
     ? await statement.bind(Math.max(1, Math.min(100, input.limit ?? 25))).all<MonitorRow>()
     : await statement.bind(before, Math.max(1, Math.min(100, input.limit ?? 25))).all<MonitorRow>();
 
-  const summary = { schemaReady: true, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 0 };
+  const summary = { schemaReady: true, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 0, skipped: 0 };
   for (const raw of result.results ?? []) {
     const outcome = await monitorOne({
       database: input.database,
