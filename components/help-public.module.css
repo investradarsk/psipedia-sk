@@ -344,3 +344,23 @@
   .toolbar[data-help-secondary-filters] .filterToggle { width: 100%; }
   .toolbar[data-help-secondary-filters] .secondaryFiltersOpen { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* DS-5 help: retain status, urgency and gallery semantics; unify card shell. */
+.grid { gap: var(--ps-ds5-grid-gap, 16px); }
+.card {
+  border-radius: var(--ps-radius-card, 22px);
+  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ps-shadow-surface, var(--shadow-sm));
+}
+.card:has(a:focus-visible) {
+  outline: 3px solid var(--forest);
+  outline-offset: 2px;
+}
+.cardBody { padding: var(--ps-ds5-card-padding, 18px); }
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+}
