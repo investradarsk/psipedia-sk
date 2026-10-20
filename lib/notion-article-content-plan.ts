@@ -47,7 +47,7 @@ function notionText(textValue: string) {
   const chunks: string[] = [];
   for (let i = 0; i < textValue.length; i += 1900) chunks.push(textValue.slice(i, i + 1900));
   if (chunks.length > 100) fail("NOTION_TEXT_LIMIT");
-  return chunks.map((chunk) => ({ type: "text", text: { content: chunk } }));
+  return chunks.map((chunk) => ({ type: "text", text: { content: chunk }, annotations: { bold: false, italic: false } }));
 }
 function remoteRichText(value: unknown) {
   if (!Array.isArray(value)) fail("INVALID_REMOTE_RICH_TEXT");
@@ -107,6 +107,9 @@ function documentNodes(doc: EditorialRichTextDocument | null | undefined, plain:
   }
   return richNodes(doc.content[0].content);
 }
+export function notionEditorialBlockShape(block: RemoteArticleBlock): string {
+  return JSON.stringify(shape(block));
+}
 function shape(block: RemoteArticleBlock): RecordValue {
   const body = object(block[block.type]);
   if (block.has_children && block.type !== "table") fail("UNSUPPORTED_NOTION_CHILDREN");
@@ -150,6 +153,11 @@ function targetBlocks(article: EditorialArticle, siteUrl: string) {
     } else fail("UNSUPPORTED_ADMIN_BLOCK_" + block.type);
   }
   return all;
+}
+export function notionEditorialPropertyText(rawValue: unknown, type: "title" | "rich_text" | "url") {
+  const raw = object(rawValue);
+  return type === "url" ? text(raw.url) : (Array.isArray(raw[type])
+    ? raw[type].map((record: unknown) => text(object(record).plain_text) || text(object(object(record).text).content)).join("") : "");
 }
 export function buildNotionEditorialPlan(args: {
   article: EditorialArticle;
@@ -219,8 +227,7 @@ export function buildNotionEditorialPlan(args: {
     }
     if (type === "url" && value) requireRemoteHttps(value);
     const raw = object(pageProperties[name]);
-    const before = type === "url" ? text(raw.url) : (Array.isArray(raw[type])
-      ? raw[type].map((record: unknown) => text(object(record).plain_text) || text(object(object(record).text).content)).join("") : "");
+    const before = notionEditorialPropertyText(raw, type);
     propertyBefore[name] = before;
     propertyAfter[name] = value;
     if (before !== value) properties[name] = type === "url" ? { url: value || null } : {
