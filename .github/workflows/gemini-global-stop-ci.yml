@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "drizzle/0135_gemini_global_stop.sql"
+      - "drizzle/0136_gemini_global_stop.sql"
       - "lib/gemini-global-control.ts"
       - "lib/gemini-external-agent.ts"
       - "worker/index.ts"
