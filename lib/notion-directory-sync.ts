@@ -1058,6 +1058,9 @@ async function syncMappedPage(input: {
   if (!profile) return "unchanged" as const;
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
+  if (page.id !== input.mapping.notion_page_id) {
+    throw new Error("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
+  }
 
   // A mapping can already exist when the first Notion write-back failed.
   // Restore the canonical Psipedia ID/status before ordinary conflict resolution.
@@ -1227,7 +1230,9 @@ async function recoverMappingFromPage(input: {
   page: NotionPage;
 }) {
   const rawId = propertyText(input.page, "Psipedia ID");
-  const profileId = Number.parseInt(rawId, 10);
+  // parseInt("123-other") would otherwise alias an unrelated canonical ID.
+  if (!/^[1-9]\\d*$/.test(rawId)) return null;
+  const profileId = Number(rawId);
   if (!Number.isSafeInteger(profileId) || profileId <= 0) return null;
   const profile = await getManagedDirectoryProfileById(profileId, input.database);
   if (!profile) return null;
