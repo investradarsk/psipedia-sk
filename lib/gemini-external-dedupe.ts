@@ -1,19 +1,20 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { checkGeminiCandidateDedupe } from "./gemini-automation-dedupe.ts";
 import { checkGeminiEventDedupe } from "./gemini-automation-event-dedupe.ts";
+import { checkGeminiHelpCanonicalDedupe } from "./gemini-external-help-dedupe.ts";
 import type { GeminiD1 } from "./gemini-automation-store.ts";
 import type { GeminiDiscoveryCandidateV1 } from "./gemini-automation-discovery-contract.ts";
 import type { GeminiEventCandidateV1 } from "./gemini-automation-event-contract.ts";
 
 type Candidate = {
   name: string; city: string; website: string; source: string;
-  start_date: string; organizer: string; venue: string;
+  start_date: string; organizer: string; venue: string; type: string;
 };
 export type ExternalDedupeStatus = "NEW" | "DUPLICATE" | "POSSIBLE_DUPLICATE" | "REJECTED_BEFORE" | "BLOCKED";
 type Decision = { httpStatus: number; status: ExternalDedupeStatus };
 const blocked = (httpStatus = 200): Decision => ({ httpStatus, status: "BLOCKED" });
 const isRecord = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v));
-const allowed = ["name", "city", "website", "source", "start_date", "organizer", "venue"];
+const allowed = ["name", "city", "website", "source", "start_date", "organizer", "venue", "type"];
 const safeUrl = (value: string): string | null => {
   if (!value || value.length > 2048) return null;
   try {
@@ -31,6 +32,7 @@ function safeCandidate(value: unknown): Candidate | null {
   if (!v.name.trim() || v.name.length > 160 || v.city.length > 100 ||
       v.website.length > 2048 || v.source.length > 2048 ||
       v.start_date.length > 30 || v.organizer.length > 160 || v.venue.length > 160 ||
+      v.type.length > 30 ||
       (v.website && !safeUrl(v.website)) || (v.source && !safeUrl(v.source))) return null;
   return v;
 }
@@ -69,9 +71,12 @@ export async function checkExternalGeminiIdentity(input: {
   if (!job || job.status !== "RUNNING" || !job.error_code?.startsWith("EXT_") ||
       job.stable_key !== data.stable_key) return blocked(409);
   const catalog = getGeminiCatalogItem(job.stable_key)!;
-  // No canonical D1 check is currently proved for the six distinct Help models:
-  // do NOT substitute a directory match or pretend that the Notion scan suffices.
-  if (catalog.section === "help") return blocked();
+  if (catalog.section === "help") {
+    try {
+      const status = await checkGeminiHelpCanonicalDedupe(input.db, job.stable_key, candidate);
+      return { httpStatus: 200, status };
+    } catch { return blocked(503); } // D1 outage, incomplete scan or unknown schema fails closed.
+  }
   try {
     if (catalog.section === "directory") {
       const evidenceUrl = safeUrl(candidate.source) ?? safeUrl(candidate.website);
