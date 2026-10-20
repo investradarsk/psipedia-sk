@@ -9,6 +9,7 @@ export type FacebookImagePost = {
   source?: "notion" | "manual"; notionPageId?: string | null;
   publishedAt?: string | null; approvedAt?: string | null; approvedBy?: string | null;
   attemptStartedAt?: string | null; attemptCompletedAt?: string | null;
+  retryNotBefore?: string | null; retryCount?: number;
   deletedAt?: string | null; deletedBy?: string | null;
   directPublishConsent?: boolean; directConsentAt?: string | null; directConsentBy?: string | null;
 };

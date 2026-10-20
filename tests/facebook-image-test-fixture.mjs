@@ -2,7 +2,8 @@ import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {env} from "cloudflare:workers";
 const migrations=["0128_facebook_image_posts.sql","0130_facebook_image_publisher.sql",
-  "0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql"]
+  "0131_facebook_image_trash.sql","0132_facebook_image_direct_consent.sql",
+  "0135_facebook_image_safe_retry.sql"]
   .map(name=>readFileSync(new URL("../drizzle/"+name,import.meta.url),"utf8"));
 export const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aOioAAAAASUVORK5CYII=','base64'));
 export function fixture(t,withSchema=true){
@@ -11,7 +12,10 @@ export function fixture(t,withSchema=true){
  const images=new Map();const before={DB:env.DB,BUCKET:env.BUCKET,AUTH_MODE:env.AUTH_MODE,
    FB_PAGE_ID:env.FB_PAGE_ID,FB_PAGE_ACCESS_TOKEN:env.FB_PAGE_ACCESS_TOKEN,
    FACEBOOK_IMAGE_PUBLISH_ENABLED:env.FACEBOOK_IMAGE_PUBLISH_ENABLED,
-   FACEBOOK_IMAGES_OWNER_EMAIL:env.FACEBOOK_IMAGES_OWNER_EMAIL},headers=globalThis.__FACEBOOK_TEST_HEADERS__;
+   FACEBOOK_IMAGES_OWNER_EMAIL:env.FACEBOOK_IMAGES_OWNER_EMAIL,
+   FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED,
+   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:env.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED,
+   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:env.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT},headers=globalThis.__FACEBOOK_TEST_HEADERS__;
  env.DB=db;env.AUTH_MODE='local-e2e-preview';
  env.FB_PAGE_ID="123456789012345";env.FB_PAGE_ACCESS_TOKEN="FAKE_UI_TOKEN_ONLY_NOT_REAL_123456";
  env.FACEBOOK_IMAGE_PUBLISH_ENABLED="true";env.FACEBOOK_IMAGES_OWNER_EMAIL="preview@psipedia.local";env.BUCKET={async put(key,body,meta){images.set(key,{body,...meta});},async head(key){return images.get(key)??null;}};
