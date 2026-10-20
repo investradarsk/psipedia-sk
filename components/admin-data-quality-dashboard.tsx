@@ -289,7 +289,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
           {decision?.action === "reject" ? (
             <label className={styles.reasonField}>
               <span>Dôvod zamietnutia (voliteľný)</span>
-              <textarea name="reason" rows={3} maxLength={500} value={reviewReason}
+              <textarea name="reason" aria-label="Dôvod zamietnutia (voliteľný)" rows={3} maxLength={500} value={reviewReason}
                 disabled={busy !== null} onChange={(event) => setReviewReason(event.target.value)}
                 placeholder="Krátke vysvetlenie rozhodnutia" />
               <small>{Array.from(reviewReason).length} / 500 znakov. Dôvod sa uloží do histórie rozhodnutí.</small>

@@ -1,27 +1,31 @@
-# Image Review UX V2 — implementation notes / migration gate
+# Image Review UX V2 — implementation checkpoint (20 October 2026)
 
-Scope: Image tab of /admin/kvalita only. Admin Visual System V3 preserved; no changes to profile text reviewing, Facebook Images, Unified Editors or Notion sync.
+Scope: only `/admin/kvalita?section=media` and its existing media decision API, local stylesheet, and D1 schema. Preserve Admin Visual System V3, public site, Facebook Images, canonical profiles, editor state and existing media discovery.
 
-## BLOCKED: durable rejection reason and decision history
-There is no dedicated per-image-decision audit table. admin_entity_reviews stores only a last-reviewed marker; media_source_monitors.last_error is reserved for rejected URLs and errors. Migration 0134_services_admin_change_audit.sql and 0135_facebook_image_safe_retry.sql are already on main. As of 2026-10-20, an open PR #932 also claims drizzle/0136_gemini_global_stop.sql; #908 must not reuse 0136. Confirm current main and all open PRs and obtain the required architecture approval before reserving a new sequential migration number. No reason field is exposed, no false persistence claimed, no migration applied.
+## Completed in PR #908 (Draft, not merge ready)
 
-Technical Control Center must first allocate the next contiguous D1 migration slot and review a proposed media_source_review_decisions table: id, monitor_id, entity_type, entity_id, candidate_image_key, candidate_image_url, candidate_content_hash, action, optional reason (0–500 characters), actor_ref, decision_time, outcome. Record per-item bulk reason with server validation and authenticated history read, protect against candidate changes via atomic compare-and-swap, and coordinate D1/R2/Notion reconciliation. Only then activate reason input and history. Migration intentionally not shipped: a dedicated audit/claim schema and controlled migration slot remain unapproved for this PR.
+- Desktop/mobile confirmation and comparison UI, bulk selection 50 maximum, 44px controls, accessible names and partial-error feedback.
+- Optional rejection reason, validated server-side to **500 Unicode code points**, stored in the new immutable history table only after successful D1 decision finalization.
+- Authenticated, uncached history API: `GET /api/admin/data-quality/media/[id]/history`, bounded to 50 records. History is loaded explicitly from the existing comparison dialog.
+- D1 migration `drizzle/0137_media_source_review_decisions.sql`: exclusive candidate claim token, claim timestamp, durable decisions, SQL finalization trigger that **aborts the complete batch** if canonical/monitor state is inconsistent, and immutable audit UPDATE/DELETE guards.
+- Candidate acquisition uses a conditional D1 UPDATE on status, monitor identity, candidate URL/key/content hash, active image identity and empty claim token.
+- Accept checks the canonical entity's previous image key, stages a new immutable R2 object, and uses one D1 batch for canonical image, monitor resolution and history. Reject uses one D1 batch for monitor and history. R2 candidate deletion is delayed until after D1 commit. Former active image blobs are retained rather than deleted prematurely.
+- Monitor sweeps avoid mutating claimed candidates using a conditional D1 UPDATE; pre-commit deletes of candidate blobs were removed.
+- Isolated SQLite tests exercise reason validation, CAS exclusivity, reject history, accepted update, stale candidates, immutable audit and human-edit collision rollback. Chromium suite has 10 scenarios per desktop 1440/mobile 390/mobile 320, with synthetic API fixtures.
 
-## Scope and residual concurrency risk
-This PR introduces optional candidate-key preflight matching for single and bulk decisions; existing calls without the key are backward compatible. Matching protects against a stale candidate at time of service read, but is not a fully atomic CAS across R2/D1/Notion. No public claims of conflict-proof concurrency until separately reviewed.
+## Release and migration gates
 
-Tests include isolated Node contracts and an offline React/Chromium fixture with synthetic profiles and mocked endpoints. The focused Playwright suite now passes 27 scenarios across desktop 1440px and mobile 390px/320px, including touch targets, selection, bulk dialogs, candidate comparison, failure and partial success. Real authenticated production acceptance is not claimed. No production writes, deployment, migrations, paid API or Notion PATCH.
+- **0136 Gemini Global STOP is already merged into main. 0137 is prepared-only.** `PREPARED_PRODUCTION_TARGETS` registers 0137 but `SUPPORTED_PRODUCTION_TARGETS` intentionally does not. The protected production migration runner refuses 0137 until a separately authorized rollout.
+- **No deployment before applying 0137.** The new sweep conditional references `review_claim_token`; decision mutations fail closed when 0137 is missing. Merging code ahead of schema would disrupt image review/sweeps.
+- No production migrations, D1 writes, Notion PATCH, real R2 requests or merge were performed in this PR.
+- CI evidence must be interpreted by exact HEAD. Green historic 27/27 Chromium cases predate this backend implementation; the new suite must pass independently.
+- Before approving merge, review production schema and release ordering, independent background sweeps, race/timeout recovery, and authenticated admin preview.
 
-## Verified technical gate — 20 October 2026
+## Remaining limitations (do not label PR MERGE READY)
 
-**Decision: keep PR #908 as Draft; not merge ready.** On the inspected HEAD, `lib/media-source-monitor.ts` still uses a candidate-key **preflight read** rather than an atomic compare-and-swap. Rejection deletes R2 candidate content before updating D1; approval uploads the permanent R2 object, then updates the canonical entity and monitor in separate SQL operations, writes back to Notion on a best-effort basis and then deletes old R2 objects. Another decision or monitor sweep can change the candidate during those awaits. No cross-service atomic transaction is provided by D1 `batch()`.
+1. **R2/Notion are not one D1 transaction.** The D1 CAS protects finalization; R2 staging and cleanup are separately awaited. Stranded R2 staging objects may remain after abrupt worker termination and require a safe GC plan.
+2. **Notion writeback is still best-effort legacy behavior.** A Notion outage or a conflicting human edit is not yet handled by a durable idempotent outbox/field-CAS. Do not claim lossless bidirectional synchronization from this PR.
+3. **Abandoned candidate claims:** a worker terminated between claim and completion may leave a non-null token. There is no automatic lease recovery in this checkpoint; operator-controlled recovery must be designed and tested to avoid stealing a live claim.
+4. **Review acceptance evidence:** verify new 30 real Chromium E2E cases and isolated SQLite tests, all new type/build checks, the production D1 prepared-only gate and outstanding independent admin visual approval. CI failures caused by unrelated newer main changes must be diagnosed separately rather than hidden.
 
-### Required approved foundation (no migration or runtime changes included in this checkpoint)
-
-1. Agree a **new, additive, versioned D1 migration** after checking the latest `main` and live PR reservations. The earlier migration proposal numbered 0135 is obsolete, and #932 reserves 0136. Introduce immutable per-decision audit entries with monitor/entity/candidate identity, action, optional rejection reason (server-validated, at most 500 Unicode characters), admin actor reference, timestamp and terminal outcome. Add idempotency / in-progress-claim representation and a safe authenticated history reader.
-2. Implement **fail-closed candidate CAS** for accept/reject in D1, covering expected monitor ID, status, candidate key, URL/content hash and revision/claim token. Require all writers that can update a candidate (including scheduled discovery/sweep) to observe the claim. No two decisions may both finalize the same candidate. Keep old API callers compatible only when they cannot bypass the concurrency guarantee.
-3. Perform a **safe R2 staging/commit protocol**: prepare the new immutable object before finalization; if the claim fails, clean up only the newly staged object, not an object referenced by a canonical record. Never delete a candidate or previous active R2 image before D1 finalization. Reconcile stranded staged objects and avoid false success on partial writes.
-4. Separate **Notion writeback from D1 truth** via retryable outbox or equivalent idempotent reconciliation, including explicit failure reporting and safeguards against overwriting newer human edits. R2 and Notion cannot be included in a D1 SQL transaction.
-5. Test competing accept/accept, accept/reject, review-versus-sweep, late candidate replacement, duplicate request IDs, R2 put/get/delete failure, D1 rollback, interrupted retry, Notion outage, 500-character validation and authenticated history isolation. Re-run isolated Node contracts and the real 1440/390/320 Chromium visual suite after UI reason/history activation.
-
-**Scope gate:** This checkpoint documents the implementation dependency only. It does not approve a new database architecture or production migration, and does not claim the two blockers have been fixed. Existing working Variant A and the 27 successful isolated Chromium scenarios remain the baseline, not a production acceptance proof.
+This checkpoint does not change the prior **63% completed / 37% remaining** estimate until a validated and merged milestone is delivered.
