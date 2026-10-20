@@ -1,0 +1,46 @@
+name: NOTION CROSS-BATCH — offline identity diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/notion-data-quality-cross-batch.ts"
+      - "tests/notion-data-quality-cross-batch.test.mjs"
+      - "docs/notion-cross-batch-diagnostics.md"
+      - ".github/workflows/notion-cross-batch-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notion-cross-batch-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    name: Offline cross-batch contract and Audit 02 regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revision evidence
+        run: |
+          echo "pr_head_sha=${{ github.event.pull_request.head.sha || 'n/a' }}"
+          echo "checked_out_sha=$(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies (no production operations)
+        run: npm ci
+      - name: Strict focused typecheck
+        run: npx tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@cloudflare/workers-types lib/notion-data-quality-cross-batch.ts
+      - name: Cross-batch synthetic unit tests (no network or D1)
+        run: node --experimental-strip-types --test tests/notion-data-quality-cross-batch.test.mjs
+      - name: Existing NOTION AUDIT 02 regression
+        run: npm run test:notion-data-quality-audit
+      - name: Lint
+        run: npm run lint
+      - name: Production build validation (build only, never deploy)
+        run: npm run build
