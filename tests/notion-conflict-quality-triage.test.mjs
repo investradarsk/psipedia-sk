@@ -69,7 +69,9 @@ test("protection and content errors are distinct from content conflicts", () => 
 });
 test("strict invalid IDs, untrusted fields, foreign page receipt and 101-item bounds fail closed", () => {
   assert.throws(() => analyze([row(1, { notionPageId: "PRIVATE PERSON" })]), /INVALID_NOTION_QUALITY_EVIDENCE/);
-  assert.throws(() => analyze([row(1, { psipediaId: "/admin/../bad" })], [flag(1)]).items[0].editorHref !== null);
+  const bad = analyze([row(1, { psipediaId: "/admin/../bad" })], [flag(1)]).items[0];
+  assert.equal(bad.editorHref, null);
+  assert.equal(bad.psipediaId, "");
   assert.throws(() => analyze([row(1)], [{ ...flag(2), kind: "PRIVATE PHONE" }]), /INVALID_NOTION_QUALITY_EVIDENCE/);
   assert.throws(() => analyze([row(1)], [flag(2)]), /INVALID_NOTION_QUALITY_EVIDENCE/);
   assert.throws(() => analyze(Array.from({ length: 101 }, (_, i) => row(i + 1))), /INVALID_NOTION_QUALITY_EVIDENCE/);
@@ -90,7 +92,7 @@ test("integration is read-only, reports do not export identifiers or cursors", a
   assert.match(route, /triageNotionQuality/);
   assert.match(route, /mode: "dry-run"/);
   assert.doesNotMatch(route, /method: "PATCH"|\.run\(\)|INSERT INTO|DELETE FROM/);
-  assert.match(ui, /"Historické príznaky"/);
+  assert.match(ui, /Historické príznaky konfliktov/);
   assert.doesNotMatch(ui, /reviewItems: totals.reviewItems/);
   assert.doesNotMatch(ui, /checkpoint: lastBatch\?\.resume/);
   assert.match(quality, /href="\/admin\/nastroje\/notion-audit"/);

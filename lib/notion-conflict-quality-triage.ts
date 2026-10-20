@@ -113,6 +113,7 @@ export function triageNotionQuality(
     }
 
     const numericId = ID.test(row.psipediaId) ? Number(row.psipediaId) : null;
+    const safePsipediaId = numericId !== null && Number.isSafeInteger(numericId) ? String(numericId) : "";
     const safelyMapped = numericId !== null && Number.isSafeInteger(numericId)
       && row.mapping === "MATCH" && row.canonical === "EXISTS"
       && independent.evidence === "VERIFIED_IDS_ONLY";
@@ -124,7 +125,7 @@ export function triageNotionQuality(
       ? [...new Set(row.fieldNames.filter((name) => SAFE_FIELD_NAMES.has(name)))].sort()
       : null;
     items.push({
-      notionPageId: row.notionPageId, psipediaId: row.psipediaId,
+      notionPageId: row.notionPageId, psipediaId: safePsipediaId,
       verdict, issue: issueFor(row.reason, historicKind), basis,
       reason: row.reason, historicKind, editorHref, fieldNames,
     });
