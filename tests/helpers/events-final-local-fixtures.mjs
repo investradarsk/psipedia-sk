@@ -2,13 +2,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { splitLocalSchemaStatements } from './events-final-schema-parser.mjs';
 if (process.env.PSIPEDIA_E2E_LOCAL_BOOTSTRAP !== '1' || process.env.NODE_ENV === 'production') throw new Error('Explicit local test bootstrap required.');
 const directory = resolve('.wrangler/state/v3/d1/miniflare-D1DatabaseObject');
 const files = readdirSync(directory).filter(name => name.endsWith('.sqlite') && name !== 'metadata.sqlite');
 if (files.length !== 1) throw new Error('Expected one isolated local D1 file.');
 const database = new DatabaseSync(resolve(directory, files[0]));
 try {
-  const statements = readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort().flatMap(name => readFileSync('drizzle/'+name,'utf8').split(';').map(sql=>sql.replace(/^\s*(?:(?:--[^\r\n]*)(?:\r?\n|$)\s*)+/,'').trim()).filter(Boolean));
+  const statements = readdirSync('drizzle').filter(name => name.endsWith('.sql')).sort().flatMap(name => splitLocalSchemaStatements(readFileSync('drizzle/'+name, 'utf8')));
   // Reuse existing schema declarations, excluding all migration data writes.
   for (const sql of statements) if (/^CREATE TABLE\b/i.test(sql)) database.exec(sql.replace(/^CREATE TABLE(?! IF NOT EXISTS)/i,'CREATE TABLE IF NOT EXISTS'));
   for (const sql of statements) if (/^ALTER TABLE\b[\s\S]*\bADD\b/i.test(sql)) {
