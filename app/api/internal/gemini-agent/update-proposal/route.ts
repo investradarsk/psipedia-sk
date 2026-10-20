@@ -4,6 +4,9 @@ import { submitGeminiDirectoryQualityProposal } from "@/lib/gemini-external-qual
 
 export async function POST(request:Request) {
   const headers={ "Cache-Control":"no-store" };
+  // Deployment alone must never enable new production D1 proposal writes.
+  if((env as unknown as { GEMINI_QUALITY_PROPOSALS_ENABLED?: string }).GEMINI_QUALITY_PROPOSALS_ENABLED !== "true")
+    return Response.json({status:"BLOCKED"},{status:503,headers});
   if(!request.headers.get("content-type")?.includes("application/json"))
     return Response.json({status:"BLOCKED"},{status:415,headers});
   try{
