@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { reconcileProfileFields } from "../lib/notion-profile-field-reconciliation.ts";
 import {
   readProfileFieldBaseline, recordProfileFieldBaseline, profileFieldBaselineTableReady,
+  profileFieldSnapshotHash,
 } from "../lib/notion-profile-field-baseline.ts";
 
 const baseline = {
@@ -136,12 +137,13 @@ test("D1 migration stores isolated agenda/page-bound baselines and rejects ID co
   assert.equal(await profileFieldBaselineTableReady(database), true);
   const arg = {
     database, agenda: "events", entityId: 1, pageId: "notion-a",
-    hash: "verified", snapshot: baseline, syncedAt: "2026-10-20T12:00:00Z",
+    hash: await profileFieldSnapshotHash("events", baseline),
+    snapshot: baseline, syncedAt: "2026-10-20T12:00:00Z",
   };
   await recordProfileFieldBaseline(arg);
   await recordProfileFieldBaseline(arg);
   assert.deepEqual(await readProfileFieldBaseline({
-    database, agenda: "events", entityId: 1, pageId: "notion-a", expectedHash: "verified",
+    database, agenda: "events", entityId: 1, pageId: "notion-a", expectedHash: arg.hash,
   }), baseline);
   for (const wrong of [
     { agenda: "adoptions" }, { entityId: 2 }, { pageId: "notion-other" }, { expectedHash: "bad" },
@@ -152,6 +154,15 @@ test("D1 migration stores isolated agenda/page-bound baselines and rejects ID co
     }), null);
   }
   await assert.rejects(() => recordProfileFieldBaseline({ ...arg, entityId: 2 }));
+  await assert.rejects(
+    () => recordProfileFieldBaseline({ ...arg, hash: "not-a-content-hash" }),
+    /PROFILE_BASELINE_HASH_MISMATCH/,
+  );
+  db.prepare("UPDATE notion_profile_field_baselines SET snapshot_json=? WHERE agenda='events' AND entity_id=1")
+    .run(JSON.stringify({ ...baseline, Popis: "CORRUPTED_SNAPSHOT" }));
+  assert.equal(await readProfileFieldBaseline({
+    database, agenda: "events", entityId: 1, pageId: "notion-a", expectedHash: arg.hash,
+  }), null, "declared hash cannot authenticate modified snapshot JSON");
   db.close();
 });
 test("existing adapters enforce canonical publication lock across every agenda", async () => {
