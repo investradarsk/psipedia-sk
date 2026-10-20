@@ -191,11 +191,12 @@ test("retry operator state follows the live feature flag, not just durable histo
    .run(item.id,item.version,"2030-01-03T09:00:00.000Z",
      "2030-01-03T09:00:01.000Z","2030-01-03T09:03:00.000Z");
  assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"UNCERTAIN");
- assert.equal((await listFacebookImagePosts("2030-01","review",1,db)).counts.review,0);
+ assert.equal((await listFacebookImagePosts("2030-01","review",1,db)).counts.review,1);
  env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="true";
  const active=await getFacebookImagePost(item.id,db);
  assert.equal(active.publicationState,"RETRY_PENDING");
  assert.equal(active.retryNotBefore,"2030-01-03T09:03:00.000Z");
+ assert.equal((await listFacebookImagePosts("2030-01","review",1,db)).counts.review,0);
  sqlite.prepare("UPDATE facebook_image_publish_attempts SET retry_not_before=NULL WHERE post_id=?").run(item.id);
  assert.equal((await getFacebookImagePost(item.id,db)).publicationState,"RETRY_EXHAUSTED");
  env.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED="false";
