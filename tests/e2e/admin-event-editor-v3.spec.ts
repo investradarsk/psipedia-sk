@@ -124,6 +124,9 @@ for (const viewport of [
       await root.locator("[data-editor-navigation]").getByRole("button", { name: "Základné údaje" }).click();
     }
 
+    // Section navigation scrolls smoothly; wait until the selected Basics section
+    // is actually visible before capturing the final layout, not mid-animation.
+    await expect(root.locator("#event-basics")).toBeInViewport({ ratio: 0.2 });
     await expect(title).toHaveValue("Klubová výstava retrieverov");
     await expect(markdown).toHaveValue("Prvý odsek\n\n**Dôležité informácie**");
     await expect(root.getByLabel("SEO title")).toHaveValue("Klubová výstava – SEO test");
