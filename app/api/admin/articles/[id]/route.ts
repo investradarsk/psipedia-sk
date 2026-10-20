@@ -136,7 +136,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
     if (before.status === "draft" && article.status === "draft") {
       try {
         const bindings = env as unknown as ArticleRouteBindings;
-        if (bindings.DB && bindings.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED === "true") {
+        if (bindings.DB) {
           await writeBackDraftArticleContentToNotion({
             database: bindings.DB,
             bindings,
