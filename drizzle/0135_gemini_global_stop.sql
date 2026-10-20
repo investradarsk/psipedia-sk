@@ -35,3 +35,7 @@ BEGIN
   SELECT RAISE(ABORT,'GEMINI_GLOBAL_STOP')
   WHERE NOT EXISTS (SELECT 1 FROM gemini_global_control WHERE id=1 AND state='RUNNING');
 END;
+
+-- Single-use worker authorization prevents replayed GitHub workflow_dispatch
+-- from billing the same D1 job twice. No credentials or provider payload stored.
+ALTER TABLE gemini_manual_background_jobs ADD COLUMN worker_started_at TEXT;
