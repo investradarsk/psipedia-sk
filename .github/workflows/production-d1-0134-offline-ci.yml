@@ -9,6 +9,10 @@ on:
       - ".github/workflows/production-d1-0134-offline-ci.yml"
       - "docs/production-d1-0134-readonly.md"
 
+concurrency:
+  group: services-v3-0134-offline-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
