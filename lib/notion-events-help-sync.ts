@@ -41,7 +41,7 @@ import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDoma
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
-import { reconcileProfileFields } from "./notion-profile-field-reconciliation.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 import {
   appendNotionReview,
   canClearResolvedNotionConflict,
@@ -981,9 +981,17 @@ async function syncAgenda(input: {
       // provenance; with no verified baseline we refuse even one-sided edits.
       if (decision.decision !== "UNCHANGED") {
         const agenda = input.definition.key;
-        const baseline = await readProfileFieldBaseline({
+        const storedBaseline = await readProfileFieldBaseline({
           database: input.database, agenda, entityId, pageId: page.id,
           expectedHash: mapping.content_hash,
+        });
+        // An unchanged canonical or Notion snapshot authenticates the
+        // last common field values, even before the optional baseline D1
+        // schema exists. Two divergent sides with no persisted proof
+        // remain an explicit review conflict.
+        const baseline = trustedProfileBaselineFromHashes({
+          recorded: storedBaseline, notion: notionSnapshot, psipedia: sourceSnapshot,
+          mappingHash: mapping.content_hash, notionHash, psipediaHash: canonicalHash,
         });
         const protectedFields = new Set([
           "Slug", "Stav", "Psipedia stav", "Kategória", "Typ",
