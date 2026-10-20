@@ -1,0 +1,25 @@
+name: Data Quality Contact SQL Parity (offline)
+on:
+  pull_request:
+    paths:
+      - "lib/data-quality-contact-sql.ts"
+      - "lib/data-quality-store.ts"
+      - "tests/data-quality-contact-sql-parity.test.mjs"
+      - ".github/workflows/data-quality-contact-sql-parity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contact-parity:
+    name: Canonical contacts and SQLite filters
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+      - name: Offline source and SQLite regression
+        run: |
+          node --experimental-strip-types --input-type=module -e "await import('./lib/data-quality-contact-sql.ts')"
+          node --experimental-strip-types --test tests/data-quality-contact-sql-parity.test.mjs
