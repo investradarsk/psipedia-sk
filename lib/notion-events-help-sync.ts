@@ -40,6 +40,8 @@ import { notionGeoMirrorChanges, notionGeoMirrorFields } from "./notion-geo-mirr
 import { auditHelpSyncMappings, isHelpSyncCategoryOutOfDomain, type HelpSyncDomainReason } from "./notion-help-domain-boundary.ts";
 import { mergeNotionEventPriority, notionEventPriorityAEnabled } from "./notion-event-priority.ts";
 import { gemini22PriorityEnabled, mergeGeminiHelpPriority } from "./notion-gemini-22-priority.ts";
+import { readProfileFieldBaseline, recordProfileFieldBaseline } from "./notion-profile-field-baseline.ts";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "./notion-profile-field-reconciliation.ts";
 import {
   appendNotionReview,
   canClearResolvedNotionConflict,
@@ -413,7 +415,12 @@ async function saveMapping(input: {
   notionLastEditedTime: string | null;
   psipediaUpdatedAt: string | null;
   syncedAt: string;
+  snapshot?: Record<string, ReconciliationValue>;
 }) {
+  // Never assert a common baseline if its hash does not match the snapshot.
+  if (input.snapshot && await snapshotHash(input.agenda, input.snapshot) !== input.hash) {
+    throw new Error("BASELINE_HASH_MISMATCH");
+  }
   if (input.agenda === "events") {
     await input.database.prepare(`
       INSERT INTO event_notion_sync (
@@ -437,6 +444,10 @@ async function saveMapping(input: {
       input.syncedAt,
       input.syncedAt,
     ).run();
+    if (input.snapshot) await recordProfileFieldBaseline({
+      database: input.database, agenda: input.agenda, entityId: input.entityId,
+      pageId: input.pageId, hash: input.hash, snapshot: input.snapshot, syncedAt: input.syncedAt,
+    });
     return;
   }
   await input.database.prepare(`
@@ -462,6 +473,10 @@ async function saveMapping(input: {
     input.syncedAt,
     input.syncedAt,
   ).run();
+  if (input.snapshot) await recordProfileFieldBaseline({
+    database: input.database, agenda: input.agenda, entityId: input.entityId,
+    pageId: input.pageId, hash: input.hash, snapshot: input.snapshot, syncedAt: input.syncedAt,
+  });
 }
 
 function sourceId(source: CanonicalSourceRecord) {
@@ -962,6 +977,109 @@ async function syncAgenda(input: {
         psipediaHash: canonicalHash,
       });
 
+      // Fail-closed three-way reconciliation. Legacy hashes have no per-field
+      // provenance; with no verified baseline we refuse even one-sided edits.
+      // Keep the existing separately owner-approved priority modes usable;
+      // the default path uses fail-closed per-field reconciliation instead.
+      const legacyPriorityEnabled = input.definition.key === "events"
+        ? notionEventPriorityAEnabled(input.bindings.NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED)
+        : gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED);
+      if (decision.decision !== "UNCHANGED" && !legacyPriorityEnabled) {
+        const agenda = input.definition.key;
+        const storedBaseline = await readProfileFieldBaseline({
+          database: input.database, agenda, entityId, pageId: page.id,
+          expectedHash: mapping.content_hash,
+        });
+        // An unchanged canonical or Notion snapshot authenticates the
+        // last common field values, even before the optional baseline D1
+        // schema exists. Two divergent sides with no persisted proof
+        // remain an explicit review conflict.
+        const baseline = trustedProfileBaselineFromHashes({
+          recorded: storedBaseline, notion: notionSnapshot, psipedia: sourceSnapshot,
+          mappingHash: mapping.content_hash, notionHash, psipediaHash: canonicalHash,
+        });
+        const protectedFields = new Set([
+          "Slug", "Stav", "Psipedia stav", "Kategória", "Typ",
+          "Typ podujatia", "Organizácia", "Vyriešené", "Urgentné",
+          "Latitude", "Longitude", "Presnosť lokality", "Verejný kontakt",
+          "Zdroj", "Zdroj URL",
+        ]);
+        if (agenda === "lost-found") {
+          protectedFields.add("Miesto");
+          protectedFields.add("Naposledy videný");
+        }
+        const currentGooglePlace = agenda === "events"
+          ? await hasCurrentGooglePlace(input.database, "MANAGED_EVENT", entityId)
+          : agenda === "organizations"
+            ? await hasCurrentOrganizationGooglePlace(input.database, entityId)
+            : false;
+        if (currentGooglePlace) {
+          for (const field of ["Adresa", "Miesto", "Mesto", "Okres", "Kraj"]) protectedFields.add(field);
+        }
+        const resolution = reconcileProfileFields({
+          baseline, notion: notionSnapshot, psipedia: sourceSnapshot, protectedFields,
+        });
+        if (resolution.kind === "CONFLICT") {
+          summary.conflicts += 1;
+          appendNotionReview(summary.reviewQueue, {
+            entityId, notionPageId: page.id, reason: "BIDIRECTIONAL_CONFLICT",
+            fields: resolution.conflicts.map((c) => c.field),
+            baselineAvailable: Boolean(baseline),
+            notionChanged: decision.notionChanged, psipediaChanged: decision.psipediaChanged,
+          });
+          if (input.mode === "sync") {
+            await markConflict({
+              bindings: input.bindings, pageId: page.id, schema,
+              message: "LOSSLESS_FIELD_REVIEW_REQUIRED: " +
+                resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1300),
+            });
+          }
+          continue;
+        }
+        const merged = resolution.merged as Record<string, ReconciliationValue>;
+        const changed = differingAgendaSnapshotFields(agenda, sourceSnapshot, merged);
+        if (input.mode !== "sync") {
+          if (changed.length) summary.pulledFromNotion += 1;
+          else summary.pushedToNotion += 1;
+          continue;
+        }
+        let resolvedSource = source;
+        if (changed.length) {
+          await applyNotionToCanonical(agenda, entityId, merged, input.database);
+          sources = await input.definition.load(input.database);
+          sourcesById = sourceById(sources);
+          const reloaded = sourcesById.get(entityId);
+          if (!reloaded) throw new Error("CANONICAL_MISSING_AFTER_FIELD_RECONCILIATION");
+          resolvedSource = reloaded;
+        }
+        const verifiedSnapshot = editableSnapshot(agenda, resolvedSource.properties, schema);
+        const verifiedHash = await snapshotHash(agenda, verifiedSnapshot);
+        const written = await writeSourceToNotion({
+          bindings: input.bindings, dataSourceId: target.dataSourceId,
+          source: resolvedSource, schema, pageId: page.id,
+        });
+        // A returned Notion page may be stale or partial. Never advance the
+        // common mapping hash unless its editorial payload matches canonical.
+        // Otherwise the next run could mistake an unacknowledged write for
+        // a successful synchronization.
+        if (!written.properties ||
+            await snapshotHash(agenda, pageSnapshot(agenda, written, schema)) !== verifiedHash) {
+          throw new Error("NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
+        }
+        const syncedAt = new Date().toISOString();
+        await saveMapping({
+          database: input.database, agenda, pageId: page.id, entityId,
+          hash: verifiedHash,
+          snapshot: verifiedSnapshot,
+          notionLastEditedTime: written.last_edited_time ?? syncedAt,
+          psipediaUpdatedAt: await canonicalUpdatedAt(agenda, entityId, input.database),
+          syncedAt,
+        });
+        if (changed.length) summary.pulledFromNotion += 1;
+        else summary.pushedToNotion += 1;
+        continue;
+      }
+
       // Approved Events-only precedence (NOT applied to Help/Organizations).
       // This reconciles actual two-sided changes and also prevents a later
       // canonical-only edit from silently overwriting filled Notion editorial data.
@@ -1127,6 +1245,17 @@ async function syncAgenda(input: {
 
       if (decision.decision === "UNCHANGED") {
         summary.unchanged += 1;
+        // Equal snapshots prove their common field values, including for
+        // legacy mappings; never adopt when the sides differ.
+        if (notionHash === canonicalHash && input.mode === "sync"
+          && mapping.content_hash === canonicalHash) {
+          await recordProfileFieldBaseline({
+            database: input.database, agenda: input.definition.key,
+            entityId, pageId: page.id, hash: canonicalHash,
+            snapshot: sourceSnapshot,
+            syncedAt: new Date().toISOString(),
+          });
+        }
         // A prior conflict must not remain sticky once BOTH current editorial
         // snapshots are equal. Never clear another kind of validation failure.
         if (canClearResolvedNotionConflict({
@@ -1229,6 +1358,7 @@ async function syncAgenda(input: {
           pageId: page.id,
           entityId,
           hash: updatedHash,
+          snapshot: editableSnapshot(input.definition.key, updatedSource.properties, schema),
           notionLastEditedTime: written.last_edited_time ?? syncedAt,
           psipediaUpdatedAt: updatedAt,
           syncedAt,

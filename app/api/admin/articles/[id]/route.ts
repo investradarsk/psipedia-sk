@@ -15,6 +15,7 @@ import { orphanedArticleMediaKeys } from "@/lib/article-media-key-preservation";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 import {
   writeBackPublishedArticleToNotion,
+  writeBackDraftArticleContentToNotion,
   type NotionSyncBindings,
 } from "@/lib/notion-article-sync";
 
@@ -126,6 +127,25 @@ export async function PUT(request: Request, { params }: RouteProps) {
         void error;
         // Do not log Notion errors: transport messages may contain sensitive data.
         console.error("notion_article_publish_writeback_failed", { articleId: article.id });
+      }
+    }
+
+    // A successful canonical D1 draft save is not reversed by a remote outage.
+    // A disabled flag is a hard no-op; any failed writeback retains its outbox
+    // and must never be falsely acknowledged as synchronized.
+    if (before.status === "draft" && article.status === "draft") {
+      try {
+        const bindings = env as unknown as ArticleRouteBindings;
+        if (bindings.DB) {
+          await writeBackDraftArticleContentToNotion({
+            database: bindings.DB,
+            bindings,
+            article,
+          });
+        }
+      } catch {
+        // No Notion response body, editorial text, page ID or token in logs.
+        console.error("notion_article_editorial_writeback_failed", { articleId: article.id });
       }
     }
 

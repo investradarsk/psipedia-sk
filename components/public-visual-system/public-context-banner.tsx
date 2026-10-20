@@ -25,6 +25,7 @@ export function PublicContextBanner({
   image,
   icon,
   tone = "forest",
+  inline = false,
   className,
 }: {
   eyebrow?: ReactNode;
@@ -35,15 +36,18 @@ export function PublicContextBanner({
   image?: PublicContextBannerImage;
   icon?: ReactElement;
   tone?: PublicContextBannerTone;
+  /** Compact row for contextual CTAs; the default/photo layout is unchanged. */
+  inline?: boolean;
   className?: string;
 }) {
   const hasCta = Boolean(ctaLabel && ctaHref);
 
   return (
     <aside
-      className={cx(styles.banner, styles[`tone_${tone}`], image && styles.hasImage, className)}
+      className={cx(styles.banner, styles[`tone_${tone}`], image && styles.hasImage, inline && styles.inline, className)}
       data-public-context-banner
       data-public-context-banner-tone={tone}
+      data-public-context-banner-layout={inline ? "inline" : "stacked"}
     >
       <div className={styles.copy}>
         {icon ? <PublicIcon icon={icon} size="lg" className={styles.icon} /> : null}
