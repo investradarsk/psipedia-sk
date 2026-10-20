@@ -125,3 +125,114 @@ export function createPsipediaServiceCatalogNotionHttpPort(config: {
     properties: {...PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties},
   });
 }
+
+
+/**
+ * Read-only complete-snapshot Notion registry for dynamic Services V3 options.
+ * All rows are fetched from the specifically approved, dedicated catalog source.
+ * No profile directory reads/writes, page creation or production activation.
+ */
+export function createPsipediaServiceCatalogReadOnlyRegistry(config: {
+  token: string;
+  fetcher?: typeof fetch;
+}) {
+  if (typeof config.token !== "string" || !config.token) {
+    throw new Error("NOTION_REGISTRY_TOKEN_MISSING");
+  }
+  const dataSourceId = PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+  const properties = PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.properties;
+  const catalogUrl = "https://api.notion.com/v1/data_sources/" + dataSourceId + "/query";
+  const client = config.fetcher ?? fetch;
+  const normalizeId = (id: string) => id.replaceAll("-", "").toLowerCase();
+  const dynamicId = /^(svc|attr)\\.admin\\.[a-f0-9]{32}$/;
+  const categorySlugs = new Set([
+    "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
+    "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
+    "vencenie", "fyzioterapia", "dalsie-sluzby"
+  ]);
+  type Target = {optionId: string;pageId: string;dataSourceId: string};
+  async function allPages(): Promise<Target[]> {
+    const targets: Target[] = [];
+    const seenOptions = new Set<string>();
+    const seenPages = new Set<string>();
+    const seenCursors = new Set<string>();
+    let cursor: string | null = null;
+    // Never treat an incomplete Notion pagination result as a complete ownership registry.
+    for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
+      const response = await client(catalogUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + config.token,
+          "Notion-Version": notionVersion,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(cursor ? {page_size: 100,start_cursor: cursor} : {page_size: 100})
+      });
+      if (!response.ok) throw new Error("NOTION_REGISTRY_HTTP_" + response.status);
+      const data = await response.json() as {
+        results?: unknown[]; has_more?: boolean;next_cursor?: string | null;
+      };
+      if (!data || !Array.isArray(data.results) || typeof data.has_more !== "boolean" ||
+          data.results.length > 100 || (data.has_more && (!data.next_cursor || typeof data.next_cursor !== "string")) ||
+          (!data.has_more && data.next_cursor !== null && data.next_cursor !== undefined)) {
+        throw new Error("NOTION_REGISTRY_INCOMPLETE_PAGE");
+      }
+      for (const raw of data.results) {
+        const entry = raw as NotionPage;
+        if (!entry || !UUID.test(entry.id ?? "") || entry.archived === true ||
+            entry.in_trash === true || entry.parent?.type !== "data_source_id" ||
+            !UUID.test(entry.parent.data_source_id ?? "") ||
+            normalizeId(entry.parent.data_source_id!) !== normalizeId(dataSourceId)) {
+          throw new Error("NOTION_REGISTRY_WRONG_PAGE");
+        }
+        const props = entry.properties ?? {};
+        let optionId: string;
+        try {
+          optionId = textValue(props[properties.optionId]);
+          const version = versionValue(props[properties.optionVersion]);
+          const kind = selectValue(props[properties.kind]);
+          const label = titleValue(props[properties.label]);
+          const group = textValue(props[properties.group]);
+          const meaning = textValue(props[properties.meaning]);
+          const primary = selectValue(props[properties.primaryCategory]);
+          const categories = multiValue(props[properties.categories]);
+          const valueKind = selectValue(props[properties.valueKind]);
+          if (!dynamicId.test(optionId) || version < 1 ||
+              (kind !== "service" && kind !== "attribute") ||
+              (kind === "service" && !optionId.startsWith("svc.")) ||
+              (kind === "attribute" && !optionId.startsWith("attr.")) ||
+              !label.trim() || !group.trim() || !meaning.trim() ||
+              !categorySlugs.has(primary) || categories.length === 0 ||
+              !categories.includes(primary) ||
+              categories.some(x => !categorySlugs.has(x)) ||
+              new Set(categories).size !== categories.length || valueKind !== "tri_state") {
+            throw new Error("NOTION_REGISTRY_INVALID_OPTION");
+          }
+        } catch {
+          throw new Error("NOTION_REGISTRY_INVALID_OPTION");
+        }
+        const optionKey = optionId.toLowerCase();
+        const pageKey = normalizeId(entry.id!);
+        if (seenOptions.has(optionKey) || seenPages.has(pageKey)) {
+          throw new Error("NOTION_REGISTRY_DUPLICATE_OWNER");
+        }
+        seenOptions.add(optionKey);
+        seenPages.add(pageKey);
+        targets.push({optionId,pageId:entry.id!,dataSourceId});
+      }
+      if (!data.has_more) return targets;
+      if (seenCursors.has(data.next_cursor!)) throw new Error("NOTION_REGISTRY_CURSOR_LOOP");
+      seenCursors.add(data.next_cursor!);
+      cursor = data.next_cursor!;
+    }
+    throw new Error("NOTION_REGISTRY_PAGINATION_LIMIT");
+  }
+  return {
+    async get(optionId: string): Promise<Target | null> {
+      if (!dynamicId.test(optionId)) return null;
+      const all = await allPages();
+      return all.find(x => x.optionId === optionId) ?? null;
+    },
+    list: allPages
+  };
+}
