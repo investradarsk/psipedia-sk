@@ -9,6 +9,7 @@ on:
       - "lib/gemini-external-agent.ts"
       - "worker/index.ts"
       - "scripts/gemini-notion-agent.mjs"
+      - "scripts/production-d1-migrate.mjs"
       - "app/api/admin/gemini-automation/**"
       - "app/api/internal/gemini-agent/authorize/**"
       - "app/admin/automatizacie-gemini/page.tsx"
@@ -44,6 +45,6 @@ jobs:
       - name: Lint and TypeScript
         run: |
           npm run lint
-          npx tsc --noEmit --pretty false
+          npx tsc --noEmit --pretty false --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@cloudflare/workers-types lib/gemini-global-control.ts
       - name: Build without deploy
         run: npm run build
