@@ -210,7 +210,8 @@ function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning
           </select>
         </label>}
         <label htmlFor={id + "-maximum"}>
-          Max. nových konceptov
+          Nastavený limit konceptov (0–100)
+          <small> Externý pracovník vytvorí najviac 5 v jednom behu; vyššia hodnota nezvyšuje počet v jedinom behu.</small>
           <input id={id + "-maximum"} type="number" min={0} max={100} step={1} required
             value={maximum} disabled={!available || saving}
             onChange={(event) => setMaximum(event.target.value)} />
