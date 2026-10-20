@@ -294,7 +294,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                 placeholder="Krátke vysvetlenie rozhodnutia" />
               <small>{Array.from(reviewReason).length} / 500 znakov. Dôvod sa uloží do histórie rozhodnutí.</small>
             </label>
-          ) : null>
+          ) : null}
           {resultTone === "error" && message ? <p role="alert" className={styles.errorNotice}>{message}</p> : null}
         </div>
       </AdminModalDialog>
