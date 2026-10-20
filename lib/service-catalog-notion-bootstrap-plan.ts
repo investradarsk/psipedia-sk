@@ -34,7 +34,7 @@ export type CatalogBootstrapInventory = {
   items:BootstrapItem[];
   unmappedNotionOptionIds:string[];
 };
-const idPattern=/^(svc|attr)\\.admin\\.[a-f0-9]{32}$/;
+const idPattern=/^(svc|attr)\.admin\.[a-f0-9]{32}$/;
 const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const canonicalSource=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
 const normalUuid=(s:string)=>s.replaceAll("-","").toLowerCase();
