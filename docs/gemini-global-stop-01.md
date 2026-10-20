@@ -41,3 +41,11 @@ CI workflow: `.github/workflows/gemini-global-stop-ci.yml` (read-only GitHub per
 5. Any uncertain external dispatch or worker-admission acknowledgement must be investigated manually: never auto-retry the same paid job.
 
 Known operational boundary: GitHub repository administrators can intentionally modify workflows, code, secrets or bypass branch protections; this control secures the shipped workflow/worker contract and D1/API paths, not an adversarial repository owner.
+
+## 0136 release gate after Facebook 0135
+
+- **Release prepared, not deployed:** `0136_gemini_global_stop.sql` is SHA-256 pinned and can be selected only by the manual protected `Production D1 Migrate` workflow on `main` using `APPLY-0136-psipedia-sk-db` with explicit owner authorization.
+- Preflight: exact canonical D1 identity, complete migration history through 0135, refusal if 0136 already exists or is partially applied, previous 0135 schema check, recovery bookmark. Apply and verify are restricted to that same protected run.
+- Postflight: table, three STOP triggers, one-use `worker_started_at` column and singleton RUNNING control row. Paid/scheduled feature flags remain untouched.
+- `main` can be automatically deployed by Cloudflare Workers Builds after merge. The STOP code deliberately fails closed without 0136, so coordinate a short paused Gemini dispatch window: merge / deploy → one-time protected 0136 APPLY → read-only smoke, or another separately approved controlled release arrangement.
+- No CI job, merge or this PR performs migration automatically; owner explicitly authorizes production cutover separately.

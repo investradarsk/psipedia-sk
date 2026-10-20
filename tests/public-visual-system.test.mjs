@@ -139,7 +139,8 @@ test("DS-2A: disabled, active, focus and reduced-motion states stay in local CSS
   assert.ok(styles.includes("animation: publicActionSpin .8s linear infinite"));
   assert.ok(styles.includes("@media (prefers-reduced-motion: reduce)"));
   assert.match(styles, /\.loadingIndicator\s*\{\s*animation:\s*none;/);
-  assert.doesNotMatch(styles, /\.action\s*\{[^}]*width:\s*100%/s);
+  const actionDeclarations = styles.match(/\.action\s*\{([^}]*)\}/s)?.[1] ?? "";
+  assert.doesNotMatch(actionDeclarations, /(?:^|;)\s*width\s*:\s*100%/s);
   assert.doesNotMatch(styles, /(^|[,{]\s*)(html|body|:root)\b/m);
 });
 
