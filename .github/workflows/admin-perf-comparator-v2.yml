@@ -1,0 +1,28 @@
+name: Admin Performance Comparator V2 — offline
+
+on:
+  pull_request:
+    paths:
+      - "scripts/admin-perf-analyze.mjs"
+      - "tests/admin-perf-analyze.test.mjs"
+      - "docs/performance/admin-compare-v2.md"
+      - ".github/workflows/admin-perf-comparator-v2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-comparator:
+    name: Strict offline comparator regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check
+        run: node --check scripts/admin-perf-analyze.mjs && node --check tests/admin-perf-analyze.test.mjs
+      - name: Comparator and existing V1 regressions
+        run: node --test tests/admin-perf-analyze.test.mjs tests/admin-perf-tooling.test.mjs
