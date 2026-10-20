@@ -23,7 +23,7 @@ jobs:
           node-version: "22.16.0"
       - name: Syntax / TS strip parse
         run: |
-          node --experimental-strip-types --check lib/service-catalog-notion-mirror-executor.ts
-          node --experimental-strip-types --check lib/service-catalog-notion-http-port.ts
+          node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-mirror-executor.ts')"
+          node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-http-port.ts')"
       - name: Offline verified receipt and synthetic D1 transaction tests
         run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs tests/service-catalog-notion-mirror-executor.test.mjs
