@@ -238,7 +238,7 @@ test("Facebook retry and Notion schedule V2 flags survive Cloudflare deployments
   assert.equal(vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED, "true");
   assert.equal(vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT, "2026-10-20T20:00:00Z");
   assert.equal(new Date(vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT).toISOString(),
-    vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT);
+    "2026-10-20T20:00:00.000Z");
   assert.equal(vars.FACEBOOK_IMAGE_PUBLISH_ENABLED, "true");
   assert.equal(vars.NOTION_FACEBOOK_IMAGES_SYNC_ENABLED, "true");
   assert.equal(vars.NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED, "true");
