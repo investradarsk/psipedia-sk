@@ -139,7 +139,11 @@ test("DS-2A: disabled, active, focus and reduced-motion states stay in local CSS
   assert.ok(styles.includes("animation: publicActionSpin .8s linear infinite"));
   assert.ok(styles.includes("@media (prefers-reduced-motion: reduce)"));
   assert.match(styles, /\.loadingIndicator\s*\{\s*animation:\s*none;/);
-  assert.doesNotMatch(styles, /\.action\s*\{[^}]*width:\s*100%/s);
+  // Inspect only the exact .action rule and a complete width declaration.
+  // Do not confuse legitimate max-width: 100% with width: 100%.
+  const actionBody = styles.match(/\.action\s*\{([^}]*)\}/s)?.[1] ?? "";
+  assert.ok(actionBody, "The base .action block must exist");
+  assert.doesNotMatch(actionBody, /(?:^|;)\s*width:\s*100%(?:\s*;|$)/m);
   assert.doesNotMatch(styles, /(^|[,{]\s*)(html|body|:root)\b/m);
 });
 
