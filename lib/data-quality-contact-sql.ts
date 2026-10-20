@@ -18,8 +18,9 @@ const aliases: Record<ContactField, readonly string[]> = {
 
 function normalizedJsonContact(key: string): string {
   // No user-provided names; match JS contact reading of nonblank alias values.
+  const quote = String.fromCharCode(34);
   return "NULLIF(trim(CAST(json_extract(" + validSourceJson
-    + ", '$.\\"" + key + "\\"') AS TEXT)), '')";
+    + ", '$." + quote + key + quote + "') AS TEXT)), '')";
 }
 
 export function missingDirectoryContactSql(field: ContactField): string {
