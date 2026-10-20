@@ -6,8 +6,11 @@ on:
       - 'components/admin-data-quality-image-review-v2.module.css'
       - 'lib/admin-data-quality-image-review.ts'
       - 'lib/media-source-monitor.ts'
+      - 'lib/media-source-review-decisions.ts'
+      - 'drizzle/0137_media_source_review_decisions.sql'
       - 'app/api/admin/data-quality/media/**'
       - 'tests/admin-data-quality-image-review-v2.test.mjs'
+      - 'tests/media-source-review-decisions.test.mjs'
       - 'tests/e2e/admin-image-review-v2*.ts'
       - 'tests/e2e/fixtures/admin-image-review-v2/**'
       - '.github/workflows/admin-image-review-v2.yml'
@@ -26,7 +29,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run isolated V2 regression suite
-        run: node --experimental-strip-types --test tests/admin-data-quality-image-review-v2.test.mjs
+        run: node --experimental-strip-types --test tests/admin-data-quality-image-review-v2.test.mjs tests/media-source-review-decisions.test.mjs
   chromium-visual-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 35
