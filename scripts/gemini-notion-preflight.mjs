@@ -29,7 +29,9 @@ function identity(page, key) {
 function comparison(key, candidate, existing) {
   const name = same(candidate.name, existing.name);
   if (key.startsWith("events.")) {
-    if (!name || !candidate.date || !existing.date || candidate.date !== existing.date) return "NEW";
+    if (!name) return "NEW";
+    if (!candidate.date || !existing.date) return "POSSIBLE_DUPLICATE";
+    if (candidate.date !== existing.date) return "NEW";
     if ((candidate.organizer && same(candidate.organizer, existing.organizer)) ||
         (candidate.city && same(candidate.city, existing.city)) ||
         sharedSource(candidate.website || candidate.source, existing.website || existing.source))
