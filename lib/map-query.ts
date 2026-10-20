@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { bratislavaDateKey, eventDateTimeIso } from "./events";
 import { isGeoSchemaAvailable } from "./geo-store";
 import { normalizeDirectorySearchText, sqlNormalizedExpression } from "./directory-store";
+import { directoryPublicFacetSql } from "./directory-public-filters";
 import {
   MAP_CACHE_TTL_SECONDS,
   MAP_INTERNAL_ROW_LIMIT,
@@ -196,6 +197,7 @@ function parameterizedSearch(query: MapQueryInput, expression: string) {
 
 function serviceStatement(query: MapQueryInput, db: MapD1Database) {
   const bbox = bboxSql(query);
+  const publicFacets = directoryPublicFacetSql(query.subcategory ?? "", query.facets, "d.source_data_json");
   const search = parameterizedSearch(query, `
     coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
     coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
@@ -227,9 +229,10 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       AND d.archived_at IS NULL
       AND ${bbox.sql}
       ${search.sql}
+      ${publicFacets.clauses.map((clause) => "AND " + clause).join("\n      ")}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, ...search.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...bbox.bindings, ...search.bindings, ...publicFacets.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function organizationStatement(query: MapQueryInput, db: MapD1Database) {
