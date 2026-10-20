@@ -23,13 +23,13 @@ export function buildFacetCoverageSql() {
     "  FROM definitions d LEFT JOIN published p ON p.category = d.category)\n",
     "SELECT facet, category,\n",
     "  SUM(CASE WHEN present THEN 1 ELSE 0 END) AS published_profiles,\n",
-    "  SUM(CASE WHEN present AND EXISTS (SELECT 1 FROM json_each(allowed) a WHERE a.value=value) THEN 1 ELSE 0 END) AS confirmed_values,\n",
+    "  SUM(CASE WHEN present AND EXISTS (SELECT 1 FROM json_each(allowed) a WHERE a.value=c.value) THEN 1 ELSE 0 END) AS confirmed_values,\n",
     "  SUM(CASE WHEN present AND value='unknown' THEN 1 ELSE 0 END) AS explicit_unknown,\n",
     "  SUM(CASE WHEN present AND (value IS NULL OR value='') THEN 1 ELSE 0 END) AS missing_values,\n",
     "  SUM(CASE WHEN present AND malformed=1 THEN 1 ELSE 0 END) AS malformed_json,\n",
     "  SUM(CASE WHEN present AND value IS NOT NULL AND value <> 'unknown'\n",
-    "    AND NOT EXISTS (SELECT 1 FROM json_each(allowed) a WHERE a.value=value) THEN 1 ELSE 0 END) AS invalid_values\n",
-    "FROM classified GROUP BY facet, category ORDER BY category, facet;",
+    "    AND NOT EXISTS (SELECT 1 FROM json_each(allowed) a WHERE a.value=c.value) THEN 1 ELSE 0 END) AS invalid_values\n",
+    "FROM classified c GROUP BY facet, category ORDER BY category, facet;",
   ].join("");
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
