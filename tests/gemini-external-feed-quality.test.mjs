@@ -132,3 +132,15 @@ test("full signed external-worker Help request reaches existing FEED_SOURCE revi
   assert.deepEqual(invalid,{status:"BLOCKED",httpStatus:401});
   assert.equal(db.writes.length,1);
 });
+
+// Prevent a future refactor from enabling newly introduced proposal writes
+// merely because a code-only PR was merged and Cloudflare automatically deployed.
+test("review-only production route is disabled by default even when external agent is enabled",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const route=readFileSync(new URL("../app/api/internal/gemini-agent/update-proposal/route.ts",import.meta.url),"utf8");
+  assert.match(route,/GEMINI_QUALITY_PROPOSALS_ENABLED/);
+  assert.match(route,/GEMINI_QUALITY_PROPOSALS_ENABLED !== "true"/);
+  assert.match(route,/return Response\.json\(\{status:"BLOCKED"\},\{status:503,headers\}\)/);
+  assert.ok(route.indexOf("GEMINI_QUALITY_PROPOSALS_ENABLED")<route.indexOf("requireGeminiAdminD1()"),
+    "release flag must fail closed before any DB access");
+});

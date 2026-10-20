@@ -70,6 +70,12 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
    demonstrate stable API decisions. Prior versions of workflow may still run.
 
 ## No activation implied
+**New safety rollout flag:** `GEMINI_QUALITY_PROPOSALS_ENABLED` defaults to absent/false.
+The `/api/internal/gemini-agent/update-proposal` endpoint then responds
+`503 BLOCKED` before touching D1. Merging #924 cannot by itself activate
+new proposal writes. Only a separately approved production flag change, after
+read-only provenance and identity canaries, may enable the review-only intake.
+No change to existing `GEMINI_EXTERNAL_AGENT_ENABLED` is implied.
 This PR does not enable flags, dispatch paid workers, create Notion concepts or
 submit changes to Kvalita údajov. **No merge without independent review.**
 
