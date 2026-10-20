@@ -219,3 +219,60 @@ test("a changed Notion direct-consent checkbox is ignored by the D1 authorizatio
     });
   }finally{f.close();}
 });
+
+test("V2: explicit fresh Notion datetime schedules without checkboxes and cancellation returns a draft",async()=>{
+  const f=fixture(),page=notionPage(false);
+  page.last_edited_time="2030-01-02T09:55:00.000Z";
+  page.properties["Povoliť publikovanie"]={checkbox:false};
+  const enabled={...bindings,BUCKET:f.bucket,
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  try{
+    await mockedNotion(page,async()=>{
+      const first=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      assert.equal(first.created,1);assert.equal(first.failed,0);
+      assert.equal(f.get().status,"scheduled");
+      assert.equal(f.get().scheduled_at,"2030-01-02T11:00:00.000Z");
+      assert.equal(f.get().approval_status,"APPROVED");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(page.properties["Stav"].status.name,"Naplánované");
+      // An explicit cancellation in Notion clears the pending due date in D1.
+      page.properties["Dátum a čas publikovania"]={date:null};
+      page.properties["Stav"]={status:{name:"Koncept"}};
+      page.last_edited_time="2030-01-02T09:57:00.000Z";
+      const cancelled=await runNotionFacebookImagesSync({database:f.db,bindings:enabled,now:time});
+      assert.equal(cancelled.updated,1);
+      assert.equal(f.get().status,"draft");
+      assert.equal(f.get().scheduled_at,null);
+      assert.equal(f.get().approval_status,"UNREVIEWED");
+      assert.equal(f.get().notion_page_id,pageId);
+      assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts").get().n,1);
+    });
+  }finally{f.close();}
+});
+
+test("V2: cutoff blocks legacy scheduling; missed genuinely pre-scheduled dates may catch up",async()=>{
+  const fresh={...bindings,
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+    NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"2030-01-01T00:00:00.000Z"};
+  const old=fixture(),pageOld=notionPage();
+  pageOld.last_edited_time="2029-12-31T00:00:00.000Z";
+  try{
+    await mockedNotion(pageOld,async()=>{
+      await runNotionFacebookImagesSync({database:old.db,bindings:{...fresh,BUCKET:old.bucket},now:time});
+      assert.equal(old.get().status,"draft");
+      assert.equal(old.get().approval_status,"UNREVIEWED");
+    });
+  }finally{old.close();}
+  const recent=fixture(),page=notionPage();
+  page.last_edited_time="2030-01-02T09:52:00.000Z";
+  page.properties["Dátum a čas publikovania"]={date:{start:"2030-01-02T10:00:00+00:00"}};
+  try{
+    await mockedNotion(page,async()=>{
+      await runNotionFacebookImagesSync({database:recent.db,
+        bindings:{...fresh,BUCKET:recent.bucket},now:new Date("2030-01-02T10:03:00.000Z")});
+      assert.equal(recent.get().status,"scheduled");
+      assert.equal(recent.get().approval_status,"APPROVED");
+    });
+  }finally{recent.close();}
+});
