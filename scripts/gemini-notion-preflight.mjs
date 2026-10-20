@@ -92,3 +92,26 @@ export function geminiDedupeCandidate(stableKey, properties) {
     venue: item.venue, type: item.type,
   };
 }
+
+/** Only business-public Directory fields. Identity and sensitive-location fields
+ * are intentionally excluded; a matching profile is never edited here.
+ */
+export function geminiDirectoryQualityProposal(stableKey, properties) {
+  if (!stableKey.startsWith("directory.") || !properties || typeof properties !== "object")
+    return {};
+  const read = name => {
+    const field = properties[name];
+    if (!field || typeof field !== "object") return "";
+    const direct = field.url ?? field.email ?? field.phone_number;
+    if (typeof direct === "string") return direct.trim().slice(0,2048);
+    const items = field.rich_text ?? field.title ?? [];
+    return Array.isArray(items)
+      ? items.map(item => item?.plain_text ?? item?.text?.content ?? "").join("").trim().slice(0,2048)
+      : "";
+  };
+  const mapping = {
+    websiteUrl:"Web",publicPhone:"Telefón",publicEmail:"E-mail",
+    facebookUrl:"Facebook",instagramUrl:"Instagram",
+  };
+  return Object.fromEntries(Object.entries(mapping).map(([key,name])=>[key,read(name)]).filter(([,val])=>val));
+}
