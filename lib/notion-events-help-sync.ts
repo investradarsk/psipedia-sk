@@ -774,7 +774,7 @@ async function syncAgenda(input: {
             agenda: input.definition.key,
             pageId: page.id,
             entityId,
-            hash: canonicalHash, snapshot: sourceSnapshot,
+            hash: canonicalHash,
             notionLastEditedTime: page.last_edited_time ?? null,
             psipediaUpdatedAt: updatedAt,
             syncedAt,
@@ -808,7 +808,7 @@ async function syncAgenda(input: {
             agenda: input.definition.key,
             pageId: page.id,
             entityId,
-            hash: canonicalHash, snapshot: sourceSnapshot,
+            hash: canonicalHash,
             notionLastEditedTime: page.last_edited_time ?? syncedAt,
             psipediaUpdatedAt: updatedAt,
             syncedAt,
@@ -923,7 +923,7 @@ async function syncAgenda(input: {
             agenda: input.definition.key,
             pageId: page.id,
             entityId,
-            hash: canonicalHash, snapshot: sourceSnapshot,
+            hash: canonicalHash,
             notionLastEditedTime: written.last_edited_time ?? syncedAt,
             psipediaUpdatedAt: updatedAt,
             syncedAt,
@@ -962,7 +962,7 @@ async function syncAgenda(input: {
             agenda: input.definition.key,
             pageId: page.id,
             entityId,
-            hash: canonicalHash, snapshot: sourceSnapshot,
+            hash: canonicalHash,
             notionLastEditedTime: page.last_edited_time ?? null,
             psipediaUpdatedAt: updatedAt,
             syncedAt,
@@ -1048,7 +1048,12 @@ async function syncAgenda(input: {
         const syncedAt = new Date().toISOString();
         await saveMapping({
           database: input.database, agenda, pageId: page.id, entityId,
-          hash: verifiedHash, snapshot: verifiedSnapshot,
+          hash: verifiedHash,
+          // Remote API echo must confirm exactly the same editorial values
+          // before a snapshot can become authoritative for future merges.
+          snapshot: written.properties
+            && await snapshotHash(agenda, pageSnapshot(agenda, written, schema)) === verifiedHash
+              ? verifiedSnapshot : undefined,
           notionLastEditedTime: written.last_edited_time ?? syncedAt,
           psipediaUpdatedAt: await canonicalUpdatedAt(agenda, entityId, input.database),
           syncedAt,
@@ -1229,7 +1234,7 @@ async function syncAgenda(input: {
           && mapping.content_hash === canonicalHash) {
           await recordProfileFieldBaseline({
             database: input.database, agenda: input.definition.key,
-            entityId, pageId: page.id, hash: canonicalHash, snapshot: sourceSnapshot,
+            entityId, pageId: page.id, hash: canonicalHash,
             syncedAt: new Date().toISOString(),
           });
         }
@@ -1253,7 +1258,7 @@ async function syncAgenda(input: {
               agenda: input.definition.key,
               pageId: page.id,
               entityId,
-              hash: canonicalHash, snapshot: sourceSnapshot,
+              hash: canonicalHash,
               notionLastEditedTime: written.last_edited_time ?? syncedAt,
               psipediaUpdatedAt: await canonicalUpdatedAt(input.definition.key, entityId, input.database),
               syncedAt,
@@ -1277,7 +1282,7 @@ async function syncAgenda(input: {
             agenda: input.definition.key,
             pageId: page.id,
             entityId,
-            hash: canonicalHash, snapshot: sourceSnapshot,
+            hash: canonicalHash,
             notionLastEditedTime: written.last_edited_time ?? syncedAt,
             psipediaUpdatedAt: updatedAt,
             syncedAt,
@@ -1293,7 +1298,7 @@ async function syncAgenda(input: {
             agenda: input.definition.key,
             pageId: page.id,
             entityId,
-            hash: canonicalHash, snapshot: sourceSnapshot,
+            hash: canonicalHash,
             notionLastEditedTime: page.last_edited_time ?? syncedAt,
             psipediaUpdatedAt: updatedAt,
             syncedAt,
@@ -1358,7 +1363,7 @@ async function syncAgenda(input: {
         agenda: input.definition.key,
         pageId: page.id,
         entityId,
-        hash: canonicalHash, snapshot: sourceSnapshot,
+        hash: canonicalHash,
         notionLastEditedTime: written.last_edited_time ?? syncedAt,
         psipediaUpdatedAt: updatedAt,
         syncedAt,
