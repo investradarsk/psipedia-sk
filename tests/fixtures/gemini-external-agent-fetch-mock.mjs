@@ -362,9 +362,12 @@ globalThis.fetch = async (url, options = {}) => {
       } }], has_more: false });
       if (scenario === "paginated" && scans % 2 === 1) return json({ results: [], has_more: true, next_cursor: "page-2" });
       if (scenario === "partial_property") {
-        const targetRow = lostFound ? lostFoundExisting : row;
-        return json({ results: [{ ...targetRow, properties: { ...targetRow.properties,
-          "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
+        const title = adoption ? "Meno" : "Názov";
+        const unrelated = { id: "unrelated", parent: { data_source_id: ds }, properties: {
+          [title]: { type: "title", title: [{ plain_text: "Úplne iný subjekt" }] },
+          "Popis": { type: "rich_text", rich_text: [], has_more: true },
+        }};
+        return json({ results: [unrelated], has_more: false });
       }
       if (scenario === "incomplete_scan") return json({ results: [], has_more: true, next_cursor: null });
       if (scenario === "malformed_scan") return json({ has_more: false });
@@ -400,6 +403,35 @@ globalThis.fetch = async (url, options = {}) => {
       return json({ id: "mock-notion-page", properties: body.properties });
     }
     throw Error("UNEXPECTED_NOTION_ENDPOINT");
+  }
+  if (address === "https://psipedia.sk/api/internal/gemini-agent/dedupe") {
+    const expected = "sha256=" + createHmac("sha256", process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+      .update(options.body).digest("hex");
+    if (options.headers["X-Psipedia-Signature"] !== expected) throw Error("BAD_DEDUPE_SIGNATURE");
+    const payload = JSON.parse(options.body);
+    if (payload.job_id !== 7 || payload.stable_key !== process.env.AGENT_STABLE_KEY ||
+        !payload.issued_at || !payload.candidate?.name ||
+        JSON.stringify(payload).includes("905 123 456")) throw Error("UNSAFE_DEDUPE_PAYLOAD");
+    if (scenario === "d1_duplicate") return json({ status: "DUPLICATE" });
+    if (scenario === "d1_possible") return json({ status: "POSSIBLE_DUPLICATE" });
+    if (scenario === "d1_unavailable") return json({ status: "BLOCKED" }, 503);
+    return json({ status: "NEW" });
+  }
+  if (address === "https://psipedia.sk/api/internal/gemini-agent/update-proposal") {
+    const expected="sha256="+createHmac("sha256",process.env.PSIPEDIA_AGENT_CALLBACK_SECRET)
+      .update(options.body).digest("hex");
+    if(options.headers["X-Psipedia-Signature"]!==expected)throw Error("BAD_QUALITY_SIGNATURE");
+    const payload=JSON.parse(options.body);
+    if(!payload.stable_key.startsWith("directory.")||payload.job_id!==7||
+      Object.keys(payload).length!==5||!payload.candidate?.name||!payload.proposal||
+      Object.keys(payload.proposal).some(key=>!({
+        directory:["websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"],
+        events:["excerpt","websiteUrl","registrationUrl"],
+        help:["excerpt","actionUrl","shortDescription","websiteUrl","breedName","color","dogName","breed"]
+      }[process.env.AGENT_STABLE_KEY.split(".")[0]]||[]).includes(key)))
+      throw Error("UNSAFE_QUALITY_PAYLOAD");
+    console.log("MOCK_QUALITY_PROPOSAL review_only");
+    return json({status:"REVIEW_SUBMITTED"});
   }
   if (address === "https://psipedia.sk/api/internal/gemini-agent/callback") {
     callbacks++;
