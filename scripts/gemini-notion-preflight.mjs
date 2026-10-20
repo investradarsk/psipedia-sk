@@ -89,6 +89,6 @@ export function geminiDedupeCandidate(stableKey, properties) {
   return {
     name: item.name, city: item.city, website: item.website,
     source: item.source, start_date: item.date, organizer: item.organizer,
-    venue: item.venue,
+    venue: item.venue, type: item.type,
   };
 }
