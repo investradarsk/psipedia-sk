@@ -7,7 +7,7 @@ import { beginGeminiManualPilotRun } from "../lib/gemini-automation-store.ts";
 import { enqueueExternalGemini, dispatchExternalGemini, ExternalAgentError } from "../lib/gemini-external-agent.ts";
 import {
   getGeminiGlobalControl, requireGeminiRunning,
-  setGeminiGlobalStop, GeminiGlobalControlError,
+  setGeminiGlobalStop, authorizeGeminiExternalWorker, GeminiGlobalControlError,
 } from "../lib/gemini-global-control.ts";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -81,7 +81,7 @@ test("0135 is additive, default RUNNING, and does not change 22 per-category set
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM gemini_manual_background_jobs").get().total, 0);
   await seed(db);
   const settings = sqlite.prepare("SELECT enabled,cadence_minutes,max_new_concepts FROM gemini_automation_settings").get();
-  assert.deepEqual(settings, { enabled: 1, cadence_minutes: 1440, max_new_concepts: 8 });
+  assert.deepEqual({ ...settings }, { enabled: 1, cadence_minutes: 1440, max_new_concepts: 8 });
   sqlite.close();
 });
 
@@ -93,9 +93,9 @@ test("STOP atomically cancels FIFO approvals without deleting history or changin
   const stopped = await setGeminiGlobalStop(db, true, at);
   assert.equal(stopped.state, "STOPPED");
   assert.equal(sqlite.prepare("SELECT state FROM gemini_global_control").get().state, "STOPPED");
-  assert.deepEqual(sqlite.prepare(
+  assert.deepEqual({ ...sqlite.prepare(
     "SELECT status,error_code,run_id FROM gemini_manual_background_jobs WHERE id=?"
-  ).get(id), { status: "FAILED", error_code: "GEMINI_GLOBAL_STOP_CANCELLED", run_id: null });
+  ).get(id) }, { status: "FAILED", error_code: "GEMINI_GLOBAL_STOP_CANCELLED", run_id: null });
   assert.equal(sqlite.prepare("SELECT next_run_at FROM gemini_automation_settings").get().next_run_at, original);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM gemini_manual_background_jobs").get().total, 1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM gemini_automation_runs").get().total, 0);
@@ -165,7 +165,7 @@ test("STOP preserves never-due timestamps and off categories do not turn on", as
   sqlite.prepare("UPDATE gemini_automation_settings SET next_run_at=?").run("2026-12-01T08:00:00.000Z");
   await setGeminiGlobalStop(db, true, at);
   await setGeminiGlobalStop(db, false, later);
-  assert.deepEqual(sqlite.prepare("SELECT enabled,next_run_at FROM gemini_automation_settings").get(),
+  assert.deepEqual({ ...sqlite.prepare("SELECT enabled,next_run_at FROM gemini_automation_settings").get() },
     { enabled: 0, next_run_at: "2026-12-01T08:00:00.000Z" });
   sqlite.close();
 });
@@ -243,4 +243,36 @@ test("STOP is not coupled to Notion profile reconciliation or editorial synchron
   const control = read("lib/gemini-global-control.ts");
   const migration = read("drizzle/0135_gemini_global_stop.sql");
   assert.doesNotMatch(control + migration, /notion_directory_sync|notion_event_sync|notion_help_sync|notion_pages/);
+});
+
+test("signed-worker admission is single-use, fenced by STOP and accepts only existing running job", async () => {
+  const { db, sqlite } = fixture();
+  await seed(db);
+  assert.equal(await authorizeGeminiExternalWorker({ db, jobId: 12, stableKey: key }), false);
+  const id = await addJob(db, "RUNNING");
+  assert.equal(await authorizeGeminiExternalWorker({ db, jobId: id, stableKey: "help.zbierky" }), false);
+  assert.equal(await authorizeGeminiExternalWorker({ db, jobId: id, stableKey: key, now: at }), true);
+  assert.equal(await authorizeGeminiExternalWorker({ db, jobId: id, stableKey: key, now: at }), false,
+    "replayed workflow cannot bill twice");
+  assert.ok(sqlite.prepare("SELECT worker_started_at FROM gemini_manual_background_jobs WHERE id=?").get(id).worker_started_at);
+  sqlite.close();
+});
+
+test("dispatched but unstarted job cannot start after STOP; historical RUNNING completion remains possible", async () => {
+  const { db, sqlite } = fixture();
+  await seed(db);
+  const id = await addJob(db, "RUNNING");
+  await setGeminiGlobalStop(db, true, at);
+  assert.equal(await authorizeGeminiExternalWorker({ db, jobId: id, stableKey: key }), false);
+  const now = at.toISOString();
+  await db.prepare("UPDATE gemini_manual_background_jobs SET status='FAILED',completed_at=? WHERE id=?")
+    .bind(now, id).run();
+  assert.equal(sqlite.prepare("SELECT status FROM gemini_manual_background_jobs WHERE id=?").get(id).status, "FAILED");
+  const script = read("scripts/gemini-notion-agent.mjs");
+  assert.ok(script.indexOf("await authorizePaidStart();") < script.indexOf("const snapshot = await notionSnapshot("),
+    "paid discovery and Notion scan require admission first");
+  const endpoint = read("app/api/internal/gemini-agent/authorize/route.ts");
+  assert.match(endpoint, /crypto\.subtle\.verify/);
+  assert.match(endpoint, /authorizeGeminiExternalWorker/);
+  sqlite.close();
 });
