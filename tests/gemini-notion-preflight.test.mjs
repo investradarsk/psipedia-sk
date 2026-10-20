@@ -30,7 +30,7 @@ for(const key of keys){
   test(key+" fresh Notion identity permits only subsequent D1 verification",()=>{
     assert.equal(classifyGeminiNotionIdentity(key,data(key),[]),"NEW");
     const payload=geminiDedupeCandidate(key,data(key));
-    assert.deepEqual(Object.keys(payload),["name","city","website","source","start_date","organizer","venue"]);
+    assert.deepEqual(Object.keys(payload),["name","city","website","source","start_date","organizer","venue","type"]);
     assert.ok(!JSON.stringify(payload).includes("latitude"));
   });
   test(key+" identical recorded identity is never silently created",()=>{
