@@ -55,7 +55,8 @@ Tests use in-memory SQLite 0133+0134 and mocked Notion transport, with success, 
 - Read-only query verified 0 catalog pages immediately after creation. Nothing migrated from Adresár, generated, published or synchronized.
 - The pinned `createPsipediaServiceCatalogNotionHttpPort` maps exactly this source; default write capability remains disabled, and no production runner calls it.
 - **Profile links are canonical D1 records**: option definitions from `service_catalog_admin_options` are associated with profile IDs through `service_profile_option_choices(profile_id, option_id)` and attribute values through `service_profile_property_values(profile_id, property_id)`. A Notion catalog entry is NOT a copy of a directory profile and there is no live Notion-to-Notion profile relation.
-- Remaining before live sync: complete option-to-page ownership registry, authenticated internal runner, durable per-option cross-worker lease and staging acceptance. Feature flags and all Notion/D1 writes remain OFF pending separate approval.
+- A new disabled-by-default, **read-only registry adapter** now discovers existing catalog pages through the pinned Notion `POST /v1/data_sources/{id}/query` endpoint (a read operation), exhausts pagination and refuses wrong parents, malformed fields, duplicate owners and incomplete results. It never creates pages or reads profile pages. Offline pagination/identity tests cover its contract.
+- Remaining before live sync: initial creation and approval of canonical option pages (currently zero) plus their complete page ownership; authenticated internal runner, durable cross-worker lease and staging acceptance. Feature flags and all Notion/D1 writes remain OFF pending separate approval.
 
 ## Read-only Notion workspace check — 2026-10-20
 
