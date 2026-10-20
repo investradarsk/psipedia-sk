@@ -16,8 +16,21 @@ The existing `facebook_image_publish_attempts.post_id` unique claim remains atom
 - **Backlog**: when opt-in retry mode is active, a single tick handles at most 20 fresh items + 10 eligible retry items; existing off-mode limit remains unchanged.
 - **Logs**: provider response bodies, tokens and signed media URLs must not be logged; only sanitized counts and error codes are stored.
 
-## Known limitations / future acceptance
-This adds **safe retries of explicit provider throttling rejections**, not a speculative API post search. An ambiguous Meta result cannot prove that a post does not exist; automatic retry is intentionally blocked. A proof-oriented production reconciliation mechanism may later be implemented if Meta offers a trustworthy enough read API / stable ID. The pending-retry ledger currently retains the existing `UNCERTAIN` DB state with `outcome_kind=PROVEN_REJECTED` until success/exhaustion, so downstream admin/Notion status surfaces need acceptance review before rollout. Cancellation/rescheduling of a retry-pending post also requires a separate lifecycle review: do not activate against the live backlog before that is resolved. Do not manually delete a production attempt row to force republishing.
+## Cancellation and rescheduling lifecycle
+
+With BOTH the existing scheduling V2 and safe-retry V2 gates enabled, the D1 post update is guarded against any outstanding `SENDING` or `AMBIGUOUS` attempt. Only a Meta response explicitly classified as `PROVEN_REJECTED` can be cancelled or replanned.
+
+1. Admin or Notion edits the existing canonical D1 record using its version/CAS guard.
+2. The additive 0135 D1 trigger archives the proven rejection into an append-only history table **inside the same SQLite statement** as the post edit. It marks the durable active attempt `SUPERSEDED`, clears its pending retry timestamp and retains the canonical post and Notion identity.
+3. Cancelling clears the datetime, returns the record to `draft`, revokes approval and blocks all publisher claims.
+4. A later new datetime + valid R2 photo makes the *same canonical post ID* eligible. The publisher atomically reclaims only the `SUPERSEDED` attempt with the current content version and with the usual STOP/approval checks; the preceding supersession is independently archived again before recycle.
+5. Old `AMBIGUOUS`, `SENDING`, and `PUBLISHED` attempts are never editable, deleted or recycled. The new `RETRY_PENDING` operator state shows the next safe retry time; `RETRY_EXHAUSTED` requires a human reschedule or cancellation. Normal uncertain results still show `Na preverenie`.
+
+The Notion mirror writes the scheduled retry status and safe next retry timestamp and clears stale error text when an authorized cancellation/change is saved. Published Facebook content is never edited or deleted. No Notion page permission locking is introduced. The independent visual PR #904 is left untouched.
+
+## Remaining acceptance / deployment gates
+
+Offline tests and CI do not establish live Meta availability or a trusted search for ambiguous externally created posts. Such results remain blocked, never automatically retried. Before a live pilot verify the deployed Worker, live D1 schema/history, global STOP and backlog in read-only mode. The additive migration 0135 is **prepared only** and follows 0134; it is not an authorized production migration target. A separate owner-approved migration workflow, rollout, feature activation and production acceptance remain required.
 
 ## Offline verification
 `npm run test:facebook-publisher`, `npm run test:notion-facebook-images`, `npm run db:check-migrations`, `npm run test:migration-safety`, `npm run build` plus GitHub Actions. All tests mock Meta and R2; no real POST is permitted. Merge, 0135 D1 APPLY, deployment, and enabling the flag require distinct owner permissions.
