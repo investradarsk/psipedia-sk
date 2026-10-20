@@ -167,6 +167,8 @@ test("source contracts: outbox, content gating, no-publish and post-commit integ
   assert.match(sync, /NOTION_EDITORIAL_VERIFICATION_FAILED/);
   assert.match(sync, /INSERT OR IGNORE INTO article_notion_editorial_outbox/);
   assert.match(sync, /NOTION_EDITORIAL_WRITEBACK_PENDING/);
+  assert.match(sync, /ADMIN_UNACKNOWLEDGED_EDITORIAL_REVISION/);
+  assert.match(sync, /adminTime > receiptTime/);
   assert.match(migration, /article_id INTEGER NOT NULL UNIQUE/);
   assert.match(route, /writeBackDraftArticleContentToNotion/);
   assert.match(route, /before\.status === "draft" && article\.status === "draft"/);
