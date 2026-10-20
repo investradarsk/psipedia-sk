@@ -6,6 +6,11 @@ import {
   type NotionSyncBindings,
 } from "@/lib/notion-sync-shared";
 
+import {
+  claimMediaCandidate, finalizeAcceptedMediaCandidate, finalizeRejectedMediaCandidate,
+  releaseMediaCandidateClaim, validateMediaReviewReason,
+} from "@/lib/media-source-review-decisions";
+
 export type MediaSourceEntityType = "DIRECTORY_PROFILE" | "MANAGED_EVENT";
 export type MediaSourceStatus = "UNTRACKED" | "OK" | "CANDIDATE" | "CHANGED" | "MISSING" | "ERROR";
 
@@ -403,7 +408,8 @@ async function setMonitorResult(input: {
         issue_started_at=?,
         last_error=?,
         updated_at=?
-    WHERE id=?
+    WHERE id=? AND candidate_image_key IS ?
+      AND (review_claim_token IS NULL)
   `).bind(
     input.sourceImageUrl ?? null,
     input.sourceContentHash ?? null,
@@ -417,6 +423,7 @@ async function setMonitorResult(input: {
     input.error?.slice(0, 1000) ?? null,
     input.now,
     input.row.id,
+    input.row.candidateImageKey,
   ).run();
 }
 
@@ -497,7 +504,6 @@ async function monitorOne(input: {
       );
 
     if (!needsCandidate) {
-      await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
       await setMonitorResult({
         database: input.database,
         row,
@@ -516,10 +522,7 @@ async function monitorOne(input: {
       entityId: row.entityId,
       sourceImageUrl,
     });
-    if (row.candidateImageKey && row.candidateImageKey !== candidate.key) {
-      await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
-    }
-
+    // Preserve any previous candidate object until D1 has accepted the new state.
     await setMonitorResult({
       database: input.database,
       row,
@@ -549,9 +552,6 @@ async function monitorOne(input: {
             entityId: row.entityId,
             sourceImageUrl: discovered,
           });
-          if (row.candidateImageKey && row.candidateImageKey !== candidate.key) {
-            await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
-          }
           await setMonitorResult({
             database: input.database,
             row,
@@ -718,9 +718,11 @@ export async function rejectMediaSourceCandidate(input: {
   monitorId: number;
   actorRef: string;
   expectedCandidateImageKey?: string;
+  reason?: string | null;
   now?: Date;
 }) {
   if (!await mediaSourceMonitorSchemaReady(input.database)) throw new Error("Monitoring obrázkov zatiaľ nie je nasadený.");
+  const reason = validateMediaReviewReason(input.reason);
   const raw = await input.database.prepare(
     "SELECT * FROM media_source_monitors WHERE id=? LIMIT 1",
   ).bind(input.monitorId).first<MonitorRow>();
@@ -730,20 +732,21 @@ export async function rejectMediaSourceCandidate(input: {
       row.candidateImageKey !== input.expectedCandidateImageKey) {
     throw new Error("Konflikt: kandidát obrázka sa zmenil. Obnov údaje pred rozhodnutím.");
   }
-  if (!row.candidateImageUrl) throw new Error("Táto položka nemá kandidáta na zamietnutie.");
-
-  const rejected = [...rejectedCandidateUrls(row.lastError), row.candidateImageUrl];
-  await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
+  if (!row.candidateImageKey || !row.candidateImageUrl) throw new Error("Táto položka nemá kandidáta na zamietnutie.");
   const now = (input.now ?? new Date()).toISOString();
-  await input.database.prepare(`
-    UPDATE media_source_monitors
-    SET source_image_url=NULL, source_content_hash=NULL, status='UNTRACKED',
-        candidate_image_url=NULL, candidate_image_key=NULL, candidate_content_hash=NULL,
-        last_http_status=NULL, last_checked_at=NULL, issue_started_at=?,
-        last_error=?, updated_at=?
-    WHERE id=?
-  `).bind(row.issueStartedAt ?? now, rejectedCandidateMarker(rejected), now, row.id).run();
-
+  const token = await claimMediaCandidate(input.database, row, now);
+  const rejected = [...rejectedCandidateUrls(row.lastError), row.candidateImageUrl];
+  try {
+    await finalizeRejectedMediaCandidate({
+      database: input.database, row, token, now, actorRef: input.actorRef,
+      reason, marker: rejectedCandidateMarker(rejected), issueStartedAt: row.issueStartedAt ?? now,
+    });
+  } catch (error) {
+    await releaseMediaCandidateClaim(input.database, row.id, token);
+    throw error;
+  }
+  // Never delete R2 before the durable D1 decision + history commits.
+  await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
   const refreshedRaw = await input.database.prepare(
     "SELECT * FROM media_source_monitors WHERE id=? LIMIT 1",
   ).bind(row.id).first<MonitorRow>();
@@ -780,66 +783,51 @@ export async function acceptMediaSourceCandidate(input: {
   }
   const bucket = input.bindings.BUCKET;
   if (!bucket) throw new Error("Cloudflare R2 úložisko nie je pripojené.");
-  const candidate = await bucket.get(row.candidateImageKey);
-  if (!candidate) throw new Error("Pripravený obrázok už v úložisku nie je.");
-
+  const now = (input.now ?? new Date()).toISOString();
+  const token = await claimMediaCandidate(input.database, row, now);
   const extension = row.candidateImageKey.split(".").pop()?.toLowerCase() || "webp";
   const folder = row.entityType === "MANAGED_EVENT" ? "events" : "directory";
   const key = `${folder}/${new Date().getUTCFullYear()}/source-${row.entityId}-${crypto.randomUUID()}.${extension}`;
-  const contentType = candidate.httpMetadata?.contentType || (extension === "webp" ? "image/webp" : "application/octet-stream");
-  await bucket.put(key, candidate.body, {
-    httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
-    customMetadata: {
-      source: "media-source-monitor-approved",
-      sourceImageUrl: row.candidateImageUrl.slice(0, 400),
-      sourceContentHash: row.candidateContentHash,
-      approvedBy: input.actorRef.slice(0, 200),
-    },
-  });
-
-  const now = (input.now ?? new Date()).toISOString();
-  const imageUrl = `/media/${key}`;
-  if (row.entityType === "DIRECTORY_PROFILE") {
-    await input.database.prepare(`
-      UPDATE directory_profiles
-      SET image_url=?, image_key=?, updated_at=?, updated_by=?
-      WHERE id=?
-    `).bind(imageUrl, key, now, input.actorRef, row.entityId).run();
-  } else {
-    await input.database.prepare(`
-      UPDATE managed_events
-      SET image_url=?, image_key=?, updated_at=?, updated_by=?
-      WHERE id=?
-    `).bind(imageUrl, key, now, input.actorRef, row.entityId).run();
+  let committed = false;
+  try {
+    const candidate = await bucket.get(row.candidateImageKey);
+    if (!candidate) throw new Error("Pripravený obrázok už v úložisku nie je.");
+    const contentType = candidate.httpMetadata?.contentType || (extension === "webp" ? "image/webp" : "application/octet-stream");
+    await bucket.put(key, candidate.body, {
+      httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
+      customMetadata: {
+        source: "media-source-monitor-approved",
+        sourceImageUrl: row.candidateImageUrl.slice(0, 400),
+        sourceContentHash: row.candidateContentHash,
+        approvedBy: input.actorRef.slice(0, 200),
+      },
+    });
+    await finalizeAcceptedMediaCandidate({
+      database: input.database, row, token, now, actorRef: input.actorRef,
+      newImageKey: key, oldImageKey: row.activeImageKey,
+      rejectedMarker: rejectedCandidateMarker(rejectedCandidateUrls(row.lastError)),
+    });
+    committed = true;
+  } catch (error) {
+    await releaseMediaCandidateClaim(input.database, row.id, token).catch(() => undefined);
+    // Do not delete the staged key if a D1 batch has already made it canonical.
+    const table = row.entityType === "MANAGED_EVENT" ? "managed_events" : "directory_profiles";
+    const latest = await input.database.prepare(`SELECT image_key FROM ${table} WHERE id=?`)
+      .bind(row.entityId).first<{ image_key: string | null }>().catch(() => null);
+    if (latest && latest.image_key !== key) await bucket.delete(key).catch(() => undefined);
+    throw error;
   }
-
-  await input.database.prepare(`
-    UPDATE media_source_monitors
-    SET source_image_url=?, source_content_hash=?, active_image_key=?,
-        status='OK', candidate_image_url=NULL, candidate_image_key=NULL,
-        candidate_content_hash=NULL, last_http_status=200, last_checked_at=?,
-        issue_started_at=NULL, last_error=?, updated_at=?
-    WHERE id=?
-  `).bind(
-    row.candidateImageUrl,
-    row.candidateContentHash,
-    key,
-    now,
-    rejectedCandidateMarker(rejectedCandidateUrls(row.lastError)),
-    now,
-    row.id,
-  ).run();
-
+  if (!committed) throw new Error("Nerozhodnutý výsledok schvaľovania obrázka.");
   await writeAcceptedSourceBackToNotion({
-    database: input.database,
-    bindings: input.bindings,
-    row,
-    sourceImageUrl: row.candidateImageUrl,
+    database: input.database, bindings: input.bindings,
+    row, sourceImageUrl: row.candidateImageUrl,
   });
-
-  await bucket.delete(row.candidateImageKey).catch(() => undefined);
-  if (row.activeImageKey && row.activeImageKey !== key && (row.activeImageKey.startsWith("directory/") || row.activeImageKey.startsWith("events/"))) {
-    await bucket.delete(row.activeImageKey).catch(() => undefined);
+  await deleteCandidate(bucket, row.candidateImageKey);
+  if (row.activeImageKey && row.activeImageKey !== key &&
+      (row.activeImageKey.startsWith("directory/") || row.activeImageKey.startsWith("events/"))) {
+    // A previously approved key might still be referenced elsewhere; retain it for safe GC.
+    // Do not delete an old canonical asset during approval.
   }
-  return { monitorId: row.id, entityType: row.entityType, entityId: row.entityId, imageUrl, imageKey: key };
+  return { monitorId: row.id, entityType: row.entityType, entityId: row.entityId,
+    imageUrl: `/media/${key}`, imageKey: key };
 }
