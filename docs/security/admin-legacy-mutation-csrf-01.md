@@ -15,7 +15,7 @@ Scope: one isolated Draft PR; no deployment, D1 migration, functional or visual 
 - Organizations: root POST, [id] PUT, bulk POST, publication PUT, google-place POST, fundraising POST, fundraising/[methodId] PUT/DELETE and verification PUT, locations POST, locations/[locationId] PUT/DELETE.
 - Adoptions: root POST, [id] PUT.
 - Breeds: root POST, [id] PUT/DELETE, bulk POST.
-- Existing directory/[id]/service-options PATCH guard also tested without changing it.
+- Existing directory/[id]/service-options PATCH and articles/[id] PATCH guards were kept exactly as before; both remain authenticated and CSRF-protected under their original shared-guard policy.
 
 ## Tests and deployment boundaries
 Run: `node --experimental-strip-types --experimental-loader ./tests/admin-legacy-csrf-loader.mjs --test tests/admin-legacy-mutation-csrf.test.mjs`.
@@ -23,3 +23,5 @@ Tests cover the real authentication wrapper with offline-only stubs, negative id
 
 ## Compatibility follow-up
 The first global strict-provenance revision broke existing Facebook Admin integration fixtures (403 on previously supported headerless calls). This PR narrows strict missing-header enforcement to the audited handlers, without weakening scheme/host/port matching for any supplied Origin. All other previously guarded Admin endpoints should be separately inventoried for a future controlled migration.
+
+The two previously guarded PATCH handlers retain their original `requireAdminMutation(request)` invocation to preserve the service-catalog and calendar regression contracts; only newly migrated handlers opt into strict missing-header validation.

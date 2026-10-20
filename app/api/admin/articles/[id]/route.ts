@@ -141,7 +141,7 @@ export async function PUT(request: Request, { params }: RouteProps) {
  * scheduling backend or altering the publication lifecycle.
  */
 export async function PATCH(request: Request, { params }: RouteProps) {
-  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  const auth = await requireAdminMutation(request);
   if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const id = await parsedId(params);
   if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });

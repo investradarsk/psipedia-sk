@@ -5,7 +5,7 @@ export const dynamic="force-dynamic";
 type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
 type Props={params:Promise<{id:string}>};
 export async function PATCH(request:Request,{params}:Props){
-  const auth=await requireAdminMutation(request, { strictProvenance: true });
+  const auth=await requireAdminMutation(request);
   if(auth.response)return auth.response;
   const cfg=env as unknown as Bindings;
   if(cfg.SERVICE_CATALOG_ADMIN_WRITES_ENABLED!=="true"||cfg.SERVICE_CATALOG_NOTION_MIRROR_READY!=="true")
