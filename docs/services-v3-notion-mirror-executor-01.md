@@ -5,7 +5,7 @@ Related issue #917, merged #897 and #913. Existing contract: docs/services-v3-no
 ## Verified architecture before this patch
 
 - D1 schema 0133 stores canonical option IDs, semantics, statuses and CAS versions.
-- D1 schema 0134 contains append-only audit and receipt tables and the exact-version approval trigger. Its source is ready; **production application is UNKNOWN**.
+- D1 schema 0134 contains append-only audit and receipt tables and the exact-version approval trigger. Its source is pinned; **production 0134 APPLIED & VERIFIED** (owner-approved GitHub Actions [#39474059819](https://github.com/investradarsk/psipedia-sk/actions/runs/39474059819), 2026-10-20). Migration apply, postflight, HTTP and desktop/mobile smoke all passed.
 - Phase 3C's internal recordCatalogMirrorOutcome is not a trusted atomic receipt writer.
 - Receipt-proof PR #913 validates independently read Notion data but does not write or commit.
 
@@ -31,10 +31,10 @@ Related issue #917, merged #897 and #913. Existing contract: docs/services-v3-no
 
 ## Migration and disabled gates
 
-- **0134: SOURCE_READY / PRODUCTION_VERIFIED UNKNOWN / production activation BLOCKED.**
+- **0134: APPLIED & VERIFIED on production (2026-10-20, run #39474059819).** Catalog/Notion feature activation remains BLOCKED for independent reasons.
 - Existing flags SERVICE_CATALOG_ADMIN_WRITES_ENABLED and SERVICE_CATALOG_NOTION_MIRROR_READY are untouched and not activated.
 - New executor-only flag mirrorExecutor is required by the injected worker dependencies, and defaults off; no environment variable, cron, worker or deployment is added.
-- Before future production rollout: owner-authorized 0134 deployment by separate task; direct read-only D1 schema verification; approved Notion data-source schema and static ID/page ownership mapping; durable lock provider; staging acceptance; restricted Notion token; observability for failures; security/CI review; separately approved worker, feature flags and deploy.
+- Before any future Notion writer rollout: approve catalog-only Notion data-source schema and exact property mapping; verify static option ID/page ownership; provide durable cross-worker lease; complete staging acceptance, restricted token, observability, security/CI review, and separate owner approval for internal worker, feature flags and deployment. Never reapply 0134.
 
 ## Offline tests and CI
 
@@ -44,4 +44,10 @@ Path-scoped .github/workflows/services-v3-notion-mirror-offline.yml uses Node 22
 
 Tests use in-memory SQLite 0133+0134 and mocked Notion transport, with success, mismatch, wrong ID/source, missing link, replay, timeout after remote write, Notion failure, failed readback, stale revision, forced DB CAS rollback, off flags, missing migration, wrong target and unauthorized profile-field checks.
 
-**No production D1/Notion writes, 0134 application, real synchronization, flags, merge or deployment performed.**
+**This isolated Draft PR performed no production D1/Notion writes, real synchronization, flags, merge or deployment.** The separate owner-approved 0134 deployment has since succeeded (see run #39474059819).
+
+## Read-only Notion workspace check — 2026-10-20
+
+The connected Psipedia Editorial Hub lists a Notion **Adresár** database for directory/profile records, not a positively identified dedicated Services V3 catalog. A restricted workspace keyword search also did not verify a suitable catalog with the required nine distinct option properties. This is **not** evidence of global absence; the catalog may exist outside the searched scope.
+
+**Fail-closed:** Do not point the adapter at Adresár, derive options from its free-text `Služby` field, create catalog pages, or enable `allowWrites` until a purpose-built catalog source, property mapping, and option-to-page registry have been positively verified and approved.
