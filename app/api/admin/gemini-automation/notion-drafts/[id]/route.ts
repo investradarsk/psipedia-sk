@@ -9,6 +9,7 @@ import {
 import { geminiAgendaForKey, getGeminiAgendaDraft, mutateGeminiAgendaDraft, GeminiAgendaReviewError } from "@/lib/gemini-notion-agenda-review";
 import { geminiValidNotionDraftId } from "@/lib/gemini-concept-manager";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import { reconcileGeminiSavedDraft, type GeminiCanonicalSaveResult } from "@/lib/gemini-canonical-save-sync";
 
 export const dynamic = "force-dynamic";
 const HEADERS = { "cache-control": "no-store" };
@@ -70,10 +71,30 @@ export async function PUT(request: Request, { params }: Props) {
     const { id } = await params;
     const body: unknown = await request.json();
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
-    const draft = key && geminiAgendaForKey(key)
+    const isAgenda = Boolean(key && geminiAgendaForKey(key));
+    const draft = isAgenda
       ? await mutateGeminiAgendaDraft(env, key, id, body, auth.user.email)
       : await saveGeminiDirectoryDraft(env, id, body, auth.user.email);
-    return Response.json({ draft }, { headers: HEADERS });
+    // An explicit user save may also persist the same signed concept as a
+    // private canonical D1 draft through the original one-page sync pipeline.
+    // A Notion save remains truthful even when D1 reconciliation is blocked.
+    const stableKey = isAgenda ? key
+      : "category" in draft ? "directory." + draft.category : "";
+    let canonicalSave: GeminiCanonicalSaveResult = { state: "NOTION_ONLY" };
+    const database = (env as unknown as { DB?: D1Database }).DB;
+    if (database && getGeminiCatalogItem(stableKey)) {
+      try {
+        canonicalSave = await reconcileGeminiSavedDraft({
+          database,
+          bindings: env as unknown as Parameters<typeof reconcileGeminiSavedDraft>[0]["bindings"],
+          key: stableKey, notionPageId: id,
+        });
+      } catch {
+        // Never auto-retry a potentially completed Notion/D1 write.
+        canonicalSave = { state: "NEEDS_REVIEW" };
+      }
+    }
+    return Response.json({ draft, canonicalSave }, { headers: HEADERS });
   } catch (error) { return fail(error); }
 }
 
