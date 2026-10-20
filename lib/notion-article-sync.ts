@@ -1300,11 +1300,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   }
   let plan: NotionEditorialPlan;
   if (journal) {
-    if (journal.article_id !== article.id || journal.article_updated_at !== article.updatedAt ||
-      journal.base_content_hash !== mapping.content_hash && journal.base_content_hash !==
-        (await args.database.prepare(
-          "SELECT base_content_hash FROM article_notion_editorial_outbox WHERE notion_page_id = ?",
-        ).bind(mapping.notion_page_id).first<{ base_content_hash: string }>())?.base_content_hash) {
+    if (journal.article_id !== article.id || journal.article_updated_at !== article.updatedAt) {
       // Outbox ownership must never silently change on a later editor revision.
       throw new Error("NOTION_EDITORIAL_OUTBOX_CONFLICT");
     }
