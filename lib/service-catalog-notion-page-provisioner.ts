@@ -37,7 +37,7 @@ export type PageProvisionResult={
   pageId?:string;
 };
 const VALID=/^(svc|attr)\.admin\.[a-f0-9]{32}$/;
-const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const canon=(id:string)=>id.replaceAll("-","").toLowerCase();
 const same=(a:Row,b:Row)=>[
   "id","version","kind","label","group_name","meaning","primary_category","categories_json",
