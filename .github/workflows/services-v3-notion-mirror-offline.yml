@@ -1,0 +1,29 @@
+name: Services V3 Notion mirror (offline)
+on:
+  pull_request:
+    paths:
+      - "lib/service-catalog-notion-mirror-executor.ts"
+      - "lib/service-catalog-notion-http-port.ts"
+      - "lib/service-catalog-notion-receipt-proof.ts"
+      - "tests/service-catalog-notion-mirror-executor.test.mjs"
+      - "tests/service-catalog-notion-receipt-proof.test.mjs"
+      - ".github/workflows/services-v3-notion-mirror-offline.yml"
+      - "docs/services-v3-notion-mirror-executor-01.md"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-mirror-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+      - name: Syntax / TS strip parse
+        run: |
+          node --experimental-strip-types --check lib/service-catalog-notion-mirror-executor.ts
+          node --experimental-strip-types --check lib/service-catalog-notion-http-port.ts
+      - name: Offline verified receipt and synthetic D1 transaction tests
+        run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs tests/service-catalog-notion-mirror-executor.test.mjs
