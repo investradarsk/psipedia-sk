@@ -144,7 +144,7 @@ export function createPsipediaServiceCatalogReadOnlyRegistry(config: {
   const catalogUrl = "https://api.notion.com/v1/data_sources/" + dataSourceId + "/query";
   const client = config.fetcher ?? fetch;
   const normalizeId = (id: string) => id.replaceAll("-", "").toLowerCase();
-  const dynamicId = /^(svc|attr)\\.admin\\.[a-f0-9]{32}$/;
+  const dynamicId = /^(svc|attr)\.admin\.[a-f0-9]{32}$/;
   const categorySlugs = new Set([
     "veterinari", "treneri", "kynologicke-kluby", "chovatelske-kluby",
     "chovatelske-stanice", "salony-a-sluzby", "hotely-a-opatrovanie",
