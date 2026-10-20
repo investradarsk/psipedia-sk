@@ -94,13 +94,10 @@ export async function finalizeRejectedMediaCandidate(
         candidate_image_url, candidate_content_hash, action, reason,
         actor_ref, decided_at, outcome
       )
-      SELECT ?, ?, ?, ?, ?, ?, ?, 'reject', ?, ?, ?, 'APPLIED'
-      FROM media_source_monitors
-      WHERE id=? AND review_claim_token IS NULL AND candidate_image_key IS NULL
-        AND status='UNTRACKED' AND updated_at=?
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'reject', ?, ?, ?, 'APPLIED')
     `).bind(crypto.randomUUID(), row.id, row.entityType, row.entityId,
       row.candidateImageKey, row.candidateImageUrl, row.candidateContentHash,
-      input.reason, input.actorRef.slice(0, 200), now, row.id, now),
+      input.reason, input.actorRef.slice(0, 200), now),
   ]);
   if (results[0].meta.changes !== 1 || results[1].meta.changes !== 1) {
     throw new Error("Konflikt: rozhodnutie sa nepodarilo bezpečne zapísať.");
@@ -140,13 +137,10 @@ export async function finalizeAcceptedMediaCandidate(
         candidate_image_url, candidate_content_hash, action, reason,
         actor_ref, decided_at, outcome
       )
-      SELECT ?, ?, ?, ?, ?, ?, ?, 'accept', NULL, ?, ?, 'APPLIED'
-      FROM media_source_monitors
-      WHERE id=? AND review_claim_token IS NULL AND candidate_image_key IS NULL
-        AND status='OK' AND active_image_key=? AND updated_at=?
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'accept', NULL, ?, ?, 'APPLIED')
     `).bind(crypto.randomUUID(), row.id, row.entityType, row.entityId,
       row.candidateImageKey, row.candidateImageUrl, row.candidateContentHash,
-      input.actorRef.slice(0, 200), now, row.id, input.newImageKey, now),
+      input.actorRef.slice(0, 200), now),
   ]);
   if (results.some((result) => result.meta.changes !== 1)) {
     throw new Error("Konflikt: obrázok bol medzičasom upravený. Obnov údaje.");

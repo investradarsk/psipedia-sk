@@ -23,3 +23,41 @@ CREATE INDEX IF NOT EXISTS media_review_decisions_monitor_time_idx
 
 CREATE INDEX IF NOT EXISTS media_review_claims_idx
   ON media_source_monitors(review_claim_token, review_claimed_at);
+
+-- A failed CAS must abort the entire D1 batch, not commit only the first UPDATE.
+-- The AFTER-UPDATE state and immutable history entry either both commit or neither.
+CREATE TRIGGER media_review_decision_finalization_guard
+BEFORE INSERT ON media_source_review_decisions
+BEGIN
+  SELECT RAISE(ABORT, 'MEDIA_REVIEW_INCOMPLETE_DECISION')
+  WHERE NOT EXISTS (
+    SELECT 1 FROM media_source_monitors m
+    WHERE m.id=NEW.monitor_id AND m.entity_type=NEW.entity_type
+      AND m.entity_id=NEW.entity_id
+      AND m.review_claim_token IS NULL AND m.candidate_image_key IS NULL
+      AND m.updated_at=NEW.decided_at
+      AND (
+        (NEW.action='reject' AND m.status='UNTRACKED')
+        OR
+        (NEW.action='accept' AND m.status='OK' AND m.active_image_key IS NOT NULL
+          AND (
+            (NEW.entity_type='DIRECTORY_PROFILE' AND EXISTS (
+              SELECT 1 FROM directory_profiles p WHERE p.id=NEW.entity_id AND p.image_key=m.active_image_key
+            ))
+            OR
+            (NEW.entity_type='MANAGED_EVENT' AND EXISTS (
+              SELECT 1 FROM managed_events e WHERE e.id=NEW.entity_id AND e.image_key=m.active_image_key
+            ))
+          )
+        )
+      )
+  );
+END;
+
+CREATE TRIGGER media_review_decisions_no_update
+BEFORE UPDATE ON media_source_review_decisions
+BEGIN SELECT RAISE(ABORT, 'MEDIA_REVIEW_AUDIT_IMMUTABLE'); END;
+
+CREATE TRIGGER media_review_decisions_no_delete
+BEFORE DELETE ON media_source_review_decisions
+BEGIN SELECT RAISE(ABORT, 'MEDIA_REVIEW_AUDIT_IMMUTABLE'); END;
