@@ -164,3 +164,18 @@ test("existing adapters enforce canonical publication lock across every agenda",
   assert.match(adapter, /CANONICAL_PUBLICATION_OR_IDENTITY_LOCKED/);
   assert.match(eventSync, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
 });
+
+
+test("equal Events/Help snapshots persist the actual verified common field values", async () => {
+  const sync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(sync,
+    /mapping\.content_hash === canonicalHash\) \{[\s\S]{0,250}recordProfileFieldBaseline\(\{[\s\S]{0,220}snapshot: sourceSnapshot,/);
+});
+
+test("changed Events/Help mappings never advance on an unverified Notion PATCH echo", async () => {
+  const sync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(sync,
+    /if \(!written\.properties \|\|[\s\S]{0,200}NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH/);
+  assert.match(sync,
+    /NOTION_EDITORIAL_WRITEBACK_ECHO_MISMATCH[\s\S]{0,350}snapshot: verifiedSnapshot,/);
+});
