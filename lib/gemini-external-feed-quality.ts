@@ -86,11 +86,18 @@ async function exact(db:GeminiD1,key:string,c:Identity):Promise<Match|null>{
  const rows=(await db.prepare(sql).bind(...args).all<Record<string,unknown>>()).results;
  if(rows?.length!==1)return null;
  const row=rows[0];
- if(key.startsWith("events.")&&( !equal(row.title,c.name)||!equal(row.organizer,c.organizer)||
-    row.start_date!==c.start_date || String(row.event_type)!==eventTypeForStableKey(key)))return null;
- if(key==="help.utulky"&&(!equal(row.name,c.name)||!equal(row.city,c.city)))return null;
- if(key==="help.adopcia"&&(!equal(row.name,c.name)||!equal(row.organization_name,c.organizer)))return null;
- if(key==="help.stratene-a-najdene"&&(row.type!==c.type||row.event_date!==c.start_date||!equal(row.city,c.city)))return null;
+ if(!Number.isSafeInteger(Number(row.id))||Number(row.id)<1)return null;
+ if(key.startsWith("events.")&&(!equal(row.title,c.name)||!equal(row.organizer,c.organizer)||
+    row.start_date!==c.start_date||!equal(row.city,c.city)||
+    String(row.event_type)!==eventTypeForStableKey(key)))return null;
+ if(key==="help.utulky"&&(!equal(row.name,c.name)||!equal(row.city,c.city)||
+    (url(row.website_url)!==site&&url(row.source_url)!==source)))return null;
+ if(key==="help.adopcia"&&(!equal(row.name,c.name)||!equal(row.organization_name,c.organizer)||
+    url(row.external_source_url)!==source))return null;
+ if(key==="help.stratene-a-najdene"&&(row.type!==c.type||row.event_date!==c.start_date||
+    !equal(row.city,c.city)||url(row.source_url)!==source))return null;
+ if(["help.docasna-opatera","help.zbierky","help.dobrovolnictvo"].includes(key)&&
+    (!equal(row.title,c.name)||!equal(row.category,key.slice(5))||url(row.action_url)!==source))return null;
  return {id:Number(row.id),entity,table,row,fields};
 }
 /** Existing source provenance is mandatory. Never synthesize source rows or impersonate
@@ -128,7 +135,7 @@ export async function submitGeminiFeedQualityProposal(input:{
     before[key]=old??null;proposed[key]=value;diff[key]={before:old??null,after:value};
   }
   if(!Object.keys(diff).length)return {status:"NO_CHANGES",httpStatus:200};
-  const identity=stable({entity:canonical.entity,id:canonical.id,source,proposal:proposed});
+  const identity=stable({entity:canonical.entity,id:canonical.id,source,proposal:stable(proposed)});
   const fingerprint=await sha("gemini-quality-feed-v1|"+identity);
   const detected=new Date(input.now).toISOString();
   const payload=stable(proposed);
