@@ -23,7 +23,7 @@ import { SITE_URL } from "@/lib/seo";
 import { publicMapLaunchEnabled } from "@/config/runtime-env";
 import { assertSitemapEntityParity, type SitemapParityCandidate } from "@/lib/sitemap-parity";
 import { assertValidSitemap, isSelfCanonical, latestModified, sitemapEntry, SITEMAP_REDIRECT_SOURCES } from "@/lib/sitemap-seo";
-import { loadSitemapStages, runSitemapStageSync } from "@/lib/sitemap-runtime";
+import { loadSitemapStages, runSitemapStageSync, SitemapStageError } from "@/lib/sitemap-runtime";
 
 function absoluteSitemapUrl(path: string) {
   return `${SITE_URL}${path}`;
@@ -378,6 +378,18 @@ function buildSitemapEntries(datasets: SitemapDatasets): MetadataRoute.Sitemap {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const datasets = await loadSitemapDatasets();
-  return buildSitemapEntries(datasets);
+  try {
+    const datasets = await loadSitemapDatasets();
+    return buildSitemapEntries(datasets);
+  } catch (error) {
+    // Cloudflare logs need the stage identifier to distinguish D1 read,
+    // parity/data inconsistency and XML validation failures. Never log
+    // row values, SQL statements, tokens or potentially private profile data.
+    console.error(JSON.stringify({
+      event: "sitemap_generation_failed",
+      stage: error instanceof SitemapStageError ? error.stage : "unknown",
+      kind: error instanceof Error ? error.name : "unknown",
+    }));
+    throw error;
+  }
 }
