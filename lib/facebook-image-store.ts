@@ -105,6 +105,7 @@ export async function listFacebookImagePosts(
     throw new Error("Neplatný filter.");
   if(!["all","manual","notion"].includes(source))throw new Error("Neplatný zdroj.");
   const publisher=await hasPublisherSchema(db),trash=await hasTrashSchema(db),consent=await hasDirectConsentSchema(db);
+  const retry=publisher&&await hasRetrySchema(db);
   const start=new Date(month+"-01T00:00:00Z"),end=new Date(start);
   end.setUTCMonth(end.getUTCMonth()+1);
   const from=new Date(start.getTime()-8*86400000).toISOString();
@@ -124,7 +125,6 @@ export async function listFacebookImagePosts(
   if(source==="notion")where.push("p.notion_page_id IS NOT NULL");
   else if(source==="manual")where.push("p.notion_page_id IS NULL");
   const clause=where.length?where.join(" AND "):"1=1";
-  const retry=publisher&&await hasRetrySchema(db);
   const join=publisherJoin(publisher),select=selectColumns(publisher,trash,consent,retry);
   const totalRow=await db.prepare("SELECT COUNT(*) AS n FROM facebook_image_posts p"+join+
     " WHERE "+clause).bind(...values).first<{n:number}>();
