@@ -8,6 +8,7 @@ on:
       - "lib/service-catalog-notion-page-provisioner.ts"
       - "lib/service-catalog-notion-durable-lease.ts"
       - "lib/service-catalog-notion-internal-runner.ts"
+      - "app/api/admin/service-catalog/notion-mirror/route.ts"
       - "lib/service-catalog-notion-receipt-proof.ts"
       - "tests/service-catalog-notion-mirror-executor.test.mjs"
       - "tests/service-catalog-notion-receipt-proof.test.mjs"
