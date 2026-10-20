@@ -254,3 +254,45 @@ test("updated Admin revision blocks retry even when remote changes already start
     /NOTION_EDITORIAL_OUTBOX_CONFLICT/);
   assert.equal(h.journal.deleted, undefined);
 });
+
+
+test("Notion page with missing canonical Psipedia ID cannot receive editorial patches", async () => {
+  const h = setup();
+  delete h.notion.properties["Psipedia ID"];
+  const writer = await loadWriter(h);
+  await assert.rejects(
+    writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_ARTICLE_IDENTITY_CONFLICT/,
+  );
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+  assert.equal(h.journal.deleted, undefined);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+});
+
+test("journal retry rejects an externally reassigned Notion page identity", async () => {
+  const h = setup();
+  const writer = await loadWriter(h);
+  await assert.rejects(
+    writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /Notion API 503/,
+  );
+  const previousPatches = h.calls.filter(([verb]) => verb === "PATCH").length;
+  h.notion.properties["Psipedia ID"] = { rich_text: rich("999") };
+  h.failSecond = false;
+  await assert.rejects(
+    writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_ARTICLE_IDENTITY_CONFLICT/,
+  );
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, previousPatches);
+  assert.equal(h.journal.deleted, undefined);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+});
+
+test("initial, latest and verification reads each enforce immutable Notion canonical identity", async () => {
+  const source = await readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8");
+  const writer = source.slice(source.indexOf("export async function writeBackDraftArticleContentToNotion("),
+    source.indexOf("async function sha256(", source.indexOf("export async function writeBackDraftArticleContentToNotion(")));
+  assert.equal((writer.match(/matchesEditorialIdentity\((page|latest|verifiedPage)\)/g) || []).length, 3);
+  assert.match(writer, /value\.id === mapping\.notion_page_id/);
+  assert.match(writer, /richTextProperty\(value, "Psipedia ID"\) === String\(article\.id\)/);
+});
