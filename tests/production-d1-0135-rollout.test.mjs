@@ -23,7 +23,7 @@ function fixture() {
 }
 test("0135 target requires immutable SHA, exact production identity, approved 0134 predecessor and manual one-shot confirmation",()=>{
  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2),target);
- assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+ assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0137_media_source_review_decisions.sql"]);
  assert.equal(createHash("sha256").update(sql).digest("hex"),PINNED_SHA256_0135);
  assert.equal(APPROVED_0135_SHA256,PINNED_SHA256_0135);
  assert.doesNotThrow(()=>assertApproved0135Target("psipedia-sk-db",APPROVED_0135_SHA256));

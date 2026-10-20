@@ -34,7 +34,7 @@ test("0136 is immutable, follows canonical applied 0135, and can only be owner-d
   assert.equal(APPROVED_0136_SHA256, PINNED_SHA256_0136);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0135_facebook_image_safe_retry.sql");
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0137_media_source_review_decisions.sql"]);
   assert.doesNotThrow(() => assertApproved0136Target("psipedia-sk-db", APPROVED_0136_SHA256));
   assert.throws(() => assertApproved0136Target("other-db", APPROVED_0136_SHA256), /canonical/);
   assert.throws(() => assertApproved0136Target("psipedia-sk-db", "different"), /SHA256/);
