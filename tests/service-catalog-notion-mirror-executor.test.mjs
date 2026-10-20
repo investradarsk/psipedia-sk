@@ -6,6 +6,7 @@ import {createAdminCatalogOption} from "../lib/service-catalog-admin-store.ts";
 import {buildServicesV3NotionBootstrapInventory} from "../lib/service-catalog-notion-bootstrap-plan.ts";
 import {provisionServiceCatalogNotionPage} from "../lib/service-catalog-notion-page-provisioner.ts";
 import {createServicesV3CatalogD1Lease,inspectServicesV3CatalogLease,ServiceCatalogLeaseBusy} from "../lib/service-catalog-notion-durable-lease.ts";
+import {runServicesV3CatalogInternal} from "../lib/service-catalog-notion-internal-runner.ts";
 import {executeServiceCatalogNotionMirror} from "../lib/service-catalog-notion-mirror-executor.ts";
 import {createServiceCatalogNotionHttpPort, createPsipediaServiceCatalogNotionHttpPort,
   PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING, createPsipediaServiceCatalogReadOnlyRegistry} from "../lib/service-catalog-notion-http-port.ts";
@@ -671,4 +672,76 @@ test("lease refuses invalid static IDs and lost-release ownership, without unloc
     }),/SERVICES_V3_LEASE_RELEASE_OWNERSHIP_LOST/);
     assert.equal((await inspectServicesV3CatalogLease(f.db,f.created.id)).held,true);
   }finally{f.sqlite.close();}
+});
+
+
+test("unwired internal catalog runner rejects unauthorized operator before any network call",async()=>{
+  const f=await fixture();
+  try{
+    let requests=0;
+    const result=await runServicesV3CatalogInternal({
+      db:f.db,action:"INVENTORY",env:{NOTION_API_TOKEN:"offline-fixture"},
+      authorize:async()=>false,fetcher:async()=>{requests++;throw Error("NO_EXTERNAL_ACCESS");}
+    });
+    assert.deepEqual(result,{state:"BLOCKED",reason:"UNAUTHORIZED",action:"INVENTORY"});
+    assert.equal(requests,0);
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("internal runner allows only authorized read-only inventory with all production write flags OFF",async()=>{
+  const f=await fixture();
+  try{
+    const requests=[];
+    const result=await runServicesV3CatalogInternal({
+      db:f.db,action:"INVENTORY",env:{NOTION_API_TOKEN:"offline-fixture"},
+      authorize:async()=>true,fetcher:async(url,init)=>{
+        requests.push({url,method:init.method});
+        return {ok:true,json:async()=>({results:[],has_more:false,next_cursor:null})};
+      }
+    });
+    assert.equal(result.state,"INVENTORY");
+    assert.equal(result.value.canonicalDynamicCount,1);
+    assert.equal(result.value.notionPageCount,0);
+    assert.equal(result.value.items[0].disposition,"NEEDS_PAGE");
+    assert.equal(result.value.safeForAutomaticWrite,false);
+    assert.equal(requests.length,1);
+    assert.ok(requests[0].url.includes("v1/data_sources/"));
+    assert.equal(requests[0].method,"POST"); // Notion data-source QUERY, NOT page creation
+    assert.equal(f.count(),0);
+    assert.equal(f.local().notionMirrorStatus,"PENDING");
+  }finally{f.sqlite.close();}
+});
+test("internal provision and mirror refuse any external mutation until flag gates are active",async()=>{
+  const f=await fixture();
+  try{
+    let network=0;
+    for(const action of ["PROVISION_ONE","MIRROR_ONE"]){
+      const stopped=await runServicesV3CatalogInternal({
+        db:f.db,action,optionId:f.created.id,
+        env:{NOTION_API_TOKEN:"offline-fixture"},
+        authorize:async()=>true,
+        fetcher:async()=>{network++;throw Error("SHOULD_NOT_BE_CALLED");}
+      });
+      assert.deepEqual(stopped,{state:"BLOCKED",reason:"FEATURE_DISABLED",action});
+    }
+    const missingCreate=await runServicesV3CatalogInternal({
+      db:f.db,action:"PROVISION_ONE",optionId:f.created.id,
+      env:{NOTION_API_TOKEN:"offline-fixture",
+        SERVICE_CATALOG_ADMIN_WRITES_ENABLED:"true",
+        SERVICE_CATALOG_NOTION_MIRROR_READY:"true",
+        SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED:"true"},
+      authorize:async()=>true,
+      fetcher:async()=>{network++;throw Error("SHOULD_NOT_BE_CALLED");}
+    });
+    assert.equal(missingCreate.reason,"PAGE_CREATION_DISABLED");
+    assert.equal(network,0);
+    assert.equal(f.count(),0);
+  }finally{f.sqlite.close();}
+});
+test("no Services V3 live runner, cron or route wiring is present",()=>{
+  const wrangler=read("wrangler.jsonc");
+  const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
+  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
+  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED/);
+  assert.doesNotMatch(route,/runServicesV3CatalogInternal|provisionServiceCatalogNotionPage/);
 });
