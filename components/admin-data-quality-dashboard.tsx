@@ -61,6 +61,12 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     action: MediaReviewAction; ids: number[]; label: string; expectedCandidates: Record<string, string>;
   } | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [reviewReason, setReviewReason] = useState("");
+  const [reviewHistory, setReviewHistory] = useState<{
+    monitorId: number; loading: boolean;
+    entries: Array<{ id: string; action: string; reason: string | null;
+      actor_ref: string; decided_at: string; outcome: string }>; error: string | null;
+  } | null>(null);
   const [failedItems, setFailedItems] = useState<Array<{ id: number; error: string }>>([]);
   const [resultTone, setResultTone] = useState<"success" | "partial" | "error" | null>(null);
   const activeSection = searchParams.get("section") === "media" ? "media" : "profiles";
@@ -141,16 +147,36 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
     const expectedCandidates = Object.fromEntries(items.map(({ monitor }) =>
       [String(monitor.id), monitor.candidateImageKey as string]));
     setDetailId(null);
+    setReviewReason("");
     setDecision({
       action, ids: items.map(({ monitor }) => monitor.id),
       label: items.length === 1 ? items[0].label : "", expectedCandidates,
     });
   }
 
+  async function loadMediaHistory(monitorId: number) {
+    setReviewHistory({ monitorId, loading: true, entries: [], error: null });
+    try {
+      const response = await fetch(`/api/admin/data-quality/media/${monitorId}/history`, {
+        method: "GET", cache: "no-store",
+      });
+      const result = await response.json() as {
+        error?: string; history?: Array<{ id: string; action: string; reason: string | null;
+          actor_ref: string; decided_at: string; outcome: string }>;
+      };
+      if (!response.ok) throw new Error(result.error || "Históriu rozhodnutí sa nepodarilo načítať.");
+      setReviewHistory({ monitorId, loading: false, entries: result.history ?? [], error: null });
+    } catch (error) {
+      setReviewHistory({ monitorId, loading: false, entries: [],
+        error: error instanceof Error ? error.message : "História nie je dostupná." });
+    }
+  }
+
   async function confirmMediaDecision() {
     if (!decision || busy !== null || decisionInFlight.current) return;
     decisionInFlight.current = true;
     const { action, ids, expectedCandidates } = decision;
+    const reason = action === "reject" ? reviewReason : undefined;
     setBusy(`bulk-${action}`);
     setMessage("");
     setFailedItems([]);
@@ -164,7 +190,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
         headers: { "content-type": "application/json" },
         body: JSON.stringify(individualApproval
           ? { expectedCandidateImageKey: expectedCandidates[String(ids[0])] }
-          : { action, ids, expectedCandidates }),
+          : { action, ids, expectedCandidates, reason }),
       });
       const result = await response.json() as {
         error?: string; requested?: number; updated?: number;
@@ -261,8 +287,14 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
             <p>Nové obrázky sa uložia k príslušným profilom alebo podujatiam a môžu nahradiť ich doterajšie obrázky.</p>
           )}
           {decision?.action === "reject" ? (
-            <p className={styles.reasonNotice}>Dôvod zamietnutia zatiaľ nie je možné bezpečne uložiť. Textové pole sa zobrazí až po schválení samostatnej auditnej persistence.</p>
-          ) : null}
+            <label className={styles.reasonField}>
+              <span>Dôvod zamietnutia (voliteľný)</span>
+              <textarea name="reason" rows={3} maxLength={500} value={reviewReason}
+                disabled={busy !== null} onChange={(event) => setReviewReason(event.target.value)}
+                placeholder="Krátke vysvetlenie rozhodnutia" />
+              <small>{Array.from(reviewReason).length} / 500 znakov. Dôvod sa uloží do histórie rozhodnutí.</small>
+            </label>
+          ) : null>
           {resultTone === "error" && message ? <p role="alert" className={styles.errorNotice}>{message}</p> : null}
         </div>
       </AdminModalDialog>
@@ -283,6 +315,29 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
               <figcaption>Navrhovaný obrázok</figcaption>
               <img src={`/media/${detailItem.monitor.candidateImageKey}`} alt={`Navrhovaný obrázok pre ${detailItem.label}`} />
             </figure>
+          ) : null}
+          {detailItem ? (
+            <div className={styles.historyPanel}>
+              <AdminActionButton variant="secondary" disabled={reviewHistory?.loading === true}
+                onClick={() => void loadMediaHistory(detailItem.monitor.id)}>
+                {reviewHistory?.loading ? "Načítavam históriu…" : "Zobraziť históriu rozhodnutí"}
+              </AdminActionButton>
+              {reviewHistory?.monitorId === detailItem.monitor.id ? (
+                reviewHistory.loading ? <p role="status">Načítavam históriu…</p>
+                  : reviewHistory.error ? <p role="alert">{reviewHistory.error}</p>
+                  : reviewHistory.entries.length ? (
+                    <ul aria-label="História rozhodnutí obrázka">
+                      {reviewHistory.entries.map((entry) => (
+                        <li key={entry.id}>
+                          <strong>{entry.action === "accept" ? "Schválené" : "Zamietnuté"}</strong>
+                          {" · "}{checkedAt(entry.decided_at)}{" · "}{entry.actor_ref}
+                          {entry.reason ? <p>Dôvod: {entry.reason}</p> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <p>Bez predchádzajúcich rozhodnutí.</p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </AdminModalDialog>
@@ -750,7 +805,7 @@ export function AdminDataQualityDashboard({ data }: { data: DataQualityDashboard
                                   onClick={() => openMediaDecision("reject", [monitor.id])}>Zamietnuť</AdminActionButton>
                                 <AdminActionButton variant="secondary" disabled={busy !== null}
                                   aria-label={`Detailne porovnať obrázky – ${label}`}
-                                  onClick={() => setDetailId(monitor.id)}>Porovnať detailne</AdminActionButton>
+                                  onClick={() => { setReviewHistory(null); setDetailId(monitor.id); }}>Porovnať detailne</AdminActionButton>
                               </>
                             ) : null}
                             <Link href={href}>Otvoriť {monitor.entityType === "MANAGED_EVENT" ? "podujatie" : "profil"}</Link>

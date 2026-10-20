@@ -9,6 +9,9 @@ const css = read("components/admin-data-quality-image-review-v2.module.css");
 const bulk = read("app/api/admin/data-quality/media/bulk/route.ts");
 const single = read("app/api/admin/data-quality/media/[id]/accept/route.ts");
 const svc = read("lib/media-source-monitor.ts");
+const decisionStore = read("lib/media-source-review-decisions.ts");
+const historyRoute = read("app/api/admin/data-quality/media/[id]/history/route.ts");
+const migration = read("drizzle/0137_media_source_review_decisions.sql");
 
 test("single and bulk decisions are confirmed with one request at a time", () => {
   for (const phrase of [
@@ -73,8 +76,21 @@ test("mobile layouts and semantic 44px actions are local to image review", () =>
   assert.ok(ui.includes("Detailne porovnať obrázky – ${label}"));
 });
 
-test("no false persistence of a rejection reason and no accidental rework of profiles", () => {
-  assert.ok(ui.includes("Dôvod zamietnutia zatiaľ nie je možné bezpečne uložiť"));
+test("reason, authenticated history, migration and candidate CAS are wired without reworking profiles", () => {
+  assert.ok(ui.includes('name="reason"'));
+  assert.ok(ui.includes('maxLength={500}'));
+  assert.ok(ui.includes("Dôvod zamietnutia (voliteľný)"));
+  assert.ok(ui.includes("loadMediaHistory(detailItem.monitor.id)"));
   assert.ok(ui.includes("Chýbajúce údaje v profiloch"));
-  assert.ok(!ui.includes('name="reason"'));
+  assert.ok(bulk.includes("validateMediaReviewReason(body.reason)"));
+  assert.ok(bulk.includes("reason,"));
+  assert.ok(historyRoute.includes("getAdminApiUser()"));
+  assert.ok(historyRoute.includes("private, no-store"));
+  assert.ok(decisionStore.includes("review_claim_token IS NULL"));
+  assert.ok(decisionStore.includes("image_key IS ?"));
+  assert.ok(decisionStore.includes("database.batch(["));
+  assert.ok(decisionStore.includes("listMediaReviewHistory"));
+  assert.ok(migration.includes("review_claim_token"));
+  assert.ok(migration.includes("media_source_review_decisions"));
+  assert.ok(migration.includes("length(reason) <= 500"));
 });

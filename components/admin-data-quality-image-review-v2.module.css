@@ -36,3 +36,16 @@
 .reviewActions > button[data-admin-action="primary"] { color:#fff; background:var(--admin-v3-green,#0c3d2b); border-color:var(--admin-v3-green,#0c3d2b); }
 .reviewActions > button[data-admin-action="destructive"] { color:#a5232b; background:#fff2f2; border-color:#f1c4c5; }
 .reviewActions > button[data-admin-action="secondary"] { color:#183f2d; background:#fff; border-color:#cbdad0; }
+
+/* Scoped audit and rejection controls, preserving existing compact dialogs. */
+.reasonField { display:grid; gap:6px; min-width:0; font-weight:700; }
+.reasonField textarea { box-sizing:border-box; width:100%; min-height:92px; resize:vertical;
+  border:1px solid var(--admin-v3-line,#cbdad0); border-radius:9px; padding:10px;
+  background:#fff; color:inherit; font:inherit; font-weight:400; }
+.reasonField textarea:focus-visible { outline:2px solid #246f4d; outline-offset:2px; }
+.reasonField small { color:#5b675f; font-weight:400; }
+.historyPanel { display:grid; gap:8px; margin-top:12px; border-top:1px solid #dce6df; padding-top:12px; }
+.historyPanel > button { justify-self:start; min-height:44px; }
+.historyPanel ul { margin:0; padding-left:20px; max-height:240px; overflow:auto; overflow-wrap:anywhere; }
+.historyPanel li { padding:7px 0; }
+.historyPanel li p { margin:4px 0 0; }

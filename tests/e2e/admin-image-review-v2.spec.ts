@@ -50,7 +50,7 @@ for(const width of [1440,390,320]){
       expect(calls).toBe(1);expect(body.expectedCandidateImageKey).toBe("fixture/new-luna.svg");
       await save(page,info,"02-approval-result");
     });
-    test("03 individual rejection + reason remains blocked",async({page},info)=>{
+    test("03 individual rejection + durable reason in request",async({page},info)=>{
       await gotoFixture(page);
       let calls=0;let payload:Record<string,unknown> = {};
       await page.route("**/api/admin/data-quality/media/**",async route=>{
@@ -59,12 +59,12 @@ for(const width of [1440,390,320]){
       });
       await page.getByRole("button",{name:"Zamietnuť obrázok – Psí salón Luna"}).click();
       const dialog=page.getByRole("dialog");
-      await expect(dialog).toContainText("Dôvod zamietnutia zatiaľ nie je možné bezpečne uložiť");
-      await expect(dialog.locator('input[name="reason"],textarea[name="reason"]')).toHaveCount(0);
+      await expect(dialog).toContainText("Dôvod zamietnutia (voliteľný)");
+      await dialog.getByRole("textbox",{name:"Dôvod zamietnutia (voliteľný)"}).fill("Nesprávny profil");
       await save(page,info,"03-rejection-dialog");
       await dialog.getByRole("button",{name:"Zamietnuť označené"}).click();
       await expect(page.getByRole("status")).toContainText("Zamietnuté obrázky: 1 z 1.");
-      expect(calls).toBe(1); expect(payload).toMatchObject({action:"reject",ids:[101]});
+      expect(calls).toBe(1); expect(payload).toMatchObject({action:"reject",ids:[101],reason:"Nesprávny profil"});
       await save(page,info,"03-rejection-result");
     });
     test("04 bulk count and toolbar",async({page},info)=>{
@@ -140,6 +140,22 @@ for(const width of [1440,390,320]){
       release();
       await expect(page.getByRole("status")).toContainText("Schválené obrázky: 1 z 1.");
       expect(calls).toBe(1);
+    });
+    test("10 decision history loads only on explicit authenticated API request",async({page},info)=>{
+      await gotoFixture(page);
+      let calls=0;
+      await page.route("**/api/admin/data-quality/media/101/history",async route=>{
+        calls++; await route.fulfill({status:200,json:{monitorId:101,history:[
+          {id:"example",action:"reject",reason:"Nesprávny profil",actor_ref:"admin@example.invalid",decided_at:"2026-10-20T12:00:00Z",outcome:"APPLIED"}
+        ]}});
+      });
+      await page.getByRole("button",{name:"Detailne porovnať obrázky – Psí salón Luna"}).click();
+      const dialog=page.getByRole("dialog");
+      expect(calls).toBe(0);
+      await dialog.getByRole("button",{name:"Zobraziť históriu rozhodnutí"}).click();
+      await expect(dialog).toContainText("Nesprávny profil");
+      expect(calls).toBe(1);
+      await save(page,info,"10-decision-history");
     });
   });
 }
