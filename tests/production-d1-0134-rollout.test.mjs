@@ -45,7 +45,7 @@ test("existing protected workflow requires manual main, production environment a
   assert.match(runner, /assert0134NotAlreadyApplied\(targetMigration, internal\.targetApplied \|\| liveState\.targetApplied\)/);
 });
 test("0134 requires exact 0133 predecessor; older target 0133 stays supported", () => {
-  const chain = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS];
+  const chain = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS.filter(name=>Number(name.slice(0,4))<=134)];
   const before=chain.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(before,chain,target),{latestIndex:133,targetApplied:false});
   assert.deepEqual(validateProductionTargetHistory(chain,chain,target),{latestIndex:134,targetApplied:true});
