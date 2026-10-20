@@ -1950,3 +1950,39 @@
 .resultsSection { background: var(--paper); }
 .directorySearch { width: 100%; max-width: 780px; margin: 0 auto 18px; border-radius: var(--ps-radius-filter, 18px); }
 @media (max-width: 620px) { .directorySearch { margin-bottom: 14px; } }
+
+/* DS-5 directory: compact, square thumbnails in the existing list card. */
+.card {
+  border-radius: var(--ps-radius-card, 22px);
+  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
+}
+.card:focus-visible {
+  outline-color: var(--forest);
+}
+.cardInner {
+  padding: var(--ps-ds5-card-padding, 18px);
+}
+.cardImage {
+  display: block;
+  width: 72px;
+  height: 72px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+}
+.directoryColumns .cardWithImage {
+  grid-template-columns: 80px minmax(0, 1fr);
+}
+.directoryColumns .cardImage {
+  width: 80px;
+  height: 80px;
+}
+@media (max-width: 620px) {
+  .directoryColumns .cardWithImage {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+  .directoryColumns .cardImage {
+    width: 68px;
+    height: 68px;
+  }
+}
