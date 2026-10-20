@@ -63,17 +63,21 @@ function declarations(text) {
   return result;
 }
 
-function aliasBlock() {
-  assert.equal(css.split(start).length, 2, "the START marker must occur once");
-  assert.equal(css.split(end).length, 2, "the END marker must occur once");
-  const a = css.indexOf(start);
-  const b = css.indexOf(end, a + start.length);
-  assert.ok(a >= 0 && b > a && b < css.indexOf("\n}\n"), "aliases must stay in the original :root");
-  return { content: css.slice(a + start.length, b), before: css.slice(0, a), after: css.slice(b + end.length) };
+function aliasBlock(source = css) {
+  assert.equal(source.split(start).length, 2, "the START marker must occur once");
+  assert.equal(source.split(end).length, 2, "the END marker must occur once");
+  const a = source.indexOf(start);
+  const b = source.indexOf(end, a + start.length);
+  assert.ok(a >= 0 && b > a && b < source.indexOf("\n}\n"), "aliases must stay in the original :root");
+  return { content: source.slice(a + start.length, b), before: source.slice(0, a), after: source.slice(b + end.length) };
 }
 
-test("DS-1A adds only alias declarations; all original CSS selectors, media rules and values are byte-identical", () => {
-  const block = aliasBlock();
+test("DS-1A baseline stays byte-identical before the approved DS-3 additive public search rules", () => {
+  // DS-1A is an immutable base snapshot; DS-3 is an approved, additive styling phase.
+  // Compare the exact original source before the uniquely marked DS-3 extension.
+  const ds3Marker = "\n/* DS-3 PUBLIC SEARCH";
+  assert.equal(css.split(ds3Marker).length, 2, "DS-3 public search extension must be unique");
+  const block = aliasBlock(css.split(ds3Marker)[0]);
   assert.equal(gitBlobSha(block.before + block.after), originalBlob);
   const lines = block.content.trimEnd().split("\n");
   assert.equal(lines.length, expected.size);
