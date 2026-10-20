@@ -39,6 +39,24 @@
 .eventForm :global(.admin-form-card), .seoSection { min-width: 0; }
 .eventForm :global(.admin-markdown-toolbar) { flex-wrap: wrap; }
 .eventForm :global(.admin-upload-row) { min-width: 0; }
+/* Keep the visually-hidden native upload input inside its label. The shared
+   workspace field rule otherwise expands it to 100% of the viewport and
+   produces real horizontal overflow on 1440/390/320px. */
+.eventForm :global(.admin-upload-button) {
+  position: relative;
+}
+.eventForm :global(.admin-upload-button) > input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-width: 1px;
+  min-height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  opacity: 0;
+  clip-path: inset(50%);
+}
 .seoSection { min-width: 0; }
 .liveSummary { min-width: 0; overflow-wrap: anywhere; }
 .liveSummary h2 { font-size: 1.15rem; margin: 0.8rem 0 0.45rem; }
