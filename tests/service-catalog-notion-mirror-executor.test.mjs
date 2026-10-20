@@ -745,3 +745,98 @@ test("no Services V3 live runner, cron or route wiring is present",()=>{
   assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED/);
   assert.doesNotMatch(route,/runServicesV3CatalogInternal|provisionServiceCatalogNotionPage/);
 });
+
+
+test("offline full internal D1 -> Notion create -> readback -> verified receipt sync",async()=>{
+  const f=await fixture();
+  try{
+    f.sqlite.exec(read("drizzle/0124_gemini_notion_review_locks.sql"));
+    const source=PSIPEDIA_SERVICE_CATALOG_NOTION_BINDING.dataSourceId;
+    let remote=null;
+    const events=[];
+    const copyNotionProperties=payload=>{
+      const props=structuredClone(payload);
+      for(const v of Object.values(props)){
+        for(const mode of ["rich_text","title"]){
+          if(Array.isArray(v[mode]))for(const item of v[mode]){
+            if(item.text && typeof item.text.content==="string")
+              item.plain_text=item.text.content;
+          }
+        }
+      }
+      return props;
+    };
+    const json=obj=>({ok:true,json:async()=>structuredClone(obj)});
+    const fetcher=async(url,init)=>{
+      const method=init.method;
+      if(url.endsWith("/query")){
+        events.push("READ_REGISTRY");
+        return json({results:remote?[remote]:[],has_more:false,next_cursor:null});
+      }
+      if(url==="https://api.notion.com/v1/pages"&&method==="POST"){
+        assert.equal(remote,null,"must not double-create an option");
+        events.push("CREATE");
+        const body=JSON.parse(init.body);
+        assert.deepEqual(body.parent,{type:"data_source_id",data_source_id:source});
+        remote={id:PAGE,parent:body.parent,
+          last_edited_time:"2026-10-19T12:00:59Z",archived:false,in_trash:false,
+          properties:copyNotionProperties(body.properties)};
+        return json(remote);
+      }
+      if(url==="https://api.notion.com/v1/pages/"+PAGE&&method==="GET"){
+        events.push("GET_PAGE");
+        if(!remote)throw Error("Page missing");
+        return json(remote);
+      }
+      if(url==="https://api.notion.com/v1/pages/"+PAGE&&method==="PATCH"){
+        events.push("PATCH");
+        if(!remote)throw Error("Page missing");
+        remote.properties=copyNotionProperties(JSON.parse(init.body).properties);
+        remote.last_edited_time="2026-10-19T12:01:00Z";
+        return json(remote);
+      }
+      throw Error("UNAPPROVED_NOTION_REQUEST "+method+" "+url);
+    };
+    const fullEnv={
+      NOTION_API_TOKEN:"offline-only",
+      SERVICE_CATALOG_ADMIN_WRITES_ENABLED:"true",
+      SERVICE_CATALOG_NOTION_MIRROR_READY:"true",
+      SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED:"true",
+      SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED:"true",
+    };
+    const invoke=(action,env=fullEnv)=>runServicesV3CatalogInternal({
+      action,db:f.db,env,authorize:async()=>true,
+      ...(action==="INVENTORY"?{}:{optionId:f.created.id}),
+      fetcher
+    });
+    const before=await invoke("INVENTORY",{NOTION_API_TOKEN:"offline-only"});
+    assert.equal(before.state,"INVENTORY");
+    assert.deepEqual(before.value.items,[{
+      optionId:f.created.id,version:1,disposition:"NEEDS_PAGE"
+    }]);
+    assert.equal(f.count(),0);
+    const created=await invoke("PROVISION_ONE");
+    assert.equal(created.state,"PROVISION");
+    assert.equal(created.result.state,"CREATED_NEEDS_MIRROR");
+    assert.equal(created.result.pageId,PAGE);
+    assert.equal(f.count(),0);
+    const middle=await invoke("INVENTORY",{NOTION_API_TOKEN:"offline-only"});
+    assert.equal(middle.value.items[0].disposition,"MAPPED_PENDING");
+    const synced=await invoke("MIRROR_ONE");
+    assert.equal(synced.state,"MIRROR");
+    assert.deepEqual(synced.result,{
+      state:"VERIFIED",optionId:f.created.id,version:2,pageId:PAGE
+    });
+    assert.equal(f.count(),1);
+    assert.equal(f.local().notionMirrorStatus,"SYNCED");
+    assert.equal(f.local().version,2);
+    assert.equal(f.local().status,"DRAFT");
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM gemini_notion_review_locks").get().n,0);
+    const end=await invoke("INVENTORY",{NOTION_API_TOKEN:"offline-only"});
+    assert.equal(end.state,"INVENTORY");
+    assert.equal(end.value.items[0].disposition,"SYNCED_VERIFIED");
+    assert.equal(events.filter(x=>x==="CREATE").length,1);
+    assert.equal(events.filter(x=>x==="PATCH").length,1);
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM service_profile_option_choices").get().n,0);
+  }finally{f.sqlite.close();}
+});
