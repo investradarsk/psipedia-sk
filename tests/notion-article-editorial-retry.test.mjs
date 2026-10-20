@@ -110,7 +110,17 @@ function setup({ enabled = true } = {}) {
     if (url.pathname === "/v1/pages/" + pageId) {
       if (method === "GET") return Response.json(structuredClone(notion));
       const props = JSON.parse(options.body).properties;
-      Object.assign(notion.properties, props);
+      for (const [key, value] of Object.entries(props)) {
+        const raw = { ...value };
+        for (const type of ["title", "rich_text"]) {
+          if (Array.isArray(raw[type])) {
+            raw[type] = raw[type].map(x => ({
+              ...x, plain_text: x.text?.content ?? x.plain_text ?? "",
+            }));
+          }
+        }
+        notion.properties[key] = raw;
+      }
       return Response.json(structuredClone(notion));
     }
     if (url.pathname === "/v1/blocks/" + pageId + "/children") {
@@ -128,7 +138,13 @@ function setup({ enabled = true } = {}) {
       if (id === "heading-b" && failSecond) {
         return Response.json({ message: "synthetic HTTP failure" }, { status: 503 });
       }
-      Object.assign(block[block.type], JSON.parse(options.body)[block.type]);
+      const update = JSON.parse(options.body)[block.type];
+      Object.assign(block[block.type], {
+        ...update,
+        rich_text: update.rich_text.map(x => ({
+          ...x, plain_text: x.text?.content ?? x.plain_text ?? "",
+        })),
+      });
       return Response.json(structuredClone(block));
     }
     throw Error("Unexpected Notion route: " + url.pathname);
