@@ -42,7 +42,7 @@ import { SITE_URL } from "@/config/public-site";
 import { notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
-import { reconcileProfileFields } from "@/lib/notion-profile-field-reconciliation";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -1118,13 +1118,21 @@ async function syncMappedPage(input: {
 
   // Record-level modified times include our own sync writes. Three-way
   // comparison NEVER infers which same-field human edit happened last.
-  const baseline = await readProfileFieldBaseline({
+  const storedBaseline = await readProfileFieldBaseline({
     database: input.database, agenda: "directory", entityId: profile.id,
     pageId: page.id, expectedHash: lastHash,
   });
   const geoMirror = await loadGeoMirror(input.database, profile.id);
   const canonicalSnapshot = profileSnapshot(profile, currentSourceImageUrl);
   const notionEditorial = notionSnapshot(page);
+  // If only one side changed, the other side still equals the last
+  // acknowledged hash and therefore proves the prior common snapshot.
+  // This allows lossless one-sided sync without any new D1 table. Divergent
+  // edits on both sides still require a verified stored baseline or review.
+  const baseline = trustedProfileBaselineFromHashes({
+    recorded: storedBaseline, notion: notionEditorial, psipedia: canonicalSnapshot,
+    mappingHash: lastHash, notionHash: pageHash, psipediaHash: profileHash,
+  });
   const protectedFields = new Set([
     "slug", "category", "status", "confirmedServiceLocation",
     "verified", "featured", "internalEmail", "qualityCheckedAt",
