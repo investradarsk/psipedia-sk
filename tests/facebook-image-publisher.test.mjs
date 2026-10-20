@@ -11,11 +11,12 @@ const migration128=readFileSync(new URL("../drizzle/0128_facebook_image_posts.sq
 const migration129=readFileSync(new URL("../drizzle/0130_facebook_image_publisher.sql",import.meta.url),"utf8");
 const migration131=readFileSync(new URL("../drizzle/0131_facebook_image_trash.sql",import.meta.url),"utf8");
 const migration132=readFileSync(new URL("../drizzle/0132_facebook_image_direct_consent.sql",import.meta.url),"utf8");
+const migration135=readFileSync(new URL("../drizzle/0135_facebook_image_safe_retry.sql",import.meta.url),"utf8");
 const bindings={FB_PAGE_ID:"123456789012345",FB_PAGE_ACCESS_TOKEN:"FAKE_TEST_TOKEN_DO_NOT_USE_ABCDEF",FACEBOOK_IMAGE_PUBLISH_ENABLED:"true"};
 const date="2030-02-10T12:00:00.000Z", now=new Date(date);
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
 function fixture() {
- const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON");sqlite.exec(migration128);sqlite.exec(migration129);sqlite.exec(migration131);sqlite.exec(migration132);
+ const sqlite=new DatabaseSync(":memory:");sqlite.exec("PRAGMA foreign_keys=ON");sqlite.exec(migration128);sqlite.exec(migration129);sqlite.exec(migration131);sqlite.exec(migration132);sqlite.exec(migration135);
  function wrap(statement,args=[]){return {
    bind(...params){return wrap(statement,params)},first(){return statement.get(...args)??null},
    all(){return {results:statement.all(...args)}},run(){return statement.run(...args)}
@@ -166,5 +167,83 @@ test("legacy Notion APPROVED without admin provenance cannot trigger Meta POST",
    const calls=[];
    const result=await runFacebookImagePublishSweep({db:f.db,bindings,now,fetcher:fakeMeta(calls)});
    assert.equal(result.claimed,0);assert.equal(calls.length,0);
+ }finally{f.close();}
+});
+
+const safeBindings={...bindings,FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED:"true",
+ BUCKET:{head:async()=>({httpMetadata:{contentType:"image/jpeg"}})}};
+
+test("safe retry V2: explicit Graph throttle retries once after backoff, still one canonical claim",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   const calls=[];let first=true;
+   const provider=async(...args)=>{
+     calls.push(args);
+     if(first){first=false;return Response.json({error:{code:4,message:"App throttled"}},{status:429});}
+     return Response.json({id:"99887766554433",post_id:"123456789012345_99887766554433"});
+   };
+   const denied=await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,fetcher:provider});
+   assert.equal(denied.retryable,1);
+   assert.equal(f.attempt(1).outcome_kind,"PROVEN_REJECTED");
+   assert.equal(f.attempt(1).retry_count,0);
+   assert.equal(f.attempt(1).retry_not_before,"2030-02-10T12:01:00.000Z");
+   assert.equal((await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,fetcher:provider})).claimed,0);
+   assert.equal(calls.length,1);
+   const recovered=await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,
+     now:new Date("2030-02-10T12:01:01.000Z"),fetcher:provider});
+   assert.equal(recovered.published,1);
+   assert.equal(f.attempt(1).retry_count,1);
+   assert.equal(f.attempt(1).state,"PUBLISHED");
+   assert.equal(f.post(1).status,"published");
+   assert.equal(calls.length,2);
+   assert.equal((await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,
+     now:new Date("2030-02-10T12:02:00.000Z"),fetcher:provider})).claimed,0);
+ }finally{f.close();}
+});
+
+test("safe retry V2: missing R2 object never claims or contacts Meta",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   const failBindings={...safeBindings,BUCKET:{head:async()=>null}};
+   const result=await runFacebookImagePublishSweep({db:f.db,bindings:failBindings,now,
+     fetcher:async()=>{throw Error("Meta must not be called");}});
+   assert.equal(result.preflightSkipped,1);
+   assert.equal(result.claimed,0);
+   assert.equal(f.attempt(1),undefined);
+ }finally{f.close();}
+});
+
+test("safe retry V2: timeout and unverified Graph errors are never auto retried",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");f.add(2,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   const seen=[];
+   const provider=async url=>{
+     seen.push(url);
+     if(seen.length===1)throw Error("timeout");
+     return Response.json({error:{code:1}},{status:429});
+   };
+   const first=await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,fetcher:provider});
+   assert.equal(first.uncertain,2);
+   assert.equal(f.attempt(1).outcome_kind,"AMBIGUOUS");
+   assert.equal(f.attempt(2).outcome_kind,"AMBIGUOUS");
+   assert.equal((await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,
+     now:new Date("2030-02-10T13:00:00.000Z"),fetcher:provider})).claimed,0);
+   assert.equal(seen.length,2);
+ }finally{f.close();}
+});
+
+test("safe retry V2: missing additive migration fails closed before Meta POST",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   f.sqlite.exec("DROP INDEX facebook_image_publish_retry_idx");
+   // Explicitly simulate missing column on an old schema by inspecting a
+   // fresh fixture built without the opt-in migration.
+   const sqlite=new DatabaseSync(":memory:");
+   try{
+     sqlite.exec(migration128);sqlite.exec(migration129);
+     const db={prepare(sql){return {all(){return {results:sqlite.prepare(sql).all()}}}}};
+     await assert.rejects(()=>runFacebookImagePublishSweep({db,bindings:safeBindings,now,
+       fetcher:async()=>{throw Error("Meta must not be called");}}));
+   }finally{sqlite.close();}
  }finally{f.close();}
 });
