@@ -1380,6 +1380,22 @@ export async function writeBackDraftArticleContentToNotion(args: {
   if (!matchesEditorialIdentity(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   if (selectProperty(latest, "Stav") !== "Ready" ||
     !checkboxProperty(latest, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
+  // Inspect every planned block before the FIRST mutating request. A
+  // conflict discovered in a later block must not first modify SEO fields
+  // or earlier blocks. The per-block GET below still checks the latest
+  // preimage immediately before each actual PATCH.
+  const preflightBlocks = await getPageBlocks(args.bindings, page.id);
+  const preflightById = new Map(preflightBlocks.map((block) => [block.id, block]));
+  for (const op of plan.blocks) {
+    const block = preflightById.get(op.id);
+    if (!block || block.type !== op.type) {
+      throw new Error("NOTION_EDITORIAL_BLOCK_IDENTITY_CONFLICT");
+    }
+    const fingerprint = notionEditorialBlockShape(block);
+    if (fingerprint !== op.before && fingerprint !== op.after) {
+      throw new Error("NOTION_EDITORIAL_BLOCK_CONFLICT");
+    }
+  }
   const fields: Record<string, unknown> = {};
   for (const [name, expected] of Object.entries(plan.propertyAfter)) {
     const type = name === "Názov" ? "title" : name === "Hlavný obrázok URL" ||
