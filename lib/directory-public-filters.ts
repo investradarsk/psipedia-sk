@@ -54,7 +54,7 @@ export function directoryPublicFacetSql(category: string, facets: DirectoryPubli
     const value = facets[definition.id];
     if (!publicDirectoryFacetOptions(definition).includes(value)) continue;
     const path = '$."' + definition.d1.key + '"';
-    clauses.push("json_extract(" + column + ", '" + path + "') = ?");
+    clauses.push("json_extract(CASE WHEN json_valid(" + column + ") THEN " + column + " ELSE '{}' END, '" + path + "') = ?");
     bindings.push(value);
   }
   return { clauses, bindings };
