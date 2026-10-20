@@ -149,3 +149,22 @@ test("approved desktop A and mobile B render a single canonical set of category 
   // No new map or category registry or DB writes.
   assert.doesNotMatch(component, /GoogleMap|GoogleMaps|fetch\(|\.prepare\(/);
 });
+
+test("facet predicates exclude malformed JSON instead of failing public COUNT/LIST and map queries", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE directory_profiles (category TEXT, source_data_json TEXT)");
+    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?)");
+    const key = serviceFiltersForCategory("veterinari").find((d) => d.id === "veterinari.emergency").d1.key;
+    insert.run("veterinari", "{broken");
+    insert.run("veterinari", JSON.stringify({ [key]: "yes" }));
+    insert.run("veterinari", "[]");
+    insert.run("veterinari", "null");
+    insert.run("veterinari", JSON.stringify({ [key]: "unknown" }));
+    for (const column of ["source_data_json", "d.source_data_json"]) {
+      const where = directoryPublicFacetSql("veterinari", { "veterinari.emergency": "yes" }, column);
+      const sql = "SELECT rowid AS id FROM directory_profiles d WHERE category = 'veterinari' AND " + where.clauses.join(" AND ");
+      assert.deepEqual(db.prepare(sql).all(...where.bindings).map((row) => Number(row.id)), [2]);
+    }
+  } finally { db.close(); }
+});
