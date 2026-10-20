@@ -94,6 +94,59 @@ test("CTA hierarchy and icon policy stay reusable and emoji-independent", () => 
   assert.doesNotMatch(source, /🐾|🔎|📍|📅|➡️|👉/u);
 });
 
+
+test("DS-2A: button loading is opt-in and native disabled cannot be overridden", () => {
+  const button = source.split("export function PublicActionButton(")[1].split("export function PublicContentList(")[0];
+  assert.ok(button.includes('type = "button"'));
+  assert.ok(button.includes("loading = false"));
+  assert.ok(button.includes('loadingLabel = "Spracúvam…"'));
+  assert.ok(button.includes("loading?: boolean;"));
+  assert.ok(button.includes("loadingLabel?: string;"));
+  assert.ok(button.includes('disabled={disabled || loading}'));
+  assert.ok(button.includes('aria-busy={loading ? true : ariaBusy}'));
+  assert.ok(button.includes('aria-label={loading ? loadingLabel : props["aria-label"]}'));
+  assert.match(button, /\{\.\.\.props\}[\s\S]*?disabled=\{disabled \|\| loading\}/);
+  assert.ok(button.includes('role={loading ? "status" : undefined}'));
+  assert.ok(button.includes('aria-live={loading ? "polite" : undefined}'));
+  assert.ok(button.includes('{loading ? loadingLabel : children}'));
+  assert.ok(button.includes('aria-hidden="true"'));
+  assert.ok(button.includes('icon ? <PublicIcon icon={icon} size="sm" />'));
+  assert.doesNotMatch(button, /aria-pressed=/);
+});
+
+test("DS-2A: navigational link does not acquire fake disabled semantics", () => {
+  const link = source.split("export function PublicActionLink(")[1].split("export function PublicActionButton(")[0];
+  assert.ok(link.includes("<Link className="));
+  assert.ok(link.includes("href={href}"));
+  assert.ok(link.includes("target={target} rel={rel}"));
+  assert.doesNotMatch(link, /disabled|loading|aria-pressed|preventDefault/);
+  assert.match(source, /type PublicActionVariant = "primary" \| "secondary" \| "tertiary"/);
+});
+
+test("DS-2A: disabled, active, focus and reduced-motion states stay in local CSS", () => {
+  assert.match(styles, /\.action\s*\{[^}]*min-height:\s*44px/s);
+  assert.ok(styles.includes(".action:disabled {"));
+  assert.ok(styles.includes(".actionLoading:disabled {"));
+  assert.ok(styles.includes(".action:active:not(:disabled) {"));
+  assert.ok(styles.includes(".action:focus-visible,"));
+  // A high-opacity two-tone ring is visible against light and dark surfaces.
+  assert.match(styles, /\.action:focus-visible\s*\{\s*outline:\s*3px solid var\(--forest-dark\);\s*outline-offset:\s*3px;\s*box-shadow:\s*0 0 0 3px var\(--white\);\s*\}/s);
+  assert.match(styles, /@media \(forced-colors: active\)\s*\{\s*\.action:focus-visible\s*\{\s*outline-color:\s*Highlight;\s*box-shadow:\s*none;/s);
+  for (const variant of ["Primary", "Secondary", "Tertiary"]) {
+    assert.ok(styles.includes(".action" + variant + ":hover:not(:disabled) {"));
+    assert.ok(styles.includes(".action" + variant + ":active:not(:disabled) {"));
+  }
+  assert.ok(styles.includes("animation: publicActionSpin .8s linear infinite"));
+  assert.ok(styles.includes("@media (prefers-reduced-motion: reduce)"));
+  assert.match(styles, /\.loadingIndicator\s*\{\s*animation:\s*none;/);
+  // Inspect only the exact .action rule and a complete width declaration.
+  // Do not confuse legitimate max-width: 100% with width: 100%.
+  const actionBody = styles.match(/\.action\s*\{([^}]*)\}/s)?.[1] ?? "";
+  assert.ok(actionBody, "The base .action block must exist");
+  assert.doesNotMatch(actionBody, /(?:^|;)\s*width:\s*100%(?:\s*;|$)/m);
+  assert.doesNotMatch(styles, /(^|[,{]\s*)(html|body|:root)\b/m);
+});
+
 test("mobile contract protects 390px layouts from horizontal overflow", () => {
   assert.match(styles, /@media \(max-width: 390px\)/);
   assert.match(styles, /grid-template-columns:\s*88px minmax\(0, 1fr\)/);

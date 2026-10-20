@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { requireAdminMutation } from "@/lib/admin-auth";
 import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
+import { requireGeminiRunning, GeminiGlobalControlError } from "@/lib/gemini-global-control";
 import {
   GeminiPilotGuardError, parseGeminiDirectoryRunBody, runGeminiDirectoryCategory,
 } from "@/lib/gemini-automation-pilot";
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
     const catalog = typeof key === "string" ? getGeminiCatalogItem(key) : null;
     if (!catalog) throw new GeminiPilotGuardError("PILOT_INVALID_SCOPE");
     const database = requireGeminiAdminD1() as D1Database;
+    await requireGeminiRunning(database);
     if (externalAgentEnabled(env)) {
       const queued = await enqueueExternalGemini({
         db: database, env, stableKey: key as string,
@@ -65,6 +67,11 @@ export async function POST(request: Request) {
     }
     return Response.json(result, { headers: NO_STORE });
   } catch (error) {
+    if (error instanceof GeminiGlobalControlError ||
+        (error instanceof Error && error.message.includes("GEMINI_GLOBAL_STOP"))) {
+      return Response.json({ error: "Hlavný STOP je aktívny alebo kontrola nie je dostupná.", code: "GEMINI_GLOBAL_STOP" },
+        { status: error instanceof GeminiGlobalControlError && error.code === "UNAVAILABLE" ? 503 : 409, headers: NO_STORE });
+    }
     if (error instanceof ExternalAgentError) {
       const messages = {
         DISABLED: "Externý Gemini pracovník nie je zapnutý.",

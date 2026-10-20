@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "lib/gemini-global-control.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

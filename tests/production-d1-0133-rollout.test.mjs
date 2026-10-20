@@ -28,9 +28,9 @@ function fixture() {
 }
 
 test("0133 manually approved only by pinned SHA256, canonical database, protected Actions confirmation", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0134_services_admin_change_audit.sql","0135_facebook_image_safe_retry.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-5), previous);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0133_SHA256);
   assert.doesNotThrow(() => assertApproved0133Target("psipedia-sk-db", APPROVED_0133_SHA256));
   assert.throws(() => assertApproved0133Target("wrong-db", APPROVED_0133_SHA256), /canonical/);
@@ -51,7 +51,7 @@ test("0133 manually approved only by pinned SHA256, canonical database, protecte
 test("0133 refuses gaps, altered history, already-applied migration and partial drift", () => {
   const chain = [
     ...Array.from({length:62}, (_,i) => String(i).padStart(4,"0") + "_prior.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS,
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 133),
   ];
   const before = chain.slice(0,-1);
   assert.deepEqual(validateProductionTargetHistory(before,chain,target), {latestIndex:132,targetApplied:false});

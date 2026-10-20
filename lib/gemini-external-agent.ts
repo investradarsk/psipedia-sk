@@ -391,7 +391,7 @@ export async function completeExternalGemini(input: {
     await enqueueAutomationActionAdminNotification(input.db, {
       eventType: status === "SUCCESS" ? "automation_run_success" : "automation_run_failed",
       resourceType: "gemini_external",
-      resourceRef: jobId,
+      resourceRef: job.id,
       targetUrl: "/admin/automatizacie-gemini",
       title: status === "SUCCESS"
         ? "Gemini — " + label : "Gemini — úloha zlyhala",
