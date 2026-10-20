@@ -1,11 +1,11 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog";
 import { geminiAgendaForKey } from "./gemini-notion-agenda-review";
 import { geminiCanonicalEditorUrl } from "./gemini-concept-manager";
-import type { GeminiReviewState } from "./gemini-notion-review-state";
+import type { GeminiReviewState, GeminiCanonicalAgenda } from "./gemini-notion-review-state";
 
 /** Publication belongs to the verified native D1 editor, never to Notion review. */
 export type GeminiPublishSubject = {
-  category?: string; agenda?: string; stableKey?: string;
+  category?: string; agenda?: GeminiCanonicalAgenda; stableKey?: string;
   psipediaId: string; canonicalVerified?: boolean; reviewState: GeminiReviewState;
 };
 export function planGeminiPublishHandoff(key: string, draft: GeminiPublishSubject) {
