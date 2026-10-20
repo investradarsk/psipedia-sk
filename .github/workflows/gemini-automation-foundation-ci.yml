@@ -73,6 +73,8 @@ jobs:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
+      - name: Canonical Gemini Notion draft save and 22-key publish handoff (offline)
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-canonical-publish-handoff.test.mjs tests/gemini-notion-drafts.test.mjs
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)
@@ -85,8 +87,6 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-concept-manager-v3.test.mjs tests/gemini-notion-drafts.test.mjs tests/gemini-notion-agenda-review.test.mjs tests/gemini-notion-identity.test.mjs tests/gemini-notion-lock.test.mjs tests/notion-directory-sync.test.mjs tests/gemini-all-concepts-v4.test.mjs
       - name: Gemini published cleanup and future SEO slugs (mocked, read-only)
         run: node --experimental-strip-types --test tests/gemini-published-cleanup.test.mjs tests/gemini-public-slug.test.mjs
-      - name: Gemini canonical publish handoff (22 categories; offline)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-canonical-publish-handoff.test.mjs
       - name: Gemini review API authorization
         run: node --experimental-strip-types --experimental-loader ./tests/gemini-notion-api-loader.mjs --test tests/gemini-notion-api.test.mjs
       - name: Install Chromium for isolated admin UI test
