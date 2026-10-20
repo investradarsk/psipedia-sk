@@ -228,3 +228,20 @@ test("local Cloudflare tooling target is explicit and tied to the resolved toolc
     workerd: "1.20260515.1",
   });
 });
+
+
+test("Facebook retry and Notion schedule V2 flags survive Cloudflare deployments with a fixed UTC cutover", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+  const { vars } = JSON.parse(source);
+  assert.equal(vars.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED, "true");
+  assert.equal(vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED, "true");
+  assert.equal(vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT, "2026-10-20T20:00:00Z");
+  assert.equal(new Date(vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT).toISOString(),
+    vars.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT);
+  assert.equal(vars.FACEBOOK_IMAGE_PUBLISH_ENABLED, "true");
+  assert.equal(vars.NOTION_FACEBOOK_IMAGES_SYNC_ENABLED, "true");
+  assert.equal(vars.NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED, "true");
+  assert.equal("FB_PAGE_ACCESS_TOKEN" in vars, false);
+  assert.equal("NOTION_API_TOKEN" in vars, false);
+});
