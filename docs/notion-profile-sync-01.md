@@ -46,7 +46,7 @@ catalog or new editor is introduced.
 
 ## Migration activation
 
-`docs/proposals/notion-profile-field-baselines-0135.sql` is **staged source**
+`docs/proposals/notion-profile-field-baselines-UNNUMBERED_PROPOSAL.sql` is **staged source**
 outside `drizzle/`: it does not alter the pinned canonical production
 migration chain or authorize an apply. Until an independently reviewed and
 approved rollout places an equivalent migration in that chain, the helper
