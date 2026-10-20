@@ -10,6 +10,9 @@ on:
       - "worker/index.ts"
       - "scripts/gemini-notion-agent.mjs"
       - "scripts/production-d1-migrate.mjs"
+      - "scripts/production-d1-0136-schema.mjs"
+      - "tests/production-d1-0136-rollout.test.mjs"
+      - ".github/workflows/production-d1-migrate.yml"
       - "app/api/admin/gemini-automation/**"
       - "app/api/internal/gemini-agent/authorize/**"
       - "app/admin/automatizacie-gemini/page.tsx"
@@ -42,6 +45,7 @@ jobs:
         run: |
           node --check scripts/gemini-notion-agent.mjs
           node --check tests/gemini-global-stop.test.mjs
+          node --test tests/production-d1-0135-rollout.test.mjs tests/production-d1-0136-rollout.test.mjs
           node --experimental-strip-types --test tests/gemini-global-stop.test.mjs tests/gemini-scheduler-admin-v2.test.mjs tests/gemini-automation-admin.test.mjs
           npm run db:check-migrations
       - name: Lint and TypeScript
