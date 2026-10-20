@@ -8,6 +8,7 @@ import { geminiSchedulerOptions, geminiWeekdays, recommendedGeminiCadence } from
 import type { GeminiSettingView } from "@/lib/gemini-automation-admin-settings";
 import type { GeminiQueuedJob } from "@/lib/gemini-automation-background-queue";
 import type { GeminiRecentRun } from "@/lib/gemini-automation-admin-store";
+import type { GeminiGlobalControl } from "@/lib/gemini-global-control";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
 
@@ -42,8 +43,8 @@ function jobStatus(job: GeminiQueuedJob) {
     (job.error_code ? "Dokončené: " + job.error_code : "Dokončené");
 }
 
-function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, onSaved, onDirtyChange }: {
-  initial: GeminiSettingView; available: boolean; externalEnabled: boolean;
+function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning, latestJob, onSaved, onDirtyChange }: {
+  initial: GeminiSettingView; available: boolean; externalEnabled: boolean; globalRunning: boolean;
   latestJob: GeminiQueuedJob | null;
   onSaved: (setting: GeminiSettingView) => void;
   onDirtyChange: (dirty: boolean) => void;
@@ -73,7 +74,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, on
     setting.cadenceMinutes !== cadenceMinutes || setting.weeklyDay !== weeklyDay ||
     setting.maxNewConcepts !== Number(maximum);
   useEffect(() => onDirtyChange(unsavedChanges), [onDirtyChange, unsavedChanges]);
-  const canPilot = canManuallyRun && available && setting.saved && !unsavedChanges &&
+  const canPilot = canManuallyRun && globalRunning && available && setting.saved && !unsavedChanges &&
     Number(maximum) > 0 && !saving && !running;
   const id = "gemini-" + setting.stableKey.replaceAll(".", "-");
 
@@ -137,7 +138,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, on
         credentials: "same-origin",
         body: JSON.stringify({ stable_key: setting.stableKey }),
       });
-      const data = await response.json() as { error?: string; runId?: number; status?: string;jobId?:number; started?:boolean; alreadyQueued?:boolean } & Partial<PilotResult>;
+      const data = await response.json() as { error?: string; runId?: number; status?: "QUEUED" | "SUCCESS" | "FAILED";jobId?:number; started?:boolean; alreadyQueued?:boolean } & Partial<Omit<PilotResult, "status">>;
       if (response.ok && data.status === "QUEUED" && Number.isInteger(data.jobId)) {
         const label = "Gemini úloha #" + data.jobId;
         setQueuedMessage(externalEnabled
@@ -209,7 +210,8 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, on
           </select>
         </label>}
         <label htmlFor={id + "-maximum"}>
-          Max. nových konceptov
+          Nastavený limit konceptov (0–100)
+          <small> Externý pracovník vytvorí najviac 5 v jednom behu; vyššia hodnota nezvyšuje počet v jedinom behu.</small>
           <input id={id + "-maximum"} type="number" min={0} max={100} step={1} required
             value={maximum} disabled={!available || saving}
             onChange={(event) => setMaximum(event.target.value)} />
@@ -240,6 +242,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, latestJob, on
         <div className={styles.pilot}>
           <strong>{externalEnabled ? "Spustiť externého Gemini pracovníka" : "Manuálne spustenie Gemini"}</strong>
           <p>{externalEnabled ? "GitHub Actions · úlohy sa radia do poradovníka a spúšťajú po jednej · najviac 5 konceptov na beh · zápis iba do Notionu · platený režim musí byť povolený na GitHube." : "Reálne Gemini API volanie · max. 5 kandidátov · môže vytvoriť koncepty · nič automaticky nepublikuje."}</p>
+          {!globalRunning && <p role="status">Manuálne vyhľadávanie je blokované hlavným STOP alebo počas obnovy prevádzky.</p>}
           {!setting.saved && <p>Pred spustením najprv ulož nastavenia tejto karty.</p>}
           {!canManuallyRun && <p>Pre túto kategóriu musí byť povolený externý Gemini pracovník.</p>}
           {unsavedChanges && setting.saved && <p>Najprv ulož zmenené nastavenia.</p>}
@@ -432,19 +435,26 @@ function GeminiQueue({ jobs }: { jobs: readonly GeminiQueuedJob[] }) {
 }
 
 export function AdminGeminiAutomationSettings({
-  sections, settings, available, externalEnabled, queueEnabled, initialJobs, recentRuns, initialSelectedKey, initialDraftId,
+  sections, settings, available, externalEnabled, queueEnabled, scheduledEnabled, control, initialJobs, recentRuns, initialSelectedKey, initialDraftId,
 }: {
   sections: readonly { key: GeminiSectionKey; label: string }[];
   settings: readonly GeminiSettingView[];
   available: boolean;
   externalEnabled: boolean;
   queueEnabled: boolean;
+  scheduledEnabled: boolean;
+  control: GeminiGlobalControl | null;
   initialJobs: readonly GeminiQueuedJob[];
   recentRuns: readonly GeminiRecentRun[];
   initialSelectedKey?: string;
   initialDraftId?: string;
 }) {
-  const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[] } | null>(null);
+  const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[]; control: GeminiGlobalControl | null } | null>(null);
+  const router = useRouter();
+  const [controlPending, setControlPending] = useState(false);
+  const [controlError, setControlError] = useState("");
+  const liveControl = remote?.control ?? control;
+  const globalRunning = liveControl?.state === "RUNNING";
   const liveSettings = remote?.settings ?? settings;
   const jobs = remote?.jobs ?? initialJobs;
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
@@ -456,11 +466,12 @@ export function AdminGeminiAutomationSettings({
       settings: (previous?.settings ?? settings).map((item) =>
         item.stableKey === next.stableKey ? next : item),
       jobs: previous?.jobs ?? [...initialJobs],
+      control: previous?.control ?? control,
     }));
-  }, [settings, initialJobs]);
+  }, [settings, initialJobs, control]);
 
   useEffect(() => {
-    if (!available || !externalEnabled) return;
+    if (!available) return;
     let cancelled = false;
     let inFlight = false;
     const refresh = async () => {
@@ -472,13 +483,14 @@ export function AdminGeminiAutomationSettings({
         });
         if (!response.ok) return;
         const data = await response.json() as {
-          settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[];
+          settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[]; control?: GeminiGlobalControl;
         };
         if (!cancelled) {
           if (Array.isArray(data.settings) || Array.isArray(data.jobs)) {
             setRemote((previous) => ({
               settings: Array.isArray(data.settings) ? data.settings : previous?.settings ?? settings,
               jobs: Array.isArray(data.jobs) ? data.jobs : previous?.jobs ?? [...initialJobs],
+              control: data.control ?? previous?.control ?? control,
             }));
           }
         }
@@ -491,13 +503,40 @@ export function AdminGeminiAutomationSettings({
     void refresh();
     const id = window.setInterval(() => void refresh(), 10000);
     return () => { cancelled = true; window.clearInterval(id); };
-  }, [available, externalEnabled, settings, initialJobs]);
+  }, [available, settings, initialJobs, control]);
 
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
   const waiting = jobs.filter((job) => job.status === "QUEUED").length;
   const running = jobs.filter((job) => job.status === "RUNNING").length;
   const enabled = liveSettings.filter((item) => item.enabled).length;
   const latestRun = recentRuns[0];
+
+  async function changeGlobalStop(stopped: boolean) {
+    if (!available || controlPending || !liveControl) return;
+    const confirmed = window.confirm(stopped
+      ? "Aktivovať hlavný STOP? Čakajúce úlohy sa zrušia bez automatickej obnovy. Rozbehnuté úlohy sa dokončia."
+      : "Obnoviť nové spúšťania Gemini? Zameškané plánované termíny sa preskočia. Platené a plánované bezpečnostné prepínače zostávajú nadradené.");
+    if (!confirmed) return;
+    setControlPending(true);
+    setControlError("");
+    try {
+      const response = await fetch("/api/admin/gemini-automation/control", {
+        method: "PUT", credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stopped }),
+      });
+      const data = await response.json() as { control?: GeminiGlobalControl; error?: string };
+      if (!response.ok || !data.control) throw Error(data.error ?? "Zmenu sa nepodarilo potvrdiť.");
+      setRemote(previous => ({
+        settings: previous?.settings ?? settings,
+        jobs: previous?.jobs ?? [...initialJobs],
+        control: data.control!,
+      }));
+      router.refresh();
+    } catch (error) {
+      setControlError(error instanceof Error ? error.message : "Stav nie je potvrdený. Obnov stránku.");
+    } finally { setControlPending(false); }
+  }
 
   function chooseCategory(key: string) {
     if (selected?.stableKey === key) return;
@@ -513,10 +552,32 @@ export function AdminGeminiAutomationSettings({
 
   return (
     <div className={styles.dashboard}>
+      <section className={styles.panel} aria-labelledby="gemini-main-stop-title">
+        <div className={styles.panelHeader}>
+          <h2 id="gemini-main-stop-title">Hlavný STOP Gemini</h2>
+          <strong role="status">{!liveControl ? "Stav nedostupný — spúšťanie blokované"
+            : globalRunning ? "STOP vypnutý" : liveControl.state === "RESUMING"
+              ? "Obnovovanie harmonogramov — spúšťanie blokované" : "STOP aktívny"}</strong>
+        </div>
+        <p>Automatické spúšťanie: {globalRunning && scheduledEnabled && enabled > 0
+          ? "povolené pre zapnuté kategórie" : "blokované"}.
+          {" "}Manuálne spúšťanie: {globalRunning ? "povolené podľa oprávnení a nastavení" : "blokované"}.
+          {" "}Fronta: {waiting} čaká, {running} beží.</p>
+        <p>Externý pracovník: {externalEnabled ? "povolený konfiguráciou Cloudflare" : "vypnutý konfiguráciou Cloudflare"}.
+          {" "}Plánovaný dispatch: {scheduledEnabled ? "povolený konfiguráciou" : "vypnutý konfiguráciou"}.
+          {" "}Platený prepínač na GitHube: stav nie je cez túto administráciu overiteľný; aj po obnove zostáva nadradený.</p>
+        <p>STOP neruší bežiace Notion zápisy ani koncepty. Čakajúce schválenia sa pri STOP označia ako zrušené a po obnove sa nespustia bez nového ručného potvrdenia. Zameškané plánované termíny sa preskočia.</p>
+        <button type="button" className="admin-primary-action"
+          disabled={!available || !liveControl || controlPending}
+          onClick={() => void changeGlobalStop(globalRunning)}>
+          {controlPending ? "Ukladám…" : globalRunning ? "Aktivovať hlavný STOP" : "Obnoviť Gemini"}
+        </button>
+        {controlError && <p role="alert" className={styles.warning}>{controlError}</p>}
+      </section>
       <div className={styles.metrics} aria-label="Súhrn Gemini automatizácií">
         <div className={styles.metric}>
           <small>Plánovač Gemini</small>
-          <strong>{externalEnabled ? "Externý pracovník zapnutý" : "Externý pracovník vypnutý"}</strong>
+          <strong>{!globalRunning ? "Hlavný STOP aktívny" : scheduledEnabled ? "Plánovač povolený" : "Plánovač vypnutý"}</strong>
           <span>{enabled} z {liveSettings.length} kategórií má zapnutý plán</span>
         </div>
         <div className={styles.metric}>
@@ -567,7 +628,7 @@ export function AdminGeminiAutomationSettings({
               </select>
             </label>
             {selected && <GeminiSettingsCard key={selected.stableKey} initial={selected}
-              available={available} externalEnabled={externalEnabled}
+              available={available} externalEnabled={externalEnabled} globalRunning={globalRunning}
               latestJob={jobs.find((job) => job.stable_key === selected.stableKey) ?? null}
               onSaved={onSaved} onDirtyChange={onDirtyChange} />}
             {selected && <p className={styles.microcopy}>

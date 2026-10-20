@@ -7,6 +7,7 @@ import { classifyPreparedMigrations } from "./production-d1-0123-0124-preflight.
 import { readFileSync } from "node:fs";
 import { PINNED_SHA256_0134, expected0134Objects, normalize0134Ddl, TABLES_0134, INDEXES_0134, TRIGGERS_0134, AUTO_INDEX_0134 } from "./production-d1-0134-readonly.mjs";
 import { PINNED_SHA256_0135, RETRY_0135_COLUMNS, OBJECTS_0135, assertFacebookRetry0135Schema as assert0135SchemaExact } from "./production-d1-0135-schema.mjs";
+import { PINNED_SHA256_0136, OBJECTS_0136, assertGeminiStop0136Schema as assert0136SchemaExact } from "./production-d1-0136-schema.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -15,7 +16,17 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // 0134 was applied and verified in protected production run 39474059819.
 // 0135 is only eligible for a separate OWNER-DISPATCHED protected production workflow.
 // This code and a PR merge must never start the migration or enable retry flags.
+// 0136 must be owner-dispatched in the protected workflow, never by a PR merge or Cloudflare Workers Build.
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const APPROVED_0136_SHA256 = PINNED_SHA256_0136;
+export function assertApproved0136Target(databaseName, sha256) {
+  invariant(databaseName === "psipedia-sk-db", "0136 requires canonical psipedia-sk-db");
+  invariant(sha256 === APPROVED_0136_SHA256, "0136 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0136NotAlreadyApplied(targetMigration, targetApplied) {
+  if (targetMigration === "0136_gemini_global_stop.sql")
+    invariant(!targetApplied, "0136 already applied; refusing repeated production APPLY");
+}
 export const APPROVED_0135_SHA256 = PINNED_SHA256_0135;
 export function assertApproved0135Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0135 requires canonical psipedia-sk-db");
@@ -219,6 +230,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0133_services_canonical_admin_foundation.sql",
   "0134_services_admin_change_audit.sql",
   "0135_facebook_image_safe_retry.sql",
+  "0136_gemini_global_stop.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -740,6 +752,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0134Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0135_facebook_image_safe_retry.sql")
     assertApproved0135Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === "0136_gemini_global_stop.sql")
+    assertApproved0136Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -850,6 +864,7 @@ function schemaState(databaseName, configPath) {
   const geminiNotionReviewLockColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_notion_review_locks')");
   const geminiCategoryPromptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_category_prompts')");
   const geminiAutomationSettingsColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_automation_settings')");
+  const geminiManualJobColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('gemini_manual_background_jobs')");
   const adminPushSubscriptionColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_push_subscriptions')");
   const adminNotificationReadReceiptColumns = d1Execute(databaseName, configPath, "PRAGMA table_info('admin_notification_read_receipts')");
   const adminNotificationReadReceiptForeignKeys = d1Execute(databaseName, configPath, "PRAGMA foreign_key_list('admin_notification_read_receipts')");
@@ -889,6 +904,7 @@ function schemaState(databaseName, configPath) {
     geminiNotionReviewLockColumns,
     geminiCategoryPromptColumns,
     geminiAutomationSettingsColumns,
+    geminiManualJobColumns,
     adminPushSubscriptionColumns,
     adminNotificationReadReceiptColumns,
     adminNotificationReadReceiptForeignKeys,
@@ -1367,6 +1383,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: (schema.facebookImageAttemptColumns ?? []).some(column =>
         RETRY_0135_COLUMNS.includes(String(column.name))) ||
       (schema.objects ?? []).some(row => OBJECTS_0135.includes(String(row.name))) };
+  }
+  if (targetMigration === "0136_gemini_global_stop.sql") {
+    return { partial: (schema.geminiManualJobColumns ?? []).some(column => column.name === "worker_started_at") ||
+      (schema.objects ?? []).some(row => OBJECTS_0136.includes(String(row.name))) };
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2518,6 +2538,14 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 133) assertServicesCanonicalAdminSchema(schema);
   if (migrationIndex(targetMigration) >= 134) assertServicesAdminAudit0134Schema(schema);
   if (migrationIndex(targetMigration) >= 135) assertFacebookRetry0135Schema(schema);
+  if (migrationIndex(targetMigration) >= 136) assertGeminiStop0136Schema(schema);
+}
+
+/** Exact 0136 postflight with protected DDL verification. */
+export function assertGeminiStop0136Schema(schema) {
+  const sql = readFileSync(path.join(repoRoot, "drizzle/0136_gemini_global_stop.sql"), "utf8");
+  assertApproved0136Target("psipedia-sk-db", createHash("sha256").update(sql).digest("hex"));
+  return assert0136SchemaExact(schema, sql);
 }
 
 /** Exact 0135 postflight, including new columns, retry bounds, and immutable audit triggers. */
@@ -2859,6 +2887,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const targetObjects = targetSchemaObjects(schema, targetMigration);
   assertRolloutChainSchema(schema, targetMigration);
   if (targetIndex >= 134) assertServicesCanonicalAdminSchema(schema);
+  if (targetIndex >= 136) assertFacebookRetry0135Schema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -2958,6 +2987,7 @@ async function preflight(targetMigration) {
   assert0133NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0134NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0135NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0136NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -3137,6 +3167,7 @@ async function apply(targetMigration) {
   assert0133NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0134NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0135NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0136NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 135) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM facebook_image_publish_attempts WHERE state='SENDING'") === 0,
@@ -3182,6 +3213,11 @@ async function verify(targetMigration) {
   assertExactMigrationHistory(state.historyNames, prepared.selection.selected, "Postflight");
   assertTargetSchema(schema, targetMigration);
   const targetIndex = migrationIndex(targetMigration);
+  if (targetIndex === 136) {
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM gemini_global_control WHERE id=1 AND state='RUNNING' AND revision=0") === 1,
+      "0136 singleton control row is not in safe initial RUNNING state");
+  }
   if (targetIndex === 135)
     assertFacebookRetryPreserved(internal.facebookRetryBefore,
       facebookRetryPreservationSnapshot(databaseName, prepared.configPath));

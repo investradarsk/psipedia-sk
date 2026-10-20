@@ -1,6 +1,7 @@
 import { getAdminApiUser, requireAdminMutation, unauthorizedAdminResponse } from "@/lib/admin-auth";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { requireGeminiAdminD1 } from "@/lib/gemini-automation-admin-db";
+import { getGeminiGlobalControl } from "@/lib/gemini-global-control";
 import { listGeminiManualBackgroundJobs } from "@/lib/gemini-automation-background-queue";
 import { GeminiSettingsValidationError, parseGeminiSettingsInput } from "@/lib/gemini-automation-admin-settings";
 import {
@@ -29,10 +30,10 @@ export async function GET(request: Request) {
       ]);
       return Response.json({ setting, job }, { headers: NO_STORE });
     }
-    const [settings, runs, jobs] = await Promise.all([
-      listGeminiSettings(db), listRecentGeminiRuns(db), listGeminiManualBackgroundJobs(db, 50),
+    const [settings, runs, jobs, control] = await Promise.all([
+      listGeminiSettings(db), listRecentGeminiRuns(db), listGeminiManualBackgroundJobs(db, 50), getGeminiGlobalControl(db),
     ]);
-    return Response.json({ settings, runs, jobs }, { headers: NO_STORE });
+    return Response.json({ settings, runs, jobs, control }, { headers: NO_STORE });
   } catch {
     return Response.json({ error: "Gemini konfigurácie nie sú dostupné. Over migrácie 0113 a 0126." }, { status: 503, headers: NO_STORE });
   }

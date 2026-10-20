@@ -22,8 +22,8 @@ function fixture() {
  return {db,schema};
 }
 test("0135 target requires immutable SHA, exact production identity, approved 0134 predecessor and manual one-shot confirmation",()=>{
- assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1),target);
- assert.deepEqual(PREPARED_PRODUCTION_TARGETS,[]);
+ assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2),target);
+ assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
  assert.equal(createHash("sha256").update(sql).digest("hex"),PINNED_SHA256_0135);
  assert.equal(APPROVED_0135_SHA256,PINNED_SHA256_0135);
  assert.doesNotThrow(()=>assertApproved0135Target("psipedia-sk-db",APPROVED_0135_SHA256));
@@ -38,7 +38,7 @@ test("0135 target requires immutable SHA, exact production identity, approved 01
  assert.match(runner,/assert0135NotAlreadyApplied\(targetMigration, state\.targetApplied\)/);
  assert.match(runner,/assert0135NotAlreadyApplied\(targetMigration, internal\.targetApplied \|\| liveState\.targetApplied\)/);
  const chain=[...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),
-   ...SUPPORTED_PRODUCTION_TARGETS];
+   ...SUPPORTED_PRODUCTION_TARGETS.slice(0, -1)];
  assert.deepEqual(validateProductionTargetHistory(chain.slice(0,-1),chain,target),
    {latestIndex:134,targetApplied:false});
  assert.throws(()=>validateProductionTargetHistory(chain.slice(0,-2),chain,target),/expected exactly 0134/);
@@ -69,7 +69,7 @@ test("0135 creates immutable history and leaves original Facebook attempt record
  assert.deepEqual(targetSchemaObjects(f.schema(),target),{partial:true});
  assert.equal(assertFacebookRetry0135Schema(f.schema()),true);
  assert.deepEqual(f.db.prepare("SELECT post_id,snapshot_version,state,remote_id,started_at,completed_at,error_code FROM facebook_image_publish_attempts WHERE post_id=?").get(id),prior);
- assert.deepEqual(f.db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts WHERE post_id=?").get(id),
+ assert.deepEqual({...f.db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts WHERE post_id=?").get(id)},
    {retry_count:0,retry_not_before:null,outcome_kind:"UNKNOWN"});
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM facebook_image_publish_attempt_history").get().n,0);
  f.db.prepare("UPDATE facebook_image_publish_attempts SET outcome_kind='PROVEN_REJECTED',retry_not_before=? WHERE post_id=?")
