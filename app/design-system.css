@@ -14,6 +14,18 @@
   --ps-space-section: 92px;
   --ps-space-block: 32px;
   --ps-space-stack: 20px;
+  /* DS-1A SEMANTIC ALIASES START */
+  --ps-color-text-primary: var(--ink);
+  --ps-color-text-muted: var(--muted);
+  --ps-color-action-primary: var(--forest);
+  --ps-color-action-primary-hover: var(--forest-dark);
+  --ps-color-action-primary-text: var(--white);
+  --ps-color-canvas: var(--cream);
+  --ps-color-surface: var(--paper);
+  --ps-color-border-subtle: var(--ps-border-soft);
+  --ps-form-control-min-height: var(--ps-control-min-height);
+  --ps-shadow-surface: var(--shadow-sm);
+  /* DS-1A SEMANTIC ALIASES END */
 }
 
 /* Shared public-page primitives. `.shell` remains the canonical width source;
