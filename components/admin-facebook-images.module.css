@@ -182,3 +182,38 @@
   .heading>button{max-width:100%;width:100%}
   .compactWeekday{font-size:.58rem}
 }
+
+/* Facebook Images V4 — destructive actions, scoped to this dashboard only. */
+.listPanel .itemActions .deleteListAction{
+  min-height:44px;min-width:44px;max-width:100%;padding:9px 12px;
+  border:1px solid #b97867;border-radius:10px;background:#fff4f1;color:#742d20;
+  font-size:.78rem;font-weight:800;white-space:normal;overflow-wrap:anywhere
+}
+.listPanel .itemActions .deleteListAction:hover:not(:disabled){border-color:#965443;background:#ffe8e2}
+.dangerZone{display:grid;justify-items:start;gap:10px;margin-top:22px;padding-top:18px;border-top:2px solid #e8c9c2}
+.dangerZone h3{margin:0;font-size:1rem;color:#742d20}
+.dangerZone p{margin:0;font-size:.86rem;line-height:1.5;overflow-wrap:anywhere}
+.dangerZone .dangerHint{color:#87372a;font-weight:700}
+.dangerZone button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.deleteImpact{display:grid;gap:10px;min-width:0;overflow-wrap:anywhere}
+.deleteImpact p{margin:0;line-height:1.5}
+@media(max-width:600px){.dangerZone button{width:100%}.deleteImpact{min-width:0}}
+
+/* FACEBOOK-IMAGES-DESTRUCTIVE-V4: scoped top-layer centering.
+   Tailwind's margin reset removes native <dialog> auto margins. The opt-in class
+   restores horizontal/vertical centering without changing other admin modals. */
+.root .deleteConfirmDialog{
+  position:fixed;
+  inset:0;
+  margin:auto;
+  max-width:calc(100vw - 2rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  max-height:calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+@media(max-width:600px){
+  .root .deleteConfirmDialog{
+    max-width:calc(100vw - 1rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    max-height:calc(100dvh - 1rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+}
