@@ -6,6 +6,9 @@ const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf
 
 const disclosure = read("components/public-filter-disclosure.tsx");
 const services = read("components/directory-filter-form.tsx");
+const directory = read("components/directory-page.tsx");
+const portalSearch = read("components/home-portal-search.tsx");
+const directoryQuery = read("lib/directory-query.ts");
 const servicesResults = read("components/directory-results.tsx");
 const servicesStore = read("lib/directory-store.ts");
 const events = read("components/event-calendar.tsx");
@@ -24,19 +27,29 @@ test("shared public disclosure is keyboard-native and reports active secondary f
   assert.match(disclosure, /Ďalšie filtre/);
 });
 
-test("Services keep the existing server-backed query contract behind one primary search", () => {
+test("Services preserve one canonical GET search, secondary filters and URL state", () => {
+  assert.equal((directory.match(/<HomePortalSearch\b/g) ?? []).length, 1);
+  assert.match(directory, /portalSearchSlot=\{/);
+  assert.match(directory, /searchScope="services"/);
+  assert.match(directory, /action=\{basePath\}/);
+  assert.match(directory, /hidden=\{directoryQueryFields\(filters, \["q", "page"\]\)\}/);
+  assert.match(portalSearch, /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/);
+  assert.match(portalSearch, /name=\{inputName\}/);
+  assert.match(portalSearch, /<button type="submit">/);
   assert.match(services, /method="get"/);
-  assert.match(services, /data-public-search-form="services"/);
-  assert.match(services, /name="q"/);
-  for (const name of ["category", "region", "district", "city", "service", "breed", "fci", "organization", "type", "sort"]) {
-    assert.match(services, new RegExp(`name="${name}"`));
+  assert.match(services, /data-directory-filter-form/);
+  assert.match(services, /directoryQueryFields\(filters,/);
+  assert.doesNotMatch(services, /data-public-search-form=|<PublicFilterDisclosure\b/);
+  for (const name of ["region", "district", "city", "service", "breed", "fci", "organization", "type", "sort"]) {
+    assert.match(services, new RegExp('name="' + name + '"'));
   }
-  assert.match(services, /<PublicFilterDisclosure/);
-  assert.match(servicesResults, /if \(page > 1\) params\.set\("page"/);
+  assert.match(directoryQuery, /export function directoryQueryFields/);
+  assert.match(directoryQuery, /export function directoryPageHref/);
+  assert.match(directoryQuery, /export function directoryEmptyQueryRedirect/);
+  assert.match(servicesResults, /directoryPageHref\(basePath, filters, result\.page/);
   assert.match(servicesStore, /page: Math\.max\(1,/);
   assert.match(servicesStore, /query: firstParam\(params\.q\)\.slice\(0, 100\)/);
 });
-
 test("Events use URL-backed server rendering instead of client dataset filtering", () => {
   assert.doesNotMatch(events, /"use client"|useState|useMemo|window\.history/);
   const results = read("components/event-listing-results.tsx");

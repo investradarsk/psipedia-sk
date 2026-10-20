@@ -58,6 +58,8 @@ export function summarizeNotionAuditBatch(
     googlePlaceCurrent: 0,
     googleNotRequired: 0,
     errorTypes: {} as Record<string, number>,
+    statusTypes: {} as Record<string, number>,
+    coordinatePrivacyUnverified: 0,
     /** Bounded to one source page; only IDs, kinds, no personal values. */
     reviewItems: [] as Array<{
       notionPageId: string;
@@ -72,18 +74,24 @@ export function summarizeNotionAuditBatch(
     if (id) summary.linked += 1;
     if (field(page, "Adresa") || field(page, "Miesto")) summary.addressPresent += 1;
     if (number(page, "Latitude") !== null && number(page, "Longitude") !== null) {
+      // Historic metric counts coordinates, not proof of PUBLIC exact GEO.
       summary.publicCoordinates += 1;
+      const privacy = field(page, "Verejná viditeľnosť");
+      if (privacy !== "EXACT_PUBLIC") summary.coordinatePrivacyUnverified += 1;
     }
     if (checked(page, "Google miesto aktuálne")) summary.googlePlaceCurrent += 1;
     if (checked(page, "Google Maps netreba")) summary.googleNotRequired += 1;
 
+    const status = field(page, "Sync stav");
+    const safeStatus = status === "Synchronizované" || status === "Chyba"
+      || status === "Koncept" ? status : "UNKNOWN";
+    summary.statusTypes[safeStatus] = (summary.statusTypes[safeStatus] ?? 0) + 1;
+
     const error = field(page, "Sync chyba");
     if (!error) continue;
     summary.syncErrors += 1;
-    const kind = agenda === "directory"
-      ? classifyDirectorySyncError(error)
-      : error.startsWith("CONFLICT:") ? "BIDIRECTIONAL_CONFLICT" : "OTHER";
-    if (error.startsWith("CONFLICT:")) summary.conflictErrors += 1;
+    const kind = classifyDirectorySyncError(error);
+    if (kind === "BIDIRECTIONAL_CONFLICT") summary.conflictErrors += 1;
     summary.errorTypes[kind] = (summary.errorTypes[kind] ?? 0) + 1;
 
     const nextStep = kind === "ILLEGAL_INVOCATION"

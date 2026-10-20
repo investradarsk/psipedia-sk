@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { isAdoptionAdminConflict, updateAdoptionFromAdmin } from "@/lib/adoption-admin-write";
 import type { ManagedAdoptionInput } from "@/lib/adoption";
 
@@ -14,8 +14,9 @@ function errorResponse(error: unknown) {
 }
 
 export async function PUT(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request, { strictProvenance: true });
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await numericId(params);
   if (!id) return Response.json({ error: "Neplatné ID adopčného profilu." }, { status: 400 });
   try {
