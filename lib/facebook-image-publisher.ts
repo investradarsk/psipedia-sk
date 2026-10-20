@@ -6,13 +6,21 @@
 export type FacebookPublisherBindings = {
   FB_PAGE_ID?: string; FB_PAGE_ACCESS_TOKEN?: string;
   FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
+  FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?: string;
+  BUCKET?:Pick<R2Bucket,"head">;
 };
 export type PublisherDatabase = Pick<D1Database, "prepare">;
 export type PublisherConfig = { enabled: boolean; connected: boolean; technicallyEnabled: boolean };
 type Candidate = {
   id: string; image_key: string; caption: string; version: number;
-  scheduled_at: string; approval_status: string;
+  scheduled_at: string; approval_status: string; retry_count?:number;
 };
+class ExplicitMetaRateLimitRejection extends Error {
+  constructor(){super("META_EXPLICIT_RATE_LIMIT");}
+}
+export function facebookSafeRetryEnabled(bindings:FacebookPublisherBindings) {
+  return ["true","1"].includes((bindings.FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED??"").toLowerCase());
+}
 type PhotoResult = { id?: string; post_id?: string };
 const clock = (when: Date) => when.toISOString();
 export function publisherConfigured(bindings: FacebookPublisherBindings) {
@@ -93,7 +101,20 @@ export async function publishPhotoToMeta(photo: { imageKey:string; caption:strin
     signal:AbortSignal.timeout(20000),
   });
   // NEVER log response contents: Meta errors may echo bearer credentials.
-  if(!response.ok) throw new Error("META_HTTP_"+response.status);
+  // Only an explicit Graph API throttling rejection can enter the safe retry
+  // queue. An HTTP status alone, timeout or malformed response is ambiguous.
+  if(!response.ok){
+    if(facebookSafeRetryEnabled(bindings)&&[400,429].includes(response.status)){
+      let code:number|null=null;
+      try{
+        const body=await response.json() as {error?:{code?:unknown}};
+        if(typeof body?.error?.code==="number")code=body.error.code;
+      }catch{/* do not log provider response */}
+      if(code!==null&&[4,17,32,613].includes(code))
+        throw new ExplicitMetaRateLimitRejection();
+    }
+    throw new Error("META_HTTP_"+response.status);
+  }
   const json=await response.json() as PhotoResult;
   if(!json || typeof json.id!=="string" || !/^\d+$/.test(json.id)) throw new Error("META_AMBIGUOUS_RESPONSE");
   return typeof json.post_id==="string" && /^\d+_\d+$/.test(json.post_id)?json.post_id:json.id;
@@ -101,11 +122,19 @@ export async function publishPhotoToMeta(photo: { imageKey:string; caption:strin
 export async function runFacebookImagePublishSweep({
   db,bindings,now=new Date(),fetcher=fetch,
 }: {db:PublisherDatabase;bindings:FacebookPublisherBindings;now?:Date;fetcher?:typeof fetch}):
-Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain:number}> {
-  const summary={configured:publisherConfigured(bindings),due:0,claimed:0,published:0,uncertain:0};
+Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain:number;
+  retryable:number;preflightSkipped:number}> {
+  const summary={configured:publisherConfigured(bindings),due:0,claimed:0,
+    published:0,uncertain:0,retryable:0,preflightSkipped:0};
   if(!summary.configured) return summary;
+  const safeRetry=facebookSafeRetryEnabled(bindings);
+  if(safeRetry&&!bindings.BUCKET)throw new Error("FACEBOOK_R2_PREFLIGHT_REQUIRED");
   // Missing 0129 never falls back to unguarded external publishing.
   await requirePublisherSchema(db);
+  if(safeRetry){
+    // A feature flag cannot bypass the additive schema migration.
+    await db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts LIMIT 0").all();
+  }
   // Soft-delete migration is additive; deleted posts never enter the publishing queue.
   let trashReady=false;
   try {await db.prepare("SELECT deleted_at FROM facebook_image_posts LIMIT 0").all();trashReady=true;}
@@ -127,12 +156,47 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
       AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
            AND approval_status='APPROVED' AND approved_at IS NOT NULL AND approved_by IS NOT NULL)
-    ORDER BY scheduled_at,id LIMIT 50`).bind(timestamp).all<Candidate>();
-  summary.due=candidates.results.length;
-  for(const item of candidates.results){
+    ORDER BY scheduled_at,id LIMIT ${safeRetry?20:50}`).bind(timestamp).all<Candidate>();
+  const retryCandidates=safeRetry?await db.prepare(`SELECT p.id,p.image_key,p.caption,p.version,p.scheduled_at,
+      p.approval_status,a.retry_count FROM facebook_image_posts p
+      JOIN facebook_image_publish_attempts a ON a.post_id=p.id
+      WHERE p.status='scheduled' AND p.scheduled_at<=? AND p.image_key<>''
+        ${trashReady?"AND p.deleted_at IS NULL":""}
+        AND a.state='UNCERTAIN' AND a.outcome_kind='PROVEN_REJECTED'
+        AND a.retry_count<3 AND a.retry_not_before<=?
+        AND a.snapshot_version=p.version
+        AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
+          AND p.approval_status='APPROVED' AND p.approved_at IS NOT NULL AND p.approved_by IS NOT NULL)
+      ORDER BY a.retry_not_before,p.id LIMIT 10`).bind(timestamp,timestamp).all<Candidate>()
+    :{results:[] as Candidate[]};
+  const retryIds=new Set(retryCandidates.results.map(p=>p.id));
+  summary.due=candidates.results.length+retryCandidates.results.length;
+  for(const item of [...retryCandidates.results,...candidates.results]){
+    if(safeRetry){
+      try{
+        const media=await bindings.BUCKET!.head(item.image_key);
+        if(!media||!["image/jpeg","image/png","image/webp"].includes(
+          media.httpMetadata?.contentType??"")){summary.preflightSkipped++;continue;}
+      }catch{summary.preflightSkipped++;continue;}
+    }
     // The claim atomically checks global STOP AND per-item approval and version.
     // Competing cron invocations cannot claim the same post twice.
-    const claimed=await db.prepare(`INSERT OR IGNORE INTO facebook_image_publish_attempts
+    const isRetry=retryIds.has(item.id);
+    const claimed=isRetry?await db.prepare(`UPDATE facebook_image_publish_attempts
+        SET state='SENDING',started_at=?,completed_at=NULL,error_code=NULL,
+          outcome_kind='UNKNOWN',retry_not_before=NULL,retry_count=retry_count+1
+        WHERE post_id=? AND state='UNCERTAIN' AND outcome_kind='PROVEN_REJECTED'
+          AND retry_count<3 AND retry_not_before<=?
+          AND EXISTS (SELECT 1 FROM facebook_image_posts p
+            WHERE p.id=facebook_image_publish_attempts.post_id
+              AND p.version=facebook_image_publish_attempts.snapshot_version
+              AND p.status='scheduled' AND p.scheduled_at<=? AND p.image_key=?
+              ${trashReady?"AND p.deleted_at IS NULL":""}
+              AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
+                AND p.approval_status='APPROVED' AND p.approved_at IS NOT NULL
+                AND p.approved_by IS NOT NULL))
+        RETURNING post_id`).bind(timestamp,item.id,timestamp,timestamp,item.image_key).first<{post_id:string}>()
+      :await db.prepare(`INSERT OR IGNORE INTO facebook_image_publish_attempts
        (post_id,snapshot_version,state,started_at)
        SELECT id,version,'SENDING',? FROM facebook_image_posts WHERE id=? AND version=?
          AND status='scheduled' AND scheduled_at<=? AND image_key=? ${trashReady?"AND deleted_at IS NULL":""}
@@ -149,8 +213,15 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     const gate=await db.prepare("SELECT enabled FROM facebook_image_publisher_settings WHERE id=1")
       .first<{enabled:number}>();
     if(gate?.enabled!==1){
-      await db.prepare("DELETE FROM facebook_image_publish_attempts WHERE post_id=? AND state='SENDING'")
-        .bind(item.id).run();
+      if(isRetry){
+        await db.prepare(`UPDATE facebook_image_publish_attempts
+          SET state='UNCERTAIN',outcome_kind='PROVEN_REJECTED',
+            retry_count=retry_count-1,retry_not_before=?,error_code='META_RATE_LIMIT'
+          WHERE post_id=? AND state='SENDING'`).bind(timestamp,item.id).run();
+      }else{
+        await db.prepare("DELETE FROM facebook_image_publish_attempts WHERE post_id=? AND state='SENDING'")
+          .bind(item.id).run();
+      }
       continue;
     }
     let remote:string;
@@ -161,10 +232,31 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       // Never persist arbitrary exception text: runtimes/providers may echo tokens.
       const code=/^META_HTTP_[0-9]{3}$/.test(message)?message:
         ["META_AMBIGUOUS_RESPONSE","IMAGE_KEY_INVALID","FACEBOOK_NOT_CONFIGURED"].includes(message)?message:"TRANSPORT_OR_UNKNOWN";
-      // Safe as well for HTTP errors: Meta may have acted despite a failed response.
-      await db.prepare("UPDATE facebook_image_publish_attempts SET state='UNCERTAIN',completed_at=?,error_code=? WHERE post_id=? AND state='SENDING'")
-        .bind(clock(new Date()),code,item.id).run();
-      summary.uncertain++;
+      if(safeRetry&&error instanceof ExplicitMetaRateLimitRejection){
+        const count=(item.retry_count??0)+(isRetry?1:0);
+        const delayMs=Math.min(30*60000,60000*Math.pow(2,count));
+        const eligible=count<3?new Date(now.getTime()+delayMs).toISOString():null;
+        await db.prepare(`UPDATE facebook_image_publish_attempts
+          SET state='UNCERTAIN',completed_at=?,error_code=?,
+            outcome_kind='PROVEN_REJECTED',retry_not_before=?
+          WHERE post_id=? AND state='SENDING'`)
+          .bind(clock(new Date()),eligible?"META_RATE_LIMIT":"META_RATE_LIMIT_EXHAUSTED",
+            eligible,item.id).run();
+        summary.retryable++;
+      }else{
+        // Timeouts, interrupted transport, 5xx and unknown Meta responses
+        // always remain permanently UNCERTAIN until trusted reconciliation.
+        if(safeRetry){
+          await db.prepare(`UPDATE facebook_image_publish_attempts
+            SET state='UNCERTAIN',completed_at=?,error_code=?,outcome_kind='AMBIGUOUS'
+            WHERE post_id=? AND state='SENDING'`)
+            .bind(clock(new Date()),code,item.id).run();
+        }else{
+          await db.prepare("UPDATE facebook_image_publish_attempts SET state='UNCERTAIN',completed_at=?,error_code=? WHERE post_id=? AND state='SENDING'")
+            .bind(clock(new Date()),code,item.id).run();
+        }
+        summary.uncertain++;
+      }
       continue;
     }
     const done=clock(new Date());
