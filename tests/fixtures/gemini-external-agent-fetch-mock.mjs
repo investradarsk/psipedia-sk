@@ -350,9 +350,12 @@ globalThis.fetch = async (url, options = {}) => {
       } }], has_more: false });
       if (scenario === "paginated" && scans % 2 === 1) return json({ results: [], has_more: true, next_cursor: "page-2" });
       if (scenario === "partial_property") {
-        const targetRow = lostFound ? lostFoundExisting : row;
-        return json({ results: [{ ...targetRow, properties: { ...targetRow.properties,
-          "Popis": { type: "rich_text", rich_text: [], has_more: true } } }], has_more: false });
+        const title = adoption ? "Meno" : "Názov";
+        const unrelated = { id: "unrelated", parent: { data_source_id: ds }, properties: {
+          [title]: { type: "title", title: [{ plain_text: "Úplne iný subjekt" }] },
+          "Popis": { type: "rich_text", rich_text: [], has_more: true },
+        }};
+        return json({ results: [unrelated], has_more: false });
       }
       if (scenario === "incomplete_scan") return json({ results: [], has_more: true, next_cursor: null });
       if (scenario === "malformed_scan") return json({ has_more: false });
