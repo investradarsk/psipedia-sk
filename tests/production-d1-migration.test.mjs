@@ -155,6 +155,7 @@ test("production D1 supported targets include G5 0080 canonical apply", () => {
     "0133_services_canonical_admin_foundation.sql",
     "0134_services_admin_change_audit.sql",
     "0135_facebook_image_safe_retry.sql",
+    "0136_gemini_global_stop.sql",
   ]);
 });
 
