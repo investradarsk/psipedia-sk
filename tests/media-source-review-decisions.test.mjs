@@ -30,7 +30,9 @@ function fixture() {
   const d1 = {
     prepare(sql) {
       const stmt = sqlite.prepare(sql);
-      return {bind(...args) {
+      return {
+        async first() {return stmt.get() ?? null;},
+        bind(...args) {
         return {
           async run() {const result=stmt.run(...args);return {meta:{changes:result.changes}};},
           async first() {return stmt.get(...args) ?? null;},
