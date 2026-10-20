@@ -30,6 +30,27 @@ export function requireLocalOrigin(raw) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid local port.");
   return u.origin;
 }
+// Keep the browser origin identical to the strictly validated local fixture origin.
+// Playwright resolves absolute-path references (/admin/...) against baseURL.
+export function localBrowserContextOptions(origin, device) {
+  if (!Object.hasOwn(DEVICES, device)) throw new Error("Unknown benchmark device.");
+  return { baseURL: requireLocalOrigin(origin), viewport: DEVICES[device], serviceWorkers: "block" };
+}
+
+// Navigation errors are benchmark failures, never missing interaction samples.
+// The allowed routes are fixed by SCREENS; navigation cannot select arbitrary URLs.
+export async function navigateLocalAdmin(page, path, origin, timeout = 30000) {
+  const baseURL = requireLocalOrigin(origin);
+  if (!SCREENS.some((screen) => screen.path === path)) throw new Error("Unknown benchmark admin route.");
+  const response = await page.goto(path, { waitUntil: "domcontentloaded", timeout });
+  const current = new URL(page.url());
+  if (!response || response.status() !== 200 || current.origin !== baseURL || current.pathname !== path) {
+    throw new Error("Local admin navigation failed or redirected.");
+  }
+  await page.locator("main#obsah").waitFor({ state: "visible", timeout: 12000 });
+  return response;
+}
+
 export function median(values) {
   const a = values.filter((n) => typeof n === "number" && Number.isFinite(n) && n >= 0).sort((x, y) => x - y);
   if (!a.length) return null;

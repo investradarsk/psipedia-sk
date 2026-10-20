@@ -41,7 +41,7 @@ test("approved B presentation uses three compact sections and responsive rows", 
 
 test("overview never invents D1 editor IDs and communicates incomplete sources", () => {
   assert.match(overview, /geminiCanonicalEditorUrl\(draft\)/);
-  assert.match(overview, /encodeURIComponent\(item\.stableKey\)/);
+  assert.match(overview, /geminiDraftDeepLink\(item\.stableKey, draft\.id\)/);
   assert.match(overview, /Object\.keys\(errors\)\.length/);
   assert.match(overview, /Zoznam nie je úplný/);
   assert.match(overview, /Načítavam kategórie/);

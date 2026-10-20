@@ -55,7 +55,7 @@ function harness({ status = "draft", target = "published", changed = false, writ
       },
       isArticleSlugConflict() { return false; },
     },
-    "@/lib/admin-auth": { async getAdminApiUser() { return { email: "editor@example.org" }; }, unauthorizedAdminResponse() { return new Response(null, { status: 401 }); } },
+    "@/lib/admin-auth": { async getAdminApiUser() { return { email: "editor@example.org" }; }, async requireAdminMutation(request) { return request.headers.get("origin") === new URL(request.url).origin ? { user: { email: "editor@example.org" }, response: null } : { user: null, response: Response.json({ error: "Invalid origin" }, { status: 403 }) }; }, unauthorizedAdminResponse() { return new Response(null, { status: 401 }); } },
     "@/lib/article-blocks": { articleBlockImageKeys() { return []; } },
     "@/lib/article-media-key-preservation": { orphanedArticleMediaKeys() { return []; } },
     "@/lib/article-content-qa": { isArticlePublishIntegrityError() { return false; } },
@@ -87,7 +87,7 @@ function harness({ status = "draft", target = "published", changed = false, writ
     calls, logs, original,
     async put({ expectedUpdatedAt = "v1", patch = {} } = {}) {
       const req = new Request("https://test.local/api/admin/articles/7", {
-        method: "PUT", headers: { "content-type": "application/json" },
+        method: "PUT", headers: { "content-type": "application/json", origin: "https://test.local", "sec-fetch-site": "same-origin" },
         body: JSON.stringify({ status: target, expectedUpdatedAt, ...patch }),
       });
       const response = await cjsModule.exports.PUT(req, { params: Promise.resolve({ id: "7" }) });

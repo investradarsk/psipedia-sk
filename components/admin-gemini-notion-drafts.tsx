@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
-import { geminiReviewLabels, geminiReviewCounts, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
-import { geminiCanonicalEditorUrl, geminiCanRejectConcept, geminiConceptDate, geminiSupportsRejectionReason, geminiConceptMatchesSearch } from "@/lib/gemini-concept-manager";
+import { geminiReviewLabels, geminiReviewCounts, geminiActiveReviewCount, geminiActiveReviewState, preserveGeminiPublished, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
+import { geminiCanonicalEditorUrl, geminiCanRejectConcept, geminiConceptDate, geminiSupportsRejectionReason, geminiConceptMatchesSearch, geminiValidNotionDraftId } from "@/lib/gemini-concept-manager";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminGeminiAgendaDraftEditor } from "@/components/admin-gemini-agenda-draft-editor";
@@ -13,7 +13,6 @@ import { AdminModalDialog } from "@/components/admin-interaction-system";
 import styles from "./admin-gemini-notion-drafts.module.css";
 
 type ReviewDraft = GeminiDirectoryDraft | GeminiAgendaDraft;
-const REVIEWABLE = ["NEW", "IN_PROGRESS", "APPROVED", "IMPORTED"];
 
 function draftApi(id: string, stableKey: string) {
   const base = "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(id);
@@ -28,11 +27,16 @@ function reviewDescription(draft: ReviewDraft) {
 
 // A keyed boundary prevents a response for category A from ever mutating the
 // visible concept manager for category B, without effect-driven state resets.
-export function AdminGeminiNotionDrafts({ stableKey }: { stableKey: string }) {
-  return <AdminGeminiNotionDraftsForKey key={stableKey} stableKey={stableKey} />;
+export function AdminGeminiNotionDrafts({ stableKey, deepLinkDraftId }: {
+  stableKey: string; deepLinkDraftId?: string;
+}) {
+  return <AdminGeminiNotionDraftsForKey key={stableKey + ":" + (deepLinkDraftId ?? "")}
+    stableKey={stableKey} deepLinkDraftId={deepLinkDraftId} />;
 }
 
-function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
+function AdminGeminiNotionDraftsForKey({ stableKey, deepLinkDraftId }: {
+  stableKey: string; deepLinkDraftId?: string;
+}) {
   const [filter, setFilter] = useState<GeminiReviewState | "ACTIVE" | "ALL">("ACTIVE");
   const [search, setSearch] = useState("");
   const [canonicalProfile, setCanonicalProfile] = useState<ManagedDirectoryProfile | null>(null);
@@ -55,7 +59,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
   const currentDrafts = loadedCategory === stableKey ? drafts : [];
   const counts = geminiReviewCounts(currentDrafts);
   const statusFiltered = currentDrafts.filter(draft => filter === "ALL" ||
-    (filter === "ACTIVE" ? REVIEWABLE.includes(draft.reviewState) : draft.reviewState === filter));
+    (filter === "ACTIVE" ? geminiActiveReviewState(draft.reviewState) : draft.reviewState === filter));
   const visible = statusFiltered.filter(draft => geminiConceptMatchesSearch(draft, search));
 
   function markDirty() {
@@ -95,7 +99,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
         throw Error(json.error || "Nepodarilo sa načítať koncepty.");
       }
       if (revision === loadRevision.current) {
-        setDrafts(json.drafts);
+        setDrafts(previous => preserveGeminiPublished(previous, json.drafts!));
         setLoadedCategory(stableKey);
         setLoaded(true);
       }
@@ -107,6 +111,61 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
       if (revision === loadRevision.current) setLoading(false);
     }
   }
+
+  // Open only the requested UUID after authenticated API/category verification.
+  // Abort on navigation/unmount so an older response cannot select another draft.
+  useEffect(() => {
+    if (deepLinkDraftId === undefined) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    const openRequested = async () => {
+      // The microtask boundary avoids a synchronous state cascade in an effect.
+      await Promise.resolve();
+      if (cancelled) return;
+      setExpanded(true);
+      setError("");
+      if (!geminiValidNotionDraftId(deepLinkDraftId)) {
+        setError("Neplatná identita konceptu. Žiadny záznam nebol otvorený.");
+        return;
+      }
+      setOpening(true);
+      try {
+        const response = await fetch(draftApi(deepLinkDraftId, stableKey), {
+          credentials: "same-origin", cache: "no-store", signal: controller.signal,
+        });
+        const data = await response.json() as { draft?: ReviewDraft; error?: string };
+        if (!response.ok || !data.draft) throw Error(data.error || "Koncept sa nepodarilo nájsť.");
+        const draft = data.draft;
+        const normalized = (id: string) => id.replaceAll("-", "").toLowerCase();
+        if (normalized(draft.id) !== normalized(deepLinkDraftId) ||
+            ("agenda" in draft ? draft.stableKey !== stableKey :
+              "directory." + draft.category !== stableKey)) {
+          throw Error("Koncept nepatrí do požadovanej kategórie.");
+        }
+        if (draft.psipediaId || draft.reviewState === "IMPORTED" || draft.reviewState === "PUBLISHED") {
+          const verifiedUrl = geminiCanonicalEditorUrl(draft);
+          if (!verifiedUrl) throw Error("D1 identita nie je overená. Úprava bola zablokovaná.");
+          if (!cancelled) window.location.assign(verifiedUrl);
+          return;
+        }
+        if (!["NEW", "IN_PROGRESS", "APPROVED"].includes(draft.reviewState))
+          throw Error("Tento koncept nie je dostupný na úpravu.");
+        if (!cancelled) {
+          dirtyRef.current = false;
+          editorSurfaceRef.current?.removeAttribute("data-dirty");
+          setCanonicalProfile(null);
+          setSelectedDraft(draft);
+        }
+      } catch (cause) {
+        if (!cancelled && !controller.signal.aborted)
+          setError(cause instanceof Error ? cause.message : "Koncept sa nepodarilo otvoriť.");
+      } finally {
+        if (!cancelled) setOpening(false);
+      }
+    };
+    void openRequested();
+    return () => { cancelled = true; controller.abort(); };
+  }, [deepLinkDraftId, stableKey]);
 
   async function openDraft(draft: ReviewDraft) {
     if (opening) return;
@@ -199,7 +258,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
           onClick={() => { const next = !expanded; setExpanded(next); if (next && !loaded) void load(); }}>
           <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
           Koncepty z automatizácie
-          {loadedCategory === stableKey && <span aria-label={currentDrafts.length + " konceptov"}>({currentDrafts.length})</span>}
+          {loadedCategory === stableKey && <span aria-label={geminiActiveReviewCount(currentDrafts) + " čakajúcich konceptov"}>({geminiActiveReviewCount(currentDrafts)})</span>}
         </button>
         {expanded && (
           <div className={styles.headerActions}>
@@ -269,7 +328,7 @@ function AdminGeminiNotionDraftsForKey({ stableKey }: { stableKey: string }) {
                         </span>
                         {draft.reviewState === "REJECTED" &&
                           <span className={styles.availability}>Dôvod: {draft.rejectionReason || "Bez uvedenia dôvodu"}</span>}
-                        {draft.reviewState === "APPROVED" && draft.syncError &&
+                        {draft.syncError &&
                           <span role="status" className={styles.error}>Synchronizácia: {draft.syncError}</span>}
                         {draft.geminiNote && (
                           <aside className={styles.extra} aria-label="Gemini poznámka">

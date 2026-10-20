@@ -12,8 +12,14 @@ admin header, Events, Partners, D1 schema, CI workflows, deployment or login flo
 The browser blocks all off-origin traffic and any non-read method, including
 POST, PATCH, PUT and DELETE. The script never bootstraps data or signs in.
 It must be pointed at an **already running isolated local D1 test fixture** with
-preview-only admin identity; a redirect/login or an HTTP failure is unavailable,
-not a timing. Production URLs, Cloudflare Access tokens, real accounts and
+preview-only admin identity. The browser context uses the exact validated
+loopback origin as Playwright `baseURL`, so `/admin/...` is resolved locally;
+the final origin, path and HTTP 200 are checked. Redirects, missing admin
+content, HTTP failures, browser/navigation exceptions and unexpected interaction
+errors **abort the benchmark** rather than being reported as an unavailable
+performance sample. Deliberately inapplicable interactions remain
+`not_applicable`; a network-idle timeout can produce `unavailable`.
+No production measurement may be run. Production URLs, Cloudflare Access tokens, real accounts and
 live login are prohibited. No GitHub Actions schedule is introduced.
 
 ## Run locally (developer/CI workstation, not production)

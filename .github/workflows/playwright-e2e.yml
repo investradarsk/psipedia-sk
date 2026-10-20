@@ -116,6 +116,169 @@ jobs:
         if: github.event_name == 'pull_request' && steps.required-scope.outputs.seo_recovery == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
+
+  ds-0b-focused-regression:
+    name: PUBLIC DS-0B permanent Node and scoped directory Playwright
+    if: >-
+      needs.validate.result == 'success' &&
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      checks: read
+    env:
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify test source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          printf 'pr_head_sha=%s\nchecked_out_sha=%s\nworkflow_sha=%s\n' "$PR_HEAD_SHA" "$actual" "${{ github.sha }}"
+          test "$actual" = "$PR_HEAD_SHA"
+      - name: Select permanent DS-0B coverage from changed public files
+        id: ds0b_scope
+        shell: bash
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          test -n "$CI_BASE_SHA"
+          git cat-file -e "$CI_BASE_SHA^{commit}"
+          git cat-file -e "$PR_HEAD_SHA^{commit}"
+          git diff --name-only -z "$CI_BASE_SHA" "$PR_HEAD_SHA" > "$RUNNER_TEMP/ds0b-changed-files"
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const files = readFileSync(process.env.RUNNER_TEMP + "/ds0b-changed-files", "utf8").split("\0").filter(Boolean);
+          if (!files.length) throw new Error("Untrusted empty DS-0B diff range");
+          const publicContracts = [
+            /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$)/,
+            /^app\/(?:adresar\/|pomoc-psom\/|podujatia\/|recenzie|steniatka\/|starostlivost\/|aktivity\/|\[section\]\/)/,
+            /^lib\/(?:directory-|events?(?:-|\.ts$)|editorial-|help-|section-(?:visual|store))/,
+            /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment)\.test\.mjs$/,
+            /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+            /^\.github\/workflows\/playwright-e2e\.yml$/,
+          ];
+          const directoryMatrix = [
+            /^components\/(?:directory-|home-portal-search\.tsx$|public-visual-system\/unified-section-hero(?:\.|\/))/,
+            /^app\/adresar\//,
+            /^lib\/directory-/,
+            /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
+          ];
+          const nodeRequired = files.some(file => publicContracts.some(pattern => pattern.test(file)));
+          const directoryRequired = files.some(file => directoryMatrix.some(pattern => pattern.test(file)));
+          if (directoryRequired && !nodeRequired) throw new Error("Directory contract must also run Node assertions");
+          const mode = process.env.GITHUB_EVENT_NAME === "pull_request" ? "pr" : "push";
+          console.log(JSON.stringify({ mode, base: process.env.CI_BASE_SHA, head: process.env.PR_HEAD_SHA,
+            files, nodeRequired, directoryRequired }, null, 2));
+          appendFileSync(process.env.GITHUB_OUTPUT, [
+            "node=" + nodeRequired,
+            "directory=" + (mode === "pr" && directoryRequired),
+            ""
+          ].join("\n"));
+          NODE
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        if: steps.ds0b_scope.outputs.node == 'true'
+        run: npm ci
+      - name: Execute DS-0B Node contracts (TAP assertions)
+        if: steps.ds0b_scope.outputs.node == 'true'
+        run: |
+          node --test \
+            tests/global-design-unification.test.mjs \
+            tests/public-search-simplify.test.mjs \
+            tests/public-landing-alignment.test.mjs
+      - name: Install Chromium for directory matrix
+        if: steps.ds0b_scope.outputs.directory == 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Resolve successful preview for exact PR HEAD
+        if: steps.ds0b_scope.outputs.directory == 'true'
+        id: preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100"
+          preview_url=""
+          for attempt in $(seq 1 90); do
+            payload="$(curl --silent --show-error --fail \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" "$api")"
+            candidate="$(CHECK_PAYLOAD="$payload" node --input-type=module <<'NODE'
+          const expected = process.env.PR_HEAD_SHA;
+          const result = JSON.parse(process.env.CHECK_PAYLOAD ?? "{}");
+          const run = (result.check_runs ?? []).find(check =>
+            check.name === "Workers Builds: psipedia-sk" && check.head_sha === expected);
+          if (run?.status === "completed" && run.conclusion !== "success") {
+            console.error("Preview build not successful for exact PR HEAD");
+            process.exit(1);
+          }
+          if (run?.status === "completed" && run.conclusion === "success") {
+            const match = (run.output?.summary ?? "").match(/Preview URL:\s*(https:\/\/[^\s]+)/);
+            process.stdout.write(match?.[1] ?? "");
+          }
+          NODE
+            )"
+            if [ -n "$candidate" ]; then
+              preview_url="$candidate"
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$preview_url" ]; then
+            echo "::error::No successful exact-head Cloudflare preview available; directory Playwright BLOCKED."
+            exit 1
+          fi
+          PREVIEW_URL="$preview_url" node --input-type=module -e '
+            const url = new URL(process.env.PREVIEW_URL);
+            if (url.protocol !== "https:" || !url.hostname.endsWith(".workers.dev") ||
+                url.username || url.password || url.search || url.hash) {
+              throw new Error("Non-preview URL rejected");
+            }
+          '
+          echo "Verified exact-head Cloudflare preview: $preview_url"
+          echo "url=$preview_url" >> "$GITHUB_OUTPUT"
+      - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
+        if: steps.ds0b_scope.outputs.directory == 'true'
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: |
+          mkdir -p .e2e-artifacts/services-v2-directory
+          npx playwright test tests/e2e/directory-unified-layout.spec.ts \
+            --project=desktop-chromium --workers=1 --retries=0
+      - name: Upload DS-0B directory screenshots
+        if: always() && steps.ds0b_scope.outputs.directory == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ds-0b-directory-evidence-${{ github.run_attempt }}
+          path: .e2e-artifacts/services-v2-directory/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload DS-0B failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ds-0b-failure-diagnostics-${{ github.run_attempt }}
+          path: |
+            test-results/playwright/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
   pull-request-e2e:
     name: Breed CI bootstrap, all-breed regression and Playwright
     if: >-
@@ -1220,5 +1383,173 @@ jobs:
             .e2e-artifacts/lost-found-1/
             playwright-report/
             test-results/playwright/
+          if-no-files-found: warn
+          retention-days: 14
+
+  cookie-consent-preview-e2e:
+    name: Cookie consent preview — ${{ matrix.label }}
+    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 891 || github.event.pull_request.number == 897)
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: desktop
+            project: desktop-chromium
+          - label: mobile
+            project: mobile-chromium
+    permissions:
+      contents: read
+      checks: read
+    env:
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PROJECT: ${{ matrix.project }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Assert checkout SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cookie-preview-e2e
+          actual="$(git rev-parse HEAD)"
+          printf 'expected=%s\nchecked_out=%s\n' "$PR_HEAD_SHA" "$actual" | tee .cookie-preview-e2e/revision.txt
+          test "$actual" = "$PR_HEAD_SHA" || { echo "::error::CI configuration: wrong checkout SHA"; exit 1; }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Discover exact commit preview from Cloudflare GitHub Check
+        id: preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = process.env.PR_HEAD_SHA;
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error("Invalid head SHA");
+            const { owner, repo } = context.repo;
+            let last = "Cloudflare check missing";
+            for (let i = 0; i < 72; i++) {
+              const response = await github.rest.checks.listForRef({ owner, repo, ref: sha, per_page: 100 });
+              const checks = response.data.check_runs.filter((r) =>
+                r.name === "Workers Builds: psipedia-sk" &&
+                r.app?.slug === "cloudflare-workers-and-pages" && r.head_sha === sha);
+              if (checks.some((r) => r.status === "completed" && r.conclusion === "failure"))
+                throw new Error("Cloudflare preview build FAILED for " + sha);
+              const ready = checks.find((r) => r.status === "completed" && r.conclusion === "success");
+              last = checks.length ? checks.map((r) => r.status + "/" + r.conclusion).join(", ") : "Cloudflare check missing";
+              if (ready) {
+                const match = (ready.output?.summary || "").match(/^Preview URL:\s*(https:\/\/[^\s]+)/m);
+                if (match) {
+                  const url = new URL(match[1]);
+                  if (url.protocol !== "https:" ||
+                      !/^[a-f0-9]{8}-psipedia-sk\.martin-zabransky-5ff\.workers\.dev$/.test(url.hostname) ||
+                      url.port || url.username || url.password ||
+                      url.pathname !== "/" || url.search || url.hash)
+                    throw new Error("Untrusted or non-commit preview URL");
+                  core.setOutput("url", url.origin);
+                  core.info("HEAD=" + sha + " commit_preview=" + url.origin);
+                  require("node:fs").appendFileSync(".cookie-preview-e2e/revision.txt", "preview=" + url.origin + "\n");
+                  return;
+                }
+                last = "Cloudflare build succeeded without commit preview URL";
+              }
+              if (i < 71) await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+            throw new Error("Cloudflare commit preview unavailable: " + last);
+      - name: Install dependencies and Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Preview DNS, TLS and HTTP preflight — never follow redirects
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$E2E_BASE_URL" || { echo "::error::Missing preview URL"; exit 1; }
+          ready=0
+          for attempt in $(seq 1 18); do
+            set +e
+            metrics="$(curl --silent --show-error --proto '=https' \
+              --connect-timeout 10 --max-time 25 \
+              --dump-header .cookie-preview-e2e/http-headers.txt \
+              --output .cookie-preview-e2e/http-body.html \
+              --write-out '%{http_code}|%{remote_ip}|%{ssl_verify_result}|%{redirect_url}' \
+              "$E2E_BASE_URL/")"
+            code=$?
+            set -e
+            IFS='|' read -r http ip tls redirect <<< "$metrics"
+            printf 'attempt=%s exit=%s http=%s remote_ip=%s tls=%s redirect=%s\n' \
+              "$attempt" "$code" "$http" "$ip" "$tls" "$redirect" | tee -a .cookie-preview-e2e/preflight.log
+            if [[ "$http" =~ ^3[0-9][0-9]$ ]] || [ -n "$redirect" ]; then
+              echo "::error::Unexpected redirect: production fallback forbidden"
+              exit 1
+            fi
+            if [ "$code" -eq 0 ] && [ "$http" = 200 ] && [ "$tls" = 0 ] && [ -n "$ip" ]; then
+              ready=1
+              break
+            fi
+            if [ "$attempt" -lt 18 ]; then sleep 6; fi
+          done
+          test "$ready" -eq 1 || { echo "::error::Preview DNS/TLS/HTTP unavailable"; exit 1; }
+      - name: Execute existing cookie consent Playwright tests
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          PLAYWRIGHT_HTML_OUTPUT_DIR: .cookie-preview-e2e/html
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cookie-preview-e2e/results.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test tests/e2e/psipedia.spec.ts \
+            --grep "cookie consent" --project="$PROJECT" \
+            --workers=1 --retries=0 --trace on \
+            --reporter=list,html,json --output=.cookie-preview-e2e/traces \
+            2>&1 | tee .cookie-preview-e2e/playwright.log
+      - name: Count passed and failed tests; verify nonempty report
+        if: always()
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          fs.mkdirSync(".cookie-preview-e2e", { recursive: true });
+          const file = ".cookie-preview-e2e/results.json";
+          const lines = [
+            "expected_head=" + process.env.PR_HEAD_SHA,
+            "tested_preview=" + (process.env.PREVIEW_URL || "UNKNOWN"),
+            "project=" + process.env.PROJECT,
+            "analytics_check=see Playwright request assertions and trace network evidence"
+          ];
+          let fail = !fs.existsSync(file);
+          if (!fail) {
+            try {
+              const s = JSON.parse(fs.readFileSync(file, "utf8")).stats || {};
+              const passed = s.expected || 0, failed = s.unexpected || 0;
+              const flaky = s.flaky || 0, skipped = s.skipped || 0;
+              const executed = passed + failed + flaky;
+              lines.push("executed=" + executed + " passed=" + passed +
+                " failed=" + failed + " flaky=" + flaky + " skipped=" + skipped);
+              if (executed === 0 || failed || flaky || skipped) fail = true;
+            } catch (e) { lines.push("invalid_report=" + e.message); fail = true; }
+          } else lines.push("test_report=missing");
+          const result = lines.join("\n") + "\n";
+          console.log(result);
+          fs.writeFileSync(".cookie-preview-e2e/summary.txt", result);
+          if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "\n" + result);
+          if (fail) process.exitCode = 1;
+          NODE
+      - name: Upload preview Playwright HTML, screenshot, trace and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cookie-consent-preview-${{ matrix.label }}-${{ github.run_attempt }}
+          path: .cookie-preview-e2e/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14

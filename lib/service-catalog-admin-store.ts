@@ -3,7 +3,7 @@
  * A caller MUST first enforce trusted Admin authorization and the rollout gates.
  * No Notion mutations, public projections, implicit changes or free-text inference.
  */
-import {serviceCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
+import {serviceCatalog,attributeCatalog,normalizeCatalogLabel} from "./service-catalog-contract.ts";
 import {validateCatalogOptionDraft,type CatalogOptionDraft} from "./service-option-governance-contract.ts";
 import type {ServiceFilterCategory} from "./directory-filter-contract.ts";
 import type {AdminCatalogOptionDto,CatalogOptionStatus,CatalogMirrorStatus,CatalogExplicitChoice} from "./service-catalog-admin-api-contract.ts";
@@ -83,9 +83,11 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
 async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null>{
   const item=serviceCatalog.find(x=>x.id===id);
   if(item)return item.categories;
+  const attribute=attributeCatalog.find(x=>x.id===id&&x.valueKind==="tri_state");
+  if(attribute)return attribute.categories;
   const row=await db.prepare("SELECT kind,status,notion_mirror_status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
     .bind(id).first<{kind:string;status:string;notion_mirror_status:string;categories_json:string}>();
-  return row?.kind==="service"&&row.status==="ACTIVE"&&row.notion_mirror_status==="SYNCED"?categories(row.categories_json):null;
+  return (row?.kind==="service"||row?.kind==="attribute")&&row.status==="ACTIVE"&&row.notion_mirror_status==="SYNCED"?categories(row.categories_json):null;
 }
 /** An explicit yes/no write with version=0 insert-if-absent and CAS updates. */
 export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,actorRaw:string,now=new Date()){
@@ -104,14 +106,21 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
   if(!allowed||!allowed.includes(profile.category as ServiceFilterCategory))
     throw new ServiceCatalogInputError("Service is unknown, inactive or not eligible for this category.");
   const time=now.toISOString();
+  const dynamicOption=/^(svc|attr)\.admin\./.test(input.optionId);
   let saved:ChoiceRow|null;
   try{
     if(input.expectedVersion===0){
       const sql=[
         "INSERT INTO service_profile_option_choices",
         "(profile_id,option_id,choice,version,created_at,updated_at,created_by,updated_by)",
-        "SELECT ?1,?2,?3,1,?4,?4,?5,?5 WHERE EXISTS",
+        // Never recycle an old version after YES/NO -> UNKNOWN -> YES/NO.
+        // The 0134 ledger survives RESET and profile deletion; stale clients must
+        // not be able to overwrite a newly inserted row using an old version.
+        "SELECT ?1,?2,?3,(SELECT COALESCE(MAX(COALESCE(next_version,prior_version)),0)+1",
+        "FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND profile_id=?1 AND option_id=?2),?4,?4,?5,?5 WHERE EXISTS",
         "(SELECT 1 FROM directory_profiles WHERE id=?1 AND category=?6 AND status<>'archived')",
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?2 AND status='ACTIVE' AND notion_mirror_status='SYNCED'",
+          "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?6))"]:[]),
         "ON CONFLICT (profile_id,option_id) DO NOTHING RETURNING profile_id,option_id,choice,version"
       ].join(" ");
       saved=await db.prepare(sql).bind(input.profileId,input.optionId,input.choice,time,actor,profile.category).first<ChoiceRow>();
@@ -120,6 +129,8 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
         "UPDATE service_profile_option_choices SET choice=?1,version=version+1,updated_at=?2,updated_by=?3",
         "WHERE profile_id=?4 AND option_id=?5 AND version=?6",
         "AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?4 AND category=?7 AND status<>'archived')",
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?5 AND status='ACTIVE' AND notion_mirror_status='SYNCED'",
+          "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?7))"]:[]),
         "RETURNING profile_id,option_id,choice,version"
       ].join(" ");
       saved=await db.prepare(sql).bind(input.choice,time,actor,input.profileId,input.optionId,input.expectedVersion,profile.category).first<ChoiceRow>();
@@ -127,4 +138,64 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
   }catch(e){return handleDbError(e);}
   if(!saved)throw new ServiceCatalogConflictError("Selection changed concurrently; reload before saving.");
   return {profileId:saved.profile_id,optionId:saved.option_id,choice:saved.choice,version:saved.version};
+}
+
+/**
+ * Atomic audit+CAS reset to UNKNOWN (absence). D1 batch runs in one transaction.
+ * Requires additive 0134 audit schema, never a blind delete or implicit NO.
+ * The authenticated actor is recorded durably before the choice disappears.
+ */
+export async function resetAdminServiceChoice(db:DB & Pick<D1Database,"batch">,
+  input:{profileId:number;optionId:string;expectedVersion:number},actorRaw:string,now=new Date()){
+  const actor=actorEmail(actorRaw);
+  if(!input||!Number.isSafeInteger(input.profileId)||input.profileId<=0
+    ||typeof input.optionId!=="string"||!input.optionId.trim()
+    ||!Number.isSafeInteger(input.expectedVersion)||input.expectedVersion<1)
+    throw new ServiceCatalogInputError("Invalid reset request; persisted version required.");
+  const where="profile_id=?1 AND option_id=?2 AND version=?3 AND EXISTS (SELECT 1 FROM directory_profiles WHERE id=?1 AND status<>'archived')";
+  const audit=db.prepare([
+    "INSERT INTO service_catalog_admin_change_audit",
+    "(entity_type,operation,option_id,profile_id,actor,occurred_at,prior_version,prior_json)",
+    "SELECT 'choice','RESET',option_id,profile_id,?4,?5,version,json_object('choice',choice)",
+    "FROM service_profile_option_choices WHERE "+where
+  ].join(" ")).bind(input.profileId,input.optionId,input.expectedVersion,actor,now.toISOString());
+  const remove=db.prepare("DELETE FROM service_profile_option_choices WHERE "+where+" RETURNING profile_id,option_id,version")
+    .bind(input.profileId,input.optionId,input.expectedVersion);
+  try{
+    const results=await db.batch([audit,remove]);
+    const removed=results[1]?.results?.[0] as {profile_id:number;option_id:string;version:number}|undefined;
+    if(!removed)throw new ServiceCatalogConflictError("Choice was removed or changed concurrently; reload before retry.");
+    return {profileId:removed.profile_id,optionId:removed.option_id,choice:"unknown" as const,version:0};
+  }catch(err){return handleDbError(err);}
+}
+
+/** Fail closed for a missing or partially applied/tampered 0134 schema. */
+export async function requireServiceCatalogAuditSchema(db:DB){
+  const requiredTriggers=[
+    "service_catalog_admin_option_audit_insert",
+    "service_catalog_admin_option_audit_update",
+    "service_catalog_admin_choice_audit_insert",
+    "service_catalog_admin_choice_audit_update",
+    "service_catalog_admin_choice_audit_delete",
+    "service_catalog_admin_audit_no_update",
+    "service_catalog_admin_audit_no_delete",
+    "service_catalog_admin_receipt_no_update",
+    "service_catalog_admin_receipt_no_delete",
+    "service_catalog_admin_option_approval_receipt",
+  ];
+  try{
+    await db.prepare("SELECT id FROM service_catalog_admin_change_audit LIMIT 1").first<{id:number}>();
+    await db.prepare("SELECT id FROM service_catalog_admin_notion_receipts LIMIT 1").first<{id:number}>();
+    const placeholders=requiredTriggers.map((_,i)=>"?"+(i+1)).join(",");
+    const result=await db.prepare(
+      "SELECT COUNT(DISTINCT name) AS found FROM sqlite_schema WHERE type='trigger' AND name IN ("+placeholders+")"
+    ).bind(...requiredTriggers).first<{found:number}>();
+    if(result?.found!==requiredTriggers.length)
+      throw new ServiceCatalogSchemaError("Services V3 audit schema 0134 is incomplete; write blocked.");
+  }catch(error){
+    const message=error instanceof Error?error.message:String(error);
+    if(/no such table|no such column/i.test(message))
+      throw new ServiceCatalogSchemaError("Services V3 audit schema 0134 is not provisioned.");
+    throw error;
+  }
 }

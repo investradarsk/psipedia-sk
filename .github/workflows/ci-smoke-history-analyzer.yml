@@ -1,0 +1,42 @@
+name: CI Smoke History Analyzer V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/production-smoke-history-report.mjs'
+      - 'tests/production-smoke-history-report.test.mjs'
+      - '.github/workflows/ci-smoke-history-analyzer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-smoke-history-analyzer:
+    name: Node 22 complete smoke history tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR HEAD without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Verify exact PR HEAD
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "PR_HEAD=$EXPECTED_HEAD"
+          echo "CHECKED_OUT_HEAD=$actual"
+          test "$actual" = "$EXPECTED_HEAD"
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute all analyzer tests including CLI and file IO
+        run: |
+          node --version
+          node --test tests/production-smoke-history-report.test.mjs

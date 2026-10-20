@@ -286,6 +286,7 @@ async function request(baseUrl, pathname, init = {}) {
     headers: {
       accept: "application/json, text/html;q=0.9",
       ...(init.body ? { "content-type": "application/json" } : {}),
+      ...(["POST", "PUT", "PATCH", "DELETE"].includes(init.method || "GET") ? { origin: baseUrl, "sec-fetch-site": "same-origin" } : {}),
       ...init.headers,
     },
   });
