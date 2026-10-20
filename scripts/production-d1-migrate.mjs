@@ -2887,6 +2887,7 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   const targetObjects = targetSchemaObjects(schema, targetMigration);
   assertRolloutChainSchema(schema, targetMigration);
   if (targetIndex >= 134) assertServicesCanonicalAdminSchema(schema);
+  if (targetIndex >= 136) assertFacebookRetry0135Schema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
