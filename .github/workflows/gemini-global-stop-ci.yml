@@ -45,6 +45,6 @@ jobs:
       - name: Lint and TypeScript
         run: |
           npm run lint
-          npx tsc --noEmit --pretty false --strict --target ES2022 --module ESNext --moduleResolution Bundler --allowImportingTsExtensions --skipLibCheck --types node,@cloudflare/workers-types lib/gemini-global-control.ts
+          npx tsc --noEmit --pretty false --project tsconfig.json
       - name: Build without deploy
         run: npm run build
