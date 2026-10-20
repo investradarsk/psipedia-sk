@@ -5,6 +5,7 @@ on:
       - "lib/service-catalog-notion-mirror-executor.ts"
       - "lib/service-catalog-notion-http-port.ts"
       - "lib/service-catalog-notion-bootstrap-plan.ts"
+      - "lib/service-catalog-notion-page-provisioner.ts"
       - "lib/service-catalog-notion-receipt-proof.ts"
       - "tests/service-catalog-notion-mirror-executor.test.mjs"
       - "tests/service-catalog-notion-receipt-proof.test.mjs"
@@ -27,5 +28,6 @@ jobs:
           node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-mirror-executor.ts')"
           node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-http-port.ts')"
           node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-bootstrap-plan.ts')"
+          node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-page-provisioner.ts')"
       - name: Offline verified receipt and synthetic D1 transaction tests
         run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs tests/service-catalog-notion-mirror-executor.test.mjs
