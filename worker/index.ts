@@ -44,6 +44,7 @@ interface Env {
   FB_PAGE_ID?: string;
   FB_PAGE_ACCESS_TOKEN?: string;
   FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
+  FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?: string;
   AUTH_MODE?: "cloudflare-access";
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;

@@ -11,7 +11,7 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 
 // Prepared migrations are excluded from production until independently approved.
 // 0133 is now a separately owner-reviewed, manually gated production target.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0134_services_admin_change_audit.sql", "0136_gemini_global_stop.sql"]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0134_services_admin_change_audit.sql","0135_facebook_image_safe_retry.sql","0136_gemini_global_stop.sql"]);
 export const APPROVED_0133_SHA256 = "656fcd963394076bfd5a7829e71b52a3bb83427e38a16f275e63af21b0f6eaef";
 export function assertApproved0133Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0133 requires canonical psipedia-sk-db");
