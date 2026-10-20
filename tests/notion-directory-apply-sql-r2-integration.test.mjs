@@ -78,7 +78,7 @@ function fixture(options = {}) {
   };
   const read = () => sqlite.prepare("SELECT * FROM directory_profiles WHERE id=1").get();
   const current = {
-    id: 1, status, updatedAt: version, publishedAt: null,
+    id: 1, slug: "test-profil", name: "Pôvodný profil", category: "treneri", status, updatedAt: version, publishedAt: null,
     imageUrl: initial.image_url, imageKey: initial.image_key,
     importData: {}, seo: {}, address: initial.address,
     serviceAddressConfirmation: "CONFIRMED_SERVICE_LOCATION", websiteUrl: "",
@@ -95,7 +95,7 @@ function fixture(options = {}) {
     imageKey: row.image_key, imageUrl: row.image_url,
   });
   const desired = {
-    status: "draft", imageUrl: options.image === false ? "" : "https://images.example.org/new.webp",
+    status: "draft", slug: "test-profil", category: "treneri", imageUrl: options.image === false ? "" : "https://images.example.org/new.webp",
     confirmedServiceLocation: true, name: "Nový profil", websiteUrl: "",
     region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
   };
@@ -152,6 +152,23 @@ function fixture(options = {}) {
     async snapshotHash(value) { return value.origin === "psipedia" ? "stable-profile-hash" : "changed-notion-hash"; },
     async writeProfileToNotion() { calls.push("notion-writeback"); },
     async archiveManagedDirectoryProfile() { throw Error("UNEXPECTED_ARCHIVE"); },
+    // This SQL/R2/GEO integration fixture extracts only two production functions.
+    // The independent lossless-sync unit suite covers actual field reconciliation.
+    // Bind the newly introduced collaborators without changing production code.
+    async readProfileFieldBaseline() { return null; },
+    async loadGeoMirror() { return null; },
+    trustedProfileBaselineFromHashes({ mappingHash, psipediaHash, psipedia }) {
+      assert.equal(psipediaHash, mappingHash, "unchanged canonical side anchors the synthetic baseline");
+      return psipedia;
+    },
+    reconcileProfileFields({ baseline, notion, psipedia, protectedFields }) {
+      assert.equal(baseline, psipedia);
+      assert.ok(protectedFields.has("status"));
+      assert.equal(notion.status, current.status);
+      assert.equal(notion.slug, current.slug);
+      assert.equal(notion.category, current.category);
+      return { kind: "MERGED", merged: notion };
+    },
     SYSTEM_ACTOR: "notion-worker",
     // The VM fixture extracts production functions without module imports.
     // Default-OFF gate must leave the legacy SQL/R2/GEO path unchanged.
@@ -196,13 +213,14 @@ test("refused confirmed-address downgrade preserves D1 and R2", async () => {
   closes(f);
 });
 
-test("archived recovery commits restoration and image in one SQL UPDATE", async () => {
+test("archived status cannot be restored through Notion and retains existing R2 image", async () => {
   const f = fixture({ status: "archived" });
-  const result = await f.run();
-  assert.equal(result.status, "draft");
-  assert.equal(f.read().archived_at, null);
-  assert.equal(f.read().image_key, "directory/new.webp");
-  assert.ok(f.calls.indexOf("d1-update") < f.calls.indexOf("geo-after-commit"));
+  await assert.rejects(f.run, /REVIEW_REQUIRED/);
+  assert.equal(f.read().status, "archived");
+  assert.equal(f.read().archived_at, f.initial.archived_at);
+  assert.equal(f.read().image_key, "directory/old.webp");
+  assert.equal(f.calls.includes("r2-put"), false);
+  assert.equal(f.calls.includes("d1-update"), false);
   closes(f);
 });
 
