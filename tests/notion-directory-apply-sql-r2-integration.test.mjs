@@ -6,6 +6,10 @@ import test from "node:test";
 import ts from "typescript";
 import { buildManagedDirectoryProfileUpdateStatement, normalizeManagedDirectoryProfileInput } from "../lib/directory-store.ts";
 import { cleanupUnreferencedNotionUpload } from "../lib/notion-sync-shared.ts";
+import {
+  reconcileProfileFields,
+  trustedProfileBaselineFromHashes,
+} from "../lib/notion-profile-field-reconciliation.ts";
 
 // Execute the real production Notion apply function, not a reimplementation of
 // its ordering. Canonical UPDATE SQL and R2 reference-check SQL execute on real
@@ -85,7 +89,7 @@ function fixture(options = {}) {
   };
   const newPayload = {
     name: "Nový profil", slug: "test-profil", category: options.invalidInput ? "invalid-category" : "treneri",
-    status: "draft", region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
+    status: options.notionStatus ?? "draft", region: "Nitriansky kraj", district: "Nitra", city: "Nitra",
     address: "Hlavná 1, Nitra", street: "Hlavná", houseNumber: "1",
     addressFormat: "STREET", confirmServiceAddress: true,
     imageUrl: current.imageUrl, imageKey: current.imageKey,
@@ -148,8 +152,28 @@ function fixture(options = {}) {
     async getManagedDirectoryProfileById() { return profileRow(read()); },
     async fetchNotionPage() { throw Error("UNEXPECTED_REMOTE_FETCH"); },
     async getMediaSourceMonitorForEntity() { return null; },
-    profileSnapshot() { return { origin: "psipedia" }; },
-    async snapshotHash(value) { return value.origin === "psipedia" ? "stable-profile-hash" : "changed-notion-hash"; },
+    // This fixture covers the real production D1/R2/GEO ordering; the test DB
+    // has no optional per-field baseline table. One canonical side matching
+    // the last mapping hash supplies the verified common baseline instead.
+    async readProfileFieldBaseline() { return null; },
+    async loadGeoMirror() { return null; },
+    trustedProfileBaselineFromHashes,
+    reconcileProfileFields,
+    profileSnapshot(profile) {
+      return {
+        ...desired,
+        name: options.canonicalName ?? "Pôvodný profil",
+        imageUrl: profile.imageUrl,
+      };
+    },
+    // The fixture's hashes deliberately distinguish a previously acknowledged
+    // canonical snapshot from newer Notion/Admin edits; real field reconciliation
+    // still decides if pulling is safe and which fields may be changed.
+    async snapshotHash(value) {
+      return value.name === "Pôvodný profil" && value.imageUrl === current.imageUrl
+        ? "stable-profile-hash"
+        : "changed-notion-hash";
+    },
     async writeProfileToNotion() { calls.push("notion-writeback"); },
     async archiveManagedDirectoryProfile() { throw Error("UNEXPECTED_ARCHIVE"); },
     SYSTEM_ACTOR: "notion-worker",
@@ -196,13 +220,31 @@ test("refused confirmed-address downgrade preserves D1 and R2", async () => {
   closes(f);
 });
 
-test("archived recovery commits restoration and image in one SQL UPDATE", async () => {
+test("archived profile cannot be restored from Notion or trigger R2/D1 writes", async () => {
   const f = fixture({ status: "archived" });
-  const result = await f.run();
-  assert.equal(result.status, "draft");
-  assert.equal(f.read().archived_at, null);
-  assert.equal(f.read().image_key, "directory/new.webp");
-  assert.ok(f.calls.indexOf("d1-update") < f.calls.indexOf("geo-after-commit"));
+  await assert.rejects(f.run, /REVIEW_REQUIRED/);
+  assert.deepEqual(f.read(), f.initial);
+  assert.equal(f.calls.includes("r2-put"), false);
+  assert.equal(f.calls.includes("canonical-store"), false);
+  assert.equal(f.objects.has("directory/old.webp"), true);
+  closes(f);
+});
+
+test("Notion cannot change canonical publication state through mapped sync", async () => {
+  const f = fixture({ notionStatus: "published" });
+  await assert.rejects(f.runMappedWorker, /PROTECTED_FIELD|REVIEW_REQUIRED/);
+  assert.deepEqual(f.read(), f.initial);
+  assert.equal(f.calls.includes("r2-put"), false);
+  assert.equal(f.calls.includes("notion-writeback"), false);
+  closes(f);
+});
+
+test("divergent Admin and Notion edits are not resolved by an invented baseline", async () => {
+  const f = fixture({ canonicalName: "Admin-specific change" });
+  await assert.rejects(f.runMappedWorker, /LOSSLESS_FIELD_REVIEW_REQUIRED/);
+  assert.deepEqual(f.read(), f.initial);
+  assert.equal(f.calls.includes("r2-put"), false);
+  assert.equal(f.calls.includes("notion-writeback"), false);
   closes(f);
 });
 
