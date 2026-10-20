@@ -3,6 +3,7 @@ import { runFacebookImagePublishSweep } from "../lib/facebook-image-publisher.ts
 import { runNotionFacebookImagesSync } from "../lib/notion-facebook-images-sync.ts";
 import {geminiManualBackgroundEnabled,runGeminiManualBackgroundSweep} from "../lib/gemini-automation-background-queue.ts";
 import { externalAgentEnabled, sweepExternalGemini } from "../lib/gemini-external-agent.ts";
+import { requireGeminiRunning } from "../lib/gemini-global-control.ts";
 import {runGeminiDirectoryCategory} from "../lib/gemini-automation-pilot.ts";
 import {runGeminiEventCategory} from "../lib/gemini-automation-event-runner.ts";
 import { canonicalBreedRedirect } from "../lib/breed-canonical";
@@ -294,7 +295,12 @@ const worker = {
     }
     // Dispatch only. Paid Gemini/Notion research NEVER runs inside this Worker.
     // This feature flag is intentionally absent from wrangler.jsonc.
-    if (externalAgentEnabled(env)) {
+    // Fail closed before migration 0135 and under STOP; D1 triggers guard races.
+    let geminiDispatchAllowed = false;
+    if (externalAgentEnabled(env) || geminiManualBackgroundEnabled(env)) {
+      geminiDispatchAllowed = await requireGeminiRunning(env.DB).then(() => true).catch(() => false);
+    }
+    if (externalAgentEnabled(env) && geminiDispatchAllowed) {
       const result = await sweepExternalGemini({
         db: env.DB, env, now: new Date(controller.scheduledTime ?? Date.now()),
       }).catch(() => ({ dispatched: 0, reason: "SWEEP_ERROR" }));
@@ -418,7 +424,7 @@ const worker = {
           }));
           return { enabled: true, schemaReady: false, selected: 0, bootstrapped: 0, failed: 1, hasMore: true };
         }),
-        geminiManualBackgroundEnabled(env) && !externalAgentEnabled(env)
+        geminiDispatchAllowed && geminiManualBackgroundEnabled(env) && !externalAgentEnabled(env)
           ? runGeminiManualBackgroundSweep({database:env.DB,env,executeDirectory:runGeminiDirectoryCategory,executeEvent:runGeminiEventCategory}).catch(() => ({
               claimed:0,processed:0,succeeded:0,failed:1,blocked:0,
             }))
