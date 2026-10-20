@@ -4,6 +4,7 @@ on:
     paths:
       - "lib/data-quality-contact-sql.ts"
       - "lib/data-quality-store.ts"
+      - "lib/directory-profile-metadata.ts"
       - "tests/data-quality-contact-sql-parity.test.mjs"
       - ".github/workflows/data-quality-contact-sql-parity.yml"
   workflow_dispatch:
