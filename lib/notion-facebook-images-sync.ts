@@ -216,7 +216,14 @@ export async function runNotionFacebookImagesSync({
       const hash=await sha256Text(notionFacebookSnapshotFingerprint({
         ...snap,allowed:false,directRequested:false,
       }));
-      if(current?.sync_hash===hash){out.unchanged++;continue;}
+      if(current?.sync_hash===hash){
+        // No content edit: status/next retry time still needs Notion writeback.
+        // Do not perform a canonical D1 write or reauthorize an old schedule.
+        if(current.outcome_kind==="PROVEN_REJECTED"&&current.attempt_state==="UNCERTAIN"
+          &&await writeBack(bindings,page,current))out.writtenBack++;
+        else out.unchanged++;
+        continue;
+      }
       const editedMs=Date.parse(page.last_edited_time??"");
       const decision=notionFacebookScheduleV2Decision({
         scheduledAt:snap.scheduledAt,imageAvailable:Boolean(snap.image.url),
