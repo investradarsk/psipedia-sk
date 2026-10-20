@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { normalizeArticleBlocks, type ArticleBlock } from "@/lib/article-blocks";
 import { buildDentalArticleRemediation, DENTAL_ARTICLE_SLUG } from "@/lib/article-content-remediation";
 import type { ArticleSection } from "@/lib/content";
@@ -79,8 +79,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
 
   try {
     const body = await request.json() as { confirmSlug?: string; expectedUpdatedAt?: string };

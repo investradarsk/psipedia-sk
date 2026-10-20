@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationLocationAdminValidationError } from "@/lib/organization-location-admin";
 import {
   deleteOrganizationLocationFromAdmin,
@@ -35,8 +35,8 @@ function errorResponse(error: unknown, fallback: string) {
 }
 
 export async function PUT(request: Request, { params }: RouteContext) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const { organizationId, locationId } = await parseIds(params);
   if (!organizationId || !locationId) return Response.json({ error: "Neplatné ID lokality." }, { status: 400 });
   if (!expectsJson(request)) return Response.json({ error: "Očakáva sa JSON požiadavka." }, { status: 415 });
@@ -60,9 +60,9 @@ export async function PUT(request: Request, { params }: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: RouteContext) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+export async function DELETE(request: Request, { params }: RouteContext) {
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const { organizationId, locationId } = await parseIds(params);
   if (!organizationId || !locationId) return Response.json({ error: "Neplatné ID lokality." }, { status: 400 });
 

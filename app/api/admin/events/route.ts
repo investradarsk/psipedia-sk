@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { createManagedEvent, isEventSlugConflict, listManagedEventPage, type ManagedEventInput } from "@/lib/event-store";
 import { parseAdminEventListQuery } from "@/lib/admin-event-pagination";
 import { listReviewedAdminEntityIds } from "@/lib/admin-entity-review-store";
@@ -26,8 +26,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   try {
     const event = await createManagedEvent(await request.json() as ManagedEventInput, user.email);
     return Response.json({ event }, { status: 201 });

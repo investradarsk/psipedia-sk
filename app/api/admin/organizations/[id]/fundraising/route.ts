@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { OrganizationFundraisingAdminValidationError } from "@/lib/organization-fundraising-admin";
 import {
   createOrganizationFundraisingMethodFromAdmin,
@@ -25,8 +25,9 @@ function errorResponse(error: unknown) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
 
   const organizationId = parseId((await params).id);
   if (!organizationId) return Response.json({ error: "Neplatné ID organizácie." }, { status: 400 });

@@ -4,7 +4,7 @@ import {
   listManagedArticleSummaries,
   type ManagedArticleInput,
 } from "@/lib/article-store";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { isArticlePublishIntegrityError } from "@/lib/article-content-qa";
 
 export const dynamic = "force-dynamic";
@@ -44,8 +44,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
 
   try {
     const payload = (await request.json()) as ManagedArticleInput;

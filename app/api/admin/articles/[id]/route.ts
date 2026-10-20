@@ -64,8 +64,9 @@ export async function GET(_request: Request, { params }: RouteProps) {
 }
 
 export async function PUT(request: Request, { params }: RouteProps) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = await parsedId(params);
   if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });
 
@@ -165,9 +166,9 @@ export async function PATCH(request: Request, { params }: RouteProps) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: RouteProps) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+export async function DELETE(request: Request, { params }: RouteProps) {
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
   const id = await parsedId(params);
   if (!id) return Response.json({ error: "Neplatné ID článku." }, { status: 400 });
 

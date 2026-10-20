@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { googlePlacesApiKey } from "@/lib/google-places-provider";
 import { isGeoSchemaAvailable } from "@/lib/geo-store";
 import {
@@ -51,8 +51,9 @@ export async function GET(_request: Request, { params }: Props) {
 }
 
 export async function POST(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   if (!sameOriginJson(request)) {
     return Response.json({ error: "Neplatný pôvod alebo formát požiadavky." }, { status: 403 });
   }

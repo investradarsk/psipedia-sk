@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { isArticleFeedbackStatus, updateArticleFeedbackStatus } from "@/lib/article-feedback-store";
 
 export const dynamic = "force-dynamic";
@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 type RouteProps = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, { params }: RouteProps) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
 
   const id = Number.parseInt((await params).id, 10);
   if (!Number.isSafeInteger(id) || id < 1) {

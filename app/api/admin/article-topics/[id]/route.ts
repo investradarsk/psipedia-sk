@@ -1,4 +1,4 @@
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
+import { unauthorizedAdminResponse, requireAdminMutation } from "@/lib/admin-auth";
 import { isArticleTopicConflict, updateArticleTopic } from "@/lib/article-topics";
 
 export const dynamic = "force-dynamic";
@@ -6,8 +6,9 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
+  const auth = await requireAdminMutation(request);
+  if (auth.response || !auth.user) return auth.response ?? unauthorizedAdminResponse();
+  const user = auth.user;
   const id = Number.parseInt((await params).id, 10);
   if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Neplatné ID témy." }, { status: 400 });
   try {
