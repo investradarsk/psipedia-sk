@@ -57,7 +57,7 @@ for (const viewport of [
 
     const title = root.getByLabel("Názov podujatia");
     await title.fill("Klubová výstava retrieverov");
-    const markdown = root.getByLabel("Podrobný popis");
+    const markdown = root.getByRole("textbox", { name: "Podrobný popis", exact: true });
     await markdown.fill("Prvý odsek\n\n**Dôležité informácie**");
     await expect(root.getByRole("region", { name: "Náhľad: Podrobný popis" })).toContainText("Dôležité informácie");
     await root.getByLabel("Dátum začiatku").fill("2026-11-12");
@@ -133,9 +133,9 @@ test("New event: external-form draft button sends canonical POST to isolated moc
   const root = await openEditor(page);
   await root.getByLabel("Názov podujatia").fill("Testovací koncept");
   await root.getByLabel("Mesto").fill("Nitra");
-  await root.getByLabel("Organizátor").fill("Klub");
+  await root.getByRole("textbox", { name: "Organizátor", exact: true }).fill("Klub");
   await root.getByLabel("Dátum začiatku").fill("2026-11-12");
-  await root.getByLabel("Podrobný popis").fill("**Markdown koncept**");
+  await root.getByRole("textbox", { name: "Podrobný popis", exact: true }).fill("**Markdown koncept**");
   await root.getByRole("button", { name: "Uložiť koncept" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({
