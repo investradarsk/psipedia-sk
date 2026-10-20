@@ -70,3 +70,22 @@ Scope: **one Draft PR**. No Gemini/Notion/production writes, migrations, publish
 ## No activation implied
 This PR does not enable flags, dispatch paid workers, create Notion concepts or
 submit changes to Kvalita údajov. **No merge without independent review.**
+
+### Feed-source quality proposals — Events 6/6 and Help 6/6
+- The existing signed `/api/internal/gemini-agent/update-proposal` route now accepts
+  public-only, allowlisted proposal fields for all six Events and six Help categories.
+  Exact canonical identity is revalidated **after** the original signed duplicate gate,
+  then linked to an existing **enabled, approved automation source** with a matching
+  `automation_observations` record and `canonical_external_provenance` receipt.
+- The handler uses existing `automation_findings` with `POSSIBLE_UPDATE`,
+  `EXACT_SOURCE_ID` and immutable, value-versioned fingerprints. Those findings
+  already appear in the existing **Kvalita údajov → FEED_SOURCE** field review and
+  never perform a canonical UPDATE or Notion publish themselves.
+- Incomplete, conflicting or unregistered provenance **returns BLOCKED**; no fake
+  source registration, new D1 migration, alternate editor, private location,
+  phone/contact or personal information is created. Previously reviewed values
+  are not reopened by a repeat candidate.
+- Added offline tests for all 12 category proposal field maps, valid provenance,
+  missing/ambiguous source, unchanged field, protected private fields and
+  review-only database writes. Production read-only verification remains required
+  before activating external Gemini runs.

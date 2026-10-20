@@ -424,7 +424,11 @@ globalThis.fetch = async (url, options = {}) => {
     const payload=JSON.parse(options.body);
     if(!payload.stable_key.startsWith("directory.")||payload.job_id!==7||
       Object.keys(payload).length!==5||!payload.candidate?.name||!payload.proposal||
-      Object.keys(payload.proposal).some(key=>!["websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"].includes(key)))
+      Object.keys(payload.proposal).some(key=>!({
+        directory:["websiteUrl","publicPhone","publicEmail","facebookUrl","instagramUrl"],
+        events:["excerpt","websiteUrl","registrationUrl"],
+        help:["excerpt","actionUrl","shortDescription","websiteUrl","breedName","color","dogName","breed"]
+      }[process.env.AGENT_STABLE_KEY.split(".")[0]]||[]).includes(key)))
       throw Error("UNSAFE_QUALITY_PAYLOAD");
     console.log("MOCK_QUALITY_PROPOSAL review_only");
     return json({status:"REVIEW_SUBMITTED"});

@@ -8,6 +8,8 @@ on:
       - 'lib/gemini-external-dedupe.ts'
       - 'lib/gemini-external-help-dedupe.ts'
       - 'lib/gemini-external-quality-proposals.ts'
+      - 'lib/gemini-external-feed-quality.ts'
+      - 'tests/gemini-external-feed-quality.test.mjs'
       - 'app/api/internal/gemini-agent/update-proposal/route.ts'
       - 'tests/gemini-external-quality-proposals.test.mjs'
       - 'app/api/internal/gemini-agent/dedupe/route.ts'
@@ -31,5 +33,5 @@ jobs:
           node-version: '22'
       - run: node --check scripts/gemini-notion-preflight.mjs && node --check scripts/gemini-notion-agent.mjs
       - run: node --test tests/gemini-notion-preflight.test.mjs
-      - run: node --experimental-strip-types --test tests/gemini-external-dedupe.test.mjs tests/gemini-external-help-dedupe.test.mjs tests/gemini-external-quality-proposals.test.mjs
+      - run: node --experimental-strip-types --test tests/gemini-external-dedupe.test.mjs tests/gemini-external-help-dedupe.test.mjs tests/gemini-external-quality-proposals.test.mjs tests/gemini-external-feed-quality.test.mjs
       - run: node --test tests/gemini-external-worker-offline.test.mjs
