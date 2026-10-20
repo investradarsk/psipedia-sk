@@ -30,7 +30,7 @@ function fixture() {
 test("0133 manually approved only by pinned SHA256, canonical database, protected Actions confirmation", () => {
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), previous);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0134_services_admin_change_audit.sql", "0135_notion_article_editorial_outbox.sql"]);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0134_services_admin_change_audit.sql"]);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0133_SHA256);
   assert.doesNotThrow(() => assertApproved0133Target("psipedia-sk-db", APPROVED_0133_SHA256));
   assert.throws(() => assertApproved0133Target("wrong-db", APPROVED_0133_SHA256), /canonical/);
