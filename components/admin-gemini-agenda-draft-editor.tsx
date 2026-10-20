@@ -53,7 +53,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       setConfirm(null);
       setRejectionReason("");
       setMessage(action === "save" ? "Koncept bol uložený v pôvodnej Notion stránke bez publikovania."
-        : action === "approve" ? "Schválené na následné spracovanie synchronizáciou." :
+        : action === "approve" ? "Koncept pripravený na import; D1 profil zostáva neverejný." :
           action === "reject" ? "Koncept odmietnutý." : "Koncept obnovený.");
       onSaved();
     } catch (reason) {
@@ -135,14 +135,14 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
           )}
           {!readOnly && (
             <button type="button" disabled={busy || (draft.agenda === "help-cases" && !draft.reviewAvailable)} onClick={() => setConfirm("approve")}>
-              Schváliť koncept
+              Pripraviť na import
             </button>
           )}
         </div>
       </form>
       {confirm && (
         <div role="alertdialog" aria-label="Potvrdenie rozhodnutia">
-          <p>{confirm === "approve" ? "Schváliť tento Notion koncept na následné spracovanie? Uloženie konceptu samo osebe nepublikuje."
+          <p>{confirm === "approve" ? "Pripraviť tento Notion koncept na následný import? Táto akcia nepublikuje D1 profil."
             : confirm === "reject" ? "Odmietnuť tento koncept?"
               : "Obnoviť odmietnutý koncept?"}</p>
           {confirm === "reject" && draft.agenda === "help-cases" && (

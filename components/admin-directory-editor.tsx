@@ -275,6 +275,11 @@ export function AdminDirectoryEditor({
 
   async function save(nextStatus: DirectoryProfileStatus) {
     if (saving || notionReadOnly) return;
+    // A Notion-only record is not a published canonical D1 profile.
+    if (notionDraft && nextStatus === "published") {
+      setError("Najprv bezpečne importuj koncept do D1 a publikuj v natívnom editore.");
+      return;
+    }
     setSaving(true); setError(""); setMessage("");
     try {
       if (notionDraft) {
@@ -305,21 +310,7 @@ export function AdminDirectoryEditor({
         if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo uložiť v Notione.");
         setNotionVersion(data.draft.lastEditedAt);
         setReviewState(data.draft.reviewState);
-        if (nextStatus === "published") {
-          const approval = await fetch(
-            "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(notionDraft.id) + "/publish",
-            { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" },
-              body: JSON.stringify({ confirm: true, lastEditedAt: data.draft.lastEditedAt }) },
-          );
-          const result = await approval.json() as { status?: string; error?: string };
-          if (!approval.ok || result.status !== "PENDING_SYNC")
-            throw new Error(result.error || "Koncept sa uložil, ale nebol schválený na publikovanie.");
-          setStatus("published");
-          setReviewState("APPROVED");
-          setMessage("Publikovanie schválené. Profil čaká na synchronizáciu Notion → Psipedia.");
-        } else {
-          setMessage("Koncept je uložený priamo v Notione. Zostáva neverejný.");
-        }
+        setMessage("Koncept je uložený priamo v Notione a zostáva neverejný.");
         setPublishConfirming(false);
         onNotionSaved?.();
         return;
@@ -727,15 +718,12 @@ export function AdminDirectoryEditor({
             </>}
           </div>
         )}
-        {notionDraft && publishConfirming && <p role="alert">Po potvrdení sa uložený koncept schváli na publikovanie. Verejný profil vznikne až pri úspešnej synchronizácii.</p>}
+        {notionDraft && <p role="status">Publikovať bude možné až po overenom importe v natívnom D1 editore.</p>}
         <div>
           {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
           <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
-          {notionDraft && publishConfirming && <AdminActionButton variant="neutral" disabled={saving} onClick={() => setPublishConfirming(false)}>Zrušiť</AdminActionButton>}
-          <AdminActionButton variant="primary" disabled={saving || uploading || notionReadOnly || Boolean(reviewConfirm) || (Boolean(notionDraft) && status === "published")} onClick={() => {
-            if (notionDraft && !publishConfirming) { setPublishConfirming(true); return; }
-            void save("published");
-          }}>{saving ? "Ukladám…" : notionDraft ? publishConfirming ? "Áno, publikovať" : "Publikovať profil" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>
+          {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || Boolean(reviewConfirm)}
+            onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
     </form>
