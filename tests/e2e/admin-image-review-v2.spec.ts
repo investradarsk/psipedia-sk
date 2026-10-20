@@ -36,7 +36,7 @@ for(const width of [1440,390,320]){
     });
     test("02 individual approval and one network call",async({page},info)=>{
       await gotoFixture(page);
-      let calls=0; let body:any;
+      let calls=0; let body:Record<string,unknown> = {};
       await page.route("**/api/admin/data-quality/media/**",async route=>{
         calls++;body=route.request().postDataJSON();
         await route.fulfill({status:200,json:{requested:1,updated:1,failed:[]}});
@@ -52,7 +52,7 @@ for(const width of [1440,390,320]){
     });
     test("03 individual rejection + reason remains blocked",async({page},info)=>{
       await gotoFixture(page);
-      let calls=0;let payload:any;
+      let calls=0;let payload:Record<string,unknown> = {};
       await page.route("**/api/admin/data-quality/media/**",async route=>{
         calls++; payload=route.request().postDataJSON();
         await route.fulfill({status:200,json:{requested:1,updated:1,failed:[]}});
