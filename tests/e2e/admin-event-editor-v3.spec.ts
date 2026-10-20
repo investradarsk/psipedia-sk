@@ -34,6 +34,29 @@ async function checkNoHorizontalOverflow(page: Page) {
     document: document.documentElement.scrollWidth,
     viewport: document.documentElement.clientWidth,
   }));
+  if (bounds.document > bounds.viewport + 1) {
+    // Genuine overflows must remain a failing assertion, with actionable DOM evidence.
+    const culprits = await page.evaluate(() => {
+      const edge = document.documentElement.clientWidth;
+      return Array.from(document.querySelectorAll<HTMLElement>("body *")).map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          tag: element.tagName.toLowerCase(),
+          id: element.id,
+          className: typeof element.className === "string" ? element.className.slice(0, 90) : "",
+          right: Math.round(rect.right),
+          left: Math.round(rect.left),
+          width: Math.round(rect.width),
+          minWidth: style.minWidth,
+          whiteSpace: style.whiteSpace,
+          position: style.position,
+        };
+      }).filter((item) => item.right > edge + 1 && item.width > 0)
+        .sort((a, b) => b.right - a.right).slice(0, 12);
+    });
+    console.log("EVENTS_V3_OVERFLOW", JSON.stringify({ ...bounds, culprits }));
+  }
   expect(bounds.document, "document overflow").toBeLessThanOrEqual(bounds.viewport + 1);
 }
 
