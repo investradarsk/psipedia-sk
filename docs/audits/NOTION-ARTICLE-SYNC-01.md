@@ -39,6 +39,10 @@ A single Notion page PATCH is atomic for the submitted properties, **but Notion 
 
 The importer remains draft-only. No automatic publication, status rollback, slug rewrite, manual conflict resolution, or requeue of 35 historical errors / 21 unlinked pages is authorized.
 
+## Read-only Notion Editorial Hub schema evidence (2026-10-20)
+
+A direct read-only lookup of the existing **Články** Notion data source confirmed 30 properties. `Názov` is title; `Stav` and `Sync stav` are selects; `Odoslať na Psipedia` is checkbox; `Psipedia ID`, `SEO title`, `Meta description`, `Hlavné kľúčové slovo` and `Alt text obrázka` are text fields; `Hlavný obrázok URL` and `Zdroj obrázka` are URL fields. **`OG title` and `OG description` are absent**: do not PATCH those fields or invent a schema migration. This confirms property names/types only, **not** live Notion API block PATCH semantics, D1 mappings, R2 lineage or safe content writeback activation.
+
 ## Deployment and acceptance blockers
 
 - The article outbox SQL is only a **staged proposal** at \`docs/proposals/0136_notion_article_editorial_outbox.sql\`, not in the active \`drizzle/\` production migration chain. Facebook PR #923 owns migration 0135 (merged to main); before activating article writeback, independently verify 0134/0135 production schema and approve a sequential 0136 migration as a separate rollout. This PR does not approve or apply any migration.
