@@ -129,6 +129,9 @@ test("DS-2A: disabled, active, focus and reduced-motion states stay in local CSS
   assert.ok(styles.includes(".actionLoading:disabled {"));
   assert.ok(styles.includes(".action:active:not(:disabled) {"));
   assert.ok(styles.includes(".action:focus-visible,"));
+  // A high-opacity two-tone ring is visible against light and dark surfaces.
+  assert.match(styles, /\.action:focus-visible\s*\{\s*outline:\s*3px solid var\(--forest-dark\);\s*outline-offset:\s*3px;\s*box-shadow:\s*0 0 0 3px var\(--white\);\s*\}/s);
+  assert.match(styles, /@media \(forced-colors: active\)\s*\{\s*\.action:focus-visible\s*\{\s*outline-color:\s*Highlight;\s*box-shadow:\s*none;/s);
   for (const variant of ["Primary", "Secondary", "Tertiary"]) {
     assert.ok(styles.includes(".action" + variant + ":hover:not(:disabled) {"));
     assert.ok(styles.includes(".action" + variant + ":active:not(:disabled) {"));
