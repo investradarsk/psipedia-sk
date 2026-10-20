@@ -26,7 +26,7 @@ function fixture() {
 }
 test("0134 is sole newly allowed target; 0135 is blocked, SQL SHA and database pinned", () => {
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0135_facebook_image_safe_retry.sql"]);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0135_facebook_image_safe_retry.sql", "0136_gemini_global_stop.sql"]);
   assert.equal(createHash("sha256").update(m134).digest("hex"), APPROVED_0134_SHA256);
   assert.doesNotThrow(() => assertApproved0134Target("psipedia-sk-db", APPROVED_0134_SHA256));
   assert.throws(() => assertApproved0134Target("other-db", APPROVED_0134_SHA256), /canonical/);
