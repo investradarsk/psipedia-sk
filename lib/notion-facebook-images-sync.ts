@@ -254,13 +254,15 @@ export async function runNotionFacebookImagesSync({
         const sql="UPDATE facebook_image_posts SET title=?,image_url=?,image_key=?,caption=?,"+
           "scheduled_at=?,status=?,approval_status=?,approved_at=?,approved_by=?,sync_hash=?,"+
           "version=version+1,updated_at=?,updated_by=? WHERE id=? AND sync_hash=? "+
-          "AND updated_by=? AND status IN ('draft','scheduled') "+(trashReady?"AND deleted_at IS NULL ":"")+
+          (policy.enabled?"AND version=? ":"AND updated_by=? ")+
+          "AND status IN ('draft','scheduled') "+(trashReady?"AND deleted_at IS NULL ":"")+
           "AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)";
         const result=await db.prepare(sql).bind(
           title,image.url,image.key,snap.caption,
           targetAt,targetStatus,
           scheduled?"APPROVED":"UNREVIEWED",scheduled?updatedAt:null,scheduled?ACTOR:null,
-          hash,updatedAt,ACTOR,current.id,current.sync_hash,ACTOR,
+          hash,updatedAt,ACTOR,current.id,current.sync_hash,
+          policy.enabled?current.version:ACTOR,
         ).run();
         if(result.meta.changes===1){
           out.updated++;
