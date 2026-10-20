@@ -94,7 +94,7 @@ test("publication write contract is optimistic, row-scoped and relation-free", (
 
 test("publication API reuses the existing admin auth contract", () => {
   const routeSource = readFileSync(new URL("../app/api/admin/organizations/[id]/publication/route.ts", import.meta.url), "utf8");
-  assert.match(routeSource, /getAdminApiUser\(\)/);
+  assert.match(routeSource, /requireAdminMutation\(request, \{ strictProvenance: true \}\)/);
   assert.match(routeSource, /unauthorizedAdminResponse\(\)/);
   assert.match(routeSource, /expectedUpdatedAt/);
 });

@@ -60,7 +60,10 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
   assert.match(worker, /Cloudflare-CDN-Cache-Control/);
   assert.match(worker, /private, no-store/);
   assert.match(worker, /request\.headers\.has\("cookie"\)/);
-  assert.doesNotMatch(worker.slice(worker.indexOf("function isCacheableHtmlResponse"), worker.indexOf("function responseWithHeader")), /no-store/);
+  assert.match(worker, /function responseForbidsSharedHtmlCache/);
+  const guardPosition = worker.indexOf("if (!cache || !isCacheableHtmlResponse(response)) return response;");
+  const cacheWritePosition = worker.indexOf('const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));');
+  assert.ok(guardPosition >= 0 && cacheWritePosition > guardPosition, "Check original response before rewriting public headers");
   assert.match(rootLayout, /navigation is D1-backed/);
 });
 

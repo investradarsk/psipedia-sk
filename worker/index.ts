@@ -43,6 +43,7 @@ interface Env {
   FB_PAGE_ID?: string;
   FB_PAGE_ACCESS_TOKEN?: string;
   FACEBOOK_IMAGE_PUBLISH_ENABLED?: string;
+  FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?: string;
   AUTH_MODE?: "cloudflare-access";
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
@@ -631,11 +632,42 @@ function publicHtmlCacheHeaders(status: "HIT" | "MISS"): Record<string, string> 
   };
 }
 
+/**
+ * Respect the origin's response-cache restrictions before applying our own
+ * 45-second shared-cache headers. Cloudflare's Cache API does not revalidate
+ * these entries on every HIT, so zero/short TTLs and revalidation directives
+ * must also stay out of the shared HTML cache.
+ */
+function responseForbidsSharedHtmlCache(value: string): boolean {
+  return value.split(",").some((part) => {
+    const equals = part.indexOf("=");
+    const name = (equals < 0 ? part : part.slice(0, equals)).trim().toLowerCase();
+    if (["private", "no-store", "no-cache", "must-revalidate", "proxy-revalidate"].includes(name)) return true;
+    if (name !== "max-age" && name !== "s-maxage") return false;
+    if (equals < 0) return true; // malformed freshness directive: fail closed
+    const seconds = part.slice(equals + 1).trim().replace(/^"|"$/g, "");
+    return !/^\d+$/.test(seconds) || !Number.isSafeInteger(Number(seconds)) || Number(seconds) < PUBLIC_HTML_CACHE_TTL_SECONDS;
+  });
+}
+
 function isCacheableHtmlResponse(response: Response): boolean {
-  const contentType = response.headers.get("content-type") ?? "";
-  return response.status === 200
-    && contentType.includes("text/html")
-    && !response.headers.has("set-cookie");
+  if (response.status !== 200 || !(response.headers.get("content-type") ?? "").toLowerCase().includes("text/html")) return false;
+  if (response.headers.has("set-cookie")) return false;
+
+  // Check *original* headers. Only a qualifying response may be rewritten
+  // with public Cache-Control and subsequently stored using Cache API.
+  for (const name of ["cache-control", "cdn-cache-control", "cloudflare-cdn-cache-control", "surrogate-control"]) {
+    const value = response.headers.get(name);
+    if (value && responseForbidsSharedHtmlCache(value)) return false;
+  }
+  if ((response.headers.get("pragma") ?? "").split(",").some((part) => part.trim().toLowerCase() === "no-cache")) return false;
+
+  // The shared cache key is URL-only; these variants cannot safely share it.
+  const vary = response.headers.get("vary");
+  if (vary && vary.split(",").some((part) =>
+    ["*", "cookie", "authorization", "cf-access-jwt-assertion"].includes(part.trim().toLowerCase())
+  )) return false;
+  return true;
 }
 
 function responseWithHeader(response: Response, name: string, value: string): Response {
