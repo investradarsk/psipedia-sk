@@ -44,8 +44,12 @@ export type CatalogMirrorResult=
   | {state:"RETRY"|"REVIEW"|"BLOCKED";reason:string;optionId:string};
 
 export class CatalogMirrorError extends Error {
-  constructor(public readonly code:string,public readonly disposition:"RETRY"|"REVIEW"|"BLOCKED"){
+  readonly code:string;
+  readonly disposition:"RETRY"|"REVIEW"|"BLOCKED";
+  constructor(code:string,disposition:"RETRY"|"REVIEW"|"BLOCKED"){
     super(code);
+    this.code=code;
+    this.disposition=disposition;
   }
 }
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
