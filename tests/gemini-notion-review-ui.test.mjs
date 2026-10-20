@@ -89,7 +89,7 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       }
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
       assert.equal(await page.getByRole('button', { name: 'Publikovať profil', exact: true }).count(), 0);
-      assert.equal(await page.getByText('Publikovať bude možné až po overenom importe v natívnom D1 editore.').count(), 1);
+      await page.getByText('Publikovať bude možné až po overenom importe v natívnom D1 editore.').waitFor({ state: 'visible' });
       await page.getByRole('button', { name: 'Obnoviť koncept', exact: true }).click();
       await page.getByRole('button', { name: 'Áno, obnoviť' }).click();
       await page.getByLabel('Stav konceptu').selectOption('IN_PROGRESS');
