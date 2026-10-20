@@ -265,3 +265,20 @@ test("one-sided inferred baseline still refuses unauthorized clears and protecte
     protectedFields: new Set(["status"]),
   }).kind, "CONFLICT");
 });
+
+
+test("existing owner-gated Gemini and Events priority branches remain reachable", async () => {
+  const [directory, sync] = await Promise.all([
+    readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8"),
+  ]);
+  const directoryMapped = directory.slice(directory.indexOf("async function syncMappedPage("),
+    directory.indexOf("async function recoverMappingFromPage("));
+  assert.match(directoryMapped,
+    /if \(!gemini22PriorityEnabled\(input\.bindings\.NOTION_GEMINI_22_PRIORITY_A_ENABLED\)\) \{/);
+  assert.match(directoryMapped,
+    /if \(gemini22PriorityEnabled\(input\.bindings\.NOTION_GEMINI_22_PRIORITY_A_ENABLED\)\) \{/);
+  assert.match(sync,
+    /legacyPriorityEnabled = input\.definition\.key === "events"[\s\S]{0,260}NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED[\s\S]{0,180}NOTION_GEMINI_22_PRIORITY_A_ENABLED/);
+  assert.match(sync, /decision\.decision !== "UNCHANGED" && !legacyPriorityEnabled/);
+});
