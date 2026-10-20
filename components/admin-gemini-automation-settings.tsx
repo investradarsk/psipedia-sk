@@ -509,6 +509,33 @@ export function AdminGeminiAutomationSettings({
   const enabled = liveSettings.filter((item) => item.enabled).length;
   const latestRun = recentRuns[0];
 
+  async function changeGlobalStop(stopped: boolean) {
+    if (!available || controlPending || !liveControl) return;
+    const confirmed = window.confirm(stopped
+      ? "Aktivovať hlavný STOP? Čakajúce úlohy sa zrušia bez automatickej obnovy. Rozbehnuté úlohy sa dokončia."
+      : "Obnoviť nové spúšťania Gemini? Zameškané plánované termíny sa preskočia. Platené a plánované bezpečnostné prepínače zostávajú nadradené.");
+    if (!confirmed) return;
+    setControlPending(true);
+    setControlError("");
+    try {
+      const response = await fetch("/api/admin/gemini-automation/control", {
+        method: "PUT", credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stopped }),
+      });
+      const data = await response.json() as { control?: GeminiGlobalControl; error?: string };
+      if (!response.ok || !data.control) throw Error(data.error ?? "Zmenu sa nepodarilo potvrdiť.");
+      setRemote(previous => ({
+        settings: previous?.settings ?? settings,
+        jobs: previous?.jobs ?? [...initialJobs],
+        control: data.control!,
+      }));
+      router.refresh();
+    } catch (error) {
+      setControlError(error instanceof Error ? error.message : "Stav nie je potvrdený. Obnov stránku.");
+    } finally { setControlPending(false); }
+  }
+
   function chooseCategory(key: string) {
     if (selected?.stableKey === key) return;
     if (dirty && !window.confirm("Máš neuložené nastavenia. Opustiť kategóriu bez uloženia?")) return;
@@ -523,6 +550,28 @@ export function AdminGeminiAutomationSettings({
 
   return (
     <div className={styles.dashboard}>
+      <section className={styles.panel} aria-labelledby="gemini-main-stop-title">
+        <div className={styles.panelHeader}>
+          <h2 id="gemini-main-stop-title">Hlavný STOP Gemini</h2>
+          <strong role="status">{!liveControl ? "Stav nedostupný — spúšťanie blokované"
+            : globalRunning ? "STOP vypnutý" : liveControl.state === "RESUMING"
+              ? "Obnovovanie harmonogramov — spúšťanie blokované" : "STOP aktívny"}</strong>
+        </div>
+        <p>Automatické spúšťanie: {globalRunning && scheduledEnabled && enabled > 0
+          ? "povolené pre zapnuté kategórie" : "blokované"}.
+          {" "}Manuálne spúšťanie: {globalRunning ? "povolené podľa oprávnení a nastavení" : "blokované"}.
+          {" "}Fronta: {waiting} čaká, {running} beží.</p>
+        <p>Externý pracovník: {externalEnabled ? "povolený konfiguráciou Cloudflare" : "vypnutý konfiguráciou Cloudflare"}.
+          {" "}Plánovaný dispatch: {scheduledEnabled ? "povolený konfiguráciou" : "vypnutý konfiguráciou"}.
+          {" "}Platený prepínač na GitHube: stav nie je cez túto administráciu overiteľný; aj po obnove zostáva nadradený.</p>
+        <p>STOP neruší bežiace Notion zápisy ani koncepty. Čakajúce schválenia sa pri STOP označia ako zrušené a po obnove sa nespustia bez nového ručného potvrdenia. Zameškané plánované termíny sa preskočia.</p>
+        <button type="button" className="admin-primary-action"
+          disabled={!available || !liveControl || controlPending}
+          onClick={() => void changeGlobalStop(globalRunning)}>
+          {controlPending ? "Ukladám…" : globalRunning ? "Aktivovať hlavný STOP" : "Obnoviť Gemini"}
+        </button>
+        {controlError && <p role="alert" className={styles.warning}>{controlError}</p>}
+      </section>
       <div className={styles.metrics} aria-label="Súhrn Gemini automatizácií">
         <div className={styles.metric}>
           <small>Plánovač Gemini</small>
