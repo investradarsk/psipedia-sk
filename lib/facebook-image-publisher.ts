@@ -1,6 +1,6 @@
 /** Facebook Page photo publishing, single-attempt fail-closed semantics.
- * No automatic retry is ever allowed after a claim: a transport error might
- * mean Meta published the photo despite an interrupted response.
+ * Only explicit provider-rejected throttling may be retried. A transport error
+ * may mean Meta published the photo, so ambiguous results remain fail-closed.
  * Credentials must be present in Cloudflare secrets (never D1/client/log).
  */
 export type FacebookPublisherBindings = {
@@ -13,7 +13,7 @@ export type PublisherDatabase = Pick<D1Database, "prepare">;
 export type PublisherConfig = { enabled: boolean; connected: boolean; technicallyEnabled: boolean };
 type Candidate = {
   id: string; image_key: string; caption: string; version: number;
-  scheduled_at: string; approval_status: string; retry_count?:number;
+  scheduled_at: string; approval_status: string; retry_count?:number; superseded?:number;
 };
 class ExplicitMetaRateLimitRejection extends Error {
   constructor(){super("META_EXPLICIT_RATE_LIMIT");}
@@ -151,9 +151,15 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       WHERE status='scheduled'
       AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED' AND a.remote_id IS NOT NULL)`)
       .bind(timestamp).run();
-  const candidates=await db.prepare(`SELECT id,image_key,caption,version,scheduled_at,approval_status FROM facebook_image_posts
+  const candidates=await db.prepare(`SELECT id,image_key,caption,version,scheduled_at,approval_status,
+      ${safeRetry?"EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='UNCERTAIN' AND a.outcome_kind='SUPERSEDED')":"0"} AS superseded
+      FROM facebook_image_posts
     WHERE status='scheduled' AND scheduled_at<=? AND image_key<>'' ${trashReady?"AND deleted_at IS NULL":""}
-      AND NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)
+      AND (${safeRetry?
+        "NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id) OR "+
+        "EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id "+
+          "AND a.state='UNCERTAIN' AND a.outcome_kind='SUPERSEDED')":
+        "NOT EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id)"})
       AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
            AND approval_status='APPROVED' AND approved_at IS NOT NULL AND approved_by IS NOT NULL)
     ORDER BY scheduled_at,id LIMIT ${safeRetry?20:50}`).bind(timestamp).all<Candidate>();
@@ -182,7 +188,23 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     // The claim atomically checks global STOP AND per-item approval and version.
     // Competing cron invocations cannot claim the same post twice.
     const isRetry=retryIds.has(item.id);
-    const claimed=isRetry?await db.prepare(`UPDATE facebook_image_publish_attempts
+    const isSuperseded=safeRetry&&item.superseded===1&&!isRetry;
+    const claimed=isSuperseded?await db.prepare(`UPDATE facebook_image_publish_attempts
+        SET snapshot_version=?,state='SENDING',started_at=?,completed_at=NULL,
+            error_code=NULL,outcome_kind='UNKNOWN',retry_not_before=NULL,retry_count=0
+        WHERE post_id=? AND state='UNCERTAIN' AND outcome_kind='SUPERSEDED'
+          AND snapshot_version<=?
+          AND EXISTS (SELECT 1 FROM facebook_image_posts p
+            WHERE p.id=facebook_image_publish_attempts.post_id
+              AND p.version=? AND p.status='scheduled' AND p.scheduled_at<=?
+              AND p.image_key=?
+              ${trashReady?"AND p.deleted_at IS NULL":""}
+              AND (COALESCE((SELECT enabled FROM facebook_image_publisher_settings WHERE id=1),0)=1
+                AND p.approval_status='APPROVED' AND p.approved_at IS NOT NULL
+                AND p.approved_by IS NOT NULL))
+        RETURNING post_id`).bind(item.version,timestamp,item.id,item.version,
+          item.version,timestamp,item.image_key).first<{post_id:string}>()
+      :isRetry?await db.prepare(`UPDATE facebook_image_publish_attempts
         SET state='SENDING',started_at=?,completed_at=NULL,error_code=NULL,
           outcome_kind='UNKNOWN',retry_not_before=NULL,retry_count=retry_count+1
         WHERE post_id=? AND state='UNCERTAIN' AND outcome_kind='PROVEN_REJECTED'
@@ -213,7 +235,13 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
     const gate=await db.prepare("SELECT enabled FROM facebook_image_publisher_settings WHERE id=1")
       .first<{enabled:number}>();
     if(gate?.enabled!==1){
-      if(isRetry){
+      if(isSuperseded){
+        await db.prepare(`UPDATE facebook_image_publish_attempts
+          SET state='UNCERTAIN',outcome_kind='SUPERSEDED',
+              retry_not_before=NULL,error_code='RETRY_SUPERSEDED'
+          WHERE post_id=? AND state='SENDING' AND snapshot_version=?`)
+          .bind(item.id,item.version).run();
+      }else if(isRetry){
         await db.prepare(`UPDATE facebook_image_publish_attempts
           SET state='UNCERTAIN',outcome_kind='PROVEN_REJECTED',
             retry_count=retry_count-1,retry_not_before=?,error_code='META_RATE_LIMIT'
