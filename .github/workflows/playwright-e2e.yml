@@ -174,14 +174,17 @@ jobs:
             /^lib\/directory-/,
             /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
           ];
-          const nodeRequired = files.some(file => publicContracts.some(pattern => pattern.test(file)));
+          const tokenRequired = files.some(file =>
+            file === "app/design-system.css" || file === "tests/public-design-tokens.test.mjs");
+          const nodeRequired = tokenRequired || files.some(file => publicContracts.some(pattern => pattern.test(file)));
           const directoryRequired = files.some(file => directoryMatrix.some(pattern => pattern.test(file)));
           if (directoryRequired && !nodeRequired) throw new Error("Directory contract must also run Node assertions");
           const mode = process.env.GITHUB_EVENT_NAME === "pull_request" ? "pr" : "push";
           console.log(JSON.stringify({ mode, base: process.env.CI_BASE_SHA, head: process.env.PR_HEAD_SHA,
-            files, nodeRequired, directoryRequired }, null, 2));
+            files, nodeRequired, tokenRequired, directoryRequired }, null, 2));
           appendFileSync(process.env.GITHUB_OUTPUT, [
             "node=" + nodeRequired,
+            "token=" + tokenRequired,
             "directory=" + (mode === "pr" && directoryRequired),
             ""
           ].join("\n"));
@@ -201,6 +204,9 @@ jobs:
             tests/global-design-unification.test.mjs \
             tests/public-search-simplify.test.mjs \
             tests/public-landing-alignment.test.mjs
+      - name: Execute DS-1A semantic token contracts
+        if: steps.ds0b_scope.outputs.token == 'true'
+        run: node --test tests/public-design-tokens.test.mjs
       - name: Install Chromium for directory matrix
         if: steps.ds0b_scope.outputs.directory == 'true'
         run: npx playwright install --with-deps chromium
