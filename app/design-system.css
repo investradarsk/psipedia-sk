@@ -704,3 +704,180 @@
   }
 }
 /* DS-5 PUBLIC CARDS, GRIDS & MEDIA END */
+
+/* DS-3 PUBLIC SEARCH — opt-in visual contract, isolated from /admin.
+   Actions, GET names, hidden scope and form behavior stay in each caller.
+   Existing DS-1A semantic tokens own the colors, controls and focus. */
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  padding: 5px;
+  border: 1px solid var(--ps-color-border-subtle);
+  border-radius: var(--ps-radius-control);
+  color: var(--ps-color-text-primary);
+  background: #f8faf7;
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] .public-search-entry {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding-inline: 10px;
+}
+
+[data-public-search-ui] .public-search-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ps-color-text-muted);
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] .public-search-entry input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ps-color-text-primary);
+  background: transparent;
+  font-size: 1rem;
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] .public-search-entry input::placeholder {
+  color: var(--ps-color-text-muted);
+  opacity: 1;
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] > button[type="submit"] {
+  grid-column: auto;
+  align-self: stretch;
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: calc(var(--ps-radius-control) - 3px);
+  color: var(--ps-color-action-primary-text);
+  background: var(--ps-color-action-primary);
+  font: inherit;
+  font-size: .875rem;
+  font-weight: 750;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] > button[type="submit"]:hover:not(:disabled) {
+  background: var(--ps-color-action-primary-hover);
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] > button[type="submit"]:active:not(:disabled) {
+  filter: brightness(.94);
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] > button[type="submit"]:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+:is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui]:focus-within,
+[data-section-hero-search][data-public-search-ui="section"] .public-search-entry:focus-within {
+  outline: 3px solid var(--ps-color-action-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--ps-color-action-primary-text);
+}
+
+[data-public-search-ui] button[type="submit"]:focus-visible {
+  outline: 3px solid var(--ps-color-action-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--ps-color-action-primary-text);
+}
+
+/* Contextual section form may contain an additional category selector.
+   Keep its existing layout and GET fields, matching only visual controls. */
+[data-section-hero-search][data-public-search-ui="section"] .public-search-entry {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 9px;
+  border: 1px solid var(--ps-color-border-subtle);
+  border-radius: var(--ps-radius-control);
+  background: #f8faf7;
+}
+
+[data-section-hero-search][data-public-search-ui="section"] .public-search-entry input {
+  min-width: 0;
+  font-size: 1rem;
+}
+
+[data-section-hero-search][data-public-search-ui="section"] button[type="submit"] {
+  border-radius: calc(var(--ps-radius-control) - 3px);
+  color: var(--ps-color-action-primary-text);
+  background: var(--ps-color-action-primary);
+}
+
+[data-section-hero-search][data-public-search-ui="section"] button[type="submit"]:hover {
+  background: var(--ps-color-action-primary-hover);
+}
+
+@media (max-width: 620px) {
+  :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui]:focus-within {
+    outline: 0;
+    box-shadow: none;
+  }
+
+  :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] .public-search-entry {
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid var(--ps-color-border-subtle);
+    border-radius: var(--ps-radius-control);
+    background: #f8faf7;
+  }
+
+  :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] .public-search-entry:focus-within {
+    outline: 3px solid var(--ps-color-action-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--ps-color-action-primary-text);
+  }
+
+  :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] .public-search-entry input {
+    min-height: 46px;
+    font-size: 1rem; /* iOS: prevent automatic zoom while typing */
+  }
+
+  :is(.home-search-form, .portal-search-form, .search-form)[data-public-search-ui="main"][data-public-search-ui] > button[type="submit"] {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 46px;
+    margin: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  [data-public-search-ui] :is(button[type="submit"], .public-search-entry):focus-within,
+  [data-public-search-ui] button[type="submit"]:focus-visible {
+    outline-color: Highlight;
+    box-shadow: none;
+  }
+}
