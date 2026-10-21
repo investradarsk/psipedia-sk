@@ -32,6 +32,8 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
   const [slugEdited, setSlugEdited] = useState(Boolean(item));
   const [status, setStatus] = useState<AdoptionStatus>(item?.status ?? "DRAFT");
   const [persistedStatus, setPersistedStatus] = useState<AdoptionStatus>(item?.status ?? "DRAFT");
+  const [gallery, setGallery] = useState(item?.gallery ?? []);
+  const [galleryUploading, setGalleryUploading] = useState(false);
   const [mainImage, setMainImage] = useState(item?.mainImage ?? "");
   const [thumbnailImageDisplay, setThumbnailImageDisplay] = useState<ImageDisplayConfig | null>(item?.thumbnailImageDisplay ?? null);
   const [detailImageDisplay, setDetailImageDisplay] = useState<ImageDisplayConfig | null>(item?.detailImageDisplay ?? null);
@@ -85,6 +87,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving || uploading || galleryUploading) return;
     setSaving(true); setError(""); setMessage("");
     try {
       const data = new FormData(event.currentTarget);
@@ -95,7 +98,7 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         breedId: nullableNumber(data, "breedId"), breedName: text(data, "breedName"), breedMix: checked(data, "breedMix"), color: text(data, "color"),
         region: text(data, "region"), district: text(data, "district"), city: text(data, "city"),
         organizationId: nullableNumber(data, "organizationId"), organizationName: text(data, "organizationName"), organizationSlug: text(data, "organizationSlug") || null,
-        mainImage: mainImage || null, thumbnailImageDisplay, detailImageDisplay, gallery: text(data, "gallery"), shortDescription: text(data, "shortDescription"), description: text(data, "description"),
+        mainImage: mainImage || null, thumbnailImageDisplay, detailImageDisplay, gallery, shortDescription: text(data, "shortDescription"), description: text(data, "description"),
         temperament: text(data, "temperament"), activityLevel: text(data, "activityLevel"),
         suitableForChildren: text(data, "suitableForChildren"), suitableForDogs: text(data, "suitableForDogs"), suitableForCats: text(data, "suitableForCats"), suitableForOtherAnimals: text(data, "suitableForOtherAnimals"),
         apartmentSuitable: nullableBoolean(data, "apartmentSuitable"), beginnerSuitable: nullableBoolean(data, "beginnerSuitable"), needsExperiencedOwner: checked(data, "needsExperiencedOwner"),
@@ -132,10 +135,10 @@ export function AdminAdoptionEditor({ item, breeds, organizations, automationSug
         {publishing && <p className="admin-help">Pri ACTIVE/RESERVED server vyžaduje všetky publikačné údaje vrátane canonical organization_id a znovu ich validuje.</p>}
       </section>
       <AdminAdoptionEditorProfile item={item} breeds={breeds} publishing={publishing}/>
-      <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)}/>
+      <AdminAdoptionEditorDetails item={item} organizations={organizations} publishing={publishing} mainImage={mainImage} uploading={uploading || saving} gallery={gallery} onGalleryChange={setGallery} onGalleryBusyChange={setGalleryUploading} onMainImageChange={replaceMainImage} onUpload={uploadImage} onEditDisplay={() => setImageEditorOpen(true)}/>
     </div><aside className="admin-event-preview"><span className="admin-eyebrow">Súhrn</span>{mainImage && <div className="admin-event-preview-visual"><ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={mainImage} alt=""/></div>}<span className="eyebrow">{adoptionStatusLabels[status]}</span><h2>{name || "Meno psa"}</h2><p>{publishing ? "Verejný stav – server vyžaduje kompletné publikačné údaje." : "Koncept môže zostať neúplný."}</p><Link href="/admin/adopcie">← Späť na adopcie</Link></aside></div>
     {imageEditorOpen && mainImage && <ImageDisplayEditor src={mainImage} alt={name || "Pes na adopciu"} title={name} entityLabel="adopčného psa" thumbnailAspectRatio="4 / 3" thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)} onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
     {message && <p className="admin-message">{message}</p>}{error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
-    <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
+    <div className="admin-editor-actions"><Link href="/admin/adopcie">Zrušiť</Link><button type="submit" disabled={saving || uploading || galleryUploading}>{saving ? "Ukladám…" : item ? "Uložiť zmeny" : "Vytvoriť psa"}</button></div>
   </form>;
 }
