@@ -119,6 +119,9 @@ test("ADMIN V3 section and puppy editors use guarded workspace without replacing
   assert.match(section, /initialOpenSlug/);
   assert.match(section, /subpages/);
   assert.match(section, /updateSections/);
+  assert.match(section, /data-admin-section-hydrated/);
+  assert.match(section, /disabled={!hydrated}/);
+  assert.match(section, /useSyncExternalStore/);
   assert.match(puppy, /section\.subpages\.map/);
   assert.match(puppy, /subpage\.href \? subpage/);
   assert.match(puppy, /uploadAdminImage/);
