@@ -141,9 +141,10 @@ export function AdminDirectoryEditor({
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
+  const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [reviewConfirm, setReviewConfirm] = useState<"reject" | "restore" | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const notionReadOnly = Boolean(notionDraft && !["NEW", "IN_PROGRESS"].includes(reviewState ?? ""));
+  const notionReadOnly = Boolean(notionDraft && (canonicalEditorUrl || !["NEW", "IN_PROGRESS"].includes(reviewState ?? "")));
   const [notionVersion, setNotionVersion] = useState(notionDraft?.lastEditedAt ?? "");
   const [logoUrl, setLogoUrl] = useState(notionDraft?.logoUrl ?? "");
   const [name, setName] = useState(profile?.name ?? notionDraft?.name ?? "");
@@ -308,10 +309,15 @@ export function AdminDirectoryEditor({
             }),
           },
         );
-        const data = await response.json() as { draft?: GeminiDirectoryDraft; canonicalSave?: { state: string }; error?: string };
+        const data = await response.json() as { draft?: GeminiDirectoryDraft; canonicalSave?: { state: string; editorUrl?: string }; error?: string };
         if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo uložiť v Notione.");
         setNotionVersion(data.draft.lastEditedAt);
         setReviewState(data.draft.reviewState);
+        // The verified private D1 mapping becomes the only editor for future
+        // changes. Prevent duplicate Notion edits against a stale modal.
+        if (data.canonicalSave?.state === "CANONICAL_DRAFT_READY" &&
+            /^\/admin\/adresar\/[1-9][0-9]*$/.test(data.canonicalSave.editorUrl ?? ""))
+          setCanonicalEditorUrl(data.canonicalSave.editorUrl!);
         setMessage(data.canonicalSave?.state === "CANONICAL_DRAFT_READY"
           ? "Koncept uložený v Notione a prepojený s neverejným D1 profilom."
           : "Koncept uložený v Notione; prípadný D1 import zostáva na kontrolu. Nič sa nepublikovalo.");
@@ -721,7 +727,7 @@ export function AdminDirectoryEditor({
         <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" onClick={event => {
           if (formDirty && !window.confirm("Zahodiť neuložené zmeny profilu?")) event.preventDefault();
         }}>← Späť na adresár</Link>}</div>
-        {notionDraft && !notionDraft.psipediaId && (
+        {notionDraft && !notionDraft.psipediaId && !canonicalEditorUrl && (
           <div>
             {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
               setReviewConfirm(reviewState === "REJECTED" ? "restore" : "reject");
@@ -733,7 +739,10 @@ export function AdminDirectoryEditor({
             </>}
           </div>
         )}
-        {notionDraft && <p role="status">Publikovať bude možné až po overenom importe v natívnom D1 editore.</p>}
+        {notionDraft && <p role="status">{canonicalEditorUrl
+          ? "Neverejný D1 profil bol overený. Ďalšie úpravy a publikovanie dokonči v kanonickom editore."
+          : "Publikovať bude možné až po overenom importe v natívnom D1 editore."}</p>}
+        {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
         <div>
           {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
           <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
