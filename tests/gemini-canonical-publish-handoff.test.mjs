@@ -72,3 +72,17 @@ test("save and review reject mismatched or unknown Gemini stable_key before writ
   assert.match(route, /Zápis sa nevykonal/g);
   assert.match(route, /geminiValidNotionDraftId\(id\)/g);
 });
+
+test("agenda publish handoff is explicit, guarded, and never reports public state from Notion", () => {
+  const component = readFileSync(new URL("../components/admin-gemini-agenda-draft-editor.tsx", import.meta.url), "utf8");
+  const route = readFileSync(new URL("../app/api/admin/gemini-automation/notion-drafts/[id]/publish/route.ts", import.meta.url), "utf8");
+  assert.match(component, /async function openCanonicalPublisher\(\)/);
+  assert.match(component, /field\.editable && !Object\.is\(values\[field\.name\], baseline\[field\.name\]\)/);
+  assert.match(component, /\/publish\?stable_key=/);
+  assert.match(component, /result\.status !== "NATIVE_EDITOR_REQUIRED"/);
+  assert.match(component, /result\.published !== false/);
+  assert.match(component, /window\.location\.assign\(result\.editorUrl\)/);
+  assert.match(component, /draft\.canonicalVerified !== true/);
+  assert.match(route, /published: false/);
+  assert.doesNotMatch(route, /mutateGeminiAgendaDraft|approveGeminiDirectoryDraft/);
+});
