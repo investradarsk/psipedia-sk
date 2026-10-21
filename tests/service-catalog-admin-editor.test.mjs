@@ -43,9 +43,29 @@ test("draft/conflicted/retired dynamics are excluded on profile",()=>{
 });
 test("navigation and cancel do not silently discard draft values",()=>{assert.match(catalog,/Zahodiť neuložený koncept/);assert.match(profile,/Zahodiť neuložené hodnoty služieb/);});
 test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/className=\{styles\.actionMessage\} role="status" aria-live="polite"/);});
-test("no lifecycle controls invoke unsupported mutation endpoint",()=>{
- assert.match(catalog,/Upraviť/);
- assert.match(catalog,/Schváliť/);
- assert.match(catalog,/Archivovať/);
- assert.doesNotMatch(catalog,/fetch\([^)]*retire|fetch\([^)]*approve/);
+test("catalog lifecycle controls use existing Admin CAS route; never forge Notion receipt",()=>{
+ const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
+ assert.match(catalog,/fetch\("\/api\/admin\/service-catalog\/options\/"\+encodeURIComponent\(item\.id\)/);
+ assert.match(catalog,/expectedVersion:item\.version/);
+ assert.match(catalog,/action:"edit"/);
+ assert.match(catalog,/changeLifecycle\("approve",selected\)/);
+ assert.match(catalog,/changeLifecycle\("retire",selected\)/);
+ assert.match(catalog,/changeLifecycle\("retryMirror",selected\)/);
+ assert.match(catalog,/item\.source==="admin"/);
+ assert.match(catalog,/item\.mirror==="SYNCED"/);
+ assert.match(catalog,/window\.confirm\("Natrvalo vyradiť/);
+ assert.match(catalog,/Schválenie je možné až po overenom zrkadlení/);
+ assert.doesNotMatch(catalog,/recordCatalogMirrorOutcome|service_catalog_admin_notion_receipts|notion\.pages\.update/);
+ assert.match(route,/requireAdminMutation\(request\)/);
+ assert.match(route,/requireServiceCatalogAuditSchema\(cfg\.DB\)/);
+});
+test("only ACTIVE/SYNCED dynamic services and attributes are selectable on profiles",()=>{
+ assert.match(view,/item\.source==="built_in" \|\| \(item\.status==="ACTIVE"&&item\.mirror==="SYNCED"\)/);
+ assert.match(view,/valueKind:option\.valueKind/);
+ assert.match(view,/valueKind:"tri_state" as const/);
+ assert.match(profile,/x\.kind==="attribute"&&x\.valueKind==="tri_state"/);
+ assert.match(profile,/structuredAttributes=entries\.filter/);
+ assert.match(profile,/const changed=entries\.filter/);
+ assert.match(profile,/item\.id,choice,expectedVersion:saved\[item\.id\]/);
+ assert.match(profile,/Hodnoty s výberom viacerých možností/);
 });
