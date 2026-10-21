@@ -18,6 +18,7 @@ import {
   portalSearchTypeFilterFromParsed,
   type ParsedPortalSearchQuery,
 } from "@/lib/portal-search-query";
+import { PublicFormField, PublicSelect, PublicTextInput } from "@/components/public-visual-system";
 import styles from "./search.module.css";
 
 export const dynamic = "force-dynamic";
@@ -283,9 +284,8 @@ export default async function SearchPage({ searchParams }: Props) {
 
           <form action="/hladat" method="get" className={styles.filterForm} aria-label="Upraviť filtre vyhľadávania">
             <input type="hidden" name="q" value={query} />
-            <label>
-              <span>Typ výsledku</span>
-              <select name="typ" defaultValue={activeTypeFilter}>
+            <PublicFormField label="Typ výsledku">
+              <PublicSelect name="typ" defaultValue={activeTypeFilter}>
                 <option value="">Všetky typy</option>
                 <optgroup label="Služby pre psov">
                   {directoryCategories.map((category) => (
@@ -302,17 +302,16 @@ export default async function SearchPage({ searchParams }: Props) {
                   <option value="adoption">Psy na adopciu</option>
                   <option value="lost-found">Stratené a nájdené psy</option>
                 </optgroup>
-              </select>
-            </label>
-            <label>
-              <span>Lokalita</span>
-              <input
+              </PublicSelect>
+            </PublicFormField>
+            <PublicFormField label="Lokalita">
+              <PublicTextInput
                 name="lokalita"
                 defaultValue={locationFieldValue}
                 placeholder="Napr. Trnava, okres Nitra alebo kraj"
                 autoComplete="address-level2"
               />
-            </label>
+            </PublicFormField>
             <button type="submit">Upraviť výsledky</button>
           </form>
 
