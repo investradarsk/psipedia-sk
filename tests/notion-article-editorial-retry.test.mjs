@@ -43,7 +43,14 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
   const targetA = fingerprint(node("heading-a", "heading_2", "Upravená prvá kapitola"));
   const originalB = fingerprint(blocks[3]);
   const targetB = fingerprint(node("heading-b", "heading_2", "Upravená druhá kapitola"));
+  const protectedPropertyNames = [
+    "Psipedia ID", "Slug", "Kategória", "Typ obsahu",
+    "Stav", "Odoslať na Psipedia",
+  ];
   const plan = {
+    pageGuard: JSON.stringify(protectedPropertyNames.map(name => [name, notion.properties[name] ?? null])),
+    fullBlockOrder: blocks.map(block => block.id + ":" + block.type),
+    blockSnapshots: blocks.map(block => ({ id: block.id, type: block.type, before: fingerprint(block) })),
     properties: { "SEO title": { rich_text: [{ type: "text", text: { content: "New SEO" } }] } },
     propertyBefore: { "SEO title": "Old SEO" },
     propertyAfter: { "SEO title": "New SEO" },
@@ -89,11 +96,34 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
             },
             async run() {
               calls.push(["sql-run", sql]);
+              if (sql.startsWith("UPDATE article_notion_editorial_outbox SET lease_owner = ?")) {
+                if (journal.deleted || (journal.lease_owner && journal.lease_until > args[5])) {
+                  return { meta: { changes: 0 } };
+                }
+                journal.lease_owner = args[0];
+                journal.lease_until = args[1];
+                return { meta: { changes: 1 } };
+              }
+              if (sql.startsWith("UPDATE article_notion_editorial_outbox SET lease_until = ?")) {
+                if (journal.deleted || journal.lease_owner !== args[4] || journal.lease_until <= args[5]) {
+                  return { meta: { changes: 0 } };
+                }
+                journal.lease_until = args[0];
+                return { meta: { changes: 1 } };
+              }
+              if (sql.startsWith("UPDATE article_notion_editorial_outbox SET lease_owner = NULL")) {
+                if (!journal.deleted && journal.lease_owner === args[2]) {
+                  journal.lease_owner = null; journal.lease_until = null;
+                  return { meta: { changes: 1 } };
+                }
+                return { meta: { changes: 0 } };
+              }
               if (sql.startsWith("UPDATE article_notion_sync SET")) {
                 mapping.content_hash = args[0];
                 return { meta: { changes: 1 } };
               }
               if (sql.startsWith("DELETE FROM article_notion_editorial_outbox")) {
+                if (journal.lease_owner !== args[3]) return { meta: { changes: 0 } };
                 journal.deleted = true; return { meta: { changes: 1 } };
               }
               throw Error("Unexpected DML: " + sql);
@@ -365,3 +395,56 @@ for (const flag of ["archived", "in_trash"]) {
     });
   }
 }
+
+test("concurrent worker cannot acquire an active writeback lease", async () => {
+  const h = setup();
+  h.journal.lease_owner = "another-writer";
+  h.journal.lease_until = "9999-12-31T00:00:00.000Z";
+  const writer = await loadWriter(h);
+  await assert.rejects(writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_WRITEBACK_BUSY/);
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+  assert.equal(h.journal.deleted, undefined);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+});
+
+test("expired writeback lease is claimable for idempotent crash recovery", async () => {
+  const h = setup();
+  h.journal.lease_owner = "crashed-writer";
+  h.journal.lease_until = "2000-01-01T00:00:00.000Z";
+  h.failSecond = false;
+  const writer = await loadWriter(h);
+  const result = await writer({ database: h.db, bindings: h.bindings, article: h.article });
+  assert.equal(result.updated, true);
+  assert.equal(h.journal.deleted, true);
+});
+
+test("metadata mutation by a Notion human blocks writeback before any PATCH", async () => {
+  const h = setup();
+  h.notion.properties["Slug"] = { rich_text: rich("human-edited-slug") };
+  const writer = await loadWriter(h);
+  await assert.rejects(writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_METADATA_CONFLICT/);
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+  assert.equal(h.journal.deleted, undefined);
+});
+
+test("unplanned block content drift blocks writeback before first remote mutation", async () => {
+  const h = setup();
+  h.blocks[2].paragraph.rich_text = rich("Human changed an unplanned paragraph");
+  const writer = await loadWriter(h);
+  await assert.rejects(writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_BLOCK_CONFLICT/);
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+  assert.equal(h.mapping.content_hash, "baseline-hash");
+});
+
+test("unexpected inserted block must not be silently ignored on journal retry", async () => {
+  const h = setup();
+  h.blocks.push(node("added", "paragraph", "Human inserted a block"));
+  const writer = await loadWriter(h);
+  await assert.rejects(writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /NOTION_EDITORIAL_STRUCTURE_CONFLICT/);
+  assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+});
