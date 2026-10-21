@@ -40,6 +40,10 @@ for (const editor of editors) {
     // never sends a mutation or replaces typed state.
     if (editor.key === "article") await expect(page.locator('#article-intro[data-editor-ready="true"]')).toBeVisible();
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
+    // The directory selector is server-rendered. React attaches its onChange
+    // handler only after hydration, so changing sections before this marker
+    // causes a false-negative hash assertion on slower mobile workers.
+    if (editor.key === "directory") await expect(page.locator('form.admin-directory-editor[data-hydrated="true"]')).toBeVisible();
     await field.fill(value);
     await expect(field).toHaveValue(value);
     const writes: string[] = [];
