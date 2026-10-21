@@ -254,8 +254,10 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   );
   await page.getByRole("button",{name:"Pokračovať do Partner účtu"}).click();
   const onboardingSaved = await onboardingSaveResponse;
+  // The successful POST immediately triggers a full-page navigation, so
+  // Playwright may no longer retain its response body for response.json().
+  // Assert the HTTP success here and the protected dashboard/returnTo below.
   expect(onboardingSaved.status()).toBe(200);
-  await expect(onboardingSaved.json()).resolves.toMatchObject({ success: true });
 
   if(project==="mobile-chromium"){
     await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
