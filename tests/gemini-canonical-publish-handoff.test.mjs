@@ -93,7 +93,7 @@ test("agenda publish handoff is explicit, guarded, and never reports public stat
 test("agenda save, review and publish handoff use one synchronous single-flight lock", () => {
   const component = readFileSync(new URL("../components/admin-gemini-agenda-draft-editor.tsx", import.meta.url), "utf8");
   assert.match(component, /const requestInFlight = useRef\(false\)/);
-  assert.equal((component.match(/if \(busy \|\| requestInFlight\.current\) return;/g) ?? []).length, 2,
+  assert.equal((component.match(/if \(busy \|\| requestInFlight\.current \|\| canonicalEditorUrl\) return;/g) ?? []).length, 2,
     "Both save/review and publish must reject double clicks before a pending React rerender");
   assert.equal((component.match(/requestInFlight\.current = true;/g) ?? []).length, 2);
   assert.equal((component.match(/requestInFlight\.current = false;/g) ?? []).length, 2,
@@ -178,4 +178,20 @@ test("all 22 published statuses are read back from canonical D1, not editable No
     assert.equal(geminiActiveReviewState(published.reviewState), false,
       "After real D1 publication the item must disappear from the active queue: " + item.stableKey);
   }
+});
+
+test("verified canonical Save keeps the review modal open and stops stale Notion edits", () => {
+  const agenda = readFileSync(new URL("../components/admin-gemini-agenda-draft-editor.tsx", import.meta.url), "utf8");
+  const directory = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
+  const manager = readFileSync(new URL("../components/admin-gemini-notion-drafts.tsx", import.meta.url), "utf8");
+  assert.match(agenda, /setCanonicalEditorUrl\(data\.canonicalSave\.editorUrl!\)/);
+  assert.match(directory, /setCanonicalEditorUrl\(data\.canonicalSave\.editorUrl!\)/);
+  for (const component of [agenda, directory]) {
+    assert.match(component, /Otvoriť overený D1 editor/);
+    assert.match(component, /CANONICAL_DRAFT_READY/);
+  }
+  assert.match(agenda, /const readOnly = Boolean\(canonicalEditorUrl\)/);
+  assert.match(directory, /const notionReadOnly = Boolean\(notionDraft && \(canonicalEditorUrl/);
+  assert.match(manager, /function saved\(keepEditorOpen = false\)/);
+  assert.match(manager, /if \(keepEditorOpen\) clearDirty\(\);/);
 });
