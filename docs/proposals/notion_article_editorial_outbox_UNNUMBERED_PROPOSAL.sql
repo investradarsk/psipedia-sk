@@ -1,19 +1,7 @@
--- UNNUMBERED SCHEMA PROPOSAL ONLY: outside canonical D1 migration chain.
--- Facebook owns 0135; Gemini Global STOP PR #932 owns proposed 0136.
--- DO NOT APPLY. No production migration number is assigned to this proposal.
--- NOTION-ARTICLE-SYNC-01: a small, durable retry journal, not an alternative article model.
--- Pending operations preserve original and desired remote values. A retry is
--- allowed only when each remote field matches one of those two snapshots.
-CREATE TABLE IF NOT EXISTS article_notion_editorial_outbox (
-  notion_page_id TEXT PRIMARY KEY,
-  article_id INTEGER NOT NULL UNIQUE,
-  article_updated_at TEXT NOT NULL,
-  base_content_hash TEXT NOT NULL,
-  operations_json TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (notion_page_id) REFERENCES article_notion_sync(notion_page_id) ON DELETE CASCADE,
-  FOREIGN KEY (article_id) REFERENCES managed_articles(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS article_notion_editorial_outbox_updated_idx
-  ON article_notion_editorial_outbox(updated_at);
+-- SUPERSEDED HISTORICAL PROPOSAL FROM MERGED PR #929. DO NOT APPLY.
+-- The safe additive schema now lives in the staged, numbered proposal:
+-- docs/proposals/0138_article_editorial_outbox_PENDING_0137.sql
+-- (it includes the crash-recovery CAS lease columns).
+-- D1 migration 0137 belongs to Draft PR #908 as of 2026-10-21.
+-- 0138 is intentionally NOT in the canonical drizzle/ migration chain.
+-- Never run either proposal directly against production.
