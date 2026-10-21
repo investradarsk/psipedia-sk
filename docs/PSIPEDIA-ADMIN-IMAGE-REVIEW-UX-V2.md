@@ -25,7 +25,16 @@ Scope: only `/admin/kvalita?section=media` and its existing media decision API, 
 
 1. **R2/Notion are not one D1 transaction.** The D1 CAS protects finalization; R2 staging and cleanup are separately awaited. Stranded R2 staging objects may remain after abrupt worker termination and require a safe GC plan.
 2. **Notion writeback is still best-effort legacy behavior.** A Notion outage or a conflicting human edit is not yet handled by a durable idempotent outbox/field-CAS. Do not claim lossless bidirectional synchronization from this PR.
-3. **Abandoned candidate claims:** a worker terminated between claim and completion may leave a non-null token. There is no automatic lease recovery in this checkpoint; operator-controlled recovery must be designed and tested to avoid stealing a live claim.
+3. **Abandoned candidate claims:** a fresh decision can reclaim a claim older than 24 hours using D1's conditional candidate identity and token fence; old worker tokens cannot finalize the decision. Regression tests cover expiration, stale release and finalization rollback. A candidate that never receives another decision remains claimed; operational cleanup and R2 orphan inspection still require separate procedures.
 4. **Review acceptance evidence:** verify new 30 real Chromium E2E cases and isolated SQLite tests, all new type/build checks, the production D1 prepared-only gate and outstanding independent admin visual approval. CI failures caused by unrelated newer main changes must be diagnosed separately rather than hidden.
 
 This checkpoint does not change the prior **63% completed / 37% remaining** estimate until a validated and merged milestone is delivered.
+
+## 21 October targeted hardening checkpoint
+
+- The D1 runtime gate now verifies 0137 columns, decision log, claim index and all required triggers; a partially applied schema fails closed even if the log table exists.
+- A 24-hour abandoned claim is conditionally reclaimed and the previous token is fenced out. This does not imply R2 garbage-collection completeness.
+- A rejection already committed to D1 remains a successful decision if a later optional source re-scan errors; refresh diagnostics do not change the immutable decision.
+- Isolated Node/Chromium results must be checked on the final #908 HEAD. The PR still requires a current-main update, final visual acceptance and a deployment-safe 0137 schema-first production rollout.
+- **0137 remains prepared-only**: neither this PR nor CI can execute the production migration. The protected runner and owner-approved release ordering must be completed separately. Production auto-deploy of code before the D1 schema is **not safe**.
+- Legacy Notion writeback and possible R2 orphan objects are still non-atomic follow-ups; do not describe them as fully reconciled or claim production acceptance.
