@@ -692,3 +692,39 @@ test("legacy source-evidence public records remain in Published history only wit
     });
   }
 });
+
+test("signed Lost/Found approval accepts empty slug and approved import retry never modifies Notion", async () => {
+  const f = fixture("help.stratene-a-najdene", true);
+  f.value.properties.Slug = rich("");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.stratene-a-najdene"))[0];
+    assert.equal(draft.attribution, "SIGNED_CALLBACK");
+    const approved = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(approved.reviewState, "APPROVED");
+    assert.equal(f.writes.length, 1);
+    assert.equal(f.writes[0]["Psipedia stav"].rich_text[0].text.content, "PENDING");
+    assert.equal(f.writes[0].Slug, undefined, "approval does not invent a Notion slug");
+    const retried = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: approved.lastEditedAt, fields: {},
+    }, "admin@example.sk");
+    assert.equal(retried.reviewState, "APPROVED");
+    assert.equal(f.writes.length, 1, "retry imports through API reconciliation without rewriting Notion");
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: approved.lastEditedAt, fields: { "Názov": "Nežiaduce zmeny" },
+    }, "admin@example.sk"), { code: "STATE" });
+  });
+});
+
+test("unsigned Lost/Found still requires an explicit slug before approval", async () => {
+  const f = fixture("help.stratene-a-najdene", false);
+  f.value.properties.Slug = rich("");
+  await mockedFetch(f.request, async () => {
+    const draft = (await listGeminiAgendaDrafts(f.env, "help.stratene-a-najdene"))[0];
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk"), { code: "STATE" });
+    assert.equal(f.writes.length, 0);
+  });
+});
