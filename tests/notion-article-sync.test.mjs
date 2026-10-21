@@ -243,7 +243,8 @@ test("publishing a Notion-linked draft writes publication metadata back to Notio
 
 test("Notion publication writeback is best-effort and does not block the admin publish response", () => {
   const writebackCall = articleRouteSource.indexOf("await writeBackPublishedArticleToNotion");
-  const responseCall = articleRouteSource.indexOf("return Response.json({ article });");
+  const responseCall = articleRouteSource.indexOf("return Response.json({ article,");
+  assert.match(articleRouteSource.slice(responseCall), /notionEditorialWriteback/);
   assert.ok(writebackCall >= 0 && responseCall > writebackCall);
   assert.match(articleRouteSource, /try \{[\s\S]*await writeBackPublishedArticleToNotion[\s\S]*\} catch \(error\) \{/);
 });

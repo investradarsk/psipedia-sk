@@ -18,7 +18,12 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // 0135 is only eligible for a separate OWNER-DISPATCHED protected production workflow.
 // This code and a PR merge must never start the migration or enable retry flags.
 // 0136 must be owner-dispatched in the protected workflow, never by a PR merge or Cloudflare Workers Build.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// Canonical SQL has been added to drizzle, but this migration is NOT
+// approved for production dispatch; workflow selectors and SHA allowlist must
+// only be extended after a separate owner-authorized release review.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
+  "0138_article_editorial_outbox.sql",
+]);
 export const APPROVED_0137_SHA256 = PINNED_SHA256_0137;
 export function assertApproved0137Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0137 requires canonical psipedia-sk-db");

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import {
   buildNotionEditorialPlan, EditorialSyncConflict,
   notionEditorialBlockShape, notionEditorialPropertyText,
@@ -157,7 +158,7 @@ test("source contracts: outbox, content gating, no-publish and post-commit integ
   const [sync, route, migration] = await Promise.all([
     readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../docs/proposals/notion_article_editorial_outbox_UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0138_article_editorial_outbox.sql", import.meta.url), "utf8"),
   ]);
   assert.match(sync, /NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED/);
   assert.match(sync, /article\.status !== "draft"/);
@@ -173,6 +174,8 @@ test("source contracts: outbox, content gating, no-publish and post-commit integ
   assert.match(route, /writeBackDraftArticleContentToNotion/);
   assert.match(route, /before\.status === "draft" && article\.status === "draft"/);
   assert.match(route, /writeBackPublishedArticleToNotion/);
+  assert.match(route, /notionEditorialWriteback = \{ status: "blocked", code \}/);
+  assert.match(route, /return Response\.json\(\{ article, \.*\(notionEditorialWriteback/);
 });
 
 
@@ -195,4 +198,50 @@ test("Notion property type drift cannot be mistaken for an empty SEO, title or U
   a.seoTitle = "Changed by Admin";
   assert.throws(() => build(a, originalBlocks(), p), /NOTION_EDITORIAL_PROPERTY_TYPE_CONFLICT/);
   assert.equal(notionEditorialPropertyText({ type: "url", url: null }, "url"), "");
+});
+
+test("main image and SEO writeback preserve separate metadata without changing publication", () => {
+  const a = article();
+  a.image = "https://psipedia.sk/media/replaced.webp";
+  a.imageAlt = "Pes na lúke";
+  a.imageCreditUrl = "https://example.org/source";
+  a.seoTitle = "Nový titul pre vyhľadávače";
+  const plan = build(a);
+  assert.equal(plan.properties["Hlavný obrázok URL"].url, a.image);
+  assert.equal(plan.properties["Zdroj obrázka"].url, a.imageCreditUrl);
+  assert.match(JSON.stringify(plan.properties["Alt text obrázka"]), /Pes na lúke/);
+  assert.match(JSON.stringify(plan.properties["SEO title"]), /Nový titul/);
+  assert.equal(Object.hasOwn(plan.properties, "Stav"), false);
+  assert.equal(Object.hasOwn(plan.properties, "Psipedia ID"), false);
+  assert.equal(Object.hasOwn(plan.properties, "Slug"), false);
+  assert.equal(Object.hasOwn(plan.properties, "Kategória"), false);
+});
+
+test("malformed Notion rich text cannot become an empty paragraph", () => {
+  const b = originalBlocks();
+  b[2].paragraph.rich_text = { invalid: true };
+  assert.throws(() => build(article(), b), /INVALID_REMOTE_RICH_TEXT/);
+});
+
+test("canonical prepared D1 0138 journal enforces foreign keys, single owner and CAS lease in SQLite", async () => {
+  const sql = await readFile(new URL("../drizzle/0138_article_editorial_outbox.sql", import.meta.url), "utf8");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("PRAGMA foreign_keys = ON;");
+    db.exec("CREATE TABLE managed_articles (id INTEGER PRIMARY KEY);");
+    db.exec("CREATE TABLE article_notion_sync (notion_page_id TEXT PRIMARY KEY, article_id INTEGER UNIQUE);");
+    db.exec(sql);
+    db.exec("INSERT INTO managed_articles (id) VALUES (11), (12);");
+    db.exec("INSERT INTO article_notion_sync (notion_page_id, article_id) VALUES ('p11', 11), ('p12', 12);");
+    const create = db.prepare("INSERT INTO article_notion_editorial_outbox (notion_page_id, article_id, article_updated_at, base_content_hash, operations_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    create.run("p11", 11, "rev11", "hash", "{}", "2026-10-21T00:00:00.000Z", "2026-10-21T00:00:00.000Z");
+    assert.throws(() => create.run("p12", 11, "rev11", "hash", "{}", "now", "now"), /UNIQUE/);
+    const claim = db.prepare("UPDATE article_notion_editorial_outbox SET lease_owner = ?, lease_until = ? WHERE notion_page_id = ? AND (lease_owner IS NULL OR lease_until <= ?)");
+    assert.equal(claim.run("worker-a", "2026-10-22T00:00:00.000Z", "p11", "2026-10-21T00:00:00.000Z").changes, 1);
+    assert.equal(claim.run("worker-b", "2026-10-22T00:00:00.000Z", "p11", "2026-10-21T00:00:00.000Z").changes, 0);
+    db.prepare("DELETE FROM article_notion_sync WHERE notion_page_id = ?").run("p11");
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM article_notion_editorial_outbox").get().n, 0);
+  } finally {
+    db.close();
+  }
 });

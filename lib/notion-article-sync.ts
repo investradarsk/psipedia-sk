@@ -1333,6 +1333,15 @@ export async function writeBackDraftArticleContentToNotion(args: {
   if (!matchesEditorialIdentity(page)) {
     throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
   }
+  // These properties are not legitimate targets of editorial writeback.
+  // Guard them on initial and resumed attempts, including after all PATCHes.
+  const protectedPropertyNames = [
+    "Psipedia ID", "Slug", "Kategória", "Typ obsahu",
+    "Stav", "Odoslať na Psipedia",
+  ];
+  const pageGuard = (value: NotionPage) => JSON.stringify(
+    protectedPropertyNames.map((name) => [name, value.properties?.[name] ?? null]),
+  );
   let plan: NotionEditorialPlan;
   if (journal) {
     if (journal.article_id !== article.id || journal.article_updated_at !== article.updatedAt) {
@@ -1357,6 +1366,8 @@ export async function writeBackDraftArticleContentToNotion(args: {
       article: editorProjection, remoteBlocks: selected as RemoteArticleBlock[],
       pageProperties: page.properties ?? {}, siteUrl: SITE_URL,
     });
+    plan.pageGuard = pageGuard(page);
+    plan.fullBlockOrder = remoteBlocks.map((block) => block.id + ":" + block.type);
     const changed = plan.blocks.length > 0 || Object.keys(plan.properties).length > 0;
     if (!changed) return { linked: true, updated: false, reason: "unchanged" };
     const now = new Date().toISOString();
@@ -1376,6 +1387,57 @@ export async function writeBackDraftArticleContentToNotion(args: {
     }
   }
 
+  // A CAS claim serializes this application's concurrent workers for this
+  // mapping/revision. Expiration permits crash recovery, not Notion atomicity.
+  // A live Notion human edit can still race a PATCH and must be disclosed.
+  const leaseOwner = crypto.randomUUID();
+  const leaseLengthMs = 15 * 60 * 1000;
+  const claimTime = new Date().toISOString();
+  const claim = await args.database.prepare(
+    "UPDATE article_notion_editorial_outbox SET lease_owner = ?, lease_until = ? " +
+    "WHERE notion_page_id = ? AND article_id = ? AND article_updated_at = ? " +
+    "AND (lease_owner IS NULL OR lease_until <= ?)",
+  ).bind(leaseOwner, new Date(Date.now() + leaseLengthMs).toISOString(),
+    page.id, article.id, article.updatedAt, claimTime).run();
+  if (claim.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_WRITEBACK_BUSY");
+
+  async function renewLease() {
+    const now = new Date().toISOString();
+    const renewal = await args.database.prepare(
+      "UPDATE article_notion_editorial_outbox SET lease_until = ? " +
+      "WHERE notion_page_id = ? AND article_id = ? AND article_updated_at = ? " +
+      "AND lease_owner = ? AND lease_until > ?",
+    ).bind(new Date(Date.now() + leaseLengthMs).toISOString(),
+      page.id, article.id, article.updatedAt, leaseOwner, now).run();
+    if (renewal.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
+  }
+  function verifySnapshot(blocks: NotionBlock[]) {
+    if (!plan.pageGuard || !Array.isArray(plan.fullBlockOrder) ||
+      !Array.isArray(plan.blockSnapshots) || plan.blockSnapshots.length === 0) {
+      throw new Error("NOTION_EDITORIAL_JOURNAL_INCOMPATIBLE");
+    }
+    const identities = blocks.map((block) => block.id + ":" + block.type);
+    if (JSON.stringify(identities) !== JSON.stringify(plan.fullBlockOrder)) {
+      throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+    }
+    const selected = selectNotionArticleBodyBlocks(blocks);
+    if (selected.length !== plan.blockSnapshots.length) {
+      throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+    }
+    const targets = new Map(plan.blocks.map((op) => [op.id, op.after]));
+    for (let i = 0; i < selected.length; i++) {
+      const snapshot = plan.blockSnapshots[i];
+      const block = selected[i];
+      if (block.id !== snapshot.id || block.type !== snapshot.type) {
+        throw new Error("NOTION_EDITORIAL_STRUCTURE_CONFLICT");
+      }
+      const actual = notionEditorialBlockShape(block as RemoteArticleBlock);
+      if (actual !== snapshot.before && actual !== targets.get(block.id)) {
+        throw new Error("NOTION_EDITORIAL_BLOCK_CONFLICT");
+      }
+    }
+  }
+  try {
   await assertCurrentDraft();
   // Read every current property before patching. Unknown values are human
   // changes or schema drift, not permission to force our own last writer.
@@ -1383,6 +1445,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     args.bindings, "/pages/" + encodeURIComponent(mapping.notion_page_id),
   );
   if (!matchesEditorialIdentity(latest)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+  if (pageGuard(latest) !== plan.pageGuard) throw new Error("NOTION_EDITORIAL_METADATA_CONFLICT");
   if (selectProperty(latest, "Stav") !== "Ready" ||
     !checkboxProperty(latest, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
   // Inspect every planned block before the FIRST mutating request. A
@@ -1390,6 +1453,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
   // or earlier blocks. The per-block GET below still checks the latest
   // preimage immediately before each actual PATCH.
   const preflightBlocks = await getPageBlocks(args.bindings, page.id);
+  verifySnapshot(preflightBlocks);
   const preflightById = new Map(preflightBlocks.map((block, index) => [block.id, { block, index }]));
   if (preflightById.size !== preflightBlocks.length) {
     throw new Error("NOTION_EDITORIAL_BLOCK_IDENTITY_CONFLICT");
@@ -1420,8 +1484,18 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (!Object.hasOwn(plan.properties, name)) throw new Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
     fields[name] = plan.properties[name];
   }
+  // Before the FIRST content mutation, replace any stale previous
+  // "Synchronizované" receipt. A partial operation must visibly remain
+  // unsynchronized; "Chyba" is an existing Notion select value, unlike an
+  // unverified new pending option. Never write a success receipt on failure.
+  await assertCurrentDraft();
+  await renewLease();
+  await updateNotionSyncState(args.bindings, page.id, {
+    state: "Chyba", error: "EDITORIAL_WRITEBACK_PENDING",
+  });
   if (Object.keys(fields).length) {
     await assertCurrentDraft();
+    await renewLease();
     await notionRequest(args.bindings, "/pages/" + encodeURIComponent(page.id), {
       method: "PATCH", body: JSON.stringify({ properties: fields }),
     });
@@ -1436,6 +1510,7 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (actual === op.after) continue;
     if (actual !== op.before) throw new Error("NOTION_EDITORIAL_BLOCK_CONFLICT");
     await assertCurrentDraft();
+    await renewLease();
     await notionRequest(args.bindings, "/blocks/" + encodeURIComponent(op.id), {
       method: "PATCH", body: JSON.stringify(op.payload),
     });
@@ -1446,9 +1521,11 @@ export async function writeBackDraftArticleContentToNotion(args: {
     args.bindings, "/pages/" + encodeURIComponent(page.id),
   );
   if (!matchesEditorialIdentity(verifiedPage)) throw new Error("NOTION_ARTICLE_IDENTITY_CONFLICT");
+  if (pageGuard(verifiedPage) !== plan.pageGuard) throw new Error("NOTION_EDITORIAL_METADATA_CONFLICT");
   if (selectProperty(verifiedPage, "Stav") !== "Ready" ||
     !checkboxProperty(verifiedPage, "Odoslať na Psipedia")) throw new Error("NOTION_EDITORIAL_STATUS_CONFLICT");
   const verifiedBlocks = await getPageBlocks(args.bindings, page.id);
+  verifySnapshot(verifiedBlocks);
   const verified = buildNotionEditorialPlan({
     article: editorProjection, remoteBlocks: selectNotionArticleBodyBlocks(verifiedBlocks) as RemoteArticleBlock[],
     pageProperties: verifiedPage.properties ?? {}, siteUrl: SITE_URL,
@@ -1464,19 +1541,35 @@ export async function writeBackDraftArticleContentToNotion(args: {
     notionImageCreditUrl: urlProperty(verifiedPage, "Zdroj obrázka"),
   }));
   await assertCurrentDraft();
+  await renewLease();
   const dbUpdate = await args.database.prepare(
     "UPDATE article_notion_sync SET content_hash = ?, notion_last_edited_time = ?, last_synced_at = ?, " +
     "updated_at = ? WHERE notion_page_id = ? AND article_id = ? AND content_hash IN (?, ?)",
   ).bind(finalHash, verifiedPage.last_edited_time ?? null, new Date().toISOString(),
     new Date().toISOString(), page.id, article.id, journal!.base_content_hash, finalHash).run();
   if (dbUpdate.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_MAPPING_CONFLICT");
+  await renewLease();
   await updateNotionSyncState(args.bindings, page.id, {
     state: "Synchronizované", articleId: article.id, syncedAt: new Date().toISOString(),
   });
-  await args.database.prepare(
-    "DELETE FROM article_notion_editorial_outbox WHERE notion_page_id = ? AND article_id = ? AND article_updated_at = ?",
-  ).bind(page.id, article.id, article.updatedAt).run();
+  await renewLease();
+  const deleted = await args.database.prepare(
+    "DELETE FROM article_notion_editorial_outbox WHERE notion_page_id = ? AND article_id = ? AND article_updated_at = ? AND lease_owner = ?",
+  ).bind(page.id, article.id, article.updatedAt, leaseOwner).run();
+  if (deleted.meta?.changes !== 1) throw new Error("NOTION_EDITORIAL_LEASE_LOST");
   return { linked: true, updated: true };
+  } finally {
+    // Failure retains immutable operations and preimages, but releases the
+    // claim for safe immediate retry. A crash is recovered by lease expiry.
+    try {
+      await args.database.prepare(
+        "UPDATE article_notion_editorial_outbox SET lease_owner = NULL, lease_until = NULL " +
+        "WHERE notion_page_id = ? AND article_id = ? AND lease_owner = ?",
+      ).bind(page.id, article.id, leaseOwner).run();
+    } catch {
+      // Preserve the original conflict/Notion error without exposing content.
+    }
+  }
 }
 
 async function sha256(value: string) {
@@ -1665,6 +1758,9 @@ export async function runNotionArticleSyncSweep(args: {
     } catch (error) {
       summary.failed += 1;
       const message = error instanceof Error ? error.message : String(error);
+      // The content-writeback outbox is authoritative while unfinished.
+      // Do not overwrite its Notion status with an import-sweep error.
+      if (message === "NOTION_EDITORIAL_WRITEBACK_PENDING") continue;
       console.error(JSON.stringify({
         event: "notion_article_sync_failed",
         notionPageId: page.id,
