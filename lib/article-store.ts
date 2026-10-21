@@ -843,16 +843,27 @@ export async function getPublishedArticles(): Promise<Article[]> {
   return getPublishedArticleSummaries();
 }
 
-export async function getPublishedArticleIndex(limit = 2000): Promise<Article[]> {
+export async function getPublishedArticleIndex(
+  limit = 2000,
+  options: { portalSection?: ArticlePortalSection } = {},
+): Promise<Article[]> {
   const safeLimit = Math.max(1, Math.min(5000, Math.trunc(limit)));
   const database = getD1Binding();
-  if (!database) return seedArticles.slice(0, safeLimit);
+  if (!database) return seedArticles
+    .filter((article) => !options.portalSection || (article.portalSection ?? "clanky") === options.portalSection)
+    .slice(0, safeLimit);
+  // Apply the section predicate in D1 before LIMIT. Otherwise a large volume
+  // of non-news articles can crowd recent news out of /news-sitemap.xml.
+  const portalFilter = options.portalSection ? " AND portal_section = ?" : "";
+  const bindings = options.portalSection
+    ? [new Date().toISOString(), options.portalSection, safeLimit]
+    : [new Date().toISOString(), safeLimit];
   const result = await database.prepare(`SELECT ${PUBLIC_ARTICLE_SUMMARY_COLUMNS}, ${await articleImageProjection(database)}, noindex, canonical_url
     FROM managed_articles
-    WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
+    WHERE (status = 'published' OR (status = 'scheduled' AND published_at <= ?))${portalFilter}
     ORDER BY published_at DESC, updated_at DESC, id DESC
     LIMIT ?`)
-    .bind(new Date().toISOString(), safeLimit)
+    .bind(...bindings)
     .all<ArticleIndexRow>();
   return result.results.map(rowToPublishedArticleIndex);
 }
