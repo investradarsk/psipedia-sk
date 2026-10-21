@@ -32,9 +32,9 @@ function fixture() {
 test("0136 is immutable, follows canonical applied 0135, and can only be owner-dispatched", () => {
   assert.equal(createHash("sha256").update(sql).digest("hex"), PINNED_SHA256_0136);
   assert.equal(APPROVED_0136_SHA256, PINNED_SHA256_0136);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0135_facebook_image_safe_retry.sql");
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0137_media_source_review_decisions.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), "0135_facebook_image_safe_retry.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.doesNotThrow(() => assertApproved0136Target("psipedia-sk-db", APPROVED_0136_SHA256));
   assert.throws(() => assertApproved0136Target("other-db", APPROVED_0136_SHA256), /canonical/);
   assert.throws(() => assertApproved0136Target("psipedia-sk-db", "different"), /SHA256/);
@@ -51,7 +51,7 @@ test("0136 is immutable, follows canonical applied 0135, and can only be owner-d
 });
 
 test("0136 does not allow skipped 0135, older history or repeat without intervention", () => {
-  const historical = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS];
+  const historical = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),...SUPPORTED_PRODUCTION_TARGETS.filter(name=>Number(name.slice(0,4))<=136)];
   assert.deepEqual(validateProductionTargetHistory(historical.slice(0,-1),historical,target),
     {latestIndex:135,targetApplied:false});
   assert.throws(()=>validateProductionTargetHistory(historical.slice(0,-2),historical,target),/expected exactly 0135/);
