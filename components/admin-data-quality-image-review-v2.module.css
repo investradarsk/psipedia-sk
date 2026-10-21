@@ -1,0 +1,51 @@
+/* Local Image Review V2 layout, preserving Admin Visual System V3 tokens. */
+.reviewCard { min-width: 0; }
+.reviewActions { min-width: 0; }
+/* Higher specificity than the legacy .admin-quality-media-actions > button/a
+   rule, which otherwise reduces these actions to 40px in Chromium. */
+.reviewCard .reviewActions > button,
+.reviewCard .reviewActions > a { min-width: 44px; min-height: 44px; }
+.selectAll { display:flex; align-items:center; padding:10px 12px; background:#f6f8f7; border:1px solid var(--admin-v3-line,#e3eae5); border-radius:10px; }
+.selectAll label { display:flex; align-items:center; gap:10px; min-height:44px; font-weight:700; }
+/* The checkbox's full text label is the 44px click target, not only its 20px glyph. */
+.reviewCard :global(.admin-quality-media-content) > label { display:inline-flex; align-items:center; min-height:44px; gap:8px; }
+.selectAll input { width:20px; height:20px; }
+.confirmBody { display:grid; gap:12px; line-height:1.5; }
+.confirmBody p { margin:0; }
+.confirmImage { max-width:100%; max-height:200px; object-fit:contain; border-radius:10px; }
+.reasonNotice { color:#5b675f; font-size:.84rem; }
+.errorNotice { color:#8e2630; font-weight:700; }
+.detailPreview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.detailPreview figure { margin:0; min-width:0; }
+.detailPreview figcaption { font-weight:800; margin-bottom:8px; }
+.detailPreview img { display:block; width:100%; max-height:60vh; object-fit:contain; border-radius:12px; background:#f6f8f7; }
+.failedPanel { padding:12px; border:1px solid #efb6b6; border-radius:10px; background:#fff6f6; }
+.failedPanel ul { padding-left:20px; overflow-wrap:anywhere; }
+@media(max-width:640px){
+  .reviewActions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%; }
+  .reviewActions > button, .reviewActions > a { width:100%; min-width:0; font-size:.77rem; overflow-wrap:anywhere; }
+  .detailPreview { grid-template-columns:minmax(0,1fr); }
+}
+@media(max-width:360px){
+  .reviewActions { grid-template-columns:minmax(0,1fr); }
+  .selectAll label { font-size:.78rem; }
+  .detailPreview img { max-height:38vh; }
+}
+
+/* Restore semantic Admin V3 action colors against legacy media-row CSS specificity. */
+.reviewActions > button[data-admin-action="primary"] { color:#fff; background:var(--admin-v3-green,#0c3d2b); border-color:var(--admin-v3-green,#0c3d2b); }
+.reviewActions > button[data-admin-action="destructive"] { color:#a5232b; background:#fff2f2; border-color:#f1c4c5; }
+.reviewActions > button[data-admin-action="secondary"] { color:#183f2d; background:#fff; border-color:#cbdad0; }
+
+/* Scoped audit and rejection controls, preserving existing compact dialogs. */
+.reasonField { display:grid; gap:6px; min-width:0; font-weight:700; }
+.reasonField textarea { box-sizing:border-box; width:100%; min-height:92px; resize:vertical;
+  border:1px solid var(--admin-v3-line,#cbdad0); border-radius:9px; padding:10px;
+  background:#fff; color:inherit; font:inherit; font-weight:400; }
+.reasonField textarea:focus-visible { outline:2px solid #246f4d; outline-offset:2px; }
+.reasonField small { color:#5b675f; font-weight:400; }
+.historyPanel { display:grid; gap:8px; margin-top:12px; border-top:1px solid #dce6df; padding-top:12px; }
+.historyPanel > button { justify-self:start; min-height:44px; }
+.historyPanel ul { margin:0; padding-left:20px; max-height:240px; overflow:auto; overflow-wrap:anywhere; }
+.historyPanel li { padding:7px 0; }
+.historyPanel li p { margin:4px 0 0; }
