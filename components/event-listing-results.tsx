@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Fragment, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { EventCard } from "./event-card";
-import { PublicFilterTag, PublicNotice } from "@/components/public-visual-system";
+import { PublicFilterTag, PublicNotice, PublicPagination } from "@/components/public-visual-system";
 import { eventListingParams, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
 import { eventTypes, slovakRegions, type DogEvent } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
@@ -111,16 +111,19 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
             <div className={styles.cardGrid} data-event-list>
               {events.map(event => <EventCard key={event.id} event={event} today={today} variant="grid" />)}
             </div>
-            <nav className={styles.pagination} aria-label="Stránkovanie podujatí">
-              {listing.page > 1 ? <Link href={href(listing.page - 1)} rel="prev">Predchádzajúca</Link> : null}
-              {pages.map((page, index) => (
-                <Fragment key={page}>
-                  {index > 0 && page > pages[index - 1] + 1 ? <span aria-hidden="true">…</span> : null}
-                  <Link href={href(page)} aria-current={page === listing.page ? "page" : undefined}>{page}</Link>
-                </Fragment>
-              ))}
-              {listing.page < listing.pages ? <Link href={href(listing.page + 1)} rel="next">Nasledujúca</Link> : null}
-            </nav>
+            <PublicPagination
+              className={styles.pagination}
+              label="Stránkovanie podujatí"
+              currentPage={listing.page}
+              totalPages={listing.pages}
+              previousHref={listing.page > 1 ? href(listing.page - 1) : undefined}
+              nextHref={listing.page < listing.pages ? href(listing.page + 1) : undefined}
+              previousLabel="Predchádzajúca"
+              nextLabel="Nasledujúca"
+              numberedPages={pages}
+              pageHref={href}
+              showDisabledControls={false}
+            />
           </>
         ) : (
           <div className={styles.emptyState}>
