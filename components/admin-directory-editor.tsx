@@ -137,7 +137,7 @@ export function AdminDirectoryEditor({
 }: {
   profile?: ManagedDirectoryProfile;
   notionDraft?: GeminiDirectoryDraft;
-  onNotionSaved?: () => void;
+  onNotionSaved?: (keepEditorOpen?: boolean) => void;
   automationSuggestions?: CanonicalUpdateSuggestion[];
 }) {
   const [reviewState, setReviewState] = useState(notionDraft?.reviewState);
@@ -322,7 +322,8 @@ export function AdminDirectoryEditor({
           ? "Koncept uložený v Notione a prepojený s neverejným D1 profilom."
           : "Koncept uložený v Notione; prípadný D1 import zostáva na kontrolu. Nič sa nepublikovalo.");
         setFormDirty(false);
-        onNotionSaved?.();
+        onNotionSaved?.(Boolean(data.canonicalSave?.state === "CANONICAL_DRAFT_READY" &&
+          /^\/admin\/adresar\/[1-9][0-9]*$/.test(data.canonicalSave.editorUrl ?? "")));
         return;
       }
       const filterPatch = filterCategory
