@@ -239,8 +239,8 @@ test("FOUNDATION-ADMIN exposes reusable action, toolbar, dialog, drawer, bulk-ed
     assert.match(interaction, new RegExp(`"${variant}"`));
   }
   assert.match(interactionCss, /\.action \{[\s\S]*min-height: 44px/);
-  assert.match(interactionCss, /\.primary \{[\s\S]*background: #173f2d[\s\S]*color: #fff/);
-  assert.match(interactionCss, /\.destructive \{[\s\S]*color: #742d20/);
+  assert.match(interactionCss, /\.primary \{[^}]*background:\s*var\(--admin-v3-green,\s*#173f2d\);[^}]*color:\s*var\(--admin-v3-surface,\s*#fff\)/);
+  assert.match(interactionCss, /\.destructive \{[^}]*color:\s*var\(--admin-v3-destructive-text,\s*#742d20\)/);
 });
 
 test("FOUNDATION-ADMIN destructive and modal contracts use explicit scope plus native focus-safe dialog behavior", () => {
