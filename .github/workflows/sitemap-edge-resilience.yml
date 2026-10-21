@@ -1,0 +1,27 @@
+name: Sitemap resilience (offline)
+
+on:
+  pull_request:
+    paths:
+      - "lib/sitemap-edge-cache.ts"
+      - "lib/sitemap-xml-validator.ts"
+      - "worker/index.ts"
+      - "app/sitemap.ts"
+      - "tests/sitemap-edge-cache.test.mjs"
+      - "tests/sitemap-xml-hardening.test.mjs"
+      - ".github/workflows/sitemap-edge-resilience.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sitemap-resilience:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate sitemap last-good cache offline
+        run: node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs

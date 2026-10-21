@@ -100,3 +100,27 @@ test("migration separates campaigns, placements, promotions and privacy-consciou
   assert.match(sql, /CREATE UNIQUE INDEX monetization_event_dedupe_idx/);
   assert.doesNotMatch(sql, /ip_address|user_agent|email/i);
 });
+
+test("DS-7 mobile cookie consent is compact without removing privacy choices", async () => {
+  const [css, consent] = await Promise.all([
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../components/cookie-consent.tsx", import.meta.url), "utf8"),
+  ]);
+  const marker = "/* DS-7: smaller mobile consent panel, without hiding the disclosure or choices. */";
+  const start = css.indexOf(marker);
+  assert.ok(start > 0, "mobile-only rule marker must exist");
+  const end = css.indexOf("\n  .admin-section-item", start);
+  assert.ok(end > start, "consent overrides must stay inside the existing mobile block");
+  const mobile = css.slice(start, end);
+  assert.match(mobile, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(mobile, /min-height:\s*44px/);
+  assert.match(mobile, /max-height:\s*calc\(100dvh - 1rem\)/);
+  assert.match(mobile, /overflow-y:\s*auto/);
+  assert.match(mobile, /white-space:\s*normal/);
+  assert.match(mobile, /\.button:nth-child\(3\):last-child/);
+  assert.doesNotMatch(mobile, /display:\s*none|visibility:\s*hidden/);
+  assert.match(consent, /saveChoice\("necessary"\)/);
+  assert.match(consent, /saveChoice\("analytics"\)/);
+  assert.match(consent, /saveChoice\("advertising"\)/);
+  assert.match(consent, /<Link href="\/cookies">Viac informácií<\/Link>/);
+});
