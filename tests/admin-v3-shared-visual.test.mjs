@@ -43,6 +43,7 @@ test("legacy and module action variants consume one visual contract", () => {
   assert.match(actionCss, /\.action\[data-loading="true"\]::after/);
   assert.match(actionCss, /prefers-reduced-motion: reduce/);
   assert.match(action, /loading\?: boolean/);
+  assert.match(actionCss, /color: var\(--admin-v3-secondary-text, #173f2d\)/);
   assert.match(action, /disabled=\{disabled \|\| loading\}/);
   assert.match(action, /aria-busy=\{loading \? true/);
 });
@@ -65,6 +66,9 @@ test("dirty-state safety stays explicit and native dialogs restore keyboard focu
   assert.doesNotMatch(editor, /window\.addEventListener\("(click|popstate)"/);
   assert.match(action, /onClose=\{restoreFocus\}/);
   assert.match(action, /onKeyDown=\{keepAdminDialogFocus\}/);
+  assert.match(action, /useSyncExternalStore\(/);
+  assert.match(action, /data-admin-editor-nav-ready=\{navigationReady \? "true" : "false"\}/);
+  assert.match(action, /disabled=\{!navigationReady\}/);
 });
 
 function luminance(hex) {

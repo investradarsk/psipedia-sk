@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type KeyboardEvent,
@@ -396,6 +397,13 @@ export function AdminBulkEditShell({
 
 export type AdminEditorSectionLink = { id: string; label: string };
 
+// A server-rendered select can receive a user's change before React has attached
+// its handler. Mark hydration on this reusable navigation instead of adding
+// editor-specific readiness flags or globally intercepting browser events.
+const subscribeEditorNavigation = () => () => {};
+const editorNavigationReadyOnClient = () => true;
+const editorNavigationReadyOnServer = () => false;
+
 export function AdminStickyEditorNavigation({
   sections,
   ariaLabel = "Sekcie editora",
@@ -404,6 +412,11 @@ export function AdminStickyEditorNavigation({
   ariaLabel?: string;
 }) {
   const [currentSectionId, setCurrentSectionId] = useState(sections[0]?.id ?? "");
+  const navigationReady = useSyncExternalStore(
+    subscribeEditorNavigation,
+    editorNavigationReadyOnClient,
+    editorNavigationReadyOnServer,
+  );
 
   useEffect(() => {
     if (!sections.length) return;
@@ -444,7 +457,7 @@ export function AdminStickyEditorNavigation({
   if (!sections.length) return null;
 
   return (
-    <nav className={styles.editorNavigation} aria-label={ariaLabel} data-admin-editor-navigation>
+    <nav className={styles.editorNavigation} aria-label={ariaLabel} data-admin-editor-navigation data-admin-editor-nav-ready={navigationReady ? "true" : "false"}>
       <div className={styles.editorNavigationLinks}>
         {sections.map((section) => (
           <a
@@ -465,6 +478,7 @@ export function AdminStickyEditorNavigation({
         <select
           value={currentSectionId}
           aria-label={ariaLabel}
+          disabled={!navigationReady}
           onChange={(event) => goToSection(event.currentTarget.value)}
         >
           {sections.map((section) => <option value={section.id} key={section.id}>{section.label}</option>)}

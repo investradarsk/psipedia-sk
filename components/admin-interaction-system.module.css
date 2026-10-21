@@ -62,7 +62,7 @@
 .secondary {
   border: 1px solid var(--admin-v3-secondary-border, #9eaea4);
   background: var(--admin-v3-surface, #fff);
-  color: var(--admin-v3-green, #173f2d);
+  color: var(--admin-v3-secondary-text, #173f2d);
 }
 
 .secondary:hover:not(:disabled) {
