@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   AdminActionButton,
   AdminDrawer,
@@ -42,6 +42,10 @@ function formattedUpdatedAt(value?: string) {
 }
 
 type SettingsTarget = { sectionSlug: string; subIndex: number } | null;
+// Disable interactive settings until React has hydrated the server-rendered editor.
+// Otherwise an early click can be silently lost before the drawer handler attaches.
+const subscribeToHydration = () => () => {};
+
 
 export function AdminSectionEditor({
   initialSections,
@@ -52,6 +56,7 @@ export function AdminSectionEditor({
   articleCounts: ManagedPortalSectionArticleCountResult;
   initialOpenSlug?: string;
 }) {
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const [sections, setSections] = useState(initialSections);
   const [open, setOpen] = useState<string | null>(
     initialSections.some((section) => section.slug === initialOpenSlug)
@@ -167,7 +172,7 @@ export function AdminSectionEditor({
         primary={<AdminActionButton variant="primary" disabled={saving || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť sekcie"}</AdminActionButton>}
       />}
     >
-    <section className={styles.workspace} data-testid="admin-section-management">
+    <section className={styles.workspace} data-testid="admin-section-management" data-admin-section-hydrated={hydrated ? "true" : "false"}>
       <div className={styles.toolbar}>
         <label className={styles.search}>
           <span>Hľadať sekciu alebo podsekciu</span>
@@ -296,7 +301,7 @@ export function AdminSectionEditor({
                               <button type="button" onClick={() => updateSubpage(section.slug, subIndex, { visible: subpage.visible === false })}>
                                 {subpage.visible === false ? "Skrytá" : "Zobrazená"}
                               </button>
-                              <button type="button" onClick={() => setSettingsTarget({ sectionSlug: section.slug, subIndex })}>Nastavenia</button>
+                              <button type="button" disabled={!hydrated} onClick={() => setSettingsTarget({ sectionSlug: section.slug, subIndex })}>Nastavenia</button>
                               <button type="button" aria-label="Posunúť podsekciu vyššie" disabled={subIndex === 0} onClick={() => moveSubpage(section.slug, subIndex, -1)}>↑</button>
                               <button type="button" aria-label="Posunúť podsekciu nižšie" disabled={subIndex === section.subpages.length - 1} onClick={() => moveSubpage(section.slug, subIndex, 1)}>↓</button>
                             </div>
