@@ -182,3 +182,32 @@ test("0137 rejects missing claim index, audit trigger, and required claim column
     await assert.rejects(assertMediaReviewSchema(d1), /0137/);
   } finally {sqlite.close();}
 });
+
+test("0137 fences an abandoned 24-hour claim without allowing stale worker finalization", async () => {
+  const f = fixture();
+  try {
+    const oldToken = await claimMediaCandidate(f.d1, f.row, "2026-10-20T00:00:00.000Z");
+    await assert.rejects(
+      claimMediaCandidate(f.d1, f.row, "2026-10-20T23:59:59.000Z"),
+      /Konflikt/,
+    );
+    const newToken = await claimMediaCandidate(f.d1, f.row, "2026-10-21T00:00:01.000Z");
+    assert.notEqual(newToken, oldToken);
+    await releaseMediaCandidateClaim(f.d1, f.row.id, oldToken);
+    assert.equal(f.sqlite.prepare(
+      "SELECT review_claim_token FROM media_source_monitors WHERE id=17",
+    ).get().review_claim_token, newToken);
+    await assert.rejects(finalizeRejectedMediaCandidate({
+      database:f.d1, row:f.row, token:oldToken, now:"2026-10-21T00:00:02.000Z",
+      actorRef:"stale@example.invalid",reason:null,marker:null,issueStartedAt:"2026-10-20T00:00:00.000Z",
+    }), /MEDIA_REVIEW_INCOMPLETE_DECISION|Konflikt/);
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM media_source_review_decisions").get().n, 0);
+    await finalizeRejectedMediaCandidate({
+      database:f.d1, row:f.row, token:newToken, now:"2026-10-21T00:00:03.000Z",
+      actorRef:"current@example.invalid",reason:"Obrázok nesedí",marker:null,
+      issueStartedAt:"2026-10-20T00:00:00.000Z",
+    });
+    assert.equal((await listMediaReviewHistory(f.d1,17)).length, 1);
+    assert.equal(f.sqlite.prepare("SELECT review_claim_token FROM media_source_monitors WHERE id=17").get().review_claim_token,null);
+  } finally {f.close();}
+});
