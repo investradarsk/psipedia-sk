@@ -105,7 +105,8 @@
 }
 
 .homeV2 :global(.section) {
-  padding-block: 52px;
+  /* DS-6: default homepage sections stay compact; magazine/profile rhythms retain their explicit overrides. */
+  padding-block: clamp(24px, 2.8vw, 38px);
 }
 
 .homeV2 :global(.home-section-heading) {
@@ -2394,5 +2395,32 @@
 @media (prefers-reduced-motion: reduce) {
   .homeV2 :global(.home-profile-categories .home-service-carousel) {
     scroll-behavior: auto;
+  }
+}
+
+
+/* DS-4: homepage partner banners retain their compact #887 spacing and order; */
+/* share the contextual-banner corner and mobile action contract. */
+.homeV2 :global(.home-magazine-banner) {
+  min-width: 0;
+  border-radius: var(--ps-banner-radius, 18px);
+}
+.homeV2 :global(.home-magazine-banner > div) {
+  min-width: 0;
+}
+.homeV2 :global(.home-magazine-banner h2),
+.homeV2 :global(.home-magazine-banner p) {
+  overflow-wrap: anywhere;
+}
+.homeV2 :global(.home-magazine-banner .button) {
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ps-radius-control, 12px);
+  white-space: normal;
+}
+@media (max-width: 620px) {
+  .homeV2 :global(.home-magazine-banner .button) {
+    width: 100%;
+    min-height: 48px;
   }
 }

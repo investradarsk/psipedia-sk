@@ -38,24 +38,24 @@ test("canonical post-hero shells reuse PageContainer instead of inventing anothe
   assert.match(globals, /@media \(max-width: 620px\)[\s\S]*\.shell\s*\{[\s\S]*width:\s*min\(100% - 24px,\s*520px\)/);
 });
 
-test("landing and listing variants own the canonical vertical rhythm", () => {
-  assert.match(layoutCss, /\.landing\s*\{\s*padding-top:\s*26px/);
-  assert.match(layoutCss, /\.listing\s*\{\s*padding-top:\s*16px/);
-  assert.match(layoutCss, /@media \(max-width: 820px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*24px/);
-  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*18px[\s\S]*\.listing\s*\{\s*padding-top:\s*12px/);
+test("landing and listing variants own approved DS-6 compact vertical rhythm", () => {
+  assert.match(layoutCss, /\.landing\s*\{\s*padding-top:\s*20px/);
+  assert.match(layoutCss, /\.listing\s*\{\s*padding-top:\s*12px/);
+  assert.match(layoutCss, /@media \(max-width: 820px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*18px/);
+  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*\.landing\s*\{\s*padding-top:\s*14px[\s\S]*\.listing\s*\{\s*padding-top:\s*10px/);
 });
 
-test("shared landing heading owns typography and heading-to-content spacing", () => {
+test("shared landing heading owns compact typography and heading-to-content spacing", () => {
   assert.match(layout, /data-public-landing-section-heading/);
   assert.match(layout, /data-public-landing-eyebrow/);
   assert.match(layout, /data-public-landing-heading/);
   assert.match(layoutCss, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(320px, 500px\)/);
-  assert.match(layoutCss, /gap:\s*clamp\(12px, 2vw, 24px\)/);
-  assert.match(layoutCss, /margin-bottom:\s*16px/);
+  assert.match(layoutCss, /gap:\s*clamp\(10px, 1\.4vw, 18px\)/);
+  assert.match(layoutCss, /margin-bottom:\s*12px/);
   assert.match(layoutCss, /font-size:\s*\.7rem/);
   assert.match(layoutCss, /font-weight:\s*900/);
   assert.match(layoutCss, /letter-spacing:\s*\.09em/);
-  assert.match(layoutCss, /\.heading h2\s*\{[\s\S]*margin:\s*5px 0 0[\s\S]*font-size:\s*clamp\(1\.55rem, 2\.8vw, 2\.35rem\)[\s\S]*font-weight:\s*600[\s\S]*line-height:\s*1\.08/);
+  assert.match(layoutCss, /\.heading h2\s*\{[\s\S]*margin:\s*5px 0 0[\s\S]*font-size:\s*clamp\(1\.5rem, 2\.3vw, 2\.15rem\)[\s\S]*font-weight:\s*600[\s\S]*line-height:\s*1\.15/);
   assert.match(layoutCss, /\.description\s*\{[\s\S]*max-width:\s*500px[\s\S]*font-size:\s*\.82rem[\s\S]*line-height:\s*1\.55/);
   assert.match(layoutCss, /@media \(max-width: 700px\)[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*gap:\s*8px/);
 });
