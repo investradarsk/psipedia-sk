@@ -12,6 +12,7 @@ import { directoryCategories, directoryCategoryHref, directoryProfileHref } from
 import { getHomepageDirectoryProfilesWithImages } from "@/lib/directory-store";
 import { getHomepageUpcomingEventsWithImages } from "@/lib/event-store";
 import { eventHref, formatEventDate } from "@/lib/events";
+import { publicLocationValue } from "@/lib/public-location";
 import { getHomepageHighlightedHelpCasesWithImages } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref } from "@/lib/help";
 import { selectHomepageArticles } from "@/lib/homepage-content";
@@ -177,7 +178,7 @@ export default async function Home() {
                         <span className="home-event-copy">
                           <time dateTime={event.startDate}>{formatEventDate(event)}</time>
                           <strong>{event.title}</strong>
-                          <span>{event.city}</span>
+                          <span>{publicLocationValue(event.city, "city")}</span>
                         </span>
                         <span className="home-event-arrow" aria-hidden="true"><ArrowIcon size={18} /></span>
                       </Link>
@@ -186,8 +187,8 @@ export default async function Home() {
                 </div>
               ) : (
                 <div className="home-editorial-empty" data-home-events-empty>
-                  <strong>Nové podujatia práve dopĺňame</strong>
-                  <p>Prejdi celý kalendár a objav ďalšie možnosti.</p>
+                  <strong>Pozri si kalendár podujatí</strong>
+                  <p>Aktuálne termíny a všetky kategórie nájdeš v kalendári.</p>
                 </div>
               )}
             </HomeMagazineSidebar>
@@ -302,7 +303,7 @@ export default async function Home() {
             {nextEvents.length ? (
               <ul className="home-side-quicklinks">
                 {nextEvents.map((event) => (
-                  <li key={event.id}><Link href={eventHref(event)}>{event.title}<span>{formatEventDate(event)} · {event.city}</span></Link></li>
+                  <li key={event.id}><Link href={eventHref(event)}>{event.title}<span>{formatEventDate(event)}{publicLocationValue(event.city, "city") ? " · " + publicLocationValue(event.city, "city") : ""}</span></Link></li>
                 ))}
               </ul>
             ) : <p className="home-side-muted">Výstavy, športové podujatia a semináre priebežne pribúdajú v kalendári.</p>}
@@ -344,7 +345,7 @@ export default async function Home() {
                         {item.urgent ? <b>Urgentné</b> : null}
                       </span>
                       <strong>{item.title}</strong>
-                      <small>{item.city}</small>
+                      {publicLocationValue(item.city, "city") ? <small>{publicLocationValue(item.city, "city")}</small> : null}
                     </span>
                   </Link>
                 </article>
@@ -352,8 +353,8 @@ export default async function Home() {
             </div>
           ) : (
             <div className="home-editorial-empty" data-home-help-empty>
-              <strong>Momentálne tu nie je otvorená výzva</strong>
-              <p>Pozri si všetky možnosti pomoci psom a organizáciám.</p>
+              <strong>Objav možnosti pomoci psom</strong>
+              <p>Ďalšie prípady a organizácie nájdeš v kompletnom prehľade.</p>
             </div>
           )}
           sidebar={
@@ -361,7 +362,7 @@ export default async function Home() {
               {activeHelpCases.length ? (
                 <ul className="home-side-quicklinks">
                   {activeHelpCases.map((item) => (
-                    <li key={item.id}><Link href={helpCaseHref(item)}>{item.title}<span>{getHelpCategory(item.category)?.singular ?? "Pomoc psom"} · {item.city}</span></Link></li>
+                    <li key={item.id}><Link href={helpCaseHref(item)}>{item.title}<span>{getHelpCategory(item.category)?.singular ?? "Pomoc psom"}{publicLocationValue(item.city, "city") ? " · " + publicLocationValue(item.city, "city") : ""}</span></Link></li>
                   ))}
                 </ul>
               ) : <p className="home-side-muted">Sleduj zverejnené výzvy, adopcie a organizácie, ktorým môžeš pomôcť.</p>}
