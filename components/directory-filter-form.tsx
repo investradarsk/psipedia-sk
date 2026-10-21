@@ -82,7 +82,7 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
           <option value="">Všetky okresy</option>{options.districts.filter((item) => publicLocationValue(item, "district")).map((item) => <option value={item} key={item}>{item}</option>)}
         </select></label>
         <label><span>Mesto/obec</span><select name="city" defaultValue={filters.city}>
-          <option value="">Všetky mestá a obce</option>{options.cities.filter((item) => publicLocationValue(item, "city")).map((item) => <option value={item} key={item}>{item}</option>}
+          <option value="">Všetky mestá a obce</option>{options.cities.filter((item) => publicLocationValue(item, "city")).map((item) => <option value={item} key={item}>{item}</option>)}
         </select></label>
       </fieldset>
       {(options.services.length > 0 || options.breeds.length > 0 || options.fciGroups.length > 0 || options.organizations.length > 0 || options.profileTypes.length > 0) && (
