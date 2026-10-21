@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DirectoryCard } from "@/components/directory-card";
+import { PublicEmptyState, PublicPagination } from "@/components/public-visual-system";
 import { directoryPageHref } from "@/lib/directory-query";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import styles from "./directory-public.module.css";
@@ -32,23 +33,24 @@ export function DirectoryResults({
           {result.profiles.map((profile) => <DirectoryCard profile={profile} key={profile.id} />)}
         </div>
       ) : (
-        <div className="directory-empty" role="status">
-          <h2>{result.total ? "Táto strana je prázdna" : "Nenašli sme zhodu"}</h2>
-          <p>Skús zmeniť lokalitu alebo hľadaný výraz.</p>
+        <PublicEmptyState
+          className="directory-empty"
+          role="status"
+          title={result.total ? "Táto strana je prázdna" : "Nenašli sme zhodu"}
+          description="Skús zmeniť lokalitu alebo hľadaný výraz."
+        >
           <Link href={basePath}>Zrušiť filtre</Link>
-        </div>
+        </PublicEmptyState>
       )}
 
       {result.totalPages > 1 && (
-        <nav className="directory-pagination" aria-label="Stránkovanie výsledkov">
-          {result.page > 1
-            ? <Link href={directoryPageHref(basePath, filters, result.page - 1)} rel="prev">← Predchádzajúca</Link>
-            : <span aria-disabled="true">← Predchádzajúca</span>}
-          <strong>Strana {result.page} z {result.totalPages}</strong>
-          {result.page < result.totalPages
-            ? <Link href={directoryPageHref(basePath, filters, result.page + 1)} rel="next">Ďalšia →</Link>
-            : <span aria-disabled="true">Ďalšia →</span>}
-        </nav>
+        <PublicPagination
+          className="directory-pagination"
+          currentPage={result.page}
+          totalPages={result.totalPages}
+          previousHref={result.page > 1 ? directoryPageHref(basePath, filters, result.page - 1) : undefined}
+          nextHref={result.page < result.totalPages ? directoryPageHref(basePath, filters, result.page + 1) : undefined}
+        />
       )}
     </section>
   );
