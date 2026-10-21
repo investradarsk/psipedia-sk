@@ -631,6 +631,7 @@ test("stale Partner moderation approval is rejected at decision time without ove
     expect(profileResponse.ok()).toBeTruthy();
     const profileJson = await profileResponse.json() as { profile: Record<string, unknown> & { city?: string } };
     const externalProfileUpdate = await page.request.put("/api/admin/directory/990005", {
+      headers: { origin: new URL(page.url()).origin },
       data: {
         ...profileJson.profile,
         description: "Izolovaný lokálny fixture s externou H5 zmenou pre stale-base E2E overenie.",
