@@ -130,26 +130,34 @@ export async function PUT(request: Request, { params }: RouteProps) {
       }
     }
 
-    // A successful canonical D1 draft save is not reversed by a remote outage.
-    // A disabled flag is a hard no-op; any failed writeback retains its outbox
-    // and must never be falsely acknowledged as synchronized.
+    // Local draft save is canonical even when Notion rejects or times out.
+    // Return a safe, machine-readable status so the editor can distinguish
+    // a saved draft from an acknowledged Notion writeback. Never forward the
+    // raw Notion API error body or token to the browser or logs.
+    let notionEditorialWriteback: { status: string; code?: string } | undefined;
     if (before.status === "draft" && article.status === "draft") {
       try {
         const bindings = env as unknown as ArticleRouteBindings;
         if (bindings.DB) {
-          await writeBackDraftArticleContentToNotion({
+          const result = await writeBackDraftArticleContentToNotion({
             database: bindings.DB,
             bindings,
             article,
           });
+          notionEditorialWriteback = {
+            status: result.updated ? "synced" : (result.reason ?? "unchanged"),
+          };
         }
-      } catch {
-        // No Notion response body, editorial text, page ID or token in logs.
-        console.error("notion_article_editorial_writeback_failed", { articleId: article.id });
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : "";
+        const code = /^(?:NOTION_|ADMIN_|UNSUPPORTED_|MISSING_NOTION_PROPERTY_)[A-Z0-9_]+$/.test(raw)
+          ? raw : "REMOTE_WRITEBACK_FAILED";
+        notionEditorialWriteback = { status: "blocked", code };
+        console.error("notion_article_editorial_writeback_failed", { articleId: article.id, code });
       }
     }
 
-    return Response.json({ article });
+    return Response.json({ article, ...(notionEditorialWriteback ? { notionEditorialWriteback } : {}) });
   } catch (error) {
     return updateErrorResponse(error);
   }
