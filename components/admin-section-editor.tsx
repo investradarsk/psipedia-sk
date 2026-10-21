@@ -13,6 +13,7 @@ import type {
 } from "@/lib/section-store";
 import type { PortalSubpage } from "@/lib/portal";
 import styles from "./admin-section-editor.module.css";
+import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 
 function lines(value?: string[]) {
   return value?.join("\n") ?? "";
@@ -60,6 +61,8 @@ export function AdminSectionEditor({
   const [query, setQuery] = useState(initialOpenSlug ?? "");
   const [settingsTarget, setSettingsTarget] = useState<SettingsTarget>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const updateSections: typeof setSections = (value) => { setDirty(true); setSections(value); };
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -78,13 +81,13 @@ export function AdminSectionEditor({
   const settingsSubpage = settingsSection && settingsTarget ? settingsSection.subpages[settingsTarget.subIndex] : null;
 
   function update(slug: string, patch: Partial<ManagedPortalSection>) {
-    setSections((current) => current.map((section) => section.slug === slug ? { ...section, ...patch } : section));
+    updateSections((current) => current.map((section) => section.slug === slug ? { ...section, ...patch } : section));
     setMessage("");
     setError("");
   }
 
   function updateSubpage(sectionSlug: string, index: number, patch: Partial<PortalSubpage>) {
-    setSections((current) => current.map((section) => section.slug === sectionSlug
+    updateSections((current) => current.map((section) => section.slug === sectionSlug
       ? { ...section, subpages: section.subpages.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item) }
       : section));
     setMessage("");
@@ -92,7 +95,7 @@ export function AdminSectionEditor({
   }
 
   function move(index: number, direction: -1 | 1) {
-    setSections((current) => {
+    updateSections((current) => {
       const target = index + direction;
       if (target < 0 || target >= current.length) return current;
       const next = [...current];
@@ -102,7 +105,7 @@ export function AdminSectionEditor({
   }
 
   function addSubpage(slug: string) {
-    setSections((current) => current.map((section) => section.slug === slug
+    updateSections((current) => current.map((section) => section.slug === slug
       ? { ...section, subpages: [...section.subpages, { slug: "nova-podsekcia", label: "Nová podsekcia", description: "" }] }
       : section));
   }
@@ -111,13 +114,13 @@ export function AdminSectionEditor({
     const section = sections.find((item) => item.slug === slug);
     const target = section?.subpages[index];
     if (!target || !window.confirm(`Odstrániť podsekciu „${target.label}“ z tejto sekcie? Zmena sa uloží až po kliknutí na Uložiť sekcie.`)) return;
-    setSections((current) => current.map((item) => item.slug === slug
+    updateSections((current) => current.map((item) => item.slug === slug
       ? { ...item, subpages: item.subpages.filter((_, itemIndex) => itemIndex !== index) }
       : item));
   }
 
   function moveSubpage(slug: string, index: number, direction: -1 | 1) {
-    setSections((current) => current.map((section) => {
+    updateSections((current) => current.map((section) => {
       if (section.slug !== slug) return section;
       const target = index + direction;
       if (target < 0 || target >= section.subpages.length) return section;
@@ -140,6 +143,7 @@ export function AdminSectionEditor({
       const data = await response.json() as { sections?: ManagedPortalSection[]; error?: string };
       if (!response.ok || !data.sections) throw new Error(data.error || "Sekcie sa nepodarilo uložiť.");
       setSections(data.sections);
+      setDirty(false);
       setMessage("Sekcie sú uložené. Verejný web používa nové texty, viditeľnosť aj poradie.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Sekcie sa nepodarilo uložiť.");
@@ -149,6 +153,20 @@ export function AdminSectionEditor({
   }
 
   return (
+    <EditorWorkspace
+      mode="page"
+      title="Sekcie a podsekcie"
+      description="Verejné názvy, hierarchia, texty, poradie a SEO zostávajú v pôvodnom editore."
+      status={<EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} />}
+      sections={visibleSections.map((section) => ({ id: `portal-section-${section.slug}`, label: section.label }))}
+      dirty={dirty}
+      onClose={() => { setDirty(false); window.setTimeout(() => window.location.assign("/admin"), 0); }}
+      closeLabel="Späť do administrácie"
+      actions={<EditorActionBar
+        message={<span role={error ? "alert" : "status"}>{error || message || (dirty ? "Neuložené zmeny" : "Všetky zmeny uložené")}</span>}
+        primary={<AdminActionButton variant="primary" disabled={saving || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť sekcie"}</AdminActionButton>}
+      />}
+    >
     <section className={styles.workspace} data-testid="admin-section-management">
       <div className={styles.toolbar}>
         <label className={styles.search}>
@@ -177,7 +195,7 @@ export function AdminSectionEditor({
           const directAdminHref = section.slug === "steniatka" ? "/admin/steniatka" : "/admin";
 
           return (
-            <article className={styles.sectionCard} key={section.slug}>
+            <article className={styles.sectionCard} key={section.slug} id={`portal-section-${section.slug}`} data-admin-editor-section tabIndex={-1} onFocus={(event) => { if (event.target === event.currentTarget) setOpen(section.slug); }}>
               <header className={styles.sectionRow}>
                 <button
                   type="button"
@@ -368,16 +386,6 @@ export function AdminSectionEditor({
         </div>
       )}
 
-      <div className={styles.savebar}>
-        <div>
-          {message && <p role="status">{message}</p>}
-          {error && <p role="alert" className={styles.error}>{error}</p>}
-        </div>
-        <AdminActionButton variant="primary" disabled={saving} onClick={() => void save()}>
-          {saving ? "Ukladám…" : "Uložiť sekcie"}
-        </AdminActionButton>
-      </div>
-
       <AdminDrawer
         open={Boolean(settingsSubpage && settingsSection)}
         title={settingsSubpage ? `Nastavenia: ${settingsSubpage.label}` : "Nastavenia podsekcie"}
@@ -430,5 +438,6 @@ export function AdminSectionEditor({
         )}
       </AdminDrawer>
     </section>
+    </EditorWorkspace>
   );
 }
