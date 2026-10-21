@@ -407,3 +407,20 @@ test("real Events/Help adapter uses canonical equality, strict ID parsing and pr
   assert.ok(sync.includes('"Zdroj", "Zdroj URL", "Zdroj dát"'));
   assert.ok(sync.includes("pageIdentity.psipediaId && pageIdentity.psipediaId !== source.id"));
 });
+
+
+test("both profile adapters reject malformed IDs without rejecting valid numeric identities", async () => {
+  const [directory, eventsHelp] = await Promise.all([
+    readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8"),
+  ]);
+  assert.ok(directory.includes('if (!/^[1-9]\\d*$/.test(rawId)) return null;') === false,
+    "double-escaped digit classes must never reach production");
+  assert.ok(directory.includes('if (!/^[1-9]\d*$/.test(rawId)) return null;'));
+  assert.ok(eventsHelp.includes('if (!/^[1-9]\d*$/.test(source.id)) return null;'));
+  const valid = /^[1-9]\d*$/;
+  for (const id of ["1", "42", "999999"]) assert.equal(valid.test(id), true);
+  for (const id of ["", "0", "02", "42-other", "42\\d", "-1", "4.2", "0x2A"]) {
+    assert.equal(valid.test(id), false, id);
+  }
+});
