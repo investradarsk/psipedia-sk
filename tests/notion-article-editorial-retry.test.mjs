@@ -80,6 +80,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
   };
   const calls = [];
   let failSecond = true;
+  let failFinalReceipt = false;
   let unsafeRemoteChange = false;
   const db = {
     prepare(sql) {
@@ -145,6 +146,9 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
         return Response.json(structuredClone(notion));
       }
       const props = JSON.parse(options.body).properties;
+      if (failFinalReceipt && props["Sync stav"]?.select?.name === "Synchronizované") {
+        return Response.json({ message: "synthetic acknowledgement failure" }, { status: 503 });
+      }
       for (const [key, value] of Object.entries(props)) {
         const raw = { ...value };
         for (const type of ["title", "rich_text"]) {
@@ -205,6 +209,7 @@ function setup({ enabled = true, inactiveAtRead = null } = {}) {
   return { db, article, calls, journal, mapping, bindings, notion, blocks,
     get failSecond() { return failSecond; },
     set failSecond(v) { failSecond = v; },
+    set failFinalReceipt(v) { failFinalReceipt = v; },
     set unsafeRemoteChange(v) { unsafeRemoteChange = v; },
     planner, fetchMock };
 }
@@ -448,4 +453,27 @@ test("unexpected inserted block must not be silently ignored on journal retry", 
   await assert.rejects(writer({ database: h.db, bindings: h.bindings, article: h.article }),
     /NOTION_EDITORIAL_STRUCTURE_CONFLICT/);
   assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
+});
+
+test("failed final Notion acknowledgement retains journal and cannot claim SYNCED", async () => {
+  const h = setup();
+  h.failSecond = false;
+  h.failFinalReceipt = true;
+  const writer = await loadWriter(h);
+  await assert.rejects(writer({ database: h.db, bindings: h.bindings, article: h.article }),
+    /Notion API 503/);
+  assert.equal(h.notion.properties["Sync stav"].select.name, "Chyba");
+  assert.equal(h.journal.deleted, undefined);
+  // After all content patches, the guarded local mapping may have the new
+  // projection hash. The pending journal remains the authoritative receipt.
+  assert.notEqual(h.mapping.content_hash, "baseline-hash");
+  const firstBlockPatchCount = h.calls.filter(([verb, path]) =>
+    verb === "PATCH" && path.endsWith("/heading-a")).length;
+  h.failFinalReceipt = false;
+  const outcome = await writer({ database: h.db, bindings: h.bindings, article: h.article });
+  assert.equal(outcome.updated, true);
+  assert.equal(h.journal.deleted, true);
+  assert.equal(h.notion.properties["Sync stav"].select.name, "Synchronizované");
+  assert.equal(h.calls.filter(([verb, path]) =>
+    verb === "PATCH" && path.endsWith("/heading-a")).length, firstBlockPatchCount);
 });
