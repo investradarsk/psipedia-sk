@@ -194,7 +194,7 @@ export async function getAutomationOperationsOverview(
   const [rootsRead, discoveryRead, sourcesRead, sourceRunsRead, candidateStatusRead] = await Promise.all([
     readAdminAutomationData({
       key: "operations:discovery-roots",
-      load: async () => (await db.prepare(`SELECT id,root_key,label,entity_type,config_json,enabled,cadence_minutes,next_check_at,
+      load: async () => (await db.prepare(`SELECT id,root_key,label,entity_type,config_json,enabled,review_status,cadence_minutes,next_check_at,
         last_checked_at,last_success_at,last_error_at,last_error_code
         FROM automation_discovery_roots ORDER BY id`).all<Record<string, unknown>>()).results,
       fallback: [] as Record<string, unknown>[],
@@ -396,12 +396,16 @@ export async function getAutomationOperationsOverview(
     const sourceErrors = categorySources.some((row) => Boolean(row.last_error_code));
     const refreshError = Boolean(refresh?.lastErrorCode)
       && (!refresh?.lastSuccessAt || Boolean(refresh?.lastErrorAt && refresh.lastErrorAt >= refresh.lastSuccessAt));
-    const enabled = direct ? rootRows.some((row) => Boolean(row.enabled)) : categorySources.some((row) => Boolean(row.enabled));
+    // Match both cron selectors: a stored timestamp or enabled flag alone does
+    // not mean an unreviewed/disabled source will actually be scheduled.
+    const scheduledRows = [...rootRows, ...categorySources]
+      .filter((row) => n(row.enabled) === 1 && row.review_status === "APPROVED");
+    const enabled = scheduledRows.length > 0;
     const categoryRuns = [...categoryDiscoveryRuns, ...categorySourceRuns]
       .sort((a, b) => Date.parse(String(b.started_at ?? "")) - Date.parse(String(a.started_at ?? "")));
     const hasRuns = categoryRuns.length > 0;
     const latestRunPartial = categoryRuns[0]?.status === "PARTIAL";
-    const status = rootErrors || sourceErrors || refreshError
+    const status = rootErrors || sourceErrors || refreshError || categoryRuns[0]?.status === "FAILED"
       ? "Problém" as const
       : latestRunPartial
         ? "Čiastočne" as const
@@ -476,8 +480,7 @@ export async function getAutomationOperationsOverview(
         ?? (sourceErrorCode ? String(sourceErrorCode) : null),
       lastRunAt: newer([...rootRows.map((row) => row.last_checked_at ? String(row.last_checked_at) : null),
         ...categorySources.map((row) => row.last_checked_at ? String(row.last_checked_at) : null)]),
-      nextRunAt: sooner([...rootRows.map((row) => row.next_check_at ? String(row.next_check_at) : null),
-        ...categorySources.map((row) => row.next_check_at ? String(row.next_check_at) : null)]),
+      nextRunAt: sooner(scheduledRows.map((row) => row.next_check_at ? String(row.next_check_at) : null)),
       cadenceMinutes: nullable((direct ? rootRows[0] : categorySources[0])?.cadence_minutes),
       requestCount,
       resultCount,
