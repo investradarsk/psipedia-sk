@@ -120,16 +120,37 @@ test("breed profile: representative canonical details return 200, keep canonical
     const photo = page.getByTestId("breed-hero-photo");
     await expect(identity).toBeVisible();
     await expect(photo).toBeVisible();
-    const [identityBox, photoBox] = await Promise.all([identity.boundingBox(), photo.boundingBox()]);
-    expect(identityBox, `${path}: identity box unavailable`).not.toBeNull();
-    expect(photoBox, `${path}: photo box unavailable`).not.toBeNull();
-    expect(boxesOverlap(identityBox!, photoBox!), `${path}: hero identity overlaps photo`).toBe(false);
 
-    const lead = page.getByTestId("breed-hero-lead");
-    if (await lead.count()) {
-      const leadBox = await lead.boundingBox();
-      expect(leadBox, `${path}: lead box unavailable`).not.toBeNull();
-      expect(boxesOverlap(leadBox!, photoBox!), `${path}: hero lead overlaps photo`).toBe(false);
+    // DS-6: wait for the CSS grid and fonts before measuring. A previous
+    // check compared photo and lead boxes from different layout frames while
+    // mobile fonts/images were still settling after DOMContentLoaded.
+    await page.evaluate(() => document.fonts.ready);
+    await expect.poll(() => page.getByTestId("breed-hero").evaluate((hero) => {
+      const style = getComputedStyle(hero);
+      return style.display === "grid" && style.gridTemplateAreas.includes("photo");
+    })).toBe(true);
+
+    // Read all boxes in one synchronous layout snapshot. Still fail on any
+    // genuine hero overlap, but do not mix geometry across layout shifts.
+    const heroBoxes = await page.evaluate(() => {
+      const rect = (id: string) => {
+        const node = document.querySelector(`[data-testid="${id}"]`);
+        if (!node) return null;
+        const box = node.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      };
+      return {
+        identity: rect("breed-hero-identity"),
+        photo: rect("breed-hero-photo"),
+        lead: rect("breed-hero-lead"),
+      };
+    });
+    expect(heroBoxes.identity, `${path}: identity box unavailable`).not.toBeNull();
+    expect(heroBoxes.photo, `${path}: photo box unavailable`).not.toBeNull();
+    expect(heroBoxes.photo!.height, `${path}: photo height is zero`).toBeGreaterThan(0);
+    expect(boxesOverlap(heroBoxes.identity!, heroBoxes.photo!), `${path}: hero identity overlaps photo`).toBe(false);
+    if (heroBoxes.lead) {
+      expect(boxesOverlap(heroBoxes.lead, heroBoxes.photo!), `${path}: hero lead overlaps photo`).toBe(false);
     }
   }
 });

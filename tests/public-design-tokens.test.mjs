@@ -63,25 +63,27 @@ function declarations(text) {
   return result;
 }
 
-function aliasBlock(source = css) {
-  assert.equal(source.split(start).length, 2, "the START marker must occur once");
-  assert.equal(source.split(end).length, 2, "the END marker must occur once");
-  const a = source.indexOf(start);
-  const b = source.indexOf(end, a + start.length);
-  assert.ok(a >= 0 && b > a && b < source.indexOf("\n}\n"), "aliases must stay in the original :root");
-  return { content: source.slice(a + start.length, b), before: source.slice(0, a), after: source.slice(b + end.length) };
+function aliasBlock() {
+  assert.equal(css.split(start).length, 2, "the START marker must occur once");
+  assert.equal(css.split(end).length, 2, "the END marker must occur once");
+  const a = css.indexOf(start);
+  const b = css.indexOf(end, a + start.length);
+  assert.ok(a >= 0 && b > a && b < css.indexOf("\n}\n"), "aliases must stay in the original :root");
+  return { content: css.slice(a + start.length, b), before: css.slice(0, a), after: css.slice(b + end.length) };
 }
 
-test("DS-1A baseline stays byte-identical before the approved DS-3 additive public search rules", () => {
-  // DS-1A is an immutable base snapshot; DS-3 is an approved, additive styling phase.
-  // Compare the exact original source before the uniquely marked DS-3 extension.
+test("DS-1A original CSS is byte-identical after excluding the isolated DS-5 extension", () => {
   const ds3Marker = "\n/* DS-3 PUBLIC SEARCH";
-  assert.equal(css.split(ds3Marker).length, 2, "DS-3 public search extension must be unique");
-  // The additive DS-3 block is separated by one blank line; preserve the
-  // original stylesheet's single terminal newline for the byte-exact snapshot.
-  const ds1aBaseline = css.split(ds3Marker)[0].replace(/\n+$/, "\n");
-  const block = aliasBlock(ds1aBaseline);
-  assert.equal(gitBlobSha(block.before + block.after), originalBlob);
+  assert.equal(css.split(ds3Marker).length, 2, "exactly one DS-3 public-search extension is required");
+  const preDs3Css = css.split(ds3Marker)[0].replace(/\n+$/, "\n");
+  const block = aliasBlock(preDs3Css);
+  const ds5Start = "\n/* DS-5 PUBLIC CARDS, GRIDS & MEDIA START";
+  const ds5End = "/* DS-5 PUBLIC CARDS, GRIDS & MEDIA END */\n";
+  assert.equal(block.after.split(ds5Start).length, 2, "exactly one DS-5 extension is required");
+  const extensionAt = block.after.indexOf(ds5Start);
+  assert.ok(extensionAt >= 0 && block.after.endsWith(ds5End), "DS-5 may only be appended after original CSS");
+  const originalAfter = block.after.slice(0, extensionAt);
+  assert.equal(gitBlobSha(block.before + originalAfter), originalBlob);
   const lines = block.content.trimEnd().split("\n");
   assert.equal(lines.length, expected.size);
   for (const line of lines) assert.match(line, /^  --ps-[\w-]+: var\(--[\w-]+\);$/);
