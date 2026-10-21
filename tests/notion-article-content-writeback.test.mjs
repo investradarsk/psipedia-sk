@@ -245,3 +245,19 @@ test("canonical prepared D1 0138 journal enforces foreign keys, single owner and
     db.close();
   }
 });
+
+test("production activates editorial draft writeback globally, without per-article canary", async () => {
+  const [config, sync, route] = await Promise.all([
+    readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"),
+    readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8"),
+  ]);
+  const vars = JSON.parse(config).vars;
+  assert.equal(vars.NOTION_ARTICLE_SYNC_ENABLED, "true");
+  assert.equal(vars.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED, "true");
+  assert.match(sync, /if \(!flagEnabled\(args\.bindings\.NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED\)\)/);
+  assert.match(route, /before\.status === "draft" && article\.status === "draft"/);
+  assert.match(sync, /if \(article\.status !== "draft"\)/);
+  assert.match(sync, /SELECT notion_page_id, article_id, content_hash FROM article_notion_sync WHERE article_id = \?/);
+  assert.doesNotMatch(config, /NOTION_ARTICLE_WRITEBACK_CANARY|NOTION_ARTICLE_WRITEBACK_ALLOWLIST/);
+});
