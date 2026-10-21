@@ -71,7 +71,18 @@ export async function PUT(request: Request, { params }: Props) {
     const { id } = await params;
     const body: unknown = await request.json();
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
-    const isAgenda = Boolean(key && geminiAgendaForKey(key));
+    const item = key ? getGeminiCatalogItem(key) : null;
+    if (!geminiValidNotionDraftId(id) || (key && !item))
+      return Response.json({ error: "Neplatné ID alebo neznáma kategória konceptu." }, { status: 400, headers: HEADERS });
+    if (item?.section === "directory") {
+      const current = await getGeminiDirectoryDraft(env, id);
+      if (current.category !== item.subcategory ||
+          (body && typeof body === "object" && !Array.isArray(body) &&
+            "category" in body && (body as { category: unknown }).category !== item.subcategory))
+        return Response.json({ error: "Koncept nepatrí do požadovanej kategórie. Zápis sa nevykonal." },
+          { status: 409, headers: HEADERS });
+    }
+    const isAgenda = Boolean(item && geminiAgendaForKey(key));
     const draft = isAgenda
       ? await mutateGeminiAgendaDraft(env, key, id, body, auth.user.email)
       : await saveGeminiDirectoryDraft(env, id, body, auth.user.email);
@@ -107,6 +118,15 @@ export async function PATCH(request: Request, { params }: Props) {
       return Response.json({ error: "Vyžaduje sa výslovné potvrdenie." }, { status: 400, headers: HEADERS });
     const { id } = await params;
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
+    const item = key ? getGeminiCatalogItem(key) : null;
+    if (!geminiValidNotionDraftId(id) || (key && !item))
+      return Response.json({ error: "Neplatné ID alebo neznáma kategória konceptu." }, { status: 400, headers: HEADERS });
+    if (item?.section === "directory") {
+      const current = await getGeminiDirectoryDraft(env, id);
+      if (current.category !== item.subcategory)
+        return Response.json({ error: "Koncept nepatrí do požadovanej kategórie. Zápis sa nevykonal." },
+          { status: 409, headers: HEADERS });
+    }
     const draft = key && geminiAgendaForKey(key)
       ? await mutateGeminiAgendaDraft(env, key, id, body, auth.user.email)
       : await reviewGeminiDirectoryDraft(env, id, body, auth.user.email);
