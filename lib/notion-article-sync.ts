@@ -40,6 +40,8 @@ export type NotionSyncBindings = {
 
 type NotionPage = {
   id: string;
+  archived?: boolean;
+  in_trash?: boolean;
   last_edited_time?: string;
   properties?: Record<string, unknown>;
 };
@@ -1321,8 +1323,11 @@ export async function writeBackDraftArticleContentToNotion(args: {
   };
   // A mapping alone does not authorize writes to a page whose canonical
   // identity was erased or changed. Require the matching persisted Notion ID
-  // on every read, including journal retries and final verification.
+  // on every read, including journal retries and final verification. Archived
+  // or trashed pages are withdrawn editorial content even if their old Ready
+  // checkbox, canonical identity and journal still match.
   const matchesEditorialIdentity = (value: NotionPage) =>
+    value.archived !== true && value.in_trash !== true &&
     value.id === mapping.notion_page_id &&
     richTextProperty(value, "Psipedia ID") === String(article.id);
   if (!matchesEditorialIdentity(page)) {
