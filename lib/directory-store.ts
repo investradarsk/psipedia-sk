@@ -244,6 +244,14 @@ type DirectoryProfileSummaryRow = {
   updated_at: string;
 };
 
+/** Read-model for homepage veterinarian cards; do not load complete profiles. */
+type HomepageDirectoryRow = Pick<DirectoryProfileRow,
+  "id" | "slug" | "name" | "category" | "city" | "district" |
+  "image_url" | "thumbnail_display_json"> & { fallback_district: string | null };
+export type HomepageDirectoryCard = Pick<PublicDirectoryProfile,
+  "id" | "slug" | "name" | "category" | "city" | "district" |
+  "imageUrl" | "thumbnailImageDisplay">;
+
 type DirectoryProfileCountRow = {
   total: number;
   published: number;
@@ -942,16 +950,33 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
 }
 
 /** Homepage-only image cards: filter at the database, not after the bounded LIMIT. */
-export async function getHomepageDirectoryProfilesWithImages(category: DirectoryCategorySlug, limit = 3) {
+export async function getHomepageDirectoryProfilesWithImages(
+  category: DirectoryCategorySlug,
+  limit = 3,
+): Promise<HomepageDirectoryCard[]> {
   const database = getD1Binding();
-  if (!database) return [] as PublicDirectoryProfile[];
+  if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database.prepare(`
-    SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles
+    SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
+      CASE WHEN json_valid(source_data_json)
+        AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
+        THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
+        ELSE NULL END AS fallback_district
+    FROM directory_profiles
     WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY featured DESC, name ASC, id ASC LIMIT ?
-  `).bind(category, safeLimit).all<DirectoryProfileRow>();
-  return result.results.map(rowToPublicProfile);
+  `).bind(category, safeLimit).all<HomepageDirectoryRow>();
+  return result.results.map((row): HomepageDirectoryCard => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
+    city: runtimeDirectoryLocationText(row.city),
+    district: runtimeDirectoryLocationText(row.district) || runtimeDirectoryLocationText(row.fallback_district),
+    imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+  }));
 }
 
 export async function listPublishedDirectoryProfiles(options: {
