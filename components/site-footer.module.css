@@ -1,0 +1,76 @@
+/* DS-6: compact public footer; keep existing colors, links and semantics. */
+.compactFooter :global(.footer-main) {
+  grid-template-columns: minmax(180px, .7fr) minmax(0, 2fr);
+  gap: clamp(24px, 3vw, 40px);
+  padding-block: clamp(30px, 4vw, 46px) clamp(24px, 3vw, 36px);
+}
+
+.compactFooter :global(.footer-brand-block p) {
+  margin-top: 12px;
+  line-height: 1.55;
+}
+
+.compactFooter :global(.footer-links) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 1.5vw, 22px);
+}
+
+.compactFooter :global(.footer-links > div) {
+  min-width: 0;
+  gap: 7px;
+  font-size: .83rem;
+  line-height: 1.5;
+}
+
+.compactFooter :global(.footer-links strong) {
+  margin-bottom: 3px;
+  line-height: 1.4;
+}
+
+.compactFooter :global(.footer-links a) {
+  overflow-wrap: anywhere;
+  text-underline-offset: .2em;
+}
+
+.compactFooter :global(.footer-links a:focus-visible),
+.compactFooter :global(.footer-bottom a:focus-visible) {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.compactFooter :global(.footer-bottom) {
+  gap: 12px;
+  padding-block: 16px;
+  line-height: 1.55;
+}
+
+@media (max-width: 980px) {
+  .compactFooter :global(.footer-main) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding-block: 34px 28px;
+  }
+}
+
+@media (max-width: 700px) {
+  .compactFooter :global(.footer-main) {
+    gap: 20px;
+    padding-block: 28px 24px;
+  }
+
+  .compactFooter :global(.footer-links) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+  }
+
+  .compactFooter :global(.footer-bottom) {
+    gap: 6px;
+    padding-block: 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .compactFooter :global(.footer-links > div:last-child) {
+    grid-column: 1 / -1;
+  }
+}
