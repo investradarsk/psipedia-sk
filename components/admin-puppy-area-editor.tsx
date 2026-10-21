@@ -5,10 +5,13 @@ import Link from "next/link";
 import type { ManagedPortalSection } from "@/lib/section-store";
 import type { PortalSubpage } from "@/lib/portal";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
+import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
+import { AdminActionButton } from "@/components/admin-interaction-system";
 
 export function AdminPuppyAreaEditor({ initialSections }: { initialSections: ManagedPortalSection[] }) {
   const [sections, setSections] = useState(initialSections);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -16,7 +19,13 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
   const areas = puppy?.subpages.filter((area) => !area.href) ?? [];
 
   function replaceAreas(nextAreas: PortalSubpage[]) {
-    setSections((current) => current.map((section) => section.slug === "steniatka" ? { ...section, subpages: nextAreas } : section));
+    setDirty(true);
+    // Keep linked subpages in the canonical PUT payload: the area editor must not silently delete them.
+    setSections((current) => current.map((section) => {
+      if (section.slug !== "steniatka") return section;
+      let areaIndex = 0;
+      return { ...section, subpages: section.subpages.map((subpage) => subpage.href ? subpage : nextAreas[areaIndex++]) };
+    }));
   }
 
   function update(index: number, patch: Partial<PortalSubpage>) {
@@ -52,15 +61,29 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
       const response = await fetch("/api/admin/sections", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ sections }) });
       const data = await response.json() as { sections?: ManagedPortalSection[]; error?: string };
       if (!response.ok || !data.sections) throw new Error(data.error || "Zmeny sa nepodarilo uložiť.");
-      setSections(data.sections); setMessage("Obsah oblastí Šteniatok je uložený a zobrazuje sa na verejnom webe.");
+      setSections(data.sections); setDirty(false); setMessage("Obsah oblastí Šteniatok je uložený a zobrazuje sa na verejnom webe.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Zmeny sa nepodarilo uložiť.");
     } finally { setSaving(false); }
   }
 
-  return <section className="admin-form-card admin-puppy-content-card">
-    <div className="admin-puppy-areas-heading"><div><h2>Obsah oblastí Šteniatok</h2><p>Tu upravíš stránku oblasti. Články sa pridávajú samostatne pod ňu.</p></div><button className="admin-publish" type="button" onClick={() => void save()} disabled={saving || Boolean(uploading)}>{saving ? "Ukladám…" : "Uložiť všetky oblasti"}</button></div>
-    <div className="admin-puppy-content-list">{areas.map((area, index) => <details key={area.slug} className="admin-puppy-content-item" open={index === 0}>
+  return <EditorWorkspace
+    mode="page"
+    title="Obsah oblastí Šteniatok"
+    description="Úprava oblastí, fotografií a poradia v jednotnom Admin V3 pracovisku."
+    status={<><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /><EditorStatus label={uploading ? "Nahrávanie obrázka" : "Pripravené"} tone={uploading ? "warning" : "neutral"} /></>}
+    sections={areas.map((area, index) => ({ id: `puppy-area-${index}`, label: area.label }))}
+    dirty={dirty}
+    closeLabel="Späť do administrácie"
+    onClose={() => { setDirty(false); window.setTimeout(() => window.location.assign("/admin"), 0); }}
+    actions={<EditorActionBar
+      message={<span role={error ? "alert" : "status"}>{error || message || (dirty ? "Neuložené zmeny" : "Všetky zmeny uložené")}</span>}
+      primary={<AdminActionButton variant="primary" disabled={saving || Boolean(uploading) || !dirty} onClick={() => void save()}>{saving ? "Ukladám…" : "Uložiť všetky oblasti"}</AdminActionButton>}
+    />}
+  >
+  <section className="admin-form-card admin-puppy-content-card" data-admin-content-editor>
+    <div className="admin-puppy-areas-heading"><div><h2>Obsah oblastí Šteniatok</h2><p>Tu upravíš stránku oblasti. Články sa pridávajú samostatne pod ňu.</p></div></div>
+    <div className="admin-puppy-content-list">{areas.map((area, index) => <details key={area.slug} id={`puppy-area-${index}`} data-admin-editor-section tabIndex={-1} className="admin-puppy-content-item" open={index === 0} onFocus={(event) => { if (event.target === event.currentTarget) event.currentTarget.open = true; }}>
       <summary><span>{String(index + 1).padStart(2, "0")}</span><strong>{area.label}</strong><small>Upraviť obsah</small></summary>
       <div className="admin-puppy-content-fields">
         <div className="admin-field-grid"><div className="admin-field"><label>Názov oblasti</label><input value={area.label} onChange={(event) => update(index, { label: event.target.value })} /></div><div className="admin-field"><label>Adresa URL</label><input value={area.slug} disabled /></div></div>
@@ -71,6 +94,6 @@ export function AdminPuppyAreaEditor({ initialSections }: { initialSections: Man
         <div className="admin-puppy-content-actions"><button type="button" onClick={() => move(index, -1)} disabled={index === 0}>↑ Vyššie</button><button type="button" onClick={() => move(index, 1)} disabled={index === areas.length - 1}>↓ Nižšie</button><Link href={`/admin/novy?sekcia=steniatka&oblast=${area.slug}`}>+ Pridať článok do oblasti</Link><Link href={`/steniatka/${area.slug}`} target="_blank">Pozrieť stránku ↗</Link></div>
       </div>
     </details>)}</div>
-    {(message || error) && <p className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</p>}
-  </section>;
+  </section>
+  </EditorWorkspace>;
 }

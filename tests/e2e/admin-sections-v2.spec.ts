@@ -26,7 +26,8 @@ test("section management explains hierarchy, counts and secondary settings", asy
   const firstToggle = page.locator("button[aria-controls^='section-editor-']").first();
   if ((await firstToggle.getAttribute("aria-expanded")) !== "true") await firstToggle.click();
 
-  const settings = page.getByRole("button", { name: "Nastavenia", exact: true }).first();
+  // Scope the action to the section editor: the sidebar also has a button named "Nastavenia".
+  const settings = page.getByTestId("admin-section-management").getByRole("button", { name: "Nastavenia", exact: true }).first();
   await settings.click();
   const drawer = page.locator("dialog[data-admin-drawer]");
   await expect(drawer).toBeVisible();

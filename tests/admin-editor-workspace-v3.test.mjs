@@ -44,3 +44,86 @@ test("fixture stays development-only and requires confirmation before local publ
   assert.match(demo, /disabled=\{!hydrated\}/);
   assert.match(demo, /data-demo-hydrated=\{hydrated/);
 });
+
+test("ADMIN V3 content editors reuse workspace without copying canonical data forms", () => {
+  const article = read("components/admin-article-editor.tsx");
+  const breed = read("components/admin-breed-editor.tsx");
+  for (const source of [article, breed]) {
+    assert.match(source, /<EditorWorkspace/);
+    assert.match(source, /<EditorActionBar/);
+    assert.match(source, /<EditorStatus/);
+    assert.match(source, /mode="page"/);
+    assert.match(source, /dirty={dirty}/);
+    assert.match(source, /onClose=/);
+    assert.doesNotMatch(source, /AdminStickyEditorNavigation/);
+  }
+  for (const section of ["article-basics", "article-publish", "article-seo", "article-settings", "article-authors", "article-media", "article-content", "article-blocks", "article-relations"])
+    assert.match(article, new RegExp('id="' + section + '"[^>]*data-admin-editor-section'));
+  for (const section of ["breed-basic", "breed-overview", "breed-character", "breed-practical", "breed-health", "breed-sports", "breed-relations", "breed-media"])
+    assert.match(breed, new RegExp('AdminEditorSection id="' + section + '"'));
+  assert.match(article, /<AdminArticleBlockEditor/);
+  assert.match(article, /<RichTextInput/);
+  assert.match(article, /<ArticleEditorCalendar/);
+  assert.match(article, /<AdminEditorialAuthorField/);
+  assert.match(article, /preservedEditorArticleMetadata/);
+  assert.match(breed, /<AdminSeoFields/);
+  assert.match(breed, /fciStandard/);
+  assert.match(breed, /relatedArticleIds/);
+  assert.match(breed, /<AdminDrawer/);
+});
+test("ADMIN V3 content save and exit actions preserve publication and dirty state", () => {
+  const article = read("components/admin-article-editor.tsx");
+  const breed = read("components/admin-breed-editor.tsx");
+  assert.match(article, /form="article-canonical-editor-form"/);
+  assert.match(article, /type="submit"/);
+  assert.match(article, /onSubmit=\{\(event\) => \{ event.preventDefault\(\); void save\(displayedStatus\); \}\}/);
+  assert.match(article, /setEditorDirty\(false\)/);
+  assert.match(article, /backToEditor\?\.click\(\)/);
+  assert.match(breed, /form="breed-canonical-editor-form"/);
+  assert.equal((breed.match(/Nastavenia, FCI a SEO/g) ?? []).length, 1, "settings drawer has only one trigger");
+  assert.match(breed, /save\(form.status==="published"\?"published":"draft"\)/);
+  assert.match(breed, /setCanonicalForm\(\(current\)=>\(\{\.\.\.current,status:data.breed!\.status\}\)\)/);
+  assert.match(breed, /setExpectedUpdatedAt\(data.breed.updatedAt\)/);
+  assert.match(breed, /setDirty\(false\)/);
+  const articleCss = read("components/admin-content-editor-v3.module.css");
+  const breedCss = read("components/admin-breed-editor.module.css");
+  for (const css of [articleCss, breedCss]) {
+    assert.match(css, /max-width: 420px/);
+    assert.match(css, /max-width: 360px/);
+    assert.match(css, /min-width: 0/);
+  }
+});
+
+test("ADMIN V3 article hidden file inputs cannot escape their labels", () => {
+  const css = read("components/admin-content-editor-v3.module.css");
+  assert.match(css, /label\.admin-upload-button > input\[type="file"\]/);
+  assert.match(css, /max-width:\s*1px/);
+  assert.match(css, /max-height:\s*1px/);
+  assert.match(css, /min-height:\s*0/);
+  assert.match(css, /clip-path:\s*inset\(50%\)/);
+});
+
+test("ADMIN V3 section and puppy editors use guarded workspace without replacing their canonical PUT APIs", () => {
+  const section = read("components/admin-section-editor.tsx");
+  const puppy = read("components/admin-puppy-area-editor.tsx");
+  for (const source of [section, puppy]) {
+    assert.match(source, /<EditorWorkspace/);
+    assert.match(source, /<EditorActionBar/);
+    assert.match(source, /<EditorStatus/);
+    assert.match(source, /dirty={dirty}/);
+    assert.match(source, /data-admin-editor-section/);
+    assert.match(source, /"\/api\/admin\/sections"/);
+    assert.match(source, /method: "PUT"/);
+    assert.match(source, /setDirty\(false\)/);
+  }
+  assert.match(section, /initialOpenSlug/);
+  assert.match(section, /subpages/);
+  assert.match(section, /updateSections/);
+  assert.match(section, /data-admin-section-hydrated/);
+  assert.match(section, /disabled={!hydrated}/);
+  assert.match(section, /useSyncExternalStore/);
+  assert.match(puppy, /section\.subpages\.map/);
+  assert.match(puppy, /subpage\.href \? subpage/);
+  assert.match(puppy, /uploadAdminImage/);
+  assert.match(puppy, /imageAlt/);
+});

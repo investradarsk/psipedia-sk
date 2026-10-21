@@ -204,17 +204,22 @@ test("article editor opens month overview, exposes same-time conflict and keeps 
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Redakčný kalendár" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: new RegExp("^" + Number(original.slice(8, 10)) + "\\.") }).click();
+  // Keyboard activation avoids mobile hit-test instability caused by sticky controls while the calendar scrolls.
+  const chosenDay = dialog.getByRole("button", { name: new RegExp("^" + Number(original.slice(8, 10)) + "\\.") });
+  await chosenDay.focus();
+  await chosenDay.press("Enter");
   const day = dialog.locator('[class*="dayDetail"]');
   await expect(day.getByText("CALENDAR E2E scheduled B")).toBeVisible();
   await expect(day.getByText("CALENDAR E2E scheduled A")).toHaveCount(0);
   await expect(day.getByText(/Čas .* je už obsadený/)).toBeVisible();
 
   // Choosing a date only updates the local form value; never publishes or schedules.
-  await dialog.getByRole("button", { name: /Použiť tento dátum/ }).click();
+  const useSelectedDate = dialog.getByRole("button", { name: /Použiť tento dátum/ });
+  await useSelectedDate.focus();
+  await useSelectedDate.press("Enter");
   await expect(dialog).toHaveCount(0);
   await expect(input).toHaveValue(original);
-  await expect(page.getByText("Neuložené zmeny")).toBeVisible();
+  await expect(page.locator(".admin-editor-dirty-state")).toHaveText("Neuložené zmeny");
   const afterRequest = await page.request.get("/api/admin/articles/974101");
   expect(afterRequest.ok()).toBe(true);
   const after = (await afterRequest.json()).article as { updatedAt: string; publishedAt: string };

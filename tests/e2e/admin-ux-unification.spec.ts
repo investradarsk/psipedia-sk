@@ -3,6 +3,37 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
 async function noOverflow(page: Page) {
+  const width = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  if (width > 1) {
+    const details = await page.evaluate(function overflowDetails() {
+  const viewport = document.documentElement.clientWidth;
+  return {
+    viewport,
+    innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    suspects: Array.from(document.querySelectorAll<HTMLElement>("body *"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const computed = getComputedStyle(element);
+        return {
+          element: element.tagName.toLowerCase(),
+          id: element.id,
+          className: String(element.className).slice(0, 110),
+          width: Math.round(rect.width),
+          right: Math.round(rect.right),
+          scrollWidth: element.scrollWidth,
+          overflowX: computed.overflowX,
+          position: computed.position,
+          parent: element.parentElement?.tagName.toLowerCase(),
+        };
+      })
+      .filter((item) => item.right > viewport + 2 && item.width > 0)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 16),
+  };
+});
+    console.info("[ADMIN_V3_CONTENT_EDITOR_OVERFLOW]", JSON.stringify(details));
+  }
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 }
 
@@ -40,25 +71,52 @@ for (const editor of editors) {
     // never sends a mutation or replaces typed state.
     if (editor.key === "article") await expect(page.locator('#article-intro[data-editor-ready="true"]')).toBeVisible();
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
-    // The directory selector is server-rendered. React attaches its onChange
-    // handler only after hydration, so changing sections before this marker
-    // causes a false-negative hash assertion on slower mobile workers.
+    // Preserve main's hydration gate: the directory is server-rendered before
+    // its interactive navigation becomes available on slower mobile workers.
     if (editor.key === "directory") await expect(page.locator('form.admin-directory-editor[data-hydrated="true"]')).toBeVisible();
+    if (editor.key === "article") {
+      // File-upload inputs must remain visually hidden despite the shared V3
+      // rule for ordinary text fields. An absolute, full-width upload control
+      // otherwise expands the document and blocks mobile buttons.
+      const uploads = page.locator('[data-editor-page] label.admin-upload-button > input[type="file"]');
+      await expect(uploads.first()).toBeAttached();
+      const dimensions = await uploads.evaluateAll(inputs => inputs.map(input => {
+        const control = input as HTMLInputElement;
+        const css = getComputedStyle(control);
+        return { width: control.getBoundingClientRect().width, height: control.getBoundingClientRect().height, position: css.position };
+      }));
+      expect(dimensions.every(item => item.position === "absolute" && item.width <= 1 && item.height <= 1)).toBe(true);
+    }
     await field.fill(value);
     await expect(field).toHaveValue(value);
     const writes: string[] = [];
     page.on("request", request => { if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) && request.url().includes("/api/admin/")) writes.push(request.url()); });
     if (editor.navigation) {
-      const nav = page.getByRole("navigation", { name: editor.navigation, exact: true });
-      // Directory SSR can render editable fields before the common React navigation
-      // hydrates; changing its native <select> earlier silently loses onChange.
-      await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
-      const options = await nav.locator('select option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
+      const sharedWorkspace = editor.key === "article" || editor.key === "breed";
+      const nav = page.getByRole("navigation", { name: sharedWorkspace ? "Sekcie pracovného editora" : editor.navigation, exact: true });
+      if (editor.key === "directory") await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
+      const options = await nav.locator('select option').evaluateAll(elements => elements.map(element => (element as HTMLOptionElement).value));
       const target = options.find(id => /media/.test(id)) ?? options.at(-1)!;
+      expect(target).toBeTruthy();
       const select = nav.getByRole("combobox");
-      if (await select.isVisible()) await select.selectOption(target);
-      else await nav.locator(`a[href$="#${target}"]`).click();
-      await expect(page).toHaveURL(new RegExp(`#${target}$`));
+      if (await select.isVisible()) {
+        // A visible section can already be selected by IntersectionObserver.
+        // Move away and back to exercise an actual navigation change event.
+        if (await select.inputValue() === target) {
+          const alternative = options.find(id => id !== target);
+          if (alternative) await select.selectOption(alternative);
+        }
+        await select.selectOption(target);
+      }
+      else if (sharedWorkspace) {
+        const label = await nav.locator("select option").evaluateAll((elements, value) =>
+          elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", target);
+        await nav.getByRole("button", { name: label, exact: true }).click();
+      } else {
+        await nav.locator(`a[href$="#${target}"]`).click();
+      }
+      if (sharedWorkspace) await expect(page.locator(`#${target}`)).toBeFocused();
+      else await expect(page).toHaveURL(new RegExp(`#${target}$`));
       await expect(field).toHaveValue(value);
       await expect.poll(async () => {
         const section = await page.locator(`#${target}`).boundingBox();

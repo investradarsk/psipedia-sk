@@ -26,15 +26,14 @@ async function openCreatedDraft(page: Page, testInfo: TestInfo) {
 }
 
 async function goToBreedEditorSection(page: Page, label: string, id: string) {
-  const navigation = page.getByRole("navigation", { name: "Sekcie editora plemena" });
+  const navigation = page.getByRole("navigation", { name: "Sekcie pracovného editora" });
   await expect(navigation).toBeVisible();
-  const mobileSelect = navigation.getByRole("combobox", { name: "Sekcie editora plemena" });
+  const mobileSelect = navigation.getByRole("combobox", { name: "Sekcia editora" });
   if (await mobileSelect.isVisible()) {
     await mobileSelect.selectOption(id);
   } else {
-    await navigation.getByRole("link", { name: label }).click();
+    await navigation.getByRole("button", { name: label, exact: true }).click();
   }
-  await expect(page).toHaveURL(new RegExp("#" + id + "$"));
   await expect(page.locator("#" + id)).toBeFocused();
 }
 async function expectNoHorizontalOverflow(page: Page) {
