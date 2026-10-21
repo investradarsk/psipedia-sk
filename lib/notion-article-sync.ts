@@ -1749,6 +1749,9 @@ export async function runNotionArticleSyncSweep(args: {
     } catch (error) {
       summary.failed += 1;
       const message = error instanceof Error ? error.message : String(error);
+      // The content-writeback outbox is authoritative while unfinished.
+      // Do not overwrite its Notion status with an import-sweep error.
+      if (message === "NOTION_EDITORIAL_WRITEBACK_PENDING") continue;
       console.error(JSON.stringify({
         event: "notion_article_sync_failed",
         notionPageId: page.id,
