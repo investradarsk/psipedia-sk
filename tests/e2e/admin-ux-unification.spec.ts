@@ -74,6 +74,19 @@ for (const editor of editors) {
     // Preserve main's hydration gate: the directory is server-rendered before
     // its interactive navigation becomes available on slower mobile workers.
     if (editor.key === "directory") await expect(page.locator('form.admin-directory-editor[data-hydrated="true"]')).toBeVisible();
+    if (editor.key === "article") {
+      // File-upload inputs must remain visually hidden despite the shared V3
+      // rule for ordinary text fields. An absolute, full-width upload control
+      // otherwise expands the document and blocks mobile buttons.
+      const uploads = page.locator('[data-editor-page] label.admin-upload-button > input[type="file"]');
+      await expect(uploads.first()).toBeAttached();
+      const dimensions = await uploads.evaluateAll(inputs => inputs.map(input => {
+        const control = input as HTMLInputElement;
+        const css = getComputedStyle(control);
+        return { width: control.getBoundingClientRect().width, height: control.getBoundingClientRect().height, position: css.position };
+      }));
+      expect(dimensions.every(item => item.position === "absolute" && item.width <= 1 && item.height <= 1)).toBe(true);
+    }
     await field.fill(value);
     await expect(field).toHaveValue(value);
     const writes: string[] = [];

@@ -58,3 +58,23 @@
   .articleForm :global(select),
   .articleForm :global(textarea) { scroll-margin-top: 8rem; }
 }
+
+/* Keep visually hidden upload inputs at one CSS pixel even under the shared
+   EditorWorkspace generic input selector. A full-width absolute file input
+   escapes its static label, causes document overflow and intercepts taps. */
+.workspaceRoot :global([data-editor-content]) .articleForm :global(label.admin-upload-button > input[type="file"]) {
+  position: absolute;
+  display: block;
+  width: 1px;
+  min-width: 0;
+  max-width: 1px;
+  height: 1px;
+  min-height: 0;
+  max-height: 1px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+}

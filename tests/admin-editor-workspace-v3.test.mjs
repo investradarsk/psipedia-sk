@@ -93,3 +93,12 @@ test("ADMIN V3 content save and exit actions preserve publication and dirty stat
     assert.match(css, /min-width: 0/);
   }
 });
+
+test("ADMIN V3 article hidden file inputs cannot escape their labels", () => {
+  const css = read("components/admin-content-editor-v3.module.css");
+  assert.match(css, /label\.admin-upload-button > input\[type="file"\]/);
+  assert.match(css, /max-width:\s*1px/);
+  assert.match(css, /max-height:\s*1px/);
+  assert.match(css, /min-height:\s*0/);
+  assert.match(css, /clip-path:\s*inset\(50%\)/);
+});
