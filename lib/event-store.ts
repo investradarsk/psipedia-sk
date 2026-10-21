@@ -17,7 +17,6 @@ import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
-
 import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 
@@ -84,6 +83,14 @@ type EventRow = {
   updated_by: string;
   seo_json: string;
 };
+
+/** Presentation-only homepage events; full event bodies stay on detail routes. */
+type HomepageEventRow = Pick<EventRow,
+  "id" | "slug" | "title" | "event_type" | "start_date" | "end_date" |
+  "city" | "image_url" | "image_display" | "thumbnail_display_json">;
+export type HomepageEventCard = Pick<DogEvent,
+  "id" | "slug" | "title" | "eventType" | "startDate" | "endDate" |
+  "city" | "imageUrl" | "imageDisplay" | "thumbnailImageDisplay">;
 
 type EventSummaryRow = {
   venue: string;
@@ -316,7 +323,7 @@ export async function getPublishedEvents(limit = 250) {
   return result.results.map(rowToEvent);
 }
 
-/** Homepage previews may use safe category artwork when no photo is available. */
+/** Homepage cards show upcoming events with approved photos or safe category artwork. */
 /** Published events overlapping one local calendar month; one bounded query, no per-day reads. */
 export async function getPublishedEventsInMonth(month: string) {
   const database = getD1Binding();
@@ -331,17 +338,30 @@ export async function getPublishedEventsInMonth(month: string) {
   return result.results.map(rowToEvent);
 }
 
-export async function getHomepageUpcomingEventsWithImages(limit = 3) {
+export async function getHomepageUpcomingEventsWithImages(limit = 3): Promise<HomepageEventCard[]> {
   const database = getD1Binding();
-  if (!database) return [] as DogEvent[];
+  if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const today = bratislavaDateKey();
   const result = await database.prepare(`
-    SELECT * FROM managed_events
+    SELECT id, slug, title, event_type, start_date, end_date, city,
+           image_url, image_display, thumbnail_display_json
+    FROM managed_events
     WHERE status = 'published' AND cancelled = 0 AND COALESCE(end_date, start_date) >= ?
     ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?
-  `).bind(today, safeLimit).all<EventRow>();
-  return result.results.map(rowToEvent).filter((event) => eventIsActive(event, today));
+  `).bind(today, safeLimit).all<HomepageEventRow>();
+  return result.results.map((row): HomepageEventCard => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    eventType: (eventTypes as readonly string[]).includes(row.event_type) ? row.event_type as EventType : "Iné",
+    startDate: row.start_date,
+    endDate: row.end_date,
+    city: row.city,
+    imageUrl: row.image_url,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+  })).filter((event) => eventIsActive(event, today));
 }
 
 export async function getUpcomingEvents(limit = 2) {
