@@ -1484,6 +1484,15 @@ export async function writeBackDraftArticleContentToNotion(args: {
     if (!Object.hasOwn(plan.properties, name)) throw new Error("NOTION_EDITORIAL_PROPERTY_CONFLICT");
     fields[name] = plan.properties[name];
   }
+  // Before the FIRST content mutation, replace any stale previous
+  // "Synchronizované" receipt. A partial operation must visibly remain
+  // unsynchronized; "Chyba" is an existing Notion select value, unlike an
+  // unverified new pending option. Never write a success receipt on failure.
+  await assertCurrentDraft();
+  await renewLease();
+  await updateNotionSyncState(args.bindings, page.id, {
+    state: "Chyba", error: "EDITORIAL_WRITEBACK_PENDING",
+  });
   if (Object.keys(fields).length) {
     await assertCurrentDraft();
     await renewLease();
