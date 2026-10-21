@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {useMemo,useState} from "react";
 import {AdminActionButton} from "@/components/admin-interaction-system";
-import {EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
+import {EditorActionBar,EditorStatus,EditorUnsavedChangesGuard} from "@/components/admin-editor-workspace";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
 import type {AdminServiceChoiceWriteResult} from "@/lib/service-catalog-admin-api-contract";
 import {selectionForEditor} from "@/lib/service-catalog-admin-api-contract";
@@ -48,10 +48,10 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     finally{setBusy(false);}
   }
   return <section className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
-    <div className={styles.profileHeading}><div><h2>Services V3 — hodnoty profilu</h2><p>Neznáme = bez potvrdenej hodnoty. Nikdy neznamená automaticky Nie.</p></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
+    <div className={styles.profileHeading}><div><h2>Services V3 — hodnoty profilu</h2><p>Neznáme = bez potvrdenej hodnoty. Nikdy neznamená automaticky Nie.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}</div></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!writeEnabled&&<p className={styles.notice}>Kanonické zápisy sú vypnuté. Aktuálne hodnoty môžeš čítať, ale nie meniť.</p>}
-    <label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>
+    <section className={styles.profileSection} aria-label="Služby profilu"><label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>
     <div className={styles.profileList}>{services.map(item=>{
       const savedValue=saved[item.id];
       const value=draft[item.id]??selectionForEditor(savedValue);
@@ -64,11 +64,12 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
         </select>
       </label>;
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
-    <div className={styles.actions}><AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton><span aria-live="polite" aria-atomic="true">{message}</span></div>
+    </section>
+    <EditorActionBar message={message} primary={<AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton>}/>
     <p className={styles.muted}>Zmena Áno/Nie využíva verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
-    <h3>Vlastnosti ({attributes.length})</h3>
+    <section className={styles.profileSection} aria-label="Vlastnosti profilu"><h3>Vlastnosti ({attributes.length})</h3>
     <p className={styles.muted}>Vlastnosti majú samostatný dátový model. Ich úpravy zostávajú vypnuté do dokončenia API a synchronizácie Notionu.</p>
-    {attributes.length>0&&<ul className={styles.attributeList}>{attributes.slice(0,30).map(a=><li key={a.id}>{a.label}</li>)}{attributes.length>30&&<li>Ďalšie vlastnosti sú dostupné v katalógu.</li>}</ul>}
+    {attributes.length>0&&<ul className={styles.attributeList}>{attributes.slice(0,30).map(a=><li key={a.id}>{a.label}</li>)}{attributes.length>30&&<li>Ďalšie vlastnosti sú dostupné v katalógu.</li>}</ul>}</section>
     <EditorUnsavedChangesGuard active={changed.length>0} open={false} onStay={()=>{}} onDiscard={()=>setDraft({})}/>
   </section>;
 }
