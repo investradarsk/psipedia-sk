@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import { geminiAutomationCatalog } from "../lib/gemini-automation-catalog.ts";
 import { geminiAgendaForKey } from "../lib/gemini-notion-agenda-review.ts";
 import { planGeminiPublishHandoff } from "../lib/gemini-canonical-publish-handoff.ts";
+import { geminiActiveReviewState, geminiCanonicalPublished } from "../lib/gemini-notion-review-state.ts";
 
 test("all 22 categories require matching canonical D1 identity for a publication handoff", () => {
   assert.equal(geminiAutomationCatalog.length, 22);
@@ -97,4 +100,82 @@ test("agenda save, review and publish handoff use one synchronous single-flight 
     "Error and finalization both release the UI single-flight guard");
   assert.match(component, /window\.location\.assign\(result\.editorUrl\)/);
   assert.match(component, /finally \{\s*requestInFlight\.current = false;\s*setBusy\(false\);/);
+});
+
+test("all 22 published statuses are read back from canonical D1, not editable Notion labels", async () => {
+  // Execute the actual published-state projection and D1 JOINs used by the
+  // live Gemini list, with only the database response mocked.
+  const agendaSource = readFileSync(new URL("../lib/gemini-notion-agenda-review.ts", import.meta.url), "utf8");
+  const directorySource = readFileSync(new URL("../lib/gemini-notion-directory-review.ts", import.meta.url), "utf8");
+  const snippets = [
+    agendaSource.slice(agendaSource.indexOf("async function enrichCanonicalMappings("),
+      agendaSource.indexOf("async function trustedPageIds(")),
+    directorySource.slice(directorySource.indexOf("async function enrichCanonical("),
+      directorySource.indexOf("export async function reviewGeminiDirectoryDraft(")),
+  ];
+  for (const source of snippets) assert.ok(source.length > 400, "Canonical JOIN source must be present");
+  const js = ts.transpileModule(snippets.join("\n") +
+    "\nexports.enrichAgenda = enrichCanonicalMappings; exports.enrichDirectory = enrichCanonical;", {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  class GeminiAgendaReviewError extends Error {}
+  runInNewContext(js, { exports, GeminiAgendaReviewError, geminiCanonicalPublished,
+    normalized: id => id.replaceAll("-", "").toLowerCase() });
+
+  const id = "11111111-1111-4111-8111-111111111111";
+  const tableByAgenda = {
+    events: "managed_events", organizations: "help_organizations",
+    adoptions: "adoption_dogs", "help-cases": "help_cases",
+    "lost-found": "lost_found_dog_reports",
+  };
+  const publicStatus = {
+    events: "published", organizations: "PUBLISHED", adoptions: "ACTIVE",
+    "help-cases": "published", "lost-found": "ACTIVE",
+  };
+  for (const item of geminiAutomationCatalog) {
+    const agenda = geminiAgendaForKey(item.stableKey);
+    const original = { id, reviewState: "APPROVED", psipediaId: "999",
+      canonicalVerified: false, stableKey: item.stableKey };
+    async function exercise({ mapped, status }) {
+      const queries = [];
+      const env = { DB: { prepare(sql) {
+        return { bind(...params) {
+          queries.push({ sql, params });
+          return { all: async () => ({ results: mapped
+            ? [{ notion_page_id: id, entity_id: 77, id: 77, canonical_status: status, status }] : [] }) };
+        } };
+      } } };
+      const projection = { ...original };
+      const [result] = agenda
+        ? await exports.enrichAgenda(env, agenda, [projection])
+        : await exports.enrichDirectory(env, [projection]);
+      assert.equal(queries.length, 1);
+      if (agenda) {
+        assert.match(queries[0].sql, /JOIN /);
+        assert.ok(queries[0].sql.includes(tableByAgenda[agenda]), item.stableKey);
+        if (agenda !== "events") assert.equal(queries[0].params[0], agenda);
+      } else {
+        assert.match(queries[0].sql, /JOIN directory_profiles/);
+      }
+      return result;
+    }
+    // A Notion label or free-text ID without a live mapping is never public.
+    const unverified = await exercise({ mapped: false, status: "published" });
+    assert.equal(unverified.canonicalVerified, false, item.stableKey);
+    assert.equal(unverified.reviewState, "APPROVED", item.stableKey);
+    assert.equal(geminiActiveReviewState(unverified.reviewState), true, item.stableKey);
+
+    const draft = await exercise({ mapped: true, status: agenda ? "draft" : "draft" });
+    assert.equal(draft.psipediaId, "77", item.stableKey);
+    assert.equal(draft.canonicalVerified, true, item.stableKey);
+    assert.equal(draft.reviewState, "IMPORTED", item.stableKey);
+    assert.equal(geminiActiveReviewState(draft.reviewState), true, item.stableKey);
+
+    const published = await exercise({ mapped: true, status: agenda ? publicStatus[agenda] : "published" });
+    assert.equal(published.canonicalVerified, true, item.stableKey);
+    assert.equal(published.reviewState, "PUBLISHED", item.stableKey);
+    assert.equal(geminiActiveReviewState(published.reviewState), false,
+      "After real D1 publication the item must disappear from the active queue: " + item.stableKey);
+  }
 });
