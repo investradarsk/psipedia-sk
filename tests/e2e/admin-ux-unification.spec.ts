@@ -51,7 +51,15 @@ for (const editor of editors) {
       const target = options.find(id => /media/.test(id)) ?? options.at(-1)!;
       expect(target).toBeTruthy();
       const select = nav.getByRole("combobox");
-      if (await select.isVisible()) await select.selectOption(target);
+      if (await select.isVisible()) {
+        // A visible section can already be selected by IntersectionObserver.
+        // Move away and back to exercise an actual navigation change event.
+        if (await select.inputValue() === target) {
+          const alternative = options.find(id => id !== target);
+          if (alternative) await select.selectOption(alternative);
+        }
+        await select.selectOption(target);
+      }
       else if (sharedWorkspace) {
         const label = await nav.locator("select option").evaluateAll((elements, value) =>
           elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", target);

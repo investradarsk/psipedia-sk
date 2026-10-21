@@ -214,7 +214,9 @@ test("article editor opens month overview, exposes same-time conflict and keeps 
   await expect(day.getByText(/Čas .* je už obsadený/)).toBeVisible();
 
   // Choosing a date only updates the local form value; never publishes or schedules.
-  await dialog.getByRole("button", { name: /Použiť tento dátum/ }).click();
+  const useSelectedDate = dialog.getByRole("button", { name: /Použiť tento dátum/ });
+  await useSelectedDate.focus();
+  await useSelectedDate.press("Enter");
   await expect(dialog).toHaveCount(0);
   await expect(input).toHaveValue(original);
   await expect(page.locator(".admin-editor-dirty-state")).toHaveText("Neuložené zmeny");

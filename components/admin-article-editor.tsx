@@ -393,6 +393,7 @@ export function AdminArticleEditor({
 
   return (
     <>
+      <div className={editorStyles.workspaceRoot}>
       <EditorWorkspace
         mode="page"
         title={article ? `Upraviť článok: ${title || article.title}` : "Nový článok"}
@@ -672,6 +673,7 @@ export function AdminArticleEditor({
 
       </form>
       </EditorWorkspace>
+      </div>
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor
         src={imageUrl} alt={imageAlt || title} title={title} excerpt={excerpt}

@@ -332,9 +332,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.keyboard.press("Control+i");
     await expect(intro.locator("i, em")).toHaveCount(1);
 
-    const editor = page.locator(".admin-editor");
+    const editor = page.locator("[data-editor-page]");
     const axe = await new AxeBuilder({ page })
-      .include(".admin-editor")
+      .include("[data-editor-page]")
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
     const serious = axe.violations.filter((item) => item.impact === "critical" || item.impact === "serious");
