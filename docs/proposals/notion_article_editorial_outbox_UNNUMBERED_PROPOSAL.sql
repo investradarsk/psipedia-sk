@@ -1,7 +1,6 @@
--- SUPERSEDED HISTORICAL PROPOSAL FROM MERGED PR #929. DO NOT APPLY.
--- The safe additive schema now lives in the staged, numbered proposal:
--- docs/proposals/0138_article_editorial_outbox_PENDING_0137.sql
--- (it includes the crash-recovery CAS lease columns).
--- D1 migration 0137 belongs to Draft PR #908 as of 2026-10-21.
--- 0138 is intentionally NOT in the canonical drizzle/ migration chain.
--- Never run either proposal directly against production.
+-- RETIRED historical unnumbered proposal from merged PR #929.
+-- DO NOT EXECUTE THIS FILE. Its old DDL lacked concurrency CAS leases.
+-- The sole canonical PREPARED migration is:
+--   drizzle/0138_article_editorial_outbox.sql
+-- 0137_media_source_review_decisions.sql precedes 0138 in repository history.
+-- No production migration or Notion writeback activation is authorized.
