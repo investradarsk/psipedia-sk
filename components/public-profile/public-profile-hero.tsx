@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { DetailHero } from "@/components/detail-primitives/detail-primitives";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import styles from "./public-profile.module.css";
 
@@ -69,7 +70,7 @@ export function PublicProfileHero({
               </nav>
             ) : null}
 </>}
-    media={imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" /> : null} />;
+    media={imageUrl ? <ImageDisplay roleHint="generic" context="detail" config={imageConfig} src={imageUrl} alt={imageAlt || title} loading="eager" fetchPriority="high" decoding="async" /> : <PublicMediaFallback size="detail" label={`Fotografia profilu ${title} zatiaľ nie je pridaná`} />} />;
 
 }
 
