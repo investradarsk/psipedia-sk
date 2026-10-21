@@ -16,7 +16,7 @@ test("canonical public form primitives preserve browser-native control semantics
   assert.match(src, /<input \\{\\.\\.\\.props\\} type=\\{type\\}/);
   assert.match(src, /<select \\{\\.\\.\\.props\\}/);
   assert.match(src, /<textarea \\{\\.\\.\\.props\\}/);
-  assert.match(css, /min-height: var\\(--ps-form-control-min-height, 44px\\)/);
+  assert.match(css, /min-height: var\\(--ps-control-min-height, 44px\\)/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /forced-colors: active/);
   assert.doesNotMatch(src, /"use client"|onSubmit|window\\.|localStorage|fetch\\(/);
