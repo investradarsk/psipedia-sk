@@ -231,13 +231,33 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(registerReturnTo);
   await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
 
-  await page.getByLabel("Meno a priezvisko *").fill(contactName);
-  await page.getByLabel("Telefón").fill(contactPhone);
-  await page.getByLabel("Vaša úloha / vzťah k profilu").fill(relationship);
   await expectNoHorizontalOverflow(page);
   const onboardingAccessibility = await new AxeBuilder({ page }).analyze();
   expect(onboardingAccessibility.violations).toEqual([]);
+
+  // The SSR form can be visible before React hydrates its controlled fields.
+  // Filling it before the accessibility scan allowed hydration to clear the
+  // required name in CI, preventing the browser from submitting anything.
+  const contactNameInput = page.getByLabel("Meno a priezvisko *");
+  const contactPhoneInput = page.getByLabel("Telefón");
+  const contactRelationshipInput = page.getByLabel("Vaša úloha / vzťah k profilu");
+  await contactNameInput.fill(contactName);
+  await contactPhoneInput.fill(contactPhone);
+  await contactRelationshipInput.fill(relationship);
+  await expect(contactNameInput).toHaveValue(contactName);
+  await expect(contactPhoneInput).toHaveValue(contactPhone);
+  await expect(contactRelationshipInput).toHaveValue(relationship);
+
+  const onboardingSaveResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/partner/onboarding" &&
+    response.request().method() === "POST",
+  );
   await page.getByRole("button",{name:"Pokračovať do Partner účtu"}).click();
+  const onboardingSaved = await onboardingSaveResponse;
+  // The successful POST immediately triggers a full-page navigation, so
+  // Playwright may no longer retain its response body for response.json().
+  // Assert the HTTP success here and the protected dashboard/returnTo below.
+  expect(onboardingSaved.status()).toBe(200);
 
   if(project==="mobile-chromium"){
     await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
@@ -611,6 +631,7 @@ test("stale Partner moderation approval is rejected at decision time without ove
     expect(profileResponse.ok()).toBeTruthy();
     const profileJson = await profileResponse.json() as { profile: Record<string, unknown> & { city?: string } };
     const externalProfileUpdate = await page.request.put("/api/admin/directory/990005", {
+      headers: { origin: new URL(page.url()).origin },
       data: {
         ...profileJson.profile,
         description: "Izolovaný lokálny fixture s externou H5 zmenou pre stale-base E2E overenie.",
@@ -731,8 +752,24 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(leadRow).toContainText("E2E nezáväzný záujem");
   await leadRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:"Spracovanie leadu"})).toBeVisible();
-  await page.getByLabel("Stav").selectOption("CONTACTED");
+  // Server-rendered controls can be interacted with before the React client
+  // hydrates them. Wait for React to attach the controlled select's props
+  // before changing its value; otherwise the PATCH can omit the new status.
+  await page.waitForFunction(() => {
+    const select = document.querySelector(".admin-commercial-actions select");
+    return select !== null && Object.keys(select).some((key) => key.startsWith("__reactProps$"));
+  });
+  const statusSelect = page.getByLabel("Stav");
+  await statusSelect.selectOption("CONTACTED");
+  await expect(statusSelect).toHaveValue("CONTACTED");
+  const leadUpdate = page.waitForResponse((response) =>
+    response.url().includes("/api/admin/partners/commercial/")
+    && response.request().method() === "PATCH",
+  );
   await page.getByRole("button",{name:"Uložiť"}).click();
+  const updatedLeadResponse = await leadUpdate;
+  expect(updatedLeadResponse.ok()).toBeTruthy();
+  expect(updatedLeadResponse.request().postDataJSON()).toMatchObject({ status: "CONTACTED" });
   await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
   await page.goto("/admin/partners");
   await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();

@@ -71,6 +71,9 @@ for (const editor of editors) {
     // never sends a mutation or replaces typed state.
     if (editor.key === "article") await expect(page.locator('#article-intro[data-editor-ready="true"]')).toBeVisible();
     if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
+    // Preserve main's hydration gate: the directory is server-rendered before
+    // its interactive navigation becomes available on slower mobile workers.
+    if (editor.key === "directory") await expect(page.locator('form.admin-directory-editor[data-hydrated="true"]')).toBeVisible();
     await field.fill(value);
     await expect(field).toHaveValue(value);
     const writes: string[] = [];
@@ -78,6 +81,7 @@ for (const editor of editors) {
     if (editor.navigation) {
       const sharedWorkspace = editor.key === "article" || editor.key === "breed";
       const nav = page.getByRole("navigation", { name: sharedWorkspace ? "Sekcie pracovného editora" : editor.navigation, exact: true });
+      if (editor.key === "directory") await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
       const options = await nav.locator('select option').evaluateAll(elements => elements.map(element => (element as HTMLOptionElement).value));
       const target = options.find(id => /media/.test(id)) ?? options.at(-1)!;
       expect(target).toBeTruthy();

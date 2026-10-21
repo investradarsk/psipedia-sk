@@ -1273,10 +1273,10 @@
   justify-content: center;
   gap: 8px;
   padding: 0 15px;
-  border: 1px solid #c7d4cc;
+  border: 1px solid var(--admin-v3-secondary-border, #c7d4cc);
   border-radius: 10px;
-  color: #174b38;
-  background: #fff;
+  color: var(--admin-v3-secondary-text, #174b38);
+  background: var(--admin-v3-surface, #fff);
   font: inherit;
   font-size: .82rem;
   font-weight: 800;
@@ -1294,8 +1294,8 @@
 .admin-actions > a:hover,
 .admin-heading-actions > button:hover:not(:disabled),
 .admin-form-grid > button[type="submit"]:hover:not(:disabled) {
-  border-color: #90aa9c;
-  background: #f1f6f2;
+  border-color: var(--admin-v3-secondary-hover-border, #90aa9c);
+  background: var(--admin-v3-surface-muted, #f1f6f2);
   box-shadow: 0 4px 12px rgba(23, 53, 43, .08);
   transform: translateY(-1px);
 }
@@ -1307,9 +1307,9 @@
 .admin-heading-actions > button.is-primary,
 .admin-form-grid > button[type="submit"].is-primary,
 .admin-change-card footer button.is-primary {
-  border-color: #1f684b;
-  color: #fff;
-  background: #1f684b;
+  border-color: var(--admin-v3-green, #1f684b);
+  color: var(--admin-v3-surface, #fff);
+  background: var(--admin-v3-green, #1f684b);
   box-shadow: 0 7px 18px rgba(31, 104, 75, .18);
 }
 
@@ -1320,9 +1320,9 @@
 .admin-heading-actions > button.is-primary:hover:not(:disabled),
 .admin-form-grid > button[type="submit"].is-primary:hover:not(:disabled),
 .admin-change-card footer button.is-primary:hover:not(:disabled) {
-  border-color: #174f39;
-  color: #fff;
-  background: #174f39;
+  border-color: var(--admin-v3-green-hover, #174f39);
+  color: var(--admin-v3-surface, #fff);
+  background: var(--admin-v3-green-hover, #174f39);
 }
 
 .admin-form-actions > button.is-danger,
@@ -1331,9 +1331,9 @@
 .admin-actions > a.is-danger,
 .admin-heading-actions > button.is-danger,
 .admin-change-card footer button.is-danger {
-  border-color: #d9b3aa;
-  color: #993e31;
-  background: #fff7f4;
+  border-color: var(--admin-v3-destructive-border, #d9b3aa);
+  color: var(--admin-v3-destructive-text, #993e31);
+  background: var(--admin-v3-destructive-background, #fff7f4);
 }
 
 .admin-form-actions > button.is-danger:hover:not(:disabled),
@@ -1342,9 +1342,9 @@
 .admin-actions > a.is-danger:hover,
 .admin-heading-actions > button.is-danger:hover:not(:disabled),
 .admin-change-card footer button.is-danger:hover:not(:disabled) {
-  border-color: #b95a48;
-  color: #842f24;
-  background: #fbe8e3;
+  border-color: var(--admin-v3-destructive-hover-border, #b95a48);
+  color: var(--admin-v3-destructive-text, #842f24);
+  background: var(--admin-v3-destructive-hover, #fbe8e3);
 }
 
 .admin-form-actions > button:focus-visible,
@@ -1356,7 +1356,7 @@
 .admin-change-card footer button:focus-visible,
 .admin-row-actions > button:focus-visible,
 .admin-row-actions > a:focus-visible {
-  outline: 3px solid rgba(31, 104, 75, .24);
+  outline: 3px solid var(--admin-v3-focus, #a26a1b);
   outline-offset: 2px;
 }
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import type { ManagedEshop } from "@/lib/eshop-ratings";
+import { AdminActionButton } from "@/components/admin-interaction-system";
+import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import styles from "./admin-eshop-editor.module.css";
 
 function tagsFromText(value: string) {
@@ -27,6 +29,16 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [savedSignature, setSavedSignature] = useState(() => JSON.stringify({
+    name: shop.name, slug: shop.slug, websiteUrl: shop.websiteUrl,
+    description: shop.description, sourceUrl: shop.sourceUrl,
+    logoUrl: shop.logoUrl ?? "", logoKey: shop.logoKey ?? "",
+    focusTags: shop.focusTags.join("\n"), status: shop.status,
+  }));
+  const currentSignature = JSON.stringify({
+    name, slug, websiteUrl, description, sourceUrl, logoUrl, logoKey, focusTags, status,
+  });
+  const dirty = currentSignature !== savedSignature;
 
   async function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -71,10 +83,22 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
       });
       const data = await response.json() as { shop?: ManagedEshop; error?: string };
       if (!response.ok || !data.shop) throw new Error(data.error || "E-shop sa nepodarilo uložiť.");
+      setName(data.shop.name);
+      setSlug(data.shop.slug);
+      setWebsiteUrl(data.shop.websiteUrl);
+      setDescription(data.shop.description);
+      setSourceUrl(data.shop.sourceUrl);
       setLogoUrl(data.shop.logoUrl ?? "");
       setLogoKey(data.shop.logoKey ?? "");
       setFocusTags(data.shop.focusTags.join("\n"));
       setStatus(data.shop.status);
+      setSavedSignature(JSON.stringify({
+        name: data.shop.name, slug: data.shop.slug,
+        websiteUrl: data.shop.websiteUrl, description: data.shop.description,
+        sourceUrl: data.shop.sourceUrl, logoUrl: data.shop.logoUrl ?? "",
+        logoKey: data.shop.logoKey ?? "", focusTags: data.shop.focusTags.join("\n"),
+        status: data.shop.status,
+      }));
       setMessage("Profil e-shopu je uložený.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "E-shop sa nepodarilo uložiť.");
@@ -85,7 +109,38 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
 
   return (
     <form className={styles.editor} onSubmit={save}>
-      <section className={styles.card}>
+      <EditorWorkspace
+        mode="page"
+        title={"E-shop — " + (name || "Úprava profilu")}
+        description="Uprav údaje, sortiment, obrázok a publikovanie na jednom mieste."
+        status={<><EditorStatus label={status === "published" ? "Publikovaný" : status === "archived" ? "Archivovaný" : "Koncept"} tone={status === "published" ? "success" : status === "archived" ? "danger" : "warning"}/>{dirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}</>}
+        sections={[
+          { id: "eshop-basics", label: "Základné údaje" },
+          { id: "eshop-tags", label: "Sortiment" },
+          { id: "eshop-images", label: "Obrázky" },
+          { id: "eshop-publication", label: "Publikovanie" },
+        ]}
+        dirty={dirty}
+        onClose={() => window.location.assign("/admin/recenzie/eshopy")}
+        previewTitle="Živý náhľad e-shopu"
+        preview={<div className={styles.previewCard}>
+          <div className={styles.previewLogo}>{logoUrl ? <img src={logoUrl} alt="" /> : <span>Bez loga</span>}</div>
+          <strong>{name || "Názov e-shopu"}</strong>
+          <p>{description || "Popis profilu sa zobrazí po vyplnení."}</p>
+          <small>{websiteUrl || "Web ešte nie je vyplnený"}</small>
+        </div>}
+        actions={<EditorActionBar
+          secondary={<div className={styles.actionLinks}>
+            <Link href="/admin/recenzie/eshopy" onClick={event => {
+              if (dirty && !window.confirm("Zahodiť neuložené zmeny e-shopu?")) event.preventDefault();
+            }}>← Späť na e-shopy</Link>
+            {shop.status === "published" && <Link href={"/recenzie/eshopy/" + shop.slug} target="_blank" rel="noopener noreferrer">Pozrieť publikovaný profil ↗</Link>}
+          </div>}
+          primary={<AdminActionButton type="submit" variant="primary" disabled={saving || uploading || !dirty}>{saving ? "Ukladám…" : "Uložiť zmeny"}</AdminActionButton>}
+        />}
+      >
+      <fieldset className={styles.fields} disabled={saving}>
+      <section id="eshop-basics" data-admin-editor-section tabIndex={-1} className={styles.card}>
         <div className={styles.heading}>
           <span>01</span>
           <div><h2>Základ profilu</h2><p>Názov, verejný web a popis e-shopu.</p></div>
@@ -99,7 +154,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         </div>
       </section>
 
-      <section className={styles.card}>
+      <section id="eshop-tags" data-admin-editor-section tabIndex={-1} className={styles.card}>
         <div className={styles.heading}>
           <span>02</span>
           <div><h2>Zameranie sortimentu</h2><p>Nie je to ďalšia kategória. Sú to jednoduché štítky, podľa ktorých návštevník hneď pochopí, na čo sa e-shop zameriava.</p></div>
@@ -119,7 +174,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         </div>
       </section>
 
-      <section className={styles.card}>
+      <section id="eshop-images" data-admin-editor-section tabIndex={-1} className={styles.card}>
         <div className={styles.heading}>
           <span>03</span>
           <div><h2>Logo</h2><p>Nahraj logo do Psipedia úložiska alebo použi verejnú URL.</p></div>
@@ -137,7 +192,7 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         </div>
       </section>
 
-      <section className={styles.card}>
+      <section id="eshop-publication" data-admin-editor-section tabIndex={-1} className={styles.card}>
         <div className={styles.heading}>
           <span>04</span>
           <div><h2>Publikácia</h2><p>Určuje, či je profil viditeľný návštevníkom.</p></div>
@@ -152,15 +207,9 @@ export function AdminEshopEditor({ shop }: { shop: ManagedEshop }) {
         </label>
       </section>
 
+      </fieldset>
       {(message || error) ? <p className={error ? styles.error : styles.success} role={error ? "alert" : "status"}>{error || message}</p> : null}
-
-      <div className={styles.actions}>
-        <Link href="/admin/recenzie/eshopy">← Späť na e-shopy</Link>
-        <div>
-          {status === "published" ? <Link href={`/recenzie/eshopy/${slug}`} target="_blank">Pozrieť profil ↗</Link> : null}
-          <button type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť zmeny"}</button>
-        </div>
-      </div>
+      </EditorWorkspace>
     </form>
   );
 }

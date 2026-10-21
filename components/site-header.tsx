@@ -674,16 +674,18 @@ export function SiteHeader({
               <span>Čo potrebuješ nájsť?</span>
               <button className="icon-button" type="button" onClick={() => setSearchOpen(false)} aria-label="Zavrieť"><CloseIcon /></button>
             </div>
-            <form className="search-form" onSubmit={submitSearch}>
-              <SearchIcon size={24} />
-              <input
+            <form className="search-form" data-public-search-ui="main" role="search" onSubmit={submitSearch}>
+              <span className="public-search-entry">
+                <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
+                <input
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 maxLength={120}
                 placeholder="Skús „veterinár v Trnave“, „labrador“…"
                 aria-label="Hľadaný výraz"
-              />
+                />
+              </span>
               <button type="submit">Hľadať</button>
             </form>
             <div className="search-results" aria-live="polite">
