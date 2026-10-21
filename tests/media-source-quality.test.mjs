@@ -99,7 +99,7 @@ test("quality bulk reads have bounded concurrency and preserve ordered page resu
   assert.match(dataQualityStore, /Math\.min\(2, pageCount - index\)/);
   assert.match(dataQualityStore, /const results = await Promise\.all\(/);
   assert.match(dataQualityStore, /rows\.push\(\.\.\.pageRows\)/);
-  assert.match(dataQualityStore, /batches\.slice\(offset, offset \+ 3\)/);
+  assert.match(dataQualityStore, /batches\.slice\(offset, offset \+ 2\)/);
   assert.match(dataQualityStore, /for \(const result of batchResults\) suggestions\.push\(\.\.\.result\)/);
   assert.match(dataQualityStore, /const \[profileNames, eventNames\] = await Promise\.all/);
 });
