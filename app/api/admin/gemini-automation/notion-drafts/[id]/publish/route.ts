@@ -39,7 +39,9 @@ export async function POST(request: Request, { params }: Props) {
         { status: 409, headers: NO_STORE });
     return Response.json({
       status: handoff.kind, editorUrl: handoff.editorUrl,
-      published: handoff.kind === "ALREADY_PUBLISHED",
+      // Only a confirmed canonical D1 publication can report published=true.
+      // Notion review state is never sufficient evidence.
+      published: false,
     }, { headers: NO_STORE });
   } catch (error) {
     if (error instanceof GeminiNotionReviewError || error instanceof GeminiAgendaReviewError) {
