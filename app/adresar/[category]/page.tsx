@@ -34,7 +34,7 @@ export default async function DirectoryCategoryPage({ params, searchParams }: Pr
   if (!category) notFound();
   if (category.slug === "psie-skoly") permanentRedirect("/adresar/treneri");
   const rawSearchParams = await searchParams;
-  const filters = parseDirectoryFilters(rawSearchParams);
+  const filters = parseDirectoryFilters(rawSearchParams, category.slug);
   const cleanedUrl = directoryEmptyQueryRedirect(`/adresar/${category.slug}`, rawSearchParams, filters);
   if (cleanedUrl) redirect(cleanedUrl);
   const result = await listPublishedDirectoryProfiles({ category: category.slug, filters });

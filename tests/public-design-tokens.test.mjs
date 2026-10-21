@@ -72,9 +72,15 @@ function aliasBlock() {
   return { content: css.slice(a + start.length, b), before: css.slice(0, a), after: css.slice(b + end.length) };
 }
 
-test("DS-1A adds only alias declarations; all original CSS selectors, media rules and values are byte-identical", () => {
+test("DS-1A original CSS is byte-identical after excluding the isolated DS-5 extension", () => {
   const block = aliasBlock();
-  assert.equal(gitBlobSha(block.before + block.after), originalBlob);
+  const ds5Start = "\n/* DS-5 PUBLIC CARDS, GRIDS & MEDIA START";
+  const ds5End = "/* DS-5 PUBLIC CARDS, GRIDS & MEDIA END */\n";
+  assert.equal(block.after.split(ds5Start).length, 2, "exactly one DS-5 extension is required");
+  const extensionAt = block.after.indexOf(ds5Start);
+  assert.ok(extensionAt >= 0 && block.after.endsWith(ds5End), "DS-5 may only be appended after original CSS");
+  const originalAfter = block.after.slice(0, extensionAt);
+  assert.equal(gitBlobSha(block.before + originalAfter), originalBlob);
   const lines = block.content.trimEnd().split("\n");
   assert.equal(lines.length, expected.size);
   for (const line of lines) assert.match(line, /^  --ps-[\w-]+: var\(--[\w-]+\);$/);

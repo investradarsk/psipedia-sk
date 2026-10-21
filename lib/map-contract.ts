@@ -1,4 +1,6 @@
 import { eventTypes, slovakRegions, type EventType } from "./events";
+import { directoryFilterRegistry } from "./directory-filter-contract.ts";
+import { parsePublicDirectoryFacets, type DirectoryPublicFacets } from "./directory-public-filters.ts";
 
 export const mapCategories = ["services", "organizations", "events"] as const;
 export type MapCategory = (typeof mapCategories)[number];
@@ -90,6 +92,7 @@ export type MapQueryInput = {
   search?: string;
   eventType?: EventType;
   eventTiming: MapEventTiming;
+  facets?: DirectoryPublicFacets;
   limit: number;
 };
 
@@ -103,6 +106,7 @@ export const MAP_INTERNAL_ROW_LIMIT = 5001;
 const allowedParams = new Set([
   "north", "south", "east", "west", "zoom", "category", "subcategory",
   "region", "district", "city", "search", "eventType", "eventTiming", "limit",
+  ...directoryFilterRegistry.map((definition) => "f." + definition.id),
 ]);
 
 export class MapQueryValidationError extends Error {
@@ -205,6 +209,16 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
     throw new MapQueryValidationError(`limit must be between 1 and ${MAP_MAX_ITEMS}.`);
   }
 
+  const categoryFacets = parsePublicDirectoryFacets(
+    Object.fromEntries([...params.entries()].filter(([key]) => key.startsWith("f."))),
+    category === "services" ? params.get("subcategory") ?? "" : "",
+  );
+  for (const key of params.keys()) {
+    if (key.startsWith("f.") && (params.getAll(key).length !== 1 || !Object.hasOwn(categoryFacets, key.slice(2)))) {
+      throw new MapQueryValidationError("Invalid or out-of-category service facet.");
+    }
+  }
+
   return {
     bbox: { north, south, east, west },
     zoom,
@@ -216,6 +230,7 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
     search,
     eventType,
     eventTiming,
+    facets: categoryFacets,
     limit,
   };
 }

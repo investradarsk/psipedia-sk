@@ -305,7 +305,7 @@ export function AdminDirectoryEditor({
             }),
           },
         );
-        const data = await response.json() as { draft?: GeminiDirectoryDraft; error?: string };
+        const data = await response.json() as { draft?: GeminiDirectoryDraft; canonicalSave?: { state: string }; error?: string };
         if (!response.ok || !data.draft) throw new Error(data.error || "Koncept sa nepodarilo uložiť v Notione.");
         setNotionVersion(data.draft.lastEditedAt);
         setReviewState(data.draft.reviewState);

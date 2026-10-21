@@ -140,7 +140,7 @@ test("Gemini V3 dashboard: 22 categories, safe confirmation, no overflow, real s
   await page.getByRole("button", { name: "Zrušiť", exact: true }).click();
 
   // Unsaved settings require an explicit cancellation/approval before category unmount.
-  const maximum = page.getByRole("spinbutton", { name: "Max. nových konceptov" });
+  const maximum = page.getByRole("spinbutton", { name: /Nastavený limit konceptov/ });
   const previous = await maximum.inputValue();
   await maximum.fill(previous === "2" ? "3" : "2");
   page.once("dialog", async (dialog) => {

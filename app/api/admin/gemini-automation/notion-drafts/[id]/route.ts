@@ -87,7 +87,7 @@ export async function PUT(request: Request, { params }: Props) {
         canonicalSave = await reconcileGeminiSavedDraft({
           database,
           bindings: env as unknown as Parameters<typeof reconcileGeminiSavedDraft>[0]["bindings"],
-          key: stableKey, notionPageId: id,
+          key: stableKey, notionPageId: id, savedRevision: draft.lastEditedAt,
         });
       } catch {
         // Never auto-retry a potentially completed Notion/D1 write.

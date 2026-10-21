@@ -38,3 +38,27 @@
   .actions { gap: 7px; }
   .primary, .secondary { padding-inline: 10px; }
 }
+
+
+/* DS-4: informational hub banners share compact geometry; urgent health
+   content retains a clear safety cue separate from promotional CTAs. */
+.card {
+  border-radius: var(--ps-banner-radius, 18px);
+  padding: 18px clamp(16px, 2.4vw, 24px);
+}
+.card[data-health-urgent] {
+  border-left: 4px solid var(--brand-accent-strong, #b94732);
+  background: linear-gradient(110deg, #fff1e9, #fffdf8);
+}
+.primary,
+.secondary {
+  border-radius: var(--ps-radius-control, 12px);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 620px) {
+  .actions { justify-content: stretch; }
+  .primary, .secondary {
+    flex: 1 1 100%;
+    min-height: 48px;
+  }
+}

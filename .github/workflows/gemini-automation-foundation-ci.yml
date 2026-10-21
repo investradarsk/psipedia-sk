@@ -10,6 +10,8 @@ on:
       - "components/admin-gemini-event-concept-review.tsx"
       - "lib/admin-navigation.ts"
       - "components/admin-navigation.tsx"
+      - "lib/gemini-canonical-*.ts"
+      - "tests/gemini-canonical-*.test.mjs"
       - "lib/gemini-automation-*.ts"
       - "lib/gemini-external-agent.ts"
       - "lib/gemini-notion-*.ts"
@@ -74,7 +76,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Canonical Gemini Notion draft save and 22-key publish handoff (offline)
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-canonical-publish-handoff.test.mjs tests/gemini-notion-drafts.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/gemini-canonical-publish-handoff.test.mjs tests/gemini-canonical-save-sync.test.mjs tests/gemini-notion-drafts.test.mjs
       - name: Gemini foundation focused tests (network mocked)
         run: node --experimental-strip-types --test tests/gemini-automation-*.test.mjs tests/gemini-events-*.test.mjs tests/gemini-external-agent.test.mjs
       - name: External Gemini agent contracts (no network or paid API)

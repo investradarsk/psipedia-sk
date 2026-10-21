@@ -4,7 +4,6 @@ import { getGeminiDirectoryDraft } from "./gemini-notion-directory-review";
 import { getGeminiAgendaDraft } from "./gemini-notion-agenda-review";
 import { runNotionDirectorySyncSweep, type NotionDirectorySyncBindings } from "./notion-directory-sync";
 import { runNotionEventsHelpSyncSweep, type NotionEventsHelpSyncBindings } from "./notion-events-help-sync";
-import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { geminiValidNotionDraftId } from "./gemini-concept-manager";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog";
 
@@ -20,11 +19,11 @@ const notionOnly = (): GeminiCanonicalSaveResult => ({ state: "NOTION_ONLY" });
  * An uncertain result never causes a second remote create automatically.
  */
 export async function reconcileGeminiSavedDraft(input: {
-  database: D1Database; bindings: Bindings; key: string; notionPageId: string;
+  database: D1Database; bindings: Bindings; key: string; notionPageId: string; savedRevision: string;
 }): Promise<GeminiCanonicalSaveResult> {
-  const { database, bindings, key, notionPageId } = input;
+  const { database, bindings, key, notionPageId, savedRevision } = input;
   const agenda = geminiImportAgenda(key);
-  if (!agenda || !getGeminiCatalogItem(key) || !geminiValidNotionDraftId(notionPageId))
+  if (!agenda || !savedRevision || !getGeminiCatalogItem(key) || !geminiValidNotionDraftId(notionPageId))
     return notionOnly();
   // The mutable Notion creator field or Psipedia ID cannot establish origin.
   const signed = await database.prepare(
@@ -33,44 +32,39 @@ export async function reconcileGeminiSavedDraft(input: {
   ).bind(notionPageId, key, agenda).first<{ notion_page_id: string }>();
   if (!signed) return notionOnly();
 
-  // Both ordinary and targeted sync use one existing D1 mapping/provenance ledger.
-  // The cross-category manual import lock prevents simultaneous admin saves.
-  const release = await acquireGeminiNotionLock(database, "gemini-canonical-import-" + agenda);
-  if (!release) return { state: "NEEDS_REVIEW" };
-  try {
-    const readDraft = async () => agenda === "directory"
-      ? getGeminiDirectoryDraft(bindings, notionPageId)
-      : (await getGeminiAgendaDraft(bindings, key, notionPageId)).draft;
-    const before = await readDraft();
-    if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
-      return { state: "NEEDS_REVIEW" };
-    const already = planGeminiPublishHandoff(key, before);
-    if (already.kind === "ALREADY_PUBLISHED")
-      return { state: "NEEDS_REVIEW" }; // Publishing requires native editor.
-    if (already.kind === "NATIVE_EDITOR_REQUIRED")
-      return { state: "CANONICAL_DRAFT_READY", editorUrl: already.editorUrl };
-    if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
+  // Exclusion belongs to the original sync pipelines so scheduled and manual
+  // imports contend for the same locks, not independent caller-only locks.
+  const readDraft = async () => agenda === "directory"
+    ? getGeminiDirectoryDraft(bindings, notionPageId)
+    : (await getGeminiAgendaDraft(bindings, key, notionPageId)).draft;
+  const before = await readDraft();
+  if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW" };
+  if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
+    return { state: "NEEDS_REVIEW" };
+  const already = planGeminiPublishHandoff(key, before);
+  if (already.kind === "ALREADY_PUBLISHED")
+    return { state: "NEEDS_REVIEW" }; // Publishing requires native editor.
+  if (already.kind === "NATIVE_EDITOR_REQUIRED")
+    return { state: "NEEDS_REVIEW", editorUrl: already.editorUrl }; // Import raced this save; inspect canonical content.
+  if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
 
-    if (agenda === "directory") {
-      const result = await runNotionDirectorySyncSweep({
-        database, bindings, targetPageId: notionPageId,
-      });
-      if (!result.enabled || !result.schemaReady || result.failed > 0)
-        return { state: "NEEDS_REVIEW" };
-    } else {
-      const result = await runNotionEventsHelpSyncSweep({
-        database, bindings, mode: "sync", force: true,
-        agendas: [agenda], targetPageId: notionPageId,
-      });
-      if (!result.schemaReady || result.totals.failed > 0 || result.totals.conflicts > 0)
-        return { state: "NEEDS_REVIEW" };
-    }
-    const after = await readDraft();
-    const handoff = planGeminiPublishHandoff(key, after);
-    return handoff.kind === "NATIVE_EDITOR_REQUIRED"
-      ? { state: "CANONICAL_DRAFT_READY", editorUrl: handoff.editorUrl }
-      : { state: "NEEDS_REVIEW" };
-  } finally {
-    await release();
+  if (agenda === "directory") {
+    const result = await runNotionDirectorySyncSweep({
+      database, bindings, targetPageId: notionPageId, expectedNotionRevision: savedRevision,
+    });
+    if (!result.enabled || !result.schemaReady || result.failed > 0 || result.createdFromNotion !== 1)
+      return { state: "NEEDS_REVIEW" };
+  } else {
+    const result = await runNotionEventsHelpSyncSweep({
+      database, bindings, mode: "sync",
+      agendas: [agenda], targetPageId: notionPageId, expectedNotionRevision: savedRevision,
+    });
+    if (!result.enabled || !result.schemaReady || result.agendas.some(item => item.targetMissing) || result.totals.failed > 0 || result.totals.conflicts > 0 || result.totals.createdFromNotion !== 1)
+      return { state: "NEEDS_REVIEW" };
   }
+  const after = await readDraft();
+  const handoff = planGeminiPublishHandoff(key, after);
+  return handoff.kind === "NATIVE_EDITOR_REQUIRED"
+    ? { state: "CANONICAL_DRAFT_READY", editorUrl: handoff.editorUrl }
+    : { state: "NEEDS_REVIEW" };
 }

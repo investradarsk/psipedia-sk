@@ -41,6 +41,8 @@ import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-can
 import { SITE_URL } from "@/config/public-site";
 import { notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
+import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
+import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
 
 export type NotionDirectorySyncBindings = NotionSyncBindings & {
   NOTION_DIRECTORY_SYNC_ENABLED?: string;
@@ -639,6 +641,16 @@ async function writeProfileToNotion(input: {
     ? await patchNotionPage(input.bindings, input.pageId, properties)
     : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
 
+  // A partial or stale Notion response is not evidence of a successful
+  // editorial write. Check page identity and the complete reflected snapshot
+  // BEFORE advancing the canonical mapping or the verified field baseline.
+  // The remote operation may have happened despite a rejected echo; retry
+  // conservatively against the unchanged previous mapping.
+  if (!page?.id || (input.pageId && page.id !== input.pageId)
+      || !page.properties || await snapshotHash(notionSnapshot(page)) !== hash) {
+    throw new Error("NOTION_DIRECTORY_EDITORIAL_WRITEBACK_ECHO_MISMATCH");
+  }
+
   if (sourceImageUrl) {
     await upsertMediaSourceMonitor({
       database: input.database,
@@ -650,6 +662,9 @@ async function writeProfileToNotion(input: {
     });
   }
 
+  // The verified snapshot and the mapping must describe the same acknowledged
+  // Notion state. Failure to persist either keeps further divergent edits
+  // fail-closed; never assert success merely because PATCH returned HTTP 200.
   await saveMapping({
     database: input.database,
     pageId: page.id,
@@ -658,6 +673,10 @@ async function writeProfileToNotion(input: {
     notionLastEditedTime: page.last_edited_time ?? syncedAt,
     psipediaUpdatedAt: input.profile.updatedAt,
     syncedAt,
+  });
+  await recordProfileFieldBaseline({
+    database: input.database, agenda: "directory", entityId: input.profile.id,
+    pageId: page.id, hash, snapshot: profileSnapshot(input.profile, sourceImageUrl), syncedAt,
   });
   return page;
 }
@@ -729,7 +748,7 @@ function newProfileInput(
     category: desired.category,
     // New Notion Ready records must first enter canonical draft review.
     // Publication requires explicit Notion Psipedia stav = Publikované.
-    status: desired.status === "published" ? "published" : "draft",
+    status: "draft", // Notion-first creates never publish without canonical Admin action.
     excerpt: desired.excerpt,
     description: desired.description,
     services: desired.services,
@@ -859,6 +878,9 @@ async function applyNotionToProfile(input: {
   const desired = input.desiredOverride ?? notionSnapshot(input.page);
   const current = input.profile;
 
+  if (desired.status !== current.status || desired.slug !== current.slug || desired.category !== current.category) {
+    throw new Error("REVIEW_REQUIRED: Stav, slug a kategória sa menia iba v kanonickom administrátorskom editore.");
+  }
   if (desired.status === "archived") {
     const archived = await archiveManagedDirectoryProfile(current.id, SYSTEM_ACTOR, new Date(), input.database);
     if (!archived) throw new Error("Profil sa pri synchronizácii nepodarilo archivovať.");
@@ -1045,10 +1067,16 @@ async function syncMappedPage(input: {
   if (!profile) return "unchanged" as const;
 
   const page = input.page ?? await fetchNotionPage(input.bindings, input.mapping.notion_page_id);
+  if (page.id !== input.mapping.notion_page_id) {
+    throw new Error("IDENTITY_CONFLICT: Notion page ID nezodpovedá existujúcemu mapovaniu.");
+  }
 
   // A mapping can already exist when the first Notion write-back failed.
   // Restore the canonical Psipedia ID/status before ordinary conflict resolution.
   if (propertyText(page, "Psipedia ID") !== String(profile.id)) {
+    if (propertyText(page, "Psipedia ID")) {
+      throw new Error("IDENTITY_CONFLICT: Notion stránka je priradená inému Psipedia ID.");
+    }
     await writeProfileToNotion({
       database: input.database,
       bindings: input.bindings,
@@ -1079,7 +1107,71 @@ async function syncMappedPage(input: {
       });
       return "pushed" as const;
     }
+    await recordProfileFieldBaseline({
+      database: input.database, agenda: "directory", entityId: profile.id,
+      pageId: page.id, hash: profileHash,
+      snapshot: profileSnapshot(profile, currentSourceImageUrl),
+      syncedAt: new Date().toISOString(),
+    });
     return "unchanged" as const;
+  }
+
+  // Preserve the existing separately owner-approved Gemini priority mode.
+  // When it is OFF, use the safer lossless field strategy. Neither mode
+  // changes the feature flag or authorizes production activation.
+  if (!gemini22PriorityEnabled(input.bindings.NOTION_GEMINI_22_PRIORITY_A_ENABLED)) {
+    // Record-level modified times include our own sync writes. Three-way
+    // comparison NEVER infers which same-field human edit happened last.
+  const storedBaseline = await readProfileFieldBaseline({
+    database: input.database, agenda: "directory", entityId: profile.id,
+    pageId: page.id, expectedHash: lastHash,
+  });
+  const geoMirror = await loadGeoMirror(input.database, profile.id);
+  const canonicalSnapshot = profileSnapshot(profile, currentSourceImageUrl);
+  const notionEditorial = notionSnapshot(page);
+  // If only one side changed, the other side still equals the last
+  // acknowledged hash and therefore proves the prior common snapshot.
+  // This allows lossless one-sided sync without any new D1 table. Divergent
+  // edits on both sides still require a verified stored baseline or review.
+  const baseline = trustedProfileBaselineFromHashes({
+    recorded: storedBaseline, notion: notionEditorial, psipedia: canonicalSnapshot,
+    mappingHash: lastHash, notionHash: pageHash, psipediaHash: profileHash,
+  });
+  const protectedFields = new Set([
+    "slug", "category", "status", "confirmedServiceLocation",
+    "verified", "featured", "internalEmail", "qualityCheckedAt",
+    "qualityResolutions.phone", "qualityResolutions.email",
+    "qualityResolutions.website", "qualityResolutions.image",
+    "qualityResolutions.address", "seo.noindex",
+  ]);
+  const confirmedGooglePlace = Boolean(
+    geoMirror?.google_place_id && geoMirror.google_place_source_fingerprint
+    && geoMirror.source_fingerprint
+    && geoMirror.google_place_source_fingerprint === geoMirror.source_fingerprint,
+  );
+  if (confirmedGooglePlace || profile.serviceAddressConfirmation === "CONFIRMED_SERVICE_LOCATION") {
+    for (const field of ["region", "district", "city", "address", "postalCode",
+      "street", "houseNumber", "addressFormat"]) protectedFields.add(field);
+  }
+  const resolution = reconcileProfileFields({
+    baseline, notion: notionEditorial, psipedia: canonicalSnapshot, protectedFields,
+  });
+  if (resolution.kind === "CONFLICT") {
+    throw new Error("CONFLICT: LOSSLESS_FIELD_REVIEW_REQUIRED (" +
+      resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1000) + ")");
+  }
+  const desired = resolution.merged as EditableDirectorySnapshot;
+  const updated = await snapshotHash(desired) === profileHash
+    ? profile
+    : await applyNotionToProfile({
+      database: input.database, bindings: input.bindings, page, profile,
+      desiredOverride: desired,
+    });
+  await writeProfileToNotion({
+    database: input.database, bindings: input.bindings, dataSourceId: input.dataSourceId,
+    profile: updated, pageId: page.id,
+  });
+  return await snapshotHash(desired) === profileHash ? "pushed" as const : "pulled" as const;
   }
 
   // Owner-approved Gemini 22 Notion priority A: apply only with the
@@ -1160,7 +1252,9 @@ async function recoverMappingFromPage(input: {
   page: NotionPage;
 }) {
   const rawId = propertyText(input.page, "Psipedia ID");
-  const profileId = Number.parseInt(rawId, 10);
+  // parseInt("123-other") would otherwise alias an unrelated canonical ID.
+  if (!/^[1-9]\\d*$/.test(rawId)) return null;
+  const profileId = Number(rawId);
   if (!Number.isSafeInteger(profileId) || profileId <= 0) return null;
   const profile = await getManagedDirectoryProfileById(profileId, input.database);
   if (!profile) return null;
@@ -1285,6 +1379,7 @@ export async function runNotionDirectorySyncSweep(input: {
   // Optional one-page operator recovery, using the exact existing sync pipeline.
   // Never automatically invoked or used for routine sweep scheduling.
   targetPageId?: string;
+  expectedNotionRevision?: string;
 }): Promise<NotionDirectorySyncSummary> {
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
   const summary: NotionDirectorySyncSummary = {
@@ -1314,6 +1409,8 @@ export async function runNotionDirectorySyncSweep(input: {
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
       throw new Error("NOTION_TARGET_PAGE_INVALID");
     const targetPage = await fetchNotionPage(input.bindings, input.targetPageId);
+    if (input.expectedNotionRevision && targetPage.last_edited_time !== input.expectedNotionRevision)
+      throw new Error("GEMINI_SAVED_REVISION_CHANGED");
     const parent = (targetPage as NotionPage & { parent?: { data_source_id?: string } }).parent;
     if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
       throw new Error("NOTION_TARGET_DATA_SOURCE_MISMATCH");
@@ -1367,6 +1464,8 @@ export async function runNotionDirectorySyncSweep(input: {
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
+        if (input.targetPageId && input.expectedNotionRevision && page.last_edited_time !== input.expectedNotionRevision)
+          throw new Error("GEMINI_SAVED_REVISION_CHANGED");
         if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);

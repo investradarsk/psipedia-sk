@@ -149,3 +149,26 @@
   .factTiles > div { padding: 11px; }
   .section, .card { padding: 15px; }
 }
+
+/* DS-6: compact presentation only. Preserve the V2.1 media, map-consent,
+   action and mobile-content-order contracts. No shared/admin CSS changes. */
+.page { padding-bottom: 30px; }
+.heroFrame { gap: clamp(14px, 2vw, 22px); padding: clamp(14px, 1.7vw, 20px); }
+.heroCopy h1 { margin-block: 10px 8px; }
+.heroActions { margin-top: 12px; }
+.factTiles { margin-top: 12px; }
+.layout { gap: 14px; padding-block: 12px 24px; }
+.body, .aside { gap: 12px; }
+.contentLayout { gap: clamp(16px, 2.4vw, 28px); }
+.section, .card { padding: 18px; }
+.section h2 { margin-bottom: 12px; }
+.section h3 { margin-top: 16px; }
+.card h2, .card h3 { margin-bottom: 10px; }
+@media (max-width: 800px) {
+  .heroFrame { padding: 14px; }
+  .layout { padding-block: 12px 20px; }
+  .section, .card { padding: 16px; }
+}
+@media (max-width: 380px) {
+  .section, .card { padding: 15px; }
+}

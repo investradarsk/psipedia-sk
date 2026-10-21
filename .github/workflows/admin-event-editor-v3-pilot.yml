@@ -1,0 +1,100 @@
+name: ADMIN-EVENT-EDITOR-V3 pilot E2E acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/admin-event-editor.tsx"
+      - "components/admin-event-editor.module.css"
+      - "components/admin-editor-workspace.tsx"
+      - "app/admin/event-editor-v3-preview/**"
+      - "app/admin/podujatia/[id]/page.tsx"
+      - "tests/admin-event-editor-v3.test.mjs"
+      - "tests/e2e/admin-event-editor-v3.spec.ts"
+      - ".github/workflows/admin-event-editor-v3-pilot.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-event-editor-v3-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  events-pilot-only:
+    # The workflow is exclusively for the approved existing PR #909.
+    if: github.event.pull_request.number == 909
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      E2E_BASE_URL: http://localhost:5173
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+      CI: "true"
+    steps:
+      - name: Checkout exact PR head, not an implicit merge ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Assert exact revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Pilot contracts
+        run: node --test tests/admin-event-editor-v3.test.mjs
+      - name: Pilot-only lint
+        run: npx eslint components/admin-event-editor.tsx components/admin-editor-workspace.tsx app/admin/event-editor-v3-preview/page.tsx tests/e2e/admin-event-editor-v3.spec.ts
+      - name: Build isolated app
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Prepare disposable LOCAL D1 only
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql /tmp/0038_adoption_staging_data.sql
+          mv drizzle/0039_activate_canonical_adoptions.sql /tmp/0039_activate_canonical_adoptions.sql
+          trap 'mv /tmp/0038_adoption_staging_data.sql drizzle/0038_adoption_staging_data.sql; mv /tmp/0039_activate_canonical_adoptions.sql drizzle/0039_activate_canonical_adoptions.sql' EXIT
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Start local Vite with development-only fixtures
+        run: |
+          nohup npm exec vite -- --host 127.0.0.1 > /tmp/events-editor-v3.log 2>&1 &
+          echo $! > /tmp/events-editor-v3.pid
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://127.0.0.1:5173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          tail -100 /tmp/events-editor-v3.log
+          exit 1
+      - name: Real Playwright browser pilot (1440/390/320, mock POST/PUT)
+        id: pilot
+        run: npx playwright test tests/e2e/admin-event-editor-v3.spec.ts --project=desktop-chromium --workers=1 --retries=0
+      - name: Upload real pilot screenshots
+        if: ${{ always() && steps.pilot.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: events-editor-v3-pilot-909-visual-${{ github.run_attempt }}
+          path: .e2e-artifacts/events-editor-v3/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload browser failures and partial screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: events-editor-v3-pilot-909-failure-${{ github.run_attempt }}
+          path: |
+            .e2e-artifacts/events-editor-v3/
+            test-results/playwright/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop local app
+        if: always()
+        run: |
+          if [ -f /tmp/events-editor-v3.pid ]; then
+            kill "$(cat /tmp/events-editor-v3.pid)" 2>/dev/null || true
+          fi
