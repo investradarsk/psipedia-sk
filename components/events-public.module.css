@@ -2017,3 +2017,24 @@
 .detailPage .relatedSection { margin-top: 8px; background: transparent; }
 .detailPage .relatedSection :global(.shell) { width: min(1120px, calc(100% - 32px)); }
 .detailPage .returnBar { margin: 0; font-size: .75rem; }
+
+/* DS-5 event listing only; detail, calendar and fallback illustration framing stay intact. */
+.cardGrid { gap: var(--ps-ds5-grid-gap, 16px); }
+.gridCard {
+  border-radius: var(--ps-radius-card, 22px);
+  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.gridCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.gridMedia { background: var(--sage-light); }
+.gridBody { padding: var(--ps-ds5-card-padding, 18px); }
+/* The sidebar remains visible until 760px; two smaller cards still fit at 768px. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gridCard { transition: none; }
+}

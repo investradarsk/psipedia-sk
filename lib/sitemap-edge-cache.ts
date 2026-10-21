@@ -39,8 +39,14 @@ export function validSitemapXml(xml: string): boolean {
     && /<loc>\s*https:\/\/psipedia\.sk\//i.test(body);
 }
 
+function upstreamForbidsSharedCache(response: Response): boolean {
+  return response.headers.has("set-cookie")
+    || /(?:^|,)\s*(?:private|no-store|no-cache)(?:\s|,|=|$)/i.test(response.headers.get("cache-control") ?? "")
+    || response.headers.get("vary")?.split(",").some((value) => value.trim() === "*") === true;
+}
+
 function upstreamAllowsSharedCache(response: Response): boolean {
-  if (response.status !== 200) return false;
+  if (response.status !== 200 || upstreamForbidsSharedCache(response)) return false;
   if (response.headers.has("set-cookie")) return false;
   if (/(?:^|,)\s*(?:private|no-store|no-cache)(?:\s|,|=|$)/i.test(response.headers.get("cache-control") ?? "")) return false;
   return /(?:application|text)\/xml|application\/xhtml\+xml/i.test(response.headers.get("content-type") ?? "");
@@ -57,6 +63,13 @@ function cachedXmlResponse(xml: string, maxAgeSeconds: number): Response {
   });
 }
 
+function invalidOriginResponse(): Response {
+  return new Response("Sitemap temporarily unavailable", {
+    status: 502,
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
 async function lastGoodOrOriginal(
   request: Request,
   storage: SitemapCache,
@@ -68,7 +81,7 @@ async function lastGoodOrOriginal(
     if (previous?.status === 200) {
       const headers = new Headers(previous.headers);
       // Do not invite downstream caches to extend the stale interval.
-      headers.set("Cache-Control", "public, max-age=60");
+      headers.set("Cache-Control", "no-store");
       headers.set("X-Psipedia-Sitemap-Cache", "LAST_GOOD");
       return new Response(previous.body, { status: 200, headers });
     }
@@ -102,6 +115,9 @@ export async function servePublicSitemap(
     return lastGoodOrOriginal(request, storage, undefined, error);
   }
 
+  // An explicit origin privacy/cache prohibition also forbids stale substitution.
+  if (upstreamForbidsSharedCache(response)) return response;
+
   if (!upstreamAllowsSharedCache(response)) {
     if (response.status >= 500) {
       console.error(JSON.stringify({ event: "sitemap_origin_failed", status: response.status }));
@@ -114,17 +130,21 @@ export async function servePublicSitemap(
   try {
     xml = await response.clone().text();
   } catch {
-    return lastGoodOrOriginal(request, storage, response);
+    return lastGoodOrOriginal(request, storage, invalidOriginResponse());
   }
   if (!validSitemapXml(xml)) {
     console.error(JSON.stringify({ event: "sitemap_invalid_xml", cached: false }));
-    return lastGoodOrOriginal(request, storage, response);
+    return lastGoodOrOriginal(request, storage, invalidOriginResponse());
   }
 
   const writes = Promise.allSettled([
-    storage.put(sitemapCacheKey(request.url, "fresh"), cachedXmlResponse(xml, SITEMAP_FRESH_TTL_SECONDS)),
-    storage.put(sitemapCacheKey(request.url, "last-good"), cachedXmlResponse(xml, SITEMAP_LAST_GOOD_TTL_SECONDS)),
+    Promise.resolve().then(() => storage.put(sitemapCacheKey(request.url, "fresh"), cachedXmlResponse(xml, SITEMAP_FRESH_TTL_SECONDS))),
+    Promise.resolve().then(() => storage.put(sitemapCacheKey(request.url, "last-good"), cachedXmlResponse(xml, SITEMAP_LAST_GOOD_TTL_SECONDS))),
   ]).then(() => undefined);
-  context.waitUntil(writes);
+  try {
+    context.waitUntil(writes);
+  } catch {
+    // Background registration failure must not turn valid origin XML into 500.
+  }
   return response;
 }

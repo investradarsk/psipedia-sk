@@ -66,7 +66,7 @@ test("two independent Cache API slots: fresh HIT and last-good on 500", async ()
   const served = await servePublicSitemap(new Request(uri), failedResponse, cache, background());
   assert.equal(served.status, 200);
   assert.equal(served.headers.get("x-psipedia-sitemap-cache"), "LAST_GOOD");
-  assert.equal(served.headers.get("cache-control"), "public, max-age=60");
+  assert.equal(served.headers.get("cache-control"), "no-store");
   assert.equal(await served.text(), xml);
 });
 
@@ -86,7 +86,7 @@ test("invalid public XML, private, Set-Cookie and 404 cannot contaminate snapsho
   for (const response of candidates) {
     const ctx = background();
     const returned = await servePublicSitemap(new Request(uri), () => Promise.resolve(response), cache, ctx);
-    assert.equal(returned.status, response.status);
+    assert.equal(returned.status, response === candidates[0] ? 502 : response.status);
     await ctx.drain();
   }
   assert.equal(cache.calls.some(([action]) => action === "put"), false);
@@ -120,4 +120,49 @@ test("Worker invokes sitemap guard before HTML cache and does not affect other r
   const sitemap = readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
   assert.match(sitemap, /sitemap_generation_failed/);
   assert.match(sitemap, /SitemapStageError/);
+});
+
+test("origin cache/privacy prohibitions on 500 never substitute last-good XML", async () => {
+  for (const headers of [
+    { "cache-control": "private" }, { "cache-control": "no-store" },
+    { "cache-control": "no-cache" }, { "set-cookie": "session=private" }, { vary: "*" },
+  ]) {
+    const cache = fakeCache(), ctx = background();
+    await servePublicSitemap(new Request(uri), async () => validResponse(), cache, ctx);
+    await ctx.drain();
+    cache.store.delete(sitemapCacheKey(uri, "fresh").url);
+    const original = new Response("unavailable", { status: 500, headers });
+    const result = await servePublicSitemap(new Request(uri), async () => original, cache, background());
+    assert.equal(result, original);
+    assert.equal(result.status, 500);
+  }
+});
+
+test("invalid origin XML is 502 when cold and bounded stale fallback when warm", async () => {
+  const cache = fakeCache(), ctx = background();
+  const invalid = () => new Response("<html>broken</html>", { headers: { "content-type": "application/xml" } });
+  const cold = await servePublicSitemap(new Request(uri), async () => invalid(), cache, ctx);
+  assert.equal(cold.status, 502);
+  assert.equal(cold.headers.get("cache-control"), "no-store");
+  assert.equal(cache.store.size, 0);
+  await servePublicSitemap(new Request(uri), async () => validResponse(), cache, ctx);
+  await ctx.drain();
+  cache.store.delete(sitemapCacheKey(uri, "fresh").url);
+  const warm = await servePublicSitemap(new Request(uri), async () => invalid(), cache, ctx);
+  assert.equal(await warm.text(), xml);
+  assert.equal(warm.headers.get("cache-control"), "no-store", "downstream must not extend stale lifetime");
+  cache.store.delete(sitemapCacheKey(uri, "last-good").url);
+  assert.equal((await servePublicSitemap(new Request(uri), async () => invalid(), cache, ctx)).status, 502);
+});
+
+test("cache read/write and background-registration failures preserve valid origin", async () => {
+  const storage = {
+    match() { throw new Error("cache unavailable"); },
+    put() { throw new Error("cache write unavailable"); },
+  };
+  const ctx = { waitUntil() { throw new Error("context closed"); } };
+  const result = await servePublicSitemap(new Request(uri), async () => validResponse(), storage, ctx);
+  assert.equal(result.status, 200);
+  assert.equal(await result.text(), xml);
+  await new Promise((resolve) => setImmediate(resolve));
 });

@@ -3,10 +3,11 @@ import { PawMark } from "./icons";
 import { CookieSettingsButton } from "./cookie-consent";
 import { EDITORIAL_EMAIL_ADDRESS } from "@/lib/public-contact";
 import { SOCIAL_PROFILES } from "@/lib/seo";
+import styles from "./site-footer.module.css";
 
 export function SiteFooter() {
   return (
-    <footer className="site-footer">
+    <footer className={`site-footer ${styles.compactFooter}`}>
       <div className="footer-main shell">
         <div className="footer-brand-block">
           <Link href="/" className="brand brand--footer" aria-label="Psipedia.sk – domov">
