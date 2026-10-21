@@ -378,7 +378,7 @@ export function normalizeDirectoryRegion(value: string | null | undefined): Slov
 
 function runtimeDirectoryLocationText(value: string | null | undefined) {
   const clean = value?.trim() ?? "";
-  return /^online$/i.test(clean) ? "" : clean;
+  return /^(?:online|slovensko|slovenská republika)$/iu.test(clean) ? "" : clean;
 }
 
 function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: GooglePlaceCandidate) {
