@@ -480,7 +480,9 @@ async function saveMapping(input: {
 }
 
 function sourceId(source: CanonicalSourceRecord) {
-  const id = Number.parseInt(source.id, 10);
+  // parseInt("123-unrelated") would silently alias canonical profile #123.
+  if (!/^[1-9]\d*$/.test(source.id)) return null;
+  const id = Number(source.id);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
@@ -1002,7 +1004,10 @@ async function syncAgenda(input: {
           "Slug", "Stav", "Psipedia stav", "Kategória", "Typ",
           "Typ podujatia", "Organizácia", "Vyriešené", "Urgentné",
           "Latitude", "Longitude", "Presnosť lokality", "Verejný kontakt",
-          "Zdroj", "Zdroj URL",
+          "Zdroj", "Zdroj URL", "Zdroj dát",
+          // Publication-adjacent moderator decisions and contact notes are
+          // edited via the canonical Admin flow, not inferred from Notion.
+          "Zrušené", "Kontakt",
         ]);
         if (agenda === "lost-found") {
           protectedFields.add("Miesto");
@@ -1018,6 +1023,12 @@ async function syncAgenda(input: {
         }
         const resolution = reconcileProfileFields({
           baseline, notion: notionSnapshot, psipedia: sourceSnapshot, protectedFields,
+          // Existing Events/Help hash comparison already trims strings and
+          // normalizes timezone-aware lost/found instants. Apply the same
+          // semantics to field-level change detection, not just record hashes.
+          equalField: (path, left, right) =>
+            stableAgendaSnapshotJson(agenda, { [path]: left })
+            === stableAgendaSnapshotJson(agenda, { [path]: right }),
         });
         if (resolution.kind === "CONFLICT") {
           summary.conflicts += 1;
