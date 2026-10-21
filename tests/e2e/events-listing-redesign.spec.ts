@@ -155,7 +155,9 @@ test.describe('final events acceptance', () => {
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
       await expect(image).toHaveAttribute('data-smart-image-fit', 'contain');
     }
-    await expect(fixtureCard('Finalaudit Preteky 7')).toContainText('Online podujatie');
+    // Historical Online region is not a physical locality; a supplied venue remains visible.
+    await expect(fixtureCard('Finalaudit Preteky 7')).toContainText('Klubové cvičisko');
+    await expect(fixtureCard('Finalaudit Preteky 7')).not.toContainText('Online podujatie');
     await expect(page.getByRole('heading',{name:/Mimoriadne dlhý názov kynologického stretnutia/})).toBeVisible();
     const axe=await new AxeBuilder({page}).analyze();expect(axe.violations.filter(v=>['serious','critical'].includes(v.impact??''))).toEqual([]);
     expect(errors).toEqual([]);
