@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -61,6 +62,40 @@ test("MAP-ADMIN-PERF loader stays server-paginated", () => {
   assert.match(loader, /LIMIT \? OFFSET \?/);
   assert.match(loader, /ORDER BY name COLLATE NOCASE ASC, target_type ASC, target_id ASC/);
   assert.match(loader, /pageRows\.results/);
+});
+
+test("MAP-ADMIN-PERF reuses facet buckets for exact filtered total without a fourth GEO CTE scan", () => {
+  assert.match(loader, /const \[summaryRow, categoryRows\] = await Promise\.all/);
+  assert.doesNotMatch(loader, /pageCountRow|SELECT COUNT\(\*\) AS total\s+FROM base\s+\$\{filtered\.clause\}/);
+  assert.match(loader, /row\.category === filters\.category/);
+
+  // A category can be omitted, selected or empty. The faceted aggregation
+  // must still count all matched rows, including ones hidden from dropdowns.
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE geo_base (group_key TEXT, category TEXT, google_state TEXT, search_text TEXT)");
+    const insert = db.prepare("INSERT INTO geo_base VALUES (?, ?, ?, ?)");
+    for (const row of [
+      ["SERVICES", "veterinari", "UNRESOLVED", "Nitra klinika"],
+      ["SERVICES", "veterinari", "COORDINATES", "Nitra ambulancia"],
+      ["SERVICES", "treneri", "UNRESOLVED", "Nitra výcvik"],
+      ["HELP", "", "UNRESOLVED", "Nitra útulok"],
+      ["HELP", "SHELTER", "COORDINATES", "Bratislava útulok"],
+      ["EVENTS", "vysetrenie", "PLACE", "Nitra výstava"],
+    ]) insert.run(...row);
+    const filter = "google_state IN ('UNRESOLVED','COORDINATES') AND group_key=? AND search_text LIKE ? COLLATE NOCASE";
+    const buckets = db.prepare(`SELECT group_key,category,COUNT(*) AS count FROM geo_base WHERE ${filter} GROUP BY group_key,category`)
+      .all("SERVICES", "%Nitra%");
+    for (const selectedCategory of ["", "veterinari", "treneri", "absent"]) {
+      const bucketTotal = buckets.reduce((sum, row) =>
+        sum + (!selectedCategory || row.category === selectedCategory ? row.count : 0), 0);
+      const directCount = db.prepare(`SELECT COUNT(*) AS count FROM geo_base WHERE ${filter}${selectedCategory ? " AND category=?" : ""}`)
+        .get(...["SERVICES", "%Nitra%", ...(selectedCategory ? [selectedCategory] : [])]).count;
+      assert.equal(bucketTotal, directCount);
+    }
+    const allBuckets = db.prepare("SELECT category, COUNT(*) AS count FROM geo_base WHERE google_state IN ('UNRESOLVED','COORDINATES') GROUP BY category").all();
+    assert.equal(allBuckets.reduce((sum, row) => sum + row.count, 0), 5, "empty categories remain counted");
+  } finally { db.close(); }
 });
 
 test("Admin Mapy mounts Google picker only for an explicitly opened unresolved row", () => {
