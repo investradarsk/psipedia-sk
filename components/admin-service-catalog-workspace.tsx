@@ -9,6 +9,8 @@ import styles from "./admin-service-catalog.module.css";
 
 type Category={id:string;label:string};
 type Draft={name:string;category:string;kind:"service"|"attribute";group:string;meaning:string};
+type MirrorInventory={mode:"READ_ONLY";canonicalDynamicCount:number;notionPageCount:number;receiptCount:number;blocked:boolean;
+  items:Array<{disposition:string}>;unmappedNotionOptionIds:string[]};
 const blank:Draft={name:"",category:"",kind:"service",group:"",meaning:""};
 const statusTone=(status:string)=>status==="ACTIVE"||status==="SYNCED"?"success":status==="CONFLICT"||status==="RETIRED"?"danger":status==="DRAFT"||status==="PENDING"?"warning":"neutral";
 
@@ -29,6 +31,9 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [messageIsError,setMessageIsError]=useState(false);
+  const [inventory,setInventory]=useState<MirrorInventory|null>(null);
+  const [inventoryLoading,setInventoryLoading]=useState(false);
+  const [inventoryError,setInventoryError]=useState("");
   const visible=useMemo(()=>items.filter(item=>{
     const q=query.trim().toLocaleLowerCase("sk");
     return (!q||[item.label,item.group,item.id,item.meaning].some(x=>x.toLocaleLowerCase("sk").includes(q)))
@@ -61,6 +66,20 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       router.refresh();
     }catch(e){setMessage(e instanceof Error?e.message:"Vytvorenie zlyhalo.");}
     finally{setBusy(false);}
+  }
+  async function inspectInventory(){
+    if(inventoryLoading)return;
+    setInventoryLoading(true);setInventoryError("");
+    try{
+      const response=await fetch("/api/admin/service-catalog/notion-mirror",{method:"GET",cache:"no-store"});
+      const result=await response.json() as {state?:string;value?:MirrorInventory;reason?:string;error?:string};
+      if(!response.ok||result.state!=="INVENTORY"||result.value?.mode!=="READ_ONLY")
+        throw new Error(result.error??result.reason??"Inventúru sa nepodarilo načítať.");
+      setInventory(result.value);
+    }catch(error){
+      setInventory(null);
+      setInventoryError(error instanceof Error?error.message:"Read-only inventúra zlyhala.");
+    }finally{setInventoryLoading(false);}
   }
   function startEdit(item:CatalogEditorItem){
     if(!mayEdit(item)||busy)return;
@@ -128,6 +147,19 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       </details>
     </div>
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
+    <div className={styles.inventoryBar}>
+      <AdminActionButton onClick={inspectInventory} disabled={inventoryLoading}>
+        {inventoryLoading?"Načítavam inventúru…":"Overiť D1 ↔ Notion (iba čítanie)"}
+      </AdminActionButton>
+      {inventory&&<p role="status">
+        D1 dynamické možnosti: <strong>{inventory.canonicalDynamicCount}</strong> ·
+        Notion stránky: <strong>{inventory.notionPageCount}</strong> ·
+        Overené záznamy: <strong>{inventory.receiptCount}</strong> ·
+        Blokované položky: <strong>{inventory.items.filter(item=>item.disposition==="BLOCKED").length+inventory.unmappedNotionOptionIds.length}</strong>
+        {inventory.blocked?" · Vyžaduje kontrolu konfliktov.":" · Bez zisteného konfliktu vlastníctva."}
+      </p>}
+      {inventoryError&&<p role="alert" className={styles.error}>{inventoryError}</p>}
+    </div>
     <div className={styles.filterBar}>
       <label className={styles.searchField}>Vyhľadávanie<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Služba, vlastnosť alebo ID"/></label>
       <button type="button" className={styles.filterToggle} aria-expanded={filtersOpen} aria-controls="services-v3-catalog-advanced-filters"
