@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { AdminActionButton } from "@/components/admin-interaction-system";
-import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
+import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
+import { EditorWorkspace, EditorSection, EditorStatus, EditorActionBar, EditorUnsavedChangesGuard, type EditorWorkspaceSection } from "@/components/admin-editor-workspace";
 import { AdminEventMarkdownEditor } from "@/components/admin-event-markdown-editor";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { eventTypes, slovakRegions, type DogEvent, type EventStatus, type EventType, type SlovakRegion } from "@/lib/events";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
@@ -77,6 +77,80 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
   });
   const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
   const dirty = editorSnapshot !== savedSnapshot;
+  const [confirmNavigation, setConfirmNavigation] = useState(false);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
+  const allowNavigationRef = useRef(false);
+  const requestNavigation = useCallback((navigate: () => void) => {
+    pendingNavigationRef.current = navigate;
+    setConfirmNavigation(true);
+  }, []);
+
+  // Scope navigation protection to this editor; the shared EditorWorkspace
+  // already guards its close button and native beforeunload.
+  useEffect(() => {
+    if (!dirty) return;
+    const onDocumentClick = (click: MouseEvent) => {
+      if (allowNavigationRef.current || click.defaultPrevented || click.button !== 0 ||
+          click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return;
+      const target = click.target;
+      const anchor = target instanceof Element ? target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin ||
+          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
+      click.preventDefault();
+      click.stopPropagation();
+      requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
+    };
+    document.addEventListener("click", onDocumentClick, true);
+
+    // The Navigation API catches history traversal and programmatic soft
+    // navigation that cannot be handled by a DOM link click.
+    const navigationApi = (window as Window & {
+      navigation?: EventTarget & { traverseTo?: (key: string) => Promise<unknown> };
+    }).navigation;
+    const onNativeNavigate = (event: Event) => {
+      if (allowNavigationRef.current || !event.cancelable) return;
+      const navigationEvent = event as Event & {
+        destination?: { url: string; key?: string };
+        navigationType?: string;
+        hashChange?: boolean;
+      };
+      if (navigationEvent.hashChange || !navigationEvent.destination?.url) return;
+      const destination = new URL(navigationEvent.destination.url);
+      if (destination.origin !== window.location.origin ||
+          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
+      event.preventDefault();
+      const key = navigationEvent.destination.key;
+      if (navigationEvent.navigationType === "traverse") {
+        requestNavigation(() => {
+          if (key && navigationApi?.traverseTo) void navigationApi.traverseTo(key);
+          else window.history.back();
+        });
+      } else {
+        requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
+      }
+    };
+    navigationApi?.addEventListener("navigate", onNativeNavigate);
+    return () => {
+      document.removeEventListener("click", onDocumentClick, true);
+      navigationApi?.removeEventListener("navigate", onNativeNavigate);
+    };
+  }, [dirty, requestNavigation, router]);
+
+  const stayInEditor = () => {
+    pendingNavigationRef.current = null;
+    setConfirmNavigation(false);
+  };
+  const discardAndNavigate = () => {
+    const navigate = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    allowNavigationRef.current = true;
+    setConfirmNavigation(false);
+    setSavedSnapshot(editorSnapshot);
+    navigate?.();
+  };
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -129,8 +203,13 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
       if (!response.ok || !data.event) throw new Error(data.error || "Podujatie sa nepodarilo uložiť.");
       setStatus(data.event.status);
       setSavedSnapshot(editorSnapshot);
-      setMessage(nextStatus === "published" ? "Podujatie je publikované v kalendári." : "Koncept je bezpečne uložený.");
-      if (!event) router.replace(`/admin/podujatia/${data.event.id}?vytvorene=1`);
+      setMessage(data.event.status === "published"
+        ? (status === "published" ? "Zmeny publikovaného podujatia sú uložené." : "Podujatie je publikované v kalendári.")
+        : (status === "published" ? "Podujatie bolo stiahnuté z kalendára." : "Koncept je bezpečne uložený."));
+      if (!event) {
+        allowNavigationRef.current = true;
+        router.replace(`/admin/podujatia/${data.event.id}?vytvorene=1`);
+      }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Podujatie sa nepodarilo uložiť.");
     } finally { setSaving(false); }
@@ -163,13 +242,15 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
         actions={
           <EditorActionBar
             message={error ? <span className={styles.errorText} role="alert">{error}</span> : message || (dirty ? "Neuložené zmeny" : undefined)}
-            destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z kalendára</AdminActionButton> : undefined}
-            secondary={<AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>}
-            primary={<AdminActionButton type="button" variant="primary" className={styles.publishButton} disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať podujatie"}</AdminActionButton>}
+            destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
+            secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
+            primary={status === "published"
+              ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="primary" className={styles.publishButton} disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť zmeny"}</AdminActionButton>
+              : <AdminActionButton type="button" variant="primary" className={styles.publishButton} disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať podujatie"}</AdminActionButton>}
           />
         }
       >
-        <form id="event-editor-v3-form" noValidate className={`admin-event-editor ${styles.eventForm}`} onSubmit={(submitEvent) => { submitEvent.preventDefault(); void save("draft"); }}>
+        <form id="event-editor-v3-form" noValidate className={`admin-event-editor ${styles.eventForm}`} onSubmit={(submitEvent) => { submitEvent.preventDefault(); if (!saving && !uploading) void save(status); }}>
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
           <EditorSection id="event-basics" className="admin-form-card admin-form-card--intro">
             <div className="admin-field admin-field--title"><label htmlFor="event-title">Názov podujatia</label><input id="event-title" value={title} onChange={(input) => changeTitle(input.target.value)} placeholder="Napríklad: Klubová výstava retrieverov" required /></div>
@@ -241,6 +322,27 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           setImageEditorOpen(false);
         }} />}
       </EditorWorkspace>
+      <EditorUnsavedChangesGuard
+        active={false}
+        open={confirmNavigation}
+        onStay={stayInEditor}
+        onDiscard={discardAndNavigate}
+      />
+      <AdminModalDialog
+        open={confirmUnpublish}
+        title="Stiahnuť podujatie z kalendára?"
+        description="Podujatie sa zmení na koncept a nebude verejne publikované."
+        onClose={() => setConfirmUnpublish(false)}
+        footer={
+          <>
+            <AdminActionButton type="button" variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton>
+            <AdminActionButton type="button" variant="destructive" disabled={saving || uploading}
+              onClick={() => { setConfirmUnpublish(false); void save("draft"); }}>Potvrdiť stiahnutie</AdminActionButton>
+          </>
+        }
+      >
+        <p>Táto akcia je oddelená od uloženia úprav publikovaného podujatia.</p>
+      </AdminModalDialog>
     </div>
   );
 }
