@@ -414,13 +414,13 @@ test("both profile adapters reject malformed IDs without rejecting valid numeric
     readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8"),
   ]);
-  // Compare source text without JS string-literal backslash interpretation.
-  assert.equal(directory.includes(String.raw`if (!/^[1-9]\\\\d*$/.test(rawId)) return null;`), false);
-  assert.ok(directory.includes(String.raw`if (!/^[1-9]\\d*$/.test(rawId)) return null;`));
-  assert.ok(eventsHelp.includes(String.raw`if (!/^[1-9]\\d*$/.test(source.id)) return null;`));
-  const valid = /^[1-9]\\d*$/;
+  // Source-level backslashes must be checked literally, not unescaped by JS.
+  assert.equal(directory.includes(String.raw`if (!/^[1-9]\\d*$/.test(rawId)) return null;`), false);
+  assert.ok(directory.includes(String.raw`if (!/^[1-9]\d*$/.test(rawId)) return null;`));
+  assert.ok(eventsHelp.includes(String.raw`if (!/^[1-9]\d*$/.test(source.id)) return null;`));
+  const valid = /^[1-9]\d*$/;
   for (const id of ["1", "42", "999999"]) assert.equal(valid.test(id), true);
-  for (const id of ["", "0", "02", "42-other", "42\\\\d", "-1", "4.2", "0x2A"]) {
+  for (const id of ["", "0", "02", "42-other", "42\\d", "-1", "4.2", "0x2A"]) {
     assert.equal(valid.test(id), false, id);
   }
 });
