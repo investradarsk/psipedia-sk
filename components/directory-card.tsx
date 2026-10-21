@@ -2,6 +2,7 @@ import Link from "next/link";
 import { directoryProfileHref, getDirectoryCategory, type PublicDirectoryProfile } from "@/lib/directory";
 import styles from "./directory-public.module.css";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system";
 
 export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) {
   const category = getDirectoryCategory(profile.category);
@@ -19,10 +20,10 @@ export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) 
       data-directory-card
       data-directory-featured={profile.featured ? "true" : undefined}
     >
-      <span className={`${styles.cardInner}${profile.imageUrl ? ` ${styles.cardWithImage}` : ""}`}>
-        {profile.imageUrl && (
-          <span className={styles.cardImage}><ImageDisplay roleHint="generic" context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /></span>
-        )}
+      <span className={`${styles.cardInner} ${styles.cardWithImage}`}>
+        <span className={styles.cardImage}>
+          {profile.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={profile.thumbnailImageDisplay} src={profile.imageUrl} alt="" loading="lazy" decoding="async" /> : <PublicMediaFallback />}
+        </span>
         <span className={styles.cardCopy}>
           <span className={styles.cardTopline}>
             <span className={styles.cardType}>{category?.singular ?? "Služba pre psov"}</span>
