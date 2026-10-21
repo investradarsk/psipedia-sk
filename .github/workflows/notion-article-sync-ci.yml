@@ -8,6 +8,7 @@ on:
       - "lib/notion-article-content-plan.ts"
       - "app/api/admin/articles/[id]/route.ts"
       - "docs/proposals/notion_article_editorial_outbox_UNNUMBERED_PROPOSAL.sql"
+      - "docs/proposals/0138_article_editorial_outbox_PENDING_0137.sql"
       - "tests/notion-article-content-writeback.test.mjs"
       - "tests/notion-article-editorial-retry.test.mjs"
       - "lib/article-publish-notion-reconciliation.ts"
