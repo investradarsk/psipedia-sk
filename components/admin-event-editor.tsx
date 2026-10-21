@@ -244,7 +244,9 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
             message={error ? <span className={styles.errorText} role="alert">{error}</span> : message || (dirty ? "Neuložené zmeny" : undefined)}
             destructive={status === "published" ? <AdminActionButton type="button" variant="secondary" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z kalendára</AdminActionButton> : undefined}
             secondary={status === "draft" ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="secondary" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton> : undefined}
-            primary={<AdminActionButton type="button" variant="primary" className={styles.publishButton} disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať podujatie"}</AdminActionButton>}
+            primary={status === "published"
+              ? <AdminActionButton type="submit" form="event-editor-v3-form" variant="primary" className={styles.publishButton} disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť zmeny"}</AdminActionButton>
+              : <AdminActionButton type="button" variant="primary" className={styles.publishButton} disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať podujatie"}</AdminActionButton>}
           />
         }
       >
