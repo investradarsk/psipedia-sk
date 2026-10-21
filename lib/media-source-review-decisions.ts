@@ -30,10 +30,38 @@ export function validateMediaReviewReason(value: unknown): string | null {
 }
 
 export async function assertMediaReviewSchema(database: D1Database) {
-  const found = await database.prepare(
-    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='media_source_review_decisions'",
-  ).first<{ ok: number }>();
-  if (!found?.ok) throw new Error("Schvaľovanie obrázkov čaká na D1 migráciu 0137.");
+  // A partially applied 0137 must fail closed. Checking only for the history
+  // table is insufficient: without the finalization trigger, a failed CAS
+  // could leave a canonical image change without a corresponding decision.
+  const requiredObjects = new Set([
+    "media_source_review_decisions",
+    "media_review_decision_finalization_guard",
+    "media_review_decisions_no_update",
+    "media_review_decisions_no_delete",
+    "media_review_decisions_monitor_time_idx",
+    "media_review_claims_idx",
+  ]);
+  const objects = await database.prepare(`
+    SELECT name FROM sqlite_master
+    WHERE name IN (
+      'media_source_review_decisions',
+      'media_review_decision_finalization_guard',
+      'media_review_decisions_no_update',
+      'media_review_decisions_no_delete',
+      'media_review_decisions_monitor_time_idx',
+      'media_review_claims_idx'
+    )
+  `).all<{ name: string }>();
+  const monitorColumns = await database.prepare(
+    "PRAGMA table_info(media_source_monitors)",
+  ).all<{ name: string }>();
+  const existingObjects = new Set((objects.results ?? []).map((row) => row.name));
+  const existingColumns = new Set((monitorColumns.results ?? []).map((row) => row.name));
+  if ([...requiredObjects].some((name) => !existingObjects.has(name)) ||
+      !existingColumns.has("review_claim_token") ||
+      !existingColumns.has("review_claimed_at")) {
+    throw new Error("Schvaľovanie obrázkov čaká na kompletnú D1 migráciu 0137.");
+  }
 }
 
 export async function claimMediaCandidate(
