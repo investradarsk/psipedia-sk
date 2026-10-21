@@ -61,6 +61,10 @@ export async function reconcileGeminiSavedDraft(input: {
       return { state: "NEEDS_REVIEW" };
   }
   const after = await readDraft();
+  // A concurrent Notion publication/rejection is not evidence of a private
+  // canonical draft. Require manual D1 verification instead of reporting READY.
+  if (after.reviewState === "PUBLISHED" || after.reviewState === "REJECTED")
+    return { state: "NEEDS_REVIEW" };
   const handoff = planGeminiPublishHandoff(key, after);
   return handoff.kind === "NATIVE_EDITOR_REQUIRED"
     ? { state: "CANONICAL_DRAFT_READY", editorUrl: handoff.editorUrl }
