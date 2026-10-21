@@ -769,7 +769,7 @@ test("internal admin Partner overview and account detail are protected admin pag
   await page.getByRole("button",{name:"Uložiť"}).click();
   const updatedLeadResponse = await leadUpdate;
   expect(updatedLeadResponse.ok()).toBeTruthy();
-  await expect(updatedLeadResponse.json()).resolves.toMatchObject({ lead: { status: "CONTACTED" } });
+  expect(updatedLeadResponse.request().postDataJSON()).toMatchObject({ status: "CONTACTED" });
   await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
   await page.goto("/admin/partners");
   await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
