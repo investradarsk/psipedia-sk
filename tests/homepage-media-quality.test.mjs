@@ -45,7 +45,6 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   ]);
   for (const [source, functionName] of [
     [directory, "getHomepageDirectoryProfilesWithImages"],
-    [events, "getHomepageUpcomingEventsWithImages"],
     [help, "getHomepageHighlightedHelpCasesWithImages"],
   ]) {
     const segment = source.slice(source.indexOf(`export async function ${functionName}`)).split("\nexport async function ")[0];
@@ -56,7 +55,13 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
     assert.doesNotMatch(segment, /fetch\(|\.filter\(\(.*imageUrl/);
     assert.match(page, new RegExp(functionName));
   }
-  assert.match(events, /getHomepageUpcomingEventsWithImages[\s\S]*cancelled = 0/);
+  // Upcoming events remain listed even when an approved photo is absent; EventImage has safe artwork.
+  const upcoming = events.slice(events.indexOf("export async function getHomepageUpcomingEventsWithImages")).split("\nexport async function ")[0];
+  assert.match(upcoming, /status = 'published'/);
+  assert.match(upcoming, /cancelled = 0/);
+  assert.match(upcoming, /ORDER BY start_date ASC, start_time ASC, id ASC LIMIT \?/);
+  assert.doesNotMatch(upcoming, /HOMEPAGE_REAL_IMAGE_SQL/);
+  assert.match(page, /getHomepageUpcomingEventsWithImages\(3\)/);
   assert.match(help, /getHomepageHighlightedHelpCasesWithImages[\s\S]*resolved = 0/);
   assert.match(help, /getHomepageHighlightedHelpCasesWithImages[\s\S]*category NOT IN/);
   assert.match(page, /directoryProfileHref\(profile\)/);
@@ -64,12 +69,12 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   assert.match(page, /helpCaseHref\(item\)/);
 });
 
-test("homepage image-backed cards cannot render placeholder nodes; empty states keep category CTAs", async () => {
+test("homepage previews preserve safe fallbacks and truthful empty messages", async () => {
   const [page, editorial, css, articleSelection, publicStyles] = await Promise.all([
     repoFile("app/page.tsx"), repoFile("components/home-editorial.tsx"), repoFile("app/home-v2.module.css"),
     repoFile("lib/homepage-content.ts"), repoFile("components/public-visual-system/public-visual-system.module.css"),
   ]);
-  for (const token of ["home-event-placeholder", "home-vet-mark", "home-help-placeholder"]) assert.doesNotMatch(page, new RegExp(token));
+  for (const token of ["home-event-placeholder", "home-vet-mark", "home-help-placeholder", "Nové podujatia práve dopĺňame", "Momentálne tu nie je otvorená výzva"]) assert.doesNotMatch(page, new RegExp(token));
   for (const selector of ["data-home-events-empty", "data-home-veterinarians-empty", "data-home-help-empty"]) assert.match(page, new RegExp(selector));
   assert.match(editorial, /data-home-section-cta/);
   assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage/);
