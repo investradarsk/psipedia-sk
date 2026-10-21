@@ -23,6 +23,11 @@ export type NotionEditorialOperation = {
   payload: RecordValue;
 };
 export type NotionEditorialPlan = {
+  // Immutable page and selected-block baseline. Missing or malformed recovery
+  // evidence is a conflict, never permission to force a historic journal.
+  pageGuard: string;
+  fullBlockOrder: string[];
+  blockSnapshots: Array<{ id: string; type: string; before: string }>;
   properties: RecordValue;
   propertyBefore: Record<string, string>;
   propertyAfter: Record<string, string>;
@@ -185,9 +190,11 @@ export function buildNotionEditorialPlan(args: {
   const desired = targetBlocks(article, args.siteUrl);
   if (desired.length !== remoteBlocks.length) fail("UNSUPPORTED_BLOCK_INSERT_DELETE");
   const operations: NotionEditorialOperation[] = [];
+  const blockSnapshots: NotionEditorialPlan["blockSnapshots"] = [];
   for (let i = 0; i < desired.length; i++) {
     const block = remoteBlocks[i];
     const before = shape(block);
+    blockSnapshots.push({ id: block.id, type: block.type, before: JSON.stringify(before) });
     const after = desired[i];
     if (before.type !== after.type) fail("UNSUPPORTED_BLOCK_REORDER_OR_TYPE");
     if (after.type === "table") {
@@ -249,5 +256,8 @@ export function buildNotionEditorialPlan(args: {
       [type]: notionText(value),
     };
   }
-  return { properties, propertyBefore, propertyAfter, blocks: operations };
+  // The caller binds pageGuard/fullBlockOrder after it has read the entire
+  // page. The planner itself has only the selected editorial child blocks.
+  return { pageGuard: "", fullBlockOrder: [], blockSnapshots,
+    properties, propertyBefore, propertyAfter, blocks: operations };
 }
