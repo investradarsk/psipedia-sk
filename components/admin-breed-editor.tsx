@@ -161,7 +161,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     <form id="breed-canonical-editor-form" className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <div className={styles.editorTopbar}>
       <p>{breed ? `ID ${breed.id} · ${form.status==="published"?"Publikované":"Koncept"}` : "Nový koncept plemena"}</p>
-      <div className={styles.editorTopbarActions}><AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton></div>
+      
     </div>
 
     <AdminEditorSection id="breed-basic" className={styles.sectionCard}>

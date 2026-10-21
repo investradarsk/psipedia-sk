@@ -80,6 +80,7 @@ test("ADMIN V3 content save and exit actions preserve publication and dirty stat
   assert.match(article, /setEditorDirty\(false\)/);
   assert.match(article, /backToEditor\?\.click\(\)/);
   assert.match(breed, /form="breed-canonical-editor-form"/);
+  assert.equal((breed.match(/Nastavenia, FCI a SEO/g) ?? []).length, 1, "settings drawer has only one trigger");
   assert.match(breed, /save\(form.status==="published"\?"published":"draft"\)/);
   assert.match(breed, /setCanonicalForm\(\(current\)=>\(\{\.\.\.current,status:data.breed!\.status\}\)\)/);
   assert.match(breed, /setExpectedUpdatedAt\(data.breed.updatedAt\)/);

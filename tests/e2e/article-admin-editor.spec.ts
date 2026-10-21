@@ -44,7 +44,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.getByLabel("Zdroj / autor fotografie").fill(`Credit ARTICLE ADMIN ${suffix}`);
     await page.getByLabel("URL zdroja fotografie").fill("https://example.com/photo-source");
 
-    await expect(page.getByRole("navigation", { name: "Sekcie editora článku" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Sekcie pracovného editora" })).toBeVisible();
     await expect(page.getByLabel("Autor", { exact: true })).toContainText("Redakcia Psipedia");
 
     await page.getByRole("button", { name: "+ Nový autor" }).click();
