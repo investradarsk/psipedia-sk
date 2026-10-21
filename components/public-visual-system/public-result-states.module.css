@@ -1,9 +1,9 @@
 .empty {
   min-width: 0;
-  color: var(--ps-color-text-primary, var(--ink));
+  color: var(--ink);
 }
 .empty :is(h2, h3) { overflow-wrap: anywhere; }
-.empty p { color: var(--ps-color-text-muted, var(--muted)); }
+.empty p { color: var(--muted); }
 .pagination {
   display: flex;
   min-width: 0;
@@ -17,7 +17,7 @@
   min-height: var(--ps-control-min-height, 44px);
   align-items: center;
 }
-.pagination a { color: var(--ps-color-action-primary, var(--forest)); }
+.pagination a { color: var(--forest); }
 .pagination a:focus-visible {
   outline: 3px solid var(--brand-focus, var(--forest));
   outline-offset: 3px;
@@ -27,11 +27,11 @@
 .notice {
   margin: 0;
   padding: 12px 14px;
-  border: 1px solid var(--ps-color-border-subtle, var(--line));
-  border-left: 4px solid var(--ps-color-action-primary, var(--forest));
+  border: 1px solid var(--ps-border-soft, var(--line));
+  border-left: 4px solid var(--forest);
   border-radius: var(--ps-radius-control, 12px);
-  color: var(--ps-color-text-primary, var(--ink));
-  background: var(--ps-color-surface, var(--paper));
+  color: var(--ink);
+  background: var(--paper);
   line-height: 1.5;
 }
 .success { border-left-color: var(--forest); }
@@ -44,13 +44,13 @@
   overflow-wrap: anywhere;
   border-radius: 999px;
   background: var(--sage-light, #edf3e9);
-  color: var(--ps-color-text-primary, var(--ink));
+  color: var(--ink);
 }
 .loading {
   display: inline-flex;
   gap: 10px;
   align-items: center;
-  color: var(--ps-color-text-muted, var(--muted));
+  color: var(--muted);
 }
 .spinner {
   display: inline-block;
