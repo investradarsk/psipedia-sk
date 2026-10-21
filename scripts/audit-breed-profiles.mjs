@@ -190,46 +190,54 @@ if (breedPaths.length !== EXPECTED_BREEDS) {
 }
 
 const workerCount = Math.min(workers, breedPaths.length);
+// Restart Chromium regularly instead of keeping a long-lived page/browser for all
+// 343 profiles. On constrained GitHub runners the former profile crawl crashed
+// inside the Chromium protocol after ~250 navigations, despite valid pages.
+// Every sitemap entry is still checked and any per-profile failure still fails CI.
+const BATCH_SIZE = 32;
 console.log(
-  `[breed-profile-audit] Loaded ${breedPaths.length} published canonical breed URLs from sitemap; checking with ${workerCount} worker(s).`,
+  `[breed-profile-audit] Loaded ${breedPaths.length} published canonical breed URLs from sitemap; checking with ${workerCount} worker(s) in isolated batches of ${BATCH_SIZE}.`,
 );
-
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-await context.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 
 const failures = [];
 let checked = 0;
-let nextIndex = 0;
 let nextProgress = 50;
 
-async function runWorker() {
-  const page = await context.newPage();
-  page.setDefaultNavigationTimeout(10_000);
-  page.setDefaultTimeout(5_000);
-
+for (let batchStart = 0; batchStart < breedPaths.length; batchStart += BATCH_SIZE) {
+  const batch = breedPaths.slice(batchStart, batchStart + BATCH_SIZE);
+  const browser = await chromium.launch({ headless: true });
   try {
-    while (true) {
-      const index = nextIndex;
-      nextIndex += 1;
-      if (index >= breedPaths.length) break;
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await context.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
+    let nextIndex = 0;
 
-      const path = breedPaths[index];
-      failures.push(...await checkBreedPath(page, path, { baseUrl, canonicalOrigin }));
-      checked += 1;
-
-      if (checked >= nextProgress || checked === breedPaths.length) {
-        console.log(`[breed-profile-audit] Checked ${checked}/${breedPaths.length}.`);
-        while (nextProgress <= checked) nextProgress += 50;
+    async function runWorker() {
+      const page = await context.newPage();
+      page.setDefaultNavigationTimeout(10_000);
+      page.setDefaultTimeout(5_000);
+      try {
+        while (true) {
+          const index = nextIndex++;
+          if (index >= batch.length) break;
+          const path = batch[index];
+          failures.push(...await checkBreedPath(page, path, { baseUrl, canonicalOrigin }));
+          checked++;
+          if (checked >= nextProgress || checked === breedPaths.length) {
+            console.log(`[breed-profile-audit] Checked ${checked}/${breedPaths.length}.`);
+            while (nextProgress <= checked) nextProgress += 50;
+          }
+        }
+      } finally {
+        await page.close();
       }
     }
+
+    await Promise.all(Array.from({ length: Math.min(workerCount, batch.length) }, () => runWorker()));
+    await context.close();
   } finally {
-    await page.close();
+    await browser.close();
   }
 }
-
-await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
-await browser.close();
 
 if (failures.length) {
   console.error(`[breed-profile-audit] FAIL: ${breedPaths.length} loaded / ${checked} checked / ${failures.length} issue(s).`);
