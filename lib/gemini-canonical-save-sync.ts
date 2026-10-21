@@ -42,8 +42,6 @@ export async function reconcileGeminiSavedDraft(input: {
   if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
     return { state: "NEEDS_REVIEW" };
   const already = planGeminiPublishHandoff(key, before);
-  if (already.kind === "ALREADY_PUBLISHED")
-    return { state: "NEEDS_REVIEW" }; // Publishing requires native editor.
   if (already.kind === "NATIVE_EDITOR_REQUIRED")
     return { state: "NEEDS_REVIEW", editorUrl: already.editorUrl }; // Import raced this save; inspect canonical content.
   if (already.kind === "INVALID") return { state: "NEEDS_REVIEW" };
