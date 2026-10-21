@@ -155,7 +155,7 @@ export function AdminSectionEditor({
   return (
     <EditorWorkspace
       mode="page"
-      title="Sekcie a podsekcie"
+      title="Editor sekcií a podsekcií"
       description="Verejné názvy, hierarchia, texty, poradie a SEO zostávajú v pôvodnom editore."
       status={<EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} />}
       sections={visibleSections.map((section) => ({ id: `portal-section-${section.slug}`, label: section.label }))}
