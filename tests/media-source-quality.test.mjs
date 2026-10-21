@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -54,6 +55,53 @@ test("background monitoring is bounded to one due check per source per day", () 
   assert.match(worker, /runMediaSourceMonitorSweep/);
   const fiveMinute = worker.split("if (!isFullHourlyScheduledSweep(controller)) {")[1]?.split("const \[summary,")[0] ?? "";
   assert.doesNotMatch(fiveMinute, /runMediaSourceMonitorSweep/);
+});
+
+test("quality location selectors use one SQL statement and keep category, region and archived filtering", () => {
+  const unionSql = dataQualityStore.match(/SELECT DISTINCT 'region' AS kind, region AS value[\s\S]*?ORDER BY kind, value COLLATE NOCASE/)?.[0];
+  assert.ok(unionSql, "combined quality facet query present");
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE directory_profiles (category TEXT, region TEXT, district TEXT, status TEXT)");
+    const insert = db.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?)");
+    for (const row of [
+      ["veterinari", "Nitriansky kraj", "Nitra", "published"],
+      ["veterinari", "Nitriansky kraj", "Levice", "draft"],
+      ["veterinari", "Bratislavský kraj", "Bratislava", "published"],
+      ["veterinari", "Žilinský kraj", "Žilina", "archived"],
+      ["treneri", "Trnavský kraj", "Trnava", "published"],
+    ]) insert.run(...row);
+
+    const run = (category, region) => {
+      const categoryClause = category ? " AND category=?" : "";
+      const regionClause = region ? " AND region=?" : "";
+      const sql = unionSql.replaceAll("$" + "{categoryClause}", categoryClause)
+        .replaceAll("$" + "{districtRegionClause}", regionClause);
+      const binds = [...(category ? [category, category] : []), ...(region ? [region] : [])];
+      const rows = db.prepare(sql).all(...binds);
+      return {
+        regions: rows.filter((row) => row.kind === "region").map((row) => row.value),
+        districts: rows.filter((row) => row.kind === "district").map((row) => row.value),
+      };
+    };
+    assert.deepEqual(run("veterinari", "Nitriansky kraj"), {
+      regions: ["Bratislavský kraj", "Nitriansky kraj"],
+      districts: ["Levice", "Nitra"],
+    });
+    assert.deepEqual(run("", ""), {
+      regions: ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj"],
+      districts: ["Bratislava", "Levice", "Nitra", "Trnava"],
+    });
+  } finally { db.close(); }
+});
+
+test("quality bulk reads have bounded concurrency and preserve ordered page results", () => {
+  assert.match(dataQualityStore, /Math\.min\(2, pageCount - index\)/);
+  assert.match(dataQualityStore, /const results = await Promise\.all\(/);
+  assert.match(dataQualityStore, /rows\.push\(\.\.\.pageRows\)/);
+  assert.match(dataQualityStore, /batches\.slice\(offset, offset \+ 3\)/);
+  assert.match(dataQualityStore, /for \(const result of batchResults\) suggestions\.push\(\.\.\.result\)/);
+  assert.match(dataQualityStore, /const \[profileNames, eventNames\] = await Promise\.all/);
 });
 
 test("source changes create a review candidate instead of silently replacing public media", () => {
