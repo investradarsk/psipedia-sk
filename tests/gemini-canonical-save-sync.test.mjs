@@ -177,3 +177,9 @@ test("ambiguous insert, mapping or Notion acknowledgement retains shared import/
     assert.equal(h.released.length, 0);
   }
 });
+
+test("targeted Directory save never bootstraps unrelated canonical profiles", () => {
+  const source = readFileSync(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /const changedIds = input\.targetPageId \? \[\] : await changedProfileIds/);
+  assert.match(source, /const bootstrapIds = input\.targetPageId \? \[\] : await bootstrapProfileIds/);
+});
