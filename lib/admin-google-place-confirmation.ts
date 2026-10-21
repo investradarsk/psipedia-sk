@@ -16,8 +16,6 @@ import {
 } from "@/lib/google-place-target-discovery";
 import { getManagedDirectoryProfileById, updateManagedDirectoryProfileLocationFromGooglePlace } from "@/lib/directory-store";
 import { getManagedEventById, updateManagedEventLocationFromGooglePlace } from "@/lib/event-store";
-import { adaptAddressGeo, adaptDirectoryAddress } from "@/lib/admin-address-adapters";
-import { previewGoogleAddressChange } from "@/lib/admin-google-address-preview";
 import { updateOrganizationLocationFromGooglePlace } from "@/lib/organization-location-admin-write";
 
 export type AdminGooglePlaceConfirmationInput = {
@@ -80,11 +78,10 @@ export async function confirmAdminGooglePlace(input: AdminGooglePlaceConfirmatio
   if (effectiveTargetType === "DIRECTORY_PROFILE") {
     const before = await getManagedDirectoryProfileById(effectiveTargetId);
     if (!before) throw new Error("Profil sa nenašiel.");
-    const preview = previewGoogleAddressChange({
-      snapshot: adaptDirectoryAddress(before, adaptAddressGeo(point, explicitPrivate)),
-      candidate: selected, intent: "ADMIN_RECONFIRM", expectedRevision: before.updatedAt,
-    });
-    if (!preview.readyForAuthorization) throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED: " + preview.reviewReasons.join("; "));
+    // The admin explicitly selected this server-verified Place ID.
+    // Strict structured-address completeness and name matching are for automatic
+    // enrichment, not for a human-confirmed Google Maps location. Keep the
+    // revision, privacy and manual-GEO locks checked above/below.
     profile = await updateManagedDirectoryProfileLocationFromGooglePlace(effectiveTargetId, selected, input.actorRef, undefined, before.updatedAt, originalGeoRevision);
     if (!profile) throw new Error("Profil sa nenašiel.");
     sourceMutated = true;

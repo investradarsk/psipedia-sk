@@ -244,6 +244,14 @@ type DirectoryProfileSummaryRow = {
   updated_at: string;
 };
 
+/** Read-model for homepage veterinarian cards; do not load complete profiles. */
+type HomepageDirectoryRow = Pick<DirectoryProfileRow,
+  "id" | "slug" | "name" | "category" | "city" | "district" |
+  "image_url" | "thumbnail_display_json"> & { fallback_district: string | null };
+export type HomepageDirectoryCard = Pick<PublicDirectoryProfile,
+  "id" | "slug" | "name" | "category" | "city" | "district" |
+  "imageUrl" | "thumbnailImageDisplay">;
+
 type DirectoryProfileCountRow = {
   total: number;
   published: number;
@@ -387,23 +395,20 @@ function googlePlaceDirectoryLocation(existing: ManagedDirectoryProfile, place: 
     district: existing.district,
     city: existing.city,
   });
-  if (current) return current;
-
-  const region = normalizeDirectoryRegion(place.address?.region)
-    ?? normalizeDirectoryRegion(existing.region)
-    ?? null;
+  const googleRegion = normalizeDirectoryRegion(place.address?.region);
+  const region = googleRegion ?? normalizeDirectoryRegion(existing.region);
   const locality = place.address?.locality?.trim() ?? "";
   const sublocality = place.address?.sublocality?.trim() ?? "";
   const candidates = [
     locality && sublocality ? `${locality} - ${sublocality}` : "",
     sublocality,
     locality,
-    existing.city,
   ].map((value) => value.trim()).filter(Boolean);
 
-  if (!region) {
-    return { region: "", district: "", city: candidates[0] ?? "" };
-  }
+  // A confirmed Google locality wins even if the old canonical locality was
+  // valid. Only fall back to the original locality when Google supplies none.
+  if (!candidates.length) return current ?? { region: region ?? "", district: "", city: "" };
+  if (!region) return { region: "", district: "", city: candidates[0] };
 
   const needles = [...new Set(candidates.map(normalizeSlovakLocationSearch).filter(Boolean))];
   const matches: Array<{ region: string; district: string; city: string }> = [];
@@ -942,16 +947,33 @@ export async function getPublishedDirectoryProfiles(category?: DirectoryCategory
 }
 
 /** Homepage-only image cards: filter at the database, not after the bounded LIMIT. */
-export async function getHomepageDirectoryProfilesWithImages(category: DirectoryCategorySlug, limit = 3) {
+export async function getHomepageDirectoryProfilesWithImages(
+  category: DirectoryCategorySlug,
+  limit = 3,
+): Promise<HomepageDirectoryCard[]> {
   const database = getD1Binding();
-  if (!database) return [] as PublicDirectoryProfile[];
+  if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database.prepare(`
-    SELECT ${DIRECTORY_PROFILE_COLUMNS} FROM directory_profiles
+    SELECT id, slug, name, category, city, district, image_url, thumbnail_display_json,
+      CASE WHEN json_valid(source_data_json)
+        AND json_type(source_data_json, '$."Okres"') IN ('text', 'integer', 'real')
+        THEN CAST(json_extract(source_data_json, '$."Okres"') AS TEXT)
+        ELSE NULL END AS fallback_district
+    FROM directory_profiles
     WHERE status = 'published' AND category = ? AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY featured DESC, name ASC, id ASC LIMIT ?
-  `).bind(category, safeLimit).all<DirectoryProfileRow>();
-  return result.results.map(rowToPublicProfile);
+  `).bind(category, safeLimit).all<HomepageDirectoryRow>();
+  return result.results.map((row): HomepageDirectoryCard => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    category: isDirectoryCategory(row.category) ? row.category : "salony-a-sluzby",
+    city: runtimeDirectoryLocationText(row.city),
+    district: runtimeDirectoryLocationText(row.district) || runtimeDirectoryLocationText(row.fallback_district),
+    imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+  }));
 }
 
 export async function listPublishedDirectoryProfiles(options: {
@@ -1299,13 +1321,14 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
 
   if (expectedUpdatedAt !== undefined && existing.updatedAt !== expectedUpdatedAt) throw new Error("GOOGLE_CONFIRMATION_CONFLICT");
   const location = googlePlaceDirectoryLocation(existing, place);
-  const street = place.address?.street?.trim() || existing.street || "";
-  const houseNumber = place.address?.houseNumber?.trim() || existing.houseNumber || "";
-  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode?.trim() || existing.postalCode || "");
-  const addressFormat: DirectoryAddressFormat | "" = existing.addressFormat || (street ? "STREET" : houseNumber ? "MUNICIPALITY_NUMBER" : "");
-  if (place.address?.street?.trim() && !place.address?.houseNumber?.trim() && existing.houseNumber && place.address.street.trim() !== existing.street?.trim()) {
-    throw new Error("GOOGLE_ADDRESS_REVIEW_REQUIRED");
-  }
+  // An explicit Google selection replaces the *location* fields. Do not mix
+  // an old street, house number or postcode with a different Google place.
+  // A Google place can be valid even with an incomplete structured address.
+  const street = place.address?.street?.trim() ?? "";
+  const houseNumber = place.address?.houseNumber?.trim() ?? "";
+  const postalCode = normalizeSlovakPostalCode(place.address?.postalCode?.trim() ?? "");
+  const addressFormat: DirectoryAddressFormat | "" = street ? "STREET" : houseNumber ? "MUNICIPALITY_NUMBER" : "";
+  const formattedAddress = place.formattedAddress.trim() || existing.address;
   const searchText = directorySearchText({
     name: existing.name,
     excerpt: existing.excerpt,
@@ -1315,7 +1338,7 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
     region: location.region,
     district: location.district,
     city: location.city,
-    address: place.formattedAddress,
+    address: formattedAddress,
     postalCode,
     street,
     houseNumber,
@@ -1339,7 +1362,7 @@ export async function updateManagedDirectoryProfileLocationFromGooglePlace(
     location.region,
     location.district,
     location.city,
-    place.formattedAddress,
+    formattedAddress,
     postalCode,
     street,
     houseNumber,

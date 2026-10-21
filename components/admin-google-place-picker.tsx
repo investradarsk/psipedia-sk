@@ -9,6 +9,19 @@ export type AdminGooglePlaceCandidate = {
   formattedAddress: string;
 };
 
+// Internal workflow codes must never appear in the editorial UI.
+function googlePlaceErrorText(message: string) {
+  const code = message.split(":")[0].trim();
+  const translations: Record<string, string> = {
+    GOOGLE_ADDRESS_REVIEW_REQUIRED: "Google Maps miesto sa nepodarilo uložiť. Skontroluj adresu a skús to znova.",
+    GOOGLE_CONFIRMATION_CONFLICT: "Profil sa medzitým zmenil. Obnov stránku a vyber miesto znova.",
+    GOOGLE_CONFIRMATION_REPAIR_REQUIRED: "Adresa sa uložila, ale mapové údaje potrebujú opravu. Obnov stránku a skontroluj stav.",
+    GOOGLE_CONFIRMATION_INCOMPLETE: "Miesto sa nepodarilo úplne potvrdiť. Skús to znova.",
+    GOOGLE_ONLINE_EVENT_FORBIDDEN: "Online podujatie nemôže mať fyzické miesto v Google Maps.",
+  };
+  return translations[code] ?? message;
+}
+
 export function AdminGooglePlacePicker({
   targetType,
   targetId,
@@ -99,7 +112,7 @@ export function AdminGooglePlacePicker({
       setMessage("Google Maps miesto bolo potvrdené.");
       await onConfirmed?.();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo potvrdiť.");
+      setError(googlePlaceErrorText(caught instanceof Error ? caught.message : "Google Maps miesto sa nepodarilo potvrdiť."));
     } finally {
       setBusy(false);
     }
@@ -123,6 +136,7 @@ export function AdminGooglePlacePicker({
       {!configured ? <p className="admin-help">Google Places momentálne nie je dostupné.</p> : null}
       {candidates.length ? (
         <div style={{ display: "grid", gap: 8 }}>
+          <p className="admin-help">Vybrané miesto z Google Maps bude mať prednosť pred doterajšou adresou a polohou. Názov profilu sa nezmení. Potvrď iba miesto, o ktorom vieš, že je správne.</p>
           {candidates.map((candidate) => (
             <div className="admin-message" key={candidate.id} style={{ overflowWrap: "anywhere", maxWidth: "100%" }}>
               <strong>{candidate.displayName || "Google Maps miesto"}</strong>

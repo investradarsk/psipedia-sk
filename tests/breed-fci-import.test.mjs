@@ -63,6 +63,10 @@ function database() {
   applyMigration(sqlite,"../drizzle/0034_adoption_dogs_foundation.sql");
   applyMigration(sqlite,"../drizzle/0036_help_organizations_foundation.sql");
   applyMigration(sqlite,"../drizzle/0040_organization_locations_foundation.sql");
+  // Homepage event cards now select image_display explicitly. Mirror the
+  // production migration order: 0118 creates this field before 0122 adds
+  // thumbnail/detail configuration; omitting 0118 makes the fixture invalid.
+  applyMigration(sqlite,"../drizzle/0118_event_image_display.sql");
   applyMigration(sqlite,"../drizzle/0122_entity_image_display_config.sql");
   return {sqlite,d1:createD1Adapter(sqlite)};
 }
