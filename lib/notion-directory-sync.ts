@@ -39,7 +39,7 @@ import {
 } from "@/lib/media-source-monitor";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
 import { SITE_URL } from "@/config/public-site";
-import { notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
+import { canRecoverNotionDirectoryMapping, notionDirectoryUpdateSafety } from "@/lib/notion-directory-update-safety";
 import { gemini22PriorityEnabled, mergeGeminiDirectoryPriority } from "@/lib/notion-gemini-22-priority";
 import { readProfileFieldBaseline, recordProfileFieldBaseline } from "@/lib/notion-profile-field-baseline";
 import { reconcileProfileFields, trustedProfileBaselineFromHashes } from "@/lib/notion-profile-field-reconciliation";
@@ -1264,12 +1264,18 @@ async function recoverMappingFromPage(input: {
   }
   const monitor = await getMediaSourceMonitorForEntity(input.database, "DIRECTORY_PROFILE", profile.id);
   const hash = await snapshotHash(profileSnapshot(profile, monitor?.sourceImageUrl || externalSourceImageUrl(profile.imageUrl)));
+  // A stale/untrusted Notion "Sync hash" must never fabricate a common
+  // baseline or connect a page with divergent editorial content.
+  const notionHash = await snapshotHash(notionSnapshot(input.page));
+  if (!canRecoverNotionDirectoryMapping(hash, notionHash)) {
+    throw new Error("DIRECTORY_RECOVERY_BASELINE_MISMATCH");
+  }
   const now = new Date().toISOString();
   await saveMapping({
     database: input.database,
     pageId: input.page.id,
     profileId,
-    contentHash: propertyText(input.page, "Sync hash") || hash,
+    contentHash: hash,
     notionLastEditedTime: input.page.last_edited_time ?? null,
     psipediaUpdatedAt: profile.updatedAt,
     syncedAt: now,
