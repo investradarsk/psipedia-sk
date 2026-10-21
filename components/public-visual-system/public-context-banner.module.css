@@ -1,4 +1,6 @@
 .banner {
+  /* Shared radius token; section tones keep their own intentional colors. */
+  --ps-banner-radius: var(--ps-radius-filter, 18px);
   --context-banner-ink: var(--forest-dark, #17352b);
   --context-banner-muted: var(--muted, #5f6e66);
   display: grid;
