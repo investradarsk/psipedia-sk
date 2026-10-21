@@ -755,16 +755,29 @@ export async function rejectMediaSourceCandidate(input: {
   }
   // Never delete R2 before the durable D1 decision + history commits.
   await deleteCandidate(input.bindings.BUCKET, row.candidateImageKey);
-  const refreshedRaw = await input.database.prepare(
-    "SELECT * FROM media_source_monitors WHERE id=? LIMIT 1",
-  ).bind(row.id).first<MonitorRow>();
-  if (!refreshedRaw) throw new Error("Kontrola obrázka sa po zamietnutí nenašla.");
-  const outcome = await monitorOne({
-    database: input.database,
-    bindings: input.bindings,
-    row: rowToMonitor(refreshedRaw),
-    now,
-  });
+  // Re-discovery is optional follow-up work, not part of the committed
+  // decision. Never report a successful immutable D1 rejection as failed
+  // simply because a later network scan or refresh has failed.
+  let outcome: Awaited<ReturnType<typeof monitorOne>> | "skipped" = "skipped";
+  try {
+    const refreshedRaw = await input.database.prepare(
+      "SELECT * FROM media_source_monitors WHERE id=? LIMIT 1",
+    ).bind(row.id).first<MonitorRow>();
+    if (refreshedRaw) {
+      outcome = await monitorOne({
+        database: input.database,
+        bindings: input.bindings,
+        row: rowToMonitor(refreshedRaw),
+        now,
+      });
+    }
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "media_source_post_reject_sweep_failed",
+      monitorId: row.id,
+      errorType: error instanceof Error ? error.name : "Unknown",
+    }));
+  }
   return { monitorId: row.id, rejectedUrl: row.candidateImageUrl, outcome };
 }
 
