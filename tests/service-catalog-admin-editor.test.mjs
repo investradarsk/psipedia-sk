@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 const read=p=>fs.readFileSync(new URL("../"+p,import.meta.url),"utf8");
+import {catalogEditorItems,eligibleProfileServiceItems} from "../lib/service-catalog-admin-editor-view.ts";
 const view=read("lib/service-catalog-admin-editor-view.ts");
 const page=read("app/admin/sluzby-pre-psov/katalog/page.tsx");
 const profile=read("components/admin-service-profile-values.tsx");
@@ -68,4 +69,25 @@ test("only ACTIVE/SYNCED dynamic services and attributes are selectable on profi
  assert.match(profile,/const changed=entries\.filter/);
  assert.match(profile,/item\.id,choice,expectedVersion:saved\[item\.id\]/);
  assert.match(profile,/Hodnoty s výberom viacerých možností/);
+});
+
+test("runtime dynamic attribute eligibility is fail-closed until ACTIVE and SYNCED",()=>{
+ const dynamic=(id,status,mirror)=>({
+  id:"attr.admin."+id.repeat(32),kind:"attribute",label:"Test attribute "+id,
+  group:"Audit",meaning:"Explicit test-only tri-state property.",
+  categories:["veterinari"],status,notionMirrorStatus:mirror,version:1,
+ });
+ const draft=dynamic("a","DRAFT","PENDING");
+ const pending=dynamic("b","ACTIVE","PENDING");
+ const approved=dynamic("c","ACTIVE","SYNCED");
+ const retired=dynamic("d","RETIRED","SYNCED");
+ const different={...dynamic("e","ACTIVE","SYNCED"),categories:["treneri"]};
+ const eligible=eligibleProfileServiceItems(catalogEditorItems([draft,pending,approved,retired,different]),"veterinari");
+ assert.equal(eligible.some(x=>x.id===draft.id),false);
+ assert.equal(eligible.some(x=>x.id===pending.id),false);
+ assert.equal(eligible.some(x=>x.id===approved.id),true);
+ assert.equal(eligible.some(x=>x.id===retired.id),false);
+ assert.equal(eligible.some(x=>x.id===different.id),false);
+ assert.equal(eligible.find(x=>x.id===approved.id)?.valueKind,"tri_state");
+ assert.ok(eligible.some(x=>x.source==="built_in"&&x.kind==="attribute"));
 });
