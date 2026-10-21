@@ -1,0 +1,99 @@
+.field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--ps-color-text-primary, var(--ink));
+}
+
+.label {
+  font-size: .8rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.hint {
+  color: var(--ps-color-text-muted, var(--muted));
+  font-size: .75rem;
+  line-height: 1.45;
+}
+
+.control {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ps-form-control-min-height, 44px);
+  padding: 10px 13px;
+  border: 1px solid var(--ps-border-strong, #ccd7cf);
+  border-radius: var(--ps-radius-control, 12px);
+  color: var(--ps-color-text-primary, var(--ink));
+  background: var(--ps-color-surface, var(--paper));
+  font: inherit;
+  line-height: 1.35;
+}
+
+.control::placeholder {
+  color: var(--ps-color-text-muted, var(--muted));
+  opacity: 1;
+}
+
+.control:focus-visible,
+.choice input:focus-visible {
+  outline: 3px solid var(--brand-focus, var(--forest));
+  outline-offset: 2px;
+}
+
+.control:disabled,
+.choice input:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+.control[aria-invalid="true"],
+.invalid .control {
+  border-color: var(--brand-accent-strong, #b94732);
+}
+
+.select {
+  cursor: pointer;
+}
+
+.textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.choice {
+  display: inline-flex;
+  min-height: var(--ps-form-control-min-height, 44px);
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--ps-color-text-primary, var(--ink));
+  font-size: .875rem;
+}
+
+.choice input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ps-color-action-primary, var(--forest));
+  flex: 0 0 auto;
+}
+
+.choice:has(input:disabled) {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+@media (forced-colors: active) {
+  .control,
+  .choice input {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+  .control:focus-visible,
+  .choice input:focus-visible {
+    outline-color: Highlight;
+  }
+}
