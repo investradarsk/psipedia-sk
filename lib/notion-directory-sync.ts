@@ -1618,7 +1618,9 @@ export async function runNotionDirectorySyncSweep(input: {
     }
   }
 
-  const bootstrapIds = await bootstrapProfileIds(input.database);
+  // A one-page Gemini save must not bootstrap unrelated canonical profiles.
+  // Regular scheduled sync continues to bootstrap as before.
+  const bootstrapIds = input.targetPageId ? [] : await bootstrapProfileIds(input.database);
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);
