@@ -34,7 +34,7 @@ test('rejects noncanonical, malformed, parametric and hostile loc URLs',()=>{
   for(const url of ['relative','http://psipedia.sk/','https://other.com/','https://psipedia.sk.evil.org/','https://psipedia.sk/?a=1','https://psipedia.sk/#hash'])assert.equal(validSitemapXml(urlset.replace('https://psipedia.sk/',url)),false,url);
 });
 test('rejects wrong XML namespace, empty sitemap, misplaced or repeated loc',()=>{
-  for(const xml of ['','  ',urlset.replace(ns,'http://wrong.example/ns'),'<urlset xmlns="'+ns+'"></urlset>','<urlset xmlns="'+ns+'"><loc>https://psipedia.sk/</loc></urlset>',urlset.replace('</loc>','</loc><loc>https://psipedia.sk/again</loc>')])assert.equal(validSitemapXml(xml),false);
+  for(const xml of ['','  ',urlset.replace(ns,'http://wrong.example/ns'),'<urlset xmlns="'+ns+'"></urlset>','<urlset xmlns="'+ns+'"><loc>https://psipedia.sk/</loc></urlset>',urlset.replace('</loc>','</loc><loc>https://psipedia.sk/again</loc>'),urlset.replace('</loc>','<x:node xmlns:x="https://example.com/extension"/></loc>')])assert.equal(validSitemapXml(xml),false);
 });
 test('rejects duplicate attributes, undefined namespace and unsafe PI',()=>{
   for(const xml of [urlset.replace('<url>','<url x="1" x="2">'),urlset.replace('<url>','<url><x:loc>https://psipedia.sk/</x:loc>'),urlset.replace('<url>','<url><?run x?>')])assert.equal(validSitemapXml(xml),false);
