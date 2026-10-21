@@ -364,7 +364,6 @@ test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing 
   const layoutCss = read("components/public-visual-system/public-landing-layout.module.css");
   const hero = read("components/public-visual-system/unified-section-hero.tsx");
 
-  // DS-6 compact spacing: guard the approved shared desktop and mobile tokens.
   assert.match(layoutCss, /--public-space-functional:\s*20px/);
   assert.match(layoutCss, /--public-space-section:\s*30px/);
   assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*--public-space-functional:\s*18px[\s\S]*--public-space-section:\s*24px/);
