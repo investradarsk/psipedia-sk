@@ -653,8 +653,8 @@ async function loadQualitySuggestionsForProfiles(
   const batches = chunks(relevantIds, 80);
   // D1 reads are independent, but bound concurrency to avoid exhausting
   // Cloudflare Workers' outgoing connection budget on large quality queues.
-  for (let offset = 0; offset < batches.length; offset += 3) {
-    const batchResults = await Promise.all(batches.slice(offset, offset + 3).map((batch) =>
+  for (let offset = 0; offset < batches.length; offset += 2) {
+    const batchResults = await Promise.all(batches.slice(offset, offset + 2).map((batch) =>
       listCanonicalAutomationUpdateSuggestionsForEntities({
         entityType: "DIRECTORY",
         canonicalEntityIds: batch,
