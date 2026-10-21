@@ -12,7 +12,7 @@ const api = (draft: GeminiAgendaDraft) =>
 
 export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   draft: GeminiAgendaDraft;
-  onSaved: () => void;
+  onSaved: (keepEditorOpen?: boolean) => void;
 }) {
   const [values, setValues] = useState<Values>(() => initial(draft));
   const [baseline, setBaseline] = useState<Values>(() => initial(draft));
@@ -93,7 +93,8 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         : "Koncept uložený v Notione; D1 import vyžaduje kontrolu. Nič sa nepublikovalo.")
         : action === "approve" ? "Koncept pripravený na import; D1 profil zostáva neverejný." :
           action === "reject" ? "Koncept odmietnutý." : "Koncept obnovený.");
-      onSaved();
+      onSaved(action === "save" && Boolean(data.canonicalSave?.state === "CANONICAL_DRAFT_READY" &&
+        /^\/admin\/(?:adresar|podujatia|organizacie|adopcie|pomoc|stratene-najdene)\/[1-9][0-9]*$/.test(data.canonicalSave.editorUrl ?? "")));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Zápis do Notionu zlyhal.");
     } finally {
