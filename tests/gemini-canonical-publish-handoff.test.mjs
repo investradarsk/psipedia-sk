@@ -86,3 +86,15 @@ test("agenda publish handoff is explicit, guarded, and never reports public stat
   assert.match(route, /published: false/);
   assert.doesNotMatch(route, /mutateGeminiAgendaDraft|approveGeminiDirectoryDraft/);
 });
+
+test("agenda save, review and publish handoff use one synchronous single-flight lock", () => {
+  const component = readFileSync(new URL("../components/admin-gemini-agenda-draft-editor.tsx", import.meta.url), "utf8");
+  assert.match(component, /const requestInFlight = useRef\(false\)/);
+  assert.equal((component.match(/if \(busy \|\| requestInFlight\.current\) return;/g) ?? []).length, 2,
+    "Both save/review and publish must reject double clicks before a pending React rerender");
+  assert.equal((component.match(/requestInFlight\.current = true;/g) ?? []).length, 2);
+  assert.equal((component.match(/requestInFlight\.current = false;/g) ?? []).length, 2,
+    "Error and finalization both release the UI single-flight guard");
+  assert.match(component, /window\.location\.assign\(result\.editorUrl\)/);
+  assert.match(component, /finally \{\s*requestInFlight\.current = false;\s*setBusy\(false\);/);
+});
