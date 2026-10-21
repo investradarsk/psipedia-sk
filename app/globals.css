@@ -9378,8 +9378,43 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .footer-cookie-button:hover { text-decoration: underline; }
 
 @media (max-width: 680px) {
-  .cookie-consent { grid-template-columns: 1fr; bottom: .75rem; padding: 1rem; }
-  .cookie-consent__actions { min-width: 0; }
+  /* DS-7: smaller mobile consent panel, without hiding the disclosure or choices. */
+  .cookie-consent {
+    width: min(720px, calc(100% - 1rem));
+    grid-template-columns: minmax(0, 1fr);
+    gap: .625rem;
+    align-items: start;
+    bottom: .5rem;
+    padding: .75rem;
+    border-radius: 14px;
+    max-height: calc(100vh - 1rem);
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cookie-consent strong { margin-bottom: .2rem; font-size: .9375rem; }
+  .cookie-consent p { font-size: .8125rem; line-height: 1.38; }
+  .cookie-consent small { margin-top: .25rem; font-size: .75rem; }
+  .cookie-consent__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .5rem;
+    width: 100%;
+    min-width: 0;
+  }
+  .cookie-consent__actions .button {
+    min-width: 0;
+    min-height: 44px;
+    padding: .5rem .375rem;
+    font-size: .78rem;
+    line-height: 1.22;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+  .cookie-consent__actions .button:nth-child(3):last-child {
+    grid-column: 1 / -1;
+  }
   .admin-section-item > header,
   .admin-subsection-heading { align-items: flex-start; flex-direction: column; }
   .admin-subsection-row { grid-template-columns: 1fr; }
