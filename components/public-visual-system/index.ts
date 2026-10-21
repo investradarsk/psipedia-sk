@@ -37,6 +37,8 @@ export type {
   PublicSubcategoryNavigatorMode,
 } from "./public-subcategory-navigator";
 export { PublicContextBanner } from "./public-context-banner";
+export { PublicPhotoGallery } from "./public-photo-gallery";
+export type { PublicPhotoGalleryImage } from "./public-photo-gallery";
 export type {
   PublicContextBannerImage,
   PublicContextBannerTone,
