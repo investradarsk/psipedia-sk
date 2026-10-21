@@ -231,13 +231,31 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(registerReturnTo);
   await expect(page.getByRole("heading",{name:"Dokončite Partner účet"})).toBeVisible();
 
-  await page.getByLabel("Meno a priezvisko *").fill(contactName);
-  await page.getByLabel("Telefón").fill(contactPhone);
-  await page.getByLabel("Vaša úloha / vzťah k profilu").fill(relationship);
   await expectNoHorizontalOverflow(page);
   const onboardingAccessibility = await new AxeBuilder({ page }).analyze();
   expect(onboardingAccessibility.violations).toEqual([]);
+
+  // The SSR form can be visible before React hydrates its controlled fields.
+  // Filling it before the accessibility scan allowed hydration to clear the
+  // required name in CI, preventing the browser from submitting anything.
+  const contactNameInput = page.getByLabel("Meno a priezvisko *");
+  const contactPhoneInput = page.getByLabel("Telefón");
+  const contactRelationshipInput = page.getByLabel("Vaša úloha / vzťah k profilu");
+  await contactNameInput.fill(contactName);
+  await contactPhoneInput.fill(contactPhone);
+  await contactRelationshipInput.fill(relationship);
+  await expect(contactNameInput).toHaveValue(contactName);
+  await expect(contactPhoneInput).toHaveValue(contactPhone);
+  await expect(contactRelationshipInput).toHaveValue(relationship);
+
+  const onboardingSaveResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/api/partner/onboarding" &&
+    response.request().method() === "POST",
+  );
   await page.getByRole("button",{name:"Pokračovať do Partner účtu"}).click();
+  const onboardingSaved = await onboardingSaveResponse;
+  expect(onboardingSaved.status()).toBe(200);
+  await expect(onboardingSaved.json()).resolves.toMatchObject({ success: true });
 
   if(project==="mobile-chromium"){
     await expect(page).toHaveURL(/\/partner\/prevziat-profil\/DIRECTORY_PROFILE\/990001$/);
