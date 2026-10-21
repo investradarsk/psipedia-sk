@@ -96,26 +96,28 @@ function adminDashboardDatabase() {
 
 export async function getAdminDataQualitySummary(): Promise<AdminDataQualitySummary> {
   const database = adminDashboardDatabase();
-  const profileRow = await database.prepare(`
-    SELECT COUNT(*) AS count
-    FROM directory_profiles
-    WHERE status <> 'archived'
-      AND (
-        trim(COALESCE(description, '')) = ''
-        OR trim(COALESCE(image_url, '')) = ''
-        OR (
-          COALESCE(online, 0) = 0
-          AND (
-            trim(COALESCE(city, '')) = ''
-            OR COALESCE(service_address_confirmation, '') <> 'CONFIRMED_SERVICE_LOCATION'
+  // Independent D1 reads should not serialize on every admin dashboard load.
+  const [profileRow, monitorTable] = await Promise.all([
+    database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM directory_profiles
+      WHERE status <> 'archived'
+        AND (
+          trim(COALESCE(description, '')) = ''
+          OR trim(COALESCE(image_url, '')) = ''
+          OR (
+            COALESCE(online, 0) = 0
+            AND (
+              trim(COALESCE(city, '')) = ''
+              OR COALESCE(service_address_confirmation, '') <> 'CONFIRMED_SERVICE_LOCATION'
+            )
           )
         )
-      )
-  `).first<CountRow>();
-
-  const monitorTable = await database.prepare(
-    "SELECT 1 AS count FROM sqlite_master WHERE type='table' AND name='media_source_monitors' LIMIT 1",
-  ).first<CountRow>();
+    `).first<CountRow>(),
+    database.prepare(
+      "SELECT 1 AS count FROM sqlite_master WHERE type='table' AND name='media_source_monitors' LIMIT 1",
+    ).first<CountRow>(),
+  ]);
   const mediaRow = monitorTable
     ? await database.prepare(
         "SELECT COUNT(*) AS count FROM media_source_monitors WHERE status IN ('CANDIDATE','CHANGED','MISSING','ERROR')",
