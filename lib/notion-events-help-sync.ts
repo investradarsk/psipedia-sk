@@ -481,7 +481,7 @@ async function saveMapping(input: {
 
 function sourceId(source: CanonicalSourceRecord) {
   // parseInt("123-unrelated") would silently alias canonical profile #123.
-  if (!/^[1-9]\\d*$/.test(source.id)) return null;
+  if (!/^[1-9]\d*$/.test(source.id)) return null;
   const id = Number(source.id);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
