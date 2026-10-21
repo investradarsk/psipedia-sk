@@ -22,7 +22,7 @@ function fixture() {
  return {db,schema};
 }
 test("0135 target requires immutable SHA, exact production identity, approved 0134 predecessor and manual one-shot confirmation",()=>{
- assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2),target);
+ assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3),target);
  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
  assert.equal(createHash("sha256").update(sql).digest("hex"),PINNED_SHA256_0135);
  assert.equal(APPROVED_0135_SHA256,PINNED_SHA256_0135);
@@ -38,7 +38,7 @@ test("0135 target requires immutable SHA, exact production identity, approved 01
  assert.match(runner,/assert0135NotAlreadyApplied\(targetMigration, state\.targetApplied\)/);
  assert.match(runner,/assert0135NotAlreadyApplied\(targetMigration, internal\.targetApplied \|\| liveState\.targetApplied\)/);
  const chain=[...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),
-   ...SUPPORTED_PRODUCTION_TARGETS.slice(0, -1)];
+   ...SUPPORTED_PRODUCTION_TARGETS.filter(name=>Number(name.slice(0,4))<=135)];
  assert.deepEqual(validateProductionTargetHistory(chain.slice(0,-1),chain,target),
    {latestIndex:134,targetApplied:false});
  assert.throws(()=>validateProductionTargetHistory(chain.slice(0,-2),chain,target),/expected exactly 0134/);
