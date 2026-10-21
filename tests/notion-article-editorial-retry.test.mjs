@@ -14,7 +14,7 @@ function fingerprint(block) {
   const records = block[block.type]?.rich_text ?? [];
   return JSON.stringify({ type: block.type, value: records.map(x => x.plain_text ?? x.text?.content ?? "").join("") });
 }
-function setup({ enabled = true } = {}) {
+function setup({ enabled = true, inactiveAtRead = null } = {}) {
   const pageId = "f2222222-2222-4222-8222-222222222222";
   const notion = {
     id: pageId,
@@ -103,12 +103,17 @@ function setup({ enabled = true } = {}) {
       };
     },
   };
+  let pageReads = 0;
   const fetchMock = async (endpoint, options = {}) => {
     const url = new URL(endpoint);
     const method = options.method ?? "GET";
     calls.push([method, url.pathname]);
     if (url.pathname === "/v1/pages/" + pageId) {
-      if (method === "GET") return Response.json(structuredClone(notion));
+      if (method === "GET") {
+        pageReads++;
+        if (inactiveAtRead?.read === pageReads) notion[inactiveAtRead.flag] = true;
+        return Response.json(structuredClone(notion));
+      }
       const props = JSON.parse(options.body).properties;
       for (const [key, value] of Object.entries(props)) {
         const raw = { ...value };
@@ -337,3 +342,26 @@ test("reordered planned blocks never trigger partial Notion writes", async () =>
   assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0);
   assert.equal(h.mapping.content_hash, "baseline-hash");
 });
+
+
+for (const flag of ["archived", "in_trash"]) {
+  for (const [read, stage] of [[1, "initial lookup"], [2, "pre-mutation read"], [3, "final readback"]]) {
+    test(`Notion ${flag} at ${stage} refuses writeback success and retains recovery journal`, async () => {
+      const h = setup({ inactiveAtRead: { read, flag } });
+      h.failSecond = false;
+      const writer = await loadWriter(h);
+      await assert.rejects(
+        writer({ database: h.db, bindings: h.bindings, article: h.article }),
+        /NOTION_ARTICLE_IDENTITY_CONFLICT/,
+      );
+      if (read < 3) {
+        assert.equal(h.calls.filter(([verb]) => verb === "PATCH").length, 0,
+          "a known withdrawn page must receive no remote mutation");
+      }
+      assert.equal(h.mapping.content_hash, "baseline-hash");
+      assert.equal(h.notion.properties["Sync stav"], undefined);
+      assert.equal(h.journal.deleted, undefined,
+        "a withdrawal during an attempt must not erase its recovery evidence");
+    });
+  }
+}
