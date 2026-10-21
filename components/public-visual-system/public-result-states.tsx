@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import styles from "./public-result-states.module.css";
 
 function classes(...values: Array<string | undefined | false>) {
@@ -41,6 +41,9 @@ export function PublicPagination({
   label = "Stránkovanie výsledkov",
   previousLabel = "← Predchádzajúca",
   nextLabel = "Ďalšia →",
+  numberedPages,
+  pageHref,
+  showDisabledControls = true,
 }: {
   currentPage: number;
   totalPages: number;
@@ -50,17 +53,29 @@ export function PublicPagination({
   label?: string;
   previousLabel?: string;
   nextLabel?: string;
+  numberedPages?: number[];
+  pageHref?: (page: number) => string;
+  showDisabledControls?: boolean;
 }) {
   if (totalPages <= 1) return null;
   return (
     <nav className={classes(styles.pagination, className)} aria-label={label} data-public-pagination>
       {previousHref
         ? <Link href={previousHref} rel="prev">{previousLabel}</Link>
-        : <span aria-disabled="true">{previousLabel}</span>}
-      <strong aria-current="page">Strana {currentPage} z {totalPages}</strong>
+        : showDisabledControls ? <span aria-disabled="true">{previousLabel}</span> : null}
+      {numberedPages && pageHref ? (
+        numberedPages.map((page, index) => (
+          <Fragment key={page}>
+            {index > 0 && page > numberedPages[index - 1] + 1 ? <span aria-hidden="true">…</span> : null}
+            <Link href={pageHref(page)} aria-current={page === currentPage ? "page" : undefined}>{page}</Link>
+          </Fragment>
+        ))
+      ) : (
+        <strong aria-current="page">Strana {currentPage} z {totalPages}</strong>
+      )}
       {nextHref
         ? <Link href={nextHref} rel="next">{nextLabel}</Link>
-        : <span aria-disabled="true">{nextLabel}</span>}
+        : showDisabledControls ? <span aria-disabled="true">{nextLabel}</span> : null}
     </nav>
   );
 }
