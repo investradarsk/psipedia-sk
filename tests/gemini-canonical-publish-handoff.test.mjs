@@ -23,7 +23,7 @@ test("all 22 categories require matching canonical D1 identity for a publication
     assert.match(mapped.editorUrl, /^\/admin\//);
     assert.equal(planGeminiPublishHandoff(item.stableKey, { ...draft,
       psipediaId: "77", canonicalVerified: true, reviewState: "PUBLISHED" }).kind,
-    "ALREADY_PUBLISHED", item.stableKey);
+    "NATIVE_EDITOR_REQUIRED", item.stableKey);
     assert.equal(planGeminiPublishHandoff(item.stableKey, { ...draft,
       psipediaId: "77", canonicalVerified: true, reviewState: "REJECTED" }).kind,
     "INVALID", item.stableKey);
@@ -53,4 +53,22 @@ test("no guessed canonical route from untrusted identities", () => {
   assert.equal(planGeminiPublishHandoff("directory.veterinari",draft).kind,"INVALID");
   assert.equal(planGeminiPublishHandoff("directory.treneri",{...draft,psipediaId:"1"}).kind,"INVALID");
   assert.equal(planGeminiPublishHandoff("invalid",{...draft,psipediaId:"1"}).kind,"INVALID");
+});
+
+test("Notion PUBLISHED status does not assert live D1 publication", () => {
+  for (const item of geminiAutomationCatalog) {
+    const agenda = geminiAgendaForKey(item.stableKey);
+    const draft = { psipediaId: "93", canonicalVerified: true, reviewState: "PUBLISHED",
+      ...(agenda ? { agenda, stableKey: item.stableKey } : { category: item.subcategory }) };
+    const result = planGeminiPublishHandoff(item.stableKey, draft);
+    assert.equal(result.kind, "NATIVE_EDITOR_REQUIRED", item.stableKey);
+    assert.ok(result.editorUrl?.startsWith("/admin/"), item.stableKey);
+  }
+});
+test("save and review reject mismatched or unknown Gemini stable_key before write", () => {
+  const route = readFileSync(new URL("../app/api/admin/gemini-automation/notion-drafts/[id]/route.ts", import.meta.url), "utf8");
+  assert.match(route, /const item = key \? getGeminiCatalogItem\(key\) : null/g);
+  assert.match(route, /current\.category !== item\.subcategory/g);
+  assert.match(route, /Zápis sa nevykonal/g);
+  assert.match(route, /geminiValidNotionDraftId\(id\)/g);
 });
