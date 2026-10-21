@@ -18,6 +18,7 @@ import {
 import type { AdoptionPublicOrganizationLink } from "@/lib/adoption-store";
 import styles from "./adoption-detail.module.css";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicPhotoGallery } from "@/components/public-visual-system";
 
 type Fact = { label: string; value: string };
 
@@ -87,7 +88,7 @@ export function AdoptionDetail({ dog, organization }: { dog: PublicAdoptionDetai
         {sections.compatibility && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Domácnosť</span><h2>Kompatibilita</h2><Facts items={compatibilityFacts} /></section>}
         {sections.health && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Zdravie</span><h2>Zdravotné informácie</h2><Facts items={healthFacts} />{dog.healthNotes.trim() && <p className={styles.preline}>{dog.healthNotes}</p>}{dog.specialNeeds.trim() && <><h3>Špeciálne potreby</h3><p className={styles.preline}>{dog.specialNeeds}</p></>}</section>}
         {sections.requirements && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Nový domov</span><h2>Podmienky adopcie</h2><p className={styles.preline}>{dog.adoptionRequirements}</p></section>}
-        {sections.gallery && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Fotografie</span><h2>Galéria</h2><div className={styles.detailGallery}>{dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => <img key={`${image}-${index}`} src={image} alt={`${dog.name} – fotografia ${index + 2}`} />)}</div></section>}
+        {sections.gallery && <section className={styles.detailPanel}><span className={styles.detailEyebrow}>Fotografie</span><h2>Galéria</h2><PublicPhotoGallery label={`Fotografie psa ${dog.name}`} images={dog.gallery.filter(Boolean).slice(0, 6).map((image, index) => ({ src: image, alt: `${dog.name} – fotografia ${index + 2}` }))} /></section>}
       </article>
 
       <aside className={styles.detailAside} aria-label="Kontakt a aktuálnosť profilu">
