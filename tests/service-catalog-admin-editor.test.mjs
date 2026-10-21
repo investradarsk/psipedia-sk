@@ -42,7 +42,7 @@ test("draft/conflicted/retired dynamics are excluded on profile",()=>{
  assert.match(catalog,/RETIRED/);
 });
 test("navigation and cancel do not silently discard draft values",()=>{assert.match(catalog,/Zahodiť neuložený koncept/);assert.match(profile,/Zahodiť neuložené hodnoty služieb/);});
-test("Services profile feedback does not create a second generic status role in Directory editor",()=>{assert.doesNotMatch(profile,/<span role="status">/);assert.match(profile,/<span aria-live="polite" aria-atomic="true">/);});
+test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/className=\{styles\.actionMessage\} role="status" aria-live="polite"/);});
 test("no lifecycle controls invoke unsupported mutation endpoint",()=>{
  assert.match(catalog,/Upraviť/);
  assert.match(catalog,/Schváliť/);
