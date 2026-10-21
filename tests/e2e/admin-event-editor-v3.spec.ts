@@ -278,10 +278,15 @@ test("Events V3: other internal links are guarded, edits remain after choosing S
 });
 
 test("Events V3: browser Back is guarded when Navigation API supports cancellation", async ({ page }) => {
-  await page.goto("/");
   const root = await openEditor(page, "published");
   const supportsNavigation = await page.evaluate(() => "navigation" in window);
   test.skip(!supportsNavigation, "Browser has no Navigation API; native beforeunload remains in EditorWorkspace.");
+  // Seed same-document browser history so a cancellable traversal is exercised,
+  // without crossing the document boundary from a full page.goto().
+  await page.evaluate(() => {
+    window.history.replaceState(window.history.state, "", "?fixture=published&step=before");
+    window.history.pushState(window.history.state, "", "?fixture=published");
+  });
   await root.getByLabel("Názov podujatia").fill("Rozpracované úpravy");
   await page.evaluate(() => window.history.back());
   const guard = page.getByRole("dialog", { name: "Neuložené zmeny" });
@@ -291,7 +296,7 @@ test("Events V3: browser Back is guarded when Navigation API supports cancellati
   await page.evaluate(() => window.history.back());
   await expect(guard).toBeVisible();
   await guard.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL(/fixture=published&step=before/);
 });
 
 for (const width of [1440, 390, 320]) {
