@@ -1385,6 +1385,7 @@ export async function runNotionDirectorySyncSweep(input: {
   // Optional one-page operator recovery, using the exact existing sync pipeline.
   // Never automatically invoked or used for routine sweep scheduling.
   targetPageId?: string;
+  expectedNotionRevision?: string;
 }): Promise<NotionDirectorySyncSummary> {
   const enabled = notionFlagEnabled(input.bindings.NOTION_DIRECTORY_SYNC_ENABLED);
   const summary: NotionDirectorySyncSummary = {
@@ -1414,6 +1415,8 @@ export async function runNotionDirectorySyncSweep(input: {
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
       throw new Error("NOTION_TARGET_PAGE_INVALID");
     const targetPage = await fetchNotionPage(input.bindings, input.targetPageId);
+    if (input.expectedNotionRevision && targetPage.last_edited_time !== input.expectedNotionRevision)
+      throw new Error("GEMINI_SAVED_REVISION_CHANGED");
     const parent = (targetPage as NotionPage & { parent?: { data_source_id?: string } }).parent;
     if (parent?.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
       throw new Error("NOTION_TARGET_DATA_SOURCE_MISMATCH");
@@ -1467,6 +1470,8 @@ export async function runNotionDirectorySyncSweep(input: {
         release = await acquireGeminiNotionLock(input.database, page.id);
         if (!release) continue;
         page = await fetchNotionPage(input.bindings, page.id);
+        if (input.targetPageId && input.expectedNotionRevision && page.last_edited_time !== input.expectedNotionRevision)
+          throw new Error("GEMINI_SAVED_REVISION_CHANGED");
         if (!propertyText(page, "Psipedia ID") && !notionProfileReadyForCreate(page, trustedGemini)) continue;
       }
       let mapping = await loadMappingByPage(input.database, page.id);
@@ -1619,7 +1624,9 @@ export async function runNotionDirectorySyncSweep(input: {
     }
   }
 
-  const bootstrapIds = await bootstrapProfileIds(input.database);
+  // A one-page Gemini save must not bootstrap unrelated canonical profiles.
+  // Regular scheduled sync continues to bootstrap as before.
+  const bootstrapIds = input.targetPageId ? [] : await bootstrapProfileIds(input.database);
   for (const profileId of bootstrapIds) {
     try {
       const profile = await getManagedDirectoryProfileById(profileId, input.database);

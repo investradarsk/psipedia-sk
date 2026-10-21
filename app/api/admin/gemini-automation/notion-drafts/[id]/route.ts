@@ -9,6 +9,7 @@ import {
 import { geminiAgendaForKey, getGeminiAgendaDraft, mutateGeminiAgendaDraft, GeminiAgendaReviewError } from "@/lib/gemini-notion-agenda-review";
 import { geminiValidNotionDraftId } from "@/lib/gemini-concept-manager";
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import { reconcileGeminiSavedDraft, type GeminiCanonicalSaveResult } from "@/lib/gemini-canonical-save-sync";
 
 export const dynamic = "force-dynamic";
 const HEADERS = { "cache-control": "no-store" };
@@ -70,10 +71,41 @@ export async function PUT(request: Request, { params }: Props) {
     const { id } = await params;
     const body: unknown = await request.json();
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
-    const draft = key && geminiAgendaForKey(key)
+    const item = key ? getGeminiCatalogItem(key) : null;
+    if (!geminiValidNotionDraftId(id) || (key && !item))
+      return Response.json({ error: "Neplatné ID alebo neznáma kategória konceptu." }, { status: 400, headers: HEADERS });
+    if (item?.section === "directory") {
+      const current = await getGeminiDirectoryDraft(env, id);
+      if (current.category !== item.subcategory ||
+          (body && typeof body === "object" && !Array.isArray(body) &&
+            "category" in body && (body as { category: unknown }).category !== item.subcategory))
+        return Response.json({ error: "Koncept nepatrí do požadovanej kategórie. Zápis sa nevykonal." },
+          { status: 409, headers: HEADERS });
+    }
+    const isAgenda = Boolean(item && geminiAgendaForKey(key));
+    const draft = isAgenda
       ? await mutateGeminiAgendaDraft(env, key, id, body, auth.user.email)
       : await saveGeminiDirectoryDraft(env, id, body, auth.user.email);
-    return Response.json({ draft }, { headers: HEADERS });
+    // An explicit user save may also persist the same signed concept as a
+    // private canonical D1 draft through the original one-page sync pipeline.
+    // A Notion save remains truthful even when D1 reconciliation is blocked.
+    const stableKey = isAgenda ? key
+      : "category" in draft ? "directory." + draft.category : "";
+    let canonicalSave: GeminiCanonicalSaveResult = { state: "NOTION_ONLY" };
+    const database = (env as unknown as { DB?: D1Database }).DB;
+    if (database && getGeminiCatalogItem(stableKey)) {
+      try {
+        canonicalSave = await reconcileGeminiSavedDraft({
+          database,
+          bindings: env as unknown as Parameters<typeof reconcileGeminiSavedDraft>[0]["bindings"],
+          key: stableKey, notionPageId: id, savedRevision: draft.lastEditedAt,
+        });
+      } catch {
+        // Never auto-retry a potentially completed Notion/D1 write.
+        canonicalSave = { state: "NEEDS_REVIEW" };
+      }
+    }
+    return Response.json({ draft, canonicalSave }, { headers: HEADERS });
   } catch (error) { return fail(error); }
 }
 
@@ -86,6 +118,15 @@ export async function PATCH(request: Request, { params }: Props) {
       return Response.json({ error: "Vyžaduje sa výslovné potvrdenie." }, { status: 400, headers: HEADERS });
     const { id } = await params;
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
+    const item = key ? getGeminiCatalogItem(key) : null;
+    if (!geminiValidNotionDraftId(id) || (key && !item))
+      return Response.json({ error: "Neplatné ID alebo neznáma kategória konceptu." }, { status: 400, headers: HEADERS });
+    if (item?.section === "directory") {
+      const current = await getGeminiDirectoryDraft(env, id);
+      if (current.category !== item.subcategory)
+        return Response.json({ error: "Koncept nepatrí do požadovanej kategórie. Zápis sa nevykonal." },
+          { status: 409, headers: HEADERS });
+    }
     const draft = key && geminiAgendaForKey(key)
       ? await mutateGeminiAgendaDraft(env, key, id, body, auth.user.email)
       : await reviewGeminiDirectoryDraft(env, id, body, auth.user.email);
