@@ -44,11 +44,12 @@ export function HomePortalSearch({
         <strong>{title}</strong>
       </div>
       <div className="home-search-main">
-        <form action={action} method="get" className="home-search-form" role="search" data-public-search-form={searchScope}>
+        <form action={action} method="get" className="home-search-form" role="search" data-public-search-form={searchScope} data-public-search-ui="main">
           {hidden.map((field) => <input type="hidden" name={field.name} value={field.value} key={field.name} />)}
-          <SearchIcon size={23} />
-          <label className="sr-only" htmlFor={id}>{label}</label>
-          <input
+          <span className="public-search-entry">
+            <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
+            <label className="sr-only" htmlFor={id}>{label}</label>
+            <input
             id={id}
             name={inputName}
             placeholder={placeholder}
@@ -57,7 +58,8 @@ export function HomePortalSearch({
             minLength={allowEmpty ? undefined : 2}
             maxLength={120}
             required={!allowEmpty}
-          />
+            />
+          </span>
           <button type="submit">{buttonLabel}</button>
         </form>
         {shortcuts.length > 0 && (

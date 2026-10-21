@@ -63,17 +63,20 @@ function declarations(text) {
   return result;
 }
 
-function aliasBlock() {
-  assert.equal(css.split(start).length, 2, "the START marker must occur once");
-  assert.equal(css.split(end).length, 2, "the END marker must occur once");
-  const a = css.indexOf(start);
-  const b = css.indexOf(end, a + start.length);
-  assert.ok(a >= 0 && b > a && b < css.indexOf("\n}\n"), "aliases must stay in the original :root");
-  return { content: css.slice(a + start.length, b), before: css.slice(0, a), after: css.slice(b + end.length) };
+function aliasBlock(source = css) {
+  assert.equal(source.split(start).length, 2, "the START marker must occur once");
+  assert.equal(source.split(end).length, 2, "the END marker must occur once");
+  const a = source.indexOf(start);
+  const b = source.indexOf(end, a + start.length);
+  assert.ok(a >= 0 && b > a && b < source.indexOf("\n}\n"), "aliases must stay in the original :root");
+  return { content: source.slice(a + start.length, b), before: source.slice(0, a), after: source.slice(b + end.length) };
 }
 
 test("DS-1A original CSS is byte-identical after excluding the isolated DS-5 extension", () => {
-  const block = aliasBlock();
+  const ds3Marker = "\n/* DS-3 PUBLIC SEARCH";
+  assert.equal(css.split(ds3Marker).length, 2, "exactly one DS-3 public-search extension is required");
+  const preDs3Css = css.split(ds3Marker)[0].replace(/\n+$/, "\n");
+  const block = aliasBlock(preDs3Css);
   const ds5Start = "\n/* DS-5 PUBLIC CARDS, GRIDS & MEDIA START";
   const ds5End = "/* DS-5 PUBLIC CARDS, GRIDS & MEDIA END */\n";
   assert.equal(block.after.split(ds5Start).length, 2, "exactly one DS-5 extension is required");
