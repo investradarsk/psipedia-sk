@@ -1,6 +1,7 @@
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
 export type DirectoryDetailFact = { label: string; value: string };
@@ -189,9 +190,9 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     excerpt: profile.excerpt,
     services: profile.services,
     qualifications: profile.qualifications,
-    city: profile.city,
-    district: profile.district,
-    region: profile.region,
+    city: publicLocationValue(profile.city, "city"),
+    district: publicLocationValue(profile.district, "district"),
+    region: publicLocationValue(profile.region, "region"),
     address: publicAddress,
     priceNote: profile.priceNote,
     openingHours: usefulDirectoryDetailValue(importedValue(profile, "Ordinačné hodiny", "Otváracie hodiny", "Otváracia doba", "Ordinačná doba", "Pracovná doba")),
