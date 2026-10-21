@@ -102,3 +102,25 @@ test("ADMIN V3 article hidden file inputs cannot escape their labels", () => {
   assert.match(css, /min-height:\s*0/);
   assert.match(css, /clip-path:\s*inset\(50%\)/);
 });
+
+test("ADMIN V3 section and puppy editors use guarded workspace without replacing their canonical PUT APIs", () => {
+  const section = read("components/admin-section-editor.tsx");
+  const puppy = read("components/admin-puppy-area-editor.tsx");
+  for (const source of [section, puppy]) {
+    assert.match(source, /<EditorWorkspace/);
+    assert.match(source, /<EditorActionBar/);
+    assert.match(source, /<EditorStatus/);
+    assert.match(source, /dirty={dirty}/);
+    assert.match(source, /data-admin-editor-section/);
+    assert.match(source, /"\/api\/admin\/sections"/);
+    assert.match(source, /method: "PUT"/);
+    assert.match(source, /setDirty\(false\)/);
+  }
+  assert.match(section, /initialOpenSlug/);
+  assert.match(section, /subpages/);
+  assert.match(section, /updateSections/);
+  assert.match(puppy, /section\.subpages\.map/);
+  assert.match(puppy, /subpage\.href \? subpage/);
+  assert.match(puppy, /uploadAdminImage/);
+  assert.match(puppy, /imageAlt/);
+});
