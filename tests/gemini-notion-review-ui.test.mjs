@@ -197,6 +197,7 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
                 canonicalSave: {state: 'CANONICAL_DRAFT_READY', editorUrl}}});
             }
           }
+          if (method === 'GET') return route.fulfill({json: {items: [], regions: [], districts: [], cities: []}});
           return route.fulfill({status: 503, json: {error: 'Unexpected test request ' + method + ' ' + url.pathname}});
         });
         await page.goto('https://fixture.test/?category=' + category);
