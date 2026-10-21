@@ -208,7 +208,8 @@ export function validSitemapXml(xml: string): boolean {
       else if (parent.local === "sitemapindex") allowed = ns === SITEMAP_NS && local === "sitemap";
       else if (parent.local === "url") allowed = ns !== SITEMAP_NS || ["loc", "lastmod", "changefreq", "priority"].includes(local);
       else if (parent.local === "sitemap") allowed = ns === SITEMAP_NS && ["loc", "lastmod"].includes(local);
-      else allowed = ns !== SITEMAP_NS;
+      else if (["loc", "lastmod", "changefreq", "priority"].includes(parent.local)) allowed = false;
+      else allowed = !!ns && ns !== SITEMAP_NS;
       if (!allowed) return false;
       if (ns === SITEMAP_NS) {
         const n = (parent.children.get(local) ?? 0) + 1;
