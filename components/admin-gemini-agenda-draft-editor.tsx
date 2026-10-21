@@ -18,6 +18,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [baseline, setBaseline] = useState<Values>(() => initial(draft));
   const [revision, setRevision] = useState(draft.lastEditedAt);
   const [reviewState, setReviewState] = useState(draft.reviewState);
+  const [canonicalEditorUrl, setCanonicalEditorUrl] = useState("");
   const [busy, setBusy] = useState(false);
   // React state changes are batched; a ref closes the double-click window
   // before a second request can reach the D1/Notion reconciliation endpoint.
@@ -28,7 +29,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [rejectionReason, setRejectionReason] = useState("");
   // The button only navigates to the verified native editor. It never publishes a D1 row.
   async function openCanonicalPublisher() {
-    if (busy || requestInFlight.current) return;
+    if (busy || requestInFlight.current || canonicalEditorUrl) return;
     if (draft.fields.some(field => field.editable && !Object.is(values[field.name], baseline[field.name]))) {
       setError("Najprv ulož rozpracované zmeny konceptu. Publikovanie nie je spustené.");
       return;
@@ -55,7 +56,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
     }
   }
   async function submit(action: "save" | "approve" | "reject" | "restore") {
-    if (busy || requestInFlight.current) return;
+    if (busy || requestInFlight.current || canonicalEditorUrl) return;
     requestInFlight.current = true;
     setError(""); setMessage("");
     // PATCH only actually edited fields. Preserves rich-text mentions, formatted
@@ -74,7 +75,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         body: JSON.stringify({ action, lastEditedAt: revision,
           ...(action === "save" ? { fields: changed } : { confirm: true, ...(action === "reject" ? { reason: rejectionReason.trim() } : {}) }) }),
       });
-      const data = await response.json() as { draft?: GeminiAgendaDraft; canonicalSave?: { state: string }; error?: string };
+      const data = await response.json() as { draft?: GeminiAgendaDraft; canonicalSave?: { state: string; editorUrl?: string }; error?: string };
       if (!response.ok || !data.draft) throw Error(data.error || "Notion neodpovedá. Over stav konceptu pred opakovaním.");
       setValues(initial(data.draft));
       setBaseline(initial(data.draft));
@@ -82,6 +83,11 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       setReviewState(data.draft.reviewState);
       setConfirm(null);
       setRejectionReason("");
+      // A confirmed private D1 import ends Notion-only editing. The only next
+      // write path is the native editor, never another stale Notion PATCH.
+      if (action === "save" && data.canonicalSave?.state === "CANONICAL_DRAFT_READY" &&
+          /^\/admin\/(?:adresar|podujatia|organizacie|adopcie|pomoc|stratene-najdene)\/[1-9][0-9]*$/.test(data.canonicalSave.editorUrl ?? ""))
+        setCanonicalEditorUrl(data.canonicalSave.editorUrl!);
       setMessage(action === "save" ? (data.canonicalSave?.state === "CANONICAL_DRAFT_READY"
         ? "Koncept uložený v Notione a prepojený s neverejným D1 profilom."
         : "Koncept uložený v Notione; D1 import vyžaduje kontrolu. Nič sa nepublikovalo.")
@@ -96,7 +102,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
     }
   }
 
-  const readOnly = !["NEW", "IN_PROGRESS"].includes(reviewState);
+  const readOnly = Boolean(canonicalEditorUrl) || !["NEW", "IN_PROGRESS"].includes(reviewState);
   const supportedFields = draft.fields.filter(field => field.synced);
   const otherFields = draft.fields.filter(field => !field.synced);
   return (
@@ -160,6 +166,7 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         )}
         {error && <p role="alert">{error}</p>}
         {message && <p role="status">{message}</p>}
+      {canonicalEditorUrl && <p role="status">Neverejný D1 koncept je pripravený. Ďalšie úpravy a výslovné publikovanie dokonči v kanonickom editore.</p>}
         <div className="admin-editor-actions">
           <button type="submit" disabled={busy || readOnly}>{busy ? "Ukladám…" : "Uložiť ako koncept"}</button>
           {!draft.psipediaId && (reviewState !== "APPROVED" || draft.agenda === "help-cases") && (
@@ -173,11 +180,12 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
               Pripraviť na import
             </button>
           )}
-          <button type="button" disabled={busy || !draft.psipediaId || draft.canonicalVerified !== true}
+          <button type="button" disabled={busy || Boolean(canonicalEditorUrl) || !draft.psipediaId || draft.canonicalVerified !== true}
             onClick={() => void openCanonicalPublisher()}>
             Publikovať (otvoriť D1 editor)
           </button>
-          {!draft.psipediaId && <p role="status">Najprv ulož a bezpečne importuj neverejný koncept. Bez overenej D1 identity sa publikovanie nepovolí.</p>}
+          {canonicalEditorUrl && <a href={canonicalEditorUrl}>Otvoriť overený D1 editor →</a>}
+          {!draft.psipediaId && !canonicalEditorUrl && <p role="status">Najprv ulož a bezpečne importuj neverejný koncept. Bez overenej D1 identity sa publikovanie nepovolí.</p>}
         </div>
       </form>
       {confirm && (
