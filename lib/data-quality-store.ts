@@ -465,23 +465,25 @@ async function loadDirectoryLocationOptions(database: D1Database, filters: Profi
   const categoryClause = filters.category !== "all" && filters.category !== "podujatia" ? " AND category=?" : "";
   const categoryBindings = categoryClause ? [filters.category] : [];
   const districtRegionClause = filters.region ? " AND region=?" : "";
-  const [regions, districts] = await Promise.all([
-    database.prepare(`
-      SELECT DISTINCT region AS value
-      FROM directory_profiles
-      WHERE status <> 'archived' AND trim(COALESCE(region, '')) <> ''${categoryClause}
-      ORDER BY region COLLATE NOCASE
-    `).bind(...categoryBindings).all<{ value: string }>(),
-    database.prepare(`
-      SELECT DISTINCT district AS value
-      FROM directory_profiles
-      WHERE status <> 'archived' AND trim(COALESCE(district, '')) <> ''${categoryClause}${districtRegionClause}
-      ORDER BY district COLLATE NOCASE
-    `).bind(...categoryBindings, ...(filters.region ? [filters.region] : [])).all<{ value: string }>(),
-  ]);
-  const values = (rows: { results?: Array<{ value: string }> }) =>
-    (rows.results ?? []).map((row) => row.value?.trim()).filter((value): value is string => Boolean(value));
-  return { regionOptions: values(regions), districtOptions: values(districts) };
+  // Combine two independent DISTINCT lookups into one D1 round trip. Both
+  // groups retain their original category/region filters and NOCASE order.
+  const result = await database.prepare(`
+    SELECT DISTINCT 'region' AS kind, region AS value
+    FROM directory_profiles
+    WHERE status <> 'archived' AND trim(COALESCE(region, '')) <> ''${categoryClause}
+    UNION ALL
+    SELECT DISTINCT 'district' AS kind, district AS value
+    FROM directory_profiles
+    WHERE status <> 'archived' AND trim(COALESCE(district, '')) <> ''${categoryClause}${districtRegionClause}
+    ORDER BY kind, value COLLATE NOCASE
+  `).bind(...categoryBindings, ...categoryBindings, ...(filters.region ? [filters.region] : []))
+    .all<{ kind: "region" | "district"; value: string }>();
+  const values = (kind: "region" | "district") =>
+    (result.results ?? [])
+      .filter((row) => row.kind === kind)
+      .map((row) => row.value?.trim())
+      .filter((value): value is string => Boolean(value));
+  return { regionOptions: values("region"), districtOptions: values("district") };
 }
 
 async function loadProfileQualityPage(
@@ -570,10 +572,8 @@ async function loadProfileQualityPage(
   const rows: DirectoryQualityRow[] = [];
   const pageSize = loadAllMatches ? 500 : paging.pageSize;
   const firstOffset = loadAllMatches ? 0 : (paging.page - 1) * paging.pageSize;
-  const pageCount = loadAllMatches ? Math.max(1, Math.ceil(resultCount / pageSize)) : 1;
-  for (let index = 0; index < pageCount; index += 1) {
-    const offset = firstOffset + (index * pageSize);
-    const result = await db.prepare(`
+  const pageCount = resultCount === 0 ? 0 : loadAllMatches ? Math.ceil(resultCount / pageSize) : 1;
+  const loadPage = (offset: number) => db.prepare(`
       SELECT id, slug, name, category, status, description, website_url, image_url, image_key,
              address, online, city, district, region, service_address_confirmation, source_data_json,
              CASE WHEN ${GOOGLE_MAPS_NOT_REQUIRED_SQL} THEN 1 ELSE 0 END AS google_maps_not_required
@@ -583,8 +583,23 @@ async function loadProfileQualityPage(
       ORDER BY name COLLATE NOCASE ASC, id ASC
       LIMIT ? OFFSET ?
     `).bind(...resultFilter.bindings, pageSize, offset).all<DirectoryQualityRow>();
-    rows.push(...(result.results ?? []));
-    if (!loadAllMatches || (result.results ?? []).length < pageSize) break;
+  // Normal browsing still fetches only one page. The "solution" filter needs
+  // all matching profiles: fetch two independent, ordered pages per wave rather
+  // than waiting for every 500-row D1 round trip serially.
+  let exhausted = false;
+  for (let index = 0; index < pageCount && !exhausted; index += 2) {
+    const results = await Promise.all(
+      Array.from({ length: Math.min(2, pageCount - index) }, (_, withinWave) =>
+        loadPage(firstOffset + (index + withinWave) * pageSize)),
+    );
+    for (const result of results) {
+      const pageRows = result.results ?? [];
+      rows.push(...pageRows);
+      if (pageRows.length < pageSize) {
+        exhausted = true;
+        break;
+      }
+    }
   }
 
   const profiles = rows.map((row) => {
@@ -634,12 +649,18 @@ async function loadQualitySuggestionsForProfiles(
       .filter((id) => Number.isSafeInteger(id) && id > 0),
   )];
 
-  const suggestions = [];
-  for (const batch of chunks(relevantIds, 80)) {
-    suggestions.push(...await listCanonicalAutomationUpdateSuggestionsForEntities({
-      entityType: "DIRECTORY",
-      canonicalEntityIds: batch,
-    }, db));
+  const suggestions: Awaited<ReturnType<typeof listCanonicalAutomationUpdateSuggestionsForEntities>> = [];
+  const batches = chunks(relevantIds, 80);
+  // D1 reads are independent, but bound concurrency to avoid exhausting
+  // Cloudflare Workers' outgoing connection budget on large quality queues.
+  for (let offset = 0; offset < batches.length; offset += 2) {
+    const batchResults = await Promise.all(batches.slice(offset, offset + 2).map((batch) =>
+      listCanonicalAutomationUpdateSuggestionsForEntities({
+        entityType: "DIRECTORY",
+        canonicalEntityIds: batch,
+      }, db),
+    ));
+    for (const result of batchResults) suggestions.push(...result);
   }
 
   const profileIssues = new Map(
@@ -826,8 +847,11 @@ export async function resolveDataQualityMediaItems(
 ): Promise<MediaQualityItem[]> {
   const profileIds = uniqueIds(monitors, "DIRECTORY_PROFILE");
   const eventIds = uniqueIds(monitors, "MANAGED_EVENT");
-  const profileNames = await loadProfileNames(db, profileIds);
-  const eventNames = await loadEventNames(db, eventIds);
+  // Distinct entity types have no lookup dependencies.
+  const [profileNames, eventNames] = await Promise.all([
+    loadProfileNames(db, profileIds),
+    loadEventNames(db, eventIds),
+  ]);
   const profileNameMap = new Map(profileNames.map((item) => [Number(item.id), item]));
   const eventNameMap = new Map(eventNames.map((item) => [Number(item.id), item]));
 
