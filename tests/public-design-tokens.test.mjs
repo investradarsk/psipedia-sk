@@ -140,23 +140,43 @@ test("root and admin import order remains the original contract", () => {
   assert.match(admin, /data-admin-workspace/);
 });
 
-test("new aliases have no CSS consumers in public or admin modules during DS-1A", () => {
+test("DS-1A aliases may be adopted only in canonical public CTA rules", () => {
   const forbidden = new RegExp("var\\(\\s*(?:" + [...expected.keys()].join("|") + ")(?:\\s*[,)]|\\s*$)");
-  const relevant = /\.(?:css|scss|sass)$/i;
+  const ctaPath = "components/public-visual-system/public-visual-system.module.css";
   const checked = [];
   function walk(folder) {
     for (const item of readdirSync(new URL("../" + folder + "/", import.meta.url), { withFileTypes: true })) {
       const path = folder + "/" + item.name;
       if (item.isDirectory()) walk(path);
-      else if (item.isFile() && relevant.test(item.name) && path !== "app/design-system.css") {
+      else if (item.isFile() && /\.(?:css|scss|sass)$/i.test(item.name) && path !== "app/design-system.css") {
         checked.push(path);
-        assert.doesNotMatch(read(path), forbidden, "unexpected alias usage in " + path);
+        const content = read(path);
+        if (path === ctaPath) {
+          const start = content.indexOf(".actionPrimary {");
+          const end = content.indexOf(".loadingIndicator {", start);
+          assert.ok(start >= 0 && end > start, "canonical CTA rules must exist");
+          const actions = content.slice(start, end);
+          const outside = content.slice(0, start) + content.slice(end);
+          assert.doesNotMatch(outside, forbidden, "unexpected semantic use outside canonical action rules");
+          const allowed = new Set([
+            "--ps-color-action-primary",
+            "--ps-color-action-primary-hover",
+            "--ps-color-action-primary-text",
+          ]);
+          for (const token of allowed) assert.ok(actions.includes("var(" + token + ")"), "missing CTA token " + token);
+          const used = [...actions.matchAll(/var\(\s*(--ps-[\w-]+)/g)]
+            .map((match) => match[1])
+            .filter((token) => expected.has(token));
+          for (const token of used) assert.ok(allowed.has(token), "unexpected alias in CTA: " + token);
+        } else {
+          assert.doesNotMatch(content, forbidden, "unexpected alias in " + path);
+        }
       }
     }
   }
   walk("app");
   walk("components");
-  assert.ok(checked.length > 0, "expected existing CSS consumers to scan");
+  assert.ok(checked.includes(ctaPath), "canonical action CSS must be inspected");
 });
 
 test("original base token palette remains defined in globals.css", () => {
