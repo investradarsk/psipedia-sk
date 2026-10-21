@@ -27,3 +27,16 @@ export function notionDirectoryUpdateSafety(input: {
       input.notionPublicPhone === input.canonicalPublicPhone,
   };
 }
+
+/**
+ * A missing Directory D1 mapping can be recovered only from editorial
+ * snapshots that are presently identical. The Notion "Sync hash" property
+ * is self-reported metadata, NOT evidence of a previously acknowledged
+ * canonical baseline. A divergent page requires operator review.
+ */
+export function canRecoverNotionDirectoryMapping(
+  canonicalHash: string,
+  notionHash: string,
+): boolean {
+  return Boolean(canonicalHash) && canonicalHash === notionHash;
+}

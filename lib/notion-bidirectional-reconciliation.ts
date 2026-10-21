@@ -76,6 +76,13 @@ export function matchCanonicalIdentity(
     return { kind: "CONFLICT", pageIds: byUrl.map((page) => page.id), reason: "DUPLICATE_URL" };
   }
 
+  // A URL match cannot override an explicit, different canonical Psipedia ID.
+  // Only pages without a claimed ID qualify for URL-based recovery.
+  if (byUrl.length === 1 && cleanId && byUrl[0].psipediaId.trim()
+      && byUrl[0].psipediaId.trim() !== cleanId && byId.length === 0) {
+    return { kind: "CONFLICT", pageIds: [byUrl[0].id], reason: "IDENTITY_MISMATCH" };
+  }
+
   if (byId.length === 1 && byUrl.length === 1 && byId[0].id !== byUrl[0].id) {
     return {
       kind: "CONFLICT",
