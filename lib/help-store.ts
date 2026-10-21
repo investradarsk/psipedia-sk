@@ -294,7 +294,7 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
   if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
   if (status === "published" && description.length < 40) throw new Error("Podrobný popis by mal mať aspoň 40 znakov.");
   if (status === "published" && !organization) throw new Error("Doplň zodpovednú organizáciu alebo osobu.");
-  if (status === "published" && !city) throw new Error("Doplň mesto alebo uveď Online.");
+  if (status === "published" && !city) throw new Error("Doplň mesto alebo obec prípadu.");
   if (status === "published" && !region) throw new Error("Vyber kraj.");
   if (category === "zbierky" && status === "published" && (!verified || !actionUrl || (goalAmount !== null && goalAmount <= 0))) {
     throw new Error("Zbierku možno publikovať až po overení, s platným odkazom a kladnou cieľovou sumou, ak je zadaná.");
