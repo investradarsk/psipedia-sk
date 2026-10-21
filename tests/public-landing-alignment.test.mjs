@@ -197,7 +197,9 @@ test("SERVICES-V2 keeps cards and URLs while preventing narrow three-column thum
   assert.match(directoryCss, /@media \(max-width: 820px\)[\s\S]*grid-template-columns: minmax\(0,1fr\)/);
   assert.match(directoryCss, /\.directoryColumns \.listGrid:global\(\.directory-grid\)/);
   assert.match(cards, /directoryProfileHref\(profile\)/);
-  assert.match(cards, /profile\.imageUrl &&/);
+  assert.match(cards, /profile\.imageUrl \? <ImageDisplay/);
+  assert.match(cards, /<PublicMediaFallback/);
+  assert.match(cards, /styles\.cardWithImage/);
   assert.match(results, /directoryPageHref\(basePath, filters/);
 });
 
