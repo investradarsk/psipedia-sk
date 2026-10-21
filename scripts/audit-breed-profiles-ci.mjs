@@ -40,4 +40,9 @@ if (routes.includes(`/plemena/${DRAFT_SLUG}`)) {
 }
 
 console.log(`[breed-profile-ci-audit] Breed set PASS: ${routes.length}/${EXPECTED_PUBLISHED} published canonical URLs loaded; FCI 5 ${DRAFT_SLUG} excluded.`);
+// Keep the full 343-profile regression, but bound CI browser concurrency to avoid
+// Chromium transport crashes on the small isolated runner. Explicit overrides win.
+if (!process.argv.includes('--workers') && !process.argv.some((arg) => arg.startsWith('--workers='))) {
+  process.argv.push('--workers', '2');
+}
 await import('./audit-breed-profiles.mjs');
