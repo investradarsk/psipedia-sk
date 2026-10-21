@@ -44,6 +44,7 @@ test("legacy and module action variants consume one visual contract", () => {
   assert.match(actionCss, /prefers-reduced-motion: reduce/);
   assert.match(action, /loading\?: boolean/);
   assert.match(actionCss, /color: var\(--admin-v3-secondary-text, #173f2d\)/);
+  assert.match(actionCss, /\.dialog \{[\s\S]*?position: fixed;[\s\S]*?inset: 0;[\s\S]*?margin: auto;/);
   assert.match(action, /disabled=\{disabled \|\| loading\}/);
   assert.match(action, /aria-busy=\{loading \? true/);
 });

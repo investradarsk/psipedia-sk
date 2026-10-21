@@ -178,6 +178,10 @@
 }
 
 .dialog {
+  /* Nested confirmation dialogs must center in the viewport, not the parent editor's top-left. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
   width: min(36rem, calc(100vw - 2rem));
   max-height: calc(100dvh - 2rem);
   padding: 0;

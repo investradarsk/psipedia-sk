@@ -50,6 +50,16 @@ test("desktop/mobile: edit persistence, discard guard, focus restoration and acc
   await editor.getByRole("button", { name: "Zavrieť dialóg" }).click();
   const guard = page.getByRole("dialog", { name: "Neuložené zmeny" });
   await expect(guard).toBeVisible();
+  // Visual acceptance: nested dirty-state confirmation stays centered on desktop and mobile.
+  await expect.poll(async () => {
+    const rect = await guard.boundingBox();
+    const viewport = page.viewportSize();
+    if (!rect || !viewport) return false;
+    const centerX = rect.x + rect.width / 2;
+    const centerY = rect.y + rect.height / 2;
+    return Math.abs(centerX - viewport.width / 2) <= 4 &&
+      Math.abs(centerY - viewport.height / 2) <= 4;
+  }).toBe(true);
   if (info.project.name !== "mobile-chromium") await screenshot(page, "unsaved-changes-dialog");
   await page.keyboard.press("Escape");
   await expect(guard).not.toBeVisible();
