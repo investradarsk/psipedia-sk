@@ -789,3 +789,14 @@ test("Help sitemap excludes malformed categories instead of inventing urgent-cas
   ]);
   database.close();
 });
+
+test("public breed atlas uses trusted image paths without blocking HTML on R2 probes", () => {
+  const store = fs.readFileSync(new URL("../lib/breed-store.ts", import.meta.url), "utf8");
+  const atlas = store.split("export async function listPublishedCanonicalBreedIndex()")[1]?.split("export type BreedSitemapIndexItem")[0];
+  assert.ok(atlas, "Expected a dedicated public atlas index loader");
+  assert.match(atlas, /image:ownedBreedImage\(breed\.image\)/);
+  assert.doesNotMatch(atlas, /withAvailableBreedImages|availableBreedImage|BUCKET\.(?:head|list)/);
+  const photo = fs.readFileSync(new URL("../components/breed-photo.tsx", import.meta.url), "utf8");
+  assert.match(photo, /onError=\{\(\)=>setFailed\(String\(props\.src\)\)\}/);
+  assert.match(photo, /failed===props\.src/);
+});
