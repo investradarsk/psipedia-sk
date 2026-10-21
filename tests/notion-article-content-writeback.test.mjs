@@ -157,7 +157,7 @@ test("source contracts: outbox, content gating, no-publish and post-commit integ
   const [sync, route, migration] = await Promise.all([
     readFile(new URL("../lib/notion-article-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/admin/articles/[id]/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../docs/proposals/notion_article_editorial_outbox_UNNUMBERED_PROPOSAL.sql", import.meta.url), "utf8"),
+    readFile(new URL("../docs/proposals/0138_article_editorial_outbox_PENDING_0137.sql", import.meta.url), "utf8"),
   ]);
   assert.match(sync, /NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED/);
   assert.match(sync, /article\.status !== "draft"/);
