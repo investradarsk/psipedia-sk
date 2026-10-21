@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Fragment, type CSSProperties } from "react";
 import { EventCard } from "./event-card";
+import { PublicFilterTag, PublicNotice } from "@/components/public-visual-system";
 import { eventListingParams, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
 import { eventTypes, slovakRegions, type DogEvent } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
@@ -99,9 +100,9 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
           </form>
         </div>
         {active.length ? <p className={styles.filterSummary} aria-label="Aktívne filtre">
-          {active.map((value, i) => <span key={i}>{value}</span>)}
+          {active.map((value, i) => <PublicFilterTag key={i}>{value}</PublicFilterTag>)}
         </p> : null}
-        {f.error ? <p role="alert">{f.error}</p> : null}
+        {f.error ? <PublicNotice role="alert" tone="error">{f.error}</PublicNotice> : null}
         {events.length ? (
           <>
             <p data-event-range>
