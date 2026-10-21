@@ -50,7 +50,7 @@ jobs:
         run: npm ci
 
       - name: ADMIN-RUNTIME-1 D1-aware regression suite
-        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-runtime-1.test.mjs
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/admin-runtime-1.test.mjs tests/media-source-quality.test.mjs
 
       - name: Existing Lost/Found regression suite
         run: npm run test:lost-found
