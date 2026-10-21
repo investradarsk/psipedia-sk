@@ -89,7 +89,17 @@ test("0137 rejects unfinalized decisions and makes committed audit history immut
        'reject','operator','2026-10-21T00:00:00Z','APPLIED')`).run(),
       /MEDIA_REVIEW_INCOMPLETE_DECISION/);
     assert.equal(db.prepare("SELECT COUNT(*) n FROM media_source_review_decisions").get().n,0);
+    db.exec("INSERT INTO directory_profiles (id,image_key) VALUES (17,'directory/old.webp')");
+    db.exec(`INSERT INTO media_source_monitors (id,entity_type,entity_id,status,created_at,updated_at)
+      VALUES (17,'DIRECTORY_PROFILE',17,'UNTRACKED','2026-10-21T00:00:00Z','2026-10-21T00:00:00Z')`);
+    db.exec(`INSERT INTO media_source_review_decisions (
+      id,monitor_id,entity_type,entity_id,candidate_image_key,candidate_image_url,
+      action,actor_ref,decided_at,outcome) VALUES
+      ('done',17,'DIRECTORY_PROFILE',17,'candidate','https://example.invalid/img.webp',
+      'reject','operator','2026-10-21T00:00:00Z','APPLIED')`);
     assert.throws(()=>db.exec("UPDATE media_source_review_decisions SET reason='bad'"),
-      /MEDIA_REVIEW_AUDIT_IMMUTABLE|no such column/);
+      /MEDIA_REVIEW_AUDIT_IMMUTABLE/);
+    assert.throws(()=>db.exec("DELETE FROM media_source_review_decisions"),
+      /MEDIA_REVIEW_AUDIT_IMMUTABLE/);
   } finally {db.close();}
 });
