@@ -11,13 +11,14 @@ import {
 } from "@/lib/help";
 import styles from "./help-public.module.css";
 import { ImageDisplay } from "@/components/image-display";
+import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 
 export function HelpCard({ item }: { item: HelpCase }) {
   const category = getHelpCategory(item.category);
   const progress = helpProgress(item);
   const detailHref = helpCaseHref(item);
   const displayDate = item.reportedDate ?? item.updatedAt.slice(0, 10);
-  const location = [item.city, item.region].filter(Boolean).join(" · ");
+  const location = publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
 
   return (
     <article data-help-card className={[styles.card, item.urgent && !item.resolved ? styles.cardUrgent : "", item.resolved ? styles.cardResolved : ""].filter(Boolean).join(" ")}>
