@@ -103,3 +103,35 @@ test("GOOGLE-PLACE-DISCOVERY admin is Google-first with address fallback", () =>
   assert.match(geoUiSource, /Google Maps \/ Google Place/);
   assert.doesNotMatch(googlePickerSource, /setManualGeoCoordinates|manual marker/i);
 });
+
+test("manual Google confirmation has priority over incomplete address and different business name", () => {
+  // Human selection is already bound to a server-fetched candidate ID; automatic
+  // address-quality and name-match diagnostics must not reject that decision.
+  assert.match(confirmationSource, /candidates\.find\(\(candidate\) => candidate\.id === placeId\)/);
+  assert.doesNotMatch(confirmationSource, /previewGoogleAddressChange|GOOGLE_ADDRESS_REVIEW_REQUIRED/);
+  assert.match(confirmationSource, /point\?\.manualOverride/);
+  assert.match(confirmationSource, /publicLocation && explicitPrivate && !allowPrivateOverride/);
+  assert.match(confirmationSource, /updateManagedDirectoryProfileLocationFromGooglePlace/);
+  assert.match(confirmationSource, /applyGooglePlaceResolution/);
+});
+
+test("manually confirmed Google place replaces old location fields without stale street or postcode", () => {
+  const location = storeSource.slice(
+    storeSource.indexOf("function googlePlaceDirectoryLocation"),
+    storeSource.indexOf("function directorySearchText"),
+  );
+  const writer = storeSource.slice(
+    storeSource.indexOf("export async function updateManagedDirectoryProfileLocationFromGooglePlace"),
+    storeSource.indexOf("export async function setManagedDirectoryProfileReviewed"),
+  );
+  assert.match(location, /const googleRegion = normalizeDirectoryRegion\(place\.address\?\.region\)/);
+  assert.doesNotMatch(location, /if \(current\) return current/);
+  assert.doesNotMatch(writer, /GOOGLE_ADDRESS_REVIEW_REQUIRED|\|\| existing\.street|\|\| existing\.houseNumber|\|\| existing\.postalCode/);
+  assert.match(writer, /const street = place\.address\?\.street\?\.trim\(\) \?\? ""/);
+  assert.match(writer, /const houseNumber = place\.address\?\.houseNumber\?\.trim\(\) \?\? ""/);
+  assert.match(writer, /const postalCode = normalizeSlovakPostalCode\(place\.address\?\.postalCode\?\.trim\(\) \?\? ""\)/);
+  assert.match(writer, /const formattedAddress = place\.formattedAddress\.trim\(\) \|\| existing\.address/);
+  assert.match(editorSource, /Adresa vyžaduje kontrolu/);
+  assert.doesNotMatch(editorSource, /addressEvaluation\.state\}\s*<\/dd>/);
+  assert.match(googlePickerSource, /Názov profilu sa nezmení/);
+});

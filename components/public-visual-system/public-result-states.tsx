@@ -1,0 +1,116 @@
+import Link from "next/link";
+import { Fragment, type ReactNode } from "react";
+import styles from "./public-result-states.module.css";
+
+function classes(...values: Array<string | undefined | false>) {
+  return values.filter(Boolean).join(" ");
+}
+
+export function PublicEmptyState({
+  title,
+  description,
+  children,
+  className,
+  headingLevel = "h2",
+  role = "status",
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  headingLevel?: "h2" | "h3";
+  role?: "status" | "alert";
+}) {
+  const Heading = headingLevel;
+  return (
+    <div className={classes(styles.empty, className)} role={role} data-public-empty-state>
+      <Heading>{title}</Heading>
+      {description ? <p>{description}</p> : null}
+      {children}
+    </div>
+  );
+}
+
+/** Server-rendered, native anchor pagination. Callers keep their canonical URL builders. */
+export function PublicPagination({
+  currentPage,
+  totalPages,
+  previousHref,
+  nextHref,
+  className,
+  label = "Stránkovanie výsledkov",
+  previousLabel = "← Predchádzajúca",
+  nextLabel = "Ďalšia →",
+  numberedPages,
+  pageHref,
+  showDisabledControls = true,
+}: {
+  currentPage: number;
+  totalPages: number;
+  previousHref?: string;
+  nextHref?: string;
+  className?: string;
+  label?: string;
+  previousLabel?: string;
+  nextLabel?: string;
+  numberedPages?: number[];
+  pageHref?: (page: number) => string;
+  showDisabledControls?: boolean;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <nav className={classes(styles.pagination, className)} aria-label={label} data-public-pagination>
+      {previousHref
+        ? <Link href={previousHref} rel="prev">{previousLabel}</Link>
+        : showDisabledControls ? <span aria-disabled="true">{previousLabel}</span> : null}
+      {numberedPages && pageHref ? (
+        numberedPages.map((page, index) => (
+          <Fragment key={page}>
+            {index > 0 && page > numberedPages[index - 1] + 1 ? <span aria-hidden="true">…</span> : null}
+            <Link href={pageHref(page)} aria-current={page === currentPage ? "page" : undefined}>{page}</Link>
+          </Fragment>
+        ))
+      ) : (
+        <strong aria-current="page">Strana {currentPage} z {totalPages}</strong>
+      )}
+      {nextHref
+        ? <Link href={nextHref} rel="next">{nextLabel}</Link>
+        : showDisabledControls ? <span aria-disabled="true">{nextLabel}</span> : null}
+    </nav>
+  );
+}
+
+export type PublicNoticeTone = "info" | "success" | "warning" | "error";
+
+export function PublicNotice({
+  children,
+  tone = "info",
+  className,
+  role = tone === "error" ? "alert" : "status",
+}: {
+  children: ReactNode;
+  tone?: PublicNoticeTone;
+  className?: string;
+  role?: "alert" | "status";
+}) {
+  return <p className={classes(styles.notice, styles[tone], className)} role={role} data-public-notice={tone}>{children}</p>;
+}
+
+export function PublicFilterTag({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={classes(styles.filterTag, className)} data-public-filter-tag>{children}</span>;
+}
+
+export function PublicLoadingState({
+  label = "Načítavam…",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div className={classes(styles.loading, className)} role="status" aria-live="polite" data-public-loading>
+      <span className={styles.spinner} aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}

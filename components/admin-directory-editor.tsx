@@ -473,6 +473,13 @@ export function AdminDirectoryEditor({
       : "LEGACY_UNCONFIRMED",
   });
 
+  const addressStatusText = {
+    COMPLETE: "Úplná adresa",
+    INCOMPLETE: "Neúplná adresa",
+    MISSING: "Adresa nie je uvedená",
+    NEEDS_REVIEW: "Adresa vyžaduje kontrolu",
+  }[addressEvaluation.state];
+
   const addressQualityWarning = directoryAddressQualityWarning({
     region,
     district,
@@ -702,7 +709,7 @@ export function AdminDirectoryEditor({
         <aside className="admin-event-preview admin-directory-preview">
           <span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div>
           <span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overený" : ""}</span><h2>{name || "Názov profilu"}</h2><p>{excerpt || "Krátky popis profilu sa zobrazí tu."}</p>
-          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (addressEvaluation.state === "COMPLETE" ? "Kompletná" : addressEvaluation.state)}</dd></div></dl>
+          <dl><div><dt>Stav</dt><dd>{status === "published" ? "Publikované" : "Koncept"}</dd></div><div><dt>Lokalita</dt><dd>{city || "Bez známej lokality"}{district ? ` · okres ${district}` : ""}{region ? ` · ${region}` : ""}</dd></div><div><dt>Adresa</dt><dd>{addressEvaluation.formattedAddress ?? (publicAddress.trim() || addressStatusText)}</dd></div></dl>
         </aside>
       </div>
 
