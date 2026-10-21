@@ -245,7 +245,7 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
   if (endDate && !validDate(endDate)) throw new Error("Dátum konca nie je platný.");
   if (endDate && endDate < startDate) throw new Error("Koniec podujatia nemôže byť pred začiatkom.");
   if (!validTime(startTime) || !validTime(endTime ?? "")) throw new Error("Čas podujatia nie je platný.");
-  if (status === "published" && !city) throw new Error("Doplň mesto alebo označ podujatie ako online.");
+  if (status === "published" && !city) throw new Error("Doplň mesto alebo obec podujatia.");
   if (status === "published" && !region) throw new Error("Vyber kraj.");
   if (status === "published" && !organizer) throw new Error("Doplň organizátora.");
   if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
