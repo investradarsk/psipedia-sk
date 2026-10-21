@@ -276,7 +276,7 @@ test("human edits to a remaining Notion block stop retry without false success",
     /NOTION_EDITORIAL_BLOCK_CONFLICT/);
   assert.equal(h.journal.deleted, undefined);
   assert.equal(h.mapping.content_hash, "baseline-hash");
-  assert.equal(h.notion.properties["Sync stav"], undefined);
+  assert.equal(h.notion.properties["Sync stav"].select.name, "Chyba");
 });
 
 test("updated Admin revision blocks retry even when remote changes already started", async () => {
@@ -389,7 +389,8 @@ for (const flag of ["archived", "in_trash"]) {
           "a known withdrawn page must receive no remote mutation");
       }
       assert.equal(h.mapping.content_hash, "baseline-hash");
-      assert.equal(h.notion.properties["Sync stav"], undefined);
+      if (read === 3) assert.equal(h.notion.properties["Sync stav"].select.name, "Chyba");
+      else assert.equal(h.notion.properties["Sync stav"], undefined);
       assert.equal(h.journal.deleted, undefined,
         "a withdrawal during an attempt must not erase its recovery evidence");
     });
