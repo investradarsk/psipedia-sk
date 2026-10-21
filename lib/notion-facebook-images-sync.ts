@@ -1,6 +1,6 @@
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
-import {facebookSafeRetryEnabled} from "@/lib/facebook-image-publisher";
+import {facebookSafeRetryEnabled,requireFacebookSafeRetrySchema} from "@/lib/facebook-image-publisher";
 import {downloadRemoteImage,notionFlagEnabled,notionRequest,sha256Text,type NotionSyncBindings} from "@/lib/notion-sync-shared";
 import {notionFacebookImageSnapshot,notionFacebookSnapshotFingerprint,facebookImagePermalink,type NotionFacebookImagePage} from "@/lib/notion-facebook-images-model";
 
@@ -158,7 +158,7 @@ export async function runNotionFacebookImagesSync({
   const safeRetry=facebookSafeRetryEnabled(bindings);
   if(safeRetry){
     // Never silently fall back to an unsafe editor path without migration 0135.
-    await db.prepare("SELECT outcome_kind,retry_not_before FROM facebook_image_publish_attempts LIMIT 0").all();
+    await requireFacebookSafeRetrySchema(db);
   }
   await db.prepare("SELECT notion_page_id,sync_hash FROM facebook_image_posts LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();

@@ -32,6 +32,20 @@ export async function requirePublisherSchema(db: PublisherDatabase) {
   await db.prepare("SELECT id,enabled FROM facebook_image_publisher_settings LIMIT 0").all();
   await db.prepare("SELECT post_id,state FROM facebook_image_publish_attempts LIMIT 0").all();
 }
+/** Require the entire 0135 retry safety contract, not merely its columns.
+ * Without these triggers, editing a rejected post loses the durable audit.
+ */
+export async function requireFacebookSafeRetrySchema(db:PublisherDatabase) {
+  await db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts LIMIT 0").all();
+  await db.prepare("SELECT id,post_id,reason FROM facebook_image_publish_attempt_history LIMIT 0").all();
+  const rows=await db.prepare(`SELECT name FROM sqlite_master WHERE type='trigger'
+    AND name IN ('facebook_image_retry_history_immutable_update',
+      'facebook_image_retry_history_immutable_delete',
+      'facebook_image_retry_supersede_post_update',
+      'facebook_image_retry_audit_reclaim')`).all<{name:string}>();
+  if(new Set(rows.results.map(row=>row.name)).size!==4)
+    throw new Error("FACEBOOK_SAFE_RETRY_SCHEMA_INVALID");
+}
 export async function publisherConfig(db: PublisherDatabase, bindings: FacebookPublisherBindings): Promise<PublisherConfig> {
   await requirePublisherSchema(db);
   const setting = await db.prepare("SELECT enabled FROM facebook_image_publisher_settings WHERE id=1").first<{enabled:number}>();
@@ -133,7 +147,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
   await requirePublisherSchema(db);
   if(safeRetry){
     // A feature flag cannot bypass the additive schema migration.
-    await db.prepare("SELECT retry_count,retry_not_before,outcome_kind FROM facebook_image_publish_attempts LIMIT 0").all();
+    await requireFacebookSafeRetrySchema(db);
   }
   // Soft-delete migration is additive; deleted posts never enter the publishing queue.
   let trashReady=false;
