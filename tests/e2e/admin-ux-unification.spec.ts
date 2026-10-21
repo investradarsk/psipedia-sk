@@ -50,6 +50,9 @@ for (const editor of editors) {
     page.on("request", request => { if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) && request.url().includes("/api/admin/")) writes.push(request.url()); });
     if (editor.navigation) {
       const nav = page.getByRole("navigation", { name: editor.navigation, exact: true });
+      // Directory SSR can render editable fields before the common React navigation
+      // hydrates; changing its native <select> earlier silently loses onChange.
+      await expect(nav).toHaveAttribute("data-admin-editor-nav-ready", "true");
       const options = await nav.locator('select option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
       const target = options.find(id => /media/.test(id)) ?? options.at(-1)!;
       const select = nav.getByRole("combobox");
