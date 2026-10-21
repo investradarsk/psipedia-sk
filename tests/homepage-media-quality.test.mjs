@@ -64,6 +64,22 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
   assert.match(page, /helpCaseHref\(item\)/);
 });
 
+test("homepage breed cards read only presentation fields, not the editor's full JSON payload", async () => {
+  const [store, page] = await Promise.all([
+    repoFile("lib/breed-store.ts"), repoFile("app/page.tsx"),
+  ]);
+  const start = store.indexOf("export async function listHomepageFeaturedBreeds(");
+  const end = store.indexOf("export async function getManagedBreed(", start);
+  assert.ok(start >= 0 && end > start, "a dedicated homepage breed projection exists");
+  const fn = store.slice(start, end);
+  assert.match(fn, /SELECT slug,name,image_url,intro\s+FROM managed_breeds/);
+  assert.match(fn, /WHERE id IN \(\$\{canonicalBreedIdsSql\}\)/);
+  assert.match(fn, /ORDER BY fci_group,name LIMIT \?/);
+  assert.match(fn, /withAvailableBreedImages/);
+  assert.doesNotMatch(fn, /\$\{select\}|fromRow\(|fci_standard_json|editorial_json|gallery_json/);
+  assert.match(page, /listHomepageFeaturedBreeds\(6\)/);
+});
+
 test("homepage image-backed cards cannot render placeholder nodes; empty states keep category CTAs", async () => {
   const [page, editorial, css, articleSelection, publicStyles] = await Promise.all([
     repoFile("app/page.tsx"), repoFile("components/home-editorial.tsx"), repoFile("app/home-v2.module.css"),
