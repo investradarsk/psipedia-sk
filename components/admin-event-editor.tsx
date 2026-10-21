@@ -271,8 +271,8 @@ export function AdminEventEditor({ event, automationSuggestions = [] }: { event?
           <EditorSection id="event-location" className="admin-form-card">
             <div className="admin-card-heading"><div><span>02</span><div><h2>Miesto a organizátor</h2><p>Údaje, podľa ktorých návštevník podujatie nájde.</p></div></div></div>
             <div className="admin-field-grid">
-              <div className="admin-field"><label htmlFor="event-region">Kraj</label><select id="event-region" value={region} onChange={(input) => setRegion(input.target.value as SlovakRegion)}>{slovakRegions.map((item) => <option key={item}>{item}</option>)}</select></div>
-              <div className="admin-field"><label htmlFor="event-city">Mesto</label><input id="event-city" value={city} onChange={(input) => setCity(input.target.value)} placeholder="Nitra alebo Online" required /></div>
+              <div className="admin-field"><label htmlFor="event-region">Kraj</label><select id="event-region" value={region} onChange={(input) => setRegion(input.target.value as SlovakRegion)}>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item}>{item}</option>)}</select></div>
+              <div className="admin-field"><label htmlFor="event-city">Mesto</label><input id="event-city" value={city} onChange={(input) => setCity(input.target.value)} placeholder="Nitra" required /></div>
               <div className="admin-field"><label htmlFor="event-venue">Areál alebo budova</label><input id="event-venue" value={venue} onChange={(input) => setVenue(input.target.value)} placeholder="Agrokomplex" /></div>
               <div className="admin-field"><label htmlFor="event-address">Adresa</label><input id="event-address" value={address} onChange={(input) => setAddress(input.target.value)} placeholder="Výstavná 4" /></div>
               <div className="admin-field"><label htmlFor="event-organizer">Organizátor</label><input id="event-organizer" value={organizer} onChange={(input) => setOrganizer(input.target.value)} required /></div>
