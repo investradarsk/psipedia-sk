@@ -38,6 +38,7 @@ export type {
 } from "./public-subcategory-navigator";
 export { PublicContextBanner } from "./public-context-banner";
 export { PublicPhotoGallery } from "./public-photo-gallery";
+export { PublicMediaFallback } from "./public-media-fallback";
 export type { PublicPhotoGalleryImage } from "./public-photo-gallery";
 export type {
   PublicContextBannerImage,
