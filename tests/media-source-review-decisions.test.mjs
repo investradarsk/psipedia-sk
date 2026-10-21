@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import {
   claimMediaCandidate, finalizeAcceptedMediaCandidate, finalizeRejectedMediaCandidate,
-  listMediaReviewHistory, releaseMediaCandidateClaim, validateMediaReviewReason,
+  assertMediaReviewSchema, listMediaReviewHistory, releaseMediaCandidateClaim, validateMediaReviewReason,
 } from "../lib/media-source-review-decisions.ts";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -32,6 +32,7 @@ function fixture() {
       const stmt = sqlite.prepare(sql);
       return {
         async first() {return stmt.get() ?? null;},
+        async all() {return {results:stmt.all()};},
         bind(...args) {
         return {
           async run() {const result=stmt.run(...args);return {meta:{changes:result.changes}};},
@@ -140,4 +141,44 @@ test("0137 rejects stale candidate and server-side overlong or nontext reason",a
     assert.throws(()=>validateMediaReviewReason("a".repeat(501)),/500/);
     assert.throws(()=>validateMediaReviewReason({reason:"no"}),/text/);
   } finally {f.close();}
+});
+
+test("0137 rejects incomplete schema even if decision table already exists", async () => {
+  const f = fixture();
+  try {
+    await assertMediaReviewSchema(f.d1);
+    f.sqlite.exec("DROP TRIGGER media_review_decision_finalization_guard");
+    await assert.rejects(assertMediaReviewSchema(f.d1), /kompletnú D1 migráciu 0137/);
+    await assert.rejects(claimMediaCandidate(f.d1, f.row, "2026-10-20T18:05:00Z"), /0137/);
+    assert.equal(
+      f.sqlite.prepare("SELECT review_claim_token FROM media_source_monitors WHERE id=17").get().review_claim_token,
+      null,
+    );
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM media_source_review_decisions").get().n, 0);
+  } finally { f.close(); }
+});
+
+test("0137 rejects missing claim index, audit trigger, and required claim column", async () => {
+  for (const dropped of [
+    "DROP INDEX media_review_claims_idx",
+    "DROP TRIGGER media_review_decisions_no_delete",
+  ]) {
+    const f = fixture();
+    try {
+      f.sqlite.exec(dropped);
+      await assert.rejects(assertMediaReviewSchema(f.d1), /0137/);
+    } finally { f.close(); }
+  }
+  // Simulate a half-applied migration: the history table exists, but the
+  // monitor claim columns (which serialize competing decisions) do not.
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    sqlite.exec("CREATE TABLE media_source_monitors (id INTEGER PRIMARY KEY)");
+    sqlite.exec("CREATE TABLE media_source_review_decisions (id TEXT PRIMARY KEY)");
+    const d1 = {prepare(sql) {
+      const statement = sqlite.prepare(sql);
+      return {async all() {return {results:statement.all()};}};
+    }};
+    await assert.rejects(assertMediaReviewSchema(d1), /0137/);
+  } finally {sqlite.close();}
 });
