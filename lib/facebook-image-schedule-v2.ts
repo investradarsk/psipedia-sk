@@ -7,9 +7,15 @@ export type FacebookImageScheduleV2Bindings = {
 };
 export function facebookImageScheduleV2Policy(bindings:FacebookImageScheduleV2Bindings) {
   const enabled=notionFlagEnabled(bindings.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED);
-  const cutover=Date.parse(bindings.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT??"");
-  if(enabled&&(!Number.isFinite(cutover)||cutover<=0))
-    throw new Error("Facebook schedule V2 requires an explicit UTC cutover timestamp.");
+  const raw=bindings.NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT??"";
+  // Date.parse accepts local timestamps, offsets and normalized invalid dates.
+  // Those must never change which historical Notion pages are authorized.
+  const parts=/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.(\d{3}))?Z$/.exec(raw);
+  const cutover=parts?Date.parse(raw):Number.NaN;
+  const canonical=parts&&Number.isFinite(cutover)
+    &&new Date(cutover).toISOString()===parts[1]+"T"+parts[2]+"."+(parts[3]??"000")+"Z";
+  if(enabled&&(!canonical||cutover<=0))
+    throw new Error("Facebook schedule V2 requires an explicit valid UTC ISO-8601 cutover timestamp.");
   return {enabled,cutover:enabled?cutover:0};
 }
 export function notionFacebookScheduleV2Decision(input:{

@@ -4,6 +4,7 @@ import {DatabaseSync} from "node:sqlite";
 import {readFileSync} from "node:fs";
 import {runNotionFacebookImagesSync,NOTION_FACEBOOK_IMAGES_SOURCE_ID} from "../lib/notion-facebook-images-sync.ts";
 import {runFacebookImagePublishSweep} from "../lib/facebook-image-publisher.ts";
+import {facebookImageScheduleV2Policy} from "../lib/facebook-image-schedule-v2.ts";
 
 const migrations=["drizzle/0128_facebook_image_posts.sql","drizzle/0130_facebook_image_publisher.sql",
   "drizzle/0135_facebook_image_safe_retry.sql"];
@@ -371,4 +372,21 @@ test("V2 safe retry: Notion cancellation supersedes throttled attempt without re
       assert.equal(f.sqlite.prepare("SELECT COUNT(*) AS n FROM facebook_image_publish_attempt_history").get().n,2);
     });
   }finally{f.close();}
+});
+
+test("V2 cutover: only valid explicit UTC instants are accepted",()=>{
+ for(const value of ["2030-01-01T00:00:00Z","2030-01-01T00:00:00.000Z"]){
+   assert.equal(facebookImageScheduleV2Policy({
+     NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+     NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:value}).cutover,Date.parse(value));
+ }
+ for(const value of ["2030-01-01","2030-01-01T00:00:00",
+   "2030-01-01T00:00:00+00:00","2030-02-30T00:00:00Z","bad", ""]){
+   assert.throws(()=>facebookImageScheduleV2Policy({
+     NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"true",
+     NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:value}),/UTC ISO-8601/);
+ }
+ assert.deepEqual(facebookImageScheduleV2Policy({
+   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_ENABLED:"false",
+   NOTION_FACEBOOK_IMAGES_SCHEDULE_V2_CUTOVER_AT:"not-a-date"}),{enabled:false,cutover:0});
 });

@@ -1253,7 +1253,7 @@ async function recoverMappingFromPage(input: {
 }) {
   const rawId = propertyText(input.page, "Psipedia ID");
   // parseInt("123-other") would otherwise alias an unrelated canonical ID.
-  if (!/^[1-9]\\d*$/.test(rawId)) return null;
+  if (!/^[1-9]\d*$/.test(rawId)) return null;
   const profileId = Number(rawId);
   if (!Number.isSafeInteger(profileId) || profileId <= 0) return null;
   const profile = await getManagedDirectoryProfileById(profileId, input.database);

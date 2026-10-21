@@ -1,3 +1,6 @@
+import { validSitemapXml } from "./sitemap-xml-validator.ts";
+export { validSitemapXml } from "./sitemap-xml-validator.ts";
+
 /**
  * Best-effort Cloudflare Cache API guard for the public XML sitemap.
  * Only a validated public 200 response can replace the previous snapshot.
@@ -29,16 +32,6 @@ export function sitemapCacheKey(requestUrl: string, kind: "fresh" | "last-good")
   return new Request(url, { method: "GET" });
 }
 
-export function validSitemapXml(xml: string): boolean {
-  const body = xml.trim();
-  if (!body || new TextEncoder().encode(body).byteLength > MAX_SITEMAP_BYTES) return false;
-  if (/<!DOCTYPE|<!ENTITY/i.test(body)) return false;
-  const root = body.match(/^(?:<\?xml\s[^>]*\?>\s*)?<(urlset|sitemapindex)(?:\s[^>]*)?>/i)?.[1];
-  if (!root) return false;
-  return body.endsWith("</" + root + ">")
-    && /<loc>\s*https:\/\/psipedia\.sk\//i.test(body);
-}
-
 function upstreamForbidsSharedCache(response: Response): boolean {
   return response.headers.has("set-cookie")
     || /(?:^|,)\s*(?:private|no-store|no-cache)(?:\s|,|=|$)/i.test(response.headers.get("cache-control") ?? "")
@@ -50,6 +43,36 @@ function upstreamAllowsSharedCache(response: Response): boolean {
   if (response.headers.has("set-cookie")) return false;
   if (/(?:^|,)\s*(?:private|no-store|no-cache)(?:\s|,|=|$)/i.test(response.headers.get("cache-control") ?? "")) return false;
   return /(?:application|text)\/xml|application\/xhtml\+xml/i.test(response.headers.get("content-type") ?? "");
+}
+
+/** Read the XML without buffering an unbounded origin body; fail closed on bad UTF-8. */
+async function boundedSitemapXml(response: Response): Promise<string | null> {
+  const indicatedSize = response.headers.get("content-length");
+  if (indicatedSize && /^\d+$/.test(indicatedSize) && Number(indicatedSize) > MAX_SITEMAP_BYTES) return null;
+  const reader = response.clone().body?.getReader();
+  if (!reader) return null;
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let size = 0;
+  let text = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_SITEMAP_BYTES) {
+        void reader.cancel().catch(() => undefined);
+        return null;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } catch {
+    void reader.cancel().catch(() => undefined);
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function cachedXmlResponse(xml: string, maxAgeSeconds: number): Response {
@@ -70,6 +93,13 @@ function invalidOriginResponse(): Response {
   });
 }
 
+/** Previously cached snapshots can predate the hardened validator: recheck on HIT. */
+async function validCachedResponse(cached: Response | undefined): Promise<boolean> {
+  if (!cached || cached.status !== 200 || !upstreamAllowsSharedCache(cached)) return false;
+  const xml = await boundedSitemapXml(cached);
+  return xml !== null && validSitemapXml(xml);
+}
+
 async function lastGoodOrOriginal(
   request: Request,
   storage: SitemapCache,
@@ -78,7 +108,7 @@ async function lastGoodOrOriginal(
 ): Promise<Response> {
   try {
     const previous = await storage.match(sitemapCacheKey(request.url, "last-good"));
-    if (previous?.status === 200) {
+    if (previous && await validCachedResponse(previous)) {
       const headers = new Headers(previous.headers);
       // Do not invite downstream caches to extend the stale interval.
       headers.set("Cache-Control", "no-store");
@@ -102,7 +132,7 @@ export async function servePublicSitemap(
 
   try {
     const cached = await storage.match(sitemapCacheKey(request.url, "fresh"));
-    if (cached?.status === 200) return cached;
+    if (cached && await validCachedResponse(cached)) return cached;
   } catch {
     // Origin remains reachable when Cloudflare Cache API is unavailable.
   }
@@ -126,13 +156,8 @@ export async function servePublicSitemap(
     return response;
   }
 
-  let xml: string;
-  try {
-    xml = await response.clone().text();
-  } catch {
-    return lastGoodOrOriginal(request, storage, invalidOriginResponse());
-  }
-  if (!validSitemapXml(xml)) {
+  const xml = await boundedSitemapXml(response);
+  if (xml === null || !validSitemapXml(xml)) {
     console.error(JSON.stringify({ event: "sitemap_invalid_xml", cached: false }));
     return lastGoodOrOriginal(request, storage, invalidOriginResponse());
   }

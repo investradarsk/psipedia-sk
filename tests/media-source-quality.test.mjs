@@ -4,6 +4,7 @@ import test from "node:test";
 
 const migration = await readFile(new URL("../drizzle/0099_media_source_quality.sql", import.meta.url), "utf8");
 const monitor = await readFile(new URL("../lib/media-source-monitor.ts", import.meta.url), "utf8");
+const mediaReviewDecisions = await readFile(new URL("../lib/media-source-review-decisions.ts", import.meta.url), "utf8");
 const shared = await readFile(new URL("../lib/notion-sync-shared.ts", import.meta.url), "utf8");
 const directorySync = await readFile(new URL("../lib/notion-directory-sync.ts", import.meta.url), "utf8");
 const eventSync = await readFile(new URL("../lib/notion-event-sync.ts", import.meta.url), "utf8");
@@ -62,8 +63,12 @@ test("source changes create a review candidate instead of silently replacing pub
   assert.doesNotMatch(beforeAccept, /UPDATE directory_profiles\s+SET image_url/);
   assert.doesNotMatch(beforeAccept, /UPDATE managed_events\s+SET image_url/);
   assert.match(monitor, /export async function acceptMediaSourceCandidate/);
-  assert.match(monitor, /UPDATE directory_profiles/);
-  assert.match(monitor, /UPDATE managed_events/);
+  // Acceptance moved its guarded canonical update into the D1 CAS helper.
+  // The scheduled sweep must still never mutate canonical image records.
+  assert.match(mediaReviewDecisions, /export async function finalizeAcceptedMediaCandidate/);
+  assert.match(mediaReviewDecisions, /row\.entityType === "MANAGED_EVENT" \? "managed_events" : "directory_profiles"/);
+  assert.match(mediaReviewDecisions, /UPDATE \$\{table\} SET image_url=\?, image_key=\?/);
+  assert.match(mediaReviewDecisions, /WHERE id=\? AND image_key IS \?/);
 });
 
 test("admin quality workspace separates profile cleanup from focused image approval", () => {
