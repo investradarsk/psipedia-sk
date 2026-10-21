@@ -17,7 +17,7 @@ import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
-import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
+
 import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 
@@ -316,7 +316,7 @@ export async function getPublishedEvents(limit = 250) {
   return result.results.map(rowToEvent);
 }
 
-/** Homepage image cards only; the public event calendar keeps its full dataset. */
+/** Homepage previews may use safe category artwork when no photo is available. */
 /** Published events overlapping one local calendar month; one bounded query, no per-day reads. */
 export async function getPublishedEventsInMonth(month: string) {
   const database = getD1Binding();
@@ -339,7 +339,6 @@ export async function getHomepageUpcomingEventsWithImages(limit = 3) {
   const result = await database.prepare(`
     SELECT * FROM managed_events
     WHERE status = 'published' AND cancelled = 0 AND COALESCE(end_date, start_date) >= ?
-      AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?
   `).bind(today, safeLimit).all<EventRow>();
   return result.results.map(rowToEvent).filter((event) => eventIsActive(event, today));
