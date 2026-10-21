@@ -78,14 +78,16 @@ test('unified public details: responsive layout, honest media/data, actions and 
  const hero=page.locator('[data-public-detail-hero]'); assert.equal(await hero.count(),1);
  assert.equal(await page.locator('main h1').count(),1);
  const image=hero.locator('[data-public-profile-media]');
- if(await image.count()) { const photo=image.locator('img:not([aria-hidden="true"])').last(); const photoBox=await photo.boundingBox(); assert.ok(photoBox&&photoBox.width>0&&photoBox.height>0,`${name} ${width} actual image must have nonzero dimensions`); const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);else assert.ok(m.y<h.y,`${name} mobile media first`);}
+ if(await image.count()) { const fallback=image.locator('[data-public-media-fallback]'); const visual=await fallback.count()?fallback:image.locator('img:not([aria-hidden="true"])').last(); const visualBox=await visual.boundingBox(); assert.ok(visualBox&&visualBox.width>0&&visualBox.height>0,`${name} ${width} visible media or fallback must have nonzero dimensions`); const m=await image.boundingBox(),h=await hero.locator('h1').boundingBox();if(width>800)assert.ok(m.x>h.x,`${name} desktop media right`);else assert.ok(m.y<h.y,`${name} mobile media first`);}
  if(name==='organization') { const body=await page.locator('[data-public-profile-body]').boundingBox(); const aside=await page.locator('[data-public-profile-sidebar]').boundingBox(); if(width<=800) assert.ok(body.y+body.height<=aside.y+2,'organization content precedes sidebar on mobile'); else assert.ok(aside.x>body.x,'organization desktop sidebar on right'); }
  if(name.startsWith('adoption')) assert.ok(!/\b0 kg\b/.test(await page.locator('main').innerText()),'unknown weight hidden');
  if(name==='adoption-breed-duplicate') assert.doesNotMatch(await page.locator('main').innerText(),/Kríženec\s*·\s*kríženec/i,'breed mix must not duplicate name');
  if(name.includes('long')) assert.equal(await hero.locator('h1[data-long-title]').count(),1,'long titles use compact typography');
  if(name==='event-cancelled') assert.equal(await hero.locator('[data-detail-state="cancelled"]').count(),1,'cancelled state distinct from type');
  if(name==='directory' || name==='adoption') { const img=image.locator('img').last(); const size=await img.evaluate(i=>({w:i.naturalWidth,h:i.naturalHeight,cw:i.getBoundingClientRect().width,ch:i.getBoundingClientRect().height})); assert.ok(size.w>0);assert.ok(Math.abs(size.cw/size.ch-size.w/size.h)<.02,'natural image ratio preserved'); }
- if(name.includes('minimal')&&!name.startsWith('event')) assert.equal(await image.count(),0);
+ if(name==='directory-minimal') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'missing directory photo uses the common visual');
+ if(name.includes('minimal')&&!name.startsWith('event')&&name!=='directory-minimal') assert.equal(await image.count(),0);
+ if(name==='organization') assert.equal(await image.locator('[data-public-media-fallback]').count(),1,'organization without photo uses the common visual');
  if(name==='event-minimal') assert.equal(await image.locator('[data-event-image-source="fallback"]').count(),1,'existing event illustration retained');
  if(name==='help-zbierky') assert.equal(await hero.locator('a[href="https://example.test/support"]').count(),0,'unverified fundraising gate preserved');
  const axe=await new AxeBuilder({page}).include('main#obsah').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
