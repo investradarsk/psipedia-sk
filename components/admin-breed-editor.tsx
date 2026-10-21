@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
@@ -13,9 +12,9 @@ import {
   AdminDrawer,
   AdminEditorSection,
   AdminHelpText,
-  AdminStickyEditorNavigation,
 } from "@/components/admin-interaction-system";
 import styles from "./admin-breed-editor.module.css";
+import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
 function lines(value:string){return value.split("\n").map((item)=>item.replace(/^[-•]\s*/,"").trim()).filter(Boolean);}
@@ -36,7 +35,7 @@ const subscribeToHydration=()=>()=>{};
 
 export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;options:BreedEditorOptions }) {
   const hydrated=useSyncExternalStore(subscribeToHydration,()=>true,()=>false);
-  const [form,setForm]=useState({
+  const [form,setCanonicalForm]=useState({
     name:breed?.name??"",slug:breed?.slug??"",status:breed?.status??"draft",image:breed?.image??"",imageKey:breed?.imageKey??"",
     gallery:breed?.gallery??[],fciNumber:breed?.fciNumber?.toString()??"",fciGroup:breed?.fciGroup??1,fciSection:breed?.fciSection??"",fciSectionNumber:breed?.fciSectionNumber??"",
     officialFciName:breed?.officialFciName??"",validStandardDate:breed?.validStandardDate??"",workingTrial:breed?.workingTrial??"",importKey:breed?.importKey??"",
@@ -48,6 +47,8 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     training:breed?.training??"",health:breed?.health??"",healthRisks:breed?.healthRisks?.join("\n")??"",goodFor:breed?.goodFor.join("\n")??"",
     consider:breed?.consider.join("\n")??"",editorial:breed?.editorial??{},sports:breed?.sports??[],relatedBreedIds:breed?.relatedBreedIds??[],relatedArticleIds:breed?.relatedArticleIds??[],directoryProfileIds:breed?.directoryProfileIds??[],sources:breed?.sources?.length?breed.sources:[{...emptySource}],accent:breed?.accent??"forest",seo:breed?.seo??{},
   });
+  const [dirty,setDirty]=useState(false);
+  const setForm: typeof setCanonicalForm = (update) => { setDirty(true); setCanonicalForm(update); };
   const [slugEdited,setSlugEdited]=useState(Boolean(breed));
   const [expectedUpdatedAt,setExpectedUpdatedAt]=useState(breed?.updatedAt??"");
   const [saving,setSaving]=useState(false);
@@ -104,8 +105,10 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
       const data=await response.json() as {breed?:ManagedBreed;error?:string};
       if(!response.ok||!data.breed)throw new Error(data.error||"Plemeno sa nepodarilo uložiť.");
       setExpectedUpdatedAt(data.breed.updatedAt);
+      setCanonicalForm((current)=>({...current,status:data.breed!.status}));
+      setDirty(false);
       setMessage(status==="published"?"Plemeno je publikované v atlase.":"Koncept je uložený.");
-      if(!breed)window.location.assign(`/admin/plemena/${data.breed.id}`);
+      if(!breed)window.setTimeout(()=>window.location.assign(`/admin/plemena/${data.breed.id}`),0);
     }catch(e){setError(e instanceof Error?e.message:"Plemeno sa nepodarilo uložiť.");}
     finally{setSaving(false);}
   }
@@ -136,12 +139,30 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   const clubs=useMemo(()=>filterNamedOptions(options.directoryProfiles.filter((item)=>item.category==="chovatelske-kluby"),clubQuery),[options.directoryProfiles,clubQuery]);
   const relatedBreeds=useMemo(()=>filterNamedOptions(options.breeds.filter((item)=>item.id!==breed?.id),breedQuery),[options.breeds,breed?.id,breedQuery]);
 
-  return <form className="admin-breed-editor" data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save("draft");}}>
+  return <>
+    <EditorWorkspace
+      mode="page"
+      title={breed ? `Upraviť plemeno: ${form.name || breed.name}` : "Nové plemeno"}
+      description="Kanonický editor plemena vrátane FCI, médií a vzťahov."
+      status={<><EditorStatus label={form.status === "published" ? "Publikované" : "Koncept"} tone={form.status === "published" ? "success" : "neutral"} /><EditorStatus label={dirty ? "Neuložené zmeny" : "Uložené"} tone={dirty ? "warning" : "success"} /></>}
+      sections={editorNavigation}
+      dirty={dirty}
+      onClose={()=>{ setDirty(false); window.setTimeout(()=>window.location.assign("/admin/plemena"),0); }}
+      closeLabel="Späť na plemená"
+      actions={<EditorActionBar
+        message={<span role="status">{dirty ? "Neuložené zmeny" : "Všetky zmeny uložené"}</span>}
+        secondary={<AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton>}
+        primary={<>
+          <AdminActionButton variant="secondary" type="submit" form="breed-canonical-editor-form" disabled={saving||uploading}>{saving?"Ukladám…":form.status==="published"?"Uložiť zmeny":"Uložiť koncept"}</AdminActionButton>
+          <AdminActionButton variant="primary" disabled={saving||uploading} onClick={()=>void save("published")}>{saving?"Ukladám…":form.status==="published"?"Uložiť a aktualizovať":"Publikovať"}</AdminActionButton>
+        </>}
+      />}
+    >
+    <form id="breed-canonical-editor-form" className={`admin-breed-editor ${styles.editorForm}`} data-admin-breed-editor-ready={hydrated ? "true" : "false"} onSubmit={(event)=>{event.preventDefault();void save(form.status==="published"?"published":"draft");}}>
     <div className={styles.editorTopbar}>
-      <p>{breed ? `ID ${breed.id} · ${breed.status==="published"?"Publikované":"Koncept"}` : "Nový koncept plemena"}</p>
-      <div className={styles.editorTopbarActions}><AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia, FCI a SEO</AdminActionButton></div>
+      <p>{breed ? `ID ${breed.id} · ${form.status==="published"?"Publikované":"Koncept"}` : "Nový koncept plemena"}</p>
+      
     </div>
-    <AdminStickyEditorNavigation sections={editorNavigation} ariaLabel="Sekcie editora plemena"/>
 
     <AdminEditorSection id="breed-basic" className={styles.sectionCard}>
       <div className="admin-form-card">
@@ -261,11 +282,6 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
     </AdminEditorSection>
 
     {error&&<p className="admin-form-error" role="alert">{error}</p>}{message&&<p className="admin-flash" role="status">{message}</p>}
-    <div className={styles.actions} aria-label="Akcie plemena">
-      <div><Link href="/admin/plemena">Späť na plemená</Link><AdminActionButton variant="neutral" onClick={()=>setSettingsOpen(true)}>Nastavenia</AdminActionButton></div>
-      <div><AdminActionButton variant="secondary" type="submit" disabled={saving||uploading}>{saving?"Ukladám…":"Uložiť koncept"}</AdminActionButton><AdminActionButton variant="primary" disabled={saving||uploading} onClick={()=>void save("published")}>{saving?"Ukladám…":breed?.status==="published"?"Uložiť a aktualizovať":"Publikovať"}</AdminActionButton></div>
-    </div>
-
     <AdminDrawer
       open={settingsOpen}
       title="Nastavenia plemena"
@@ -297,5 +313,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         {sportError&&<p className={styles.validation} role="alert">{sportError}</p>}
       </div>}
     </AdminDrawer>
-  </form>;
+    </form>
+    </EditorWorkspace>
+  </>;
 }

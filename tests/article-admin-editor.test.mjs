@@ -88,7 +88,7 @@ test("ARTICLE-ADMIN save path carries canonical rich text, author profile select
   assert.match(articleEditor, /introRichText,/);
   assert.match(articleEditor, /takeawayRichText,/);
   assert.match(articleEditor, /authorProfileId:/);
-  assert.match(articleEditor, /AdminStickyEditorNavigation/);
+  assert.match(articleEditor, /EditorWorkspace/);
   assert.match(articleEditor, /beforeunload/);
   assert.match(articleEditor, /AdminEditorialAuthorField/);
   assert.match(articleEditor, /To najdôležitejšie <small>nepovinné<\/small>/);

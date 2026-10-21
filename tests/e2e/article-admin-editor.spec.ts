@@ -44,7 +44,7 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.getByLabel("Zdroj / autor fotografie").fill(`Credit ARTICLE ADMIN ${suffix}`);
     await page.getByLabel("URL zdroja fotografie").fill("https://example.com/photo-source");
 
-    await expect(page.getByRole("navigation", { name: "Sekcie editora článku" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Sekcie pracovného editora" })).toBeVisible();
     await expect(page.getByLabel("Autor", { exact: true })).toContainText("Redakcia Psipedia");
 
     await page.getByRole("button", { name: "+ Nový autor" }).click();
@@ -332,9 +332,9 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     await page.keyboard.press("Control+i");
     await expect(intro.locator("i, em")).toHaveCount(1);
 
-    const editor = page.locator(".admin-editor");
+    const editor = page.locator("[data-editor-page]");
     const axe = await new AxeBuilder({ page })
-      .include(".admin-editor")
+      .include("[data-editor-page]")
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
     const serious = axe.violations.filter((item) => item.impact === "critical" || item.impact === "serious");
@@ -343,6 +343,36 @@ test.describe("ARTICLE-ADMIN Word-like editorial editor", () => {
     const overflow = await page.evaluate(() =>
       Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth),
     );
+    if (overflow > 1) {
+      const details = await page.evaluate(function overflowDetails() {
+  const viewport = document.documentElement.clientWidth;
+  return {
+    viewport,
+    innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    suspects: Array.from(document.querySelectorAll<HTMLElement>("body *"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const computed = getComputedStyle(element);
+        return {
+          element: element.tagName.toLowerCase(),
+          id: element.id,
+          className: String(element.className).slice(0, 110),
+          width: Math.round(rect.width),
+          right: Math.round(rect.right),
+          scrollWidth: element.scrollWidth,
+          overflowX: computed.overflowX,
+          position: computed.position,
+          parent: element.parentElement?.tagName.toLowerCase(),
+        };
+      })
+      .filter((item) => item.right > viewport + 2 && item.width > 0)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 16),
+  };
+});
+      console.info("[ARTICLE_EDITOR_OVERFLOW]", JSON.stringify(details));
+    }
     expect(overflow).toBeLessThanOrEqual(1);
 
     if (testInfo.project.name.includes("mobile")) {

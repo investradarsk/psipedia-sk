@@ -98,3 +98,9 @@
   .dayDetail { padding: .65rem; }
   .dayDetail li { align-items: flex-start; gap: .4rem; }
 }
+
+/* Scroll-target controls remain hit-testable below the sticky calendar heading on phones. */
+@media (max-width: 720px) {
+  .day, .selectButton { scroll-margin-top: 7rem; }
+  .dialog { scroll-padding-top: 7rem; }
+}

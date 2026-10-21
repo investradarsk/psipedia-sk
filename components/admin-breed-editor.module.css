@@ -75,3 +75,21 @@
   .sourceRow { grid-template-columns: 1fr; }
   .actions { position: static; }
 }
+
+/* The canonical form stays intact; only its placement and spacing follow EditorWorkspace. */
+.editorForm {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.editorForm .sectionCard { min-width: 0; scroll-margin-top: 0.75rem; }
+.editorForm :global(.admin-form-card) { margin: 0; padding: clamp(0.75rem, 1.5vw, 1rem); }
+@media (max-width: 420px) {
+  .editorForm { gap: 0.5rem; }
+  .editorForm :global(.admin-form-card) { padding: 0.65rem; }
+}
+@media (max-width: 360px) {
+  .editorForm .galleryRow, .editorForm .sportRow, .editorForm .relationBox { min-width: 0; }
+}

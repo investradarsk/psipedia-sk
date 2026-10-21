@@ -1,0 +1,80 @@
+/* Scoped content-editor density. Shared Admin V3 tokens and workspace are unchanged. */
+.articleForm {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.articleForm > [data-admin-editor-section] { margin: 0; min-width: 0; scroll-margin-top: 0.75rem; }
+.articleForm :global(.admin-form-card) { padding: clamp(0.75rem, 1.5vw, 1rem); }
+.articleForm :global(.admin-field-grid) { column-gap: 0.75rem; row-gap: 0.6rem; }
+.articleForm :global(.admin-breed-article-links) { min-width: 0; }
+@media (max-width: 420px) {
+  .articleForm { gap: 0.5rem; }
+  .articleForm :global(.admin-form-card) { padding: 0.65rem; }
+  .articleForm :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 360px) {
+  .articleForm :global(.admin-upload-row) { min-width: 0; overflow-wrap: anywhere; }
+}
+
+/* Canonical article EditorWorkspace sizing — scoped; the shared workspace stays untouched. */
+.workspaceRoot { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; overflow-x: clip; }
+.workspaceRoot :global([data-editor-page]),
+.workspaceRoot :global([data-editor-workspace]),
+.workspaceRoot :global([data-editor-columns]),
+.workspaceRoot :global([data-editor-content]),
+.workspaceRoot :global([data-editor-preview]) { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.workspaceRoot :global([data-editor-page]) { width: 100%; }
+.workspaceRoot :global([data-editor-columns]) { width: 100%; }
+.workspaceRoot :global(.admin-live-preview) { position: static; top: auto; min-width: 0; max-width: 100%; }
+.workspaceRoot :global(.admin-preview-paper) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.workspaceRoot :global(.admin-preview-paper img),
+.workspaceRoot :global(.admin-preview-paper iframe) { max-width: 100%; }
+.articleForm > :global(.admin-form-card) { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.articleForm :global(.admin-rich-text),
+.articleForm :global(.admin-block-list),
+.articleForm :global(.admin-block-card) { min-width: 0; max-width: 100%; }
+@media (max-width: 820px) {
+  /* Use document scrolling for the long canonical article form. Multiple nested
+     scroll containers caused action buttons to slip underneath the admin topbar. */
+  .workspaceRoot :global([data-editor-page]) { overflow: visible; }
+  .workspaceRoot :global([data-editor-workspace]) { max-height: none; min-height: 0; overflow: visible; }
+  .workspaceRoot :global([data-editor-columns]) { height: auto; min-height: 0; overflow: visible; }
+  .workspaceRoot :global([data-editor-content]),
+  .workspaceRoot :global([data-editor-preview]) { height: auto; min-height: 0; overflow: visible; }
+  .workspaceRoot :global([data-editor-navigation]) { position: sticky; top: 5rem; z-index: 9; }
+  .workspaceRoot :global([data-admin-editor-section]) { scroll-margin-top: 9rem; }
+  .workspaceRoot :global([data-editor-page] > div:last-child) { min-width: 0; }
+}
+
+/* Navigation and edit actions must scroll below the sticky admin header. */
+@media (max-width: 820px) {
+  .workspaceRoot :global([data-editor-content]) { scroll-padding-top: 8rem; }
+  .articleForm :global(button),
+  .articleForm :global([contenteditable]),
+  .articleForm :global(input),
+  .articleForm :global(select),
+  .articleForm :global(textarea) { scroll-margin-top: 8rem; }
+}
+
+/* Keep visually hidden upload inputs at one CSS pixel even under the shared
+   EditorWorkspace generic input selector. A full-width absolute file input
+   escapes its static label, causes document overflow and intercepts taps. */
+.workspaceRoot :global([data-editor-content]) .articleForm :global(label.admin-upload-button > input[type="file"]) {
+  position: absolute;
+  display: block;
+  width: 1px;
+  min-width: 0;
+  max-width: 1px;
+  height: 1px;
+  min-height: 0;
+  max-height: 1px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+}
