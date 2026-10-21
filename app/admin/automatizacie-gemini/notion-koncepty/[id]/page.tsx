@@ -20,7 +20,11 @@ export default async function GeminiNotionConceptPage({ params }: Props) {
     if (error instanceof GeminiNotionReviewError && ["ID", "NOT_FOUND"].includes(error.code)) notFound();
     throw error;
   }
-  const canonical = draft.psipediaId ? await getManagedDirectoryProfileById(Number(draft.psipediaId)) : null;
+  // A Psipedia ID copied into Notion is not evidence of canonical ownership.
+  if (draft.psipediaId && !draft.canonicalVerified)
+    throw new Error("GEMINI_CANONICAL_IDENTITY_UNVERIFIED");
+  const canonical = draft.canonicalVerified ? await getManagedDirectoryProfileById(Number(draft.psipediaId)) : null;
+  if (draft.canonicalVerified && !canonical) throw new Error("GEMINI_CANONICAL_PROFILE_MISSING");
   return <AdminShell
     user={user}
     eyebrow="Koncept Gemini · Notion"

@@ -1,45 +1,57 @@
 import { env } from "cloudflare:workers";
 import { requireAdminMutation } from "@/lib/admin-auth";
-import {
-  approveGeminiDirectoryDraft, GeminiNotionReviewError,
-} from "@/lib/gemini-notion-directory-review";
-import { geminiAgendaForKey, mutateGeminiAgendaDraft, GeminiAgendaReviewError } from "@/lib/gemini-notion-agenda-review";
+import { getGeminiDirectoryDraft, GeminiNotionReviewError } from "@/lib/gemini-notion-directory-review";
+import { geminiAgendaForKey, getGeminiAgendaDraft, GeminiAgendaReviewError } from "@/lib/gemini-notion-agenda-review";
+import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
+import { geminiValidNotionDraftId } from "@/lib/gemini-concept-manager";
+import { planGeminiPublishHandoff } from "@/lib/gemini-canonical-publish-handoff";
 
 export const dynamic = "force-dynamic";
 const NO_STORE = { "cache-control": "no-store" };
 type Props = { params: Promise<{ id: string }> };
 
+/** Legacy URL: verify a handoff only. Never confuse Notion approval with D1 publishing. */
 export async function POST(request: Request, { params }: Props) {
   const auth = await requireAdminMutation(request);
   if (auth.response) return auth.response;
-  const { id } = await params;
   try {
-    const body = await request.json();
-    if (body?.confirm !== true || typeof body.lastEditedAt !== "string")
+    const { id } = await params;
+    const body: unknown = await request.json();
+    if (!geminiValidNotionDraftId(id) || !body || typeof body !== "object" || Array.isArray(body))
+      return Response.json({ error: "Neplatná identita alebo požiadavka." }, { status: 400, headers: NO_STORE });
+    const input = body as Record<string, unknown>;
+    if (input.confirm !== true || typeof input.lastEditedAt !== "string" || !input.lastEditedAt)
       return Response.json({ error: "Vyžaduje sa potvrdenie a aktuálna verzia konceptu." }, { status: 400, headers: NO_STORE });
     const key = new URL(request.url).searchParams.get("stable_key") ?? "";
-    const result = key && geminiAgendaForKey(key)
-      ? { status: "PENDING_SYNC", draft: await mutateGeminiAgendaDraft(env, key, id,
-          { action: "approve", confirm: true, lastEditedAt: body.lastEditedAt }, auth.user.email) }
-      : await approveGeminiDirectoryDraft(env, id, body.lastEditedAt, auth.user.email);
-    return Response.json(result, { headers: NO_STORE });
-  } catch (error) {
-    if (error instanceof GeminiAgendaReviewError) {
-      return Response.json({ error: error.code === "SCHEMA" ? "Schvaľovanie blokuje schéma Notionu." : "Koncept nie je možné bezpečne schváliť." },
-        { status: ["CONFLICT", "LOCKED", "STATE"].includes(error.code) ? 409 : 503, headers: NO_STORE });
-    }
-    if (error instanceof GeminiNotionReviewError) {
-      const status = error.code === "ID" ? 400 :
-        error.code === "NOT_FOUND" ? 404 : error.code === "STATE" || error.code === "CONFLICT" || error.code === "LOCKED" ? 409 : 503;
-      return Response.json({
-        error: error.code === "STATE"
-          ? "Koncept už bol schválený, zmenený alebo nemá potrebný verejný zdroj."
-          : "Koncept nie je možné bezpečne publikovať.",
-      }, { status, headers: NO_STORE });
-    }
-    // A timed-out PATCH may already have succeeded. Never auto-retry from here.
+    if (!getGeminiCatalogItem(key))
+      return Response.json({ error: "Chýba platná kategória konceptu." }, { status: 400, headers: NO_STORE });
+    const draft = geminiAgendaForKey(key)
+      ? (await getGeminiAgendaDraft(env, key, id)).draft
+      : await getGeminiDirectoryDraft(env, id);
+    if (draft.lastEditedAt !== input.lastEditedAt)
+      return Response.json({ error: "Koncept sa zmenil. Obnov editor; nepublikovalo sa." }, { status: 409, headers: NO_STORE });
+    const handoff = planGeminiPublishHandoff(key, draft);
+    if (handoff.kind === "INVALID")
+      return Response.json({ error: "Kategória alebo D1 identita nebola overená." }, { status: 409, headers: NO_STORE });
+    if (handoff.kind === "IMPORT_REQUIRED")
+      return Response.json({ status: "IMPORT_REQUIRED", published: false,
+        error: "Najprv bezpečne dokonči import do jediného neverejného D1 konceptu. Nič sa nepublikovalo." },
+        { status: 409, headers: NO_STORE });
     return Response.json({
-      error: "Výsledok schválenia je neistý. Pred opakovaním skontroluj Notion.",
-    }, { status: 503, headers: NO_STORE });
+      status: handoff.kind, editorUrl: handoff.editorUrl,
+      // Only a confirmed canonical D1 publication can report published=true.
+      // Notion review state is never sufficient evidence.
+      published: false,
+    }, { headers: NO_STORE });
+  } catch (error) {
+    if (error instanceof GeminiNotionReviewError || error instanceof GeminiAgendaReviewError) {
+      const code = error.code;
+      const status = code === "ID" || code === "CATEGORY" ? 400 : code === "NOT_FOUND" ? 404 :
+        ["CONFLICT", "LOCKED", "STATE"].includes(code) ? 409 : 503;
+      return Response.json({ error: "Notion alebo D1 identitu nemožno bezpečne overiť. Nič sa nepublikovalo." },
+        { status, headers: NO_STORE });
+    }
+    return Response.json({ error: "Výsledok overenia je neistý. Pred opakovaním skontroluj záznam." },
+      { status: 503, headers: NO_STORE });
   }
 }

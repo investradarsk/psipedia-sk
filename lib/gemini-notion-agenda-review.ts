@@ -371,8 +371,15 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
       if (!fields || typeof fields !== "object" || Array.isArray(fields))
         throw new GeminiAgendaReviewError("STATE");
       const values = fields as Record<string, unknown>;
+      // A manual Save also requests signed, single-page D1 reconciliation.
+      // If nothing changed, do not issue an empty Notion PATCH: Notion's
+      // revision remains valid for the caller's canonical import check.
+      if (!Object.keys(values).length) {
+        await release();
+        return draft;
+      }
       const available = new Map(draft.fields.filter(field => field.editable).map(field => [field.name, field]));
-      if (!Object.keys(values).length || Object.keys(values).some(name => !available.has(name)))
+      if (Object.keys(values).some(name => !available.has(name)))
         throw new GeminiAgendaReviewError("STATE");
       // The agent embeds provenance in the description because these agenda
       // schemas have no dedicated evidence field. A reviewer may edit prose,

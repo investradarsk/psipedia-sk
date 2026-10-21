@@ -216,8 +216,11 @@ function AdminGeminiNotionDraftsForKey({ stableKey, deepLinkDraftId }: {
     clearDirty();
   }
 
-  function saved() {
-    closeEditor(true);
+  function saved(keepEditorOpen = false) {
+    // After a verified private D1 import, keep the modal open so the user can
+    // follow the native-editor link without submitting stale Notion updates.
+    if (keepEditorOpen) clearDirty();
+    else closeEditor(true);
     void load();
   }
 
