@@ -62,7 +62,7 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
             <label>Kraj
               <select aria-label="Kraj" name="region" defaultValue={f.region}>
                 <option value="">Všetky kraje</option>
-                {slovakRegions.map(region => <option key={region}>{region}</option>)}
+                {slovakRegions.filter(region => region !== "Online").map(region => <option key={region}>{region}</option>)}
               </select>
             </label>
             <label>Mesto / lokalita<input name="mesto" defaultValue={f.city} maxLength={120} /></label>
