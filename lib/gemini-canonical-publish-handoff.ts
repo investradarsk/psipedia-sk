@@ -22,7 +22,9 @@ export function planGeminiPublishHandoff(key: string, draft: GeminiPublishSubjec
   const editorUrl = geminiCanonicalEditorUrl(draft);
   if (!editorUrl) return { kind: "INVALID" as const };
   return {
-    kind: draft.reviewState === "PUBLISHED" ? "ALREADY_PUBLISHED" as const : "NATIVE_EDITOR_REQUIRED" as const,
+    // A Notion PUBLISHED label is not independent D1 publication evidence.
+    // Even a previously published concept must be verified in its canonical editor.
+    kind: "NATIVE_EDITOR_REQUIRED" as const,
     editorUrl,
   };
 }
