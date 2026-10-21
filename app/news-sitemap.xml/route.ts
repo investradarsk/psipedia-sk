@@ -40,7 +40,7 @@ function canonicalArticleUrl(article: PublishedArticle) {
 
 export async function GET() {
   const now = Date.now();
-  const articles = (await getPublishedArticleIndex(MAX_NEWS_ITEMS))
+  const articles = (await getPublishedArticleIndex(MAX_NEWS_ITEMS, { portalSection: "novinky" }))
     .flatMap((article) => {
       if (articlePortalSection(article) !== "novinky" || !article.title.trim()) return [];
       if (!isSelfCanonical(article.seo, articleHref(article))) return [];
