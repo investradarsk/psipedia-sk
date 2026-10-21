@@ -41,12 +41,12 @@ test("0137 SQL is pinned to canonical database and protected owner dispatch", ()
   assert.throws(()=>assertApproved0137Target("wrong-db",PINNED_SHA256_0137), /canonical/);
   assert.throws(()=>assertApproved0137Target("psipedia-sk-db","changed"), /SHA256/);
   assert.throws(()=>assert0137NotAlreadyApplied(target,true), /already applied/);
-  assert.match(workflow, /- 0137_media_source_review_decisions\\.sql/);
-  assert.match(workflow, /0137_media_source_review_decisions\\.sql\\) expected_confirmation="APPLY-0137-psipedia-sk-db"/);
+  assert.match(workflow, /- 0137_media_source_review_decisions\.sql/);
+  assert.match(workflow, /0137_media_source_review_decisions\.sql\) expected_confirmation="APPLY-0137-psipedia-sk-db"/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /group: production-d1-migration/);
-  assert.match(workflow, /test "\\$GITHUB_REF" = "refs\\/heads\\/main"/);
-  assert.doesNotMatch(workflow, /^\\s*(?:push|pull_request|schedule):/m);
+  assert.match(workflow, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
+  assert.doesNotMatch(workflow, /^\s*(?:push|pull_request|schedule):/m);
 });
 
 test("0137 requires 0136 as its immediate recorded predecessor", () => {
@@ -64,7 +64,7 @@ test("0137 refuses a partially applied schema and verifies exact final DDL", () 
     db.exec(sql);
     assert.deepEqual(targetSchemaObjects(shape(),target), {partial:true});
     assert.throws(()=>assertPendingTargetSchemaClean(target,targetSchemaObjects(shape(),target)),
-      /partial\\/manual drift/);
+      /partial\/manual drift/);
     assert.equal(assertMediaReview0137Schema(shape()),true);
     const missing=shape();
     missing.objects=missing.objects.filter(row=>row.name!=="media_review_decision_finalization_guard");
