@@ -36,7 +36,7 @@ test("homepage reuses bounded parallel published reads, never invented sidebar i
   assert.match(home, /getHomepageUpcomingEventsWithImages\(3\)/);
   assert.match(home, /getHomepageHighlightedHelpCasesWithImages\(3\)/);
   assert.match(home, /getHomepageDirectoryProfilesWithImages\("veterinari", 3\)/);
-  assert.match(home, /listFeaturedBreeds\(6\)/);
+  assert.match(home, /listHomepageFeaturedBreeds\(6\)/);
   assert.match(home, /nextEvents\.map\(\(event\)/);
   assert.match(home, /veterinarians\.map\(\(profile\)/);
   assert.match(home, /activeHelpCases\.map\(\(item\)/);

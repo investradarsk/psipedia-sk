@@ -78,6 +78,25 @@ test("all profiles are counted independently of the 50-row page", async () => {
   assert.ok(result.options.cities.includes("Bratislava"));
 });
 
+test("directory listing reduces D1 reads to four while preserving global location options", async () => {
+  const { db } = fixture();
+  const statements = [];
+  const tracked = {
+    prepare(sql) {
+      statements.push(sql);
+      return db.prepare(sql);
+    },
+  };
+  const result = await queryDirectoryAdmin(tracked, filters({ category: "veterinari", page: 3 }), categories);
+  assert.equal(statements.length, 4, "totals, matched count, combined locations, bounded page");
+  assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
+  assert.equal(result.page, 3);
+  assert.equal(result.items.length, 27);
+  assert.deepEqual(result.options.regions, ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj", "Žilinský kraj"]);
+  assert.deepEqual(result.options.cities, ["Bratislava", "Nitra", "Trnava", "Žilina"]);
+  assert.equal(result.counts.total, 127);
+});
+
 test("category, publication, location, verification and media filters combine", async () => {
   const { db } = fixture();
   assert.equal((await queryDirectoryAdmin(db, filters({ category: "veterinari" }), categories)).resultCount, 127);
