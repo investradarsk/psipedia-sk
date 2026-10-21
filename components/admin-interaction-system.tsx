@@ -28,14 +28,19 @@ export function AdminActionButton({
   variant = "neutral",
   className,
   type = "button",
+  loading = false,
+  disabled,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: AdminActionVariant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: AdminActionVariant; loading?: boolean }) {
   return (
     <button
       {...props}
       type={type}
+      disabled={disabled || loading}
+      aria-busy={loading ? true : props["aria-busy"]}
       className={classes(styles.action, styles[variant], className)}
       data-admin-action={variant}
+      data-loading={loading ? "true" : undefined}
     />
   );
 }

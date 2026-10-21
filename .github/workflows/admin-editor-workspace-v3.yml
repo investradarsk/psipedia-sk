@@ -6,6 +6,11 @@ on:
     paths:
       - "components/admin-editor-workspace.tsx"
       - "components/admin-editor-workspace.module.css"
+      - "components/admin-interaction-system.tsx"
+      - "components/admin-interaction-system.module.css"
+      - "app/admin/admin-workspace.css"
+      - "app/admin/admin-legacy-scoped.css"
+      - "tests/admin-v3-shared-visual.test.mjs"
       - "components/admin-editor-workspace-demo.tsx"
       - "app/admin/editor-workspace-preview/**"
       - "tests/admin-editor-workspace-v3.test.mjs"
@@ -36,7 +41,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Scoped contract tests
-        run: node --test tests/admin-editor-workspace-v3.test.mjs
+        run: node --test tests/admin-editor-workspace-v3.test.mjs tests/admin-button-system.test.mjs tests/admin-v3-shared-visual.test.mjs
       - name: Scoped lint
         run: npx eslint components/admin-editor-workspace.tsx components/admin-editor-workspace-demo.tsx app/admin/editor-workspace-preview/page.tsx tests/e2e/admin-editor-workspace-v3.spec.ts
       - name: Build
