@@ -50,6 +50,16 @@ test("desktop/mobile: edit persistence, discard guard, focus restoration and acc
   await editor.getByRole("button", { name: "Zavrieť dialóg" }).click();
   const guard = page.getByRole("dialog", { name: "Neuložené zmeny" });
   await expect(guard).toBeVisible();
+  // Visual acceptance: nested dirty-state confirmation stays centered on desktop and mobile.
+  await expect.poll(async () => {
+    const rect = await guard.boundingBox();
+    const viewport = page.viewportSize();
+    if (!rect || !viewport) return false;
+    const centerX = rect.x + rect.width / 2;
+    const centerY = rect.y + rect.height / 2;
+    return Math.abs(centerX - viewport.width / 2) <= 4 &&
+      Math.abs(centerY - viewport.height / 2) <= 4;
+  }).toBe(true);
   if (info.project.name !== "mobile-chromium") await screenshot(page, "unsaved-changes-dialog");
   await page.keyboard.press("Escape");
   await expect(guard).not.toBeVisible();
@@ -144,4 +154,46 @@ test("browser console has no page errors and opening editor causes no writes", a
   await expect(page.getByRole("dialog", { name: "Upraviť koncept — lokálna ukážka" })).toBeVisible();
   expect(pageErrors).toEqual([]);
   expect(writeRequests).toEqual([]);
+});
+
+// Shared V3 semantics: test the actual CSS modules in the safe development fixture.
+test("V3 semantic actions and focus tokens remain consistent at 1440/390/320", async ({ page }, info) => {
+  const widths = info.project.name === "mobile-chromium" ? [390, 320] : [1440];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: width === 320 ? 690 : 900 });
+    await page.goto("/admin/editor-workspace-preview");
+    await expectHydrated(page);
+    await page.getByRole("button", { name: "Otvoriť testovací editor" }).click();
+    const editor = page.getByRole("dialog", { name: "Upraviť koncept — lokálna ukážka" });
+    await expect(editor).toBeVisible();
+    const root = page.locator("[data-admin-workspace]");
+    const tokens = await root.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        green: style.getPropertyValue("--admin-v3-green").trim(),
+        focus: style.getPropertyValue("--admin-v3-focus").trim(),
+      };
+    });
+    expect(tokens.green).toBe("#0c3d2b");
+    expect(tokens.focus).toBe("#a26a1b");
+    await expect(editor.locator('[data-admin-action="primary"]').first()).toHaveCSS("background-color", "rgb(12, 61, 43)");
+    await expect(editor.locator('[data-admin-action="secondary"]').first()).toHaveCSS("color", "rgb(24, 63, 45)");
+    await editor.getByLabel("Názov profilu").fill("Neuložená zmena");
+    await editor.getByRole("button", { name: "Zavrieť dialóg" }).click();
+    const guard = page.getByRole("dialog", { name: "Neuložené zmeny" });
+    await expect(guard).toBeVisible();
+    const danger = guard.locator('[data-admin-action="destructive"]');
+    await expect(danger).toHaveCSS("color", "rgb(165, 35, 43)");
+    await danger.focus();
+    await expect(danger).toBeFocused();
+    await expect(guard).toBeVisible();
+    await verifyNoHorizontalOverflow(page);
+    const audit = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(audit.violations.filter((item) => ["serious", "critical"].includes(item.impact ?? ""))).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(guard).not.toBeVisible();
+    await editor.getByRole("button", { name: "Zavrieť dialóg" }).click();
+    await guard.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
+    await expect(editor).not.toBeVisible();
+  }
 });
