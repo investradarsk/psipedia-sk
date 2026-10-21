@@ -247,3 +247,74 @@ test("safe retry V2: missing additive migration fails closed before Meta POST",a
    }finally{sqlite.close();}
  }finally{f.close();}
 });
+
+test("safe retry V2: HTTP 500 and malformed success never trigger another POST",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");f.add(2,"APPROVED");
+   await setPublisherEnabled(f.db,true,"owner");
+   let calls=0;
+   const provider=async()=>{
+     calls++;
+     return calls===1 ? Response.json({error:{code:1}},{status:500})
+       :Response.json({success:true},{status:200});
+   };
+   const first=await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,fetcher:provider});
+   assert.equal(first.uncertain,2);
+   assert.equal(f.attempt(1).outcome_kind,"AMBIGUOUS");
+   assert.equal(f.attempt(2).outcome_kind,"AMBIGUOUS");
+   assert.equal((await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,
+     now:new Date("2030-02-11T12:00:00.000Z"),fetcher:provider})).claimed,0);
+   assert.equal(calls,2);
+ }finally{f.close();}
+});
+test("safe retry V2: global STOP keeps a proven rejection pending until re-enabled",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   let calls=0;
+   const provider=async()=>{
+     calls++;
+     return calls===1?Response.json({error:{code:4}},{status:429})
+       :Response.json({id:"99887766554433"});
+   };
+   await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,fetcher:provider});
+   assert.equal(f.attempt(1).outcome_kind,"PROVEN_REJECTED");
+   await setPublisherEnabled(f.db,false,"owner");
+   const later=new Date("2030-02-10T12:10:00.000Z");
+   assert.equal((await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,
+     now:later,fetcher:provider})).claimed,0);
+   assert.equal(calls,1);
+   await setPublisherEnabled(f.db,true,"owner");
+   const result=await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now:later,fetcher:provider});
+   assert.equal(result.published,1);
+   assert.equal(calls,2);
+ }finally{f.close();}
+});
+test("safe retry V2: simultaneous scheduler replays share one durable claim",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   let calls=0;
+   const provider=async()=>{
+     calls++;return calls===1?Response.json({error:{code:4}},{status:429})
+       :Response.json({id:"99887766554433"});
+   };
+   await runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,fetcher:provider});
+   const at=new Date("2030-02-10T12:01:01.000Z");
+   const result=await Promise.all([runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now:at,fetcher:provider}),
+     runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now:at,fetcher:provider})]);
+   assert.equal(result.reduce((sum,v)=>sum+v.published,0),1);
+   assert.equal(calls,2);
+   assert.equal(f.attempt(1).state,"PUBLISHED");
+ }finally{f.close();}
+});
+test("safe retry V2: missing 0135 audit trigger fails closed before any Meta POST",async()=>{
+ const f=fixture();try{
+   f.add(1,"APPROVED");await setPublisherEnabled(f.db,true,"owner");
+   f.sqlite.exec("DROP TRIGGER facebook_image_retry_supersede_post_update");
+   let calls=0;
+   await assert.rejects(()=>runFacebookImagePublishSweep({db:f.db,bindings:safeBindings,now,
+     fetcher:async()=>{calls++;return Response.json({id:"99887766554433"});}}),
+     /FACEBOOK_SAFE_RETRY_SCHEMA_INVALID/);
+   assert.equal(calls,0);
+   assert.equal(f.attempt(1),undefined);
+ }finally{f.close();}
+});
