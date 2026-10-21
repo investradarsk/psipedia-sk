@@ -7,7 +7,7 @@ import { HomeDogNameDayEntry } from "@/components/home-dog-name-day-entry";
 import { AdSlot } from "@/components/ad-slot";
 import { dayOfYearInBratislava } from "@/lib/breed-canonical";
 import { getPublishedArticleSummaries } from "@/lib/article-store";
-import { getBreedOfTheDay, listFeaturedBreeds } from "@/lib/breed-store";
+import { getBreedOfTheDay, listHomepageFeaturedBreeds } from "@/lib/breed-store";
 import { directoryCategories, directoryCategoryHref, directoryProfileHref } from "@/lib/directory";
 import { getHomepageDirectoryProfilesWithImages } from "@/lib/directory-store";
 import { getHomepageUpcomingEventsWithImages } from "@/lib/event-store";
@@ -112,7 +112,7 @@ export default async function Home() {
     getBreedOfTheDay(dayOfYear),
     getHomepageDirectoryProfilesWithImages("veterinari", 3),
     getResolvedSectionVisual("home.hero"),
-    listFeaturedBreeds(6).catch((error) => {
+    listHomepageFeaturedBreeds(6).catch((error) => {
       console.error("homepage_featured_breeds_unavailable", error);
       return [];
     }),

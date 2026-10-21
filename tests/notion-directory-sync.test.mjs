@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { notionDirectoryUpdateSafety } from "../lib/notion-directory-update-safety.ts";
+import { canRecoverNotionDirectoryMapping } from "../lib/notion-directory-update-safety.ts";
 import { mergeGeminiDirectoryPriority } from "../lib/notion-gemini-22-priority.ts";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 
@@ -108,6 +109,24 @@ test("multiline rich text stays lossless so services do not collapse into one it
   assert.match(syncSource, /\.join\(""\)\.replace\(\/\\r\\n\?\/g, "\\n"\)\.trim\(\)/);
   assert.doesNotMatch(syncSource, /notionRichTextPlainText/);
   assert.match(syncSource, /split\(\/\\n\|;\/g\)/);
+});
+
+test("mapping recovery uses identical current snapshots, never a Notion-supplied Sync hash", () => {
+  assert.equal(canRecoverNotionDirectoryMapping("same-hash", "same-hash"), true);
+  assert.equal(canRecoverNotionDirectoryMapping("canonical", "different"), false);
+  assert.equal(canRecoverNotionDirectoryMapping("", ""), false);
+
+  const recovery = syncSource.slice(
+    syncSource.indexOf("async function recoverMappingFromPage("),
+    syncSource.indexOf("export async function ensureDirectoryProfileInNotion("),
+  );
+  const guard = recovery.indexOf("if (!canRecoverNotionDirectoryMapping(hash, notionHash))");
+  const mappingWrite = recovery.indexOf("await saveMapping(");
+  assert.ok(guard >= 0 && mappingWrite > guard,
+    "the divergence guard must run before any recovered D1 mapping write");
+  assert.match(recovery, /contentHash: hash,/);
+  assert.doesNotMatch(recovery, /contentHash: propertyText\(input\.page, "Sync hash"\)/);
+  assert.match(recovery, /DIRECTORY_RECOVERY_BASELINE_MISMATCH/);
 });
 
 test("a duplicate Notion row cannot silently steal an existing profile mapping", () => {

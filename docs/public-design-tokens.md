@@ -86,7 +86,7 @@ The 15 original public-layout tokens stay intact:
 
 ### Admin isolation
 
-The root layout imports `app/globals.css` and `app/design-system.css`; admin routes can inherit both. These unused aliases have no selectors, no changed base values and no current consumers, so they do **not intentionally modify computed properties or render styles**. DS-1A must not edit `app/globals.css`, `app/admin/**` or the Admin Visual System V3. Future adoption needs public-scoped selectors and admin regression evidence.
+The root layout imports `app/globals.css` and `app/design-system.css`; admin routes can inherit both. The DS-1A aliases do not change the underlying base values. **Approved public-scoped adoption:** `app/design-system.css` provides DS-3 search styles, and `components/public-visual-system/public-visual-system.module.css` owns DS-2A CTA variants using matching semantic action tokens. No admin module may consume these aliases. Existing brand, section-tone and accessibility exceptions remain explicit.
 
 ### Adoption contract for DS-1B and later
 
@@ -94,6 +94,6 @@ The root layout imports `app/globals.css` and `app/design-system.css`; admin rou
 2. Demonstrate the new alias resolves to the same computed value **at every relevant viewport**.
 3. Migrate small independently testable groups; explicitly retain visual exceptions.
 4. Run source-contract, keyboard, mobile and browser screenshot regression tests before requesting approval.
-5. Update the DS-1A temporary **no-consumer** test only in the PR that explicitly approves adoption.
+5. The former **no-consumer** test now allows only the scoped canonical CTA module; additions need a separately reviewed ownership rule and value-equivalence test.
 
-**DS-1A does not yet globally unify component appearances.** Only DS-1B and subsequent approved phases will connect existing CTA, inputs, banners, cards, or shells to the aliases. It also does not change runtime, SEO, routes, CI configuration, APIs, database, deployment, production screenshots or feature flags.
+**The semantic foundation remains opt-in, not a global visual reset.** DS-3 search and canonical CTA variants now resolve their matching green and white values through the same semantic action aliases. The contextual banner reuses the existing public filter-radius token (18px). Other visual primitives, legacy controls and admin remain unchanged until explicitly migrated; no runtime, SEO, API, database, or feature flag changes are included.

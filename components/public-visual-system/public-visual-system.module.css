@@ -183,31 +183,31 @@
 }
 
 .actionPrimary {
-  border-color: var(--forest);
-  color: var(--white);
-  background: var(--forest);
+  border-color: var(--ps-color-action-primary);
+  color: var(--ps-color-action-primary-text);
+  background: var(--ps-color-action-primary);
   box-shadow: 0 5px 16px rgba(23, 53, 43, .12);
 }
 
 .actionPrimary:hover:not(:disabled) {
-  background: var(--forest-dark);
+  background: var(--ps-color-action-primary-hover);
 }
 
 .actionSecondary {
   border-color: var(--ps-border-strong, rgba(23, 75, 56, .18));
-  color: var(--forest-dark);
+  color: var(--ps-color-action-primary-hover);
   background: var(--white);
 }
 
 .actionSecondary:hover:not(:disabled) {
-  border-color: var(--forest);
+  border-color: var(--ps-color-action-primary);
   background: var(--sage-light);
 }
 
 .actionTertiary {
   min-height: 44px;
   padding-inline: 6px;
-  color: var(--forest);
+  color: var(--ps-color-action-primary);
   background: transparent;
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -215,7 +215,7 @@
 }
 
 .actionTertiary:hover:not(:disabled) {
-  color: var(--forest-dark);
+  color: var(--ps-color-action-primary-hover);
   background: rgba(237, 243, 233, .58);
 }
 
@@ -237,16 +237,16 @@
 }
 
 .actionPrimary:active:not(:disabled) {
-  background: var(--forest-dark);
+  background: var(--ps-color-action-primary-hover);
 }
 
 .actionSecondary:active:not(:disabled) {
-  border-color: var(--forest);
+  border-color: var(--ps-color-action-primary);
   background: var(--sage);
 }
 
 .actionTertiary:active:not(:disabled) {
-  color: var(--forest-dark);
+  color: var(--ps-color-action-primary-hover);
   background: var(--sage-light);
 }
 
