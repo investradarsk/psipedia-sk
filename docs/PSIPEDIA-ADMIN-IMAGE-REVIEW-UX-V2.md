@@ -1,8 +1,8 @@
-# Image Review UX V2 — implementation checkpoint (20 October 2026)
+# Image Review UX V2 — implementation checkpoint (21 October 2026)
 
 Scope: only `/admin/kvalita?section=media` and its existing media decision API, local stylesheet, and D1 schema. Preserve Admin Visual System V3, public site, Facebook Images, canonical profiles, editor state and existing media discovery.
 
-## Completed in PR #908 (Draft, not merge ready)
+## Completed in PR #908 (Draft, final CI pending)
 
 - Desktop/mobile confirmation and comparison UI, bulk selection 50 maximum, 44px controls, accessible names and partial-error feedback.
 - Optional rejection reason, validated server-side to **500 Unicode code points**, stored in the new immutable history table only after successful D1 decision finalization.
@@ -15,9 +15,9 @@ Scope: only `/admin/kvalita?section=media` and its existing media decision API, 
 
 ## Release and migration gates
 
-- **0136 Gemini Global STOP is already merged into main. 0137 is prepared-only.** `PREPARED_PRODUCTION_TARGETS` registers 0137 but `SUPPORTED_PRODUCTION_TARGETS` intentionally does not. The protected production migration runner refuses 0137 until a separately authorized rollout.
-- **No deployment before applying 0137.** The new sweep conditional references `review_claim_token`; decision mutations fail closed when 0137 is missing. Merging code ahead of schema would disrupt image review/sweeps.
-- No production migrations, D1 writes, Notion PATCH, real R2 requests or merge were performed in this PR.
+- **D1 0137 is merged and applied.** Migration-only PR #956 was merged; owner-dispatched [Production D1 Migrate #39643595439](https://github.com/investradarsk/psipedia-sk/actions/runs/39643595439) succeeded on 21 October 2026, including preflight, D1 migration, postflight schema/integrity verification and desktop/mobile smoke.
+- **Schema-first order completed.** PR #908 is now synced with `main`, preserving the canonical supported-0137 runner and its regression tests. No runtime image-review deployment preceded 0137.
+- PR #908 itself made no production writes and remains unmerged; production 0137 was applied separately by the owner through the protected workflow.
 - CI evidence must be interpreted by exact HEAD. Green historic 27/27 Chromium cases predate this backend implementation; the new suite must pass independently.
 - Before approving merge, review production schema and release ordering, independent background sweeps, race/timeout recovery, and authenticated admin preview.
 
@@ -26,7 +26,7 @@ Scope: only `/admin/kvalita?section=media` and its existing media decision API, 
 1. **R2/Notion are not one D1 transaction.** The D1 CAS protects finalization; R2 staging and cleanup are separately awaited. Stranded R2 staging objects may remain after abrupt worker termination and require a safe GC plan.
 2. **Notion writeback is still best-effort legacy behavior.** A Notion outage or a conflicting human edit is not yet handled by a durable idempotent outbox/field-CAS. Do not claim lossless bidirectional synchronization from this PR.
 3. **Abandoned candidate claims:** a fresh decision can reclaim a claim older than 24 hours using D1's conditional candidate identity and token fence; old worker tokens cannot finalize the decision. Regression tests cover expiration, stale release and finalization rollback. A candidate that never receives another decision remains claimed; operational cleanup and R2 orphan inspection still require separate procedures.
-4. **Review acceptance evidence:** verify new 30 real Chromium E2E cases and isolated SQLite tests, all new type/build checks, the production D1 prepared-only gate and outstanding independent admin visual approval. CI failures caused by unrelated newer main changes must be diagnosed separately rather than hidden.
+4. **Review acceptance evidence:** confirm current-HEAD isolated SQLite/Chromium suites, full relevant CI, desktop/mobile screenshots and final admin visual approval. The D1 0137 production gate has already passed.
 
 This checkpoint does not change the prior **63% completed / 37% remaining** estimate until a validated and merged milestone is delivered.
 
@@ -35,6 +35,6 @@ This checkpoint does not change the prior **63% completed / 37% remaining** esti
 - The D1 runtime gate now verifies 0137 columns, decision log, claim index and all required triggers; a partially applied schema fails closed even if the log table exists.
 - A 24-hour abandoned claim is conditionally reclaimed and the previous token is fenced out. This does not imply R2 garbage-collection completeness.
 - A rejection already committed to D1 remains a successful decision if a later optional source re-scan errors; refresh diagnostics do not change the immutable decision.
-- Isolated Node/Chromium results must be checked on the final #908 HEAD. The PR still requires a current-main update, final visual acceptance and a deployment-safe 0137 schema-first production rollout.
-- **0137 remains prepared-only**: neither this PR nor CI can execute the production migration. The protected runner and owner-approved release ordering must be completed separately. Production auto-deploy of code before the D1 schema is **not safe**.
+- Check current-HEAD Node/Chromium CI and final visual acceptance. Main synchronization and production schema-first rollout are complete.
+- **0137 production schema is complete:** protected migration #39643595439 succeeded. The canonical migration runner now supports 0137, and `PREPARED_PRODUCTION_TARGETS` is empty.
 - Legacy Notion writeback and possible R2 orphan objects are still non-atomic follow-ups; do not describe them as fully reconciled or claim production acceptance.
