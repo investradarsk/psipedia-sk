@@ -183,3 +183,61 @@ test("targeted Directory save never bootstraps unrelated canonical profiles", ()
   assert.match(source, /const changedIds = input\.targetPageId \? \[\] : await changedProfileIds/);
   assert.match(source, /const bootstrapIds = input\.targetPageId \? \[\] : await bootstrapProfileIds/);
 });
+
+
+test("all Gemini Events/Help no-change Saves preserve Notion revision and allow safe canonical reconciliation", async () => {
+  const source = readFileSync(new URL("../lib/gemini-notion-agenda-review.ts", import.meta.url), "utf8");
+  const start = source.indexOf("export async function mutateGeminiAgendaDraft(");
+  assert.ok(start > 0, "Exercise the production mutation entrypoint");
+  const code = ts.transpileModule(source.slice(start), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  class GeminiAgendaReviewError extends Error {
+    constructor(code) { super(code); this.code = code; }
+  }
+  const id = "11111111-1111-4111-8111-111111111111";
+  for (const item of geminiAutomationCatalog.filter(item => geminiImportAgenda(item.stableKey) !== "directory")) {
+    const draft = {
+      lastEditedAt: "saved-v2", psipediaId: "", reviewState: "NEW",
+      agenda: geminiImportAgenda(item.stableKey), fields: [], name: "Safe test",
+    };
+    function harness(options = {}) {
+      let lockReleased = 0, notionWrites = 0, calls = 0;
+      const context = {
+        exports: {}, ID: /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i,
+        GeminiAgendaReviewError,
+        acquireGeminiNotionLock: async () => options.busy ? null : async () => { lockReleased++; },
+        getGeminiAgendaDraft: async () => {
+          calls++;
+          return { draft: { ...draft, ...options.draft }, page: {}, source: {}, trusted: true };
+        },
+        notionRequest: async () => { notionWrites++; throw Error("No Notion API needed for unchanged save"); },
+      };
+      runInNewContext(code, context);
+      const run = (body = { action: "save", lastEditedAt: "saved-v2", fields: {} }) =>
+        context.exports.mutateGeminiAgendaDraft({ DB: {} }, item.stableKey, id, body, "test-admin");
+      return { run, stats: () => ({ lockReleased, notionWrites, calls }) };
+    }
+    const unchanged = harness();
+    const result = await unchanged.run();
+    assert.equal(result.lastEditedAt, "saved-v2", item.stableKey);
+    assert.equal(result.psipediaId, "", item.stableKey);
+    assert.deepEqual(unchanged.stats(), { lockReleased: 1, notionWrites: 0, calls: 1 }, item.stableKey);
+
+    const stale = harness();
+    await assert.rejects(stale.run({ action: "save", lastEditedAt: "stale", fields: {} }),
+      error => error.code === "CONFLICT", item.stableKey);
+    assert.deepEqual(stale.stats(), { lockReleased: 1, notionWrites: 0, calls: 1 });
+
+    const imported = harness({ draft: { psipediaId: "99" } });
+    await assert.rejects(imported.run(), error => error.code === "STATE", item.stableKey);
+    assert.equal(imported.stats().notionWrites, 0);
+
+    const busy = harness({ busy: true });
+    await assert.rejects(busy.run(), error => error.code === "LOCKED", item.stableKey);
+    assert.deepEqual(busy.stats(), { lockReleased: 0, notionWrites: 0, calls: 0 });
+  }
+  const api = readFileSync(new URL("../app/api/admin/gemini-automation/notion-drafts/[id]/route.ts", import.meta.url), "utf8");
+  assert.match(api, /canonicalSave = await reconcileGeminiSavedDraft\(/,
+    "PUT must reconcile even when the Notion save was unchanged");
+});
