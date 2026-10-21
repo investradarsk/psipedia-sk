@@ -7,11 +7,15 @@ Coordination: #917. Extends merged #929. Base main at start:
 
 - Keeps the existing canonical Admin article save, Notion → draft import and
   separate published-state writeback. It does not introduce a new sync engine.
-- Prepares additive **0138** SQL in `drizzle/0138_article_editorial_outbox.sql`
-  after migration 0137 landed on `main` in merged PR #908.
-  **Schema is NOT applied in production**. The protected production migration
-  runner does not permit 0138 dispatch yet; a separate approved release
-  gate must be implemented to apply it. Existing feature flags remain OFF.
+- The additive **0138** SQL in `drizzle/0138_article_editorial_outbox.sql`
+  was applied and verified after 0137 in the protected production migration
+  [run #39659734528](https://github.com/investradarsk/psipedia-sk/actions/runs/39659734528)
+  on 2026-10-21. PR #957 prepared the manual release gate.
+- Owner requested immediate global activation for all eligible Admin draft
+  saves, without a canary. PR #958 sets
+  `NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED=true` in production source
+  configuration; **actual live activation still depends on a successful
+  production deployment of #958**. This is not a bulk backfill.
 - Uses an immutable journal of planned preimages/targets, protected Notion
   identity/slug/category/approval metadata, all selected block fingerprints
   and the full page block identity order. An unknown snapshot fails closed.
@@ -50,30 +54,29 @@ into an atomic multi-block transaction. For simultaneous human editing, the
 safe operational policy is to stop, preserve the journal, review each side
 manually, and rebase the draft rather than force the stale operation.
 
-## Release gates — NOT approved
+## Release status and operational conditions
 
-1. 0137 is present in the canonical `main` chain (PR #908 merged), but
-   its **actual production application must be confirmed separately**. 0138
-   is now a canonical prepared migration file; confirm ordered migration
-   history, schema/foreign-key/index preflight and pinned SQL checksum.
-   A separate owner-approved change to the protected production migration
-   runner/workflow is required before 0138 can be dispatched. Neither this
-   PR nor its merge is approval to apply 0138.
-2. Deploy compatible code/schema **only under separate authorization** and
-   ensure `NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED` stays false throughout
-   rollout. Existing `NOTION_ARTICLE_SYNC_ENABLED` must also be considered.
-3. Validate actual Notion property types, allowed `Sync stav` selections,
-   page/block PATCH semantics, R2 image provenance, article manifest cases
-   and import/writeback interactions on an approved synthetic draft.
-4. Confirm full CI on the **exact** PR head and run controlled positive,
-   negative, crash/retry and concurrency tests. No general production
-   acceptance without separately approved live evidence.
-5. Only after written approval may the feature flag be enabled, initially
-   for controlled single-record use. No bulk backfill or publication.
-6. Manual reconciliation: leave the pending journal untouched; inspect
-   Notion and Admin revisions, reconcile in the canonical Admin draft,
-   then explicitly authorize clearing/superseding the journal. Never delete
-   unverified evidence automatically.
+1. **Database ready:** production workflow #39659734528 verified exact
+   predecessor 0137, applied 0138 and passed schema, D1 integrity and desktop/
+   mobile smoke. Do not run either migration again.
+2. **Global owner choice:** enable writeback for **every eligible mapped draft**
+   on Admin save, not a canary. PR #958 changes the single global flag.
+   `NOTION_ARTICLE_SYNC_ENABLED` remains true. No mass historical rewrite,
+   auto-publication or extension to published/scheduled articles.
+3. **Deploy gate:** PR #958 must pass exact-head CI and be merged by the owner;
+   Cloudflare Workers Builds must deploy the resulting `main` revision
+   successfully before the feature can be called live. A green GitHub PR check
+   alone does not prove the production runtime picked up the config.
+4. **Live operation:** the owner will test on real eligible content.
+   Unsupported changes or a mismatched Notion revision fail closed rather
+   than forcing replacement. Notion has no multi-block atomic PATCH; users
+   should avoid simultaneous Admin/Notion editing of the same article.
+5. **Recovery:** if a writeback fails or leaves
+   `EDITORIAL_WRITEBACK_PENDING`, preserve the D1 outbox and Notion revision
+   evidence. Reconcile content before clearing a journal. A remote
+   `Synchronizované` marker is not sole proof of success. To stop future
+   writebacks, revert `NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED` to false
+   and deploy, without deleting pending journal entries.
 
 **Important:** A remote `Synchronizované` marker is not an independent
 transactional proof across D1 and Notion. The journal and canonical D1
