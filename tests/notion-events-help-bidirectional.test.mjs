@@ -162,6 +162,17 @@ test("identity falls back to canonical URL when ID is missing", () => {
   assert.equal(result.matchedBy, "url");
 });
 
+test("URL recovery cannot attach a page claiming a different canonical ID", () => {
+  const result = matchCanonicalIdentity("12", "https://psipedia.sk/x/12", [
+    { id: "other-profile", psipediaId: "99", url: "https://psipedia.sk/x/12/" },
+  ]);
+  assert.deepEqual(result, {
+    kind: "CONFLICT",
+    pageIds: ["other-profile"],
+    reason: "IDENTITY_MISMATCH",
+  });
+});
+
 test("duplicate Psipedia ID is a conflict", () => {
   const result = matchCanonicalIdentity("12", "https://psipedia.sk/x/12", [
     { id: "p1", psipediaId: "12", url: "https://psipedia.sk/x/12" },
