@@ -74,15 +74,24 @@ export async function claimMediaCandidate(
       !["CANDIDATE", "CHANGED"].includes(row.status)) {
     throw new Error("Obrázok už nie je pripravený na kontrolu.");
   }
+  // Cloudflare requests cannot keep running for a full day. An abandoned
+  // token can be safely fenced out after 24 hours: every finalization still
+  // requires the *current* token, so an old worker cannot commit afterwards.
+  const nowMs = Date.parse(now);
+  if (!Number.isFinite(nowMs)) throw new Error("Neplatný čas kontroly obrázka.");
+  const staleBefore = new Date(nowMs - 24 * 60 * 60 * 1000).toISOString();
   const token = crypto.randomUUID();
   const result = await database.prepare(`
     UPDATE media_source_monitors SET review_claim_token=?, review_claimed_at=?
-    WHERE id=? AND review_claim_token IS NULL
+    WHERE id=? AND (
+      review_claim_token IS NULL
+      OR (review_claimed_at IS NOT NULL AND review_claimed_at < ?)
+    )
       AND status IN ('CANDIDATE','CHANGED')
       AND entity_type=? AND entity_id=?
       AND candidate_image_key=? AND candidate_image_url=?
       AND candidate_content_hash IS ? AND active_image_key IS ?
-  `).bind(token, now, row.id, row.entityType, row.entityId,
+  `).bind(token, now, row.id, staleBefore, row.entityType, row.entityId,
     row.candidateImageKey, row.candidateImageUrl, row.candidateContentHash, row.activeImageKey).run();
   if (result.meta.changes !== 1) {
     throw new Error("Konflikt: kandidát obrázka sa zmenil alebo sa už spracúva. Obnov údaje.");
