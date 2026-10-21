@@ -16,6 +16,7 @@ import {
   type DirectoryQualityField,
 } from "@/lib/directory-profile-metadata";
 import { directoryCategories } from "@/lib/directory";
+import { RAW_MISSING_PHONE_SQL, RAW_MISSING_EMAIL_SQL, RAW_MISSING_WEBSITE_SQL } from "@/lib/data-quality-contact-sql";
 import {
   listMediaSourceIssues,
   mediaSourceMonitorSchemaReady,
@@ -133,24 +134,6 @@ export type DataQualityMediaStatus = (typeof dataQualityMediaStatusOptions)[numb
 const VALID_SOURCE_DATA_SQL =
   "CASE WHEN json_valid(COALESCE(source_data_json, '')) THEN source_data_json ELSE '{}' END";
 const MISSING_DESCRIPTION_SQL = "trim(COALESCE(description, '')) = ''";
-const RAW_MISSING_PHONE_SQL = `trim(COALESCE(
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Telefón"') AS TEXT),
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Telefon"') AS TEXT),
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."phone"') AS TEXT),
-  ''
-)) = ''`;
-const RAW_MISSING_EMAIL_SQL = `trim(COALESCE(
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."E-mail"') AS TEXT),
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Email"') AS TEXT),
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."email"') AS TEXT),
-  ''
-)) = ''`;
-const RAW_MISSING_WEBSITE_SQL = `trim(COALESCE(
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Web"') AS TEXT),
-  CAST(json_extract(${VALID_SOURCE_DATA_SQL}, '$."Webstránka"') AS TEXT),
-  website_url,
-  ''
-)) = ''`;
 const RAW_MISSING_IMAGE_SQL = "trim(COALESCE(image_url, '')) = ''";
 const GOOGLE_MAPS_NOT_REQUIRED_SQL = `EXISTS (
   SELECT 1
