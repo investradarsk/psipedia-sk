@@ -198,6 +198,40 @@ test("full directory editor saves Notion-only draft without changing publication
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("incomplete Gemini directory concept saves without optional website, contacts or image", async () => {
+  const originalFetch = globalThis.fetch;
+  const patches = [];
+  let current = page({ "Web": { type: "url", url: null },
+    "Telefón": { type: "phone_number", phone_number: null },
+    "E-mail": { type: "email", email: null } });
+  globalThis.fetch = async (url, init = {}) => {
+    if (isSchema(url)) return json(schema);
+    if (init.method === "PATCH") {
+      const patch = JSON.parse(init.body).properties;
+      patches.push(patch);
+      current = { ...current, last_edited_time: "2026-10-12T23:58:00Z" };
+    }
+    return json(current);
+  };
+  try {
+    const draft = await saveGeminiDirectoryDraft(env, id, {
+      ...fullDraftInput, websiteUrl: "", publicPhone: "", publicEmail: "",
+      internalEmail: "", imageUrl: "", imageKey: "", logoUrl: "",
+      description: "", excerpt: "", services: [], qualifications: [],
+    }, "admin@test.sk");
+    assert.equal(draft.psipediaStatus, "Koncept");
+    assert.equal(draft.psipediaId, "");
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].Web.url, null);
+    assert.equal(patches[0]["Telefón"].phone_number, null);
+    assert.equal(patches[0]["E-mail"].email, null);
+    assert.equal(patches[0]["Hlavný obrázok URL"].url, null);
+    for (const key of ["Stav", "Psipedia stav", "Psipedia ID", "Vytvoril"]) {
+      assert.equal(Object.hasOwn(patches[0], key), false);
+    }
+  } finally { globalThis.fetch = originalFetch; locks.clear(); }
+});
+
 test("stale Notion drafts and foreign records cannot be modified", async () => {
   const originalFetch = globalThis.fetch;
   for (const props of [
@@ -233,7 +267,8 @@ test("Gemini concept modal uses the existing directory editor and keeps publicat
   const route = readFileSync(new URL("../app/api/admin/gemini-automation/notion-drafts/[id]/route.ts", import.meta.url), "utf8");
   assert.match(list, /<AdminModalDialog/);
   assert.match(list, /<AdminDirectoryEditor/);
-  assert.match(editor, /if \(notionDraft && !publishConfirming\)/);
+  assert.match(editor, /if \(notionDraft && nextStatus === "published"\)/);
+  assert.doesNotMatch(editor, /PENDING_SYNC|publishConfirming/);
   assert.match(editor, /method: "PUT"/);
   assert.match(route, /requireAdminMutation\(request\)/);
 });

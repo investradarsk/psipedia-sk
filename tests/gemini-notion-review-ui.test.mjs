@@ -88,7 +88,8 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
         throw error;
       }
       await page.getByRole('button', { name: 'Otvoriť editor' }).click();
-      assert.equal(await page.getByRole('button', { name: 'Publikovať profil', exact: true }).isDisabled(), true);
+      assert.equal(await page.getByRole('button', { name: 'Publikovať profil', exact: true }).count(), 0);
+      await page.getByText('Publikovať bude možné až po overenom importe v natívnom D1 editore.').waitFor({ state: 'visible' });
       await page.getByRole('button', { name: 'Obnoviť koncept', exact: true }).click();
       await page.getByRole('button', { name: 'Áno, obnoviť' }).click();
       await page.getByLabel('Stav konceptu').selectOption('IN_PROGRESS');
@@ -149,6 +150,78 @@ test('Gemini list and shared editor support reject/restore/save on mobile and de
       assert.equal(new URL(page.url()).pathname, '/admin/podujatia/321');
       await page.getByText('Canonical podujatie #321').waitFor();
       await page.close();
+    }
+
+    // Verify the complete *real React* Notion Save -> trusted private D1 handoff.
+    // The modal must stay open, expose a canonical editor link, and forbid
+    // a second Notion write after the first successful import.
+    for (const scenario of ['directory', 'events']) {
+      for (const width of [390, 1440]) {
+        const page = await browser.newPage({ viewport: { width, height: 900 } });
+        const errors = []; page.on('pageerror', error => errors.push(error.message));
+        const agenda = scenario === 'events';
+        const category = agenda ? 'events.vystavy' : 'directory.veterinari';
+        const id = agenda ? 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' : 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+        const editorUrl = agenda ? '/admin/podujatia/321' : '/admin/adresar/321';
+        const base = {
+          id, name: 'Test import', city: 'Nitra', reviewState: 'NEW',
+          psipediaId: '', canonicalVerified: false,
+          lastEditedAt: '2026-10-21T11:00:00Z',
+        };
+        const draft = agenda ? {
+          ...base, agenda: 'events', stableKey: category, notionUrl: 'https://www.notion.so/example',
+          attribution: 'SIGNED_CALLBACK', reviewAvailable: true,
+          fields: [{name: 'Názov', type: 'title', value: 'Test import', synced: true, editable: true}],
+          missingFields: [],
+        } : {
+          ...base, category: 'veterinari', editorialState: 'Na kontrolu', psipediaStatus: 'Koncept',
+          website: 'https://example.test', source: 'https://example.test', notes: '',
+          qualityResolutions: {}, seo: {},
+        };
+        const writes = [];
+        await page.route('**/*', async route => {
+          const url = new URL(route.request().url());
+          const method = route.request().method();
+          if (url.pathname === '/') return route.fulfill({contentType: 'text/html',
+            body: `<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;padding:12px}${css}</style></head><body class="admin-body"><div class="admin-workspace" id="root"></div><script>${js}</script></body></html>`});
+          if (url.pathname === editorUrl && method === 'GET') return route.fulfill({
+            contentType: 'text/html', body: '<h1>Verified canonical editor #321</h1>',
+          });
+          if (url.pathname === '/api/admin/gemini-automation/notion-drafts' && method === 'GET')
+            return route.fulfill({json: {drafts: [draft]}});
+          if (url.pathname === '/api/admin/gemini-automation/notion-drafts/' + id) {
+            if (method === 'GET') return route.fulfill({json: {draft}});
+            if (method === 'PUT') {
+              writes.push({method, body: route.request().postDataJSON()});
+              return route.fulfill({json: {draft: {...draft, lastEditedAt: '2026-10-21T11:01:00Z'},
+                canonicalSave: {state: 'CANONICAL_DRAFT_READY', editorUrl}}});
+            }
+          }
+          if (method === 'GET') return route.fulfill({json: {items: [], regions: [], districts: [], cities: []}});
+          return route.fulfill({status: 503, json: {error: 'Unexpected test request ' + method + ' ' + url.pathname}});
+        });
+        await page.goto('https://fixture.test/?category=' + category);
+        await page.getByRole('button', {name: 'Koncepty z automatizácie'}).click();
+        await page.getByRole('button', {name: 'Otvoriť editor'}).click();
+        await page.getByRole('dialog').waitFor();
+        const save = page.getByRole('button', {
+          name: agenda ? 'Uložiť ako koncept' : 'Uložiť koncept', exact: true,
+        });
+        await save.click();
+        const next = page.getByRole('link', {name: 'Otvoriť overený D1 editor →'});
+        await next.waitFor();
+        assert.equal(await next.getAttribute('href'), editorUrl, scenario + ' ' + width);
+        assert.equal(await page.getByRole('dialog').isVisible(), true,
+          'The verified editor link must not vanish when list is refreshed');
+        assert.equal(await save.isDisabled(), true,
+          'Stale Notion editor must not allow another write after import');
+        assert.equal(writes.length, 1, 'A single explicit save is allowed');
+        assert.deepEqual(errors, []);
+        await next.click();
+        await page.getByText('Verified canonical editor #321').waitFor();
+        assert.equal(new URL(page.url()).pathname, editorUrl);
+        await page.close();
+      }
     }
   } finally { await browser?.close(); await rm(dir, { recursive: true, force: true }); }
 });
