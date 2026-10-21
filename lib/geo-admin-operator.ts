@@ -886,7 +886,10 @@ export async function loadGeoAdminOperatorProfiles(
     pageSize: filters.pageSize,
   }));
 
-  const [summaryRow, pageCountRow, categoryRows] = await Promise.all([
+  // Category buckets use the same predicate as the filtered total (except
+  // the selected category). Reuse them rather than rebuilding the expensive
+  // GEO_BASE_CTE a third time just to count the filtered rows.
+  const [summaryRow, categoryRows] = await Promise.all([
     db.prepare(`
       ${GEO_BASE_CTE}
       SELECT
@@ -911,12 +914,6 @@ export async function loadGeoAdminOperatorProfiles(
     `).bind(...unresolvedSummary.bindings).first<DbRow>(),
     db.prepare(`
       ${GEO_BASE_CTE}
-      SELECT COUNT(*) AS total
-      FROM base
-      ${filtered.clause}
-    `).bind(...filtered.bindings).first<DbRow>(),
-    db.prepare(`
-      ${GEO_BASE_CTE}
       SELECT group_key, category, COUNT(*) AS count
       FROM base
       ${categoryFilter.clause}
@@ -925,7 +922,10 @@ export async function loadGeoAdminOperatorProfiles(
     `).bind(...categoryFilter.bindings).all<DbRow>(),
   ]);
 
-  const total = integer(pageCountRow, "total");
+  // This includes empty/unknown categories even though the UI hides them.
+  // Matching uses the same case-sensitive equality as SQL category = ?.
+  const total = (categoryRows.results ?? []).reduce((sum, row) =>
+    sum + (!filters.category || row.category === filters.category ? Number(row.count ?? 0) : 0), 0);
   const paging = pagination(filters.page, filters.pageSize, total);
   const offset = (paging.page - 1) * paging.pageSize;
   const pageRows = await db.prepare(`
