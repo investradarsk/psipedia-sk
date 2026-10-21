@@ -46,68 +46,21 @@ for (const editor of editors) {
     page.on("request", request => { if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) && request.url().includes("/api/admin/")) writes.push(request.url()); });
     if (editor.navigation) {
       const sharedWorkspace = editor.key === "article" || editor.key === "breed";
-      const nav = page.getByRole("navigation", {
-        name: sharedWorkspace ? "Sekcie pracovného editora" : editor.navigation,
-        exact: true,
-      });
-      const options = await nav.locator('select option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
+      const nav = page.getByRole("navigation", { name: sharedWorkspace ? "Sekcie pracovného editora" : editor.navigation, exact: true });
+      const options = await nav.locator('select option').evaluateAll(elements => elements.map(element => (element as HTMLOptionElement).value));
       const target = options.find(id => /media/.test(id)) ?? options.at(-1)!;
+      expect(target).toBeTruthy();
       const select = nav.getByRole("combobox");
       if (await select.isVisible()) await select.selectOption(target);
       else if (sharedWorkspace) {
-        const label = await nav.locator(`select option[value="${target}"]`).textContent();
-        await nav.getByRole("button", { name: label?.trim(), exact: true }).click();
+        const label = await nav.locator("select option").evaluateAll((elements, value) =>
+          elements.find(element => (element as HTMLOptionElement).value === value)?.textContent?.trim() ?? "", target);
+        await nav.getByRole("button", { name: label, exact: true }).click();
       } else {
         await nav.locator(`a[href$="#${target}"]`).click();
       }
       if (sharedWorkspace) await expect(page.locator(`#${target}`)).toBeFocused();
-      else await expect(page).toHaveURL(new RegExp(`#${target}import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
-
-async function noOverflow(page: Page) {
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
-}
-
-async function accessible(page: Page) {
-  const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-  const serious = result.violations.filter(item => item.impact === "critical" || item.impact === "serious");
-  expect(serious.map(item => `${item.id}: ${item.help}`)).toEqual([]);
-}
-
-test.beforeEach(async ({ page, baseURL }) => {
-  if (!baseURL || !["localhost", "127.0.0.1", "::1"].includes(new URL(baseURL).hostname)) {
-    throw new Error("Admin UX verification requires an isolated local environment.");
-  }
-  await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
-});
-
-const editors = [
-  { key: "article", route: "/admin/novy", field: "#article-title", navigation: "Sekcie editora článku" },
-  { key: "breed", route: "/admin/plemena/novy", field: "", navigation: "Sekcie editora plemena" },
-  { key: "directory", route: "/admin/adresar/novy", field: "#directory-name", navigation: "Sekcie profilu adresára" },
-  { key: "event", route: "/admin/podujatia/nove", field: "#event-title" },
-  { key: "help", route: "/admin/pomoc/novy", field: "#help-title" },
-];
-
-for (const editor of editors) {
-  test(`${editor.key}: shared layout and fields survive section navigation at desktop, 390 and 320px`, async ({ page }, testInfo) => {
-    const mobile = testInfo.project.name === "mobile-chromium";
-    await page.setViewportSize({ width: mobile ? 390 : 1440, height: 900 });
-    const response = await page.goto(editor.route, { waitUntil: "domcontentloaded" });
-    expect(response?.status()).toBe(200);
-    const field = editor.key === "breed" ? page.getByLabel("Názov plemena", { exact: true }) : page.locator(editor.field);
-    await expect(field).toBeEditable();
-    const value = `Neuložený test ${editor.key}`;
-    // Wait for the client editor, then verify that moving within the editor
-    // never sends a mutation or replaces typed state.
-    if (editor.key === "article") await expect(page.locator('#article-intro[data-editor-ready="true"]')).toBeVisible();
-    if (editor.key === "breed") await expect(page.locator('[data-admin-breed-editor-ready="true"]')).toBeVisible();
-    await field.fill(value);
-    await expect(field).toHaveValue(value);
-    const writes: string[] = [];
-    page.on("request", request => { if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()) && request.url().includes("/api/admin/")) writes.push(request.url()); });
-));
+      else await expect(page).toHaveURL(new RegExp(`#${target}$`));
       await expect(field).toHaveValue(value);
       await expect.poll(async () => {
         const section = await page.locator(`#${target}`).boundingBox();
