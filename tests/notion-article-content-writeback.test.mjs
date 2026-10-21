@@ -223,8 +223,8 @@ test("malformed Notion rich text cannot become an empty paragraph", () => {
   assert.throws(() => build(article(), b), /INVALID_REMOTE_RICH_TEXT/);
 });
 
-test("staged D1 0138 journal enforces foreign keys, single owner and CAS lease in SQLite", async () => {
-  const sql = await readFile(new URL("../docs/proposals/0138_article_editorial_outbox_PENDING_0137.sql", import.meta.url), "utf8");
+test("canonical prepared D1 0138 journal enforces foreign keys, single owner and CAS lease in SQLite", async () => {
+  const sql = await readFile(new URL("../drizzle/0138_article_editorial_outbox.sql", import.meta.url), "utf8");
   const db = new DatabaseSync(":memory:");
   try {
     db.exec("PRAGMA foreign_keys = ON;");
