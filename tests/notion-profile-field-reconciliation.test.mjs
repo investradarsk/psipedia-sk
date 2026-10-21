@@ -282,3 +282,128 @@ test("existing owner-gated Gemini and Events priority branches remain reachable"
     /legacyPriorityEnabled = input\.definition\.key === "events"[\s\S]{0,260}NOTION_EVENTS_NOTION_PRIORITY_A_ENABLED[\s\S]{0,180}NOTION_GEMINI_22_PRIORITY_A_ENABLED/);
   assert.match(sync, /decision\.decision !== "UNCHANGED" && !legacyPriorityEnabled/);
 });
+
+
+test("reordered JSON object keys inside a list do not create phantom field edits", () => {
+  const original = { items: [{ name: "Luna", meta: { age: 3, color: "black" } }] };
+  const reordered = { items: [{ meta: { color: "black", age: 3 }, name: "Luna" }] };
+  const result = reconcileProfileFields({
+    baseline: original, notion: reordered, psipedia: original, protectedFields: new Set(),
+  });
+  assert.equal(result.kind, "UNCHANGED");
+  assert.deepEqual(result.conflicts, []);
+  assert.deepEqual(result.notionFields, []);
+});
+
+test("list order remains meaningful even when members have identical properties", () => {
+  const a = { images: [{ id: "front" }, { id: "back" }] };
+  const b = { images: [{ id: "back" }, { id: "front" }] };
+  const result = reconcileProfileFields({
+    baseline: a, notion: b, psipedia: a, protectedFields: new Set(),
+  });
+  assert.equal(result.kind, "MERGE");
+  assert.deepEqual(result.merged.images, b.images);
+  assert.deepEqual(result.notionFields, ["images"]);
+});
+
+test("two independently reordered lists are not guessed into one ordering", () => {
+  const baseline = { images: ["a", "b", "c"] };
+  const result = reconcileProfileFields({
+    baseline,
+    notion: { images: ["b", "a", "c"] },
+    psipedia: { images: ["a", "c", "b"] },
+    protectedFields: new Set(),
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.equal(result.conflicts[0].reason, "AMBIGUOUS_SAME_FIELD");
+});
+
+test("nested independent edits still merge even when sibling objects have reordered keys", () => {
+  const old = { seo: { title: "Old", description: "Old", noindex: false }, links: [{ a: 1, b: 2 }] };
+  const notion = { seo: { title: "Old", description: "New", noindex: false }, links: [{ b: 2, a: 1 }] };
+  const admin = { seo: { title: "Changed", description: "Old", noindex: false }, links: [{ a: 1, b: 2 }] };
+  const result = reconcileProfileFields({
+    baseline: old, notion, psipedia: admin, protectedFields: new Set(["seo.noindex"]),
+  });
+  assert.equal(result.kind, "MERGE");
+  assert.deepEqual(result.merged.seo, { title: "Changed", description: "New", noindex: false });
+  assert.deepEqual(result.conflicts, []);
+});
+
+test("a protected parent locks every descendant against Notion edits", () => {
+  const original = { private: { email: "internal@example.sk", phone: "0900" } };
+  const result = reconcileProfileFields({
+    baseline: original,
+    notion: { private: { email: "attacker@example.sk", phone: "0900" } },
+    psipedia: original, protectedFields: new Set(["private"]),
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.deepEqual(result.conflicts, [{ field: "private.email", reason: "PROTECTED_FIELD" }]);
+});
+
+test("empty object is never silently omitted from the three-way evidence", () => {
+  const b = { payload: {} };
+  const result = reconcileProfileFields({
+    baseline: b, notion: { payload: { name: "Notion" } },
+    psipedia: b, protectedFields: new Set(),
+  });
+  assert.equal(result.kind, "CONFLICT");
+  assert.ok(result.conflicts.some((conflict) => conflict.reason === "MISSING_FIELD"));
+});
+
+test("nested array content changed on both sides remains manual without trustworthy intent", () => {
+  const b = { images: [{ src: "a", alt: "old" }] };
+  const n = { images: [{ alt: "new", src: "a" }] };
+  const p = { images: [{ src: "b", alt: "old" }] };
+  const result = reconcileProfileFields({ baseline: b, notion: n, psipedia: p, protectedFields: new Set() });
+  assert.equal(result.kind, "CONFLICT");
+  assert.equal(result.conflicts[0].reason, "AMBIGUOUS_SAME_FIELD");
+});
+
+test("semantic equality can repair a stale historical mapping hash without picking a winner", () => {
+  const n = { photos: [{ alt: "photo", src: "photo.webp" }] };
+  const p = { photos: [{ src: "photo.webp", alt: "photo" }] };
+  const result = trustedProfileBaselineFromHashes({
+    recorded: null, notion: n, psipedia: p,
+    mappingHash: "historic", notionHash: "notion-different-order", psipediaHash: "admin-different-order",
+  });
+  assert.deepEqual(result, p);
+  assert.equal(reconcileProfileFields({
+    baseline: result, notion: n, psipedia: p, protectedFields: new Set(),
+  }).kind, "UNCHANGED");
+});
+
+test("different edits with no verified baseline must still fail closed", () => {
+  const result = trustedProfileBaselineFromHashes({
+    recorded: null, notion: { title: "notion" }, psipedia: { title: "admin" },
+    mappingHash: "old", notionHash: "n", psipediaHash: "p",
+  });
+  assert.equal(result, null);
+  assert.equal(reconcileProfileFields({
+    baseline: result, notion: { title: "notion" }, psipedia: { title: "admin" },
+    protectedFields: new Set(),
+  }).conflicts[0].reason, "BASELINE_UNAVAILABLE");
+});
+
+test("field-level equality can follow canonical Events/Help string and time normalization", async () => {
+  const { stableAgendaSnapshotJson } = await import("../lib/notion-bidirectional-reconciliation.ts");
+  const original = { "Popis": "Text", "Naposledy videný": "2026-10-20T12:00:00+02:00" };
+  const notion = { "Popis": "  Text  ", "Naposledy videný": "2026-10-20T10:00:00Z" };
+  const result = reconcileProfileFields({
+    baseline: original, notion, psipedia: original, protectedFields: new Set(),
+    equalField: (path, left, right) =>
+      stableAgendaSnapshotJson("lost-found", { [path]: left })
+      === stableAgendaSnapshotJson("lost-found", { [path]: right }),
+  });
+  assert.equal(result.kind, "UNCHANGED");
+});
+
+test("real Events/Help adapter uses canonical equality, strict ID parsing and privacy locks", async () => {
+  const sync = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.ok(sync.includes('if (!/^[1-9]\\d*$/.test(source.id)) return null;'));
+  assert.ok(sync.includes("equalField: (path, left, right) =>"));
+  assert.ok(sync.includes("stableAgendaSnapshotJson(agenda, { [path]: left })"));
+  assert.ok(sync.includes('"Zrušené", "Kontakt"'));
+  assert.ok(sync.includes('"Zdroj", "Zdroj URL", "Zdroj dát"'));
+  assert.ok(sync.includes("pageIdentity.psipediaId && pageIdentity.psipediaId !== source.id"));
+});
