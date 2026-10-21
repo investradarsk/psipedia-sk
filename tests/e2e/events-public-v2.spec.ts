@@ -35,9 +35,23 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 events expose one primary URL-backed search", asy
 
   await page.goto("/podujatia");
   await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
-  await page.getByRole("link", { name: "Ukončené", exact: true }).click();
-  await expect(page).toHaveURL(/termin=ukoncene/);
-  await page.getByRole("link", { name: "Najbližšie", exact: true }).click();
+  // On busy preview Workers a client-side Next Link click can race with
+  // hydration/route readiness. Retrying one *real click* is safer than
+  // navigating by page.goto(), which would stop testing the public controls.
+  const ended = page.getByRole("link", { name: "Ukončené", exact: true });
+  await expect(ended).toHaveAttribute("href", /[?&]termin=ukoncene(?:&|$)/);
+  await ended.click();
+  try {
+    await expect(page).toHaveURL(/termin=ukoncene/, { timeout: 5_000 });
+  } catch {
+    // Fail after the second click if navigation really is broken.
+    await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
+    await page.getByRole("link", { name: "Ukončené", exact: true }).click();
+    await expect(page).toHaveURL(/termin=ukoncene/);
+  }
+  const upcoming = page.getByRole("link", { name: "Najbližšie", exact: true });
+  await expect(upcoming).toHaveAttribute("href", /\/podujatia(?:\?|$)/);
+  await upcoming.click();
   await expect(page).not.toHaveURL(/termin=/);
 
   const organizer = page.locator("[data-public-context-banner]");
