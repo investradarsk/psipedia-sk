@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
 
 type Values = Record<string, string | number | boolean | null>;
@@ -19,17 +19,21 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [revision, setRevision] = useState(draft.lastEditedAt);
   const [reviewState, setReviewState] = useState(draft.reviewState);
   const [busy, setBusy] = useState(false);
+  // React state changes are batched; a ref closes the double-click window
+  // before a second request can reach the D1/Notion reconciliation endpoint.
+  const requestInFlight = useRef(false);
   const [confirm, setConfirm] = useState<"approve" | "reject" | "restore" | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   // The button only navigates to the verified native editor. It never publishes a D1 row.
   async function openCanonicalPublisher() {
-    if (busy) return;
+    if (busy || requestInFlight.current) return;
     if (draft.fields.some(field => field.editable && !Object.is(values[field.name], baseline[field.name]))) {
       setError("Najprv ulož rozpracované zmeny konceptu. Publikovanie nie je spustené.");
       return;
     }
+    requestInFlight.current = true;
     setBusy(true); setError(""); setMessage("");
     try {
       const response = await fetch(
@@ -46,11 +50,13 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       window.location.assign(result.editorUrl);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Publikovanie nie je dostupné.");
+      requestInFlight.current = false;
       setBusy(false);
     }
   }
   async function submit(action: "save" | "approve" | "reject" | "restore") {
-    if (busy) return;
+    if (busy || requestInFlight.current) return;
+    requestInFlight.current = true;
     setError(""); setMessage("");
     // PATCH only actually edited fields. Preserves rich-text mentions, formatted
     // fragments and datetime values that a plain HTML input cannot round-trip.
@@ -84,7 +90,10 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
       onSaved();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Zápis do Notionu zlyhal.");
-    } finally { setBusy(false); }
+    } finally {
+      requestInFlight.current = false;
+      setBusy(false);
+    }
   }
 
   const readOnly = !["NEW", "IN_PROGRESS"].includes(reviewState);
