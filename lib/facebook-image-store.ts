@@ -1,7 +1,7 @@
 import {env} from "cloudflare:workers";
 import {normalizeFacebookImageInput, type FacebookImagePost, type FacebookImageInput} from "@/lib/facebook-image-post";
 import {facebookImageScheduleV2Policy} from "@/lib/facebook-image-schedule-v2";
-import {facebookSafeRetryEnabled} from "@/lib/facebook-image-publisher";
+import {facebookSafeRetryEnabled,requireFacebookSafeRetrySchema} from "@/lib/facebook-image-publisher";
 export class FacebookImageSchemaUnavailable extends Error {
   constructor() { super("Modul čaká na schválenú D1 migráciu 0128. Žiadne údaje sa nezapisujú."); }
 }
@@ -181,9 +181,8 @@ export async function saveFacebookImagePost(id:string|null,raw:unknown,actor:str
   const approvalStatus=approved?"APPROVED":"UNREVIEWED";
   const approvedAt=approved?now:null,approvedBy=approved?actor:null;
   const publisher=await hasPublisherSchema(db),consent=await hasDirectConsentSchema(db);
-  const safeRetry=publisher&&facebookSafeRetryEnabled(env as unknown as {FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string});
-  if(safeRetry&&!(await hasRetrySchema(db)))
-    throw new Error("Facebook retry V2 requires D1 migration 0135.");
+  const safeRetry=facebookSafeRetryEnabled(env as unknown as {FACEBOOK_IMAGE_SAFE_RETRY_V2_ENABLED?:string});
+  if(safeRetry)await requireFacebookSafeRetrySchema(db);
   if(id){
     const expected=(raw as {expectedVersion?:unknown}).expectedVersion;
     if (!Number.isSafeInteger(expected) || Number(expected)<1)throw new FacebookImageConflict();
