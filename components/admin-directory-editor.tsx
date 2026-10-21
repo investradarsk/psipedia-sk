@@ -12,6 +12,7 @@ import {
   AdminStickyEditorNavigation,
 } from "@/components/admin-interaction-system";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { EditorStatus, EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { AdminAutomationUpdateSuggestions } from "@/components/admin-automation-update-suggestions";
 import type { CanonicalUpdateSuggestion } from "@/lib/data-automation-update-review";
 import type { ArticleSeo } from "@/lib/content";
@@ -199,6 +200,7 @@ export function AdminDirectoryEditor({
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [formDirty, setFormDirty] = useState(false);
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
@@ -225,6 +227,7 @@ export function AdminDirectoryEditor({
     try {
       const data = await uploadAdminImage(file, "directory");
       setImageUrl(data.imageUrl);
+      setFormDirty(true);
       setImageKey(data.imageKey);
       setThumbnailImageDisplay(null); setDetailImageDisplay(null);
       clearQualityResolution("image");
@@ -238,6 +241,7 @@ export function AdminDirectoryEditor({
   }
 
   function applyAutomationUpdate(values: Record<string, unknown>) {
+    setFormDirty(true);
     for (const [field, value] of Object.entries(values)) {
       const text = value === null || value === undefined ? "" : String(value);
       if (field === "name") setName(text);
@@ -321,6 +325,7 @@ export function AdminDirectoryEditor({
           setMessage("Koncept je uložený priamo v Notione. Zostáva neverejný.");
         }
         setPublishConfirming(false);
+        setFormDirty(false);
         onNotionSaved?.();
         return;
       }
@@ -370,6 +375,7 @@ export function AdminDirectoryEditor({
       setQualityResolutions(qualityResolutionInput(savedProfile));
       setQualityCheckedAt(qualityCheckedAtInput(savedProfile));
       setMessage(nextStatus === "published" ? "Profil je publikovaný v adresári." : "Koncept je bezpečne uložený.");
+      setFormDirty(false);
       if (!profile) window.location.assign(`/admin/adresar/${data.profile.id}?vytvorene=1`);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Profil sa nepodarilo uložiť.");
@@ -485,12 +491,14 @@ export function AdminDirectoryEditor({
 
   const categoryInfo = getDirectoryCategory(category);
   return (
-    <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}>
+    <form ref={formRef} data-hydrated="false" className={`admin-event-editor admin-directory-editor ${styles.editor}`} onSubmit={(event) => { event.preventDefault(); void save(status === "published" && !notionDraft ? "published" : "draft"); }}>
       <NotionDraftFields enabled={Boolean(notionDraft)} disabled={notionReadOnly || saving}>
 
       <div className={styles.editorTopline} data-admin-editor-navigation-container>
         <AdminStickyEditorNavigation sections={editorSections} ariaLabel="Sekcie profilu adresára" />
         <div className={styles.toplineActions}>
+          <EditorStatus label={status === "published" ? "Publikovaný" : "Koncept"} tone={status === "published" ? "success" : "warning"} />
+          {formDirty && <EditorStatus label="Neuložené zmeny" tone="warning" />}
           {profile && (
             <label className={styles.reviewControl}>
               <input
@@ -508,12 +516,18 @@ export function AdminDirectoryEditor({
       </div>
 
       <div className="admin-event-editor-grid">
-        <div className="admin-event-fields">
+        <div className="admin-event-fields" onChangeCapture={() => setFormDirty(true)}>
           <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
           <AdminEditorSection id="directory-main" className="admin-form-card admin-form-card--intro">
             <div className="admin-card-heading"><div><span>01</span><div><h2>Hlavné údaje</h2><p>Názov, zaradenie a krátke verejné predstavenie.</p></div></div></div>
             <div className="admin-field admin-field--title"><label htmlFor="directory-name">Názov profilu</label><input id="directory-name" value={name} onChange={(event) => changeName(event.target.value)} placeholder="Napríklad: Psia škola Pod Zoborom" required /></div>
-            <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => { setCategory(event.target.value as DirectoryCategorySlug); setFilterChanges({}); }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
+            <div className="admin-field"><label htmlFor="directory-category">Kategória</label><select id="directory-category" value={category} onChange={(event) => {
+              const nextCategory = event.target.value as DirectoryCategorySlug;
+              if (nextCategory === category) return;
+              if (Object.keys(filterChanges).length > 0 && !window.confirm("Zmenou kategórie zahodíš neuložené kategóriové filtre. Pokračovať?")) return;
+              setCategory(nextCategory);
+              setFilterChanges({});
+            }}>{directoryCategories.map((item) => <option value={item.slug} key={item.slug}>{item.label}</option>)}</select></div>
             <div className="admin-field"><label htmlFor="directory-excerpt">Krátky popis</label><textarea id="directory-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čím je profil zaujímavý a komu pomáha?" /><small>{excerpt.length} znakov · odporúčame 80–180</small></div>
           </AdminEditorSection>
 
@@ -670,7 +684,7 @@ export function AdminDirectoryEditor({
 
           <AdminEditorSection id="directory-media-trust" className="admin-form-card">
             <div className="admin-card-heading"><div><span>05</span><div><h2>Médiá a dôvera</h2><p>Obrázok, redakčné overenie a existujúce odporúčanie profilu.</p></div></div></div>
-            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
+            <div className="admin-upload-row"><div className="admin-upload-preview admin-upload-preview--forest">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="Náhľad profilovej fotografie" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />{uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}</label>{imageUrl && <AdminActionButton variant="neutral" onClick={() => { setImageUrl(""); setImageKey(""); setThumbnailImageDisplay(null); setDetailImageDisplay(null); setFormDirty(true); }}>Odstrániť fotku</AdminActionButton>}<small>Odporúčaný pomer 4 : 3, najviac 8 MB.</small></div></div>
             {imageUrl && !notionDraft && <button type="button" className="admin-upload-button" onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}
             {notionDraft && <div className="admin-field"><label htmlFor="directory-notion-logo">URL oficiálneho loga</label><input id="directory-notion-logo" type="url" value={logoUrl} onChange={(event) => setLogoUrl(event.target.value)} placeholder="https://…" /><small>Logo je samostatné od hlavnej fotografie. Nastavenie výrezu fotografie bude dostupné po synchronizácii profilu do Adresára.</small></div>}
             {!imageUrl ? (
@@ -697,7 +711,7 @@ export function AdminDirectoryEditor({
 
       {imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={name || "Profil"} title={name} excerpt={excerpt} entityLabel="profilu služby" thumbnailAspectRatio="1 / 1" thumbnailLayout="compact"
          thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
-         onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}
+         onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setFormDirty(true); setImageEditorOpen(false); }} />}
       <AdminDrawer
         open={advancedOpen}
         title="Pokročilé nastavenia"
@@ -707,14 +721,16 @@ export function AdminDirectoryEditor({
       >
         <div className={styles.drawerFields}>
           <div className="admin-field"><label htmlFor="directory-slug">Adresa profilu</label><div className="admin-slug-input"><span>psipedia.sk/adresar/{category}/</span><input id="directory-slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugify(event.target.value)); }} placeholder="nazov-profilu" required /></div></div>
-          <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/adresar/${category}/${slug}`} fallbackTitle={directorySeoFallback(name || "Názov profilu", city, category).title} fallbackDescription={directorySeoFallback(name || "Názov profilu", city, category).description} />
+          <AdminSeoFields value={seo} onChange={(next) => { setSeo(next); setFormDirty(true); }} canonicalPath={`/adresar/${category}/${slug}`} fallbackTitle={directorySeoFallback(name || "Názov profilu", city, category).title} fallbackDescription={directorySeoFallback(name || "Názov profilu", city, category).description} />
         </div>
       </AdminDrawer>
 
       </NotionDraftFields>
       {(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar">← Späť na adresár</Link>}</div>
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" onClick={event => {
+          if (formDirty && !window.confirm("Zahodiť neuložené zmeny profilu?")) event.preventDefault();
+        }}>← Späť na adresár</Link>}</div>
         {notionDraft && !notionDraft.psipediaId && (
           <div>
             {!reviewConfirm ? <AdminActionButton variant="secondary" disabled={saving} onClick={() => {
@@ -730,7 +746,7 @@ export function AdminDirectoryEditor({
         {notionDraft && publishConfirming && <p role="alert">Po potvrdení sa uložený koncept schváli na publikovanie. Verejný profil vznikne až pri úspešnej synchronizácii.</p>}
         <div>
           {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
-          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : "Uložiť koncept"}</AdminActionButton>
+          <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
           {notionDraft && publishConfirming && <AdminActionButton variant="neutral" disabled={saving} onClick={() => setPublishConfirming(false)}>Zrušiť</AdminActionButton>}
           <AdminActionButton variant="primary" disabled={saving || uploading || notionReadOnly || Boolean(reviewConfirm) || (Boolean(notionDraft) && status === "published")} onClick={() => {
             if (notionDraft && !publishConfirming) { setPublishConfirming(true); return; }
@@ -738,6 +754,7 @@ export function AdminDirectoryEditor({
           }}>{saving ? "Ukladám…" : notionDraft ? publishConfirming ? "Áno, publikovať" : "Publikovať profil" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>
         </div>
       </div>
+      <EditorUnsavedChangesGuard active={formDirty} open={false} onStay={() => {}} onDiscard={() => {}} />
     </form>
   );
 }
