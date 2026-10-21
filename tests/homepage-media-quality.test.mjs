@@ -55,7 +55,7 @@ test("homepage-only reads filter before bounded LIMIT and preserve publication p
     assert.doesNotMatch(segment, /fetch\(|\.filter\(\(.*imageUrl/);
     assert.match(page, new RegExp(functionName));
   }
-  // Upcoming events remain listed even when an approved photo is absent; EventImage has safe artwork.
+  // Upcoming events without uploaded photos remain visible; EventImage provides safe category artwork.
   const upcoming = events.slice(events.indexOf("export async function getHomepageUpcomingEventsWithImages")).split("\nexport async function ")[0];
   assert.match(upcoming, /status = 'published'/);
   assert.match(upcoming, /cancelled = 0/);
@@ -99,4 +99,56 @@ test("homepage previews preserve safe fallbacks and truthful empty messages", as
   for (const selector of ["home-event-list", "home-vet-list", "home-help-grid"]) {
     assert.match(css, new RegExp(`\\.${selector}\\)[\\s\\S]*?repeat\\(auto-fit, minmax`));
   }
+});
+
+
+test("homepage cards use projected SQL rather than fetching full profile and event bodies", async () => {
+  const specs = [
+    ["lib/event-store.ts", "getHomepageUpcomingEventsWithImages",
+      ["id", "slug", "title", "event_type", "start_date", "end_date", "city", "image_url", "image_display", "thumbnail_display_json"],
+      ["description", "practical_info", "seo_json", "website_url", "registration_url"]],
+    ["lib/help-store.ts", "getHomepageHighlightedHelpCasesWithImages",
+      ["id", "slug", "title", "category", "status", "city", "image_url", "thumbnail_display_json", "urgent", "resolved"],
+      ["description", "contact_note", "seo_json", "action_url", "raised_amount"]],
+    ["lib/directory-store.ts", "getHomepageDirectoryProfilesWithImages",
+      ["id", "slug", "name", "category", "city", "district", "image_url", "thumbnail_display_json"],
+      ["description", "services_json", "internal_email", "qualifications_json", "seo_json"]],
+  ];
+  for (const [file, fn, expected, excluded] of specs) {
+    const source = await repoFile(file);
+    const start = source.indexOf("export async function " + fn);
+    assert.ok(start >= 0, fn + " exists");
+    const part = source.slice(start).split("\nexport async function ")[0];
+    const match = part.match(/SELECT ([\s\S]*?)\s+FROM (?:managed_events|help_cases|directory_profiles)/);
+    assert.ok(match, fn + " uses a direct SELECT projection");
+    assert.doesNotMatch(match[1], /SELECT\s+\*|\bDIRECTORY_PROFILE_COLUMNS\b/);
+    for (const field of expected) assert.match(match[1], new RegExp("\\b" + field + "\\b"), fn + " requires " + field);
+    for (const field of excluded) assert.doesNotMatch(match[1], new RegExp("\\b" + field + "\\b"), fn + " excludes " + field);
+    // The directory and help slots intentionally require approved photos, whereas
+    // events remain eligible without a photo and display category fallback artwork.
+    if (fn === "getHomepageUpcomingEventsWithImages") assert.doesNotMatch(part, /HOMEPAGE_REAL_IMAGE_SQL/);
+    else assert.match(part, /HOMEPAGE_REAL_IMAGE_SQL/);
+    assert.match(part, /status = 'published'/);
+    assert.match(part, /LIMIT \?/);
+  }
+});
+
+test("homepage directory cards preserve legacy district fallback with validated metadata", async () => {
+  const source = await repoFile("lib/directory-store.ts");
+  const start = source.indexOf("export async function getHomepageDirectoryProfilesWithImages");
+  const part = source.slice(start).split("\nexport async function ")[0];
+  assert.match(part, /json_valid\(source_data_json\)/);
+  assert.match(part, /json_type\(source_data_json/);
+  assert.match(part, /fallback_district/);
+  assert.doesNotMatch(part, /rowToPublicProfile|safeImportData|SELECT\s+\*/);
+
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec("CREATE TABLE d (source_data_json TEXT)");
+    for (const value of ['{"Okres":"Nitra"}', "corrupt-json", '{"Okres":["not-scalar"]}', '{"Okres":17}']) {
+      db.prepare("INSERT INTO d VALUES (?)").run(value);
+    }
+    const sql = "SELECT CASE WHEN json_valid(source_data_json) AND json_type(source_data_json, '$.\"Okres\"') IN ('text', 'integer', 'real') THEN CAST(json_extract(source_data_json, '$.\"Okres\"') AS TEXT) ELSE NULL END AS district FROM d";
+    assert.deepEqual(db.prepare(sql).all().map(row => row.district), ["Nitra", null, null, "17"]);
+  } finally { db.close(); }
 });
