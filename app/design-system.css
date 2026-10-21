@@ -625,3 +625,82 @@
     flex-direction: column;
   }
 }
+
+/* DS-5 PUBLIC CARDS, GRIDS & MEDIA START
+   Approved Variant A: one compact visual rhythm, distinct card semantics.
+   This block does not change the shared image fit/focal-point renderer. */
+:root {
+  --ps-ds5-grid-gap: 16px;
+  --ps-ds5-card-padding: 18px;
+}
+
+.article-card,
+.breed-card {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--ps-radius-card);
+  background: var(--ps-surface);
+  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.article-card:hover,
+.breed-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ps-shadow-surface);
+}
+
+.article-card:has(a:focus-visible),
+.breed-card:has(a:focus-visible) {
+  outline: 3px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.article-grid,
+.breed-grid {
+  gap: var(--ps-ds5-grid-gap);
+}
+
+.article-card-body,
+.breed-card-body {
+  min-width: 0;
+  padding: var(--ps-ds5-card-padding);
+}
+
+/* Grid articles use a calmer editorial 3:2 crop. Featured media and
+   independently approved homepage layouts keep their existing ratios. */
+.article-card--grid .article-card-media {
+  aspect-ratio: 3 / 2;
+}
+
+.article-card-media,
+.breed-card-media {
+  background: var(--sage-light);
+}
+
+@media (max-width: 1020px) {
+  .article-grid,
+  .breed-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --ps-ds5-grid-gap: 12px;
+    --ps-ds5-card-padding: 14px;
+  }
+
+  .article-grid,
+  .breed-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-card,
+  .breed-card {
+    transition: none;
+  }
+}
+/* DS-5 PUBLIC CARDS, GRIDS & MEDIA END */
