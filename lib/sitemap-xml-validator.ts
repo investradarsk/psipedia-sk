@@ -68,7 +68,7 @@ export function validSitemapXml(xml: string): boolean {
   if (!xml || new TextEncoder().encode(xml).byteLength > MAX_BYTES) return false;
   // Explicitly prohibit DTDs/ENTITY, even within XML comments or markup.
   if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml)) return false;
-  let body = xml.charCodeAt(0) === 0xFEFF ? xml.slice(1) : xml;
+  const body = xml.charCodeAt(0) === 0xFEFF ? xml.slice(1) : xml;
   let i = 0;
   const prolog = /^<\?xml\s+version\s*=\s*(["'])1\.0\1(?:\s+encoding\s*=\s*(["'])UTF-8\2)?(?:\s+standalone\s*=\s*(["'])(?:yes|no)\3)?\s*\?>/i.exec(body);
   if (prolog) i = prolog[0].length;
