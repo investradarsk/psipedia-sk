@@ -1,0 +1,20 @@
+/* Scoped content-editor density. Shared Admin V3 tokens and workspace are unchanged. */
+.articleForm {
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.articleForm > [data-admin-editor-section] { margin: 0; min-width: 0; scroll-margin-top: 0.75rem; }
+.articleForm :global(.admin-form-card) { padding: clamp(0.75rem, 1.5vw, 1rem); }
+.articleForm :global(.admin-field-grid) { column-gap: 0.75rem; row-gap: 0.6rem; }
+.articleForm :global(.admin-breed-article-links) { min-width: 0; }
+@media (max-width: 420px) {
+  .articleForm { gap: 0.5rem; }
+  .articleForm :global(.admin-form-card) { padding: 0.65rem; }
+  .articleForm :global(.admin-field-grid) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 360px) {
+  .articleForm :global(.admin-upload-row) { min-width: 0; overflow-wrap: anywhere; }
+}
