@@ -3,6 +3,37 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
 async function noOverflow(page: Page) {
+  const width = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  if (width > 1) {
+    const details = await page.evaluate(function overflowDetails() {
+  const viewport = document.documentElement.clientWidth;
+  return {
+    viewport,
+    innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    suspects: Array.from(document.querySelectorAll<HTMLElement>("body *"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const computed = getComputedStyle(element);
+        return {
+          element: element.tagName.toLowerCase(),
+          id: element.id,
+          className: String(element.className).slice(0, 110),
+          width: Math.round(rect.width),
+          right: Math.round(rect.right),
+          scrollWidth: element.scrollWidth,
+          overflowX: computed.overflowX,
+          position: computed.position,
+          parent: element.parentElement?.tagName.toLowerCase(),
+        };
+      })
+      .filter((item) => item.right > viewport + 2 && item.width > 0)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 16),
+  };
+});
+    console.info("[ADMIN_V3_CONTENT_EDITOR_OVERFLOW]", JSON.stringify(details));
+  }
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 }
 

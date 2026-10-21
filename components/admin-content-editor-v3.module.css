@@ -48,3 +48,13 @@
   .workspaceRoot :global([data-admin-editor-section]) { scroll-margin-top: 9rem; }
   .workspaceRoot :global([data-editor-page] > div:last-child) { min-width: 0; }
 }
+
+/* Navigation and edit actions must scroll below the sticky admin header. */
+@media (max-width: 820px) {
+  .workspaceRoot :global([data-editor-content]) { scroll-padding-top: 8rem; }
+  .articleForm :global(button),
+  .articleForm :global([contenteditable]),
+  .articleForm :global(input),
+  .articleForm :global(select),
+  .articleForm :global(textarea) { scroll-margin-top: 8rem; }
+}
