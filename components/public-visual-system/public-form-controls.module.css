@@ -2,7 +2,7 @@
   display: grid;
   min-width: 0;
   gap: 7px;
-  color: var(--ps-color-text-primary, var(--ink));
+  color: var(--ink);
 }
 
 .label {
@@ -12,7 +12,7 @@
 }
 
 .hint {
-  color: var(--ps-color-text-muted, var(--muted));
+  color: var(--muted);
   font-size: .75rem;
   line-height: 1.45;
 }
@@ -21,18 +21,18 @@
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: var(--ps-form-control-min-height, 44px);
+  min-height: var(--ps-control-min-height, 44px);
   padding: 10px 13px;
   border: 1px solid var(--ps-border-strong, #ccd7cf);
   border-radius: var(--ps-radius-control, 12px);
-  color: var(--ps-color-text-primary, var(--ink));
-  background: var(--ps-color-surface, var(--paper));
+  color: var(--ink);
+  background: var(--paper);
   font: inherit;
   line-height: 1.35;
 }
 
 .control::placeholder {
-  color: var(--ps-color-text-muted, var(--muted));
+  color: var(--muted);
   opacity: 1;
 }
 
@@ -64,11 +64,11 @@
 
 .choice {
   display: inline-flex;
-  min-height: var(--ps-form-control-min-height, 44px);
+  min-height: var(--ps-control-min-height, 44px);
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  color: var(--ps-color-text-primary, var(--ink));
+  color: var(--ink);
   font-size: .875rem;
 }
 
@@ -76,7 +76,7 @@
   width: 18px;
   height: 18px;
   margin: 0;
-  accent-color: var(--ps-color-action-primary, var(--forest));
+  accent-color: var(--forest);
   flex: 0 0 auto;
 }
 
