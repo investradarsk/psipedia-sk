@@ -58,11 +58,11 @@ const relationFields = ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Z
 
 const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
   veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
-  treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo", "Online konzultácie"],
+  treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo"],
   "kynologicke-kluby": ["Typ klubu", "Zameranie", "Organizácia", "Výcvik šteniat", "Individuálny výcvik", "Skupinový výcvik", "Športová kynológia", "Obrany", "Stopy", "Agility", "Rally obedience", "Retriever / poľovnícka kynológia"],
   "chovatelske-kluby": ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"],
   "chovatelske-stanice": ["Plemeno", "Plemená", "FCI skupina", "Chovateľ", "Klub", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"],
-  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa", "Online objednanie"],
+  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa"],
   vencenie: ["Individuálne venčenie", "Skupinové venčenie", "Venčenie s tréningom", "Šteňatá", "Veľké psy", "Seniori / špeciálne potreby", "Vyzdvihnutie psa", "GPS / foto report", "Typ poskytovateľa"],
   fyzioterapia: ["Hydroterapia", "Laserterapia", "Magnetoterapia", "Elektroterapia", "Manuálne techniky", "Dogfitness / prevencia", "Pooperačná rehabilitácia", "Ortopedickí pacienti", "Neurologickí pacienti", "Športové / pracovné psy", "Mobilná služba", "Odborník / certifikácia"],
   "dalsie-sluzby": ["Typ služby", "Pokrytie", "Výjazd ku klientovi", "Celoslovenská dostupnosť", "Orientačná cena"],
