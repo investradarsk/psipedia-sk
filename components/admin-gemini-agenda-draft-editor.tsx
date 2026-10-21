@@ -23,6 +23,32 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  // The button only navigates to the verified native editor. It never publishes a D1 row.
+  async function openCanonicalPublisher() {
+    if (busy) return;
+    if (draft.fields.some(field => field.editable && !Object.is(values[field.name], baseline[field.name]))) {
+      setError("Najprv ulož rozpracované zmeny konceptu. Publikovanie nie je spustené.");
+      return;
+    }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const response = await fetch(
+        "/api/admin/gemini-automation/notion-drafts/" + encodeURIComponent(draft.id) +
+          "/publish?stable_key=" + encodeURIComponent(draft.stableKey),
+        { method: "POST", credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ confirm: true, lastEditedAt: revision }) },
+      );
+      const result = await response.json() as { status?: string; editorUrl?: string; error?: string; published?: boolean };
+      if (!response.ok || result.status !== "NATIVE_EDITOR_REQUIRED" ||
+          !result.editorUrl?.startsWith("/admin/") || result.published !== false)
+        throw Error(result.error || "Kanonický D1 editor sa nepodarilo bezpečne overiť. Nič sa nepublikovalo.");
+      window.location.assign(result.editorUrl);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Publikovanie nie je dostupné.");
+      setBusy(false);
+    }
+  }
   async function submit(action: "save" | "approve" | "reject" | "restore") {
     if (busy) return;
     setError(""); setMessage("");
@@ -138,6 +164,11 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
               Pripraviť na import
             </button>
           )}
+          <button type="button" disabled={busy || !draft.psipediaId || draft.canonicalVerified !== true}
+            onClick={() => void openCanonicalPublisher()}>
+            Publikovať (otvoriť D1 editor)
+          </button>
+          {!draft.psipediaId && <p role="status">Najprv ulož a bezpečne importuj neverejný koncept. Bez overenej D1 identity sa publikovanie nepovolí.</p>}
         </div>
       </form>
       {confirm && (
