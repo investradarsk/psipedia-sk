@@ -45,7 +45,7 @@ test("Services V3 keeps versioned profile writes and uses shared statuses/action
   assert.match(ui, /method:"PATCH"/);
   assert.match(ui, /expectedVersion:saved\[item\.id\]\?\.version\?\?0/);
   assert.match(ui, /selectionForEditor\(saved/);
-  assert.match(ui, /"Neznáme"/);
+  assert.match(ui, />Neznáme<\/option>/);
   const catalog = read("components/admin-service-catalog-workspace.tsx");
   assert.match(catalog, /<EditorWorkspace mode="modal"/);
   assert.match(catalog, /<EditorActionBar/);
