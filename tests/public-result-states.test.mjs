@@ -17,6 +17,8 @@ test("shared public feedback stays semantic and public-scoped", () => {
   }
   assert.ok(css.includes("prefers-reduced-motion: reduce"));
   assert.ok(css.includes("forced-colors: active"));
+  assert.ok(src.includes("numberedPages.map((page, index)"), "numbered links use the common component");
+  assert.ok(src.includes('aria-current={page === currentPage ? "page" : undefined}'));
   assert.doesNotMatch(src, /"use client"|window\.|localStorage|fetch\(/);
 });
 
@@ -36,6 +38,7 @@ test("events preserve URL form and paging while using common status/chip styles"
   for (const contract of [
     '<PublicNotice role="alert" tone="error">{f.error}</PublicNotice>',
     '<PublicFilterTag key={i}>{value}</PublicFilterTag>',
-    'method="get"', "const pages =", "href(listing.page - 1)"
+    'method="get"', "const pages =", "href(listing.page - 1)",
+    '<PublicPagination', 'numberedPages={pages}', 'pageHref={href}', 'showDisabledControls={false}'
   ]) assert.ok(event.includes(contract), "missing event contract: " + contract);
 });
