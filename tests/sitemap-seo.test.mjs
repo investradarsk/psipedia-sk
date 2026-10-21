@@ -731,3 +731,61 @@ test("sitemap parity and global validation remain fail-closed after canonical pr
       && String(error.cause).includes("sitemap-duplicate-url"),
   );
 });
+
+
+test("news sitemap selects news before the result limit rather than filtering a global top 1000", () => {
+  const store = fs.readFileSync(new URL("../lib/article-store.ts", import.meta.url), "utf8");
+  const route = fs.readFileSync(new URL("../app/news-sitemap.xml/route.ts", import.meta.url), "utf8");
+  assert.match(route, /getPublishedArticleIndex\(MAX_NEWS_ITEMS, \{ portalSection: "novinky" \}\)/);
+  assert.match(store, /const portalFilter = options\.portalSection \? " AND portal_section = \?" : ""/);
+  assert.match(store, /WHERE \(status = 'published' OR \(status = 'scheduled' AND published_at <= \?\)\)\$\{portalFilter\}/);
+  assert.match(store, /\.bind\(\.\.\.bindings\)/);
+
+  const db = new DatabaseSync(":memory:");
+  db.exec("CREATE TABLE managed_articles (id INTEGER PRIMARY KEY, slug TEXT, status TEXT, portal_section TEXT, published_at TEXT, updated_at TEXT)");
+  const insert = db.prepare("INSERT INTO managed_articles (slug,status,portal_section,published_at,updated_at) VALUES (?,?,?,?,?)");
+  db.exec("BEGIN");
+  for (let i = 0; i < 1205; i += 1) {
+    insert.run("guide-" + i, "published", "starostlivost", "2026-10-21T11:00:00Z", "2026-10-21T11:00:00Z");
+  }
+  insert.run("news-1", "published", "novinky", "2026-10-21T10:00:00Z", "2026-10-21T10:00:00Z");
+  insert.run("news-2", "scheduled", "novinky", "2026-10-21T09:00:00Z", "2026-10-21T09:00:00Z");
+  insert.run("future-news", "scheduled", "novinky", "2026-10-22T09:00:00Z", "2026-10-22T09:00:00Z");
+  db.exec("COMMIT");
+
+  const rows = db.prepare(
+    "SELECT slug FROM managed_articles WHERE (status = 'published' OR (status = 'scheduled' AND published_at <= ?)) AND portal_section = ? ORDER BY published_at DESC, updated_at DESC, id DESC LIMIT ?",
+  ).all("2026-10-21T12:00:00Z", "novinky", 1000);
+  assert.deepEqual(rows.map((row) => row.slug), ["news-1", "news-2"]);
+  db.close();
+});
+
+test("Help sitemap excludes malformed categories instead of inventing urgent-case URLs", async () => {
+  const database = new DatabaseSync(":memory:");
+  database.exec(
+    "CREATE TABLE help_cases (id INTEGER PRIMARY KEY, slug TEXT, category TEXT, status TEXT, updated_at TEXT, image_url TEXT, seo_json TEXT DEFAULT '{}')",
+  );
+  const insert = database.prepare(
+    "INSERT INTO help_cases (id,slug,category,status,updated_at,image_url,seo_json) VALUES (?,?,?,?,?,?,?)",
+  );
+  insert.run(1, "good-case", "docasna-opatera", "published", "2026-10-20", null, "{}");
+  insert.run(2, "invalid-case", "unknown-category", "published", "2026-10-20", null, "{}");
+  insert.run(3, "urgent-case", "urgentne-pripady", "published", "2026-10-20", null, "{}");
+  insert.run(4, "draft-case", "urgentne-pripady", "draft", "2026-10-20", null, "{}");
+
+  const d1 = {
+    prepare(sql) {
+      return {
+        bind(...values) {
+          return { async all() { return { results: database.prepare(sql).all(...values) }; } };
+        },
+      };
+    },
+  };
+  const items = await listPublishedHelpSitemapRecords(d1, { batchSize: 2 });
+  assert.deepEqual(items.map((item) => [item.slug, item.category]), [
+    ["good-case", "docasna-opatera"],
+    ["urgent-case", "urgentne-pripady"],
+  ]);
+  database.close();
+});
