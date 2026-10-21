@@ -23,6 +23,11 @@ const cases=[
   {name:"invalid JSON still uses website_url",contacts:"{invalid json",website:"https://web.sk"},
   {name:"canonical values take precedence",contacts:{"Telefón":"+421 999 111 111","Telefon":"+421 900 222 222","E-mail":"first@example.sk","Email":"second@example.sk","Web":"https://first.sk","Webstránka":"https://second.sk"},website:"https://third.sk"},
   {name:"all whitespace",contacts:{"Telefón":" ","Telefon":"  ","phone":" ","E-mail":" ","Email":" ","email":" ","Web":" ","Webstránka":" "},website:" "},
+  {name:"tabs and line breaks are empty",contacts:{"Telefón":"\t\n\r","E-mail":"\v\f","Web":"\r\n"},website:"\t"},
+  {name:"Unicode whitespace is empty",contacts:{"Telefón":"\u00a0\u2028","E-mail":"\u2029\ufeff","Web":"\u2000\u3000"},website:"\u202f\u205f"},
+  {name:"whitespace aliases preserve later values",contacts:{"Telefón":"\t\n","phone":"123","E-mail":"\u00a0","email":"contact@example.sk","Web":"\ufeff"},website:"https://web.sk"},
+  {name:"zero is an existing numeric contact",contacts:{"Telefón":0},website:""},
+  {name:"null aliases fall through",contacts:{"Telefón":null,"phone":"123","E-mail":null,"email":"contact@example.sk","Web":null},website:"https://web.sk"},
   {name:"numeric phone historically accepted by public reader",contacts:{"Telefón":123456789},website:""},
   {name:"unrelated fields",contacts:{"Facebook":"https://facebook.com/example","Instagram":"https://instagram.com/example"},website:""},
 ];

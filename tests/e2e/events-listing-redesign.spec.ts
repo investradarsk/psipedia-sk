@@ -124,7 +124,10 @@ test.describe('final events acceptance', () => {
       await expect(page.locator('h1')).toHaveCount(1);
       await expect(page.locator('input[name=q]:not([type=hidden])')).toHaveCount(1);
       await expect(page.locator('[data-event-card]')).toHaveCount(12);
-      expect(await page.locator('[data-event-list]').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(width>=1280?3:width>=1024?2:1);
+      // DS-5 approved grid: three desktop columns from 1280px, two at 761–1279px,
+      // and one on mobile (<=760px). The 768px tablet viewport intentionally has two.
+      const expectedColumns = width >= 1280 ? 3 : width >= 761 ? 2 : 1;
+      expect(await page.locator('[data-event-list]').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(expectedColumns);
       await expect(page.locator('[data-event-card] img').first()).toHaveAttribute('loading','lazy');
       await page.locator('[data-event-card] img').evaluateAll(images=>images.forEach(image=>(image as HTMLImageElement).loading='eager'));
       await expect.poll(()=>page.locator('[data-event-card] img').evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);

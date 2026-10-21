@@ -16,16 +16,22 @@ const aliases: Record<ContactField, readonly string[]> = {
   website: ["Web", "Webstránka"],
 };
 
+// SQLite trim() removes only U+0020 by default. Match String.trim() used by
+// the canonical reader, including pasted line breaks and Unicode spaces.
+const contactWhitespaceSql = "char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279)";
+
+function normalizedContact(expression: string): string {
+  return `NULLIF(trim(CAST(${expression} AS TEXT), ${contactWhitespaceSql}), '')`;
+}
+
 function normalizedJsonContact(key: string): string {
   // No user-provided names; match JS contact reading of nonblank alias values.
-  const quote = String.fromCharCode(34);
-  return "NULLIF(trim(CAST(json_extract(" + validSourceJson
-    + ", '$." + quote + key + quote + "') AS TEXT)), '')";
+  return normalizedContact(`json_extract(${validSourceJson}, '$."${key}"')`);
 }
 
 export function missingDirectoryContactSql(field: ContactField): string {
   const fallbacks = aliases[field].map(normalizedJsonContact);
-  if (field === "website") fallbacks.push("NULLIF(trim(website_url), '')");
+  if (field === "website") fallbacks.push(normalizedContact("website_url"));
   return "COALESCE(" + fallbacks.join(", ") + ", '') = ''";
 }
 
