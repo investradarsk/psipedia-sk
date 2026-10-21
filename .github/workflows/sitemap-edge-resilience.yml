@@ -4,9 +4,11 @@ on:
   pull_request:
     paths:
       - "lib/sitemap-edge-cache.ts"
+      - "lib/sitemap-xml-validator.ts"
       - "worker/index.ts"
       - "app/sitemap.ts"
       - "tests/sitemap-edge-cache.test.mjs"
+      - "tests/sitemap-xml-hardening.test.mjs"
       - ".github/workflows/sitemap-edge-resilience.yml"
   workflow_dispatch:
 
@@ -22,4 +24,4 @@ jobs:
         with:
           node-version: "24"
       - name: Validate sitemap last-good cache offline
-        run: node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs
+        run: node --experimental-strip-types --test tests/sitemap-edge-cache.test.mjs tests/sitemap-xml-hardening.test.mjs
