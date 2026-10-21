@@ -91,3 +91,71 @@ test("public search simplification does not introduce persistence or routing red
     assert.doesNotMatch(source, /notion|automation|gemini|drizzle|migration|JSON-LD|sitemap/i);
   }
 });
+
+
+test("DS-3 main search shares one visual contract without changing GET destinations or scopes", () => {
+  const header = read("components/site-header.tsx");
+  const results = read("app/hladat/page.tsx");
+  const help = read("components/help-overview.tsx");
+  const eventPage = read("components/events-page.tsx");
+  const reviews = read("components/reviews-hub.tsx");
+  const hero = read("components/public-visual-system/unified-section-hero.tsx");
+  for (const source of [portalSearch, header, results]) {
+    assert.match(source, /data-public-search-ui="main"/);
+    assert.match(source, /className="public-search-entry"/);
+    assert.match(source, /className="public-search-icon" aria-hidden="true"/);
+    assert.match(source, /<button type="submit">/);
+  }
+  assert.match(portalSearch, /<form action=\{action\} method="get"[^>]*role="search"[^>]*data-public-search-form=\{searchScope\}/);
+  assert.match(portalSearch, /name=\{inputName\}/);
+  assert.match(portalSearch, /minLength=\{allowEmpty \? undefined : 2\}/);
+  assert.match(portalSearch, /hidden\.map\(\(field\) => <input type="hidden" name=\{field.name\}/);
+  assert.match(directory, /action=\{basePath\}/);
+  assert.match(directory, /hidden=\{directoryQueryFields\(filters, \["q", "page"\]\)\}/);
+  assert.match(help, /hidden=\{\[\{ name: "sekcia", value: "pomoc-psom" \}\]\}/);
+  assert.match(eventPage, /action=\{categoryHref \?\? "\/podujatia"\}/);
+  assert.match(eventPage, /hidden=\{searchHidden\}/);
+  assert.match(reviews, /hidden=\{\[\{ name: "sekcia", value: "recenzie" \}\]\}/);
+  assert.match(results, /<form action="\/hladat" method="get"[^>]*role="search"/);
+  assert.match(results, /name="q"/);
+  assert.match(results, /name="sekcia"/);
+  assert.match(results, /name="podsekcia"/);
+  assert.match(header, /window\.location\.href = `\/hladat\?q=\$\{encodeURIComponent\(clean\)\}`/);
+  assert.match(header, /if \(event\.key === "Escape"\)/);
+  assert.match(header, /aria-modal="true"/);
+  assert.match(hero, /portalSearchSlot \? null : managedSearch\(searchSlot/);
+});
+
+test("DS-3 keeps contextual section search separate from secondary filters", () => {
+  const sectionSearch = read("components/section-hero-search.tsx");
+  assert.match(sectionSearch, /method="get"/);
+  assert.match(sectionSearch, /data-public-search-ui="section"/);
+  assert.match(sectionSearch, /name=\{inputName\}/);
+  assert.match(sectionSearch, /beforeInput/);
+  assert.match(sectionSearch, /hidden\.map\(/);
+  assert.match(sectionSearch, /className="public-search-entry"/);
+  assert.doesNotMatch(services, /data-public-search-ui=/);
+  assert.doesNotMatch(services, /public-search-entry/);
+});
+
+test("DS-3 desktop and mobile search controls are token-based, scoped and keyboard accessible", () => {
+  const css = read("app/design-system.css");
+  const section = css.split("/* DS-3 PUBLIC SEARCH")[1];
+  assert.ok(section, "Shared public search styles missing");
+  assert.match(section, /\[data-public-search-ui="main"\]/);
+  assert.match(section, /grid-template-columns: minmax\(0, 1fr\) auto;/);
+  assert.match(section, /min-height: 52px;/);
+  assert.match(section, /--ps-color-action-primary/);
+  assert.match(section, /--ps-color-action-primary-hover/);
+  assert.match(section, /--ps-color-text-primary/);
+  assert.match(section, /--ps-radius-control/);
+  assert.match(section, /:focus-within/);
+  assert.match(section, /:focus-visible/);
+  assert.match(section, /@media \(max-width: 620px\)/);
+  assert.match(section, /grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(section, /min-height: 48px;/);
+  assert.match(section, /min-height: 46px;/);
+  assert.match(section, /@media \(forced-colors: active\)/);
+  assert.doesNotMatch(section, /\.admin[-_\w]+\s*\{/);
+  assert.doesNotMatch(section, /!important/);
+});
