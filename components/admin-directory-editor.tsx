@@ -738,7 +738,7 @@ export function AdminDirectoryEditor({
           {status === "published" && !notionDraft && <AdminActionButton variant="secondary" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z adresára</AdminActionButton>}
           <AdminActionButton variant="neutral" type="submit" disabled={saving || uploading || notionReadOnly}>{saving ? "Ukladám…" : status === "published" && !notionDraft ? "Uložiť bez zmeny publikovania" : "Uložiť koncept"}</AdminActionButton>
           {!notionDraft && <AdminActionButton variant="primary" disabled={saving || uploading || Boolean(reviewConfirm)}
-            onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>
+            onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať profil"}</AdminActionButton>}
         </div>
       </div>
       <EditorUnsavedChangesGuard active={formDirty} open={false} onStay={() => {}} onDiscard={() => {}} />
