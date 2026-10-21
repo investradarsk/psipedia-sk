@@ -176,7 +176,7 @@ export function readDirectoryPublicContacts(
   return {
     phone: firstValue(data, contactAliases.phone),
     email: firstValue(data, contactAliases.email),
-    website: firstValue(data, contactAliases.website) || websiteFallback,
+    website: firstValue(data, contactAliases.website) || websiteFallback.trim(),
     facebook: firstValue(data, contactAliases.facebook),
     instagram: firstValue(data, contactAliases.instagram),
   };
