@@ -174,6 +174,8 @@ test("source contracts: outbox, content gating, no-publish and post-commit integ
   assert.match(route, /writeBackDraftArticleContentToNotion/);
   assert.match(route, /before\.status === "draft" && article\.status === "draft"/);
   assert.match(route, /writeBackPublishedArticleToNotion/);
+  assert.match(route, /notionEditorialWriteback = \{ status: "blocked", code \}/);
+  assert.match(route, /return Response\.json\(\{ article, \.*\(notionEditorialWriteback/);
 });
 
 
