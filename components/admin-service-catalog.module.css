@@ -46,3 +46,21 @@
   .statusDetails summary{padding:9px 7px;min-height:44px}
   .statusDetails[open]{margin-top:0}
 }
+
+/* Admin V3 / D: profile values use the shared action/status components only in this editor. */
+.profileSection { display: grid; gap: 10px; min-width: 0; }
+.profileBadges { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+.profileCard :global([data-editor-actionbar]) {
+  position: sticky; bottom: 0; z-index: 5; min-width: 0;
+  background: #fff; border: 1px solid #dae5dc; border-radius: 12px;
+  box-shadow: 0 -5px 15px rgba(15, 48, 31, .06);
+}
+.profileCard :global([data-editor-actionbar]) button { min-height: 44px; }
+.profileSection .profileSearch { min-width: 0; }
+.profileSection .profileList { max-height: min(45dvh, 480px); }
+@media (max-width: 390px) {
+  .profileHeading { align-items: flex-start; }
+  .profileSection .profileRow { grid-template-columns: minmax(0, 1fr); gap: 7px; }
+  .profileSection .profileRow select { width: 100%; }
+  .profileCard :global([data-editor-actionbar]) { bottom: env(safe-area-inset-bottom); }
+}
