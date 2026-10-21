@@ -85,6 +85,7 @@ on:
           - 0135_facebook_image_safe_retry.sql
           - 0136_gemini_global_stop.sql
           - 0137_media_source_review_decisions.sql
+          - 0138_article_editorial_outbox.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -190,6 +191,7 @@ jobs:
             0135_facebook_image_safe_retry.sql) expected_confirmation="APPLY-0135-psipedia-sk-db" ;;
             0136_gemini_global_stop.sql) expected_confirmation="APPLY-0136-psipedia-sk-db" ;;
             0137_media_source_review_decisions.sql) expected_confirmation="APPLY-0137-psipedia-sk-db" ;;
+            0138_article_editorial_outbox.sql) expected_confirmation="APPLY-0138-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

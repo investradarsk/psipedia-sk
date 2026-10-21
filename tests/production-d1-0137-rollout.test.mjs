@@ -34,9 +34,9 @@ function fixture() {
 test("0137 SQL is pinned to canonical database and protected owner dispatch", () => {
   assert.equal(createHash("sha256").update(sql).digest("hex"), PINNED_SHA256_0137);
   assert.equal(APPROVED_0137_SHA256, PINNED_SHA256_0137);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0136_gemini_global_stop.sql");
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0138_article_editorial_outbox.sql"]);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), "0136_gemini_global_stop.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.doesNotThrow(()=>assertApproved0137Target("psipedia-sk-db",PINNED_SHA256_0137));
   assert.throws(()=>assertApproved0137Target("wrong-db",PINNED_SHA256_0137), /canonical/);
   assert.throws(()=>assertApproved0137Target("psipedia-sk-db","changed"), /SHA256/);
@@ -51,7 +51,7 @@ test("0137 SQL is pinned to canonical database and protected owner dispatch", ()
 
 test("0137 requires 0136 as its immediate recorded predecessor", () => {
   const chain = [...Array.from({length:62},(_,i)=>String(i).padStart(4,"0")+"_prior.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS];
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(name => Number(name.slice(0,4)) <= 137)];
   assert.deepEqual(validateProductionTargetHistory(chain.slice(0,-1),chain,target),
     {latestIndex:136,targetApplied:false});
   assert.throws(()=>validateProductionTargetHistory(chain.slice(0,-2),chain,target), /expected exactly 0136/);
