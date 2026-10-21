@@ -119,8 +119,16 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.match(helpBrowser, /name="stav"/);
   assert.match(helpBrowser, /value="vsetky">Aj ukončené/);
   assert.doesNotMatch(helpBrowser, /useState|window\.history/);
-  assert.match(directoryResults, /<Link href=\{directoryPageHref\(basePath, filters, result\.page - 1\)\} rel="prev">← Predchádzajúca<\/Link>/);
-  assert.match(directoryResults, /<Link href=\{directoryPageHref\(basePath, filters, result\.page \+ 1\)\} rel="next">Ďalšia →<\/Link>/);
+  // The directory supplies filter-preserving canonical hrefs, while the shared
+  // server-rendered pagination owns native rel=prev/next links for crawlers.
+  const pagination = readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
+  assert.match(directoryResults, /<PublicPagination\b/);
+  assert.match(directoryResults, /currentPage=\{result\.page\}/);
+  assert.match(directoryResults, /totalPages=\{result\.totalPages\}/);
+  assert.match(directoryResults, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
+  assert.match(directoryResults, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
+  assert.match(pagination, /<Link href=\{previousHref\} rel="prev">\{previousLabel\}<\/Link>/);
+  assert.match(pagination, /<Link href=\{nextHref\} rel="next">\{nextLabel\}<\/Link>/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
