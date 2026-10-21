@@ -364,9 +364,9 @@ test("PUBLIC-UX-FOUNDATION-1 centralizes future public spacing without changing 
   const layoutCss = read("components/public-visual-system/public-landing-layout.module.css");
   const hero = read("components/public-visual-system/unified-section-hero.tsx");
 
-  assert.match(layoutCss, /--public-space-functional:\s*24px/);
-  assert.match(layoutCss, /--public-space-section:\s*36px/);
-  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*--public-space-functional:\s*20px[\s\S]*--public-space-section:\s*32px/);
+  assert.match(layoutCss, /--public-space-functional:\s*20px/);
+  assert.match(layoutCss, /--public-space-section:\s*30px/);
+  assert.match(layoutCss, /@media \(max-width: 620px\)[\s\S]*--public-space-functional:\s*18px[\s\S]*--public-space-section:\s*24px/);
   assert.match(hero, /const hasTools = Boolean\(resolvedSearch \|\| resolvedCta \|\| metaSlot \|\| config\.metaLabel \|\| quickLinks\.length\)/);
   assert.match(hero, /\{hasTools \? \([\s\S]*data-unified-section-hero-tools[\s\S]*\) : null\}/);
 });
