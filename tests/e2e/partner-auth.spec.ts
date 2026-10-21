@@ -752,8 +752,24 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(leadRow).toContainText("E2E nezáväzný záujem");
   await leadRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:"Spracovanie leadu"})).toBeVisible();
-  await page.getByLabel("Stav").selectOption("CONTACTED");
+  // Server-rendered controls can be interacted with before the React client
+  // hydrates them. Wait for React to attach the controlled select's props
+  // before changing its value; otherwise the PATCH can omit the new status.
+  await page.waitForFunction(() => {
+    const select = document.querySelector(".admin-commercial-actions select");
+    return select !== null && Object.keys(select).some((key) => key.startsWith("__reactProps$"));
+  });
+  const statusSelect = page.getByLabel("Stav");
+  await statusSelect.selectOption("CONTACTED");
+  await expect(statusSelect).toHaveValue("CONTACTED");
+  const leadUpdate = page.waitForResponse((response) =>
+    response.url().includes("/api/admin/partners/commercial/")
+    && response.request().method() === "PATCH",
+  );
   await page.getByRole("button",{name:"Uložiť"}).click();
+  const updatedLeadResponse = await leadUpdate;
+  expect(updatedLeadResponse.ok()).toBeTruthy();
+  await expect(updatedLeadResponse.json()).resolves.toMatchObject({ lead: { status: "CONTACTED" } });
   await expect(page.getByRole("status")).toContainText("Zmena bola uložená.");
   await page.goto("/admin/partners");
   await expect(page.getByRole("link",{name:/Komerčné leady 0/})).toBeVisible();
