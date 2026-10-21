@@ -196,25 +196,36 @@ export async function queryDirectoryAdmin<T>(
   const categoryWhere = membership.category ? " WHERE category = ?" : "";
   const categoryArgs = membership.category ? [membership.category] : [];
 
-  const totals = await database.prepare(`SELECT COUNT(*) AS total,
-    COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
-    COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
-    COUNT(CASE WHEN status = 'archived' THEN 1 END) AS archived
-    FROM directory_profiles${categoryWhere}`).bind(...categoryArgs).first<TotalsRow>();
-  const count = await database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`).bind(...membershipQuery.args).first<CountRow>();
+  // Counts and global location filters are independent reads. Start them in
+  // parallel, and combine the three DISTINCT scans into one D1 request.
+  // Only the bounded page depends on the filtered count (for page clamping).
+  const [totals, count, locations] = await Promise.all([
+    database.prepare(`SELECT COUNT(*) AS total,
+      COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
+      COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
+      COUNT(CASE WHEN status = 'archived' THEN 1 END) AS archived
+      FROM directory_profiles${categoryWhere}`).bind(...categoryArgs).first<TotalsRow>(),
+    database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`)
+      .bind(...membershipQuery.args).first<CountRow>(),
+    database.prepare(`SELECT DISTINCT 'region' AS kind, region AS value
+      FROM directory_profiles WHERE trim(region) <> ''
+      UNION ALL
+      SELECT DISTINCT 'district' AS kind, district AS value
+      FROM directory_profiles WHERE trim(district) <> ''
+      UNION ALL
+      SELECT DISTINCT 'city' AS kind, city AS value
+      FROM directory_profiles WHERE trim(city) <> ''
+      ORDER BY kind, value`).all<{ kind: "region" | "district" | "city"; value: string }>(),
+  ]);
   const resultCount = Number(count?.count ?? 0);
   const pages = Math.max(1, Math.ceil(resultCount / safePageSize));
   const page = Math.min(Math.max(1, Math.trunc(filters.page || 1)), pages);
   const result = await database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
     FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
     .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
-  const [regions, districts, cities] = await Promise.all([
-    database.prepare("SELECT DISTINCT region AS value FROM directory_profiles WHERE trim(region) <> '' ORDER BY region").all<{ value: string }>(),
-    database.prepare("SELECT DISTINCT district AS value FROM directory_profiles WHERE trim(district) <> '' ORDER BY district").all<{ value: string }>(),
-    database.prepare("SELECT DISTINCT city AS value FROM directory_profiles WHERE trim(city) <> '' ORDER BY city").all<{ value: string }>(),
-  ]);
-  const values = (rows: { results: Array<{ value: string }> }) =>
-    rows.results
+  const values = (kind: "region" | "district" | "city") =>
+    locations.results
+      .filter((row) => row.kind === kind)
       .map((row) => row.value?.trim())
       .filter((value): value is string => Boolean(value) && !/^online$/i.test(value));
 
@@ -226,9 +237,9 @@ export async function queryDirectoryAdmin<T>(
     pages,
     items: result.results,
     options: {
-      regions: values(regions),
-      districts: values(districts),
-      cities: values(cities),
+      regions: values("region"),
+      districts: values("district"),
+      cities: values("city"),
     },
   };
 }
