@@ -104,6 +104,14 @@ type HelpCaseRow = {
   seo_json: string;
 };
 
+/** Only the fields rendered by homepage help cards and their links. */
+type HomepageHelpRow = Pick<HelpCaseRow,
+  "id" | "slug" | "title" | "category" | "status" | "city" |
+  "image_url" | "thumbnail_display_json" | "urgent" | "resolved">;
+export type HomepageHelpCard = Pick<HelpCase,
+  "id" | "slug" | "title" | "category" | "status" | "city" |
+  "imageUrl" | "thumbnailImageDisplay" | "urgent" | "resolved">;
+
 type HelpCaseSummaryRow = {
   id: number;
   slug: string;
@@ -360,17 +368,30 @@ export async function getPublishedHelpCases(category?: HelpCategorySlug, limit =
 }
 
 /** Homepage-only card selection. Help listings and canonical details remain unchanged. */
-export async function getHomepageHighlightedHelpCasesWithImages(limit = 3) {
+export async function getHomepageHighlightedHelpCasesWithImages(limit = 3): Promise<HomepageHelpCard[]> {
   const database = getD1Binding();
-  if (!database) return [] as HelpCase[];
+  if (!database) return [];
   const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
   const result = await database.prepare(`
-    SELECT * FROM help_cases
+    SELECT id, slug, title, category, status, city, image_url,
+           thumbnail_display_json, urgent, resolved
+    FROM help_cases
     WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky') AND resolved = 0
       AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?
-  `).bind(safeLimit).all<HelpCaseRow>();
-  return result.results.map(rowToHelpCase);
+  `).bind(safeLimit).all<HomepageHelpRow>();
+  return result.results.map((row): HomepageHelpCard => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
+    status: row.status === "published" ? "published" : "draft",
+    city: row.city,
+    imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    urgent: Boolean(row.urgent),
+    resolved: Boolean(row.resolved),
+  }));
 }
 
 export async function getHighlightedHelpCases(limit = 2) {
