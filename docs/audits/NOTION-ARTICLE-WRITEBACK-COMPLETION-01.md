@@ -7,9 +7,11 @@ Coordination: #917. Extends merged #929. Base main at start:
 
 - Keeps the existing canonical Admin article save, Notion → draft import and
   separate published-state writeback. It does not introduce a new sync engine.
-- Stages additive **0138** SQL in `docs/proposals/`, outside active `drizzle/`.
-  The pre-existing **0137** is reserved by Draft PR #908; do not put 0138 in
-  the active chain before 0137 has been reconciled/merged and verified.
+- Prepares additive **0138** SQL in `drizzle/0138_article_editorial_outbox.sql`
+  after migration 0137 landed on `main` in merged PR #908.
+  **Schema is NOT applied in production**. The protected production migration
+  runner does not permit 0138 dispatch yet; a separate approved release
+  gate must be implemented to apply it. Existing feature flags remain OFF.
 - Uses an immutable journal of planned preimages/targets, protected Notion
   identity/slug/category/approval metadata, all selected block fingerprints
   and the full page block identity order. An unknown snapshot fails closed.
@@ -50,11 +52,13 @@ manually, and rebase the draft rather than force the stale operation.
 
 ## Release gates — NOT approved
 
-1. Review and finalize 0137 in #908 first. After that, move the staged 0138
-   SQL into `drizzle/0138_article_editorial_outbox.sql`, **without** altering
-   existing migrations. Confirm contiguous schema chain, clean D1 migration
-   safety, and schema/foreign-key/lease-index preflight. No migration applied
-   by this PR.
+1. 0137 is present in the canonical `main` chain (PR #908 merged), but
+   its **actual production application must be confirmed separately**. 0138
+   is now a canonical prepared migration file; confirm ordered migration
+   history, schema/foreign-key/index preflight and pinned SQL checksum.
+   A separate owner-approved change to the protected production migration
+   runner/workflow is required before 0138 can be dispatched. Neither this
+   PR nor its merge is approval to apply 0138.
 2. Deploy compatible code/schema **only under separate authorization** and
    ensure `NOTION_ARTICLE_CONTENT_WRITEBACK_ENABLED` stays false throughout
    rollout. Existing `NOTION_ARTICLE_SYNC_ENABLED` must also be considered.
