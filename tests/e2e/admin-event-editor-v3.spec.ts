@@ -213,7 +213,7 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
   const root = await openEditor(page, "published");
   await expect(root.getByRole("button", { name: "Uložiť zmeny", exact: true })).toBeVisible();
   await expect(root.getByRole("button", { name: "Stiahnuť z kalendára", exact: true })).toBeVisible();
-  await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toBeVisible();
+  await expect(root.getByRole("button", { name: "Uložiť koncept", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Späť na podujatia", exact: true })).toHaveCount(1);
   await root.getByLabel("Názov podujatia").fill("Upravená klubová výstava");
   await root.getByLabel("SEO title").fill("Úprava SEO");
@@ -223,8 +223,102 @@ test("Existing published event: PUT preserves payload, save changes and unpublis
     status: "published", title: "Upravená klubová výstava", city: "Nitra",
     seo: { title: "Úprava SEO" }, description: "Pôvodný popis",
   });
+  await expect(root.getByRole("button", { name: "Uložiť zmeny", exact: true })).toBeVisible();
   await root.getByRole("button", { name: "Stiahnuť z kalendára", exact: true }).click();
+  const unpublish = page.getByRole("dialog", { name: "Stiahnuť podujatie z kalendára?" });
+  await expect(unpublish).toBeVisible();
+  await expect.poll(() => requests.length).toBe(1);
+  await unpublish.getByRole("button", { name: "Ponechať publikované" }).click();
+  await expect(unpublish).not.toBeVisible();
+  await root.getByRole("button", { name: "Stiahnuť z kalendára", exact: true }).click();
+  await unpublish.getByRole("button", { name: "Potvrdiť stiahnutie" }).click();
   await expect.poll(() => requests.length).toBe(2);
   expect(requests[1]).toMatchObject({ status: "draft", title: "Upravená klubová výstava" });
   await expect(root.getByRole("button", { name: "Publikovať podujatie", exact: true })).toBeVisible();
 });
+
+
+test("Published event: Enter submits published status and clears dirty guard after successful save", async ({ page }) => {
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/events/99990", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    requests.push(payload);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      event: { id: 99990, status: payload.status },
+    }) });
+  });
+  const root = await openEditor(page, "published");
+  const title = root.getByLabel("Názov podujatia");
+  await title.fill("Publikované, upravené klávesnicou");
+  await title.press("Enter");
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]).toMatchObject({ status: "published", title: "Publikované, upravené klávesnicou" });
+  await expect(root.getByText("Zmeny publikovaného podujatia sú uložené.")).toBeVisible();
+  await root.getByRole("button", { name: "Späť na podujatia" }).click();
+  await expect(page.getByRole("dialog", { name: "Neuložené zmeny" })).not.toBeVisible();
+});
+
+test("Events V3: other internal links are guarded, edits remain after choosing Stay", async ({ page }) => {
+  const root = await openEditor(page, "published");
+  await root.getByLabel("Názov podujatia").fill("Lokálna zmena pred odchodom");
+  await page.evaluate(() => {
+    const anchor = document.createElement("a");
+    anchor.href = "/admin/podujatia";
+    anchor.textContent = "E2E interný odkaz";
+    document.body.appendChild(anchor);
+  });
+  await page.getByRole("link", { name: "E2E interný odkaz" }).click();
+  const guard = page.getByRole("dialog", { name: "Neuložené zmeny" });
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "Pokračovať v úpravách" }).click();
+  await expect(root.getByLabel("Názov podujatia")).toHaveValue("Lokálna zmena pred odchodom");
+  await page.getByRole("link", { name: "E2E interný odkaz" }).click();
+  await guard.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
+  await expect(page).toHaveURL(/\/admin\/podujatia(?:\?|$)/);
+});
+
+test("Events V3: browser Back is guarded when Navigation API supports cancellation", async ({ page }) => {
+  const root = await openEditor(page, "published");
+  const supportsNavigation = await page.evaluate(() => "navigation" in window);
+  test.skip(!supportsNavigation, "Browser has no Navigation API; native beforeunload remains in EditorWorkspace.");
+  // Seed same-document browser history so a cancellable traversal is exercised,
+  // without crossing the document boundary from a full page.goto().
+  await page.evaluate(() => {
+    window.history.replaceState(window.history.state, "", "?fixture=published&step=before");
+    window.history.pushState(window.history.state, "", "?fixture=published");
+  });
+  await root.getByLabel("Názov podujatia").fill("Rozpracované úpravy");
+  await page.evaluate(() => window.history.back());
+  const guard = page.getByRole("dialog", { name: "Neuložené zmeny" });
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "Pokračovať v úpravách" }).click();
+  await expect(root.getByLabel("Názov podujatia")).toHaveValue("Rozpracované úpravy");
+  await page.evaluate(() => window.history.back());
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "Zahodiť zmeny a zavrieť" }).click();
+  await expect(page).toHaveURL(/fixture=published&step=before/);
+});
+
+for (const width of [1440, 390, 320]) {
+  test("Events V3: published action bar stays usable at " + width + "px", async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 320 ? 690 : 900 });
+    const root = await openEditor(page, "published");
+    await checkNoHorizontalOverflow(page);
+    const footer = root.locator("[data-editor-actionbar]");
+    for (const label of ["Stiahnuť z kalendára", "Uložiť zmeny"]) {
+      const button = footer.getByRole("button", { name: label, exact: true });
+      await expect(button).toBeInViewport({ ratio: 0.5 });
+      const box = await button.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThan(30);
+      expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? Infinity) + (box?.width ?? Infinity)).toBeLessThanOrEqual(width + 1);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    await root.getByLabel("SEO title").fill("Mobilné SEO");
+    const lastSeo = root.getByLabel("Open Graph description");
+    await lastSeo.fill("Dostupné posledné pole");
+    await lastSeo.scrollIntoViewIfNeeded();
+    await expect(lastSeo).toBeInViewport();
+    await expect(footer).toBeInViewport({ ratio: 0.1 });
+  });
+}
