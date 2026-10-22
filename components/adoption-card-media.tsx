@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 
 import { adoptionDetailStatusLabels } from "@/lib/adoption-detail";
@@ -21,7 +22,7 @@ export function AdoptionCardMedia({ href, name, status, mainImage, imageConfig }
         <ImageDisplay roleHint="generic" context="thumbnail" config={imageConfig} src={mainImage} alt={`${name} – pes na adopciu`} loading="lazy" decoding="async" data-adoption-media="image" />
       ) : (
         <div className={styles.imageFallback} aria-hidden="true" data-adoption-media="fallback">
-          <span />
+          <PublicMediaFallback />
         </div>
       )}
       <span className={`${styles.statusBadge} ${status === "RESERVED" ? styles.reserved : styles.active}`}>
