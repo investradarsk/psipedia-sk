@@ -21,9 +21,10 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // 0136 must be owner-dispatched in the protected workflow, never by a PR merge or Cloudflare Workers Build.
 // 0138 is eligible ONLY through an owner-dispatched, protected production
 // migration workflow; merging this PR cannot run it or enable Notion writeback.
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([
-  "0139_services_catalog_notion_auto_attempts.sql",
-]);
+// This is NOT a supported/protected production APPLY target.
+// 0139 has intentionally not received an owner-approved rollout contract.
+export const PROPOSED_SERVICES_V3_SQL = "0139_services_catalog_notion_auto_attempts.sql";
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
