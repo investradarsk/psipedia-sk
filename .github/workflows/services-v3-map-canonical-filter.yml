@@ -11,6 +11,9 @@ on:
       - "components/directory-filter-form.tsx"
       - "tests/service-catalog-map-canonical-filter.test.mjs"
       - ".github/workflows/services-v3-map-canonical-filter.yml"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
