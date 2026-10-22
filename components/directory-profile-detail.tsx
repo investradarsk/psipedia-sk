@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/page-system";
 import { ImageDisplay } from "@/components/image-display";
+import { PublicMediaFallback } from "@/components/public-visual-system";
 import { DirectoryContactForm } from "@/components/directory-contact-form";
 import { ProfileReviewSection } from "@/components/profile-review-section";
 import { RelatedBreedList } from "@/components/related-entity-list";
@@ -47,7 +48,7 @@ function DirectoryProfileHero({
               loading="eager"
               fetchPriority="high"
               decoding="async"
-            /> : null}
+            /> : <PublicMediaFallback size="detail" label={`Fotografia služby ${presentation.name} zatiaľ nie je pridaná`} />}
     copy={<>
           <div className={styles.badges}>
             <span className={styles.categoryBadge}>{categoryLabel}</span>

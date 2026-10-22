@@ -54,7 +54,9 @@ test("one search above categories and three-column layout reuse existing public 
   assert.doesNotMatch(filter, /<input[^>]*name="q"/);
   assert.doesNotMatch(root, /getDirectoryCategoryPreviews|showOverview/);
   assert.match(card, /directoryProfileHref\(profile\)/);
-  assert.match(card, /profile\.imageUrl &&/);
+  assert.match(card, /profile\.imageUrl \? <ImageDisplay/);
+  assert.match(card, /<PublicMediaFallback/);
+  assert.match(card, /styles\.cardWithImage/);
 });
 
 test("publication SQL remains bounded to 24 profiles and retains deterministic featured order", () => {
