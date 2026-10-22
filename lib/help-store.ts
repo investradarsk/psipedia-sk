@@ -18,6 +18,7 @@ import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 import {
   listPublishedOrganizations,
+  listPublishedOrganizationCards,
   type PublicOrganizationIndexItem,
 } from "@/lib/help-organization-store";
 
@@ -399,8 +400,30 @@ export async function getPublishedHelpCaseCards(category: HelpCategorySlug, limi
   if (!database || category === "adopcia" || category === "stratene-a-najdene") return [];
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
   if (category === "utulky") {
-    const organizations = await listPublishedOrganizations(database as unknown as AdoptionD1Database, safeLimit);
-    return organizations.map(canonicalOrganizationToHelpCase).map(helpCaseToPublicHelpCard);
+    const organizations = await listPublishedOrganizationCards(database as unknown as AdoptionD1Database, safeLimit);
+    return organizations.map((organization): PublicHelpCard => ({
+      id: organization.id,
+      slug: organization.slug,
+      title: organization.name,
+      category: "utulky",
+      excerpt: organization.shortDescription,
+      organization: organization.name,
+      dogName: "",
+      breed: "",
+      ageNote: "",
+      city: organization.city || "Online",
+      region: (slovakRegions as readonly string[]).includes(organization.region)
+        ? organization.region as SlovakRegion : "Online",
+      reportedDate: null,
+      goalAmount: null,
+      raisedAmount: null,
+      imageUrl: organization.imageUrl,
+      thumbnailImageDisplay: organization.thumbnailImageDisplay,
+      urgent: false,
+      verified: Boolean(organization.lastVerifiedAt),
+      resolved: false,
+      updatedAt: organization.updatedAt,
+    }));
   }
   const result = await database.prepare(`SELECT ${PUBLIC_HELP_CARD_COLUMNS} FROM help_cases
     WHERE status = 'published' AND category = ?
