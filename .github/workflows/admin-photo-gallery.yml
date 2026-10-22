@@ -1,0 +1,31 @@
+name: Admin photo gallery regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'components/admin-photo-gallery*'
+      - 'components/admin-adoption-editor*'
+      - 'components/admin-lost-found-editor.tsx'
+      - 'lib/lost-found-dog-store.ts'
+      - 'tests/lost-found-gallery-preservation.test.mjs'
+      - 'tests/admin-photo-gallery.browser.mjs'
+      - '.github/workflows/admin-photo-gallery.yml'
+permissions:
+  contents: read
+concurrency:
+  group: admin-gallery-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  gallery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/lost-found-gallery-preservation.test.mjs tests/lost-found-admin-contract.test.mjs tests/adoption-admin-editor.test.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/admin-photo-gallery.browser.mjs
