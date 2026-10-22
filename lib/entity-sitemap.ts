@@ -313,15 +313,19 @@ export async function listPublishedHelpSitemapRecords(
     (afterId, batchSize) => buildPublishedHelpSitemapPageQuery(afterId, batchSize),
     options.batchSize,
   );
-  return rows.map((row) => ({
-    id: Number(row.id),
-    slug: row.slug?.trim() ?? "",
-    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
-    status: "published",
-    updatedAt: row.updated_at || null,
-    imageUrl: row.image_url || null,
-    seo: seoProjection(row),
-  }));
+  // A malformed/unknown category has no matching public detail route.
+  // Never silently relabel it as "urgentne-pripady" and advertise a false URL.
+  return rows
+    .filter((row): row is HelpRow & { category: HelpCategorySlug } => isHelpCategory(row.category))
+    .map((row) => ({
+      id: Number(row.id),
+      slug: row.slug?.trim() ?? "",
+      category: row.category,
+      status: "published" as const,
+      updatedAt: row.updated_at || null,
+      imageUrl: row.image_url || null,
+      seo: seoProjection(row),
+    }));
 }
 
 export async function getPublishedHelpSitemapRecords() {
