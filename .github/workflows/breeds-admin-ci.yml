@@ -10,6 +10,7 @@ on:
       - "lib/admin-breeds.ts"
       - "lib/breed-store.ts"
       - "tests/breed-admin-v2.test.mjs"
+      - "tests/breed-gallery-upload.test.mjs"
       - "tests/breed-concurrency-guard.test.mjs"
       - "lib/notion-breed-sync.ts"
       - "tests/e2e/breeds-admin-v2.spec.ts"
@@ -51,6 +52,7 @@ jobs:
         run: |
           node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/breed-admin-v2.test.mjs
           npm run test:breed-concurrency
+          node --test tests/breed-gallery-upload.test.mjs
       - name: Lint
         run: npm run lint
       - name: Build
