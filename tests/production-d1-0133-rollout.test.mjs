@@ -28,8 +28,8 @@ function fixture() {
 }
 
 test("0133 manually approved only by pinned SHA256, canonical database, protected Actions confirmation", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-7), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-8), previous);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-8), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-9), previous);
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(sql).digest("hex"), APPROVED_0133_SHA256);
   assert.doesNotThrow(() => assertApproved0133Target("psipedia-sk-db", APPROVED_0133_SHA256));

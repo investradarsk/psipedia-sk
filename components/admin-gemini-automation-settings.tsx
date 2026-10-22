@@ -11,7 +11,7 @@ import type { GeminiRecentRun } from "@/lib/gemini-automation-admin-store";
 import type { GeminiGlobalControl } from "@/lib/gemini-global-control";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
-import { geminiSchedulePresentation } from "@/lib/gemini-schedule-presentation";
+import { geminiSchedulePresentation, nextVisibleGeminiSchedule } from "@/lib/gemini-schedule-presentation";
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -84,6 +84,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
   const schedule = geminiSchedulePresentation(initial, {
     globalRunning, externalEnabled, scheduledEnabled,
   }, currentTime);
+  const timing = nextVisibleGeminiSchedule(initial, currentTime);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,7 +116,12 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
         setSetting(data.setting);
         onSaved(data.setting);
         setConfirming(false);
-        setMessage(externalEnabled ? "Nastavenia uložené. Plánovač Psipedie ich použije pri ďalšom termíne." : "Nastavenia uložené. Automatizácia sa zatiaľ nespúšťa.");
+        setMessage(!enabled ? "Plánovanie kategórie je vypnuté." :
+          !externalEnabled || !scheduledEnabled || !globalRunning
+            ? "Nastavenia uložené. Automatické spúšťanie je momentálne blokované hlavným prepínačom."
+            : maxNewConcepts === 0
+              ? "Nastavenia uložené. Pri limite 0 sa vyhľadávanie nespúšťa."
+              : "Plánovanie uložené. Najbližší termín je uvedený vyššie; vyhľadávanie sa spustí automaticky.");
       }
     } catch {
       setMessage("Ukladanie zlyhalo. Skús to znova.");
@@ -226,8 +232,14 @@ function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnab
       </div>
       <dl className={styles.timestamps}>
         <div><dt>Posledné spustenie</dt><dd>{formatDate(latestRun?.startedAt ?? initial.lastRunAt)}</dd></div>
-        <div><dt>Ďalšie plánované</dt><dd>{formatDate(initial.nextRunAt)}</dd></div>
+        <div><dt>Najbližšie plánované</dt><dd>{formatDate(timing.nextRegularAt)}</dd></div>
       </dl>
+      {timing.overdueAt && (
+        <p className={styles.scheduleExplanation} role="status">
+          Ešte čaká starší termín {formatDate(timing.overdueAt)}.
+          {" "}Najbližší pravidelný termín je orientačný; skutočné spustenie závisí od FIFO fronty.
+        </p>
+      )}
       <p className={styles.scheduleExplanation} role="status">{schedule.explanation}</p>
       <GeminiPromptPreview stableKey={setting.stableKey} />
       {latestJob && <p role="status" aria-live="polite"
