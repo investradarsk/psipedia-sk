@@ -16,7 +16,7 @@ import { StructuredData } from "@/components/structured-data";
 import { fciGroups } from "@/lib/content";
 import { parseBreedAtlasFilters } from "@/lib/breed-atlas";
 import { portalSections, portalSubpageHref } from "@/lib/portal";
-import { listPublishedCanonicalBreedIndex } from "@/lib/breed-store";
+import { listPublishedCanonicalBreedAtlasCards } from "@/lib/breed-store";
 import { getManagedPortalSection } from "@/lib/section-store";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, coreLandingSeoFallback, resolveListingIndexPolicy } from "@/lib/listing-seo";
@@ -39,7 +39,7 @@ export const dynamic = "force-dynamic";
 export default async function BreedsPage({ searchParams }: Props) {
   const [portalSection, breeds, heroVisual] = await Promise.all([
     getManagedPortalSection("plemena"),
-    listPublishedCanonicalBreedIndex(),
+    listPublishedCanonicalBreedAtlasCards(),
     getSectionHeroVisual("section.plemena"),
   ]);
   const rawSearchParams = await searchParams;

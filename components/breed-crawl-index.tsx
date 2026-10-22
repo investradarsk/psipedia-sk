@@ -1,21 +1,21 @@
 import Link from "next/link";
 import type { FciGroup } from "@/lib/content";
-import type { ManagedBreedIndexItem } from "@/lib/breed-store";
+import type { BreedAtlasCard } from "@/lib/breed-store";
 
 type BreedCrawlIndexProps = {
-  breeds: ManagedBreedIndexItem[];
+  breeds: BreedAtlasCard[];
   groups: FciGroup[];
 };
 
 type BreedCrawlGroup = {
   number: number;
   label: string;
-  breeds: ManagedBreedIndexItem[];
+  breeds: BreedAtlasCard[];
 };
 
-function crawlGroups(breeds: ManagedBreedIndexItem[], groups: FciGroup[]): BreedCrawlGroup[] {
+function crawlGroups(breeds: BreedAtlasCard[], groups: FciGroup[]): BreedCrawlGroup[] {
   const labels = new Map(groups.map((group) => [group.number, group.label]));
-  const grouped = new Map<number, ManagedBreedIndexItem[]>();
+  const grouped = new Map<number, BreedAtlasCard[]>();
 
   for (const breed of breeds) {
     const items = grouped.get(breed.fciGroup) ?? [];
