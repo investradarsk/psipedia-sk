@@ -23,6 +23,6 @@ Before production rollout, confirm D1 0133/0134 are actually present in target e
 
 ## Tests
 Path-scoped Actions workflow: `Services V3 public canonical filter`.
-`node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/directory-public-filters.test.mjs`
+`node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs`
 
 **Next separate step:** Bring `svc` filtering to the map API and map URL state with the same canonical D1 contract, then consider automatic catalogue mirror dispatch only after an owner-approved production rollout policy.
