@@ -23,12 +23,12 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
     const topbar=document.querySelector<HTMLElement>("[data-admin-topbar]");
     const section=document.querySelector<HTMLElement>('section[aria-label="Katalóg služieb a vlastností"]');
     const heading=document.querySelector<HTMLElement>("h1");
-    const panel=section?.querySelector<HTMLElement>("[data-write-enabled]");
+    const panel=section;
     const search=section?.querySelector<HTMLInputElement>('input[type="search"]');
     const summary=section?.querySelector<HTMLElement>("summary");
     const buttons=Array.from(section?.querySelectorAll<HTMLButtonElement>("button")??[]);
     const filters=buttons.find(button=>/^Filtre(?:\s|$)/.test(button.textContent?.trim()??""));
-    const create=buttons.find(button=>button.textContent?.includes("+ Nová možnosť"));
+    const create=buttons.find(button=>button.textContent?.includes("+ Nová služba"));
     if(!topbar||!section||!heading||!panel||!search||!summary||!filters||!create){
       throw new Error("Viewport evidence: required admin controls missing");
     }
@@ -129,7 +129,7 @@ const noOverflow=async(page:Page,name:string)=>{
 test.beforeEach(async({page})=>{
  await page.addInitScript(()=>localStorage.setItem("psipedia-cookie-consent","necessary"));
 });
-test("Services V3 catalog approved A — desktop and mobile visual QA",async({page},info)=>{
+test("Services V3 simple catalog — desktop and mobile visual QA",async({page},info)=>{
  test.setTimeout(150000);
  const sizes=info.project.name==="mobile-chromium"?[{width:390,height:844},{width:320,height:720}]:[{width:1440,height:900}];
  for(const viewport of sizes){
@@ -138,21 +138,18 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    expect(r?.status()).toBe(200);
    await expect(page.getByRole("heading",{level:1,name:"Katalóg služieb a vlastností"})).toBeVisible();
    await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg",{exact:true})).toBeVisible();
-   const panel=page.locator('[data-write-enabled]');
-   await expect(panel).toHaveAttribute("data-write-enabled",/^(true|false)$/);
-   const writesEnabled=(await panel.getAttribute("data-write-enabled"))==="true";
+   const panel=page.locator('section[aria-label="Katalóg služieb a vlastností"]');
+   await expect(panel).toBeVisible();
+   const create=panel.getByRole("button",{name:"+ Nová služba"});
+   const writesEnabled=await create.isEnabled();
    const disclosure=panel.locator("details");
    const summary=disclosure.locator("summary");
-   await expect(panel.getByRole("heading",{name:writesEnabled?"Vytváranie konceptov je dostupné":"Zápisy sú vypnuté"})).toBeVisible();
-   await expect(panel.getByText(writesEnabled
-     ?"Koncepty možno vytvárať a upravovať. Schválenie vyžaduje SYNCED a overený Notion receipt; vyradenie je nezvratné."
-     :"Vytváranie a úpravy možností katalógu sú momentálne nedostupné.")).toBeVisible();
-   await expect(summary).toHaveText("Podrobnosti o katalógu");
+   await expect(summary).toHaveText("Technické informácie o synchronizácii");
    await expect(disclosure).not.toHaveAttribute("open");
-   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeHidden();
-   // Read-only assertions: even when canonical writes are enabled, do not create or mutate data.
-   if(writesEnabled)await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeEnabled();
-   else await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeDisabled();
+   await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeHidden();
+   // Read-only assertions: do not mutate catalog entries.
+   if(writesEnabled)await expect(create).toBeEnabled();
+   else await expect(create).toBeDisabled();
    const toggle=page.getByRole("button",{name:/^Filtre/});
    const typeFilter=page.getByRole("combobox",{name:"Typ"});
    if(viewport.width<=800){
@@ -186,8 +183,8 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await first.click();
    await expect(first).toHaveAttribute("aria-pressed","true");
    await expect(detail.locator("h2")).toBeVisible();
-   await expect(detail.getByRole("button",{name:"Schváliť"})).toBeDisabled();
-   await expect(detail.getByRole("button",{name:"Archivovať"})).toBeDisabled();
+   await expect(detail.getByRole("button",{name:"Schváliť"})).toHaveCount(0);
+   await expect(detail.getByRole("button",{name:"Upraviť"})).toHaveCount(0);
    const l=await list.boundingBox(),d=await detail.boundingBox();
    expect(l).not.toBeNull();expect(d).not.toBeNull();
    if(viewport.width<=800){
@@ -204,9 +201,7 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await expect(summary).toBeFocused();
    await summary.press("Enter");
    await expect(disclosure).toHaveAttribute("open","");
-   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeVisible();
-   await expect(panel.getByText("Vstavané statické možnosti nie sú editovateľné.")).toBeVisible();
-   await expect(panel.getByText("Vytvorenie konceptu neznamená automatické schválenie ani verejné publikovanie.")).toBeVisible();
+   await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeVisible();
    await noOverflow(page,"expanded-"+label(viewport.width));
    if(viewport.width===320||viewport.width===390){
      await captureMobileViewportEvidence(page,"expanded",viewport.width);
@@ -214,12 +209,12 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await capture(page,"catalog-panel-expanded-"+label(viewport.width));
    await summary.press("Space");
    await expect(disclosure).not.toHaveAttribute("open");
-   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeHidden();
+   await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeHidden();
    await noOverflow(page,"collapsed-again-"+label(viewport.width));
    await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("RTG vyšetrenie");
    await expect(list.locator("button").first()).toContainText("RTG vyšetrenie");
    await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("not-a-real-service-741xyz");
-   await expect(page.getByText("Pre zadané filtre neboli nájdené možnosti.")).toBeVisible();
+   await expect(page.getByText("Žiadna služba nevyhovuje filtrom.")).toBeVisible();
  }
 });
 test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots",async({page},info)=>{
@@ -231,18 +226,14 @@ test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots
  await page.getByRole("link",{name:"Directory Admin Editor Fixture"}).click();
  const card=page.getByRole("region",{name:"Services V3 — služby a vlastnosti na profile"});
  await expect(card).toBeVisible();
- await expect(card.getByRole("heading",{name:"Services V3 — hodnoty profilu"})).toBeVisible();
- const input=card.locator('select[aria-label^="Hodnota:"]');
+ await expect(card.getByRole("heading",{name:"Služby profilu"})).toBeVisible();
+ const input=card.locator('input[type="checkbox"][aria-label^="Poskytuje:"]');
  expect(await input.count()).toBeGreaterThan(0);
  const writesEnabled=await card.getByText("Úpravy povolené").isVisible();
- if(writesEnabled){
-   await expect(card.getByText("Kanonické zápisy sú vypnuté")).toHaveCount(0);
-   await expect(input.first()).toBeEnabled();
- }else{
-   await expect(card.getByText("Kanonické zápisy sú vypnuté")).toBeVisible();
-   await expect(input.first()).toBeDisabled();
- }
- await expect(input.first()).toHaveValue("unknown");
+ if(writesEnabled)await expect(input.first()).toBeEnabled();
+ else await expect(input.first()).toBeDisabled();
+ // Unknown = unchecked; no implicit NO.
+ await expect(input.first()).not.toBeChecked();
  // No changes are made; saving must be unavailable even when editing is enabled.
  await expect(card.getByRole("button",{name:/Uložiť hodnoty/})).toBeDisabled();
  await noOverflow(page,label(viewport.width));
