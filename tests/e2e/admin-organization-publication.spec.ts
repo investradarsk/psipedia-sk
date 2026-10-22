@@ -29,7 +29,11 @@ test("organization publication workflow is explicit, reversible and fail-closed"
   await expect(row.getByRole("button", { name: "Publikovať", exact: true })).toBeEnabled();
 
   page.once("dialog", (dialog) => dialog.accept());
-  await row.getByRole("button", { name: "Publikovať", exact: true }).click();
+  const [publishResponse] = await Promise.all([
+    page.waitForResponse(response => response.url().includes("/api/admin/organizations/") && response.url().endsWith("/publication") && response.request().method() === "PUT"),
+    row.getByRole("button", { name: "Publikovať", exact: true }).click(),
+  ]);
+  expect(publishResponse.ok()).toBe(true);
   await expect(page.getByRole("status")).toContainText("Organizácia bola publikovaná");
 
   row = page.locator("article").filter({ hasText: fixtureName });
