@@ -9,6 +9,7 @@ import {
   eventTypes,
   slovakRegions,
   type DogEvent,
+  type PublicEventCard,
   type EventStatus,
   type EventType,
   type SlovakRegion,
@@ -91,6 +92,26 @@ type HomepageEventRow = Pick<EventRow,
 export type HomepageEventCard = Pick<DogEvent,
   "id" | "slug" | "title" | "eventType" | "startDate" | "endDate" |
   "city" | "imageUrl" | "imageDisplay" | "thumbnailImageDisplay">;
+
+/** Lean projection used by /podujatia and type-specific listing cards only. */
+type PublicEventCardRow = Pick<EventRow,
+  "id" | "slug" | "title" | "event_type" | "start_date" | "start_time" |
+  "end_date" | "end_time" | "venue" | "city" | "region" | "cancelled" |
+  "image_url" | "image_display" | "thumbnail_display_json">;
+
+function rowToPublicEventCard(row: PublicEventCardRow): PublicEventCard {
+  return {
+    id: row.id, slug: row.slug, title: row.title,
+    eventType: (eventTypes as readonly string[]).includes(row.event_type) ? row.event_type as EventType : "Iné",
+    startDate: row.start_date, startTime: row.start_time,
+    endDate: row.end_date, endTime: row.end_time, venue: row.venue,
+    city: row.city,
+    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    cancelled: Boolean(row.cancelled), imageUrl: row.image_url,
+    imageDisplay: normalizeSmartImageMode(row.image_display),
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+  };
+}
 
 type EventSummaryRow = {
   venue: string;
@@ -285,16 +306,19 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
 }
 
 /** Complete public count and bounded page; no legacy 250-row preselection. */
-export async function getPublishedEventListing(filters: EventListingFilters): Promise<{events:DogEvent[];total:number;page:number;pages:number}> {
+export async function getPublishedEventListing(filters: EventListingFilters): Promise<{events:PublicEventCard[];total:number;page:number;pages:number}> {
   const database = getD1Binding();
-  if (!database) return { events: [] as DogEvent[], total: 0, page: 1, pages: 1 };
+  if (!database) return { events: [] as PublicEventCard[], total: 0, page: 1, pages: 1 };
   const sql = eventListingSql(filters);
   const count = await database.prepare(`SELECT COUNT(*) AS total FROM managed_events WHERE ${sql.where}`).bind(...sql.values).first<{total: number}>();
   const total = count?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / EVENT_PAGE_SIZE));
   const page = Math.min(filters.page, pages);
-  const result = await database.prepare(`SELECT * FROM managed_events WHERE ${sql.where} ORDER BY ${sql.order} LIMIT ? OFFSET ?`).bind(...sql.values, EVENT_PAGE_SIZE, (page - 1) * EVENT_PAGE_SIZE).all<EventRow>();
-  return { events: result.results.map(rowToEvent), total, page, pages };
+  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,end_time,
+    venue,city,region,cancelled,image_url,image_display,thumbnail_display_json
+    FROM managed_events WHERE ${sql.where} ORDER BY ${sql.order} LIMIT ? OFFSET ?`)
+    .bind(...sql.values, EVENT_PAGE_SIZE, (page - 1) * EVENT_PAGE_SIZE).all<PublicEventCardRow>();
+  return { events: result.results.map(rowToPublicEventCard), total, page, pages };
 }
 
 /** At most 31 × 6 aggregate rows and 12 day previews, regardless of list page. */
