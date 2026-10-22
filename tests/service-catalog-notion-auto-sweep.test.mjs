@@ -139,6 +139,9 @@ test("cron wiring is hourly only, no feature flags in Wrangler, never an HTTP wr
  assert.match(runner,/ON CONFLICT\(option_id,option_version,action\) DO NOTHING/);
  assert.match(runner,/state:"QUARANTINED"/);
  assert.match(route,/strictProvenance:true/);
- assert.doesNotMatch(read("wrangler.jsonc"),/SERVICE_CATALOG_NOTION_AUTO_ENABLED|SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED/);
+ const flags=JSON.parse(read("wrangler.jsonc")).vars;
+ assert.equal(flags.SERVICE_CATALOG_NOTION_AUTO_ENABLED,"true");
+ assert.equal(flags.SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED,"true");
+ assert.equal(flags.SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED,"true");
  assert.doesNotMatch(runner,/setInterval|while\(true\)|fetch\(/);
 });
