@@ -9,6 +9,9 @@ on:
       - "tests/service-catalog-notion-auto-sweep.test.mjs"
       - ".github/workflows/services-v3-hourly-auto-sync.yml"
       - ".github/workflows/production-d1-migrate.yml"
+      - ".github/workflows/services-v3-production-readonly.yml"
+      - "scripts/services-v3-production-readonly.mjs"
+      - "tests/services-v3-production-readonly.test.mjs"
       - "scripts/production-d1-migrate.mjs"
       - "scripts/production-d1-0139-schema.mjs"
       - "tests/production-d1-0139-rollout.test.mjs"
@@ -33,3 +36,5 @@ jobs:
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-notion-auto-sweep.test.mjs
       - name: Protected migration preflight contract
         run: node --test tests/production-d1-0139-rollout.test.mjs
+      - name: Live read-only verifier offline fail-closed contract
+        run: node --test tests/services-v3-production-readonly.test.mjs
