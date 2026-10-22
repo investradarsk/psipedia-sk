@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {readFileSync} from "node:fs";
 import {manualCatalogMirrorAction,manualCatalogMirrorConfirmation}
   from "../lib/service-catalog-admin-mirror-controls.ts";
 
@@ -59,8 +60,7 @@ test("confirmation binds exactly one action and one dynamic canonical ID",()=>{
  assert.notEqual(manualCatalogMirrorConfirmation("PROVISION_ONE",id),manualCatalogMirrorConfirmation("MIRROR_ONE",id));
 });
 test("Admin UI only uses existing strict Admin Notion route with explicit user confirmation",()=>{
- const fs=await import("node:fs");
- const read=p=>fs.readFileSync(new URL("../"+p,import.meta.url),"utf8");
+ const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
  const ui=read("components/admin-service-catalog-workspace.tsx");
  const page=read("app/admin/sluzby-pre-psov/katalog/page.tsx");
  const route=read("app/api/admin/service-catalog/notion-mirror/route.ts");
