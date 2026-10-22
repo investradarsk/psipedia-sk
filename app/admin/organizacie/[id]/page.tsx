@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminOrganizationEditor } from "@/components/admin-organization-editor";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminOrganizationFundraising } from "@/components/admin-organization-fundraising";
 import { AdminOrganizationLocations } from "@/components/admin-organization-locations";
@@ -46,7 +47,7 @@ export default async function OrganizationAdminDetailPage({ params }: Props) {
     {organization.status === "PUBLISHED" && organization.slug && <Link href={"/organizacie/" + organization.slug} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}
     <Link href="/admin/organizacie">← Späť na organizácie</Link>
    </>}>
-    <AdminCanonicalDraftWarning warning={duplicateWarning} />
+    <AdminGeminiOriginBadge agenda="organizations" entityId={organization.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} />
     <AdminOrganizationEditor organization={organization} automationSuggestions={automationSuggestions} />
     <div id="address"><AdminOrganizationLocations organization={organization} initialLocations={locations} /></div>
     <div id="google-maps">

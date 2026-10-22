@@ -9,6 +9,7 @@ import { geminiCanonicalEditorUrl, geminiCanRejectConcept, geminiConceptDate, ge
 import { getGeminiCatalogItem } from "@/lib/gemini-automation-catalog";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminGeminiAgendaDraftEditor } from "@/components/admin-gemini-agenda-draft-editor";
+import { AdminGeminiCanonicalDrafts } from "./admin-gemini-canonical-drafts";
 import { AdminModalDialog } from "@/components/admin-interaction-system";
 import styles from "./admin-gemini-notion-drafts.module.css";
 
@@ -27,9 +28,10 @@ function reviewDescription(draft: ReviewDraft) {
 
 // A keyed boundary prevents a response for category A from ever mutating the
 // visible concept manager for category B, without effect-driven state resets.
-export function AdminGeminiNotionDrafts({ stableKey, deepLinkDraftId }: {
-  stableKey: string; deepLinkDraftId?: string;
+export function AdminGeminiNotionDrafts({ stableKey, deepLinkDraftId, nativeOnly = false }: {
+  stableKey: string; deepLinkDraftId?: string; nativeOnly?: boolean;
 }) {
+  if (nativeOnly) return <AdminGeminiCanonicalDrafts stableKey={stableKey} deepLinkDraftId={deepLinkDraftId} />;
   return <AdminGeminiNotionDraftsForKey key={stableKey + ":" + (deepLinkDraftId ?? "")}
     stableKey={stableKey} deepLinkDraftId={deepLinkDraftId} />;
 }

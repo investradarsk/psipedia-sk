@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminAdoptionEditor } from "@/components/admin-adoption-editor";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -36,5 +37,5 @@ export default async function EditAdoptionPage({ params }: Props) {
     listCanonicalAutomationUpdateSuggestions({ entityType: "ADOPTION", canonicalEntityId: item.id }),
     getAdminEntityReview("ADOPTION", item.id),
   ]);
-  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href="/admin/adopcie">← Späť na adopcie</Link></>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref="/admin/adopcie" />}</AdminShell>;
+  return <AdminShell user={user} eyebrow={adoptionStatusLabels[item.status as AdoptionStatus]} title={`Upraviť: ${item.name}`} description="Server pri každom uložení znovu validuje celý profil, lifecycle prechod aj canonical väzby." actions={<><AdminReviewCheckbox entityType="ADOPTION" entityId={item.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />{isAdoptionPublicStatus(item.status) && <Link href={adoptionDetailPath(item.slug)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}<Link href="/admin/adopcie">← Späť na adopcie</Link></>}><AdminGeminiOriginBadge agenda="adoptions" entityId={item.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminAdoptionEditor item={item} breeds={breeds} organizations={organizations} automationSuggestions={automationSuggestions}/>{item.status === "DRAFT" && <AdminCanonicalDraftDelete entityType="ADOPTION" canonicalEntityId={item.id} returnHref="/admin/adopcie" />}</AdminShell>;
 }
