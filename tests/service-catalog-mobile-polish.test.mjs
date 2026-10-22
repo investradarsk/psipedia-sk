@@ -24,6 +24,10 @@ const styles=new Proxy({}, {get:(_target,key)=>String(key)});
 const fakeRequire=(id)=>{
   if(id==="react"||id==="react/jsx-runtime")return actualRequire(id);
   if(id==="next/navigation")return {useRouter:()=>({refresh(){}})};
+  // The real safety helper has dedicated runtime tests; SSR snapshot stubs only its import.
+  if(id==="@/lib/service-catalog-admin-mirror-controls")return {
+    manualCatalogMirrorAction:()=>null,manualCatalogMirrorConfirmation:()=>""
+  };
   if(id.endsWith(".module.css"))return {__esModule:true,default:styles};
   if(id==="@/components/admin-interaction-system")return {
     AdminActionButton:({children,disabled})=>createElement("button",{disabled},children)

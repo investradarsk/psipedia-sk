@@ -6,6 +6,9 @@ import {
 } from "@/lib/directory-read-facets";
 import { cache } from "react";
 import { parsePublicDirectoryFacets, directoryPublicFacetSql, type DirectoryPublicFacets } from "@/lib/directory-public-filters";
+import {serviceFilterCategories} from "@/lib/directory-filter-contract";
+import {canonicalPublicServiceWhere,canonicalPublicServiceOptions,
+  type CanonicalPublicServiceRow,type CanonicalPublicServiceOption} from "@/lib/service-catalog-public-service-filter";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import {
   allDirectoryCategories,
@@ -268,6 +271,7 @@ export type DirectoryFilters = {
   district: string;
   city: string;
   service: string;
+  canonicalService?: string;
   breed: string;
   fciGroup: string;
   organization: string;
@@ -288,6 +292,7 @@ export type PublicDirectoryProfilePage = {
     districts: string[];
     cities: string[];
     services: string[];
+    canonicalServices: CanonicalPublicServiceOption[];
     breeds: string[];
     fciGroups: string[];
     organizations: string[];
@@ -312,6 +317,8 @@ export function parseDirectoryFilters(params: DirectorySearchParams, pathCategor
     district: firstParam(params.district).slice(0, 100),
     city: firstParam(params.city).slice(0, 120),
     service: firstParam(params.service).slice(0, 160),
+    // Repeated canonical filter parameters must fail closed, not silently select one.
+    canonicalService: Array.isArray(params.svc) ? "__invalid__" : firstParam(params.svc).slice(0, 101),
     breed: firstParam(params.breed).slice(0, 160),
     fciGroup: firstParam(params.fci).slice(0, 80),
     organization: firstParam(params.organization).slice(0, 160),
@@ -983,10 +990,12 @@ export async function listPublishedDirectoryProfiles(options: {
 }): Promise<PublicDirectoryProfilePage> {
   const database = getD1Binding();
   const pageSize = Math.max(1, Math.min(48, Math.trunc(options.pageSize ?? 24)));
-  const emptyOptions = { regions: [], districts: [], cities: [], services: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] };
+  const emptyOptions = { regions: [], districts: [], cities: [], services: [], canonicalServices: [], breeds: [], fciGroups: [], organizations: [], profileTypes: [] };
   if (!database) return { profiles: [], total: 0, page: 1, pageSize, totalPages: 1, options: emptyOptions };
 
   const category = (options.category ?? options.filters.category) || undefined;
+  const canonicalPublicEnabled=(env as unknown as {SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED?:string})
+    .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED==="true";
   const baseClauses = ["status = 'published'"];
   const baseBindings: unknown[] = [];
   if (category) { baseClauses.push("category = ?"); baseBindings.push(category); }
@@ -1011,6 +1020,10 @@ export async function listPublishedDirectoryProfiles(options: {
   const publicFacets = directoryPublicFacetSql(category ?? "", options.filters.facets);
   baseClauses.push(...publicFacets.clauses);
   baseBindings.push(...publicFacets.bindings);
+  const canonicalService=canonicalPublicServiceWhere(category??"",
+    options.filters.canonicalService??"",canonicalPublicEnabled);
+  baseClauses.push(...canonicalService.clauses);
+  baseBindings.push(...canonicalService.bindings);
 
   // The three location options share the active non-location WHERE, but
   // their cascading region/district scopes remain independent.
@@ -1036,6 +1049,22 @@ export async function listPublishedDirectoryProfiles(options: {
   );
   // One D1 batch: 3 statements rather than 8 for identical option scopes.
   const optionResults = await database.batch([locationStatement, serviceStatement, sourceStatement]);
+  // Extra read is opt-in, category-scoped and uses only explicit YES assignments.
+  // Never touch the new 0133 tables on the default disabled path.
+  let canonicalServices:CanonicalPublicServiceOption[]=[];
+  if(canonicalPublicEnabled&&category&&(serviceFilterCategories as readonly string[]).includes(category)){
+    const canonicalRows=await database.prepare(`
+      SELECT DISTINCT choice.option_id AS optionId,
+        opt.label AS label,opt.kind AS kind,opt.status AS status,
+        opt.notion_mirror_status AS mirrorStatus,opt.categories_json AS categoriesJson
+      FROM service_profile_option_choices AS choice
+      JOIN directory_profiles AS profile ON profile.id=choice.profile_id
+      LEFT JOIN service_catalog_admin_options AS opt ON opt.id=choice.option_id
+      WHERE profile.status='published' AND profile.category=? AND choice.choice='yes'
+      ORDER BY choice.option_id
+    `).bind(category).all<CanonicalPublicServiceRow>();
+    canonicalServices=canonicalPublicServiceOptions(category,canonicalRows.results);
+  }
   const locationFacets = (optionResults[0].results as Array<{
     regions: string; districts: string; cities: string;
   }>)[0];
@@ -1081,6 +1110,7 @@ export async function listPublishedDirectoryProfiles(options: {
       districts,
       cities,
       services: values(optionResults[1]),
+      canonicalServices,
       breeds: parseDirectoryFacetValues(sourceFacets?.breeds),
       fciGroups: parseDirectoryFacetValues(sourceFacets?.fciGroups),
       organizations: parseDirectoryFacetValues(sourceFacets?.organizations),
