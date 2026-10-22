@@ -47,43 +47,21 @@ const html=({writeEnabled=false,loadError=null}={})=>renderToStaticMarkup(
   createElement(AdminServiceCatalogWorkspace,{items:[],categories:[],writeEnabled,loadError})
 );
 
-test("disabled writes: one concise truthful status, hidden native disclosure, separate controls",()=>{
-  const out=html();
-  assert.match(out,/Zápisy sú vypnuté/);
-  assert.match(out,/Vytváranie a úpravy možností katalógu sú momentálne nedostupné/);
-  assert.equal((out.match(/class="statusPanel"/g)||[]).length,1);
-  assert.match(out,/<details[^>]*class="statusDetails"[^>]*><summary>Podrobnosti o katalógu<\/summary>/);
-  assert.doesNotMatch(out,/<details[^>]*\bopen(?:="")?/);
-  assert.match(out,/Kanonický register možností je v D1/);
-  assert.match(out,/DRAFT \/ PENDING/);
-  assert.match(out,/Vytvorenie konceptu neznamená automatické schválenie ani verejné publikovanie/);
-  assert.match(out,/disabled=""[^>]*>\+ Nová možnosť<\/button>/);
-  assert.doesNotMatch(out,/Zápisy Services V3 sú zatiaľ vypnuté/);
+test("disabled writes disable new service action and keep technical details collapsed",()=>{
+ const out=html();
+ assert.match(out,/Technické informácie o synchronizácii/);
+ assert.match(out,/disabled=""[^>]*>\+ Nová služba<\/button>/);
+ assert.doesNotMatch(out,/<details[^>]*\bopen(?:="")?/);
 });
-
-test("enabled writes: edit availability is honest and approval stays Notion-receipt gated",()=>{
-  const out=html({writeEnabled:true});
-  assert.match(out,/Vytváranie konceptov je dostupné/);
-  assert.match(out,/Koncepty možno vytvárať a upravovať/);
-  assert.match(out,/Schválenie vyžaduje SYNCED a overený Notion receipt/);
-  assert.match(out,/vyradenie je nezvratné/);
-  assert.doesNotMatch(out,/Zápisy sú vypnuté/);
-  assert.match(out,/<button>\+ Nová možnosť<\/button>/);
-  assert.match(out,/Overiť D1 ↔ Notion \(iba čítanie\)/);
+test("enabled writes offer only simple catalog action",()=>{
+ const out=html({writeEnabled:true});
+ assert.match(out,/<button>\+ Nová služba<\/button>/);
+ assert.doesNotMatch(out,/Schválenie vyžaduje SYNCED/);
+ assert.match(out,/Skontrolovať Notion/);
 });
-
-test("load errors remain visible role=alert even with disclosure closed",()=>{
-  const out=html({loadError:"Dynamické možnosti sa nepodarilo načítať."});
-  assert.match(out,/<p role="alert" class="error">Dynamické možnosti sa nepodarilo načítať\.<\/p>/);
-  assert.match(out,/<details[^>]*class="statusDetails"/);
-  assert.doesNotMatch(out,/<details[^>]*\bopen(?:="")?/);
-  assert.match(out,/Zápisy sú vypnuté/);
-});
-
-test("inconsistent enabled+error props fail closed in status rather than misleading user",()=>{
-  const out=html({writeEnabled:true,loadError:"Chyba katalógu"});
-  assert.match(out,/Vytváranie konceptov je pozastavené/);
-  assert.match(out,/role="alert"/);
-  assert.doesNotMatch(out,/Vytváranie konceptov je dostupné/);
-  assert.match(out,/disabled=""[^>]*>\+ Nová možnosť<\/button>/);
+test("load errors remain visible and disable writes",()=>{
+ const out=html({writeEnabled:true,loadError:"Chyba katalógu"});
+ assert.match(out,/role="alert"/);
+ assert.match(out,/Chyba katalógu/);
+ assert.match(out,/disabled=""[^>]*>\+ Nová služba<\/button>/);
 });
