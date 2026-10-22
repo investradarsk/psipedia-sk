@@ -11,6 +11,7 @@ import type { GeminiRecentRun } from "@/lib/gemini-automation-admin-store";
 import type { GeminiGlobalControl } from "@/lib/gemini-global-control";
 import styles from "./admin-gemini-automation.module.css";
 import { AdminGeminiNotionDrafts } from "./admin-gemini-notion-drafts";
+import { geminiSchedulePresentation } from "@/lib/gemini-schedule-presentation";
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -43,9 +44,10 @@ function jobStatus(job: GeminiQueuedJob) {
     (job.error_code ? "Dokončené: " + job.error_code : "Dokončené");
 }
 
-function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning, latestJob, onSaved, onDirtyChange }: {
-  initial: GeminiSettingView; available: boolean; externalEnabled: boolean; globalRunning: boolean;
+function GeminiSettingsCard({ initial, available, externalEnabled, scheduledEnabled, globalRunning, latestJob, latestRun, currentTime, onSaved, onDirtyChange }: {
+  initial: GeminiSettingView; available: boolean; externalEnabled: boolean; scheduledEnabled: boolean; globalRunning: boolean;
   latestJob: GeminiQueuedJob | null;
+  latestRun: GeminiRecentRun | null; currentTime: number;
   onSaved: (setting: GeminiSettingView) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
@@ -77,6 +79,11 @@ function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning
   const canPilot = canManuallyRun && globalRunning && available && setting.saved && !unsavedChanges &&
     Number(maximum) > 0 && !saving && !running;
   const id = "gemini-" + setting.stableKey.replaceAll(".", "-");
+  // Persisted metadata comes from refreshed D1 props, never from the form's
+  // mount-time state. Preserve any unfinished local form edits.
+  const schedule = geminiSchedulePresentation(initial, {
+    globalRunning, externalEnabled, scheduledEnabled,
+  }, currentTime);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,7 +181,7 @@ function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning
     <form onSubmit={onSubmit} className={styles.card}>
       <div className={styles.cardTitle}>
         <h3>{setting.label}</h3>
-        <span className={styles.state}>{enabled ? "Zapnuté" : "Vypnuté"}</span>
+        <span className={styles.state}>{schedule.label}</span>
       </div>
       <label className={styles.toggle} htmlFor={id + "-enabled"}>
         <input
@@ -218,9 +225,10 @@ function GeminiSettingsCard({ initial, available, externalEnabled, globalRunning
         </label>
       </div>
       <dl className={styles.timestamps}>
-        <div><dt>Posledné spustenie</dt><dd>{formatDate(latestJob?.created_at ?? initial.lastRunAt)}</dd></div>
-        <div><dt>Ďalšie plánované</dt><dd>{formatDate(setting.nextRunAt)}</dd></div>
+        <div><dt>Posledné spustenie</dt><dd>{formatDate(latestRun?.startedAt ?? initial.lastRunAt)}</dd></div>
+        <div><dt>Ďalšie plánované</dt><dd>{formatDate(initial.nextRunAt)}</dd></div>
       </dl>
+      <p className={styles.scheduleExplanation} role="status">{schedule.explanation}</p>
       <GeminiPromptPreview stableKey={setting.stableKey} />
       {latestJob && <p role="status" aria-live="polite"
         className={latestJob.status === "FAILED" || (latestJob.status === "SUCCESS" && !latestJob.run_id)
@@ -449,7 +457,7 @@ export function AdminGeminiAutomationSettings({
   initialSelectedKey?: string;
   initialDraftId?: string;
 }) {
-  const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[]; control: GeminiGlobalControl | null } | null>(null);
+  const [remote, setRemote] = useState<{ settings: readonly GeminiSettingView[]; jobs: GeminiQueuedJob[]; runs: readonly GeminiRecentRun[]; control: GeminiGlobalControl | null } | null>(null);
   const router = useRouter();
   const [controlPending, setControlPending] = useState(false);
   const [controlError, setControlError] = useState("");
@@ -457,6 +465,8 @@ export function AdminGeminiAutomationSettings({
   const globalRunning = liveControl?.state === "RUNNING";
   const liveSettings = remote?.settings ?? settings;
   const jobs = remote?.jobs ?? initialJobs;
+  const liveRuns = remote?.runs ?? recentRuns;
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [selectedKey, setSelectedKey] = useState(initialSelectedKey ?? settings[0]?.stableKey ?? "");
   const [pendingDeepLinkId, setPendingDeepLinkId] = useState(initialDraftId);
   const [dirty, setDirty] = useState(false);
@@ -466,9 +476,10 @@ export function AdminGeminiAutomationSettings({
       settings: (previous?.settings ?? settings).map((item) =>
         item.stableKey === next.stableKey ? next : item),
       jobs: previous?.jobs ?? [...initialJobs],
+      runs: previous?.runs ?? recentRuns,
       control: previous?.control ?? control,
     }));
-  }, [settings, initialJobs, control]);
+  }, [settings, initialJobs, recentRuns, control]);
 
   useEffect(() => {
     if (!available) return;
@@ -483,15 +494,18 @@ export function AdminGeminiAutomationSettings({
         });
         if (!response.ok) return;
         const data = await response.json() as {
-          settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[]; control?: GeminiGlobalControl;
+          settings?: GeminiSettingView[]; jobs?: GeminiQueuedJob[];
+          runs?: GeminiRecentRun[]; control?: GeminiGlobalControl;
         };
         if (!cancelled) {
-          if (Array.isArray(data.settings) || Array.isArray(data.jobs)) {
+          if (Array.isArray(data.settings) || Array.isArray(data.jobs) || Array.isArray(data.runs)) {
             setRemote((previous) => ({
               settings: Array.isArray(data.settings) ? data.settings : previous?.settings ?? settings,
               jobs: Array.isArray(data.jobs) ? data.jobs : previous?.jobs ?? [...initialJobs],
+              runs: Array.isArray(data.runs) ? data.runs : previous?.runs ?? recentRuns,
               control: data.control ?? previous?.control ?? control,
             }));
+            setCurrentTime(Date.now());
           }
         }
       } catch {
@@ -503,13 +517,13 @@ export function AdminGeminiAutomationSettings({
     void refresh();
     const id = window.setInterval(() => void refresh(), 10000);
     return () => { cancelled = true; window.clearInterval(id); };
-  }, [available, settings, initialJobs, control]);
+  }, [available, settings, initialJobs, recentRuns, control]);
 
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
   const waiting = jobs.filter((job) => job.status === "QUEUED").length;
   const running = jobs.filter((job) => job.status === "RUNNING").length;
   const enabled = liveSettings.filter((item) => item.enabled).length;
-  const latestRun = recentRuns[0];
+  const latestRun = liveRuns[0];
 
   async function changeGlobalStop(stopped: boolean) {
     if (!available || controlPending || !liveControl) return;
@@ -530,6 +544,7 @@ export function AdminGeminiAutomationSettings({
       setRemote(previous => ({
         settings: previous?.settings ?? settings,
         jobs: previous?.jobs ?? [...initialJobs],
+        runs: previous?.runs ?? recentRuns,
         control: data.control!,
       }));
       router.refresh();
@@ -628,7 +643,9 @@ export function AdminGeminiAutomationSettings({
               </select>
             </label>
             {selected && <GeminiSettingsCard key={selected.stableKey} initial={selected}
-              available={available} externalEnabled={externalEnabled} globalRunning={globalRunning}
+              available={available} externalEnabled={externalEnabled} scheduledEnabled={scheduledEnabled}
+              globalRunning={globalRunning} currentTime={currentTime}
+              latestRun={liveRuns.find((run) => run.stableKey === selected.stableKey) ?? null}
               latestJob={jobs.find((job) => job.stable_key === selected.stableKey) ?? null}
               onSaved={onSaved} onDirtyChange={onDirtyChange} />}
             {selected && <p className={styles.microcopy}>
@@ -640,7 +657,7 @@ export function AdminGeminiAutomationSettings({
         </div>
 
         <div className={styles.column}>
-          <GeminiHistory runs={recentRuns} selectedKey={selected?.stableKey ?? ""} settings={liveSettings} />
+          <GeminiHistory runs={liveRuns} selectedKey={selected?.stableKey ?? ""} settings={liveSettings} />
           {queueEnabled && <GeminiQueue jobs={jobs} />}
           <section className={styles.panel} aria-labelledby="gemini-drafts-title">
             <div className={styles.panelHeader}>
