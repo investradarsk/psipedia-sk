@@ -78,7 +78,7 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
 
   assert.match(articlePage, /getPublishedArticleSummaries\(\{ limit: 200 \}\)/);
   assert.match(articlePage, /items: articles\.map\(/);
-  assert.match(breedPage, /listPublishedCanonicalBreedIndex\(\)/);
+  assert.match(breedPage, /listPublishedCanonicalBreedAtlasCards\(\)/);
   assert.match(breedPage, /items: breeds\.map\(/);
   assert.match(sectionPage, /slug === "podujatia" \? getPublishedEventListing\(parseEventListing\(rawSearchParams\)\)/);
   assert.match(sectionPage, /items: eventList\.map\(/);

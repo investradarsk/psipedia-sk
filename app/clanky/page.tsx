@@ -92,7 +92,11 @@ export default async function ArticlesPage({ searchParams }: Props) {
           <div className={styles.layout} data-article-listing-layout>
             <div className={styles.main}>
               <ArticleBrowser
-                articles={articles}
+                articles={articles.map(({slug,title,excerpt,category,date,dateIso,image,imageAlt,accent,
+                  portalSection,newsCategory,imageDisplay,imageFocusX,imageFocusY,thumbnailImageDisplay})=>({
+                  slug,title,excerpt,category,date,dateIso,image,imageAlt,accent,
+                  portalSection,newsCategory,imageDisplay,imageFocusX,imageFocusY,thumbnailImageDisplay,
+                }))}
                 hidePrimarySearch
                 initialQuery={scalar(params.hladat) ?? ""}
                 initialCategory={categories[scalar(params.tema) ?? ""] ?? "Všetky"}

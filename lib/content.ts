@@ -60,6 +60,14 @@ export type Article = {
   showUpdated?: boolean;
 };
 
+/** Fields serialized to the interactive public magazine browser.
+ * Complete Article records remain available to editorial and detail views.
+ */
+export type ArticleListingCard = Pick<Article,
+  "slug" | "title" | "excerpt" | "category" | "date" | "dateIso" |
+  "image" | "imageAlt" | "accent" | "portalSection" | "newsCategory" |
+  "imageDisplay" | "imageFocusX" | "imageFocusY" | "thumbnailImageDisplay">;
+
 export const articles: Article[] = [
   {
     slug: "prvy-rok-labradora-mesiac-po-mesiaci",

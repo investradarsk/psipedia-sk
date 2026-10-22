@@ -47,6 +47,20 @@ export type ManagedBreedSummary = Pick<ManagedBreed, "id" | "slug" | "name" | "s
   completenessIssues: BreedCompletenessIssue[];
 };
 export type ManagedBreedIndexItem = Pick<ManagedBreed, "id" | "slug" | "name" | "status" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" | "origin" | "group" | "accent" | "height" | "weight" | "intro" | "energy" | "trainability" | "family" | "officialFciName" | "searchText" | "editorialComplete" | "seo" | "updatedAt">;
+/** Public atlas card/search payload; never serialize editor/SEO/FCI document blobs to the browser. */
+export type BreedAtlasCard = Pick<ManagedBreedIndexItem,
+  "slug" | "name" | "image" | "fciGroup" | "fciSection" | "fciSectionNumber" |
+  "origin" | "group" | "accent" | "height" | "weight" | "intro" |
+  "energy" | "trainability" | "family" | "officialFciName" |
+  "searchText" | "editorialComplete">;
+type BreedAtlasCardRow = {
+  slug:string;name:string;image_url:string;fci_group:number;fci_section:string;fci_section_number:string;
+  origin:string;group_name:string;official_fci_name:string;accent:string;height:string;weight:string;
+  intro:string;energy:number;trainability:number;family:number;search_text:string;editorial_complete:number;
+  standard_dog_height:string|null;standard_bitch_height:string|null;
+  standard_dog_weight:string|null;standard_bitch_weight:string|null;
+};
+
 export type BreedComparisonItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"origin"|"accent"|"size"|"weight"|"lifespan"|"coat"|"energy"|"trainability"|"family"|"intro"|"goodFor"|"consider">;
 export type BreedOfTheDayItem = Pick<ManagedBreed,"slug"|"name"|"image"|"fciGroup"|"fciSection"|"size"|"energy"|"trainability"|"intro">;
 export type ManagedBreedInput = Partial<Breed> & Partial<Pick<ManagedBreed, "fciNumber" | "fciSectionNumber" | "officialFciName" | "validStandardDate" | "workingTrial" | "importKey" | "fciStandard" | "editorialComplete" | "editorial" | "sports" | "relatedBreedIds" | "relatedArticleIds" | "directoryProfileIds">> & { status?: string; imageKey?: string | null };
@@ -166,6 +180,48 @@ export async function listPublishedCanonicalBreedIndex(){
   // Retain only trusted local image paths: BreedPhoto handles missing files
   // with its existing placeholder on the client.
   return result.results.map(fromIndexRow).map((breed)=>({...breed,image:ownedBreedImage(breed.image)}));
+}
+
+/** Public FCI atlas: fetch only scalar card fields and four dimension fallbacks.
+ * Full FCI text and SEO JSON stay in the detail/editor/index queries.
+ * Preserve canonical filtering and order without R2 HEAD/LIST probes on the HTML path.
+ * BreedPhoto provides a client-side placeholder when a trusted local asset is missing.
+ */
+export async function listPublishedCanonicalBreedAtlasCards():Promise<BreedAtlasCard[]> {
+  const database=db();
+  if(!database) {
+    const breeds=await listPublishedCanonicalBreedIndex();
+    return breeds.map(({slug,name,image,fciGroup,fciSection,fciSectionNumber,origin,group,accent,
+      height,weight,intro,energy,trainability,family,officialFciName,searchText,editorialComplete})=>({
+      slug,name,image,fciGroup,fciSection,fciSectionNumber,origin,group,accent,
+      height,weight,intro,energy,trainability,family,officialFciName,searchText,editorialComplete,
+    }));
+  }
+  const result=await database.prepare(`
+    SELECT slug,name,image_url,fci_group,fci_section,fci_section_number,origin,group_name,
+      official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,
+      CASE WHEN json_valid(fci_standard_json) THEN
+        CAST(json_extract(fci_standard_json, '$.vyska_pes_cm') AS TEXT) ELSE NULL END AS standard_dog_height,
+      CASE WHEN json_valid(fci_standard_json) THEN
+        CAST(json_extract(fci_standard_json, '$.vyska_suka_cm') AS TEXT) ELSE NULL END AS standard_bitch_height,
+      CASE WHEN json_valid(fci_standard_json) THEN
+        CAST(json_extract(fci_standard_json, '$.hmotnost_pes_kg') AS TEXT) ELSE NULL END AS standard_dog_weight,
+      CASE WHEN json_valid(fci_standard_json) THEN
+        CAST(json_extract(fci_standard_json, '$.hmotnost_suka_kg') AS TEXT) ELSE NULL END AS standard_bitch_weight
+    FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name
+  `).all<BreedAtlasCardRow>();
+  return result.results.map((row):BreedAtlasCard=>({
+    slug:row.slug,name:row.name,image:ownedBreedImage(row.image_url),fciGroup:row.fci_group,
+    fciSection:publicFciSectionName(row.fci_group,row.fci_section_number,row.fci_section),
+    fciSectionNumber:row.fci_section_number,origin:row.origin,group:row.group_name,
+    officialFciName:row.official_fci_name,accent:row.accent as Breed["accent"],
+    height:publicBreedMeasurement(row.height,"height",combinedFciMeasurement([
+      row.standard_dog_height??undefined,row.standard_bitch_height??undefined],"cm")),
+    weight:publicBreedMeasurement(row.weight,"weight",combinedFciMeasurement([
+      row.standard_dog_weight??undefined,row.standard_bitch_weight??undefined],"kg")),
+    intro:row.intro,energy:row.energy,trainability:row.trainability,family:row.family,
+    searchText:row.search_text,editorialComplete:row.editorial_complete===1,
+  }));
 }
 
 export type BreedSitemapIndexItem = {

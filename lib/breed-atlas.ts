@@ -1,4 +1,4 @@
-import type { ManagedBreedIndexItem } from "@/lib/breed-store";
+import type { BreedAtlasCard } from "@/lib/breed-store";
 
 export type BreedAtlasFilters = {
   query: string;
@@ -33,7 +33,7 @@ export function breedAtlasHref(filters: BreedAtlasFilters) {
   return `/plemena${query ? `?${query}` : ""}`;
 }
 
-export function listFciSectionOptions(breeds: ManagedBreedIndexItem[], group: string): FciSectionOption[] {
+export function listFciSectionOptions(breeds: Pick<BreedAtlasCard, "fciGroup" | "fciSection" | "fciSectionNumber">[], group: string): FciSectionOption[] {
   if (!/^(?:[1-9]|10)$/.test(group)) return [];
   const sectionNames = new Map<string, Map<string, number>>();
   for (const breed of breeds) {
@@ -52,6 +52,6 @@ export function listFciSectionOptions(breeds: ManagedBreedIndexItem[], group: st
   }).sort((first, second) => first.number.localeCompare(second.number, "sk", { numeric: true }));
 }
 
-export function validFciSectionForGroup(breeds: ManagedBreedIndexItem[], group: string, section: string) {
+export function validFciSectionForGroup(breeds: Pick<BreedAtlasCard, "fciGroup" | "fciSection" | "fciSectionNumber">[], group: string, section: string) {
   return listFciSectionOptions(breeds, group).some((option) => option.number === section) ? section : "";
 }
