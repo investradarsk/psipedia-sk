@@ -7,6 +7,7 @@ import {serviceFilterCategories,type ServiceFilterCategory} from "@/lib/director
 import { notFound } from "next/navigation";
 import { AdminDirectoryEditor } from "@/components/admin-directory-editor";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminGeoLocation } from "@/components/admin-geo-location";
 import { AdminShell } from "@/components/admin-shell";
@@ -54,6 +55,6 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
       }
     }
   }
-  return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"} title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"} description={profile.status === "archived" ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať." : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."} actions={<><Link href="/admin/adresar">← Späť na adresár</Link>{profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}</>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminDirectoryEditor profile={profile} automationSuggestions={automationSuggestions} />{isServiceCategory && <AdminServiceProfileValues key={profile.id} profileId={profile.id} entries={serviceEntries} initialChoices={serviceChoices} writeEnabled={writeEnabled && profile.status !== "archived"} error={serviceError} />}
+  return <AdminShell user={user} eyebrow={profile.status === "published" ? "Publikovaný profil" : profile.status === "archived" ? "Archivovaný profil" : "Koncept profilu"} title={profile.status === "archived" ? "Archivovaný profil" : "Upraviť profil"} description={profile.status === "archived" ? "Archivovaný profil je mimo verejného webu. Obnov ho do konceptu, ak ho chceš znovu upravovať." : "Zmeny ulož ako koncept alebo ich rovno publikuj v adresári."} actions={<><Link href="/admin/adresar">← Späť na adresár</Link>{profile.status === "published" && <Link href={directoryProfileHref(profile)} target="_blank" rel="noreferrer">Otvoriť verejný profil ↗</Link>}</>}><AdminGeminiOriginBadge agenda="directory" entityId={profile.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminDirectoryEditor profile={profile} automationSuggestions={automationSuggestions} />{isServiceCategory && <AdminServiceProfileValues key={profile.id} profileId={profile.id} entries={serviceEntries} initialChoices={serviceChoices} writeEnabled={writeEnabled && profile.status !== "archived"} error={serviceError} />}
   <AdminGeoLocation targetType="DIRECTORY_PROFILE" targetId={profile.id} />{profile.status === "draft" && <AdminCanonicalDraftDelete entityType="DIRECTORY" canonicalEntityId={profile.id} returnHref="/admin/adresar" />}</AdminShell>;
 }
