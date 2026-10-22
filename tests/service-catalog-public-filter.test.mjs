@@ -101,7 +101,7 @@ test("actual public list uses opt-in read-only SQL adapter and never writes to D
  assert.match(store,/canonicalPublicServiceWhere\(category\?\?""/);
  assert.match(store,/baseClauses\.push\(\.\.\.canonicalService\.clauses\)/);
  assert.match(store,/choice\.choice='yes'/);
- assert.match(form,/const \\{ filters, options, basePath, category, mapHref \\} = props/);
+ assert.ok(form.includes("const { filters, options, basePath, category, mapHref } = props;"));
  assert.match(form,/name="svc"/);
  assert.match(form,/data-services-v3-canonical-filter/);
  assert.match(form,/directoryQueryFields\(filters, \["page"\]\)/);
