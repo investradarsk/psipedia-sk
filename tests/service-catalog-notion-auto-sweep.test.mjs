@@ -52,7 +52,7 @@ test("default OFF and missing any established write gate causes zero D1/Notion w
   assert.equal((await runServicesV3CatalogAutoSweep({db:f.db,bindings:{...gates,SERVICE_CATALOG_NOTION_AUTO_ENABLED:"false"},run:internal(calls)})).state,"DISABLED");
   assert.equal(calls.length,0);
   for(const name of ["NOTION_API_TOKEN","SERVICE_CATALOG_ADMIN_WRITES_ENABLED","SERVICE_CATALOG_NOTION_MIRROR_READY","SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED"]){
-    const result=await runServicesV3CatalogAutoSweep({db:f.db,bindings:{...gates,[name]:"false"},run:internal(calls)});
+    const result=await runServicesV3CatalogAutoSweep({db:f.db,bindings:{...gates,[name]:name==="NOTION_API_TOKEN"?"":"false"},run:internal(calls)});
     assert.equal(result.state,"BLOCKED",name);
   }
   assert.equal(calls.length,0);
