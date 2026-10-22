@@ -30,14 +30,9 @@ export function PublicPhotoGallery({
       data-public-photo-gallery
       data-photo-fit={fit}
     >
-      {visible.map((image, index) => (
-        <a
-          key={image.src + "-" + index}
-          href={image.src}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={image.alt ? `Otvoriť fotografiu: ${image.alt} (nové okno)` : `Otvoriť fotografiu ${index + 1} (nové okno)`}
-        >
+      {visible.map((image, index) => {
+        const href = /^(?:https?:\/\/|\/(?!\/))/i.test(image.src.trim()) ? image.src.trim() : null;
+        const photo = (
           <img
             src={image.src}
             alt={image.alt}
@@ -46,8 +41,18 @@ export function PublicPhotoGallery({
             width={640}
             height={480}
           />
-        </a>
-      ))}
-    </div>
+        );
+        return href ? (
+          <a
+            key={image.src + "-" + index}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={image.alt ? `Otvoriť fotografiu: ${image.alt} (nové okno)` : `Otvoriť fotografiu ${index + 1} (nové okno)`}
+          >
+            {photo}
+          </a>
+        ) : <span key={image.src + "-" + index}>{photo}</span>;
+      })}    </div>
   );
 }
