@@ -87,7 +87,7 @@ function eligible(area:QualityArea,kind:Kind,index:number,row:Row):Profile|null 
   return {area,kind,index,id:Number(row.id),row,label,missing:pending};
 }
 function allowedPage(url:unknown) { return typeof url==="string" && isSafeAutomationSourceUrl(url) ? url : null; }
-function idMatches(label:string,city:string,result:{title:string;snippet:string|null}) {
+function idMatches(label:string,city:string,result:{title:string;snippet?:string|null}) {
   const needle=normalizeAutomationIdentity(label);
   const hay=normalizeAutomationIdentity(result.title+" "+(result.snippet??""));
   const parts=needle.split(/\s+/).filter(x=>x.length>=4&&!["veterinarna","ambulancia","salon","utulok","hotel","podujatie"].includes(x));
@@ -97,7 +97,7 @@ function idMatches(label:string,city:string,result:{title:string;snippet:string|
   return !normalizedCity || hay.includes(normalizedCity) || hay.includes(needle);
 }
 function snippetField(s:string,regex:RegExp) { return s.match(regex)?.[1]?.trim().slice(0,200)??null; }
-function discover(profile:Profile,results:Array<{url:string;title:string;snippet:string|null}>,images:string[]):Found[] {
+function discover(profile:Profile,results:Array<{url:string;title:string;snippet?:string|null}>,images:string[]):Found[] {
   const found:Found[]=[];
   const city=String(profile.row.city??"");
   const matched=results.filter(r=>idMatches(profile.label,city,r));
@@ -160,6 +160,7 @@ async function nextProfile(db:Database,area:QualityArea) {
       }
       after=Number(rows.results[rows.results.length-1].id);
       if(rows.results.length<250) break;
+      if(page===9) return {skipped:true,index:i,id:after} as const;
     }
   }
   return null;
@@ -175,6 +176,11 @@ export async function runQualityMissingHourly(input:{database:Database;tavilyApi
         .bind(area,hour,at).run();
       if(!claimed.meta.changes) continue;
       const profile=await nextProfile(db,area);
+      if(profile && "skipped" in profile){
+        await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
+          .bind(profile.index,profile.id,at,area).run();
+        continue;
+      }
       if(!profile){
         await db.prepare("UPDATE quality_missing_cursors SET type_index=0,entity_id=0,updated_at=? WHERE area=?").bind(at,area).run();
         continue;
