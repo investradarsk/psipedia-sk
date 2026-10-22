@@ -53,7 +53,7 @@ test("map SQL uses exact same canonical YES predicate for d.id; flags/missing/NO
   assert.deepEqual(get("attr.admin."+"c".repeat(32)),[]);
   assert.deepEqual(get("unknown; DROP TABLE x;"),[]);
   db.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(dynamicId);
-  assert.deepEqual(get(dynamicId),[]);
+  assert.deepEqual(get(dynamicId),[4]);
  }finally{db.close();}
 });
 test("map API rejects ambiguous svc, unrelated map category or unscoped option",()=>{

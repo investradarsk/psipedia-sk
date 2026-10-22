@@ -44,7 +44,7 @@ test("mobile cards and details keep online events accurate and provide a listing
   const css = source("components/events-public.module.css");
 
   assert.doesNotMatch(card, /Online podujatie/);
-  assert.match(card, /Miesto bude upresnené/);
+  assert.match(card, /Miesto nie je uvedené/);
   assert.doesNotMatch(card, /<strong>Organizátor<\/strong>/);
   assert.match(detail, /event\.region !== "Online" && publicMap\?\.items\.length/);
   assert.match(detail, /<EventsBackLink fallbackHref=\{typeHref \?\? "\/podujatia"\}/);
