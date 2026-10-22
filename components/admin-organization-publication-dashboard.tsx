@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+const subscribeToHydration = () => () => {};
 import {
   BulkSelectionCheckbox,
   useAdminBulkSelection,
@@ -56,6 +58,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   reviewedIds?: number[];
 }) {
   const router = useRouter();
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const reviewed = new Set(reviewedIds);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -94,7 +97,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   const bulkTargets = bulkAction ? selectedItems.filter((item) => isBulkEligible(item, bulkAction)) : [];
 
   async function applyBulkPublication() {
-    if (!bulkAction || !bulkTargets.length || bulkBusy) return;
+    if (!hydrated || !bulkAction || !bulkTargets.length || bulkBusy) return;
     setBulkBusy(true);
     setMessage("");
     setError("");
@@ -131,6 +134,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
   }
 
   async function changePublication(item: OrganizationPublicationAdminItem, action: OrganizationPublicationAction) {
+    if (!hydrated || busyId !== null || bulkBusy) return;
     if (!window.confirm(actionQuestion(item, action))) return;
     setBusyId(item.id); setMessage(""); setError("");
     try {
@@ -184,7 +188,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
           <BulkSelectionCheckbox
             checked={bulkSelection.currentPageAllSelected}
             indeterminate={bulkSelection.currentPageSomeSelected}
-            disabled={!bulkSelection.ready || bulkBusy}
+            disabled={!hydrated || !bulkSelection.ready || bulkBusy}
             label="Označiť všetky zobrazené organizácie"
             onChange={bulkSelection.toggleCurrentPage}
           />
@@ -196,12 +200,12 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         <AdminBulkActionToolbar
           selectedCount={bulkSelection.selectedCount}
           selectionDescription="Výber patrí iba aktuálnej filtrovanej strane."
-          primaryAction={<AdminActionButton variant="primary" disabled={bulkBusy} onClick={() => setBulkAction("publish")}>Publikovať</AdminActionButton>}
+          primaryAction={<AdminActionButton variant="primary" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("publish")}>Publikovať</AdminActionButton>}
           secondaryActions={<>
-            <AdminActionButton variant="secondary" disabled={bulkBusy} onClick={() => setBulkAction("unpublish")}>Do konceptu</AdminActionButton>
-            <AdminActionButton variant="secondary" disabled={bulkBusy} onClick={() => setBulkAction("restore")}>Obnoviť</AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("unpublish")}>Do konceptu</AdminActionButton>
+            <AdminActionButton variant="secondary" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("restore")}>Obnoviť</AdminActionButton>
           </>}
-          destructiveAction={<AdminActionButton variant="destructive" disabled={bulkBusy} onClick={() => setBulkAction("archive")}>Archivovať</AdminActionButton>}
+          destructiveAction={<AdminActionButton variant="destructive" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction("archive")}>Archivovať</AdminActionButton>}
           onClear={bulkSelection.clear}
         />
       )}
@@ -213,7 +217,7 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
           return <article className={styles.row} key={item.id}>
             <BulkSelectionCheckbox
               checked={bulkSelection.isSelected(item.id)}
-              disabled={!bulkSelection.ready || bulkBusy}
+              disabled={!hydrated || !bulkSelection.ready || bulkBusy}
               label={`Označiť organizáciu ${item.name}`}
               onChange={() => bulkSelection.toggleRow(item.id)}
               className={styles.rowCheck}
@@ -238,10 +242,10 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
               {isPublic && <Link href={"/organizacie/" + item.slug} target="_blank" rel="noreferrer">Pozrieť ↗</Link>}
               <Link className="admin-row-edit" href={"/admin/organizacie/" + item.id}>Spravovať</Link>
               <Link href={`/admin/organizacie/${item.id}#fundraising`}>Fundraising</Link>
-              {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!item.preflight.ready || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "publish")}>Publikovať</AdminActionButton>}
-              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={busyId !== null || bulkBusy} onClick={() => void changePublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
-              {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={busyId !== null || bulkBusy} onClick={() => void changePublication(item, "archive")}>Archivovať</AdminActionButton>}
-              {item.status === "ARCHIVED" && <AdminActionButton variant="secondary" disabled={busyId !== null || bulkBusy} onClick={() => void changePublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
+              {item.status === "DRAFT" && <AdminActionButton variant="primary" disabled={!hydrated || !item.preflight.ready || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "publish")}>Publikovať</AdminActionButton>}
+              {item.status === "PUBLISHED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "unpublish")}>Presunúť do konceptu</AdminActionButton>}
+              {item.status !== "ARCHIVED" && <AdminActionButton variant="destructive" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "archive")}>Archivovať</AdminActionButton>}
+              {item.status === "ARCHIVED" && <AdminActionButton variant="secondary" disabled={!hydrated || busyId !== null || bulkBusy} onClick={() => void changePublication(item, "restore")}>Obnoviť do konceptu</AdminActionButton>}
             </div>
           </article>;
         })}
@@ -261,10 +265,10 @@ export function AdminOrganizationPublicationDashboard({ data, filters, reviewedI
         : "Server pred zmenou znovu overí aktuálny lifecycle a verziu každého záznamu."}
       onClose={() => { if (!bulkBusy) setBulkAction(null); }}
       footer={<>
-        <AdminActionButton variant="neutral" disabled={bulkBusy} onClick={() => setBulkAction(null)}>Zrušiť</AdminActionButton>
+        <AdminActionButton variant="neutral" disabled={!hydrated || bulkBusy} onClick={() => setBulkAction(null)}>Zrušiť</AdminActionButton>
         <AdminActionButton
           variant={bulkAction === "archive" ? "destructive" : "primary"}
-          disabled={bulkBusy || bulkTargets.length === 0}
+          disabled={!hydrated || bulkBusy || bulkTargets.length === 0}
           onClick={() => void applyBulkPublication()}
         >
           {bulkBusy ? "Spracúvam…" : bulkAction === "archive" ? "Archivovať" : "Potvrdiť zmenu"}
