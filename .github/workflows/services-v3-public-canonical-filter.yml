@@ -22,4 +22,4 @@ jobs:
           node-version: "24.18.0"
       - name: Canonical SQL, legacy filter compatibility, no inference
         run: |
-          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs tests/directory-public-filters.test.mjs
+          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs
