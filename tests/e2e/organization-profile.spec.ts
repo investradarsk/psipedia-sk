@@ -335,7 +335,12 @@ test("PUBLIC-PROFILE-UX-UNIFICATION-1: mobile-first organization profile preserv
   await page.goto("/organizacie/org-2b-e2e-bez-lokality", { waitUntil: "domcontentloaded" });
   const empty = page.locator("main#obsah");
   await expect(empty.locator("[data-organization-location-summary]")).toHaveCount(0);
-  await expect(empty.locator("[data-public-profile-media]")).toHaveCount(0);
+  // Profiles without an uploaded photo still have the canonical decorative
+  // media slot; never invent an image or remove the accessible fallback.
+  const missingPhoto = empty.locator("[data-public-profile-media]");
+  await expect(missingPhoto).toHaveCount(1);
+  await expect(missingPhoto.locator("img")).toHaveCount(0);
+  await expect(missingPhoto.locator("[data-public-media-fallback]")).toBeVisible();
   await expect(empty.locator("[data-profile-primary-action]")).toHaveAttribute("href", "/organizacie");
   await expect(empty.getByRole("heading", { name: "Kontakty", exact: true })).toHaveCount(0);
 });
