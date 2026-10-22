@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdoptionCardMedia } from "@/components/adoption-card-media";
 import { PawMark } from "@/components/icons";
-import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicContentShell, PublicFoundation, PublicPagination, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import {
   adoptionCatalogAgeLabels,
@@ -153,11 +153,15 @@ export async function AdoptionCatalog({ result, filters, breeds }: Props) {
       <div className={styles.emptyIcon} aria-hidden="true"><PawMark size={34} /></div><h2>Momentálne nemáme publikovaný profil pre tieto filtre.</h2><p>Skúste zmeniť vyhľadávanie alebo odstrániť niektorý filter.</p><Link href="/pomoc-psom/adopcia">Zobraziť všetky aktuálne adopcie</Link>
     </div>}
 
-    {pagination.totalPages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie adopcií">
-      {pagination.page > 1 && <Link href={adoptionCatalogHref(filters, { page: pagination.page - 1 })}>← Predchádzajúca</Link>}
-      <span aria-current="page">Strana {pagination.page} z {pagination.totalPages}</span>
-      {pagination.page < pagination.totalPages && <Link href={adoptionCatalogHref(filters, { page: pagination.page + 1 })}>Ďalšia →</Link>}
-    </nav>}
+    <PublicPagination
+      className={styles.pagination}
+      label="Stránkovanie adopcií"
+      currentPage={pagination.page}
+      totalPages={pagination.totalPages}
+      previousHref={pagination.page > 1 ? adoptionCatalogHref(filters, { page: pagination.page - 1 }) : undefined}
+      nextHref={pagination.page < pagination.totalPages ? adoptionCatalogHref(filters, { page: pagination.page + 1 }) : undefined}
+      showDisabledControls={false}
+    />
     </PublicContentShell>
   </PublicFoundation>;
 }
