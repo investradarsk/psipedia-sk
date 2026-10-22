@@ -6,8 +6,8 @@ const capture=async(page:Page,name:string,fullPage=true)=>{
   mkdirSync(root,{recursive:true});
   // Restore the natural top-of-page viewport before full-page capture. Sticky headers
   // otherwise get stitched into the middle of the full-page PNG after clicking a row.
-  await page.evaluate(()=>{window.scrollTo({top:0,behavior:"instant"});if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
+  await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();window.scrollTo({top:0,behavior:"instant"});});
+  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf",timeout:10000});
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled",scale:"css"});
 };
@@ -51,10 +51,10 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
     };
   },phase);
   await page.evaluate(()=>{
-    window.scrollTo({top:0,behavior:"instant"});
     if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+    window.scrollTo({top:0,behavior:"instant"});
   });
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
+  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf",timeout:10000});
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const top=await measure("top");
   expect(top.viewport,"browser viewport dimensions").toMatchObject({width,height});
@@ -116,10 +116,10 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
   await expect(toggle).toHaveAttribute("aria-expanded","false");
   writeFileSync(root+"/"+name+"-viewport-rectangles.json",JSON.stringify({top,scrolled,scrollPlan},null,2)+"\n");
   await page.evaluate(()=>{
-    window.scrollTo({top:0,behavior:"instant"});
     if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+    window.scrollTo({top:0,behavior:"instant"});
   });
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
+  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf",timeout:10000});
 };
 
 const noOverflow=async(page:Page,name:string)=>{
@@ -201,12 +201,16 @@ test("Services V3 simple catalog — desktop and mobile visual QA",async({page},
    await expect(summary).toBeFocused();
    await summary.press("Enter");
    await expect(disclosure).toHaveAttribute("open","");
+   // Blur the keyboard-activated summary before resetting the mobile viewport;
+   // a focused <summary> below the fold can immediately scroll the page back.
+   await summary.blur();
    await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeVisible();
    await noOverflow(page,"expanded-"+label(viewport.width));
    if(viewport.width===320||viewport.width===390){
      await captureMobileViewportEvidence(page,"expanded",viewport.width);
    }
    await capture(page,"catalog-panel-expanded-"+label(viewport.width));
+   await summary.focus();
    await summary.press("Space");
    await expect(disclosure).not.toHaveAttribute("open");
    await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeHidden();
