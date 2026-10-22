@@ -1,6 +1,7 @@
 import {env} from "cloudflare:workers";
 import {requireAdminMutation} from "@/lib/admin-auth";
 import {saveAdminServiceChoice,resetAdminServiceChoice,ServiceCatalogConflictError,ServiceCatalogInputError,ServiceCatalogSchemaError,requireServiceCatalogAuditSchema} from "@/lib/service-catalog-admin-store";
+import {projectServiceChoiceToDirectoryNotion} from "@/lib/service-profile-notion-bridge";
 export const dynamic="force-dynamic";
 type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
 type Props={params:Promise<{id:string}>};
@@ -25,7 +26,16 @@ export async function PATCH(request:Request,{params}:Props){
     const selection=input.choice==="unknown"
       ?await resetAdminServiceChoice(cfg.DB,{profileId,optionId:input.optionId,expectedVersion:input.expectedVersion},auth.user!.email)
       :await saveAdminServiceChoice(cfg.DB,{profileId,optionId:input.optionId,choice:input.choice,expectedVersion:input.expectedVersion},auth.user!.email);
-    return Response.json({selection});
+    // Reuse the already connected bidirectional Directory "Služby" property.
+    // Canonical choice save is complete; make partial projection failure explicit.
+    let notionProjection:"updated"|"unchanged"|"deferred"="unchanged";
+    try{
+      notionProjection=await projectServiceChoiceToDirectoryNotion(cfg.DB,profileId,input.optionId,input.choice);
+    }catch{
+      notionProjection="deferred";
+    }
+    return Response.json({selection,notionProjection,
+      ...(notionProjection==="deferred"?{warning:"Výber je uložený v Psipedii, ale prenos do Notionu vyžaduje kontrolu."}:{})});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Selection failed."},
       {status:error instanceof ServiceCatalogInputError||error instanceof SyntaxError?400:error instanceof ServiceCatalogConflictError?409:error instanceof ServiceCatalogSchemaError?503:500});

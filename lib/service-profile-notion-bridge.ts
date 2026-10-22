@@ -45,6 +45,13 @@ export async function projectServiceChoiceToDirectoryNotion(db:DB,profileId:numb
   if(!profile)throw Error("SERVICE_PROFILE_NOT_FOUND");
   const item=(await allowedCatalog(db,profile.category)).find(s=>s.id===optionId);
   if(!item)return "unchanged" as const; // unrelated typed attribute, not a service
+  if(profile.services_json!==null){
+    try{
+      const parsed=JSON.parse(profile.services_json);
+      if(!Array.isArray(parsed)||!parsed.every(x=>typeof x==="string"))
+        throw Error("INVALID_LEGACY_SERVICES_JSON");
+    }catch{throw Error("INVALID_LEGACY_SERVICES_JSON");}
+  }
   const existing=parseServices(profile.services_json);
   const normalized=normalizeCatalogLabel(item.label);
   const filtered=existing.filter(s=>normalizeCatalogLabel(s)!==normalized);
