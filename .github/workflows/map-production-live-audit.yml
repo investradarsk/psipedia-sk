@@ -1,6 +1,10 @@
 name: MAP V1 Live Production Audit
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/map-production-live-audit.yml"
+      - "tests/e2e/map-production-live.spec.ts"
   push:
     branches: [main]
     paths:
