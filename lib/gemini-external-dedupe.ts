@@ -80,11 +80,14 @@ export async function checkExternalGeminiIdentity(input: {
   try {
     if (catalog.section === "directory") {
       const evidenceUrl = safeUrl(candidate.source) ?? safeUrl(candidate.website);
-      if (!evidenceUrl || !candidate.city.trim()) return blocked();
+      // An otherwise sourced candidate without a city may still be useful as
+      // a private Gemini review proposal. City is optional in Discovery V1.
+      // D1 still compares verified identity signals and never auto-publishes.
+      if (!evidenceUrl) return blocked();
       const normalized: GeminiDiscoveryCandidateV1 = {
         name: candidate.name, primary_url: safeUrl(candidate.website),
         source_urls: [evidenceUrl], description: null,
-        location: { country: "Slovakia", region: null, district: null, city: candidate.city, address: null },
+        location: { country: "Slovakia", region: null, district: null, city: candidate.city.trim() || null, address: null },
         contacts: { phone: null, email: null, website: safeUrl(candidate.website), facebook: null, instagram: null },
         confidence: 1, evidence: [{ source_url: evidenceUrl, fields: ["name"] }],
       };
