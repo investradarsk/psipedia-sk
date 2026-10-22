@@ -125,9 +125,9 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         </p>
       )}
       {draft.attribution === "EVIDENCE_SIGNATURE_ONLY" && <p role="status">Gemini pôvod je zatiaľ odhadnutý podľa zdrojových dôkazov. Jednoznačné označenie vyžaduje úpravu existujúceho pracovníka Gemini.</p>}
-      {draft.attribution === "SIGNED_CALLBACK" && draft.fields.some(field =>
+      {draft.fields.some(field =>
         field.name === "Slug" && !String(values[field.name] ?? "").trim()) &&
-        <p role="status">Slug môže zostať prázdny. Pri overenom importe do D1 sa bezpečne vygeneruje bez prefixu gemini-.</p>}
+        <p role="status">Slug môže zostať prázdny. Pri schválení alebo overenom importe sa bezpečne vytvorí bez prefixu gemini-.</p>}
       {draft.agenda === "help-cases" && !draft.reviewAvailable && <p role="alert">Interná kontrola Pomoci psom zatiaľ nie je nakonfigurovaná v Notione. Slug ani schvaľovanie a odmietanie konceptu nie sú povolené. Ostatné úpravy možno uložiť bez publikovania.</p>}
       {draft.agenda === "help-cases" && draft.reviewAvailable && <p>Schválenie mení výlučne interné pole Gemini kontrola. Verejné publikovanie sa nevykoná; koncept spracuje existujúca synchronizácia až následne.</p>}
       <form onSubmit={event => { event.preventDefault(); void submit("save"); }}>
@@ -181,7 +181,10 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
         {message && <p role="status">{message}</p>}
       {canonicalEditorUrl && <p role="status">Neverejný D1 koncept je pripravený. Ďalšie úpravy a výslovné publikovanie dokonči v kanonickom editore.</p>}
         <div className="admin-editor-actions">
-          <button type="submit" disabled={busy || readOnly}>{busy ? "Ukladám…" : "Uložiť ako koncept"}</button>
+          <button type="submit" disabled={busy || Boolean(canonicalEditorUrl) ||
+            !["NEW", "IN_PROGRESS", "APPROVED"].includes(reviewState)}>
+            {busy ? "Ukladám…" : reviewState === "APPROVED" ? "Dokončiť import konceptu" : "Uložiť ako koncept"}
+          </button>
           {!draft.psipediaId && (reviewState !== "APPROVED" || draft.agenda === "help-cases") && (
             <button type="button" disabled={busy || (draft.agenda === "help-cases" && !draft.reviewAvailable)}
               onClick={() => setConfirm(reviewState === "REJECTED" ? "restore" : "reject")}>
@@ -193,12 +196,6 @@ export function AdminGeminiAgendaDraftEditor({ draft, onSaved }: {
               Pripraviť na import
             </button>
           )}
-          {reviewState === "APPROVED" && draft.attribution === "SIGNED_CALLBACK" &&
-            !draft.psipediaId && !canonicalEditorUrl && (
-              <button type="button" disabled={busy} onClick={() => void submit("save")}>
-                Overiť import do D1
-              </button>
-            )}
           <button type="button" disabled={busy || Boolean(canonicalEditorUrl) || !draft.psipediaId || draft.canonicalVerified !== true}
             onClick={() => void openCanonicalPublisher()}>
             Publikovať (otvoriť D1 editor)
