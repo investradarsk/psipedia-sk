@@ -64,3 +64,9 @@
   .profileSection .profileRow select { width: 100%; }
   .profileCard :global([data-editor-actionbar]) { bottom: env(safe-area-inset-bottom); }
 }
+
+/* Services V3: admin-only, read-only D1 ↔ Notion release inventory. */
+.inventoryBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border:1px solid #dae5dc;border-radius:12px;background:#fff;min-width:0}
+.inventoryBar p{margin:0;font-size:.84rem;color:#315542;overflow-wrap:anywhere}
+.inventoryBar :global(button){min-height:44px}
+@media(max-width:390px){.inventoryBar{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.inventoryBar :global(button){width:100%}}

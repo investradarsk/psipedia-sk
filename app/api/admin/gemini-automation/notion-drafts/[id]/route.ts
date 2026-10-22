@@ -127,9 +127,29 @@ export async function PATCH(request: Request, { params }: Props) {
         return Response.json({ error: "Koncept nepatrí do požadovanej kategórie. Zápis sa nevykonal." },
           { status: 409, headers: HEADERS });
     }
-    const draft = key && geminiAgendaForKey(key)
+    const isAgenda = Boolean(key && geminiAgendaForKey(key));
+    const draft = isAgenda
       ? await mutateGeminiAgendaDraft(env, key, id, body, auth.user.email)
       : await reviewGeminiDirectoryDraft(env, id, body, auth.user.email);
-    return Response.json({ draft }, { headers: HEADERS });
+    // "Pripraviť na import" must not stop at a Notion status change.
+    // Only the same signed, targeted private-D1 reconciliation as Save can
+    // authorize a native editor link. A blocked import is reported, not retried
+    // blindly and never treated as a publication.
+    let canonicalSave: GeminiCanonicalSaveResult = { state: "NOTION_ONLY" };
+    if (isAgenda && body.action === "approve") {
+      const database = (env as unknown as { DB?: D1Database }).DB;
+      if (database) {
+        try {
+          canonicalSave = await reconcileGeminiSavedDraft({
+            database,
+            bindings: env as unknown as Parameters<typeof reconcileGeminiSavedDraft>[0]["bindings"],
+            key, notionPageId: id, savedRevision: draft.lastEditedAt,
+          });
+        } catch {
+          canonicalSave = { state: "NEEDS_REVIEW" };
+        }
+      }
+    }
+    return Response.json({ draft, canonicalSave }, { headers: HEADERS });
   } catch (error) { return fail(error); }
 }
