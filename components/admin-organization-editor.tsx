@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useMemo, useState, useSyncExternalStore } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AdminActionButton, AdminEditorSection, AdminHelpText, AdminStickyEditorNavigation } from "@/components/admin-interaction-system";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { ImageDisplay } from "@/components/image-display";
@@ -63,13 +64,89 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const archived = organization?.status === "ARCHIVED" || Boolean(organization?.archivedAt);
-  const editingDisabled = !hydrated || archived;
+  const editingDisabled = !hydrated || archived || saving || uploading;
+  const editorSnapshot = JSON.stringify(draft);
+  const [savedSnapshot, setSavedSnapshot] = useState(editorSnapshot);
+  const dirty = editorSnapshot !== savedSnapshot;
+  const [confirmNavigation, setConfirmNavigation] = useState(false);
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
+  const allowNavigationRef = useRef(false);
+  const mutationPending = useRef(false);
+  const requestNavigation = useCallback((navigate: () => void) => {
+    pendingNavigationRef.current = navigate;
+    setConfirmNavigation(true);
+  }, []);
+
   const sections = useMemo(() => [
     { id: "organization-general", label: "Základné" },
     { id: "organization-content", label: "Verejný obsah" },
     { id: "organization-contacts", label: "Kontakty" },
     { id: "organization-media", label: "Obrázok a zdroj" },
   ], []);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onDocumentClick = (click: MouseEvent) => {
+      if (allowNavigationRef.current || click.defaultPrevented || click.button !== 0 ||
+          click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return;
+      const target = click.target;
+      const anchor = target instanceof Element ? target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!anchor || anchor.hasAttribute("download") || (anchor.target && anchor.target !== "_self")) return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin ||
+          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
+      click.preventDefault();
+      click.stopPropagation();
+      requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
+    };
+    document.addEventListener("click", onDocumentClick, true);
+
+    // The Navigation API catches history traversal and programmatic soft
+    // navigation that cannot be handled by a DOM link click.
+    const navigationApi = (window as Window & {
+      navigation?: EventTarget & { traverseTo?: (key: string) => Promise<unknown> };
+    }).navigation;
+    const onNativeNavigate = (event: Event) => {
+      if (allowNavigationRef.current || !event.cancelable) return;
+      const navigationEvent = event as Event & {
+        destination?: { url: string; key?: string };
+        navigationType?: string;
+        hashChange?: boolean;
+      };
+      if (navigationEvent.hashChange || !navigationEvent.destination?.url) return;
+      const destination = new URL(navigationEvent.destination.url);
+      if (destination.origin !== window.location.origin ||
+          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
+      event.preventDefault();
+      const key = navigationEvent.destination.key;
+      if (navigationEvent.navigationType === "traverse") {
+        requestNavigation(() => {
+          if (key && navigationApi?.traverseTo) void navigationApi.traverseTo(key);
+          else window.history.back();
+        });
+      } else {
+        requestNavigation(() => router.push(destination.pathname + destination.search + destination.hash));
+      }
+    };
+    navigationApi?.addEventListener("navigate", onNativeNavigate);
+    return () => {
+      document.removeEventListener("click", onDocumentClick, true);
+      navigationApi?.removeEventListener("navigate", onNativeNavigate);
+    };
+  }, [dirty, requestNavigation, router]);
+
+  const stayInEditor = () => {
+    pendingNavigationRef.current = null;
+    setConfirmNavigation(false);
+  };
+  const discardAndNavigate = () => {
+    const navigate = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    allowNavigationRef.current = true;
+    setConfirmNavigation(false);
+    setSavedSnapshot(editorSnapshot);
+    navigate?.();
+  };
 
   function patch(values: Partial<OrganizationAdminInput>) {
     setDraft((current) => ({ ...current, ...values }));
@@ -96,7 +173,9 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (archived) return;
+    if (archived || mutationPending.current || uploading) return;
+    mutationPending.current = true;
+    const submittedSnapshot = JSON.stringify(draft);
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(organization ? "/api/admin/organizations/" + organization.id : "/api/admin/organizations", {
@@ -107,19 +186,26 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       const body = await response.json() as { item?: OrganizationPublicationAdminItem; error?: string };
       if (!response.ok || !body.item) throw new Error(body.error || "Organizáciu sa nepodarilo uložiť.");
       if (!organization) {
+        allowNavigationRef.current = true;
+        setSavedSnapshot(submittedSnapshot);
         router.replace(`/admin/organizacie/${body.item.id}`);
         return;
       }
       setExpectedUpdatedAt(body.item.updatedAt);
-      setDraft(organizationAdminInputFromCandidate(body.item));
+      const persistedDraft = organizationAdminInputFromCandidate(body.item);
+      setSavedSnapshot(JSON.stringify(persistedDraft));
+      // Do not replace an automation patch accepted while this request was in flight.
+      setDraft((current) => JSON.stringify(current) === submittedSnapshot ? persistedDraft : current);
       setMessage("Canonical údaje organizácie boli uložené.");
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Organizáciu sa nepodarilo uložiť.");
-    } finally { setSaving(false); }
+    } finally { mutationPending.current = false; setSaving(false); }
   }
 
   return <form className="admin-event-editor" onSubmit={save}>
+    <EditorUnsavedChangesGuard active={dirty} open={confirmNavigation} onStay={stayInEditor} onDiscard={discardAndNavigate} />
+    {dirty && <p className="admin-message" role="status">Neuložené zmeny</p>}
     <AdminStickyEditorNavigation sections={sections} ariaLabel="Sekcie editora organizácie" />
     <div className="admin-event-fields">
       <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />

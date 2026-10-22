@@ -11,6 +11,7 @@ on:
       - "app/api/admin/organizations/**"
       - "components/admin-attention-queue*"
       - "components/admin-organization-publication-dashboard.tsx"
+      - "components/admin-organization-editor.tsx"
       - "components/admin-shell.tsx"
       - "lib/admin-attention-queue*"
       - "lib/help-organization-admin-store.ts"
@@ -22,6 +23,8 @@ on:
       - "tests/e2e/admin-operations.spec.ts"
       - "tests/fixtures/admin-attention-pagination-e2e.sql"
       - "tests/e2e/admin-organization-publication.spec.ts"
+      - "tests/e2e/admin-organization-unsaved.spec.ts"
+      - "tests/organization-dashboard-hydration.test.mjs"
       - ".github/workflows/admin-operations-ci.yml"
   workflow_dispatch:
 
@@ -56,6 +59,7 @@ jobs:
       - run: npm ci
       - name: Admin IA and attention queue contract tests
         run: node --experimental-strip-types --test tests/admin-attention-queue.test.mjs tests/admin-ia.test.mjs
+      - run: node --test tests/organization-dashboard-hydration.test.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: Configure CI-only local PII keys
@@ -93,7 +97,7 @@ jobs:
             exit 1
           fi
       - name: Admin operations and organization publishing Playwright — desktop and mobile
-        run: npx playwright test tests/e2e/admin-operations.spec.ts tests/e2e/admin-organization-publication.spec.ts --workers=1 --retries=0
+        run: npx playwright test tests/e2e/admin-operations.spec.ts tests/e2e/admin-organization-publication.spec.ts tests/e2e/admin-organization-unsaved.spec.ts --workers=1 --retries=0
       - name: Stop local app
         if: always()
         run: |
