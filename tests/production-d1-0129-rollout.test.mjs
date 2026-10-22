@@ -16,9 +16,9 @@ const target = "0129_gemini_external_manual_queue.sql";
 const predecessor = "0128_facebook_image_posts.sql";
 
 test("0129 remains approved and pinned while 0130 is a later separate target", () => {
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-10), target);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-11), predecessor);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-9), "0130_facebook_image_publisher.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-11), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-12), predecessor);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-10), "0130_facebook_image_publisher.sql");
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(migration).digest("hex"), APPROVED_0129_SHA256);
   assert.doesNotThrow(() => assertApproved0129Target("psipedia-sk-db", APPROVED_0129_SHA256));
