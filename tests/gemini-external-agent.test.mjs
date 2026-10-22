@@ -177,6 +177,15 @@ test("callback rejects missing signature, then accepts exactly one signed comple
   assert.equal((await completeExternalGemini({ db, env: config, body, signature })).status, 409);
 });
 
+test("production Wrangler always carries the consented scheduled Gemini gate on deploy", () => {
+  const wrangler = JSON.parse(readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+  assert.equal(wrangler.vars.GEMINI_EXTERNAL_AGENT_ENABLED, "true");
+  assert.equal(wrangler.vars.GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED, "true");
+  assert.equal(externalAgentScheduledEnabled(wrangler.vars), true);
+  // The production source of truth must not rely on ad-hoc Dashboard edits
+  // that disappear during a following Wrangler deployment.
+});
+
 test("manual external opt-in never starts a scheduled job without separate consent", async () => {
   const { db, queries } = fakeDb();
   const env = {
