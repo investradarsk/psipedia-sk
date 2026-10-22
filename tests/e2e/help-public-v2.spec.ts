@@ -209,7 +209,21 @@ test("Help Admin create, edit, publish and unpublish lifecycle stays inside gene
   api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
   expect(item.status).toBe("published");expect(item.urgent).toBe(true);expect(item.title).toContain("upravený");
 
-  await page.getByRole("button",{name:"Stiahnuť z webu"}).click();
+  // Both explicit save and Enter must preserve publication.
+  await titleInput.fill("E2E Help Admin Created – publikovaný upravený");
+  await page.getByRole("button", {name:"Uložiť zmeny",exact:true}).click();
+  await expect(page.getByRole("status")).toContainText("publikovaný");
+  await titleInput.fill("E2E Help Admin Created – Enter");
+  await titleInput.press("Enter");
+  await expect.poll(async () => {
+    const saved = (await (await page.request.get(`/api/admin/help/${id}`)).json()).item;
+    return {status:saved.status,title:saved.title};
+  }).toEqual({status:"published",title:"E2E Help Admin Created – Enter"});
+  await page.getByRole("button",{name:"Stiahnuť z webu",exact:true}).click();
+  await page.getByRole("button",{name:"Ponechať publikované"}).click();
+  expect((await (await page.request.get(`/api/admin/help/${id}`)).json()).item.status).toBe("published");
+  await page.getByRole("button",{name:"Stiahnuť z webu",exact:true}).click();
+  await page.getByRole("button",{name:"Potvrdiť stiahnutie"}).click();
   await expect(page.getByRole("status")).toContainText("Koncept");
   api=await page.request.get(`/api/admin/help/${id}`);item=(await api.json()).item;
   expect(item.status).toBe("draft");
