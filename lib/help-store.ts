@@ -148,20 +148,6 @@ function rowToPublicHelpCard(row: PublicHelpCardRow): PublicHelpCard {
   };
 }
 
-/** For organizations use the existing canonical conversion, but transmit only card fields. */
-function helpCaseToPublicHelpCard(item: HelpCase): PublicHelpCard {
-  const {
-    id, slug, title, category, excerpt, organization, dogName, breed, ageNote,
-    city, region, reportedDate, goalAmount, raisedAmount, imageUrl,
-    thumbnailImageDisplay, urgent, verified, resolved, updatedAt,
-  } = item;
-  return {
-    id, slug, title, category, excerpt, organization, dogName, breed, ageNote,
-    city, region, reportedDate, goalAmount, raisedAmount, imageUrl,
-    thumbnailImageDisplay, urgent, verified, resolved, updatedAt,
-  };
-}
-
 type HelpCaseSummaryRow = {
   id: number;
   slug: string;
