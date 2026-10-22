@@ -203,6 +203,9 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
     .SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED==="true";
   const canonicalService=canonicalPublicServiceWhere(
     query.subcategory??"",query.canonicalService??"",canonicalPublicEnabled,"d");
+  const canonicalCategory=query.canonicalService&&query.subcategory
+    ? {clause:"AND d.category = ?",bindings:[query.subcategory]}
+    : {clause:"",bindings:[] as string[]};
   const search = parameterizedSearch(query, `
     coalesce(d.name, '') || ' ' || coalesce(d.excerpt, '') || ' ' || coalesce(d.description, '') || ' ' ||
     coalesce(d.services_json, '') || ' ' || coalesce(d.city, '') || ' ' || coalesce(d.district, '') || ' ' ||
@@ -235,10 +238,12 @@ function serviceStatement(query: MapQueryInput, db: MapD1Database) {
       AND ${bbox.sql}
       ${search.sql}
       ${publicFacets.clauses.map((clause) => "AND " + clause).join("\n      ")}
+      ${canonicalCategory.clause}
       ${canonicalService.clauses.map((clause) => "AND " + clause).join("\n      ")}
     ORDER BY g.id ASC
     LIMIT ?
-  `).bind(...bbox.bindings, ...search.bindings, ...publicFacets.bindings,...canonicalService.bindings, MAP_INTERNAL_ROW_LIMIT);
+  `).bind(...bbox.bindings, ...search.bindings, ...publicFacets.bindings,
+    ...canonicalCategory.bindings,...canonicalService.bindings, MAP_INTERNAL_ROW_LIMIT);
 }
 
 function organizationStatement(query: MapQueryInput, db: MapD1Database) {
