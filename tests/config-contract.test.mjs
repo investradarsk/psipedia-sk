@@ -245,3 +245,20 @@ test("Facebook retry and Notion schedule V2 flags survive Cloudflare deployments
   assert.equal("FB_PAGE_ACCESS_TOKEN" in vars, false);
   assert.equal("NOTION_API_TOKEN" in vars, false);
 });
+
+test("Services V3 manually approved gates persist in canonical Wrangler config, auto-sync stays OFF", async () => {
+  const {readFile} = await import("node:fs/promises");
+  const wrangler = JSON.parse(await readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+  for (const name of [
+    "SERVICE_CATALOG_ADMIN_WRITES_ENABLED",
+    "SERVICE_CATALOG_NOTION_MIRROR_READY",
+    "SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED",
+    "SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED",
+  ]) assert.equal(wrangler.vars[name], "true", name + " was lost before deployment");
+  for (const name of [
+    "SERVICE_CATALOG_NOTION_AUTO_ENABLED",
+    "SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED",
+    "SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED",
+  ]) assert.notEqual(wrangler.vars[name], "true", name + " must await independent rollout");
+  assert.equal("NOTION_API_TOKEN" in wrangler.vars, false);
+});
