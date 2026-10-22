@@ -35,3 +35,32 @@ test("public profiles retain real photos and show canonical fallback only when a
   assert.ok(organization.includes("config={imageConfig}"));
   assert.ok(organization.includes('<PublicMediaFallback size="detail"'));
 });
+
+
+test("article and breed listing cards reuse the same canonical missing-photo visual", () => {
+  const articles = read("components/article-card.tsx");
+  const breeds = read("components/breed-card.tsx");
+  const shared = read("components/public-visual-system/public-media-fallback.tsx");
+
+  // Real thumbnails remain untouched, including their responsive media contracts.
+  assert.match(articles, /article\.image \? \(/);
+  assert.match(articles, /<ImageDisplay/);
+  assert.match(articles, /config=\{article\.thumbnailImageDisplay\}/);
+  assert.match(articles, /responsiveMediaSrcSet\(article\.image,/);
+  assert.match(articles, /omitMissingImage/);
+  assert.match(articles, /article\.image \|\| !omitMissingImage/);
+  assert.match(articles, /className="article-placeholder" aria-hidden="true"><PublicMediaFallback \/>/);
+  assert.doesNotMatch(articles, /<PawMark/);
+
+  // Existing breed photo-error handling and FCI status overlay are preserved.
+  assert.match(breeds, /breed\.image \? <BreedPhoto/);
+  assert.match(breeds, /className="breed-card-placeholder" aria-hidden="true"><PublicMediaFallback \/>/);
+  assert.match(breeds, /className="fci-badge">FCI \{breed\.fciGroup\}/);
+  assert.match(breeds, /aria-label=/);
+  assert.doesNotMatch(breeds, /<PawMark/);
+
+  // Both use the existing component, not new media assets or a second design.
+  assert.match(articles, /import \{ PublicMediaFallback \} from "@\/components\/public-visual-system\/public-media-fallback"/);
+  assert.match(breeds, /import \{ PublicMediaFallback \} from "@\/components\/public-visual-system\/public-media-fallback"/);
+  assert.match(shared, /data-public-media-fallback/);
+});
