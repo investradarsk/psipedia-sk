@@ -741,11 +741,11 @@ test("internal provision and mirror refuse any external mutation until flag gate
     assert.equal(f.count(),0);
   }finally{f.sqlite.close();}
 });
-test("no Services V3 live runner, cron or route wiring is present",()=>{
+test("Services V3 automatic sync is enabled while legacy admin route remains isolated",()=>{
   const wrangler=read("wrangler.jsonc");
   const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
   assert.match(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
-  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED/);
+  assert.match(wrangler,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED/);
   assert.doesNotMatch(route,/runServicesV3CatalogInternal|provisionServiceCatalogNotionPage/);
 });
 
