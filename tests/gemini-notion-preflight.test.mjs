@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyGeminiNotionIdentity, geminiDedupeCandidate } from "../scripts/gemini-notion-preflight.mjs";
+import { classifyGeminiNotionIdentity, geminiNotionDraftReviewDecision, geminiDedupeCandidate } from "../scripts/gemini-notion-preflight.mjs";
 import { externalWorkerCategorySupported } from "../scripts/gemini-notion-category.mjs";
 const sections = {
   directory: ["veterinari","treneri","kynologicke-kluby","chovatelske-kluby","chovatelske-stanice",
@@ -61,4 +61,31 @@ test("lost and found different case type or date cannot be merged",()=>{
 test("invalid scope and incomplete Notion rows fail closed",()=>{
   assert.equal(classifyGeminiNotionIdentity("help.fake",{},[]),"BLOCKED");
   assert.equal(classifyGeminiNotionIdentity("directory.veterinari",data("directory.veterinari"),[{}]),"BLOCKED");
+});
+
+test("all 22 existing published matches are warnings, not blockers for private drafts",()=>{
+  for(const key of keys) {
+    const item = data(key);
+    const published = {properties:{...item,"Psipedia stav":r("published"),"Stav":r("Publikované")}};
+    const result = geminiNotionDraftReviewDecision(key,item,[published]);
+    assert.notEqual(result,"BLOCKED",key);
+    assert.notEqual(result,"ALREADY_PENDING",key);
+  }
+});
+test("all 22 categories reject an identical already pending private proposal",()=>{
+  for(const key of keys) {
+    const item=data(key);
+    const pending={properties:{...item,"Psipedia stav":r("Koncept"),"Stav":r("Nápad")}};
+    assert.equal(geminiNotionDraftReviewDecision(key,item,[pending]),"ALREADY_PENDING",key);
+  }
+});
+test("adoption name alone is not evidence to suppress a different dog",()=>{
+  const key="help.adopcia";
+  const a=data(key,{name:"Rex",organizer:"Azyl A",source:"https://dogs.example/a"});
+  const b=data(key,{name:"Rex",organizer:"Azyl B",source:"https://dogs.example/b"});
+  assert.equal(geminiNotionDraftReviewDecision(key,b,[{properties:{...a,"Stav":r("Nápad")}}]),"POSSIBLE_DUPLICATE");
+});
+test("invalid scope or malformed Notion rows still block",()=>{
+  assert.equal(geminiNotionDraftReviewDecision("help.fake",{},[]),"BLOCKED");
+  assert.equal(geminiNotionDraftReviewDecision("directory.veterinari",data("directory.veterinari"),[{}]),"BLOCKED");
 });

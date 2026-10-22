@@ -82,6 +82,21 @@ export function classifyGeminiNotionIdentity(stableKey, properties, rows) {
   return possible ? "POSSIBLE_DUPLICATE" : "NEW";
 }
 
+/** Matches are review warnings; avoid regenerating an exact identity while
+ * an unpublished Notion proposal is still awaiting editorial action. */
+export function geminiNotionDraftReviewDecision(key, properties, rows) {
+  const match = classifyGeminiNotionIdentity(key, properties, rows);
+  if (match === "BLOCKED") return "BLOCKED";
+  const pending = new Set(["koncept", "napad", "draft", "na kontrolu", "review", "pending"]);
+  for (const page of rows) {
+    const alreadyPending = ["Psipedia stav", "Stav"]
+      .some(field => pending.has(normalizeIdentity(value(page, field))));
+    if (alreadyPending && classifyGeminiNotionIdentity(key, properties, [page]) === "DUPLICATE")
+      return "ALREADY_PENDING";
+  }
+  return match;
+}
+
 /** Deliberately small public identity payload; never serialize the full draft. */
 export function geminiDedupeCandidate(stableKey, properties) {
   if (!externalWorkerCategorySupported(stableKey)) throw Error("GEMINI_DEDUPE_INVALID_SCOPE");
