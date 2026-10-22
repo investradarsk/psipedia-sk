@@ -1,3 +1,4 @@
+import { AdminPhotoGallery } from "@/components/admin-photo-gallery";
 import type { ChangeEvent } from "react";
 import { adoptionVaccinationStatuses, type AdoptionDog } from "@/lib/adoption";
 import type { AdoptionAdminOrganizationOption } from "@/lib/adoption-admin-write";
@@ -15,7 +16,11 @@ export function AdminAdoptionEditorDetails({
   onMainImageChange,
   onUpload,
   onEditDisplay,
+  gallery, onGalleryChange, onGalleryBusyChange,
 }: {
+  gallery: string[];
+  onGalleryChange: (value: string[]) => void;
+  onGalleryBusyChange: (busy: boolean) => void;
   item?: AdoptionDog;
   organizations: AdoptionAdminOrganizationOption[];
   publishing: boolean;
@@ -54,7 +59,7 @@ export function AdminAdoptionEditorDetails({
       <div className="admin-card-heading"><div><span>07</span><div><h2>Fotografie</h2><p>Hlavná fotografia a galéria používajú existujúce URL polia modelu.</p></div></div></div>
       <div className="admin-field"><label htmlFor="adoption-main-image">Hlavný obrázok{publishing ? " *" : ""}</label><input id="adoption-main-image" value={mainImage} onChange={(event: ChangeEvent<HTMLInputElement>) => onMainImageChange(event.target.value)} placeholder="/media/... alebo https://..." required={publishing}/></div>
       <div className="admin-upload-actions"><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={onUpload} disabled={uploading}/>{uploading ? "Nahrávam…" : "Nahrať hlavnú fotografiu"}</label>{mainImage && <button type="button" onClick={() => onMainImageChange("")}>Odstrániť z profilu</button>}{mainImage && <button type="button" onClick={onEditDisplay}>Upraviť zobrazenie</button>}</div>
-      <div className="admin-field"><label htmlFor="adoption-gallery">Galéria</label><textarea id="adoption-gallery" name="gallery" rows={5} defaultValue={item?.gallery.join("\n") ?? ""} placeholder="Jedna URL na riadok"/></div>
+      <AdminPhotoGallery value={gallery} onChange={onGalleryChange} folder="help" limit={20} disabled={uploading} onBusyChange={onGalleryBusyChange} />
     </section>
 
     <section className="admin-form-card">
