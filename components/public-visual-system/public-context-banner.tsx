@@ -41,13 +41,15 @@ export function PublicContextBanner({
   className?: string;
 }) {
   const hasCta = Boolean(ctaLabel && ctaHref);
+  const hasImage = Boolean(image?.src.trim());
 
   return (
     <aside
-      className={cx(styles.banner, styles[`tone_${tone}`], image && styles.hasImage, inline && styles.inline, className)}
+      className={cx(styles.banner, styles[`tone_${tone}`], hasImage && styles.hasImage, inline && styles.inline, className)}
       data-public-context-banner
       data-public-context-banner-tone={tone}
       data-public-context-banner-layout={inline ? "inline" : "stacked"}
+      data-public-context-banner-media={hasImage ? "image" : "text"}
     >
       <div className={styles.copy}>
         {icon ? <PublicIcon icon={icon} size="lg" className={styles.icon} /> : null}
@@ -56,7 +58,7 @@ export function PublicContextBanner({
         {text ? <div className={styles.text}>{text}</div> : null}
         {hasCta ? <PublicActionLink href={ctaHref!} variant={tone === "forest" ? "secondary" : "primary"}>{ctaLabel}</PublicActionLink> : null}
       </div>
-      {image ? (
+      {hasImage && image ? (
         <div className={styles.media}>
           <img
             src={image.src}
