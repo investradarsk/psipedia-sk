@@ -8,13 +8,13 @@ import {
   getHelpCategory,
   helpCaseHref,
   helpProgress,
-  type HelpCase,
+  type PublicHelpCard,
 } from "@/lib/help";
 import styles from "./help-public.module.css";
 import { ImageDisplay } from "@/components/image-display";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 
-export function HelpCard({ item }: { item: HelpCase }) {
+export function HelpCard({ item }: { item: PublicHelpCard }) {
   const category = getHelpCategory(item.category);
   const progress = helpProgress(item);
   const detailHref = helpCaseHref(item);

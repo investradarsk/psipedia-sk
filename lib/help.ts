@@ -93,6 +93,13 @@ export type HelpCase = {
   seo?: ArticleSeo;
 };
 
+/** Only fields rendered or searched in public help-category cards. */
+export type PublicHelpCard = Pick<HelpCase,
+  "id" | "slug" | "title" | "category" | "excerpt" | "organization" |
+  "dogName" | "breed" | "ageNote" | "city" | "region" |
+  "reportedDate" | "goalAmount" | "raisedAmount" | "imageUrl" |
+  "thumbnailImageDisplay" | "urgent" | "verified" | "resolved" | "updatedAt">;
+
 export function getHelpCategory(slug: string) {
   return allHelpCategories.find((category) => category.slug === slug) ?? null;
 }

@@ -91,7 +91,7 @@ test("published resolved Help details remain discoverable through URL-backed SSR
 
 test("canonical organizations stay reachable through the Help hierarchy", () => {
   assert.match(helpModel, /if \(item\.category === "utulky"\) return `\/organizacie\/\$\{item\.slug\}`/);
-  assert.match(categoryRoute, /getPublishedHelpCases\(category\)/);
+  assert.match(categoryRoute, /getPublishedHelpCaseCards\(category\)/);
   assert.match(card, /href=\{detailHref\}/);
 });
 
