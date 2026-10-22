@@ -1,4 +1,6 @@
 import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
+import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
+  from "./service-catalog-notion-relations";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { resolveGeminiPublicSlug } from "./gemini-public-slug";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
@@ -1416,6 +1418,23 @@ export async function runNotionDirectorySyncSweep(input: {
   summary.schemaReady = await schemaReady(input.database);
   if (!summary.schemaReady) return summary;
 
+  // The relation is an optional, additive Notion UI bridge. Without migration
+  // 0140 the existing Directory article/profile sync behaves exactly as before.
+  const relationSchema=await input.database.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='directory_service_notion_relation_sync'"
+  ).first<{ok:number}>();
+  let lookupPromise:Promise<CatalogRelationLookup>|null=null;
+  async function syncRelation(pageId:string,profileId:number){
+    if(!relationSchema)return;
+    const profile=await getManagedDirectoryProfileById(profileId,input.database);
+    if(!profile)return;
+    lookupPromise??=loadNotionCatalogRelationLookup(input.bindings);
+    await syncProfileCatalogRelation({
+      db:input.database,bindings:input.bindings,pageId,profileId,
+      category:profile.category,lookup:await lookupPromise
+    });
+  }
+
   let pages: NotionPage[];
   if (input.targetPageId !== undefined) {
     if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.targetPageId))
@@ -1555,6 +1574,7 @@ export async function runNotionDirectorySyncSweep(input: {
           profile: created,
           pageId: page.id,
         });
+        await syncRelation(page.id,created.id);
         summary.createdFromNotion += 1;
         continue;
       }
@@ -1592,6 +1612,7 @@ export async function runNotionDirectorySyncSweep(input: {
         mapping,
         page,
       });
+      await syncRelation(page.id,mapping.directory_profile_id);
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
@@ -1621,6 +1642,7 @@ export async function runNotionDirectorySyncSweep(input: {
         mapping,
         forcePsipediaPush: true,
       });
+      await syncRelation(mapping.notion_page_id,profileId);
       if (result === "pulled") summary.pulledFromNotion += 1;
       else if (result === "pushed") summary.pushedToNotion += 1;
       else summary.unchanged += 1;
