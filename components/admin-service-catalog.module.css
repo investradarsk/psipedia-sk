@@ -70,3 +70,13 @@
 .inventoryBar p{margin:0;font-size:.84rem;color:#315542;overflow-wrap:anywhere}
 .inventoryBar :global(button){min-height:44px}
 @media(max-width:390px){.inventoryBar{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.inventoryBar :global(button){width:100%}}
+
+/* Services V3: manual, one-option Notion mirror workflow. Scope to Admin. */
+.mirrorPanel{display:grid;justify-items:start;gap:9px;margin-top:14px;padding:13px 14px;border:1px solid #cbdcd0;border-radius:11px;background:#f7faf7;min-width:0}
+.mirrorPanel p{margin:0;line-height:1.45}
+.mirrorPanel :global(button){min-height:44px;max-width:100%;white-space:normal;text-align:center}
+.confirmationCode{display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-word;padding:12px;background:#f1f5f1;border:1px solid #d0dfd3;border-radius:9px;font-size:.79rem;color:#1b4833;user-select:all}
+@media(max-width:390px){
+  .mirrorPanel{justify-items:stretch;padding:11px}
+  .mirrorPanel :global(button){width:100%}
+}
