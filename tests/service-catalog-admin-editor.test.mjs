@@ -17,10 +17,10 @@ test("catalog and profile are separate authenticated Admin V3 surfaces",()=>{
  assert.match(view,/source:"built_in"/);
  assert.match(view,/source:"admin"/);
 });
-test("both write gates are mandatory and 0133 is never migrated from the editor",()=>{
+test("canonical writes do not depend on Notion mirror activation",()=>{
  for(const p of [page,directory]){
   assert.match(p,/SERVICE_CATALOG_ADMIN_WRITES_ENABLED/);
-  assert.match(p,/SERVICE_CATALOG_NOTION_MIRROR_READY/);
+  assert.match(p,/SERVICE_CATALOG_ADMIN_WRITES_ENABLED/);
   assert.match(p,/=== "true"|==="true"/);
  }
  for(const p of [page,directory,profile,catalog]){

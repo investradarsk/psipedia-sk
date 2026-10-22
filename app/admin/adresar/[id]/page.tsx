@@ -34,8 +34,7 @@ export default async function EditDirectoryProfilePage({ params }: Props) {
   // Independent canonical Services V3 editor; no legacy source-data inference.
   const isServiceCategory = (serviceFilterCategories as readonly string[]).includes(profile.category);
   const bindings = env as unknown as {DB?: D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
-  const writeEnabled = bindings.SERVICE_CATALOG_ADMIN_WRITES_ENABLED === "true"
-    && bindings.SERVICE_CATALOG_NOTION_MIRROR_READY === "true";
+  const writeEnabled = bindings.SERVICE_CATALOG_ADMIN_WRITES_ENABLED === "true";
   let serviceEntries:ReturnType<typeof eligibleProfileServiceItems>=[];
   let serviceChoices:Array<{optionId:string;choice:"yes"|"no";version:number}>=[];
   let serviceError:string|null=null;
