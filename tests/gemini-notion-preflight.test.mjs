@@ -89,3 +89,13 @@ test("invalid scope or malformed Notion rows still block",()=>{
   assert.equal(geminiNotionDraftReviewDecision("help.fake",{},[]),"BLOCKED");
   assert.equal(geminiNotionDraftReviewDecision("directory.veterinari",data("directory.veterinari"),[{}]),"BLOCKED");
 });
+
+test("pending generic Help with same title and city is not repeatedly proposed without source field",()=>{
+  const key="help.zbierky";
+  const item=data(key,{name:"Zbierka Nitra",city:"Nitra"});
+  const pending={properties:{
+    "Názov":t("Zbierka Nitra"), "Mesto":r("Nitra"),
+    "Stav":r("Nápad")
+  }};
+  assert.equal(geminiNotionDraftReviewDecision(key,item,[pending]),"ALREADY_PENDING");
+});

@@ -91,7 +91,18 @@ export function geminiNotionDraftReviewDecision(key, properties, rows) {
   for (const page of rows) {
     const alreadyPending = ["Psipedia stav", "Stav"]
       .some(field => pending.has(normalizeIdentity(value(page, field))));
-    if (alreadyPending && classifyGeminiNotionIdentity(key, properties, [page]) === "DUPLICATE")
+    if (!alreadyPending) continue;
+    const sameCandidate = classifyGeminiNotionIdentity(key, properties, [page]);
+    // Generic Help records may not have a source-URL property at all.
+    // If an identical title and city are already awaiting review, do not
+    // create a second pending proposal. Common adoption dog names are exempt.
+    const sameOpenHelp = key.startsWith("help.") &&
+      key !== "help.adopcia" && key !== "help.stratene-a-najdene" &&
+      sameCandidate === "POSSIBLE_DUPLICATE" &&
+      value({ properties }, "Názov") && value({ properties }, "Mesto") &&
+      normalizeIdentity(value({ properties }, "Názov")) === normalizeIdentity(value(page, "Názov")) &&
+      normalizeIdentity(value({ properties }, "Mesto")) === normalizeIdentity(value(page, "Mesto"));
+    if (sameCandidate === "DUPLICATE" || sameOpenHelp)
       return "ALREADY_PENDING";
   }
   return match;
