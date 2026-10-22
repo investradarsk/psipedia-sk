@@ -24,10 +24,11 @@ export type AdminCatalogOptionDto=Readonly<{
 }>;
 export type CreateAdminCatalogOptionRequest=Readonly<{
   name:string;
-  category:string;
+  category?:string;
+  categories?:readonly string[];
   kind:"service"|"attribute";
-  group:string;
-  meaning:string;
+  group?:string;
+  meaning?:string;
 }>;
 export type SaveAdminServiceChoiceRequest=Readonly<{
   optionId:string;
@@ -35,7 +36,7 @@ export type SaveAdminServiceChoiceRequest=Readonly<{
   expectedVersion:number; // 0 = insert only; positive integer = compare-and-swap
 }>;
 export type MutateAdminCatalogOptionRequest=Readonly<
-  |{action:"edit";expectedVersion:number;name:string;category:string;group:string;meaning:string}
+  |{action:"edit";expectedVersion:number;name:string;category?:string;categories?:readonly string[];group?:string;meaning?:string}
   |{action:"approve"|"retire"|"retryMirror";expectedVersion:number}
 >;
 export type ResetAdminServiceChoiceRequest=Readonly<{optionId:string;choice:"unknown";expectedVersion:number}>;

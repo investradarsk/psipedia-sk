@@ -52,13 +52,17 @@ async function find(db:DB,id:string):Promise<Row>{
   }catch(err){return dbError(err);}
 }
 function editPayload(raw:Record<string,unknown>,kind:Row["kind"]){
-  exactFields(raw,["action","expectedVersion","name","category","group","meaning"]);
-  if(typeof raw.name!=="string"||typeof raw.category!=="string"||typeof raw.group!=="string"||typeof raw.meaning!=="string")
+  exactFields(raw,["action","expectedVersion","name","category","categories","group","meaning"]);
+  if(typeof raw.name!=="string"||
+    (raw.category!==undefined&&typeof raw.category!=="string")||
+    (raw.categories!==undefined&&(!Array.isArray(raw.categories)||!raw.categories.every(x=>typeof x==="string")))||
+    (raw.group!==undefined&&typeof raw.group!=="string")||
+    (raw.meaning!==undefined&&typeof raw.meaning!=="string"))
     throw new ServiceCatalogInputError("All editable fields are required.");
   let draft:ReturnType<typeof validateCatalogOptionDraft>;
-  try{draft=validateCatalogOptionDraft({name:raw.name,category:raw.category,group:raw.group,kind});}
+  try{draft=validateCatalogOptionDraft({name:raw.name,category:raw.category as string|undefined,categories:raw.categories as string[]|undefined,group:raw.group as string|undefined,kind});}
   catch(err){throw new ServiceCatalogInputError(err instanceof Error?err.message:"Invalid canonical option.");}
-  const meaning=raw.meaning.normalize("NFC").trim().replace(/\s+/g," ");
+  const meaning=((raw.meaning??"Služba vedená v katalógu Psipedia.sk.") as string).normalize("NFC").trim().replace(/\s+/g," ");
   if(meaning.length<10||meaning.length>500)throw new ServiceCatalogInputError("Meaning must contain 10 to 500 characters.");
   return {...draft,meaning,normalized:normalizeCatalogLabel(draft.name)};
 }
@@ -77,15 +81,15 @@ export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,a
   const time=now.toISOString();
   let sql:string,params:(string|number)[];
   if(action==="edit"){
-    if(row.status!=="DRAFT"||row.notion_mirror_status==="CONFLICT")
+    if(row.status==="RETIRED"||row.notion_mirror_status==="CONFLICT")
       throw new ServiceCatalogConflictError("Edit is limited to non-conflicted DRAFT options.");
     const draft=editPayload(body,row.kind);
-    if(draft.name===row.label&&draft.group===row.group_name&&draft.meaning===row.meaning&&draft.category===row.primary_category)
+    if(draft.name===row.label&&draft.group===row.group_name&&draft.meaning===row.meaning&&draft.category===row.primary_category&&JSON.stringify(draft.categories)===row.categories_json)
       throw new ServiceCatalogInputError("No actual changes to save.");
     if(!canTransitionMirrorStatus(row.notion_mirror_status,"PENDING"))
       throw new ServiceCatalogConflictError("Mirror must be retried before editing.");
     sql="UPDATE service_catalog_admin_options SET label=?1,normalized_label=?2,group_name=?3,meaning=?4,primary_category=?5,categories_json=?6,notion_mirror_status='PENDING',version=version+1,updated_at=?7,updated_by=?8 WHERE id=?9 AND version=?10 AND status=?11 AND notion_mirror_status=?12 RETURNING *";
-    params=[draft.name,draft.normalized,draft.group,draft.meaning,draft.category,JSON.stringify([draft.category]),time,actor,id,version,row.status,row.notion_mirror_status];
+    params=[draft.name,draft.normalized,draft.group,draft.meaning,draft.category,JSON.stringify(draft.categories),time,actor,id,version,row.status,row.notion_mirror_status];
   }else{
     exactFields(body,["action","expectedVersion"]);
     if(action==="approve"){
