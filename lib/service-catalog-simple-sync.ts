@@ -119,7 +119,7 @@ export async function runSimpleServiceCatalogSync(input:{
   }
   // Complete ownership inventory before ANY remote write. Do not assume that
   // an empty/error/partial query means no page exists.
-  let remote:Remote[]=[];
+  const remote:Remote[]=[];
   let cursor:string|undefined;
   const seenCursors=new Set<string>();
   try{
