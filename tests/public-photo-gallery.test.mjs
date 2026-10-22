@@ -34,3 +34,23 @@ test("adoption detail uses the canonical gallery, preserving photo alt and six-i
   assert.ok(adoption.includes("Galéria"));
   assert.doesNotMatch(css, /\.detailGallery\s*\{/);
 });
+
+
+test("gallery photos open full-size images using native accessible links", () => {
+  const src = read("components/public-visual-system/public-photo-gallery.tsx");
+  const css = read("components/public-visual-system/public-photo-gallery.module.css");
+
+  assert.match(src, /<a[\s\S]*?href=\{href\}/);
+  assert.match(src, /const href = \/\^\(\?:https\?:/);
+  assert.match(src, /: <span key=\{image\.src/);
+  assert.match(src, /target="_blank"/);
+  assert.match(src, /rel="noopener noreferrer"/);
+  assert.match(src, /aria-label=\{image\.alt \?/);
+  assert.match(src, /src=\{image\.src\}/);
+  assert.match(src, /alt=\{image\.alt\}/);
+  assert.match(css, /\.gallery a:focus-visible \{/);
+  assert.match(css, /\.gallery a:hover img,/);
+  assert.match(css, /object-fit: contain/);
+  assert.match(css, /@media \(max-width: 600px\)/);
+  assert.doesNotMatch(src, /"use client"|window\.open|onClick/);
+});
