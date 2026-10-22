@@ -1,0 +1,32 @@
+name: Services V3 map canonical filter
+on:
+  pull_request:
+    paths:
+      - "lib/map-contract.ts"
+      - "lib/map-query.ts"
+      - "lib/map-public-ui.ts"
+      - "lib/service-catalog-public-service-filter.ts"
+      - "components/map/map-experience.tsx"
+      - "components/directory-page.tsx"
+      - "components/directory-filter-form.tsx"
+      - "tests/service-catalog-map-canonical-filter.test.mjs"
+      - ".github/workflows/services-v3-map-canonical-filter.yml"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  map-canonical-filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Install TypeScript loader dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Confirm public list and map parity, strict scoped URL, zero inference
+        run: |
+          node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-map-canonical-filter.test.mjs

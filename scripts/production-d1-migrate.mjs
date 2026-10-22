@@ -10,6 +10,7 @@ import { PINNED_SHA256_0135, RETRY_0135_COLUMNS, OBJECTS_0135, assertFacebookRet
 import { PINNED_SHA256_0136, OBJECTS_0136, assertGeminiStop0136Schema as assert0136SchemaExact } from "./production-d1-0136-schema.mjs";
 import { PINNED_SHA256_0137, OBJECTS_0137, COLUMNS_0137, assertMediaReview0137Schema as assert0137SchemaExact } from "./production-d1-0137-schema.mjs";
 import { PINNED_SHA256_0138, OBJECTS_0138, assertArticleOutbox0138Prerequisites, assertArticleOutbox0138Schema as assert0138SchemaExact } from "./production-d1-0138-schema.mjs";
+import { PINNED_SHA256_0139, OBJECTS_0139, assertServicesV3Auto0139Prerequisites, assertServicesV3Auto0139Schema as assert0139SchemaExact } from "./production-d1-0139-schema.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -21,6 +22,18 @@ export const DEFAULT_TARGET_MIGRATION = "0062_profile_reviews_foundation.sql";
 // 0136 must be owner-dispatched in the protected workflow, never by a PR merge or Cloudflare Workers Build.
 // 0138 is eligible ONLY through an owner-dispatched, protected production
 // migration workflow; merging this PR cannot run it or enable Notion writeback.
+// 0139 is enabled only as a protected, manual, pinned production migration target.
+// Neither merging this PR nor enabling GitHub Actions will APPLY it.
+export const PROPOSED_SERVICES_V3_SQL = "0139_services_catalog_notion_auto_attempts.sql";
+export const APPROVED_0139_SHA256 = PINNED_SHA256_0139;
+export function assertApproved0139Target(databaseName, sha256){
+  invariant(databaseName==="psipedia-sk-db","0139 requires canonical psipedia-sk-db");
+  invariant(sha256===APPROVED_0139_SHA256,"0139 SQL SHA256 differs from approved rollout bytes");
+}
+export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
+  if(targetMigration===PROPOSED_SERVICES_V3_SQL)
+    invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
+}
 export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
@@ -255,6 +268,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0136_gemini_global_stop.sql",
   "0137_media_source_review_decisions.sql",
   "0138_article_editorial_outbox.sql",
+  "0139_services_catalog_notion_auto_attempts.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -782,6 +796,8 @@ export async function prepareScopedMigration({ targetMigration = DEFAULT_TARGET_
     assertApproved0137Target(resources.d1.database_name, targetMigrationSha256);
   if (targetMigration === "0138_article_editorial_outbox.sql")
     assertApproved0138Target(resources.d1.database_name, targetMigrationSha256);
+  if (targetMigration === PROPOSED_SERVICES_V3_SQL)
+    assertApproved0139Target(resources.d1.database_name, targetMigrationSha256);
   const scopedConfig = buildScopedWranglerConfig(generated, resources);
   const workDir = path.join(repoRoot, ".production-d1");
   await fs.mkdir(workDir, { recursive: true });
@@ -1433,6 +1449,10 @@ export function targetSchemaObjects(schema, targetMigration) {
     return { partial: (schema.articleNotionEditorialOutboxColumns ?? []).length > 0 ||
       (schema.objects ?? []).some(row => Object.hasOwn(OBJECTS_0138, String(row.name)) ||
         (row.tbl_name === "article_notion_editorial_outbox" && row.type === "index")) };
+  }
+  if (targetMigration === PROPOSED_SERVICES_V3_SQL) {
+    return {partial:(schema.objects??[]).some(row=>Object.hasOwn(OBJECTS_0139,String(row.name))||
+      row.tbl_name==="service_catalog_notion_auto_attempts")};
   }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
 }
@@ -2587,6 +2607,14 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 136) assertGeminiStop0136Schema(schema);
   if (migrationIndex(targetMigration) >= 137) assertMediaReview0137Schema(schema);
   if (migrationIndex(targetMigration) >= 138) assertArticleOutbox0138Schema(schema);
+  if (migrationIndex(targetMigration) >= 139) assertServicesV3Auto0139Schema(schema);
+}
+
+/** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
+export function assertServicesV3Auto0139Schema(schema){
+  const sql=readFileSync(path.join(repoRoot,"drizzle/0139_services_catalog_notion_auto_attempts.sql"),"utf8");
+  assertApproved0139Target("psipedia-sk-db",createHash("sha256").update(sql).digest("hex"));
+  return assert0139SchemaExact(schema,sql);
 }
 
 /** Exact D1 editorial writeback recovery journal; no content writes or flag activation. */
@@ -2951,6 +2979,12 @@ function targetState(history, schema, targetMigration, expectedHistory) {
   if (targetIndex >= 134) assertServicesCanonicalAdminSchema(schema);
   if (targetIndex >= 136) assertFacebookRetry0135Schema(schema);
   if (targetIndex >= 138) assertArticleOutbox0138Prerequisites(schema);
+  if (targetIndex >= 139){
+    // Prerequisite 0138 MUST actually have its exact canonical schema,
+    // not merely an optimistic history entry or migration number.
+    assertArticleOutbox0138Schema(schema);
+    assertServicesV3Auto0139Prerequisites(schema);
+  }
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -3053,6 +3087,7 @@ async function preflight(targetMigration) {
   assert0136NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0137NotAlreadyApplied(targetMigration, state.targetApplied);
   assert0138NotAlreadyApplied(targetMigration, state.targetApplied);
+  assert0139NotAlreadyApplied(targetMigration, state.targetApplied);
   const expectedPreflightHistory = state.targetApplied
     ? prepared.selection.selected
     : prepared.selection.selected.slice(0, -1);
@@ -3235,6 +3270,7 @@ async function apply(targetMigration) {
   assert0136NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0137NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   assert0138NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
+  assert0139NotAlreadyApplied(targetMigration, internal.targetApplied || liveState.targetApplied);
   if (prepared.selection.targetIndex === 135) {
     invariant(scalarCount(prepared.resources.d1.database_name, prepared.configPath,
       "SELECT COUNT(*) AS count FROM facebook_image_publish_attempts WHERE state='SENDING'") === 0,
@@ -3289,6 +3325,10 @@ async function verify(targetMigration) {
     invariant(scalarCount(databaseName, prepared.configPath,
       "SELECT COUNT(*) AS count FROM article_notion_editorial_outbox") === 0,
       "0138 must initialize an empty writeback recovery journal");
+  if (targetIndex === 139 && !internal.targetApplied)
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM service_catalog_notion_auto_attempts") === 0,
+      "0139 must initialize an empty Services V3 auto attempt journal");
   if (targetIndex === 135)
     assertFacebookRetryPreserved(internal.facebookRetryBefore,
       facebookRetryPreservationSnapshot(databaseName, prepared.configPath));

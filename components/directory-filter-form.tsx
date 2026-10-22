@@ -51,7 +51,7 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
   const facets = serviceFiltersForCategory(activeCategory);
   const totalActive = [
     filters.query, filters.region, filters.district, filters.city,
-    filters.service, filters.breed, filters.fciGroup, filters.organization,
+    filters.service, filters.canonicalService??"", filters.breed, filters.fciGroup, filters.organization,
     filters.profileType, filters.sort !== "recommended" ? filters.sort : "",
     ...Object.values(filters.facets ?? {}),
   ].filter(Boolean).length;
@@ -66,7 +66,7 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
       aria-label="Filtrovať služby pre psov"
     >
       {directoryQueryFields(filters, [
-        "region", "district", "city", "service", "breed", "fci", "organization",
+        "region", "district", "city", "service", "svc", "breed", "fci", "organization",
         "type", "sort", "page", "facets",
       ]).map((field) => <input type="hidden" name={field.name} value={field.value} key={field.name} />)}
       <div className={styles.heading}>
@@ -110,6 +110,16 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
             </select></label>}
         </fieldset>
       )}
+      {(options.canonicalServices?.length??0)>0 && <fieldset className={styles.group} data-services-v3-canonical-filter>
+        <legend>Potvrdené služby (Services V3)</legend>
+        <p className={styles.facetsHelp}>Iba služby výslovne označené Áno pri publikovanom profile. Chýbajúce údaje nezapočítavame.</p>
+        <label><span>Služba z kanonického katalógu</span>
+          <select name="svc" defaultValue={filters.canonicalService??""}>
+            <option value="">Všetky potvrdené služby</option>
+            {(options.canonicalServices??[]).map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+      </fieldset>}
       {facets.length > 0 && (
         <fieldset className={styles.group} data-directory-public-facets>
           <legend>Služby a vlastnosti</legend>
@@ -156,7 +166,7 @@ const clientHydrationSnapshot = () => true;
 const serverHydrationSnapshot = () => false;
 
 export function DirectoryFilterForm(props: Props) {
-  const { filters, basePath, category, mapHref } = props;
+  const { filters, options, basePath, category, mapHref } = props;
   const disclosure = useRef<HTMLDetailsElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const hydrated = useSyncExternalStore(subscribeHydration, clientHydrationSnapshot, serverHydrationSnapshot);
@@ -178,7 +188,8 @@ export function DirectoryFilterForm(props: Props) {
     { key: "region", label: "Kraj", value: filters.region },
     { key: "district", label: "Okres", value: filters.district },
     { key: "city", label: "Mesto", value: filters.city },
-    { key: "service", label: "Služba", value: filters.service },
+    { key: "service", label: "Služba (starší filter)", value: filters.service },
+    { key: "svc", label: "Potvrdená služba", value: (options.canonicalServices??[]).find(s=>s.id===filters.canonicalService)?.label??filters.canonicalService??"" },
     { key: "breed", label: "Plemeno", value: filters.breed },
     { key: "fci", label: "FCI", value: filters.fciGroup },
     { key: "organization", label: "Organizácia", value: filters.organization },
