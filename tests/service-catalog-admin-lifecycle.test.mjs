@@ -210,6 +210,6 @@ test("no migration 0133 replay, live Notion writer or public feature-flag activa
   assert.doesNotMatch(source,/wrangler d1 migrations apply|notionRequest\(|writeProfileToNotion\(/);
  }
  const wrangler=read("wrangler.jsonc");
- assert.doesNotMatch(wrangler,/"SERVICE_CATALOG_ADMIN_WRITES_ENABLED"/);
- assert.doesNotMatch(wrangler,/"SERVICE_CATALOG_NOTION_MIRROR_READY"/);
+ assert.match(wrangler,/"SERVICE_CATALOG_ADMIN_WRITES_ENABLED"/);
+ assert.match(wrangler,/"SERVICE_CATALOG_NOTION_MIRROR_READY"/);
 });

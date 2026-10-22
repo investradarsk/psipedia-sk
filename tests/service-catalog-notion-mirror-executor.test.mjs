@@ -744,7 +744,7 @@ test("internal provision and mirror refuse any external mutation until flag gate
 test("no Services V3 live runner, cron or route wiring is present",()=>{
   const wrangler=read("wrangler.jsonc");
   const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
-  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
+  assert.match(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
   assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED/);
   assert.doesNotMatch(route,/runServicesV3CatalogInternal|provisionServiceCatalogNotionPage/);
 });

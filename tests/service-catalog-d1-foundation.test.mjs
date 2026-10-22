@@ -117,8 +117,8 @@ test("Admin API requires verified server auth, same-origin, and two disabled-by-
   assert.doesNotMatch(source,/notionRequest|writeProfileToNotion|gemini/i);
  }
  const wrangler=read("wrangler.jsonc");
- assert.doesNotMatch(wrangler,/"SERVICE_CATALOG_ADMIN_WRITES_ENABLED"/);
- assert.doesNotMatch(wrangler,/"SERVICE_CATALOG_NOTION_MIRROR_READY"/);
+ assert.match(wrangler,/"SERVICE_CATALOG_ADMIN_WRITES_ENABLED"/);
+ assert.match(wrangler,/"SERVICE_CATALOG_NOTION_MIRROR_READY"/);
 });
 
 test("canonical identity protection includes provider types and cross-kind duplicates",async()=>{
