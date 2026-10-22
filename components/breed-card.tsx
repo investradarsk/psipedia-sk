@@ -1,7 +1,8 @@
 import { BreedPhoto } from "@/components/breed-photo";
 import Link from "next/link";
 import type { BreedAtlasCard } from "@/lib/breed-store";
-import { ArrowIcon, PawMark } from "./icons";
+import { ArrowIcon } from "./icons";
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 
 export function RatingDots({ value, label }: { value: number; label: string }) {
   return (
@@ -19,7 +20,7 @@ export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
   return (
     <article className={`breed-card breed-card--${breed.accent}`}>
       <Link href={profileHref} className="breed-card-media" aria-label={`Otvoriť profil: ${breed.name}`}>
-        {breed.image ? <BreedPhoto src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PawMark size={54} /><small>Fotografia sa pripravuje</small></span>}
+        {breed.image ? <BreedPhoto src={breed.image} alt={`${breed.name} – fotografia plemena`} loading="lazy" decoding="async" /> : <span className="breed-card-placeholder" aria-hidden="true"><PublicMediaFallback /></span>}
         <span className="fci-badge">FCI {breed.fciGroup}</span>
       </Link>
       <div className="breed-card-body">

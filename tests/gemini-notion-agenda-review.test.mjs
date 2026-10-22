@@ -717,14 +717,25 @@ test("signed Lost/Found approval accepts empty slug and approved import retry ne
   });
 });
 
-test("unsigned Lost/Found still requires an explicit slug before approval", async () => {
+test("legacy Lost/Found approval generates the same safe slug and supports no-change retry", async () => {
   const f = fixture("help.stratene-a-najdene", false);
   f.value.properties.Slug = rich("");
   await mockedFetch(f.request, async () => {
     const draft = (await listGeminiAgendaDrafts(f.env, "help.stratene-a-najdene"))[0];
-    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+    const approved = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
       action: "approve", confirm: true, lastEditedAt: draft.lastEditedAt,
+    }, "admin@example.sk");
+    assert.equal(approved.reviewState, "APPROVED");
+    assert.equal(f.writes.length, 1);
+    assert.match(f.writes[0].Slug.rich_text[0].text.content, /^koncept-a-nitra-111111111111$/);
+    assert.equal(f.writes[0]["Psipedia stav"].rich_text[0].text.content, "PENDING");
+    const retry = await mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: approved.lastEditedAt, fields: {},
+    }, "admin@example.sk");
+    assert.equal(retry.reviewState, "APPROVED");
+    assert.equal(f.writes.length, 1, "retry must not rewrite Notion");
+    await assert.rejects(() => mutateGeminiAgendaDraft(f.env, draft.stableKey, draft.id, {
+      action: "save", lastEditedAt: approved.lastEditedAt, fields: { "Názov": "blocked" },
     }, "admin@example.sk"), { code: "STATE" });
-    assert.equal(f.writes.length, 0);
   });
 });

@@ -3,12 +3,12 @@ import type { CSSProperties } from "react";
 import { EventCard } from "./event-card";
 import { PublicFilterTag, PublicNotice, PublicPagination } from "@/components/public-visual-system";
 import { eventListingParams, EVENT_PAGE_SIZE, type EventListingFilters } from "@/lib/event-listing";
-import { eventTypes, slovakRegions, type DogEvent } from "@/lib/events";
+import { eventTypes, slovakRegions, type PublicEventCard } from "@/lib/events";
 import { eventTypePresentation } from "@/lib/event-type-presentation";
 import styles from "./events-public.module.css";
 
 type Props = {
-  events: DogEvent[];
+  events: PublicEventCard[];
   filters: EventListingFilters;
   listing: { total: number; page: number; pages: number };
   today: string;
