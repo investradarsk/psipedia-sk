@@ -21,6 +21,7 @@ import { runNotionArticleSyncSweep } from "../lib/notion-article-sync";
 import { runArticlePublishNotionReconciliation } from "../lib/article-publish-notion-reconciliation";
 import { runNotionBreedSyncSweep } from "../lib/notion-breed-sync";
 import { runNotionEventSyncSweep } from "../lib/notion-event-sync";
+import {runServicesV3CatalogAutoSweep} from "../lib/service-catalog-notion-auto-sweep.ts";
 import { runNotionEventsHelpSyncSweep } from "../lib/notion-events-help-sync";
 import {
   runNotionDirectoryBootstrapSweep,
@@ -72,6 +73,12 @@ interface Env {
   NOTION_FACEBOOK_IMAGES_DATA_SOURCE_ID?: string;
   NOTION_FACEBOOK_IMAGES_ADMIN_AUTHORITY_ENABLED?: string;
   NOTION_API_TOKEN?: string;
+  SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;
+  SERVICE_CATALOG_NOTION_MIRROR_READY?:string;
+  SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED?:string;
+  SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED?:string;
+  SERVICE_CATALOG_NOTION_AUTO_ENABLED?:string;
+  SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED?:string;
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_BREEDS_DATA_SOURCE_ID?: string;
   NOTION_EVENTS_DATA_SOURCE_ID?: string;
@@ -317,6 +324,21 @@ const worker = {
       console.info(JSON.stringify({ event: "gemini_external_dispatch", ...result }));
     }
     if (isFullHourlyScheduledSweep(controller)) {
+      // Services V3: use the EXISTING hourly cron; default OFF.
+      // Durable 0139 intent is claimed before any Notion operation.
+      // This task is isolated from article and other Notion sweeps.
+      if(env.SERVICE_CATALOG_NOTION_AUTO_ENABLED==="true"){
+        _ctx.waitUntil(
+          runServicesV3CatalogAutoSweep({
+            db:env.DB,bindings:env,now:new Date(controller.scheduledTime??Date.now())
+          }).then(summary=>{
+            // Never log provider bodies or credentials.
+            console.info(JSON.stringify({event:"services_v3_notion_auto",...summary}));
+          }).catch(()=>{
+            console.error(JSON.stringify({event:"services_v3_notion_auto",state:"BLOCKED",reason:"SWEEP_ERROR"}));
+          })
+        );
+      }
       // Keep Notion article sync alive independently from unrelated hourly sweeps.
       // A rejection in Promise.all below must not cancel an article import in flight.
       // The task remains part of this same hourly Cron; it is not another trigger.

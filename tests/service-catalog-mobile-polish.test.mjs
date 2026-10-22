@@ -24,6 +24,10 @@ const styles=new Proxy({}, {get:(_target,key)=>String(key)});
 const fakeRequire=(id)=>{
   if(id==="react"||id==="react/jsx-runtime")return actualRequire(id);
   if(id==="next/navigation")return {useRouter:()=>({refresh(){}})};
+  // The real safety helper has dedicated runtime tests; SSR snapshot stubs only its import.
+  if(id==="@/lib/service-catalog-admin-mirror-controls")return {
+    manualCatalogMirrorAction:()=>null,manualCatalogMirrorConfirmation:()=>""
+  };
   if(id.endsWith(".module.css"))return {__esModule:true,default:styles};
   if(id==="@/components/admin-interaction-system")return {
     AdminActionButton:({children,disabled})=>createElement("button",{disabled},children)
@@ -57,13 +61,15 @@ test("disabled writes: one concise truthful status, hidden native disclosure, se
   assert.doesNotMatch(out,/Zápisy Services V3 sú zatiaľ vypnuté/);
 });
 
-test("enabled writes: draft creation is truthfully available but lifecycle stays restricted",()=>{
+test("enabled writes: edit availability is honest and approval stays Notion-receipt gated",()=>{
   const out=html({writeEnabled:true});
   assert.match(out,/Vytváranie konceptov je dostupné/);
-  assert.match(out,/Nové možnosti možno vytvoriť ako koncepty/);
-  assert.match(out,/Úpravy, schvaľovanie a archivácia zostávajú nedostupné/);
+  assert.match(out,/Koncepty možno vytvárať a upravovať/);
+  assert.match(out,/Schválenie vyžaduje SYNCED a overený Notion receipt/);
+  assert.match(out,/vyradenie je nezvratné/);
   assert.doesNotMatch(out,/Zápisy sú vypnuté/);
   assert.match(out,/<button>\+ Nová možnosť<\/button>/);
+  assert.match(out,/Overiť D1 ↔ Notion \(iba čítanie\)/);
 });
 
 test("load errors remain visible role=alert even with disclosure closed",()=>{

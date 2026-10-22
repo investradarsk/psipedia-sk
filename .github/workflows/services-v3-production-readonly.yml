@@ -1,0 +1,73 @@
+name: Services V3 Production Read-only Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-SERVICES-V3-0139-psipedia-sk-db (READ ONLY)
+        type: string
+        required: true
+
+concurrency:
+  group: production-d1-migration
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  services-v3-readonly:
+    name: Inspect 0138/0139 history and schema without writes
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Owner dispatch only; exact confirmation and main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          input="$(node -e 'const e=require(process.env.GITHUB_EVENT_PATH); process.stdout.write(e.inputs?.confirmation || "")')"
+          test "$input" = "AUDIT-SERVICES-V3-0139-psipedia-sk-db"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Refuse stale main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Offline strict SELECT and ledger/classifier regressions
+        run: |
+          node --test tests/services-v3-production-readonly.test.mjs
+          npm run db:check-migrations
+      - name: Set canonical D1 account only
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(node -e 'process.stdout.write(require("./config/cloudflare-resources.json").account_id || "")')"
+          test -n "$account"
+          echo "CLOUDFLARE_ACCOUNT_ID=$account" >> "$GITHUB_ENV"
+      - name: Read live 0138/0139 and sanitized service selection aggregates
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          node scripts/services-v3-production-readonly.mjs
+      - name: Upload redacted read-only production result, even on NO-GO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: services-v3-d1-0138-0139-readonly-${{ github.run_id }}
+          path: .production-services-v3-readonly/report.json
+          retention-days: 30
+          if-no-files-found: warn

@@ -86,6 +86,7 @@ export type MapQueryInput = {
   zoom: number;
   category?: MapCategory;
   subcategory?: string;
+  canonicalService?: string;
   region?: string;
   district?: string;
   city?: string;
@@ -105,7 +106,7 @@ export const MAP_INTERNAL_ROW_LIMIT = 5001;
 
 const allowedParams = new Set([
   "north", "south", "east", "west", "zoom", "category", "subcategory",
-  "region", "district", "city", "search", "eventType", "eventTiming", "limit",
+  "region", "district", "city", "search", "eventType", "eventTiming", "limit", "svc",
   ...directoryFilterRegistry.map((definition) => "f." + definition.id),
 ]);
 
@@ -209,6 +210,15 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
     throw new MapQueryValidationError(`limit must be between 1 and ${MAP_MAX_ITEMS}.`);
   }
 
+  // Canonical service IDs are allowed ONLY for an explicitly scoped services category.
+  // Reject duplicates and ambiguous routes before any SQL or cached response.
+  const canonicalRaw=params.getAll("svc");
+  const canonicalService=canonicalRaw.length?boundedText(params,"svc",100):undefined;
+  if(canonicalRaw.length>1||canonicalRaw.length===1&&!canonicalService)
+    throw new MapQueryValidationError("Invalid canonical service filter.");
+  if(canonicalService&&(category!=="services"||!params.get("subcategory")))
+    throw new MapQueryValidationError("Canonical service filter requires a service subcategory.");
+
   const categoryFacets = parsePublicDirectoryFacets(
     Object.fromEntries([...params.entries()].filter(([key]) => key.startsWith("f."))),
     category === "services" ? params.get("subcategory") ?? "" : "",
@@ -224,6 +234,7 @@ export function parseMapQuery(params: URLSearchParams): MapQueryInput {
     zoom,
     category,
     subcategory: boundedText(params, "subcategory", 80),
+    canonicalService,
     region,
     district: boundedText(params, "district", 100),
     city: boundedText(params, "city", 100),

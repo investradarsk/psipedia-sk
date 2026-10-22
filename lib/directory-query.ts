@@ -14,6 +14,7 @@ export function directoryQueryFields(
     ["district", filters.district],
     ["city", filters.city],
     ["service", filters.service],
+    ["svc", filters.canonicalService ?? ""],
     ["breed", filters.breed],
     ["fci", filters.fciGroup],
     ["organization", filters.organization],
