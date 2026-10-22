@@ -62,8 +62,16 @@
   min-height: 116px;
 }
 
+.landingPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+}
+
 .landingIcon {
   position: absolute;
+  z-index: 1;
   left: 15px;
   bottom: -21px;
   width: 46px;
