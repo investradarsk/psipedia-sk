@@ -29,14 +29,15 @@ function builtIn(id:string,category:string){
  * The outer query remains category-scoped and published-only.
  */
 export function canonicalPublicServiceWhere(
-  category:string,raw:string,enabled:boolean
+  category:string,raw:string,enabled:boolean,profileAlias:"directory_profiles"|"d"="directory_profiles"
 ):{clauses:string[];bindings:string[]}{
+  const profileId=profileAlias==="d"?"d.id":"directory_profiles.id";
   if(!raw)return {clauses:[],bindings:[]};
   if(!enabled||!isAllowedCategory(category)||raw.length>100)
     return {clauses:["1=0"],bindings:[]};
   const option=builtIn(raw,category);
   if(option)return {
-    clauses:["EXISTS (SELECT 1 FROM service_profile_option_choices AS svc_choice WHERE svc_choice.profile_id=directory_profiles.id AND svc_choice.option_id=? AND svc_choice.choice='yes')"],
+    clauses:[`EXISTS (SELECT 1 FROM service_profile_option_choices AS svc_choice WHERE svc_choice.profile_id=${profileId} AND svc_choice.option_id=? AND svc_choice.choice='yes')`],
     bindings:[raw]
   };
   if(!dynamicId.test(raw))return {clauses:["1=0"],bindings:[]};
@@ -44,7 +45,7 @@ export function canonicalPublicServiceWhere(
     clauses:[`EXISTS (
       SELECT 1 FROM service_profile_option_choices AS svc_choice
       JOIN service_catalog_admin_options AS svc_option ON svc_option.id=svc_choice.option_id
-      WHERE svc_choice.profile_id=directory_profiles.id AND svc_choice.option_id=?
+      WHERE svc_choice.profile_id=${profileId} AND svc_choice.option_id=?
         AND svc_choice.choice='yes'
         AND svc_option.kind='service' AND svc_option.status='ACTIVE'
         AND svc_option.notion_mirror_status='SYNCED'
