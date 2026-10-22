@@ -5,17 +5,21 @@ import {useRouter} from "next/navigation";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorActionBar,EditorWorkspace,EditorStatus} from "@/components/admin-editor-workspace";
 import type {CatalogEditorItem} from "@/lib/service-catalog-admin-editor-view";
+import {manualCatalogMirrorAction,manualCatalogMirrorConfirmation,
+  type CatalogMirrorManualAction} from "@/lib/service-catalog-admin-mirror-controls";
 import styles from "./admin-service-catalog.module.css";
 
 type Category={id:string;label:string};
 type Draft={name:string;category:string;kind:"service"|"attribute";group:string;meaning:string};
 type MirrorInventory={mode:"READ_ONLY";canonicalDynamicCount:number;notionPageCount:number;receiptCount:number;blocked:boolean;
-  items:Array<{disposition:string}>;unmappedNotionOptionIds:string[]};
+  items:Array<{optionId:string;version:number;disposition:"NEEDS_PAGE"|"MAPPED_PENDING"|"SYNCED_VERIFIED"|"BLOCKED";reason?:string}>;
+  unmappedNotionOptionIds:string[]};
 const blank:Draft={name:"",category:"",kind:"service",group:"",meaning:""};
 const statusTone=(status:string)=>status==="ACTIVE"||status==="SYNCED"?"success":status==="CONFLICT"||status==="RETIRED"?"danger":status==="DRAFT"||status==="PENDING"?"warning":"neutral";
 
-export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,loadError}:{
-  items:readonly CatalogEditorItem[];categories:readonly Category[];writeEnabled:boolean;loadError:string|null;
+export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,mirrorEnabled=false,pageCreationEnabled=false,loadError}:{
+  items:readonly CatalogEditorItem[];categories:readonly Category[];writeEnabled:boolean;
+  mirrorEnabled?:boolean;pageCreationEnabled?:boolean;loadError:string|null;
 }){
   const router=useRouter();
   const [query,setQuery]=useState("");
@@ -34,6 +38,8 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
   const [inventory,setInventory]=useState<MirrorInventory|null>(null);
   const [inventoryLoading,setInventoryLoading]=useState(false);
   const [inventoryError,setInventoryError]=useState("");
+  const [mirrorOperation,setMirrorOperation]=useState<{action:CatalogMirrorManualAction;optionId:string;label:string}|null>(null);
+  const [mirrorConfirmation,setMirrorConfirmation]=useState("");
   const visible=useMemo(()=>items.filter(item=>{
     const q=query.trim().toLocaleLowerCase("sk");
     return (!q||[item.label,item.group,item.id,item.meaning].some(x=>x.toLocaleLowerCase("sk").includes(q)))
@@ -42,6 +48,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       &&(state==="all"||item.status===state||item.mirror===state);
   }),[items,query,kind,category,state]);
   const selected=visible.find(item=>item.id===selectedId)??visible[0]??null;
+  const selectedMirrorAction=manualCatalogMirrorAction(selected,inventory,{mirrorEnabled,pageCreationEnabled});
   const dirty=editing
     ? draft.name!==editing.label||draft.group!==editing.group||draft.meaning!==editing.meaning||draft.category!==editing.categories[0]
     : Object.values(draft).some((value)=>value!==""&&value!=="service");
@@ -61,14 +68,14 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       const res=await fetch("/api/admin/service-catalog/options",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(draft),cache:"no-store"});
       const data=await res.json() as {error?:string;option?:{id:string}};
       if(!res.ok||!data.option?.id)throw new Error(data.error??"Vytvorenie nebolo potvrdené.");
-      closeEditor();setSelectedId(data.option.id);setMessageIsError(false);
+      closeEditor();setSelectedId(data.option.id);setMessageIsError(false);setInventory(null);
       setMessage("Koncept bol uložený. Na verejnom webe zatiaľ nie je aktívny.");
       router.refresh();
     }catch(e){setMessage(e instanceof Error?e.message:"Vytvorenie zlyhalo.");}
     finally{setBusy(false);}
   }
   async function inspectInventory(){
-    if(inventoryLoading)return;
+    if(inventoryLoading||busy)return;
     setInventoryLoading(true);setInventoryError("");
     try{
       const response=await fetch("/api/admin/service-catalog/notion-mirror",{method:"GET",cache:"no-store"});
@@ -97,10 +104,10 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       });
       const data=await response.json() as {error?:string;option?:{version:number}};
       if(!response.ok||!data.option?.version)throw new Error(data.error??"Zmenu sa nepodarilo potvrdiť.");
-      closeEditor();setMessageIsError(false);setMessage(success);
+      closeEditor();setInventory(null);setMessageIsError(false);setMessage(success);
       router.refresh();
     }catch(error){
-      setMessageIsError(true);
+      setMessageIsError(true);setInventory(null);
       setMessage(error instanceof Error?error.message:"Zápis zlyhal. Obnov katalóg.");
       // An unsuccessful CAS must never be blindly retried with a stale version.
       router.refresh();
@@ -121,6 +128,47 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     const success=action==="approve"?"Možnosť bola schválená.":action==="retire"?
       "Možnosť bola vyradená.":"Konflikt bol vrátený do stavu PENDING. Samotná synchronizácia sa tým nespustila.";
     void patchOption(item,{action},success);
+  }
+  function prepareMirror(item:CatalogEditorItem){
+    const action=manualCatalogMirrorAction(item,inventory,{mirrorEnabled,pageCreationEnabled});
+    if(!action||busy||inventoryLoading)return;
+    setMessage("");setMessageIsError(false);setMirrorConfirmation("");
+    setMirrorOperation({action,optionId:item.id,label:item.label});
+  }
+  async function executeMirror(){
+    const operation=mirrorOperation;
+    if(!operation||busy||!writeEnabled)return;
+    const item=items.find(x=>x.id===operation.optionId)??null;
+    if(manualCatalogMirrorAction(item,inventory,{mirrorEnabled,pageCreationEnabled})!==operation.action){
+      setMirrorOperation(null);setInventory(null);
+      setMessageIsError(true);setMessage("Stav katalógu sa zmenil. Obnov inventúru pred ďalším pokusom.");
+      return;
+    }
+    const expected=manualCatalogMirrorConfirmation(operation.action,operation.optionId);
+    if(mirrorConfirmation!==expected)return;
+    setBusy(true);setMessage("");setMessageIsError(false);
+    try{
+      const response=await fetch("/api/admin/service-catalog/notion-mirror",{
+        method:"POST",headers:{"content-type":"application/json"},cache:"no-store",
+        body:JSON.stringify({action:operation.action,optionId:operation.optionId,confirmation:expected}),
+      });
+      const payload=await response.json() as {
+        state?:string;result?:{state?:string;reason?:string};error?:string;reason?:string
+      };
+      const state=payload.result?.state;
+      if(!response.ok||!["CREATED_NEEDS_MIRROR","EXISTS","VERIFIED"].includes(state??""))
+        throw new Error(payload.result?.reason??payload.reason??payload.error??"Výsledok nie je potvrdený. Skontroluj inventúru; nepokračuj naslepo.");
+      setMessage(state==="VERIFIED"
+        ? "Notion bol nezávisle overený a zápis potvrdený v D1. Obnov inventúru pred schválením."
+        : "Stránka v Notione bola nájdená alebo vytvorená. Obnov inventúru a potom spusti samostatné overenie synchronizácie.");
+    }catch(error){
+      setMessageIsError(true);
+      setMessage((error instanceof Error?error.message:"Synchronizáciu sa nepodarilo potvrdiť.")+
+        " Ak je výsledok neistý, akciu neopakuj; najprv skontroluj D1 a Notion.");
+    }finally{
+      setMirrorOperation(null);setMirrorConfirmation("");setInventory(null);
+      setBusy(false);router.refresh();
+    }
   }
   return <section className={styles.stack} aria-label="Katalóg služieb a vlastností">
     <div className={styles.statusPanel} data-write-enabled={writeEnabled ? "true" : "false"}>
@@ -148,7 +196,7 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     </div>
     {loadError&&<p role="alert" className={styles.error}>{loadError}</p>}
     <div className={styles.inventoryBar}>
-      <AdminActionButton onClick={inspectInventory} disabled={inventoryLoading}>
+      <AdminActionButton onClick={inspectInventory} disabled={inventoryLoading||busy}>
         {inventoryLoading?"Načítavam inventúru…":"Overiť D1 ↔ Notion (iba čítanie)"}
       </AdminActionButton>
       {inventory&&<p role="status">
@@ -195,6 +243,20 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
             <AdminActionButton disabled={!mayRetry(selected)||busy} onClick={()=>changeLifecycle("retryMirror",selected)}>Opakovať po konflikte</AdminActionButton>
             <AdminActionButton disabled={!mayRetire(selected)||busy} onClick={()=>changeLifecycle("retire",selected)} variant="destructive">Archivovať</AdminActionButton>
           </div>
+          {selected.source==="admin"&&selected.status==="DRAFT"&&selected.mirror==="PENDING"&&
+            <div className={styles.mirrorPanel}>
+              <p className={styles.muted}>D1 → Notion: {inventory
+                ? inventory.blocked?"Inventúra obsahuje konflikt; zápisy sú blokované."
+                  : inventory.items.find(x=>x.optionId===selected.id)?.disposition??"Možnosť nie je v overenej inventúre."
+                : "Najprv vykonaj kontrolu D1 ↔ Notion (iba čítanie)."}</p>
+              <AdminActionButton disabled={!selectedMirrorAction||busy||inventoryLoading}
+                onClick={()=>prepareMirror(selected)}>
+                {selectedMirrorAction==="PROVISION_ONE"?"Vytvoriť stránku v Notione"
+                  :selectedMirrorAction==="MIRROR_ONE"?"Overiť a synchronizovať s Notionom"
+                  :"Synchronizácia nie je pripravená"}
+              </AdminActionButton>
+              {!mirrorEnabled&&<p className={styles.muted}>Zápisy D1 → Notion sú vypnuté. Zapnutie vyžaduje samostatné produkčné schválenie.</p>}
+            </div>}
           <p className={styles.muted}>Schválenie je možné až po overenom zrkadlení v Notione. Opakovanie po konflikte zmení stav v D1, nespustí Notion prenos.</p>
           {message&&<p role="status" className={messageIsError?styles.error:styles.notice}>{message}</p>}
         </>:<p>Vyber možnosť zo zoznamu.</p>}
@@ -215,6 +277,26 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
         <label>Presný význam<textarea rows={4} value={draft.meaning} maxLength={500} onChange={e=>setDraft(p=>({...p,meaning:e.target.value}))}/></label>
         <p className={styles.muted}>{editing?"Úprava ponechá stav DRAFT a vyžiada opätovné zrkadlenie.":"Koncept dostane stav DRAFT / PENDING. Samotné vytvorenie nie je schválenie ani publikovanie."}</p>
         {message&&<p role="alert" className={styles.error}>{message}</p>}
+      </section>
+    </EditorWorkspace>}
+    {mirrorOperation&&<EditorWorkspace mode="modal" open
+      title={mirrorOperation.action==="PROVISION_ONE"?"Vytvoriť stránku v Notione":"Overiť synchronizáciu s Notionom"}
+      description="Len jedna kanonická možnosť. Bez automatického schválenia alebo publikovania."
+      sections={[{id:"service-mirror-confirmation",label:"Potvrdenie"}]} dirty={false}
+      onClose={()=>{if(!busy){setMirrorOperation(null);setMirrorConfirmation("");}}}
+      actions={<EditorActionBar
+        secondary={<AdminActionButton disabled={busy} onClick={()=>{setMirrorOperation(null);setMirrorConfirmation("");}}>Zrušiť</AdminActionButton>}
+        primary={<AdminActionButton variant="primary" disabled={busy||
+          mirrorConfirmation!==manualCatalogMirrorConfirmation(mirrorOperation.action,mirrorOperation.optionId)}
+          onClick={executeMirror}>{busy?"Overujem…":"Potvrdiť jednu operáciu"}</AdminActionButton>}/>}>
+      <section id="service-mirror-confirmation" data-admin-editor-section tabIndex={-1} className={styles.formGrid}>
+        <p>Možnosť: <strong>{mirrorOperation.label}</strong></p>
+        <p className={styles.muted}>ID: {mirrorOperation.optionId}</p>
+        <p className={styles.muted}>Bezpečnostné potvrdenie musí presne zodpovedať nasledujúcemu textu:</p>
+        <code className={styles.confirmationCode}>{manualCatalogMirrorConfirmation(mirrorOperation.action,mirrorOperation.optionId)}</code>
+        <label>Napíš potvrdenie<input type="text" spellCheck={false} autoComplete="off"
+          value={mirrorConfirmation} onChange={e=>setMirrorConfirmation(e.target.value)}/></label>
+        <p className={styles.muted}>Neistý výsledok neznamená úspech. Pri chybe nebude automaticky opakovaný žiadny zápis do Notionu.</p>
       </section>
     </EditorWorkspace>}
   </section>;
