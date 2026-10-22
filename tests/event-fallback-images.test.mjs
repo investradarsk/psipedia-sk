@@ -51,7 +51,7 @@ test('unsafe or invalid photo URLs select the fallback during SSR',()=>{
   assert.equal(getEventOwnImage(' /media/own.webp '),'/media/own.webp');
   assert.equal(getEventOwnImage('https://example.test/a.webp'),'https://example.test/a.webp');
 });
-test('homepage and SEO still read actual event photographs',()=>{
+test('homepage shows published upcoming events with photographic fallback and preserves photo validation',()=>{
   for(const type of Object.keys(eventTypePresentation)) assert.equal(hasHomepageRealImage({imageUrl:getEventFallbackImage(type),imageKey:null}),false);
   const database=new DatabaseSync(':memory:');
   try {
@@ -64,6 +64,10 @@ test('homepage and SEO still read actual event photographs',()=>{
   const store=readFileSync('lib/event-store.ts','utf8');
   const homepage=readFileSync('app/page.tsx','utf8');
   assert.match(homepage,/getHomepageUpcomingEventsWithImages\(3\)/);
-  assert.match(store,/HOMEPAGE_REAL_IMAGE_SQL/);
+  const upcoming=store.slice(store.indexOf('export async function getHomepageUpcomingEventsWithImages')).split('\nexport async function ')[0];
+  assert.match(upcoming,/status = 'published'/);
+  assert.match(upcoming,/cancelled = 0/);
+  assert.doesNotMatch(upcoming,/HOMEPAGE_REAL_IMAGE_SQL/);
+  assert.match(readFileSync('components/event-image.tsx','utf8'),/getEventFallbackImage/);
   for(const file of ['app/page.tsx','lib/event-store.ts','lib/event-schema.ts','app/[section]/[slug]/page.tsx']) assert.doesNotMatch(readFileSync(file,'utf8'),/getEventFallbackImage|images\/events\/defaults/);
 });

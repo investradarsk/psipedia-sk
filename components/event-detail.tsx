@@ -12,6 +12,7 @@ import { DetailHero, DetailFactsCard, DetailSection } from "./detail-primitives/
 import detailStyles from "./detail-primitives/detail-primitives.module.css";
 import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
 import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, formatEventUpdatedAt, type DogEvent } from "@/lib/events";
+import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 
 function eventTimeLabel(event: DogEvent) {
@@ -22,11 +23,9 @@ function eventTimeLabel(event: DogEvent) {
 }
 
 function eventLocationLines(event: DogEvent) {
-  const raw = event.region === "Online"
-    ? ["Online podujatie"]
-    : [event.venue, event.address, event.city, event.region];
-  const lines = [...new Set(raw.map((value) => value.trim()).filter(Boolean))];
-  return lines.length ? lines : ["Miesto bude upresnené"];
+  const raw = [event.venue, event.address, publicLocationValue(event.city, "city"), publicLocationValue(event.region, "region")];
+  const lines = [...new Set(raw.map((value) => publicLocationValue(value)).filter(Boolean))];
+  return lines.length ? lines : [/\bwebin[aá]r\b/iu.test(event.title) ? "Webinár" : "Miesto nie je uvedené"];
 }
 
 export function EventDetail({
@@ -48,9 +47,12 @@ export function EventDetail({
     : dateStatus === "current"
       ? "Prebieha"
       : dateStatus === "past"
-        ? "Ukončené"
+        ? "Uskutočnilo sa"
         : null;
-  const hasActions = Boolean(event.registrationUrl || event.websiteUrl);
+  const showRegistration = dateStatus !== "past" && !event.cancelled && Boolean(event.registrationUrl);
+  const hasActions = Boolean(showRegistration || event.websiteUrl);
+  const publicCity = publicLocationValue(event.city, "city");
+  const publicRegion = publicLocationValue(event.region, "region");
   const updatedLabel = formatEventUpdatedAt(event.updatedAt);
 
   return (
@@ -67,7 +69,8 @@ export function EventDetail({
             {statusLabel && <b data-detail-state={event.cancelled ? "cancelled" : dateStatus === "past" ? "past" : "current"}>{statusLabel}</b>}
           </div>
           <h1 data-long-title={event.title.length >= 70 ? "" : undefined}>{event.title}</h1>
-          {event.city && <p className={detailStyles.location}>{event.city}{event.region && event.region !== "Online" ? ` · ${event.region}` : ""}</p>}
+          {dateStatus === "past" && !event.cancelled && <p className={detailStyles.lead} role="status" data-event-past-notice>Podujatie sa už uskutočnilo. Tento detail zostáva dostupný ako archív.</p>}
+          {publicCity && <p className={detailStyles.location}>{publicCity}{publicRegion ? ` · ${publicRegion}` : ""}</p>}
           {event.excerpt && <p className={detailStyles.lead}>{event.excerpt}</p>}
           <dl className={detailStyles.factTiles} data-event-facts aria-label="Základné informácie o podujatí">
                 <div>
@@ -97,7 +100,7 @@ export function EventDetail({
                 )}
               </dl>
           {hasActions && <nav className={detailStyles.heroActions} aria-label="Odkazy podujatia">
-            {event.registrationUrl && <PublicActionLink className={detailStyles.primaryAction} href={event.registrationUrl} target="_blank" rel="noreferrer" icon={<ArrowIcon size={18} />}>Registrácia</PublicActionLink>}
+            {showRegistration && event.registrationUrl && <PublicActionLink className={detailStyles.primaryAction} href={event.registrationUrl} target="_blank" rel="noreferrer" icon={<ArrowIcon size={18} />}>Registrácia</PublicActionLink>}
             {event.websiteUrl && <PublicActionLink className={detailStyles.secondaryAction} href={event.websiteUrl} variant="secondary" target="_blank" rel="noreferrer" icon={<ArrowIcon size={17} />}>Oficiálna stránka</PublicActionLink>}
           </nav>}
         </>} />

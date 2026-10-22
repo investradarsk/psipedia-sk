@@ -99,8 +99,18 @@ test("PUBLIC-SEARCH-SIMPLIFY-1 event type pages keep canonical navigation and on
   await expect(page.locator('[data-public-search-form="events"]')).toHaveCount(1);
   await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toHaveCount(1);
 
-  await compact.getByRole("link", { name: "Semináre", exact: true }).click();
-  await expect(page).toHaveURL(/\/podujatia\/seminare(?:\?|$)/);
+  const seminars = compact.getByRole("link", { name: "Semináre", exact: true });
+  await expect(seminars).toHaveAttribute("href", /\/podujatia\/seminare(?:\?|$)/);
+  await seminars.click();
+  try {
+    await expect(page).toHaveURL(/\/podujatia\/seminare(?:\?|$)/, { timeout: 5_000 });
+  } catch {
+    // A preview Worker may answer during client hydration; retry a real link click,
+    // never replace this browser navigation assertion with page.goto().
+    await expect(page.locator(".site-header [data-search-ready]")).toHaveAttribute("data-search-ready", "true");
+    await page.getByRole("link", { name: "Semináre", exact: true }).click();
+    await expect(page).toHaveURL(/\/podujatia\/seminare(?:\?|$)/);
+  }
 });
 
 test("PUBLIC-SEARCH-SIMPLIFY-1 event disclosure is compact without horizontal overflow", async ({ page }) => {

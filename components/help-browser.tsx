@@ -71,7 +71,7 @@ export function HelpBrowser({
               <span className={styles.label}>Kraj</span>
               <select name="region" defaultValue={region === "all" ? "" : region}>
                 <option value="">Všetky kraje</option>
-                {slovakRegions.map((item) => <option value={item} key={item}>{item}</option>)}
+                {slovakRegions.filter((item) => item !== "Online").map((item) => <option value={item} key={item}>{item}</option>)}
               </select>
             </label>
             <label>

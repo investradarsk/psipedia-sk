@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
+import { publicLocationValue } from "@/lib/public-location";
 import { DirectoryClubFilters } from "@/components/directory-club-filters";
 import { directoryProfileHref, type DirectoryClubCardProfile, type DirectoryClubSearchParams, type DirectoryClubSearchResult } from "@/lib/directory";
 
@@ -27,15 +28,18 @@ function pageHref(current: DirectoryClubSearchParams, page: number) {
 
 function DirectoryClubCard({ profile }: { profile: DirectoryClubCardProfile }) {
   const contact = cleanContact(profile);
+  const city = publicLocationValue(profile.city, "city");
+  const district = publicLocationValue(profile.district, "district");
+  const region = publicLocationValue(profile.region, "region");
   return (
     <article className="directory-card directory-club-card">
       <Link className="directory-club-card-link" href={directoryProfileHref(profile)} aria-label={`Otvoriť profil ${profile.name}`}>
         <div className="directory-card-tags"><span>Kynologický klub</span></div>
         <h3>{profile.name}</h3>
         <dl>
-          {profile.city && <div><dt>Mesto / obec</dt><dd>{profile.city}</dd></div>}
-          {profile.district && <div><dt>Okres</dt><dd>{profile.district}</dd></div>}
-          {profile.region && <div><dt>Kraj</dt><dd>{profile.region}</dd></div>}
+          {city && <div><dt>Mesto / obec</dt><dd>{city}</dd></div>}
+          {district && <div><dt>Okres</dt><dd>{district}</dd></div>}
+          {region && <div><dt>Kraj</dt><dd>{region}</dd></div>}
           {contact && <div><dt>{profile.websiteUrl ? "Web" : "Kontakt"}</dt><dd>{contact}</dd></div>}
         </dl>
         <span className="text-link">Profil a kontakt <ArrowIcon size={18} /></span>

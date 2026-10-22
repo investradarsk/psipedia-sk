@@ -315,18 +315,12 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
   assert.match(categoryPage, /description: category\.intro/);
 
   assert.match(card, /href=\{directoryProfileHref\(profile\)\}/);
-  // Preserve the crawlable prev/next URL contract across direct Link and
-  // the shared server-rendered PublicPagination component on updated main.
-  if (results.includes("<PublicPagination")) {
-    const pagination = fs.readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
-    assert.match(results, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
-    assert.match(results, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
-    assert.match(pagination, /<Link href=\{previousHref\} rel="prev">/);
-    assert.match(pagination, /<Link href=\{nextHref\} rel="next">/);
-  } else {
-    assert.match(results, /<Link href=\{directoryPageHref\(basePath, filters, result\.page - 1\)\} rel="prev">/);
-    assert.match(results, /<Link href=\{directoryPageHref\(basePath, filters, result\.page \+ 1\)\} rel="next">/);
-  }
+  assert.match(results, /<PublicPagination/);
+  assert.match(results, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
+  assert.match(results, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
+  const pagination = fs.readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
+  assert.match(pagination, /<Link href=\{previousHref\} rel="prev">/);
+  assert.match(pagination, /<Link href=\{nextHref\} rel="next">/);
   assert.match(directoryPage, /href: directoryCategoryHref\(category\),/);
   assert.match(directoryPage, /<DirectoryCategoryNavigation items=\{categoryItems\} \/>/);
   assert.match(detail, /href=\{"\/adresar\/" \+ presentation\.category\}/);
