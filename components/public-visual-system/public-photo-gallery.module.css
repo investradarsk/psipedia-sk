@@ -4,7 +4,8 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
-.gallery a {
+.gallery a,
+.gallery > span {
   display: block;
   min-width: 0;
   border-radius: 9px;
