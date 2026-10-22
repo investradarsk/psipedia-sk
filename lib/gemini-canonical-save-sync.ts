@@ -30,7 +30,7 @@ export async function reconcileGeminiSavedDraft(input: {
     "SELECT notion_page_id FROM gemini_notion_created_pages " +
     "WHERE notion_page_id=? AND stable_key=? AND import_agenda=? LIMIT 1"
   ).bind(notionPageId, key, agenda).first<{ notion_page_id: string }>();
-  if (!signed && agenda === "directory") return notionOnly();
+  if (!signed) return notionOnly();
 
   // Exclusion belongs to the original sync pipelines so scheduled and manual
   // imports contend for the same locks, not independent caller-only locks.
@@ -38,12 +38,6 @@ export async function reconcileGeminiSavedDraft(input: {
     ? getGeminiDirectoryDraft(bindings, notionPageId)
     : (await getGeminiAgendaDraft(bindings, key, notionPageId)).draft;
   const before = await readDraft();
-  // A pre-signature Notion concept can enter canonical D1 only after a
-  // human has explicitly approved it in the authenticated Gemini editor.
-  // Signed callback provenance is never fabricated for legacy pages.
-  const reviewedLegacy = !signed && before.reviewState === "APPROVED" &&
-    "attribution" in before && before.attribution === "EVIDENCE_SIGNATURE_ONLY";
-  if (!signed && !reviewedLegacy) return notionOnly();
   if (before.lastEditedAt !== savedRevision) return { state: "NEEDS_REVIEW" };
   if (before.reviewState === "REJECTED" || before.reviewState === "PUBLISHED")
     return { state: "NEEDS_REVIEW" };
@@ -62,7 +56,6 @@ export async function reconcileGeminiSavedDraft(input: {
     const result = await runNotionEventsHelpSyncSweep({
       database, bindings, mode: "sync",
       agendas: [agenda], targetPageId: notionPageId, expectedNotionRevision: savedRevision,
-      reviewedLegacy,
     });
     if (!result.enabled || !result.schemaReady || result.agendas.some(item => item.targetMissing) || result.totals.failed > 0 || result.totals.conflicts > 0 || result.totals.createdFromNotion !== 1)
       return { state: "NEEDS_REVIEW" };

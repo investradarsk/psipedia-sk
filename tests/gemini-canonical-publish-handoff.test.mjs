@@ -186,7 +186,7 @@ test("verified canonical Save keeps the review modal open and stops stale Notion
   const agenda = readFileSync(new URL("../components/admin-gemini-agenda-draft-editor.tsx", import.meta.url), "utf8");
   const directory = readFileSync(new URL("../components/admin-directory-editor.tsx", import.meta.url), "utf8");
   const manager = readFileSync(new URL("../components/admin-gemini-notion-drafts.tsx", import.meta.url), "utf8");
-  assert.match(agenda, /if \(verifiedUrl\) setCanonicalEditorUrl\(verifiedUrl\)/);
+  assert.match(agenda, /setCanonicalEditorUrl\(data\.canonicalSave\.editorUrl!\)/);
   assert.match(directory, /setCanonicalEditorUrl\(data\.canonicalSave\.editorUrl!\)/);
   for (const component of [agenda, directory]) {
     assert.match(component, /Otvoriť overený D1 editor/);

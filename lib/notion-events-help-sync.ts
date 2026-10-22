@@ -625,7 +625,6 @@ async function syncAgenda(input: {
   ready: boolean;
   targetPageId?: string;
   expectedNotionRevision?: string;
-  reviewedLegacy?: boolean;
 }) {
   const summary = emptyAgenda(input.definition, input.isEnabled, input.ready);
   if (!input.isEnabled || !input.ready) return summary;
@@ -1471,8 +1470,7 @@ async function syncAgenda(input: {
       });
       continue;
     }
-    if (!trustedGemini && !input.reviewedLegacy &&
-        clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia") {
+    if (!trustedGemini && clean(pageProperty(page, "Vytvoril")) === "Gemini automatizácia") {
       // A Notion text property does not establish signed worker provenance.
       summary.unchanged += 1;
       continue;
@@ -1497,7 +1495,7 @@ async function syncAgenda(input: {
         continue;
       }
     }
-    if ((trustedGemini || input.reviewedLegacy) && input.definition.key === "lost-found" && (
+    if (trustedGemini && input.definition.key === "lost-found" && (
       values["Latitude"] != null && values["Latitude"] !== "" ||
       values["Longitude"] != null && values["Longitude"] !== "" ||
       clean(values["Verejný kontakt"]) ||
@@ -1556,7 +1554,7 @@ async function syncAgenda(input: {
     let releasePage: (() => Promise<void>) | null = null;
     let importWriteStarted = false;
     try {
-      if (trustedGemini || input.reviewedLegacy) {
+      if (trustedGemini) {
         releaseImport = await acquireGeminiNotionLock(input.database, "gemini-canonical-import-" + input.definition.key);
         if (!releaseImport) {
           summary.conflicts += 1;
@@ -1760,17 +1758,11 @@ export async function runNotionEventsHelpSyncSweep(input: {
   agendas?: BidirectionalAgendaKey[];
   targetPageId?: string;
   expectedNotionRevision?: string;
-  reviewedLegacy?: boolean;
 }): Promise<NotionEventsHelpSyncSummary> {
   if (input.targetPageId !== undefined && (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.targetPageId) ||
     input.agendas?.length !== 1
   )) throw new Error("GEMINI_TARGETED_NOTION_SCOPE_INVALID");
-  // Legacy review is limited to one explicit admin-confirmed Notion revision;
-  // never an unattended full sweep or an unapproved source page.
-  if (input.reviewedLegacy && (!input.targetPageId || !input.expectedNotionRevision ||
-      input.agendas?.length !== 1 || input.mode !== "sync"))
-    throw new Error("GEMINI_LEGACY_REVIEW_SCOPE_INVALID");
   const mode = input.mode ?? "sync";
   const isEnabled = input.force === true || enabled(input.bindings);
   const ready = await schemaReady(input.database);
@@ -1789,7 +1781,6 @@ export async function runNotionEventsHelpSyncSweep(input: {
         ready,
         targetPageId: input.targetPageId,
         expectedNotionRevision: input.expectedNotionRevision,
-        reviewedLegacy: input.reviewedLegacy,
       }));
     } catch (error) {
       const summary = emptyAgenda(definition, isEnabled, ready);

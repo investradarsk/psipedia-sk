@@ -1,6 +1,5 @@
 import { getGeminiCatalogItem } from "./gemini-automation-catalog";
 import { eventTypeFromPortalSlug } from "./events";
-import { resolveGeminiPublicSlug } from "./gemini-public-slug";
 import {
   agendaEditableFields, GEMINI_HELP_REVIEW_PROPERTY, GEMINI_HELP_REJECTION_PROPERTY,
   GEMINI_HELP_REVIEW_STATES, type BidirectionalAgendaKey,
@@ -362,15 +361,9 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
     if (draft.psipediaId) throw new GeminiAgendaReviewError("STATE");
     const action = String(input.action);
     const current = draft.reviewState;
-    // Once approved, keep the Notion properties locked. A provenance-verified
-    // reviewer may nevertheless retry a *no-change* canonical D1 import when
-    // the first handoff was blocked; this never rewrites approved Notion fields.
-    const retryApprovedImport = current === "APPROVED" && action === "save" &&
-      (trusted || draft.attribution === "EVIDENCE_SIGNATURE_ONLY") && input.fields && typeof input.fields === "object" &&
-      !Array.isArray(input.fields) && Object.keys(input.fields).length === 0;
     if (current === "REJECTED" && action !== "restore" ||
         current !== "REJECTED" && action === "restore" ||
-        (current === "APPROVED" && action !== "reject" && !retryApprovedImport))
+        (current === "APPROVED" && action !== "reject"))
       throw new GeminiAgendaReviewError("STATE");
     const patch: Record<string, unknown> = {};
     if (action === "save") {
@@ -411,18 +404,9 @@ export async function mutateGeminiAgendaDraft(env: GeminiAgendaReviewEnv, key: s
     } else {
       if (input.confirm !== true) throw new GeminiAgendaReviewError("STATE");
       if (action === "approve" && !draft.name.trim()) throw new GeminiAgendaReviewError("STATE");
-      // Manually reviewed pre-signature concepts use the same safe slug
-      // generator; this does not attest signed worker provenance.
-      if (action === "approve" && !trusted && !draft.fields.some(field =>
-        field.name === "Slug" && typeof field.value === "string" && field.value.trim())) {
-        const slugType = source.schema["Slug"]?.type ?? "";
-        if (!["rich_text", "title"].includes(slugType))
-          throw new GeminiAgendaReviewError("SCHEMA");
-        const slug = await resolveGeminiPublicSlug(env.DB, draft.agenda, {
-          requestedSlug: "", name: draft.name, city: draft.city, notionPageId: id,
-        });
-        patch["Slug"] = encoded(slugType, slug);
-      }
+      if (action === "approve" && !draft.fields.some(field =>
+        field.name === "Slug" && typeof field.value === "string" && field.value.trim()))
+        throw new GeminiAgendaReviewError("STATE");
       if (draft.agenda === "help-cases") {
         // Only the dedicated internal review field changes. Public Psipedia
         // stav stays draft; canonical sync later imports a D1 DRAFT.
