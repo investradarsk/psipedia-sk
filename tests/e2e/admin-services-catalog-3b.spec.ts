@@ -2,13 +2,45 @@ import {mkdirSync,writeFileSync} from "node:fs";
 import {expect,test,type Page} from "@playwright/test";
 const root=".e2e-artifacts/services-v3-admin-3b";
 const label=(width:number)=>width===1440?"desktop-1440":"mobile-"+width;
+
+/**
+ * Screenshot preparation, not product behavior: temporarily disable browser
+ * smooth scroll and scroll anchoring while returning to the top. Mobile
+ * Chromium can otherwise reapply the preceding summary-focus scroll after
+ * the first window.scrollTo, leaving the old test waiting indefinitely.
+ */
+const restoreTop=async(page:Page)=>{
+  const observed=await page.evaluate(async()=>{
+    const html=document.documentElement,body=document.body;
+    const h=html.style.getPropertyValue("scroll-behavior"),hp=html.style.getPropertyPriority("scroll-behavior");
+    const b=body.style.getPropertyValue("scroll-behavior"),bp=body.style.getPropertyPriority("scroll-behavior");
+    const anchor=html.style.getPropertyValue("overflow-anchor"),ap=html.style.getPropertyPriority("overflow-anchor");
+    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+    html.style.setProperty("scroll-behavior","auto","important");
+    body.style.setProperty("scroll-behavior","auto","important");
+    html.style.setProperty("overflow-anchor","none","important");
+    try{
+      for(let frame=0;frame<5;frame++){
+        if(document.scrollingElement)document.scrollingElement.scrollTop=0;
+        window.scrollTo(0,0);
+        await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+      }
+      return {scrollY:window.scrollY,scrollTop:document.scrollingElement?.scrollTop??null,
+        active:document.activeElement?.tagName??null};
+    }finally{
+      if(h)html.style.setProperty("scroll-behavior",h,hp);else html.style.removeProperty("scroll-behavior");
+      if(b)body.style.setProperty("scroll-behavior",b,bp);else body.style.removeProperty("scroll-behavior");
+      if(anchor)html.style.setProperty("overflow-anchor",anchor,ap);else html.style.removeProperty("overflow-anchor");
+    }
+  });
+  expect(observed.scrollY,"Screenshot viewport reset must return to top: "+JSON.stringify(observed)).toBeLessThanOrEqual(1);
+};
+
 const capture=async(page:Page,name:string,fullPage=true)=>{
   mkdirSync(root,{recursive:true});
   // Restore the natural top-of-page viewport before full-page capture. Sticky headers
   // otherwise get stitched into the middle of the full-page PNG after clicking a row.
-  await page.evaluate(()=>{window.scrollTo({top:0,behavior:"instant"});if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
-  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await restoreTop(page);
   await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled",scale:"css"});
 };
 
@@ -23,12 +55,12 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
     const topbar=document.querySelector<HTMLElement>("[data-admin-topbar]");
     const section=document.querySelector<HTMLElement>('section[aria-label="Katalóg služieb a vlastností"]');
     const heading=document.querySelector<HTMLElement>("h1");
-    const panel=section?.querySelector<HTMLElement>("[data-write-enabled]");
+    const panel=section;
     const search=section?.querySelector<HTMLInputElement>('input[type="search"]');
     const summary=section?.querySelector<HTMLElement>("summary");
     const buttons=Array.from(section?.querySelectorAll<HTMLButtonElement>("button")??[]);
     const filters=buttons.find(button=>/^Filtre(?:\s|$)/.test(button.textContent?.trim()??""));
-    const create=buttons.find(button=>button.textContent?.includes("+ Nová možnosť"));
+    const create=buttons.find(button=>button.textContent?.includes("+ Nová služba"));
     if(!topbar||!section||!heading||!panel||!search||!summary||!filters||!create){
       throw new Error("Viewport evidence: required admin controls missing");
     }
@@ -50,12 +82,7 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
       search:rectangle(search),filters:rectangle(filters),create:rectangle(create)
     };
   },phase);
-  await page.evaluate(()=>{
-    window.scrollTo({top:0,behavior:"instant"});
-    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
-  });
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
-  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await restoreTop(page);
   const top=await measure("top");
   expect(top.viewport,"browser viewport dimensions").toMatchObject({width,height});
   expect(top.header.position,"mobile header must remain sticky").toBe("sticky");
@@ -115,11 +142,7 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded","false");
   writeFileSync(root+"/"+name+"-viewport-rectangles.json",JSON.stringify({top,scrolled,scrollPlan},null,2)+"\n");
-  await page.evaluate(()=>{
-    window.scrollTo({top:0,behavior:"instant"});
-    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
-  });
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf"});
+  await restoreTop(page);
 };
 
 const noOverflow=async(page:Page,name:string)=>{
@@ -129,7 +152,7 @@ const noOverflow=async(page:Page,name:string)=>{
 test.beforeEach(async({page})=>{
  await page.addInitScript(()=>localStorage.setItem("psipedia-cookie-consent","necessary"));
 });
-test("Services V3 catalog approved A — desktop and mobile visual QA",async({page},info)=>{
+test("Services V3 simple catalog — desktop and mobile visual QA",async({page},info)=>{
  test.setTimeout(150000);
  const sizes=info.project.name==="mobile-chromium"?[{width:390,height:844},{width:320,height:720}]:[{width:1440,height:900}];
  for(const viewport of sizes){
@@ -138,21 +161,18 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    expect(r?.status()).toBe(200);
    await expect(page.getByRole("heading",{level:1,name:"Katalóg služieb a vlastností"})).toBeVisible();
    await expect(page.getByRole("navigation",{name:"Drobečková navigácia"}).getByText("Katalóg",{exact:true})).toBeVisible();
-   const panel=page.locator('[data-write-enabled]');
-   await expect(panel).toHaveAttribute("data-write-enabled",/^(true|false)$/);
-   const writesEnabled=(await panel.getAttribute("data-write-enabled"))==="true";
+   const panel=page.locator('section[aria-label="Katalóg služieb a vlastností"]');
+   await expect(panel).toBeVisible();
+   const create=panel.getByRole("button",{name:"+ Nová služba"});
+   const writesEnabled=await create.isEnabled();
    const disclosure=panel.locator("details");
    const summary=disclosure.locator("summary");
-   await expect(panel.getByRole("heading",{name:writesEnabled?"Vytváranie konceptov je dostupné":"Zápisy sú vypnuté"})).toBeVisible();
-   await expect(panel.getByText(writesEnabled
-     ?"Koncepty možno vytvárať a upravovať. Schválenie vyžaduje SYNCED a overený Notion receipt; vyradenie je nezvratné."
-     :"Vytváranie a úpravy možností katalógu sú momentálne nedostupné.")).toBeVisible();
-   await expect(summary).toHaveText("Podrobnosti o katalógu");
+   await expect(summary).toHaveText("Technické informácie o synchronizácii");
    await expect(disclosure).not.toHaveAttribute("open");
-   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeHidden();
-   // Read-only assertions: even when canonical writes are enabled, do not create or mutate data.
-   if(writesEnabled)await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeEnabled();
-   else await expect(page.getByRole("button",{name:"+ Nová možnosť"})).toBeDisabled();
+   await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeHidden();
+   // Read-only assertions: do not mutate catalog entries.
+   if(writesEnabled)await expect(create).toBeEnabled();
+   else await expect(create).toBeDisabled();
    const toggle=page.getByRole("button",{name:/^Filtre/});
    const typeFilter=page.getByRole("combobox",{name:"Typ"});
    if(viewport.width<=800){
@@ -186,8 +206,8 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await first.click();
    await expect(first).toHaveAttribute("aria-pressed","true");
    await expect(detail.locator("h2")).toBeVisible();
-   await expect(detail.getByRole("button",{name:"Schváliť"})).toBeDisabled();
-   await expect(detail.getByRole("button",{name:"Archivovať"})).toBeDisabled();
+   await expect(detail.getByRole("button",{name:"Schváliť"})).toHaveCount(0);
+   await expect(detail.getByRole("button",{name:"Upraviť"})).toHaveCount(0);
    const l=await list.boundingBox(),d=await detail.boundingBox();
    expect(l).not.toBeNull();expect(d).not.toBeNull();
    if(viewport.width<=800){
@@ -204,22 +224,24 @@ test("Services V3 catalog approved A — desktop and mobile visual QA",async({pa
    await expect(summary).toBeFocused();
    await summary.press("Enter");
    await expect(disclosure).toHaveAttribute("open","");
-   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeVisible();
-   await expect(panel.getByText("Vstavané statické možnosti nie sú editovateľné.")).toBeVisible();
-   await expect(panel.getByText("Vytvorenie konceptu neznamená automatické schválenie ani verejné publikovanie.")).toBeVisible();
+   // Blur the keyboard-activated summary before resetting the mobile viewport;
+   // a focused <summary> below the fold can immediately scroll the page back.
+   await summary.blur();
+   await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeVisible();
    await noOverflow(page,"expanded-"+label(viewport.width));
    if(viewport.width===320||viewport.width===390){
      await captureMobileViewportEvidence(page,"expanded",viewport.width);
    }
    await capture(page,"catalog-panel-expanded-"+label(viewport.width));
+   await summary.focus();
    await summary.press("Space");
    await expect(disclosure).not.toHaveAttribute("open");
-   await expect(panel.getByText("Kanonický register možností je v D1.")).toBeHidden();
+   await expect(panel.getByText("Služby sa ukladajú v Psipedii. Prenos do Notionu sa vykonáva automaticky na pozadí.")).toBeHidden();
    await noOverflow(page,"collapsed-again-"+label(viewport.width));
    await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("RTG vyšetrenie");
    await expect(list.locator("button").first()).toContainText("RTG vyšetrenie");
    await page.getByRole("searchbox",{name:"Vyhľadávanie",exact:true}).fill("not-a-real-service-741xyz");
-   await expect(page.getByText("Pre zadané filtre neboli nájdené možnosti.")).toBeVisible();
+   await expect(page.getByText("Žiadna služba nevyhovuje filtrom.")).toBeVisible();
  }
 });
 test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots",async({page},info)=>{
@@ -231,18 +253,14 @@ test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots
  await page.getByRole("link",{name:"Directory Admin Editor Fixture"}).click();
  const card=page.getByRole("region",{name:"Services V3 — služby a vlastnosti na profile"});
  await expect(card).toBeVisible();
- await expect(card.getByRole("heading",{name:"Services V3 — hodnoty profilu"})).toBeVisible();
- const input=card.locator('select[aria-label^="Hodnota:"]');
+ await expect(card.getByRole("heading",{name:"Služby profilu"})).toBeVisible();
+ const input=card.locator('input[type="checkbox"][aria-label^="Poskytuje:"]');
  expect(await input.count()).toBeGreaterThan(0);
  const writesEnabled=await card.getByText("Úpravy povolené").isVisible();
- if(writesEnabled){
-   await expect(card.getByText("Kanonické zápisy sú vypnuté")).toHaveCount(0);
-   await expect(input.first()).toBeEnabled();
- }else{
-   await expect(card.getByText("Kanonické zápisy sú vypnuté")).toBeVisible();
-   await expect(input.first()).toBeDisabled();
- }
- await expect(input.first()).toHaveValue("unknown");
+ if(writesEnabled)await expect(input.first()).toBeEnabled();
+ else await expect(input.first()).toBeDisabled();
+ // Unknown = unchecked; no implicit NO.
+ await expect(input.first()).not.toBeChecked();
  // No changes are made; saving must be unavailable even when editing is enabled.
  await expect(card.getByRole("button",{name:/Uložiť hodnoty/})).toBeDisabled();
  await noOverflow(page,label(viewport.width));

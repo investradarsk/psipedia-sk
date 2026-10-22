@@ -53,14 +53,14 @@ test("published canonical filter includes only explicit YES with an eligible sta
     assert.deepEqual(ids(f.db,"__invalid__"),[]);
   }finally{f.close();}
 });
-test("dynamic YES requires canonical ACTIVE/SYNCED service and approved category",()=>{
+test("dynamic YES requires ACTIVE service and category independently of Notion",()=>{
   const f=fixture();try{
     assert.deepEqual(ids(f.db,dynamicId),[4]);
     assert.deepEqual(ids(f.db,dynamicBad),[]);
     assert.deepEqual(ids(f.db,attrId),[]);
-    // Changing mirror receipt state immediately removes dynamic option from results.
+    // The Notion transport must not hide a confirmed service from a public filter.
     f.db.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(dynamicId);
-    assert.deepEqual(ids(f.db,dynamicId),[]);
+    assert.deepEqual(ids(f.db,dynamicId),[4]);
     f.db.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED',categories_json='[\"treneri\"]' WHERE id=?").run(dynamicId);
     assert.deepEqual(ids(f.db,dynamicId),[]);
   }finally{f.close();}

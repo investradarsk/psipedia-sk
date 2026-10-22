@@ -59,23 +59,14 @@ test("confirmation binds exactly one action and one dynamic canonical ID",()=>{
  assert.equal(manualCatalogMirrorConfirmation("MIRROR_ONE",id),"SERVICES-V3-MIRROR_ONE-"+id);
  assert.notEqual(manualCatalogMirrorConfirmation("PROVISION_ONE",id),manualCatalogMirrorConfirmation("MIRROR_ONE",id));
 });
-test("Admin UI only uses existing strict Admin Notion route with explicit user confirmation",()=>{
+test("simple catalog has no manual Notion write UX; legacy route stays protected",()=>{
  const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
  const ui=read("components/admin-service-catalog-workspace.tsx");
- const page=read("app/admin/sluzby-pre-psov/katalog/page.tsx");
  const route=read("app/api/admin/service-catalog/notion-mirror/route.ts");
- const wrangler=read("wrangler.jsonc");
- assert.match(ui,/manualCatalogMirrorAction\(selected,inventory/);
- assert.match(ui,/mirrorConfirmation!==manualCatalogMirrorConfirmation/);
- assert.match(ui,/method:"POST",headers:\{"content-type":"application\/json"\},cache:"no-store"/);
- assert.match(ui,/action:operation.action,optionId:operation.optionId,confirmation:expected/);
- assert.match(ui,/setInventory\(null\)/);
- assert.doesNotMatch(ui,/setInterval|setTimeout|Promise\.all\(.*(PROVISION_ONE|MIRROR_ONE)/);
- assert.match(page,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED==="true"/);
- assert.match(page,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED==="true"/);
+ const worker=read("worker/index.ts");
+ assert.doesNotMatch(ui,/manualCatalogMirrorAction|PROVISION_ONE|MIRROR_ONE/);
+ assert.match(ui,/\+ Nová služba/);
+ assert.match(worker,/runSimpleServiceCatalogSync/);
  assert.match(route,/strictProvenance:true/);
- assert.match(route,/const expected="SERVICES-V3-"\+action\+"-"\+b.optionId/);
  assert.match(route,/size>1024/);
- assert.match(route,/SERVICES_V3_WRITE_FLAGS_OFF/);
- assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
 });

@@ -18,7 +18,7 @@ export default async function ServiceCatalogAdminPage(){
     SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED?:string;
     SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED?:string;
   };
-  const writeEnabled=cfg.SERVICE_CATALOG_ADMIN_WRITES_ENABLED==="true" && cfg.SERVICE_CATALOG_NOTION_MIRROR_READY==="true";
+  const writeEnabled=cfg.SERVICE_CATALOG_ADMIN_WRITES_ENABLED==="true";
   // UI capability hints only. The Admin mutation route rechecks all gates,
   // origin/auth, real D1/Notion ownership and one-option confirmation.
   const mirrorEnabled=writeEnabled && cfg.SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED==="true"
