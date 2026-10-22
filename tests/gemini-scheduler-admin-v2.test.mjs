@@ -157,6 +157,34 @@ test("22 exact category recommendations, defaults disabled; existing choices pre
   sqlite.close();
 });
 
+test("saving any of the 22 categories advances an overdue slot, but preserves a future slot", async () => {
+  const { sqlite, db } = fixture();
+  const old = new Date("2026-10-14T08:00:00.000Z");
+  const savedAt = new Date("2026-10-22T21:45:00.000Z");
+  for (const item of geminiAutomationCatalog) {
+    const cadenceMinutes = item.section === "events" ? 10080 : recommendedGeminiCadence(item.stableKey);
+    const weeklyDay = item.section === "events" ? 1 : null;
+    const input = { stableKey:item.stableKey, enabled:true, cadenceMinutes, weeklyDay, maxNewConcepts:2 };
+    await saveGeminiSetting(db,input,old);
+    // Reproduce an old persisted D1 slot independently of the cadence length.
+    sqlite.prepare("UPDATE gemini_automation_settings SET next_run_at=? WHERE stable_key=?")
+      .run("2026-10-19T07:00:00.000Z",item.stableKey);
+    const stale = sqlite.prepare("SELECT next_run_at FROM gemini_automation_settings WHERE stable_key=?")
+      .get(item.stableKey).next_run_at;
+    assert.ok(Date.parse(stale)<savedAt.getTime(),item.stableKey+" fixture must be overdue");
+    const saved = await saveGeminiSetting(db,input,savedAt);
+    assert.ok(Date.parse(saved.nextRunAt)>savedAt.getTime(),item.stableKey+" must have future date after Save");
+    assert.equal(saved.nextRunAt,nextGeminiRunAt(savedAt,cadenceMinutes,weeklyDay));
+    const future = saved.nextRunAt;
+    const reduced = await saveGeminiSetting(db,{...input,maxNewConcepts:1},
+      new Date(savedAt.getTime()+60000));
+    assert.equal(reduced.nextRunAt,future,"future slot must stay stable on count edit");
+    const disabled = await saveGeminiSetting(db,{...input,enabled:false},savedAt);
+    assert.equal(disabled.nextRunAt,null);
+  }
+  sqlite.close();
+});
+
 test("custom intervals, ISO weekdays, and Bratislava DST stay valid", () => {
   const key = "events.vystavy";
   const valid = (cadence, weekday = null) =>
