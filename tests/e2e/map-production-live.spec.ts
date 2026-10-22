@@ -90,27 +90,55 @@ async function clickRenderedMarker(page: Page, selector: string) {
 }
 
 async function currentViewportItem(page: Page, request: APIRequestContext) {
-  // Get a genuine published map item from the last authoritative Google
-  // viewport, without depending on whichever cluster happens to be clickable.
+  // The browser's authoritative viewport may span >30 square degrees.
+  // In that case /api/map returns clusters EVEN at zoom=12. Discover real
+  // existing items in a bounded central sub-viewport, then require an
+  // unambiguous search match in the full, actual browser viewport.
   const lastMapUrl = await page.evaluate(() => {
-    const mapRequests = performance.getEntriesByType("resource")
+    const resources = performance.getEntriesByType("resource")
       .filter((entry) => entry.name.includes("/api/map?"));
-    return mapRequests[mapRequests.length - 1]?.name ?? null;
+    return resources[resources.length - 1]?.name ?? null;
   });
   expect(lastMapUrl, "Map must have fetched its authoritative viewport").not.toBeNull();
-  const url = new URL(lastMapUrl!);
-  url.searchParams.set("zoom", "12");
-  url.searchParams.set("limit", "100");
-  url.searchParams.delete("search");
-  const response = await request.get(`${url.pathname}${url.search}`);
+  const authoritative = new URL(lastMapUrl!);
+  const n = Number(authoritative.searchParams.get("north"));
+  const s = Number(authoritative.searchParams.get("south"));
+  const e = Number(authoritative.searchParams.get("east"));
+  const w = Number(authoritative.searchParams.get("west"));
+  expect([n, s, e, w].every(Number.isFinite)).toBe(true);
+  expect(n).toBeGreaterThan(s);
+  expect(e).toBeGreaterThan(w);
+
+  const centerLat = (n + s) / 2;
+  const centerLng = (e + w) / 2;
+  const discovery = new URL(authoritative);
+  discovery.searchParams.set("north", String(Math.min(n, centerLat + 1.5)));
+  discovery.searchParams.set("south", String(Math.max(s, centerLat - 1.5)));
+  discovery.searchParams.set("east", String(Math.min(e, centerLng + 3)));
+  discovery.searchParams.set("west", String(Math.max(w, centerLng - 3)));
+  discovery.searchParams.set("zoom", "12");
+  discovery.searchParams.set("limit", "100");
+  discovery.searchParams.delete("search");
+
+  const response = await request.get(`${discovery.pathname}${discovery.search}`);
   expect(response.status()).toBe(200);
   const data = await response.json() as LiveMapBody;
-  expect(data.mode).toBe("items");
-  const items = data.items ?? [];
-  const unique = items.find((item) => item.id && item.name?.trim()
-    && items.filter((candidate) => candidate.name === item.name).length === 1);
-  expect(unique, "No unique real map item in current production viewport").toBeDefined();
-  return { id: unique!.id, name: unique!.name };
+  expect(data.mode, "Bounded map discovery must return individual items").toBe("items");
+  const names = [...new Set((data.items ?? []).map((item) => item.name?.trim()).filter(Boolean))];
+
+  // Names need not be globally unique. Confirm the complete live viewport
+  // resolves to one real result before exercising the browser search/card.
+  for (const name of names.slice(0, 20)) {
+    const checkUrl = new URL(authoritative);
+    checkUrl.searchParams.set("search", name);
+    const match = await request.get(`${checkUrl.pathname}${checkUrl.search}`);
+    if (match.status() !== 200) continue;
+    const matchBody = await match.json() as LiveMapBody;
+    if (matchBody.meta?.matched !== 1) continue;
+    const result = (data.items ?? []).find((item) => item.name?.trim() === name);
+    if (result) return { id: result.id, name: result.name };
+  }
+  throw new Error("No unique published map item could be verified inside the live viewport.");
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
