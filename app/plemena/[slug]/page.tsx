@@ -614,7 +614,7 @@ export default async function BreedDetailPage({ params }: Props) {
               <Link href={item.href} key={item.id}>
                 {item.image
                   ? <BreedPhoto src={item.image} alt="" loading="lazy" />
-                  : <span aria-hidden="true"><PawMark size={30} /></span>}
+                  : <span aria-hidden="true"><PublicMediaFallback /></span>}
                 <strong>{item.name}</strong>
                 <small>FCI {item.fciGroup} · {item.fciSection}</small>
               </Link>
