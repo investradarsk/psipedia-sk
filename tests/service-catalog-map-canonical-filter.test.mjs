@@ -112,6 +112,6 @@ test("map public endpoint applies SQL BEFORE its bound and preserves default OFF
  assert.match(ui,/Zrušiť filter služby/);
  assert.match(ui,/canonicalService: ""/);
  assert.match(publicAdapter,/profileAlias:"directory_profiles"\|"d"/);
- assert.doesNotMatch(read("wrangler.jsonc"),/SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED/);
+ assert.equal(JSON.parse(read("wrangler.jsonc")).vars.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED,"true");
  assert.doesNotMatch(query,/INSERT INTO service_profile_option_choices|UPDATE service_catalog_admin_options|DELETE FROM service_profile_option_choices/);
 });
