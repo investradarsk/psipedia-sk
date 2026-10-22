@@ -60,6 +60,26 @@ test("default OFF and missing any established write gate causes zero D1/Notion w
  }finally{f.close();}
 });
 
+test("owner-approved automatic release with zero dynamic options performs no remote writes",async()=>{
+ const f=fixture();
+ try{
+  f.sql.exec("DELETE FROM service_catalog_admin_options");
+  const calls=[];
+  const run=async input=>{
+    calls.push(input.action);
+    if(input.action!=="INVENTORY")throw Error("no option may be provisioned or mirrored");
+    return {state:"INVENTORY",value:{blocked:false,items:[]}};
+  };
+  const flags={...gates,
+    SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED:"true",
+    SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED:"true"};
+  const result=await runServicesV3CatalogAutoSweep({db:f.db,bindings:flags,run});
+  assert.equal(result.state,"IDLE");
+  assert.deepEqual(calls,["INVENTORY"]);
+  assert.equal(f.sql.prepare("SELECT COUNT(*) AS n FROM service_catalog_notion_auto_attempts").get().n,0);
+ }finally{f.close();}
+});
+
 test("0139 is mandatory: missing attempt journal fails closed before inventory/network",async()=>{
  const f=fixture({schema:false});
  try{
@@ -129,7 +149,7 @@ test("canonical version/state CAS and inventory conflicts prevent remote executi
  }finally{f.close();}
 });
 
-test("cron wiring is hourly only, no feature flags in Wrangler, never an HTTP writer",()=>{
+test("cron wiring is hourly only, owner-approved Wrangler flags, never an HTTP writer",()=>{
  const worker=read("worker/index.ts");
  const runner=read("lib/service-catalog-notion-auto-sweep.ts");
  const route=read("app/api/admin/service-catalog/notion-mirror/route.ts");
