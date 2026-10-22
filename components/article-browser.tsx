@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Article } from "@/lib/content";
+import type { ArticleListingCard } from "@/lib/content";
 import { ArticleCard } from "./article-card";
 import { SearchIcon } from "./icons";
 
@@ -13,7 +13,7 @@ export function ArticleBrowser({
   initialQuery = "",
   hidePrimarySearch = false,
 }: {
-  articles: Article[];
+  articles: ArticleListingCard[];
   initialCategory?: string;
   initialQuery?: string;
   hidePrimarySearch?: boolean;

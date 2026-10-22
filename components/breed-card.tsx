@@ -1,6 +1,6 @@
 import { BreedPhoto } from "@/components/breed-photo";
 import Link from "next/link";
-import type { ManagedBreedIndexItem } from "@/lib/breed-store";
+import type { BreedAtlasCard } from "@/lib/breed-store";
 import { ArrowIcon, PawMark } from "./icons";
 
 export function RatingDots({ value, label }: { value: number; label: string }) {
@@ -14,7 +14,7 @@ export function RatingDots({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function BreedCard({ breed }: { breed: ManagedBreedIndexItem }) {
+export function BreedCard({ breed }: { breed: BreedAtlasCard }) {
   const profileHref = `/plemena/${breed.slug}`;
   return (
     <article className={`breed-card breed-card--${breed.accent}`}>
