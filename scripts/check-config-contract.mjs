@@ -149,6 +149,25 @@ export async function auditConfigurationContract(root = defaultRoot) {
     "true",
     "production LOST/FOUND submissions must stay enabled in canonical wrangler config",
   );
+  // Prevent Wrangler/Workers Builds from erasing the Services V3 release flags
+  // the owner already enabled via Dashboard. These are non-secret, manually
+  // operated gates. The *automatic* D1 -> Notion worker stays disabled.
+  for (const name of [
+    "SERVICE_CATALOG_ADMIN_WRITES_ENABLED",
+    "SERVICE_CATALOG_NOTION_MIRROR_READY",
+    "SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED",
+    "SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED",
+  ]) {
+    assert.equal(wrangler.vars?.[name], "true", `Services V3 release flag ${name} must survive Wrangler deploys`);
+  }
+  assert.notEqual(wrangler.vars?.SERVICE_CATALOG_NOTION_AUTO_ENABLED, "true",
+    "Services V3 hourly Notion auto-sync requires separate owner approval");
+  assert.notEqual(wrangler.vars?.SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED, "true",
+    "Services V3 automatic Notion page creation requires separate owner approval");
+  assert.notEqual(wrangler.vars?.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED, "true",
+    "Services V3 public filters must remain separately approved");
+  assert.equal("NOTION_API_TOKEN" in (wrangler.vars ?? {}), false, "Notion API token must remain a Cloudflare secret");
+
   assert.equal(wrangler.vars?.NOTION_ARTICLE_SYNC_ENABLED, "true", "production Notion article sync must stay enabled in wrangler.jsonc");
   assert.equal(
     wrangler.vars?.NOTION_ARTICLES_DATA_SOURCE_ID,
