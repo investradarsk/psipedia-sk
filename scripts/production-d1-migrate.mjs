@@ -34,7 +34,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
   if(targetMigration===PROPOSED_SERVICES_V3_SQL)
     invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
 }
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0140_quality_missing_hourly.sql"]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
@@ -269,6 +269,8 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0137_media_source_review_decisions.sql",
   "0138_article_editorial_outbox.sql",
   "0139_services_catalog_notion_auto_attempts.sql",
+  "0140_directory_service_notion_relations.sql",
+  "0141_quality_missing_hourly.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
