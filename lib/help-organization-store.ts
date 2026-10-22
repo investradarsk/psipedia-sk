@@ -99,6 +99,15 @@ export type PublicOrganizationIndexItem = {
   updatedAt: string;
 };
 
+/** Lean, canonical shelter listing fields; full descriptions/contacts belong to organization detail. */
+export type PublicOrganizationCardItem = Pick<PublicOrganizationIndexItem,
+  "id" | "name" | "slug" | "shortDescription" | "city" | "region" |
+  "imageUrl" | "thumbnailImageDisplay" | "lastVerifiedAt" | "updatedAt">;
+
+type PublicOrganizationCardRow = Pick<PublicOrganizationIndexRow,
+  "id" | "name" | "slug" | "short_description" | "city" | "region" |
+  "image_url" | "thumbnail_display_json" | "last_verified_at" | "updated_at">;
+
 type PublicOrganizationRow = {
   id: number;
   name: string;
@@ -215,10 +224,10 @@ export function buildPublishedOrganizationSitemapQuery() {
     ORDER BY o.slug ASC`;
 }
 
-export function buildPublishedOrganizationIndexQuery(limit = 250) {
+export function buildPublishedOrganizationIndexQuery(limit = 250, projection: "full" | "card" = "full") {
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
   return {
-    sql: `SELECT o.id, o.name, o.slug, o.short_description, o.description,
+    sql: `SELECT o.id, o.name, o.slug, o.short_description,${projection === "full" ? " o.description," : ""}
       COALESCE((
         SELECT l.city FROM organization_locations l
         WHERE l.organization_id = o.id
@@ -231,7 +240,8 @@ export function buildPublishedOrganizationIndexQuery(limit = 250) {
         ORDER BY CASE WHEN l.role = 'SITE' THEN 0 ELSE 1 END, l.is_primary DESC, l.sort_order ASC, l.id ASC
         LIMIT 1
       ), o.region) AS region,
-      o.image_url, o.thumbnail_display_json, o.website_url, o.public_email, o.public_phone,
+      o.image_url, o.thumbnail_display_json,
+      ${projection === "full" ? "o.website_url, o.public_email, o.public_phone," : ""}
       o.published_at, o.last_verified_at, o.updated_at
       FROM help_organizations o
       WHERE ${PUBLIC_ORGANIZATION_PREDICATE}
@@ -438,6 +448,31 @@ export async function listPublishedOrganizations(
     publicEmail: row.public_email,
     publicPhone: row.public_phone,
     publishedAt: row.published_at,
+    lastVerifiedAt: row.last_verified_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+/** Shelter category cards: same published predicate, locations and order as the canonical index,
+ * without fetching long descriptions, contact information or detail metadata. */
+export async function listPublishedOrganizationCards(
+  database: AdoptionD1Database,
+  limit = 250,
+): Promise<PublicOrganizationCardItem[]> {
+  const query = buildPublishedOrganizationIndexQuery(limit, "card");
+  const { results } = await database
+    .prepare(query.sql)
+    .bind(...query.bindings)
+    .all<PublicOrganizationCardRow>();
+  return results.map((row) => ({
+    id: Number(row.id),
+    name: row.name,
+    slug: row.slug,
+    shortDescription: cleanPublicOrganizationCopy(row.short_description),
+    city: row.city,
+    region: row.region,
+    imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
     lastVerifiedAt: row.last_verified_at,
     updatedAt: row.updated_at,
   }));
