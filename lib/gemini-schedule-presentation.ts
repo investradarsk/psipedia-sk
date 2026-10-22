@@ -1,3 +1,5 @@
+import { nextGeminiRunAt } from "./gemini-automation-schedule.ts";
+
 /** Read-only explanation of the persisted Gemini schedule.
  * Never changes D1, queues a task, or infers a future run by itself. */
 export type GeminiScheduleSnapshot = {
@@ -47,11 +49,37 @@ export function geminiSchedulePresentation(
     label: "Neplatný termín", explanation: "Uložený termín sa nedá prečítať.",
   };
   if (date <= now) return {
-    label: "Čaká na plánovač",
-    explanation: "Termín už nastal. Plánovač čaká na voľného pracovníka alebo ďalšiu kontrolu.",
+    label: "Zapnuté",
+    explanation: "Starší termín čaká na spracovanie. Plánovač je zapnutý; nové úlohy sa spúšťajú podľa poradia.",
   };
   return {
     label: "Zapnuté",
     explanation: "Kategória je naplánovaná; nasledujúci termín pochádza z D1.",
   };
+}
+
+
+/** Display the next regular future slot while exposing a due D1 slot separately.
+ * This is read-only: never advance the persisted slot or dispatch paid work.
+ * The worker may process an overdue slot before the displayed future date.
+ */
+export function nextVisibleGeminiSchedule(
+  setting: GeminiScheduleSnapshot & { cadenceMinutes: number; weeklyDay: number | null },
+  now: number,
+): { nextRegularAt: string | null; overdueAt: string | null } {
+  if (!setting.saved || !setting.enabled || setting.maxNewConcepts <= 0 ||
+      !setting.nextRunAt || !Number.isFinite(now)) {
+    return { nextRegularAt: null, overdueAt: null };
+  }
+  const due = new Date(setting.nextRunAt);
+  if (!Number.isFinite(due.getTime())) return { nextRegularAt: null, overdueAt: null };
+  if (due.getTime() > now) return { nextRegularAt: setting.nextRunAt, overdueAt: null };
+  try {
+    return {
+      nextRegularAt: nextGeminiRunAt(due, setting.cadenceMinutes, setting.weeklyDay, new Date(now)),
+      overdueAt: setting.nextRunAt,
+    };
+  } catch {
+    return { nextRegularAt: null, overdueAt: setting.nextRunAt };
+  }
 }

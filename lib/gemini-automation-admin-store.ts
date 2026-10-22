@@ -48,13 +48,17 @@ export async function saveGeminiSetting(db: GeminiD1, input: GeminiSettingsInput
   const existing = await db.prepare(
     "SELECT enabled, cadence_minutes, weekly_day, next_run_at FROM gemini_automation_settings WHERE stable_key = ?"
   ).bind(item.stableKey).first<Pick<GeminiSettingRow, "enabled" | "cadence_minutes" | "weekly_day" | "next_run_at">>();
-  // Editing the maximum count must not erase an already due slot. A changed
-  // interval/week day starts from the save instant, not from stale history.
+  // Saving a category is an explicit schedule confirmation. Keep an unchanged
+  // future slot (including edits to the concept limit), but do not preserve
+  // stale overdue slots from before the scheduler was enabled. Starting at the
+  // next regular slot avoids accidental catch-up paid runs after old outages.
+  // An already queued/running job is not touched by this settings write.
   const unchanged = existing?.enabled === 1 &&
     existing.cadence_minutes === input.cadenceMinutes &&
     (existing.weekly_day ?? null) === input.weeklyDay;
   const next = !input.enabled ? null
-    : unchanged && existing?.next_run_at ? existing.next_run_at
+    : unchanged && existing?.next_run_at && existing.next_run_at > timestamp
+      ? existing.next_run_at
       : nextGeminiRunAt(now, input.cadenceMinutes, input.weeklyDay);
   await db.prepare(`
     INSERT INTO gemini_automation_settings
