@@ -34,7 +34,7 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
   if(targetMigration===PROPOSED_SERVICES_V3_SQL)
     invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
 }
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0140_quality_missing_hourly.sql"]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
