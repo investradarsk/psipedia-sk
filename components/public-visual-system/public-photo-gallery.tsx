@@ -53,6 +53,7 @@ export function PublicPhotoGallery({
             {photo}
           </a>
         ) : <span key={image.src + "-" + index}>{photo}</span>;
-      })}    </div>
+      })}
+    </div>
   );
 }
