@@ -52,8 +52,8 @@ const SPECS: Record<Kind,{table:string;fields:Field[];label:string}> = {
   ]},
   LOST_FOUND: {table:"lost_found_dog_reports",label:"dog_name",fields:[
     photo("main_image"),field("sourceUrl","source_url","Pôvodné hlásenie","web"),
-    field("contactPhone","contact_phone","Telefón","phone"),
-    field("contactEmail","contact_email","E-mail","email"),
+    // Report contacts live in a separate encrypted private-details table;
+    // never attempt an unsafe direct column update or expose those values.
   ]},
 };
 const AREA_KINDS: Record<QualityArea,Kind[]> = {
