@@ -1,0 +1,29 @@
+name: Services V3 hourly D1 Notion auto mirror
+on:
+  pull_request:
+    paths:
+      - "lib/service-catalog-notion-auto-sweep.ts"
+      - "lib/service-catalog-notion-internal-runner.ts"
+      - "worker/index.ts"
+      - "drizzle/0139_services_catalog_notion_auto_attempts.sql"
+      - "tests/service-catalog-notion-auto-sweep.test.mjs"
+      - ".github/workflows/services-v3-hourly-auto-sync.yml"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  once-per-version-auto-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: npm
+      - name: Dependencies for existing TypeScript test loader
+        run: npm ci --no-audit --no-fund
+      - name: Durable intent, source D1 authority and cron safety
+        run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-notion-auto-sweep.test.mjs
