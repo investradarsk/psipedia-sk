@@ -86,14 +86,9 @@ test("runtime dynamic attribute eligibility is fail-closed until ACTIVE and SYNC
  assert.ok(eligible.some(x=>x.source==="built_in"&&x.kind==="attribute"));
 });
 
-test("admin inventory is a read-only explicit action with no Notion write controls",()=>{
- const route=read("app/api/admin/service-catalog/notion-mirror/route.ts");
- assert.match(catalog,/fetch\("\/api\/admin\/service-catalog\/notion-mirror",\{method:"GET",cache:"no-store"\}\)/);
- assert.match(catalog,/result\.state!=="INVENTORY"/);
- assert.match(catalog,/result\.value\?\.mode!=="READ_ONLY"/);
- assert.match(catalog,/inventory\.canonicalDynamicCount/);
- assert.match(catalog,/inventory\.notionPageCount/);
- assert.match(route,/getAdminApiUser\(\)/);
- assert.match(route,/action:"INVENTORY"/);
- assert.match(route,/SERVICES_V3_WRITE_FLAGS_OFF/);
+test("Services V3 catalog sync runs without routine Notion controls",()=>{
+ const scheduler=read("worker/index.ts");
+ assert.match(scheduler,/runSimpleServiceCatalogSync/);
+ assert.doesNotMatch(catalog,/Skontrolovať Notion/);
+ assert.doesNotMatch(catalog,/>Schváliť<\/AdminActionButton>/);
 });
