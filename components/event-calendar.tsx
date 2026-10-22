@@ -19,6 +19,7 @@ import {
   eventTypes,
   formatEventDate,
   type DogEvent,
+  type PublicEventCard,
   type EventTimeFilter,
   type EventType,
   type SlovakRegion,
@@ -48,7 +49,7 @@ export function EventCalendar({
   initialDay = "",
   afterCalendar,
 }: {
-  events: DogEvent[];
+  events: PublicEventCard[];
   filters?: EventListingFilters;
   listing?: {total:number;page:number;pages:number};
   calendarEvents?: DogEvent[];

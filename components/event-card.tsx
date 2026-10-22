@@ -2,21 +2,21 @@ import { eventTypePresentation, getEventOwnImage } from '@/lib/event-type-presen
 import type { CSSProperties } from 'react';
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
-import { eventDateStatus, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { eventDateStatus, eventHref, formatEventDate, type PublicEventCard } from "@/lib/events";
 import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 import { EventImage } from "@/components/event-image";
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MÁJ", "JÚN", "JÚL", "AUG", "SEP", "OKT", "NOV", "DEC"];
 
-function eventTimeLabel(event: DogEvent) {
+function eventTimeLabel(event: PublicEventCard) {
   if (event.startTime && event.endTime) return event.startTime + " – " + event.endTime;
   if (event.startTime) return event.startTime;
   if (event.endTime) return "do " + event.endTime;
   return null;
 }
 
-function endDateLabel(event: DogEvent) {
+function endDateLabel(event: PublicEventCard) {
   if (!event.endDate || event.endDate === event.startDate) return null;
   const startYear = event.startDate.slice(0, 4);
   const endYear = event.endDate.slice(0, 4);
@@ -25,11 +25,11 @@ function endDateLabel(event: DogEvent) {
   return "→ " + day + ". " + month + (startYear === endYear ? "" : " " + endYear);
 }
 
-function eventLocation(event: DogEvent) {
+function eventLocation(event: PublicEventCard) {
   return publicLocationLabel([event.venue, publicLocationValue(event.city, "city"), publicLocationValue(event.region, "region")]);
 }
 
-export function EventCard({ event, today, variant }: { event: DogEvent; today?: string; variant?: "grid" }) {
+export function EventCard({ event, today, variant }: { event: PublicEventCard; today?: string; variant?: "grid" }) {
   const ownImage = getEventOwnImage(event.imageUrl);
   const day = Number(event.startDate.slice(8, 10));
   const month = MONTHS[Number(event.startDate.slice(5, 7)) - 1] || event.startDate.slice(5, 7);
