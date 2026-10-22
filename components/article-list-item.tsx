@@ -1,9 +1,9 @@
-import type { Article } from "@/lib/content";
+import type { ArticleListingCard } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, articlePortalSection } from "@/lib/portal";
 import { PublicArticleListItem } from "@/components/public-visual-system";
 
-export function articleTopicLabel(article: Article) {
+export function articleTopicLabel(article: Pick<ArticleListingCard, "category" | "portalSection" | "newsCategory">) {
   if (articlePortalSection(article) === "novinky") {
     return getNewsCategory(article.newsCategory)?.shortLabel ?? "Zo sveta psov";
   }
@@ -16,7 +16,7 @@ export function ArticleListItem({
   className,
   listItem = true,
 }: {
-  article: Article;
+  article: ArticleListingCard;
   topicLabel?: string;
   className?: string;
   listItem?: boolean;

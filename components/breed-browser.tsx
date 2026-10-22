@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { FciGroup } from "@/lib/content";
-import type { ManagedBreedIndexItem } from "@/lib/breed-store";
+import type { BreedAtlasCard } from "@/lib/breed-store";
 import { normalizeBreedSearchText } from "@/lib/breed-fci";
 import { breedAtlasHref, listFciSectionOptions, validFciSectionForGroup, type BreedAtlasFilters } from "@/lib/breed-atlas";
 import { BreedCard } from "./breed-card";
@@ -19,7 +19,7 @@ const shortGroupLabels: Record<number, string> = {
   6: "Duriče", 7: "Stavače", 8: "Retrievery", 9: "Spoločenské", 10: "Chrty",
 };
 
-export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrimarySearch = false }: { breeds: ManagedBreedIndexItem[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters; actions?: ReactNode; hidePrimarySearch?: boolean }) {
+export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrimarySearch = false }: { breeds: BreedAtlasCard[]; groups: FciGroup[]; initialFilters: BreedAtlasFilters; actions?: ReactNode; hidePrimarySearch?: boolean }) {
   const [query, setQuery] = useState(initialFilters.query);
   const [shown,setShown]=useState(60);
   // The only visible query input now lives in the shared photographic hero.

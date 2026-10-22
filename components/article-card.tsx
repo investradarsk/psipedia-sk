@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Article } from "@/lib/content";
+import type { Article, ArticleListingCard } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel, articlePortalSection } from "@/lib/portal";
 import { ArticleListItem } from "./article-list-item";
@@ -24,7 +24,7 @@ export function ArticleCard({
   listItem = true,
   omitMissingImage = false,
 }: {
-  article: Article;
+  article: ArticleListingCard;
   variant?: ArticleCardVariant;
   large?: boolean;
   topicHref?: string;
