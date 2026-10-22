@@ -164,3 +164,16 @@ test("organization admin finalization keeps create draft-only, OCC edits and exp
   assert.match(listSource, /name="incomplete"/);
   assert.match(listSource, /directoryProfileId/);
 });
+
+
+test("organization editor protects unsaved payload and does not clear it after failed saves", () => {
+  const editor = readFileSync(new URL("../components/admin-organization-editor.tsx", import.meta.url), "utf8");
+  assert.match(editor, /const editorSnapshot = JSON\.stringify\(draft\)/);
+  assert.match(editor, /<EditorUnsavedChangesGuard active=\{dirty\}/);
+  assert.match(editor, /document\.addEventListener\("click", onDocumentClick, true\)/);
+  assert.match(editor, /navigationApi\?\.addEventListener\("navigate", onNativeNavigate\)/);
+  assert.match(editor, /mutationPending\.current = true/);
+  assert.match(editor, /JSON\.stringify\(current\) === submittedSnapshot \? persistedDraft : current/);
+  const catchBlock = editor.slice(editor.indexOf('    } catch (caught) {', editor.indexOf('  async function save')));
+  assert.doesNotMatch(catchBlock.split('  return <form')[0], /setSavedSnapshot|setDraft/);
+});
