@@ -57,7 +57,7 @@ test("Gemini V4 all concepts: 22 categories, 3 sections and compact mobile rows"
     await expect(page.getByText("E2E veterinárna ambulancia")).toBeVisible();
     await expect(page.getByText("E2E výstava psov")).toBeVisible();
     await expect(page.getByText("E2E útulok")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Upraviť v sekcii →" }))
+    await expect(page.getByRole("link", { name: "Otvoriť editor →" }))
       .toHaveAttribute("href", "/admin/podujatia/321");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
       .toBe(true);
@@ -78,7 +78,8 @@ test("Gemini V4 all concepts: 22 categories, 3 sections and compact mobile rows"
     await category.selectOption("help.utulky");
     await expect(page.getByText("E2E útulok")).toBeVisible();
     await expect(page.getByText("E2E výstava psov")).toHaveCount(0);
-    await page.getByRole("link", { name: "Otvoriť v kategórii →" }).click();
+    // A Notion-only concept does not open another Gemini editor.
+    await expect(page.getByRole("link", { name: "Čaká na D1 · zobraziť stav →" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Kategória" })).toHaveValue("help.utulky");
     expect(writes).toBe(0);
   }
