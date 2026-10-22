@@ -464,7 +464,8 @@ export async function updateAdminDogReport(id: number, input: ManagedDogReportIn
   if (input.status !== undefined && !LOST_FOUND_STATUSES.includes(input.status as LostFoundStatus)) throw new Error("Neplatný cieľový stav hlásenia.");
   const requestedStatus = (input.status ?? existing.status) as LostFoundStatus;
   assertLostFoundStatusTransition(existing.status, requestedStatus);
-  const clean = await cleanInput(database, { ...input, status: requestedStatus });
+  // Omitted gallery means unchanged; an explicit [] removes all references.
+  const clean = await cleanInput(database, { ...input, gallery: input.gallery === undefined ? existing.gallery : input.gallery, status: requestedStatus });
   const privatePii = await preparePrivatePii(clean);
   const now = new Date().toISOString();
   const lifecycle = lifecycleFields(clean.status, existing, clean.expiresAt, now);

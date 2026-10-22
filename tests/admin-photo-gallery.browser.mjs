@@ -1,0 +1,58 @@
+// Isolated browser regression; no application server, D1, R2 or external uploads.
+// Run: node tests/admin-photo-gallery.browser.mjs
+import assert from "node:assert/strict";
+import { build } from "esbuild";
+import { chromium } from "playwright";
+const bundle = await build({
+  stdin: {contents: `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{AdminPhotoGallery}from'./components/admin-photo-gallery';function App(){const[v,setV]=useState(['/media/one.webp','/media/two.webp']);const[b,setB]=useState(false);return <><AdminPhotoGallery value={v} onChange={setV} folder="lost-found" limit={4} onBusyChange={setB}/><output id="value" hidden>{JSON.stringify(v)}</output><button id="save" disabled={b}>Uložiť</button></>}createRoot(document.getElementById('root')).render(<App/>);`, resolveDir:process.cwd(), loader:"tsx"},
+  bundle:true, write:false, outdir:"/tmp/psipedia-gallery-browser", jsx:"automatic", define:{"process.env.NODE_ENV":'"production"'},
+});
+const browser=await chromium.launch({headless:true});
+try {
+  const page=await browser.newPage({viewport:{width:320,height:800}});
+  const uploads=[];
+  await page.route("http://gallery.test/**",async route=>{
+    const request=route.request();
+    if(request.url().endsWith('/api/admin/uploads')){
+      uploads.push(request.headers()['x-upload-folder']);
+      const name=decodeURIComponent(request.headers()['x-file-name']);
+      if(name==='fail.png')return route.fulfill({status:400,json:{error:'Testované zlyhanie'}});
+      return route.fulfill({status:200,json:{imageUrl:'/media/'+name,imageKey:name}});
+    }
+    if(request.resourceType()==='document') return route.fulfill({contentType:'text/html',body:'<div id="root"></div>'});
+    return route.fulfill({status:404,body:''});
+  });
+  await page.goto('http://gallery.test/');
+  for(const output of bundle.outputFiles) {
+    if(output.path.endsWith('.css'))await page.addStyleTag({content:output.text});
+    else if(output.path.endsWith('.js'))await page.addScriptTag({content:output.text});
+  }
+  const values=async()=>JSON.parse(await page.locator('#value').textContent());
+  await page.getByRole('button',{name:'Posunúť fotografiu 2 dopredu',exact:true}).click();
+  assert.deepEqual(await values(),['/media/two.webp','/media/one.webp']);
+  await page.getByRole('button',{name:'Odstrániť fotografiu 1 z galérie'}).click();
+  assert.deepEqual(await values(),['/media/one.webp']);
+  const input=page.getByLabel('Pridať fotografiu z URL');
+  await input.fill('javascript:alert(1)');await input.press('Enter');
+  assert.match(await page.getByRole('alert').textContent(),/platnú/);
+  assert.deepEqual(await values(),['/media/one.webp']);
+  await input.fill('/media/three.webp');await input.press('Enter');
+  assert.deepEqual(await values(),['/media/one.webp','/media/three.webp']);
+  // One successful upload must survive a later failure in the same batch.
+  await page.locator('input[type=file]').setInputFiles([
+    {name:'ok.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
+    {name:'fail.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
+  ]);
+  await page.getByRole('alert').filter({hasText:'Testované zlyhanie'}).waitFor();
+  assert.deepEqual(await values(),['/media/one.webp','/media/three.webp','/media/ok.png']);
+  assert.deepEqual(uploads,['lost-found','lost-found']);
+  assert.equal(await page.locator('#save').isEnabled(),true);
+  await page.locator('input[type=file]').setInputFiles([
+    {name:'overflow1.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
+    {name:'overflow2.png',mimeType:'image/png',buffer:Buffer.from('fixture')},
+  ]);
+  await page.getByRole('alert').filter({hasText:'najviac 1'}).waitFor();
+  assert.equal(uploads.length,2);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+  console.log('PASS gallery: reorder, remove, URL validation, Enter, partial upload failure, capacity, folder, busy reset, 320px');
+} finally { await browser.close(); }

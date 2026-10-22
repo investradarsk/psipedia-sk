@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { eventDateStatus, eventHref, formatEventDate, type DogEvent } from "@/lib/events";
+import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 import { EventImage } from "@/components/event-image";
 
@@ -25,8 +26,7 @@ function endDateLabel(event: DogEvent) {
 }
 
 function eventLocation(event: DogEvent) {
-  const values = [event.venue, event.city, event.region].map((value) => value.trim()).filter(Boolean);
-  return [...new Set(values)].join(" · ");
+  return publicLocationLabel([event.venue, publicLocationValue(event.city, "city"), publicLocationValue(event.region, "region")]);
 }
 
 export function EventCard({ event, today, variant }: { event: DogEvent; today?: string; variant?: "grid" }) {
@@ -37,7 +37,7 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
   const timeLabel = eventTimeLabel(event);
   const location = eventLocation(event);
   const endLabel = endDateLabel(event);
-  const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Ukončené" : null;
+  const statusLabel = event.cancelled ? "Zrušené" : dateStatus === "current" ? "Prebieha" : dateStatus === "past" ? "Uskutočnilo sa" : null;
 
   if (variant === 'grid') return <article className={styles.gridCard} data-event-card data-event-has-image={ownImage ? 'true':'false'} data-event-status={event.cancelled ? 'cancelled':dateStatus}>
     <Link href={eventHref(event)} className={styles.gridCardLink}>
@@ -49,8 +49,7 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
         <div className={styles.cardMeta}><span className={styles.gridType} style={{'--event-type-color':eventTypePresentation[event.eventType].color} as CSSProperties}>{eventTypePresentation[event.eventType].label}</span>{statusLabel ? <b>{statusLabel}</b>:null}</div>
         <h3>{event.title}</h3>
         <p>{formatEventDate(event)}{timeLabel ? ' · '+timeLabel:''}</p>
-        <p>{event.region === 'Online' ? 'Online podujatie' : [...new Set([event.venue,event.city].map(v=>v.trim()).filter(Boolean))].join(' · ') || 'Miesto bude upresnené'}</p>
-        {event.region !== 'Online' ? <p>{event.region}</p>:null}
+        <p>{location || "Miesto nie je uvedené"}</p>
       </div>
     </Link>
   </article>;
@@ -83,7 +82,7 @@ export function EventCard({ event, today, variant }: { event: DogEvent; today?: 
         <h3><Link href={eventHref(event)}>{event.title}</Link></h3>
         <div className={styles.cardFacts}>
           {timeLabel && <span><strong>Čas</strong> {timeLabel}</span>}
-          <span><strong>Miesto</strong> {event.region === "Online" ? "Online podujatie" : location || "Miesto bude upresnené"}</span>
+          <span><strong>Miesto</strong> {location || "Miesto nie je uvedené"}</span>
         </div>
       </div>
 

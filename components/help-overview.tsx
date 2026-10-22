@@ -229,7 +229,7 @@ export async function HelpOverview({
                       </div>
                     ) : (
                       <div className={styles.overviewEmpty}>
-                        <p>V tejto kategórii momentálne nemáme nový publikovaný záznam.</p>
+                        <p>Ďalšie prípady a organizácie nájdeš v prehľade kategórie.</p>
                         <Link href={section.href}>Otvoriť kategóriu <ArrowIcon size={15} /></Link>
                       </div>
                     )}

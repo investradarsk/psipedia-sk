@@ -8,6 +8,7 @@ import {
   publicDirectoryFacetKey, publicDirectoryFacetLabels, publicDirectoryFacetOptions,
 } from "@/lib/directory-public-filters";
 import { directoryQueryFields } from "@/lib/directory-query";
+import { publicLocationValue } from "@/lib/public-location";
 import type { DirectoryFilters, PublicDirectoryProfilePage } from "@/lib/directory-store";
 import styles from "./directory-filter-form.module.css";
 
@@ -75,13 +76,13 @@ function FilterFields({ filters, options, basePath, category, modal = false }: P
       <fieldset className={styles.group}>
         <legend>Lokalita</legend>
         <label><span>Kraj</span><select name="region" defaultValue={filters.region} onChange={(event) => LocationSelectChange(event, "region")}>
-          <option value="">Všetky kraje</option>{options.regions.map((item) => <option value={item} key={item}>{item}</option>)}
+          <option value="">Všetky kraje</option>{options.regions.filter((item) => publicLocationValue(item, "region")).map((item) => <option value={item} key={item}>{item}</option>)}
         </select></label>
         <label><span>Okres</span><select name="district" defaultValue={filters.district} onChange={(event) => LocationSelectChange(event, "district")}>
-          <option value="">Všetky okresy</option>{options.districts.map((item) => <option value={item} key={item}>{item}</option>)}
+          <option value="">Všetky okresy</option>{options.districts.filter((item) => publicLocationValue(item, "district")).map((item) => <option value={item} key={item}>{item}</option>)}
         </select></label>
         <label><span>Mesto/obec</span><select name="city" defaultValue={filters.city}>
-          <option value="">Všetky mestá a obce</option>{options.cities.map((item) => <option value={item} key={item}>{item}</option>)}
+          <option value="">Všetky mestá a obce</option>{options.cities.filter((item) => publicLocationValue(item, "city")).map((item) => <option value={item} key={item}>{item}</option>)}
         </select></label>
       </fieldset>
       {(options.services.length > 0 || options.breeds.length > 0 || options.fciGroups.length > 0 || options.organizations.length > 0 || options.profileTypes.length > 0) && (

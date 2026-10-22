@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { formatHelpDate, type HelpCase, type HelpCategorySlug } from "@/lib/help";
 import { getHelpPresentation, usefulHelpValue } from "@/lib/help-detail-presentation";
+import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import {
   HelpContactsCard,
   HelpDetailShell,
@@ -15,7 +16,7 @@ import {
 type Props = { item: HelpCase };
 
 function location(item: HelpCase) {
-  return [usefulHelpValue(item.locationNote), usefulHelpValue(item.city), usefulHelpValue(item.region)].filter(Boolean).join(" · ");
+  return publicLocationLabel([usefulHelpValue(item.locationNote), publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
 }
 
 function textFact(label: string, value: string | null | undefined): HelpFact | null {

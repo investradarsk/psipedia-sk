@@ -109,5 +109,5 @@ test("actual public list uses opt-in read-only SQL adapter and never writes to D
  assert.match(page,/canonicalService: filters\.canonicalService\?\?""/);
  assert.doesNotMatch(adapter,/UPDATE |INSERT |DELETE |NOTION_API_TOKEN/);
  const wrangler=read("wrangler.jsonc");
- assert.doesNotMatch(wrangler,/SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED/);
+ assert.equal(JSON.parse(wrangler).vars.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED,"true");
 });

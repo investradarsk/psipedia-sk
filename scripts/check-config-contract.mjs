@@ -160,12 +160,15 @@ export async function auditConfigurationContract(root = defaultRoot) {
   ]) {
     assert.equal(wrangler.vars?.[name], "true", `Services V3 release flag ${name} must survive Wrangler deploys`);
   }
-  assert.notEqual(wrangler.vars?.SERVICE_CATALOG_NOTION_AUTO_ENABLED, "true",
-    "Services V3 hourly Notion auto-sync requires separate owner approval");
-  assert.notEqual(wrangler.vars?.SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED, "true",
-    "Services V3 automatic Notion page creation requires separate owner approval");
-  assert.notEqual(wrangler.vars?.SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED, "true",
-    "Services V3 public filters must remain separately approved");
+  // Owner explicitly approved final Services V3 activation on 2026-10-22;
+  // canonical Wrangler vars prevent silent reversion on future deployments.
+  for (const name of [
+    "SERVICE_CATALOG_NOTION_AUTO_ENABLED",
+    "SERVICE_CATALOG_NOTION_AUTO_PAGE_CREATES_ENABLED",
+    "SERVICE_CATALOG_PUBLIC_FILTERS_ENABLED",
+  ]) {
+    assert.equal(wrangler.vars?.[name], "true", `Services V3 final release flag ${name} must remain enabled`);
+  }
   assert.equal("NOTION_API_TOKEN" in (wrangler.vars ?? {}), false, "Notion API token must remain a Cloudflare secret");
 
   assert.equal(wrangler.vars?.NOTION_ARTICLE_SYNC_ENABLED, "true", "production Notion article sync must stay enabled in wrangler.jsonc");

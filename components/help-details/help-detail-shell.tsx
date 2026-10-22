@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/page-system";
 import { ShieldCheckIcon } from "@/components/help-public-icons";
 import { formatHelpAmount, formatHelpDate, formatHelpUpdatedDate, getHelpCategory, helpProgress, type HelpCase } from "@/lib/help";
 import { getHelpPresentation, type HelpContact } from "@/lib/help-detail-presentation";
+import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 import {
   DetailHero,
   DetailContactsCard,
@@ -57,6 +58,7 @@ export function HelpDetailShell({
   const showTrust = presentation.sources.length > 0 || Boolean(updatedLabel);
   const heroTitle = title?.trim() || item.title;
   const imageAlt = item.dogName ? `${item.dogName} – ${item.title}` : item.title;
+  const location = publicLocationLabel([publicLocationValue(item.city, "city"), publicLocationValue(item.region, "region")]);
 
   return <main id="obsah" tabIndex={-1} className={styles.detail}>
     <DetailHero kind="help" breadcrumbs={<Breadcrumbs>
@@ -75,7 +77,7 @@ export function HelpDetailShell({
             {contextTitle && contextTitle !== heroTitle && <p className={styles.contextTitle}>{contextTitle}</p>}
 
             <div className={styles.heroMeta}>
-              <span><strong>Lokalita</strong> {item.city}{item.region ? ` · ${item.region}` : ""}</span>
+              {location ? <span><strong>Lokalita</strong> {location}</span> : null}
               {item.reportedDate && <span><strong>Dátum</strong> {formatHelpDate(item.reportedDate)}</span>}
             </div>
             {item.excerpt && <p className={styles.excerpt}>{item.excerpt}</p>}

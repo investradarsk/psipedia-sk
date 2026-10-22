@@ -248,8 +248,9 @@ test("renders the portal homepage", async () => {
   assert.match(html, /Pomoc psom/);
   assert.match(html, /Plemeno dňa/);
   assert.match(html, /Koľko „ľudských rokov“ má tvoj pes/);
-  assert.match(html, /Nové podujatia práve dopĺňame/);
-  assert.match(html, /Momentálne tu nie je otvorená výzva/);
+  assert.match(html, /Pozri si kalendár podujatí/);
+  assert.match(html, /Objav možnosti pomoci psom/);
+  assert.doesNotMatch(html, /Nové podujatia práve dopĺňame|Momentálne tu nie je otvorená výzva/);
   assert.match(html, /href="\/o-nas#kontakt"/);
   assert.match(html, /id="mobile-menu"[^>]*aria-hidden="true"[^>]*inert=""/);
   // Homepage alternates editorial and profile categories; banners live between
@@ -300,7 +301,7 @@ test("renders the portal homepage", async () => {
   assert.doesNotMatch(breedOfTheDayQuery, /fci_standard_json|SELECT \*/);
 });
 
-test("homepage event cards render canonical approved images without a fallback", async () => {
+test("homepage events retain approved photographs and show category fallback art when missing", async () => {
   const now = new Date().toISOString();
   // A fixed 2026 date would become a past event and disappear from homepage selection.
   const upcomingDate = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
@@ -374,7 +375,7 @@ test("homepage event cards render canonical approved images without a fallback",
         async all() {
           return {
             success: true,
-            results: /FROM managed_events\s+WHERE status = 'published' AND cancelled = 0/i.test(sql) && /HOMEPAGE_REAL_IMAGE_SQL|image_url\s*=\s*'\/media\/'\s*\|\|\s*image_key/i.test(sql) ? eventRows.filter((row) => row.image_key && row.image_url === `/media/${row.image_key}`) : [],
+            results: /FROM managed_events\s+WHERE status = 'published' AND cancelled = 0/i.test(sql) ? eventRows : [],
             meta: {},
           };
         },
@@ -402,8 +403,9 @@ test("homepage event cards render canonical approved images without a fallback",
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /Podujatie s obrázkom/);
-    assert.doesNotMatch(html, /Podujatie bez obrázka/);
+    assert.match(html, /Podujatie bez obrázka/);
     assert.match(html, /src="\/media\/events\/home-event\.webp"/);
+    assert.match(html, /\/images\/events\/defaults\/treningy\.webp/);
     assert.doesNotMatch(html, /home-event-placeholder/);
     assert.ok(html.indexOf("home-event-list") < html.indexOf("Celý kalendár"));
   } finally {
@@ -1070,7 +1072,8 @@ test("renders the help portal, stable category URL and emergency guide", async (
   assert.match(helpHtml, /Zbierky a výzvy/);
   assert.match(helpHtml, /Vyberte, čo chcete riešiť/);
   assert.match(helpHtml, /Hlavný prehľad ukazuje len výber aktuálnych možností/);
-  assert.match(helpHtml, /V tejto kategórii momentálne nemáme nový publikovaný záznam\./);
+  assert.match(helpHtml, /Ďalšie prípady a organizácie nájdeš v prehľade kategórie\./);
+  assert.doesNotMatch(helpHtml, /V tejto kategórii momentálne nemáme nový publikovaný záznam\./);
   assert.match(helpHtml, /"CollectionPage"/);
   assert.match(helpHtml, /"BreadcrumbList"/);
   assert.doesNotMatch(helpHtml, /"verified"/i);

@@ -23,6 +23,7 @@ import {
   type EventType,
   type SlovakRegion,
 } from "@/lib/events";
+import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 
 function dateLabel(day: string) {
@@ -195,7 +196,7 @@ export function EventCalendar({
                     <div>
                       <Link href={eventHref(event)}>{event.title}</Link>
                       <span>{formatEventDate(event)}{event.startTime ? " · " + event.startTime : ""}</span>
-                      <span>{event.region === "Online" ? "Online podujatie" : [event.venue, event.city].filter(Boolean).join(" · ") || "Miesto bude upresnené"}</span>
+                      <span>{[event.venue, publicLocationValue(event.city, "city")].filter(Boolean).join(" · ") || (/\bwebin[aá]r\b/iu.test(event.title) ? "Webinár" : "Miesto nie je uvedené")}</span>
                     </div>
                     {event.cancelled ? <strong>Zrušené</strong> : null}
                   </li>

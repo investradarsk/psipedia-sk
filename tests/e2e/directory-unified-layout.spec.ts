@@ -16,12 +16,14 @@ const viewports = [
 
 async function open(page: Page, path: string) {
   let status = 0;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // Exact-head Workers previews occasionally return transient 5xx during heavy
+  // parallel browser matrices. Retries remain bounded and persistent 5xx fail.
+  for (let attempt = 0; attempt < 5; attempt++) {
     const response = await page.goto(path, {waitUntil:"domcontentloaded"});
     status = response?.status() ?? 0;
     if (![500,502,503,504].includes(status)) break;
     console.warn("[directory-preview-5xx]", {path,status,attempt:attempt + 1});
-    if (attempt < 2) await page.waitForTimeout(500 * (attempt + 1));
+    if (attempt < 4) await page.waitForTimeout(750 * 2 ** attempt);
   }
   expect(status, path + " must return 200").toBe(200);
   const mainSearch = page.locator('form[data-public-search-form="services"][role="search"]');

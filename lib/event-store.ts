@@ -17,7 +17,6 @@ import { getPortalSubpage } from "@/lib/portal";
 import { slugifyArticleTitle } from "@/lib/article-store";
 import { cleanEditableSeo, type EditableSeo } from "@/lib/content-seo";
 import { prepareGoogleSourceGeoInvalidation, reconcileGeoAfterSourceMutation } from "@/lib/geo-store";
-import { HOMEPAGE_REAL_IMAGE_SQL } from "@/lib/homepage-media";
 import { normalizeSmartImageMode, type SmartImageMode } from "@/lib/smart-image";
 import { normalizeImageDisplayConfig, readImageDisplayConfig, type ImageDisplayConfig } from "@/lib/image-display";
 
@@ -253,7 +252,7 @@ export function normalizeManagedEventInput(payload: ManagedEventInput) {
   if (endDate && !validDate(endDate)) throw new Error("Dátum konca nie je platný.");
   if (endDate && endDate < startDate) throw new Error("Koniec podujatia nemôže byť pred začiatkom.");
   if (!validTime(startTime) || !validTime(endTime ?? "")) throw new Error("Čas podujatia nie je platný.");
-  if (status === "published" && !city) throw new Error("Doplň mesto alebo označ podujatie ako online.");
+  if (status === "published" && !city) throw new Error("Doplň mesto alebo obec podujatia.");
   if (status === "published" && !region) throw new Error("Vyber kraj.");
   if (status === "published" && !organizer) throw new Error("Doplň organizátora.");
   if (status === "published" && excerpt.length < 20) throw new Error("Krátky popis by mal mať aspoň 20 znakov.");
@@ -324,7 +323,7 @@ export async function getPublishedEvents(limit = 250) {
   return result.results.map(rowToEvent);
 }
 
-/** Homepage image cards only; the public event calendar keeps its full dataset. */
+/** Homepage cards show upcoming events with approved photos or safe category artwork. */
 /** Published events overlapping one local calendar month; one bounded query, no per-day reads. */
 export async function getPublishedEventsInMonth(month: string) {
   const database = getD1Binding();
@@ -349,7 +348,6 @@ export async function getHomepageUpcomingEventsWithImages(limit = 3): Promise<Ho
            image_url, image_display, thumbnail_display_json
     FROM managed_events
     WHERE status = 'published' AND cancelled = 0 AND COALESCE(end_date, start_date) >= ?
-      AND ${HOMEPAGE_REAL_IMAGE_SQL}
     ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?
   `).bind(today, safeLimit).all<HomepageEventRow>();
   return result.results.map((row): HomepageEventCard => ({

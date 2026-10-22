@@ -146,7 +146,9 @@ test("Google-first flow uses editorial address as a discovery hint and confirmat
   assert.match(geoRoute, /confirmAdminGooglePlace/);
   assert.match(googleConfirmation, /updateManagedDirectoryProfileLocationFromGooglePlace/);
   assert.match(googleConfirmation, /applyGooglePlaceResolution/);
-  assert.match(store, /address: place\.formattedAddress/);
+  // Confirmed Google address wins, but a Place without a formatted address must not erase the editorial address.
+  assert.match(store, /const formattedAddress = place\.formattedAddress\.trim\(\) \|\| existing\.address/);
+  assert.match(store, /address: formattedAddress/);
   assert.match(store, /service_address_confirmation = 'CONFIRMED_SERVICE_LOCATION'/);
 });
 

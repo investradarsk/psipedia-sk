@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ArticlePopularityWindow } from "@/lib/article-popularity";
 import type { ArticleDiscoveryPopularItem } from "@/lib/article-discovery";
 import styles from "./article-popularity-sidebar.module.css";
@@ -19,6 +19,13 @@ export function ArticlePopularitySidebar({
 }) {
   const id = useId();
   const [activeWindow, setActiveWindow] = useState<ArticlePopularityWindow>(initialWindow);
+  // Playwright and assistive automation should not click SSR-only tabs before
+  // React hydration attaches the event handlers (notably in mobile Chromium).
+  const sectionRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // Mark interactive readiness only after React attaches event handlers.
+    sectionRef.current?.setAttribute("data-popularity-hydrated", "true");
+  }, []);
   const hasPopularity = popularity["24h"].length > 0 || popularity["7d"].length > 0;
 
   if (!hasPopularity) return null;
@@ -26,7 +33,7 @@ export function ArticlePopularitySidebar({
   const items = popularity[activeWindow].slice(0, 5);
 
   return (
-    <section className={styles.popularity} aria-labelledby={`${id}-heading`}>
+    <section ref={sectionRef} className={styles.popularity} aria-labelledby={`${id}-heading`} data-popularity-hydrated="false">
       <div className={styles.header}>
         <h2 id={`${id}-heading`}>Najčítanejšie</h2>
         <div className={styles.tabs} role="tablist" aria-label="Obdobie rebríčka">

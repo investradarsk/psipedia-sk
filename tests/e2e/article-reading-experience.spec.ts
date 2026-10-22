@@ -384,6 +384,10 @@ for (const articleCase of cases) {
     const popularityHrefs24h = await desktopSidebar.locator('[data-popularity-window="24h"] li a')
       .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
     expect(popularityHrefs24h).not.toContain(articleCase.path);
+    // React may still be hydrating after SSR paints the desktop sidebar,
+    // especially under the mobile Chromium project with a desktop viewport.
+    // Wait for the explicit client readiness marker before testing a click.
+    await expect(desktopSidebar.locator("[data-popularity-hydrated]")).toHaveAttribute("data-popularity-hydrated", "true");
     await tab7d.click();
     await expect(tab7d).toHaveAttribute("aria-selected", "true");
     await expect(desktopSidebar.locator('[data-popularity-window="7d"] li')).toHaveCount(5);
