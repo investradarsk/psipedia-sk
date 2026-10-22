@@ -28,7 +28,10 @@ permissions:
 jobs:
   breeds-admin:
     name: List, editor, relations, bulk and responsive E2E
-    runs-on: ubuntu-latest
+    # Ubuntu 26.04 on ubuntu-latest can expose a Microsoft apt feed that
+    # returns HTTP 403 during Playwright --with-deps, before tests can run.
+    # Pin a supported stable image while keeping browser + OS dependency checks.
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     env:
       E2E_BASE_URL: http://localhost:5173
