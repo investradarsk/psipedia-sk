@@ -1,0 +1,81 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {manualCatalogMirrorAction,manualCatalogMirrorConfirmation}
+  from "../lib/service-catalog-admin-mirror-controls.ts";
+
+const id="svc.admin."+"a".repeat(32);
+const attrId="attr.admin."+"b".repeat(32);
+const option=(overrides={})=>({
+ id,label:"Explicit test service",kind:"service",valueKind:"tri_state",group:"Test",
+ meaning:"Explicit mock-only concept.",categories:["veterinari"],
+ source:"admin",status:"DRAFT",mirror:"PENDING",version:1,
+ ...overrides
+});
+const inventory=(disposition,overrides={})=>({
+ mode:"READ_ONLY",blocked:false,
+ items:[{optionId:id,version:1,disposition}],
+ ...overrides
+});
+const enabled={mirrorEnabled:true,pageCreationEnabled:true};
+
+test("missing, blocked, stale, duplicate or forged inventory never enables a Notion mutation",()=>{
+ for(const snap of [
+  null,
+  inventory("NEEDS_PAGE",{blocked:true}),
+  inventory("NEEDS_PAGE",{items:[]}),
+  inventory("NEEDS_PAGE",{items:[{optionId:id,version:2,disposition:"NEEDS_PAGE"}]}),
+  inventory("NEEDS_PAGE",{items:[
+   {optionId:id,version:1,disposition:"NEEDS_PAGE"},
+   {optionId:id,version:1,disposition:"NEEDS_PAGE"}
+  ]}),
+  inventory("BLOCKED"),
+  inventory("SYNCED_VERIFIED"),
+ ]){
+  assert.equal(manualCatalogMirrorAction(option(),snap,enabled),null);
+ }
+ assert.equal(manualCatalogMirrorAction(option(),inventory("NEEDS_PAGE"),{mirrorEnabled:false,pageCreationEnabled:true}),null);
+ assert.equal(manualCatalogMirrorAction(option(),inventory("NEEDS_PAGE"),{mirrorEnabled:true,pageCreationEnabled:false}),null);
+ assert.equal(manualCatalogMirrorAction(option(),inventory("NEEDS_PAGE"),enabled),"PROVISION_ONE");
+ assert.equal(manualCatalogMirrorAction(option(),inventory("MAPPED_PENDING"),{mirrorEnabled:true,pageCreationEnabled:false}),"MIRROR_ONE");
+});
+test("only DRAFT/PENDING dynamic canonical options with current versions are eligible",()=>{
+ const snap=inventory("MAPPED_PENDING");
+ for(const invalid of [
+  {source:"built_in"},{status:"ACTIVE"},{status:"RETIRED"},
+  {mirror:"SYNCED"},{mirror:"CONFLICT"},{version:2},
+  {id:"svc.vet.vaccination"},{id:"svc.admin."+("Z".repeat(32))},
+  {version:null},{version:0}
+ ])assert.equal(manualCatalogMirrorAction(option(invalid),snap,enabled),null);
+ assert.equal(manualCatalogMirrorAction(null,snap,enabled),null);
+ assert.equal(manualCatalogMirrorAction(option(),snap,enabled),"MIRROR_ONE");
+ const attr={...option(),id:attrId,kind:"attribute"};
+ assert.equal(manualCatalogMirrorAction(attr,inventory("MAPPED_PENDING",{
+  items:[{optionId:attrId,version:1,disposition:"MAPPED_PENDING"}]
+ }),enabled),"MIRROR_ONE");
+});
+test("confirmation binds exactly one action and one dynamic canonical ID",()=>{
+ assert.equal(manualCatalogMirrorConfirmation("PROVISION_ONE",id),"SERVICES-V3-PROVISION_ONE-"+id);
+ assert.equal(manualCatalogMirrorConfirmation("MIRROR_ONE",id),"SERVICES-V3-MIRROR_ONE-"+id);
+ assert.notEqual(manualCatalogMirrorConfirmation("PROVISION_ONE",id),manualCatalogMirrorConfirmation("MIRROR_ONE",id));
+});
+test("Admin UI only uses existing strict Admin Notion route with explicit user confirmation",()=>{
+ const fs=await import("node:fs");
+ const read=p=>fs.readFileSync(new URL("../"+p,import.meta.url),"utf8");
+ const ui=read("components/admin-service-catalog-workspace.tsx");
+ const page=read("app/admin/sluzby-pre-psov/katalog/page.tsx");
+ const route=read("app/api/admin/service-catalog/notion-mirror/route.ts");
+ const wrangler=read("wrangler.jsonc");
+ assert.match(ui,/manualCatalogMirrorAction\(selected,inventory/);
+ assert.match(ui,/mirrorConfirmation!==manualCatalogMirrorConfirmation/);
+ assert.match(ui,/method:"POST",headers:\{"content-type":"application\/json"\},cache:"no-store"/);
+ assert.match(ui,/action:operation.action,optionId:operation.optionId,confirmation:expected/);
+ assert.match(ui,/setInventory\(null\)/);
+ assert.doesNotMatch(ui,/setInterval|setTimeout|Promise\.all\(.*(PROVISION_ONE|MIRROR_ONE)/);
+ assert.match(page,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED==="true"/);
+ assert.match(page,/SERVICE_CATALOG_NOTION_PAGE_CREATES_ENABLED==="true"/);
+ assert.match(route,/strictProvenance:true/);
+ assert.match(route,/const expected="SERVICES-V3-"\+action\+"-"\+b.optionId/);
+ assert.match(route,/size>1024/);
+ assert.match(route,/SERVICES_V3_WRITE_FLAGS_OFF/);
+ assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
+});
