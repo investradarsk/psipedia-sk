@@ -28,6 +28,8 @@ test("public profiles retain real photos and show canonical fallback only when a
   }
   assert.ok(card.includes("profile.imageUrl ? <ImageDisplay"));
   assert.ok(card.includes("styles.cardWithImage"), "no-photo cards keep the same media column");
+  assert.ok(card.includes("publicLocationValue(profile.city"), "preserve canonical public-location sanitation from main");
+  assert.ok(card.includes("publicLocationLabel("), "preserve canonical location presentation from main");
   assert.ok(directory.includes("config={presentation.detailImageDisplay}"));
   assert.ok(directory.includes('<PublicMediaFallback size="detail"'));
   assert.ok(organization.includes("config={imageConfig}"));
