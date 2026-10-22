@@ -185,11 +185,28 @@ export async function runSimpleServiceCatalogSync(input:{
     if(operations>=limit)break;
     if(page.fields.id)continue;
     const f=page.fields;
-    if(f.valueKind!=="tri_state"||knownNames.has(normalizeCatalogLabel(f.label))){zero.conflicts++;continue;}
+    if(f.valueKind!=="tri_state"){zero.conflicts++;continue;}
+    const id=(f.kind==="service"?"svc.admin.":"attr.admin.")+normalizeUuid(page.id);
+    // A previous run may have committed the D1 import but timed out before
+    // writing the canonical ID back to Notion. Recover that exact page, never
+    // create a second D1 option with the same name.
+    const saved=byId.get(id);
+    if(saved){
+      const wanted=fromRow(saved);
+      if(saved.status==="RETIRED"||saved.notion_mirror_status==="CONFLICT"){zero.conflicts++;continue;}
+      if(!await claim(wanted,"MIRROR_ONE")){zero.conflicts++;continue;}
+      try{
+        const ack=await notion("pages/"+encodeURIComponent(page.id),"PATCH",{properties:notionProperties(wanted)}) as RawPage;
+        if(normalizeUuid(ack.id??"")!==normalizeUuid(page.id))throw Error("NOTION_IMPORT_ACK_INVALID");
+        await finish(wanted,"MIRROR_ONE","EXISTS");
+        zero.updated++;operations++;
+      }catch{zero.conflicts++;}
+      continue;
+    }
+    if(knownNames.has(normalizeCatalogLabel(f.label))){zero.conflicts++;continue;}
     let valid;
     try{valid=validateCatalogOptionDraft({name:f.label,kind:f.kind,categories:f.categories,group:f.group});}
     catch{zero.conflicts++;continue;}
-    const id=(f.kind==="service"?"svc.admin.":"attr.admin.")+normalizeUuid(page.id);
     const inserted=await db.prepare(
       "INSERT INTO service_catalog_admin_options "+
       "(id,kind,label,normalized_label,group_name,meaning,primary_category,categories_json,value_kind,status,notion_mirror_status,version,created_at,updated_at,created_by,updated_by) "+
@@ -202,6 +219,7 @@ export async function runSimpleServiceCatalogSync(input:{
       group_name:valid.group,meaning:f.meaning,primary_category:valid.category,
       categories_json:JSON.stringify(valid.categories),value_kind:"tri_state",status:"ACTIVE",
       notion_mirror_status:"PENDING",version:1,updated_at:now});
+    knownNames.add(normalizeCatalogLabel(valid.name));
     zero.imported++;operations++;
   }
   // Reconcile known dynamic pages: Notion edits win ONLY when its version
