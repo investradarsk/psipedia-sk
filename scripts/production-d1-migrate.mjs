@@ -269,6 +269,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0137_media_source_review_decisions.sql",
   "0138_article_editorial_outbox.sql",
   "0139_services_catalog_notion_auto_attempts.sql",
+  "0140_directory_service_notion_relations.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
