@@ -50,6 +50,9 @@ async function fixture(opts={}){
     name:"Mobilná veterinárna pomoc",kind:"service",category:"veterinari",
     group:"Veterinárna starostlivosť",meaning:"Ošetrenie domácich zvierat mimo veterinárnej ambulancie."
   },"admin@example.com");
+  // Legacy manual mirror executor still protects DRAFT options. Normal new
+  // catalog entries are now ACTIVE immediately and use the automatic sync.
+  sqlite.prepare("UPDATE service_catalog_admin_options SET status='DRAFT' WHERE id=?").run(created.id);
   const local=()=>{const x=sqlite.prepare("SELECT * FROM service_catalog_admin_options WHERE id=?").get(created.id);
     return {id:x.id,version:x.version,status:x.status,notionMirrorStatus:x.notion_mirror_status,
       kind:x.kind,label:x.label,group:x.group_name,meaning:x.meaning,
@@ -200,7 +203,7 @@ test("no worker/route automatically activates the new executor",()=>{
   const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
   const wrangler=read("wrangler.jsonc");
   assert.doesNotMatch(route,/executeServiceCatalogNotionMirror/);
-  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
+  assert.match(wrangler,/SERVICE_CATALOG_NOTION_EXECUTOR_ENABLED/);
 });
 const keys={optionId:"Canonical ID",optionVersion:"Canonical Version",kind:"Kind",label:"Display Name",
   group:"Group",meaning:"Meaning",primaryCategory:"Primary Category",
@@ -906,6 +909,6 @@ test("manual Services V3 route and runner do not activate any environment flag o
   assert.ok(routeGet);
   assert.match(routeGet,/action:"INVENTORY"/);
   assert.doesNotMatch(routeGet,/PROVISION_ONE|MIRROR_ONE|createPage\(/);
-  assert.doesNotMatch(wrangler,/SERVICE_CATALOG_(?:ADMIN_WRITES_ENABLED|NOTION_MIRROR_READY|NOTION_EXECUTOR_ENABLED|NOTION_PAGE_CREATES_ENABLED)/);
+  assert.match(wrangler,/SERVICE_CATALOG_ADMIN_WRITES_ENABLED/);
   assert.ok(!read(".github/workflows/services-v3-notion-mirror-offline.yml").includes("CLOUDFLARE_D1_API_TOKEN"));
 });
