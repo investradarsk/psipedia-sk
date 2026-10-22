@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminEventEditor } from "@/components/admin-event-editor";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminCanonicalDraftWarning } from "@/components/admin-canonical-draft-warning";
+import { AdminGeminiOriginBadge } from "@/components/admin-gemini-origin-badge";
 import { AdminCanonicalDraftDelete } from "@/components/admin-canonical-draft-delete";
 import { AdminShell } from "@/components/admin-shell";
 import { requireAdminPageUser } from "@/lib/admin-auth";
@@ -30,5 +31,5 @@ export default async function EditEventPage({ params }: Props) {
   return <AdminShell user={user} eyebrow={event.status === "published" ? "Publikované podujatie" : "Rozpracovaný koncept"} title="Upraviť podujatie" description="Zmeny ulož ako koncept alebo ich rovno publikuj v kalendári." actions={<>
     <AdminReviewCheckbox entityType="EVENT" entityId={event.id} initialReviewed={review.reviewed} initialReviewedAt={review.reviewedAt} showDate />
     {event.status === "published" && <Link href={eventHref(event)} target="_blank" rel="noreferrer">Otvoriť verejné podujatie ↗</Link>}
-  </>}><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminEventEditor event={event} automationSuggestions={automationSuggestions} />{event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}</AdminShell>;
+  </>}><AdminGeminiOriginBadge agenda="events" entityId={event.id} /><AdminCanonicalDraftWarning warning={duplicateWarning} /><AdminEventEditor event={event} automationSuggestions={automationSuggestions} />{event.status === "draft" && <AdminCanonicalDraftDelete entityType="EVENT" canonicalEntityId={event.id} returnHref="/admin/podujatia" />}</AdminShell>;
 }

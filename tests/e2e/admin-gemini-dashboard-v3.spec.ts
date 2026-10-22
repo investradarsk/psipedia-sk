@@ -266,10 +266,10 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
   await category.selectOption("directory.veterinari");
   const conceptPanel = page.getByRole("button", { name: /Koncepty z automatizácie/ });
   await conceptPanel.click();
-  await expect(page.getByRole("searchbox", { name: /Hľadať koncept v načítaných záznamoch/ })).toBeVisible();
+  const search = page.getByRole("searchbox", { name: /Hľadať koncept v načítaných záznamoch/ });
+  await expect(search).toBeVisible();
   expect(listCalls).toBe(1);
 
-  const search = page.getByRole("searchbox", { name: /Hľadať koncept v načítaných záznamoch/ });
   await search.fill("e2e veterinárna");
   await expect(page.getByText("E2E veterinárna ambulancia")).toBeVisible();
   await search.fill("nezodpovedajúci dotaz");
@@ -278,10 +278,11 @@ test("AdminShell V3 navigation and canonical Gemini concept editor integrate wit
   await page.getByRole("combobox", { name: "Stav konceptu" }).selectOption("NEW");
   expect(listCalls).toBe(1);
 
-  const edit = page.getByRole("button", { name: "Otvoriť editor", exact: true });
-  await edit.click();
-  await expect(page.getByRole("dialog", { name: /Upraviť koncept – E2E veterinárna ambulancia/ })).toBeVisible();
-  expect(detailCalls).toBe(1);
+  // Notion-only concepts must not open a second editor. No write or paid call.
+  await expect(page.getByText("Čaká na automatický prenos do D1")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Otvoriť editor", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: /Upraviť koncept/ })).toHaveCount(0);
+  expect(detailCalls).toBe(0);
   expect(writes).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

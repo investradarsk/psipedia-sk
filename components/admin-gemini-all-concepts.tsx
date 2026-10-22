@@ -113,7 +113,7 @@ export function AdminGeminiAllConcepts() {
         {draft.syncError && <span role="status" className={styles.warning}>Sync: {draft.syncError}</span>}
         {canonicalUrl || categoryUrl ? (
           <Link className={styles.open} href={canonicalUrl ?? categoryUrl!}>
-            {canonicalUrl ? "Upraviť v sekcii →" : "Otvoriť v kategórii →"}
+            {canonicalUrl ? "Otvoriť editor →" : "Čaká na D1 · zobraziť stav →"}
           </Link>
         ) : <span className={styles.open}>Otvoriť v kategórii →</span>}
       </li>
