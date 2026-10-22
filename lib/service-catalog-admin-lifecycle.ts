@@ -81,7 +81,7 @@ export async function mutateAdminCatalogOption(db:DB,idRaw:unknown,raw:unknown,a
   const time=now.toISOString();
   let sql:string,params:(string|number)[];
   if(action==="edit"){
-    if(row.status==="RETIRED"||row.notion_mirror_status==="CONFLICT")
+    if(row.status==="RETIRED")
       throw new ServiceCatalogConflictError("Edit is limited to non-conflicted DRAFT options.");
     const draft=editPayload(body,row.kind);
     if(draft.name===row.label&&draft.group===row.group_name&&draft.meaning===row.meaning&&draft.category===row.primary_category&&JSON.stringify(draft.categories)===row.categories_json)

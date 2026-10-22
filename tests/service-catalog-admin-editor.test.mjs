@@ -45,7 +45,7 @@ test("navigation and cancel do not silently discard draft values",()=>{assert.ma
 test("Services profile delegates its single feedback status to shared EditorActionBar",()=>{const workspace=read("components/admin-editor-workspace.tsx");assert.doesNotMatch(profile,/<span role="status">|<span aria-live="polite" aria-atomic="true">/);assert.match(profile,/<EditorActionBar message=\{message\}/);assert.match(workspace,/className=\{styles\.actionMessage\} role="status" aria-live="polite"/);});
 test("simple catalog retains CAS, auth and multi-category inputs",()=>{
  const route=read("app/api/admin/service-catalog/options/[id]/route.ts");
- assert.match(catalog,/expectedVersion:item.version/);
+ assert.match(catalog,/expectedVersion:editing!.version/);
  assert.match(catalog,/action:"edit"/);
  assert.match(catalog,/draft.categories/);
  assert.match(catalog,/Uložiť/);

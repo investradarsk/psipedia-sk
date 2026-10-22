@@ -57,7 +57,7 @@ test("enabled writes offer only simple catalog action",()=>{
  const out=html({writeEnabled:true});
  assert.match(out,/<button>\+ Nová služba<\/button>/);
  assert.doesNotMatch(out,/Schválenie vyžaduje SYNCED/);
- assert.match(out,/Zmeny katalógu sa prenášajú automaticky/);
+ assert.match(out,/Prenos do Notionu sa vykonáva automaticky/);
 });
 test("load errors remain visible and disable writes",()=>{
  const out=html({writeEnabled:true,loadError:"Chyba katalógu"});
