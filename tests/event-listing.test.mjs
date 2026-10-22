@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { parseEventListing, eventListingSql, eventTypeSelectionRedirect, eventListingParams, eventSearchSql, normalizeEventSearch } from '../lib/event-listing.ts';
 const database = new DatabaseSync(':memory:');
-database.exec(`CREATE TABLE managed_events(id INTEGER PRIMARY KEY,title TEXT,excerpt TEXT,event_type TEXT,venue TEXT,address TEXT,city TEXT,region TEXT,organizer TEXT,status TEXT,start_date TEXT,end_date TEXT,start_time TEXT,cancelled INTEGER)`);
-const insert = database.prepare(`INSERT INTO managed_events VALUES (?,?,'','Výstava','Výstavisko','','Žilina','Žilinský kraj','Klub','published','2026-10-10','2026-10-12','09:00',0)`);
+database.exec(`CREATE TABLE managed_events(id INTEGER PRIMARY KEY,title TEXT,excerpt TEXT,event_type TEXT,venue TEXT,address TEXT,city TEXT,region TEXT,organizer TEXT,status TEXT,start_date TEXT,end_date TEXT,start_time TEXT,cancelled INTEGER,slug TEXT DEFAULT '',end_time TEXT DEFAULT '',image_url TEXT DEFAULT '',image_display TEXT DEFAULT '',thumbnail_display_json TEXT DEFAULT '')`);
+const insert = database.prepare(`INSERT INTO managed_events (id,title,excerpt,event_type,venue,address,city,region,organizer,status,start_date,end_date,start_time,cancelled) VALUES (?,?,'','Výstava','Výstavisko','','Žilina','Žilinský kraj','Klub','published','2026-10-10','2026-10-12','09:00',0)`);
 for (let id = 1; id <= 301; id++)
     insert.run(id, `ŽILINSKÁ výstava ${id}`);
 function read(raw, type = 'Všetky') { const f = parseEventListing(raw, type); const q = eventListingSql(f, '2026-10-11'); return { f, q, total: database.prepare(`SELECT COUNT(*) AS total FROM managed_events WHERE ${q.where}`).get(...q.values).total, ids: database.prepare(`SELECT id FROM managed_events WHERE ${q.where} ORDER BY ${q.order} LIMIT 12 OFFSET ?`).all(...q.values, (f.page - 1) * 12).map(row => row.id) }; }
@@ -37,7 +37,7 @@ test('actual public D1 reads clamp pages and count all 601 events independently 
   const {env} = await import('cloudflare:workers');
   const db = new DatabaseSync(':memory:');
   db.exec(database.prepare("SELECT sql FROM sqlite_master WHERE name='managed_events'").get().sql);
-  const insert = db.prepare("INSERT INTO managed_events VALUES (?,?,'','Výstava','Výstavisko','','Žilina','Žilinský kraj','Klub','published','2026-10-10','2026-10-12','09:00',0)");
+  const insert = db.prepare("INSERT INTO managed_events (id,title,excerpt,event_type,venue,address,city,region,organizer,status,start_date,end_date,start_time,cancelled) VALUES (?,?,'','Výstava','Výstavisko','','Žilina','Žilinský kraj','Klub','published','2026-10-10','2026-10-12','09:00',0)");
   for (let id=1;id<=601;id++) insert.run(id,`ŽILINSKÁ výstava ${id}`);
   const previous = env.DB;
   env.DB = {prepare(sql) {const statement=db.prepare(sql);return {bind(...params){return {first:async()=>statement.get(...params),all:async()=>({results:statement.all(...params)})};}};}};
@@ -55,6 +55,20 @@ test('actual public D1 reads clamp pages and count all 601 events independently 
     }
   } finally {env.DB=previous;db.close();}
 });
+test('public event listing reads only card fields and keeps complete event details on their own route', async () => {
+  const { readFileSync } = await import('node:fs');
+  const store = readFileSync('lib/event-store.ts', 'utf8');
+  const start = store.indexOf('export async function getPublishedEventListing(');
+  const end = store.indexOf('export async function getPublicEventCalendar(', start);
+  assert.ok(start >= 0 && end > start);
+  const listing = store.slice(start, end);
+  assert.match(listing, /rowToPublicEventCard/);
+  assert.match(listing, /thumbnail_display_json/);
+  assert.doesNotMatch(listing, /SELECT \*|description|practical_info|seo_json|created_by|updated_by/);
+  assert.match(store, /const getPublishedEventUncached = async/);
+  assert.match(store, /SELECT \* FROM managed_events WHERE slug = \?/);
+});
+
 test('combined search stays below the D1 SQL statement size limit', () => {
   const filters = parseEventListing({q:'pes',mesto:'zilina',region:'Žilinský kraj',mesiac:'2026-10',od:'2026-10-01',do:'2026-10-31'},'Výstava');
   const sql = eventListingSql(filters,'2026-10-11');

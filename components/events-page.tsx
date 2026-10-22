@@ -21,6 +21,7 @@ import {
   eventTimeFilterParam,
   eventTypes,
   type DogEvent,
+  type PublicEventCard,
   type EventTimeFilter,
   type EventType,
   type SlovakRegion,
@@ -43,7 +44,7 @@ export async function EventsPage({
   initialRegion = "",
   initialMonth = "",
 }: {
-  events: DogEvent[];
+  events: PublicEventCard[];
   filters?: EventListingFilters;
   listing?: {total:number;page:number;pages:number};
   calendarEvents?: DogEvent[];
