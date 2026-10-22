@@ -78,7 +78,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
           <span>Typ služby</span>
           <select
             value={filters.subcategory}
-            onChange={(event) => onChange({ ...filters, subcategory: event.target.value, facets: {} })}
+            onChange={(event) => onChange({ ...filters, subcategory: event.target.value, facets: {}, canonicalService: "" })}
           >
             <option value="">Všetky služby</option>
             {directoryCategories.map((category) => (
@@ -86,6 +86,13 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
             ))}
           </select>
         </label>
+      ) : null}
+
+      {serviceCategory && filters.canonicalService ? (
+        <div data-services-v3-map-filter aria-label="Potvrdená služba">
+          <p>Aktívny filter: potvrdená služba z katalógu Psipedia. Mapa zobrazuje iba profily s výslovne potvrdenou hodnotou Áno.</p>
+          <button type="button" onClick={() => onChange({...filters,canonicalService:""})}>Zrušiť filter služby</button>
+        </div>
       ) : null}
 
       <label>
@@ -166,6 +173,7 @@ function activeFilterCount(filters: MapUiFilters) {
   return [
     filters.category,
     filters.subcategory,
+    filters.canonicalService ?? "",
     filters.region,
     filters.district,
     filters.city,
