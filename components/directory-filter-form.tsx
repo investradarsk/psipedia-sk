@@ -214,7 +214,7 @@ export function DirectoryFilterForm(props: Props) {
           onClick={() => dialog.current?.showModal()}>
           Filtre{activeSelections.length > 0 ? ` (${activeSelections.length})` : ""}
         </button>}
-        <Link className={styles.mapLink} href={mapHref}>Mapa →</Link>
+        <Link className={styles.mapLink} href={mapHref} title={filters.canonicalService?"Mapa zatiaľ nezohľadňuje vybranú potvrdenú službu.":undefined}>{filters.canonicalService?"Mapa (bez filtra služby) →":"Mapa →"}</Link>
       </div>
       <details ref={disclosure} open className={styles.disclosure}
         data-hydrated={hydrated ? "true" : "false"} data-directory-filter-disclosure>
