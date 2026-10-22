@@ -31,15 +31,22 @@ export function PublicPhotoGallery({
       data-photo-fit={fit}
     >
       {visible.map((image, index) => (
-        <img
+        <a
           key={image.src + "-" + index}
-          src={image.src}
-          alt={image.alt}
-          loading="lazy"
-          decoding="async"
-          width={640}
-          height={480}
-        />
+          href={image.src}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={image.alt ? `Otvoriť fotografiu: ${image.alt} (nové okno)` : `Otvoriť fotografiu ${index + 1} (nové okno)`}
+        >
+          <img
+            src={image.src}
+            alt={image.alt}
+            loading="lazy"
+            decoding="async"
+            width={640}
+            height={480}
+          />
+        </a>
       ))}
     </div>
   );
