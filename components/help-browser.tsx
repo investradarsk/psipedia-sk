@@ -5,7 +5,7 @@ import { PageContainer } from "@/components/page-system";
 import { PublicContentShell } from "@/components/public-visual-system";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
-import type { HelpCase, HelpCategorySlug } from "@/lib/help";
+import type { PublicHelpCard, HelpCategorySlug } from "@/lib/help";
 import styles from "./help-public.module.css";
 
 type CategoryFilter = "all" | HelpCategorySlug;
@@ -27,7 +27,7 @@ export function HelpBrowser({
   initialActiveOnly = true,
   initialRegion = "all",
 }: {
-  items: HelpCase[];
+  items: PublicHelpCard[];
   initialCategory?: CategoryFilter;
   children?: ReactNode;
   initialQuery?: string;

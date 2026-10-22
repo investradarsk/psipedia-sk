@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { StructuredData } from "@/components/structured-data";
 import { HelpPage } from "@/components/help-page";
-import { getPublishedHelpCases } from "@/lib/help-store";
+import { getPublishedHelpCaseCards } from "@/lib/help-store";
 import { getHelpCategory, helpCaseHref, isHelpCategory } from "@/lib/help";
 import { buildCollectionPageJsonLd, buildListingPageMetadata } from "@/lib/listing-seo";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
@@ -39,7 +39,7 @@ export default async function HelpCategoryPage({ params, searchParams }: Props) 
   if (category === "stratene-a-najdene") redirect("/pomoc-psom/stratene-psy");
   const definition = getHelpCategory(category);
   if (!definition) notFound();
-  const [items, rawSearchParams] = await Promise.all([getPublishedHelpCases(category), searchParams]);
+  const [items, rawSearchParams] = await Promise.all([getPublishedHelpCaseCards(category), searchParams]);
   const initialQuery = scalar(rawSearchParams.q).trim().slice(0, 120);
   const initialActiveOnly = scalar(rawSearchParams.stav) !== "vsetky";
   const initialRegion = regionFilter(rawSearchParams.region);

@@ -8,6 +8,7 @@ import {
   allHelpCategories,
   isHelpCategory,
   type HelpCase,
+  type PublicHelpCard,
   type HelpCaseStatus,
   type HelpCategorySlug,
 } from "@/lib/help";
@@ -111,6 +112,54 @@ type HomepageHelpRow = Pick<HelpCaseRow,
 export type HomepageHelpCard = Pick<HelpCase,
   "id" | "slug" | "title" | "category" | "status" | "city" |
   "imageUrl" | "thumbnailImageDisplay" | "urgent" | "resolved">;
+
+/** Projection for help-category card listing; private contacts, long descriptions and SEO stay in detail/admin reads. */
+type PublicHelpCardRow = Pick<HelpCaseRow,
+  "id" | "slug" | "title" | "category" | "excerpt" | "organization" |
+  "dog_name" | "breed" | "age_note" | "city" | "region" | "reported_date" |
+  "goal_amount" | "raised_amount" | "image_url" | "thumbnail_display_json" |
+  "urgent" | "verified" | "resolved" | "updated_at">;
+
+export const PUBLIC_HELP_CARD_COLUMNS = "id,slug,title,category,excerpt,organization,dog_name,breed,age_note,city,region,reported_date,goal_amount,raised_amount,image_url,thumbnail_display_json,urgent,verified,resolved,updated_at";
+
+function rowToPublicHelpCard(row: PublicHelpCardRow): PublicHelpCard {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    category: isHelpCategory(row.category) ? row.category : "urgentne-pripady",
+    excerpt: row.excerpt,
+    organization: row.organization,
+    dogName: row.dog_name,
+    breed: row.breed,
+    ageNote: row.age_note,
+    city: row.city,
+    region: (slovakRegions as readonly string[]).includes(row.region) ? row.region as SlovakRegion : "Online",
+    reportedDate: row.reported_date,
+    goalAmount: row.goal_amount,
+    raisedAmount: row.raised_amount,
+    imageUrl: row.image_url,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    urgent: Boolean(row.urgent),
+    verified: Boolean(row.verified),
+    resolved: Boolean(row.resolved),
+    updatedAt: row.updated_at,
+  };
+}
+
+/** For organizations use the existing canonical conversion, but transmit only card fields. */
+function helpCaseToPublicHelpCard(item: HelpCase): PublicHelpCard {
+  const {
+    id, slug, title, category, excerpt, organization, dogName, breed, ageNote,
+    city, region, reportedDate, goalAmount, raisedAmount, imageUrl,
+    thumbnailImageDisplay, urgent, verified, resolved, updatedAt,
+  } = item;
+  return {
+    id, slug, title, category, excerpt, organization, dogName, breed, ageNote,
+    city, region, reportedDate, goalAmount, raisedAmount, imageUrl,
+    thumbnailImageDisplay, urgent, verified, resolved, updatedAt,
+  };
+}
 
 type HelpCaseSummaryRow = {
   id: number;
@@ -342,6 +391,22 @@ function normalizeInput(payload: ManagedHelpCaseInput, options: { allowLegacyUrg
     resolved: Boolean(payload.resolved),
     seo: cleanEditableSeo(payload.seo),
   };
+}
+
+/** Category landing: only the fields actually used for search and public cards. */
+export async function getPublishedHelpCaseCards(category: HelpCategorySlug, limit = 250): Promise<PublicHelpCard[]> {
+  const database = getD1Binding();
+  if (!database || category === "adopcia" || category === "stratene-a-najdene") return [];
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
+  if (category === "utulky") {
+    const organizations = await listPublishedOrganizations(database as unknown as AdoptionD1Database, safeLimit);
+    return organizations.map(canonicalOrganizationToHelpCase).map(helpCaseToPublicHelpCard);
+  }
+  const result = await database.prepare(`SELECT ${PUBLIC_HELP_CARD_COLUMNS} FROM help_cases
+    WHERE status = 'published' AND category = ?
+    ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT ?`)
+    .bind(category, safeLimit).all<PublicHelpCardRow>();
+  return result.results.map(rowToPublicHelpCard);
 }
 
 export async function getPublishedHelpCases(category?: HelpCategorySlug, limit = 250) {
