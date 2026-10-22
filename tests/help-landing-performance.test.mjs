@@ -134,7 +134,7 @@ test("public SQL retains eligibility, order and fixed per-section limits without
   assert.match(root, /slice\(0, 6\)/);
   assert.match(adoption, /export const getPublicAdoptions = listPublicAdoptions/);
   assert.match(reports, /export async function listPublicDogReports/);
-  assert.match(category, /getPublishedHelpCases\(category\)/);
+  assert.match(category, /getPublishedHelpCaseCards\(category\)/);
   for (const sql of [HELP_LANDING_GENERIC_SQL, HELP_LANDING_ORGANIZATIONS_SQL, HELP_LANDING_ADOPTIONS_SQL, HELP_LANDING_REPORTS_SQL]) {
     assert.match(sql, /preview_rank <= \?/);
     assert.match(sql, /COUNT\(\*\) OVER/);

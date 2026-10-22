@@ -13,7 +13,7 @@ import {
   getHelpCategory,
   helpCategories,
   helpCategoryHref,
-  type HelpCase,
+  type PublicHelpCard,
   type HelpCategorySlug,
 } from "@/lib/help";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
@@ -38,7 +38,7 @@ export async function HelpPage({
   initialActiveOnly = true,
   initialRegion = "all",
 }: {
-  items: HelpCase[];
+  items: PublicHelpCard[];
   initialCategory?: "all" | HelpCategorySlug;
   categoryCounts?: HelpCategoryCounts;
   initialQuery?: string;
