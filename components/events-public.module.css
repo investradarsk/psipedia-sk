@@ -2038,3 +2038,55 @@
 @media (prefers-reduced-motion: reduce) {
   .gridCard { transition: none; }
 }
+
+
+/* PUBLIC-CALENDAR-MOBILE-1: readable seven-column calendar at 320–520px.
+   All selectors are scoped to the calendar, not the event listing cards. */
+@media (max-width: 520px) {
+  .calendarLayout .monthDay,
+  .calendarLayout .outsideDay {
+    height: 58px;
+    min-height: 58px;
+  }
+  .calendarLayout .dayIndicators {
+    min-height: 12px;
+    height: auto;
+    align-content: center;
+  }
+  .calendarLayout .dayIndicators .typeDot {
+    width: 6px;
+    height: 6px;
+  }
+  .calendarLayout .monthDay[data-selected="true"] {
+    border-color: var(--forest-dark);
+    box-shadow: inset 0 0 0 1px var(--forest-dark);
+  }
+  .calendarLayout .calendarLegend a {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 360px) {
+  .calendarLayout .monthCalendar {
+    padding: 6px;
+  }
+  .calendarLayout .monthGrid {
+    gap: 2px;
+  }
+  .calendarLayout .weekday {
+    font-size: .68rem;
+  }
+  .calendarLayout .monthDay,
+  .calendarLayout .outsideDay {
+    height: 54px;
+    min-height: 54px;
+  }
+  .calendarLayout .monthDayCount {
+    min-width: 16px;
+    min-height: 16px;
+    font-size: .58rem;
+  }
+  .calendarLayout .calendarLegend {
+    grid-template-columns: 1fr;
+  }
+}
