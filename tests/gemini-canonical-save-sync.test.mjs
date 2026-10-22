@@ -241,3 +241,34 @@ test("all Gemini Events/Help no-change Saves preserve Notion revision and allow 
   assert.match(api, /canonicalSave = await reconcileGeminiSavedDraft\(/,
     "PUT must reconcile even when the Notion save was unchanged");
 });
+
+
+test("approved, evidence-only legacy agenda drafts use the same scoped private handoff", async () => {
+  for (const item of geminiAutomationCatalog.filter(x => x.section !== "directory")) {
+    const h = harness(item, { signed: false, before: {
+      reviewState: "APPROVED", attribution: "EVIDENCE_SIGNATURE_ONLY",
+    }});
+    const result = await h.run();
+    assert.equal(result.state, "CANONICAL_DRAFT_READY", item.stableKey);
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.calls[0].reviewedLegacy, true);
+    assert.equal(h.calls[0].targetPageId, pageId);
+    assert.equal(h.calls[0].expectedNotionRevision, "saved-v2");
+  }
+});
+test("unapproved legacy pages and unsigned directory pages cannot use legacy handoff", async () => {
+  for (const item of geminiAutomationCatalog) {
+    const h = harness(item, { signed: false, before: {
+      reviewState: "NEW", attribution: "EVIDENCE_SIGNATURE_ONLY",
+    }});
+    assert.equal((await h.run()).state, "NOTION_ONLY");
+    assert.equal(h.calls.length, 0);
+    if (item.section === "directory") {
+      const approved = harness(item, { signed: false, before: {
+        reviewState: "APPROVED", attribution: "EVIDENCE_SIGNATURE_ONLY",
+      }});
+      assert.equal((await approved.run()).state, "NOTION_ONLY");
+      assert.equal(approved.calls.length, 0);
+    }
+  }
+});
