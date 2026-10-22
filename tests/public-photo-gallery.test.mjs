@@ -40,7 +40,9 @@ test("gallery photos open full-size images using native accessible links", () =>
   const src = read("components/public-visual-system/public-photo-gallery.tsx");
   const css = read("components/public-visual-system/public-photo-gallery.module.css");
 
-  assert.match(src, /<a[\s\S]*?href=\{image\.src\}/);
+  assert.match(src, /<a[\s\S]*?href=\{href\}/);
+  assert.match(src, /const href = \/\^\(\?:https\?:/);
+  assert.match(src, /: <span key=\{image\.src/);
   assert.match(src, /target="_blank"/);
   assert.match(src, /rel="noopener noreferrer"/);
   assert.match(src, /aria-label=\{image\.alt \?/);
