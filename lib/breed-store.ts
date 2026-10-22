@@ -157,7 +157,16 @@ export async function listManagedBreedSummaries(limit=500){const database=requir
 (SELECT COUNT(*) FROM breed_directory_relations r WHERE r.breed_id=managed_breeds.id) AS directory_relation_count
 FROM managed_breeds ORDER BY fci_group,name LIMIT ?`).bind(safeLimit).all<SummaryRow>();return result.results.map(fromSummaryRow);}
 export async function listPublishedBreedIndex(){const database=db();if(!database)return seedBreeds.map((breed,index)=>({id:-(index+1),status:"published" as const,officialFciName:"",fciSectionNumber:"",searchText:normalizeBreedSearchText(`${breed.name} ${breed.group} ${breed.fciSection} ${breed.intro}`),editorialComplete:true,seo:breed.seo??{},updatedAt:"2026-08-17",...breed}));const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
-export async function listPublishedCanonicalBreedIndex(){const database=db();if(!database)return listPublishedBreedIndex();const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();return withAvailableBreedImages(result.results.map(fromIndexRow),env);}
+export async function listPublishedCanonicalBreedIndex(){
+  const database=db();
+  if(!database)return listPublishedBreedIndex();
+  const result=await database.prepare(`SELECT id,slug,name,status,image_url,fci_number,fci_group,fci_section,fci_section_number,fci_standard_json,origin,group_name,official_fci_name,accent,height,weight,intro,energy,trainability,family,search_text,editorial_complete,seo_json,updated_at FROM managed_breeds WHERE id IN (${canonicalBreedIdsSql}) ORDER BY fci_group,name`).all<IndexRow>();
+  // The public atlas displays hundreds of breeds. Waiting for R2 listings and
+  // per-image HEAD checks can stall the entire HTML response on Workers.
+  // Retain only trusted local image paths: BreedPhoto handles missing files
+  // with its existing placeholder on the client.
+  return result.results.map(fromIndexRow).map((breed)=>({...breed,image:ownedBreedImage(breed.image)}));
+}
 
 export type BreedSitemapIndexItem = {
   slug: string;

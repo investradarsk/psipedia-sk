@@ -36,18 +36,30 @@ test("clean listing and directory pagination preserve indexable canonical discov
   expect(paginated.robots.toLocaleLowerCase()).toContain("follow");
 });
 
-test("filter, search and sort state is noindex/follow with a clean canonical", async ({ page }) => {
-  await expectQueryNoindex(page, "/adresar/veterinari?region=Nitriansky+kraj", "/adresar/veterinari");
-  await expectQueryNoindex(page, "/adresar/veterinari?page=2&sort=name-asc", "/adresar/veterinari");
-  await expectQueryNoindex(page, "/clanky?hladat=labrador", "/clanky");
-  await expectQueryNoindex(page, "/podujatia?termin=vsetky", "/podujatia");
-  await expectQueryNoindex(page, "/plemena?fciGroup=8", "/plemena");
-  await expectQueryNoindex(page, "/recenzie?typ=produkty", "/recenzie");
-  await expectQueryNoindex(page, "/pomoc-psom/adopcia?kraj=Nitriansky+kraj", "/pomoc-psom/adopcia");
-  await expectQueryNoindex(page, "/pomoc-psom/stratene-psy?region=Nitriansky+kraj", "/pomoc-psom/stratene-psy");
-  await expectQueryNoindex(page, "/pomoc-psom/najdene-psy?q=labrador", "/pomoc-psom/najdene-psy");
-  await expectQueryNoindex(page, "/mapa?category=services&region=Nitriansky+kraj", "/mapa");
-});
+// Each remote preview navigation is checked separately: ten sequential requests
+// exceed Playwright's default 45s *test* timeout under normal Cloudflare latency,
+// even when every page returns the correct canonical and robots metadata.
+const filteredSeoCases = [
+  ["/adresar/veterinari?region=Nitriansky+kraj", "/adresar/veterinari"],
+  ["/adresar/veterinari?page=2&sort=name-asc", "/adresar/veterinari"],
+  ["/clanky?hladat=labrador", "/clanky"],
+  ["/podujatia?termin=vsetky", "/podujatia"],
+  ["/plemena?fciGroup=8", "/plemena"],
+  ["/recenzie?typ=produkty", "/recenzie"],
+  ["/pomoc-psom/adopcia?kraj=Nitriansky+kraj", "/pomoc-psom/adopcia"],
+  ["/pomoc-psom/stratene-psy?region=Nitriansky+kraj", "/pomoc-psom/stratene-psy"],
+  ["/pomoc-psom/najdene-psy?q=labrador", "/pomoc-psom/najdene-psy"],
+  ["/mapa?category=services&region=Nitriansky+kraj", "/mapa"],
+] as const;
+
+for (const [path, cleanCanonical] of filteredSeoCases) {
+  test(`filter, search and sort state at ${path} is noindex/follow with a clean canonical`, async ({ page }) => {
+    // Allow a slow preview response, but still fail on errors, missing metadata,
+    // wrong canonical or noindex/follow violations.
+    test.setTimeout(90_000);
+    await expectQueryNoindex(page, path, cleanCanonical);
+  });
+}
 
 test("event type landing has canonical listing schema and filtered variant does not", async ({ page }) => {
   const clean = await readSeo(page, "/podujatia/vystavy");
