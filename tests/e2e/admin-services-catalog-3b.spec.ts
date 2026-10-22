@@ -237,6 +237,14 @@ test("Services V3 explicit Unknown profile editor — desktop/mobile screenshots
  const card=page.getByRole("region",{name:"Services V3 — služby a vlastnosti na profile"});
  await expect(card).toBeVisible();
  await expect(card.getByRole("heading",{name:"Services V3 — hodnoty profilu"})).toBeVisible();
+ // The form is server-rendered before React hydrates. Verify a client-side
+ // filter update first, so our selection tests the mounted onChange handler,
+ // not an interactive-looking but not-yet-hydrated native select.
+ const search=card.getByRole("searchbox",{name:"Hľadať službu"});
+ await search.fill("ci-no-match-service-974");
+ await expect(card.getByText("Nenašli sa žiadne vhodné služby.")).toBeVisible();
+ await search.fill("");
+ await expect(card.getByText("Nenašli sa žiadne vhodné služby.")).toHaveCount(0);
  const input=card.locator('select[aria-label^="Hodnota:"]');
  expect(await input.count()).toBeGreaterThan(0);
  await expect(input.first()).toHaveValue("unknown");
