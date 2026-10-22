@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MissingQualityDashboard, MissingQualityProposal, QualityArea } from "@/lib/data-quality-missing-hourly";
 import styles from "./admin-missing-quality-dashboard.module.css";
@@ -25,14 +25,16 @@ function plural(n:number) { return n===1?"nález":n>1&&n<5?"nálezy":"nálezov";
 
 export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboard}) {
   const router=useRouter();
-  const [items,setItems]=useState<MissingQualityProposal[]>(data.pending);
+  const [removedIds,setRemovedIds]=useState<number[]>([]);
+  const removed=new Set(removedIds);
+  const items=data.pending.filter(p=>!removed.has(p.id));
   const [area,setArea]=useState<QualityArea>(()=>AREAS.find(a=>data.pending.some(x=>x.area===a.id))?.id??"services");
   const [group,setGroup]=useState("all");
   const [busy,setBusy]=useState<number|null>(null);
   const [bulkBusy,setBulkBusy]=useState(false);
   const [notice,setNotice]=useState("");
-  useEffect(()=>setItems(data.pending),[data.pending]);
-  const total=data.total-(data.pending.length-items.length);
+
+  const total=Math.max(0,data.total-removedIds.length);
   const countArea=(id:QualityArea)=>items.filter(x=>x.area===id).length;
   const areaItems=items.filter(x=>x.area===area);
   const countGroup=(g:string)=>areaItems.filter(x=>g==="all"||x.field_group===g).length;
@@ -46,7 +48,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
       });
       const body=await response.json() as {error?:string};
       if(!response.ok)throw new Error(body.error??"Údaj sa nepodarilo spracovať.");
-      setItems(prev=>prev.filter(x=>x.id!==item.id));
+      setRemovedIds(prev=>[...prev,item.id]);
       setNotice(action==="accept"?"Údaj bol doplnený do profilu.":"Návrh bol zamietnutý.");
       router.refresh();
     }catch(error){setNotice(error instanceof Error?error.message:"Návrh sa nepodarilo spracovať.");}
@@ -69,8 +71,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         rejected.push(...(body.dismissed??[]));
         failed+=(body.failures??[]).length;
       }
-      const removed=new Set(rejected);
-      setItems(prev=>prev.filter(x=>!removed.has(x.id)));
+      setRemovedIds(prev=>[...prev,...rejected]);
       setNotice(failed?`Zamietnuté: ${rejected.length}. Nepodarilo sa: ${failed}.`:`Zamietnutých ${rejected.length} návrhov.`);
       router.refresh();
     }catch(error){setNotice(error instanceof Error?error.message:"Zamietnutie zlyhalo.");}
