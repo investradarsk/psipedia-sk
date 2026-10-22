@@ -23,7 +23,7 @@ const workflow=readFileSync(path.join(root,".github/workflows/production-d1-migr
 test("0128 exact immutable SQL, canonical D1 target and one-at-a-time approval",()=>{
   assert.ok(SUPPORTED_PRODUCTION_TARGETS.includes(target));
   assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-9),"0130_facebook_image_publisher.sql");
-  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, ["0139_services_catalog_notion_auto_attempts.sql"]);
+  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.equal(createHash("sha256").update(source).digest("hex"),APPROVED_0128_SHA256);
   assert.doesNotThrow(()=>assertApproved0128Target("psipedia-sk-db",APPROVED_0128_SHA256));
   assert.throws(()=>assertApproved0128Target("wrong-db",APPROVED_0128_SHA256),/canonical psipedia-sk-db/);
