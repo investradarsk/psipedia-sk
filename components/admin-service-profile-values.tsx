@@ -19,8 +19,9 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const services=useMemo(()=>entries.filter(x=>x.kind==="service"&&x.label.toLocaleLowerCase("sk").includes(query.toLocaleLowerCase("sk"))),[entries,query]);
-  const attributes=entries.filter(x=>x.kind==="attribute");
-  const changed=entries.filter(x=>x.kind==="service"&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
+  const attributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind==="tri_state");
+  const structuredAttributes=entries.filter(x=>x.kind==="attribute"&&x.valueKind!=="tri_state");
+  const changed=entries.filter(x=>(x.kind==="service"||(x.kind==="attribute"&&x.valueKind==="tri_state"))&&draft[x.id]!==undefined&&draft[x.id]!==selectionForEditor(saved[x.id]));
   async function save(){
     if(!writeEnabled||busy||changed.length===0)return;
     setBusy(true);setMessage("");
@@ -65,11 +66,28 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
       </label>;
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
     </section>
+    <section className={styles.profileSection} aria-label="Vlastnosti profilu"><h3>Vlastnosti — Áno/Nie/Neznáme ({attributes.length})</h3>
+      <p className={styles.muted}>Tieto vlastnosti podporujú explicitnú trojstavovú hodnotu bez odhadovania chýbajúcich údajov.</p>
+      <div className={styles.profileList}>{attributes.map(item=>{
+        const savedValue=saved[item.id];
+        const value=draft[item.id]??selectionForEditor(savedValue);
+        return <label className={styles.profileRow} key={item.id}>
+          <span><strong>{item.label}</strong><small>{item.group}</small></span>
+          <select aria-label={`Hodnota: ${item.label}`} value={value} disabled={!writeEnabled||Boolean(error)||busy}
+            onChange={e=>setDraft(old=>({...old,[item.id]:e.target.value as InputChoice}))}>
+            <option value="unknown">Neznáme</option>
+            <option value="yes">Áno</option><option value="no">Nie</option>
+          </select>
+        </label>;
+      })}{attributes.length===0&&<p>Pre túto kategóriu nie sú k dispozícii trojstavové vlastnosti.</p>}</div>
+    </section>
+    {structuredAttributes.length>0&&<section className={styles.profileSection} aria-label="Štruktúrované vlastnosti">
+      <h3>Štruktúrované vlastnosti ({structuredAttributes.length})</h3>
+      <p className={styles.muted}>Hodnoty s výberom viacerých možností, zoznamom alebo textom zatiaľ vyžadujú samostatný typovaný editor. Zobrazenie ich neprevedie na Áno/Nie.</p>
+      <ul className={styles.attributeList}>{structuredAttributes.map(a=><li key={a.id}>{a.label}</li>)}</ul>
+    </section>}
     <EditorActionBar message={message} primary={<AdminActionButton variant="primary" onClick={save} disabled={!writeEnabled||Boolean(error)||busy||changed.length===0}>{busy?"Ukladám…":`Uložiť hodnoty (${changed.length})`}</AdminActionButton>}/>
-    <p className={styles.muted}>Zmena Áno/Nie využíva verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
-    <section className={styles.profileSection} aria-label="Vlastnosti profilu"><h3>Vlastnosti ({attributes.length})</h3>
-    <p className={styles.muted}>Vlastnosti majú samostatný dátový model. Ich úpravy zostávajú vypnuté do dokončenia API a synchronizácie Notionu.</p>
-    {attributes.length>0&&<ul className={styles.attributeList}>{attributes.slice(0,30).map(a=><li key={a.id}>{a.label}</li>)}{attributes.length>30&&<li>Ďalšie vlastnosti sú dostupné v katalógu.</li>}</ul>}</section>
+    <p className={styles.muted}>Zmeny služieb a trojstavových vlastností využívajú verziované API. Návrat na Neznáme odstráni iba explicitnú uloženú hodnotu cez CAS a auditované API; nikdy nezapíše Nie.</p>
     <EditorUnsavedChangesGuard active={changed.length>0} open={false} onStay={()=>{}} onDiscard={()=>setDraft({})}/>
   </section>;
 }
