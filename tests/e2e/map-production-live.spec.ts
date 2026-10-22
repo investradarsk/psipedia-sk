@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 const MAP_API = "/api/map?north=50&south=47&east=23&west=16&zoom=12&limit=100";
 
@@ -89,24 +89,56 @@ async function clickRenderedMarker(page: Page, selector: string) {
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 }
 
-async function currentViewportItem(page: Page) {
-  const cards = page.locator('[data-testid^="map-card-"]');
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if (await cards.count() > 0) {
-      const card = cards.first();
-      const name = (await card.locator("strong").first().textContent())?.trim();
-      const testId = await card.getAttribute("data-testid");
-      if (name && testId?.startsWith("map-card-")) {
-        return { id: testId.slice("map-card-".length), name };
-      }
-    }
+async function currentViewportItem(page: Page, request: APIRequestContext) {
+  // The browser's authoritative viewport may span >30 square degrees.
+  // In that case /api/map returns clusters EVEN at zoom=12. Discover real
+  // existing items in a bounded central sub-viewport, then require an
+  // unambiguous search match in the full, actual browser viewport.
+  const lastMapUrl = await page.evaluate(() => {
+    const resources = performance.getEntriesByType("resource")
+      .filter((entry) => entry.name.includes("/api/map?"));
+    return resources[resources.length - 1]?.name ?? null;
+  });
+  expect(lastMapUrl, "Map must have fetched its authoritative viewport").not.toBeNull();
+  const authoritative = new URL(lastMapUrl!);
+  const n = Number(authoritative.searchParams.get("north"));
+  const s = Number(authoritative.searchParams.get("south"));
+  const e = Number(authoritative.searchParams.get("east"));
+  const w = Number(authoritative.searchParams.get("west"));
+  expect([n, s, e, w].every(Number.isFinite)).toBe(true);
+  expect(n).toBeGreaterThan(s);
+  expect(e).toBeGreaterThan(w);
 
-    const clusters = page.locator('[data-map-cluster="true"]').filter({ visible: true });
-    if (await clusters.count() === 0) break;
-    await clickRenderedMarker(page, '[data-map-cluster="true"]');
-    await page.waitForTimeout(900);
+  const centerLat = (n + s) / 2;
+  const centerLng = (e + w) / 2;
+  const discovery = new URL(authoritative);
+  discovery.searchParams.set("north", String(Math.min(n, centerLat + 1.5)));
+  discovery.searchParams.set("south", String(Math.max(s, centerLat - 1.5)));
+  discovery.searchParams.set("east", String(Math.min(e, centerLng + 3)));
+  discovery.searchParams.set("west", String(Math.max(w, centerLng - 3)));
+  discovery.searchParams.set("zoom", "12");
+  discovery.searchParams.set("limit", "100");
+  discovery.searchParams.delete("search");
+
+  const response = await request.get(`${discovery.pathname}${discovery.search}`);
+  expect(response.status()).toBe(200);
+  const data = await response.json() as LiveMapBody;
+  expect(data.mode, "Bounded map discovery must return individual items").toBe("items");
+  const names = [...new Set((data.items ?? []).map((item) => item.name?.trim()).filter(Boolean))];
+
+  // Names need not be globally unique. Confirm the complete live viewport
+  // resolves to one real result before exercising the browser search/card.
+  for (const name of names.slice(0, 20)) {
+    const checkUrl = new URL(authoritative);
+    checkUrl.searchParams.set("search", name);
+    const match = await request.get(`${checkUrl.pathname}${checkUrl.search}`);
+    if (match.status() !== 200) continue;
+    const matchBody = await match.json() as LiveMapBody;
+    if (matchBody.meta?.matched !== 1) continue;
+    const result = (data.items ?? []).find((item) => item.name?.trim() === name);
+    if (result) return { id: result.id, name: result.name };
   }
-  throw new Error("Live map did not expose an item in the current authoritative viewport.");
+  throw new Error("No unique published map item could be verified inside the live viewport.");
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -158,7 +190,7 @@ test.describe("MAP V1 live production launch audit", () => {
     if (isMobile) await page.setViewportSize({ width: 390, height: 844 });
   });
 
-  test("@map-production-live API, consent, real Google renderer, attribution, singleton and revoke", async ({ page, request }) => {
+  test("@map-production-live API, consent, real Google renderer, attribution, singleton and revoke", async ({ page, request, isMobile }) => {
     const api = await request.get(MAP_API);
     expect(api.status()).toBe(200);
     const apiBody = await api.json() as LiveMapBody;
@@ -226,9 +258,29 @@ test.describe("MAP V1 live production launch audit", () => {
       return (debugWindow.__PSIPEDIA_MAP_DEBUG__ ?? [])
         .some((entry) => entry.event === "renderer:viewport-propagate");
     }), { timeout: 10000 }).toBe(true);
-    await expect.poll(() => page.evaluate(() =>
-      performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length,
-    ), { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+    // Wait for the successful response to the *actual propagated bbox*.
+    // The original first request may still be the only one on mobile; desktop
+    // often makes a second request whose timing must not be blamed on map type.
+    await expect.poll(() => page.evaluate(() => {
+      type Trace = { event?: string; data?: {
+        next?: { bbox?: Record<string, number>; zoom?: number };
+        apiUrl?: string; status?: number; current?: boolean
+      } };
+      const trace = (window as Window & { __PSIPEDIA_MAP_DEBUG__?: Trace[] })
+        .__PSIPEDIA_MAP_DEBUG__ ?? [];
+      const propagated = trace.filter((entry) => entry.event === "renderer:viewport-propagate").slice(-1)[0];
+      const expected = propagated?.data?.next;
+      if (!expected?.bbox) return false;
+      return trace.some((entry) => {
+        if (entry.event !== "experience:fetch-response"
+          || entry.data?.status !== 200 || entry.data?.current !== true
+          || !entry.data.apiUrl) return false;
+        const params = new URL(entry.data.apiUrl, window.location.origin).searchParams;
+        return ["north", "south", "east", "west"].every((key) =>
+          Number(params.get(key)) === expected.bbox![key],
+        ) && Number(params.get("zoom")) === expected.zoom;
+      });
+    }), { timeout: 20000 }).toBe(true);
 
     // Presentation-only map type switching must reuse the same Google Map object
     // and must not generate a new authoritative /api/map request.
@@ -270,7 +322,7 @@ test.describe("MAP V1 live production launch audit", () => {
     // Exact-name search should collapse the live dataset to a singleton result.
     // Pick the target from the current authoritative Google viewport rather than
     // from the earlier static API contract bbox, which can differ on desktop/mobile.
-    const singletonTarget = await currentViewportItem(page);
+    const singletonTarget = await currentViewportItem(page, request);
     const singletonSearchResponse = page.waitForResponse((response) => {
       const url = new URL(response.url());
       return url.pathname === "/api/map"
@@ -278,9 +330,21 @@ test.describe("MAP V1 live production launch audit", () => {
         && response.status() === 200;
     }, { timeout: 15000 });
     await page.getByLabel("Vyhľadávanie v mape").fill(singletonTarget.name);
-    await singletonSearchResponse;
+    const searchResponse = await singletonSearchResponse;
+    const searchBody = await searchResponse.json() as LiveMapBody;
+    expect(Number(searchBody.meta?.matched ?? 0)).toBeGreaterThan(0);
 
     const singletonCard = page.getByTestId(`map-card-${singletonTarget.id}`);
+    await expect(singletonCard).toHaveCount(1, { timeout: 15000 });
+    // On mobile the result exists in the DOM, but peek/preview clips it by design.
+    // Expand the actual bottom sheet before making a visibility assertion.
+    if (isMobile) {
+      const sheet = page.getByTestId("map-results-panel");
+      if (await sheet.getAttribute("data-sheet-state") !== "expanded") {
+        await page.getByRole("button", { name: "Výsledky", exact: true }).click();
+      }
+      await expect(sheet).toHaveAttribute("data-sheet-state", "expanded");
+    }
     await expect(singletonCard).toBeVisible({ timeout: 15000 });
     await expect(singletonCard).toContainText(singletonTarget.name);
     await expect(page.getByTestId("map-cluster-summary")).toHaveCount(0);
@@ -389,14 +453,19 @@ test.describe("MAP V1 live production launch audit", () => {
     }
 
     const metrics = await scroll.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
-    expect(metrics.scrollHeight, JSON.stringify(metrics)).toBeGreaterThan(metrics.clientHeight + 8);
-    await scroll.hover();
-    await page.mouse.wheel(0, 420);
-    await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-
-    await scroll.evaluate((el) => { el.scrollTop = 0; });
-    await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBe(0);
-    await swipe(scroll, 130);
+    if (metrics.scrollHeight > metrics.clientHeight + 8) {
+      await scroll.hover();
+      await page.mouse.wheel(0, 420);
+      await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+      await scroll.evaluate((el) => { el.scrollTop = 0; });
+      await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBe(0);
+      await swipe(scroll, 130);
+    } else {
+      // Production results can fit entirely: that is not a broken scrollbar.
+      console.info("MAP_SCROLL_NOT_APPLICABLE", JSON.stringify(metrics));
+      await expect(scroll).toBeVisible();
+      await swipeSheetHeader(header, panel, 130);
+    }
     await expect(panel).toHaveAttribute("data-sheet-state", "peek");
 
     const canvas = await mapCanvas(page);

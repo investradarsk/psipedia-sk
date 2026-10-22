@@ -54,6 +54,12 @@ export type DogEvent = {
   seo?: ArticleSeo;
 };
 
+/** Data needed by public event listing cards; long descriptions and SEO remain on detail routes. */
+export type PublicEventCard = Pick<DogEvent,
+  "id" | "slug" | "title" | "eventType" | "startDate" | "startTime" |
+  "endDate" | "endTime" | "venue" | "city" | "region" | "cancelled" |
+  "imageUrl" | "imageDisplay" | "thumbnailImageDisplay">;
+
 export const eventTypeFilters = [
   { value: "Všetky", label: "Všetky" },
   ...eventTypes.map((value) => ({ value, label: value })),
