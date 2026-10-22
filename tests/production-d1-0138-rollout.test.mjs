@@ -41,8 +41,8 @@ function fixture() {
 test("0138 pinned SQL requires canonical D1, exact owner dispatch and no repeated apply", () => {
   assert.equal(createHash("sha256").update(sql).digest("hex"), PINNED_SHA256_0138);
   assert.equal(APPROVED_0138_SHA256, PINNED_SHA256_0138);
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), "0137_media_source_review_decisions.sql");
-  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-1), target);
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-3), "0137_media_source_review_decisions.sql");
+  assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-2), target);
   assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
   assert.doesNotThrow(() => assertApproved0138Target("psipedia-sk-db", PINNED_SHA256_0138));
   assert.throws(() => assertApproved0138Target("other-db", PINNED_SHA256_0138), /canonical/);
@@ -60,7 +60,7 @@ test("0138 pinned SQL requires canonical D1, exact owner dispatch and no repeate
 
 test("0138 refuses missing 0137, wrong order and repeated migration ledger", () => {
   const chain = [...Array.from({length:62}, (_, i) => String(i).padStart(4, "0") + "_prior.sql"),
-    ...SUPPORTED_PRODUCTION_TARGETS];
+    ...SUPPORTED_PRODUCTION_TARGETS.filter(name=>Number(name.slice(0,4))<=138)];
   assert.deepEqual(validateProductionTargetHistory(chain.slice(0,-1),chain,target),
     {latestIndex:137,targetApplied:false});
   assert.throws(() => validateProductionTargetHistory(chain.slice(0,-2),chain,target),
