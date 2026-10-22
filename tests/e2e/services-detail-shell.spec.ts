@@ -44,7 +44,15 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
         const titleY = await heading.evaluate((node) => node.getBoundingClientRect().top);
         if (width <= 800) expect(photoY, "Mobile photo before heading at " + width).toBeLessThan(titleY);
         else expect((await hero.locator(PHOTO).boundingBox())!.x).toBeGreaterThan((await heading.boundingBox())!.x);
-        await expect(hero.locator(PHOTO + " img")).toHaveAttribute("loading", "eager");
+        const existingPhoto = hero.locator(PHOTO + " img");
+        const missingPhotoVisual = hero.locator(PHOTO + " [data-public-media-fallback]");
+        if (await existingPhoto.count()) {
+          await expect(existingPhoto).toHaveAttribute("loading", "eager");
+          await expect(missingPhotoVisual).toHaveCount(0);
+        } else {
+          await expect(missingPhotoVisual).toBeVisible();
+          await expect(missingPhotoVisual).toHaveAttribute("role", "img");
+        }
       }
 
       const body = main.locator("article[data-public-profile-body]");
@@ -78,7 +86,8 @@ test.describe("PSIPEDIA-SERVICES-PROFILE-UX-1", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     const main = await openProfile(page, MINIMUM);
     await expect(main.getByRole("heading", { level: 1, name: "E2E Minimálna služba" })).toBeVisible();
-    await expect(main.locator(PHOTO)).toHaveCount(0);
+    await expect(main.locator(PHOTO + " img")).toHaveCount(0);
+    await expect(main.locator(PHOTO + " [data-public-media-fallback]")).toBeVisible();
     await expect(main.getByRole("heading", { name: "Poskytované služby" })).toHaveCount(0);
     await expect(main.getByRole("heading", { name: "Odborné informácie" })).toHaveCount(0);
     await expect(main.getByRole("link", { name: "Zavolať" })).toHaveCount(0);
