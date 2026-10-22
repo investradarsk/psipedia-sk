@@ -258,11 +258,29 @@ test.describe("MAP V1 live production launch audit", () => {
       return (debugWindow.__PSIPEDIA_MAP_DEBUG__ ?? [])
         .some((entry) => entry.event === "renderer:viewport-propagate");
     }), { timeout: 10000 }).toBe(true);
-    // A mobile viewport can legitimately reuse the initial bbox: one request is enough.
-    // The invariant is no extra request when switching the map presentation.
-    await expect.poll(() => page.evaluate(() =>
-      performance.getEntriesByType("resource").filter((entry) => entry.name.includes("/api/map?")).length,
-    ), { timeout: 10000 }).toBeGreaterThanOrEqual(1);
+    // Wait for the successful response to the *actual propagated bbox*.
+    // The original first request may still be the only one on mobile; desktop
+    // often makes a second request whose timing must not be blamed on map type.
+    await expect.poll(() => page.evaluate(() => {
+      type Trace = { event?: string; data?: {
+        next?: { bbox?: Record<string, number>; zoom?: number };
+        apiUrl?: string; status?: number; current?: boolean
+      } };
+      const trace = (window as Window & { __PSIPEDIA_MAP_DEBUG__?: Trace[] })
+        .__PSIPEDIA_MAP_DEBUG__ ?? [];
+      const propagated = trace.filter((entry) => entry.event === "renderer:viewport-propagate").slice(-1)[0];
+      const expected = propagated?.data?.next;
+      if (!expected?.bbox) return false;
+      return trace.some((entry) => {
+        if (entry.event !== "experience:fetch-response"
+          || entry.data?.status !== 200 || entry.data?.current !== true
+          || !entry.data.apiUrl) return false;
+        const params = new URL(entry.data.apiUrl, window.location.origin).searchParams;
+        return ["north", "south", "east", "west"].every((key) =>
+          Number(params.get(key)) === expected.bbox![key],
+        ) && Number(params.get("zoom")) === expected.zoom;
+      });
+    }), { timeout: 20000 }).toBe(true);
 
     // Presentation-only map type switching must reuse the same Google Map object
     // and must not generate a new authoritative /api/map request.
