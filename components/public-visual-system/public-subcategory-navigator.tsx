@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from "react";
 import { ArrowIcon } from "@/components/icons";
 import { PageContainer } from "@/components/page-system";
 import { PublicIcon } from "./public-visual-system";
+import { PublicMediaFallback } from "./public-media-fallback";
 import styles from "./public-subcategory-navigator.module.css";
 
 function cx(...values: Array<string | false | null | undefined>) {
@@ -41,8 +42,8 @@ function LandingItem({ item }: { item: PublicSubcategoryItem }) {
       prefetch={item.prefetch}
       data-public-subcategory-item
     >
-      <span className={cx(styles.landingMedia, !item.image && styles.landingMediaFallback)}>
-        {item.image ? (
+      <span className={cx(styles.landingMedia, !item.image?.src.trim() && styles.landingMediaFallback)}>
+        {item.image?.src.trim() ? (
           <img
             src={item.image.src}
             alt={item.image.alt ?? ""}
@@ -51,7 +52,7 @@ function LandingItem({ item }: { item: PublicSubcategoryItem }) {
             loading={item.image.loading ?? "lazy"}
             decoding="async"
           />
-        ) : null}
+        ) : <span className={styles.landingPlaceholder} aria-hidden="true"><PublicMediaFallback /></span>}
         {item.icon ? <PublicIcon icon={item.icon} size="md" className={styles.landingIcon} /> : null}
       </span>
       <span className={styles.landingCopy}>
