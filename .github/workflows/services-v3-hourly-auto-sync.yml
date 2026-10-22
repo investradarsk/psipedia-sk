@@ -8,6 +8,10 @@ on:
       - "drizzle/0139_services_catalog_notion_auto_attempts.sql"
       - "tests/service-catalog-notion-auto-sweep.test.mjs"
       - ".github/workflows/services-v3-hourly-auto-sync.yml"
+      - ".github/workflows/production-d1-migrate.yml"
+      - "scripts/production-d1-migrate.mjs"
+      - "scripts/production-d1-0139-schema.mjs"
+      - "tests/production-d1-0139-rollout.test.mjs"
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -27,3 +31,5 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Durable intent, source D1 authority and cron safety
         run: node --experimental-strip-types --experimental-loader ./tests/admin-events-loader.mjs --test tests/service-catalog-notion-auto-sweep.test.mjs
+      - name: Protected migration preflight contract
+        run: node --test tests/production-d1-0139-rollout.test.mjs
