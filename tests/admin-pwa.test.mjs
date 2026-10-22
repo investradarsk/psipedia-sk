@@ -83,6 +83,25 @@ test("push permission is requested only from explicit enable action", () => {
   assert.doesNotMatch(settings.slice(effectIndex, enableIndex), /requestPermission/);
 });
 
+test("re-enable replaces an obsolete server-disabled push subscription", () => {
+  const settings = read("../components/admin-pwa-settings.tsx");
+  const enableStart = settings.indexOf("async function enableNotifications()");
+  const disableStart = settings.indexOf("async function disableNotifications()");
+  const enable = settings.slice(enableStart, disableStart);
+
+  assert.ok(enableStart >= 0 && disableStart > enableStart);
+  assert.match(enable, /registration\.pushManager\.getSubscription\(\)/);
+  assert.match(enable, /action: "status", endpoint: subscription\.endpoint/);
+  assert.match(enable, /if \(!status\.enabled\) \{/);
+  assert.match(enable, /await subscription\.unsubscribe\(\)/);
+  assert.match(enable, /subscription \?\?= await registration\.pushManager\.subscribe\(/);
+  assert.ok(enable.indexOf('action: "status"') < enable.indexOf("subscription.unsubscribe()"));
+  assert.ok(enable.indexOf("subscription.unsubscribe()") < enable.indexOf("registration.pushManager.subscribe("));
+
+  // Subscription rotation must be an explicit opt-in, not a background effect.
+  assert.doesNotMatch(settings.slice(settings.indexOf("useEffect(() =>"), enableStart), /pushManager\.subscribe\(/);
+});
+
 test("push routes require authenticated admin and same-origin JSON for mutations", () => {
   const config = read("../app/api/admin/push/config/route.ts");
   const subscription = read("../app/api/admin/push/subscription/route.ts");
