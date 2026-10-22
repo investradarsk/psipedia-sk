@@ -22,7 +22,7 @@ function fixture() {
  return {db,schema};
 }
 test("0135 target requires immutable SHA, exact production identity, approved 0134 predecessor and manual one-shot confirmation",()=>{
- assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-4),target);
+ assert.equal(SUPPORTED_PRODUCTION_TARGETS.at(-5),target);
  assert.deepEqual(PREPARED_PRODUCTION_TARGETS, []);
  assert.equal(createHash("sha256").update(sql).digest("hex"),PINNED_SHA256_0135);
  assert.equal(APPROVED_0135_SHA256,PINNED_SHA256_0135);

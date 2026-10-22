@@ -9,6 +9,11 @@ on:
       - "lib/service-catalog-notion-durable-lease.ts"
       - "lib/service-catalog-notion-internal-runner.ts"
       - "app/api/admin/service-catalog/notion-mirror/route.ts"
+      - "app/admin/sluzby-pre-psov/katalog/page.tsx"
+      - "components/admin-service-catalog-workspace.tsx"
+      - "components/admin-service-catalog.module.css"
+      - "lib/service-catalog-admin-mirror-controls.ts"
+      - "tests/service-catalog-admin-mirror-controls.test.mjs"
       - "lib/service-catalog-notion-receipt-proof.ts"
       - "tests/service-catalog-notion-mirror-executor.test.mjs"
       - "tests/service-catalog-notion-receipt-proof.test.mjs"
@@ -35,4 +40,4 @@ jobs:
           node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-durable-lease.ts')"
           node --experimental-strip-types --input-type=module -e "await import('./lib/service-catalog-notion-internal-runner.ts')"
       - name: Offline verified receipt and synthetic D1 transaction tests
-        run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs tests/service-catalog-notion-mirror-executor.test.mjs
+        run: node --experimental-strip-types --test tests/service-catalog-notion-receipt-proof.test.mjs tests/service-catalog-notion-mirror-executor.test.mjs tests/service-catalog-admin-mirror-controls.test.mjs
