@@ -59,7 +59,7 @@ test("Admin create mints immutable globally unique IDs with DRAFT/PENDING and au
  try{
   const created=await createAdminCatalogOption(db,item(),"OWNER@EXAMPLE.COM",new Date("2026-10-18T00:00:00Z"));
   assert.match(created.id,/^svc\.admin\.[0-9a-f]{32}$/);
-  assert.equal(created.status,"DRAFT");
+  assert.equal(created.status,"ACTIVE");
   assert.equal(created.notionMirrorStatus,"PENDING");
   assert.deepEqual(created.categories,["veterinari"]);
   assert.equal(created.version,1);
@@ -104,8 +104,8 @@ test("invalid category, archived profiles, missing profiles, unknown and DRAFT I
    await assert.rejects(()=>saveAdminServiceChoice(db,{...base,...changes},"owner@example.com"));
   }
   const drafted=await createAdminCatalogOption(db,item(),"owner@example.com");
-  await assert.rejects(()=>saveAdminServiceChoice(db,{...base,optionId:drafted.id},"owner@example.com"),ServiceCatalogInputError);
-  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM service_profile_option_choices").get().n,0);
+  await saveAdminServiceChoice(db,{...base,optionId:drafted.id},"owner@example.com");
+  assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM service_profile_option_choices").get().n,1);
  }finally{sqlite.close();}
 });
 test("Admin API requires verified server auth, same-origin, and two disabled-by-default activation gates",()=>{
@@ -149,28 +149,17 @@ test("invalid version, mirror/status values and explicit unknown writes are reje
  }finally{sqlite.close();}
 });
 
-test("dynamic DRAFT, ACTIVE/PENDING, ACTIVE/CONFLICT and RETIRED options remain ineligible",async()=>{
+test("active services are selectable without Notion approval, across categories",async()=>{
  const {sqlite,db}=setup();
  try{
-  const option=await createAdminCatalogOption(db,item(),"owner@example.com");
-  const payload={profileId:1,optionId:option.id,choice:"yes",expectedVersion:0};
-  await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
-  // Even direct SQL must refuse promotion without a synchronized mirror
-  // and a verified-version receipt.
-  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id),/Notion receipt required/);
-  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' WHERE id=?").run(option.id);
-  assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id),/Notion receipt required/);
-  sqlite.prepare("INSERT INTO service_catalog_admin_notion_receipts (option_id,option_version,notion_page_id,notion_last_edited_at,remote_payload_sha256,verified_at,verified_by) VALUES (?,?,?,?,?,?,?)")
-    .run(option.id,1,"notion-test-page","2026-10-19T12:00:00Z","a".repeat(64),"2026-10-19T12:01:00Z","test-trusted-reconciler");
-  sqlite.prepare("UPDATE service_catalog_admin_options SET status='ACTIVE' WHERE id=?").run(option.id);
-  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='PENDING' WHERE id=?").run(option.id);
-  await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
-  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='CONFLICT' WHERE id=?").run(option.id);
-  await assert.rejects(()=>saveAdminServiceChoice(db,payload,"owner@example.com"),ServiceCatalogInputError);
-  sqlite.prepare("UPDATE service_catalog_admin_options SET notion_mirror_status='SYNCED' WHERE id=?").run(option.id);
-  assert.deepEqual(await saveAdminServiceChoice(db,payload,"owner@example.com"),{profileId:1,optionId:option.id,choice:"yes",version:1});
+  const option=await createAdminCatalogOption(db,{...item(),categories:["veterinari","treneri"]},"owner@example.com");
+  assert.equal(option.status,"ACTIVE");
+  assert.deepEqual(option.categories,["veterinari","treneri"]);
+  const selected=await saveAdminServiceChoice(db,{profileId:1,optionId:option.id,choice:"yes",expectedVersion:0},"owner@example.com");
+  assert.equal(selected.choice,"yes");
+  const second=await saveAdminServiceChoice(db,{profileId:2,optionId:option.id,choice:"yes",expectedVersion:0},"owner@example.com");
+  assert.equal(second.choice,"yes");
   sqlite.prepare("UPDATE service_catalog_admin_options SET status='RETIRED' WHERE id=?").run(option.id);
-  await assert.rejects(()=>saveAdminServiceChoice(db,{...payload,choice:"no",expectedVersion:1},"owner@example.com"),ServiceCatalogInputError);
-  assert.equal(sqlite.prepare("SELECT choice FROM service_profile_option_choices WHERE profile_id=1 AND option_id=?").get(option.id).choice,"yes");
+  await assert.rejects(()=>saveAdminServiceChoice(db,{profileId:1,optionId:option.id,choice:"no",expectedVersion:selected.version},"owner@example.com"),ServiceCatalogInputError);
  }finally{sqlite.close();}
 });

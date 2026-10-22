@@ -68,6 +68,8 @@ test("approve needs real synced mirror outcome, conflicts need explicit retry, r
  const {sqlite,db}=fixture();
  try{
   const created=await createAdminCatalogOption(db,option(),actor);
+  // Legacy DRAFT approval still requires a Notion receipt; ordinary create is immediately ACTIVE.
+  sqlite.prepare("UPDATE service_catalog_admin_options SET status=\'DRAFT\' WHERE id=?").run(created.id);
   await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{action:"approve",expectedVersion:1},actor),ServiceCatalogConflictError);
   const conflict=await recordCatalogMirrorOutcome(db,result(created.id,1,"CONFLICT"),actor);
   await assert.rejects(()=>recordCatalogMirrorOutcome(db,result(created.id,conflict.version,"SYNCED"),actor),ServiceCatalogConflictError);
@@ -89,8 +91,9 @@ test("approve needs real synced mirror outcome, conflicts need explicit retry, r
   assert.throws(()=>sqlite.prepare("UPDATE service_catalog_admin_notion_receipts SET verified_by='attacker'").run(),/append-only/);
   const approved=await mutateAdminCatalogOption(db,created.id,{action:"approve",expectedVersion:synced.version},actor);
   assert.equal(approved.status,"ACTIVE");
-  await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{...edit(approved),name:"Zakázané"},actor),ServiceCatalogConflictError);
-  const retired=await mutateAdminCatalogOption(db,created.id,{action:"retire",expectedVersion:approved.version},actor);
+  const revised=await mutateAdminCatalogOption(db,created.id,{...edit(approved),name:"Upravená schválená metóda"},actor);
+  assert.equal(revised.status,"ACTIVE");
+  const retired=await mutateAdminCatalogOption(db,created.id,{action:"retire",expectedVersion:revised.version},actor);
   assert.equal(retired.status,"RETIRED");
   for(const action of ["approve","retire","retryMirror"]){
    await assert.rejects(()=>mutateAdminCatalogOption(db,created.id,{action,expectedVersion:retired.version},actor),ServiceCatalogConflictError);
