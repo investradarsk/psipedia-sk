@@ -3,7 +3,7 @@ import type { Article } from "@/lib/content";
 import { getNewsCategory } from "@/lib/news";
 import { articleHref, portalSectionLabel, articlePortalSection } from "@/lib/portal";
 import { ArticleListItem } from "./article-list-item";
-import { PawMark } from "./icons";
+import { PublicMediaFallback } from "@/components/public-visual-system";
 import { FavoriteButton } from "./favorite-button";
 import { responsiveMediaSrcSet } from "@/lib/responsive-media";
 import { ImageDisplay } from "@/components/image-display";
@@ -91,7 +91,7 @@ export function ArticleCard({
             decoding="async"
           />
         ) : (
-          <span className="article-placeholder" aria-hidden="true"><PawMark size={64} /></span>
+          <span className="article-placeholder" aria-hidden="true"><PublicMediaFallback /></span>
         )}
       </Link> : null}
       <div className="article-card-body">
