@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdminActionButton, AdminModalDialog } from "@/components/admin-interaction-system";
 import { ChangeEvent, useRef, useState } from "react";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import {
@@ -58,6 +59,8 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   const [resolved, setResolved] = useState(item?.resolved ?? false);
   const [status, setStatus] = useState<HelpCaseStatus>(item?.status ?? "draft");
   const [seo, setSeo] = useState(item?.seo ?? {});
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
+  const mutationPending = useRef(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -107,6 +110,9 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
   }
 
   async function save(nextStatus: HelpCaseStatus) {
+    if (mutationPending.current || uploading) return;
+    mutationPending.current = true;
+    setConfirmUnpublish(false);
     setSaving(true); setError(""); setMessage("");
     try {
       const response = await fetch(item ? `/api/admin/help/${item.id}` : "/api/admin/help", {
@@ -119,13 +125,13 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
       setStatus(data.item.status); setMessage(nextStatus === "published" ? "Prípad je publikovaný v sekcii Pomoc psom." : "Koncept je bezpečne uložený.");
       if (!item) window.location.assign(`/admin/pomoc/${data.item.id}?vytvorene=1`);
     } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Prípad sa nepodarilo uložiť."); }
-    finally { setSaving(false); }
+    finally { mutationPending.current = false; setSaving(false); }
   }
 
   const categoryInfo = getHelpCategory(category);
   const categoryOptions = HELP_ADMIN_CREATE_CATEGORIES.map((slug) => getHelpCategory(slug)).filter((entry): entry is NonNullable<ReturnType<typeof getHelpCategory>> => Boolean(entry));
   if (item?.category === "urgentne-pripady") { const legacy = getHelpCategory("urgentne-pripady"); if (legacy) categoryOptions.push(legacy); }
-  return <form noValidate className={`${styles.editor} admin-event-editor admin-help-editor`} onSubmit={(event) => { event.preventDefault(); void save("draft"); }}><div className={styles.editorBoundary} role="note"><strong>Tento editor vlastní iba generic Help.</strong><span>Adopcie, Lost/Found a organizácie uprav v ich canonical moduloch.</span><nav className={styles.moduleLinks} aria-label="Samostatné admin moduly"><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link><Link href="/admin/organizacie">Organizácie</Link></nav></div><div className="admin-event-editor-grid"><div className="admin-event-fields">
+  return <form noValidate className={`${styles.editor} admin-event-editor admin-help-editor`} onSubmit={(event) => { event.preventDefault(); void save(status); }}><div className={styles.editorBoundary} role="note"><strong>Tento editor vlastní iba generic Help.</strong><span>Adopcie, Lost/Found a organizácie uprav v ich canonical moduloch.</span><nav className={styles.moduleLinks} aria-label="Samostatné admin moduly"><Link href="/admin/adopcie">Adopcie</Link><Link href="/admin/stratene-najdene">Stratené / nájdené</Link><Link href="/admin/organizacie">Organizácie</Link></nav></div><div className="admin-event-editor-grid"><div className="admin-event-fields">
     <AdminAutomationUpdateSuggestions initialSuggestions={automationSuggestions} onAccepted={applyAutomationUpdate} />
     <section className="admin-form-card admin-form-card--intro"><div className="admin-field admin-field--title"><label htmlFor="help-title">Názov prípadu alebo výzvy</label><input ref={titleInputRef} id="help-title" value={title} onChange={(event) => changeTitle(event.target.value)} placeholder="Napríklad: Ben hľadá pokojný domov" required /></div><div className="admin-field"><label htmlFor="help-excerpt">Krátky popis</label><textarea id="help-excerpt" rows={3} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Čo sa deje a aká pomoc je potrebná?" required /><small>{excerpt.length} znakov · odporúčame 80–180</small></div></section>
     <section className="admin-form-card"><div className="admin-card-heading"><div><span>01</span><div><h2>Zaradenie a zodpovednosť</h2><p>Kategória, organizácia a miesto prípadu.</p></div></div></div><div className="admin-field-grid"><div className="admin-field"><label htmlFor="help-category">Kategória</label><select id="help-category" value={category} onChange={(event) => changeCategory(event.target.value as HelpCategorySlug)}>{categoryOptions.map((entry) => <option value={entry.slug} key={entry.slug}>{entry.label}</option>)}</select></div><div className="admin-field"><label htmlFor="help-organization">Zodpovedná organizácia alebo osoba</label><input id="help-organization" value={organization} onChange={(event) => setOrganization(event.target.value)} placeholder="Názov útulku alebo overenej osoby" required /></div><div className="admin-field"><label htmlFor="help-region">Kraj</label><select id="help-region" value={region} onChange={(event) => setRegion(event.target.value as SlovakRegion)}>{slovakRegions.filter((entry) => entry !== "Online").map((entry) => <option key={entry}>{entry}</option>)}</select></div><div className="admin-field"><label htmlFor="help-city">Mesto</label><input id="help-city" value={city} onChange={(event) => setCity(event.target.value)} placeholder="Zlaté Moravce" required /></div></div><div className="admin-field"><label htmlFor="help-location">Spresnenie lokality <small>nepovinné</small></label><input id="help-location" value={locationNote} onChange={(event) => setLocationNote(event.target.value)} placeholder="Mestská časť, ulica alebo približné miesto" /></div></section>
@@ -134,5 +140,5 @@ export function AdminHelpEditor({ item, automationSuggestions = [] }: { item?: H
     <AdminSeoFields value={seo} onChange={setSeo} canonicalPath={`/pomoc-psom/${category}/${slug}`} fallbackTitle={helpSeoFallback(title||"Názov prípadu",categoryInfo?.singular??"Pomoc psom",city).title} fallbackDescription={helpSeoFallback(title||"Názov prípadu",categoryInfo?.singular??"Pomoc psom",city).description}/>
   </div><aside className="admin-event-preview admin-help-preview"><span className="admin-eyebrow">Živý súhrn</span><div className="admin-event-preview-visual">{imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={thumbnailImageDisplay} src={imageUrl} alt="" /> : <span>{categoryInfo?.icon ?? "🐾"}</span>}</div><span className="eyebrow">{categoryInfo?.singular}{verified ? " · Overené" : ""}</span><h2>{title || "Názov prípadu"}</h2><p>{excerpt || "Krátky popis prípadu sa zobrazí tu."}</p><dl><div><dt>Lokalita</dt><dd>{city || "Mesto"} · {region}</dd></div><div><dt>Zodpovedá</dt><dd>{organization || "Organizácia"}</dd></div><div><dt>Stav</dt><dd>{resolved ? "Vybavené" : urgent ? "Urgentné" : "Aktívne"}</dd></div></dl></aside></div>{imageEditorOpen && imageUrl && <ImageDisplayEditor src={imageUrl} alt={title || "Pomoc psom"} title={title} excerpt={excerpt} entityLabel="prípadu pomoci" thumbnailAspectRatio="4 / 3"
     thumbnail={thumbnailImageDisplay} detail={detailImageDisplay} onCancel={() => setImageEditorOpen(false)}
-    onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}<div className="admin-editor-actions"><div><Link href="/admin/pomoc">← Späť na prípady</Link></div><div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => void save("draft")}>Stiahnuť z webu</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : "Uložiť koncept"}</button><button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Publikovať prípad"}</button></div></div></form>;
+    onSave={(thumbnail, detail) => { setThumbnailImageDisplay(thumbnail); setDetailImageDisplay(detail); setImageEditorOpen(false); }} />}{(message || error) && <div className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role="status">{error || message}</div>}<div className="admin-editor-actions"><div><Link href="/admin/pomoc">← Späť na prípady</Link></div><div>{status === "published" && <button className="admin-unpublish" type="button" disabled={saving || uploading} onClick={() => setConfirmUnpublish(true)}>Stiahnuť z webu</button>}<button className="admin-save-draft" type="submit" disabled={saving || uploading}>{saving ? "Ukladám…" : status === "published" ? "Uložiť zmeny" : "Uložiť koncept"}</button>{status !== "published" && <button className="admin-publish" type="button" disabled={saving || uploading} onClick={() => void save("published")}>{saving ? "Ukladám…" : "Publikovať prípad"}</button>}</div></div><AdminModalDialog open={confirmUnpublish} title="Stiahnuť prípad z webu?" description="Prípad sa zmení na koncept a prestane byť verejne dostupný." onClose={() => setConfirmUnpublish(false)} footer={<><AdminActionButton variant="neutral" onClick={() => setConfirmUnpublish(false)}>Ponechať publikované</AdminActionButton><AdminActionButton variant="destructive" disabled={saving || uploading} onClick={() => void save("draft")}>Potvrdiť stiahnutie</AdminActionButton></>}><p>Aktuálne úpravy sa uložia spolu so zmenou stavu.</p></AdminModalDialog></form>;
 }
