@@ -2,14 +2,14 @@ import Link from "next/link";
 import { directoryProfileHref, getDirectoryCategory, type PublicDirectoryProfile } from "@/lib/directory";
 import styles from "./directory-public.module.css";
 import { ImageDisplay } from "@/components/image-display";
+import { publicLocationLabel, publicLocationValue } from "@/lib/public-location";
 
 export function DirectoryCard({ profile }: { profile: PublicDirectoryProfile }) {
   const category = getDirectoryCategory(profile.category);
-  const location = [
-    profile.city,
-    profile.district && profile.district !== profile.city ? profile.district : "",
-    profile.region,
-  ].filter(Boolean).join(" · ");
+  const city = publicLocationValue(profile.city, "city");
+  const district = publicLocationValue(profile.district, "district");
+  const region = publicLocationValue(profile.region, "region");
+  const location = publicLocationLabel([city, district && district !== city ? district : "", region]);
   const serviceMeta = profile.services.slice(0, 2);
 
   return (

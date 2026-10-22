@@ -145,7 +145,7 @@ test("L MANAGED_EVENT online behavior remains intact", () => {
   assert.equal(onlineEvent.reasonCode, "ONLINE_ONLY");
 });
 
-test("M editorial text Online konzultácie remains ordinary searchable service content", () => {
-  assert.match(detailPresentation, /Online konzultácie/);
+test("M fixed public directory feature labels no longer advertise online delivery", () => {
+  assert.doesNotMatch(detailPresentation, /Online konzultácie|Online objednanie/);
   assert.match(store, /input\.services\.join\(" "\)/);
 });

@@ -45,7 +45,7 @@ test("Events 2.0 presents calendar after managed hero, with shared date filterin
 test("event filters keep canonical page type, regions, date status, search and reliable month ranges", () => {
   assert.match(calendar, /const typePathname = initialType === "Všetky"/);
   assert.match(calendar, /eventTypePortalHref\(initialType\)/);
-  assert.match(listing, /slovakRegions.map/);
+  assert.match(listing, /slovakRegions\.filter/);
   assert.match(eventCard, /eventDateStatus\(event, today\)/);
   assert.match(filters, /normalizeEventSearch/);
   assert.match(filters, /calendarMonthBounds/);
@@ -85,7 +85,7 @@ test("event rows stay compact and date-first with an image presentation slot", (
   assert.match(eventCard, /Miesto/);
   // Cards intentionally show the essential facts only; organizer remains available in the detail.
   assert.doesNotMatch(eventCard, /<strong>Organizátor<\/strong>/);
-  assert.match(eventCard, /event\.region === "Online"/);
+  assert.doesNotMatch(eventCard, /Online podujatie/);
   assert.match(eventCard, /data-event-status/);
   assert.match(eventCard, /styles\.eventCardWithImage/);
   assert.match(eventCard, /<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\} mode=\{event\.imageDisplay\} config=\{event\.thumbnailImageDisplay\} sizes="[^"]+" alt="" loading="lazy" decoding="async"/);
@@ -109,7 +109,7 @@ test("admin and public event filters continue to share canonical eventTypes", ()
   assert.match(eventsLib, /export const eventTypeFilters =/);
   assert.match(adminEditor, /import \{ eventTypes, slovakRegions/);
   assert.match(adminEditor, /eventTypes\.map/);
-  assert.match(adminEditor, /slovakRegions\.map/);
+  assert.match(adminEditor, /slovakRegions\.filter/);
 });
 
 test("legacy calendar URL stays a noindex canonical alias excluded from sitemap", () => {

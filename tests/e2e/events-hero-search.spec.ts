@@ -59,15 +59,20 @@ test("homepage search defaults stay unchanged and event search follows the hero 
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/podujatia");
     await expect(page.getByRole("textbox", { name: "Hľadať podujatia", exact: true })).toBeVisible();
-    const bounds = await page.locator("[data-unified-section-hero-visual]").boundingBox();
-    const panel = await page.locator(".home-search-panel").boundingBox();
-    // Homepage reference: the white search panel overlaps the photograph.
-    const heroBottom = bounds!.y + bounds!.height;
+    // Fonts and managed hero media can settle after the first layout. Measure
+    // both boxes within the SAME animation frame to avoid a mixed-layout read.
+    await page.evaluate(async () => { await document.fonts.ready; });
     const expectedOverlap = width <= 620 ? 18 : 25;
-    expect(Math.abs((heroBottom - panel!.y) - expectedOverlap)).toBeLessThanOrEqual(3);
-    expect(panel!.width).toBeLessThanOrEqual(width);
-    expect(panel!.x).toBeGreaterThanOrEqual(0);
-    expect(panel!.x + panel!.width).toBeLessThanOrEqual(width + 1);
+    const measure = () => page.evaluate(() => {
+      const hero = document.querySelector("[data-unified-section-hero-visual]")!.getBoundingClientRect();
+      const panel = document.querySelector(".home-search-panel")!.getBoundingClientRect();
+      return { overlap: hero.bottom - panel.top, width: panel.width, x: panel.x };
+    });
+    await expect.poll(async () => Math.abs((await measure()).overlap - expectedOverlap), { timeout: 5_000 }).toBeLessThanOrEqual(3);
+    const panel = await measure();
+    expect(panel.width).toBeLessThanOrEqual(width);
+    expect(panel.x).toBeGreaterThanOrEqual(0);
+    expect(panel.x + panel.width).toBeLessThanOrEqual(width + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });

@@ -1,6 +1,7 @@
 import type { DirectoryCategorySlug, PublicDirectoryProfile } from "@/lib/directory";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { readDirectoryPublicContacts } from "./directory-profile-metadata.ts";
+import { publicLocationValue } from "./public-location.ts";
 import type { PublicRelatedBreed } from "@/lib/content-relations";
 
 export type DirectoryDetailFact = { label: string; value: string };
@@ -57,11 +58,11 @@ const relationFields = ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Z
 
 const detailFields: Partial<Record<DirectoryCategorySlug, string[]>> = {
   veterinari: ["Špecializácie", "Pohotovosť", "Hospitalizácia", "RTG", "USG", "Laboratórium"],
-  treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo", "Online konzultácie"],
+  treneri: ["Individuálny výcvik", "Skupinový výcvik", "Výcvik šteniat", "Behaviorálne poradenstvo"],
   "kynologicke-kluby": ["Typ klubu", "Zameranie", "Organizácia", "Výcvik šteniat", "Individuálny výcvik", "Skupinový výcvik", "Športová kynológia", "Obrany", "Stopy", "Agility", "Rally obedience", "Retriever / poľovnícka kynológia"],
   "chovatelske-kluby": ["Plemeno", "Plemená", "FCI skupina", "Organizácia", "Zastrešujúca organizácia"],
   "chovatelske-stanice": ["Plemeno", "Plemená", "FCI skupina", "Chovateľ", "Klub", "Aktívny chov", "Aktuálne vrhy", "Plánované vrhy"],
-  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa", "Online objednanie"],
+  "hotely-a-opatrovanie": ["Hotel", "Opatrovanie", "Denná starostlivosť", "Vyzdvihnutie psa"],
   vencenie: ["Individuálne venčenie", "Skupinové venčenie", "Venčenie s tréningom", "Šteňatá", "Veľké psy", "Seniori / špeciálne potreby", "Vyzdvihnutie psa", "GPS / foto report", "Typ poskytovateľa"],
   fyzioterapia: ["Hydroterapia", "Laserterapia", "Magnetoterapia", "Elektroterapia", "Manuálne techniky", "Dogfitness / prevencia", "Pooperačná rehabilitácia", "Ortopedickí pacienti", "Neurologickí pacienti", "Športové / pracovné psy", "Mobilná služba", "Odborník / certifikácia"],
   "dalsie-sluzby": ["Typ služby", "Pokrytie", "Výjazd ku klientovi", "Celoslovenská dostupnosť", "Orientačná cena"],
@@ -189,9 +190,9 @@ export function getDirectoryDetailPresentation(profile: PublicDirectoryProfile):
     excerpt: profile.excerpt,
     services: profile.services,
     qualifications: profile.qualifications,
-    city: profile.city,
-    district: profile.district,
-    region: profile.region,
+    city: publicLocationValue(profile.city, "city"),
+    district: publicLocationValue(profile.district, "district"),
+    region: publicLocationValue(profile.region, "region"),
     address: publicAddress,
     priceNote: profile.priceNote,
     openingHours: usefulDirectoryDetailValue(importedValue(profile, "Ordinačné hodiny", "Otváracie hodiny", "Otváracia doba", "Ordinačná doba", "Pracovná doba")),
