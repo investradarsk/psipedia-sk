@@ -138,6 +138,6 @@ test("admin quality loads only pending found values", () => {
   assert.doesNotMatch(adminPage, /loadDataQualityDashboard/);
   assert.match(adminComponent, /setRemovedIds/);
   assert.match(adminComponent, /router.refresh/);
-  assert.match(dataQualityStore, /const \\[profileRead, mediaRead\\] = await Promise\\.all/);
+  assert.match(dataQualityStore, /readAdminAutomationData/);
   assert.doesNotMatch(dataQualityStore, /listCanonicalAutomationUpdateSuggestionEntityIds/);
 });
