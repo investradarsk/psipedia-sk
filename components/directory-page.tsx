@@ -134,6 +134,7 @@ export async function DirectoryPage({
                   <span className={styles.sidebarEyebrow}>Služby v okolí</span>
                   <h2>Nájdi služby na mape</h2>
                   <p>Prezri si verejne zobraziteľné miesta podľa kategórie a zvolenej lokality.</p>
+                  {filters.canonicalService&&<p>Mapa zatiaľ nezohľadňuje vybranú potvrdenú službu. Po otvorení mapy sa tento filter neuplatní.</p>}
                   <Link href={mapHref(filters, active?.slug)}>Zobraziť na mape →</Link>
                 </section>
 
