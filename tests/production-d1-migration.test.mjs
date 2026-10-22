@@ -13,6 +13,7 @@ import {
   PARTNER_MULTIMETHOD_AUTH_TABLES,
   SUPPORTED_PRODUCTION_TARGETS,
   PREPARED_PRODUCTION_TARGETS,
+  PROPOSED_SERVICES_V3_SQL,
   prepareScopedMigration,
   assertAutomationGovernanceSchema,
   assertGeminiRejectionSchema,
@@ -682,7 +683,10 @@ test("production D1 targets account for every canonical migration, including una
   const canonicalTargets = (await readdir(path.join(repoRoot, "drizzle")))
     .filter((name) => /^\d{4}_.+\.sql$/.test(name) && Number(name.slice(0, 4)) >= 62)
     .sort();
-  assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS].sort(), canonicalTargets);
+  assert.deepEqual([...SUPPORTED_PRODUCTION_TARGETS, ...PREPARED_PRODUCTION_TARGETS, PROPOSED_SERVICES_V3_SQL].sort(), canonicalTargets);
+  assert.ok(!SUPPORTED_PRODUCTION_TARGETS.includes(PROPOSED_SERVICES_V3_SQL));
+  assert.ok(!PREPARED_PRODUCTION_TARGETS.includes(PROPOSED_SERVICES_V3_SQL));
+  await assert.rejects(prepareScopedMigration({ targetMigration: PROPOSED_SERVICES_V3_SQL }), /Unsupported production migration target/);
   for (const target of PREPARED_PRODUCTION_TARGETS) {
     assert.equal(SUPPORTED_PRODUCTION_TARGETS.includes(target), false);
     await assert.rejects(prepareScopedMigration({ targetMigration: target }), /Unsupported production migration target/);
