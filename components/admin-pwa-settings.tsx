@@ -214,8 +214,30 @@ export function AdminPwaSettings() {
       }
 
       const registration = await getRegistration();
-      const current = await registration.pushManager.getSubscription();
-      const subscription = current ?? await registration.pushManager.subscribe({
+      let subscription = await registration.pushManager.getSubscription();
+
+      // A push service may reject an obsolete endpoint with 404/410. The server
+      // then disables that device, but the browser can still retain the same
+      // invalid subscription. Reusing it would make "Enable" fail again on the
+      // next delivery. Only rotate on an explicit enable, never on page load.
+      if (subscription) {
+        const statusResponse = await fetch("/api/admin/push/subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ action: "status", endpoint: subscription.endpoint }),
+        });
+        if (!statusResponse.ok) throw new Error("Existujúce upozornenia sa nepodarilo overiť.");
+        const status = await statusResponse.json() as { enabled?: boolean };
+        if (!status.enabled) {
+          const unsubscribed = await subscription.unsubscribe();
+          if (!unsubscribed) {
+            throw new Error("Starú registráciu upozornení sa nepodarilo obnoviť.");
+          }
+          subscription = null;
+        }
+      }
+
+      subscription ??= await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: base64UrlToUint8Array(config.publicKey),
       });
