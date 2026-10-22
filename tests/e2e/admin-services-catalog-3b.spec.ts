@@ -2,13 +2,45 @@ import {mkdirSync,writeFileSync} from "node:fs";
 import {expect,test,type Page} from "@playwright/test";
 const root=".e2e-artifacts/services-v3-admin-3b";
 const label=(width:number)=>width===1440?"desktop-1440":"mobile-"+width;
+
+/**
+ * Screenshot preparation, not product behavior: temporarily disable browser
+ * smooth scroll and scroll anchoring while returning to the top. Mobile
+ * Chromium can otherwise reapply the preceding summary-focus scroll after
+ * the first window.scrollTo, leaving the old test waiting indefinitely.
+ */
+const restoreTop=async(page:Page)=>{
+  const observed=await page.evaluate(async()=>{
+    const html=document.documentElement,body=document.body;
+    const h=html.style.getPropertyValue("scroll-behavior"),hp=html.style.getPropertyPriority("scroll-behavior");
+    const b=body.style.getPropertyValue("scroll-behavior"),bp=body.style.getPropertyPriority("scroll-behavior");
+    const anchor=html.style.getPropertyValue("overflow-anchor"),ap=html.style.getPropertyPriority("overflow-anchor");
+    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
+    html.style.setProperty("scroll-behavior","auto","important");
+    body.style.setProperty("scroll-behavior","auto","important");
+    html.style.setProperty("overflow-anchor","none","important");
+    try{
+      for(let frame=0;frame<5;frame++){
+        if(document.scrollingElement)document.scrollingElement.scrollTop=0;
+        window.scrollTo(0,0);
+        await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));
+      }
+      return {scrollY:window.scrollY,scrollTop:document.scrollingElement?.scrollTop??null,
+        active:document.activeElement?.tagName??null};
+    }finally{
+      if(h)html.style.setProperty("scroll-behavior",h,hp);else html.style.removeProperty("scroll-behavior");
+      if(b)body.style.setProperty("scroll-behavior",b,bp);else body.style.removeProperty("scroll-behavior");
+      if(anchor)html.style.setProperty("overflow-anchor",anchor,ap);else html.style.removeProperty("overflow-anchor");
+    }
+  });
+  expect(observed.scrollY,"Screenshot viewport reset must return to top: "+JSON.stringify(observed)).toBeLessThanOrEqual(1);
+};
+
 const capture=async(page:Page,name:string,fullPage=true)=>{
   mkdirSync(root,{recursive:true});
   // Restore the natural top-of-page viewport before full-page capture. Sticky headers
   // otherwise get stitched into the middle of the full-page PNG after clicking a row.
-  await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();window.scrollTo({top:0,behavior:"instant"});});
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf",timeout:10000});
-  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await restoreTop(page);
   await page.screenshot({path:root+"/"+name+".png",fullPage,animations:"disabled",scale:"css"});
 };
 
@@ -50,12 +82,7 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
       search:rectangle(search),filters:rectangle(filters),create:rectangle(create)
     };
   },phase);
-  await page.evaluate(()=>{
-    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
-    window.scrollTo({top:0,behavior:"instant"});
-  });
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf",timeout:10000});
-  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await restoreTop(page);
   const top=await measure("top");
   expect(top.viewport,"browser viewport dimensions").toMatchObject({width,height});
   expect(top.header.position,"mobile header must remain sticky").toBe("sticky");
@@ -115,11 +142,7 @@ const captureMobileViewportEvidence=async(page:Page,state:"collapsed"|"expanded"
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded","false");
   writeFileSync(root+"/"+name+"-viewport-rectangles.json",JSON.stringify({top,scrolled,scrollPlan},null,2)+"\n");
-  await page.evaluate(()=>{
-    if(document.activeElement instanceof HTMLElement)document.activeElement.blur();
-    window.scrollTo({top:0,behavior:"instant"});
-  });
-  await page.waitForFunction(()=>Math.abs(window.scrollY)<=1,undefined,{polling:"raf",timeout:10000});
+  await restoreTop(page);
 };
 
 const noOverflow=async(page:Page,name:string)=>{
