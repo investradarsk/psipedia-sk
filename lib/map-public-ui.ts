@@ -23,6 +23,7 @@ export const MAP_FETCH_DEBOUNCE_MS = 280;
 export type MapUiFilters = {
   category: MapCategory | "";
   subcategory: string;
+  canonicalService?: string;
   region: string;
   district: string;
   city: string;
@@ -41,6 +42,7 @@ export type MapViewport = {
 export const EMPTY_MAP_FILTERS: MapUiFilters = {
   category: "",
   subcategory: "",
+  canonicalService: "",
   region: "",
   district: "",
   city: "",
@@ -79,6 +81,8 @@ export function parseMapUiFilters(
   return {
     category: validCategory(first(params.category)),
     subcategory: first(params.subcategory).slice(0, 80),
+    canonicalService: validCategory(first(params.category))==="services" && first(params.subcategory)
+      ? (Array.isArray(params.svc)?"__invalid__":first(params.svc).slice(0,101)) : "",
     region: first(params.region).slice(0, 80),
     district: first(params.district).slice(0, 100),
     city: first(params.city).slice(0, 100),
@@ -97,6 +101,8 @@ export function serializeMapUiFilters(filters: MapUiFilters) {
     if (key === "eventTiming" && value === "active") continue;
     params.set(key, value);
   }
+  if(filters.category==="services"&&filters.subcategory&&filters.canonicalService)
+    params.set("svc",filters.canonicalService);
   for (const field of directoryPublicFacetQueryFields(filters.facets)) params.set(field.name, field.value);
   return params;
 }
@@ -107,6 +113,8 @@ export function mapFiltersFromSearchParams(searchParams: URLSearchParams) {
     const value = searchParams.get(key);
     if (value) raw[key] = value;
   }
+  const svc=searchParams.getAll("svc");
+  if(svc.length)raw.svc=svc.length===1?svc[0]:"__invalid__";
   for (const definition of directoryFilterRegistry) {
     const key = "f." + definition.id;
     const values = searchParams.getAll(key);
@@ -120,6 +128,7 @@ export function mapFiltersForCategory(filters: MapUiFilters, category: MapUiFilt
     ...filters,
     category,
     subcategory: category === "services" ? filters.subcategory : "",
+    canonicalService: category === "services" ? filters.canonicalService : "",
     facets: category === "services" ? filters.facets : {},
     eventType: category === "events" ? filters.eventType : "",
     eventTiming: category === "events" ? filters.eventTiming : "active",
@@ -144,6 +153,7 @@ export function buildMapApiUrl(viewport: Pick<MapViewport, "bbox" | "zoom">, fil
   });
   if (filters.category) params.set("category", filters.category);
   if (filters.subcategory) params.set("subcategory", filters.subcategory);
+  if(filters.category==="services"&&filters.subcategory&&filters.canonicalService) params.set("svc",filters.canonicalService);
   if (filters.region) params.set("region", filters.region);
   if (filters.district) params.set("district", filters.district);
   if (filters.city) params.set("city", filters.city);
@@ -254,6 +264,7 @@ export function mapQueryInputPreview(viewport: Pick<MapViewport, "bbox" | "zoom"
     zoom: viewport.zoom,
     category: filters.category || undefined,
     subcategory: filters.subcategory || undefined,
+    canonicalService: filters.canonicalService || undefined,
     region: filters.region || undefined,
     district: filters.district || undefined,
     city: filters.city || undefined,

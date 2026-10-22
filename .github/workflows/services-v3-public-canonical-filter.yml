@@ -1,0 +1,25 @@
+name: Services V3 public canonical filter
+on:
+  pull_request:
+    paths:
+      - "lib/service-catalog-public-service-filter.ts"
+      - "lib/directory-store.ts"
+      - "lib/directory-query.ts"
+      - "components/directory-filter-form.tsx"
+      - "components/directory-page.tsx"
+      - "tests/service-catalog-public-filter.test.mjs"
+      - ".github/workflows/services-v3-public-canonical-filter.yml"
+permissions:
+  contents: read
+jobs:
+  public-canonical-filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - name: Canonical SQL, legacy filter compatibility, no inference
+        run: |
+          node --experimental-strip-types --test tests/service-catalog-public-filter.test.mjs
