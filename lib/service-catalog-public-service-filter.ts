@@ -48,7 +48,7 @@ export function canonicalPublicServiceWhere(
       WHERE svc_choice.profile_id=${profileId} AND svc_choice.option_id=?
         AND svc_choice.choice='yes'
         AND svc_option.kind='service' AND svc_option.status='ACTIVE'
-        AND svc_option.notion_mirror_status='SYNCED'
+        
         AND EXISTS (SELECT 1 FROM json_each(svc_option.categories_json) AS cat WHERE cat.value=?)
     )`],
     bindings:[raw,category]
@@ -66,7 +66,7 @@ export function canonicalPublicServiceOptions(
     const staticOption=builtIn(id,category);
     if(staticOption){out.set(id,staticOption.label);continue;}
     if(!dynamicId.test(id)||row.kind!=="service"||row.status!=="ACTIVE"||
-       row.mirrorStatus!=="SYNCED"||typeof row.label!=="string"||
+       typeof row.label!=="string"||
        row.label.trim().length<3)continue;
     let cats:unknown;
     try{cats=JSON.parse(row.categoriesJson??"");}catch{continue;}

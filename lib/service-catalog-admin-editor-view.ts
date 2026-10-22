@@ -32,6 +32,6 @@ export function catalogEditorItems(dynamic:readonly AdminCatalogOptionDto[]):Cat
 /** Never show a draft, conflicted or retired dynamic service as selectable on a profile. */
 export function eligibleProfileServiceItems(items:readonly CatalogEditorItem[],category:ServiceFilterCategory):CatalogEditorItem[]{
   return items.filter(item=>item.categories.includes(category)&&(
-    item.source==="built_in" || (item.status==="ACTIVE"&&item.mirror==="SYNCED")
+    item.source==="built_in" || item.status==="ACTIVE"
   ));
 }

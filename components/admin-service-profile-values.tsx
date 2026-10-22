@@ -49,7 +49,7 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
     finally{setBusy(false);}
   }
   return <section className={styles.profileCard} aria-label="Services V3 — služby a vlastnosti na profile">
-    <div className={styles.profileHeading}><div><h2>Services V3 — hodnoty profilu</h2><p>Neznáme = bez potvrdenej hodnoty. Nikdy neznamená automaticky Nie.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}</div></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
+    <div className={styles.profileHeading}><div><h2>Služby profilu</h2><p>Zaškrtni služby, ktoré profil poskytuje, a ulož.</p><div className={styles.profileBadges}><EditorStatus label={writeEnabled ? "Úpravy povolené" : "Iba na čítanie"} tone={writeEnabled ? "success" : "warning"}/>{changed.length > 0 && <EditorStatus label={"Neuložené: " + changed.length} tone="warning" />}</div></div><Link href="/admin/sluzby-pre-psov/katalog" onClick={event=>{if(changed.length>0&&!window.confirm("Zahodiť neuložené hodnoty služieb?"))event.preventDefault();}}>Správa katalógu →</Link></div>
     {error&&<p className={styles.error} role="alert">{error}</p>}
     {!writeEnabled&&<p className={styles.notice}>Kanonické zápisy sú vypnuté. Aktuálne hodnoty môžeš čítať, ale nie meniť.</p>}
     <section className={styles.profileSection} aria-label="Služby profilu"><label className={styles.profileSearch}>Hľadať službu<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Názov služby"/></label>
@@ -58,11 +58,8 @@ export function AdminServiceProfileValues({profileId,entries,initialChoices,writ
       const value=draft[item.id]??selectionForEditor(savedValue);
       return <label className={styles.profileRow} key={item.id}>
         <span><strong>{item.label}</strong><small>{item.group}</small></span>
-        <select aria-label={`Hodnota: ${item.label}`} value={value} disabled={!writeEnabled||Boolean(error)||busy}
-          onChange={e=>setDraft(old=>({...old,[item.id]:e.target.value as InputChoice}))}>
-          <option value="unknown">Neznáme</option>
-          <option value="yes">Áno</option><option value="no">Nie</option>
-        </select>
+        <input type="checkbox" aria-label={`Poskytuje: ${item.label}`} checked={value==="yes"} disabled={!writeEnabled||Boolean(error)||busy}
+          onChange={e=>setDraft(old=>({...old,[item.id]:e.target.checked?"yes":"unknown"}))}/>
       </label>;
     })}{services.length===0&&<p>Nenašli sa žiadne vhodné služby.</p>}</div>
     </section>

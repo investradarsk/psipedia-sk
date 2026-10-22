@@ -1,3 +1,4 @@
+import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock";
 import { resolveGeminiPublicSlug } from "./gemini-public-slug";
 import type { ManagedDirectoryProfile } from "@/lib/directory";
@@ -995,6 +996,11 @@ async function applyNotionToProfile(input: {
       database: input.database,
     });
 
+    if(JSON.stringify(desired.services)!==JSON.stringify(current.services)){
+      // Only a Notion-side "Služby" edit maps to canonical choices. The existing
+      // profile field conflict policy has already approved the editorial merge.
+      await importNotionServiceChoices(input.database,updated.id,updated.category,desired.services);
+    }
     return await getManagedDirectoryProfileById(updated.id, input.database) ?? updated;
   } catch (error) {
     if (prepared?.uploadedKey) {

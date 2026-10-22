@@ -41,17 +41,21 @@ function validateNewOption(value:unknown){
   if(!value||typeof value!=="object"||Array.isArray(value))
     throw new ServiceCatalogInputError("Invalid option payload.");
   const data=value as Record<string,unknown>;
-  if(Object.keys(data).some(x=>!["name","category","kind","group","meaning"].includes(x)))
+  if(Object.keys(data).some(x=>!["name","category","categories","kind","group","meaning"].includes(x)))
     throw new ServiceCatalogInputError("Server-controlled fields are forbidden.");
-  if(typeof data.name!=="string"||typeof data.category!=="string"||typeof data.kind!=="string"
-      ||typeof data.group!=="string"||typeof data.meaning!=="string")
+  if(typeof data.name!=="string"||typeof data.kind!=="string"||
+      (data.category!==undefined&&typeof data.category!=="string")||
+      (data.categories!==undefined&&(!Array.isArray(data.categories)||!data.categories.every(x=>typeof x==="string")))||
+      (data.group!==undefined&&typeof data.group!=="string")||
+      (data.meaning!==undefined&&typeof data.meaning!=="string"))
     throw new ServiceCatalogInputError("Invalid option fields.");
   let result:ReturnType<typeof validateCatalogOptionDraft>;
   try{result=validateCatalogOptionDraft(data as unknown as CatalogOptionDraft);}
   catch(e){throw new ServiceCatalogInputError(e instanceof Error?e.message:"Invalid option.");}
-  const meaning=data.meaning.normalize("NFC").trim().replace(/\s+/g," ");
-  if(meaning.length<10||meaning.length>500)throw new ServiceCatalogInputError("Meaning must contain 10 to 500 characters.");
-  return {...result,meaning,normalizedLabel:normalizeCatalogLabel(result.name)};
+  const meaning=(data.meaning??"Služba vedená v katalógu Psipedia.sk.") as string;
+  const normalizedMeaning=meaning.normalize("NFC").trim().replace(/\s+/g," ");
+  if(normalizedMeaning.length<10||normalizedMeaning.length>500)throw new ServiceCatalogInputError("Meaning must contain 10 to 500 characters.");
+  return {...result,meaning:normalizedMeaning,normalizedLabel:normalizeCatalogLabel(result.name)};
 }
 export async function listAdminCatalogOptions(db:DB){
   try{const rows=await db.prepare("SELECT * FROM service_catalog_admin_options ORDER BY label,id").all<AdminOptionRow>();
@@ -72,10 +76,10 @@ export async function createAdminCatalogOption(db:DB,raw:unknown,actorRaw:string
     const sql=[
       "INSERT INTO service_catalog_admin_options",
       "(id,kind,label,normalized_label,group_name,meaning,primary_category,categories_json,value_kind,status,notion_mirror_status,version,created_at,updated_at,created_by,updated_by)",
-      "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,'tri_state','DRAFT','PENDING',1,?9,?9,?10,?10) RETURNING *"
+      "VALUES (?1,?2,?3,?4,?5,?6,?7,?8,'tri_state','ACTIVE','PENDING',1,?9,?9,?10,?10) RETURNING *"
     ].join(" ");
     const created=await db.prepare(sql).bind(id,input.kind,input.name,input.normalizedLabel,input.group,input.meaning,input.category,
-      JSON.stringify([input.category]),time,actor).first<AdminOptionRow>();
+      JSON.stringify(input.categories),time,actor).first<AdminOptionRow>();
     if(!created)throw new ServiceCatalogConflictError("No option row was created.");
     return mapOption(created);
   }catch(e){return handleDbError(e);}
@@ -87,7 +91,7 @@ async function allowedCategories(db:DB,id:string):Promise<readonly string[]|null
   if(attribute)return attribute.categories;
   const row=await db.prepare("SELECT kind,status,notion_mirror_status,categories_json FROM service_catalog_admin_options WHERE id=?1 LIMIT 1")
     .bind(id).first<{kind:string;status:string;notion_mirror_status:string;categories_json:string}>();
-  return (row?.kind==="service"||row?.kind==="attribute")&&row.status==="ACTIVE"&&row.notion_mirror_status==="SYNCED"?categories(row.categories_json):null;
+  return (row?.kind==="service"||row?.kind==="attribute")&&row.status==="ACTIVE"?categories(row.categories_json):null;
 }
 /** An explicit yes/no write with version=0 insert-if-absent and CAS updates. */
 export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,actorRaw:string,now=new Date()){
@@ -119,7 +123,7 @@ export async function saveAdminServiceChoice(db:DB,input:ServiceChoiceInput,acto
         "SELECT ?1,?2,?3,(SELECT COALESCE(MAX(COALESCE(next_version,prior_version)),0)+1",
         "FROM service_catalog_admin_change_audit WHERE entity_type='choice' AND profile_id=?1 AND option_id=?2),?4,?4,?5,?5 WHERE EXISTS",
         "(SELECT 1 FROM directory_profiles WHERE id=?1 AND category=?6 AND status<>'archived')",
-        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?2 AND status='ACTIVE' AND notion_mirror_status='SYNCED'",
+        ...(dynamicOption?["AND EXISTS (SELECT 1 FROM service_catalog_admin_options WHERE id=?2 AND status='ACTIVE'",
           "AND EXISTS (SELECT 1 FROM json_each(categories_json) WHERE value=?6))"]:[]),
         "ON CONFLICT (profile_id,option_id) DO NOTHING RETURNING profile_id,option_id,choice,version"
       ].join(" ");

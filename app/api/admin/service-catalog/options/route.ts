@@ -6,8 +6,7 @@ export const dynamic="force-dynamic";
 type Bindings={DB?:D1Database;SERVICE_CATALOG_ADMIN_WRITES_ENABLED?:string;SERVICE_CATALOG_NOTION_MIRROR_READY?:string};
 const settings=()=>env as unknown as Bindings;
 // Deliberate double safety gate. Neither variable is enabled in current Wrangler.
-const writersEnabled=()=>settings().SERVICE_CATALOG_ADMIN_WRITES_ENABLED==="true"
-  &&settings().SERVICE_CATALOG_NOTION_MIRROR_READY==="true";
+const writersEnabled=()=>settings().SERVICE_CATALOG_ADMIN_WRITES_ENABLED==="true";
 export async function GET(){
   const admin=await getAdminApiUser();
   if(!admin)return unauthorizedAdminResponse();

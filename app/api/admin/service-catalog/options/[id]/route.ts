@@ -12,7 +12,7 @@ export async function PATCH(request:Request,{params}:Props){
   const auth=await requireAdminMutation(request);
   if(auth.response)return auth.response;
   const cfg=env as unknown as Bindings;
-  if(cfg.SERVICE_CATALOG_ADMIN_WRITES_ENABLED!=="true"||cfg.SERVICE_CATALOG_NOTION_MIRROR_READY!=="true")
+  if(cfg.SERVICE_CATALOG_ADMIN_WRITES_ENABLED!=="true")
     return Response.json({error:"Canonical catalog lifecycle is not activated."},{status:503});
   if(!cfg.DB)return Response.json({error:"D1 is unavailable."},{status:503});
   try{

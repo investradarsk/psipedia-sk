@@ -11,13 +11,16 @@ export const SERVICE_OPTION_GOVERNANCE={
   selectedStates:["yes","no"],untouchedLegacyIsNo:false,
   idPolicy:"immutable_server_allocated",approval:"authorized_admin",
 } as const;
-export type CatalogOptionDraft=Readonly<{name:string;category:string;kind:"service"|"attribute";group:string}>;
+export type CatalogOptionDraft=Readonly<{name:string;category?:string;categories?:readonly string[];kind:"service"|"attribute";group?:string}>;
 export function validateCatalogOptionDraft(input:CatalogOptionDraft){
   const name=input.name.normalize("NFC").trim().replace(/\s+/g," ");
-  const group=input.group.normalize("NFC").trim().replace(/\s+/g," ");
+  const group=(input.group??(input.kind==="service"?"Služby":"Vlastnosti")).normalize("NFC").trim().replace(/\s+/g," ");
+  const categories=input.categories??(input.category?[input.category]:[]);
+  if(!Array.isArray(categories)||categories.length<1||new Set(categories).size!==categories.length||
+    !categories.every(category=>(serviceFilterCategories as readonly string[]).includes(category)))throw Error("Invalid categories.");
   if(name.length<3||name.length>100)throw Error("Invalid option name.");
   if(group.length<2||group.length>80)throw Error("Invalid option group.");
-  if(!(serviceFilterCategories as readonly string[]).includes(input.category))throw Error("Invalid category.");
+
   if(input.kind!=="service"&&input.kind!=="attribute")throw Error("Invalid option kind.");
   // One global identity even when the same service is offered in another category.
   // Existing canonical options must be reused/extended by an authorized Admin;
@@ -26,5 +29,5 @@ export function validateCatalogOptionDraft(input:CatalogOptionDraft){
     throw Error("Option already exists; reuse its canonical ID.");
   if(serviceCatalog.some(x=>x.aliases.some(a=>normalizeCatalogLabel(a)===normalizeCatalogLabel(name))))
     throw Error("Option already exists as alias; reuse its canonical ID.");
-  return {name,category:input.category as ServiceFilterCategory,kind:input.kind,group};
+  return {name,category:categories[0] as ServiceFilterCategory,categories:categories as ServiceFilterCategory[],kind:input.kind,group};
 }
