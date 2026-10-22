@@ -165,7 +165,7 @@ const clientHydrationSnapshot = () => true;
 const serverHydrationSnapshot = () => false;
 
 export function DirectoryFilterForm(props: Props) {
-  const { filters, basePath, category, mapHref } = props;
+  const { filters, options, basePath, category, mapHref } = props;
   const disclosure = useRef<HTMLDetailsElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const hydrated = useSyncExternalStore(subscribeHydration, clientHydrationSnapshot, serverHydrationSnapshot);
