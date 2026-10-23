@@ -151,7 +151,7 @@ function createAdminMockDatabase() {
         updated_at: articleRow.updated_at,
       }];
     }
-    if (/SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at, COALESCE\(json_extract\(source_data_json.*AS reviewed_at FROM directory_profiles/i.test(normalized)) {
+    if (/SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,\s+COALESCE\(json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\), ''\) AS reviewed_at\s+FROM directory_profiles/i.test(normalized)) {
       return [{
         id: profileRow.id,
         slug: profileRow.slug,
@@ -600,10 +600,9 @@ test("uses light admin lists and loads full records only for detail and save", a
     assert.ok(directoryListQueries.length > 0);
     for (const { sql } of directoryListQueries) {
       assert.doesNotMatch(sql, /SELECT\s+\*/i);
-      assert.doesNotMatch(sql, /description|qualifications_json|internal_email/i);
-      // Metadata is not selected wholesale; one bounded JSON field drives review badges.
-      assert.match(sql, /COALESCE\(json_extract\(source_data_json/);
-      assert.doesNotMatch(sql, /,\s*source_data_json\s*(?:,|FROM)/i);
+      // The one allowed scalar JSON extraction carries review state; full source_data_json must not be selected.
+      const withoutReviewScalar = sql.replace(/json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)/gi, "");
+      assert.doesNotMatch(withoutReviewScalar, /description|qualifications_json|source_data_json|internal_email/i);
     }
 
     const articleDetail = await worker.fetch(adminRequest("/admin/clanky/7"), bindings, context);
