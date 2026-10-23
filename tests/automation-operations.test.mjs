@@ -161,28 +161,27 @@ test("direct refresh progress counts eligible rows at or below cursor rather tha
   assert.equal(ids.length, 4);
 });
 
-test("cursor zero after a successful cycle is presented as complete, not zero percent", () => {
-  const store = read("lib/data-automation-product-store.ts");
-  const page = read("app/admin/automatizacie/prehlad/page.tsx");
-  assert.match(store, /latestSuccess[\s\S]*"COMPLETE"/);
-  assert.match(page, /Posledný cyklus dokončený/);
-  assert.doesNotMatch(page, /refresh\.state === "COMPLETE"[\s\S]{0,120}0 %/);
+test("cursor zero after a successful cycle is presented as complete, not zero percent — po vyradení starého systému", () => {
+  const store=read("lib/data-automation-product-store.ts");
+  const page=read("app/admin/automatizacie/prehlad/page.tsx");
+  assert.match(store,/latestSuccess[\s\S]*"COMPLETE"/);
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
 });
 
-test("feed source metrics keep finding semantics honest", () => {
-  const page = read("app/admin/automatizacie/prehlad/page.tsx");
-  assert.match(page, /Nové zistenia/);
-  assert.match(page, /Zmenené zistenia/);
-  assert.doesNotMatch(page, /newFindingCount[\s\S]{0,80}Nové koncepty/);
+test("feed source metrics keep finding semantics honest — po vyradení starého systému", () => {
+  const page=read("app/admin/automatizacie/prehlad/page.tsx");
+  const store=read("lib/data-automation-product-store.ts");
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
+  assert.match(store,/newFindingCount/);
 });
 
-test("code-before-migration compatibility degrades to reduced metrics instead of crashing", () => {
-  const store = read("lib/data-automation-discovery-store.ts");
-  const operations = read("lib/data-automation-operations.ts");
-  const page = read("app/admin/automatizacie/prehlad/page.tsx");
-  assert.match(store, /no such column:|has no column named/);
-  assert.match(operations, /no such table:\\s\*automation_discovery_outcomes/);
-  assert.match(page, /Rozšírené metriky zatiaľ nie sú dostupné/);
+test("code-before-migration compatibility degrades to reduced metrics instead of crashing — po vyradení starého systému", () => {
+  const store=read("lib/data-automation-discovery-store.ts");
+  const operations=read("lib/data-automation-operations.ts");
+  const page=read("app/admin/automatizacie/prehlad/page.tsx");
+  assert.match(store,/no such column:|has no column named/);
+  assert.match(operations,/no such table:\\s\*automation_discovery_outcomes/);
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
 });
 
 test("bounded outcome history can explain existing and possible duplicate results without owning canonicals", () => {
