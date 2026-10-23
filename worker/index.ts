@@ -195,6 +195,8 @@ async function runScheduledAdminPush(env: Env) {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    // Worker preview URLs must never compete with psipedia.sk in Google's index.
+    const isWorkersDevPreview = url.hostname.toLowerCase().endsWith(".workers.dev");
 
     const canonicalBreedPath = LEGACY_BREED_REDIRECTS[url.pathname];
     if (canonicalBreedPath) {
@@ -205,7 +207,7 @@ const worker = {
     // Public XML only: a warm POP may safely serve its most recent validated
     // snapshot when D1/SSR has a transient error. Never cache authenticated,
     // queried or private requests; public HTML caching remains separate.
-    if (eligiblePublicSitemapRequest(request)) {
+    if (!isWorkersDevPreview && eligiblePublicSitemapRequest(request)) {
       const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
       return servePublicSitemap(request, () => handler.fetch(request, env, ctx), storage, ctx);
     }
@@ -275,6 +277,13 @@ const worker = {
         "CDN-Cache-Control": "no-store",
         "Cloudflare-CDN-Cache-Control": "no-store",
         "Referrer-Policy": "no-referrer",
+      });
+    }
+    if (isWorkersDevPreview) {
+      // Do not cache preview HTML or let it create duplicate indexable hosts.
+      return responseWithHeaders(response, {
+        "X-Robots-Tag": "noindex, nofollow",
+        "Cache-Control": "private, no-store",
       });
     }
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
@@ -661,6 +670,7 @@ const worker = {
 
 function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): { storage: Cache; key: Request } | null {
   if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname) || isReviewAuthorRoute(url.pathname)) return null;
+  if (url.hostname.toLowerCase().endsWith(".workers.dev")) return null;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
   const accept = request.headers.get("accept") ?? "";
