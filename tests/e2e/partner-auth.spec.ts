@@ -444,6 +444,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
+    // Wait for controlled input handlers before editing the server-rendered field.
+    await expect(page.locator(".partner-profile-edit-form")).toHaveAttribute("data-partner-edit-ready", "true");
     await page.getByLabel("Verejný telefón").fill("+421900333444");
     await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
     await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");
