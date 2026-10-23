@@ -38,6 +38,7 @@ type LegacyPushDeliveryRow = {
   id: number;
   notification_id: number;
   subscription_id: number;
+  categories_json: string;
   status: "pending" | "sent" | "failed" | "dead";
   attempts: number;
   last_error: string | null;
@@ -377,9 +378,8 @@ function safeError(error: unknown) {
 export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   const resolved = runtime(options);
   const vapid = configuredVapid(resolved.bindings);
-  if (!vapid) return { configured: false, candidates: 0, sent: 0, failed: 0, dead: 0 };
-
   const nowIso = resolved.now.toISOString();
+  // Work-feed events must be persisted even if mobile push is not configured.
   await enqueueUncoveredAttentionAdminNotifications(resolved.database, resolved.now).catch((error) => {
     console.warn(JSON.stringify({
       event: "admin_attention_push_bridge",
@@ -387,6 +387,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
       error: safeError(error),
     }));
   });
+  if (!vapid) return { configured: false, candidates: 0, sent: 0, failed: 0, dead: 0 };
   await ensureEventDeliveries(resolved.database, resolved.bindings, nowIso);
 
   const summary = { configured: true, candidates: 0, sent: 0, failed: 0, dead: 0 };
@@ -460,7 +461,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   const remaining = Math.max(0, MAX_DELIVERIES_PER_SWEEP - eventRows.results.length);
   if (remaining > 0) {
     const legacyRows = await resolved.database.prepare(`SELECT d.id, d.notification_id, d.subscription_id,
-        d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth
+        d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth, s.categories_json
       FROM admin_push_deliveries d
       JOIN admin_push_subscriptions s ON s.id = d.subscription_id
       WHERE d.status IN ('pending','failed') AND d.attempts < ? AND s.enabled = 1
@@ -481,6 +482,17 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
           ).bind(nowIso, row.id).run();
           summary.dead += 1;
           continue;
+        }
+        // Legacy editorial delivery path must obey the same per-device choices.
+        const legacyKey = notification.resource_type==="directory_profile_change_request" ? "PROFILE_PROPOSAL"
+          : notification.resource_type==="news_tip" || notification.resource_type==="article_feedback"
+          || notification.resource_type==="directory_inquiry" ? "COMMUNITY_TIP"
+          : notification.resource_type==="profile_review" ? "PROFILE_REVIEW"
+          : notification.resource_type==="adoption_request" ? "ADOPTION_REQUEST" : "SYSTEM_ACTIVITY";
+        if(!parseStoredPushCategories(row.categories_json).includes(legacyKey)){
+          await resolved.database.prepare("UPDATE admin_push_deliveries SET status='dead',last_error='category_disabled',updated_at=? WHERE id=?")
+            .bind(nowIso,row.id).run();
+          summary.dead++;continue;
         }
         const descriptor = await describeNotification(
           resolved.database,
