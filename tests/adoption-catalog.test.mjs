@@ -136,7 +136,7 @@ test("facet URLs delegate noindex handling to the shared listing SEO policy and 
   assert.match(route, /indexPagination: true/);
   assert.match(route, /paginationParam: "strana"/);
   assert.match(route, /path: "\/pomoc-psom\/adopcia"/);
-  assert.match(route, /getPublicAdoptions/);
+  assert.match(route, /listPublicAdoptionCards/);
   assert.match(route, /listPublishedAdoptionBreedOptions/);
   assert.doesNotMatch(route, /help-store|help_cases/);
 });
