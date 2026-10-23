@@ -21,7 +21,7 @@ test("/podujatia remains the primary full event listing without mutating canonic
   assert.match(portalPage, /slug === "podujatia" \? getPublicEventCalendar/);
   assert.match(portalPage, /<EventsPage[\s\S]*events=\{eventList\}[\s\S]*calendarSummaries=\{monthEvents\?\.summaries\}/);
   assert.match(eventsPage, /<EventCalendar[\s\S]*events=\{events\}[\s\S]*calendarSummaries=\{calendarSummaries\}[\s\S]*today=\{today\}/);
-  assert.match(eventsPage, /calendarEvents\?: DogEvent\[\]/);
+  assert.match(eventsPage, /calendarEvents\?: PublicEventDayPreview\[\]/);
   assert.match(eventsPage, /initialCalendarMonth\?: string/);
   assert.match(eventsPage, /initialDay\?: string/);
   assert.match(eventsPage, /ctaHref="\/podujatia\/pridat-podujatie"/);

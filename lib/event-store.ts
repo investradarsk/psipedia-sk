@@ -10,6 +10,7 @@ import {
   slovakRegions,
   type DogEvent,
   type PublicEventCard,
+  type PublicEventDayPreview,
   type EventStatus,
   type EventType,
   type SlovakRegion,
@@ -110,6 +111,20 @@ function rowToPublicEventCard(row: PublicEventCardRow): PublicEventCard {
     cancelled: Boolean(row.cancelled), imageUrl: row.image_url,
     imageDisplay: normalizeSmartImageMode(row.image_display),
     thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+  };
+}
+
+/** The day detail panel displays just links, dates, venues and cancellation flags. */
+type PublicEventDayRow = Pick<EventRow,
+  "id" | "slug" | "title" | "event_type" | "start_date" | "start_time" |
+  "end_date" | "venue" | "city" | "cancelled">;
+
+function rowToPublicEventDayPreview(row: PublicEventDayRow): PublicEventDayPreview {
+  return {
+    id: row.id, slug: row.slug, title: row.title,
+    eventType: (eventTypes as readonly string[]).includes(row.event_type) ? row.event_type as EventType : "Iné",
+    startDate: row.start_date, startTime: row.start_time, endDate: row.end_date,
+    venue: row.venue, city: row.city, cancelled: Boolean(row.cancelled),
   };
 }
 
@@ -322,9 +337,9 @@ export async function getPublishedEventListing(filters: EventListingFilters): Pr
 }
 
 /** At most 31 × 6 aggregate rows and 12 day previews, regardless of list page. */
-export async function getPublicEventCalendar(filters: EventListingFilters, month: string, day: string): Promise<{events:DogEvent[];summaries:{date:string;count:number;types:EventType[]}[]}> {
+export async function getPublicEventCalendar(filters: EventListingFilters, month: string, day: string): Promise<{events:PublicEventDayPreview[];summaries:{date:string;count:number;types:EventType[]}[]}> {
   const database = getD1Binding();
-  const empty = {events: [] as DogEvent[], summaries: [] as {date:string;count:number;types:DogEvent['eventType'][]}[]};
+  const empty = {events: [] as PublicEventDayPreview[], summaries: [] as {date:string;count:number;types:EventType[]}[]};
   if (!database || !/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(month)) return empty;
   const sql = eventListingSql(filters);
   const start = `${month}-01`;
@@ -335,8 +350,12 @@ export async function getPublicEventCalendar(filters: EventListingFilters, month
   for(const row of rows.results) { const summary: {date:string;count:number;types:EventType[]} = summaries.get(row.date) ?? {date:row.date,count:0,types:[]}; summary.count+=row.count; summary.types.push(row.type); summaries.set(row.date,summary); }
   for (const summary of summaries.values()) summary.types.sort((a,b)=>eventTypes.indexOf(a)-eventTypes.indexOf(b));
   if (!/^20\d{2}-\d{2}-\d{2}$/.test(day) || day < start || day > end) return {events:empty.events,summaries:[...summaries.values()]};
-  const result = await database.prepare(`SELECT * FROM managed_events WHERE ${sql.where} AND start_date <= ? AND COALESCE(NULLIF(end_date,''),start_date) >= ? ORDER BY ${sql.order} LIMIT 12`).bind(...sql.values,day,day).all<EventRow>();
-  return {events:result.results.map(rowToEvent),summaries:[...summaries.values()]};
+  const result = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,venue,city,cancelled
+    FROM managed_events WHERE ${sql.where} AND start_date <= ?
+      AND COALESCE(NULLIF(end_date,''),start_date) >= ?
+    ORDER BY ${sql.order} LIMIT 12`)
+    .bind(...sql.values,day,day).all<PublicEventDayRow>();
+  return {events:result.results.map(rowToPublicEventDayPreview),summaries:[...summaries.values()]};
 }
 
 export async function getPublishedEvents(limit = 250) {

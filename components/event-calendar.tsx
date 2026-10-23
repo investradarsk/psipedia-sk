@@ -18,7 +18,7 @@ import {
   eventTypePortalHref,
   eventTypes,
   formatEventDate,
-  type DogEvent,
+  type PublicEventDayPreview,
   type PublicEventCard,
   type EventTimeFilter,
   type EventType,
@@ -52,7 +52,7 @@ export function EventCalendar({
   events: PublicEventCard[];
   filters?: EventListingFilters;
   listing?: {total:number;page:number;pages:number};
-  calendarEvents?: DogEvent[];
+  calendarEvents?: PublicEventDayPreview[];
   calendarSummaries?: {date:string;count:number;types:EventType[]}[];
   today: string;
   initialType?: EventType | "Všetky";
