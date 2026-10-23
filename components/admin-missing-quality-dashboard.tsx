@@ -34,7 +34,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   const [bulkBusy,setBulkBusy]=useState(false);
   const [notice,setNotice]=useState("");
 
-  const total=Math.max(0,data.total-removedIds.length);
+  const total=Math.max(0,data.total-data.pending.filter(p=>removed.has(p.id)).length);
   const countArea=(id:QualityArea)=>items.filter(x=>x.area===id).length;
   const areaItems=items.filter(x=>x.area===area);
   const countGroup=(g:string)=>areaItems.filter(x=>g==="all"||x.field_group===g).length;
