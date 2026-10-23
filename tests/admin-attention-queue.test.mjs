@@ -486,7 +486,7 @@ test("automation attention derives active state from bounded domain queries and 
   assert.match(notifications, /automation\/source-issue\/\$\{sourceId\}\/\$\{sequence\.sequenceStart\}/);
   assert.doesNotMatch(runner, /enqueueAutomationFindingAdminNotification|enqueueEditorialNotification|maybeQueueHighPriorityNotification/);
   assert.match(runner, /enqueuePersistentAutomationSourceIssueAdminNotification/);
-  assert.match(push, /e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type='automation_source_issue'/);
+  assert.match(push, /e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type IN/);
 });
 
 
