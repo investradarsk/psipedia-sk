@@ -1954,7 +1954,7 @@
 /* DS-5 directory: compact, square thumbnails in the existing list card. */
 .card {
   border-radius: var(--ps-radius-card, 22px);
-  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
+  box-shadow: var(--ps-ds5-card-shadow);
 }
 .card:focus-visible {
   outline-color: var(--forest);

@@ -611,7 +611,7 @@ for (const [name, file, jobName] of [
   ["seo", "lib/seo-metadata.ts", "seo-recovery-e2e"],
   ["lost-found", "lib/lost-found-store.ts", "lost-found-public-e2e"],
 ]) {
-  const dependsOnPreview = jobName === "sitemap-production-diagnostic" || jobName === "seo-recovery-e2e";
+  const dependsOnPreview = jobName === "sitemap-production-diagnostic";
   // Cloudflare non-production builds are intentionally disabled by default.
   // Keep exact-head preview validation as an explicit opt-in; do not run
   // an eight-minute polling job with no preview build and call it a product failure.
@@ -622,11 +622,21 @@ for (const [name, file, jobName] of [
   assert.equal(simulation(["docs/audit.md"]).runs(jobName), false, `${name} docs skip`);
 }
 assert.equal(simulation(["lib/seo-metadata.ts"]).runs("sitemap-production-diagnostic"), false);
-assert.match(job("seo-recovery-e2e").condition, /vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
+assert.doesNotMatch(job("seo-recovery-e2e").condition, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED/);
 assert.match(job("sitemap-production-diagnostic").condition, /vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
+for (const file of ["scripts/start-public-regression-ci.sh", "tests/fixtures/public-regression-ci.sql"]) {
+  assert.equal(simulation([file]).runs("seo-recovery-e2e"), true, `${file}: local runtime must exercise SEO coverage`);
+}
 const ds0b = job("ds-0b-focused-regression").block;
-assert.match(ds0b, /Explain unavailable exact-head directory preview/);
-assert.match(ds0b, /if: steps\.ds0b_scope\.outputs\.directory == 'true' && vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
+for (const block of [ds0b, job("seo-recovery-e2e").block]) {
+  assert.match(block, /bash scripts\/start-public-regression-ci\.sh/);
+  assert.match(block, /E2E_BASE_URL: http:\/\/localhost:5173/);
+  assert.match(block, /Verify test source revision/);
+  assert.match(block, /Stop local public regression app/);
+  assert.doesNotMatch(block, /CLOUDFLARE_PREVIEW_BUILDS_ENABLED|steps\.preview|check-runs/);
+}
+assert.match(ds0b, /directory-unified-layout\.spec\.ts/);
+assert.match(job("seo-recovery-e2e").block, /seo-recovery\.spec\.ts tests\/e2e\/events-public-v2\.spec\.ts/);
 
 for (const file of ["components/directory-card.tsx", "app/hladat/page.tsx", "app/admin/events/page.tsx"]) {
   const push = simulation([file], "push");

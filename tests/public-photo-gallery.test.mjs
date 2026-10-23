@@ -54,3 +54,76 @@ test("gallery photos open full-size images using native accessible links", () =>
   assert.match(css, /@media \(max-width: 600px\)/);
   assert.doesNotMatch(src, /"use client"|window\.open|onClick/);
 });
+
+// Exercise the real TSX with React's renderer; CSS module names are identity-mapped.
+async function galleryRenderer() {
+  const [{ default: ts }, React, { renderToStaticMarkup }] = await Promise.all([
+    import("typescript"), import("react"), import("react-dom/server"),
+  ]);
+  const source = read("components/public-visual-system/public-photo-gallery.tsx");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, esModuleInterop: true },
+  }).outputText;
+  const jsx = await import("react/jsx-runtime");
+  const exports = {};
+  new Function("require", "exports", compiled)((name) => {
+    if (name === "react") return React;
+    if (name === "react/jsx-runtime") return jsx;
+    if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) };
+    throw new Error("Unexpected import " + name);
+  }, exports);
+  return { React, render: (props) => renderToStaticMarkup(React.createElement(exports.PublicPhotoGallery, props)) };
+}
+
+test("preserved gallery variants keep every photo, captions, crop variants and existing link behavior", async () => {
+  const { React, render } = await galleryRenderer();
+  const images = Array.from({ length: 8 }, (_, index) => ({ src: `/photo-${index}.jpg`, alt: `Pes ${index}` }));
+  const linked = render({ images });
+  assert.equal((linked.match(/<img /g) ?? []).length, 6);
+  assert.equal((linked.match(/<a /g) ?? []).length, 6);
+  assert.match(linked, /target="_blank" rel="noopener noreferrer"/);
+  assert.equal(render({ images: [] }), "");
+
+  const breed = render({
+    images: images.map((image) => ({ ...image, caption: React.createElement("span", null, "Foto: Autor") })),
+    variant: "breed", as: "section", label: "Fotografie plemena", maxImages: images.length,
+    renderImage: (image) => React.createElement("img", { src: image.src, alt: image.alt, "data-breed-photo": true }),
+  });
+  assert.match(breed, /<section[^>]*class="breed"[^>]*aria-label="Fotografie plemena"/);
+  assert.equal((breed.match(/<figure /g) ?? []).length, 8);
+  assert.equal((breed.match(/<figcaption>/g) ?? []).length, 8);
+  assert.equal((breed.match(/data-breed-photo="true"/g) ?? []).length, 8);
+  assert.doesNotMatch(breed, /<a /);
+
+  const report = render({ images, variant: "report", maxImages: images.length });
+  assert.equal((report.match(/<img /g) ?? []).length, 8);
+  assert.doesNotMatch(report, /<a |<figure|loading=|decoding=/);
+
+  const editorial = render({ images: [{ ...images[0], size: "wide", caption: "Popis" }], variant: "editorial" });
+  assert.match(editorial, /article-block-gallery-item--wide/);
+  assert.match(editorial, /data-photo-size="wide"/);
+  assert.match(editorial, /loading="lazy" decoding="async"/);
+  assert.match(editorial, /<figcaption>Popis<\/figcaption>/);
+  assert.doesNotMatch(editorial, /<a /);
+});
+
+test("all existing public gallery families use central presentation without local duplicate CSS", () => {
+  for (const [path, variant] of [
+    ["app/plemena/[slug]/page.tsx", "breed"],
+    ["components/lost-found-dog-detail.tsx", "report"],
+    ["components/article-blocks.tsx", "editorial"],
+  ]) {
+    const source = read(path);
+    assert.ok(source.includes("<PublicPhotoGallery"), path);
+    assert.ok(source.includes(`variant="${variant}"`), path);
+    assert.match(source, /maxImages=\{(?:gallery|report\.gallery|block\.images)\.length\}/);
+  }
+  const css = read("components/public-visual-system/public-photo-gallery.module.css");
+  for (const breakpoint of [600, 360, 650, 680]) assert.ok(css.includes(`max-width: ${breakpoint}px`));
+  assert.match(css, /repeat\(auto-fit, minmax\(260px, 1fr\)\)/);
+  assert.match(css, /\.breed figure[^}]*border-radius: 0/);
+  assert.match(css, /\.report img[^}]*border-radius: 9px/);
+  assert.match(css, /\.editorial \[data-photo-size="wide"\] img[^}]*aspect-ratio: 16 \/ 9/);
+  assert.doesNotMatch(read("app/globals.css"), /\.breed-gallery|\.article-block-gallery/);
+  assert.doesNotMatch(read("components/lost-found-dogs.module.css"), /\.gallery/);
+});

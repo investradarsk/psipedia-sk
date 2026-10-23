@@ -398,15 +398,16 @@ test("DS-4 contextual banners own organizer layout without page-local CSS overri
 
 test("DS-4 promotional, image and safety banners preserve distinct content with shared mobile CTA sizing", () => {
   const home = read("components/home-editorial.tsx");
-  const homeCss = read("app/home-v2.module.css");
+  const homeCss = read("components/public-visual-system/public-magazine-banner.module.css");
   const help = read("components/help-overview.tsx");
-  const helpCss = read("components/help-public.module.css");
+  const helpCss = read("components/public-visual-system/public-help-banner.module.css");
   const articleCss = read("components/article-promo.module.css");
   const hubCss = read("components/content-hub-cta.module.css");
-  assert.match(home, /data-home-banner=\{testId\}/);
-  assert.match(homeCss, /\.homeV2 :global\(\.home-magazine-banner \.button\)[\s\S]*min-height: 48px/);
+  assert.match(home, /<PublicMagazineBanner/);
+  assert.match(read("components/public-visual-system/public-magazine-banner.tsx"), /data-home-banner=\{testId\}/);
+  assert.match(homeCss, /\.magazine:global\(\.home-magazine-banner \.button\)[\s\S]*min-height: 48px/);
   assert.match(help, /lostFoundSubmitPromo/);
-  assert.match(helpCss, /\.overviewPromo_(care|rescue|volunteer)\{/);
+  assert.match(helpCss, /\.overviewPromo_(care|rescue|volunteer)\s*\{/);
   assert.match(helpCss, /\.reportBanner[\s\S]*border-left:4px solid var\(--help-accent\)/);
   assert.match(helpCss, /DS-4:[\s\S]*\.overviewPromoCopy > a[\s\S]*min-height: 48px/);
   assert.match(articleCss, /DS-4:[\s\S]*\.cta \{ min-height: 48px; \}/);

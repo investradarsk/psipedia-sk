@@ -24,6 +24,14 @@ const AUTH_ACCOUNT_IDS = {
   "mobile-chromium": "partner-e2e-mobile",
 } as const;
 
+async function openMobileMenu(page: Page) {
+  // The SSR trigger is visible before SiteHeader attaches its React handlers.
+  await expect(page.locator('[data-search-ready="true"]')).toBeAttached();
+  const trigger = page.getByRole("button", { name: "Otvoriť menu" });
+  await trigger.click();
+  await expect(page.getByRole("button", { name: "Zavrieť menu" })).toHaveAttribute("aria-expanded", "true");
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -164,7 +172,7 @@ test("public header exposes Partner login as a utility action without overflow",
   await page.goto("/");
   await dismissCookieConsent(page);
   if(testInfo.project.name==="mobile-chromium"){
-    await page.getByRole("button",{name:"Otvoriť menu"}).click();
+    await openMobileMenu(page);
     const mobileNav=page.getByRole("navigation",{name:"Mobilná navigácia"});
     const login=mobileNav.getByRole("link",{name:"Partner účet"});
     await expect(login).toBeVisible();
@@ -304,7 +312,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
 
   if (project === "mobile-chromium") {
-    await page.getByRole("button", { name: "Otvoriť menu" }).click();
+    await openMobileMenu(page);
     const mobileNav = page.getByRole("navigation", { name: "Mobilná navigácia" });
     const accountLink = mobileNav.getByRole("link", { name: "Partner účet" });
     await expect(accountLink).toBeVisible();
@@ -379,6 +387,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
+    // SSR fields can be visible before the controlled location handlers hydrate.
+    await expect(page.locator(".partner-profile-edit-form")).toHaveAttribute("data-partner-edit-ready", "true");
     await page.getByLabel(/^Kraj/).selectOption("Trnavský kraj");
     await page.getByLabel(/^Okres/).selectOption("Trnava");
     const editMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
@@ -434,6 +444,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
+    // Wait for controlled input handlers before editing the server-rendered field.
+    await expect(page.locator(".partner-profile-edit-form")).toHaveAttribute("data-partner-edit-ready", "true");
     await page.getByLabel("Verejný telefón").fill("+421900333444");
     await page.getByRole("button", { name: "Odoslať zmeny na kontrolu" }).click();
     await expect(page.getByRole("status")).toContainText("Zmeny sme prijali a čakajú na kontrolu.");

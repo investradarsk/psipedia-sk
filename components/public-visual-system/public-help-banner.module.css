@@ -1,0 +1,91 @@
+/* Existing help photo, safety and closing variants; values and breakpoint order preserved. */
+/* DS-4: shared banner radius and CTA sizing. */
+.reportEyebrow,.closingEyebrow {display:block;color:var(--help-accent-strong);font-size:.69rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.reportBanner {display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;border:1px solid rgba(185,71,50,.16);border-left:4px solid var(--help-accent);border-radius:16px;background:linear-gradient(100deg,#fff5ef 0%,#fffaf5 64%,#f3f6ef 100%)}
+.reportCopy {display:flex;align-items:flex-start;gap:12px;min-width:0}
+.reportIcon {display:grid;width:42px;height:42px;flex:0 0 auto;place-items:center;border-radius:12px;color:var(--help-accent-strong);background:#ffe8df}
+.reportCopy strong {display:block;margin:2px 0 3px;color:var(--help-ink);font-family:Georgia,"Times New Roman",serif;font-size:1.12rem;font-weight:500}
+.reportCopy p {margin:0;color:var(--help-muted);font-size:.82rem;line-height:1.45}
+.reportBanner a {flex:0 0 auto;border-color:var(--help-accent-strong);color:#fff;background:var(--help-accent-strong)}
+.reportBanner a:hover {background:#a63e2c}
+.closingCta {min-height:330px;background-image:linear-gradient(90deg,rgba(36,31,26,.82) 0%,rgba(36,31,26,.6) 47%,rgba(36,31,26,.18) 100%),url("/images/hero-labrador.webp");background-position:center 44%;background-size:cover}
+.closingCtaOverlay {min-height:inherit;display:flex;align-items:center}
+.closingCtaInner {padding-top:52px;padding-bottom:52px;color:#fff}
+.closingEyebrow {color:#ffd6c8}
+.closingCta h2 {max-width:560px;margin:6px 0 8px;color:#fff;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2rem,4vw,3.35rem);font-weight:500;letter-spacing:-.03em;line-height:1.04}
+.closingCta p {max-width:580px;margin:0 0 18px;color:rgba(255,255,255,.88);font-size:.96rem;line-height:1.6}
+.closingCta a {border-color:var(--help-accent-strong);color:#fff;background:var(--help-accent-strong)}
+.closingCta a:hover {background:var(--help-accent-strong)}
+@media(max-width:650px){.reportBanner {align-items:flex-start;flex-direction:column;padding:16px}
+.reportBanner a {width:100%;min-height:48px}
+.closingCta {min-height:300px;background-position:62% center}
+.closingCtaOverlay {background:rgba(28,27,24,.18)}
+.closingCtaInner {padding-top:42px;padding-bottom:42px}
+.closingCta h2 {font-size:2.35rem}}
+.overviewPromo {min-height:280px;background-position:center;background-size:cover}
+.overviewPromo_care {background-image:url("/images/zdravie-veterinar.webp")}
+.overviewPromo_rescue {background-image:url("/images/hero-labrador.webp")}
+.overviewPromo_volunteer {background-image:url("/images/trening-pri-nohe.webp")}
+.overviewPromoShade {display:flex;min-height:inherit;align-items:center;background:linear-gradient(90deg,rgba(18,55,41,.92) 0%,rgba(18,55,41,.76) 46%,rgba(18,55,41,.24) 100%)}
+.overviewPromoCopy {padding-top:42px;padding-bottom:42px;color:#fff}
+.overviewPromoCopy>span {display:block;color:#ffd1c2;font-size:.68rem;font-weight:900;letter-spacing:.095em;text-transform:uppercase}
+.overviewPromoCopy h2 {max-width:620px;margin:6px 0 9px;color:#fff;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2rem,4vw,3.25rem);font-weight:500;letter-spacing:-.035em;line-height:1.02}
+.overviewPromoCopy p {max-width:610px;margin:0 0 18px;color:rgba(255,255,255,.88);font-size:.9rem;line-height:1.55}
+.overviewPromoCopy>a {border-color:var(--help-accent-strong);color:#fff;background:var(--help-accent-strong)}
+@media(max-width:650px){.overviewPromo {min-height:310px;background-position:62% center}
+.overviewPromoShade {background:linear-gradient(0deg,rgba(18,55,41,.96) 0%,rgba(18,55,41,.8) 58%,rgba(18,55,41,.3) 100%)}
+.overviewPromoCopy {align-self:flex-end;padding-top:38px;padding-bottom:38px}
+.overviewPromoCopy h2 {font-size:2.25rem}
+.overviewPromoCopy p {font-size:.82rem}
+.overviewPromoCopy>a {width:100%;min-height:48px;justify-content:center}}
+.overviewPromo { min-height: 180px; }
+.overviewPromoCopy { padding-block: 22px; }
+.overviewPromoCopy h2 { font-size: clamp(1.4rem, 2.7vw, 2rem); }
+.overviewPromoCopy p { margin-bottom: 10px; }
+.closingCta { min-height: 215px; }
+.closingCtaInner { padding-block: 28px; }
+@media (max-width: 650px){.overviewPromo { min-height: 190px; }
+.overviewPromoCopy { align-self: center; padding-block: 16px; }
+.overviewPromoCopy h2 { font-size: 1.5rem; }
+.overviewPromoCopy p { font-size: .78rem; line-height: 1.4; }
+.overviewPromoCopy > a { width: auto; min-height: 44px; }
+.closingCta { min-height: 195px; }
+.closingCtaInner { padding-block: 22px; }
+.closingCta h2 { font-size: 1.7rem; }}
+.reportBanner {
+  min-width: 0;
+  border-radius: var(--ps-banner-radius, 18px);
+}
+.reportCopy > div,
+.overviewPromoCopy {
+  min-width: 0;
+}
+.reportCopy strong,
+.reportCopy p,
+.overviewPromoCopy h2,
+.overviewPromoCopy p,
+.closingCta h2,
+.closingCta p {
+  overflow-wrap: anywhere;
+}
+.reportBanner a,
+.overviewPromoCopy > a,
+.closingCta a {
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ps-radius-control, 12px);
+}
+@media (max-width: 650px){.reportBanner {
+    gap: 12px;
+    padding: 16px;
+  }
+.overviewPromoCopy {
+    padding-block: 20px;
+  }
+.reportBanner a,
+  .overviewPromoCopy > a,
+  .closingCta a {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }}
