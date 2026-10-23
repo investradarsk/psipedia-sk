@@ -61,9 +61,9 @@ test("public HTML has a short edge cache while admin remains no-store", () => {
   assert.match(worker, /private, no-store/);
   assert.match(worker, /request\.headers\.has\("cookie"\)/);
   assert.match(worker, /function responseForbidsSharedHtmlCache/);
-  const guardPosition = worker.indexOf("if (!cache || !isCacheableHtmlResponse(response)) return response;");
+  const guardPosition = worker.indexOf("if (!cache || (!isCacheableHtmlResponse(response) && !isExplicitAnonymousSsrHtml(response, url.pathname))) return response;");
   const cacheWritePosition = worker.indexOf('const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));');
-  assert.ok(guardPosition >= 0 && cacheWritePosition > guardPosition, "Check original response before rewriting public headers");
+  assert.ok(guardPosition >= 0 && cacheWritePosition > guardPosition, "Check original response and explicit anonymous-SSR policy before rewriting public headers");
   assert.match(rootLayout, /navigation is D1-backed/);
 });
 
