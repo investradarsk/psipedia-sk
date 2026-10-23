@@ -8,7 +8,8 @@ import {
   readAdminAutomationData,
   summarizeAdminAutomationReads,
 } from "@/lib/admin-automation-reliability";
-import { getAdminDataQualitySummary } from "@/lib/admin-dashboard-store";
+import {loadMissingQualityDashboard,getQualityMissingDatabase} from "@/lib/data-quality-missing-hourly";
+import {loadAdminWorkspaceFeed} from "@/lib/admin-workspace-feed";
 import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const legacyHref = legacyArticleListHref(params);
   if (legacyHref) redirect(legacyHref);
 
-  const [attention, automationLifecycleRead, qualityRead] = await Promise.all([
+  const [attention, automationLifecycleRead, qualityRead, workspaceFeed] = await Promise.all([
     loadExactAdminAttentionSummary(),
     readAdminAutomationData({
       key: "admin-workspace:automation-lifecycle",
@@ -42,10 +43,15 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     }),
     readAdminAutomationData({
       key: "admin-workspace:data-quality",
-      load: () => getAdminDataQualitySummary(),
+      load: async () => {
+        const result=await loadMissingQualityDashboard(getQualityMissingDatabase());
+        if(!result.schemaReady)throw Error("Quality suggestions unavailable");
+        return {profilesWithCoreIssues:result.total,mediaIssues:0};
+      },
       fallback: { profilesWithCoreIssues: 0, mediaIssues: 0 },
       empty: (value) => value.profilesWithCoreIssues === 0 && value.mediaIssues === 0,
     }),
+    loadAdminWorkspaceFeed(user.email),
   ]);
 
   const workspaceReliability = summarizeAdminAutomationReads([
@@ -65,6 +71,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     >
       <AdminWorkspaceDashboard
         attention={attention}
+        activity={workspaceFeed}
         automationLifecycle={{
           status: automationLifecycleRead.status,
           value: automationLifecycleRead.data,
