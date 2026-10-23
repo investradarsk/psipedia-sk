@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { enqueueAdminNotificationEvent, enqueueUncoveredAttentionAdminNotifications } from "@/lib/admin-notifications";
-import { adminPushCategoryForEvent, parsePushCategories, parseStoredPushCategories } from "@/lib/admin-automation-events";
+import { isAdminPushEventAllowed, parsePushCategories, parseStoredPushCategories } from "@/lib/admin-automation-push-policy";
 import { hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import {
   normalizeAdminNotificationPath,
@@ -38,6 +38,7 @@ type LegacyPushDeliveryRow = {
   id: number;
   notification_id: number;
   subscription_id: number;
+  categories_json: string;
   status: "pending" | "sent" | "failed" | "dead";
   attempts: number;
   last_error: string | null;
@@ -63,6 +64,7 @@ type EventDeliveryRow = {
   event_type: string;
   actor_type: string;
   resource_type: string;
+  source_type: string;
   categories_json: string;
 };
 
@@ -338,11 +340,10 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
 
   for (const subscription of subscriptions.results) {
     const ownActorRef = await adminActorRefForSubscription(subscription.admin_email, bindings.PII_HASH_KEY);
-    const permitted = new Set(parseStoredPushCategories(subscription.categories_json));
-    const events = await database.prepare(`SELECT e.id, e.event_type, e.actor_type, e.resource_type
+    const events = await database.prepare(`SELECT e.id, e.event_type, e.actor_type, e.resource_type, e.source_type
       FROM admin_notification_events e
       WHERE e.created_at >= ?
-        AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type='automation_source_issue')
+        AND (e.source_type <> 'AUTOMATION_ACTION' OR e.event_type IN ('automation_source_issue','automation_draft_created'))
         AND (e.event_type <> 'admin_push_test' OR e.resource_ref = ?)
         AND NOT EXISTS (
           SELECT 1 FROM admin_push_event_deliveries d
@@ -356,11 +357,10 @@ async function ensureEventDeliveries(database: D1Database, bindings: RuntimeBind
       ORDER BY e.created_at ASC, e.id ASC
       LIMIT 100`)
       .bind(subscription.created_at, String(subscription.id), subscription.id, ownActorRef, ownActorRef, ownActorRef)
-      .all<{ id: number; event_type: string; actor_type: string; resource_type: string }>();
+      .all<{ id: number; event_type: string; actor_type: string; resource_type: string; source_type: string }>();
 
     for (const event of events.results) {
-      const category = event.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(event.event_type, event.resource_type) : null;
-      const muted = category !== null && !permitted.has(category);
+      const muted = !isAdminPushEventAllowed(parseStoredPushCategories(subscription.categories_json),event.event_type,event.source_type,event.resource_type);
       await database.prepare(`INSERT INTO admin_push_event_deliveries (
           event_id, subscription_id, status, attempts, created_at, updated_at
         ) VALUES (?, ?, ?, 0, ?, ?)
@@ -378,9 +378,8 @@ function safeError(error: unknown) {
 export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   const resolved = runtime(options);
   const vapid = configuredVapid(resolved.bindings);
-  if (!vapid) return { configured: false, candidates: 0, sent: 0, failed: 0, dead: 0 };
-
   const nowIso = resolved.now.toISOString();
+  // Work-feed events must be persisted even if mobile push is not configured.
   await enqueueUncoveredAttentionAdminNotifications(resolved.database, resolved.now).catch((error) => {
     console.warn(JSON.stringify({
       event: "admin_attention_push_bridge",
@@ -388,13 +387,14 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
       error: safeError(error),
     }));
   });
+  if (!vapid) return { configured: false, candidates: 0, sent: 0, failed: 0, dead: 0 };
   await ensureEventDeliveries(resolved.database, resolved.bindings, nowIso);
 
   const summary = { configured: true, candidates: 0, sent: 0, failed: 0, dead: 0 };
 
   const eventRows = await resolved.database.prepare(`SELECT d.id, d.event_id, d.subscription_id,
       d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth,
-      e.title, e.body, e.target_url, e.tag, e.event_type, e.actor_type, e.resource_type, s.categories_json
+      e.title, e.body, e.target_url, e.tag, e.event_type, e.actor_type, e.resource_type, e.source_type, s.categories_json
     FROM admin_push_event_deliveries d
     JOIN admin_push_subscriptions s ON s.id = d.subscription_id
     JOIN admin_notification_events e ON e.id = d.event_id
@@ -407,8 +407,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   summary.candidates += eventRows.results.length;
   for (const row of eventRows.results) {
     try {
-      const category = row.actor_type === "AUTOMATION" ? adminPushCategoryForEvent(row.event_type, row.resource_type) : null;
-      if (category && !parseStoredPushCategories(row.categories_json).includes(category)) {
+      if (!isAdminPushEventAllowed(parseStoredPushCategories(row.categories_json),row.event_type,row.source_type,row.resource_type)) {
         await resolved.database.prepare(`UPDATE admin_push_event_deliveries
           SET status = 'dead', last_error = 'category_disabled', updated_at = ? WHERE id = ?`)
           .bind(nowIso, row.id).run();
@@ -462,7 +461,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
   const remaining = Math.max(0, MAX_DELIVERIES_PER_SWEEP - eventRows.results.length);
   if (remaining > 0) {
     const legacyRows = await resolved.database.prepare(`SELECT d.id, d.notification_id, d.subscription_id,
-        d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth
+        d.status, d.attempts, d.last_error, s.endpoint, s.p256dh, s.auth, s.categories_json
       FROM admin_push_deliveries d
       JOIN admin_push_subscriptions s ON s.id = d.subscription_id
       WHERE d.status IN ('pending','failed') AND d.attempts < ? AND s.enabled = 1
@@ -483,6 +482,17 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
           ).bind(nowIso, row.id).run();
           summary.dead += 1;
           continue;
+        }
+        // Legacy editorial delivery path must obey the same per-device choices.
+        const legacyKey = notification.resource_type==="directory_profile_change_request" ? "PROFILE_PROPOSAL"
+          : notification.resource_type==="news_tip" || notification.resource_type==="article_feedback"
+          || notification.resource_type==="directory_inquiry" ? "COMMUNITY_TIP"
+          : notification.resource_type==="profile_review" ? "PROFILE_REVIEW"
+          : notification.resource_type==="adoption_request" ? "ADOPTION_REQUEST" : "SYSTEM_ACTIVITY";
+        if(!parseStoredPushCategories(row.categories_json).includes(legacyKey)){
+          await resolved.database.prepare("UPDATE admin_push_deliveries SET status='dead',last_error='category_disabled',updated_at=? WHERE id=?")
+            .bind(nowIso,row.id).run();
+          summary.dead++;continue;
         }
         const descriptor = await describeNotification(
           resolved.database,
