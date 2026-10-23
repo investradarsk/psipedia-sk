@@ -95,8 +95,11 @@ test("directory listing reduces D1 reads to four while preserving global locatio
   assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
-  assert.equal(result.items[0].reviewed_at, "2026-10-23T08:00:00Z");
-  assert.equal(result.items[1].reviewed_at, "");
+  // updated_at DESC puts profile #127 on the first page, not page 3.
+  assert.equal(result.items[0].reviewed_at, "");
+  const firstPage = await queryDirectoryAdmin(db, filters({ category: "veterinari", page: 1 }), categories);
+  assert.equal(firstPage.items[0].reviewed_at, "2026-10-23T08:00:00Z");
+  assert.equal(firstPage.items[1].reviewed_at, "");
   assert.deepEqual(result.options.regions, ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj", "Žilinský kraj"]);
   assert.deepEqual(result.options.cities, ["Bratislava", "Nitra", "Trnava", "Žilina"]);
   assert.equal(result.counts.total, 127);
