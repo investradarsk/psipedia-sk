@@ -298,6 +298,19 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
             .bind(clock(new Date()),code,item.id).run();
         }
         summary.uncertain++;
+        // An uncertain provider result is NOT proof of failed publication:
+        // do not retry on Meta or claim that it was definitely not posted.
+        try{
+          await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
+            eventType:"facebook_image_failed",sourceType:"FACEBOOK_IMAGE",
+            resourceType:"facebook_image",resourceRef:item.id,actorType:"AUTOMATION",
+            actorRef:"facebook-image-publisher",targetUrl:"/admin/facebook-images",
+            title:"Facebook publikovanie vyžaduje kontrolu",
+            body:"Výsledok nie je potvrdený. Pred akýmkoľvek opakovaním over Facebook.",
+            tag:"facebook-attention-"+item.id,
+            dedupeKey:"facebook/publish-attention/"+item.id,
+          },new Date());
+        }catch{/* An error in the activity feed may not change retry safety. */}
       }
       continue;
     }
