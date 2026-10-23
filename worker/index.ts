@@ -271,19 +271,19 @@ const worker = {
         "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
       });
     }
+    if (isWorkersDevPreview) {
+      // Do not cache preview HTML or let it create duplicate indexable hosts.
+      return responseWithHeaders(response, {
+        "X-Robots-Tag": "noindex, nofollow",
+        "Cache-Control": "private, no-store",
+      });
+    }
     if (isReviewAuthorRoute(url.pathname)) {
       return responseWithHeaders(response, {
         "Cache-Control": "private, no-store",
         "CDN-Cache-Control": "no-store",
         "Cloudflare-CDN-Cache-Control": "no-store",
         "Referrer-Policy": "no-referrer",
-      });
-    }
-    if (isWorkersDevPreview) {
-      // Do not cache preview HTML or let it create duplicate indexable hosts.
-      return responseWithHeaders(response, {
-        "X-Robots-Tag": "noindex, nofollow",
-        "Cache-Control": "private, no-store",
       });
     }
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
