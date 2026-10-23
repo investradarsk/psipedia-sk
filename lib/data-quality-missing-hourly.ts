@@ -1,4 +1,3 @@
-import {enqueueAdminNotificationEvent} from "@/lib/admin-notifications";
 import { env } from "cloudflare:workers";
 import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
@@ -209,7 +208,7 @@ export async function runQualityMissingHourly(input:{database:Database;tavilyApi
         }
         if(found>beforeFound){
           try{
-            await enqueueAdminNotificationEvent(db,{
+            await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
               eventType:"quality_missing_found",sourceType:"QUALITY_MISSING",
               resourceType:area,resourceRef:profile.id,actorType:"AUTOMATION",
               actorRef:"tavily-quality",targetUrl:"/admin/kvalita",
