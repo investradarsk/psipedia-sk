@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { enqueueAdminNotificationEvent, enqueueUncoveredAttentionAdminNotifications } from "@/lib/admin-notifications";
-import { isAdminPushEventAllowed, parsePushCategories, parseStoredPushCategories } from "@/lib/admin-automation-push-policy";
+import { isAdminPushEventAllowed, legacyAdminPushEventKey, parsePushCategories, parseStoredPushCategories } from "@/lib/admin-automation-push-policy";
 import { hashPii, normalizeEmail } from "@/lib/pii-crypto";
 import {
   normalizeAdminNotificationPath,
@@ -484,11 +484,7 @@ export async function runAdminPushSweep(options: RuntimeOptions = {}) {
           continue;
         }
         // Legacy editorial delivery path must obey the same per-device choices.
-        const legacyKey = notification.resource_type==="directory_profile_change_request" ? "PROFILE_PROPOSAL"
-          : notification.resource_type==="news_tip" || notification.resource_type==="article_feedback"
-          || notification.resource_type==="directory_inquiry" ? "COMMUNITY_TIP"
-          : notification.resource_type==="profile_review" ? "PROFILE_REVIEW"
-          : notification.resource_type==="adoption_request" ? "ADOPTION_REQUEST" : "SYSTEM_ACTIVITY";
+        const legacyKey = legacyAdminPushEventKey(notification.resource_type);
         if(!parseStoredPushCategories(row.categories_json).includes(legacyKey)){
           await resolved.database.prepare("UPDATE admin_push_deliveries SET status='dead',last_error='category_disabled',updated_at=? WHERE id=?")
             .bind(nowIso,row.id).run();

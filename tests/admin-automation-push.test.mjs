@@ -3,11 +3,53 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   ADMIN_PUSH_CATEGORIES, ADMIN_PUSH_EVENT_KEYS, DEFAULT_ADMIN_PUSH_EVENT_KEYS,
-  isAdminPushEventAllowed, adminPushCategoryForEvent, parsePushCategories,
+  isAdminPushEventAllowed, adminPushEventKey, legacyAdminPushEventKey, adminPushCategoryForEvent, parsePushCategories,
   parseStoredPushCategories, isAutomaticPushActor, completedAutomationRunStatus,
 } from "../lib/admin-automation-push-policy.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+
+test("adoption moderation is classified ahead of generic profile proposals", () => {
+  assert.equal(
+    adminPushEventKey("moderation_submission_actionable", "MODERATION_SUBMISSION", "adoption_dog"),
+    "ADOPTION_REQUEST",
+  );
+  assert.equal(
+    adminPushEventKey("moderation_submission_actionable", "MODERATION_SUBMISSION", "ADOPTION_DOG"),
+    "ADOPTION_REQUEST",
+  );
+  assert.equal(
+    adminPushEventKey("moderation_submission_actionable", "MODERATION_SUBMISSION", "lost_found_case"),
+    "PROFILE_PROPOSAL",
+  );
+  const proposalOnly = ["PROFILE_PROPOSAL", "EVENTS_CONFIGURED"];
+  const adoptionOnly = ["ADOPTION_REQUEST", "EVENTS_CONFIGURED"];
+  assert.equal(
+    isAdminPushEventAllowed(proposalOnly, "moderation_submission_actionable", "MODERATION_SUBMISSION", "adoption_dog"),
+    false,
+  );
+  assert.equal(
+    isAdminPushEventAllowed(adoptionOnly, "moderation_submission_actionable", "MODERATION_SUBMISSION", "adoption_dog"),
+    true,
+  );
+  assert.equal(adminPushEventKey("adoption_inquiry_submitted", "ADOPTION_REQUEST"), "ADOPTION_REQUEST");
+  assert.equal(adminPushEventKey("unrecognized_event"), null);
+});
+
+test("legacy editorial delivery uses one shared category mapping", () => {
+  for (const [resource, key] of [
+    ["directory_profile_change_request", "PROFILE_PROPOSAL"],
+    ["news_tip", "COMMUNITY_TIP"],
+    ["article_feedback", "COMMUNITY_TIP"],
+    ["directory_inquiry", "COMMUNITY_TIP"],
+    ["profile_review", "PROFILE_REVIEW"],
+    ["adoption_request", "ADOPTION_REQUEST"],
+    ["unrecognized_legacy_resource", "SYSTEM_ACTIVITY"],
+  ]) {
+    assert.equal(legacyAdminPushEventKey(resource), key, resource);
+  }
+  assert.match(read("lib/admin-push.ts"), /legacyAdminPushEventKey\(notification\.resource_type\)/);
+});
 
 test("manual admin run does not qualify for automation push", () => {
   assert.equal(isAutomaticPushActor("ADMIN", false), false);

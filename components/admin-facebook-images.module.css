@@ -217,3 +217,22 @@
     max-height:calc(100dvh - 1rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ADMIN-V3-COMPACT-01: tighter Facebook overview; preserve calendar hit areas. */
+.dashboard { gap: 8px; }
+.heading { padding-bottom: 7px; }
+.dashboard .stats { gap: 6px; }
+.dashboard .statCard { min-height: 58px; padding: 7px 9px; }
+.upcomingPanel, .systemPanel, .calendarPanel, .listPanel { padding: 10px; }
+.sectionHead { gap: 8px; padding-bottom: 7px; margin-bottom: 6px; }
+.upcomingRow { gap: 8px; padding: 6px 4px; min-height: 44px; }
+.systemRow { padding: 7px 0; }
+.listPanel .listItem { padding: 8px 2px; gap: 9px; }
+.listPanel .itemActions button { min-height: 44px; }
+.settingsDetails summary, .monthNav button, .dayDetail .entry { min-height: 44px; }
+@media (max-width: 600px) {
+  .dashboard { gap: 8px; }
+  .upcomingPanel, .systemPanel, .calendarPanel, .listPanel { padding: 9px; }
+  /* Calendar cells remain at least the original 49px mobile height. */
+  .calendarDayButton { min-height: 49px; }
+}

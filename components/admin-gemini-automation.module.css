@@ -277,3 +277,23 @@
 }
 
 .scheduleExplanation { margin: -8px 0 0; font-size: .8rem; color: #435c4e; line-height: 1.4; }
+
+/* ADMIN-V3-COMPACT-01: Gemini uses the same visual density as other admin workspaces. */
+.sections { gap: 18px; }
+.sectionHeader { gap: 8px; margin-bottom: 9px; }
+.grid { gap: 11px; }
+.card { padding: 14px; gap: 12px; }
+.dashboard { gap: 10px; }
+.dashboard .metrics, .dashboard .workGrid, .dashboard .column { gap: 9px; }
+.dashboard .metric, .dashboard .panel { padding: 11px 12px; }
+.dashboard .panel { gap: 10px; }
+.allConceptsCta { padding: 14px 16px; gap: 10px; }
+.allConceptsCtaCopy { gap: 3px; }
+.allConceptsCtaCopy strong { font-size: clamp(1.15rem, 2vw, 1.55rem); }
+.allConceptsCtaAction { min-height: 44px; }
+@media (max-width: 540px) {
+  .sections { gap: 12px; }
+  .card { padding: 11px; gap: 9px; }
+  .dashboard .metric, .dashboard .panel { padding: 10px; }
+  .allConceptsCta { padding: 12px; }
+}

@@ -229,9 +229,12 @@ test("five-minute admin push and isolated per-minute Facebook publishing preserv
   assert.match(worker,/getUTCMinutes\(\) === 0/);
   const fastBranch=worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"),worker.indexOf("const [summary, editorial"));
   assert.match(fastBranch,/runScheduledAdminPush\(env\)/);
-  assert.match(fastBranch,/runDataAutomationSweep/);
-  assert.match(fastBranch,/runDataAutomationDiscoverySweep/);
-  assert.match(fastBranch,/five_minute_due_check/);
+  // The fast path now runs the gated Notion bootstrap probes and isolated
+  // Gemini manual queue. Old automation sweeps are no longer dispatched here.
+  assert.match(fastBranch,/observeScheduledAutomation/);
+  assert.match(fastBranch,/runNotionDirectoryBootstrapSweep/);
+  assert.match(fastBranch,/runNotionEshopBootstrapSweep/);
+  assert.match(fastBranch,/runGeminiManualBackgroundSweep/);
   assert.match(fastBranch,/return;/);
   assert.match(fastBranch,/runNotionDirectoryBootstrapSweep/);
   assert.doesNotMatch(
