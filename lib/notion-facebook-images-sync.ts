@@ -274,7 +274,7 @@ export async function runNotionFacebookImagesSync({
           out.created++;
           // Publish a durable event only for a newly persisted Notion image.
           try{
-            await enqueueAdminNotificationEvent(db,{
+            if(image.key)await enqueueAdminNotificationEvent(db,{
               eventType:"facebook_image_imported",sourceType:"FACEBOOK_IMAGE",
               resourceType:"facebook_image",resourceRef:postId,
               actorType:"AUTOMATION",actorRef:"notion-facebook-images",
