@@ -26,7 +26,6 @@ export function canonicalBreedWinnerSql(alias:string) {
   )`;
 }
 
-/** Shared eligibility used by every public breed query. Drafts and legacy rows stay editable. */
 /**
  * Evaluate canonical public breeds in one eligibility pass.
  * A row wins iff it has the lowest eligible ID for each of the three
