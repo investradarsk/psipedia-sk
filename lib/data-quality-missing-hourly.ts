@@ -222,6 +222,19 @@ export async function runQualityMissingHourly(input:{database:Database;tavilyApi
       }catch(error){
         // Provider failures (including exhausted credits) never stop other Psipedia jobs.
         console.info(JSON.stringify({event:"quality_missing_tavily_unavailable",area,error:error instanceof Error?error.name:"provider_error"}));
+        try{
+          await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
+            eventType:"quality_missing_failed",sourceType:"QUALITY_MISSING",
+            resourceType:area,resourceRef:profile.id,
+            actorType:"AUTOMATION",actorRef:"tavily-quality",
+            targetUrl:"/admin/kvalita",
+            title:"Tavily – vyhľadávanie sa nepodarilo dokončiť",
+            body:"Oblasť: "+area+". Ostatné automatizácie zostávajú v prevádzke.",
+            tag:"quality-failed-"+area+"-"+hour,
+            dedupeKey:"quality/failed/"+area+"/"+hour,
+          },now);
+        }catch{/* Diagnostics are observational. */}
+
       }
     }
     return {enabled:true,scanned,found};
