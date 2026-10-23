@@ -63,19 +63,16 @@ test("category and source APIs accept explicit schedules while retaining legacy 
   assert.match(sourceRoute, /!before\.enabled && schedule\.mode === "INTERVAL"/);
 });
 
-test("global five-minute cron checks database-backed automation due slots without per-automation crons", async () => {
-  const [worker, wrangler] = await Promise.all([
-    read("worker/index.ts"),
-    read("wrangler.jsonc"),
-  ]);
-  // The existing five-minute job is unchanged; the new one-minute trigger
-  // belongs only to the Facebook image publisher.
+test("five-minute cron retains Gemini, push and Notion but not legacy Tavily sweeps", async () => {
+  const [worker, wrangler] = await Promise.all([read("worker/index.ts"), read("wrangler.jsonc")]);
   assert.deepEqual(JSON.parse(wrangler).triggers.crons, ["*/5 * * * *", "* * * * *"]);
   assert.ok(worker.includes('controller.cron === "* * * * *"'));
   assert.match(worker, /runFacebookImagePublishSweep/);
-  assert.match(worker, /five_minute_due_check/);
-  assert.match(worker, /runDataAutomationSweep/);
-  assert.match(worker, /runDataAutomationDiscoverySweep/);
+  assert.match(worker, /runQualityMissingHourly\(/);
+  assert.match(worker, /runGeminiManualBackgroundSweep\(/);
+  assert.match(worker, /runScheduledAdminPush\(env\)/);
+  assert.match(worker, /runNotionDirectoryBootstrapSweep\(/);
+  assert.doesNotMatch(worker, /runDataAutomationSweep\(|runDataAutomationDiscoverySweep\(/);
   assert.doesNotMatch(worker, /cron.*schedule_mode|schedule_mode.*cron/i);
 });
 

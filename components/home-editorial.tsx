@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import type { ReactNode } from "react";
 import type { Article } from "@/lib/content";
 import { articlePortalSection } from "@/lib/portal";
@@ -95,18 +96,7 @@ export function HomeMagazineBanner({
   href: string;
   testId: string;
 }) {
-  return (
-    <section className="shell home-magazine-banner" data-home-banner={testId} aria-label={title}>
-      <div>
-        <span className="eyebrow">Psipedia spája ľudí so psami</span>
-        <h2>{title}</h2>
-        <p>{description}</p>
-      </div>
-      <Link href={href} className="button button--dark">
-        {label} <ArrowIcon size={18} />
-      </Link>
-    </section>
-  );
+  return <PublicMagazineBanner title={title} description={description} label={label} href={href} testId={testId} />;
 }
 
 export function HomeLatestArticles({ articles, sidebar }: { articles: Article[]; sidebar?: ReactNode }) {

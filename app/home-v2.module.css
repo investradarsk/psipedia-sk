@@ -999,7 +999,6 @@
   }
 }
 
-
 /* HOME-4: clearer visual hierarchy for service/data blocks. */
 .homeV2 :global(.home-event-list) {
   display: grid;
@@ -1222,7 +1221,6 @@
     padding: 10px 12px;
   }
 }
-
 
 /* HOME-SERVICES-CAROUSEL: single visual services gateway with horizontal discovery. */
 .homeV2 :global(.home-services-wide) {
@@ -1478,7 +1476,6 @@
   }
 }
 
-
 /* HOMEPAGE + SECTION POLISH: denser five-card editorial rows on desktop. */
 @media (min-width: 621px) {
   .homeV2 :global(.home-editorial-grid) {
@@ -1556,7 +1553,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-
 
 /* ARTICLE-CARDS-1: homepage consumes shared featured + compact article variants */
 .homeV2 :global(.home-latest-lead > .article-card) {
@@ -1654,7 +1650,6 @@
   height: 100%;
   object-fit: cover;
 }
-
 
 /* HOMEPAGE-MAGAZINE-V2: one editorial column with a contextual right rail. */
 .homeV2 :global(.section.home-magazine-section) {
@@ -1914,44 +1909,6 @@
   font-weight: 500;
 }
 
-.homeV2 :global(.home-magazine-banner) {
-  display: flex;
-  min-height: 134px;
-  justify-content: space-between;
-  align-items: center;
-  gap: 22px;
-  margin-block: 10px 16px;
-  padding: 25px clamp(22px, 3vw, 38px);
-  border: 1px solid rgba(23, 53, 43, 0.12);
-  border-radius: 17px;
-  background: linear-gradient(110deg, var(--sage-light), var(--paper));
-}
-
-.homeV2 :global(.home-magazine-banner .eyebrow) {
-  margin-bottom: 5px;
-}
-
-.homeV2 :global(.home-magazine-banner h2) {
-  margin: 0;
-  color: var(--forest);
-  font-family: Georgia, serif;
-  font-size: clamp(1.45rem, 2.1vw, 1.98rem);
-}
-
-.homeV2 :global(.home-magazine-banner p) {
-  max-width: 57ch;
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.45;
-}
-
-.homeV2 :global(.home-magazine-banner .button) {
-  flex: none;
-  min-height: 45px;
-  white-space: nowrap;
-}
-
 .homeV2 :global(.home-breed-feature > a) {
   display: grid;
   overflow: hidden;
@@ -2151,17 +2108,6 @@
     width: 88px;
   }
 
-  .homeV2 :global(.home-magazine-banner) {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 16px;
-    padding: 21px 19px;
-  }
-
-  .homeV2 :global(.home-magazine-banner .button) {
-    justify-content: center;
-  }
-
   .homeV2 :global(.home-breed-feature-copy) {
     padding: 16px;
   }
@@ -2202,8 +2148,7 @@
 }
 
 .homeV2 :global(.home-magazine-section .home-section-heading .eyebrow),
-.homeV2 :global(.home-profile-categories .eyebrow),
-.homeV2 :global(.home-magazine-banner .eyebrow) {
+.homeV2 :global(.home-profile-categories .eyebrow) {
   color: var(--coral-dark);
   font-weight: 850;
 }
@@ -2233,29 +2178,10 @@
 .homeV2 :global(.home-magazine-sidebar-heading h3),
 .homeV2 :global(.home-side-breed > strong),
 .homeV2 :global(.home-help-copy > strong),
-.homeV2 :global(.home-breed-feature-copy strong),
-.homeV2 :global(.home-magazine-banner h2) {
+.homeV2 :global(.home-breed-feature-copy strong) {
   font-family: inherit;
   font-weight: 750;
   letter-spacing: -0.025em;
-}
-
-.homeV2 :global(.home-magazine-banner) {
-  min-height: 0;
-  gap: 18px;
-  margin-block: 5px 8px;
-  padding: 18px clamp(18px, 2.4vw, 28px);
-  border-left: 3px solid var(--coral-dark);
-  border-radius: 14px;
-  background: linear-gradient(110deg, var(--sage-light), var(--paper));
-}
-
-.homeV2 :global(.home-magazine-banner h2) {
-  font-size: clamp(1.3rem, 1.9vw, 1.7rem);
-}
-
-.homeV2 :global(.home-magazine-banner p) {
-  margin-top: 5px;
 }
 
 .homeV2 :global(.home-profile-categories) {
@@ -2340,8 +2266,7 @@
   font-size: 0.82rem;
 }
 
-.homeV2 :global(.home-profile-categories .home-service-card:focus-visible),
-.homeV2 :global(.home-magazine-banner .button:focus-visible) {
+.homeV2 :global(.home-profile-categories .home-service-card:focus-visible) {
   outline: 3px solid var(--coral-dark);
   outline-offset: 3px;
 }
@@ -2382,11 +2307,6 @@
     padding: 27px 39px 15px 14px;
   }
 
-  .homeV2 :global(.home-magazine-banner) {
-    gap: 12px;
-    padding: 17px 16px;
-  }
-
   .homeV2 :global(.home-magazine-main .home-latest-item > [data-article-list-item]) {
     padding-block: 9px;
   }
@@ -2398,29 +2318,5 @@
   }
 }
 
-
 /* DS-4: homepage partner banners retain their compact #887 spacing and order; */
 /* share the contextual-banner corner and mobile action contract. */
-.homeV2 :global(.home-magazine-banner) {
-  min-width: 0;
-  border-radius: var(--ps-banner-radius, 18px);
-}
-.homeV2 :global(.home-magazine-banner > div) {
-  min-width: 0;
-}
-.homeV2 :global(.home-magazine-banner h2),
-.homeV2 :global(.home-magazine-banner p) {
-  overflow-wrap: anywhere;
-}
-.homeV2 :global(.home-magazine-banner .button) {
-  max-width: 100%;
-  min-height: 44px;
-  border-radius: var(--ps-radius-control, 12px);
-  white-space: normal;
-}
-@media (max-width: 620px) {
-  .homeV2 :global(.home-magazine-banner .button) {
-    width: 100%;
-    min-height: 48px;
-  }
-}
