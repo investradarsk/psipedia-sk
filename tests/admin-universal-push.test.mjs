@@ -127,7 +127,7 @@ test("public, review, automation and geo actionable events have push coverage",(
   assert.match(automationEvents,/sourceType: "AUTOMATION_ACTION"/);
   assert.match(automation,/enqueuePersistentAutomationSourceIssueAdminNotification/);
   assert.doesNotMatch(automation,/enqueueAutomationFindingAdminNotification|enqueueEditorialNotification/);
-  assert.match(push,/e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type='automation_source_issue'/);
+  assert.match(push,/e\\.source_type <> 'AUTOMATION_ACTION' OR e\\.event_type IN \\('automation_source_issue','automation_draft_created'\\)/);
 
   const geo=read("lib/geo-store.ts");
   assert.match(geo,/\["NEEDS_REVIEW", "STALE", "FAILED"\]/);
