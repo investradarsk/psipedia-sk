@@ -205,6 +205,17 @@ export async function runGeminiDirectoryCategory(input: {
       candidateCount: summary.candidateCount, duplicateCount: summary.duplicateCount,
       conceptCount: summary.conceptCount, errorCount: 1, errorCode: summary.errorCode,
     });
+    // Failures appear only in the working feed. Mobile push is off by default.
+    try{
+      const {enqueueAdminNotificationEvent}=await import("@/lib/admin-notifications");
+      await enqueueAdminNotificationEvent(input.database,{
+        eventType:"gemini_run_failed",sourceType:"GEMINI_RUN",
+        resourceType:"gemini",resourceRef:runId,actorType:"AUTOMATION",
+        actorRef:"gemini/"+stableKey,targetUrl:"/admin/automatizacie-gemini",
+        title:"Gemini – vyhľadávanie zlyhalo",body:"Kategória: "+stableKey,
+        tag:"gemini-failed-"+runId,dedupeKey:"gemini/failed/"+runId,
+      },now());
+    }catch{/* Do not mask the original Gemini error. */}
   }
   // Manual completion never rewrites next_run_at or enables the future scheduler.
   await markGeminiSettingLastRun(input.database, saved.id, now().toISOString());
