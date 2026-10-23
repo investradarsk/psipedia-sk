@@ -95,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           ./bin/linkinator https://psipedia.sk --concurrency 1 --timeout 10000 \
-            --format json --skip '^(?!https?://psipedia\\.sk)' > reports/seo/linkinator.json
+            --format json --skip '^(?!https?://psipedia[.]sk)' > reports/seo/linkinator.json
       - name: Check bounded live sitemap and internal links with existing Psipedia auditor
         shell: bash
         run: |
