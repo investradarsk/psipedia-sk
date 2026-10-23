@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import path from "node:path";
 
 const root = new URL("../", import.meta.url);
 const lab = new URL("../examples/open-source-lab/", import.meta.url);
