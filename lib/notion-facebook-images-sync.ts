@@ -1,4 +1,3 @@
-import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
 import {facebookSafeRetryEnabled,requireFacebookSafeRetrySchema} from "@/lib/facebook-image-publisher";
@@ -274,7 +273,7 @@ export async function runNotionFacebookImagesSync({
           out.created++;
           // Publish a durable event only for a newly persisted Notion image.
           try{
-            if(image.key)await enqueueAdminNotificationEvent(db,{
+            if(image.key)await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
               eventType:"facebook_image_imported",sourceType:"FACEBOOK_IMAGE",
               resourceType:"facebook_image",resourceRef:postId,
               actorType:"AUTOMATION",actorRef:"notion-facebook-images",
