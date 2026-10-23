@@ -96,3 +96,14 @@ test("missing required source evidence does not produce NEW",async()=>{
   assert.equal((await decision("directory.veterinari",{candidate:{website:"",source:""}})).status,"BLOCKED");
   assert.equal((await decision("events.vystavy",{candidate:{organizer:""}})).status,"BLOCKED");
 });
+
+test("directory Gemini may propose an identity without a city when a public source exists",async()=>{
+  assert.deepEqual(await decision("directory.veterinari",{candidate:{city:""}}),
+    {httpStatus:200,status:"NEW"});
+  assert.deepEqual(await decision("directory.veterinari",{
+    candidate:{city:""},profile:directoryMatch,
+  }),{httpStatus:200,status:"DUPLICATE"});
+  assert.equal((await decision("directory.veterinari",{
+    candidate:{city:"",source:"",website:""},
+  })).status,"BLOCKED","public source remains compulsory");
+});
