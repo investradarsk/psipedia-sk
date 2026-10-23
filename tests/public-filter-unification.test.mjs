@@ -64,3 +64,11 @@ test('report pagination preserves text current page, arrows and omitted disabled
  const tag=render(PublicFilterTag,{href:'/adresar?region=Nitra',removeLabel:'Odstrániť filter'},'Kraj');
  assert.match(tag,/<a /);assert.match(tag,/href="\/adresar\?region=Nitra"/);assert.match(tag,/aria-label="Odstrániť filter"/);
 });
+
+test('listing empty state preserves markup, icon, CTA and default status semantics', () => {
+ const {PublicEmptyState}=load('components/public-visual-system/public-result-states.tsx',{'next/link':{__esModule:true,default:()=>null}});
+ const html=render(PublicEmptyState,{variant:'listing',icon:'🐾',title:'Žiadne výsledky',description:'Zruš filter.'},React.createElement('button',{type:'button'},'Reset'));
+ assert.equal(html,'<div class="empty-state" data-public-empty-state="true"><span>🐾</span><h2>Žiadne výsledky</h2><p>Zruš filter.</p><button type="button">Reset</button></div>');
+ assert.match(render(PublicEmptyState,{title:'Prázdne'}),/class="empty" role="status"/);
+ for(const name of ['article','breed']) assert.match(read('components/'+name+'-browser.tsx'),/<PublicEmptyState variant="listing"/);
+});

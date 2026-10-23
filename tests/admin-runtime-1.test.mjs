@@ -586,15 +586,15 @@ test("quality UI never renders raw monitor errors, SQL or stack traces", () => {
   assert.doesNotMatch(reliability, /errorMessage|error\.message|String\(error\)/);
 });
 
-test("quality auth runs before protected data loading and pagination preserves query state in UI", () => {
+test("quality auth runs before loading pending proposals and decisions refresh the UI", () => {
   const page = readFileSync(new URL("../app/admin/kvalita/page.tsx", import.meta.url), "utf8");
-  const component = readFileSync(new URL("../components/admin-data-quality-dashboard.tsx", import.meta.url), "utf8");
-  assert.ok(page.indexOf("requireAdminPageUser") < page.indexOf("loadDataQualityDashboard"));
-  assert.match(page, /profilePage: positivePage\(params\.page\)/);
-  assert.match(page, /mediaPage: positivePage\(params\.mediaPage\)/);
-  assert.match(page, /solution: firstParam\(params\.solution\)/);
-  assert.match(component, /new URLSearchParams\(searchParams\.toString\(\)\)/);
-  assert.match(component, /query\.set\(key, String\(value\)\)/);
+  const component = readFileSync(new URL("../components/admin-missing-quality-dashboard.tsx", import.meta.url), "utf8");
+  assert.ok(page.indexOf("requireAdminPageUser") < page.indexOf("loadMissingQualityDashboard"));
+  assert.match(page, /loadMissingQualityDashboard/);
+  assert.match(page, /AdminMissingQualityDashboard/);
+  assert.match(component, /router\.refresh/);
+  assert.match(component, /Schváliť/);
+  assert.match(component, /Zamietnuť všetky zobrazené/);
 });
 
 test("all primary admin navigation routes exist and retain page-level admin auth", () => {

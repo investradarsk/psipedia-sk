@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { FciGroup } from "@/lib/content";
@@ -149,7 +150,7 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
           {displayed.length<visible.length&&<div className="breed-load-more"><button type="button" className="button button--dark" onClick={()=>setShown((value)=>value+60)}>Zobraziť ďalšie plemená</button><span>{displayed.length} z {visible.length}</span></div>}
         </div>
       ) : (
-        <div className="empty-state"><span>🐕</span><h2>Také plemeno tu zatiaľ nemáme</h2><p>Skús inú časť názvu alebo zruš filter.</p></div>
+        <PublicEmptyState variant="listing" icon="🐕" title="Také plemeno tu zatiaľ nemáme" description="Skús inú časť názvu alebo zruš filter." />
       )}
     </div>
   );

@@ -12,18 +12,23 @@ export function PublicEmptyState({
   children,
   className,
   headingLevel = "h2",
-  role = "status",
+  variant = "default",
+  icon,
+  role = variant === "listing" ? undefined : "status",
 }: {
   title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
   className?: string;
   headingLevel?: "h2" | "h3";
+  variant?: "default" | "listing";
+  icon?: ReactNode;
   role?: "status" | "alert";
 }) {
   const Heading = headingLevel;
   return (
-    <div className={classes(styles.empty, className)} role={role} data-public-empty-state>
+    <div className={classes(variant === "listing" ? "empty-state" : styles.empty, className)} role={role} data-public-empty-state>
+      {icon ? <span>{icon}</span> : null}
       <Heading>{title}</Heading>
       {description ? <p>{description}</p> : null}
       {children}

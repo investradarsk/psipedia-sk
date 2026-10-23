@@ -127,8 +127,8 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.match(directoryResults, /totalPages=\{result\.totalPages\}/);
   assert.match(directoryResults, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
   assert.match(directoryResults, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
-  assert.match(pagination, /<Link href=\{previousHref\} rel="prev">\{previousLabel\}<\/Link>/);
-  assert.match(pagination, /<Link href=\{nextHref\} rel="next">\{nextLabel\}<\/Link>/);
+  assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>\{previousLabel\}<\/Link>/);
+  assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>\{nextLabel\}<\/Link>/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
@@ -200,7 +200,7 @@ test("route reuses the canonical Event graph builder without duplicating schema 
   assert.match(schemaBuilder, /Do not invent a foreign Person\/Organization entity/);
   assert.doesNotMatch(schemaBuilder, /organizer: \{ "@type": "Organization"/);
   assert.doesNotMatch(schemaBuilder, /\boffers\s*:|\bpriceCurrency\s*:|\bticket\s*:/);
-  assert.match(page, /getUpcomingEvents\(8\)/);
+  assert.match(page, /getUpcomingEventCards\(8\)/);
   assert.match(page, /buildPublicEventPresentation\(storedEvent\)/);
   assert.match(page, /selectRelatedEvents\(event,/);
   assert.match(page, /<EventDetail event=\{event\} related=\{related\}/);

@@ -8,6 +8,7 @@ import {
   adoptionSorts,
   type AdoptionAgeCategory,
   type AdoptionDog,
+  type PublicAdoptionCard,
   type AdoptionPublicFilters,
   type AdoptionPublicStatus,
   type AdoptionSex,
@@ -20,7 +21,7 @@ export type AdoptionCatalogFilters = AdoptionPublicFilters & {
   breedId?: number | null;
   status?: AdoptionPublicStatus | "";
 };
-export type AdoptionPublicDog = AdoptionDog & { status: AdoptionPublicStatus };
+export type AdoptionPublicDog = PublicAdoptionCard & { status: AdoptionPublicStatus };
 
 export const adoptionCatalogAgeLabels: Record<AdoptionAgeCategory, string> = {
   PUPPY: "Šteniatko do 1 roka",
@@ -98,11 +99,11 @@ export function adoptionCatalogHref(filters: AdoptionCatalogFilters, patch: Part
   return `/pomoc-psom/adopcia${query ? `?${query}` : ""}`;
 }
 
-function isPublicDog(dog: AdoptionDog): dog is AdoptionPublicDog {
+function isPublicDog(dog: PublicAdoptionCard): dog is AdoptionPublicDog {
   return (adoptionPublicStatuses as readonly string[]).includes(dog.status);
 }
 
-export function buildAdoptionCatalogView(items: AdoptionDog[]) {
+export function buildAdoptionCatalogView(items: PublicAdoptionCard[]) {
   const visibleItems = items.filter(isPublicDog);
   return { items: visibleItems, isEmpty: visibleItems.length === 0 };
 }

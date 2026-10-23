@@ -11,6 +11,7 @@ import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notif
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
 import { runAdminPushSweep } from "../lib/admin-push";
 import { runDataAutomationSweep } from "../lib/data-automation-runner";
+import { runQualityMissingHourly } from "../lib/data-quality-missing-hourly.ts";
 import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
 import { TavilyAutomationSearchProvider } from "../lib/data-automation-search-tavily";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
@@ -287,6 +288,15 @@ const worker = {
   },
 
   async scheduled(controller: { cron?: string; scheduledTime?: number }, env: Env, _ctx: ExecutionContext): Promise<void> {
+    // Exactly one existing-profile research attempt per area per hour.
+    // All three areas share the existing hourly trigger; database claims prevent double scans.
+    if (isFullHourlyScheduledSweep(controller)) {
+      _ctx.waitUntil(runQualityMissingHourly({
+        database: env.DB, tavilyApiKey: env.TAVILY_API_KEY,
+        now: new Date(controller.scheduledTime ?? Date.now()),
+      }).then((summary) => console.info(JSON.stringify({ event: "quality_missing_hourly", ...summary })))
+        .catch(() => console.error(JSON.stringify({ event: "quality_missing_hourly", result: "failed" }))));
+    }
     // The dedicated per-minute trigger is strictly isolated from the legacy five-minute/hourly sweeps.
     if (controller.cron === "* * * * *") {
       try {

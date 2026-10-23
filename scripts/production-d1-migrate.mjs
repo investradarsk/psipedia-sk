@@ -270,6 +270,7 @@ export const SUPPORTED_PRODUCTION_TARGETS = Object.freeze([
   "0138_article_editorial_outbox.sql",
   "0139_services_catalog_notion_auto_attempts.sql",
   "0140_directory_service_notion_relations.sql",
+  "0141_quality_missing_hourly.sql",
 ]);
 
 export const DYNAMIC_ENTITY_IDENTITY_INDEXES = Object.freeze([
@@ -1455,7 +1456,59 @@ export function targetSchemaObjects(schema, targetMigration) {
     return {partial:(schema.objects??[]).some(row=>Object.hasOwn(OBJECTS_0139,String(row.name))||
       row.tbl_name==="service_catalog_notion_auto_attempts")};
   }
+  if (targetMigration === "0140_directory_service_notion_relations.sql") {
+    return {partial: ["directory_service_notion_relation_sync",
+      "idx_directory_service_notion_relation_page"].some(name => names.has(name))};
+  }
+  if (targetMigration === "0141_quality_missing_hourly.sql") {
+    return {partial: [
+      "quality_missing_scans", "quality_missing_scans_month",
+      "quality_missing_cursors", "quality_missing_proposals",
+      "quality_missing_proposals_pending",
+    ].some(name => names.has(name))};
+  }
   throw new Error(`Unsupported production migration target: ${targetMigration}`);
+}
+
+/** Production 0140: one-way Notion relation receipt, distinct from editorial content. */
+export function assertDirectoryServiceNotionRelations0140Schema(schema) {
+  const names = objectMap(schema.objects ?? []);
+  const table = names.get("directory_service_notion_relation_sync");
+  const index = names.get("idx_directory_service_notion_relation_page");
+  invariant(table?.type === "table", "0140 Notion relation table is missing");
+  invariant(index?.type === "index", "0140 Notion relation page index is missing");
+  const sql = String(table.sql ?? "");
+  invariant(/directory_profile_id\s+INTEGER\s+PRIMARY\s+KEY\s+REFERENCES\s+directory_profiles\s*\(id\)\s+ON\s+DELETE\s+CASCADE/i.test(sql),
+    "0140 relation must reference canonical directory profile with cascade");
+  invariant(/notion_page_id\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i.test(sql), "0140 Notion page identity is missing");
+  invariant(/confirmed_ids_json\s+TEXT\s+NOT\s+NULL\s+DEFAULT\s+'\[\]'/i.test(sql),
+    "0140 confirmed option ids must default to an empty list");
+  invariant(/ON\s+directory_service_notion_relation_sync\s*\(notion_page_id\)/i.test(String(index.sql ?? "")),
+    "0140 Notion relation index must use notion_page_id");
+}
+
+/** Production 0141: the missing-data review queue and independent hourly cursors. */
+export function assertQualityMissingHourly0141Schema(schema) {
+  const names = objectMap(schema.objects ?? []);
+  for (const name of ["quality_missing_scans", "quality_missing_cursors", "quality_missing_proposals"])
+    invariant(names.get(name)?.type === "table", `0141 missing table: ${name}`);
+  for (const name of ["quality_missing_scans_month", "quality_missing_proposals_pending"])
+    invariant(names.get(name)?.type === "index", `0141 missing index: ${name}`);
+  const scan = String(names.get("quality_missing_scans")?.sql ?? "");
+  const cursor = String(names.get("quality_missing_cursors")?.sql ?? "");
+  const proposals = String(names.get("quality_missing_proposals")?.sql ?? "");
+  invariant(/PRIMARY\s+KEY\s*\(area\s*,\s*hour\s*\)/i.test(scan), "0141 must scan an area only once per hour");
+  invariant(/area\s+TEXT\s+PRIMARY\s+KEY/i.test(cursor), "0141 separate cursor per area is missing");
+  invariant(/entity_id\s+INTEGER\s+NOT\s+NULL\s+DEFAULT\s+0/i.test(cursor),
+    "0141 cursor position must start at zero");
+  invariant(/status\s+TEXT\s+NOT\s+NULL\s+DEFAULT\s+'OPEN'/i.test(proposals),
+    "0141 manual review must start with OPEN status");
+  invariant(/UNIQUE\s*\(entity_type\s*,\s*entity_id\s*,\s*field_key\s*,\s*value\s*\)/i.test(proposals),
+    "0141 proposal identity must be unique");
+  invariant(/ON\s+quality_missing_scans\s*\(scanned_at\s*,\s*area\s*\)/i.test(
+    String(names.get("quality_missing_scans_month")?.sql ?? "")), "0141 monthly scan index drift");
+  invariant(/ON\s+quality_missing_proposals\s*\(status\s*,\s*area\s*,\s*field_group\s*,\s*id\s*\)/i.test(
+    String(names.get("quality_missing_proposals_pending")?.sql ?? "")), "0141 review index drift");
 }
 
 function assertAdminEntityReviewSchema(schema) {
@@ -2609,6 +2662,8 @@ function assertTargetSchema(schema, targetMigration) {
   if (migrationIndex(targetMigration) >= 137) assertMediaReview0137Schema(schema);
   if (migrationIndex(targetMigration) >= 138) assertArticleOutbox0138Schema(schema);
   if (migrationIndex(targetMigration) >= 139) assertServicesV3Auto0139Schema(schema);
+  if (migrationIndex(targetMigration) >= 140) assertDirectoryServiceNotionRelations0140Schema(schema);
+  if (migrationIndex(targetMigration) >= 141) assertQualityMissingHourly0141Schema(schema);
 }
 
 /** Exact 0139 Services V3 journal, including append-only no-delete/rewrite guarantees. */
@@ -2986,6 +3041,8 @@ function targetState(history, schema, targetMigration, expectedHistory) {
     assertArticleOutbox0138Schema(schema);
     assertServicesV3Auto0139Prerequisites(schema);
   }
+  // The missing-data automation requires the real 0140 relation schema before 0141.
+  if (targetIndex >= 141) assertDirectoryServiceNotionRelations0140Schema(schema);
 
   if (!historyState.targetApplied) {
     assertPendingTargetSchemaClean(targetMigration, targetObjects);
@@ -3330,6 +3387,11 @@ async function verify(targetMigration) {
     invariant(scalarCount(databaseName, prepared.configPath,
       "SELECT COUNT(*) AS count FROM service_catalog_notion_auto_attempts") === 0,
       "0139 must initialize an empty Services V3 auto attempt journal");
+  if (targetIndex === 141) {
+    invariant(scalarCount(databaseName, prepared.configPath,
+      "SELECT COUNT(*) AS count FROM quality_missing_cursors WHERE area IN ('services','events','help')") === 3,
+      "0141 must initialize one durable cursor for each quality-data area");
+  }
   if (targetIndex === 135)
     assertFacebookRetryPreserved(internal.facebookRetryBefore,
       facebookRetryPreservationSnapshot(databaseName, prepared.configPath));

@@ -60,6 +60,11 @@ export type PublicEventCard = Pick<DogEvent,
   "endDate" | "endTime" | "venue" | "city" | "region" | "cancelled" |
   "imageUrl" | "imageDisplay" | "thumbnailImageDisplay">;
 
+/** Minimal D1 response for the 12 linked events shown after selecting a calendar day. */
+export type PublicEventDayPreview = Pick<DogEvent,
+  "id" | "slug" | "title" | "eventType" | "startDate" | "startTime" |
+  "endDate" | "venue" | "city" | "cancelled">;
+
 export const eventTypeFilters = [
   { value: "Všetky", label: "Všetky" },
   ...eventTypes.map((value) => ({ value, label: value })),
@@ -250,9 +255,9 @@ export function eventTypeListingSeo(eventType: EventType) {
   return EVENT_TYPE_LISTING_SEO[eventType];
 }
 
-export function selectRelatedEvents(
+export function selectRelatedEvents<T extends PublicEventCard>(
   event: DogEvent,
-  candidates: DogEvent[],
+  candidates: T[],
   limit = 3,
   today = bratislavaDateKey(),
 ) {

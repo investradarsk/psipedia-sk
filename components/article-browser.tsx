@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { useEffect, useMemo, useState } from "react";
 import type { ArticleListingCard } from "@/lib/content";
@@ -90,10 +91,7 @@ export function ArticleBrowser({
           {visible.map((article) => <ArticleCard key={article.slug} article={article} headingLevel={2} omitMissingImage />)}
         </div>
       ) : (
-        <div className="empty-state">
-          <span>🐾</span>
-          <h2>Na túto stopu sme ešte nenarazili</h2>
-          <p>Skús kratší výraz alebo inú tému.</p>
+        <PublicEmptyState variant="listing" icon="🐾" title="Na túto stopu sme ešte nenarazili" description="Skús kratší výraz alebo inú tému.">
           <button type="button" className="button button--dark" onClick={() => {
             setQuery("");
             setCategory("Všetky");
@@ -102,7 +100,7 @@ export function ArticleBrowser({
           }}>
             Zobraziť celý magazín
           </button>
-        </div>
+        </PublicEmptyState>
       )}
     </div>
   );

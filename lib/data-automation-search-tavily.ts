@@ -14,6 +14,7 @@ type TavilyFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Res
 
 type TavilySearchResponse = {
   results?: unknown;
+  images?: unknown;
 };
 
 function countryName(country: string | undefined) {
@@ -89,6 +90,15 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
   }
 
   async search(request: AutomationSearchRequest): Promise<AutomationSearchResult[]> {
+    return (await this.searchWithImages(request, false)).results;
+  }
+
+  // Reuses the standard search transport. Image links are returned only when
+  // explicitly requested by the missing-data workflow for manual review.
+  async searchWithImages(request: AutomationSearchRequest, includeImages = true): Promise<{
+    results: AutomationSearchResult[];
+    images: string[];
+  }> {
     if (!this.credentialConfigured) throw new AutomationSearchProviderError("CONFIG_MISSING");
 
     const country = countryName(request.country);
@@ -98,6 +108,7 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
       query: request.query,
       max_results: safeMaxResults(request.maxResults),
       search_depth: "basic",
+      ...(includeImages ? { include_images: true, include_image_descriptions: false } : {}),
       ...(country ? { country } : {}),
       ...(language ? { language } : {}),
       ...(timeRange ? { time_range: timeRange } : {}),
@@ -147,10 +158,19 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
       throw new AutomationSearchProviderError("INVALID_RESPONSE");
     }
 
-    return payload.results
+    const results = payload.results
       .map((row, index) => mappedResult(row, index))
       .filter((row): row is AutomationSearchResult => Boolean(row))
       .slice(0, safeMaxResults(request.maxResults));
+    const images = includeImages && Array.isArray(payload.images)
+      ? payload.images.map((row) => {
+          const source = typeof row === "string" ? row
+            : row && typeof row === "object" && !Array.isArray(row)
+              ? (row as { url?: unknown }).url : null;
+          return validAbsoluteUrl(source);
+        }).filter((url): url is string => Boolean(url)).slice(0, 8)
+      : [];
+    return { results, images };
   }
 }
 
