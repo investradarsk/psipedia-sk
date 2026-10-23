@@ -1,3 +1,4 @@
+import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 /** Facebook Page photo publishing, single-attempt fail-closed semantics.
  * Only explicit provider-rejected throttling may be retried. A transport error
  * may mean Meta published the photo, so ambiguous results remain fail-closed.
@@ -310,6 +311,17 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED')`)
       .bind(remote,done,done,item.id).run();
     summary.published++;
+    try {
+      await enqueueAdminNotificationEvent(db,{
+        eventType:"facebook_image_published",sourceType:"FACEBOOK_IMAGE",
+        resourceType:"facebook_image",resourceRef:item.id,
+        actorType:"AUTOMATION",actorRef:"facebook-image-publisher",
+        targetUrl:"/admin/facebook-images",title:"Obrázok publikovaný na Facebooku",
+        body:"Facebook potvrdil úspešné publikovanie obrázka.",
+        tag:"facebook-published-"+item.id,
+        dedupeKey:"facebook/published/"+item.id,
+      },new Date(done));
+    } catch { /* Failed notifications must never retry an already published Meta photo. */ }
   }
   return summary;
 }
