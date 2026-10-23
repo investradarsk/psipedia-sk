@@ -1,4 +1,3 @@
-import { enqueueGeminiCreatedProfileNotification } from "@/lib/admin-notifications";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { directoryCategories } from "./directory.ts";
 import { loadGeminiCategoryMemory } from "./gemini-automation-category-memory.ts";
@@ -178,7 +177,7 @@ export async function runGeminiDirectoryCategory(input: {
     // never mark a successful Gemini run failed if the notification fails.
     for (const concept of summary.concepts) {
       try {
-        await enqueueGeminiCreatedProfileNotification(input.database,{
+        await (await import("./admin-notifications.ts")).enqueueGeminiCreatedProfileNotification(input.database,{
           type:"DIRECTORY",id:concept.canonicalEntityId,stableKey,runId,
         });
       } catch (error) {
