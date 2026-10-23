@@ -1,3 +1,4 @@
+import {enqueueAdminNotificationEvent} from "@/lib/admin-notifications";
 import { env } from "cloudflare:workers";
 import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
@@ -193,6 +194,7 @@ export async function runQualityMissingHourly(input:{database:Database;tavilyApi
       const terms=area==="events"?"registrácia dátum čas miesto plagát":area==="help"?"kontakt email telefón web facebook fotografia":"kontakt telefón email web facebook instagram fotografia";
       const city=String(profile.row.city??"").trim();
       const query=[profile.label,city,terms].filter(Boolean).join(" ").slice(0,500);
+      const beforeFound=found;
       try {
         const search=await provider.searchWithImages({query,maxResults:5,locale:"sk-SK",country:"SK"});
         const foundFields=discover(profile,search.results,search.images);
@@ -204,6 +206,19 @@ export async function runQualityMissingHourly(input:{database:Database;tavilyApi
               item.field.group,item.value,item.source,at,
             ).run();
           found+=Number(written.meta.changes??0);
+        }
+        if(found>beforeFound){
+          try{
+            await enqueueAdminNotificationEvent(db,{
+              eventType:"quality_missing_found",sourceType:"QUALITY_MISSING",
+              resourceType:area,resourceRef:profile.id,actorType:"AUTOMATION",
+              actorRef:"tavily-quality",targetUrl:"/admin/kvalita",
+              title:"Nájdené nové údaje – "+(area==="services"?"Služby":area==="events"?"Podujatia":"Pomoc psom"),
+              body:profile.label+": "+(found-beforeFound)+" návrhov na schválenie",
+              tag:"quality-"+area+"-"+hour,
+              dedupeKey:"quality/found/"+area+"/"+hour,
+            },now);
+          }catch{/* Notification errors never stop the hourly research. */}
         }
       }catch(error){
         // Provider failures (including exhausted credits) never stop other Psipedia jobs.
