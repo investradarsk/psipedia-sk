@@ -677,6 +677,8 @@ function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): 
   if (url.hostname.toLowerCase() !== "psipedia.sk" || !isExplicitAnonymousHtmlRoute(url.pathname)) return null;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
+  // Reject any request carrying synthetic/verified identity signals as well.
+  if (request.headers.has(USER_EMAIL_HEADER) || request.headers.has(ADMIN_AUTHORIZED_HEADER) || request.headers.has(AUTH_PROVIDER_HEADER)) return null;
   const accept = request.headers.get("accept") ?? "";
   if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
   const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
