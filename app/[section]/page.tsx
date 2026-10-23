@@ -63,6 +63,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       description: landingSeo.description,
       path: "/podujatia",
       searchParams: rawSearchParams,
+      indexPagination: true,
+      paginationParam: "strana",
     });
   }
   const description = slug === "recenzie" ? REVIEWS_DESCRIPTION : section.description;
@@ -90,11 +92,12 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   ]);
   if (!section?.visible) notFound();
   const eventList = events?.events ?? [];
-  const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams);
-  const eventSchema = slug !== "podujatia" || listingPolicy.kind !== "clean" ? null : buildCollectionPageJsonLd({
+  const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams,
+    slug === "podujatia" ? { indexPagination: true, paginationParam: "strana" } : {});
+  const eventSchema = slug !== "podujatia" || listingPolicy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: section.label,
     description: section.description,
-    path: "/podujatia",
+    path: listingPolicy.canonicalPath,
     breadcrumbs: [
       { name: "Domov", path: "/" },
       { name: section.label, path: "/podujatia" },
