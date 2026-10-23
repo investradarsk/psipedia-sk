@@ -34,6 +34,7 @@ import {
 } from "../lib/notion-eshop-sync";
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
+import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml } from "../lib/public-anonymous-html-cache";
 import { eligiblePublicSitemapRequest, servePublicSitemap } from "../lib/sitemap-edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -289,7 +290,10 @@ const worker = {
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
       return responseWithHeader(response, "Cache-Control", "private, no-store");
     }
-    if (!cache || !isCacheableHtmlResponse(response)) return response;
+    // The origin marks all dynamic SSR no-store. Only a cookie-free, explicitly
+    // public listing or breed page may promote that framework default to a
+    // 45-second anonymous Cache API entry; all other no-store stays untouched.
+    if (!cache || (!isCacheableHtmlResponse(response) && !isExplicitAnonymousSsrHtml(response, url.pathname))) return response;
 
     const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));
     ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()));
@@ -670,7 +674,7 @@ const worker = {
 
 function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): { storage: Cache; key: Request } | null {
   if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname) || isReviewAuthorRoute(url.pathname)) return null;
-  if (url.hostname.toLowerCase().endsWith(".workers.dev")) return null;
+  if (url.hostname.toLowerCase() !== "psipedia.sk" || !isExplicitAnonymousHtmlRoute(url.pathname)) return null;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
   const accept = request.headers.get("accept") ?? "";
