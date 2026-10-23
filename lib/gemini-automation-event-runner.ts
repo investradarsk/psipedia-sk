@@ -1,4 +1,3 @@
-import { enqueueGeminiCreatedProfileNotification } from "@/lib/admin-notifications";
 import { createGeminiEventRequest } from "./gemini-automation-event-contract.ts";
 import { loadGeminiEventMemory, checkGeminiEventDedupe } from "./gemini-automation-event-dedupe.ts";
 import { bridgeGeminiEventToNotion } from "./gemini-automation-event-bridge.ts";
@@ -79,7 +78,7 @@ export async function runGeminiEventCategory(input:{
     // never mark a successful Gemini run failed if the notification fails.
     for (const concept of summary.concepts) {
       try {
-        await enqueueGeminiCreatedProfileNotification(input.database,{
+        await (await import("./admin-notifications.ts")).enqueueGeminiCreatedProfileNotification(input.database,{
           type:"EVENT",id:concept.canonicalEntityId,stableKey,runId,
         });
       } catch (error) {
