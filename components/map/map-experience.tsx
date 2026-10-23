@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type CSSProperties, type MutableRefObject, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -76,7 +77,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
       {serviceCategory ? (
         <label>
           <span>Typ služby</span>
-          <select
+          <PublicSelect appearance="context"
             value={filters.subcategory}
             onChange={(event) => onChange({ ...filters, subcategory: event.target.value, facets: {}, canonicalService: "" })}
           >
@@ -84,7 +85,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
             {directoryCategories.map((category) => (
               <option value={category.slug} key={category.slug}>{category.label}</option>
             ))}
-          </select>
+          </PublicSelect>
         </label>
       ) : null}
 
@@ -97,18 +98,18 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
 
       <label>
         <span>Kraj</span>
-        <select
+        <PublicSelect appearance="context"
           value={filters.region}
           onChange={(event) => onChange(mapFiltersForRegion(filters, event.target.value))}
         >
           <option value="">Všetky kraje</option>
           {regions.map((region) => <option value={region} key={region}>{region}</option>)}
-        </select>
+        </PublicSelect>
       </label>
 
       <label>
         <span>Okres</span>
-        <input
+        <PublicTextInput appearance="context"
           value={filters.district}
           onChange={(event) => onChange(mapFiltersForDistrict(filters, event.target.value))}
           placeholder="Napr. Nitra"
@@ -118,7 +119,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
 
       <label>
         <span>Mesto / obec</span>
-        <input
+        <PublicTextInput appearance="context"
           value={filters.city}
           onChange={(event) => onChange({ ...filters, city: event.target.value })}
           placeholder="Napr. Trnava"
@@ -130,17 +131,17 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
         <>
           <label>
             <span>Typ podujatia</span>
-            <select
+            <PublicSelect appearance="context"
               value={filters.eventType}
               onChange={(event) => onChange({ ...filters, eventType: event.target.value })}
             >
               <option value="">Všetky typy</option>
               {eventTypes.map((eventType) => <option value={eventType} key={eventType}>{eventType}</option>)}
-            </select>
+            </PublicSelect>
           </label>
           <label>
             <span>Termín</span>
-            <select
+            <PublicSelect appearance="context"
               value={filters.eventTiming}
               onChange={(event) => onChange({
                 ...filters,
@@ -150,7 +151,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
               <option value="active">Aktuálne a najbližšie</option>
               <option value="current">Práve prebiehajú</option>
               <option value="upcoming">Budúce</option>
-            </select>
+            </PublicSelect>
           </label>
         </>
       ) : null}
@@ -158,7 +159,7 @@ function FilterFields({ filters, onChange }: FilterPanelProps) {
       {!serviceCategory && !eventCategory ? (
         <label>
           <span>Podkategória</span>
-          <input
+          <PublicTextInput appearance="context"
             value={filters.subcategory}
             onChange={(event) => onChange({ ...filters, subcategory: event.target.value })}
             placeholder={filters.category === "organizations" ? "Typ organizácie" : "Voliteľné"}
@@ -875,7 +876,7 @@ export function MapExperience({
         <div className={styles.primaryRow}>
           <label className={styles.searchField}>
             <SearchIcon size={19} />
-            <input
+            <PublicTextInput appearance="context"
               value={filters.search}
               onChange={(event) => updateFilters({ ...filters, search: event.target.value })}
               placeholder="Hľadať názov, službu alebo lokalitu"

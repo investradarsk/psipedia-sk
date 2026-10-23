@@ -1,3 +1,4 @@
+import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { articleBlockLabels } from "@/lib/article-blocks";
@@ -117,14 +118,18 @@ export function ArticleBlocks({ blocks, preview = false, promoUtcDay, onNavigate
           </figure>
         ) : null;
         if (block.type === "gallery") return block.images.length ? (
-          <div className="article-block-gallery" key={block.id}>
-            {block.images.map((image, index) => (
-              <figure className={`article-block-gallery-item article-block-gallery-item--${image.size ?? "normal"}`} key={`${image.url}-${index}`}>
-                <img src={image.url} alt={image.alt} loading="lazy" decoding="async" />
-                {(image.caption || image.credit) && <figcaption>{image.caption && <span className="article-block-caption">{image.caption}</span>}{image.credit && <span className="article-block-credit">Foto / zdroj: {image.credit}</span>}</figcaption>}
-              </figure>
-            ))}
-          </div>
+          <PublicPhotoGallery
+            key={block.id}
+            variant="editorial"
+            className="article-block-gallery"
+            maxImages={block.images.length}
+            images={block.images.map((image) => ({
+              src: image.url,
+              alt: image.alt,
+              size: image.size,
+              caption: (image.caption || image.credit) ? <>{image.caption && <span className="article-block-caption">{image.caption}</span>}{image.credit && <span className="article-block-credit">Foto / zdroj: {image.credit}</span>}</> : undefined,
+            }))}
+          />
         ) : null;
         if (block.type === "bullet-list") return block.items.length ? <ul key={block.id}>{block.items.map((item, index) => <li key={index}>{richText(item)}</li>)}</ul> : null;
         if (block.type === "numbered-list") return block.items.length ? <ol key={block.id}>{block.items.map((item, index) => <li key={index}>{richText(item)}</li>)}</ol> : null;

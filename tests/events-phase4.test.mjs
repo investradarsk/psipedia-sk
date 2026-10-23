@@ -127,8 +127,8 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.match(directoryResults, /totalPages=\{result\.totalPages\}/);
   assert.match(directoryResults, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
   assert.match(directoryResults, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
-  assert.match(pagination, /<Link href=\{previousHref\} rel="prev">\{previousLabel\}<\/Link>/);
-  assert.match(pagination, /<Link href=\{nextHref\} rel="next">\{nextLabel\}<\/Link>/);
+  assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>\{previousLabel\}<\/Link>/);
+  assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>\{nextLabel\}<\/Link>/);
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
