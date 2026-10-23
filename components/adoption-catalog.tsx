@@ -15,12 +15,12 @@ import {
 } from "@/lib/adoption-catalog";
 import { adoptionDetailPath } from "@/lib/adoption-detail";
 import type { AdoptionBreedOptionsResult, AdoptionPagination } from "@/lib/adoption-store";
-import type { AdoptionDog } from "@/lib/adoption";
+import type { PublicAdoptionCard } from "@/lib/adoption";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import styles from "./adoption.module.css";
 
 type CatalogResult = {
-  items: AdoptionDog[];
+  items: PublicAdoptionCard[];
   pagination: AdoptionPagination;
 };
 

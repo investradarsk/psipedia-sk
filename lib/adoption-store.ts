@@ -28,6 +28,7 @@ import {
   type AdoptionAdminFilters,
   type AdoptionCompatibility,
   type AdoptionDog,
+  type PublicAdoptionCard,
   type AdoptionPublicFilters,
   type AdoptionPublicStatus,
   type AdoptionRegion,
@@ -80,6 +81,47 @@ type AdoptionDogRow = {
   search_text: string; published_at: string | null; last_verified_at: string | null; created_at: string; updated_at: string;
   created_by: string; updated_by: string;
 };
+
+/** No galleries, sensitive contact fields, health notes, editorial fields or detail media in catalog responses. */
+type PublicAdoptionCardRow = Pick<AdoptionDogRow,
+  "id" | "name" | "slug" | "status" | "sex" | "birth_date" |
+  "approximate_age_months" | "size" | "breed_name" | "breed_mix" |
+  "region" | "city" | "organization_id" | "organization_name" |
+  "organization_slug" | "main_image" | "thumbnail_display_json" |
+  "short_description" | "published_at" | "last_verified_at" |
+  "breed_profile_name" | "canonical_organization_name" | "canonical_organization_slug">;
+
+const PUBLIC_CARD_SELECT = `SELECT
+    d.id, d.name, d.slug, d.status, d.sex, d.birth_date, d.approximate_age_months,
+    d.size, d.breed_name, d.breed_mix, d.region, d.city, d.organization_id,
+    d.organization_name, d.organization_slug, d.main_image, d.thumbnail_display_json,
+    d.short_description, d.published_at, d.last_verified_at,
+    b.name AS breed_profile_name,
+    o.name AS canonical_organization_name, o.slug AS canonical_organization_slug
+  FROM adoption_dogs d
+  LEFT JOIN managed_breeds b ON b.id = d.breed_id AND b.id IN (${canonicalBreedIdsSql})
+  LEFT JOIN help_organizations o ON o.id = d.organization_id`;
+
+function rowToPublicAdoptionCard(row: PublicAdoptionCardRow): PublicAdoptionCard {
+  const linked = row.organization_id !== null;
+  return {
+    id: Number(row.id), name: row.name, slug: row.slug,
+    status: normalizeRowChoice(row.status, adoptionStatuses, "DRAFT"),
+    sex: normalizeRowChoice(row.sex, adoptionSexes, "UNKNOWN"),
+    birthDate: row.birth_date, approximateAgeMonths: row.approximate_age_months,
+    size: normalizeRowChoice(row.size, adoptionSizes, "UNKNOWN"),
+    breedName: normalizeAdoptionText(row.breed_profile_name) || row.breed_name,
+    breedMix: Boolean(row.breed_mix),
+    region: (adoptionRegions as readonly string[]).includes(row.region) ? row.region as AdoptionRegion : "",
+    city: row.city,
+    organizationName: linked ? normalizeAdoptionText(row.canonical_organization_name) : row.organization_name,
+    organizationSlug: linked ? normalizeAdoptionText(row.canonical_organization_slug) || null : row.organization_slug,
+    mainImage: row.main_image,
+    thumbnailImageDisplay: readImageDisplayConfig(row.thumbnail_display_json, "thumbnail"),
+    shortDescription: row.short_description,
+    publishedAt: row.published_at, lastVerifiedAt: row.last_verified_at,
+  };
+}
 
 type AdoptionSummaryRow = Pick<AdoptionDogRow,
   "id" | "name" | "slug" | "status" | "sex" | "size" | "city" | "region" | "organization_name" | "main_image" | "last_verified_at" | "updated_at"
@@ -364,6 +406,22 @@ export async function listPublicAdoptions(filters: AdoptionPublicQueryFilters = 
   const result = await db.prepare(`${PUBLIC_SELECT} WHERE ${query.where} ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`)
     .bind(...query.bindings, query.pageSize, query.offset).all<AdoptionDogRow>();
   return { items: result.results.map(rowToDog), pagination: { page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) } };
+}
+/** Dedicated lightweight public catalog; detail reads keep the complete canonical record. */
+export async function listPublicAdoptionCards(
+  filters: AdoptionPublicQueryFilters = {},
+  database?: AdoptionD1Database,
+) {
+  const query = buildPublicAdoptionQuery(filters);
+  const db = database ?? getD1Binding();
+  if (!db) return { items: [] as PublicAdoptionCard[], pagination: { page: query.page, pageSize: query.pageSize, total: 0, totalPages: 0 } };
+  const countRow = await db.prepare(`SELECT COUNT(*) AS count FROM adoption_dogs d WHERE ${query.where}`)
+    .bind(...query.bindings).first<{ count: number }>();
+  const total = Number(countRow?.count ?? 0);
+  const result = await db.prepare(`${PUBLIC_CARD_SELECT} WHERE ${query.where} ORDER BY ${query.orderBy} LIMIT ? OFFSET ?`)
+    .bind(...query.bindings, query.pageSize, query.offset).all<PublicAdoptionCardRow>();
+  return { items: result.results.map(rowToPublicAdoptionCard),
+    pagination: { page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) } };
 }
 export const getPublicAdoptions = listPublicAdoptions;
 

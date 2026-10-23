@@ -98,6 +98,14 @@ export type AdoptionDog = {
   updatedBy: string;
 };
 
+/** Minimal, public-only data needed by each adoption catalog card. */
+export type PublicAdoptionCard = Pick<AdoptionDog,
+  "id" | "name" | "slug" | "status" | "sex" | "birthDate" |
+  "approximateAgeMonths" | "size" | "breedName" | "breedMix" |
+  "region" | "city" | "organizationName" | "organizationSlug" |
+  "mainImage" | "thumbnailImageDisplay" | "shortDescription" |
+  "publishedAt" | "lastVerifiedAt">;
+
 export type ManagedAdoptionInput = Partial<{
   name: string;
   slug: string;

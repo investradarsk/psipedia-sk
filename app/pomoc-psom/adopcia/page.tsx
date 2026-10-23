@@ -4,7 +4,7 @@ import { AdoptionCatalog } from "@/components/adoption-catalog";
 import { StructuredData } from "@/components/structured-data";
 import { PageContainer } from "@/components/page-system";
 import { parseAdoptionCatalogFilters, type AdoptionCatalogSearchParams } from "@/lib/adoption-catalog";
-import { getPublicAdoptions, listPublishedAdoptionBreedOptions } from "@/lib/adoption-store";
+import { listPublicAdoptionCards, listPublishedAdoptionBreedOptions } from "@/lib/adoption-store";
 import { buildCollectionPageJsonLd, buildListingPageMetadata, resolveListingIndexPolicy } from "@/lib/listing-seo";
 import styles from "@/components/adoption.module.css";
 
@@ -28,7 +28,7 @@ export default async function AdoptionPage({ searchParams }: Props) {
   const params = await searchParams;
   const filters = parseAdoptionCatalogFilters(params);
   const [result, breeds] = await Promise.all([
-    getPublicAdoptions(filters),
+    listPublicAdoptionCards(filters),
     listPublishedAdoptionBreedOptions(),
   ]);
   const policy = resolveListingIndexPolicy("/pomoc-psom/adopcia", params, { indexPagination: true, paginationParam: "strana" });
