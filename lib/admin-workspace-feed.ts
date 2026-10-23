@@ -24,6 +24,8 @@ export async function loadAdminWorkspaceFeed(email:string,db=database()):Promise
         FROM admin_notification_events e
         LEFT JOIN admin_notification_read_receipts r ON r.event_id=e.id AND r.admin_email=?
         WHERE e.event_type<>'admin_push_test'
+          AND (e.event_type NOT LIKE 'automation_run_%'
+            OR e.event_type IN ('automation_run_failed','automation_run_partial_success'))
         ORDER BY e.created_at DESC,e.id DESC LIMIT 30`)
         .bind(email.toLowerCase()).all<{id:number;eventType:string;sourceType:string;
           title:string;body:string;href:string;createdAt:string;isRead:number}>(),
