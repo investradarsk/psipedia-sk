@@ -35,6 +35,9 @@ export default async function DirectoryHomePage({ searchParams }: Props) {
   if (cleanedUrl) redirect(cleanedUrl);
   // Only one listing is rendered on the root; avoid unused overview/count queries.
   const result = await listPublishedDirectoryProfiles({ filters });
+  if (policy.kind === "pagination" && policy.page! > result.totalPages) {
+    redirect(result.totalPages > 1 ? `/adresar?page=${result.totalPages}` : "/adresar");
+  }
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Služby pre psov",
     description: directoryDescription,
