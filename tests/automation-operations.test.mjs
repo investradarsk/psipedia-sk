@@ -170,7 +170,7 @@ test("cursor zero after a successful cycle is presented as complete, not zero pe
 
 test("feed source metrics keep finding semantics honest — po vyradení starého systému", () => {
   const page=read("app/admin/automatizacie/prehlad/page.tsx");
-  const store=read("lib/data-automation-product-store.ts");
+  const store=read("lib/data-automation-operations.ts");
   assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
   assert.match(store,/newFindingCount/);
 });
