@@ -11,7 +11,8 @@ const directorySync = await readFile(new URL("../lib/notion-directory-sync.ts", 
 const eventSync = await readFile(new URL("../lib/notion-event-sync.ts", import.meta.url), "utf8");
 const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
 const adminPage = await readFile(new URL("../app/admin/kvalita/page.tsx", import.meta.url), "utf8");
-const adminComponent = await readFile(new URL("../components/admin-data-quality-dashboard.tsx", import.meta.url), "utf8");
+const adminComponent = await readFile(new URL("../components/admin-missing-quality-dashboard.tsx", import.meta.url), "utf8");
+const originalMediaComponent = await readFile(new URL("../components/admin-data-quality-dashboard.tsx", import.meta.url), "utf8");
 const dataQualityStore = await readFile(new URL("../lib/data-quality-store.ts", import.meta.url), "utf8");
 const adminNavigation = await readFile(new URL("../lib/admin-navigation.ts", import.meta.url), "utf8");
 
@@ -119,25 +120,24 @@ test("source changes create a review candidate instead of silently replacing pub
   assert.match(mediaReviewDecisions, /WHERE id=\? AND image_key IS \?/);
 });
 
-test("admin quality workspace separates profile cleanup from focused image approval", () => {
+test("admin quality displays found missing values for all areas", () => {
   assert.match(adminNavigation, /href: "\/admin\/kvalita"/);
-  assert.match(adminPage, /Kvalita údajov/);
-  assert.match(adminComponent, /admin-quality-tabs/);
-  assert.match(adminComponent, /sectionHref\("media"\)/);
-  assert.match(adminComponent, /Skontrolovať teraz/);
-  assert.match(adminComponent, /Schváliť obrázok/);
-  assert.match(adminComponent, /Chýbajúce údaje v profiloch/);
-  assert.match(adminComponent, /Obrázky na kontrolu/);
-  assert.match(adminComponent, /admin-quality-profile-row/);
-  assert.match(adminComponent, /admin-quality-media-card/);
+  assert.match(adminPage, /AdminMissingQualityDashboard/);
+  assert.match(adminComponent, /Nájdené nové údaje na schválenie/);
+  assert.match(adminComponent, /Tento mesiac spustené/);
+  assert.match(adminComponent, /Služby pre psov/);
+  assert.match(adminComponent, /Podujatia/);
+  assert.match(adminComponent, /Pomoc psom/);
+  assert.match(adminComponent, /Zamietnuť všetky zobrazené/);
+  assert.match(originalMediaComponent, /Schváliť obrázok/);
+  assert.doesNotMatch(adminPage, /AdminDataQualityDashboard/);
 });
 
-
-test("admin quality loads detail data only for the active workspace", () => {
-  assert.match(adminPage, /section:\s*mediaSection\s*\?\s*"media"\s*:\s*"profiles"/);
-  assert.match(dataQualityStore, /const \[profileRead, mediaRead\] = await Promise\.all/);
-  assert.match(dataQualityStore, /input\.section \?\? "both"/);
-  assert.match(dataQualityStore, /section !== "media"/);
-  assert.match(dataQualityStore, /section !== "profiles"/);
+test("admin quality loads only pending found values", () => {
+  assert.match(adminPage, /loadMissingQualityDashboard/);
+  assert.doesNotMatch(adminPage, /loadDataQualityDashboard/);
+  assert.match(adminComponent, /setRemovedIds/);
+  assert.match(adminComponent, /router.refresh/);
+  assert.match(dataQualityStore, /readAdminAutomationData/);
   assert.doesNotMatch(dataQualityStore, /listCanonicalAutomationUpdateSuggestionEntityIds/);
 });
