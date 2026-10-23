@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
-  ADMIN_PUSH_CATEGORIES, adminPushCategoryForEvent, parsePushCategories,
+  ADMIN_PUSH_CATEGORIES, ADMIN_PUSH_EVENT_KEYS, DEFAULT_ADMIN_PUSH_EVENT_KEYS,
+  isAdminPushEventAllowed, adminPushCategoryForEvent, parsePushCategories,
   parseStoredPushCategories, isAutomaticPushActor, completedAutomationRunStatus,
 } from "../lib/admin-automation-push-policy.ts";
 
@@ -48,8 +49,11 @@ test("category preferences reject unknown fields and dedupe duplicates", () => {
   assert.throws(() => parsePushCategories({ RUN_STARTED: true }));
 });
 test("stored category defaults are safe", () => {
-  assert.deepEqual(parseStoredPushCategories("broken"), ADMIN_PUSH_CATEGORIES);
-  assert.deepEqual(parseStoredPushCategories("[]"), []);
+  const fallback = parseStoredPushCategories("broken");
+  assert.deepEqual(fallback.filter(x=>ADMIN_PUSH_EVENT_KEYS.includes(x)), DEFAULT_ADMIN_PUSH_EVENT_KEYS);
+  assert.deepEqual(parseStoredPushCategories("[]"), DEFAULT_ADMIN_PUSH_EVENT_KEYS);
+  assert.deepEqual(parseStoredPushCategories('["EVENTS_CONFIGURED"]'),["EVENTS_CONFIGURED"]);
+  assert.ok(ADMIN_PUSH_CATEGORIES.includes("FACEBOOK_PUBLISHED"));
 });
 test("actual event emission is conditional on trusted actor provenance", () => {
   const events = read("lib/admin-automation-events.ts");
@@ -133,4 +137,17 @@ test("iPhone permission and notificationclick continue to use gated admin scope"
   assert.match(settings, /onClick=\{enableNotifications\}/);
   assert.match(sw, /safeAdminPath/);
   assert.match(sw, /self.clients.openWindow\(target\)/);
+});
+
+test("event-level push settings handle independent device switches and never ping on unknown events", () => {
+  const saved=parseStoredPushCategories("broken");
+  assert.equal(isAdminPushEventAllowed(saved,"gemini_profile_created","GEMINI_CREATED","DIRECTORY"),true);
+  assert.equal(isAdminPushEventAllowed(saved,"gemini_run_failed","GEMINI_RUN","gemini"),false);
+  assert.equal(isAdminPushEventAllowed(saved,"facebook_image_published","FACEBOOK_IMAGE"),true);
+  assert.equal(isAdminPushEventAllowed(saved,"facebook_image_failed","FACEBOOK_IMAGE"),false);
+  assert.equal(isAdminPushEventAllowed(saved,"partner_account_registered","PARTNER_ACCOUNT_REGISTRATION"),true);
+  assert.equal(isAdminPushEventAllowed(saved,"quality_missing_found","QUALITY_MISSING"),false);
+  assert.equal(isAdminPushEventAllowed(saved,"not_recognized"),false);
+  assert.equal(isAdminPushEventAllowed(["EVENTS_CONFIGURED"],"partner_account_registered"),false);
+  assert.equal(isAdminPushEventAllowed(["EVENTS_CONFIGURED"],"admin_push_test"),true);
 });

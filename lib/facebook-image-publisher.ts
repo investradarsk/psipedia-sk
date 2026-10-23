@@ -298,6 +298,19 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
             .bind(clock(new Date()),code,item.id).run();
         }
         summary.uncertain++;
+        // An uncertain provider result is NOT proof of failed publication:
+        // do not retry on Meta or claim that it was definitely not posted.
+        try{
+          await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
+            eventType:"facebook_image_failed",sourceType:"FACEBOOK_IMAGE",
+            resourceType:"facebook_image",resourceRef:item.id,actorType:"AUTOMATION",
+            actorRef:"facebook-image-publisher",targetUrl:"/admin/facebook-images",
+            title:"Facebook publikovanie vyžaduje kontrolu",
+            body:"Výsledok nie je potvrdený. Pred akýmkoľvek opakovaním over Facebook.",
+            tag:"facebook-attention-"+item.id,
+            dedupeKey:"facebook/publish-attention/"+item.id,
+          },new Date());
+        }catch{/* An error in the activity feed may not change retry safety. */}
       }
       continue;
     }
@@ -310,6 +323,17 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       AND EXISTS (SELECT 1 FROM facebook_image_publish_attempts a WHERE a.post_id=facebook_image_posts.id AND a.state='PUBLISHED')`)
       .bind(remote,done,done,item.id).run();
     summary.published++;
+    try {
+      await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
+        eventType:"facebook_image_published",sourceType:"FACEBOOK_IMAGE",
+        resourceType:"facebook_image",resourceRef:item.id,
+        actorType:"AUTOMATION",actorRef:"facebook-image-publisher",
+        targetUrl:"/admin/facebook-images",title:"Obrázok publikovaný na Facebooku",
+        body:"Facebook potvrdil úspešné publikovanie obrázka.",
+        tag:"facebook-published-"+item.id,
+        dedupeKey:"facebook/published/"+item.id,
+      },new Date(done));
+    } catch { /* Failed notifications must never retry an already published Meta photo. */ }
   }
   return summary;
 }

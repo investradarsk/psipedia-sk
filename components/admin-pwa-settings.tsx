@@ -19,15 +19,12 @@ type PushConfig = {
   publicKey: string | null;
 };
 
-type PushCategory = "RUN_STARTED" | "RUN_RESULTS" | "ERRORS" | "PUBLISH" | "IMPORT_SYNC";
-const categoryLabels: Record<PushCategory, string> = {
-  RUN_STARTED: "Spustenia automatizácií",
-  RUN_RESULTS: "Výsledky automatizácií",
-  ERRORS: "Chyby a upozornenia",
-  PUBLISH: "Automatické publikovanie",
-  IMPORT_SYNC: "Automatické importy a synchronizácie",
-};
-const defaultCategories = Object.keys(categoryLabels) as PushCategory[];
+import { ADMIN_PUSH_EVENT_SETTINGS, DEFAULT_ADMIN_PUSH_EVENT_KEYS,
+  type AdminPushCategory as PushCategory } from "@/lib/admin-automation-push-policy";
+const groupedSettings = [...new Set(ADMIN_PUSH_EVENT_SETTINGS.map(x=>x.group))].map(group=>({
+  group,items:ADMIN_PUSH_EVENT_SETTINGS.filter(x=>x.group===group),
+}));
+const defaultCategories: PushCategory[] = ["EVENTS_CONFIGURED",...DEFAULT_ADMIN_PUSH_EVENT_KEYS];
 type PushDelivery = { status: "queued" | "sent" | "failed"; attempts: number; error: string | null; queuedAt: string; sentAt: string | null };
 
 const ANALYTICS_EXCLUSION_COOKIE = "psipedia_internal";
@@ -302,7 +299,7 @@ export function AdminPwaSettings() {
 
   async function updateCategory(category: PushCategory, enabled: boolean) {
     if (!deviceEndpoint || busy) return;
-    const next = enabled ? [...categories, category] : categories.filter((item) => item !== category);
+    const next: PushCategory[] = enabled ? [...new Set([...categories, "EVENTS_CONFIGURED" as const, category])] : [...new Set([...categories.filter(item=>item!==category), "EVENTS_CONFIGURED" as const])];
     setBusy(true);
     try {
       const response = await fetch("/api/admin/push/subscription", {
@@ -425,15 +422,21 @@ export function AdminPwaSettings() {
         </div>
         {pushState === "enabled" && (
           <>
-            <h3>Kategórie upozornení pre toto zariadenie</h3>
-            <p>Uložené nastavenia ovplyvňujú skutočné doručenie automatických udalostí.</p>
-            <div>
-              {defaultCategories.map((category) => <label key={category} style={{ display: "block", marginBottom: "0.5rem" }}>
-                <input type="checkbox" checked={categories.includes(category)} disabled={busy}
-                  onChange={(event) => void updateCategory(category, event.target.checked)} />
-                {" "}{categoryLabels[category]}
-              </label>)}
-            </div>
+            <h3>Čo má pípať na tomto zariadení</h3>
+            <p>Každý prepínač ovláda skutočné odoslanie push. Vypnutie push nezastaví Gemini,
+              Facebook ani spracovanie hodnotení. Udalosti zostávajú v Pracovnom prehľade.</p>
+            {groupedSettings.map(group => (
+              <fieldset key={group.group} style={{border:"1px solid var(--admin-border, #ddd)",borderRadius:8,margin:"12px 0",padding:12}}>
+                <legend style={{fontWeight:700,padding:"0 6px"}}>{group.group}</legend>
+                {group.items.map(item => (
+                  <label key={item.key} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                    <input type="checkbox" checked={categories.includes(item.key)} disabled={busy}
+                      onChange={event=>void updateCategory(item.key,event.target.checked)}/>
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ))}
             <h3>Posledné doručenia</h3>
             <p>„Odoslané“ znamená prijaté push bránou, nie potvrdené zobrazenie iPhonom.</p>
             {deliveries.length === 0 ? <p>Žiadne záznamy o doručovaní.</p> : (
