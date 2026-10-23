@@ -98,20 +98,17 @@ function QueueLink({
 export function AdminWorkspaceDashboard({
   attention,
   activity,
-  automationLifecycle,
   quality,
   workspaceReliability,
 }: {
   attention: AdminAttentionExactSummary;
   activity: WorkspaceFeed;
-  automationLifecycle: ReadMetric;
   quality: {
     status: "OK" | "EMPTY" | "UNAVAILABLE";
     data: AdminDataQualitySummary;
   };
   workspaceReliability: AdminAutomationReliabilitySummary;
 }) {
-  const automationAttention = sourceMetric(attention, "AUTOMATION_ACTION");
   const partnerClaims = sourceMetric(attention, "PARTNER_CLAIM_REVIEW");
   const overallAttentionStatus = attentionStatus(attention);
 
@@ -149,14 +146,6 @@ export function AdminWorkspaceDashboard({
             value={attention.active}
             status={overallAttentionStatus}
             valueLabel={overallAttentionStatus === "PARTIAL" ? "potvrdených v dostupných zdrojoch" : "čaká na spracovanie"}
-          />
-          <MetricCard
-            title="Automatizácie na kontrolu"
-            description="Nové zdroje, návrhy zmien a ďalšie automatizačné akcie pripravené na rozhodnutie."
-            href="/admin/operations?source=AUTOMATION_ACTION"
-            value={automationAttention.value}
-            status={automationAttention.status}
-            valueLabel="automatizačných akcií"
           />
           <MetricCard
             title="Partner claims"
@@ -199,19 +188,14 @@ export function AdminWorkspaceDashboard({
         <article className={styles.panel}>
           <div className={styles.panelHeading}>
             <div>
-              <span>Automatizácie</span>
-              <h2>Stav workflowov</h2>
+              <span>Automatizácie Gemini</span>
+              <h2>Vyhľadávanie a plánovanie</h2>
             </div>
-            <small data-status={automationLifecycle.status}>{availabilityLabel[automationLifecycle.status]}</small>
           </div>
-          <p>Prehľad používa existujúci reliability contract. Chyba načítania sa nikdy nemení na falošnú nulu.</p>
-          <Link className={styles.inlineMetric} href="/admin/automatizacie/zmeny-stavu">
-            <span>Otvorené návrhy zmien stavu</span>
-            <strong>{automationLifecycle.status === "UNAVAILABLE" ? "—" : automationLifecycle.value}</strong>
-          </Link>
+          <p>Nové vyhľadávanie spravujú Automatizácie Gemini. Návrhy chýbajúcich údajov spravuje samostatná Kvalita údajov.</p>
           <div className={styles.actionRow}>
-            <Link href="/admin/automatizacie">Automatizácie →</Link>
-            <Link href="/admin/automatizacie/prehlad">Prevádzkový prehľad →</Link>
+            <Link href="/admin/automatizacie-gemini">Automatizácie Gemini →</Link>
+            <Link href="/admin/kvalita">Kvalita údajov →</Link>
           </div>
         </article>
 
