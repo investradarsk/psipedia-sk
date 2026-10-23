@@ -440,6 +440,7 @@ function simulation(files, eventName = "pull_request", options = {}) {
   };
   const context = {
     github: {event_name: eventName, ref: "refs/heads/main", head_ref: "test/fixture"},
+    vars: {CLOUDFLARE_PREVIEW_BUILDS_ENABLED: options.previewBuildsEnabled ? "true" : ""},
     steps: {"required-scope": {outputs}, scope: {outputs}},
     needs: {validate: {result: options.validateResult || "success", outputs}, scope: {outputs}},
   };
@@ -610,10 +611,23 @@ for (const [name, file, jobName] of [
   ["seo", "lib/seo-metadata.ts", "seo-recovery-e2e"],
   ["lost-found", "lib/lost-found-store.ts", "lost-found-public-e2e"],
 ]) {
-  assert.equal(simulation([file]).runs(jobName), true, `${name} change must exercise ${jobName}`);
+  const dependsOnPreview = jobName === "sitemap-production-diagnostic" || jobName === "seo-recovery-e2e";
+  // Cloudflare non-production builds are intentionally disabled by default.
+  // Keep exact-head preview validation as an explicit opt-in; do not run
+  // an eight-minute polling job with no preview build and call it a product failure.
+  assert.equal(simulation([file]).runs(jobName), !dependsOnPreview,
+    `${name} change must not request a disabled Cloudflare preview`);
+  assert.equal(simulation([file], "pull_request", {previewBuildsEnabled: true}).runs(jobName), true,
+    `${name} change must exercise ${jobName} when preview builds are explicitly enabled`);
   assert.equal(simulation(["docs/audit.md"]).runs(jobName), false, `${name} docs skip`);
 }
 assert.equal(simulation(["lib/seo-metadata.ts"]).runs("sitemap-production-diagnostic"), false);
+assert.match(job("seo-recovery-e2e").condition, /vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
+assert.match(job("sitemap-production-diagnostic").condition, /vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
+const ds0b = job("ds-0b-focused-regression").block;
+assert.match(ds0b, /Explain unavailable exact-head directory preview/);
+assert.match(ds0b, /if: steps\.ds0b_scope\.outputs\.directory == 'true' && vars\.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'/);
+
 for (const file of ["components/directory-card.tsx", "app/hladat/page.tsx", "app/admin/events/page.tsx"]) {
   const push = simulation([file], "push");
   for (const jobName of ["directory-e2e", "search-e2e", "admin-events-e2e"]) {

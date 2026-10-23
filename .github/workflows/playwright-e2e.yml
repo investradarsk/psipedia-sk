@@ -207,11 +207,17 @@ jobs:
       - name: Execute DS-1A semantic token contracts
         if: steps.ds0b_scope.outputs.token == 'true'
         run: node --test tests/public-design-tokens.test.mjs
+      - name: Explain unavailable exact-head directory preview
+        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED != 'true'
+        run: |
+          echo "::notice::Directory preview Playwright not run: Cloudflare non-production builds are disabled to avoid billable builds. Node contracts remain active."
+          echo "### Directory preview coverage NOT RUN" >> "$GITHUB_STEP_SUMMARY"
+          echo "Non-production Cloudflare builds are disabled. To enable exact-PR preview testing, explicitly configure CLOUDFLARE_PREVIEW_BUILDS_ENABLED=true AND enable Cloudflare preview builds." >> "$GITHUB_STEP_SUMMARY"
       - name: Install Chromium for directory matrix
-        if: steps.ds0b_scope.outputs.directory == 'true'
+        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
         run: npx playwright install --with-deps chromium
       - name: Resolve successful preview for exact PR HEAD
-        if: steps.ds0b_scope.outputs.directory == 'true'
+        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
         id: preview
         shell: bash
         env:
@@ -260,7 +266,7 @@ jobs:
           echo "Verified exact-head Cloudflare preview: $preview_url"
           echo "url=$preview_url" >> "$GITHUB_OUTPUT"
       - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
-        if: steps.ds0b_scope.outputs.directory == 'true'
+        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
         env:
           E2E_BASE_URL: ${{ steps.preview.outputs.url }}
         run: |
@@ -268,7 +274,7 @@ jobs:
           npx playwright test tests/e2e/directory-unified-layout.spec.ts \
             --project=desktop-chromium --workers=1 --retries=0
       - name: Upload DS-0B directory screenshots
-        if: always() && steps.ds0b_scope.outputs.directory == 'true'
+        if: always() && steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ds-0b-directory-evidence-${{ github.run_attempt }}
@@ -979,7 +985,7 @@ jobs:
 
   seo-recovery-e2e:
     name: SEO-RECOVERY-1 exact-preview indexability matrix
-    if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
+    if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -1054,7 +1060,7 @@ jobs:
 
   sitemap-production-diagnostic:
     name: Read-only production sitemap diagnostic collection
-    if: github.event_name == 'pull_request' && needs.validate.outputs.sitemap_diagnostic == 'true'
+    if: github.event_name == 'pull_request' && needs.validate.outputs.sitemap_diagnostic == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 15
