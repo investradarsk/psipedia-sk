@@ -32,9 +32,9 @@ function fixture() {
   sqlite.exec(`CREATE TABLE directory_profiles (
     id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, status TEXT, services_json TEXT,
     city TEXT, district TEXT, region TEXT, image_url TEXT, verified INTEGER, featured INTEGER,
-    updated_at TEXT
+    updated_at TEXT, source_data_json TEXT
   )`);
-  const insert = sqlite.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
+  const insert = sqlite.prepare("INSERT INTO directory_profiles (id,slug,name,category,status,services_json,city,district,region,image_url,verified,featured,updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
   for (let i = 1; i <= 127; i++) {
     const zilina = i === 61;
     insert.run(
@@ -89,6 +89,7 @@ test("directory listing reduces D1 reads to four while preserving global locatio
   };
   const result = await queryDirectoryAdmin(tracked, filters({ category: "veterinari", page: 3 }), categories);
   assert.equal(statements.length, 4, "totals, matched count, combined locations, bounded page");
+  assert.match(statements.at(-1), /json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)\), ''\) AS reviewed_at/);
   assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
