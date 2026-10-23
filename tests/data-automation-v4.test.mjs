@@ -35,16 +35,16 @@ test("AUTOMATION-4 has a separate reviewed due-root scheduler", () => {
   assert.match(store, /nextAutomationDiscoveryCheckAt/);
 });
 
-test("scheduled worker runs discovery independently from normal source monitoring", () => {
+test("scheduled worker leaves legacy discovery manual while Gemini and quality run on schedule", () => {
   const worker = read("worker/index.ts");
   const runner = read("lib/data-automation-discovery-runner.ts");
   const wrangler = read("wrangler.jsonc");
-
-  assert.match(worker, /runDataAutomationSweep/);
-  assert.match(worker, /runDataAutomationDiscoverySweep/);
-  assert.match(worker, /data_automation_discovery_sweep/);
+  assert.doesNotMatch(worker, /runDataAutomationSweep\(/);
+  assert.doesNotMatch(worker, /runDataAutomationDiscoverySweep\(/);
+  assert.doesNotMatch(worker, /data_automation_discovery_sweep/);
+  assert.match(worker, /runQualityMissingHourly\(/);
+  assert.match(worker, /runGeminiManualBackgroundSweep\(/);
   assert.deepEqual(JSON.parse(wrangler).triggers.crons, ["*/5 * * * *", "* * * * *"]);
-  assert.ok(worker.includes('controller.cron === "* * * * *"'));
   assert.match(worker, /isFullHourlyScheduledSweep/);
   assert.match(worker, /getUTCMinutes\(\) === 0/);
   assert.match(runner, /DATA_AUTOMATION_MAX_DISCOVERY_ROOTS_PER_SWEEP = 2/);
