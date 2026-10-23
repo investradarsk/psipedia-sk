@@ -479,5 +479,64 @@ export async function enqueueUncoveredAttentionAdminNotifications(
     }));
   }
 
+
+  // Build notifications from the existing review queues. They remain one event
+  // per submitted request, even when a five-minute scheduled sweep repeats.
+  try {
+    const rows=await database.prepare(`SELECT review.id,review.created_at AS createdAt,
+      COALESCE(d.name,o.name,'Profil') AS label
+      FROM profile_reviews review
+      JOIN partner_resources r ON r.id=review.resource_id
+      LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+      LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+      WHERE review.status='PENDING_REVIEW' AND review.created_at>=?
+      ORDER BY review.created_at ASC,review.id ASC LIMIT 100`)
+      .bind(rolloutStartedAt).all<{id:number;createdAt:string;label:string}>();
+    for(const row of rows.results)await enqueueAdminNotificationEvent(database,{
+      eventType:"profile_review_submitted",sourceType:"PROFILE_REVIEW_MODERATION",
+      resourceType:"profile_review",resourceRef:row.id,actorType:"PUBLIC",
+      targetUrl:"/admin/operations?source=PROFILE_REVIEW_MODERATION",
+      title:"Nové hodnotenie profilu",body:row.label,
+      tag:"profile-review-"+row.id,dedupeKey:"review/submitted/"+row.id,
+    },row.createdAt);
+  }catch(error){console.warn(JSON.stringify({event:"admin_review_push_bridge_unavailable",reason:error instanceof Error?error.name:"unknown"}));}
+
+  try {
+    const rows=await database.prepare(`SELECT c.id,c.created_at AS createdAt,
+      COALESCE(d.name,o.name,'Profil') AS label
+      FROM partner_claims c JOIN partner_resources r ON r.id=c.resource_id
+      LEFT JOIN directory_profiles d ON d.id=r.directory_profile_id
+      LEFT JOIN help_organizations o ON o.id=r.help_organization_id
+      WHERE c.status='PENDING' AND c.created_at>=?
+      ORDER BY c.created_at ASC,c.id ASC LIMIT 100`)
+      .bind(rolloutStartedAt).all<{id:string;createdAt:string;label:string}>();
+    for(const row of rows.results)await enqueueAdminNotificationEvent(database,{
+      eventType:"partner_claim_submitted",sourceType:"PARTNER_CLAIM_REVIEW",
+      resourceType:"partner_claim",resourceRef:row.id,actorType:"PARTNER",
+      targetUrl:`/admin/partners/claims/${encodeURIComponent(String(row.id))}`,
+      title:"Žiadosť o správu profilu",body:row.label,
+      tag:"partner-claim-"+row.id,dedupeKey:"partner/claim/"+row.id,
+    },row.createdAt);
+  }catch(error){console.warn(JSON.stringify({event:"admin_partner_claim_push_bridge_unavailable",reason:error instanceof Error?error.name:"unknown"}));}
+
+  try {
+    const rows=await database.prepare(`SELECT s.id,s.created_at AS createdAt,s.resource_type AS resourceType
+      FROM moderation_submissions s
+      WHERE s.submitter_type='PARTNER_ACCOUNT'
+        AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')
+        AND s.created_at>=?
+      ORDER BY s.created_at ASC,s.id ASC LIMIT 100`)
+      .bind(rolloutStartedAt).all<{id:string;createdAt:string;resourceType:string}>();
+    for(const row of rows.results){
+      const event=row.resourceType==="MANAGED_EVENT";
+      await enqueueAdminNotificationEvent(database,{
+        eventType:"partner_profile_proposed",sourceType:"PARTNER_PROPOSAL",
+        resourceType:row.resourceType,resourceRef:row.id,actorType:"PARTNER",
+        targetUrl:"/admin/operations",title:event?"Partner navrhol podujatie":"Nový návrh od partnera",
+        body:"Návrh čaká na kontrolu.",tag:"partner-proposal-"+row.id,
+        dedupeKey:"partner/proposal/"+row.id,
+      },row.createdAt);
+    }
+  }catch(error){console.warn(JSON.stringify({event:"admin_partner_proposal_bridge_unavailable",reason:error instanceof Error?error.name:"unknown"}));}
   return summary;
 }
