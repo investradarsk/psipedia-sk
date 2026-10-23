@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+build/
+.wrangler/
+playwright-report/
+test-results/
+coverage/
+package-lock.json
+drizzle/*.sql
+public/images/
