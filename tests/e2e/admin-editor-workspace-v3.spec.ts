@@ -197,3 +197,27 @@ test("V3 semantic actions and focus tokens remain consistent at 1440/390/320", a
     await expect(editor).not.toBeVisible();
   }
 });
+
+test("compact V3: 320/390/1440 screenshots, no overflow and 44px editor actions", async ({ page }) => {
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+    const response = await page.goto("/admin/editor-workspace-preview");
+    expect(response?.status()).toBe(200);
+    await expectHydrated(page);
+    await page.getByRole("button", { name: "Otvoriť testovací editor" }).click();
+    const editor = page.getByRole("dialog", { name: "Upraviť koncept — lokálna ukážka" });
+    await expect(editor).toBeVisible();
+    const section = width <= 820
+      ? editor.getByLabel("Sekcia editora")
+      : editor.getByRole("button", { name: "Kontakt", exact: true });
+    await expect(section).toBeVisible();
+    const sectionHeight = await section.evaluate((element) => element.getBoundingClientRect().height);
+    expect(sectionHeight, "Editor navigation target must remain at least 44px").toBeGreaterThanOrEqual(43.5);
+    const save = editor.getByRole("button", { name: "Uložiť koncept" });
+    await expect(save).toBeVisible();
+    const saveHeight = await save.evaluate((element) => element.getBoundingClientRect().height);
+    expect(saveHeight, "Save action must remain at least 44px").toBeGreaterThanOrEqual(43.5);
+    await verifyNoHorizontalOverflow(page);
+    await screenshot(page, "compact-" + width + "-editor");
+  }
+});

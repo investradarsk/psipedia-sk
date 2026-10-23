@@ -280,3 +280,22 @@
 @media (max-width: 1100px) {
   .account { display: none; }
 }
+
+/* ADMIN-V3-COMPACT-01: shared shell spacing only; preserve 44px controls. */
+.workspace { grid-template-columns: 210px minmax(0, 1fr); }
+.sidebarFrame { padding: 14px 8px 10px; }
+.sidebarBrand { min-height: 52px; gap: 8px; padding: 4px 9px 12px; }
+.sidebarFrame :global([data-admin-sidebar]) { margin-top: 8px; }
+.workspaceMain { padding: 12px clamp(12px, 1.6vw, 24px) 0; }
+.topbarSticky { min-height: 60px; padding: 8px clamp(12px, 1.6vw, 24px); }
+.topbarActions { gap: 6px; }
+@media (max-width: 1100px) {
+  .workspace { display: block; }
+  .workspaceMain { padding: 10px 12px 0; }
+  /* Reserve space for the fixed mobile navigation trigger. */
+  .topbarSticky { min-height: 60px; padding: 8px 64px 8px 12px; }
+}
+@media (max-width: 420px) {
+  .workspaceMain { padding: 9px 10px 0; }
+  .topbarSticky { padding: 8px 60px 8px 10px; }
+}

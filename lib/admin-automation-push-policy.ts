@@ -36,12 +36,21 @@ export function adminPushEventKey(eventType:string, sourceType = "", system = ""
   if(eventType==="partner_account_registered")return "PARTNER_REGISTRATION";
   if(eventType==="profile_review_submitted" || sourceType==="PROFILE_REVIEW_MODERATION")return "PROFILE_REVIEW";
   if(eventType==="partner_claim_submitted" || sourceType==="PARTNER_CLAIM_REVIEW")return "PARTNER_REQUEST";
-  if(eventType==="directory_profile_change_submitted" || eventType==="moderation_submission_actionable"
-    || eventType==="partner_profile_proposed")return "PROFILE_PROPOSAL";
-  if(["news_tip_submitted","negative_article_feedback_submitted","directory_inquiry_submitted"].includes(eventType))
+  // Evaluate specific adoption events before the generic moderation event:
+  // a moderation_submission_actionable for adoption_dog must not become PROFILE_PROPOSAL.
+  if (
+    eventType === "adoption_inquiry_submitted" ||
+    sourceType === "ADOPTION_REQUEST" ||
+    (eventType === "moderation_submission_actionable" &&
+      (system === "adoption_dog" || system === "ADOPTION_DOG"))
+  ) return "ADOPTION_REQUEST";
+  if (
+    eventType === "directory_profile_change_submitted" ||
+    eventType === "moderation_submission_actionable" ||
+    eventType === "partner_profile_proposed"
+  ) return "PROFILE_PROPOSAL";
+  if (["news_tip_submitted", "negative_article_feedback_submitted", "directory_inquiry_submitted"].includes(eventType))
     return "COMMUNITY_TIP";
-  if(eventType==="adoption_inquiry_submitted" || sourceType==="ADOPTION_REQUEST" ||
-    (eventType==="moderation_submission_actionable" && system==="adoption_dog"))return "ADOPTION_REQUEST";
   if(eventType==="facebook_image_imported")return "FACEBOOK_IMPORTED";
   if(eventType==="facebook_image_published")return "FACEBOOK_PUBLISHED";
   if(eventType==="facebook_image_failed")return "FACEBOOK_FAILED";
@@ -72,6 +81,25 @@ export function adminPushCategoryForEvent(eventType: string, system?: string): A
   if (eventType === "automation_article_published" || eventType === "automation_article_draft") return "PUBLISH";
   if (eventType.startsWith("automation_import_") || eventType.startsWith("automation_sync_")) return "IMPORT_SYNC";
   return null;
+}
+
+/** One canonical mapping for the older editorial_notifications delivery path.
+ * Keep historical resource types distinct from modern event_type routing. */
+export function legacyAdminPushEventKey(resourceType: string): AdminPushEventKey {
+  switch (resourceType) {
+    case "directory_profile_change_request":
+      return "PROFILE_PROPOSAL";
+    case "news_tip":
+    case "article_feedback":
+    case "directory_inquiry":
+      return "COMMUNITY_TIP";
+    case "profile_review":
+      return "PROFILE_REVIEW";
+    case "adoption_request":
+      return "ADOPTION_REQUEST";
+    default:
+      return "SYSTEM_ACTIVITY";
+  }
 }
 
 export function parsePushCategories(value: unknown): AdminPushCategory[] {

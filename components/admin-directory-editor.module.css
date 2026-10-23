@@ -107,3 +107,15 @@
   .toplineActions :global(button) { min-height: 44px; }
   .drawerFields { gap: .75rem; }
 }
+
+/* ADMIN-V3-COMPACT-01: compact Adresár editor while retaining safe actions. */
+.editorTopline { gap: 0.45rem; padding: 0.2rem 0 0.4rem; }
+.drawerFields { gap: 0.6rem; }
+.editor :global(.admin-editor-actions) {
+  gap: 0.45rem;
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+}
+@media (max-width: 390px) {
+  .toplineActions { gap: 0.35rem; }
+  .toplineActions :global(button) { min-height: 44px; }
+}

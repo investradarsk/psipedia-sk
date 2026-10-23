@@ -385,3 +385,19 @@
   font-weight: 800;
 }
 .mobileAccount > a:focus-visible { outline: 3px solid #a26a1b; outline-offset: 2px; }
+
+/* ADMIN-V3-COMPACT-01: denser groups without shrinking interactive targets. */
+.desktopNavigation:global(.admin-section-nav) { gap: 3px; padding-bottom: 10px; }
+.groupButton { min-height: 44px; gap: 8px; padding: 7px 9px; }
+.desktopGroup > div { gap: 1px; padding: 2px 0 4px 24px; }
+.desktopGroup a { min-height: 40px; padding: 6px 8px; }
+.breadcrumbs { margin-bottom: 8px; }
+.mobileNavigation { gap: 9px; padding: 12px; }
+.mobileGroup > div { gap: 5px; }
+.mobileGroup a { min-height: 44px; padding: 8px 9px; }
+.drawerHeader { gap: 10px; padding: 12px; }
+.mobilePublic { padding: 0 12px 12px; }
+.mobileAccount { margin: 0 12px 12px; padding: 10px; }
+@media (max-width: 1100px) {
+  .breadcrumbs { margin-bottom: 8px; }
+}
