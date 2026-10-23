@@ -258,3 +258,65 @@ body:has([data-admin-workspace]) .admin-root { min-height: 100dvh; }
     gap: 4px;
   }
 }
+
+/* ADMIN-V3-COMPACT-01: one scoped density contract for legacy admin surfaces.
+   Forms, state, map selection, images, editor payloads and mobile touch targets
+   retain their existing behavior. Do not apply these rules to public pages. */
+[data-admin-workspace] {
+  --admin-v3-card-padding: 12px;
+  --admin-v3-compact-gap: 10px;
+}
+[data-admin-workspace] .admin-heading { padding: 4px 0 12px; gap: 10px; }
+[data-admin-workspace] .admin-heading h1 { margin: 2px 0 4px; font-size: clamp(1.35rem, 1.9vw, 1.75rem); }
+[data-admin-workspace] .admin-heading p { line-height: 1.4; }
+[data-admin-workspace] .admin-heading-actions { gap: 7px; }
+[data-admin-workspace] .admin-stats { gap: 9px; margin-bottom: 12px; }
+[data-admin-workspace] .admin-stats > div {
+  min-height: 72px;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(21, 50, 35, .035);
+}
+[data-admin-workspace] .admin-stats strong {
+  font-family: inherit;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1.15;
+}
+[data-admin-workspace] .admin-toolbar { flex-wrap: wrap; justify-content: flex-start; gap: 9px; padding: 10px 12px; }
+[data-admin-workspace] .admin-search { min-height: 44px; min-width: min(100%, 180px); padding-inline: 11px; }
+[data-admin-workspace] .admin-select-filter { min-width: min(100%, 150px); gap: 3px; }
+[data-admin-workspace] .admin-select-filter select { min-height: 44px; }
+[data-admin-workspace] .admin-status-filter { gap: 3px; padding: 3px; max-width: 100%; overflow-x: auto; }
+[data-admin-workspace] .admin-status-filter button { min-height: 44px; padding: 7px 10px; }
+[data-admin-workspace] .admin-form-card { padding: var(--admin-v3-card-padding); }
+[data-admin-workspace] .admin-field-grid { gap: var(--admin-v3-compact-gap); }
+[data-admin-workspace] .admin-article-list { padding: 2px 12px 10px; }
+[data-admin-workspace] .admin-article-row { gap: 11px; padding: 9px 0; }
+[data-admin-workspace] .admin-pagination { gap: 8px; padding: 10px 12px 12px; }
+[data-admin-workspace] .admin-pagination :is(a, span) { min-height: 44px; }
+[data-admin-workspace] .admin-quality-filter-toolbar { gap: 9px; }
+[data-admin-workspace] .admin-quality-profile-list,
+[data-admin-workspace] .admin-quality-media-list { padding: 2px 12px 10px; }
+[data-admin-workspace] .admin-quality-profile-row { gap: 11px; padding: 10px 0; }
+[data-admin-workspace] .admin-quality-media-card { gap: 12px; padding: 11px 0; }
+[data-admin-workspace] .admin-quality-section-heading { gap: 8px; }
+[data-admin-workspace] .admin-quality-summary-line { gap: 6px; }
+[data-admin-workspace] .admin-quality-pagination { gap: 8px; padding: 10px 12px; }
+@media (max-width: 760px) {
+  [data-admin-workspace] .admin-heading { padding: 3px 0 10px; gap: 8px; }
+  [data-admin-workspace] .admin-toolbar { flex-direction: column; align-items: stretch; padding: 10px; }
+  [data-admin-workspace] .admin-search { width: 100%; }
+  [data-admin-workspace] .admin-stats > div { min-height: 68px; padding: 10px; }
+  [data-admin-workspace] .admin-form-card { padding: 11px; }
+  [data-admin-workspace] .admin-article-list,
+  [data-admin-workspace] .admin-quality-profile-list,
+  [data-admin-workspace] .admin-quality-media-list { padding-inline: 10px; }
+}
+@media (max-width: 390px) {
+  [data-admin-workspace] .admin-heading h1 { font-size: 1.32rem; }
+  [data-admin-workspace] .admin-stats strong { font-size: 1.45rem; }
+  [data-admin-workspace] .admin-heading-actions > * { min-height: 44px; }
+}
