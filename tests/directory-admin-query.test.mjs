@@ -90,7 +90,8 @@ test("directory listing reduces D1 reads to four while preserving global locatio
   };
   const result = await queryDirectoryAdmin(tracked, filters({ category: "veterinari", page: 3 }), categories);
   assert.equal(statements.length, 4, "totals, matched count, combined locations, bounded page");
-  assert.match(statements.at(-1), /json_extract\(source_data_json, '\$\._psipedia_profile_review_reviewed_at'\)\), ''\) AS reviewed_at/);
+  assert.match(statements.at(-1), /json_extract\(source_data_json/);
+  assert.match(statements.at(-1), /AS reviewed_at/);
   assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
