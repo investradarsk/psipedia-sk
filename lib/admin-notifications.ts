@@ -495,7 +495,7 @@ export async function enqueueUncoveredAttentionAdminNotifications(
     for(const row of rows.results)await enqueueAdminNotificationEvent(database,{
       eventType:"profile_review_submitted",sourceType:"PROFILE_REVIEW_MODERATION",
       resourceType:"profile_review",resourceRef:row.id,actorType:"PUBLIC",
-      targetUrl:"/admin/operations?source=PROFILE_REVIEW_MODERATION",
+      targetUrl:`/admin/recenzie-profilov/${row.id}`,
       title:"Nové hodnotenie profilu",body:row.label,
       tag:"profile-review-"+row.id,dedupeKey:"review/submitted/"+row.id,
     },row.createdAt);
@@ -520,19 +520,27 @@ export async function enqueueUncoveredAttentionAdminNotifications(
   }catch(error){console.warn(JSON.stringify({event:"admin_partner_claim_push_bridge_unavailable",reason:error instanceof Error?error.name:"unknown"}));}
 
   try {
-    const rows=await database.prepare(`SELECT s.id,s.created_at AS createdAt,s.resource_type AS resourceType
+    const rows=await database.prepare(`SELECT s.id,s.created_at AS createdAt,s.resource_type AS resourceType,
+      EXISTS(SELECT 1 FROM partner_new_profile_metadata n WHERE n.submission_id=s.id) AS isNew,
+      EXISTS(SELECT 1 FROM partner_profile_change_metadata c WHERE c.submission_id=s.id) AS isChange,
+      EXISTS(SELECT 1 FROM partner_event_submission_metadata e WHERE e.submission_id=s.id) AS isEvent
       FROM moderation_submissions s
       WHERE s.submitter_type='PARTNER_ACCOUNT'
         AND s.status IN ('SUBMITTED','PENDING_REVIEW','QUARANTINED')
         AND s.created_at>=?
       ORDER BY s.created_at ASC,s.id ASC LIMIT 100`)
-      .bind(rolloutStartedAt).all<{id:string;createdAt:string;resourceType:string}>();
+      .bind(rolloutStartedAt).all<{id:string;createdAt:string;resourceType:string;isNew:number;isChange:number;isEvent:number}>();
     for(const row of rows.results){
-      const event=row.resourceType==="MANAGED_EVENT";
+      const event=Boolean(row.isEvent);
+      const targetUrl=row.isNew?`/admin/partners/submissions/${encodeURIComponent(row.id)}`
+        :row.isChange?`/admin/partners/changes/${encodeURIComponent(row.id)}`
+        :row.isEvent?`/admin/partners/events/${encodeURIComponent(row.id)}`
+        :null;
+      if(!targetUrl)continue;
       await enqueueAdminNotificationEvent(database,{
         eventType:"partner_profile_proposed",sourceType:"PARTNER_PROPOSAL",
         resourceType:row.resourceType,resourceRef:row.id,actorType:"PARTNER",
-        targetUrl:"/admin/operations",title:event?"Partner navrhol podujatie":"Nový návrh od partnera",
+        targetUrl,title:event?"Partner navrhol podujatie":"Nový návrh od partnera",
         body:"Návrh čaká na kontrolu.",tag:"partner-proposal-"+row.id,
         dedupeKey:"partner/proposal/"+row.id,
       },row.createdAt);
