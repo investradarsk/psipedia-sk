@@ -11,7 +11,7 @@ import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { DetailHero, DetailFactsCard, DetailSection } from "./detail-primitives/detail-primitives";
 import detailStyles from "./detail-primitives/detail-primitives.module.css";
 import { PublicActionLink, PublicFoundation } from "@/components/public-visual-system";
-import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, formatEventUpdatedAt, type DogEvent } from "@/lib/events";
+import { eventDateStatus, eventPortalCategory, eventTypePortalHref, formatEventDate, formatEventUpdatedAt, type DogEvent, type PublicEventCard } from "@/lib/events";
 import { publicLocationValue } from "@/lib/public-location";
 import styles from "./events-public.module.css";
 
@@ -34,7 +34,7 @@ export function EventDetail({
   publicMap,
 }: {
   event: DogEvent;
-  related?: DogEvent[];
+  related?: PublicEventCard[];
   publicMap?: PublicEntityMapResult & PublicMapRuntime;
 }) {
   const dateStatus = eventDateStatus(event);
