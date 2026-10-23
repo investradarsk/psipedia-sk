@@ -31,6 +31,7 @@ import {
 } from "../lib/notion-eshop-sync";
 import { runMediaSourceMonitorSweep } from "../lib/media-source-monitor";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache";
+import { isExplicitAnonymousHtmlRoute, isExplicitAnonymousSsrHtml } from "../lib/public-anonymous-html-cache";
 import { eligiblePublicSitemapRequest, servePublicSitemap } from "../lib/sitemap-edge-cache";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -192,6 +193,8 @@ async function runScheduledAdminPush(env: Env) {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    // Worker preview URLs must never compete with psipedia.sk in Google's index.
+    const isWorkersDevPreview = url.hostname.toLowerCase().endsWith(".workers.dev");
 
     const canonicalBreedPath = LEGACY_BREED_REDIRECTS[url.pathname];
     if (canonicalBreedPath) {
@@ -203,6 +206,15 @@ const worker = {
     // snapshot when D1/SSR has a transient error. Never cache authenticated,
     // queried or private requests; public HTML caching remains separate.
     if (eligiblePublicSitemapRequest(request)) {
+      if (isWorkersDevPreview) {
+        // Preview sitemap is generated normally but cannot enter the shared
+        // last-good cache or be indexed as a second host.
+        const previewResponse = await handler.fetch(request, env, ctx);
+        return responseWithHeaders(previewResponse, {
+          "X-Robots-Tag": "noindex, nofollow",
+          "Cache-Control": "private, no-store",
+        });
+      }
       const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
       return servePublicSitemap(request, () => handler.fetch(request, env, ctx), storage, ctx);
     }
@@ -266,6 +278,13 @@ const worker = {
         "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
       });
     }
+    if (isWorkersDevPreview) {
+      // Do not cache preview HTML or let it create duplicate indexable hosts.
+      return responseWithHeaders(response, {
+        "X-Robots-Tag": "noindex, nofollow",
+        "Cache-Control": "private, no-store",
+      });
+    }
     if (isReviewAuthorRoute(url.pathname)) {
       return responseWithHeaders(response, {
         "Cache-Control": "private, no-store",
@@ -277,7 +296,10 @@ const worker = {
     if (isAdminAuthPath(url.pathname) || url.pathname.startsWith("/api/")) {
       return responseWithHeader(response, "Cache-Control", "private, no-store");
     }
-    if (!cache || !isCacheableHtmlResponse(response)) return response;
+    // The origin marks all dynamic SSR no-store. Only a cookie-free, explicitly
+    // public listing or breed page may promote that framework default to a
+    // 45-second anonymous Cache API entry; all other no-store stays untouched.
+    if (!cache || (!isCacheableHtmlResponse(response) && !isExplicitAnonymousSsrHtml(response, url.pathname))) return response;
 
     const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));
     ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()));
@@ -604,8 +626,13 @@ const worker = {
 
 function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): { storage: Cache; key: Request } | null {
   if (request.method !== "GET" || url.search || isAdminAuthPath(url.pathname) || isReviewAuthorRoute(url.pathname)) return null;
+  if (url.hostname.toLowerCase() !== "psipedia.sk" || !isExplicitAnonymousHtmlRoute(url.pathname)) return null;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/media/") || url.pathname.startsWith("/_")) return null;
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
+  // Reject any request carrying synthetic/verified identity signals as well.
+  if (request.headers.has(USER_EMAIL_HEADER) || request.headers.has(ADMIN_AUTHORIZED_HEADER) || request.headers.has(AUTH_PROVIDER_HEADER)) return null;
+  // Next client/RSC/navigation variants are never normal document HTML.
+  if (["rsc", "next-router-state-tree", "next-router-prefetch", "next-url", "purpose"].some((name) => request.headers.has(name))) return null;
   const accept = request.headers.get("accept") ?? "";
   if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
   const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
