@@ -407,6 +407,21 @@ export async function getHomepageUpcomingEventsWithImages(limit = 3): Promise<Ho
   })).filter((event) => eventIsActive(event, today));
 }
 
+/** Related event cards need only public list columns; keep full event reads for detail consumers. */
+export async function getUpcomingEventCards(limit = 8): Promise<PublicEventCard[]> {
+  const database = getD1Binding();
+  if (!database) return [];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const today = bratislavaDateKey();
+  const rows = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,end_time,
+      venue,city,region,cancelled,image_url,image_display,thumbnail_display_json
+    FROM managed_events WHERE status = 'published' AND cancelled = 0
+      AND COALESCE(end_date, start_date) >= ?
+    ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?`)
+    .bind(today, safeLimit).all<PublicEventCardRow>();
+  return rows.results.map(rowToPublicEventCard).filter((event) => eventIsActive(event, today));
+}
+
 export async function getUpcomingEvents(limit = 2) {
   const database = getD1Binding();
   if (!database) return [] as DogEvent[];

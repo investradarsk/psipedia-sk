@@ -255,9 +255,9 @@ export function eventTypeListingSeo(eventType: EventType) {
   return EVENT_TYPE_LISTING_SEO[eventType];
 }
 
-export function selectRelatedEvents(
+export function selectRelatedEvents<T extends PublicEventCard>(
   event: DogEvent,
-  candidates: DogEvent[],
+  candidates: T[],
   limit = 3,
   today = bratislavaDateKey(),
 ) {
