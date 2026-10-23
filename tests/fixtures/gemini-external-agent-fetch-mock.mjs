@@ -371,8 +371,25 @@ globalThis.fetch = async (url, options = {}) => {
       }
       if (scenario === "incomplete_scan") return json({ results: [], has_more: true, next_cursor: null });
       if (scenario === "malformed_scan") return json({ has_more: false });
-      return json({ results: ["duplicate", "ambiguous", "shelter_other_type"].includes(scenario)
-        ? [lostFound ? lostFoundExisting : shelter ? { ...row, properties: { ...row.properties,
+      return json({ results: ["duplicate", "ambiguous", "shelter_other_type", "pending_review"].includes(scenario)
+        ? [scenario === "pending_review"
+          ? { ...(lostFound ? lostFoundExisting : row), properties: {
+            ...(lostFound ? lostFoundExisting.properties : row.properties),
+            ...(!lostFound ? {
+              [adoption ? "Meno" : "Názov"]: {type:"title",title:[{plain_text:adoption ? "Nový psík" : section === "directory" ? "Test Veterinár" : "Mock candidate"}]},
+              "Mesto": {type:"rich_text",rich_text:[{plain_text:"Sereď"}]},
+              "Web": {type:"url",url:"https://example.com"},
+              "Zdroj dát": {type:"url",url:"https://example.com/about"},
+              ...(adoption ? {"Organizácia":{type:"rich_text",rich_text:[{plain_text:"Útulok Test"}]}} : {}),
+            } : {}),
+            ...(adoption || shelter || section === "events"
+              ? { "Stav": { type:"select", select:{name:"Nápad"} } }
+              : { "Psipedia stav": { type:"rich_text", rich_text:[{plain_text:"Koncept"}] } }),
+            ...(section === "events" ? {
+              "Začiatok": {type:"date",date:{start:"2099-10-20"}},
+            } : {})
+          } }
+          : lostFound ? lostFoundExisting : shelter ? { ...row, properties: { ...row.properties,
           "Typ": { type:"rich_text", rich_text:[{plain_text:"CIVIC_ASSOCIATION"}] } } } : row]
         : [], has_more: false });
     }
