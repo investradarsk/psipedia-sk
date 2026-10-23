@@ -1,4 +1,6 @@
 import Link from "next/link";
+import {AdminWorkspaceActivity} from "./admin-workspace-activity";
+import type {WorkspaceFeed} from "@/lib/admin-workspace-feed";
 import type { AdminAttentionExactSummary } from "@/lib/admin-attention-queue-store";
 import type { AdminAttentionQueueSourceType } from "@/lib/admin-attention-queue";
 import type { AdminAutomationReliabilitySummary } from "@/lib/admin-automation-reliability";
@@ -95,11 +97,13 @@ function QueueLink({
 
 export function AdminWorkspaceDashboard({
   attention,
+  activity,
   automationLifecycle,
   quality,
   workspaceReliability,
 }: {
   attention: AdminAttentionExactSummary;
+  activity: WorkspaceFeed;
   automationLifecycle: ReadMetric;
   quality: {
     status: "OK" | "EMPTY" | "UNAVAILABLE";
@@ -113,6 +117,7 @@ export function AdminWorkspaceDashboard({
 
   return (
     <div className={styles.workspace}>
+      <AdminWorkspaceActivity initial={activity} />
       {workspaceReliability.status === "PARTIAL" || workspaceReliability.status === "UNAVAILABLE" ? (
         <section className={styles.reliabilityNotice} role="alert">
           <div>
@@ -163,13 +168,11 @@ export function AdminWorkspaceDashboard({
           />
           <MetricCard
             title="Kvalita údajov"
-            description={quality.data.mediaIssues > 0
-              ? `Jadrové údaje profilov; navyše ${quality.data.mediaIssues} problémov monitoringu obrázkov.`
-              : "Profily s chýbajúcim popisom, obrázkom alebo potvrdenou adresou."}
+            description="Nové skutočne nájdené chýbajúce údaje z Tavily, pripravené na individuálne schválenie."
             href="/admin/kvalita"
             value={quality.status === "UNAVAILABLE" ? null : quality.data.profilesWithCoreIssues}
             status={quality.status}
-            valueLabel="profilov s jadrovým nedostatkom"
+            valueLabel="návrhov na schválenie"
           />
         </div>
       </section>
