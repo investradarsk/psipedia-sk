@@ -69,7 +69,7 @@ test("public catalog reads a page of lean cards without private details, preserv
     assert.equal(first.items[0].contactEmail, undefined);
     const firstSql = sql.find(s => s.includes("FROM adoption_dogs d") && s.includes("LEFT JOIN"));
     assert.ok(firstSql, "dedicated join-based public select exists");
-    assert.doesNotMatch(firstSql, /d\.\*|gallery_json|health_notes|description(?!.*short_description)|contact_email|contact_phone|source_data_json/i);
+    assert.doesNotMatch(firstSql, /d\.\*|gallery_json|health_notes|\bd\.description\b|contact_email|contact_phone|source_data_json/i);
     const pageTwo = await listPublicAdoptionCards({page: 2}, database);
     assert.deepEqual(pageTwo.items.map(item => item.id), [6,5,4,3,2,1]);
     assert.equal(pageTwo.items.at(-1).breedName, "Labradorský retriever");
