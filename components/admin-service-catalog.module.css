@@ -80,3 +80,26 @@
   .mirrorPanel{justify-items:stretch;padding:11px}
   .mirrorPanel :global(button){width:100%}
 }
+
+/* ADMIN-V3-COMPACT-01: catalog/list/detail and profile-value density. */
+.stack { gap: 0.7rem; }
+.notice, .error { padding: 10px 12px; }
+.filterBar { gap: 9px; padding: 11px 12px; border-radius: 12px; }
+.layout { gap: 10px; }
+.listItem { gap: 4px; min-height: 44px; padding: 10px 12px; }
+.detail { padding: 13px 14px; }
+.detailGrid { gap: 8px; padding-top: 11px; }
+.actions { gap: 8px; margin-top: 11px; }
+.formGrid { gap: 10px; }
+.profileCard { padding: 13px 14px; margin: 12px 0; gap: 9px; }
+.profileRow { gap: 9px; padding: 8px 0; }
+.filterBar :is(input, select), .profileRow select { min-height: 44px; }
+@media (max-width: 800px) {
+  .filterBar { padding: 10px; }
+  .detail, .profileCard { padding: 11px; }
+  .profileRow { grid-template-columns: minmax(0, 1fr) minmax(112px, 140px); }
+}
+@media (max-width: 390px) {
+  .profileRow { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .profileRow select { width: 100%; }
+}
