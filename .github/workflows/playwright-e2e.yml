@@ -128,7 +128,6 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: read
-      checks: read
     env:
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
@@ -161,6 +160,8 @@ jobs:
           const files = readFileSync(process.env.RUNNER_TEMP + "/ds0b-changed-files", "utf8").split("\0").filter(Boolean);
           if (!files.length) throw new Error("Untrusted empty DS-0B diff range");
           const publicContracts = [
+            /^scripts\/start-public-regression-ci\.sh$/,
+            /^tests\/fixtures\/public-regression-ci\.sql$/,
             /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$)/,
             /^app\/(?:adresar\/|pomoc-psom\/|podujatia\/|recenzie|steniatka\/|starostlivost\/|aktivity\/|\[section\]\/)/,
             /^lib\/(?:directory-|events?(?:-|\.ts$)|editorial-|help-|section-(?:visual|store))/,
@@ -169,6 +170,9 @@ jobs:
             /^\.github\/workflows\/playwright-e2e\.yml$/,
           ];
           const directoryMatrix = [
+            /^scripts\/start-public-regression-ci\.sh$/,
+            /^tests\/fixtures\/public-regression-ci\.sql$/,
+            /^\.github\/workflows\/playwright-e2e\.yml$/,
             /^components\/(?:directory-|home-portal-search\.tsx$|public-visual-system\/unified-section-hero(?:\.|\/))/,
             /^app\/adresar\//,
             /^lib\/directory-/,
@@ -207,74 +211,24 @@ jobs:
       - name: Execute DS-1A semantic token contracts
         if: steps.ds0b_scope.outputs.token == 'true'
         run: node --test tests/public-design-tokens.test.mjs
-      - name: Explain unavailable exact-head directory preview
-        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED != 'true'
-        run: |
-          echo "::notice::Directory preview Playwright not run: Cloudflare non-production builds are disabled to avoid billable builds. Node contracts remain active."
-          echo "### Directory preview coverage NOT RUN" >> "$GITHUB_STEP_SUMMARY"
-          echo "Non-production Cloudflare builds are disabled. To enable exact-PR preview testing, explicitly configure CLOUDFLARE_PREVIEW_BUILDS_ENABLED=true AND enable Cloudflare preview builds." >> "$GITHUB_STEP_SUMMARY"
       - name: Install Chromium for directory matrix
-        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
+        if: steps.ds0b_scope.outputs.directory == 'true'
         run: npx playwright install --with-deps chromium
-      - name: Resolve successful preview for exact PR HEAD
-        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
-        id: preview
-        shell: bash
+      - name: Prepare isolated local public regression app
+        if: steps.ds0b_scope.outputs.directory == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          api="https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100"
-          preview_url=""
-          for attempt in $(seq 1 90); do
-            payload="$(curl --silent --show-error --fail \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" "$api")"
-            candidate="$(node --input-type=module -e '
-          import { readFileSync } from "node:fs";
-          const expected = process.env.PR_HEAD_SHA;
-          const result = JSON.parse(readFileSync(0, "utf8"));
-          const run = (result.check_runs ?? []).find(check =>
-            check.name === "Workers Builds: psipedia-sk" && check.head_sha === expected);
-          if (run?.status === "completed" && run.conclusion !== "success") {
-            console.error("Preview build not successful for exact PR HEAD");
-            process.exit(1);
-          }
-          if (run?.status === "completed" && run.conclusion === "success") {
-            const match = (run.output?.summary ?? "").match(/Preview URL:\s*(https:\/\/[^\s]+)/);
-            process.stdout.write(match?.[1] ?? "");
-          }
-          ' <<< "$payload"
-            )"
-            if [ -n "$candidate" ]; then
-              preview_url="$candidate"
-              break
-            fi
-            sleep 5
-          done
-          if [ -z "$preview_url" ]; then
-            echo "::error::No successful exact-head Cloudflare preview available; directory Playwright BLOCKED."
-            exit 1
-          fi
-          PREVIEW_URL="$preview_url" node --input-type=module -e '
-            const url = new URL(process.env.PREVIEW_URL);
-            if (url.protocol !== "https:" || !url.hostname.endsWith(".workers.dev") ||
-                url.username || url.password || url.search || url.hash) {
-              throw new Error("Non-preview URL rejected");
-            }
-          '
-          echo "Verified exact-head Cloudflare preview: $preview_url"
-          echo "url=$preview_url" >> "$GITHUB_OUTPUT"
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: bash scripts/start-public-regression-ci.sh
       - name: Directory desktop/mobile, no-JavaScript, keyboard and accessibility
-        if: steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
+        if: steps.ds0b_scope.outputs.directory == 'true'
         env:
-          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          E2E_BASE_URL: http://localhost:5173
         run: |
           mkdir -p .e2e-artifacts/services-v2-directory
           npx playwright test tests/e2e/directory-unified-layout.spec.ts \
             --project=desktop-chromium --workers=1 --retries=0
       - name: Upload DS-0B directory screenshots
-        if: always() && steps.ds0b_scope.outputs.directory == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
+        if: always() && steps.ds0b_scope.outputs.directory == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ds-0b-directory-evidence-${{ github.run_attempt }}
@@ -289,6 +243,20 @@ jobs:
           path: |
             test-results/playwright/
             playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Stop local public regression app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/public-regression/server.pid ]; then
+            kill "$(cat .e2e-artifacts/public-regression/server.pid)" || true
+          fi
+      - name: Upload local public regression server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ds-0b-local-server-${{ github.run_attempt }}
+          path: .e2e-artifacts/public-regression/server.log
           if-no-files-found: ignore
           retention-days: 14
 
@@ -984,67 +952,35 @@ jobs:
 
 
   seo-recovery-e2e:
-    name: SEO-RECOVERY-1 exact-preview indexability matrix
-    if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true' && vars.CLOUDFLARE_PREVIEW_BUILDS_ENABLED == 'true'
+    name: SEO-RECOVERY-1 local indexability matrix
+    if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
       contents: read
-      checks: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Verify test source revision
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$PR_HEAD_SHA"
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Resolve exact Cloudflare preview for PR head
-        id: preview
+      - name: Prepare isolated local public regression app
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${PR_HEAD_SHA}/check-runs"
-          preview_url=""
-          for attempt in $(seq 1 90); do
-            payload="$(curl --silent --show-error --fail \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              "${api}")"
-            state="$(printf '%s' "${payload}" | node -e '
-              let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
-                const runs=JSON.parse(x).check_runs||[];
-                const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
-                process.stdout.write(run ? String(run.status)+"|"+String(run.conclusion||"") : "missing|");
-              });
-            ')"
-            if [ "${state}" = "completed|failure" ]; then
-              echo "::error::Cloudflare Workers Build failed for ${PR_HEAD_SHA}."
-              exit 1
-            fi
-            if [ "${state}" = "completed|success" ]; then
-              preview_url="$(printf '%s' "${payload}" | node -e '
-                let x=""; process.stdin.on("data",d=>x+=d).on("end",()=>{
-                  const runs=JSON.parse(x).check_runs||[];
-                  const run=runs.find(item=>item.name==="Workers Builds: psipedia-sk");
-                  const summary=run?.output?.summary||"";
-                  const match=summary.match(/Preview URL:\s*(https:\/\/[^\s]+)/);
-                  process.stdout.write(match?.[1]||"");
-                });
-              ')"
-              if [ -n "${preview_url}" ]; then break; fi
-            fi
-            sleep 5
-          done
-          test -n "${preview_url}"
-          echo "url=${preview_url}" >> "$GITHUB_OUTPUT"
-      - name: SEO-RECOVERY-1 Playwright against exact preview
+          PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+        run: bash scripts/start-public-regression-ci.sh
+      - name: SEO-RECOVERY-1 Playwright against local app
         env:
-          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          E2E_BASE_URL: http://localhost:5173
         run: npx playwright test tests/e2e/seo-recovery.spec.ts tests/e2e/events-public-v2.spec.ts --project=desktop-chromium --workers=1 --retries=0
       - name: Upload SEO recovery failure evidence
         if: failure()
@@ -1057,6 +993,20 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
+      - name: Stop local public regression app
+        if: always()
+        run: |
+          if [ -f .e2e-artifacts/public-regression/server.pid ]; then
+            kill "$(cat .e2e-artifacts/public-regression/server.pid)" || true
+          fi
+      - name: Upload local public regression server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-recovery-local-server-${{ github.run_attempt }}
+          path: .e2e-artifacts/public-regression/server.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   sitemap-production-diagnostic:
     name: Read-only production sitemap diagnostic collection

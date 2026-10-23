@@ -88,3 +88,51 @@ test("existing non-destructive image renderers, fallbacks and keyboard contracts
   assert.match(smart, /objectFit:\s*fit/);
   assert.match(events, /\.gridCardLink:focus-visible/);
 });
+
+test("DS-5 shared effects resolve to the approved values for every existing card variant", () => {
+  const ds5 = design.slice(design.indexOf(start), design.indexOf(end));
+  const tokens = new Map([...design.matchAll(/(--[\w-]+):\s*([^;{}]+);/g)].map((match) => [match[1], match[2].trim()]));
+  const resolve = (value) => value.replace(/var\((--[\w-]+)\)/g, (_, name) => {
+    assert.ok(tokens.has(name), `unresolved shared card token ${name}`);
+    return resolve(tokens.get(name));
+  });
+  // --ps-shadow-surface intentionally retains the existing global shadow source.
+  tokens.set("--shadow-sm", "0 8px 28px rgba(23, 53, 43, 0.08)");
+  tokens.set("--forest", "#174b38");
+  const values = {
+    "--ps-ds5-card-shadow": "0 5px 17px rgba(23, 53, 43, 0.045)",
+    "--ps-ds5-card-transition": "transform 180ms ease, box-shadow 180ms ease",
+    "--ps-ds5-card-hover-transform": "translateY(-2px)",
+    "--ps-ds5-card-hover-shadow": "0 8px 28px rgba(23, 53, 43, 0.08)",
+    "--ps-ds5-card-focus-outline": "3px solid #174b38",
+    "--ps-ds5-card-focus-offset": "2px",
+  };
+  for (const [name, expected] of Object.entries(values)) {
+    assert.equal(resolve(`var(${name})`), expected, `${name} keeps the approved value`);
+    assert.equal([...ds5.matchAll(new RegExp(`${name}:`, "g"))].length, 1, `${name} has one owner`);
+  }
+  for (const [kind, css] of [["editorial", ds5], ["directory", directory], ["help", help], ["adoption", adoption], ["events", events]]) {
+    const extension = kind === "editorial" ? css : css.slice(css.lastIndexOf("/* DS-5"));
+    assert.match(extension, /box-shadow:\s*var\(--ps-ds5-card-shadow\)/, kind);
+    if (kind !== "directory") {
+      assert.match(extension, /transition:\s*var\(--ps-ds5-card-transition\)/, kind);
+      assert.match(extension, /transform:\s*var\(--ps-ds5-card-hover-transform\)/, kind);
+      assert.match(extension, /box-shadow:\s*var\(--ps-ds5-card-hover-shadow\)/, kind);
+      assert.match(extension, /prefers-reduced-motion:\s*reduce[\s\S]*transition:\s*none/, kind);
+    }
+  }
+});
+
+test("organization cards retain their approved central variant instead of inheriting DS-5 geometry", () => {
+  const css = read("app/organizacie/organization-hub.module.css");
+  for (const [name, value] of [
+    ["grid-gap", "1.25rem"], ["radius", "1.25rem"], ["padding", "1.15rem"],
+    ["shadow", "0 12px 28px rgba(20, 44, 36, 0.06)"],
+  ]) {
+    assert.ok(design.includes(`--ps-card-organization-${name}: ${value};`));
+    assert.ok(css.includes(`var(--ps-card-organization-${name})`));
+  }
+  assert.match(css, /aspect-ratio:\s*16\s*\/\s*10/);
+  assert.match(css, /@media \(max-width: 900px\)/);
+  assert.match(css, /@media \(max-width: 620px\)/);
+});

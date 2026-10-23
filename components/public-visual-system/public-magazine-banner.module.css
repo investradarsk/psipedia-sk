@@ -1,0 +1,99 @@
+/* Approved homepage variant, moved unchanged from home-v2.module.css. */
+.magazine:global(.home-magazine-banner) {
+  display: flex;
+  min-height: 134px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22px;
+  margin-block: 10px 16px;
+  padding: 25px clamp(22px, 3vw, 38px);
+  border: 1px solid rgba(23, 53, 43, 0.12);
+  border-radius: 17px;
+  background: linear-gradient(110deg, var(--sage-light), var(--paper));
+}
+.magazine:global(.home-magazine-banner .eyebrow) {
+  margin-bottom: 5px;
+}
+.magazine:global(.home-magazine-banner h2) {
+  margin: 0;
+  color: var(--forest);
+  font-family: Georgia, serif;
+  font-size: clamp(1.45rem, 2.1vw, 1.98rem);
+}
+.magazine:global(.home-magazine-banner p) {
+  max-width: 57ch;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.magazine:global(.home-magazine-banner .button) {
+  flex: none;
+  min-height: 45px;
+  white-space: nowrap;
+}
+@media (max-width: 620px){.magazine:global(.home-magazine-banner) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+    padding: 21px 19px;
+  }
+.magazine:global(.home-magazine-banner .button) {
+    justify-content: center;
+  }}
+
+.magazine:global(.home-magazine-banner .eyebrow) {
+  color: var(--coral-dark);
+  font-weight: 850;
+}
+
+.magazine:global(.home-magazine-banner h2) {
+  font-family: inherit;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+.magazine:global(.home-magazine-banner) {
+  min-height: 0;
+  gap: 18px;
+  margin-block: 5px 8px;
+  padding: 18px clamp(18px, 2.4vw, 28px);
+  border-left: 3px solid var(--coral-dark);
+  border-radius: 14px;
+  background: linear-gradient(110deg, var(--sage-light), var(--paper));
+}
+.magazine:global(.home-magazine-banner h2) {
+  font-size: clamp(1.3rem, 1.9vw, 1.7rem);
+}
+.magazine:global(.home-magazine-banner p) {
+  margin-top: 5px;
+}
+
+.magazine:global(.home-magazine-banner .button:focus-visible) {
+  outline: 3px solid var(--coral-dark);
+  outline-offset: 3px;
+}
+@media (max-width: 620px){.magazine:global(.home-magazine-banner) {
+    gap: 12px;
+    padding: 17px 16px;
+  }}
+.magazine:global(.home-magazine-banner) {
+  min-width: 0;
+  border-radius: var(--ps-banner-radius, 18px);
+}
+.magazine:global(.home-magazine-banner > div) {
+  min-width: 0;
+}
+.magazine:global(.home-magazine-banner h2),
+.magazine:global(.home-magazine-banner p) {
+  overflow-wrap: anywhere;
+}
+.magazine:global(.home-magazine-banner .button) {
+  max-width: 100%;
+  min-height: 44px;
+  border-radius: var(--ps-radius-control, 12px);
+  white-space: normal;
+}
+@media (max-width: 620px){.magazine:global(.home-magazine-banner .button) {
+    width: 100%;
+    min-height: 48px;
+  }}

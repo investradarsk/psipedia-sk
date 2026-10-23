@@ -226,7 +226,7 @@ export default async function SearchPage({ searchParams }: Props) {
             <span className="public-search-entry">
               <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
               <label className="sr-only" htmlFor="portal-query">Hľadaný výraz</label>
-              <input
+              <PublicTextInput appearance="context"
               id="portal-query"
               name="q"
               defaultValue={query}

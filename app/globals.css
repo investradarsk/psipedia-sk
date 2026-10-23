@@ -2858,10 +2858,10 @@ h3 {
 .inline-search input {
   min-width: 0;
   flex: 1;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font-size: 0.82rem;
+  border: var(--ps-filter-inline-search-border);
+  outline: var(--ps-filter-inline-search-outline);
+  background: var(--ps-filter-inline-search-background);
+  font-size: var(--ps-filter-inline-search-font-size);
 }
 
 .result-count {
@@ -3536,16 +3536,7 @@ h3 {
 .breed-source-list { display: grid; gap: 10px; color: var(--muted); line-height: 1.65; }
 .breed-source-list a { color: var(--forest); font-weight: 750; text-underline-offset: 3px; }
 
-.breed-gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 18px;
-  padding-top: 30px;
-}
-.breed-gallery figure { margin: 0; overflow: hidden; border-radius: 18px; background: var(--paper); box-shadow: var(--shadow-sm); }
-.breed-gallery img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
-.breed-gallery figcaption { padding: 12px 15px; color: var(--muted); font-size: .78rem; line-height: 1.5; }
-.breed-gallery figcaption span { font-weight: 700; }
+
 
 .breed-side {
   display: grid;
@@ -5465,12 +5456,12 @@ h3 {
 
 .directory-club-selects select {
   width: 100%;
-  height: 48px;
-  padding: 0 38px 0 13px;
-  color: var(--ink);
-  background: var(--white);
-  border: 1px solid var(--line);
-  border-radius: 13px;
+  height: var(--ps-filter-club-height);
+  padding: var(--ps-filter-club-padding);
+  color: var(--ps-filter-club-color);
+  background: var(--ps-filter-club-background);
+  border: var(--ps-filter-club-border);
+  border-radius: var(--ps-filter-club-border-radius);
 }
 
 .directory-club-reset {
@@ -8266,13 +8257,13 @@ h3 {
 
 /* FCI breed import and official standard */
 .breed-origin-filter select {
-  min-height: 46px;
+  min-height: var(--ps-filter-breed-origin-min-height);
   max-width: 280px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0 38px 0 16px;
-  background: var(--paper);
-  color: var(--ink);
+  border: var(--ps-filter-breed-origin-border);
+  border-radius: var(--ps-filter-breed-origin-border-radius);
+  padding: var(--ps-filter-breed-origin-padding);
+  background: var(--ps-filter-breed-origin-background);
+  color: var(--ps-filter-breed-origin-color);
 }
 .breed-card-placeholder,
 .breed-detail-image--empty {
@@ -9547,14 +9538,9 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .article-block-image { width: min(100%, 680px); margin: 5px auto; }
 .article-block-image--wide { width: min(900px, calc(100vw - 48px)); max-width: none; }
 .article-block-image img { width: 100%; max-height: 620px; border-radius: 16px; object-fit: cover; }
-.article-block-image figcaption,
-.article-block-gallery figcaption { display: grid; gap: 2px; margin-top: 7px; color: #69766f; font-family: "Avenir Next", Avenir, sans-serif; font-size: .8rem; line-height: 1.45; text-align: center; }
+.article-block-image figcaption { display: grid; gap: 2px; margin-top: 7px; color: #69766f; font-family: "Avenir Next", Avenir, sans-serif; font-size: .8rem; line-height: 1.45; text-align: center; }
 .article-block-credit { color: #849088; font-size: .72rem; }
-.article-block-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.article-block-gallery figure { margin: 0; }
-.article-block-gallery-item--wide { grid-column: 1 / -1; }
-.article-block-gallery img { width: 100%; aspect-ratio: 4 / 3; border-radius: 13px; object-fit: cover; }
-.article-block-gallery-item--wide img { aspect-ratio: 16 / 9; max-height: 620px; }
+
 .article-block-callout { padding: 18px 20px; border-radius: 13px; }
 .article-block-callout strong { display: block; margin-bottom: 5px; }
 .article-block-callout--tip { border-left: 5px solid #2e7958; background: #edf7f0; }
@@ -9590,7 +9576,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .article-block-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .article-block-embed-link { padding: 14px 16px; border-radius: 10px; background: #f3f7f4; }
 .article-blocks--preview { gap: 14px; }
-.article-blocks--preview .article-block-gallery { gap: 7px; }
+
 
 /* Anonymné hodnotenie článku */
 .article-feedback { display: grid; gap: 16px; margin-top: 34px; padding: 22px; border: 1px solid #d7e3da; border-radius: 16px; background: #f7faf7; }
@@ -9637,7 +9623,7 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
   .admin-gallery-items,
   .admin-block-picker { grid-template-columns: 1fr; }
   .admin-cta-options { grid-template-columns: 1fr; }
-  .article-block-gallery { grid-template-columns: 1fr; }
+
   .article-block-cta { grid-template-columns: 1fr; gap: 16px; padding: 19px; }
   .article-blocks .article-block-cta-button { width: 100%; }
   .article-blocks { gap: 18px; }
@@ -10016,15 +10002,15 @@ body:has([data-testid="map-filter-dialog"]) .cookie-consent {
 .fci-section-filter select {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
-  padding: 10px 40px 10px 13px;
-  border: 1px solid rgba(23, 53, 43, 0.16);
-  border-radius: 13px;
-  color: var(--forest);
-  background-color: rgba(255, 255, 255, 0.78);
+  min-height: var(--ps-filter-breed-section-min-height);
+  padding: var(--ps-filter-breed-section-padding);
+  border: var(--ps-filter-breed-section-border);
+  border-radius: var(--ps-filter-breed-section-border-radius);
+  color: var(--ps-filter-breed-section-color);
+  background-color: var(--ps-filter-breed-section-background-color);
   font: inherit;
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: var(--ps-filter-breed-section-font-size);
+  font-weight: var(--ps-filter-breed-section-font-weight);
 }
 
 .fci-section-filter select:disabled {
@@ -13420,10 +13406,8 @@ a.breed-fci-path-node:focus-visible {
 
 .article-hero-image,
 .article-block-image img,
-.article-block-gallery img,
 .breed-detail-image,
-.compare-breed-image,
-.breed-gallery figure {
+.compare-breed-image {
   border-radius: 0;
 }
 

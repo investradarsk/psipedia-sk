@@ -1,3 +1,4 @@
+import { PublicSelect } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { HelpCard } from "@/components/help-card";
@@ -69,17 +70,17 @@ export function HelpBrowser({
           >
             <label>
               <span className={styles.label}>Kraj</span>
-              <select name="region" defaultValue={region === "all" ? "" : region}>
+              <PublicSelect appearance="context" name="region" defaultValue={region === "all" ? "" : region}>
                 <option value="">Všetky kraje</option>
                 {slovakRegions.filter((item) => item !== "Online").map((item) => <option value={item} key={item}>{item}</option>)}
-              </select>
+              </PublicSelect>
             </label>
             <label>
               <span className={styles.label}>Stav</span>
-              <select name="stav" defaultValue={activeOnly ? "" : "vsetky"}>
+              <PublicSelect appearance="context" name="stav" defaultValue={activeOnly ? "" : "vsetky"}>
                 <option value="">Len aktívne</option>
                 <option value="vsetky">Aj ukončené</option>
-              </select>
+              </PublicSelect>
             </label>
             <button className={styles.searchSubmit} type="submit">Použiť filtre</button>
             <Link className={styles.resetFilters} href={basePath}>Zrušiť filtre</Link>

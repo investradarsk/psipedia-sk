@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BreedPhoto } from "@/components/breed-photo";
 import { PublicMediaFallback } from "@/components/public-visual-system";
+import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import { BreedSectionNav } from "@/components/breed-section-nav";
 import { ArrowIcon, PawMark } from "@/components/icons";
 import { PublicArticleListItem, PublicContentList, PublicDataCard, PublicFoundation } from "@/components/public-visual-system";
@@ -524,20 +525,23 @@ export default async function BreedDetailPage({ params }: Props) {
       </div>
 
       {gallery.length > 0 ? (
-        <section className="breed-gallery shell" aria-label={`Fotografie plemena ${breed.name}`}>
-          {gallery.map((item, index) => (
-            <figure key={`${item.imageUrl}-${index}`}>
-              <BreedPhoto src={item.imageUrl} alt={item.alt || `${breed.name} – fotografia ${index + 1}`} />
-              {(item.caption || item.credit) ? (
-                <figcaption>
-                  {item.caption}
-                  {item.caption && item.credit ? " · " : ""}
-                  {item.credit ? <span>Foto: {item.credit}</span> : null}
-                </figcaption>
-              ) : null}
-            </figure>
-          ))}
-        </section>
+        <PublicPhotoGallery
+          as="section"
+          variant="breed"
+          className="breed-gallery shell"
+          label={`Fotografie plemena ${breed.name}`}
+          maxImages={gallery.length}
+          images={gallery.map((item, index) => ({
+            src: item.imageUrl,
+            alt: item.alt || `${breed.name} – fotografia ${index + 1}`,
+            caption: (item.caption || item.credit) ? <>
+              {item.caption}
+              {item.caption && item.credit ? " · " : ""}
+              {item.credit ? <span>Foto: {item.credit}</span> : null}
+            </> : undefined,
+          }))}
+          renderImage={(image) => <BreedPhoto src={image.src} alt={image.alt} />}
+        />
       ) : null}
 
       {relatedArticles.length > 0 ? (

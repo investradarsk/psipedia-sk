@@ -82,8 +82,8 @@ test("help no longer owns a second horizontal shell system", () => {
   assert.doesNotMatch(helpCss, /\.shell\s*\{/);
   for (const source of [helpOverview, helpPage, helpBrowser]) assert.doesNotMatch(source, /styles\.shell/);
   assert.match(helpOverview, /<PageContainer className=\{styles\.overviewSectionInner\}>/);
-  assert.match(helpOverview, /<PageContainer className=\{styles\.overviewPromoCopy\}>/);
-  assert.match(helpOverview, /<PageContainer className=\{styles\.closingCtaInner\}>/);
+  assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PageContainer className=\{styles\.overviewPromoCopy\}>/);
+  assert.match(read("components/public-visual-system/public-help-banner.tsx"), /<PageContainer className=\{styles\.closingCtaInner\}>/);
   assert.match(helpBrowser, /<PageContainer className=\{styles\.results\}>/);
   assert.match(helpCss, /@media\(max-width:900px\)[\s\S]*\.overviewCategoryGrid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
   assert.match(helpCss, /@media\(max-width:620px\)[\s\S]*\.overviewCategoryGrid\{grid-template-columns:1fr;gap:9px\}/);
