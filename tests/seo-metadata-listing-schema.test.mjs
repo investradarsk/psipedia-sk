@@ -84,7 +84,7 @@ test("SEO-3 public listing routes source schema items only from the confirmed pu
   assert.match(sectionPage, /items: eventList\.map\(/);
   assert.match(directoryPage, /listPublishedDirectoryProfiles\(\{/);
   assert.match(directoryPage, /items: result\.profiles\.map\(/);
-  assert.match(adoptionPage, /getPublicAdoptions\(filters\)/);
+  assert.match(adoptionPage, /listPublicAdoptionCards\(filters\)/);
   assert.match(adoptionPage, /items: result\.items\.map\(/);
 
   for (const source of [articlePage, breedPage, sectionPage, directoryPage, adoptionPage]) {

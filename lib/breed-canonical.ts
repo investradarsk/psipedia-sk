@@ -26,9 +26,27 @@ export function canonicalBreedWinnerSql(alias:string) {
   )`;
 }
 
-/** Shared eligibility used by every public breed query. Drafts and legacy rows stay editable. */
-export const canonicalBreedIdsSql = `SELECT b.id FROM managed_breeds b
-WHERE ${canonicalBreedWinnerSql('b')}`;
+/**
+ * Evaluate canonical public breeds in one eligibility pass.
+ * A row wins iff it has the lowest eligible ID for each of the three
+ * independent identity keys. This matches canonicalBreedWinnerSql's
+ * lower-ID anti-join, including conflicts against non-winner rows.
+ *
+ * Window minima avoid the correlated eligible-breed rescan in every
+ * public listing and in the breeding-station sitemap aggregates.
+ */
+export const canonicalBreedIdsSql = `SELECT winners.id
+  FROM (
+    SELECT b.id,
+      MIN(b.id) OVER (PARTITION BY b.fci_number) AS fci_first_id,
+      MIN(b.id) OVER (PARTITION BY b.slug) AS slug_first_id,
+      MIN(b.id) OVER (PARTITION BY TRIM(b.import_key)) AS import_first_id
+    FROM managed_breeds b
+    WHERE ${canonicalBreedEligibilitySql('b')}
+  ) winners
+  WHERE winners.id = winners.fci_first_id
+    AND winners.id = winners.slug_first_id
+    AND winners.id = winners.import_first_id`;
 
 export type CanonicalIdentity = { id:number; slug:string; fci_number:number|null; import_key:string|null; status:string; seo_json:string };
 
