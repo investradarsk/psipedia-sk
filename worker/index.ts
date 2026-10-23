@@ -208,7 +208,16 @@ const worker = {
     // Public XML only: a warm POP may safely serve its most recent validated
     // snapshot when D1/SSR has a transient error. Never cache authenticated,
     // queried or private requests; public HTML caching remains separate.
-    if (eligiblePublicSitemapRequest(request) && !isWorkersDevPreview) {
+    if (eligiblePublicSitemapRequest(request)) {
+      if (isWorkersDevPreview) {
+        // Preview sitemap is generated normally but cannot enter the shared
+        // last-good cache or be indexed as a second host.
+        const previewResponse = await handler.fetch(request, env, ctx);
+        return responseWithHeaders(previewResponse, {
+          "X-Robots-Tag": "noindex, nofollow",
+          "Cache-Control": "private, no-store",
+        });
+      }
       const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
       return servePublicSitemap(request, () => handler.fetch(request, env, ctx), storage, ctx);
     }
