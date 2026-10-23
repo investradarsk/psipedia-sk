@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { versionedPublicHtmlCacheUrl } from "../lib/public-html-cache.ts";
+import { isExplicitAnonymousHtmlRoute } from "../lib/public-anonymous-html-cache.ts";
 
 const source = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 
@@ -34,18 +35,21 @@ function cacheOps(storage) {
   assert.ok(headStart > end && headEnd > headStart && routeStart >= headEnd && routeEnd > routeStart);
   assert.doesNotMatch(cacheSrc, /\bas unknown as\b|:\s*Response\b|:\s*Request\b/);
 
-  const check = source.indexOf("if (!cache || !isCacheableHtmlResponse(response)) return response;");
+  const check = source.indexOf("if (!cache || (!isCacheableHtmlResponse(response) && !isExplicitAnonymousSsrHtml(response, url.pathname))) return response;");
   const rewrite = source.indexOf('const cacheable = responseWithHeaders(response, publicHtmlCacheHeaders("MISS"));');
   const put = source.indexOf("ctx.waitUntil(cache.storage.put(cache.key, cacheable.clone()))");
   assert.ok(check >= 0 && rewrite > check && put > rewrite, "Must check upstream response before overwriting and caching");
 
   const setup = "const globalThis = { caches: { default: storage } };\n" +
     "const ADMIN_AUTH_PATHS = [\"/admin\", \"/api/admin\"];\n" +
-    "const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;\n";
-  return new Function("storage", "versionedPublicHtmlCacheUrl",
+    "const PUBLIC_HTML_CACHE_TTL_SECONDS = 45;\n" +
+    "const USER_EMAIL_HEADER = \"oai-authenticated-user-email\";\n" +
+    "const ADMIN_AUTHORIZED_HEADER = \"x-psipedia-admin-authorized\";\n" +
+    "const AUTH_PROVIDER_HEADER = \"x-psipedia-auth-provider\";\n";
+  return new Function("storage", "versionedPublicHtmlCacheUrl", "isExplicitAnonymousHtmlRoute",
     setup + routeSrc + "\n" + cacheSrc + "\n" + headSrc + "\n" +
     "return {publicHtmlCache, publicHtmlCacheHeaders, isCacheableHtmlResponse, responseWithHeaders};"
-  )(storage, versionedPublicHtmlCacheUrl);
+  )(storage, versionedPublicHtmlCacheUrl, isExplicitAnonymousHtmlRoute);
 }
 
 function html(control = "public, s-maxage=120", extra = {}, status = 200) {
