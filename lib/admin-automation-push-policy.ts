@@ -20,9 +20,9 @@ export const ADMIN_PUSH_EVENT_SETTINGS = [
 
 export type AdminPushEventKey = typeof ADMIN_PUSH_EVENT_SETTINGS[number]["key"];
 export const ADMIN_PUSH_EVENT_KEYS: AdminPushEventKey[] = ADMIN_PUSH_EVENT_SETTINGS.map(setting=>setting.key);
-export type AdminPushCategory = "RUN_STARTED" | "RUN_RESULTS" | "ERRORS" | "PUBLISH" | "IMPORT_SYNC" | AdminPushEventKey;
+export type AdminPushCategory = "RUN_STARTED" | "RUN_RESULTS" | "ERRORS" | "PUBLISH" | "IMPORT_SYNC" | AdminPushEventKey | "EVENTS_CONFIGURED";
 export const LEGACY_ADMIN_PUSH_CATEGORIES = ["RUN_STARTED","RUN_RESULTS","ERRORS","PUBLISH","IMPORT_SYNC"] as const;
-export const ADMIN_PUSH_CATEGORIES: AdminPushCategory[] = [...LEGACY_ADMIN_PUSH_CATEGORIES, ...ADMIN_PUSH_EVENT_KEYS];
+export const ADMIN_PUSH_CATEGORIES: AdminPushCategory[] = [...LEGACY_ADMIN_PUSH_CATEGORIES, ...ADMIN_PUSH_EVENT_KEYS,"EVENTS_CONFIGURED"];
 export const DEFAULT_ADMIN_PUSH_EVENT_KEYS = ADMIN_PUSH_EVENT_SETTINGS.filter(x=>x.defaultEnabled).map(x=>x.key);
 
 /** Exact event routing: unclassified events must never silently ping a phone. */
@@ -83,7 +83,7 @@ export function parseStoredPushCategories(raw: string | null | undefined): Admin
     const saved=parsePushCategories(JSON.parse(raw??""));
     // Historic subscriptions stored only five broad categories. Upgrade defaults in
     // memory until the owner saves an explicit per-event preference.
-    if(!saved.some(key=>ADMIN_PUSH_EVENT_KEYS.includes(key as AdminPushEventKey)))
+    if(!saved.includes("EVENTS_CONFIGURED"))
       return [...saved,...DEFAULT_ADMIN_PUSH_EVENT_KEYS];
     return saved;
   }catch{return [...LEGACY_ADMIN_PUSH_CATEGORIES,...DEFAULT_ADMIN_PUSH_EVENT_KEYS];}
