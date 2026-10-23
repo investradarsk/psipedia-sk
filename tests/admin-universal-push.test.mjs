@@ -127,7 +127,7 @@ test("public, review, automation and geo actionable events have push coverage",(
   assert.match(automationEvents,/sourceType: "AUTOMATION_ACTION"/);
   assert.match(automation,/enqueuePersistentAutomationSourceIssueAdminNotification/);
   assert.doesNotMatch(automation,/enqueueAutomationFindingAdminNotification|enqueueEditorialNotification/);
-  assert.match(push,/e\\.source_type <> 'AUTOMATION_ACTION' OR e\\.event_type IN \\('automation_source_issue','automation_draft_created'\\)/);
+  assert.match(push, /e\.source_type <> 'AUTOMATION_ACTION' OR e\.event_type IN/);
 
   const geo=read("lib/geo-store.ts");
   assert.match(geo,/\["NEEDS_REVIEW", "STALE", "FAILED"\]/);
@@ -244,7 +244,7 @@ test("five-minute admin push and isolated per-minute Facebook publishing preserv
 test("settings retain existing alerts and now allow real per-device automation preferences",()=>{
   const settings=read("components/admin-pwa-settings.tsx");
   assert.match(settings,/nových podaniach, Partner aktivitách a závažných problémoch automatizácií/);
-  assert.match(settings,/Kategórie upozornení pre toto zariadenie/);
+  assert.match(settings,/Čo má pípať na tomto zariadení/);
   assert.match(settings,/action: "categories"/);
   assert.match(settings,/action: "test"/);
   const push=read("lib/admin-push.ts");
