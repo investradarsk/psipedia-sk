@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { PartnerProfileChangeResourceType, PartnerProfileEditableValue, PartnerProfileFieldDefinition } from "@/lib/partner-profile-changes";
 import { PartnerMediaField } from "@/components/partner-media-field";
 import { SlovakiaLocationSelector } from "@/components/slovakia-location-selector";
 import { DirectoryCategoryFilterFields } from "@/components/directory-category-filter-fields";
 import { buildDirectoryCategoryFilterPatch } from "@/lib/directory-category-filter-editor";
 import { serviceFilterCategories, type ServiceFilterCategory } from "@/lib/directory-filter-contract";
+
+const subscribeHydration = () => () => {};
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 type Props = {
   resourceId: string;
@@ -33,6 +37,7 @@ function apiValue(field: PartnerProfileFieldDefinition, value: string | boolean)
 }
 
 export function PartnerProfileEditForm({ resourceId, fields, values, baseRevision, resourceType, directoryCategory, currentImageUrl }: Props) {
+  const hydrated = useSyncExternalStore(subscribeHydration, clientHydrationSnapshot, serverHydrationSnapshot);
   const initial = useMemo(() => Object.fromEntries(fields.map((field) => [field.key, uiValue(field, values[field.key])])), [fields, values]);
   const [draft, setDraft] = useState<Record<string, string | boolean>>(initial);
   const [filterChanges, setFilterChanges] = useState<Record<string, string>>({});
@@ -82,7 +87,7 @@ export function PartnerProfileEditForm({ resourceId, fields, values, baseRevisio
   }
 
   return (
-    <form className="partner-profile-edit-form" onSubmit={submit}>
+    <form className="partner-profile-edit-form" data-partner-edit-ready={hydrated} onSubmit={submit}>
       <div className="partner-profile-edit-grid">
         {fields.map((field) => {
           const value = draft[field.key] ?? "";

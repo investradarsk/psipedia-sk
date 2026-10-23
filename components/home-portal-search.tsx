@@ -1,3 +1,4 @@
+import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { SearchIcon } from "@/components/icons";
 
@@ -49,7 +50,7 @@ export function HomePortalSearch({
           <span className="public-search-entry">
             <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
             <label className="sr-only" htmlFor={id}>{label}</label>
-            <input
+            <PublicTextInput appearance="context"
             id={id}
             name={inputName}
             placeholder={placeholder}

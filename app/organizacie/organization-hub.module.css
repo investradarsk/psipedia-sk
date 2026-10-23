@@ -16,7 +16,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
+  gap: var(--ps-card-organization-grid-gap);
   margin-top: 1.75rem;
 }
 
@@ -24,9 +24,9 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line, #dfe5e2);
-  border-radius: 1.25rem;
+  border-radius: var(--ps-card-organization-radius);
   background: var(--surface, #fff);
-  box-shadow: 0 12px 28px rgba(20, 44, 36, 0.06);
+  box-shadow: var(--ps-card-organization-shadow);
 }
 
 .media {
@@ -55,7 +55,7 @@
   min-height: 15rem;
   flex-direction: column;
   align-items: flex-start;
-  padding: 1.15rem;
+  padding: var(--ps-card-organization-padding);
 }
 
 .eyebrow {
@@ -113,7 +113,7 @@
   margin-top: 1.75rem;
   padding: 2rem;
   border: 1px solid var(--line, #dfe5e2);
-  border-radius: 1.25rem;
+  border-radius: var(--ps-card-organization-radius);
   background: var(--surface, #fff);
 }
 

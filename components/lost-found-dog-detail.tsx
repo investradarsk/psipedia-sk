@@ -1,3 +1,4 @@
+import { PublicPhotoGallery } from "@/components/public-visual-system/public-photo-gallery";
 import { DetailHero } from "./detail-primitives/detail-primitives";
 import { ImageDisplay } from "@/components/image-display";
 import type { Metadata } from "next";
@@ -84,7 +85,7 @@ export async function LostFoundDogDetail({ type, slug }: { type: DogReportType; 
 
     <div className={styles.detailGrid}><div className={styles.detailCopy}>
       <section className={styles.panel}><span className={styles.detailEyebrow}>Informácie o psovi</span><h2>Popis</h2><p>{report.description}</p>{report.distinguishingMarks && <><h3>Rozpoznávacie znaky</h3><p>{report.distinguishingMarks}</p></>}{report.collarDescription && <><h3>Obojok alebo postroj</h3><p>{report.collarDescription}</p></>}</section>
-      {report.gallery.length > 0 && <section className={styles.panel}><h2>Ďalšie fotografie</h2><div className={styles.gallery}>{report.gallery.map((image, index) => <img key={`${image}-${index}`} src={image} alt={`${report.dogName || "Pes"} – fotografia ${index + 2}`} />)}</div></section>}
+      {report.gallery.length > 0 && <section className={styles.panel}><h2>Ďalšie fotografie</h2><PublicPhotoGallery variant="report" label="Ďalšie fotografie" maxImages={report.gallery.length} images={report.gallery.map((image, index) => ({ src: image, alt: `${report.dogName || "Pes"} – fotografia ${index + 2}` }))} /></section>}
       <section className={styles.safetyPanel}><h2>Bezpečný kontakt</h2><p>Pri osobnom stretnutí dbajte na vlastnú bezpečnosť a presnú súkromnú adresu nezverejňujte verejne. Ak je pes vystrašený alebo sa správa nepredvídateľne, neprenasledujte ho bez vhodného zabezpečenia.</p></section>
     </div><aside className={styles.detailAside}>
       {hasFacts && <section className={styles.panel}><h2>Základné údaje</h2><dl className={styles.facts}>{report.sex !== "UNKNOWN" && <div><dt>Pohlavie</dt><dd>{dogSexLabel[report.sex]}</dd></div>}{report.size !== "UNKNOWN" && <div><dt>Veľkosť</dt><dd>{dogSizeLabel[report.size]}</dd></div>}{report.breed && <div><dt>Plemeno</dt><dd>{report.breedSlug ? <Link className={styles.breedLink} href={`/plemena/${report.breedSlug}`}>{report.breed}</Link> : report.breed}</dd></div>}{report.color && <div><dt>Farba</dt><dd>{report.color}</dd></div>}{report.approximateAge && <div><dt>Vek</dt><dd>{report.approximateAge}</dd></div>}{report.chipped !== "UNKNOWN" && <div><dt>Čip</dt><dd>{chipStateLabel[report.chipped]}</dd></div>}</dl></section>}
