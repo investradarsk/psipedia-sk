@@ -196,6 +196,10 @@ export async function queryDirectoryAdmin<T>(
   const categoryWhere = membership.category ? " WHERE category = ?" : "";
   const categoryArgs = membership.category ? [membership.category] : [];
 
+  // With no extra membership filters, filtered count and category totals
+  // describe the exact same rows. Reuse totals rather than scanning twice.
+  const reuseTotalCount = membershipQuery.where === categoryWhere;
+
   // Launch the bounded page together with counters and location facets:
   // only out-of-range URLs need a second read for the clamped last page.
   const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
@@ -209,8 +213,10 @@ export async function queryDirectoryAdmin<T>(
       COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
       COUNT(CASE WHEN status = 'archived' THEN 1 END) AS archived
       FROM directory_profiles${categoryWhere}`).bind(...categoryArgs).first<TotalsRow>(),
-    database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`)
-      .bind(...membershipQuery.args).first<CountRow>(),
+    reuseTotalCount
+      ? Promise.resolve(null)
+      : database.prepare(`SELECT COUNT(*) AS count FROM directory_profiles${membershipQuery.where}`)
+          .bind(...membershipQuery.args).first<CountRow>(),
     database.prepare(`SELECT DISTINCT 'region' AS kind, region AS value
       FROM directory_profiles WHERE trim(region) <> ''
       UNION ALL
@@ -222,7 +228,7 @@ export async function queryDirectoryAdmin<T>(
       ORDER BY kind, value`).all<{ kind: "region" | "district" | "city"; value: string }>(),
     loadPage(requestedPage),
   ]);
-  const resultCount = Number(count?.count ?? 0);
+  const resultCount = Number(reuseTotalCount ? totals?.total ?? 0 : count?.count ?? 0);
   const pages = Math.max(1, Math.ceil(resultCount / safePageSize));
   const page = Math.min(requestedPage, pages);
   const result = page === requestedPage ? requestedResult : await loadPage(page);
