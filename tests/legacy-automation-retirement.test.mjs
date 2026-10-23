@@ -16,6 +16,7 @@ const pages = [
   "app/admin/automatizacie/zdroje/[id]/page.tsx",
   "app/admin/automatizacie/zmeny-stavu/page.tsx",
   "app/admin/operations/automation/page.tsx",
+  "app/admin/operations/automation/[id]/page.tsx",
   "app/admin/operations/automation/sources/page.tsx",
   "app/admin/operations/automation/sources/[id]/page.tsx"
 ];

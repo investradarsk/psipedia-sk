@@ -9,11 +9,6 @@ import styles from "./admin-workspace-dashboard.module.css";
 
 type Availability = "OK" | "EMPTY" | "PARTIAL" | "UNAVAILABLE";
 
-type ReadMetric = {
-  status: "OK" | "EMPTY" | "UNAVAILABLE";
-  value: number;
-};
-
 const availabilityLabel: Record<Availability, string> = {
   OK: "Dostupné",
   EMPTY: "Bez otvorených položiek",

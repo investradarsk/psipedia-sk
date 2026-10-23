@@ -7,7 +7,7 @@
 - Pôvodné stavy a historické D1 záznamy sa **nemažú**. Žiadna D1 migrácia ani deštruktívny cleanup.
 - Nové Gemini workflow, kvalita údajov, notifikácie, Notion synchronizácia a potrebné podporné `data-automation-*` utility zostávajú.
 - `lib/data-quality-missing-hourly.ts` stále importuje `TavilyAutomationSearchProvider` a funkcie z `data-automation.ts`. Neodstraňovať ich len na základe názvu.
-- Archívny detail starej automatizačnej udalosti v `/admin/operations/automation/[id]` môže zostať pre audit histórie, nie ako vstup na nové spúšťanie.
+- Staré detailné admin URL sú presmerované na Gemini. D1 archívne údaje zostávajú zachované, ale cez vyradené rozhranie sa už nedajú editovať.
 
 ## Prevádzkové overenie pred uzavretím
 1. `/admin/automatizacie` a staré záložky smerujú na Gemini; adresové kontroly na Kvalitu údajov.
