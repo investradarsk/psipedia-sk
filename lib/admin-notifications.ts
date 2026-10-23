@@ -84,6 +84,25 @@ export async function adminNotificationAdminActorRef(adminEmail: string) {
   return adminAuditActorRef(adminEmail);
 }
 
+
+/** Canonical success only: a Gemini profile receives one event, never per retry. */
+export async function enqueueGeminiCreatedProfileNotification(
+  db: Pick<D1Database,"prepare">,
+  input: {type:"DIRECTORY"|"EVENT";id:number;stableKey:string;runId:number},
+) {
+  const targetUrl=automationCanonicalAdminHref(input.type,input.id);
+  if(!targetUrl)return {created:false};
+  return enqueueAdminNotificationEvent(db,{
+    eventType:input.type==="EVENT"?"gemini_event_created":"gemini_profile_created",
+    sourceType:"GEMINI_CREATED",resourceType:input.type,resourceRef:input.id,
+    actorType:"AUTOMATION",actorRef:"gemini/"+input.stableKey,
+    targetUrl,title:input.type==="EVENT"?"Gemini vytvoril nové podujatie":"Gemini vytvoril nový profil",
+    body:"Nový koncept čaká na kontrolu · "+input.stableKey,
+    tag:`gemini-created-${input.type}-${input.id}`,
+    dedupeKey:`gemini/created/${input.type}/${input.id}`,
+  });
+}
+
 export async function enqueuePartnerAccountRegistrationAdminNotification(
   database: Pick<D1Database, "prepare">,
   accountId: string,
