@@ -1,4 +1,3 @@
-import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 /** Facebook Page photo publishing, single-attempt fail-closed semantics.
  * Only explicit provider-rejected throttling may be retried. A transport error
  * may mean Meta published the photo, so ambiguous results remain fail-closed.
@@ -312,7 +311,7 @@ Promise<{configured:boolean;due:number;claimed:number;published:number;uncertain
       .bind(remote,done,done,item.id).run();
     summary.published++;
     try {
-      await enqueueAdminNotificationEvent(db,{
+      await (await import("./admin-notifications.ts")).enqueueAdminNotificationEvent(db,{
         eventType:"facebook_image_published",sourceType:"FACEBOOK_IMAGE",
         resourceType:"facebook_image",resourceRef:item.id,
         actorType:"AUTOMATION",actorRef:"facebook-image-publisher",
