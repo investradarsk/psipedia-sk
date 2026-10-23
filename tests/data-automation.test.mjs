@@ -434,30 +434,25 @@ test("12. unauthorized review action is blocked by the existing admin auth contr
   assert.match(api, /if \(!user\)/);
 });
 
-test("13. scheduled job keeps hourly full work and adds bounded five-minute automation due checks", () => {
+test("13. scheduled job keeps Gemini and quality search but disables older Tavily source sweeps", () => {
   const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
   const wrangler = readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
   const runner = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
-  assert.match(worker, /runDataAutomationSweep/);
+  assert.doesNotMatch(worker, /runDataAutomationSweep\(/);
+  assert.doesNotMatch(worker, /runDataAutomationDiscoverySweep\(/);
   assert.doesNotMatch(worker, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
-  assert.match(worker, /tavilyApiKey: env\.TAVILY_API_KEY/);
-  assert.match(worker, /internetTransport:\s*"TAVILY_ONLY"/);
+  assert.match(worker, /runQualityMissingHourly\(/);
+  assert.match(worker, /tavilyApiKey:\s*env\.TAVILY_API_KEY/);
   assert.deepEqual(JSON.parse(wrangler).triggers.crons, ["*/5 * * * *", "* * * * *"]);
   assert.ok(worker.includes('controller.cron === "* * * * *"'));
   assert.match(worker, /getUTCMinutes\(\) === 0/);
   const fastBranch = worker.slice(worker.indexOf("if (!isFullHourlyScheduledSweep(controller))"), worker.indexOf("const [summary, editorial"));
   assert.match(fastBranch, /runScheduledAdminPush\(env\)/);
-  assert.match(fastBranch, /runDataAutomationSweep/);
-  assert.match(fastBranch, /runDataAutomationDiscoverySweep/);
-  assert.match(fastBranch, /internetTransport:\s*"TAVILY_ONLY"/);
-  assert.match(fastBranch, /tavilyApiKey:\s*env\.TAVILY_API_KEY/);
-  assert.match(fastBranch, /five_minute_due_check/);
+  assert.match(fastBranch, /runGeminiManualBackgroundSweep\(/);
+  assert.doesNotMatch(fastBranch, /runDataAutomationSweep\(|runDataAutomationDiscoverySweep\(/);
   assert.match(fastBranch, /return;/);
   assert.match(fastBranch, /runNotionDirectoryBootstrapSweep/);
-  assert.doesNotMatch(
-    fastBranch,
-    /runNotion(?:Article|Breed|Event|Directory)SyncSweep|runEditorialNotificationSweep|runPartnerNotificationSweep/,
-  );
+  assert.doesNotMatch(fastBranch, /runNotion(?:Article|Breed|Event|Directory)SyncSweep|runEditorialNotificationSweep|runPartnerNotificationSweep/);
   assert.match(runner, /DATA_AUTOMATION_MAX_SOURCES_PER_SWEEP = 8/);
   assert.match(runner, /for \(const source of sources\)/);
 });

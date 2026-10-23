@@ -74,13 +74,12 @@ test("production automation entrypoints explicitly select TAVILY_ONLY and do not
     readFile(path.join(repoRoot, "app/api/admin/automation-categories/[category]/search/route.ts"), "utf8"),
   ]);
 
-  const sourceSweeps = [...worker.matchAll(/runDataAutomationSweep\(\{([\s\S]*?)\}\)\.catch/g)];
-  const discoverySweeps = [...worker.matchAll(/runDataAutomationDiscoverySweep\(\{([\s\S]*?)\}\)\.catch/g)];
-  assert.equal(sourceSweeps.length, 2, "five-minute and hourly source sweeps must both be covered");
-  assert.equal(discoverySweeps.length, 2, "five-minute and hourly discovery sweeps must both be covered");
-  assert.ok(sourceSweeps.every((match) => /internetTransport:\s*"TAVILY_ONLY"/.test(match[1])));
-  assert.ok(discoverySweeps.every((match) => /internetTransport:\s*"TAVILY_ONLY"/.test(match[1])));
-  assert.ok(discoverySweeps.every((match) => /tavilyApiKey:\s*env\.TAVILY_API_KEY/.test(match[1])));
+  // The old scheduled source/discovery sweeps were intentionally deactivated:
+  // Gemini discovers new profiles and the hourly quality job fills only missing fields.
+  assert.doesNotMatch(worker, /runDataAutomationSweep\(/);
+  assert.doesNotMatch(worker, /runDataAutomationDiscoverySweep\(/);
+  assert.match(worker, /runQualityMissingHourly\(/);
+  assert.match(worker, /tavilyApiKey:\s*env\.TAVILY_API_KEY/);
   assert.doesNotMatch(worker, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
 
   assert.match(sourceRunRoute, /internetTransport:\s*"TAVILY_ONLY"/);
