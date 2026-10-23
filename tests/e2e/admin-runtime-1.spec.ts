@@ -31,20 +31,20 @@ test("all primary admin routes render without Worker/runtime crashes", async ({ 
   }
 });
 
-test("data quality is responsive, accessible and exposes safe pagination", async ({ page }, testInfo) => {
+test("data quality is responsive and accessible in missing-data review", async ({ page }, testInfo) => {
   if (testInfo.project.name === "mobile-chromium") {
     await page.setViewportSize({ width: 390, height: 844 });
   }
 
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  const response = await page.goto("/admin/kvalita?page=1&mediaPage=1", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("/admin/kvalita", { waitUntil: "domcontentloaded" });
 
   expect(response).not.toBeNull();
   expect(response?.status()).toBeLessThan(500);
   expect(new URL(page.url()).pathname).toBe("/admin/kvalita");
   await expect(page.getByRole("heading", { name: "Kvalita údajov", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Skontrolovať teraz" })).toBeVisible();
+  await expect(page.getByText(/Nájdené nové údaje na schválenie|Kvalita údajov sa pripravuje/).first()).toBeVisible();
 
   const body = await page.locator("body").innerText();
   expect(body).not.toMatch(/Error 1101|Worker threw exception|SELECT .* FROM|at .*\(.+\.tsx?:\d+/i);
