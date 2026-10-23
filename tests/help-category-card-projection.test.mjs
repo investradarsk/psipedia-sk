@@ -26,7 +26,7 @@ test("help category route uses small public cards while canonical detail remains
   assert.match(detail, /getPublishedHelpCase\(/);
   assert.doesNotMatch(columns, /description|practical_info|location_note|contact_note|action_url|detail_display_json|seo_json|created_by|updated_by/);
   assert.doesNotMatch(listing, /SELECT \* FROM help_cases/);
-  assert.match(listing, /listPublishedOrganizations\(/);
+  assert.match(listing, /listPublishedOrganizationCards\(/);
   assert.match(listing, /ORDER BY resolved ASC, urgent DESC, verified DESC, updated_at DESC, id DESC LIMIT \?/);
 });
 
