@@ -14,6 +14,7 @@ export const ADMIN_PUSH_EVENT_SETTINGS = [
   {key:"FACEBOOK_PUBLISHED",label:"Facebook obrázok úspešne publikovaný",group:"Facebook",defaultEnabled:true},
   {key:"FACEBOOK_FAILED",label:"Facebook publikovanie zlyhalo",group:"Facebook",defaultEnabled:false},
   {key:"QUALITY_FOUND",label:"Tavily – nové chýbajúce údaje",group:"Kvalita údajov",defaultEnabled:false},
+  {key:"QUALITY_FAILURE",label:"Tavily – vyhľadávanie zlyhalo",group:"Kvalita údajov",defaultEnabled:false},
   {key:"SYSTEM_FAILURE",label:"Chyby ostatných automatizácií",group:"Prevádzka",defaultEnabled:false},
   {key:"SYSTEM_ACTIVITY",label:"Spustenia, výsledky a synchronizácie",group:"Prevádzka",defaultEnabled:false},
 ] as const;
@@ -39,11 +40,13 @@ export function adminPushEventKey(eventType:string, sourceType = "", system = ""
     || eventType==="partner_profile_proposed")return "PROFILE_PROPOSAL";
   if(["news_tip_submitted","negative_article_feedback_submitted","directory_inquiry_submitted"].includes(eventType))
     return "COMMUNITY_TIP";
-  if(eventType==="adoption_inquiry_submitted" || sourceType==="ADOPTION_REQUEST")return "ADOPTION_REQUEST";
+  if(eventType==="adoption_inquiry_submitted" || sourceType==="ADOPTION_REQUEST" ||
+    (eventType==="moderation_submission_actionable" && system==="adoption_dog"))return "ADOPTION_REQUEST";
   if(eventType==="facebook_image_imported")return "FACEBOOK_IMPORTED";
   if(eventType==="facebook_image_published")return "FACEBOOK_PUBLISHED";
   if(eventType==="facebook_image_failed")return "FACEBOOK_FAILED";
   if(eventType==="quality_missing_found")return "QUALITY_FOUND";
+  if(eventType==="quality_missing_failed")return "QUALITY_FAILURE";
   if(eventType==="automation_run_failed" || eventType==="automation_run_partial_success"
     || eventType==="automation_source_issue")
     return system==="gemini"?"GEMINI_FAILURE":"SYSTEM_FAILURE";
