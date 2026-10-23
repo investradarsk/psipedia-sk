@@ -319,8 +319,8 @@ test("DIRECTORY-CATEGORY-INTENT-STRENGTHENING-1 rendered source keeps H1, intro,
   assert.match(results, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
   assert.match(results, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
   const pagination = fs.readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
-  assert.match(pagination, /<Link href=\{previousHref\} rel="prev">/);
-  assert.match(pagination, /<Link href=\{nextHref\} rel="next">/);
+  assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>/);
+  assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>/);
   assert.match(directoryPage, /href: directoryCategoryHref\(category\),/);
   assert.match(directoryPage, /<DirectoryCategoryNavigation items=\{categoryItems\} \/>/);
   assert.match(detail, /href=\{"\/adresar\/" \+ presentation\.category\}/);

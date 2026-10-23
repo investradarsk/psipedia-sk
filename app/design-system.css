@@ -632,6 +632,17 @@
 :root {
   --ps-ds5-grid-gap: 16px;
   --ps-ds5-card-padding: 18px;
+  --ps-ds5-card-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
+  --ps-ds5-card-transition: transform 180ms ease, box-shadow 180ms ease;
+  --ps-ds5-card-hover-transform: translateY(-2px);
+  --ps-ds5-card-hover-shadow: var(--ps-shadow-surface);
+  --ps-ds5-card-focus-outline: 3px solid var(--forest);
+  --ps-ds5-card-focus-offset: 2px;
+  /* Organization cards retain their separately approved geometry. */
+  --ps-card-organization-grid-gap: 1.25rem;
+  --ps-card-organization-radius: 1.25rem;
+  --ps-card-organization-padding: 1.15rem;
+  --ps-card-organization-shadow: 0 12px 28px rgba(20, 44, 36, 0.06);
 }
 
 .article-card,
@@ -640,20 +651,20 @@
   overflow: hidden;
   border-radius: var(--ps-radius-card);
   background: var(--ps-surface);
-  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  box-shadow: var(--ps-ds5-card-shadow);
+  transition: var(--ps-ds5-card-transition);
 }
 
 .article-card:hover,
 .breed-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--ps-shadow-surface);
+  transform: var(--ps-ds5-card-hover-transform);
+  box-shadow: var(--ps-ds5-card-hover-shadow);
 }
 
 .article-card:has(a:focus-visible),
 .breed-card:has(a:focus-visible) {
-  outline: 3px solid var(--forest);
-  outline-offset: 2px;
+  outline: var(--ps-ds5-card-focus-outline);
+  outline-offset: var(--ps-ds5-card-focus-offset);
 }
 
 .article-grid,

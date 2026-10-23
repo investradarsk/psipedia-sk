@@ -371,83 +371,80 @@ export async function loadPublishedSeoQualityEntities(database: D1Database): Pro
   const now = new Date().toISOString();
   const entities: AdminSeoQualityEntity[] = [];
 
-  const directory = await database.prepare(`
-    SELECT id, slug, name, category, excerpt, description, services_json, qualifications_json,
-      city, online, image_url, seo_json
-    FROM directory_profiles
-    WHERE status = 'published'
-    ORDER BY id
-  `).all<RawRow>();
+  // These eight read-only public-agenda scans are independent. Launch together
+  // to remove seven serialized D1 network waits; map results afterwards in the
+  // same stable agenda order for identical quality counts and pagination.
+  const [directory, events, help, lostFound, organizations, adoptions, breeds, articles] = await Promise.all([
+    database.prepare(`
+        SELECT id, slug, name, category, excerpt, description, services_json, qualifications_json,
+          city, online, image_url, seo_json
+        FROM directory_profiles
+        WHERE status = 'published'
+        ORDER BY id
+      `).all<RawRow>(),
+    database.prepare(`
+        SELECT id, slug, title, excerpt, event_type, city, description, practical_info, image_url, seo_json
+        FROM managed_events
+        WHERE status = 'published'
+        ORDER BY id
+      `).all<RawRow>(),
+    database.prepare(`
+        SELECT id, slug, title, category, excerpt, description, dog_name, city, location_note, contact_note, image_url, seo_json
+        FROM help_cases
+        WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene')
+        ORDER BY id
+      `).all<RawRow>(),
+    database.prepare(`
+        SELECT id, type, slug, dog_name, breed, description, distinguishing_marks, collar_description,
+          main_image, city, location_description, public_contact_note
+        FROM lost_found_dog_reports
+        WHERE status = 'ACTIVE'
+          AND published_at IS NOT NULL
+          AND duplicate_of_id IS NULL
+          AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY id
+      `).bind(now).all<RawRow>(),
+    database.prepare(`
+        SELECT o.id, o.name, o.slug, o.type, o.short_description, o.description, o.image_url,
+          COALESCE(
+            NULLIF((SELECT l.city FROM organization_locations l
+              WHERE l.organization_id = o.id
+              ORDER BY l.is_primary DESC, l.sort_order ASC, l.id ASC LIMIT 1), ''),
+            o.city
+          ) AS resolved_city
+        FROM help_organizations o
+        WHERE o.status = 'PUBLISHED' AND o.published_at IS NOT NULL AND o.archived_at IS NULL
+        ORDER BY o.id
+      `).all<RawRow>(),
+    database.prepare(`
+        SELECT id, name, slug, city, main_image, short_description, description, temperament,
+          health_notes, adoption_requirements
+        FROM adoption_dogs
+        WHERE status IN ('ACTIVE', 'RESERVED')
+        ORDER BY id
+      `).all<RawRow>(),
+    database.prepare(`
+        SELECT id, slug, name, image_url, intro, character, needs, history, exercise, training, health,
+          editorial_json, seo_json
+        FROM managed_breeds
+        WHERE status = 'published'
+        ORDER BY id
+      `).all<RawRow>(),
+    database.prepare(`
+        SELECT id, slug, title, excerpt, category, portal_section, intro, takeaway, sections_json, blocks_json,
+          image_url, image_alt, seo_title, meta_description, canonical_url, noindex
+        FROM managed_articles
+        WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
+        ORDER BY id
+      `).bind(now).all<RawRow>(),
+  ]);
   entities.push(...directory.results.map(directoryEntity));
-
-  const events = await database.prepare(`
-    SELECT id, slug, title, excerpt, event_type, city, description, practical_info, image_url, seo_json
-    FROM managed_events
-    WHERE status = 'published'
-    ORDER BY id
-  `).all<RawRow>();
   entities.push(...events.results.map(eventEntity));
-
-  const help = await database.prepare(`
-    SELECT id, slug, title, category, excerpt, description, dog_name, city, location_note, contact_note, image_url, seo_json
-    FROM help_cases
-    WHERE status = 'published' AND category NOT IN ('adopcia', 'utulky', 'stratene-a-najdene')
-    ORDER BY id
-  `).all<RawRow>();
   entities.push(...help.results.map(helpEntity));
-
-  const lostFound = await database.prepare(`
-    SELECT id, type, slug, dog_name, breed, description, distinguishing_marks, collar_description,
-      main_image, city, location_description, public_contact_note
-    FROM lost_found_dog_reports
-    WHERE status = 'ACTIVE'
-      AND published_at IS NOT NULL
-      AND duplicate_of_id IS NULL
-      AND (expires_at IS NULL OR expires_at > ?)
-    ORDER BY id
-  `).bind(now).all<RawRow>();
   entities.push(...lostFound.results.map(lostFoundEntity));
-
-  const organizations = await database.prepare(`
-    SELECT o.id, o.name, o.slug, o.type, o.short_description, o.description, o.image_url,
-      COALESCE(
-        NULLIF((SELECT l.city FROM organization_locations l
-          WHERE l.organization_id = o.id
-          ORDER BY l.is_primary DESC, l.sort_order ASC, l.id ASC LIMIT 1), ''),
-        o.city
-      ) AS resolved_city
-    FROM help_organizations o
-    WHERE o.status = 'PUBLISHED' AND o.published_at IS NOT NULL AND o.archived_at IS NULL
-    ORDER BY o.id
-  `).all<RawRow>();
   entities.push(...organizations.results.map(organizationEntity));
-
-  const adoptions = await database.prepare(`
-    SELECT id, name, slug, city, main_image, short_description, description, temperament,
-      health_notes, adoption_requirements
-    FROM adoption_dogs
-    WHERE status IN ('ACTIVE', 'RESERVED')
-    ORDER BY id
-  `).all<RawRow>();
   entities.push(...adoptions.results.map(adoptionEntity));
-
-  const breeds = await database.prepare(`
-    SELECT id, slug, name, image_url, intro, character, needs, history, exercise, training, health,
-      editorial_json, seo_json
-    FROM managed_breeds
-    WHERE status = 'published'
-    ORDER BY id
-  `).all<RawRow>();
   entities.push(...breeds.results.map(breedEntity));
-
-  const articles = await database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, intro, takeaway, sections_json, blocks_json,
-      image_url, image_alt, seo_title, meta_description, canonical_url, noindex
-    FROM managed_articles
-    WHERE status = 'published' OR (status = 'scheduled' AND published_at <= ?)
-    ORDER BY id
-  `).bind(now).all<RawRow>();
   entities.push(...articles.results.map(articleEntity));
-
   return entities;
 }

@@ -54,7 +54,7 @@ function fixture() {
   }
   insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "Bratislava I", "Bratislavský kraj", null, 1, "128");
   insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "Trnava", "Trnavský kraj", "https://example.test/salon.jpg", 0, "129");
-  sqlite.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 127").run(JSON.stringify({ _psipedia_profile_review_reviewed_at: "2026-10-23T08:00:00Z" }));
+  sqlite.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 27").run(JSON.stringify({ _psipedia_profile_review_reviewed_at: "2026-10-23T08:00:00Z" }));
   const db = {
     prepare(query) {
       return {
@@ -79,7 +79,7 @@ test("all profiles are counted independently of the 50-row page", async () => {
   assert.ok(result.options.cities.includes("Bratislava"));
 });
 
-test("directory listing reduces D1 reads to four while preserving global location options", async () => {
+test("directory category listing reuses totals and reads only three D1 statements", async () => {
   const { db } = fixture();
   const statements = [];
   const tracked = {
@@ -89,17 +89,32 @@ test("directory listing reduces D1 reads to four while preserving global locatio
     },
   };
   const result = await queryDirectoryAdmin(tracked, filters({ category: "veterinari", page: 3 }), categories);
-  assert.equal(statements.length, 4, "totals, matched count, combined locations, bounded page");
+  assert.equal(statements.length, 3, "category totals also serve as filtered count; combined locations and bounded page");
+  assert.equal(statements.some(sql => /SELECT COUNT\(\*\) AS count FROM directory_profiles/.test(sql)), false);
   assert.match(statements.at(-1), /json_extract\(source_data_json/);
   assert.match(statements.at(-1), /AS reviewed_at/);
   assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
+  assert.equal(result.items[0].id, 27, "third page begins after the 100 newest profiles");
   assert.equal(result.items[0].reviewed_at, "2026-10-23T08:00:00Z");
   assert.equal(result.items[1].reviewed_at, "");
   assert.deepEqual(result.options.regions, ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj", "Žilinský kraj"]);
   assert.deepEqual(result.options.cities, ["Bratislava", "Nitra", "Trnava", "Žilina"]);
   assert.equal(result.counts.total, 127);
+});
+
+test("filtered directory views retain an independent matched count", async () => {
+  const { db } = fixture();
+  const statements = [];
+  const tracked = { prepare(sql) { statements.push(sql); return db.prepare(sql); } };
+  const result = await queryDirectoryAdmin(tracked,
+    filters({ category: "veterinari", status: "draft" }), categories);
+  assert.equal(result.resultCount, 61);
+  assert.equal(result.counts.total, 127);
+  assert.equal(result.items.length, 50);
+  assert.equal(statements.length, 4, "totals, filtered count, locations, bounded page");
+  assert.ok(statements.some(sql => sql.includes("SELECT COUNT(*) AS count FROM directory_profiles")));
 });
 
 test("category, publication, location, verification and media filters combine", async () => {

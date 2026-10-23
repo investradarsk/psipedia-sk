@@ -1,3 +1,4 @@
+import { PublicChoiceInput, PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { EventCard } from "./event-card";
@@ -58,21 +59,21 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
           </div>
           <form method="get" action={`${pathname}#events-list`} data-event-filters>
             {hidden(["region", "od", "do", "mesto", "mesiac"])}
-            <label>Dátum od<input type="date" name="od" defaultValue={f.from} /></label>
-            <label>Dátum do<input type="date" name="do" defaultValue={f.to} /></label>
+            <label>Dátum od<PublicTextInput appearance="context" type="date" name="od" defaultValue={f.from} /></label>
+            <label>Dátum do<PublicTextInput appearance="context" type="date" name="do" defaultValue={f.to} /></label>
             <label>Kraj
-              <select aria-label="Kraj" name="region" defaultValue={f.region}>
+              <PublicSelect appearance="context" aria-label="Kraj" name="region" defaultValue={f.region}>
                 <option value="">Všetky kraje</option>
                 {slovakRegions.filter(region => region !== "Online").map(region => <option key={region}>{region}</option>)}
-              </select>
+              </PublicSelect>
             </label>
-            <label>Mesto / lokalita<input name="mesto" defaultValue={f.city} maxLength={120} /></label>
-            <label>Mesiac<input type="month" name="mesiac" defaultValue={f.month} /></label>
+            <label>Mesto / lokalita<PublicTextInput appearance="context" name="mesto" defaultValue={f.city} maxLength={120} /></label>
+            <label>Mesiac<PublicTextInput appearance="context" type="month" name="mesiac" defaultValue={f.month} /></label>
             <fieldset>
               <legend>Typ podujatia</legend>
               {(["Všetky", ...eventTypes] as const).map(type => (
                 <label className={styles.typeChoice} key={type}>
-                  <input type="radio" name="typ" value={type} defaultChecked={f.type === type} />
+                  <PublicChoiceInput type="radio" name="typ" value={type} defaultChecked={f.type === type} />
                   {type !== "Všetky" ? <span className={styles.typeDot} aria-hidden="true"
                     style={{ "--event-type-color": eventTypePresentation[type].color } as CSSProperties} /> : null}
                   {type === "Všetky" ? "Všetky typy" : eventTypePresentation[type].label}
@@ -90,11 +91,11 @@ export function EventListingResults({ events, filters: f, listing, today, pathna
           <form method="get" action={`${pathname}#events-list`}>
             {hidden(["zoradenie"])}
             <label>Zoradenie
-              <select aria-label="Zoradenie" name="zoradenie" defaultValue={f.sort}>
+              <PublicSelect appearance="context" aria-label="Zoradenie" name="zoradenie" defaultValue={f.sort}>
                 <option value="">Predvolené poradie</option>
                 <option value="najblizsie">Od najbližšieho dátumu</option>
                 <option value="najnovsie">Od najnovšieho dátumu</option>
-              </select>
+              </PublicSelect>
             </label>
             <button type="submit">Zoradiť</button>
           </form>
