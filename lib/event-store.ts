@@ -407,6 +407,21 @@ export async function getHomepageUpcomingEventsWithImages(limit = 3): Promise<Ho
   })).filter((event) => eventIsActive(event, today));
 }
 
+/** Related event cards need only public list columns; keep full event reads for detail consumers. */
+export async function getUpcomingEventCards(limit = 8): Promise<PublicEventCard[]> {
+  const database = getD1Binding();
+  if (!database) return [];
+  const safeLimit = Math.max(1, Math.min(12, Math.trunc(limit)));
+  const today = bratislavaDateKey();
+  const rows = await database.prepare(`SELECT id,slug,title,event_type,start_date,start_time,end_date,end_time,
+      venue,city,region,cancelled,image_url,image_display,thumbnail_display_json
+    FROM managed_events WHERE status = 'published' AND cancelled = 0
+      AND COALESCE(end_date, start_date) >= ?
+    ORDER BY start_date ASC, start_time ASC, id ASC LIMIT ?`)
+    .bind(today, safeLimit).all<PublicEventCardRow>();
+  return rows.results.map(rowToPublicEventCard).filter((event) => eventIsActive(event, today));
+}
+
 export async function getUpcomingEvents(limit = 2) {
   const database = getD1Binding();
   if (!database) return [] as DogEvent[];
@@ -444,7 +459,14 @@ export async function listManagedEventPage(input: AdminEventListQuery): Promise<
   const database = requireD1Binding();
   const today = bratislavaDateKey();
   const sql = buildAdminEventPageSql(input, today);
-  const [match, globals, yearsResult] = await Promise.all([
+  // Read the requested page with the independent counters; only an
+  // out-of-range page needs a second (clamped) SELECT.
+  const requestedPage = Math.max(1, Math.trunc(input.page || 1));
+  const loadPage = (page: number) => database.prepare(
+    "SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, image_url, created_at, updated_at " +
+    "FROM managed_events WHERE " + sql.where + " ORDER BY " + sql.order + " LIMIT ? OFFSET ?",
+  ).bind(...sql.values, ...sql.orderValues, input.pageSize, (page - 1) * input.pageSize).all<EventSummaryRow>();
+  const [match, globals, yearsResult, requestedResult] = await Promise.all([
     database.prepare("SELECT COUNT(*) AS total FROM managed_events WHERE " + sql.where)
       .bind(...sql.values).first<{total: number}>(),
     database.prepare(adminEventGlobalCountsSql)
@@ -453,14 +475,12 @@ export async function listManagedEventPage(input: AdminEventListQuery): Promise<
         published: number; draft: number; cancelled: number;
       }>(),
     database.prepare(adminEventYearsSql).all<{year: string}>(),
+    loadPage(requestedPage),
   ]);
   const total = Number(match?.total ?? 0);
   const pages = Math.max(1, Math.ceil(total / input.pageSize));
-  const page = Math.min(input.page, pages);
-  const result = await database.prepare(
-    "SELECT id, slug, title, event_type, status, start_date, start_time, end_date, end_time, city, venue, region, organizer, cancelled, image_url, created_at, updated_at " +
-    "FROM managed_events WHERE " + sql.where + " ORDER BY " + sql.order + " LIMIT ? OFFSET ?",
-  ).bind(...sql.values, ...sql.orderValues, input.pageSize, (page - 1) * input.pageSize).all<EventSummaryRow>();
+  const page = Math.min(requestedPage, pages);
+  const result = page === requestedPage ? requestedResult : await loadPage(page);
 
   const counts = {
     all: Number(globals?.all_count ?? 0),

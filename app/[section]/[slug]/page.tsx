@@ -12,7 +12,7 @@ import { getArticleMagazineData } from "@/lib/article-magazine";
 import { getArticleDiscoveryData } from "@/lib/article-discovery";
 import { buildArticleMetadata } from "@/lib/article-seo";
 import { sanitizePublicArticleContent } from "@/lib/article-content-remediation";
-import { getPublishedEvent, getUpcomingEvents } from "@/lib/event-store";
+import { getPublishedEvent, getUpcomingEventCards } from "@/lib/event-store";
 import { bratislavaDateKey, buildPublicEventPresentation, eventHref, eventMonthFilterFromParam, eventRegionFilterFromParam, eventSearchQueryFromParam, eventTimeFilterFromParam, eventTypeFromPortalSlug, eventTypeListingSeo, selectRelatedEvents } from "@/lib/events";
 import { buildEventJsonLd } from "@/lib/event-schema";
 import { resolveCalendarMonth } from "@/lib/event-calendar-view";
@@ -165,7 +165,7 @@ export default async function PortalContentPage({ params, searchParams }: Props)
       const canonical = resolvedCanonical(event.seo, eventHref(event));
       const schema = buildEventJsonLd(event, canonical);
       const [related, publicMap] = await Promise.all([
-        getUpcomingEvents(8).then((events) => selectRelatedEvents(event, events)),
+        getUpcomingEventCards(8).then((events) => selectRelatedEvents(event, events)),
         getPublicMapItemsForEntity({ entityType: "MANAGED_EVENT", entityId: event.id })
           .catch((error) => {
             console.error("Public event map read failed", {
