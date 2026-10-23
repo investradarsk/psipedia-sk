@@ -54,7 +54,7 @@ function fixture() {
   }
   insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "Bratislava I", "Bratislavský kraj", null, 1, "128");
   insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "Trnava", "Trnavský kraj", "https://example.test/salon.jpg", 0, "129");
-  sqlite.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 127").run(JSON.stringify({ _psipedia_profile_review_reviewed_at: "2026-10-23T08:00:00Z" }));
+  sqlite.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 27").run(JSON.stringify({ _psipedia_profile_review_reviewed_at: "2026-10-23T08:00:00Z" }));
   const db = {
     prepare(query) {
       return {
@@ -96,6 +96,7 @@ test("directory category listing reuses totals and reads only three D1 statement
   assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
+  assert.equal(result.items[0].id, 27, "third page begins after the 100 newest profiles");
   assert.equal(result.items[0].reviewed_at, "2026-10-23T08:00:00Z");
   assert.equal(result.items[1].reviewed_at, "");
   assert.deepEqual(result.options.regions, ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj", "Žilinský kraj"]);

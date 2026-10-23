@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PublicHelpClosingBanner, PublicHelpPhotoBanner, type PublicHelpPhotoBannerData } from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
@@ -39,14 +40,7 @@ export type HelpOverviewSection = {
   items: HelpOverviewItem[];
 };
 
-type PromoBanner = {
-  eyebrow: string;
-  title: string;
-  text: string;
-  href: string;
-  action: string;
-  tone: "care" | "rescue" | "volunteer";
-};
+type PromoBanner = PublicHelpPhotoBannerData;
 
 const lostFoundSubmitPromo: PromoBanner = {
   eyebrow: "Stratený alebo nájdený pes",
@@ -113,20 +107,7 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
 }
 
 function Promo({ promo }: { promo: PromoBanner }) {
-  return (
-    <aside className={[styles.overviewPromo, styles[`overviewPromo_${promo.tone}`]].join(" ")}>
-      <div className={styles.overviewPromoShade}>
-        <PageContainer className={styles.overviewPromoCopy}>
-          <span>{promo.eyebrow}</span>
-          <h2>{promo.title}</h2>
-          <p>{promo.text}</p>
-          <PublicActionLink href={promo.href} variant="primary" icon={<ArrowIcon size={16} />}>
-            {promo.action}
-          </PublicActionLink>
-        </PageContainer>
-      </div>
-    </aside>
-  );
+  return <PublicHelpPhotoBanner promo={promo} />;
 }
 
 export async function HelpOverview({
@@ -241,18 +222,7 @@ export async function HelpOverview({
           })}
         </div>
 
-        <section className={styles.closingCta} aria-labelledby="help-closing-cta-heading">
-          <div className={styles.closingCtaOverlay}>
-            <PageContainer className={styles.closingCtaInner}>
-              <span className={styles.closingEyebrow}>Každá pomoc má zmysel</span>
-              <h2 id="help-closing-cta-heading">Pomáhajme spolu</h2>
-              <p>Lepší svet pre psov vzniká vďaka ľuďom, ktorí nechcú zostať bokom.</p>
-              <PublicActionLink href="/pomoc-psom/dobrovolnictvo" variant="primary" icon={<ArrowIcon size={16} />}>
-                Chcem pomôcť
-              </PublicActionLink>
-            </PageContainer>
-          </div>
-        </section>
+        <PublicHelpClosingBanner />
       </PublicFoundation>
     </main>
   );

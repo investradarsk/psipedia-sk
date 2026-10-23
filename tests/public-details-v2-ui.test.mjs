@@ -57,7 +57,7 @@ test('unified public details: responsive layout, honest media/data, actions and 
  if(shots) await mkdir(shots,{recursive:true});
  const sources=JSON.parse(await readFile('tests/fixtures/unified-public-details-v2.json','utf8'));
  for(const name of ['directory','event','adoption','directory-minimal','directory-blur','directory-crop','directory-long','event-minimal','event-cancelled','event-long','adoption-minimal','adoption-reserved','adoption-breed-duplicate','help-docasna-opatera','help-zbierky','help-dobrovolnictvo','help-urgentne-pripady','help-adopcia','help-stratene-a-najdene','organization','lost','lost-resolved']) {
- for(const width of ([ 'directory','event','adoption'].includes(name)?[1440,390,375,320]:[1440,320])) {
+ for(const width of ([ 'directory','event','adoption'].includes(name)?[1440,768,430,390,375,320]:[1440,320])) {
  const context=await browser.newContext({viewport:{width,height:960}}); const page=await context.newPage(); const writes=[]; let rejectInquiry=true; const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',async route=>{
  const url=new URL(route.request().url());
