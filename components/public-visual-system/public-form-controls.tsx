@@ -1,5 +1,11 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ComponentPropsWithRef, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import styles from "./public-form-controls.module.css";
+
+/** Context controls retain their approved page selectors and centrally defined filter tokens.
+ * Do not add default form geometry here: search entries and compact filters have
+ * intentionally different variants. Native attributes/ref/event handlers pass through.
+ */
+type PublicControlAppearance = { appearance?: "default" | "context" };
 
 function classes(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -28,13 +34,13 @@ export function PublicFormField({
   );
 }
 
-export function PublicTextInput({ className, type = "text", ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} type={type} className={classes(styles.control, className)} data-public-form-control="input" />;
+export function PublicTextInput({ className, type = "text", appearance = "default", ...props }: ComponentPropsWithRef<"input"> & PublicControlAppearance) {
+  return <input {...props} type={type} className={classes(appearance === "default" && styles.control, className)} data-public-form-control="input" />;
 }
 
-export function PublicSelect({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function PublicSelect({ className, children, appearance = "default", ...props }: SelectHTMLAttributes<HTMLSelectElement> & PublicControlAppearance) {
   return (
-    <select {...props} className={classes(styles.control, styles.select, className)} data-public-form-control="select">
+    <select {...props} className={classes(appearance === "default" && styles.control, appearance === "default" && styles.select, className)} data-public-form-control="select">
       {children}
     </select>
   );
@@ -56,8 +62,13 @@ export function PublicChoice({
 }) {
   return (
     <label className={classes(styles.choice, className)} data-public-form-choice={type}>
-      <input {...props} type={type} />
+      <PublicChoiceInput {...props} type={type} />
       <span>{label}</span>
     </label>
   );
+}
+
+/** Native choice for existing label compositions, including icons and status dots. */
+export function PublicChoiceInput({ type = "checkbox", ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { type?: "checkbox" | "radio" }) {
+  return <input {...props} type={type} data-public-form-control="choice" />;
 }

@@ -44,6 +44,10 @@ export function PublicPagination({
   numberedPages,
   pageHref,
   showDisabledControls = true,
+  variant = "default",
+  currentPageAsText = false,
+  previousAriaLabel,
+  nextAriaLabel,
 }: {
   currentPage: number;
   totalPages: number;
@@ -56,25 +60,31 @@ export function PublicPagination({
   numberedPages?: number[];
   pageHref?: (page: number) => string;
   showDisabledControls?: boolean;
+  variant?: "default" | "reports";
+  currentPageAsText?: boolean;
+  previousAriaLabel?: string;
+  nextAriaLabel?: string;
 }) {
   if (totalPages <= 1) return null;
   return (
-    <nav className={classes(styles.pagination, className)} aria-label={label} data-public-pagination>
+    <nav className={classes(variant === "reports" ? styles.reportPagination : styles.pagination, className)} aria-label={label} data-public-pagination>
       {previousHref
-        ? <Link href={previousHref} rel="prev">{previousLabel}</Link>
+        ? <Link href={previousHref} rel="prev" aria-label={previousAriaLabel}>{previousLabel}</Link>
         : showDisabledControls ? <span aria-disabled="true">{previousLabel}</span> : null}
       {numberedPages && pageHref ? (
         numberedPages.map((page, index) => (
           <Fragment key={page}>
             {index > 0 && page > numberedPages[index - 1] + 1 ? <span aria-hidden="true">…</span> : null}
-            <Link href={pageHref(page)} aria-current={page === currentPage ? "page" : undefined}>{page}</Link>
+            {currentPageAsText && page === currentPage
+              ? <span aria-current="page">{page}</span>
+              : <Link href={pageHref(page)} aria-current={page === currentPage ? "page" : undefined}>{page}</Link>}
           </Fragment>
         ))
       ) : (
         <strong aria-current="page">Strana {currentPage} z {totalPages}</strong>
       )}
       {nextHref
-        ? <Link href={nextHref} rel="next">{nextLabel}</Link>
+        ? <Link href={nextHref} rel="next" aria-label={nextAriaLabel}>{nextLabel}</Link>
         : showDisabledControls ? <span aria-disabled="true">{nextLabel}</span> : null}
     </nav>
   );
@@ -96,7 +106,16 @@ export function PublicNotice({
   return <p className={classes(styles.notice, styles[tone], className)} role={role} data-public-notice={tone}>{children}</p>;
 }
 
-export function PublicFilterTag({ children, className }: { children: ReactNode; className?: string }) {
+export function PublicFilterTag({ children, className, href, removeLabel }: {
+  children: ReactNode;
+  className?: string;
+  href?: string;
+  removeLabel?: string;
+}) {
+  // Keep removal as native GET navigation, including before client hydration.
+  if (href !== undefined) {
+    return <a className={classes(styles.removableFilterTag, className)} href={href} aria-label={removeLabel} data-public-filter-tag>{children}</a>;
+  }
   return <span className={classes(styles.filterTag, className)} data-public-filter-tag>{children}</span>;
 }
 

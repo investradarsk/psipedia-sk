@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { useEffect, useMemo, useState } from "react";
 import type { ArticleListingCard } from "@/lib/content";
 import { ArticleCard } from "./article-card";
@@ -75,7 +76,7 @@ export function ArticleBrowser({
         {!hidePrimarySearch && <label className="inline-search">
           <SearchIcon size={19} />
           <span className="sr-only">Hľadať v magazíne</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať v magazíne" />
+          <PublicTextInput appearance="context" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Hľadať v magazíne" />
         </label>}
       </div>
 

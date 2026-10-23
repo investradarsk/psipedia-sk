@@ -51,4 +51,5 @@ export {
   PublicSelect,
   PublicTextarea,
   PublicChoice,
+  PublicChoiceInput,
 } from "./public-form-controls";

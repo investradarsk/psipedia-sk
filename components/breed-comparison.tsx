@@ -1,4 +1,5 @@
 "use client";
+import { PublicSelect } from "@/components/public-visual-system/public-form-controls";
 import { BreedPhoto } from "@/components/breed-photo";
 
 import Link from "next/link";
@@ -56,18 +57,18 @@ export function BreedComparison({ breeds }: { breeds: BreedComparisonItem[] }) {
       <div className="compare-picker" aria-label="Výber plemien na porovnanie">
         <label>
           <span>Prvé plemeno</span>
-          <select value={firstSlug} onChange={(event) => setFirstSlug(event.target.value)}>
+          <PublicSelect appearance="context" value={firstSlug} onChange={(event) => setFirstSlug(event.target.value)}>
             {breeds.map((breed) => <option key={breed.slug} value={breed.slug} disabled={breed.slug === secondSlug}>{breed.name}</option>)}
-          </select>
+          </PublicSelect>
         </label>
         <button type="button" className="compare-swap" onClick={swapBreeds} aria-label="Vymeniť poradie plemien" title="Vymeniť poradie">
           <span aria-hidden="true">⇄</span>
         </button>
         <label>
           <span>Druhé plemeno</span>
-          <select value={secondSlug} onChange={(event) => setSecondSlug(event.target.value)}>
+          <PublicSelect appearance="context" value={secondSlug} onChange={(event) => setSecondSlug(event.target.value)}>
             {breeds.map((breed) => <option key={breed.slug} value={breed.slug} disabled={breed.slug === firstSlug}>{breed.name}</option>)}
-          </select>
+          </PublicSelect>
         </label>
       </div>
 

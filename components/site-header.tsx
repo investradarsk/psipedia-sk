@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -677,7 +678,7 @@ export function SiteHeader({
             <form className="search-form" data-public-search-ui="main" role="search" onSubmit={submitSearch}>
               <span className="public-search-entry">
                 <span className="public-search-icon" aria-hidden="true"><SearchIcon size={21} /></span>
-                <input
+                <PublicTextInput appearance="context"
                 ref={inputRef}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}

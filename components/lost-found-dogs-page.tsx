@@ -1,9 +1,10 @@
+import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { ImageDisplay } from "@/components/image-display";
 import Link from "next/link";
 import { StructuredData } from "@/components/structured-data";
 import { CalendarIcon, LocationIcon } from "@/components/help-public-icons";
 import { PawMark } from "@/components/icons";
-import { PublicContentShell, PublicFoundation, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import { PublicContentShell, PublicFoundation, PublicPagination, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { slovakRegions } from "@/lib/events";
 import { listPublicDogReports, listPublishedBreedOptions } from "@/lib/lost-found-dog-store";
@@ -114,12 +115,12 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
       <PublicContentShell variant="listing" className={styles.listingShell}>
       <form className={styles.filters} method="get" aria-label={"Filtrovať " + label + " psy"}>
         <input type="hidden" name="q" value={q} />
-        <div className={styles.field}><label htmlFor="lf-region">Kraj</label><select id="lf-region" name="region" defaultValue={region}><option value="">Všetky kraje</option>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-        <div className={styles.field}><label htmlFor="lf-locality">Okres alebo lokalita</label><input id="lf-locality" name="locality" defaultValue={locality} placeholder="napr. Nitra" /></div>
-        <div className={styles.field}><label htmlFor="lf-date">Dátum udalosti</label><input id="lf-date" name="date" type="date" defaultValue={date} /></div>
-        <div className={styles.field}><label htmlFor="lf-sex">Pohlavie</label><select id="lf-sex" name="sex" defaultValue={sex}><option value="">Všetky</option><option value="MALE">Pes</option><option value="FEMALE">Sučka</option><option value="UNKNOWN">Neznáme</option></select></div>
-        <div className={styles.field}><label htmlFor="lf-size">Veľkosť</label><select id="lf-size" name="size" defaultValue={size}><option value="">Všetky</option><option value="SMALL">Malý</option><option value="MEDIUM">Stredný</option><option value="LARGE">Veľký</option><option value="UNKNOWN">Neznáma</option></select></div>
-        <div className={styles.field}><label htmlFor="lf-breed">Plemeno</label><select id="lf-breed" name="breed" defaultValue={breedId ? String(breedId) : ""}><option value="">Všetky plemená</option>{breeds.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</select></div>
+        <div className={styles.field}><label htmlFor="lf-region">Kraj</label><PublicSelect appearance="context" id="lf-region" name="region" defaultValue={region}><option value="">Všetky kraje</option>{slovakRegions.filter((item) => item !== "Online").map((item) => <option key={item} value={item}>{item}</option>)}</PublicSelect></div>
+        <div className={styles.field}><label htmlFor="lf-locality">Okres alebo lokalita</label><PublicTextInput appearance="context" id="lf-locality" name="locality" defaultValue={locality} placeholder="napr. Nitra" /></div>
+        <div className={styles.field}><label htmlFor="lf-date">Dátum udalosti</label><PublicTextInput appearance="context" id="lf-date" name="date" type="date" defaultValue={date} /></div>
+        <div className={styles.field}><label htmlFor="lf-sex">Pohlavie</label><PublicSelect appearance="context" id="lf-sex" name="sex" defaultValue={sex}><option value="">Všetky</option><option value="MALE">Pes</option><option value="FEMALE">Sučka</option><option value="UNKNOWN">Neznáme</option></PublicSelect></div>
+        <div className={styles.field}><label htmlFor="lf-size">Veľkosť</label><PublicSelect appearance="context" id="lf-size" name="size" defaultValue={size}><option value="">Všetky</option><option value="SMALL">Malý</option><option value="MEDIUM">Stredný</option><option value="LARGE">Veľký</option><option value="UNKNOWN">Neznáma</option></PublicSelect></div>
+        <div className={styles.field}><label htmlFor="lf-breed">Plemeno</label><PublicSelect appearance="context" id="lf-breed" name="breed" defaultValue={breedId ? String(breedId) : ""}><option value="">Všetky plemená</option>{breeds.map((breed) => <option key={breed.id} value={breed.id}>{breed.name}</option>)}</PublicSelect></div>
         <div className={styles.actions}><button type="submit">Filtrovať</button><Link href={dogReportBasePath(type)}>Vyčistiť</Link></div>
       </form>
 
@@ -136,10 +137,23 @@ export async function LostFoundDogsPage({ type, searchParams }: { type: DogRepor
           <p>{report.description.length > 150 ? report.description.slice(0, 147) + "…" : report.description}</p><Link className={styles.cardLink} href={dogReportHref(report)}>Zobraziť hlásenie →</Link>
         </div></article>)}</div> : <div className={styles.empty}><h2>Momentálne nemáme publikovaný prípad pre tieto filtre.</h2><p>Skúste zmeniť lokalitu, dátum alebo ďalšie filtre.</p></div>}
 
-      {result.pages > 1 && <nav className={styles.pagination} aria-label="Stránkovanie hlásení">{result.page > 1 && <Link aria-label="Predchádzajúca strana" href={pageHref(type, params, result.page - 1)}>←</Link>}{Array.from({ length: Math.min(result.pages, 7) }, (_, index) => {
-        const start = Math.max(1, Math.min(result.page - 3, result.pages - 6)); const item = start + index; if (item > result.pages) return null;
-        return item === result.page ? <span key={item} aria-current="page">{item}</span> : <Link key={item} href={pageHref(type, params, item)}>{item}</Link>;
-      })}{result.page < result.pages && <Link aria-label="Ďalšia strana" href={pageHref(type, params, result.page + 1)}>→</Link>}</nav>}
+      <PublicPagination
+        variant="reports"
+        label="Stránkovanie hlásení"
+        currentPage={result.page}
+        totalPages={result.pages}
+        previousHref={result.page > 1 ? pageHref(type, params, result.page - 1) : undefined}
+        nextHref={result.page < result.pages ? pageHref(type, params, result.page + 1) : undefined}
+        previousLabel="←"
+        nextLabel="→"
+        previousAriaLabel="Predchádzajúca strana"
+        nextAriaLabel="Ďalšia strana"
+        numberedPages={Array.from({ length: Math.min(result.pages, 7) }, (_, index) =>
+          Math.max(1, Math.min(result.page - 3, result.pages - 6)) + index)}
+        pageHref={(page) => pageHref(type, params, page)}
+        currentPageAsText
+        showDisabledControls={false}
+      />
       </PublicContentShell>
     </PublicFoundation>
   </main></>;
