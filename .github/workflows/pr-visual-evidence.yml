@@ -1,0 +1,112 @@
+name: PR Visual Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+    # Cheap path guard first; expensive steps run only with an explicit PR-body marker.
+    paths:
+      - "app/**"
+      - "components/**"
+      - "public/**"
+      - "styles/**"
+      - "lib/**"
+      - "**/*.css"
+      - "**/*.svg"
+      - "AGENTS.md"
+      - "docs/PR-VISUAL-REVIEW.md"
+      - "scripts/pr-visual-screenshots.mjs"
+      - "tests/pr-visual-screenshots.test.mjs"
+      - ".github/workflows/pr-visual-evidence.yml"
+
+concurrency:
+  group: pr-visual-evidence-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.body, 'VISUAL_REVIEW_ROUTES:') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PR_BODY: ${{ github.event.pull_request.body }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      VISUAL_BASE_URL: http://localhost:5173
+      VISUAL_OUTPUT_DIR: .e2e-artifacts/pr-visual
+      PSIPEDIA_E2E_LOCAL_BOOTSTRAP: "1"
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install application dependencies
+        run: npm ci
+      - name: Validate screenshot contract
+        run: node --test tests/pr-visual-screenshots.test.mjs
+      - name: Build local PR revision
+        run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Apply disposable local D1 migrations
+        run: |
+          mv drizzle/0038_adoption_staging_data.sql "$RUNNER_TEMP/0038_adoption_staging_data.sql"
+          mv drizzle/0039_activate_canonical_adoptions.sql "$RUNNER_TEMP/0039_activate_canonical_adoptions.sql"
+          npx wrangler d1 migrations apply DB --local --config dist/server/wrangler.json --persist-to .wrangler/state
+      - name: Disable outbound automations in preview
+        run: |
+          {
+            echo 'WEB_PUSH_ENABLED=false'
+            echo 'FACEBOOK_IMAGE_PUBLISH_ENABLED=false'
+            echo 'NOTION_ARTICLE_SYNC_ENABLED=false'
+            echo 'NOTION_DIRECTORY_SYNC_ENABLED=false'
+            echo 'NOTION_EVENT_SYNC_ENABLED=false'
+            echo 'NOTION_FACEBOOK_IMAGES_SYNC_ENABLED=false'
+            echo 'GEMINI_EXTERNAL_AGENT_ENABLED=false'
+            echo 'GEMINI_EXTERNAL_AGENT_SCHEDULED_ENABLED=false'
+          } > .dev.vars
+      - name: Start isolated local app
+        run: |
+          mkdir -p .e2e-artifacts/pr-visual
+          nohup npm run dev > .e2e-artifacts/pr-visual/server.log 2>&1 &
+          echo $! > .e2e-artifacts/pr-visual/server.pid
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --fail http://localhost:5173/ > /dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            tail -150 .e2e-artifacts/pr-visual/server.log
+            exit 1
+          fi
+      - name: Capture exact PR code screenshots
+        run: node scripts/pr-visual-screenshots.mjs
+      - name: GitHub run summary
+        if: always()
+        run: |
+          if test -f .e2e-artifacts/pr-visual/summary.md; then
+            cat .e2e-artifacts/pr-visual/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psipedia-pr-visual-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          path: .e2e-artifacts/pr-visual/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop local server
+        if: always()
+        run: |
+          if test -f .e2e-artifacts/pr-visual/server.pid; then
+            kill "$(cat .e2e-artifacts/pr-visual/server.pid)" 2>/dev/null || true
+          fi
