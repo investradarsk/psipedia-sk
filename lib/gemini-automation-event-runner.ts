@@ -1,3 +1,4 @@
+import { enqueueGeminiCreatedProfileNotification } from "@/lib/admin-notifications";
 import { createGeminiEventRequest } from "./gemini-automation-event-contract.ts";
 import { loadGeminiEventMemory, checkGeminiEventDedupe } from "./gemini-automation-event-dedupe.ts";
 import { bridgeGeminiEventToNotion } from "./gemini-automation-event-bridge.ts";
@@ -74,6 +75,18 @@ export async function runGeminiEventCategory(input:{
     await finishGeminiRun(input.database,{id:runId,status:"SUCCESS",at:now().toISOString(),
       requestCount,groundedSearchQueryCount:summary.groundedSearchQueryCount,candidateCount:summary.candidateCount,
       duplicateCount:summary.duplicateCount,conceptCount:summary.conceptCount,errorCount:0});
+    // The canonical operation is complete. Push is observational and must
+    // never mark a successful Gemini run failed if the notification fails.
+    for (const concept of summary.concepts) {
+      try {
+        await enqueueGeminiCreatedProfileNotification(input.database,{
+          type:"EVENT",id:concept.canonicalEntityId,stableKey,runId,
+        });
+      } catch (error) {
+        console.warn(JSON.stringify({event:"gemini_created_notification_failed",
+          reason:error instanceof Error?error.name:"unknown"}));
+      }
+    }
   }catch(error) {
     summary.status="FAILED";
     if(error instanceof GeminiAutomationError) {
