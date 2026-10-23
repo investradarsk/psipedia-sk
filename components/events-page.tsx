@@ -20,7 +20,7 @@ import {
   eventTypePortalHref,
   eventTimeFilterParam,
   eventTypes,
-  type DogEvent,
+  type PublicEventDayPreview,
   type PublicEventCard,
   type EventTimeFilter,
   type EventType,
@@ -47,7 +47,7 @@ export async function EventsPage({
   events: PublicEventCard[];
   filters?: EventListingFilters;
   listing?: {total:number;page:number;pages:number};
-  calendarEvents?: DogEvent[];
+  calendarEvents?: PublicEventDayPreview[];
   calendarSummaries?: {date:string;count:number;types:EventType[]}[];
   initialCalendarMonth?: string;
   initialDay?: string;

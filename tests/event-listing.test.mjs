@@ -52,6 +52,8 @@ test('actual public D1 reads clamp pages and count all 601 events independently 
     assert.equal(listing.total,601);assert.equal(listing.page,51);assert.equal(listing.pages,51);assert.deepEqual(listing.events.map(event=>event.id),[601]);
     const calendar = await getPublicEventCalendar(filters,'2026-10','2026-10-11');
     assert.deepEqual(calendar.summaries.map(summary=>summary.count),[601,601,601]);assert.equal(calendar.events.length,12);assert.deepEqual(calendar.summaries[0].types,['Výstava']);
+    assert.deepEqual(Object.keys(calendar.events[0]).sort(), ['id','slug','title','startDate','startTime','endDate','venue','city','cancelled'].sort());
+    assert.equal(calendar.events[0].title, 'ŽILINSKÁ výstava 1');
     }
   } finally {env.DB=previous;db.close();}
 });
@@ -65,6 +67,22 @@ test('public event listing reads only card fields and keeps complete event detai
   assert.match(listing, /rowToPublicEventCard/);
   assert.match(listing, /thumbnail_display_json/);
   assert.doesNotMatch(listing, /SELECT \*|description|practical_info|seo_json|created_by|updated_by/);
+  assert.match(store, /const getPublishedEventUncached = async/);
+  assert.match(store, /SELECT \* FROM managed_events WHERE slug = \?/);
+});
+
+test('selected-day calendar reads only public preview fields, not full event bodies', async () => {
+  const { readFileSync } = await import('node:fs');
+  const store = readFileSync('lib/event-store.ts', 'utf8');
+  const start = store.indexOf('export async function getPublicEventCalendar(');
+  const end = store.indexOf('export async function getPublishedEvents(', start);
+  const calendar = store.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(calendar, /rowToPublicEventDayPreview/);
+  assert.match(calendar, /all<PublicEventDayRow>\(\)/);
+  assert.doesNotMatch(calendar, /SELECT \*|description|practical_info|seo_json|image_key|contact_note/);
+  assert.match(calendar, /COALESCE\(NULLIF\(end_date,''\),start_date\) >= \?/);
+  assert.match(calendar, /ORDER BY \$\{sql.order\} LIMIT 12/);
   assert.match(store, /const getPublishedEventUncached = async/);
   assert.match(store, /SELECT \* FROM managed_events WHERE slug = \?/);
 });
