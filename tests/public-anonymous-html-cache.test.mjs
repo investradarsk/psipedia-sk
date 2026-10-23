@@ -44,6 +44,8 @@ test("HTML cache is still strictly anonymous and local, not new pre-Worker Worke
   assert.match(worker, /request\.headers\.has\("cookie"\)/);
   assert.match(worker, /request\.headers\.has\("authorization"\)/);
   assert.match(worker, /request\.headers\.has\("cf-access-jwt-assertion"\)/);
+  assert.match(worker, /request\.headers\.has\(USER_EMAIL_HEADER\)/);
+  assert.match(worker, /request\.headers\.has\(ADMIN_AUTHORIZED_HEADER\)/);
   assert.match(worker, /url\.hostname\.toLowerCase\(\) !== "psipedia.sk" \|\| !isExplicitAnonymousHtmlRoute\(url\.pathname\)/);
   assert.match(worker, /!isCacheableHtmlResponse\(response\) && !isExplicitAnonymousSsrHtml\(response, url\.pathname\)/);
   assert.equal(wrangler.cache?.enabled ?? false, false, "Do not enable Worker-wide pre-execution cache for cookie-personalized pages");
