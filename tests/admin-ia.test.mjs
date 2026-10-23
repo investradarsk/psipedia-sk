@@ -203,10 +203,9 @@ test("existing automation reliability contract distinguishes OK EMPTY PARTIAL an
   assert.equal(summarizeAdminAutomationReads([read("a", "UNAVAILABLE"), read("b", "UNAVAILABLE")]).status, "UNAVAILABLE");
 });
 
-test("dashboard count cards point to canonical filtered work queues", () => {
+test("dashboard count cards point to current canonical filtered work queues", () => {
   const dashboard = read("components/admin-workspace-dashboard.tsx");
   for (const pair of [
-    ["AUTOMATION_ACTION", "/admin/operations?source=AUTOMATION_ACTION"],
     ["PARTNER_CLAIM_REVIEW", "/admin/operations?source=PARTNER_CLAIM_REVIEW"],
     ["MODERATION_SUBMISSION", "MODERATION_SUBMISSION"],
     ["PROFILE_REVIEW_MODERATION", "PROFILE_REVIEW_MODERATION"],

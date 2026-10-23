@@ -4,13 +4,14 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("manual source run is detached from the request with Cloudflare waitUntil", () => {
+test("retired manual source run is denied without background dispatch", () => {
   const route = read("app/api/admin/automation-sources/[id]/run/route.ts");
-  assert.match(route, /import \{ env, waitUntil \} from "cloudflare:workers"/);
-  assert.match(route, /waitUntil\(task\)/);
-  assert.match(route, /status: 202/);
+  const helper = read("lib/legacy-automation-retired.ts");
+  assert.match(route, /legacyAutomationRetiredResponse/);
   assert.match(route, /export async function GET/);
-  assert.match(route, /alreadyRunning/);
+  assert.match(route, /export async function POST/);
+  assert.match(helper, /status: 410/);
+  assert.doesNotMatch(route, /waitUntil|runAutomationSourceNow|canonicalDraftWrite/);
 });
 
 test("source detail polls RUNNING background jobs instead of holding one long request", () => {
@@ -32,10 +33,8 @@ test("only one RUNNING job per source is allowed and stale jobs recover", () => 
   assert.match(store, /20 \* 60_000/);
 });
 
-test("background route remains source-review gated, may create drafts, and never auto-publishes", () => {
+test("retired background route has no remaining publication or draft writes", () => {
   const route = read("app/api/admin/automation-sources/[id]/run/route.ts");
-  assert.match(route, /source\.reviewStatus !== "APPROVED"/);
-  assert.match(route, /source\.enabled/);
-  assert.match(route, /canonicalDraftWrite: true, publication: false/);
-  assert.match(route, /runAutomationSourceNow/);
+  assert.match(route, /legacyAutomationRetiredResponse/);
+  assert.doesNotMatch(route, /runAutomationSourceNow|canonicalDraftWrite|publication: true|waitUntil/);
 });

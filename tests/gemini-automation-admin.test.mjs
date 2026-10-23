@@ -59,11 +59,11 @@ function valid(overrides = {}) {
   };
 }
 
-test("A: legacy and Gemini navigation are separate with correct active paths and breadcrumbs", () => {
+test("A: the single Gemini navigation owns legacy deep links and breadcrumbs", () => {
   assert.equal(findActiveAdminNavigationItem("/admin/automatizacie")?.label, "Automatizácie");
-  assert.equal(findActiveAdminNavigationItem("/admin/automatizacie-gemini")?.label, "Automatizácie Gemini");
+  assert.equal(findActiveAdminNavigationItem("/admin/automatizacie-gemini")?.label, "Automatizácie");
   assert.equal(findActiveAdminNavigationItem("/admin/automatizacie-gemini")?.href, "/admin/automatizacie-gemini");
-  assert.equal(getAdminBreadcrumbs("/admin/automatizacie-gemini").at(-1)?.label, "Automatizácie Gemini");
+  assert.equal(getAdminBreadcrumbs("/admin/automatizacie-gemini").at(-1)?.label, "Automatizácie");
   assert.ok(source("components/admin-navigation.tsx").includes("NavigationGroups mobile"));
 });
 
@@ -190,11 +190,15 @@ test("J, K and M: settings save never performs network, Gemini runs or Notion wr
   assert.doesNotMatch(source("app/api/admin/gemini-automation/route.ts"), /generateContent|runGeminiAutomation|notion|tavily/i);
 });
 
-test("L: legacy automation remains untouched and runtime cron is not wired", () => {
-  assert.match(source("app/admin/automatizacie/page.tsx"), /AdminShell/);
+test("L: old automation is retired while Gemini and new quality scheduler survive", () => {
+  assert.match(source("app/admin/automatizacie/page.tsx"), /redirect\("\/admin\/automatizacie-gemini"\)/);
   assert.match(source("wrangler.jsonc"), /"\*\/5 \* \* \* \*"/);
   const geminiPage = source("app/admin/automatizacie-gemini/page.tsx");
+  const worker = source("worker/index.ts");
   assert.doesNotMatch(geminiPage, /runDataAutomation|TavilyAutomation|runGeminiAutomation/);
+  assert.match(worker, /runQualityMissingHourly\(/);
+  assert.doesNotMatch(worker, /runDataAutomationSweep\(/);
+  assert.doesNotMatch(worker, /runDataAutomationDiscoverySweep\(/);
 });
 
 test("scoped CI catches new Gemini admin paths without broad automation or full-core tests", () => {
