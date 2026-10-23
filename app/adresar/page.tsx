@@ -23,13 +23,14 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     description: directoryLandingSeo.description,
     path: "/adresar",
     searchParams: await searchParams,
+    indexPagination: true,
   });
 }
 
 export default async function DirectoryHomePage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const filters = parseDirectoryFilters(rawSearchParams);
-  const policy = resolveListingIndexPolicy("/adresar", rawSearchParams);
+  const policy = resolveListingIndexPolicy("/adresar", rawSearchParams, { indexPagination: true });
   const cleanedUrl = directoryEmptyQueryRedirect("/adresar", rawSearchParams, filters);
   if (cleanedUrl) redirect(cleanedUrl);
   // Only one listing is rendered on the root; avoid unused overview/count queries.
