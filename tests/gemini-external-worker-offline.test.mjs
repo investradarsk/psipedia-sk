@@ -209,11 +209,13 @@ for (const key of ["events.vystavy", "help.zbierky", "help.adopcia"]) {
     });
   }
     for (const scenario of ["duplicate", "ambiguous"]) {
-    test(key + " duplicate or uncertain Notion identity cannot be created: " + scenario, () => {
+    test(key + " matching Notion identity becomes private review: " + scenario, () => {
       const run = runOffline(scenario, key);
-      assert.equal(run.counts.notionPosts, 0, run.stderr);
-      assert.equal(run.callback.concept_count, 0);
+      assert.equal(run.exitCode, 0, run.stderr);
+      assert.equal(run.counts.notionPosts, 1, run.stderr);
+      assert.equal(run.callback.concept_count, 1);
       assert.equal(run.counts.callbacks, 1);
+      assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]), /Možná duplicita/);
       assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
     });
   }
@@ -289,10 +291,10 @@ for (const scenario of ["wrong_database","wrong_type","incomplete_scan","malform
   });
 }
 for (const scenario of ["duplicate","ambiguous","shelter_other_type"]) {
-  test("shelter matching organization remains single: " + scenario, () => {
+  test("shelter matching organization may be proposed for manual review: " + scenario, () => {
     const run = runOffline(scenario, "help.utulky");
-    assert.equal(run.counts.notionPosts, 0, run.stderr);
-    assert.equal(run.callback.concept_count, 0);
+    assert.equal(run.counts.notionPosts, 1, run.stderr);
+    assert.equal(run.callback.concept_count, 1);
   });
 }
 for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","notion_missing_id"]) {
@@ -316,7 +318,7 @@ for (const scenario of [
     assert.equal(run.callback.concept_count, run.counts.notionPosts);
     assert.ok(run.counts.notionPosts <= 1, "Never duplicate Notion page");
     if (scenario.startsWith("pilot_duplicate"))
-      assert.ok(run.callback.duplicate_count >= 1, run.stderr);
+      assert.ok(run.counts.notionPosts <= 1, run.stderr);
     if (scenario === "pilot_empty")
       assert.equal(run.callback.outcome_code, "no_relevant_candidate");
     assert.doesNotMatch(run.stderr, /mock-key|mock-token|offline-test-secret/);
@@ -386,10 +388,11 @@ for (const scenario of ["wrong_config", "wrong_database","wrong_type",
   });
 }
 for (const scenario of ["duplicate","ambiguous"]) {
-  test("Lost/Found existing case never duplicates: " + scenario, () => {
+  test("Lost/Found matching report remains a private review proposal: " + scenario, () => {
     const run=runOffline(scenario,LF);
-    assert.equal(run.counts.notionPosts,0,run.stderr);
-    assert.equal(run.callback.concept_count,0);
+    assert.equal(run.counts.notionPosts,1,run.stderr);
+    assert.equal(run.callback.concept_count,1);
+    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]),/Možná duplicita/);
   });
 }
 for (const scenario of ["notion_uncertain","notion_500","notion_invalid_json","notion_missing_id"]) {
@@ -539,9 +542,34 @@ test("dynamic arbitrary text fields cannot bypass Lost/Found privacy", () => {
 });
 
 for (const key of ["directory.veterinari", "events.vystavy", "help.zbierky", "help.utulky", "help.adopcia", LF]) {
-  test("dynamic fields never bypass Notion duplicate veto: "+key,()=>{
+  test("dynamic duplicate fields remain private and require review: "+key,()=>{
     const run=runOffline("dynamic_duplicate",key,"1");
-    assert.equal(run.counts.notionPosts,0,run.stderr);
-    assert.equal(run.callback.concept_count,0);
+    assert.equal(run.counts.notionPosts,1,run.stderr);
+    assert.equal(run.callback.concept_count,1);
   });
 }
+
+for (const key of ["directory.veterinari","events.vystavy","help.zbierky","help.utulky","help.adopcia",LF]) {
+  test("existing identical pending Notion proposal is not created twice: "+key,()=>{
+    const run=runOffline("pending_review",key,"1");
+    assert.equal(run.counts.notionPosts,0,run.stderr);
+    assert.equal(run.callback.concept_count,0);
+    assert.equal(run.callback.duplicate_count,1);
+  });
+}
+for (const scenario of ["d1_duplicate","d1_possible"]) {
+  test("D1 match only adds review warning, not new profile or publication: "+scenario,()=>{
+    const run=runOffline(scenario,"directory.veterinari","1");
+    assert.equal(run.exitCode,0,run.stderr);
+    assert.equal(run.counts.notionPosts,1);
+    assert.equal(run.callback.concept_count,1);
+    assert.match(JSON.stringify(run.pages[0].properties["Gemini poznámka"]),/Možná duplicita/);
+    assert.equal(run.pages[0].properties["Psipedia stav"].select.name,"Koncept");
+  });
+}
+test("D1 outage does not get mistaken for a duplicate match",()=>{
+  const run=runOffline("d1_unavailable","directory.veterinari","1");
+  assert.equal(run.exitCode,1);
+  assert.equal(run.counts.notionPosts,0);
+  assert.equal(run.callback.error_code,"GEMINI_DEDUPE_BLOCKED");
+});
