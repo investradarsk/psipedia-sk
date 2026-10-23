@@ -24,6 +24,14 @@ const AUTH_ACCOUNT_IDS = {
   "mobile-chromium": "partner-e2e-mobile",
 } as const;
 
+async function openMobileMenu(page: Page) {
+  // The SSR trigger is visible before SiteHeader attaches its React handlers.
+  await expect(page.locator('[data-search-ready="true"]')).toBeAttached();
+  const trigger = page.getByRole("button", { name: "Otvoriť menu" });
+  await trigger.click();
+  await expect(page.getByRole("button", { name: "Zavrieť menu" })).toHaveAttribute("aria-expanded", "true");
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const metrics = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -164,7 +172,7 @@ test("public header exposes Partner login as a utility action without overflow",
   await page.goto("/");
   await dismissCookieConsent(page);
   if(testInfo.project.name==="mobile-chromium"){
-    await page.getByRole("button",{name:"Otvoriť menu"}).click();
+    await openMobileMenu(page);
     const mobileNav=page.getByRole("navigation",{name:"Mobilná navigácia"});
     const login=mobileNav.getByRole("link",{name:"Partner účet"});
     await expect(login).toBeVisible();
@@ -304,7 +312,7 @@ test("valid one-time link creates a session and exposes membership dashboard/set
   await expect(page.getByRole("heading", { name: "Prehľad" })).toBeVisible();
 
   if (project === "mobile-chromium") {
-    await page.getByRole("button", { name: "Otvoriť menu" }).click();
+    await openMobileMenu(page);
     const mobileNav = page.getByRole("navigation", { name: "Mobilná navigácia" });
     const accountLink = mobileNav.getByRole("link", { name: "Partner účet" });
     await expect(accountLink).toBeVisible();
