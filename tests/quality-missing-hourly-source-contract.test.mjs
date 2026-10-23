@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 const engine = readFileSync(new URL("../lib/data-quality-missing-hourly.ts", import.meta.url), "utf8");
 const page = readFileSync(new URL("../components/admin-missing-quality-dashboard.tsx", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
-const schema = readFileSync(new URL("../drizzle/0140_quality_missing_hourly.sql", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../drizzle/0141_quality_missing_hourly.sql", import.meta.url), "utf8");
 
 test("missing-data sweep covers exactly the three existing portal areas", () => {
   assert.match(engine, /services:\["DIRECTORY"\]/);
