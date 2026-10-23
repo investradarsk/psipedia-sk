@@ -43,7 +43,7 @@ test("SEO recovery: article listings without server pagination remain unindexed 
 
 test("SEO recovery: workers.dev previews get noindex and cannot enter the HTML cache", () => {
   assert.match(workerSource, /const isWorkersDevPreview = url.hostname.toLowerCase\(\).endsWith\("\.workers\.dev"\)/);
-  assert.match(workerSource, /!isWorkersDevPreview && eligiblePublicSitemapRequest\(request\)/);
+  assert.match(workerSource, /if \(eligiblePublicSitemapRequest\(request\)\) \{[\s\S]*?if \(isWorkersDevPreview\)/);
   assert.match(workerSource, /if \(isWorkersDevPreview\) \{[\s\S]*?"X-Robots-Tag": "noindex, nofollow",[\s\S]*?"Cache-Control": "private, no-store"/);
-  assert.match(workerSource, /if \(url.hostname.toLowerCase\(\).endsWith\("\.workers\.dev"\)\) return null/);
+  assert.match(workerSource, /url.hostname.toLowerCase\(\) !== "psipedia.sk" \|\| !isExplicitAnonymousHtmlRoute\(url.pathname\)/);
 });
