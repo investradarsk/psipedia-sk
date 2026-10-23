@@ -21,6 +21,7 @@ type DirectoryAdminRow = {
   verified: number;
   featured: number;
   updated_at: string;
+  reviewed_at: string;
 };
 
 export type ManagedDirectoryAdminPage = {
@@ -71,19 +72,8 @@ function rowToSummary(row: DirectoryAdminRow, reviewedAt = ""): ManagedDirectory
 export async function getManagedDirectoryAdminPage(filters: DirectoryAdminFilters): Promise<ManagedDirectoryAdminPage> {
   const database = requireD1Binding();
   const result = await queryDirectoryAdmin<DirectoryAdminRow>(database, filters, allDirectoryCategories);
-  const reviewedAtById = new Map<number, string>();
-  if (result.items.length) {
-    const placeholders = result.items.map(() => "?").join(",");
-    const reviewRows = await database.prepare(`
-      SELECT id,
-        COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
-      FROM directory_profiles
-      WHERE id IN (${placeholders})
-    `).bind(...result.items.map((profile) => profile.id)).all<{ id: number; reviewed_at: string }>();
-    for (const row of reviewRows.results) reviewedAtById.set(row.id, row.reviewed_at?.trim() ?? "");
-  }
   return {
-    profiles: result.items.map((row) => rowToSummary(row, reviewedAtById.get(row.id) ?? "")),
+    profiles: result.items.map((row) => rowToSummary(row, row.reviewed_at?.trim() ?? "")),
     counts: result.counts,
     resultCount: result.resultCount,
     pagination: {

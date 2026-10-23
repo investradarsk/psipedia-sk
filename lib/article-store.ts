@@ -993,7 +993,19 @@ export async function listManagedArticleSummaries(options: {
   const filteredQuery = buildArticleAdminListQuery(filters, options.portalSection, now);
   const globalWhere = options.portalSection ? "WHERE portal_section = ?" : "";
   const globalBindings = options.portalSection ? [options.portalSection] : [];
-  const [filteredCountResult, countResult] = await database.batch([
+  // The page read is independent of total counts on valid URLs; run it
+  // alongside the existing batched counters and refetch only when clamped.
+  const loadPage = (query: ReturnType<typeof buildArticleAdminListQuery>) =>
+    database.prepare(`
+      SELECT id, slug, title, excerpt, category, portal_section, news_category,
+        ${articleEffectiveStatusSql()} AS status, accent, image_url, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json, updated_at
+      FROM managed_articles
+      ${query.where}
+      ORDER BY ${query.orderBy}
+      LIMIT ? OFFSET ?
+    `).bind(now, ...query.bindings, query.pageSize, query.offset).all<ArticleSummaryRow>();
+  const [[filteredCountResult, countResult], requestedResult] = await Promise.all([
+    database.batch([
     database.prepare(`SELECT COUNT(*) AS total FROM managed_articles ${filteredQuery.where}`)
       .bind(...filteredQuery.bindings),
     database.prepare(`
@@ -1008,6 +1020,8 @@ export async function listManagedArticleSummaries(options: {
       ) AS article_statuses
       ${globalWhere}
     `).bind(now, ...globalBindings),
+    ]),
+    loadPage(filteredQuery),
   ]);
   const resultCount = Number((filteredCountResult.results?.[0] as { total?: number } | undefined)?.total ?? 0);
   const rawCounts = (countResult.results?.[0] ?? null) as unknown as ArticleCountRow | null;
@@ -1019,15 +1033,9 @@ export async function listManagedArticleSummaries(options: {
   };
   const totalPages = Math.max(1, Math.ceil(resultCount / filteredQuery.pageSize));
   const page = Math.min(filteredQuery.page, totalPages);
-  const pageQuery = buildArticleAdminListQuery({ ...filters, page }, options.portalSection, now);
-  const listResult = await database.prepare(`
-    SELECT id, slug, title, excerpt, category, portal_section, news_category,
-      ${articleEffectiveStatusSql()} AS status, accent, image_url, image_display, image_focus_x, image_focus_y, thumbnail_display_json, detail_display_json, updated_at
-    FROM managed_articles
-    ${pageQuery.where}
-    ORDER BY ${pageQuery.orderBy}
-    LIMIT ? OFFSET ?
-  `).bind(now, ...pageQuery.bindings, pageQuery.pageSize, pageQuery.offset).all<ArticleSummaryRow>();
+  const listResult = page === filteredQuery.page
+    ? requestedResult
+    : await loadPage(buildArticleAdminListQuery({ ...filters, page }, options.portalSection, now));
   return {
     articles: listResult.results.map(rowToManagedArticleSummary),
     counts,
@@ -1035,7 +1043,7 @@ export async function listManagedArticleSummaries(options: {
     availability: resultCount > 0 ? "OK" : "EMPTY",
     pagination: {
       page,
-      pageSize: pageQuery.pageSize,
+      pageSize: filteredQuery.pageSize,
       total: resultCount,
       totalPages,
     },

@@ -196,10 +196,14 @@ export async function queryDirectoryAdmin<T>(
   const categoryWhere = membership.category ? " WHERE category = ?" : "";
   const categoryArgs = membership.category ? [membership.category] : [];
 
-  // Counts and global location filters are independent reads. Start them in
-  // parallel, and combine the three DISTINCT scans into one D1 request.
-  // Only the bounded page depends on the filtered count (for page clamping).
-  const [totals, count, locations] = await Promise.all([
+  // Launch the bounded page together with counters and location facets:
+  // only out-of-range URLs need a second read for the clamped last page.
+  const requestedPage = Math.max(1, Math.trunc(filters.page || 1));
+  const loadPage = (page: number) => database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at,
+      COALESCE(json_extract(source_data_json, '$._psipedia_profile_review_reviewed_at'), '') AS reviewed_at
+    FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
+    .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
+  const [totals, count, locations, requestedResult] = await Promise.all([
     database.prepare(`SELECT COUNT(*) AS total,
       COUNT(CASE WHEN status = 'published' THEN 1 END) AS published,
       COUNT(CASE WHEN status = 'draft' THEN 1 END) AS draft,
@@ -216,13 +220,12 @@ export async function queryDirectoryAdmin<T>(
       SELECT DISTINCT 'city' AS kind, city AS value
       FROM directory_profiles WHERE trim(city) <> ''
       ORDER BY kind, value`).all<{ kind: "region" | "district" | "city"; value: string }>(),
+    loadPage(requestedPage),
   ]);
   const resultCount = Number(count?.count ?? 0);
   const pages = Math.max(1, Math.ceil(resultCount / safePageSize));
-  const page = Math.min(Math.max(1, Math.trunc(filters.page || 1)), pages);
-  const result = await database.prepare(`SELECT id, slug, name, category, status, services_json, city, district, region, image_url, verified, featured, updated_at
-    FROM directory_profiles${membershipQuery.where} ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`)
-    .bind(...membershipQuery.args, safePageSize, (page - 1) * safePageSize).all<T>();
+  const page = Math.min(requestedPage, pages);
+  const result = page === requestedPage ? requestedResult : await loadPage(page);
   const values = (kind: "region" | "district" | "city") =>
     locations.results
       .filter((row) => row.kind === kind)
