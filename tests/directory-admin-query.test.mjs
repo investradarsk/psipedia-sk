@@ -32,9 +32,9 @@ function fixture() {
   sqlite.exec(`CREATE TABLE directory_profiles (
     id INTEGER PRIMARY KEY, slug TEXT, name TEXT, category TEXT, status TEXT, services_json TEXT,
     city TEXT, district TEXT, region TEXT, image_url TEXT, verified INTEGER, featured INTEGER,
-    updated_at TEXT
+    updated_at TEXT, source_data_json TEXT
   )`);
-  const insert = sqlite.prepare("INSERT INTO directory_profiles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
+  const insert = sqlite.prepare("INSERT INTO directory_profiles (id,slug,name,category,status,services_json,city,district,region,image_url,verified,featured,updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)");
   for (let i = 1; i <= 127; i++) {
     const zilina = i === 61;
     insert.run(
@@ -54,6 +54,7 @@ function fixture() {
   }
   insert.run(128, "trener-bratislava", "EduDog", "treneri", "draft", JSON.stringify(["Poslušnosť"]), "Bratislava", "Bratislava I", "Bratislavský kraj", null, 1, "128");
   insert.run(129, "salon-trnava", "Psí salón", "salony-a-sluzby", "published", JSON.stringify(["Kúpanie"]), "Trnava", "Trnava", "Trnavský kraj", "https://example.test/salon.jpg", 0, "129");
+  sqlite.prepare("UPDATE directory_profiles SET source_data_json = ? WHERE id = 127").run(JSON.stringify({ _psipedia_profile_review_reviewed_at: "2026-10-23T08:00:00Z" }));
   const db = {
     prepare(query) {
       return {
@@ -89,9 +90,13 @@ test("directory listing reduces D1 reads to four while preserving global locatio
   };
   const result = await queryDirectoryAdmin(tracked, filters({ category: "veterinari", page: 3 }), categories);
   assert.equal(statements.length, 4, "totals, matched count, combined locations, bounded page");
+  assert.match(statements.at(-1), /json_extract\(source_data_json/);
+  assert.match(statements.at(-1), /AS reviewed_at/);
   assert.equal(statements.filter((sql) => /SELECT DISTINCT 'region' AS kind/.test(sql)).length, 1);
   assert.equal(result.page, 3);
   assert.equal(result.items.length, 27);
+  assert.equal(result.items[0].reviewed_at, "2026-10-23T08:00:00Z");
+  assert.equal(result.items[1].reviewed_at, "");
   assert.deepEqual(result.options.regions, ["Bratislavský kraj", "Nitriansky kraj", "Trnavský kraj", "Žilinský kraj"]);
   assert.deepEqual(result.options.cities, ["Bratislava", "Nitra", "Trnava", "Žilina"]);
   assert.equal(result.counts.total, 127);
