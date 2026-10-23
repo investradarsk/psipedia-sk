@@ -1,3 +1,4 @@
+import { enqueueGeminiCreatedProfileNotification } from "@/lib/admin-notifications";
 import { getGeminiCatalogItem } from "./gemini-automation-catalog.ts";
 import { directoryCategories } from "./directory.ts";
 import { loadGeminiCategoryMemory } from "./gemini-automation-category-memory.ts";
@@ -173,6 +174,18 @@ export async function runGeminiDirectoryCategory(input: {
       candidateCount: summary.candidateCount, duplicateCount: summary.duplicateCount,
       conceptCount: summary.conceptCount, errorCount: 0,
     });
+    // The canonical operation is complete. Push is observational and must
+    // never mark a successful Gemini run failed if the notification fails.
+    for (const concept of summary.concepts) {
+      try {
+        await enqueueGeminiCreatedProfileNotification(input.database,{
+          type:"DIRECTORY",id:concept.canonicalEntityId,stableKey,runId,
+        });
+      } catch (error) {
+        console.warn(JSON.stringify({event:"gemini_created_notification_failed",
+          reason:error instanceof Error?error.name:"unknown"}));
+      }
+    }
   } catch (error) {
     summary.status = "FAILED";
     // Bridge and DB failures are not misrepresented as provider failures.
