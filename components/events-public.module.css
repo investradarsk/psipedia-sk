@@ -1935,7 +1935,7 @@
 .sidebarHeading a { font-size:.8rem; }
 .sidebarContent form { display:grid; gap:14px; margin-top:20px; }
 .sidebarContent label, .listHeading form label { display:grid; gap:6px; font-size:.85rem; font-weight:600; }
-.sidebarContent input:not([type=radio]), .sidebarContent select, .listHeading select { width:100%; min-width:0; min-height:44px; border:1px solid #cbd6cc; border-radius:8px; background:white; padding:8px; font:inherit; }
+.sidebarContent input:not([type=radio]), .sidebarContent select, .listHeading select { width:100%; min-width:0; min-height: var(--ps-filter-control-min-height); border: var(--ps-filter-events-border); border-radius: var(--ps-filter-events-border-radius); background: var(--ps-filter-events-background); padding: var(--ps-filter-events-padding); font:inherit; }
 .sidebarContent fieldset { border:0; padding:0; margin:0; min-width:0; }
 .sidebarContent legend { font-weight:700; margin-bottom:6px; }
 .sidebarContent .typeChoice { display:flex; align-items:center; gap:8px; min-height:44px; }
@@ -2022,12 +2022,12 @@
 .cardGrid { gap: var(--ps-ds5-grid-gap, 16px); }
 .gridCard {
   border-radius: var(--ps-radius-card, 22px);
-  box-shadow: 0 5px 17px rgba(23, 53, 43, 0.045);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  box-shadow: var(--ps-ds5-card-shadow);
+  transition: var(--ps-ds5-card-transition);
 }
 .gridCard:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  transform: var(--ps-ds5-card-hover-transform);
+  box-shadow: var(--ps-ds5-card-hover-shadow);
 }
 .gridMedia { background: var(--sage-light); }
 .gridBody { padding: var(--ps-ds5-card-padding, 18px); }

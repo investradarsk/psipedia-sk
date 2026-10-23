@@ -143,7 +143,8 @@ test("approved desktop A and mobile B render a single canonical set of category 
   assert.match(component, /data-directory-active-filters/);
   assert.match(component, /directoryQueryFields\(filters, \["page"\]\)/);
   // Chip removal needs reliable, no-JS-friendly full GET navigation.
-  assert.match(component, /<a className=\{styles\.chip\} key=\{key\} href=\{clearOneHref\(key\)\}/);
+  assert.match(component, /<PublicFilterTag key=\{key\} href=\{clearOneHref\(key\)\}/);
+  assert.match(read("components/public-visual-system/public-result-states.tsx"), /return <a className=.*href=\{href\}/);
   assert.match(component, /<a className=\{styles\.clearAll\} href=\{basePath\}>Vymazať všetko<\/a>/);
   assert.doesNotMatch(component, /<Link className=\{styles\.chip\}/);
   assert.match(directory, /mapHref=\{mapHref\(filters, active\?\.slug\)\}/);

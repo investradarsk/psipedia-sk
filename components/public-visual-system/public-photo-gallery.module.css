@@ -36,3 +36,32 @@
 @media (max-width: 360px) {
   .gallery { gap: 8px; }
 }
+
+/* Existing presentations; keep their distinct crops, captions and breakpoints. */
+.breed {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  padding-top: 30px;
+}
+.breed figure { margin: 0; overflow: hidden; border-radius: 0; background: var(--paper); box-shadow: var(--shadow-sm); }
+.breed img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.breed figcaption { padding: 12px 15px; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.breed figcaption span { font-weight: 700; }
+
+.editorial { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.editorial figure { margin: 0; }
+.editorial [data-photo-size="wide"] { grid-column: 1 / -1; }
+.editorial img { width: 100%; aspect-ratio: 4 / 3; border-radius: 0; object-fit: cover; }
+.editorial [data-photo-size="wide"] img { aspect-ratio: 16 / 9; max-height: 620px; }
+.editorial figcaption { display: grid; gap: 2px; margin-top: 7px; color: #69766f; font-family: "Avenir Next", Avenir, sans-serif; font-size: .8rem; line-height: 1.45; text-align: center; }
+:global(.article-blocks--preview) .editorial { gap: 7px; }
+@media (max-width: 680px) {
+  .editorial { grid-template-columns: 1fr; }
+}
+
+.report { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.report img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 9px; }
+@media (max-width: 650px) {
+  .report { grid-template-columns: 1fr 1fr; }
+}

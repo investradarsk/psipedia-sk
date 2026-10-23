@@ -1,5 +1,7 @@
 "use client";
 
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { FciGroup } from "@/lib/content";
 import type { BreedAtlasCard } from "@/lib/breed-store";
@@ -94,9 +96,9 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
         {!hidePrimarySearch && <label className="inline-search breed-search-primary">
           <SearchIcon size={22} />
           <span className="sr-only">Hľadať plemeno podľa názvu, pôvodu alebo FCI skupiny</span>
-          <input value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno, krajinu alebo FCI skupinu" />
+          <PublicTextInput appearance="context" value={query} onChange={(event) => {setQuery(event.target.value);setShown(60);}} placeholder="Hľadať plemeno, krajinu alebo FCI skupinu" />
         </label>}
-        <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><select value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</select></label>
+        <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><PublicSelect appearance="context" value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</PublicSelect></label>
       </div>
       {actions}
       <div className="fci-filter-panel" aria-label="FCI skupiny">
@@ -118,14 +120,14 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
         </div>
         <label className="fci-section-filter">
           <span>FCI sekcia</span>
-          <select
+          <PublicSelect appearance="context"
             value={selectedSection}
             disabled={selectedGroup === "all" || sectionOptions.length === 0}
             onChange={(event) => { setSelectedSection(event.target.value); setShown(60); }}
           >
             <option value="">{selectedGroup === "all" ? "Najprv vyberte FCI skupinu" : sectionOptions.length ? "Všetky sekcie" : "Skupina nemá členené sekcie"}</option>
             {sectionOptions.map((section) => <option value={section.number} key={section.number}>Sekcia {section.number}{section.name ? ` · ${section.name}` : ""}</option>)}
-          </select>
+          </PublicSelect>
         </label>
       </div>
       <p className="result-count" aria-live="polite">{breedCountLabel(visible.length)}</p>
@@ -148,7 +150,7 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
           {displayed.length<visible.length&&<div className="breed-load-more"><button type="button" className="button button--dark" onClick={()=>setShown((value)=>value+60)}>Zobraziť ďalšie plemená</button><span>{displayed.length} z {visible.length}</span></div>}
         </div>
       ) : (
-        <div className="empty-state"><span>🐕</span><h2>Také plemeno tu zatiaľ nemáme</h2><p>Skús inú časť názvu alebo zruš filter.</p></div>
+        <PublicEmptyState variant="listing" icon="🐕" title="Také plemeno tu zatiaľ nemáme" description="Skús inú časť názvu alebo zruš filter." />
       )}
     </div>
   );

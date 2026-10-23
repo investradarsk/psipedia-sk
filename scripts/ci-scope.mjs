@@ -375,7 +375,7 @@ export function productionSmokeRequired(result, {
 
 // Focused legacy suites follow changed source files, never historical branch names.
 // Production sitemap diagnostics deliberately have narrower scope than preview checks.
-const SEO_RECOVERY_RE = /^(?:app\/(?:sitemap|robots)\.ts$|lib\/(?:[a-z-]*sitemap[a-z-]*|seo[a-z-]*|article-seo|content-seo|directory-profile-metadata)\.ts$|tests\/(?:seo-|sitemap-|rendered-html)[^/]*\.test\.mjs$|tests\/e2e\/seo-recovery\.spec\.ts$)/;
+const SEO_RECOVERY_RE = /^(?:scripts\/start-public-regression-ci\.sh$|tests\/fixtures\/public-regression-ci\.sql$|app\/(?:sitemap|robots)\.ts$|lib\/(?:[a-z-]*sitemap[a-z-]*|seo[a-z-]*|article-seo|content-seo|directory-profile-metadata)\.ts$|tests\/(?:seo-|sitemap-|rendered-html)[^/]*\.test\.mjs$|tests\/e2e\/seo-recovery\.spec\.ts$)/;
 const SITEMAP_DIAGNOSTIC_RE = /^(?:app\/(?:sitemap|robots)\.ts$|lib\/[a-z-]*sitemap[a-z-]*\.ts$|tests\/(?:sitemap-|seo-recovery)[^/]*\.test\.mjs$|tests\/e2e\/seo-recovery\.spec\.ts$)/;
 const LOST_FOUND_PR_RE = /^(?:app\/pomoc-psom\/(?:stratene-psy|najdene-psy)\/|app\/api\/(?:lost-found|public\/lost-found)\/|components\/lost-found|lib\/lost-found|tests\/(?:lost-found|e2e\/lost-found-dogs\.spec\.ts)|scripts\/(?:bootstrap|audit)-lost-found)/;
 

@@ -10,10 +10,7 @@ import { canonicalBreedRedirect } from "../lib/breed-canonical";
 import { runDirectoryInquiryReminderSweep } from "../lib/directory-inquiry-notifications";
 import { runDirectoryExactGeoBacklog } from "../lib/directory-exact-geo-auto";
 import { runAdminPushSweep } from "../lib/admin-push";
-import { runDataAutomationSweep } from "../lib/data-automation-runner";
 import { runQualityMissingHourly } from "../lib/data-quality-missing-hourly.ts";
-import { runDataAutomationDiscoverySweep } from "../lib/data-automation-discovery-runner";
-import { TavilyAutomationSearchProvider } from "../lib/data-automation-search-tavily";
 import { runEditorialNotificationSweep } from "../lib/editorial-notifications";
 import { runPartnerNotificationSweep } from "../lib/partner-email";
 import { cleanupPartnerMedia } from "../lib/partner-media";
@@ -433,33 +430,8 @@ const worker = {
       _ctx.waitUntil(notionArticleTask);
     }
     if (!isFullHourlyScheduledSweep(controller)) {
-      const [adminPush, dataAutomation, sourceDiscovery, notionDirectoryBackfill, notionEshopBackfill, geminiManualQueue] = await Promise.all([
+      const [adminPush, notionDirectoryBackfill, notionEshopBackfill, geminiManualQueue] = await Promise.all([
         runScheduledAdminPush(env),
-        runDataAutomationSweep({
-          database: env.DB,
-          tavilyApiKey: env.TAVILY_API_KEY,
-          internetTransport: "TAVILY_ONLY",
-        }).catch((error) => {
-          console.error(JSON.stringify({
-            event: "data_automation_sweep",
-            result: "failed",
-            error: error instanceof Error ? error.message : String(error),
-          }));
-          return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
-        }),
-        runDataAutomationDiscoverySweep({
-          database: env.DB,
-          searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
-          tavilyApiKey: env.TAVILY_API_KEY,
-          internetTransport: "TAVILY_ONLY",
-        }).catch((error) => {
-          console.error(JSON.stringify({
-            event: "data_automation_discovery_sweep",
-            result: "failed",
-            error: error instanceof Error ? error.message : String(error),
-          }));
-          return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
-        }),
         observeScheduledAutomation({
           database: env.DB, scheduledTime: controller.scheduledTime,
           system: "notion", automationId: "directory-bootstrap", label: "Notion — adresár backfill",
@@ -496,8 +468,6 @@ const worker = {
       ]);
       console.info(JSON.stringify({event:"gemini_manual_background_queue_sweep",...geminiManualQueue}));
       console.info(JSON.stringify({ event: "admin_push_sweep", cadence: "five_minute", ...adminPush }));
-      console.info(JSON.stringify({ event: "data_automation_sweep", cadence: "five_minute_due_check", ...dataAutomation }));
-      console.info(JSON.stringify({ event: "data_automation_discovery_sweep", cadence: "five_minute_due_check", ...sourceDiscovery }));
       console.info(JSON.stringify({ event: "notion_directory_backfill_sweep", cadence: "five_minute", ...notionDirectoryBackfill }));
       console.info(JSON.stringify({ event: "notion_eshop_backfill_sweep", cadence: "five_minute", ...notionEshopBackfill }));
       return;
@@ -505,7 +475,7 @@ const worker = {
     const notionEventsHelpEnabled = ["1", "true"].includes(
       (env.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED ?? "").trim().toLowerCase(),
     );
-    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionBreeds, notionEvents, notionEventsHelp, notionDirectory, notionEshops, mediaSourceQuality, dataAutomation, sourceDiscovery, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
+    const [summary, editorial, partnerNotifications, reviewAuthorNotifications, notionBreeds, notionEvents, notionEventsHelp, notionDirectory, notionEshops, mediaSourceQuality, partnerMediaCleanup, directoryExactGeo] = await Promise.all([
       runDirectoryInquiryReminderSweep({ database: env.DB, bindings: env }),
       runEditorialNotificationSweep({ database: env.DB, bindings: env }),
       runPartnerNotificationSweep({ database: env.DB, bindings: env }).catch((error) => {
@@ -606,31 +576,6 @@ const worker = {
         }));
         return { schemaReady: false, seeded: 0, checked: 0, ok: 0, candidate: 0, changed: 0, missing: 0, error: 1 };
       }),
-      runDataAutomationSweep({
-        database: env.DB,
-        tavilyApiKey: env.TAVILY_API_KEY,
-        internetTransport: "TAVILY_ONLY",
-      }).catch((error) => {
-        console.error(JSON.stringify({
-          event: "data_automation_sweep",
-          result: "failed",
-          error: error instanceof Error ? error.message : String(error),
-        }));
-        return { sources: 0, success: 0, partial: 0, failed: 1, checked: 0, newFindings: 0, updatedFindings: 0, newDataFindings: 0, sourceErrors: 1, errors: 1, schemaReady: true, runs: [] };
-      }),
-      runDataAutomationDiscoverySweep({
-        database: env.DB,
-        searchProvider: new TavilyAutomationSearchProvider({ apiKey: env.TAVILY_API_KEY }),
-        tavilyApiKey: env.TAVILY_API_KEY,
-        internetTransport: "TAVILY_ONLY",
-      }).catch((error) => {
-        console.error(JSON.stringify({
-          event: "data_automation_discovery_sweep",
-          result: "failed",
-          error: error instanceof Error ? error.message : String(error),
-        }));
-        return { roots: 0, success: 0, partial: 0, failed: 1, candidates: 0, reviewableCandidates: 0, duplicateCandidates: 0, errors: 1, schemaReady: true, runs: [] };
-      }),
       cleanupPartnerMedia({database:env.DB,bucket:env.BUCKET}).catch((error)=>{
         console.error(JSON.stringify({event:"partner_media_cleanup",result:"failed",error:error instanceof Error?error.message:String(error)}));
         return {candidates:0,cleaned:0,failed:1};
@@ -673,8 +618,6 @@ const worker = {
     console.info(JSON.stringify({ event: "notion_directory_sync_sweep", ...notionDirectory }));
     console.info(JSON.stringify({ event: "notion_eshop_sync_sweep", ...notionEshops }));
     console.info(JSON.stringify({ event: "media_source_quality_sweep", ...mediaSourceQuality }));
-    console.info(JSON.stringify({ event: "data_automation_sweep", ...dataAutomation }));
-    console.info(JSON.stringify({ event: "data_automation_discovery_sweep", ...sourceDiscovery }));
     console.info(JSON.stringify({ event: "partner_media_cleanup", ...partnerMediaCleanup }));
     console.info(JSON.stringify({ event: "geo_a2_auto_sweep", ...directoryExactGeo }));
     console.info(JSON.stringify({ event: "admin_push_sweep", ...adminPush }));
