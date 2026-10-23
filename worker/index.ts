@@ -208,7 +208,7 @@ const worker = {
     // Public XML only: a warm POP may safely serve its most recent validated
     // snapshot when D1/SSR has a transient error. Never cache authenticated,
     // queried or private requests; public HTML caching remains separate.
-    if (!isWorkersDevPreview && eligiblePublicSitemapRequest(request)) {
+    if (eligiblePublicSitemapRequest(request) && !isWorkersDevPreview) {
       const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
       return servePublicSitemap(request, () => handler.fetch(request, env, ctx), storage, ctx);
     }
@@ -679,6 +679,8 @@ function publicHtmlCache(request: Request, url: URL, workerVersionId?: string): 
   if (request.headers.has("authorization") || request.headers.has("cookie") || request.headers.has("cf-access-jwt-assertion")) return null;
   // Reject any request carrying synthetic/verified identity signals as well.
   if (request.headers.has(USER_EMAIL_HEADER) || request.headers.has(ADMIN_AUTHORIZED_HEADER) || request.headers.has(AUTH_PROVIDER_HEADER)) return null;
+  // Next client/RSC/navigation variants are never normal document HTML.
+  if (["rsc", "next-router-state-tree", "next-router-prefetch", "next-url", "purpose"].some((name) => request.headers.has(name))) return null;
   const accept = request.headers.get("accept") ?? "";
   if (accept && !accept.includes("text/html") && !accept.includes("*/*")) return null;
   const storage = (globalThis as unknown as { caches?: { default?: Cache } }).caches?.default;
