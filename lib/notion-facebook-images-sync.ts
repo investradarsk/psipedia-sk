@@ -1,3 +1,4 @@
+import { enqueueAdminNotificationEvent } from "@/lib/admin-notifications";
 import {exportFacebookAdminChanges} from "@/lib/notion-facebook-images-admin-export";
 import {facebookImageScheduleV2Policy,notionFacebookScheduleV2Decision} from "@/lib/facebook-image-schedule-v2";
 import {facebookSafeRetryEnabled,requireFacebookSafeRetrySchema} from "@/lib/facebook-image-publisher";
@@ -258,18 +259,30 @@ export async function runNotionFacebookImagesSync({
       }
       const updatedAt=now.toISOString();
       if(!current) {
+        const postId=crypto.randomUUID();
         const sql="INSERT OR IGNORE INTO facebook_image_posts "+
           "(id,title,image_url,image_key,caption,scheduled_at,status,approval_status,"+
           "approved_at,approved_by,notion_page_id,sync_hash,created_at,updated_at,created_by,updated_by) "+
           "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
         const result=await db.prepare(sql).bind(
-          crypto.randomUUID(),title,image.url,image.key,snap.caption,
+          postId,title,image.url,image.key,snap.caption,
           targetAt,targetStatus,
           scheduled?"APPROVED":"UNREVIEWED",scheduled?updatedAt:null,scheduled?ACTOR:null,
           page.id,hash,updatedAt,updatedAt,ACTOR,ACTOR,
         ).run();
         if(result.meta.changes===1){
           out.created++;
+          // Publish a durable event only for a newly persisted Notion image.
+          try{
+            await enqueueAdminNotificationEvent(db,{
+              eventType:"facebook_image_imported",sourceType:"FACEBOOK_IMAGE",
+              resourceType:"facebook_image",resourceRef:postId,
+              actorType:"AUTOMATION",actorRef:"notion-facebook-images",
+              targetUrl:"/admin/facebook-images",title:"Nový obrázok z Notionu",
+              body:title.slice(0,130),tag:"facebook-import-"+postId,
+              dedupeKey:"facebook/import/"+postId,
+            },now);
+          }catch{ /* Never interrupt the Notion sync when push event storage is unavailable. */ }
           if(!policy.enabled&&await mirrorApprovalToNotion(bindings,page,await linked(db,page.id,consentReady,safeRetry)))
             out.writtenBack++;
           if(policy.enabled&&await mirrorV2ScheduleState(bindings,page,scheduled,false,
