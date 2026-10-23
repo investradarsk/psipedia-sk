@@ -116,7 +116,8 @@ test("Worker invokes sitemap guard before HTML cache and does not affect other r
   const start = worker.indexOf("if (eligiblePublicSitemapRequest(request))");
   assert.ok(start > 0);
   assert.ok(start < worker.indexOf("const cache = publicHtmlCache("));
-  assert.match(worker.slice(start, start + 450), /servePublicSitemap\(request, \(\) => handler\.fetch\(request, env, ctx\), storage, ctx\)/);
+  assert.match(worker.slice(start, worker.indexOf("const cache = publicHtmlCache(", start)), /servePublicSitemap\(request, \(\) => handler\.fetch\(request, env, ctx\), storage, ctx\)/);
+  assert.match(worker.slice(start, worker.indexOf("const cache = publicHtmlCache(", start)), /isWorkersDevPreview[\s\S]*?"X-Robots-Tag": "noindex, nofollow"/);
   const sitemap = readFileSync(new URL("../app/sitemap.ts", import.meta.url), "utf8");
   assert.match(sitemap, /sitemap_generation_failed/);
   assert.match(sitemap, /SitemapStageError/);

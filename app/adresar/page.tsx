@@ -23,17 +23,21 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     description: directoryLandingSeo.description,
     path: "/adresar",
     searchParams: await searchParams,
+    indexPagination: true,
   });
 }
 
 export default async function DirectoryHomePage({ searchParams }: Props) {
   const rawSearchParams = await searchParams;
   const filters = parseDirectoryFilters(rawSearchParams);
-  const policy = resolveListingIndexPolicy("/adresar", rawSearchParams);
+  const policy = resolveListingIndexPolicy("/adresar", rawSearchParams, { indexPagination: true });
   const cleanedUrl = directoryEmptyQueryRedirect("/adresar", rawSearchParams, filters);
   if (cleanedUrl) redirect(cleanedUrl);
   // Only one listing is rendered on the root; avoid unused overview/count queries.
   const result = await listPublishedDirectoryProfiles({ filters });
+  if (policy.kind === "pagination" && policy.page! > result.totalPages) {
+    redirect(result.totalPages > 1 ? `/adresar?page=${result.totalPages}` : "/adresar");
+  }
   const schema = policy.kind === "clean" ? buildCollectionPageJsonLd({
     name: "Služby pre psov",
     description: directoryDescription,
