@@ -379,6 +379,8 @@ test("valid one-time link creates a session and exposes membership dashboard/set
     await page.goto("/partner/profily");
     await page.getByRole("link", { name: "Upraviť údaje" }).click();
     await expect(page.getByRole("heading", { name: "Upraviť údaje" })).toBeVisible();
+    // SSR fields can be visible before the controlled location handlers hydrate.
+    await expect(page.locator(".partner-profile-edit-form")).toHaveAttribute("data-partner-edit-ready", "true");
     await page.getByLabel(/^Kraj/).selectOption("Trnavský kraj");
     await page.getByLabel(/^Okres/).selectOption("Trnava");
     const editMunicipality = page.getByRole("combobox", { name: "Obec / mesto" });
