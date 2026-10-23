@@ -94,6 +94,9 @@ export default async function PortalSectionPage({ params, searchParams }: Props)
   const eventList = events?.events ?? [];
   const listingPolicy = resolveListingIndexPolicy(`/${section.slug}`, rawSearchParams,
     slug === "podujatia" ? { indexPagination: true, paginationParam: "strana" } : {});
+  if (slug === "podujatia" && listingPolicy.kind === "pagination" && events && listingPolicy.page! > events.pages) {
+    redirect(events.pages > 1 ? `/podujatia?strana=${events.pages}` : "/podujatia");
+  }
   const eventSchema = slug !== "podujatia" || listingPolicy.kind === "query" ? null : buildCollectionPageJsonLd({
     name: section.label,
     description: section.description,
