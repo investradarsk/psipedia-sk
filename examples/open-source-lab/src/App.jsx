@@ -32,7 +32,7 @@ const columns = [
 const schema = z.object({label:z.string().trim().min(2,"Zadaj aspoň 2 znaky").max(60)});
 function SortablePhoto({file, onDelete}) {
   const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:file.id});
-  return <div ref={setNodeRef} className="photo" style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging?.5:1}}>
+  return <div ref={setNodeRef} className="photo" style={{transform:CSS.Transform.toString(transform),transition,opacity:isDragging ? 0.5 : 1}}>
     <button aria-label={"Presunúť " + file.name} type="button" {...attributes} {...listeners}><GripVertical size={20}/></button>
     <img src={file.url} alt={file.name}/><span>{file.name}</span>
     <button type="button" onClick={()=>onDelete(file.id)}>Odstrániť</button>
