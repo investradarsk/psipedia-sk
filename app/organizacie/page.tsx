@@ -1,7 +1,9 @@
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { env } from "cloudflare:workers";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowIcon, PawMark } from "@/components/icons";
+import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs } from "@/components/page-system";
 import {
   PublicContentShell,
@@ -42,7 +44,10 @@ function requireDatabase() {
 }
 
 function placeLabel(city: string, region: string) {
-  return [city, region].map((value) => value.trim()).filter(Boolean).join(" · ");
+  return [city, region]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export default async function OrganizationsHubPage() {
@@ -92,7 +97,9 @@ export default async function OrganizationsHubPage() {
               visual={heroVisual}
               metaSlot={
                 <div className={styles.heroMeta}>
-                  <span><strong>{organizations.length}</strong> publikovaných organizácií</span>
+                  <span>
+                    <strong>{organizations.length}</strong> publikovaných organizácií
+                  </span>
                 </div>
               }
             />
@@ -114,17 +121,47 @@ export default async function OrganizationsHubPage() {
                     const location = placeLabel(organization.city, organization.region);
                     const excerpt = organization.shortDescription || organization.description;
                     return (
-                      <article className={styles.card} key={organization.id} data-organization-hub-card>
-                        <Link className={styles.media} href={href} aria-label={`Otvoriť profil organizácie ${organization.name}`}>
+                      <article
+                        className={styles.card}
+                        key={organization.id}
+                        data-organization-hub-card
+                      >
+                        <Link
+                          className={styles.media}
+                          href={href}
+                          aria-label={`Otvoriť profil organizácie ${organization.name}`}
+                        >
                           {organization.imageUrl ? (
-                            <ImageDisplay roleHint="generic" context="thumbnail" config={organization.thumbnailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={organization.imageUrl} alt="" loading="lazy" decoding="async" />
+                            <ImageDisplay
+                              roleHint="generic"
+                              context="thumbnail"
+                              config={
+                                organization.thumbnailImageDisplay ?? {
+                                  mode: "crop",
+                                  x: 50,
+                                  y: 50,
+                                  zoom: 1,
+                                }
+                              }
+                              src={organization.imageUrl}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                            />
                           ) : (
-                            <span className={styles.mediaFallback} aria-hidden="true"><PawMark size={36} /></span>
+                            <PublicMediaFallback
+                              appearance="context"
+                              className={styles.mediaFallback}
+                              iconSize={36}
+                              decorative
+                            />
                           )}
                         </Link>
                         <div className={styles.cardBody}>
                           <span className={styles.eyebrow}>Organizácia</span>
-                          <h2><Link href={href}>{organization.name}</Link></h2>
+                          <h2>
+                            <Link href={href}>{organization.name}</Link>
+                          </h2>
                           {location ? <p className={styles.location}>{location}</p> : null}
                           {excerpt ? <p className={styles.excerpt}>{excerpt}</p> : null}
                           <Link className={styles.action} href={href}>
@@ -136,11 +173,13 @@ export default async function OrganizationsHubPage() {
                   })}
                 </div>
               ) : (
-                <div className={styles.empty}>
+                <PublicEmptyState variant="context" className={styles.empty}>
                   <h2>Momentálne nie sú publikované žiadne organizácie.</h2>
                   <p>Ďalšie možnosti pomoci nájdete v sekcii Pomoc psom.</p>
-                  <Link href="/pomoc-psom">Prejsť na Pomoc psom <ArrowIcon size={16} /></Link>
-                </div>
+                  <Link href="/pomoc-psom">
+                    Prejsť na Pomoc psom <ArrowIcon size={16} />
+                  </Link>
+                </PublicEmptyState>
               )}
             </PublicContentShell>
           </section>

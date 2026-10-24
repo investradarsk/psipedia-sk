@@ -1,3 +1,4 @@
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { ArticleListItem } from "@/components/article-list-item";
 import { Breadcrumbs } from "@/components/page-system";
@@ -8,12 +9,18 @@ import {
   PublicSectionHeader,
 } from "@/components/public-visual-system";
 import type { Article } from "@/lib/content";
-import { getNewsCategory, getNewsCategoryGuidance, newsCategories, type NewsCategorySlug } from "@/lib/news";
+import {
+  getNewsCategory,
+  getNewsCategoryGuidance,
+  newsCategories,
+  type NewsCategorySlug,
+} from "@/lib/news";
 import { articleHref, articlePortalSection, type PortalSection } from "@/lib/portal";
 import { serializeJsonLd, SITE_URL } from "@/lib/seo";
 import styles from "./news-hub.module.css";
 
-const NEWS_DESCRIPTION = "Kompletný archív publikovaných správ, príbehov, výskumu a užitočných tém zo sveta psov.";
+const NEWS_DESCRIPTION =
+  "Kompletný archív publikovaných správ, príbehov, výskumu a užitočných tém zo sveta psov.";
 
 export function NewsHub({
   articles,
@@ -58,11 +65,23 @@ export function NewsHub({
   return (
     <PublicFoundation className={styles.foundation}>
       <main id="obsah">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+        />
         <div className={`${styles.headerShell} shell`}>
           <Breadcrumbs label="Navigácia v novinkách">
-            <Link href="/">Domov</Link><span>/</span>
-            {category ? <><Link href={landingPath}>Novinky</Link><span>/</span><span>{category.label}</span></> : <span>Novinky</span>}
+            <Link href="/">Domov</Link>
+            <span>/</span>
+            {category ? (
+              <>
+                <Link href={landingPath}>Novinky</Link>
+                <span>/</span>
+                <span>{category.label}</span>
+              </>
+            ) : (
+              <span>Novinky</span>
+            )}
           </Breadcrumbs>
           <PublicSectionHeader
             variant="compact"
@@ -77,10 +96,14 @@ export function NewsHub({
           <div className={styles.archiveHeader}>
             <div>
               <span className="eyebrow">Kategórie</span>
-              <h2 id="news-archive-title">{category ? `Archív: ${category.label}` : "Všetky publikované novinky"}</h2>
+              <h2 id="news-archive-title">
+                {category ? `Archív: ${category.label}` : "Všetky publikované novinky"}
+              </h2>
             </div>
             <nav className={styles.filters} aria-label="Filtrovať novinky podľa kategórie">
-              <Link href={landingPath} aria-current={!category ? "page" : undefined}>Všetky</Link>
+              <Link href={landingPath} aria-current={!category ? "page" : undefined}>
+                Všetky
+              </Link>
               {newsCategories.map((item) => (
                 <Link
                   href={`/novinky/${item.slug}`}
@@ -98,7 +121,11 @@ export function NewsHub({
               <span className="eyebrow">Čo tu nájdeš</span>
               <h3 id="news-guidance-title">{guidance.title}</h3>
               <p>{guidance.text}</p>
-              <ul>{guidance.items.map((item) => <li key={item}>{item}</li>)}</ul>
+              <ul>
+                {guidance.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
             </section>
           ) : null}
 
@@ -106,15 +133,27 @@ export function NewsHub({
             <PublicContentList label={category ? `Novinky: ${category.label}` : "Všetky novinky"}>
               {newsArticles.map((article) => {
                 const articleCategory = getNewsCategory(article.newsCategory);
-                return <ArticleListItem key={article.slug} article={article} topicLabel={articleCategory?.label ?? "Zo sveta psov"} />;
+                return (
+                  <ArticleListItem
+                    key={article.slug}
+                    article={article}
+                    topicLabel={articleCategory?.label ?? "Zo sveta psov"}
+                  />
+                );
               })}
             </PublicContentList>
           ) : (
-            <div className={styles.empty}>
+            <PublicEmptyState variant="context" className={styles.empty}>
               <strong>{category ? "Prvú správu pripravujeme" : "Prvé správy pripravujeme"}</strong>
-              <p>{category ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie." : "Archív dopĺňame o publikované novinky so zdrojmi a dátumom aktualizácie."}</p>
-              <PublicActionLink href={landingPath} variant="secondary">Zobraziť všetky</PublicActionLink>
-            </div>
+              <p>
+                {category
+                  ? "Táto téma má vlastnú stálu adresu. Keď pribudne novinka, zobrazí sa tu spolu so zdrojom a dátumom aktualizácie."
+                  : "Archív dopĺňame o publikované novinky so zdrojmi a dátumom aktualizácie."}
+              </p>
+              <PublicActionLink href={landingPath} variant="secondary">
+                Zobraziť všetky
+              </PublicActionLink>
+            </PublicEmptyState>
           )}
         </section>
 
@@ -122,7 +161,10 @@ export function NewsHub({
           <section className={`${styles.trust} shell`} aria-label="Ako overujeme novinky">
             <span className="eyebrow">Najprv overiť, potom zdieľať</span>
             <h2>Silný príbeh potrebuje pevné fakty</h2>
-            <p>Pri každej správe oddeľujeme potvrdené informácie od nepotvrdených tvrdení, uvádzame pôvodný zdroj a podľa potreby text aktualizujeme.</p>
+            <p>
+              Pri každej správe oddeľujeme potvrdené informácie od nepotvrdených tvrdení, uvádzame
+              pôvodný zdroj a podľa potreby text aktualizujeme.
+            </p>
           </section>
         ) : null}
 
@@ -130,11 +172,18 @@ export function NewsHub({
           <div>
             <span className="eyebrow">Komunita vidí viac</span>
             <h2>Vieš o príbehu alebo téme, ktorú by sme mali preveriť?</h2>
-            <p>Pošli nám námet alebo odkaz. Tip pred publikovaním preveríme a pri správe uvádzame zdroje aj dátum aktualizácie.</p>
+            <p>
+              Pošli nám námet alebo odkaz. Tip pred publikovaním preveríme a pri správe uvádzame
+              zdroje aj dátum aktualizácie.
+            </p>
           </div>
           <div className={styles.footerActions}>
-            <PublicActionLink href="/novinky/poslat-tip" variant="primary">Pošli tip</PublicActionLink>
-            <PublicActionLink href="/zasady-obsahu" variant="secondary">Ako overujeme obsah</PublicActionLink>
+            <PublicActionLink href="/novinky/poslat-tip" variant="primary">
+              Pošli tip
+            </PublicActionLink>
+            <PublicActionLink href="/zasady-obsahu" variant="secondary">
+              Ako overujeme obsah
+            </PublicActionLink>
           </div>
         </section>
       </main>

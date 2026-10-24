@@ -1,3 +1,4 @@
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { PublicMagazineBanner } from "@/components/public-visual-system/public-magazine-banner";
 import type { ReactNode } from "react";
@@ -7,18 +8,15 @@ import { ArticleCard } from "@/components/article-card";
 import { BreedPhoto } from "@/components/breed-photo";
 import { ArrowIcon } from "@/components/icons";
 
-function HomeArticleFeatureLayout({
-  articles,
-  testId,
-}: {
-  articles: Article[];
-  testId: string;
-}) {
+function HomeArticleFeatureLayout({ articles, testId }: { articles: Article[]; testId: string }) {
   const [lead, ...secondary] = articles;
   if (!lead) return null;
 
   return (
-    <div className="home-latest-layout home-article-feature-layout" data-home-article-layout={testId}>
+    <div
+      className="home-latest-layout home-article-feature-layout"
+      data-home-article-layout={testId}
+    >
       <div
         className="home-latest-lead"
         data-home-article-lead
@@ -53,7 +51,11 @@ function HomeMagazineColumns({ children, sidebar }: { children: ReactNode; sideb
   return (
     <div className="home-magazine-grid">
       <div className="home-magazine-main">{children}</div>
-      {sidebar ? <aside className="home-magazine-side" aria-label="Súvisiace informácie">{sidebar}</aside> : null}
+      {sidebar ? (
+        <aside className="home-magazine-side" aria-label="Súvisiace informácie">
+          {sidebar}
+        </aside>
+      ) : null}
     </div>
   );
 }
@@ -73,7 +75,9 @@ export function HomeMagazineSidebar({
     <section className="home-magazine-sidebar-block">
       <div className="home-magazine-sidebar-heading">
         <h3>{title}</h3>
-        <Link href={href} aria-label={`Otvoriť: ${title}`}><ArrowIcon size={18} /></Link>
+        <Link href={href} aria-label={`Otvoriť: ${title}`}>
+          <ArrowIcon size={18} />
+        </Link>
       </div>
       {children}
       <Link href={href} className="home-magazine-sidebar-action">
@@ -96,12 +100,30 @@ export function HomeMagazineBanner({
   href: string;
   testId: string;
 }) {
-  return <PublicMagazineBanner title={title} description={description} label={label} href={href} testId={testId} />;
+  return (
+    <PublicMagazineBanner
+      title={title}
+      description={description}
+      label={label}
+      href={href}
+      testId={testId}
+    />
+  );
 }
 
-export function HomeLatestArticles({ articles, sidebar }: { articles: Article[]; sidebar?: ReactNode }) {
+export function HomeLatestArticles({
+  articles,
+  sidebar,
+}: {
+  articles: Article[];
+  sidebar?: ReactNode;
+}) {
   return (
-    <section className="section shell home-latest-section home-news-section home-magazine-section" data-home-latest aria-labelledby="home-latest-title">
+    <section
+      className="section shell home-latest-section home-news-section home-magazine-section"
+      data-home-latest
+      aria-labelledby="home-latest-title"
+    >
       <div className="home-section-heading">
         <div>
           <span className="eyebrow">Redakcia Psipedia</span>
@@ -113,14 +135,23 @@ export function HomeLatestArticles({ articles, sidebar }: { articles: Article[];
         {articles.length ? (
           <HomeArticleFeatureLayout articles={articles} testId="latest" />
         ) : (
-          <div className="home-editorial-empty" data-home-latest-empty>
+          <PublicEmptyState
+            variant="context"
+            className="home-editorial-empty"
+            data-home-latest-empty
+          >
             <strong>Nové správy pripravujeme</strong>
-            <p>Publikované aktuality sa tu objavia po vydaní. Návody zo Šteniatok, Zdravia ani Výcviku za novinky nevydávame.</p>
-          </div>
+            <p>
+              Publikované aktuality sa tu objavia po vydaní. Návody zo Šteniatok, Zdravia ani
+              Výcviku za novinky nevydávame.
+            </p>
+          </PublicEmptyState>
         )}
       </HomeMagazineColumns>
       <div className="home-section-cta home-section-cta--quiet" data-home-section-cta="latest">
-        <Link href="/clanky" className="text-link">Archív noviniek <ArrowIcon size={17} /></Link>
+        <Link href="/clanky" className="text-link">
+          Archív noviniek <ArrowIcon size={17} />
+        </Link>
       </div>
     </section>
   );
@@ -137,10 +168,10 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
   const [lead, ...others] = breeds.filter((breed) => Boolean(breed.image?.trim())).slice(0, 5);
   if (!lead) {
     return (
-      <div className="home-editorial-empty" data-home-breeds-empty>
+      <PublicEmptyState variant="context" className="home-editorial-empty" data-home-breeds-empty>
         <strong>Objav atlas plemien</strong>
         <p>Fotografie a profily publikovaných plemien nájdeš v atlase.</p>
-      </div>
+      </PublicEmptyState>
     );
   }
   return (
@@ -148,7 +179,13 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
       <article className="home-breed-feature">
         <Link href={`/plemena/${lead.slug}`}>
           <span className="home-breed-feature-media">
-            <BreedPhoto src={lead.image ?? undefined} alt={`${lead.name} – atlas plemien`} sizes="(max-width: 900px) 100vw, 65vw" loading="lazy" decoding="async" />
+            <BreedPhoto
+              src={lead.image ?? undefined}
+              alt={`${lead.name} – atlas plemien`}
+              sizes="(max-width: 900px) 100vw, 65vw"
+              loading="lazy"
+              decoding="async"
+            />
           </span>
           <span className="home-breed-feature-copy">
             <small>Atlas plemien</small>
@@ -163,12 +200,20 @@ export function HomeBreedMagazine({ breeds }: { breeds: HomeBreedCard[] }) {
             <article className="home-breed-list-item" key={breed.slug}>
               <Link href={`/plemena/${breed.slug}`}>
                 <span className="home-breed-list-media">
-                  <BreedPhoto src={breed.image ?? undefined} alt={breed.name} sizes="112px" loading="lazy" decoding="async" />
+                  <BreedPhoto
+                    src={breed.image ?? undefined}
+                    alt={breed.name}
+                    sizes="112px"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </span>
                 <span>
                   <small>Profil plemena</small>
                   <strong>{breed.name}</strong>
-                  {breed.intro?.trim() ? <span className="home-breed-list-intro">{breed.intro}</span> : null}
+                  {breed.intro?.trim() ? (
+                    <span className="home-breed-list-intro">{breed.intro}</span>
+                  ) : null}
                 </span>
               </Link>
             </article>
@@ -201,7 +246,11 @@ export function HomeEditorialSection({
   testId: string;
 }) {
   return (
-    <section className="section shell home-editorial-section home-magazine-section" data-home-editorial={testId} aria-labelledby={`home-${testId}-title`}>
+    <section
+      className="section shell home-editorial-section home-magazine-section"
+      data-home-editorial={testId}
+      aria-labelledby={`home-${testId}-title`}
+    >
       <div className="home-section-heading home-section-heading--compact">
         <div>
           <span className="eyebrow">{eyebrow}</span>
@@ -210,17 +259,24 @@ export function HomeEditorialSection({
         </div>
       </div>
       <HomeMagazineColumns sidebar={sidebar}>
-        {feature ?? (articles.length ? (
-          <HomeArticleFeatureLayout articles={articles} testId={testId} />
-        ) : (
-          <div className="home-editorial-empty" data-home-editorial-empty={testId}>
-            <strong>Ďalší obsah pripravujeme</strong>
-            <p>Články k tejto téme postupne pribúdajú.</p>
-          </div>
-        ))}
+        {feature ??
+          (articles.length ? (
+            <HomeArticleFeatureLayout articles={articles} testId={testId} />
+          ) : (
+            <PublicEmptyState
+              variant="context"
+              className="home-editorial-empty"
+              data-home-editorial-empty={testId}
+            >
+              <strong>Ďalší obsah pripravujeme</strong>
+              <p>Články k tejto téme postupne pribúdajú.</p>
+            </PublicEmptyState>
+          ))}
       </HomeMagazineColumns>
       <div className="home-section-cta home-section-cta--quiet" data-home-section-cta={testId}>
-        <Link href={href} className="text-link">{actionLabel} <ArrowIcon size={17} /></Link>
+        <Link href={href} className="text-link">
+          {actionLabel} <ArrowIcon size={17} />
+        </Link>
       </div>
     </section>
   );
