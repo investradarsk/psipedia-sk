@@ -1,0 +1,13 @@
+.overlay{position:fixed;inset:0;z-index:10030;background:rgba(9,26,19,.65)}
+.content{position:fixed;inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10031;width:min(550px,calc(100vw - 22px));max-height:calc(100dvh - 22px);overflow-y:auto;padding:20px;border:1px solid #c8d8ce;border-radius:14px;background:#fff;color:#173c2b;box-shadow:0 16px 45px #0003}
+.title{font:inherit;font-size:1.18rem;font-weight:800;margin:0 0 8px}
+.description{font-size:.86rem;line-height:1.5;margin:0 0 14px}
+.editorWrap{position:relative;border:1px solid #a9c3b1;border-radius:9px;min-height:150px;overflow:hidden}
+.editor{position:relative;min-height:150px;padding:12px;outline:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.editor:focus-visible{outline:3px solid #d6a44c;outline-offset:-3px}
+.placeholder{pointer-events:none;position:absolute;top:10px;left:12px;color:#617669;margin:0}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+.actions button{min-height:44px;border:1px solid #bed2c4;padding:8px 14px;border-radius:8px;background:#fff;color:#184c34;cursor:pointer}
+.actions button:last-child{background:#174a34;color:white}
+.actions button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:390px){.content{padding:13px}.actions button{flex:1 1 100%}}

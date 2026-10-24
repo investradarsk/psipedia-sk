@@ -35,3 +35,10 @@ Note: The existing repository-wide TypeScript check currently reports many unrel
 - `@tanstack/table-core`, `@tanstack/virtual-core`, `attr-accept`, `file-selector` are library dependencies, not independent new SaaS services.
 
 Production adoption: **7/10 approved projects** (the original 4 + these 3). Radix, dnd-kit, and Lexical remain isolated in the #1033 pilot, awaiting safe migration of editor and interaction contracts. Notion / D1 unaffected.
+
+## Completion — 10/10 integrations (same PR)
+
+- **dnd-kit** in the canonical AdminPhotoGallery: sortable image grid with a dedicated drag handle and keyboard sensors. Original arrows and remove action remain available. Reorders only the existing URL array; save in the canonical editor remains authoritative.
+- **Radix Dialog + Lexical** as an *opt-in draft assistant* attached to the real AdminEventMarkdownEditor. Dialog keyboard/focus behavior uses Radix, and Lexical composes only fresh plain text. The helper appends escaped plain Markdown to the current existing value, never reads or rewrites existing Markdown / article rich-text JSON. The event is saved through the original canonical mechanism.
+- All 10 approved projects are now used in canonical app code, not only in the earlier isolated pilot. **Lexical is intentionally not a replacement for the article editor**; existing format preservation takes precedence over wholesale editor migration.
+- Extra dependency count is significant due to Lexical and Radix transitives: review production JS bundle and test mobile before merge.
