@@ -1,6 +1,8 @@
 "use client";
 
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
+import {getCoreRowModel,useReactTable,type ColumnDef} from "@tanstack/react-table";
+import {useVirtualizer} from "@tanstack/react-virtual";
 import {useRouter} from "next/navigation";
 import {AdminActionButton} from "@/components/admin-interaction-system";
 import {EditorActionBar,EditorWorkspace} from "@/components/admin-editor-workspace";
@@ -35,6 +37,20 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
       &&item.status!=="RETIRED";
   }),[items,query,kind,category]);
   const selected=visible.find(item=>item.id===selectedId)??visible[0]??null;
+  const catalogColumns=useMemo<ColumnDef<CatalogEditorItem>[]>(()=>[
+    {id:"name",accessorFn:item=>item.label},
+  ],[]);
+  const catalogTable=useReactTable({data:visible,columns:catalogColumns,getCoreRowModel:getCoreRowModel(),getRowId:item=>item.id});
+  const rows=catalogTable.getRowModel().rows;
+  const listRef=useRef<HTMLDivElement>(null);
+  const virtualizer=useVirtualizer({
+    count:rows.length,
+    getScrollElement:()=>listRef.current,
+    estimateSize:()=>62,
+    overscan:6,
+    getItemKey:index=>rows[index]?.id??index,
+  });
+  useEffect(()=>{virtualizer.scrollToOffset(0);},[query,kind,category,virtualizer]);
   const activeFilterCount=Number(kind!=="all")+Number(category!=="all");
   const dirty=editing?
     draft.name!==editing.label||draft.group!==editing.group||draft.meaning!==editing.meaning||
@@ -112,13 +128,24 @@ export function AdminServiceCatalogWorkspace({items,categories,writeEnabled,load
     </div>
     <p role="status" className={styles.count}>Nájdených možností: {visible.length}</p>
     <div className={styles.layout}>
-      <div className={styles.list} aria-label="Možnosti katalógu">
-        {visible.slice(0,200).map(item=><button type="button" key={item.id} className={styles.listItem}
-          aria-pressed={selected?.id===item.id} onClick={()=>setSelectedId(item.id)}>
-          <strong>{item.label}</strong><small>{item.kind==="service"?"Služba":"Vlastnosť"} · {item.group}</small>
-        </button>)}
-        {visible.length>200&&<p className={styles.count}>Zobrazujeme prvých 200 položiek. Spresni vyhľadávanie.</p>}
-        {!visible.length&&<p className={styles.count}>Žiadna služba nevyhovuje filtrom.</p>}
+      <div className={styles.list} ref={listRef} tabIndex={0} role="region" aria-label="Možnosti katalógu">
+        {rows.length?(
+          <div className={styles.virtualList} style={{height:virtualizer.getTotalSize()}}>
+            {virtualizer.getVirtualItems().map(virtualRow=>{
+              const row=rows[virtualRow.index];
+              const item=row.original;
+              return <div key={row.id} data-index={virtualRow.index}
+                ref={virtualizer.measureElement} className={styles.virtualRow}
+                style={{transform:`translateY(${virtualRow.start}px)`}}>
+                <button type="button" className={styles.listItem}
+                  aria-pressed={selected?.id===item.id} onClick={()=>setSelectedId(item.id)}>
+                  <strong>{item.label}</strong>
+                  <small>{item.kind==="service"?"Služba":"Vlastnosť"} · {item.group}</small>
+                </button>
+              </div>;
+            })}
+          </div>
+        ):<p className={styles.count}>Žiadna služba nevyhovuje filtrom.</p>}
       </div>
       <div className={styles.detail} aria-label="Detail vybranej možnosti">
         {selected?<><h2>{selected.label}</h2>

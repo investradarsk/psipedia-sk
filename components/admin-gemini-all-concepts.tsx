@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { geminiAutomationCatalog, geminiAutomationSections, type GeminiCatalogItem } from "@/lib/gemini-automation-catalog";
-import { geminiConceptDate, geminiConceptMatchesSearch, geminiCanonicalEditorUrl, geminiDraftDeepLink } from "@/lib/gemini-concept-manager";
+import { geminiConceptDate, geminiCanonicalEditorUrl, geminiDraftDeepLink } from "@/lib/gemini-concept-manager";
 import { geminiReviewLabels, geminiActiveReviewCount, geminiActiveReviewState, preserveGeminiPublished, type GeminiReviewState } from "@/lib/gemini-notion-review-state";
+import { filterGeminiConcepts } from "@/lib/gemini-concept-fuzzy-search";
 import type { GeminiDirectoryDraft } from "@/lib/gemini-notion-directory-review";
 import type { GeminiAgendaDraft } from "@/lib/gemini-notion-agenda-review";
 import styles from "./admin-gemini-all-concepts.module.css";
@@ -77,15 +78,18 @@ export function AdminGeminiAllConcepts() {
   const all = useMemo(() => geminiAutomationCatalog.flatMap(item =>
     (loaded[item.stableKey] ?? []).map(draft => ({ item, draft }))
   ), [loaded]);
-  const visible = useMemo(() => all.filter(({ item, draft }) =>
-    (category === "ALL" || item.stableKey === category) &&
-    (status === "ALL" || (status === "ACTIVE" ? geminiActiveReviewState(draft.reviewState) : draft.reviewState === status)) &&
-    (geminiConceptMatchesSearch(draft, search) ||
-      geminiConceptMatchesSearch({ name: item.label }, search))
-  ).sort((left, right) =>
-    (Date.parse(right.draft.lastEditedAt) || 0) -
-    (Date.parse(left.draft.lastEditedAt) || 0)
-  ), [all, category, status, search]);
+  const visible = useMemo(() => {
+    // Status and category restrictions are strict. Fuzzy search may widen
+    // text matching but must never expose excluded workflow states.
+    const eligible = all.filter(({ item, draft }) =>
+      (category === "ALL" || item.stableKey === category) &&
+      (status === "ALL" || (status === "ACTIVE" ? geminiActiveReviewState(draft.reviewState) : draft.reviewState === status))
+    );
+    return filterGeminiConcepts(eligible, search).sort((left, right) =>
+      (Date.parse(right.draft.lastEditedAt) || 0) -
+      (Date.parse(left.draft.lastEditedAt) || 0)
+    );
+  }, [all, category, status, search]);
 
   function reload() {
     setLoaded({});

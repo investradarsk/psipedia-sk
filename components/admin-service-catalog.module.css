@@ -103,3 +103,8 @@
   .profileRow { grid-template-columns: minmax(0, 1fr); gap: 5px; }
   .profileRow select { width: 100%; }
 }
+
+/* Native catalogue filters/detail preserved; virtualize only the existing list's rows. */
+.virtualList{position:relative;min-width:0}
+.virtualRow{position:absolute;top:0;left:0;width:100%;min-width:0}
+.virtualRow .listItem{width:100%;box-sizing:border-box}

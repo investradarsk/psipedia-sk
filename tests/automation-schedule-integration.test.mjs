@@ -47,11 +47,31 @@ test("direct refresh keeps hourly continuation batches but calendar-schedules co
   assert.match(store, /cursor_entity_id=\?/);
 });
 
-test("category and source APIs accept explicit schedules while retaining legacy cadence callers", async () => {
-  const [categoryRoute, sourceRoute] = await Promise.all([
+test("legacy category/source APIs preserve permanent Tavily retirement", async () => {
+  const [categoryRoute, sourceRoute, retiredHelper] = await Promise.all([
     read("app/api/admin/automation-categories/[category]/route.ts"),
     read("app/api/admin/automation-sources/[id]/route.ts"),
+    read("lib/legacy-automation-retired.ts").catch((error) => {
+      if (error?.code === "ENOENT") return null;
+      throw error;
+    }),
   ]);
+
+  if (retiredHelper !== null) {
+    // PR merge builds contain the newer removal of legacy Tavily endpoints.
+    // Ensure the old save/run APIs cannot silently reactivate via stale tabs.
+    assert.match(retiredHelper, /status:\s*410/);
+    assert.match(retiredHelper, /\/admin\/automatizacie-gemini/);
+    assert.match(retiredHelper, /private, no-store/);
+    for (const route of [categoryRoute, sourceRoute]) {
+      assert.match(route, /legacyAutomationRetiredResponse/);
+      assert.match(route, /export async function PUT\(\)/);
+      assert.doesNotMatch(route, /parseAutomationSchedule|runAutomationSourceNow|runAutomationDiscoveryRootCanary/);
+    }
+    return;
+  }
+
+  // Older feature heads predating retirement retain their original contract.
   for (const route of [categoryRoute, sourceRoute]) {
     assert.match(route, /body\?\.schedule/);
     assert.match(route, /parseAutomationSchedule/);
