@@ -1,2 +1,9 @@
-import {getAdminApiUser,unauthorizedAdminResponse} from "./admin-auth";
-export async function requirePartnerAdminMutation(request:Request){const user=await getAdminApiUser();if(!user)return {response:unauthorizedAdminResponse()};const site=request.headers.get("sec-fetch-site");if(site&&site!=="same-origin"&&site!=="none")return {response:Response.json({error:"Cross-site požiadavka bola odmietnutá."},{status:403})};const origin=request.headers.get("origin");if(origin&&new URL(origin).host!==new URL(request.url).host)return {response:Response.json({error:"Neplatný origin."},{status:403})};return {user};}
+import { requireAdminMutation, unauthorizedAdminResponse } from "./admin-auth";
+
+/** Partner-management Admin mutations use the same authentication and CSRF policy as other Admin writes. */
+export async function requirePartnerAdminMutation(request: Request) {
+  const authorization = await requireAdminMutation(request);
+  if (authorization.response) return { response: authorization.response };
+  if (!authorization.user) return { response: unauthorizedAdminResponse() };
+  return { user: authorization.user };
+}

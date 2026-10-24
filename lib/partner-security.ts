@@ -1,3 +1,4 @@
+import { rejectUntrustedAdminMutationOrigin } from "@/lib/admin-mutation-origin";
 import { createD1RateLimitStore, deriveRateLimitKey, enforceRateLimit } from "@/lib/rate-limit";
 import { createD1TurnstileReplayStore, verifyTurnstile } from "@/lib/turnstile";
 
@@ -11,15 +12,11 @@ export class PartnerSecurityError extends Error {
 }
 
 export function assertPartnerMutationOrigin(request: Request) {
-  const url = new URL(request.url);
-  const origin = request.headers.get("origin");
-  if (!origin || origin !== url.origin) {
-    throw new PartnerSecurityError("Cross-origin mutation bola zablokovaná.", 403);
-  }
-
-  const fetchSite = request.headers.get("sec-fetch-site");
-  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
-    throw new PartnerSecurityError("Cross-site mutation bola zablokovaná.", 403);
+  // Partner mutations require an explicit Origin. Do not opt into the
+  // missing-Origin compatibility mode used by some legacy Admin callers.
+  const denied = rejectUntrustedAdminMutationOrigin(request, { requireExplicitOrigin: true });
+  if (denied) {
+    throw new PartnerSecurityError("Cross-origin mutation bola zablokovaná.", denied.status);
   }
 }
 

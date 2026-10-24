@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -118,6 +119,28 @@ test("partner JSON mutation guard rejects missing/cross origin and bad content t
   for (const route of [requestRoute, consumeRoute, logoutRoute, deactivateRoute]) {
     assert.match(route, /assertPartnerJsonMutation\(request\)/);
   }
+});
+
+test("Partner Origin protection shares canonical guard and rejects malformed/mismatched origins", async () => {
+  const { assertPartnerMutationOrigin, PartnerSecurityError } = await importTs("lib/partner-security.ts");
+  const make = (origin, site = "same-origin") => {
+    const headers = new Headers({ "sec-fetch-site": site });
+    if (origin !== null) headers.set("origin", origin);
+    return new Request("https://psipedia.sk/api/partner/auth/logout", {
+      method: "POST", headers, body: "{}",
+    });
+  };
+  assert.doesNotThrow(() => assertPartnerMutationOrigin(make("https://psipedia.sk")));
+  for (const origin of [null, "http://psipedia.sk", "https://psipedia.sk:8443", "invalid-url", "https://psipedia.sk.evil.test"]) {
+    assert.throws(() => assertPartnerMutationOrigin(make(origin)), PartnerSecurityError);
+  }
+  assert.throws(() => assertPartnerMutationOrigin(make("https://psipedia.sk", "cross-site")), PartnerSecurityError);
+});
+
+test("Partner Admin gate delegates to canonical Admin authentication and CSRF policy", () => {
+  const source = readFileSync(new URL("../lib/partner-admin-api.ts", import.meta.url), "utf8");
+  assert.match(source, /requireAdminMutation\(request\)/);
+  assert.doesNotMatch(source, /headers\.get\("origin"\)/);
 });
 
 test("rate limiting uses HMAC-derived email/client/action namespaces and never raw PII keys", async () => {
