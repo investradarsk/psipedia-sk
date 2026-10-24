@@ -9,294 +9,81 @@ async function expectAxeClean(page: import("@playwright/test").Page) {
   expect(violations, violations.map((item) => item.id + ": " + item.help).join("\n")).toEqual([]);
 }
 
-const origin = "http://localhost:5173";
-const mutationHeaders = {
-  origin,
-  "content-type": "application/json",
-};
+const replacementGemini = "/admin/automatizacie-gemini";
+const replacementQuality = "/admin/kvalita";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("psipedia-cookie-consent", "necessary"));
 });
 
-test("automation source management is responsive and axe-clean on admin desktop/mobile projects", async ({ page }) => {
-  const response = await page.goto("/admin/automatizacie/zdroje", { waitUntil: "domcontentloaded" });
-  expect(response).not.toBeNull();
-  expect(response?.status()).toBeLessThan(400);
-
-  await expect(page.getByRole("heading", { name: "Pokročilé — všetky zdroje a discovery", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "← Späť na automatizácie", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Čaká na tvoje rozhodnutie", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Monitorované zdroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Automatické hľadanie nových zdrojov", exact: true })).toBeVisible();
-  await expect(page.locator("[data-admin-automation-availability]")).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+test("retired legacy source management and old category links redirect to Gemini", async ({ page }) => {
+  for (const legacyPath of [
+    "/admin/automatizacie",
+    "/admin/automatizacie/zdroje",
+    "/admin/automatizacie/podujatia",
+    "/admin/automatizacie/veterinari",
+    "/admin/automatizacie/zmeny-stavu",
+    "/admin/operations/automation/sources",
+  ]) {
+    const response = await page.goto(legacyPath, { waitUntil: "domcontentloaded" });
+    expect(response).not.toBeNull();
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(new RegExp(replacementGemini + "/?$"));
+    await expect(page.getByRole("heading", { name: "Automatizácie Gemini", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pokročilé — všetky zdroje a discovery" })).toHaveCount(0);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
 
-test("manual source lifecycle keeps the approved source detail simple", async ({ page, request }, testInfo) => {
-  const suffix = testInfo.project.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  const sourceKey = ("e2e-manual-" + suffix).slice(0, 70);
-  const label = "E2E Manual " + testInfo.project.name;
-  const source = {
-    sourceKey,
-    label,
-    entityType: "DIRECTORY",
-    connectorType: "MANUAL_IMPORT",
-    sourceUrl: "",
-    cadenceMinutes: 1440,
-    throttleMs: 1000,
-    timeoutMs: 8000,
-    retryMaxAttempts: 2,
-    retryBackoffMs: 1000,
-    maxRecordsPerRun: 100,
-    config: {},
-  };
-
-  const unauthorized = await request.post("/api/admin/automation-sources", {
-    data: source,
-    headers: { "content-type": "application/json" },
-  });
-  expect(unauthorized.status()).toBe(403);
-
-  const createdResponse = await request.post("/api/admin/automation-sources", {
-    data: source,
-    headers: mutationHeaders,
-  });
-  expect(createdResponse.status()).toBe(201);
-  const createdPayload = await createdResponse.json() as { source: { id: number; enabled: boolean; reviewStatus: string } };
-  const id = createdPayload.source.id;
-  expect(createdPayload.source.enabled).toBe(false);
-  expect(createdPayload.source.reviewStatus).toBe("PENDING");
-
-  const editedLabel = label + " edited";
-  const saveResponse = await request.put(`/api/admin/automation-sources/${id}`, {
-    data: { action: "save", source: { ...source, label: editedLabel } },
-    headers: mutationHeaders,
-  });
-  expect(saveResponse.ok()).toBe(true);
-  const saved = await saveResponse.json() as { source: { label: string; enabled: boolean; reviewStatus: string } };
-  expect(saved.source.label).toBe(editedLabel);
-  expect(saved.source.enabled).toBe(false);
-  expect(saved.source.reviewStatus).toBe("PENDING");
-
-  const approveResponse = await request.put(`/api/admin/automation-sources/${id}`, {
-    data: { action: "approve", notes: "E2E explicit source review" },
-    headers: mutationHeaders,
-  });
-  expect(approveResponse.ok()).toBe(true);
-  const approved = await approveResponse.json() as { source: { reviewStatus: string; enabled: boolean } };
-  expect(approved.source.reviewStatus).toBe("APPROVED");
-  expect(approved.source.enabled).toBe(false);
-
-  const blockedEnableResponse = await request.put(`/api/admin/automation-sources/${id}`, {
-    data: { action: "enable" },
-    headers: mutationHeaders,
-  });
-  expect(blockedEnableResponse.status()).toBe(409);
-
-  const governanceResponse = await request.put(`/api/admin/automation-sources/${id}`, {
-    data: {
-      action: "governance",
-      governance: {
-        accessStatus: "ALLOWED",
-        robotsStatus: "NOT_APPLICABLE",
-        termsStatus: "ALLOWED",
-        recurringStatus: "APPROVED",
-        retentionStatus: "APPROVED",
-        retainUrl: true,
-        retainTitle: false,
-        retainSnippet: false,
-        retainMetadata: true,
-        retentionDays: null,
-        minCadenceMinutes: null,
-        maxRequestsPerDay: null,
-        manualOnly: false,
-        pathScope: "",
-        restrictionsNote: "E2E governance review",
-        termsUrl: "",
-        privacyUrl: "",
-        robotsUrl: "",
-        evidenceUrl: "",
-        rationale: "E2E explicit governance approval",
-        expiresAt: null,
-        reviewDueAt: null,
-        expectedUpdatedAt: null,
-      },
-    },
-    headers: mutationHeaders,
-  });
-  expect(governanceResponse.ok()).toBe(true);
-
-  const enableResponse = await request.put(`/api/admin/automation-sources/${id}`, {
-    data: { action: "enable" },
-    headers: mutationHeaders,
-  });
-  expect(enableResponse.ok()).toBe(true);
-  const enabled = await enableResponse.json() as { source: { enabled: boolean; reviewStatus: string } };
-  expect(enabled.source.enabled).toBe(true);
-  expect(enabled.source.reviewStatus).toBe("APPROVED");
-
-  const previewResponse = await request.post(`/api/admin/automation-sources/${id}/test`, {
-    data: {},
-    headers: mutationHeaders,
-  });
-  expect(previewResponse.ok()).toBe(true);
-  const preview = await previewResponse.json() as {
-    preview: {
-      ok: boolean;
-      recordsFound: number;
-      recordsNormalized: number;
-      writes: { observations: number; findings: number; canonical: number; publications: number };
-    };
-  };
-  expect(preview.preview.ok).toBe(true);
-  expect(preview.preview.recordsFound).toBe(0);
-  expect(preview.preview.recordsNormalized).toBe(0);
-  expect(preview.preview.writes).toEqual({ observations: 0, findings: 0, canonical: 0, publications: 0 });
-
-  const runResponse = await request.post(`/api/admin/automation-sources/${id}/run`, {
-    data: {},
-    headers: mutationHeaders,
-  });
-  expect(runResponse.status()).toBe(202);
-  const run = await runResponse.json() as {
-    accepted: boolean;
-    run: { status: string };
-    safety: { canonicalDraftWrite: boolean; publication: boolean };
-  };
-  expect(run.accepted).toBe(true);
-  expect(run.run.status).toBe("RUNNING");
-  expect(run.safety).toEqual({ canonicalDraftWrite: true, publication: false });
-
-  let completedRun: { status: string | null; checked: number; newFindings: number; updatedFindings: number; errors: number } | null = null;
-  await expect.poll(async () => {
-    const statusResponse = await request.get(`/api/admin/automation-sources/${id}/run`);
-    expect(statusResponse.ok()).toBe(true);
-    const payload = await statusResponse.json() as {
-      run: { status: string | null; checked: number; newFindings: number; updatedFindings: number; errors: number };
-    };
-    completedRun = payload.run;
-    return payload.run.status;
-  }, {
-    message: "background source run should complete",
-    timeout: 10_000,
-    intervals: [50, 100, 200, 500],
-  }).toBe("SUCCESS");
-  expect(completedRun).toMatchObject({
-    status: "SUCCESS",
-    checked: 0,
-    newFindings: 0,
-    updatedFindings: 0,
-    errors: 0,
-  });
-
-  const disableResponse = await request.put(`/api/admin/automation-sources/${id}`, {
-    data: { action: "disable" },
-    headers: mutationHeaders,
-  });
-  expect(disableResponse.ok()).toBe(true);
-  const disabled = await disableResponse.json() as { source: { enabled: boolean; reviewStatus: string } };
-  expect(disabled.source.enabled).toBe(false);
-  expect(disabled.source.reviewStatus).toBe("APPROVED");
-
-  const detailResponse = await page.goto(`/admin/automatizacie/zdroje/${id}`, { waitUntil: "domcontentloaded" });
-  expect(detailResponse?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: editedLabel, exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nastavenie zdroja", exact: true })).toBeVisible();
-  const settings = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "Nastavenie zdroja", exact: true }),
-  });
-  await expect(settings.getByText("Kontrolovať tento zdroj", { exact: true })).toBeVisible();
-  await expect(settings.getByRole("combobox").first()).toHaveValue("off");
-  await expect(settings.getByText("Ako často kontrolovať zdroj", { exact: true })).toBeVisible();
-  await expect(settings.getByRole("combobox").nth(1)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nájdený obsah", exact: true })).toBeVisible();
-  await expect(page.getByText("Tento zdroj zatiaľ nemá dohľadateľný canonical obsah.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Otvoriť canonical sekciu →", exact: true })).toBeVisible();
-  await expect(page.getByText("Governance", { exact: false })).toHaveCount(0);
-  await expect(page.getByText("Adapter", { exact: false })).toHaveCount(0);
-  await expect(page.getByText("Run ID", { exact: false })).toHaveCount(0);
-
-  const saveButton = page.getByRole("button", { name: "Uložiť nastavenie", exact: true });
-  await expect(saveButton).toBeVisible();
-  const buttonStyle = await saveButton.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return {
-      display: style.display,
-      minHeight: Number.parseFloat(style.minHeight),
-      borderWidth: Number.parseFloat(style.borderTopWidth),
-      borderRadius: Number.parseFloat(style.borderTopLeftRadius),
-      cursor: style.cursor,
-    };
-  });
-  expect(["inline-flex", "flex"]).toContain(buttonStyle.display);
-  expect(buttonStyle.minHeight).toBeGreaterThanOrEqual(44);
-  expect(buttonStyle.borderWidth).toBeGreaterThan(0);
-  expect(buttonStyle.borderRadius).toBeGreaterThanOrEqual(8);
-  expect(buttonStyle.cursor).toBe("pointer");
-
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+test("retired address review redirects to independent Quality workflow", async ({ page }) => {
+  for (const legacyPath of ["/admin/automatizacie/adresy", "/admin/automatizacie/adresy/123"]) {
+    const response = await page.goto(legacyPath, { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(new RegExp(replacementQuality + "/?$"));
+    await expect(page.getByRole("heading", { name: "Kvalita údajov", exact: true })).toBeVisible();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expectAxeClean(page);
 });
 
-
-test("automation category source-first view is responsive and axe-clean", async ({ page }) => {
-  const response = await page.goto("/admin/automatizacie/podujatia", { waitUntil: "domcontentloaded" });
-  expect(response).not.toBeNull();
-  expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Podujatia", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Hľadať nové zdroje", exact: true })).toBeVisible();
-  await expect(page.getByText("Automaticky hľadať nové zdroje", { exact: true })).toBeVisible();
-  await expect(page.getByText("Ako často hľadať nové zdroje", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nové zdroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Zamietnuté zdroje", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "História", exact: true })).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expectAxeClean(page);
+test("retired legacy API refuses source creation, review, and manual runs with HTTP 410", async ({ request }) => {
+  const methods: Array<{
+    method: "get" | "post" | "put";
+    path: string;
+    data?: Record<string, unknown>;
+  }> = [
+    { method: "post", path: "/api/admin/automation-sources", data: { sourceKey: "should-not-be-created" } },
+    { method: "put", path: "/api/admin/automation-sources/123", data: { action: "enable" } },
+    { method: "post", path: "/api/admin/automation-sources/123/run", data: {} },
+    { method: "get", path: "/api/admin/automation-sources/123/run" },
+    { method: "post", path: "/api/admin/automation-sources/123/test", data: {} },
+    { method: "post", path: "/api/admin/automation-categories/veterinari/search", data: {} },
+    { method: "put", path: "/api/admin/automation-source-candidates/123", data: { action: "approve" } },
+    { method: "post", path: "/api/admin/automation-lifecycle/123", data: { action: "approve" } },
+  ];
+  for (const item of methods) {
+    const response = await request[item.method](item.path, {
+      headers: { origin: "http://localhost:5173", "content-type": "application/json" },
+      ...(item.data ? { data: item.data } : {}),
+    });
+    expect(response.status(), item.method.toUpperCase() + " " + item.path).toBe(410);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    const body = await response.json() as { error: string; replacement: string };
+    expect(body.error).toContain("vyradené");
+    expect(body.replacement).toBe(replacementGemini);
+  }
 });
 
-
-test("DIRECT_ENTITY category is responsive and axe-clean without source candidate UX", async ({ page }) => {
-  const response = await page.goto("/admin/automatizacie/veterinari", { waitUntil: "domcontentloaded" });
-  expect(response).not.toBeNull();
-  expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Veterinári", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Hľadať nových veterinárov", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Kontrolovať doplnenia a zmeny", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nové koncepty", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Doplnenia a zmeny", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nové zdroje", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expectAxeClean(page);
-});
-
-
-test("DIRECT_ENTITY veterinarian category is responsive and axe-clean", async ({ page }) => {
-  const response = await page.goto("/admin/automatizacie/veterinari", { waitUntil: "domcontentloaded" });
-  expect(response).not.toBeNull();
-  expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Veterinári", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Hľadať nových veterinárov", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Kontrolovať doplnenia a zmeny", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nové koncepty", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Doplnenia a zmeny", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nové zdroje", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Schválené zdroje", exact: true })).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expectAxeClean(page);
-});
-
-
-test("lifecycle review page is responsive and axe-clean", async ({ page }) => {
-  const response = await page.goto("/admin/automatizacie/zmeny-stavu", { waitUntil: "domcontentloaded" });
-  expect(response).not.toBeNull();
-  expect(response?.status()).toBeLessThan(400);
-  await expect(page.getByRole("heading", { name: "Zmeny stavu", exact: true })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Filter zmien stavu" })).toBeVisible();
-  await expect(page.getByText("Každý lifecycle prechod sa kontroluje samostatne; hromadné potvrdenie nie je dostupné.", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expectAxeClean(page);
+test("retired historical detail and source links cannot reopen Tavily screens", async ({ page }) => {
+  for (const legacyPath of [
+    "/admin/operations/automation/123",
+    "/admin/automatizacie/zdroje/123",
+    "/admin/automatizacie/podujatia/discovery/123",
+  ]) {
+    const response = await page.goto(legacyPath, { waitUntil: "domcontentloaded" });
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(new RegExp(replacementGemini + "/?$"));
+    await expect(page.getByRole("heading", { name: "Automatizácie Gemini", exact: true })).toBeVisible();
+  }
 });
