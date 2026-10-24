@@ -109,6 +109,8 @@
     "test:notion-data-quality-audit": "node --experimental-strip-types --test tests/notion-data-quality-audit-v2.test.mjs"
   },
   "dependencies": {
+    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-virtual": "3.14.22",
     "drizzle-orm": "0.45.2",
     "fuse.js": "7.1.0",
     "jose": "6.2.12",
@@ -116,6 +118,7 @@
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
+    "react-dropzone": "14.3.8",
     "react-hook-form": "7.91.0",
     "zod": "4.4.3"
   },

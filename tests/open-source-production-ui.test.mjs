@@ -51,3 +51,21 @@ test("real admin components import libraries (not just the isolated pilot)", () 
   assert.match(gemini, /filterGeminiConcepts\(eligible, search\)/);
   assert.match(gemini, /const eligible = all\.filter/);
 });
+
+test("TanStack Table/Virtual remove the silent 200-row service catalogue truncation", () => {
+  const source = read("components/admin-service-catalog-workspace.tsx");
+  assert.match(source, /from "@tanstack\\/react-table"/);
+  assert.match(source, /from "@tanstack\\/react-virtual"/);
+  assert.match(source, /catalogTable\\.getRowModel\\(\\)\\.rows/);
+  assert.match(source, /virtualizer\\.getVirtualItems\\(\\)/);
+  assert.doesNotMatch(source, /visible\\.slice\\(0,200\\)/);
+  assert.match(source, /aria-pressed=\\{selected\\?\\.id===item\\.id\\}/);
+});
+test("React Dropzone preserves canonical gallery upload sequencing and E2E file input", () => {
+  const source = read("components/admin-photo-gallery.tsx");
+  assert.match(source, /from "react-dropzone"/);
+  assert.match(source, /getInputProps\\(\\)/);
+  assert.match(source, /async function upload\\(files: File\\[\\]\\)/);
+  assert.match(source, /for \\(const file of files\\)/);
+  assert.match(source, /onBusyChange\\(false\\)/);
+});

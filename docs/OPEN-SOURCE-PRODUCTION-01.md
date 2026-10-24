@@ -26,3 +26,12 @@ SEO SiteOne Crawler and Linkinator tools from #1033 remain available; no duplica
 - No automatic merge or deployment.
 
 Note: The existing repository-wide TypeScript check currently reports many unrelated baseline errors (including `TS5097` in legacy imports and old test fixtures). New PR checks use scoped ESLint, focused runtime tests and the actual production build; this PR does not purport to solve unrelated TS debt.
+
+## Additional libraries adopted in the SAME PR
+
+- **TanStack Table v8.21.3** + **TanStack Virtual v3.14.22**: canonical Services V3 admin catalogue. The previous `visible.slice(0,200)` truncated all results beyond the 200th item. Retain the exact existing category/type filtering and selected detail panel, while virtualizing a scrollable list of all matching services.
+- **React Dropzone v14.3.8**: canonical photo gallery accepts drag/drop and normal file picker; both feed the SAME sequential `uploadAdminImage` flow with existing capacity and partial-failure behavior. No new upload endpoint or media persistence format.
+- All versions and transitive packages are pinned in the existing root `package-lock.json`; npm CI checks installation. Existing e2e gallery regression checks `input[type=file]` and mobile 320px.
+- `@tanstack/table-core`, `@tanstack/virtual-core`, `attr-accept`, `file-selector` are library dependencies, not independent new SaaS services.
+
+Production adoption: **7/10 approved projects** (the original 4 + these 3). Radix, dnd-kit, and Lexical remain isolated in the #1033 pilot, awaiting safe migration of editor and interaction contracts. Notion / D1 unaffected.

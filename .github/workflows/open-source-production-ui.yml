@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "components/admin-photo-gallery.tsx"
+      - "components/admin-photo-gallery.module.css"
+      - "components/admin-service-catalog-workspace.tsx"
+      - "components/admin-service-catalog.module.css"
       - "components/admin-gemini-all-concepts.tsx"
       - "lib/admin-photo-gallery-url.ts"
       - "lib/gemini-concept-fuzzy-search.ts"
@@ -37,6 +40,6 @@ jobs:
       - name: Validate Zod, Fuse, lockfile, and production integration
         run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs
       - name: Lint changed production modules
-        run: npx eslint components/admin-photo-gallery.tsx components/admin-gemini-all-concepts.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts
+        run: npx eslint components/admin-photo-gallery.tsx components/admin-gemini-all-concepts.tsx components/admin-service-catalog-workspace.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts
       - name: Production build
         run: npm run build
