@@ -41,6 +41,25 @@ test("cross-origin, scheme/port mismatch, malformed Origin, and missing trusted 
   ]) assert.equal(rejectUntrustedAdminMutationOrigin(request(options))?.status, 403, JSON.stringify(options));
 });
 
+test("explicit Origin mode preserves stricter Partner policy", () => {
+  assert.equal(rejectUntrustedAdminMutationOrigin(
+    request({ origin: "https://psipedia.sk", site: "same-origin" }),
+    { requireExplicitOrigin: true },
+  ), null);
+  for (const options of [
+    { site: "same-origin" },
+    { site: "none" },
+    { origin: "https://psipedia.sk:8443", site: "same-origin" },
+    { origin: "http://psipedia.sk", site: "same-origin" },
+  ]) {
+    assert.equal(
+      rejectUntrustedAdminMutationOrigin(request(options), { requireExplicitOrigin: true })?.status,
+      403,
+      JSON.stringify(options),
+    );
+  }
+});
+
 test("real requireAdminMutation rejects unauthorized identities before origin", async () => {
   globalThis.__csrfTestIdentity = null;
   assert.equal((await requireAdminMutation(request({origin:"https://evil.example"}))).response?.status, 401);

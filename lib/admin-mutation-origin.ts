@@ -8,7 +8,7 @@
  * retain their prior missing-header behavior for compatibility until audited.
  * This is independent of the identity check in requireAdminMutation().
  */
-export function rejectUntrustedAdminMutationOrigin(request: Request, options: { allowMissingProvenance?: boolean } = {}): Response | null {
+export function rejectUntrustedAdminMutationOrigin(request: Request, options: { allowMissingProvenance?: boolean; requireExplicitOrigin?: boolean } = {}): Response | null {
   const site = request.headers.get("sec-fetch-site");
   const origin = request.headers.get("origin");
 
@@ -19,6 +19,9 @@ export function rejectUntrustedAdminMutationOrigin(request: Request, options: { 
   // A browser with no Origin may still supply the unforgeable Fetch Metadata
   // same-origin signal. 'none' cannot authenticate a mutating navigation.
   if (origin === null) {
+    if (options.requireExplicitOrigin) {
+      return Response.json({ error: "Chýba povinná hlavička Origin." }, { status: 403 });
+    }
     return (site === "same-origin" || (options.allowMissingProvenance === true && (site === null || site === "none")))
       ? null
       : Response.json({ error: "Chýba dôveryhodný pôvod požiadavky." }, { status: 403 });
