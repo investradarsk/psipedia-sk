@@ -15,13 +15,12 @@ const receipts = readFileSync(new URL("../lib/data-automation-ingestion-receipts
 const flags = readFileSync(new URL("../lib/canonical-draft-flags.ts", import.meta.url), "utf8");
 const runnerSource = readFileSync(new URL("../lib/data-automation-runner.ts", import.meta.url), "utf8");
 
-test("AUTOMATION-3 requires explicit authenticated approve-apply", () => {
-  assert.match(reviewApi, /getAdminApiUser\(\)/);
-  assert.match(reviewApi, /if \(!user\) return unauthorizedAdminResponse\(\)/);
-  assert.match(reviewApi, /body\.action === "approve-apply"/);
-  assert.match(reviewApi, /applyAutomationFinding/);
+test("retired AUTOMATION-3 review API cannot apply legacy findings", () => {
+  const disabled = readFileSync(new URL("../lib/legacy-automation-retired.ts", import.meta.url), "utf8");
+  assert.match(reviewApi, /legacyAutomationRetiredResponse/);
+  assert.match(disabled, /status: 410/);
+  assert.doesNotMatch(reviewApi, /applyAutomationFinding|approve-apply|getAdminApiUser/);
   assert.doesNotMatch(reviewUi, /Prijať zmenu/);
-  assert.match(reviewUi, /window\.confirm/);
 });
 
 test("new automation entities are created through the canonical draft service and never auto-published", () => {

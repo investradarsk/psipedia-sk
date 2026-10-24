@@ -10,7 +10,6 @@ import {
 } from "@/lib/admin-automation-reliability";
 import {loadMissingQualityDashboard,getQualityMissingDatabase} from "@/lib/data-quality-missing-hourly";
 import {loadAdminWorkspaceFeed} from "@/lib/admin-workspace-feed";
-import { countOpenAutomationLifecycleSuggestions } from "@/lib/data-automation-lifecycle-store";
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +32,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const legacyHref = legacyArticleListHref(params);
   if (legacyHref) redirect(legacyHref);
 
-  const [attention, automationLifecycleRead, qualityRead, workspaceFeed] = await Promise.all([
+  const [attention, qualityRead, workspaceFeed] = await Promise.all([
     loadExactAdminAttentionSummary(),
-    readAdminAutomationData({
-      key: "admin-workspace:automation-lifecycle",
-      load: () => countOpenAutomationLifecycleSuggestions(),
-      fallback: 0,
-      empty: (value) => value === 0,
-    }),
     readAdminAutomationData({
       key: "admin-workspace:data-quality",
       load: async () => {
@@ -54,10 +47,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     loadAdminWorkspaceFeed(user.email),
   ]);
 
-  const workspaceReliability = summarizeAdminAutomationReads([
-    automationLifecycleRead,
-    qualityRead,
-  ]);
+  const workspaceReliability = summarizeAdminAutomationReads([qualityRead]);
 
   return (
     <AdminShell
@@ -72,10 +62,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <AdminWorkspaceDashboard
         attention={attention}
         activity={workspaceFeed}
-        automationLifecycle={{
-          status: automationLifecycleRead.status,
-          value: automationLifecycleRead.data,
-        }}
         quality={{
           status: qualityRead.status,
           data: qualityRead.data,

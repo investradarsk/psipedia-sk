@@ -599,18 +599,14 @@ test("source persistence enforces review gate and invalidates approval after saf
   assert.match(store, /automation_source_review_required/);
 });
 
-test("run now reuses production runner and blocks disabled or unapproved sources", () => {
-  const runner = read("lib/data-automation-runner.ts");
-  const route = read("app/api/admin/automation-sources/[id]/run/route.ts");
-  assert.match(runner, /runAutomationSourceNow/);
-  assert.match(runner, /automation_source_disabled/);
-  assert.match(runner, /automation_source_review_required/);
-  assert.match(runner, /source\.reviewStatus !== "APPROVED"/);
-  assert.match(runner, /return runSource\(source, options, "ADMIN"\)/);
-  assert.match(route, /internetTransport:\s*"TAVILY_ONLY"/);
-  assert.match(route, /tavilyApiKey:/);
-  assert.doesNotMatch(route, /productionAutomationHtmlAdapters|createProductionOrganizationEnricher/);
-  assert.match(route, /canonicalDraftWrite:\s*true,\s*publication:\s*false/);
+test("run now reuses production runner and blocks disabled or unapproved sources — po vyradení starého systému", () => {
+  const runner=read("lib/data-automation-runner.ts");
+  const route=read("app/api/admin/automation-sources/[id]/run/route.ts");
+  const helper=read("lib/legacy-automation-retired.ts");
+  assert.match(runner,/source\.reviewStatus !== "APPROVED"/);
+  assert.match(route,/legacyAutomationRetiredResponse/);
+  assert.match(helper,/status: 410/);
+  assert.doesNotMatch(route,/runAutomationSourceNow|canonicalDraftWrite|waitUntil/);
 });
 
 test("scheduler still respects enabled state and shared next-check schedule", () => {
@@ -649,21 +645,19 @@ test("candidate persistence dedupes canonical URL and approval creates only disa
   assert.doesNotMatch(store, /INSERT INTO (managed_events|help_organizations|directory_profiles|adoption_dogs|lost_found_dog_reports|help_cases)/i);
 });
 
-test("all source mutations reuse admin auth, same-origin and JSON gate", () => {
-  const helper = read("lib/admin-automation-api.ts");
-  assert.match(helper, /getAdminApiUser\(\)/);
-  assert.match(helper, /request\.headers\.get\("origin"\)/);
-  assert.match(helper, /origin !== new URL\(request\.url\)\.origin/);
-  assert.match(helper, /application\/json/);
+test("all source mutations reuse admin auth, same-origin and JSON gate — po vyradení starého systému", () => {
+  const helper=read("lib/admin-automation-api.ts");
+  const gone=read("lib/legacy-automation-retired.ts");
+  assert.match(helper,/getAdminApiUser\(\)/);
+  assert.match(helper,/origin !== new URL\(request\.url\)\.origin/);
+  assert.match(gone,/status: 410/);
   for (const path of [
     "app/api/admin/automation-sources/route.ts",
     "app/api/admin/automation-sources/[id]/route.ts",
     "app/api/admin/automation-sources/[id]/test/route.ts",
     "app/api/admin/automation-sources/[id]/run/route.ts",
     "app/api/admin/automation-source-candidates/[id]/route.ts",
-  ]) {
-    assert.match(read(path), /requireAutomationAdminMutation/);
-  }
+  ]) assert.match(read(path),/legacyAutomationRetiredResponse/,path);
 });
 
 test("migration seeds only explicitly reviewed sources and never canonical records", () => {
@@ -675,18 +669,14 @@ test("migration seeds only explicitly reviewed sources and never canonical recor
   assert.doesNotMatch(migration, /INSERT INTO (managed_events|help_organizations|directory_profiles|adoption_dogs|lost_found_dog_reports|help_cases)/i);
 });
 
-test("source management UI exposes required controls and NO AUTO-PUBLISH contract", () => {
-  const manager = read("components/admin-automation-source-manager.tsx");
-  const detail = read("components/admin-automation-source-detail.tsx");
-  for (const phrase of [
-    "Entity type", "Connector", "Source URL", "Cadence (min)", "Timeout (ms)",
-    "Throttle (ms)", "Max records/run", "Mapping / config JSON",
-  ]) assert.ok((manager + detail).includes(phrase), phrase);
-  assert.match(detail, /Overiť zdroj/);
-  assert.match(detail, /Skontrolovať teraz/);
-  assert.match(read("app/api/admin/automation-sources/[id]/run/route.ts"), /publication:\s*false/);
-  assert.match(manager, /Čaká na tvoje rozhodnutie/);
-  assert.match(manager, /Pridať medzi zdroje/);
+test("source management UI exposes required controls and NO AUTO-PUBLISH contract — po vyradení starého systému", () => {
+  const manager=read("components/admin-automation-source-manager.tsx");
+  const detail=read("components/admin-automation-source-detail.tsx");
+  const route=read("app/api/admin/automation-sources/[id]/run/route.ts");
+  assert.match(manager,/Čaká na tvoje rozhodnutie/);
+  assert.match(detail,/Skontrolovať teraz/);
+  assert.match(route,/legacyAutomationRetiredResponse/);
+  assert.doesNotMatch(route,/publication:\s*true|runAutomationSourceNow/);
 });
 
 test("Agility source provisioning stays disabled, pending, bounded and authoritative only as evidence", () => {

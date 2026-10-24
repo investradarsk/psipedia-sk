@@ -8,6 +8,7 @@ const apply = await fs.readFile(new URL("../lib/data-automation-apply.ts", impor
 const detach = await fs.readFile(new URL("../scripts/automation-detach-drafts.mjs", import.meta.url), "utf8");
 const cleanup = await fs.readFile(new URL("../scripts/automation-cleanup-legacy.mjs", import.meta.url), "utf8");
 const legacyApplyApi = await fs.readFile(new URL("../app/api/admin/automation-match-reviews/[observationId]/[candidateClusterId]/apply/route.ts", import.meta.url), "utf8");
+const retirementHelper = await fs.readFile(new URL("../lib/legacy-automation-retired.ts", import.meta.url), "utf8");
 const possibleMatchPage = await fs.readFile(new URL("../app/admin/operations/possible-matches/[observationId]/[candidateClusterId]/page.tsx", import.meta.url), "utf8");
 
 test("exact existing canonical match is receipt-only", () => {
@@ -29,7 +30,8 @@ test("possible duplicate remains an independent draft with canonical-local warni
 });
 
 test("legacy canonical apply endpoint is hard-disabled", () => {
-  assert.match(legacyApplyApi, /status:410/);
+  assert.match(legacyApplyApi, /legacyAutomationRetiredResponse/);
+  assert.match(retirementHelper, /status: 410/);
   assert.doesNotMatch(legacyApplyApi, /applyAutomationCanonicalReview/);
   assert.doesNotMatch(possibleMatchPage, /AdminCanonicalApplyReview/);
 });

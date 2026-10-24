@@ -105,16 +105,10 @@ test("search discovery remains provider-gated rather than scraping search engine
   assert.doesNotMatch(discovery + runner, /google\.com\/search|bing\.com\/search|tinyfish|playwright|puppeteer/i);
 });
 
-test("admin source screen exposes discovery health and candidate review", () => {
+test("retired admin source screens redirect without legacy source loading", () => {
   const page = read("app/admin/automatizacie/zdroje/page.tsx");
-  const manager = read("components/admin-automation-source-manager.tsx");
-  assert.match(page, /listAutomationDiscoveryRoots/);
   const legacy = read("app/admin/operations/automation/sources/page.tsx");
-  assert.match(legacy, /redirect\("\/admin\/automatizacie\/zdroje"\)/);
-  assert.match(manager, /Automatické hľadanie nových zdrojov/);
-  assert.match(manager, /lastCheckedAt/);
-  assert.match(manager, /lastSuccessAt/);
-  assert.match(manager, /nextCheckAt/);
-  assert.match(manager, /Čaká na tvoje rozhodnutie/);
-  assert.match(manager, /Pridať medzi zdroje/);
+  assert.match(page, /redirect\("\/admin\/automatizacie-gemini"\)/);
+  assert.match(legacy, /redirect\("\/admin\/automatizacie-gemini"\)/);
+  assert.doesNotMatch(page + legacy, /listAutomationDiscoveryRoots|runAutomation|sourceReview/);
 });

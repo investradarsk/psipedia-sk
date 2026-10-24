@@ -1,95 +1,10 @@
-import { env, waitUntil } from "cloudflare:workers";
-import { getAdminApiUser, unauthorizedAdminResponse } from "@/lib/admin-auth";
-import { requireAutomationAdminMutation } from "@/lib/admin-automation-api";
-import { runAutomationSourceNow } from "@/lib/data-automation-runner";
-import { getAutomationSourceAdmin } from "@/lib/data-automation-source-store";
-import { automationSourceActivationReadiness } from "@/lib/data-automation-source-activation";
+import { legacyAutomationRetiredResponse } from "@/lib/legacy-automation-retired";
 
+// Legacy Tavily automation actions are permanently retired. Never dispatch
+// an old manual run, even when a stale browser tab submits an old form.
 export const dynamic = "force-dynamic";
-type Props = { params: Promise<{ id: string }> };
-type RuntimeBindings = { DB?: D1Database; TAVILY_API_KEY?: string };
-
-function runPayload(source: Awaited<ReturnType<typeof getAutomationSourceAdmin>>) {
-  if (!source) return null;
-  return {
-    sourceId: source.id,
-    status: source.lastRunStatus,
-    checked: source.checkedCount,
-    newFindings: source.newFindingCount,
-    updatedFindings: source.updatedFindingCount,
-    errors: source.errorCount,
-    durationMs: source.durationMs,
-    nextCheckAt: source.nextCheckAt,
-    lastCheckedAt: source.lastCheckedAt,
-    lastErrorCode: source.lastErrorCode,
-  };
-}
-
-export async function GET(_request: Request, { params }: Props) {
-  const user = await getAdminApiUser();
-  if (!user) return unauthorizedAdminResponse();
-
-  const id = Number.parseInt((await params).id, 10);
-  if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Neplatné ID zdroja." }, { status: 400 });
-  const db = (env as unknown as RuntimeBindings).DB;
-  if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-
-  const source = await getAutomationSourceAdmin(id, db);
-  if (!source) return Response.json({ error: "Zdroj neexistuje." }, { status: 404 });
-  return Response.json({ run: runPayload(source) }, { headers: { "cache-control": "no-store" } });
-}
-
-export async function POST(request: Request, { params }: Props) {
-  const auth = await requireAutomationAdminMutation(request);
-  if (auth.response) return auth.response;
-
-  const id = Number.parseInt((await params).id, 10);
-  if (!Number.isSafeInteger(id) || id < 1) return Response.json({ error: "Neplatné ID zdroja." }, { status: 400 });
-  const db = (env as unknown as RuntimeBindings).DB;
-  if (!db) return Response.json({ error: "Databáza nie je dostupná." }, { status: 503 });
-
-  const source = await getAutomationSourceAdmin(id, db);
-  if (!source) return Response.json({ error: "Zdroj neexistuje." }, { status: 404 });
-  if (!source.enabled) return Response.json({ error: "automation_source_disabled" }, { status: 409 });
-  if (source.reviewStatus !== "APPROVED") return Response.json({ error: "automation_source_review_required" }, { status: 409 });
-  const readiness = await automationSourceActivationReadiness(source, db, {
-    tavilyCredentialConfigured: Boolean((env as unknown as RuntimeBindings).TAVILY_API_KEY?.trim()),
-    internetTransport: "TAVILY_ONLY",
-  });
-  if (!readiness.ready) {
-    return Response.json({
-      error: "Zdroj zatiaľ nie je pripravený na automatické spracovanie.",
-      readiness,
-    }, { status: 409, headers: { "cache-control": "no-store" } });
-  }
-
-  if (source.lastRunStatus === "RUNNING") {
-    return Response.json({
-      accepted: true,
-      alreadyRunning: true,
-      run: runPayload(source),
-      safety: { canonicalDraftWrite: true, publication: false },
-    }, { status: 202, headers: { "cache-control": "no-store" } });
-  }
-
-  const task = runAutomationSourceNow(id, {
-    database: db,
-    tavilyApiKey: (env as unknown as RuntimeBindings).TAVILY_API_KEY,
-    internetTransport: "TAVILY_ONLY",
-  }).catch((error) => {
-    console.error(JSON.stringify({
-      event: "automation_manual_background_run",
-      sourceId: id,
-      result: "failed",
-      error: error instanceof Error ? error.message : String(error),
-    }));
-  });
-  waitUntil(task);
-
-  return Response.json({
-    accepted: true,
-    alreadyRunning: false,
-    run: { sourceId: id, status: "RUNNING" },
-    safety: { canonicalDraftWrite: true, publication: false },
-  }, { status: 202, headers: { "cache-control": "no-store" } });
-}
+export async function GET() { return legacyAutomationRetiredResponse(); }
+export async function POST() { return legacyAutomationRetiredResponse(); }
+export async function PUT() { return legacyAutomationRetiredResponse(); }
+export async function PATCH() { return legacyAutomationRetiredResponse(); }
+export async function DELETE() { return legacyAutomationRetiredResponse(); }

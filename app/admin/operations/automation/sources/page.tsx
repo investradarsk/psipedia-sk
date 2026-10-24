@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
-export default function LegacyAutomationSources() {
-  redirect("/admin/automatizacie/zdroje");
+// Compatibility redirect: the legacy Tavily automation UI was retired.
+// Only Gemini and the new data-quality workflow remain in the admin.
+export default function RetiredLegacyAutomationPage() {
+  redirect("/admin/automatizacie-gemini");
 }

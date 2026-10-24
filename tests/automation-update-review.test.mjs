@@ -70,17 +70,12 @@ test("DIRECT_ENTITY keeps stable lineage, preserves same-value resolution and re
   assert.match(store, /status=CASE[\s\S]*proposed_json=excluded\.proposed_json[\s\S]*diff_json=excluded\.diff_json[\s\S]*THEN automation_update_suggestions\.status[\s\S]*ELSE 'OPEN'/);
 });
 
-test("admin API is authenticated, same-origin JSON only and has explicit error contracts", async () => {
-  const api = await read("app/api/admin/automation-update-suggestions/[origin]/[id]/fields/[field]/route.ts");
-  assert.match(api, /requireAdminMutation\(request\)/);
-  assert.match(api, /auth\.response/);
-  assert.match(api, /auth\.user/);
-  assert.match(api, /contentType\.startsWith\("application\/json"\)/);
-  assert.match(api, /AutomationUpdateReviewConflictError/);
-  assert.match(api, /status: 409/);
-  assert.match(api, /AutomationUpdateReviewValidationError/);
-  assert.match(api, /status: 422/);
-  assert.match(api, /origin !== "DIRECT_ENTITY" && origin !== "FEED_SOURCE"/);
+test("admin API is authenticated, same-origin JSON only and has explicit error contracts — po vyradení starého systému", async () => {
+  const api=await read("app/api/admin/automation-update-suggestions/[origin]/[id]/fields/[field]/route.ts");
+  const helper=await read("lib/legacy-automation-retired.ts");
+  assert.match(api,/legacyAutomationRetiredResponse/);
+  assert.match(helper,/status: 410/);
+  assert.doesNotMatch(api,/applyAutomationUpdate|\.prepare\(|upsertAutomation/);
 });
 
 test("canonical editors receive suggestions server-side and keep local dirty state synchronized", async () => {
@@ -111,15 +106,12 @@ test("canonical editors receive suggestions server-side and keep local dirty sta
   assert.match(directory, /onAccepted=\{applyAutomationUpdate\}/);
 });
 
-test("category summaries are normalized to genuinely active reviewable fields", async () => {
-  const [service, page] = await Promise.all([
-    read("lib/data-automation-update-review.ts"),
-    read("app/admin/automatizacie/[category]/page.tsx"),
-  ]);
-  assert.match(service, /normalizeAutomationUpdateSuggestionSummaries/);
-  assert.match(service, /suggestion\.fields\.find\(\(candidate\) => candidate\.reviewable\)/);
-  assert.match(service, /loadCanonicalRows\(rows, db\)/);
-  assert.match(page, /normalizeAutomationUpdateSuggestionSummaries\(rawUpdateSuggestions\)/);
+test("category summaries are normalized to genuinely active reviewable fields — po vyradení starého systému", async () => {
+  const [service,page]=await Promise.all([read("lib/data-automation-update-review.ts"),read("app/admin/automatizacie/[category]/page.tsx")]);
+  assert.match(service,/normalizeAutomationUpdateSuggestionSummaries/);
+  assert.match(service,/suggestion\.fields\.find\(\(candidate\) => candidate\.reviewable\)/);
+  assert.match(service,/loadCanonicalRows\(rows, db\)/);
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
 });
 
 test("review validation enforces domain enums, numeric ranges and coupled invariants", async () => {

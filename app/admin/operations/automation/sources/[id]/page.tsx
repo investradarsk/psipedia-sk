@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 
-type Props = { params: Promise<{ id: string }> };
-
-export default async function LegacyAutomationSourceDetail({ params }: Props) {
-  const { id } = await params;
-  redirect("/admin/automatizacie/zdroje/" + encodeURIComponent(id));
+// Compatibility redirect: the legacy Tavily automation UI was retired.
+// Only Gemini and the new data-quality workflow remain in the admin.
+export default function RetiredLegacyAutomationPage() {
+  redirect("/admin/automatizacie-gemini");
 }
