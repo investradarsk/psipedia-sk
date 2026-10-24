@@ -1,4 +1,4 @@
-import type { ComponentPropsWithRef, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ComponentPropsWithRef, InputHTMLAttributes, ReactNode } from "react";
 import styles from "./public-form-controls.module.css";
 
 /** Context controls retain their approved page selectors and centrally defined filter tokens.
@@ -26,7 +26,10 @@ export function PublicFormField({
   children: ReactNode;
 }) {
   return (
-    <label className={classes(styles.field, invalid && styles.invalid, className)} data-public-form-field>
+    <label
+      className={classes(styles.field, invalid && styles.invalid, className)}
+      data-public-form-field
+    >
       <span className={styles.label}>{label}</span>
       {children}
       {hint ? <span className={styles.hint}>{hint}</span> : null}
@@ -34,20 +37,59 @@ export function PublicFormField({
   );
 }
 
-export function PublicTextInput({ className, type = "text", appearance = "default", ...props }: ComponentPropsWithRef<"input"> & PublicControlAppearance) {
-  return <input {...props} type={type} className={classes(appearance === "default" && styles.control, className)} data-public-form-control="input" />;
+export function PublicTextInput({
+  className,
+  type = "text",
+  appearance = "default",
+  ...props
+}: ComponentPropsWithRef<"input"> & PublicControlAppearance) {
+  return (
+    <input
+      {...props}
+      type={type}
+      className={classes(appearance === "default" && styles.control, className)}
+      data-public-form-control="input"
+    />
+  );
 }
 
-export function PublicSelect({ className, children, appearance = "default", ...props }: SelectHTMLAttributes<HTMLSelectElement> & PublicControlAppearance) {
+export function PublicSelect({
+  className,
+  children,
+  appearance = "default",
+  ...props
+}: ComponentPropsWithRef<"select"> & PublicControlAppearance) {
   return (
-    <select {...props} className={classes(appearance === "default" && styles.control, appearance === "default" && styles.select, className)} data-public-form-control="select">
+    <select
+      {...props}
+      className={classes(
+        appearance === "default" && styles.control,
+        appearance === "default" && styles.select,
+        className,
+      )}
+      data-public-form-control="select"
+    >
       {children}
     </select>
   );
 }
 
-export function PublicTextarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={classes(styles.control, styles.textarea, className)} data-public-form-control="textarea" />;
+export function PublicTextarea({
+  className,
+  appearance = "default",
+  ...props
+}: ComponentPropsWithRef<"textarea"> & PublicControlAppearance) {
+  return (
+    <textarea
+      {...props}
+      className={classes(
+        appearance === "default" && styles.control,
+        appearance === "default" && styles.textarea,
+        className,
+      )}
+      data-public-form-control="textarea"
+    />
+  );
 }
 
 /** Keep radio and checkbox semantics native: browser focus, keyboard and GET-form behavior. */
@@ -69,6 +111,9 @@ export function PublicChoice({
 }
 
 /** Native choice for existing label compositions, including icons and status dots. */
-export function PublicChoiceInput({ type = "checkbox", ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { type?: "checkbox" | "radio" }) {
+export function PublicChoiceInput({
+  type = "checkbox",
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { type?: "checkbox" | "radio" }) {
   return <input {...props} type={type} data-public-form-control="choice" />;
 }

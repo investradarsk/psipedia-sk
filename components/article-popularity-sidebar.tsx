@@ -1,4 +1,5 @@
 "use client";
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { ArticlePopularityWindow } from "@/lib/article-popularity";
@@ -33,7 +34,12 @@ export function ArticlePopularitySidebar({
   const items = popularity[activeWindow].slice(0, 5);
 
   return (
-    <section ref={sectionRef} className={styles.popularity} aria-labelledby={`${id}-heading`} data-popularity-hydrated="false">
+    <section
+      ref={sectionRef}
+      className={styles.popularity}
+      aria-labelledby={`${id}-heading`}
+      data-popularity-hydrated="false"
+    >
       <div className={styles.header}>
         <h2 id={`${id}-heading`}>Najčítanejšie</h2>
         <div className={styles.tabs} role="tablist" aria-label="Obdobie rebríčka">
@@ -88,7 +94,9 @@ export function ArticlePopularitySidebar({
             ))}
           </ol>
         ) : (
-          <p className={styles.empty}>Za toto obdobie zatiaľ nemáme rebríček.</p>
+          <PublicEmptyState variant="context" as="p" className={styles.empty}>
+            Za toto obdobie zatiaľ nemáme rebríček.
+          </PublicEmptyState>
         )}
       </div>
     </section>

@@ -1,7 +1,14 @@
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { ArrowIcon } from "@/components/icons";
 import { PageContainer } from "@/components/page-system";
-import { directoryCategoryHref, directoryProfileHref, directoryCategories, type DirectoryCategorySlug, type PublicDirectoryProfile } from "@/lib/directory";
+import {
+  directoryCategoryHref,
+  directoryProfileHref,
+  directoryCategories,
+  type DirectoryCategorySlug,
+  type PublicDirectoryProfile,
+} from "@/lib/directory";
 import styles from "./directory-category-overview.module.css";
 
 export function DirectoryCategoryOverview({
@@ -15,11 +22,17 @@ export function DirectoryCategoryOverview({
     <div className={styles.overview} data-directory-category-overview>
       <PageContainer>
         <h2 className={styles.heading}>Služby podľa kategórie</h2>
-        <p className={styles.lead}>Krátky výber publikovaných profilov. Kompletné služby nájdete v jednotlivých kategóriách.</p>
+        <p className={styles.lead}>
+          Krátky výber publikovaných profilov. Kompletné služby nájdete v jednotlivých kategóriách.
+        </p>
         {categories.map((category) => {
           const profiles = (previews[category.slug] ?? []).slice(0, 7);
           return (
-            <section className={styles.category} key={category.slug} aria-labelledby={`directory-preview-${category.slug}`}>
+            <section
+              className={styles.category}
+              key={category.slug}
+              aria-labelledby={`directory-preview-${category.slug}`}
+            >
               <div className={styles.header}>
                 <div>
                   <h3 id={`directory-preview-${category.slug}`}>
@@ -43,7 +56,9 @@ export function DirectoryCategoryOverview({
                   ))}
                 </ul>
               ) : (
-                <p className={styles.empty}>Zatiaľ bez dostupných profilov v tomto výbere.</p>
+                <PublicEmptyState variant="context" as="p" className={styles.empty}>
+                  Zatiaľ bez dostupných profilov v tomto výbere.
+                </PublicEmptyState>
               )}
             </section>
           );

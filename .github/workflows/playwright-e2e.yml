@@ -116,7 +116,6 @@ jobs:
         if: github.event_name == 'pull_request' && steps.required-scope.outputs.seo_recovery == 'true'
         run: node --experimental-strip-types --experimental-loader ./tests/cloudflare-loader.mjs --test tests/seo-recovery.test.mjs tests/seo-metadata-listing-schema.test.mjs tests/sitemap-seo.test.mjs
 
-
   ds-0b-focused-regression:
     name: PUBLIC DS-0B permanent Node and scoped directory Playwright
     if: >-
@@ -165,7 +164,7 @@ jobs:
             /^components\/(?:public-visual-system\/|detail-primitives\/|directory-|help-|events?-|reviews-hub\.tsx$|editorial-|home-portal-search\.tsx$|public-filter-disclosure\.tsx$|page-system\.tsx$)/,
             /^app\/(?:adresar\/|pomoc-psom\/|podujatia\/|recenzie|steniatka\/|starostlivost\/|aktivity\/|\[section\]\/)/,
             /^lib\/(?:directory-|events?(?:-|\.ts$)|editorial-|help-|section-(?:visual|store))/,
-            /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment)\.test\.mjs$/,
+            /^tests\/(?:global-design-unification|public-search-simplify|public-landing-alignment|public-unification-completion)\.test\.mjs$/,
             /^tests\/e2e\/directory-unified-layout\.spec\.ts$/,
             /^\.github\/workflows\/playwright-e2e\.yml$/,
           ];
@@ -207,7 +206,8 @@ jobs:
           node --test \
             tests/global-design-unification.test.mjs \
             tests/public-search-simplify.test.mjs \
-            tests/public-landing-alignment.test.mjs
+            tests/public-landing-alignment.test.mjs \
+            tests/public-unification-completion.test.mjs
       - name: Execute DS-1A semantic token contracts
         if: steps.ds0b_scope.outputs.token == 'true'
         run: node --test tests/public-design-tokens.test.mjs
@@ -227,6 +227,19 @@ jobs:
           mkdir -p .e2e-artifacts/services-v2-directory
           npx playwright test tests/e2e/directory-unified-layout.spec.ts \
             --project=desktop-chromium --workers=1 --retries=0
+      - name: Public detail responsive and accessibility regression
+        if: steps.ds0b_scope.outputs.directory == 'true'
+        env:
+          DETAIL_TEST_SCREENSHOTS: .e2e-artifacts/public-details
+        run: node --test tests/public-details-v2-ui.test.mjs
+      - name: Upload public detail screenshots
+        if: always() && steps.ds0b_scope.outputs.directory == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-details-evidence-${{ github.run_attempt }}
+          path: .e2e-artifacts/public-details/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Upload DS-0B directory screenshots
         if: always() && steps.ds0b_scope.outputs.directory == 'true'
         uses: actions/upload-artifact@v4
@@ -950,7 +963,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-
   seo-recovery-e2e:
     name: SEO-RECOVERY-1 local indexability matrix
     if: github.event_name == 'pull_request' && needs.validate.outputs.seo_recovery == 'true'
@@ -1253,7 +1265,6 @@ jobs:
           )"
           npx wrangler d1 execute psipedia-sk-db --remote --command "$sql" --json | tee .sitemap-diagnostic/d1.json
 
-
   notify-production-failure:
     name: Notify owner about failed production smoke
     needs: production-smoke
@@ -1274,7 +1285,6 @@ jobs:
               body: `Playwright production smoke pre Psipediu zlyhal.\n\n[Otvoriť workflow a artifacts](${runUrl})`,
               assignees: [context.repo.owner],
             });
-
 
   lost-found-public-e2e:
     name: LOST-FOUND-1 public submission — desktop/mobile

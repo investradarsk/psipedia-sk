@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
-  automaticThumbnailFit, DEFAULT_DETAIL, DEFAULT_THUMBNAIL,
-  normalizeImageDisplayConfig, readImageDisplayConfig,
+  automaticThumbnailFit,
+  DEFAULT_DETAIL,
+  DEFAULT_THUMBNAIL,
+  normalizeImageDisplayConfig,
+  readImageDisplayConfig,
 } from "../lib/image-display.ts";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -25,10 +28,10 @@ test("IMAGE-EDITOR-3: landscape, portrait and square respect the actual card asp
 });
 
 test("IMAGE-EDITOR-3: manual crop/blur/position/zoom remains normalized and independent", () => {
-  const crop = normalizeImageDisplayConfig({mode:"crop",x:23,y:65,zoom:1.7}, "thumbnail");
-  const blur = normalizeImageDisplayConfig({mode:"blur",x:82,y:12,zoom:2}, "detail");
-  assert.deepEqual(crop, {mode:"crop",x:23,y:65,zoom:1.7});
-  assert.deepEqual(blur, {mode:"blur",x:82,y:12,zoom:2});
+  const crop = normalizeImageDisplayConfig({ mode: "crop", x: 23, y: 65, zoom: 1.7 }, "thumbnail");
+  const blur = normalizeImageDisplayConfig({ mode: "blur", x: 82, y: 12, zoom: 2 }, "detail");
+  assert.deepEqual(crop, { mode: "crop", x: 23, y: 65, zoom: 1.7 });
+  assert.deepEqual(blur, { mode: "blur", x: 82, y: 12, zoom: 2 });
   assert.equal(readImageDisplayConfig(null, "thumbnail"), null);
   assert.equal(DEFAULT_THUMBNAIL.mode, "auto");
   assert.equal(DEFAULT_DETAIL.mode, "natural");
@@ -50,13 +53,20 @@ test("IMAGE-EDITOR-3: shared renderer uses loaded dimensions and responds to cha
   assert.match(smart, /lightShareCache/);
   assert.match(smart, /sampleLightBackground\(image\)/);
   assert.match(source, /lightBackgroundShare/);
-  assert.doesNotMatch(read("lib/image-display.ts").match(/export function automaticThumbnailFit[\s\S]*?\n}/)?.[0] ?? "", /src|url|filename|canvas/i);
+  assert.doesNotMatch(
+    read("lib/image-display.ts").match(/export function automaticThumbnailFit[\s\S]*?\n}/)?.[0] ??
+      "",
+    /src|url|filename|canvas/i,
+  );
 });
 
 test("IMAGE-EDITOR-3: blur is accessible and reuses the same responsive candidate", () => {
   const renderer = read("components/image-display.tsx");
   const css = read("components/image-display.module.css");
-  assert.match(renderer, /className=\{styles\.blurBackground\} src=\{src\} srcSet=\{imageProps\.srcSet\}/);
+  assert.match(
+    renderer,
+    /className=\{styles\.blurBackground\} src=\{src\} srcSet=\{imageProps\.srcSet\}/,
+  );
   assert.match(renderer, /sizes=\{imageProps\.sizes\} loading=\{imageProps\.loading\}/);
   assert.match(renderer, /alt="" aria-hidden="true"/);
   assert.doesNotMatch(renderer, /backgroundImage:/);
@@ -67,9 +77,9 @@ test("IMAGE-EDITOR-3: blur is accessible and reuses the same responsive candidat
 
 test("IMAGE-EDITOR-3: homepage images use saved thumbnail overrides", () => {
   const page = read("app/page.tsx");
-  assert.match(page, /<EventImage [^>]*config=\{event\.thumbnailImageDisplay\}/);
-  assert.match(page, /<ImageDisplay [^>]*config=\{profile\.thumbnailImageDisplay\}/);
-  assert.match(page, /<ImageDisplay [^>]*config=\{item\.thumbnailImageDisplay\}/);
+  assert.match(page, /<EventImage\s[^>]*config=\{event\.thumbnailImageDisplay\}/);
+  assert.match(page, /<ImageDisplay\s[^>]*config=\{profile\.thumbnailImageDisplay\}/);
+  assert.match(page, /<ImageDisplay\s[^>]*config=\{item\.thumbnailImageDisplay\}/);
   assert.doesNotMatch(page, /<SmartCardImage/);
   const card = read("components/article-card.tsx");
   assert.match(card, /config=\{article\.thumbnailImageDisplay\}/);
@@ -88,15 +98,24 @@ test("IMAGE-EDITOR-3: every entity detail respects manual config, with natural f
   ];
   for (const [path, expression] of components) assert.match(read(path), expression, path);
   assert.match(read("components/admin-event-editor.tsx"), /DEFAULT_DETAIL/);
-  assert.match(read("components/image-display.tsx"), /context === "detail" && settings\.mode === "natural"/);
+  assert.match(
+    read("components/image-display.tsx"),
+    /context === "detail" && settings\.mode === "natural"/,
+  );
 });
 
 test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail layout", () => {
   const hero = read("components/detail-primitives/detail-primitives.tsx");
   const css = read("components/detail-primitives/detail-primitives.module.css");
   assert.ok(css.includes('.heroMedia:has([data-image-display="natural"])'));
-  assert.match(css, /\.heroMedia:has\(\[data-image-display="natural"\]\)\s*\{[^}]*aspect-ratio:\s*auto/);
-  assert.match(css, /\.heroMedia:has\(\[data-image-display="natural"\]\) img\s*\{[^}]*height:\s*auto/);
+  assert.match(
+    css,
+    /\.heroMedia:has\(\[data-image-display="natural"\]\)\s*\{[^}]*aspect-ratio:\s*auto/,
+  );
+  assert.match(
+    css,
+    /\.heroMedia:has\(\[data-image-display="natural"\]\) img\s*\{[^}]*height:\s*auto/,
+  );
   assert.match(hero, /className=\{styles\.heroMedia\}/);
   for (const path of [
     "components/public-profile/public-profile-hero.tsx",
@@ -105,8 +124,8 @@ test("IMAGE-EDITOR-3: natural portraits can grow without cropping in each detail
     "components/adoption-detail.tsx",
     "components/lost-found-dog-detail.tsx",
     "components/directory-profile-detail.tsx",
-  ]) assert.match(read(path), /<DetailHero/, path);
-
+  ])
+    assert.match(read(path), /<DetailHero/, path);
 });
 
 test("IMAGE-EDITOR-3: editor keeps independent tabs, gestures and reset semantics", () => {
@@ -126,8 +145,18 @@ test("IMAGE-EDITOR-3: existing event fallback and compatibility remain intact", 
   assert.match(event, /getEventFallbackImage\(eventType\)/);
   assert.match(event, /onError:/);
   assert.match(event, /legacyMode=\{mode\}/);
-  for (const table of ["managed_events","directory_profiles","help_cases","help_organizations","adoption_dogs","lost_found_dog_reports"]) {
-    assert.match(read("drizzle/0122_entity_image_display_config.sql"), new RegExp(`ALTER TABLE ${table} ADD COLUMN thumbnail_display_json TEXT`));
+  for (const table of [
+    "managed_events",
+    "directory_profiles",
+    "help_cases",
+    "help_organizations",
+    "adoption_dogs",
+    "lost_found_dog_reports",
+  ]) {
+    assert.match(
+      read("drizzle/0122_entity_image_display_config.sql"),
+      new RegExp(`ALTER TABLE ${table} ADD COLUMN thumbnail_display_json TEXT`),
+    );
   }
 });
 

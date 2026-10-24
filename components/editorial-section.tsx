@@ -1,3 +1,4 @@
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { Fragment } from "react";
 import { ContentHubCta } from "@/components/content-hub-cta";
@@ -5,7 +6,14 @@ import { resolveContentHubCta, type ContentHubCtaDecision } from "@/lib/content-
 import { ArticleListItem } from "@/components/article-list-item";
 import { ArticleCard } from "@/components/article-card";
 import { HorizontalCarouselControls } from "@/components/horizontal-carousel-controls";
-import { ArrowIcon, CheckIcon, HeartIcon, PawMark, SparkIcon, WhistleIcon } from "@/components/icons";
+import {
+  ArrowIcon,
+  CheckIcon,
+  HeartIcon,
+  PawMark,
+  SparkIcon,
+  WhistleIcon,
+} from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import { HomePortalSearch } from "@/components/home-portal-search";
@@ -52,13 +60,17 @@ function topicImage(sectionSlug: EditorialSectionSlug, topicSlug: string, articl
     starostlivost: "/images/zdravie-veterinar.webp",
     aktivity: "/images/trening-pri-nohe.webp",
   } satisfies Record<EditorialSectionSlug, string>;
-  return articles.find((article) => articleArea(article, sectionSlug) === topicSlug && article.image)?.image
-    ?? fallback[sectionSlug];
+  return (
+    articles.find((article) => articleArea(article, sectionSlug) === topicSlug && article.image)
+      ?.image ?? fallback[sectionSlug]
+  );
 }
 
 function nextStepImage(href: string) {
-  if (href.includes("trener") || href.includes("kynologicke-kluby")) return "/images/trening-pri-nohe.webp";
-  if (href.includes("veterinari") || href.includes("fyzioterapia")) return "/images/zdravie-veterinar.webp";
+  if (href.includes("trener") || href.includes("kynologicke-kluby"))
+    return "/images/trening-pri-nohe.webp";
+  if (href.includes("veterinari") || href.includes("fyzioterapia"))
+    return "/images/zdravie-veterinar.webp";
   if (href.includes("salony")) return "/images/breeds/anglicky-koker-spaniel.webp";
   if (href.includes("hotely")) return "/images/breeds/beagle.webp";
   return "/images/hero-labrador.webp";
@@ -67,12 +79,17 @@ function nextStepImage(href: string) {
 function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
   if (sectionSlug === "steniatka") return article.portalSubpage;
   if (sectionSlug === "starostlivost") {
-    return article.portalSubpage || ({
-      Zdravie: "zdravie",
-      Výživa: "vyziva",
-      Výcvik: "vycvik",
-      "Život so psom": "spravanie",
-    } as Record<string, string>)[article.category];
+    return (
+      article.portalSubpage ||
+      (
+        {
+          Zdravie: "zdravie",
+          Výživa: "vyziva",
+          Výcvik: "vycvik",
+          "Život so psom": "spravanie",
+        } as Record<string, string>
+      )[article.category]
+    );
   }
   return article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
 }
@@ -80,16 +97,17 @@ function articleArea(article: Article, sectionSlug: EditorialSectionSlug) {
 function orderedArticles(section: PortalSection, articles: Article[], subpage?: PortalSubpage) {
   const sectionSlug = section.slug;
   if (!isEditorialSectionSlug(sectionSlug)) return [];
-  const candidates = articles.filter((article) =>
-    articlePortalSection(article) === sectionSlug &&
-    (!subpage || articleArea(article, sectionSlug) === subpage.slug),
+  const candidates = articles.filter(
+    (article) =>
+      articlePortalSection(article) === sectionSlug &&
+      (!subpage || articleArea(article, sectionSlug) === subpage.slug),
   );
   const featuredSlugs = subpage
     ? (subpage.featuredArticleSlugs ?? [])
     : section.subpages.flatMap((item) => item.featuredArticleSlugs ?? []);
   const featured = new Map(featuredSlugs.map((slug, index) => [slug, index]));
-  return [...candidates].sort((first, second) =>
-    (featured.get(first.slug) ?? 999) - (featured.get(second.slug) ?? 999),
+  return [...candidates].sort(
+    (first, second) => (featured.get(first.slug) ?? 999) - (featured.get(second.slug) ?? 999),
   );
 }
 
@@ -106,10 +124,10 @@ function SectionContentList({
 }) {
   if (!articles.length) {
     return (
-      <div className={styles.emptyState}>
+      <PublicEmptyState variant="context" className={styles.emptyState}>
         <strong>Ďalšie články pripravujeme</strong>
         <p>Medzitým si môžete prezrieť ďalšie témy a praktické návody v tejto sekcii.</p>
-      </div>
+      </PublicEmptyState>
     );
   }
 
@@ -120,9 +138,11 @@ function SectionContentList({
           <ArticleListItem article={article} />
           {contextualCta?.afterArticleCount === index + 1 && (
             <div role="listitem" className={styles.contextualCtaItem}>
-              {contextualCta.key === "health-urgent"
-                ? <HealthUrgent cta={contextualCta} />
-                : <ContentHubCta cta={contextualCta} />}
+              {contextualCta.key === "health-urgent" ? (
+                <HealthUrgent cta={contextualCta} />
+              ) : (
+                <ContentHubCta cta={contextualCta} />
+              )}
             </div>
           )}
         </Fragment>
@@ -199,7 +219,11 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
       description: "Vyber si správny začiatok a pokračuj podľa fázy, v ktorej sa práve nachádzaš.",
       urgent: false,
       actions: [
-        { href: "/steniatka/pred-kupou-psa", label: "Ešte sa rozhodujem", variant: "secondary" as const },
+        {
+          href: "/steniatka/pred-kupou-psa",
+          label: "Ešte sa rozhodujem",
+          variant: "secondary" as const,
+        },
         { href: "/steniatka/prve-dni", label: "Šteniatko je doma", variant: "primary" as const },
       ],
     },
@@ -207,10 +231,15 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
       icon: <HeartIcon />,
       eyebrow: "Keď ide o čas",
       title: "Má pes akútny problém?",
-      description: "Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.",
+      description:
+        "Pri sťaženom dýchaní, kolapse, silnom krvácaní, nafúknutom tvrdom bruchu alebo podozrení na otravu nečakaj na odpoveď z internetu.",
       urgent: true,
       actions: [
-        { href: "/starostlivost/kedy-ist-so-psom-k-veterinarovi", label: "Kedy volať ihneď", variant: "secondary" as const },
+        {
+          href: "/starostlivost/kedy-ist-so-psom-k-veterinarovi",
+          label: "Kedy volať ihneď",
+          variant: "secondary" as const,
+        },
         { href: "/adresar/veterinari", label: "Nájsť veterinára", variant: "primary" as const },
       ],
     },
@@ -218,16 +247,25 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
       icon: <WhistleIcon />,
       eyebrow: "Vyber rozumne",
       title: "Dobrá aktivita sedí konkrétnemu psovi",
-      description: "Zohľadni vek a zdravie, motiváciu psa, čas aj prostredie. Náročnosť pridávaj postupne.",
+      description:
+        "Zohľadni vek a zdravie, motiváciu psa, čas aj prostredie. Náročnosť pridávaj postupne.",
       urgent: false,
       actions: [
-        { href: "/aktivity/psie-sporty", label: "Porovnať možnosti", variant: "secondary" as const, icon: <ArrowIcon /> },
+        {
+          href: "/aktivity/psie-sporty",
+          label: "Porovnať možnosti",
+          variant: "secondary" as const,
+          icon: <ArrowIcon />,
+        },
       ],
     },
   }[sectionSlug];
 
   return (
-    <section className={`${styles.callout} ${config.urgent ? styles.calloutUrgent : ""}`} aria-labelledby={`${sectionSlug}-hub-callout`}>
+    <section
+      className={`${styles.callout} ${config.urgent ? styles.calloutUrgent : ""}`}
+      aria-labelledby={`${sectionSlug}-hub-callout`}
+    >
       <PublicIcon icon={config.icon} size="lg" className={styles.calloutIcon} />
       <div className={styles.calloutCopy}>
         <span className={styles.eyebrow}>{config.eyebrow}</span>
@@ -236,7 +274,12 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
       </div>
       <div className={styles.calloutActions}>
         {config.actions.map((action) => (
-          <PublicActionLink href={action.href} variant={action.variant} icon={"icon" in action ? action.icon : undefined} key={action.href}>
+          <PublicActionLink
+            href={action.href}
+            variant={action.variant}
+            icon={"icon" in action ? action.icon : undefined}
+            key={action.href}
+          >
             {action.label}
           </PublicActionLink>
         ))}
@@ -248,36 +291,111 @@ function HubCallout({ sectionSlug }: { sectionSlug: EditorialSectionSlug }) {
 function nextSteps(sectionSlug: EditorialSectionSlug) {
   if (sectionSlug === "starostlivost") {
     return [
-      { title: "Veterinári", description: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari", icon: <HeartIcon size={22} /> },
-      { title: "Fyzioterapia", description: "Rehabilitácia, regenerácia a podpora pohybu.", href: "/adresar/fyzioterapia", icon: <SparkIcon size={22} /> },
-      { title: "Tréneri a školy", description: "Pomoc s výcvikom a problémovým správaním.", href: "/adresar/treneri", icon: <WhistleIcon size={22} /> },
-      { title: "Psie salóny", description: "Úprava srsti a pravidelná hygienická starostlivosť.", href: "/adresar/salony-a-sluzby", icon: <SparkIcon size={22} /> },
+      {
+        title: "Veterinári",
+        description: "Ambulancie, kliniky a pohotovosti podľa lokality.",
+        href: "/adresar/veterinari",
+        icon: <HeartIcon size={22} />,
+      },
+      {
+        title: "Fyzioterapia",
+        description: "Rehabilitácia, regenerácia a podpora pohybu.",
+        href: "/adresar/fyzioterapia",
+        icon: <SparkIcon size={22} />,
+      },
+      {
+        title: "Tréneri a školy",
+        description: "Pomoc s výcvikom a problémovým správaním.",
+        href: "/adresar/treneri",
+        icon: <WhistleIcon size={22} />,
+      },
+      {
+        title: "Psie salóny",
+        description: "Úprava srsti a pravidelná hygienická starostlivosť.",
+        href: "/adresar/salony-a-sluzby",
+        icon: <SparkIcon size={22} />,
+      },
     ];
   }
   if (sectionSlug === "aktivity") {
     return [
-      { title: "Tréneri a psie školy", description: "Základy, športová príprava aj individuálne vedenie.", href: "/adresar/treneri", icon: <WhistleIcon size={22} /> },
-      { title: "Kynologické kluby", description: "Cvičiská, športové kluby a miestne organizácie.", href: "/adresar/kynologicke-kluby", icon: <SparkIcon size={22} /> },
-      { title: "Podujatia", description: "Preteky, tréningy, semináre a spoločné stretnutia.", href: "/podujatia", icon: <PawMark size={22} /> },
-      { title: "Hotely a opatrovanie", description: "Starostlivosť o psa, keď nemôže cestovať s tebou.", href: "/adresar/hotely-a-opatrovanie", icon: <SparkIcon size={22} /> },
+      {
+        title: "Tréneri a psie školy",
+        description: "Základy, športová príprava aj individuálne vedenie.",
+        href: "/adresar/treneri",
+        icon: <WhistleIcon size={22} />,
+      },
+      {
+        title: "Kynologické kluby",
+        description: "Cvičiská, športové kluby a miestne organizácie.",
+        href: "/adresar/kynologicke-kluby",
+        icon: <SparkIcon size={22} />,
+      },
+      {
+        title: "Podujatia",
+        description: "Preteky, tréningy, semináre a spoločné stretnutia.",
+        href: "/podujatia",
+        icon: <PawMark size={22} />,
+      },
+      {
+        title: "Hotely a opatrovanie",
+        description: "Starostlivosť o psa, keď nemôže cestovať s tebou.",
+        href: "/adresar/hotely-a-opatrovanie",
+        icon: <SparkIcon size={22} />,
+      },
     ];
   }
   return [
-    { title: "Výber plemena", description: "Porovnaj povahu, energiu a nároky plemien podľa svojho života.", href: "/plemena/vyber-plemena", icon: <PawMark size={22} /> },
-    { title: "Veterinári", description: "Ambulancie, kliniky a pohotovosti podľa lokality.", href: "/adresar/veterinari", icon: <HeartIcon size={22} /> },
-    { title: "Tréneri a školy", description: "Vedenie socializácie a prvých tréningových krokov.", href: "/adresar/treneri", icon: <WhistleIcon size={22} /> },
-    { title: "Chovateľské stanice", description: "Nájdi chovateľov a over si pôvod aj zdravotné vyšetrenia.", href: "/adresar/chovatelske-stanice", icon: <SparkIcon size={22} /> },
+    {
+      title: "Výber plemena",
+      description: "Porovnaj povahu, energiu a nároky plemien podľa svojho života.",
+      href: "/plemena/vyber-plemena",
+      icon: <PawMark size={22} />,
+    },
+    {
+      title: "Veterinári",
+      description: "Ambulancie, kliniky a pohotovosti podľa lokality.",
+      href: "/adresar/veterinari",
+      icon: <HeartIcon size={22} />,
+    },
+    {
+      title: "Tréneri a školy",
+      description: "Vedenie socializácie a prvých tréningových krokov.",
+      href: "/adresar/treneri",
+      icon: <WhistleIcon size={22} />,
+    },
+    {
+      title: "Chovateľské stanice",
+      description: "Nájdi chovateľov a over si pôvod aj zdravotné vyšetrenia.",
+      href: "/adresar/chovatelske-stanice",
+      icon: <SparkIcon size={22} />,
+    },
   ];
 }
 
 function safetyNote(sectionSlug: EditorialSectionSlug) {
   if (sectionSlug === "starostlivost") {
-    return <><strong>Dôležité:</strong> Psipedia nenahrádza veterinárne vyšetrenie. Pri akútnom stave alebo rýchlom zhoršovaní kontaktuj veterinára bez čakania.</>;
+    return (
+      <>
+        <strong>Dôležité:</strong> Psipedia nenahrádza veterinárne vyšetrenie. Pri akútnom stave
+        alebo rýchlom zhoršovaní kontaktuj veterinára bez čakania.
+      </>
+    );
   }
   if (sectionSlug === "aktivity") {
-    return <><strong>Bezpečný pohyb:</strong> Záťaž zvyšuj postupne. Pri bolesti, krívaní alebo zdravotnom obmedzení vhodný pohyb konzultuj s veterinárom alebo fyzioterapeutom.</>;
+    return (
+      <>
+        <strong>Bezpečný pohyb:</strong> Záťaž zvyšuj postupne. Pri bolesti, krívaní alebo
+        zdravotnom obmedzení vhodný pohyb konzultuj s veterinárom alebo fyzioterapeutom.
+      </>
+    );
   }
-  return <><strong>Dôležité pre rast:</strong> Očkovanie, zdravotné ťažkosti, výživu a primeranú záťaž rieš podľa konkrétneho šteniatka s veterinárom.</>;
+  return (
+    <>
+      <strong>Dôležité pre rast:</strong> Očkovanie, zdravotné ťažkosti, výživu a primeranú záťaž
+      rieš podľa konkrétneho šteniatka s veterinárom.
+    </>
+  );
 }
 
 export async function EditorialSectionHub({
@@ -300,7 +418,10 @@ export async function EditorialSectionHub({
       { name: "Domov", path: "/" },
       { name: section.label, path: `/${sectionSlug}` },
     ],
-    items: subpages.map((subpage) => ({ name: subpage.label, path: portalSubpageHref(section, subpage) })),
+    items: subpages.map((subpage) => ({
+      name: subpage.label,
+      path: portalSubpageHref(section, subpage),
+    })),
   });
 
   return (
@@ -309,16 +430,31 @@ export async function EditorialSectionHub({
         <StructuredData value={schema} />
         <UnifiedSectionHeroShell>
           <UnifiedSectionHero
-            breadcrumbs={<Breadcrumbs><Link href="/">Domov</Link><span>/</span><span>{section.label}</span></Breadcrumbs>}
+            breadcrumbs={
+              <Breadcrumbs>
+                <Link href="/">Domov</Link>
+                <span>/</span>
+                <span>{section.label}</span>
+              </Breadcrumbs>
+            }
             eyebrow={section.eyebrow}
             title={section.label}
-            intro={<><p>{section.description}</p><p>{section.intro}</p></>}
+            intro={
+              <>
+                <p>{section.description}</p>
+                <p>{section.intro}</p>
+              </>
+            }
             visual={heroVisual}
             portalSearchSlot={<SearchBox sectionSlug={sectionSlug} />}
           />
         </UnifiedSectionHeroShell>
 
-        <section className={styles.directorySection} aria-labelledby={`${sectionSlug}-areas`} data-section-subcategories>
+        <section
+          className={styles.directorySection}
+          aria-labelledby={`${sectionSlug}-areas`}
+          data-section-subcategories
+        >
           <PublicContentShell variant="landing">
             <PublicLandingSectionHeading
               eyebrow="Oblasti"
@@ -330,7 +466,9 @@ export async function EditorialSectionHub({
               mode="landing"
               label={`Témy v sekcii ${section.label}`}
               items={subpages.map((subpage) => {
-                const topicArticles = visibleArticles.filter((article) => articleArea(article, sectionSlug) === subpage.slug);
+                const topicArticles = visibleArticles.filter(
+                  (article) => articleArea(article, sectionSlug) === subpage.slug,
+                );
                 const count = topicArticles.length;
                 return {
                   href: portalSubpageHref(section, subpage),
@@ -352,15 +490,26 @@ export async function EditorialSectionHub({
           <HubCallout sectionSlug={sectionSlug} />
         </PageContainer>
 
-        <section className={styles.contentSection} aria-labelledby={`${sectionSlug}-latest`} data-section-content-list>
+        <section
+          className={styles.contentSection}
+          aria-labelledby={`${sectionSlug}-latest`}
+          data-section-content-list
+        >
           <PageContainer>
             <PublicLandingSectionHeading
               eyebrow="Odporúčané a najnovšie"
               title="Čítaj priamo zo sekcie"
               id={`${sectionSlug}-latest`}
-              action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
+              action={
+                <PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>
+                  Všetky články
+                </PublicActionLink>
+              }
             />
-            <SectionContentList articles={visibleArticles} label={`Články v sekcii ${section.label}`} />
+            <SectionContentList
+              articles={visibleArticles}
+              label={`Články v sekcii ${section.label}`}
+            />
           </PageContainer>
         </section>
 
@@ -386,20 +535,35 @@ export async function EditorialSectionHub({
               aria-label="Užitočné služby a pokračovanie"
             >
               {nextSteps(sectionSlug).map((item) => (
-                <Link href={item.href} className={styles.nextCard} data-section-next-card key={item.href}>
+                <Link
+                  href={item.href}
+                  className={styles.nextCard}
+                  data-section-next-card
+                  key={item.href}
+                >
                   <span className={styles.nextCardMedia}>
                     <img src={nextStepImage(item.href)} alt="" loading="lazy" decoding="async" />
-                    <span className={styles.nextCardIcon} aria-hidden="true">{item.icon}</span>
+                    <span className={styles.nextCardIcon} aria-hidden="true">
+                      {item.icon}
+                    </span>
                   </span>
                   <span className={styles.nextCardCopy}>
                     <strong>{item.title}</strong>
                     <span>{item.description}</span>
-                    <span className={styles.nextCardAction}>Otvoriť <ArrowIcon size={18} /></span>
+                    <span className={styles.nextCardAction}>
+                      Otvoriť <ArrowIcon size={18} />
+                    </span>
                   </span>
                 </Link>
               ))}
             </div>
-            <div className={styles.carouselCue} aria-hidden="true"><span>←</span><i /><i /><i /><span>→</span></div>
+            <div className={styles.carouselCue} aria-hidden="true">
+              <span>←</span>
+              <i />
+              <i />
+              <i />
+              <span>→</span>
+            </div>
             <p className={styles.safetyNote}>{safetyNote(sectionSlug)}</p>
           </PageContainer>
         </section>
@@ -410,20 +574,37 @@ export async function EditorialSectionHub({
 
 function guidanceLabels(sectionSlug: EditorialSectionSlug) {
   if (sectionSlug === "starostlivost") {
-    return { eyebrow: "Rýchla orientácia", first: "Čo sledovať doma", second: "Kedy nečakať", expert: "Kedy vyhľadať odborníka" };
+    return {
+      eyebrow: "Rýchla orientácia",
+      first: "Čo sledovať doma",
+      second: "Kedy nečakať",
+      expert: "Kedy vyhľadať odborníka",
+    };
   }
   if (sectionSlug === "aktivity") {
-    return { eyebrow: "Praktický začiatok", first: "Ako začať", second: "Bezpečnosť a limity", expert: "Čo zvážiť pri výbere" };
+    return {
+      eyebrow: "Praktický začiatok",
+      first: "Ako začať",
+      second: "Bezpečnosť a limity",
+      expert: "Čo zvážiť pri výbere",
+    };
   }
-  return { eyebrow: "Praktická orientácia", first: "Praktické kroky", second: "Na čo si dať pozor", expert: "Dôležité pre túto fázu" };
+  return {
+    eyebrow: "Praktická orientácia",
+    first: "Praktické kroky",
+    second: "Na čo si dať pozor",
+    expert: "Dôležité pre túto fázu",
+  };
 }
 
 // The existing managed featuredArticleSlugs ordering is the editorial source of truth.
 // Never promote the newest article to pillar by accident.
 function topicPillar(subpage: PortalSubpage, articles: Article[]) {
-  return (subpage.featuredArticleSlugs ?? [])
-    .map((slug) => articles.find((article) => article.slug === slug))
-    .find((article): article is Article => Boolean(article)) ?? null;
+  return (
+    (subpage.featuredArticleSlugs ?? [])
+      .map((slug) => articles.find((article) => article.slug === slug))
+      .find((article): article is Article => Boolean(article)) ?? null
+  );
 }
 
 export async function EditorialSectionTopic({
@@ -440,12 +621,17 @@ export async function EditorialSectionTopic({
   const topicArticles = orderedArticles(section, articles, subpage);
   const heroVisual = await getSectionHeroVisual(`subsection.${sectionSlug}.${subpage.slug}`);
   const pillar = sectionSlug === "aktivity" ? null : topicPillar(subpage, topicArticles);
-  const remainingArticles = pillar ? topicArticles.filter((article) => article.slug !== pillar.slug) : topicArticles;
+  const remainingArticles = pillar
+    ? topicArticles.filter((article) => article.slug !== pillar.slug)
+    : topicArticles;
   // A single bounded slot after real article items, never before the pinned pillar.
   const contextualCta = resolveContentHubCta({
     section: sectionSlug,
     topic: subpage.slug,
-    visibleArticleCount: Math.min(sectionSlug === "aktivity" ? topicArticles.length : remainingArticles.length, 10),
+    visibleArticleCount: Math.min(
+      sectionSlug === "aktivity" ? topicArticles.length : remainingArticles.length,
+      10,
+    ),
   });
   const labels = guidanceLabels(sectionSlug);
   const path = portalSubpageHref(section, subpage);
@@ -467,9 +653,15 @@ export async function EditorialSectionTopic({
         <StructuredData value={schema} />
         <UnifiedSectionHeroShell>
           <UnifiedSectionHero
-            breadcrumbs={<Breadcrumbs>
-              <Link href="/">Domov</Link><span>/</span><Link href={`/${sectionSlug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
-            </Breadcrumbs>}
+            breadcrumbs={
+              <Breadcrumbs>
+                <Link href="/">Domov</Link>
+                <span>/</span>
+                <Link href={`/${sectionSlug}`}>{section.label}</Link>
+                <span>/</span>
+                <span>{subpage.label}</span>
+              </Breadcrumbs>
+            }
             eyebrow={section.eyebrow}
             title={subpage.label}
             intro={subpage.description}
@@ -481,98 +673,167 @@ export async function EditorialSectionTopic({
         <PortalSectionTabs section={section} activeSlug={subpage.slug} />
 
         <PageContainer className={styles.topicBody} data-section-public-topic-body>
-          {sectionSlug === "aktivity" ? (<>
-          <section className={styles.introSection} aria-labelledby="topic-intro-heading">
-            <span className={styles.eyebrow}>O tejto téme</span>
-            <h2 id="topic-intro-heading">{subpage.label} v praxi</h2>
-            <p>{subpage.intro || subpage.description}</p>
-            {!!subpage.popularTopics?.length && (
-              <div className={styles.chips} aria-label="Súvisiace témy">
-                {subpage.popularTopics.map((item) => (
-                  <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${sectionSlug}`} key={item}>{item}</Link>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {!!subpage.commonQuestions?.length && (
-            <section className={styles.questions} aria-labelledby="topic-questions-heading">
-              <span className={styles.eyebrow}>Časté otázky</span>
-              <h2 id="topic-questions-heading">Na čo sa ľudia pri tejto téme pýtajú</h2>
-              <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul>
-            </section>
-          )}
-
-          {(subpage.homeSteps?.length || subpage.warningSigns?.length || subpage.expertAdvice) && (
-            <section className={styles.guidanceSection} aria-labelledby="topic-guidance-heading">
-              <PublicLandingSectionHeading
-                eyebrow={labels.eyebrow}
-                title="Užitočné kroky a hranice"
-                id="topic-guidance-heading"
-              />
-              <div className={styles.guidanceGrid}>
-                {!!subpage.homeSteps?.length && (
-                  <article className={styles.guidanceCard}>
-                    <PublicIcon icon={<CheckIcon />} size="md" />
-                    <h3>{labels.first}</h3>
-                    <ul>{subpage.homeSteps.map((item) => <li key={item}>{item}</li>)}</ul>
-                  </article>
-                )}
-                {!!subpage.warningSigns?.length && (
-                  <article className={`${styles.guidanceCard} ${styles.warningCard}`}>
-                    <PublicIcon icon={<HeartIcon />} size="md" />
-                    <h3>{labels.second}</h3>
-                    <ul>{subpage.warningSigns.map((item) => <li key={item}>{item}</li>)}</ul>
-                  </article>
-                )}
-              </div>
-              {subpage.expertAdvice && (
-                <div className={styles.expertCallout}>
-                  <PublicIcon icon={<SparkIcon />} size="md" />
-                  <div><strong>{labels.expert}</strong><p>{subpage.expertAdvice}</p></div>
-                </div>
-              )}
-              {!!subpage.serviceLinks?.length && (
-                <div className={styles.serviceLinks}>
-                  <strong>Kontakty a súvisiace služby</strong>
-                  <div>
-                    {subpage.serviceLinks.map((item) => (
-                      <PublicActionLink href={item.href} variant="secondary" icon={<ArrowIcon />} key={`${item.label}-${item.href}`}>{item.label}</PublicActionLink>
+          {sectionSlug === "aktivity" ? (
+            <>
+              <section className={styles.introSection} aria-labelledby="topic-intro-heading">
+                <span className={styles.eyebrow}>O tejto téme</span>
+                <h2 id="topic-intro-heading">{subpage.label} v praxi</h2>
+                <p>{subpage.intro || subpage.description}</p>
+                {!!subpage.popularTopics?.length && (
+                  <div className={styles.chips} aria-label="Súvisiace témy">
+                    {subpage.popularTopics.map((item) => (
+                      <Link
+                        href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${sectionSlug}`}
+                        key={item}
+                      >
+                        {item}
+                      </Link>
                     ))}
                   </div>
-                </div>
+                )}
+              </section>
+
+              {!!subpage.commonQuestions?.length && (
+                <section className={styles.questions} aria-labelledby="topic-questions-heading">
+                  <span className={styles.eyebrow}>Časté otázky</span>
+                  <h2 id="topic-questions-heading">Na čo sa ľudia pri tejto téme pýtajú</h2>
+                  <ul>
+                    {subpage.commonQuestions.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
               )}
-            </section>
-          )}
 
-          <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
-            <PublicLandingSectionHeading
-              eyebrow="Súvisiace čítanie"
-              title={<>Články: {subpage.label}</>}
-              id="topic-related-heading"
-              action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
-            />
-            <SectionContentList articles={topicArticles} label={`Články k téme ${subpage.label}`} limit={10} contextualCta={contextualCta} />
-          </section>
+              {(subpage.homeSteps?.length ||
+                subpage.warningSigns?.length ||
+                subpage.expertAdvice) && (
+                <section
+                  className={styles.guidanceSection}
+                  aria-labelledby="topic-guidance-heading"
+                >
+                  <PublicLandingSectionHeading
+                    eyebrow={labels.eyebrow}
+                    title="Užitočné kroky a hranice"
+                    id="topic-guidance-heading"
+                  />
+                  <div className={styles.guidanceGrid}>
+                    {!!subpage.homeSteps?.length && (
+                      <article className={styles.guidanceCard}>
+                        <PublicIcon icon={<CheckIcon />} size="md" />
+                        <h3>{labels.first}</h3>
+                        <ul>
+                          {subpage.homeSteps.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </article>
+                    )}
+                    {!!subpage.warningSigns?.length && (
+                      <article className={`${styles.guidanceCard} ${styles.warningCard}`}>
+                        <PublicIcon icon={<HeartIcon />} size="md" />
+                        <h3>{labels.second}</h3>
+                        <ul>
+                          {subpage.warningSigns.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </article>
+                    )}
+                  </div>
+                  {subpage.expertAdvice && (
+                    <div className={styles.expertCallout}>
+                      <PublicIcon icon={<SparkIcon />} size="md" />
+                      <div>
+                        <strong>{labels.expert}</strong>
+                        <p>{subpage.expertAdvice}</p>
+                      </div>
+                    </div>
+                  )}
+                  {!!subpage.serviceLinks?.length && (
+                    <div className={styles.serviceLinks}>
+                      <strong>Kontakty a súvisiace služby</strong>
+                      <div>
+                        {subpage.serviceLinks.map((item) => (
+                          <PublicActionLink
+                            href={item.href}
+                            variant="secondary"
+                            icon={<ArrowIcon />}
+                            key={`${item.label}-${item.href}`}
+                          >
+                            {item.label}
+                          </PublicActionLink>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
 
-          </>) : (
+              <section
+                className={styles.relatedSection}
+                aria-labelledby="topic-related-heading"
+                data-section-content-list
+              >
+                <PublicLandingSectionHeading
+                  eyebrow="Súvisiace čítanie"
+                  title={<>Články: {subpage.label}</>}
+                  id="topic-related-heading"
+                  action={
+                    <PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>
+                      Všetky články
+                    </PublicActionLink>
+                  }
+                />
+                <SectionContentList
+                  articles={topicArticles}
+                  label={`Články k téme ${subpage.label}`}
+                  limit={10}
+                  contextualCta={contextualCta}
+                />
+              </section>
+            </>
+          ) : (
             <div className={styles.contentHub} data-content-hub>
               {subpage.intro && <p className={styles.contentHubIntro}>{subpage.intro}</p>}
               {pillar && (
-                <section className={styles.contentHubPillar} aria-labelledby="topic-pillar-heading" data-content-hub-pillar>
+                <section
+                  className={styles.contentHubPillar}
+                  aria-labelledby="topic-pillar-heading"
+                  data-content-hub-pillar
+                >
                   <span className={styles.eyebrow}>Začni tu</span>
                   <h2 id="topic-pillar-heading">Hlavný sprievodca</h2>
-                  <ArticleCard article={pillar} variant="grid" headingLevel={3} showFavorite={false} omitMissingImage />
+                  <ArticleCard
+                    article={pillar}
+                    variant="grid"
+                    headingLevel={3}
+                    showFavorite={false}
+                    omitMissingImage
+                  />
                 </section>
               )}
-              <section className={styles.relatedSection} aria-labelledby="topic-related-heading" data-section-content-list>
+              <section
+                className={styles.relatedSection}
+                aria-labelledby="topic-related-heading"
+                data-section-content-list
+              >
                 <PublicLandingSectionHeading
                   eyebrow="Súvisiace čítanie"
                   title={pillar ? "Ďalšie články" : `Články: ${subpage.label}`}
                   id="topic-related-heading"
-                  action={<PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>Všetky články</PublicActionLink>}
+                  action={
+                    <PublicActionLink href="/clanky" variant="tertiary" icon={<ArrowIcon />}>
+                      Všetky články
+                    </PublicActionLink>
+                  }
                 />
-                <SectionContentList articles={remainingArticles} label={`Články k téme ${subpage.label}`} limit={10} contextualCta={contextualCta} />
+                <SectionContentList
+                  articles={remainingArticles}
+                  label={`Články k téme ${subpage.label}`}
+                  limit={10}
+                  contextualCta={contextualCta}
+                />
               </section>
             </div>
           )}

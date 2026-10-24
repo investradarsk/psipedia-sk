@@ -1,4 +1,5 @@
 "use client";
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -27,14 +28,22 @@ export function FavoritesList({ articles }: { articles: Article[] }) {
 
   if (!saved.length) {
     return (
-      <div className="empty-state favorites-empty">
+      <PublicEmptyState variant="context" className="empty-state favorites-empty">
         <span>♡</span>
         <h2>Zatia tu nič nie je</h2>
         <p>Pri článku ťukni na záložku a bezpečne si ho odlož na neskôr v tomto zariadení.</p>
-        <Link href="/clanky" className="button button--dark">Objaviť články</Link>
-      </div>
+        <Link href="/clanky" className="button button--dark">
+          Objaviť články
+        </Link>
+      </PublicEmptyState>
     );
   }
 
-  return <div className="article-grid">{saved.map((article) => <ArticleCard key={article.slug} article={article} />)}</div>;
+  return (
+    <div className="article-grid">
+      {saved.map((article) => (
+        <ArticleCard key={article.slug} article={article} />
+      ))}
+    </div>
+  );
 }

@@ -1,3 +1,4 @@
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import { PublicSelect } from "@/components/public-visual-system/public-form-controls";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -41,26 +42,36 @@ export function HelpBrowser({
   const needle = normalizeSearch(query);
   const basePath = initialCategory === "all" ? "/pomoc-psom" : `/pomoc-psom/${initialCategory}`;
   const filtered = items.filter((item) => {
-    const searchable = normalizeSearch([
-      item.title,
-      item.excerpt,
-      item.organization,
-      item.dogName,
-      item.breed,
-      item.city,
-      item.region,
-    ].join(" "));
-    return (initialCategory === "all" || item.category === initialCategory)
-      && (region === "all" || item.region === region)
-      && (!activeOnly || !item.resolved)
-      && (!needle || searchable.includes(needle));
+    const searchable = normalizeSearch(
+      [
+        item.title,
+        item.excerpt,
+        item.organization,
+        item.dogName,
+        item.breed,
+        item.city,
+        item.region,
+      ].join(" "),
+    );
+    return (
+      (initialCategory === "all" || item.category === initialCategory) &&
+      (region === "all" || item.region === region) &&
+      (!activeOnly || !item.resolved) &&
+      (!needle || searchable.includes(needle))
+    );
   });
   const activeSecondaryCount = Number(region !== "all") + Number(!activeOnly);
 
   return (
     <section className={styles.browserShell} aria-labelledby="help-results-heading">
       <PublicContentShell variant="listing" className={styles.browserTop}>
-        <form className={styles.toolbar} method="get" action={basePath} aria-label="Filtre Pomoci psom" data-help-secondary-filters>
+        <form
+          className={styles.toolbar}
+          method="get"
+          action={basePath}
+          aria-label="Filtre Pomoci psom"
+          data-help-secondary-filters
+        >
           <input type="hidden" name="q" value={query} />
           <PublicFilterDisclosure
             activeCount={activeSecondaryCount}
@@ -70,20 +81,38 @@ export function HelpBrowser({
           >
             <label>
               <span className={styles.label}>Kraj</span>
-              <PublicSelect appearance="context" name="region" defaultValue={region === "all" ? "" : region}>
+              <PublicSelect
+                appearance="context"
+                name="region"
+                defaultValue={region === "all" ? "" : region}
+              >
                 <option value="">Všetky kraje</option>
-                {slovakRegions.filter((item) => item !== "Online").map((item) => <option value={item} key={item}>{item}</option>)}
+                {slovakRegions
+                  .filter((item) => item !== "Online")
+                  .map((item) => (
+                    <option value={item} key={item}>
+                      {item}
+                    </option>
+                  ))}
               </PublicSelect>
             </label>
             <label>
               <span className={styles.label}>Stav</span>
-              <PublicSelect appearance="context" name="stav" defaultValue={activeOnly ? "" : "vsetky"}>
+              <PublicSelect
+                appearance="context"
+                name="stav"
+                defaultValue={activeOnly ? "" : "vsetky"}
+              >
                 <option value="">Len aktívne</option>
                 <option value="vsetky">Aj ukončené</option>
               </PublicSelect>
             </label>
-            <button className={styles.searchSubmit} type="submit">Použiť filtre</button>
-            <Link className={styles.resetFilters} href={basePath}>Zrušiť filtre</Link>
+            <button className={styles.searchSubmit} type="submit">
+              Použiť filtre
+            </button>
+            <Link className={styles.resetFilters} href={basePath}>
+              Zrušiť filtre
+            </Link>
           </PublicFilterDisclosure>
         </form>
 
@@ -94,20 +123,39 @@ export function HelpBrowser({
         <PageContainer className={styles.results}>
           <div className={styles.resultHeading}>
             <div>
-              <h2 id="help-results-heading">{initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}</h2>
-              <p>{initialCategory === "all" ? "Tento prehľad zahŕňa prípady a organizácie. Psy na adopciu nájdete v samostatnom prehľade adopcií." : "Výsledky zodpovedajú aktuálnemu vyhľadávaniu a filtrom."}</p>
+              <h2 id="help-results-heading">
+                {initialCategory === "all" ? "Aktuálne prípady a organizácie" : "Výsledky"}
+              </h2>
+              <p>
+                {initialCategory === "all"
+                  ? "Tento prehľad zahŕňa prípady a organizácie. Psy na adopciu nájdete v samostatnom prehľade adopcií."
+                  : "Výsledky zodpovedajú aktuálnemu vyhľadávaniu a filtrom."}
+              </p>
             </div>
-            <strong className={styles.resultCount}>{filtered.length} {filtered.length === 1 ? "záznam" : filtered.length > 1 && filtered.length < 5 ? "záznamy" : "záznamov"}</strong>
+            <strong className={styles.resultCount}>
+              {filtered.length}{" "}
+              {filtered.length === 1
+                ? "záznam"
+                : filtered.length > 1 && filtered.length < 5
+                  ? "záznamy"
+                  : "záznamov"}
+            </strong>
           </div>
 
           {filtered.length ? (
-            <div className={styles.grid}>{filtered.map((item) => <HelpCard item={item} key={item.category + ":" + item.id} />)}</div>
+            <div className={styles.grid}>
+              {filtered.map((item) => (
+                <HelpCard item={item} key={item.category + ":" + item.id} />
+              ))}
+            </div>
           ) : (
-            <div className={styles.empty}>
+            <PublicEmptyState variant="context" className={styles.empty}>
               <h2>Momentálne nemáme publikovaný prípad pre tieto filtre.</h2>
               <p>Upravte vyhľadávanie alebo zrušte filtre a vráťte sa k celému zoznamu.</p>
-              <Link className={styles.emptyReset} href={basePath}>Zobraziť celý zoznam</Link>
-            </div>
+              <Link className={styles.emptyReset} href={basePath}>
+                Zobraziť celý zoznam
+              </Link>
+            </PublicEmptyState>
           )}
         </PageContainer>
       </div>
