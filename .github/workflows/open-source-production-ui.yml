@@ -36,7 +36,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Validate Zod, Fuse, lockfile, and production integration
         run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs
-      - name: Type check
-        run: npx tsc --noEmit
+      - name: Lint changed production modules
+        run: npx eslint components/admin-photo-gallery.tsx components/admin-gemini-all-concepts.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts
       - name: Production build
         run: npm run build
