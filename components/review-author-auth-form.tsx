@@ -1,5 +1,7 @@
 "use client";
 
+import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
+
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PartnerTurnstile } from "@/components/partner-turnstile";
 
@@ -32,7 +34,7 @@ export function ReviewAuthorAuthForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, turnstileToken, returnTo }),
       });
-      const data = await response.json() as { message?: string; error?: string };
+      const data = (await response.json()) as { message?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Overovací odkaz sa nepodarilo vyžiadať.");
       setResult({
         type: "success",
@@ -52,7 +54,8 @@ export function ReviewAuthorAuthForm({
     <form className="review-auth-form" onSubmit={submit}>
       <label className="review-auth-field" htmlFor="review-author-email">
         <span>E-mail</span>
-        <input
+        <PublicTextInput
+          appearance="context"
           id="review-author-email"
           type="email"
           autoComplete="email"
@@ -65,14 +68,11 @@ export function ReviewAuthorAuthForm({
         />
       </label>
       <p id="review-author-email-help" className="review-auth-help">
-        E-mail používame iba na overenie autora recenzie a bezpečný prístup k jeho budúcim recenziám.
+        E-mail používame iba na overenie autora recenzie a bezpečný prístup k jeho budúcim
+        recenziám.
       </p>
 
-      <PartnerTurnstile
-        siteKey={siteKey}
-        action="review_author_auth_request"
-        onToken={onToken}
-      />
+      <PartnerTurnstile siteKey={siteKey} action="review_author_auth_request" onToken={onToken} />
 
       {result && (
         <p

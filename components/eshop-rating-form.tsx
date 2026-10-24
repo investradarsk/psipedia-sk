@@ -1,5 +1,7 @@
 "use client";
 
+import { PublicChoiceInput } from "@/components/public-visual-system/public-form-controls";
+
 import Link from "next/link";
 import { FormEvent, useCallback, useState } from "react";
 import { PartnerTurnstile } from "@/components/partner-turnstile";
@@ -15,15 +17,35 @@ type Props = {
   initialRating: EshopRatingInput | null;
 };
 
-function RatingRow({ name, label, value, onChange }: { name: string; label: string; value: number | null; onChange(value: number): void }) {
+function RatingRow({
+  name,
+  label,
+  value,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  value: number | null;
+  onChange(value: number): void;
+}) {
   return (
     <fieldset className={styles.ratingRow}>
       <legend>{label}</legend>
       <div className={styles.options}>
-        {[1,2,3,4,5].map((rating) => (
+        {[1, 2, 3, 4, 5].map((rating) => (
           <label key={rating} className={styles.option}>
-            <input type="radio" name={name} value={rating} checked={value === rating} onChange={() => onChange(rating)} required />
-            <span>{rating}<small>★</small></span>
+            <PublicChoiceInput
+              type="radio"
+              name={name}
+              value={rating}
+              checked={value === rating}
+              onChange={() => onChange(rating)}
+              required
+            />
+            <span>
+              {rating}
+              <small>★</small>
+            </span>
           </label>
         ))}
       </div>
@@ -45,14 +67,15 @@ export function EshopRatingForm({ eshopId, eshopName, eshopSlug, siteKey, initia
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending || !complete() || !turnstileToken) return;
-    setSending(true); setResult(null);
+    setSending(true);
+    setResult(null);
     try {
       const response = await fetch("/api/review-author/eshop-ratings", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ eshopId, ...ratings, turnstileToken }),
       });
-      const data = await response.json() as { message?: string; error?: string; code?: string };
+      const data = (await response.json()) as { message?: string; error?: string; code?: string };
       if (response.status === 401) {
         const returnTo = `/recenzie/eshopy/${eshopSlug}/hodnotit`;
         window.location.assign(reviewAuthorAuthHref(returnTo));
@@ -62,19 +85,29 @@ export function EshopRatingForm({ eshopId, eshopName, eshopSlug, siteKey, initia
       setResult({ type: "success", text: data.message || "Ďakujeme. Hodnotenie bolo uložené." });
       setTurnstileToken("");
     } catch (error) {
-      setResult({ type: "error", text: error instanceof Error ? error.message : "Hodnotenie sa nepodarilo uložiť." });
-    } finally { setSending(false); }
+      setResult({
+        type: "error",
+        text: error instanceof Error ? error.message : "Hodnotenie sa nepodarilo uložiť.",
+      });
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
     <form className={styles.form} onSubmit={submit}>
       <header>
         <span className="eyebrow">Hodnotenie e-shopu</span>
-        <h1>{initialRating ? "Upraviť hodnotenie" : "Ohodnotiť"} {eshopName}</h1>
+        <h1>
+          {initialRating ? "Upraviť hodnotenie" : "Ohodnotiť"} {eshopName}
+        </h1>
         <p>Každú oblasť ohodnoťte od 1 do 5. Text recenzie nie je potrebný.</p>
       </header>
 
-      <div className={styles.scale}><span>1 = slabé</span><span>5 = výborné</span></div>
+      <div className={styles.scale}>
+        <span>1 = slabé</span>
+        <span>5 = výborné</span>
+      </div>
 
       <div className={styles.rows}>
         {ESHOP_RATING_FIELDS.map((field) => (
@@ -93,10 +126,18 @@ export function EshopRatingForm({ eshopId, eshopName, eshopSlug, siteKey, initia
         <p>Hodnotenie je naviazané na overený e-mail. E-mail sa verejne nezobrazuje.</p>
       </div>
 
-      {result ? <p className={result.type === "success" ? styles.success : styles.error} role="status">{result.text}</p> : null}
+      {result ? (
+        <p className={result.type === "success" ? styles.success : styles.error} role="status">
+          {result.text}
+        </p>
+      ) : null}
 
       <div className={styles.actions}>
-        <button className="button button--coral" type="submit" disabled={sending || !complete() || !turnstileToken || !siteKey}>
+        <button
+          className="button button--coral"
+          type="submit"
+          disabled={sending || !complete() || !turnstileToken || !siteKey}
+        >
           {sending ? "Ukladám…" : initialRating ? "Aktualizovať hodnotenie" : "Odoslať hodnotenie"}
         </button>
         <Link href={`/recenzie/eshopy/${eshopSlug}`}>Späť na profil e-shopu</Link>

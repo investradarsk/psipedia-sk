@@ -12,7 +12,10 @@ test("legacy synthetic locations never present as physical city, district or reg
   assert.equal(publicLocationValue("Slovenská republika", "district"), "");
   assert.equal(publicLocationValue("Ráztočno", "city"), "Ráztočno");
   assert.equal(publicLocationValue("Nitriansky kraj", "region"), "Nitriansky kraj");
-  assert.equal(publicLocationLabel(["Online", "Nitra", "Nitriansky kraj", "Nitra"]), "Nitra · Nitriansky kraj");
+  assert.equal(
+    publicLocationLabel(["Online", "Nitra", "Nitriansky kraj", "Nitra"]),
+    "Nitra · Nitriansky kraj",
+  );
   assert.equal(publicLocationLabel(["Online", ""]), "");
 });
 
@@ -48,10 +51,10 @@ test("past events are marked automatically, registration is hidden and future ev
 });
 
 test("public filters remove Online region and import placeholders", () => {
-  assert.match(read("components/event-listing-results.tsx"), /slovakRegions\.filter/);
-  assert.match(read("components/help-browser.tsx"), /slovakRegions\.filter/);
-  assert.match(read("components/admin-event-editor.tsx"), /slovakRegions\.filter/);
-  assert.match(read("components/admin-help-editor.tsx"), /slovakRegions\.filter/);
+  assert.match(read("components/event-listing-results.tsx"), /slovakRegions\s*\.filter/);
+  assert.match(read("components/help-browser.tsx"), /slovakRegions\s*\.filter/);
+  assert.match(read("components/admin-event-editor.tsx"), /slovakRegions\s*\.filter/);
+  assert.match(read("components/admin-help-editor.tsx"), /slovakRegions\s*\.filter/);
   assert.match(read("components/directory-filter-form.tsx"), /publicLocationValue/);
   assert.match(read("lib/directory-store.ts"), /slovensko\|slovenská republika/);
 });
@@ -59,7 +62,9 @@ test("public filters remove Online region and import placeholders", () => {
 test("no homepage category asserts content absence from missing approved images", () => {
   const home = read("app/page.tsx");
   const events = read("lib/event-store.ts");
-  const eventSlice = events.slice(events.indexOf("export async function getHomepageUpcomingEventsWithImages")).split("\nexport async function ")[0];
+  const eventSlice = events
+    .slice(events.indexOf("export async function getHomepageUpcomingEventsWithImages"))
+    .split("\nexport async function ")[0];
   assert.match(eventSlice, /cancelled = 0/);
   assert.doesNotMatch(eventSlice, /HOMEPAGE_REAL_IMAGE_SQL/);
   assert.doesNotMatch(home, /Nové podujatia práve dopĺňame|Momentálne tu nie je otvorená výzva/);

@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildEventJsonLd } from "../lib/event-schema.ts";
-import { buildPublicEventPresentation, eventTypeFromPortalSlug, eventTypePortalHref, selectRelatedEvents } from "../lib/events.ts";
+import {
+  buildPublicEventPresentation,
+  eventTypeFromPortalSlug,
+  eventTypePortalHref,
+  selectRelatedEvents,
+} from "../lib/events.ts";
 
 function event(overrides) {
   return {
@@ -42,7 +47,10 @@ test("Events 2.0 detail keeps shared structural primitives and route-owned JSON-
   assert.match(detail, /PageContainer/);
   assert.match(detail, /<Breadcrumbs/);
   assert.match(detail, /<DetailHero kind="event"/);
-  const hero = readFileSync(new URL("../components/detail-primitives/detail-primitives.tsx", import.meta.url), "utf8");
+  const hero = readFileSync(
+    new URL("../components/detail-primitives/detail-primitives.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(hero, /data-event-detail-header=\{kind === "event"/);
   assert.match(detail, /eventDateStatus\(event\)/);
   assert.doesNotMatch(detail, /application\/ld\+json|eventDateTimeIso/);
@@ -60,26 +68,34 @@ test("detail exposes real event fields before optional media and never renders e
   assert.match(detail, /event\.organizer &&/);
   assert.match(detail, /event\.description &&/);
   assert.match(detail, /event\.practicalInfo &&/);
-  assert.match(detail, /media=\{<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\}/);
+  assert.match(
+    detail,
+    /media=\{<EventImage imageUrl=\{event\.imageUrl\} eventType=\{event\.eventType\}/,
+  );
   assert.doesNotMatch(detail, /PawMark|Program|Poplatky|Podmienky účasti/);
 });
 
 test("PUBLIC-HYGIENE event presentation removes import diagnostics, raw sources and exact duplicate copy", () => {
-  const presentation = buildPublicEventPresentation(event({
-    excerpt: "Špeciálna výstava belgických ovčiakov.",
-    description: "Špeciálna výstava belgických ovčiakov.",
-    practicalInfo: [
-      "Návštevníci: Nezistené – zdroj neurčuje režim návštevníkov",
-      "Zdroje: https://kalendar.unkk.sk/",
-      "source_id: import-0062",
-      "Parkovanie: pri areáli.",
-      "Návštevníci: vstup voľný.",
-      "Zdroj: klubový bulletin.",
-    ].join("\n"),
-  }));
+  const presentation = buildPublicEventPresentation(
+    event({
+      excerpt: "Špeciálna výstava belgických ovčiakov.",
+      description: "Špeciálna výstava belgických ovčiakov.",
+      practicalInfo: [
+        "Návštevníci: Nezistené – zdroj neurčuje režim návštevníkov",
+        "Zdroje: https://kalendar.unkk.sk/",
+        "source_id: import-0062",
+        "Parkovanie: pri areáli.",
+        "Návštevníci: vstup voľný.",
+        "Zdroj: klubový bulletin.",
+      ].join("\n"),
+    }),
+  );
 
   assert.equal(presentation.description, "");
-  assert.doesNotMatch(presentation.practicalInfo, /Nezistené|https:\/\/kalendar\.unkk\.sk|source_id/i);
+  assert.doesNotMatch(
+    presentation.practicalInfo,
+    /Nezistené|https:\/\/kalendar\.unkk\.sk|source_id/i,
+  );
   assert.match(presentation.practicalInfo, /Parkovanie: pri areáli/);
   assert.match(presentation.practicalInfo, /Návštevníci: vstup voľný/);
   assert.match(presentation.practicalInfo, /Zdroj: klubový bulletin/);
@@ -101,12 +117,30 @@ test("every public event type has a reversible crawlable listing route", () => {
 });
 
 test("internal discovery controls remain crawlable while directory pagination stays link-based", () => {
-  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-  const eventsPage = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
-  const helpBrowser = readFileSync(new URL("../components/help-browser.tsx", import.meta.url), "utf8");
-  const helpCategoryRoute = readFileSync(new URL("../app/pomoc-psom/[category]/page.tsx", import.meta.url), "utf8");
-  const directoryResults = readFileSync(new URL("../components/directory-results.tsx", import.meta.url), "utf8");
-  const relatedEntities = readFileSync(new URL("../components/related-entity-list.tsx", import.meta.url), "utf8");
+  const calendar = readFileSync(
+    new URL("../components/event-calendar.tsx", import.meta.url),
+    "utf8",
+  );
+  const eventsPage = readFileSync(
+    new URL("../components/events-page.tsx", import.meta.url),
+    "utf8",
+  );
+  const helpBrowser = readFileSync(
+    new URL("../components/help-browser.tsx", import.meta.url),
+    "utf8",
+  );
+  const helpCategoryRoute = readFileSync(
+    new URL("../app/pomoc-psom/[category]/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const directoryResults = readFileSync(
+    new URL("../components/directory-results.tsx", import.meta.url),
+    "utf8",
+  );
+  const relatedEntities = readFileSync(
+    new URL("../components/related-entity-list.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.match(calendar, /href=\{timeHref\(value\)\}/);
   assert.match(eventsPage, /shortcuts=\{searchShortcuts\}/);
@@ -121,21 +155,42 @@ test("internal discovery controls remain crawlable while directory pagination st
   assert.doesNotMatch(helpBrowser, /useState|window\.history/);
   // The directory supplies filter-preserving canonical hrefs, while the shared
   // server-rendered pagination owns native rel=prev/next links for crawlers.
-  const pagination = readFileSync(new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url), "utf8");
+  const pagination = readFileSync(
+    new URL("../components/public-visual-system/public-result-states.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(directoryResults, /<PublicPagination\b/);
   assert.match(directoryResults, /currentPage=\{result\.page\}/);
   assert.match(directoryResults, /totalPages=\{result\.totalPages\}/);
-  assert.match(directoryResults, /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/);
-  assert.match(directoryResults, /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/);
-  assert.match(pagination, /<Link href=\{previousHref\} rel="prev" aria-label=\{previousAriaLabel\}>\{previousLabel\}<\/Link>/);
-  assert.match(pagination, /<Link href=\{nextHref\} rel="next" aria-label=\{nextAriaLabel\}>\{nextLabel\}<\/Link>/);
+  assert.match(
+    directoryResults,
+    /previousHref=\{result\.page > 1 \? directoryPageHref\(basePath, filters, result\.page - 1\) : undefined\}/,
+  );
+  assert.match(
+    directoryResults,
+    /nextHref=\{result\.page < result\.totalPages \? directoryPageHref\(basePath, filters, result\.page \+ 1\) : undefined\}/,
+  );
+  assert.match(
+    pagination,
+    /<Link\s+href=\{previousHref\}\s+rel="prev"\s+aria-label=\{previousAriaLabel\}>\s*\{previousLabel\}\s*<\/Link>/,
+  );
+  assert.match(
+    pagination,
+    /<Link\s+href=\{nextHref\}\s+rel="next"\s+aria-label=\{nextAriaLabel\}>\s*\{nextLabel\}\s*<\/Link>/,
+  );
   assert.match(relatedEntities, /<Link className=\{styles\.card\} href=\{breed\.href\}>/);
 });
 
 test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and compact category links", () => {
   const page = readFileSync(new URL("../components/events-page.tsx", import.meta.url), "utf8");
-  const calendar = readFileSync(new URL("../components/event-calendar.tsx", import.meta.url), "utf8");
-  const css = readFileSync(new URL("../components/events-public.module.css", import.meta.url), "utf8");
+  const calendar = readFileSync(
+    new URL("../components/event-calendar.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = readFileSync(
+    new URL("../components/events-public.module.css", import.meta.url),
+    "utf8",
+  );
 
   assert.doesNotMatch(page, /PublicSubcategoryNavigator/);
   assert.match(calendar, /data-events-legend/);
@@ -150,7 +205,10 @@ test("EVENTS-PUBLIC-UX-1 keeps one search with crawlable type shortcuts and comp
   assert.equal((page.match(/<HomePortalSearch/g) ?? []).length, 1);
   assert.match(page, /searchScope="events"/);
   assert.equal((page.match(/id="events-search"/g) ?? []).length, 1);
-  const results = readFileSync(new URL("../components/event-listing-results.tsx", import.meta.url), "utf8");
+  const results = readFileSync(
+    new URL("../components/event-listing-results.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(results, /eventListingParams/);
   assert.doesNotMatch(calendar, /eventTypeFilters|EVENT_SECTION_COPY|categoryOverview|selectType/);
   assert.match(results, /<details/);
@@ -171,7 +229,13 @@ test("related events prefer active same-type events while past details prefer th
     event({ id: 3, slug: "race", startDate: "2026-09-11", eventType: "Preteky" }),
     event({ id: 4, slug: "show-later", startDate: "2026-09-20", eventType: "Výstava" }),
     event({ id: 5, slug: "show-sooner", startDate: "2026-09-15", eventType: "Výstava" }),
-    event({ id: 6, slug: "cancelled", startDate: "2026-09-12", eventType: "Výstava", cancelled: true }),
+    event({
+      id: 6,
+      slug: "cancelled",
+      startDate: "2026-09-12",
+      eventType: "Výstava",
+      cancelled: true,
+    }),
   ];
 
   assert.deepEqual(
@@ -190,7 +254,10 @@ test("route reuses the canonical Event graph builder without duplicating schema 
   const page = readFileSync(new URL("../app/[section]/[slug]/page.tsx", import.meta.url), "utf8");
   const schemaBuilder = readFileSync(new URL("../lib/event-schema.ts", import.meta.url), "utf8");
   assert.match(page, /buildContentMetadata/);
-  assert.match(page, /resolvedCanonical\(event\.seo,eventHref\(event\)\)|resolvedCanonical\(event\.seo, eventHref\(event\)\)/);
+  assert.match(
+    page,
+    /resolvedCanonical\(event\.seo,eventHref\(event\)\)|resolvedCanonical\(event\.seo, eventHref\(event\)\)/,
+  );
   assert.match(page, /buildEventJsonLd\(event, canonical\)/);
   assert.doesNotMatch(page, /"@type": "Event"/);
   assert.match(schemaBuilder, /"@type": "Event"/);
@@ -207,7 +274,10 @@ test("route reuses the canonical Event graph builder without duplicating schema 
 });
 
 test("Event graph covers physical, online and registration-free events with canonical dates", () => {
-  const physical = buildEventJsonLd(event({ registrationUrl: null }), "https://psipedia.sk/podujatia/klubova-vystava");
+  const physical = buildEventJsonLd(
+    event({ registrationUrl: null }),
+    "https://psipedia.sk/podujatia/klubova-vystava",
+  );
   const physicalEvent = physical["@graph"].find((item) => item["@type"] === "Event");
   const physicalPage = physical["@graph"].find((item) => item["@type"] === "WebPage");
   assert.equal(physicalEvent.location["@type"], "Place");
@@ -217,28 +287,50 @@ test("Event graph covers physical, online and registration-free events with cano
   assert.equal("offers" in physicalEvent, false);
   assert.equal(physicalPage.datePublished, "2026-08-05T10:00:00.000Z");
   assert.equal(physicalPage.dateModified, "2026-09-01T10:00:00.000Z");
-  assert.deepEqual(physicalPage.mainEntity, { "@id": "https://psipedia.sk/podujatia/klubova-vystava#event" });
+  assert.deepEqual(physicalPage.mainEntity, {
+    "@id": "https://psipedia.sk/podujatia/klubova-vystava#event",
+  });
 
-  const online = buildEventJsonLd(event({
-    slug: "online-webinar",
-    region: "Online",
-    city: "",
-    venue: "",
-    address: "",
-    websiteUrl: "https://example.org/webinar",
-    registrationUrl: null,
-  }), "/podujatia/online-webinar");
+  const online = buildEventJsonLd(
+    event({
+      slug: "online-webinar",
+      region: "Online",
+      city: "",
+      venue: "",
+      address: "",
+      websiteUrl: "https://example.org/webinar",
+      registrationUrl: null,
+    }),
+    "/podujatia/online-webinar",
+  );
   const onlineEvent = online["@graph"].find((item) => item["@type"] === "Event");
-  assert.deepEqual(onlineEvent.location, { "@type": "VirtualLocation", url: "https://example.org/webinar" });
+  assert.deepEqual(onlineEvent.location, {
+    "@type": "VirtualLocation",
+    url: "https://example.org/webinar",
+  });
   assert.equal(onlineEvent.eventAttendanceMode, "https://schema.org/OnlineEventAttendanceMode");
 });
 
 test("existing admin already manages every field needed by the public detail", () => {
-  const editor = readFileSync(new URL("../components/admin-event-editor.tsx", import.meta.url), "utf8");
+  const editor = readFileSync(
+    new URL("../components/admin-event-editor.tsx", import.meta.url),
+    "utf8",
+  );
   for (const field of [
-    "event-type", "event-start-date", "event-start-time", "event-end-date", "event-end-time",
-    "event-region", "event-city", "event-venue", "event-address", "event-organizer",
-    "event-description", "event-practical", "event-web", "event-registration",
+    "event-type",
+    "event-start-date",
+    "event-start-time",
+    "event-end-date",
+    "event-end-time",
+    "event-region",
+    "event-city",
+    "event-venue",
+    "event-address",
+    "event-organizer",
+    "event-description",
+    "event-practical",
+    "event-web",
+    "event-registration",
   ]) {
     assert.match(editor, new RegExp('id="' + field + '"'));
   }
@@ -246,11 +338,20 @@ test("existing admin already manages every field needed by the public detail", (
 });
 
 test("detail uses scoped tokens, safe image cropping and mobile single-column fallbacks", () => {
-  const css = readFileSync(new URL("../components/events-public.module.css", import.meta.url), "utf8");
+  const css = readFileSync(
+    new URL("../components/events-public.module.css", import.meta.url),
+    "utf8",
+  );
   assert.match(css, /\.detailFacts[\s\S]*grid-template-columns:\s*repeat\(3/);
   assert.match(css, /\.detailVisual img[\s\S]*object-fit:\s*cover/);
   assert.match(css, /var\(--ps-space-section\)/);
   assert.match(css, /var\(--ps-border-soft\)/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.detailGrid[\s\S]*grid-template-columns:\s*1fr/);
-  assert.match(css, /@media \(max-width: 900px\)[\s\S]*\.detailFacts[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(
+    css,
+    /@media \(max-width: 760px\)[\s\S]*\.detailGrid[\s\S]*grid-template-columns:\s*1fr/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 900px\)[\s\S]*\.detailFacts[\s\S]*grid-template-columns:\s*1fr/,
+  );
 });

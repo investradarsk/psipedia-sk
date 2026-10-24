@@ -11,7 +11,10 @@ test("Phase 5 review hub uses managed canonical category navigation and surfaces
   assert.match(hub, /showSectionTabs && <PortalSectionTabs section=\{section\}/);
   assert.match(hub, /isEditorialHub && latestContent/);
   assert.match(hub, /isReviews && latestContent/);
-  assert.match(hub, /!isReviews && <section className="section shell public-shell portal-directory"/);
+  assert.match(
+    hub,
+    /!isReviews &&\s*\(?\s*<section\s+className="section shell public-shell portal-directory"/,
+  );
   assert.match(hub, /subpages\.find\(\(item\) => item\.slug === article\.portalSubpage\)/);
   assert.match(hub, /portalSubpageHref\(section, category\)/);
   assert.match(hub, /actionLabel: "Čítať recenziu"/);
@@ -26,7 +29,10 @@ test("review hub follows the polished portal visual hierarchy while keeping mana
   assert.match(hub, /review-articles-layout/);
   assert.match(hub, /review-category-grid/);
   assert.match(hub, /subpages\.map\(\(subpage, index\) =>/);
-  assert.match(hub, /sectionArticles\.filter\(\(article\) => article\.portalSubpage === subpage\.slug\)/);
+  assert.match(
+    hub,
+    /sectionArticles\.filter\(\s*\(article\) => article\.portalSubpage === subpage\.slug,?\s*\)/,
+  );
   assert.match(css, /\.review-trust/);
   assert.match(css, /\.review-category-card/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.review-category-card/);
@@ -36,11 +42,26 @@ test("Phase 5 review category pages are direct filtered listings, not generic in
   const topic = read("components/portal-topic.tsx");
   assert.match(topic, /const isReviews = section\.slug === "recenzie"/);
   assert.match(topic, /section\.slug !== "recenzie" \|\| article\.portalSubpage === subpage\.slug/);
-  assert.match(topic, /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
-  assert.match(topic, /isReviews && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
-  assert.match(topic, /!isReviews && <section className="section shell public-shell portal-topic-body"/);
-  assert.match(topic, /hasReviewGuide && <section className="section review-topic-first-section"/);
-  assert.match(topic, /<PublicContentShell variant="listing" className="portal-topic-body review-topic-guide">/);
+  assert.match(
+    topic,
+    /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
+  );
+  assert.match(
+    topic,
+    /isReviews && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
+  );
+  assert.match(
+    topic,
+    /!isReviews &&\s*\(?\s*<section\s+className="section shell public-shell portal-topic-body"/,
+  );
+  assert.match(
+    topic,
+    /hasReviewGuide &&\s*\(?\s*<section\s+className="section review-topic-first-section"/,
+  );
+  assert.match(
+    topic,
+    /<PublicContentShell variant="listing" className="portal-topic-body review-topic-guide">/,
+  );
   assert.match(topic, /Recenzie v kategórii/);
   assert.match(topic, /Všetky recenzie/);
 });
@@ -57,7 +78,10 @@ test("valuable managed review landing content is preserved without treating labe
   assert.match(helper, /subpage\.warningSigns\?\.length/);
   assert.match(helper, /subpage\.expertAdvice/);
   assert.match(helper, /subpage\.serviceLinks\?\.length/);
-  assert.doesNotMatch(helper, /seoTitle|metaDescription|\.label|\.description|featuredArticleSlugs|imageUrl|imageAlt/);
+  assert.doesNotMatch(
+    helper,
+    /seoTitle|metaDescription|\.label|\.description|featuredArticleSlugs|imageUrl|imageAlt/,
+  );
   assert.match(topic, /Metodika a kontext/);
   assert.match(topic, /Súvisiace odkazy/);
 });
@@ -86,19 +110,27 @@ test("review detail uses the managed product category in breadcrumbs and structu
 test("empty thin review categories are noindex and excluded from sitemap until they have value", () => {
   const route = read("app/[section]/[slug]/page.tsx");
   const sitemap = read("app/sitemap.ts");
-  assert.match(route, /section === "recenzie" && !portalSubpageHasEditorialValue\(portalTopic\.subpage\)/);
+  assert.match(
+    route,
+    /section === "recenzie" && !portalSubpageHasEditorialValue\(portalTopic\.subpage\)/,
+  );
   assert.match(route, /getPublishedReviewSummaries\(slug, 1\)/);
   assert.match(route, /if \(!reviews\.length\)/);
   assert.match(route, /robots: \{ index: false, follow: true \}/);
   assert.match(sitemap, /section\.slug !== "recenzie"/);
-  assert.match(sitemap, /portalSubpageHasEditorialValue\(subpage\) \|\| sectionArticles\.some\(\(article\) => article\.portalSubpage === subpage\.slug\)/);
+  assert.match(
+    sitemap,
+    /portalSubpageHasEditorialValue\(subpage\) \|\| sectionArticles\.some\(\(article\) => article\.portalSubpage === subpage\.slug,?\s*\)/,
+  );
 });
-
 
 test("review category landing content and SEO are manageable in the existing section admin", () => {
   const editor = read("components/admin-section-editor.tsx");
   assert.match(editor, /const isReviewSection = section\.slug === "recenzie"/);
-  assert.match(editor, /isStructuredSection = \["starostlivost", "aktivity", "steniatka", "recenzie"\]\.includes\(section\.slug\)/);
+  assert.match(
+    editor,
+    /isStructuredSection = \["starostlivost", "aktivity", "steniatka", "recenzie"\]\.includes\(section\.slug\)/,
+  );
   assert.match(editor, /Obsah kategórie recenzií a testov/);
   assert.match(editor, /Metodika testovania a redakčný kontext/);
   assert.match(editor, /SEO title/);
@@ -107,7 +139,9 @@ test("review category landing content and SEO are manageable in the existing sec
 
 test("existing admin CTA and sponsored behavior remain the review source of truth", () => {
   const editor = read("components/admin-article-block-editor.tsx");
-  const renderer = read("components/article-blocks.tsx");
+  const renderer =
+    read("components/article-blocks.tsx") +
+    read("components/public-visual-system/public-article-callout.tsx");
   assert.match(editor, /Affiliate \/ sponsored/);
   assert.match(editor, /Partnerský odkaz/);
   assert.match(renderer, /if \(!block\.buttonText \|\| !href\) return null/);
@@ -115,11 +149,13 @@ test("existing admin CTA and sponsored behavior remain the review source of trut
   assert.match(renderer, /article-block-cta-disclosure/);
 });
 
-
 test("review category filtering happens before the category-page slice", () => {
   const reviews = read("lib/reviews.ts");
   const route = read("app/[section]/[slug]/page.tsx");
-  assert.match(reviews, /getPublishedArticleSummaries\(\{ portalSection: "recenzie", limit: 500 \}\)/);
+  assert.match(
+    reviews,
+    /getPublishedArticleSummaries\(\{ portalSection: "recenzie", limit: 500 \}\)/,
+  );
   assert.match(reviews, /article\.portalSubpage === portalSubpage/);
   assert.ok(reviews.indexOf(".filter(") < reviews.indexOf(".slice("));
   assert.match(route, /getPublishedReviewSummaries\(slug, 120\)/);
@@ -133,7 +169,10 @@ test("Phase 5 keeps non-review shared component behavior on the existing paths",
   assert.match(hub, /const isEditorialHub = isCare \|\| isActivities \|\| isPuppies/);
   assert.match(hub, /!isEditorialHub && !isReviews && latestContent/);
   assert.match(topic, /const isStructuredTopic = isCare \|\| isActivities \|\| isPuppies/);
-  assert.match(topic, /section\.slug !== "steniatka" \|\| article\.portalSubpage === subpage\.slug/);
+  assert.match(
+    topic,
+    /section\.slug !== "steniatka" \|\| article\.portalSubpage === subpage\.slug/,
+  );
   assert.match(topic, /!isCare \|\| legacyCareArea\(article\) === subpage\.slug/);
   assert.match(topic, /!isActivities \|\| legacyActivityArea\(article\) === subpage\.slug/);
   assert.match(detail, /"Článok si môžeš uložiť v tomto zariadení a vrátiť sa k nemu neskôr\."/);

@@ -1,9 +1,14 @@
+import { PublicMediaFallback } from "@/components/public-visual-system/public-media-fallback";
 import Link from "next/link";
-import { PublicHelpClosingBanner, PublicHelpPhotoBanner, type PublicHelpPhotoBannerData } from "@/components/public-visual-system/public-help-banner";
+import {
+  PublicHelpClosingBanner,
+  PublicHelpPhotoBanner,
+  type PublicHelpPhotoBannerData,
+} from "@/components/public-visual-system/public-help-banner";
 import { ImageDisplay } from "@/components/image-display";
 import type { ImageDisplayConfig } from "@/lib/image-display";
 import { HelpCategoryIcon, ShieldCheckIcon } from "@/components/help-public-icons";
-import { ArrowIcon, PawMark } from "@/components/icons";
+import { ArrowIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer } from "@/components/page-system";
 import {
   PublicActionLink,
@@ -83,19 +88,38 @@ function OverviewCard({ item }: { item: HelpOverviewItem }) {
     <article className={styles.overviewCard} data-help-overview-card>
       <Link className={styles.overviewMedia} href={item.href} aria-label={`Otvoriť: ${item.title}`}>
         {item.imageUrl ? (
-          <ImageDisplay roleHint="generic" context="thumbnail" config={item.thumbnailImageDisplay ?? {mode:"crop",x:50,y:50,zoom:1}} src={item.imageUrl} alt="" loading="lazy" decoding="async" />
+          <ImageDisplay
+            roleHint="generic"
+            context="thumbnail"
+            config={item.thumbnailImageDisplay ?? { mode: "crop", x: 50, y: 50, zoom: 1 }}
+            src={item.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
-          <span className={styles.overviewMediaFallback} aria-hidden="true"><PawMark size={34} /></span>
+          <PublicMediaFallback
+            appearance="context"
+            className={styles.overviewMediaFallback}
+            iconSize={34}
+            decorative
+          />
         )}
         {item.badge ? (
-          <span className={[styles.overviewBadge, item.urgent ? styles.overviewBadgeUrgent : ""].filter(Boolean).join(" ")}>
+          <span
+            className={[styles.overviewBadge, item.urgent ? styles.overviewBadgeUrgent : ""]
+              .filter(Boolean)
+              .join(" ")}
+          >
             {item.badge}
           </span>
         ) : null}
       </Link>
       <div className={styles.overviewCardCopy}>
         <span className={styles.overviewEyebrow}>{item.eyebrow}</span>
-        <h3><Link href={item.href}>{item.title}</Link></h3>
+        <h3>
+          <Link href={item.href}>{item.title}</Link>
+        </h3>
         {item.meta ? <p className={styles.overviewMeta}>{item.meta}</p> : null}
         {item.excerpt ? <p className={styles.overviewExcerpt}>{item.excerpt}</p> : null}
         <Link className={styles.overviewCardAction} href={item.href}>
@@ -122,9 +146,13 @@ export async function HelpOverview({
       <PublicFoundation className={styles.foundation}>
         <UnifiedSectionHeroShell>
           <UnifiedSectionHero
-            breadcrumbs={<Breadcrumbs label="Drobečková navigácia">
-              <Link href="/">Domov</Link><span>/</span><span>Pomoc psom</span>
-            </Breadcrumbs>}
+            breadcrumbs={
+              <Breadcrumbs label="Drobečková navigácia">
+                <Link href="/">Domov</Link>
+                <span>/</span>
+                <span>Pomoc psom</span>
+              </Breadcrumbs>
+            }
             eyebrow="Praktická pomoc"
             title="Pomoc psom"
             intro="Adopcie, útulky, dočasná opatera, zbierky a stratené psy. Vyberte si kategóriu alebo hľadajte priamo."
@@ -146,13 +174,19 @@ export async function HelpOverview({
               />
             }
             ctaSlot={
-              <PublicActionLink href="/organizacie" variant="secondary" icon={<ArrowIcon size={16} />}>
+              <PublicActionLink
+                href="/organizacie"
+                variant="secondary"
+                icon={<ArrowIcon size={16} />}
+              >
                 Zobraziť organizácie
               </PublicActionLink>
             }
             metaSlot={
               <div className={styles.headerMeta}>
-                <span><ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje</span>
+                <span>
+                  <ShieldCheckIcon size={17} /> Zobrazujeme iba publikované údaje
+                </span>
               </div>
             }
           />
@@ -167,18 +201,24 @@ export async function HelpOverview({
               id="help-categories-heading"
             />
 
-            <nav className={styles.overviewCategoryGrid} data-help-category-nav aria-label="Kategórie pomoci">
-            {sections.map((section) => (
-              <Link href={section.href} key={section.slug}>
-                <span className={styles.overviewCategoryIcon}><HelpCategoryIcon category={section.slug} size={22} /></span>
-                <span className={styles.overviewCategoryCopy}>
-                  <strong>{section.label}</strong>
-                  <small>{section.description}</small>
-                </span>
-                <span className={styles.overviewCategoryCount}>{section.count}</span>
-                <ArrowIcon size={17} />
-              </Link>
-            ))}
+            <nav
+              className={styles.overviewCategoryGrid}
+              data-help-category-nav
+              aria-label="Kategórie pomoci"
+            >
+              {sections.map((section) => (
+                <Link href={section.href} key={section.slug}>
+                  <span className={styles.overviewCategoryIcon}>
+                    <HelpCategoryIcon category={section.slug} size={22} />
+                  </span>
+                  <span className={styles.overviewCategoryCopy}>
+                    <strong>{section.label}</strong>
+                    <small>{section.description}</small>
+                  </span>
+                  <span className={styles.overviewCategoryCount}>{section.count}</span>
+                  <ArrowIcon size={17} />
+                </Link>
+              ))}
             </nav>
           </PublicContentShell>
         </section>
@@ -190,7 +230,11 @@ export async function HelpOverview({
             const promo = promos[index];
             return (
               <div key={section.slug}>
-                <section className={styles.overviewSection} aria-labelledby={`help-overview-${section.slug}`} data-help-overview-section={section.slug}>
+                <section
+                  className={styles.overviewSection}
+                  aria-labelledby={`help-overview-${section.slug}`}
+                  data-help-overview-section={section.slug}
+                >
                   <PageContainer className={styles.overviewSectionInner}>
                     <PublicLandingSectionHeading
                       eyebrow="Pomoc psom"
@@ -198,7 +242,11 @@ export async function HelpOverview({
                       description={section.description}
                       id={`help-overview-${section.slug}`}
                       action={
-                        <PublicActionLink href={section.href} variant="secondary" icon={<ArrowIcon size={16} />}>
+                        <PublicActionLink
+                          href={section.href}
+                          variant="secondary"
+                          icon={<ArrowIcon size={16} />}
+                        >
                           Zobraziť všetky
                         </PublicActionLink>
                       }
@@ -206,12 +254,16 @@ export async function HelpOverview({
 
                     {section.items.length ? (
                       <div className={styles.overviewGrid}>
-                        {section.items.slice(0, 6).map((item) => <OverviewCard item={item} key={item.id} />)}
+                        {section.items.slice(0, 6).map((item) => (
+                          <OverviewCard item={item} key={item.id} />
+                        ))}
                       </div>
                     ) : (
                       <div className={styles.overviewEmpty}>
                         <p>Ďalšie prípady a organizácie nájdeš v prehľade kategórie.</p>
-                        <Link href={section.href}>Otvoriť kategóriu <ArrowIcon size={15} /></Link>
+                        <Link href={section.href}>
+                          Otvoriť kategóriu <ArrowIcon size={15} />
+                        </Link>
                       </div>
                     )}
                   </PageContainer>

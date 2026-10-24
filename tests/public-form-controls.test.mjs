@@ -8,14 +8,23 @@ test("canonical public form primitives preserve browser-native control semantics
   const src = read("components/public-visual-system/public-form-controls.tsx");
   const css = read("components/public-visual-system/public-form-controls.module.css");
   const index = read("components/public-visual-system/index.ts");
-  for (const symbol of ["PublicFormField", "PublicTextInput", "PublicSelect", "PublicTextarea", "PublicChoice"]) {
+  for (const symbol of [
+    "PublicFormField",
+    "PublicTextInput",
+    "PublicSelect",
+    "PublicTextarea",
+    "PublicChoice",
+  ]) {
     assert.ok(src.includes("export function " + symbol + "("), symbol + " must exist");
     assert.ok(index.includes(symbol), symbol + " must be exported");
   }
   for (const code of [
-    "<label className=", "<input {...props} type={type}",
-    "<select {...props}", "<textarea {...props}"
-  ]) assert.ok(src.includes(code), code);
+    "<label className=",
+    "<input {...props} type={type}",
+    "<select {...props}",
+    "<textarea {...props}",
+  ])
+    assert.ok(src.replace(/\s+/g, " ").includes(code), code);
   assert.ok(css.includes("min-height: var(--ps-control-min-height, 44px)"));
   assert.ok(css.includes(":focus-visible"));
   assert.ok(css.includes("forced-colors: active"));
@@ -29,8 +38,12 @@ test("search page opts into shared controls without changing SSR GET actions or 
     '<PublicFormField label="Typ výsledku">',
     '<PublicSelect name="typ" defaultValue={activeTypeFilter}>',
     '<PublicFormField label="Lokalita">',
-    '<PublicTextInput', 'name="lokalita"',
-    'name="q"', 'name="sekcia"', 'name="podsekcia"',
-    'searchPortal(query'
-  ]) assert.ok(page.includes(fragment), "missing unchanged search contract: " + fragment);
+    "<PublicTextInput",
+    'name="lokalita"',
+    'name="q"',
+    'name="sekcia"',
+    'name="podsekcia"',
+    "searchPortal(query",
+  ])
+    assert.ok(page.includes(fragment), "missing unchanged search contract: " + fragment);
 });
