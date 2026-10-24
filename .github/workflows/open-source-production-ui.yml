@@ -1,0 +1,38 @@
+name: Open-source production UI integration
+
+on:
+  pull_request:
+    paths:
+      - "components/admin-photo-gallery.tsx"
+      - "components/admin-gemini-all-concepts.tsx"
+      - "lib/admin-photo-gallery-url.ts"
+      - "lib/gemini-concept-fuzzy-search.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "tests/open-source-production-ui.test.mjs"
+      - ".github/workflows/open-source-production-ui.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+          cache: npm
+      - name: Install exact dependencies from updated lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate Zod, Fuse, lockfile, and production integration
+        run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build

@@ -1,6 +1,9 @@
 "use client";
 
 import { useId, useRef, useState, type ChangeEvent } from "react";
+import { useForm } from "react-hook-form";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { validateAdminPhotoGalleryUrl } from "@/lib/admin-photo-gallery-url";
 import { uploadAdminImage, type AdminImageFolder } from "@/lib/admin-image-upload";
 import styles from "./admin-photo-gallery.module.css";
 
@@ -18,19 +21,18 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [url, setUrl] = useState("");
+  // Remain inside the owning editor form; no nested form or save side effects.
+  const { register, setValue, watch } = useForm<{ photoUrl: string }>({ defaultValues: { photoUrl: "" } });
+  const url = watch("photoUrl");
   const locked = disabled || busy;
 
   function addUrl() {
     if (locked || pending.current) return;
-    const candidate = url.trim();
-    const internal = /^\/(?:media|images)\//.test(candidate);
-    let valid = internal;
-    try { valid ||= ["https:", "http:"].includes(new URL(candidate).protocol); } catch { /* relative paths checked above */ }
-    if (!valid) { setError("Zadaj platnú HTTP/HTTPS alebo internú /media/ adresu fotografie."); return; }
+    const candidate = validateAdminPhotoGalleryUrl(url);
+    if (!candidate) { setError("Zadaj platnú HTTP/HTTPS alebo internú /media/ adresu fotografie."); return; }
     if (value.includes(candidate)) { setError("Táto fotografia už je v galérii."); return; }
     if (value.length >= limit) { setError(`Galéria môže obsahovať najviac ${limit} fotografií.`); return; }
-    onChange([...value, candidate]); setUrl(""); setError(""); setMessage("Fotografia bola pridaná. Ulož zmeny profilu.");
+    onChange([...value, candidate]); setValue("photoUrl", ""); setError(""); setMessage("Fotografia bola pridaná. Ulož zmeny profilu.");
   }
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
@@ -71,14 +73,14 @@ export function AdminPhotoGallery({ value, onChange, folder, limit, disabled = f
     <h3 id={`${id}-title`}>Galéria fotografií ({value.length}/{limit})</h3>
     <p>Poradie môžeš zmeniť šípkami. Odstránenie vyradí fotografiu z galérie tohto profilu. Zmeny potvrď uložením profilu.</p>
     <label className="admin-upload-button">{busy ? "Nahrávam fotografie…" : "Nahrať fotografie"}<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" disabled={locked || value.length >= limit} onChange={upload} /></label>
-    <div className="admin-field"><label htmlFor={`${id}-url`}>Pridať fotografiu z URL</label><input id={`${id}-url`} type="text" inputMode="url" value={url} disabled={locked || value.length >= limit} onChange={(event) => setUrl(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addUrl(); } }} placeholder="/media/… alebo https://…" /><button type="button" disabled={locked || !url.trim() || value.length >= limit} onClick={addUrl}>Pridať do galérie</button></div>
+    <div className="admin-field"><label htmlFor={`${id}-url`}>Pridať fotografiu z URL</label><input id={`${id}-url`} type="text" inputMode="url" {...register("photoUrl")} disabled={locked || value.length >= limit} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addUrl(); } }} placeholder="/media/… alebo https://…" /><button type="button" disabled={locked || !url.trim() || value.length >= limit} onClick={addUrl}><Plus size={16} aria-hidden="true" /> Pridať do galérie</button></div>
     <ol className={styles.items}>{value.map((src, index) => <li key={`${index}-${src}`}>
       {/* Existing media URLs are also accepted by the canonical gallery model. */}
       <img src={src} alt={`Fotografia ${index + 1}`} loading="lazy" />
       <div className={styles.controls}>
-        <button type="button" disabled={locked || index === 0} aria-label={`Posunúť fotografiu ${index + 1} dopredu`} onClick={() => move(index, -1)}>↑</button>
-        <button type="button" disabled={locked || index === value.length - 1} aria-label={`Posunúť fotografiu ${index + 1} dozadu`} onClick={() => move(index, 1)}>↓</button>
-        <button type="button" disabled={locked} aria-label={`Odstrániť fotografiu ${index + 1} z galérie`} onClick={() => onChange(value.filter((_, i) => i !== index))}>Odstrániť</button>
+        <button type="button" disabled={locked || index === 0} aria-label={`Posunúť fotografiu ${index + 1} dopredu`} onClick={() => move(index, -1)}><ArrowUp size={17} aria-hidden="true" /></button>
+        <button type="button" disabled={locked || index === value.length - 1} aria-label={`Posunúť fotografiu ${index + 1} dozadu`} onClick={() => move(index, 1)}><ArrowDown size={17} aria-hidden="true" /></button>
+        <button type="button" disabled={locked} aria-label={`Odstrániť fotografiu ${index + 1} z galérie`} onClick={() => onChange(value.filter((_, i) => i !== index))}><Trash2 size={16} aria-hidden="true" /> Odstrániť</button>
       </div>
     </li>)}</ol>
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
