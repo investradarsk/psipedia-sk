@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  PublicTextInput,
+  PublicSelect,
+} from "@/components/public-visual-system/public-form-controls";
+
 import { useMemo, useState } from "react";
 
 const pace = { small: 4, medium: 5, large: 6, giant: 7 } as const;
@@ -19,8 +24,11 @@ export function DogAgeCalculator() {
       <div className="calculator-controls">
         <label>
           Vek psa
-          <span><b>{age}</b> {age === 1 ? "rok" : age > 1 && age < 5 ? "roky" : "rokov"}</span>
-          <input
+          <span>
+            <b>{age}</b> {age === 1 ? "rok" : age > 1 && age < 5 ? "roky" : "rokov"}
+          </span>
+          <PublicTextInput
+            appearance="context"
             type="range"
             min="0.5"
             max="18"
@@ -32,12 +40,16 @@ export function DogAgeCalculator() {
         </label>
         <label>
           Veľkosť v dospelosti
-          <select value={size} onChange={(event) => setSize(event.target.value as keyof typeof pace)}>
+          <PublicSelect
+            appearance="context"
+            value={size}
+            onChange={(event) => setSize(event.target.value as keyof typeof pace)}
+          >
             <option value="small">Malý – do 10 kg</option>
             <option value="medium">Stredný – 10 až 25 kg</option>
             <option value="large">Veľký – 25 až 40 kg</option>
             <option value="giant">Obrí – nad 40 kg</option>
-          </select>
+          </PublicSelect>
         </label>
       </div>
       <div className="calculator-result" aria-live="polite">

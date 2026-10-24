@@ -1,5 +1,7 @@
 "use client";
 
+import { PublicTextInput } from "@/components/public-visual-system/public-form-controls";
+
 import { useEffect, useRef, useState } from "react";
 
 type Suggestion = {
@@ -45,7 +47,13 @@ export function DirectoryAddressAutocomplete({
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const localityReady = Boolean(region && district && city);
-  const canSearch = searchActivated && !selectedProviderResultId && !selectedLocalityConfirmed && !disabled && localityReady && query.trim().length >= 3;
+  const canSearch =
+    searchActivated &&
+    !selectedProviderResultId &&
+    !selectedLocalityConfirmed &&
+    !disabled &&
+    localityReady &&
+    query.trim().length >= 3;
   const canUseLocality = canSearch && query.trim().length >= 3;
 
   useEffect(() => {
@@ -63,11 +71,14 @@ export function DirectoryAddressAutocomplete({
       setError("");
       try {
         const params = new URLSearchParams({ region, district, city, q: query.trim() });
-        const response = await fetch(`/api/admin/directory/address-autocomplete?${params.toString()}`, {
-          signal: controller.signal,
-          headers: { accept: "application/json" },
-        });
-        const data = await response.json() as { suggestions?: Suggestion[]; error?: string };
+        const response = await fetch(
+          `/api/admin/directory/address-autocomplete?${params.toString()}`,
+          {
+            signal: controller.signal,
+            headers: { accept: "application/json" },
+          },
+        );
+        const data = (await response.json()) as { suggestions?: Suggestion[]; error?: string };
         if (!response.ok) throw new Error(data.error || "Ulice sa nepodarilo vyhľadať.");
         const next = (data.suggestions ?? []).slice(0, 5);
         setSuggestions(next);
@@ -75,7 +86,9 @@ export function DirectoryAddressAutocomplete({
       } catch (requestError) {
         if (controller.signal.aborted) return;
         setSuggestions([]);
-        setError(requestError instanceof Error ? requestError.message : "Ulice sa nepodarilo vyhľadať.");
+        setError(
+          requestError instanceof Error ? requestError.message : "Ulice sa nepodarilo vyhľadať.",
+        );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -115,7 +128,8 @@ export function DirectoryAddressAutocomplete({
     <div className="admin-field" data-directory-address-autocomplete>
       <label htmlFor="directory-address-autocomplete">Ulica / lokalita</label>
       <div className="partner-location-combobox">
-        <input
+        <PublicTextInput
+          appearance="context"
           id="directory-address-autocomplete"
           type="text"
           role="combobox"
@@ -125,7 +139,9 @@ export function DirectoryAddressAutocomplete({
           aria-controls="directory-address-suggestions"
           value={query}
           disabled={disabled || !localityReady}
-          placeholder={localityReady ? "Začni písať názov ulice, napr. hvi" : "Najprv vyber obec / mesto"}
+          placeholder={
+            localityReady ? "Začni písať názov ulice, napr. hvi" : "Najprv vyber obec / mesto"
+          }
           onChange={(event) => {
             setSearchActivated(true);
             if (selectedProviderResultId || selectedLocalityConfirmed) onClearSelection();
@@ -133,7 +149,11 @@ export function DirectoryAddressAutocomplete({
           }}
         />
         {visibleSuggestions.length > 0 ? (
-          <ul id="directory-address-suggestions" role="listbox" className="partner-location-options">
+          <ul
+            id="directory-address-suggestions"
+            role="listbox"
+            className="partner-location-options"
+          >
             {visibleSuggestions.map((item) => (
               <li key={item.providerResultId} role="option" aria-selected={false}>
                 <button
@@ -159,15 +179,21 @@ export function DirectoryAddressAutocomplete({
           </div>
         ) : null}
       </div>
-      <small>Vyber ulicu zo zoznamu. Ak ide o areál, cvičisko, nábrežie, park alebo iné miesto bez presnej Geoapify ulice, môžeš vedome použiť zadaný text ako lokalitu.</small>
+      <small>
+        Vyber ulicu zo zoznamu. Ak ide o areál, cvičisko, nábrežie, park alebo iné miesto bez
+        presnej Geoapify ulice, môžeš vedome použiť zadaný text ako lokalitu.
+      </small>
       <span aria-live="polite">
         {visibleLoading ? "Vyhľadávam ulice…" : ""}
         {!visibleLoading && visibleEmpty ? "V tejto lokalite sa nenašla zodpovedajúca ulica." : ""}
         {visibleError ? visibleError : ""}
-        {selectedProviderResultId ? "Ulica je vybraná. Doplň číslo domu alebo nechaj pole prázdne pri mieste bez čísla." : ""}
+        {selectedProviderResultId
+          ? "Ulica je vybraná. Doplň číslo domu alebo nechaj pole prázdne pri mieste bez čísla."
+          : ""}
         {selectedLocalityConfirmed ? (
           <>
-            ✓ Použitá lokalita: {query}. Táto lokalita nebola vybraná zo zoznamu ulíc. Presné miesto musí následne potvrdiť Google Maps.
+            ✓ Použitá lokalita: {query}. Táto lokalita nebola vybraná zo zoznamu ulíc. Presné miesto
+            musí následne potvrdiť Google Maps.
           </>
         ) : null}
       </span>

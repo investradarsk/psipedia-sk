@@ -1,14 +1,25 @@
+import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import { ArticleCard } from "@/components/article-card";
 import { EditorialSectionTopic } from "@/components/editorial-section";
 import { ArrowIcon, CheckIcon } from "@/components/icons";
 import { Breadcrumbs, PageContainer, SectionHero } from "@/components/page-system";
-import { PublicContentShell, PublicLandingSectionHeading, UnifiedSectionHero, UnifiedSectionHeroShell } from "@/components/public-visual-system";
+import {
+  PublicContentShell,
+  PublicLandingSectionHeading,
+  UnifiedSectionHero,
+  UnifiedSectionHeroShell,
+} from "@/components/public-visual-system";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { PortalSectionTabs } from "@/components/portal-section-tabs";
 import type { Article } from "@/lib/content";
 import { getNewsCategory, getNewsCategoryGuidance } from "@/lib/news";
-import { articlePortalSection, portalSubpageHref, type PortalSection, type PortalSubpage } from "@/lib/portal";
+import {
+  articlePortalSection,
+  portalSubpageHref,
+  type PortalSection,
+  type PortalSubpage,
+} from "@/lib/portal";
 import { getSectionHeroVisual } from "@/lib/section-visual-store";
 import { portalSubpageHasEditorialValue } from "@/lib/reviews";
 
@@ -16,42 +27,74 @@ const specialNotes: Record<string, { title: string; text: string; items: string[
   "novinky/zachrana-a-hrdinovia": {
     title: "Príbehy, pri ktorých rozhodujú skutky",
     text: "Sledujeme záchranu psov zo zlých podmienok, úspešné adopcie aj prípady, keď pes pomohol zachrániť človeka. Uvádzame zdroj, miesto a aktuálny výsledok príbehu.",
-    items: ["potvrdené informácie od organizácie alebo záchranných zložiek", "jasné oddelenie faktov od nepotvrdených tvrdení", "aktualizácia, keď sa situácia zmení"],
+    items: [
+      "potvrdené informácie od organizácie alebo záchranných zložiek",
+      "jasné oddelenie faktov od nepotvrdených tvrdení",
+      "aktualizácia, keď sa situácia zmení",
+    ],
   },
   "novinky/veda-a-zdravie": {
     title: "Čo nový objav naozaj znamená",
     text: "Výskum, nové lieky a veterinárne postupy prekladáme do zrozumiteľnej reči. Vysvetlíme, či ide o prvé výsledky, schválenú liečbu alebo iba sľubný smer ďalšieho výskumu.",
-    items: ["odkaz na pôvodný výskum alebo odbornú organizáciu", "rozlíšenie štúdie, schválenia a bežnej dostupnosti", "praktický význam bez falošných sľubov"],
+    items: [
+      "odkaz na pôvodný výskum alebo odbornú organizáciu",
+      "rozlíšenie štúdie, schválenia a bežnej dostupnosti",
+      "praktický význam bez falošných sľubov",
+    ],
   },
   "novinky/pracovne-psy": {
     title: "Psy, ktoré pomáhajú tam, kde ide o veľa",
     text: "Záchranárske, asistenčné, policajné aj detekčné psy pri katastrofách, pátraní a každodennej službe. Sledujeme ich prácu, výcvik aj konkrétny prínos.",
-    items: ["zásahy a pátracie akcie", "asistenčné a detekčné schopnosti", "ľudia a organizácie za úspechom tímu"],
+    items: [
+      "zásahy a pátracie akcie",
+      "asistenčné a detekčné schopnosti",
+      "ľudia a organizácie za úspechom tímu",
+    ],
   },
   "novinky/ochrana-a-pravo": {
     title: "Pravidlá, ktoré menia život psov",
     text: "Nové zákony, rozsudky, kontroly chovov a opatrenia na ochranu zvierat vysvetlíme bez právnickej hmly — vrátane toho, odkedy platia a koho sa týkajú.",
-    items: ["presný zdroj a dátum účinnosti", "dopad na majiteľov, chovateľov a organizácie", "vývoj závažných prípadov týrania"],
+    items: [
+      "presný zdroj a dátum účinnosti",
+      "dopad na majiteľov, chovateľov a organizácie",
+      "vývoj závažných prípadov týrania",
+    ],
   },
   "adresar/treneri": {
     title: "Spojenie s trénerom cez Psipediu",
     text: "Pripravujeme overené profily trénerov podľa kraja a zamerania. Dopyt pôjde cez Psipediu, aby bol kontakt prehľadný a bezpečný.",
-    items: ["výber podľa kraja a problému", "jasné zameranie a skúsenosti", "kontakt sprostredkovaný cez Psipediu"],
+    items: [
+      "výber podľa kraja a problému",
+      "jasné zameranie a skúsenosti",
+      "kontakt sprostredkovaný cez Psipediu",
+    ],
   },
   "podujatia/kalendar": {
     title: "Kalendár, v ktorom sa dá orientovať",
     text: "Termíny budeme triediť podľa dátumu, kraja a typu podujatia. Každé podujatie dostane samostatnú stránku s podmienkami a kontaktom.",
-    items: ["výstavy, preteky a semináre", "dátum, miesto a organizátor", "odkaz na prihlásenie alebo propozície"],
+    items: [
+      "výstavy, preteky a semináre",
+      "dátum, miesto a organizátor",
+      "odkaz na prihlásenie alebo propozície",
+    ],
   },
   "pomoc-psom/zbierky": {
     title: "Zverejňujeme iba overiteľnú pomoc",
     text: "Pri zbierkach bude uvedený organizátor, účel, cieľ, stav a spôsob overenia. Nejasné alebo anonymné výzvy nezverejníme.",
-    items: ["identita organizátora", "konkrétny účel a transparentnosť", "označenie ukončenej zbierky"],
+    items: [
+      "identita organizátora",
+      "konkrétny účel a transparentnosť",
+      "označenie ukončenej zbierky",
+    ],
   },
   "pomoc-psom/nahlasit-psa-v-nudzi": {
     title: "Najprv bezpečnosť a správny kontakt",
     text: "Pri bezprostrednom ohrození alebo týraní kontaktuj políciu na čísle 158 alebo 112. Psipedia bude slúžiť ako rozcestník, nie ako náhrada záchranných zložiek.",
-    items: ["bezpečne zdokumentovať situáciu", "uviesť presnú lokalitu a čas", "kontaktovať príslušnú autoritu alebo útulok"],
+    items: [
+      "bezpečne zdokumentovať situáciu",
+      "uviesť presnú lokalitu a čas",
+      "kontaktovať príslušnú autoritu alebo útulok",
+    ],
   },
 };
 
@@ -70,48 +113,128 @@ export async function PortalTopic({
   const isPuppies = section.slug === "steniatka";
   const isReviews = section.slug === "recenzie";
   const isStructuredTopic = isCare || isActivities || isPuppies;
-  if (isStructuredTopic) return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} />;
+  if (isStructuredTopic)
+    return <EditorialSectionTopic section={section} subpage={subpage} articles={articles} />;
   const reviewHeroVisual = isReviews ? await getSectionHeroVisual(`reviews.${subpage.slug}`) : null;
   const hasReviewGuide = isReviews && portalSubpageHasEditorialValue(subpage);
-  const legacyCareArea = (article: Article) => article.portalSubpage || ({ Zdravie: "zdravie", Výživa: "vyziva", Výcvik: "vycvik", "Život so psom": "spravanie" } as Record<string, string>)[article.category];
-  const legacyActivityArea = (article: Article) => article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
-  const sectionArticles = articles.filter((article) =>
-    articlePortalSection(article) === section.slug &&
-    (!newsCategory || article.newsCategory === newsCategory.slug) &&
-    (section.slug !== "steniatka" || article.portalSubpage === subpage.slug) &&
-    (section.slug !== "recenzie" || article.portalSubpage === subpage.slug) &&
-    (!isCare || legacyCareArea(article) === subpage.slug) &&
-    (!isActivities || legacyActivityArea(article) === subpage.slug),
+  const legacyCareArea = (article: Article) =>
+    article.portalSubpage ||
+    (
+      {
+        Zdravie: "zdravie",
+        Výživa: "vyziva",
+        Výcvik: "vycvik",
+        "Život so psom": "spravanie",
+      } as Record<string, string>
+    )[article.category];
+  const legacyActivityArea = (article: Article) =>
+    article.portalSubpage || (article.category === "Výcvik" ? "psie-sporty" : undefined);
+  const sectionArticles = articles.filter(
+    (article) =>
+      articlePortalSection(article) === section.slug &&
+      (!newsCategory || article.newsCategory === newsCategory.slug) &&
+      (section.slug !== "steniatka" || article.portalSubpage === subpage.slug) &&
+      (section.slug !== "recenzie" || article.portalSubpage === subpage.slug) &&
+      (!isCare || legacyCareArea(article) === subpage.slug) &&
+      (!isActivities || legacyActivityArea(article) === subpage.slug),
   );
-  const featured = new Map((subpage.featuredArticleSlugs ?? []).map((slug, index) => [slug, index]));
-  const sortedArticles = [...sectionArticles].sort((a, b) => (featured.get(a.slug) ?? 999) - (featured.get(b.slug) ?? 999));
+  const featured = new Map(
+    (subpage.featuredArticleSlugs ?? []).map((slug, index) => [slug, index]),
+  );
+  const sortedArticles = [...sectionArticles].sort(
+    (a, b) => (featured.get(a.slug) ?? 999) - (featured.get(b.slug) ?? 999),
+  );
   const reviewTopicHref = portalSubpageHref(section, subpage);
-  const reviewCardProps = isReviews ? { topicHref: reviewTopicHref, topicLabel: subpage.label, actionLabel: "Čítať recenziu" } : {};
-  const note = (newsCategory ? getNewsCategoryGuidance(newsCategory.slug) : null) ?? specialNotes[`${section.slug}/${subpage.slug}`] ?? {
-    title: `Praktický prehľad: ${subpage.label}`,
-    text: subpage.intro || `${subpage.description} Obsah budeme rozširovať o overené informácie, konkrétne postupy a užitočné kontakty.`,
-    items: ["zrozumiteľné vysvetlenie", "praktické kroky a odporúčania", "súvisiace články na jednej adrese"],
-  };
+  const reviewCardProps = isReviews
+    ? { topicHref: reviewTopicHref, topicLabel: subpage.label, actionLabel: "Čítať recenziu" }
+    : {};
+  const note = (newsCategory ? getNewsCategoryGuidance(newsCategory.slug) : null) ??
+    specialNotes[`${section.slug}/${subpage.slug}`] ?? {
+      title: `Praktický prehľad: ${subpage.label}`,
+      text:
+        subpage.intro ||
+        `${subpage.description} Obsah budeme rozširovať o overené informácie, konkrétne postupy a užitočné kontakty.`,
+      items: [
+        "zrozumiteľné vysvetlenie",
+        "praktické kroky a odporúčania",
+        "súvisiace články na jednej adrese",
+      ],
+    };
 
   const relatedContent = (
     <>
       <PublicLandingSectionHeading
-        eyebrow={newsCategory ? "Najnovšie správy" : isReviews ? "Recenzie v kategórii" : "Súvisiace čítanie"}
-        title={newsCategory ? newsCategory.label : isReviews ? subpage.label : isActivities || isPuppies ? `Články: ${subpage.label}` : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`}
+        eyebrow={
+          newsCategory
+            ? "Najnovšie správy"
+            : isReviews
+              ? "Recenzie v kategórii"
+              : "Súvisiace čítanie"
+        }
+        title={
+          newsCategory
+            ? newsCategory.label
+            : isReviews
+              ? subpage.label
+              : isActivities || isPuppies
+                ? `Články: ${subpage.label}`
+                : `Články zo sekcie ${section.label.toLocaleLowerCase("sk")}`
+        }
         action={
-          <Link href={newsCategory ? "/novinky" : isReviews ? "/recenzie" : "/clanky"} className="text-link text-link--large">
-            {newsCategory ? "Všetky novinky" : isReviews ? "Všetky recenzie" : "Všetky články"} <ArrowIcon />
+          <Link
+            href={newsCategory ? "/novinky" : isReviews ? "/recenzie" : "/clanky"}
+            className="text-link text-link--large"
+          >
+            {newsCategory ? "Všetky novinky" : isReviews ? "Všetky recenzie" : "Všetky články"}{" "}
+            <ArrowIcon />
           </Link>
         }
       />
       {sortedArticles.length ? (
-        <div className="article-grid">{sortedArticles.slice(0, isReviews ? 12 : 5).map((article) => <ArticleCard article={article} {...reviewCardProps} key={article.slug} />)}</div>
+        <div className="article-grid">
+          {sortedArticles.slice(0, isReviews ? 12 : 5).map((article) => (
+            <ArticleCard article={article} {...reviewCardProps} key={article.slug} />
+          ))}
+        </div>
       ) : (
-        <div className="portal-empty"><span aria-hidden="true">{newsCategory?.icon ?? "🐾"}</span><div><h3>{newsCategory ? "Ďalšie správy pribudnú čoskoro" : isReviews ? "Recenzie v tejto kategórii pripravujeme" : "Ďalšie články pripravujeme"}</h3><p>{newsCategory ? "Na tejto stránke nájdete nové overené správy hneď, ako pribudnú." : isReviews ? "Postupne sem pridáme praktické testy a skúsenosti, ktoré pomôžu pri výbere." : "Medzitým si môžete prezrieť súvisiace témy a praktické návody v ostatných častiach Psipedie."}</p></div></div>
+        <PublicEmptyState variant="context" className="portal-empty">
+          <span aria-hidden="true">{newsCategory?.icon ?? "🐾"}</span>
+          <div>
+            <h3>
+              {newsCategory
+                ? "Ďalšie správy pribudnú čoskoro"
+                : isReviews
+                  ? "Recenzie v tejto kategórii pripravujeme"
+                  : "Ďalšie články pripravujeme"}
+            </h3>
+            <p>
+              {newsCategory
+                ? "Na tejto stránke nájdete nové overené správy hneď, ako pribudnú."
+                : isReviews
+                  ? "Postupne sem pridáme praktické testy a skúsenosti, ktoré pomôžu pri výbere."
+                  : "Medzitým si môžete prezrieť súvisiace témy a praktické návody v ostatných častiach Psipedie."}
+            </p>
+          </div>
+        </PublicEmptyState>
       )}
-      {isCare && <p className="care-medical-note"><strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú diagnózu ani veterinárne vyšetrenie.</p>}
-      {isActivities && <p className="care-medical-note activity-safety-note"><strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.</p>}
-      {isPuppies && <p className="care-medical-note puppy-safety-note"><strong>Bezpečný vývoj:</strong> Každé šteniatko rastie inak. Zdravie, očkovanie, výživu a primeranú záťaž konzultuj s veterinárom, ktorý pozná jeho stav.</p>}
+      {isCare && (
+        <p className="care-medical-note">
+          <strong>Bezpečnostná poznámka:</strong> Informácie slúžia na orientáciu a nenahrádzajú
+          diagnózu ani veterinárne vyšetrenie.
+        </p>
+      )}
+      {isActivities && (
+        <p className="care-medical-note activity-safety-note">
+          <strong>Primeraná záťaž:</strong> Pri bolesti, krívaní, neobvyklej únave alebo prehrievaní
+          aktivitu ukonči. Ďalší postup podľa stavu konzultuj s veterinárom.
+        </p>
+      )}
+      {isPuppies && (
+        <p className="care-medical-note puppy-safety-note">
+          <strong>Bezpečný vývoj:</strong> Každé šteniatko rastie inak. Zdravie, očkovanie, výživu a
+          primeranú záťaž konzultuj s veterinárom, ktorý pozná jeho stav.
+        </p>
+      )}
     </>
   );
 
@@ -120,9 +243,15 @@ export async function PortalTopic({
       {isReviews && reviewHeroVisual ? (
         <UnifiedSectionHeroShell>
           <UnifiedSectionHero
-            breadcrumbs={<Breadcrumbs>
-              <Link href="/">Domov</Link><span>/</span><Link href="/recenzie">Recenzie a testy</Link><span>/</span><span>{subpage.label}</span>
-            </Breadcrumbs>}
+            breadcrumbs={
+              <Breadcrumbs>
+                <Link href="/">Domov</Link>
+                <span>/</span>
+                <Link href="/recenzie">Recenzie a testy</Link>
+                <span>/</span>
+                <span>{subpage.label}</span>
+              </Breadcrumbs>
+            }
             eyebrow={section.eyebrow}
             title={subpage.label}
             intro={subpage.description}
@@ -152,10 +281,17 @@ export async function PortalTopic({
           containerClassName="portal-topic-hero-inner"
         >
           <Breadcrumbs>
-            <Link href="/">Domov</Link><span>/</span><Link href={`/${section.slug}`}>{section.label}</Link><span>/</span><span>{subpage.label}</span>
+            <Link href="/">Domov</Link>
+            <span>/</span>
+            <Link href={`/${section.slug}`}>{section.label}</Link>
+            <span>/</span>
+            <span>{subpage.label}</span>
           </Breadcrumbs>
           <span className="eyebrow">{section.eyebrow}</span>
-          <div className="portal-topic-title">{subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}<h1>{subpage.label}</h1></div>
+          <div className="portal-topic-title">
+            {subpage.icon && <span aria-hidden="true">{subpage.icon}</span>}
+            <h1>{subpage.label}</h1>
+          </div>
           <p>{subpage.description}</p>
         </SectionHero>
       )}
@@ -164,81 +300,322 @@ export async function PortalTopic({
 
       {isReviews && <PortalSectionTabs section={section} activeSlug={subpage.slug} />}
 
-      {!isReviews && <section className="section shell public-shell portal-topic-body">
-        <div className="portal-topic-copy">
-          {subpage.imageUrl && !heroImage && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
-          <span className="eyebrow">Čo tu nájdeš</span>
-          <h2>{isCare ? `Praktická poradňa: ${subpage.label}` : isActivities ? `Praktický sprievodca: ${subpage.label}` : isPuppies ? `Sprievodca: ${subpage.label}` : note.title}</h2>
-          <p>{isStructuredTopic ? (subpage.intro || subpage.description) : note.text}</p>
-          {isStructuredTopic && subpage.popularTopics?.length ? <div className={`care-topic-chips ${isActivities ? "activity-topic-chips" : ""} ${isPuppies ? "puppy-topic-chips" : ""}`}>{subpage.popularTopics.map((item) => <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${section.slug}`} key={item}>{item}</Link>)}</div> : <ul>{note.items.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul>}
-        </div>
-        <aside className={`portal-topic-aside ${isStructuredTopic ? "care-question-aside" : ""} ${isActivities ? "activity-question-aside" : ""} ${isPuppies ? "puppy-question-aside" : ""}`}>
-          <span aria-hidden="true">{isStructuredTopic ? "?" : section.icon}</span>
-          <h3>{isStructuredTopic ? "Najčastejšie otázky" : section.label}</h3>
-          {isStructuredTopic && subpage.commonQuestions?.length ? <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>{section.intro}</p>}
-          <Link href={`/${section.slug}`} className="text-link">Celá sekcia <ArrowIcon size={18} /></Link>
-        </aside>
-      </section>}
-
-      {hasReviewGuide && <section className="section review-topic-first-section">
-        <PublicContentShell variant="listing" className="portal-topic-body review-topic-guide">
-        <div className="portal-topic-copy">
-          {subpage.imageUrl && <figure className="portal-topic-area-image"><img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} /></figure>}
-          <span className="eyebrow">Sprievodca kategóriou</span>
-          <h2>{subpage.label}: čo sa oplatí vedieť pred výberom</h2>
-          <p>{subpage.intro || subpage.description}</p>
-          {!!subpage.popularTopics?.length && <div className="care-topic-chips review-topic-chips">{subpage.popularTopics.map((item) => <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=recenzie`} key={item}>{item}</Link>)}</div>}
-          {!!subpage.homeSteps?.length && <><h3>Na čo sa pri výbere zamerať</h3><ul>{subpage.homeSteps.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul></>}
-          {!!subpage.warningSigns?.length && <><h3>Na čo si dať pozor</h3><ul>{subpage.warningSigns.map((item) => <li key={item}><CheckIcon size={18} /><span>{item}</span></li>)}</ul></>}
-          {subpage.expertAdvice && <p><strong>Metodika a kontext:</strong> {subpage.expertAdvice}</p>}
-          {!!subpage.serviceLinks?.length && <div className="care-topic-services review-topic-links"><div><span className="eyebrow">Súvisiace odkazy</span><h3>Pokračuj podľa potreby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </div>
-        <aside className="portal-topic-aside care-question-aside">
-          <span aria-hidden="true">{subpage.commonQuestions?.length ? "?" : section.icon}</span>
-          <h3>{subpage.commonQuestions?.length ? "Najčastejšie otázky" : section.label}</h3>
-          {subpage.commonQuestions?.length ? <ul>{subpage.commonQuestions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>{section.intro}</p>}
-          <Link href="/recenzie" className="text-link">Všetky recenzie <ArrowIcon size={18} /></Link>
-        </aside>
-        </PublicContentShell>
-      </section>}
-
-      {isCare && <section className="section section--tint care-guidance-section">
-        <PageContainer>
-          <div className="section-heading"><span className="eyebrow">Rýchla orientácia</span><h2>Čo môžeš sledovať a kedy už nečakať</h2></div>
-          <div className="care-guidance-grid">
-            <article className="care-guidance-card"><span aria-hidden="true">✓</span><h3>Čo môžeš urobiť doma</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
-            <article className="care-guidance-card is-warning"><span aria-hidden="true">!</span><h3>Varovné signály</h3><ul>{(subpage.warningSigns ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
+      {!isReviews && (
+        <section className="section shell public-shell portal-topic-body">
+          <div className="portal-topic-copy">
+            {subpage.imageUrl && !heroImage && (
+              <figure className="portal-topic-area-image">
+                <img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} />
+              </figure>
+            )}
+            <span className="eyebrow">Čo tu nájdeš</span>
+            <h2>
+              {isCare
+                ? `Praktická poradňa: ${subpage.label}`
+                : isActivities
+                  ? `Praktický sprievodca: ${subpage.label}`
+                  : isPuppies
+                    ? `Sprievodca: ${subpage.label}`
+                    : note.title}
+            </h2>
+            <p>{isStructuredTopic ? subpage.intro || subpage.description : note.text}</p>
+            {isStructuredTopic && subpage.popularTopics?.length ? (
+              <div
+                className={`care-topic-chips ${isActivities ? "activity-topic-chips" : ""} ${isPuppies ? "puppy-topic-chips" : ""}`}
+              >
+                {subpage.popularTopics.map((item) => (
+                  <Link
+                    href={`/hladat?q=${encodeURIComponent(item)}&sekcia=${section.slug}`}
+                    key={item}
+                  >
+                    {item}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <ul>
+                {note.items.map((item) => (
+                  <li key={item}>
+                    <CheckIcon size={18} />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          {subpage.expertAdvice && <div className="care-expert-callout"><span aria-hidden="true">🩺</span><div><strong>Kedy vyhľadať odborníka</strong><p>{subpage.expertAdvice}</p></div></div>}
-          {!!subpage.serviceLinks?.length && <div className="care-topic-services"><div><span className="eyebrow">Pomoc nablízku</span><h3>Užitočné kontakty</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </PageContainer>
-      </section>}
+          <aside
+            className={`portal-topic-aside ${isStructuredTopic ? "care-question-aside" : ""} ${isActivities ? "activity-question-aside" : ""} ${isPuppies ? "puppy-question-aside" : ""}`}
+          >
+            <span aria-hidden="true">{isStructuredTopic ? "?" : section.icon}</span>
+            <h3>{isStructuredTopic ? "Najčastejšie otázky" : section.label}</h3>
+            {isStructuredTopic && subpage.commonQuestions?.length ? (
+              <ul>
+                {subpage.commonQuestions.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>{section.intro}</p>
+            )}
+            <Link href={`/${section.slug}`} className="text-link">
+              Celá sekcia <ArrowIcon size={18} />
+            </Link>
+          </aside>
+        </section>
+      )}
 
-      {isActivities && <section className="section section--tint care-guidance-section activity-guidance-section">
-        <PageContainer>
-          <div className="section-heading"><span className="eyebrow">Od prvého kroku bezpečne</span><h2>Ako začať a čo si postrážiť</h2></div>
-          <div className="care-guidance-grid">
-            <article className="care-guidance-card activity-guidance-card"><span aria-hidden="true">1</span><h3>Ako začať</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
-            <article className="care-guidance-card activity-guidance-card is-warning"><span aria-hidden="true">!</span><h3>Bezpečnosť a limity</h3><ul>{(subpage.warningSigns ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
-          </div>
-          {subpage.expertAdvice && <div className="care-expert-callout activity-expert-callout"><span aria-hidden="true">🐕</span><div><strong>Čo zvážiť pri výbere</strong><p>{subpage.expertAdvice}</p></div></div>}
-          {!!subpage.serviceLinks?.length && <div className="care-topic-services activity-topic-services"><div><span className="eyebrow">Užitočné pokračovanie</span><h3>Kontakty a súvisiace služby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </PageContainer>
-      </section>}
+      {hasReviewGuide && (
+        <section className="section review-topic-first-section">
+          <PublicContentShell variant="listing" className="portal-topic-body review-topic-guide">
+            <div className="portal-topic-copy">
+              {subpage.imageUrl && (
+                <figure className="portal-topic-area-image">
+                  <img src={subpage.imageUrl} alt={subpage.imageAlt || subpage.label} />
+                </figure>
+              )}
+              <span className="eyebrow">Sprievodca kategóriou</span>
+              <h2>{subpage.label}: čo sa oplatí vedieť pred výberom</h2>
+              <p>{subpage.intro || subpage.description}</p>
+              {!!subpage.popularTopics?.length && (
+                <div className="care-topic-chips review-topic-chips">
+                  {subpage.popularTopics.map((item) => (
+                    <Link href={`/hladat?q=${encodeURIComponent(item)}&sekcia=recenzie`} key={item}>
+                      {item}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {!!subpage.homeSteps?.length && (
+                <>
+                  <h3>Na čo sa pri výbere zamerať</h3>
+                  <ul>
+                    {subpage.homeSteps.map((item) => (
+                      <li key={item}>
+                        <CheckIcon size={18} />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {!!subpage.warningSigns?.length && (
+                <>
+                  <h3>Na čo si dať pozor</h3>
+                  <ul>
+                    {subpage.warningSigns.map((item) => (
+                      <li key={item}>
+                        <CheckIcon size={18} />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {subpage.expertAdvice && (
+                <p>
+                  <strong>Metodika a kontext:</strong> {subpage.expertAdvice}
+                </p>
+              )}
+              {!!subpage.serviceLinks?.length && (
+                <div className="care-topic-services review-topic-links">
+                  <div>
+                    <span className="eyebrow">Súvisiace odkazy</span>
+                    <h3>Pokračuj podľa potreby</h3>
+                  </div>
+                  {subpage.serviceLinks.map((item) => (
+                    <Link href={item.href} key={`${item.label}-${item.href}`}>
+                      {item.label}
+                      <ArrowIcon size={18} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            <aside className="portal-topic-aside care-question-aside">
+              <span aria-hidden="true">{subpage.commonQuestions?.length ? "?" : section.icon}</span>
+              <h3>{subpage.commonQuestions?.length ? "Najčastejšie otázky" : section.label}</h3>
+              {subpage.commonQuestions?.length ? (
+                <ul>
+                  {subpage.commonQuestions.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>{section.intro}</p>
+              )}
+              <Link href="/recenzie" className="text-link">
+                Všetky recenzie <ArrowIcon size={18} />
+              </Link>
+            </aside>
+          </PublicContentShell>
+        </section>
+      )}
 
-      {isPuppies && <section className="section section--tint care-guidance-section puppy-guidance-section">
-        <PageContainer>
-          <div className="section-heading"><span className="eyebrow">Krok za krokom</span><h2>Čo urobiť teraz a čo radšej neprehliadnuť</h2></div>
-          <div className="care-guidance-grid">
-            <article className="care-guidance-card puppy-guidance-card"><span aria-hidden="true">✓</span><h3>Čo urobiť teraz</h3><ul>{(subpage.homeSteps ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
-            <article className="care-guidance-card puppy-guidance-card is-warning"><span aria-hidden="true">!</span><h3>Na čo si dať pozor</h3><ul>{(subpage.warningSigns ?? []).map((item) => <li key={item}>{item}</li>)}</ul></article>
-          </div>
-          {subpage.expertAdvice && <div className="care-expert-callout puppy-expert-callout"><span aria-hidden="true">🐶</span><div><strong>Dôležité pre túto fázu</strong><p>{subpage.expertAdvice}</p></div></div>}
-          {!!subpage.serviceLinks?.length && <div className="care-topic-services puppy-topic-services"><div><span className="eyebrow">Užitočné pokračovanie</span><h3>Kontakty a súvisiace služby</h3></div>{subpage.serviceLinks.map((item) => <Link href={item.href} key={`${item.label}-${item.href}`}>{item.label}<ArrowIcon size={18} /></Link>)}</div>}
-        </PageContainer>
-      </section>}
+      {isCare && (
+        <section className="section section--tint care-guidance-section">
+          <PageContainer>
+            <div className="section-heading">
+              <span className="eyebrow">Rýchla orientácia</span>
+              <h2>Čo môžeš sledovať a kedy už nečakať</h2>
+            </div>
+            <div className="care-guidance-grid">
+              <article className="care-guidance-card">
+                <span aria-hidden="true">✓</span>
+                <h3>Čo môžeš urobiť doma</h3>
+                <ul>
+                  {(subpage.homeSteps ?? []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+              <article className="care-guidance-card is-warning">
+                <span aria-hidden="true">!</span>
+                <h3>Varovné signály</h3>
+                <ul>
+                  {(subpage.warningSigns ?? []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+            {subpage.expertAdvice && (
+              <div className="care-expert-callout">
+                <span aria-hidden="true">🩺</span>
+                <div>
+                  <strong>Kedy vyhľadať odborníka</strong>
+                  <p>{subpage.expertAdvice}</p>
+                </div>
+              </div>
+            )}
+            {!!subpage.serviceLinks?.length && (
+              <div className="care-topic-services">
+                <div>
+                  <span className="eyebrow">Pomoc nablízku</span>
+                  <h3>Užitočné kontakty</h3>
+                </div>
+                {subpage.serviceLinks.map((item) => (
+                  <Link href={item.href} key={`${item.label}-${item.href}`}>
+                    {item.label}
+                    <ArrowIcon size={18} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </PageContainer>
+        </section>
+      )}
 
-      <section className={`section ${isReviews && !hasReviewGuide ? "review-topic-first-section" : ""} ${isStructuredTopic || isReviews ? "" : "section--tint"}`}>
+      {isActivities && (
+        <section className="section section--tint care-guidance-section activity-guidance-section">
+          <PageContainer>
+            <div className="section-heading">
+              <span className="eyebrow">Od prvého kroku bezpečne</span>
+              <h2>Ako začať a čo si postrážiť</h2>
+            </div>
+            <div className="care-guidance-grid">
+              <article className="care-guidance-card activity-guidance-card">
+                <span aria-hidden="true">1</span>
+                <h3>Ako začať</h3>
+                <ul>
+                  {(subpage.homeSteps ?? []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+              <article className="care-guidance-card activity-guidance-card is-warning">
+                <span aria-hidden="true">!</span>
+                <h3>Bezpečnosť a limity</h3>
+                <ul>
+                  {(subpage.warningSigns ?? []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+            {subpage.expertAdvice && (
+              <div className="care-expert-callout activity-expert-callout">
+                <span aria-hidden="true">🐕</span>
+                <div>
+                  <strong>Čo zvážiť pri výbere</strong>
+                  <p>{subpage.expertAdvice}</p>
+                </div>
+              </div>
+            )}
+            {!!subpage.serviceLinks?.length && (
+              <div className="care-topic-services activity-topic-services">
+                <div>
+                  <span className="eyebrow">Užitočné pokračovanie</span>
+                  <h3>Kontakty a súvisiace služby</h3>
+                </div>
+                {subpage.serviceLinks.map((item) => (
+                  <Link href={item.href} key={`${item.label}-${item.href}`}>
+                    {item.label}
+                    <ArrowIcon size={18} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </PageContainer>
+        </section>
+      )}
+
+      {isPuppies && (
+        <section className="section section--tint care-guidance-section puppy-guidance-section">
+          <PageContainer>
+            <div className="section-heading">
+              <span className="eyebrow">Krok za krokom</span>
+              <h2>Čo urobiť teraz a čo radšej neprehliadnuť</h2>
+            </div>
+            <div className="care-guidance-grid">
+              <article className="care-guidance-card puppy-guidance-card">
+                <span aria-hidden="true">✓</span>
+                <h3>Čo urobiť teraz</h3>
+                <ul>
+                  {(subpage.homeSteps ?? []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+              <article className="care-guidance-card puppy-guidance-card is-warning">
+                <span aria-hidden="true">!</span>
+                <h3>Na čo si dať pozor</h3>
+                <ul>
+                  {(subpage.warningSigns ?? []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+            {subpage.expertAdvice && (
+              <div className="care-expert-callout puppy-expert-callout">
+                <span aria-hidden="true">🐶</span>
+                <div>
+                  <strong>Dôležité pre túto fázu</strong>
+                  <p>{subpage.expertAdvice}</p>
+                </div>
+              </div>
+            )}
+            {!!subpage.serviceLinks?.length && (
+              <div className="care-topic-services puppy-topic-services">
+                <div>
+                  <span className="eyebrow">Užitočné pokračovanie</span>
+                  <h3>Kontakty a súvisiace služby</h3>
+                </div>
+                {subpage.serviceLinks.map((item) => (
+                  <Link href={item.href} key={`${item.label}-${item.href}`}>
+                    {item.label}
+                    <ArrowIcon size={18} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </PageContainer>
+        </section>
+      )}
+
+      <section
+        className={`section ${isReviews && !hasReviewGuide ? "review-topic-first-section" : ""} ${isStructuredTopic || isReviews ? "" : "section--tint"}`}
+      >
         {isReviews && !hasReviewGuide ? (
           <PublicContentShell variant="listing">{relatedContent}</PublicContentShell>
         ) : (

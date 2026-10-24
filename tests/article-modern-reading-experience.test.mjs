@@ -30,8 +30,14 @@ const canonicalRoute = readFileSync("app/[section]/[slug]/page.tsx", "utf8");
 const articleSeo = readFileSync("lib/article-seo.ts", "utf8");
 const articleCard = readFileSync("components/article-card.tsx", "utf8");
 const articleListItem = readFileSync("components/article-list-item.tsx", "utf8");
-const publicVisual = readFileSync("components/public-visual-system/public-visual-system.tsx", "utf8");
-const publicVisualStyles = readFileSync("components/public-visual-system/public-visual-system.module.css", "utf8");
+const publicVisual = readFileSync(
+  "components/public-visual-system/public-visual-system.tsx",
+  "utf8",
+);
+const publicVisualStyles = readFileSync(
+  "components/public-visual-system/public-visual-system.module.css",
+  "utf8",
+);
 const globalStyles = readFileSync("app/globals.css", "utf8");
 const homeEditorial = readFileSync("components/home-editorial.tsx", "utf8");
 const searchPage = readFileSync("app/hladat/page.tsx", "utf8");
@@ -69,17 +75,36 @@ test("ARTICLE-2 recommendation selectors reject self-links and keep recommendati
     articleFixture("latest-b"),
   ];
 
-  assert.equal(selectAutomaticMidRelated(current, [current, wrongTopic, sameTopic])?.slug, "same-topic");
+  assert.equal(
+    selectAutomaticMidRelated(current, [current, wrongTopic, sameTopic])?.slug,
+    "same-topic",
+  );
   assert.equal(selectAutomaticMidRelated(current, [current, wrongTopic]), null);
 
-  const end = selectEndRelated(current, [current, sameTopic, newest[2], newest[2], newest[3], newest[4]], sameTopic, 3);
-  assert.deepEqual(end.map((item) => item.slug), ["end-a", "end-b", "end-c"]);
+  const end = selectEndRelated(
+    current,
+    [current, sameTopic, newest[2], newest[2], newest[3], newest[4]],
+    sameTopic,
+    3,
+  );
+  assert.deepEqual(
+    end.map((item) => item.slug),
+    ["end-a", "end-b", "end-c"],
+  );
 });
 
 test("ARTICLE-2 manual related selector accepts one clean internal article path only", () => {
-  const valid = articleFixture("current", { blocks: [{ id: "r1", type: "related", title: "Related", href: "/starostlivost/related" }] });
-  const external = articleFixture("current", { blocks: [{ id: "r1", type: "related", title: "Related", href: "https://example.com/related" }] });
-  const query = articleFixture("current", { blocks: [{ id: "r1", type: "related", title: "Related", href: "/starostlivost/related?preview=1" }] });
+  const valid = articleFixture("current", {
+    blocks: [{ id: "r1", type: "related", title: "Related", href: "/starostlivost/related" }],
+  });
+  const external = articleFixture("current", {
+    blocks: [{ id: "r1", type: "related", title: "Related", href: "https://example.com/related" }],
+  });
+  const query = articleFixture("current", {
+    blocks: [
+      { id: "r1", type: "related", title: "Related", href: "/starostlivost/related?preview=1" },
+    ],
+  });
 
   assert.equal(firstManualRelatedPath(valid), "/starostlivost/related");
   assert.equal(firstManualRelatedPath(external), null);
@@ -99,7 +124,10 @@ test("ARTICLE-DISCOVERY-2 removes the legacy related/latest sidebar contract wit
   assert.match(cookieConsent, /MEASUREMENT_ID = "G-Z6KV64S2CK"/);
   assert.match(cookieConsent, /gtag\?\.\("event", "page_view"/);
   assert.match(cookieConsent, /savedChoice === "analytics"/);
-  assert.doesNotMatch(magazine, /ArticleSidebarMode|sidebarMode|sidebarItems|latestCandidates|selectLatestSidebar/);
+  assert.doesNotMatch(
+    magazine,
+    /ArticleSidebarMode|sidebarMode|sidebarItems|latestCandidates|selectLatestSidebar/,
+  );
   assert.doesNotMatch(selection, /selectLatestSidebar/);
   assert.match(detail, /ArticlePopularitySidebar/);
   assert.match(detail, /data-automatic-article-promo/);
@@ -113,7 +141,10 @@ test("manual related article reuses the canonical related block and is revalidat
   assert.match(magazine, /getPublishedArticle\(slug\)/);
   assert.match(magazine, /candidate\.slug === article\.slug/);
   assert.match(magazine, /articleHref\(candidate\).*=== path/s);
-  assert.match(articleStore, /WHERE slug = \? AND \(status = 'published' OR \(status = 'scheduled' AND published_at <= \?\)\)/);
+  assert.match(
+    articleStore,
+    /WHERE slug = \? AND \(status = 'published' OR \(status = 'scheduled' AND published_at <= \?\)\)/,
+  );
   assert.match(adminBlockEditor, /item\.id !== currentArticleId && item\.status === "published"/);
 });
 
@@ -129,32 +160,80 @@ test("automatic related placement is deterministic, topic-scoped and duplicate-s
 });
 
 test("automatic related candidates are no longer injected into the article body", () => {
-  assert.doesNotMatch(detail, /structurallySafeMidRelated|relatedSplitIndex|contentBeforeRelated|contentAfterRelated/);
+  assert.doesNotMatch(
+    detail,
+    /structurallySafeMidRelated|relatedSplitIndex|contentBeforeRelated|contentAfterRelated/,
+  );
   assert.doesNotMatch(detail, /SÚVISIACI ČLÁNOK|className=\{styles\.midRelated\}/);
-  assert.match(detail, /const contentBlocks = blocks\.filter\(\(block\) => block\.type !== "source"\)/);
-  assert.match(detail, /<ArticleBlocks blocks=\{contentBlocks\} promoUtcDay=\{discovery\.utcDay\} \/>/);
+  assert.match(
+    detail,
+    /const contentBlocks = blocks\.filter\(\(block\) => block\.type !== "source"\)/,
+  );
+  assert.match(
+    detail,
+    /<ArticleBlocks blocks=\{contentBlocks\} promoUtcDay=\{discovery\.utcDay\} \/>/,
+  );
   assert.match(detail, /!magazine\.manualRelatedResolved && magazine\.midRelated/);
   assert.match(blocks, /block\.type === "related"/);
 });
 test("editor-authored related blocks stay in body flow while sources remain at the article end", () => {
   assert.match(detail, /block\.type !== "source"\)/);
   assert.doesNotMatch(detail, /block\.type !== "source" && block\.type !== "related"/);
-  assert.match(detail, /const sourceBlocks = blocks\.filter\(\(block\) => block\.type === "source"\)/);
-  const body = indexOfOrFail(detail, "<ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />", "article body blocks are missing");
-  const sources = indexOfOrFail(detail, "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}", "sources are missing");
+  assert.match(
+    detail,
+    /const sourceBlocks = blocks\.filter\(\(block\) => block\.type === "source"\)/,
+  );
+  const body = indexOfOrFail(
+    detail,
+    "<ArticleBlocks blocks={contentBlocks} promoUtcDay={discovery.utcDay} />",
+    "article body blocks are missing",
+  );
+  const sources = indexOfOrFail(
+    detail,
+    "{sourceBlocks.length > 0 ? <ArticleBlocks blocks={sourceBlocks} promoUtcDay={discovery.utcDay} /> : null}",
+    "sources are missing",
+  );
   assert.ok(body < sources);
   assert.match(blocks, /article-block-related/);
 });
 test("article header follows compact editorial hierarchy and aligns with the reading grid", () => {
   const kicker = indexOfOrFail(detail, "className={styles.kicker}", "category kicker is missing");
   const title = indexOfOrFail(detail, "<h1>{article.title}</h1>", "headline is missing");
-  const excerpt = indexOfOrFail(detail, "<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>", "perex is missing");
-  const meta = indexOfOrFail(detail, "className={styles.metaActions}", "metadata actions are missing");
-  const favorite = indexOfOrFail(detail, "<FavoriteButton slug={article.slug} />", "favorite is missing");
-  const compactShare = indexOfOrFail(detail, "url={canonical} compact", "compact header share is missing");
+  const excerpt = indexOfOrFail(
+    detail,
+    "<p className={styles.standfirst} data-article-standfirst>{article.excerpt}</p>",
+    "perex is missing",
+  );
+  const meta = indexOfOrFail(
+    detail,
+    "className={styles.metaActions}",
+    "metadata actions are missing",
+  );
+  const favorite = indexOfOrFail(
+    detail,
+    "<FavoriteButton slug={article.slug} />",
+    "favorite is missing",
+  );
+  const compactShare = indexOfOrFail(
+    detail,
+    "url={canonical} compact",
+    "compact header share is missing",
+  );
   const figure = indexOfOrFail(detail, "className={styles.heroFigure}", "hero figure is missing");
-  const articleBody = indexOfOrFail(detail, 'className="article-prose" data-article-reading-end', "article body is missing");
-  assert.ok(kicker < title && title < meta && meta < favorite && favorite < compactShare && compactShare < figure && figure < articleBody && articleBody < excerpt);
+  const articleBody = indexOfOrFail(
+    detail,
+    'className="article-prose" data-article-reading-end',
+    "article body is missing",
+  );
+  assert.ok(
+    kicker < title &&
+      title < meta &&
+      meta < favorite &&
+      favorite < compactShare &&
+      compactShare < figure &&
+      figure < articleBody &&
+      articleBody < excerpt,
+  );
   assert.match(styles, /font-size:\s*clamp\(2rem,\s*3\.2vw,\s*2\.7rem\)/);
   assert.match(styles, /\.title h1\s*\{[^}]*max-width:\s*none/);
   assert.match(styles, /--article-layout-gap:\s*clamp\(20px,\s*2vw,\s*30px\)/);
@@ -168,8 +247,14 @@ test("desktop magazine layout widens the reading column and keeps a truthful sti
   assert.match(styles, /\.readingShell \.standfirst\s*\{[^}]*margin:\s*0 0 18px/);
   assert.doesNotMatch(detail, /<h1>\{article\.title\}<\/h1>\s*<p>\{article\.excerpt\}<\/p>/);
   assert.match(styles, /--article-reading-width:\s*800px/);
-  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
-  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/);
+  assert.match(
+    styles,
+    /grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/,
+  );
+  assert.match(
+    styles,
+    /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/,
+  );
   assert.match(popularitySidebar, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
   assert.match(popularityStyles, /\.rank[\s\S]*color:\s*var\(--brand-accent-strong/);
   assert.doesNotMatch(popularitySidebar, /dateIso|<time/);
@@ -177,22 +262,53 @@ test("desktop magazine layout widens the reading column and keeps a truthful sti
 
 test("ARTICLE-READING-WHITE-1 uses left-aligned prose and lifts the desktop discovery rail", () => {
   const layout = indexOfOrFail(detail, "data-article-layout", "shared article layout is missing");
-  const mainColumn = indexOfOrFail(detail, "className={styles.articleMainColumn}", "article main column is missing");
-  const header = indexOfOrFail(detail, "data-article-reading-start", "article header reading marker is missing");
-  const body = indexOfOrFail(detail, 'className="article-prose" data-article-reading-end', "article body is missing");
-  const sidebar = indexOfOrFail(detail, "data-article-discovery-sidebar", "discovery sidebar is missing");
+  const mainColumn = indexOfOrFail(
+    detail,
+    "className={styles.articleMainColumn}",
+    "article main column is missing",
+  );
+  const header = indexOfOrFail(
+    detail,
+    "data-article-reading-start",
+    "article header reading marker is missing",
+  );
+  const body = indexOfOrFail(
+    detail,
+    'className="article-prose" data-article-reading-end',
+    "article body is missing",
+  );
+  const sidebar = indexOfOrFail(
+    detail,
+    "data-article-discovery-sidebar",
+    "discovery sidebar is missing",
+  );
   assert.ok(layout < mainColumn && mainColumn < header && header < body && body < sidebar);
 
-  assert.match(styles, /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/);
+  assert.match(
+    styles,
+    /\.articleLayout[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)\s+minmax\(220px,\s*var\(--article-sidebar-width\)\)/,
+  );
   assert.match(styles, /\.sidebar[\s\S]*align-self:\s*stretch/);
-  assert.match(styles, /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/);
-  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left[\s\S]*text-align-last:\s*auto[\s\S]*hyphens:\s*none/);
+  assert.match(
+    styles,
+    /\.sidebarSticky[\s\S]*position:\s*sticky[\s\S]*top:\s*calc\(var\(--psipedia-sticky-header-height,\s*76px\) \+ 20px\)[\s\S]*background:\s*#fff/,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left[\s\S]*text-align-last:\s*auto[\s\S]*hyphens:\s*none/,
+  );
   assert.match(styles, /\.readingShell :global\(\.article-block-text li\)/);
-  assert.match(styles, /\.readingShell :global\(\.article-block-quote \.article-block-rich-content blockquote\)/);
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-block-quote \.article-block-rich-content blockquote\)/,
+  );
   assert.doesNotMatch(styles, /\.title h1[^{]*\{[^}]*text-align:\s*justify/s);
   assert.doesNotMatch(styles, /\.articleMeta[^{]*\{[^}]*text-align:\s*justify/s);
   assert.doesNotMatch(styles, /\.article-disclaimer\)[^{]*\{[^}]*text-align:\s*justify/s);
-  assert.match(styles, /@media \(max-width: 1199px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/);
+  assert.match(
+    styles,
+    /@media \(max-width: 1199px\)[\s\S]*\.articleLayout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*var\(--article-reading-width\)\)/,
+  );
 });
 
 test("ARTICLE-READING-WHITE-1 keeps compact sans-serif text and flush-left mobile paragraphs", () => {
@@ -200,11 +316,26 @@ test("ARTICLE-READING-WHITE-1 keeps compact sans-serif text and flush-left mobil
     styles.indexOf("@media (max-width: 767px)"),
     styles.indexOf("@media (max-width: 420px)"),
   );
-  assert.match(styles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-family:\s*Arial, "Helvetica Neue", Helvetica, sans-serif/s);
-  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*16px;[^}]*line-height:\s*1\.55/s);
-  assert.match(mobileStyles, /\.readingShell :global\(\.article-prose \.article-intro\)[^{]*\{[^}]*font-size:\s*1em/s);
-  assert.match(mobileStyles, /\.readingShell :global\(\.article-intro p\)[\s\S]*\.readingShell :global\(\.article-block-text li\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*-webkit-hyphens:\s*none;\s*hyphens:\s*none;/);
-  assert.match(styles, /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*hyphens:\s*none;/);
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-family:\s*Arial, "Helvetica Neue", Helvetica, sans-serif/s,
+  );
+  assert.match(
+    mobileStyles,
+    /\.readingShell :global\(\.article-prose\)[^{]*\{[^}]*font-size:\s*16px;[^}]*line-height:\s*1\.55/s,
+  );
+  assert.match(
+    mobileStyles,
+    /\.readingShell :global\(\.article-prose \.article-intro\)[^{]*\{[^}]*font-size:\s*1em/s,
+  );
+  assert.match(
+    mobileStyles,
+    /\.readingShell :global\(\.article-intro p\)[\s\S]*\.readingShell :global\(\.article-block-text li\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*-webkit-hyphens:\s*none;\s*hyphens:\s*none;/,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-intro p\)[\s\S]*text-align:\s*left;\s*text-align-last:\s*auto;\s*hyphens:\s*none;/,
+  );
   assert.match(mobileStyles, /\.sidebar\s*\{\s*display:\s*none;/);
 });
 
@@ -213,9 +344,15 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isola
   assert.match(detail, /data-article-reading-end/);
   assert.match(detail, /<ArticleReadingProgress \/>/);
   assert.match(styles, /\.heroFigure[\s\S]*max-width:\s*var\(--article-reading-width\)/);
-  assert.match(styles, /\.relatedInner[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/);
+  assert.match(
+    styles,
+    /\.relatedInner[\s\S]*max-width:\s*calc\(var\(--article-reading-width\) \+ var\(--article-layout-gap\) \+ var\(--article-sidebar-width\)\)/,
+  );
   assert.match(styles, /\.readingProgress[\s\S]*top:\s*var\(--psipedia-sticky-header-height/);
-  assert.match(styles, /\.readingProgress > span[\s\S]*transform:\s*scaleX\(var\(--article-reading-progress, 0\)\)/);
+  assert.match(
+    styles,
+    /\.readingProgress > span[\s\S]*transform:\s*scaleX\(var\(--article-reading-progress, 0\)\)/,
+  );
   assert.match(styles, /background:\s*var\(--brand-accent/);
   assert.match(readingProgress, /aria-hidden="true"/);
   assert.match(readingProgress, /requestAnimationFrame/);
@@ -232,14 +369,23 @@ test("ARTICLE-ALIGNMENT-PROGRESS-1 keeps one canonical article axis and an isola
 test("mobile article composition hides sidebar and keeps compact readable controls", () => {
   assert.match(styles, /@media \(max-width: 767px\)/);
   assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.sidebar\s*\{\s*display:\s*none/);
-  assert.match(styles, /\.favoriteAction :global\(\.favorite-button\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*font-size:\s*16px[\s\S]*line-height:\s*1\.55/);
+  assert.match(
+    styles,
+    /\.favoriteAction :global\(\.favorite-button\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 767px\)[\s\S]*font-size:\s*16px[\s\S]*line-height:\s*1\.55/,
+  );
   assert.match(styles, /font-size:\s*clamp\(1\.65rem,\s*6\.8vw,\s*1\.95rem\)/);
   assert.match(styles, /article-block-sources\)[^{]*\{[^}]*font-size:\s*0\.9rem/s);
   assert.match(shareStyles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(shareStyles, /min-height:\s*40px/);
   assert.match(styles, /\.article-block-table-wrap\)[^{]*\{[^}]*overflow-x:\s*auto/s);
-  assert.match(styles, /\.article-block-image--wide\)[^{]*\{[^}]*max-width:\s*calc\(100vw - 16px\)/s);
+  assert.match(
+    styles,
+    /\.article-block-image--wide\)[^{]*\{[^}]*max-width:\s*calc\(100vw - 16px\)/s,
+  );
   assert.doesNotMatch(styles, /width:\s*calc\(100vw \+/);
 });
 test("article without hero image skips hero media instead of reserving a large placeholder", () => {
@@ -249,14 +395,20 @@ test("article without hero image skips hero media instead of reserving a large p
 });
 
 test("article with no safe related candidate renders no automatic mid card", () => {
-  assert.match(selection, /return candidates\.find\(\(candidate\) => sameArticleTopic\(article, candidate\)\) \?\? null/);
+  assert.match(
+    selection,
+    /return candidates\.find\(\(candidate\) => sameArticleTopic\(article, candidate\)\) \?\? null/,
+  );
   assert.doesNotMatch(detail, /aria-label="Súvisiaci článok"/);
   assert.match(detail, /\{relatedItems\.length > 0 \? \(/);
 });
 test("end recommendations use three unique items and the requested editorial heading", () => {
   assert.match(selection, /slice\(0, Math\.max\(0, limit\)\)/);
   assert.match(magazine, /selectEndRelated\(article, endCandidates, midRelated, 3\)/);
-  assert.match(detail, /items\.findIndex\(\(candidate\) => candidate\.slug === item\.slug\) === index/);
+  assert.match(
+    detail,
+    /items\.findIndex\(\(candidate\) => candidate\.slug === item\.slug\) === index/,
+  );
   assert.match(detail, /<h2>Ďalšie články k téme<\/h2>/);
   assert.match(detail, /<PublicContentList label="Ďalšie články k téme"/);
 });
@@ -265,24 +417,47 @@ test("ARTICLE-READING-UX-2 preserves tracker, compact feedback, sticky-header an
   assert.match(detail, /import \{ ArticleReadTracker \}/);
   assert.match(detail, /<ArticleReadTracker articleSlug=\{article\.slug\} \/>/);
   assert.doesNotMatch(feedbackComponent, /🐾|👍|👎/);
-  assert.match(feedbackComponent, />Áno<\/button>/);
-  assert.match(feedbackComponent, />Nie<\/button>/);
-  assert.match(styles, /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*2px solid var\(--brand-accent\)/);
+  assert.match(feedbackComponent, />\s*Áno\s*<\/button>/);
+  assert.match(feedbackComponent, />\s*Nie\s*<\/button>/);
+  assert.match(
+    styles,
+    /\.article-feedback\)[^{]*\{[\s\S]*border-left:\s*2px solid var\(--brand-accent\)/,
+  );
   assert.match(shareStyles, /var\(--brand-accent-strong/);
 
-  const mobileUtility = indexOfOrFail(siteHeader, "data-mobile-name-day", "mobile name-day strip is missing");
-  const stickyHeader = indexOfOrFail(siteHeader, '<header className="site-header" ref={headerRef}>', "sticky header is missing");
-  assert.ok(mobileUtility < stickyHeader, "mobile utility strip must scroll away before the sticky header");
-  assert.match(siteHeaderStyles, /@media \(max-width: 620px\)[\s\S]*\.masthead\s*\{[\s\S]*min-height:\s*60px/);
+  const mobileUtility = indexOfOrFail(
+    siteHeader,
+    "data-mobile-name-day",
+    "mobile name-day strip is missing",
+  );
+  const stickyHeader = indexOfOrFail(
+    siteHeader,
+    '<header className="site-header" ref={headerRef}>',
+    "sticky header is missing",
+  );
+  assert.ok(
+    mobileUtility < stickyHeader,
+    "mobile utility strip must scroll away before the sticky header",
+  );
+  assert.match(
+    siteHeaderStyles,
+    /@media \(max-width: 620px\)[\s\S]*\.masthead\s*\{[\s\S]*min-height:\s*60px/,
+  );
 
-  assert.match(backToTopStyles, /@media \(max-width: 760px\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/);
+  assert.match(
+    backToTopStyles,
+    /@media \(max-width: 760px\)[\s\S]*min-width:\s*44px[\s\S]*min-height:\s*44px/,
+  );
   assert.match(backToTopStyles, /env\(safe-area-inset-right\)/);
   assert.match(backToTopStyles, /env\(safe-area-inset-bottom\)/);
 });
 
 test("save and share remain available in header and at article end", () => {
   assert.match(detail, /<FavoriteButton slug=\{article\.slug\} \/>/);
-  assert.match(detail, /<ShareButton title=\{article\.title\} label=\{shareLabel\} url=\{canonical\} compact \/>/);
+  assert.match(
+    detail,
+    /<ShareButton title=\{article\.title\} label=\{shareLabel\} url=\{canonical\} compact \/>/,
+  );
   assert.match(detail, /id="zdielat-clanok"/);
   assert.match(shareComponent, /compact\?: boolean/);
   assert.match(shareComponent, /supportsNativeShare \? nativeShare : copyLink/);
@@ -293,15 +468,18 @@ test("save and share remain available in header and at article end", () => {
 
 test("TOC remains deterministic, H2-only, collapsed, keyboard focusable and bound to heading anchors", () => {
   assert.match(detail, /articleBlockHeadings\(blocks\)/);
-  assert.match(detail, /const tocHeadings = headings\.filter\(\(heading\) => heading\.level === 2\)/);
+  assert.match(
+    detail,
+    /const tocHeadings = headings\.filter\(\(heading\) => heading\.level === 2\)/,
+  );
   assert.match(detail, /const showTableOfContents = tocHeadings\.length >= 3/);
   assert.match(detail, /tocHeadings\.map/);
   assert.doesNotMatch(detail, /readMinutes|article\.readTime/);
   assert.match(detail, /<details className=\{styles\.toc\}>/);
   assert.doesNotMatch(detail, /<details[^>]*\sopen(?:=|\s|>)/);
   assert.match(detail, /<nav aria-label="Obsah článku">/);
-  assert.match(blocks, /const headingIds = new Map\(articleBlockHeadings\(blocks\)/);
-  assert.match(blocks, /<h2 id=\{headingIds\.get\(block\.id\)\}/);
+  assert.match(blocks, /const headingIds = new Map\(\s*articleBlockHeadings\(blocks\)/);
+  assert.match(blocks, /<h2\s+id=\{headingIds\.get\(block\.id\)\}/);
   assert.match(styles, /scroll-margin-top:\s*calc\(var\(--psipedia-sticky-header-height,/);
   assert.match(styles, /\.toc summary:focus-visible/);
 });
@@ -329,12 +507,14 @@ test("hero image accessibility metadata remains separate from visible caption an
   assert.match(detail, /target="_blank" rel="noopener noreferrer"/);
 });
 
-
 test("canonical author presentation keeps a safe legacy fallback without redundant role copy", () => {
   assert.match(detail, /authorProfile\?\.displayName \|\| article\.author/);
   assert.match(detail, /authorProfile\?\.avatarUrl/);
   assert.match(detail, /const authorRole = authorProfile\?\.role\?\.trim\(\)/);
-  assert.match(detail, /authorName\.toLocaleLowerCase\("sk"\)\.includes\(authorRole\.toLocaleLowerCase\("sk"\)\)/);
+  assert.match(
+    detail,
+    /authorName\.toLocaleLowerCase\("sk"\)\.includes\(authorRole\.toLocaleLowerCase\("sk"\)\)/,
+  );
   assert.match(articleStore, /export async function getPublishedArticleAuthorProfile/);
   assert.match(articleStore, /getEditorialAuthorProfile\(database, authorProfileId, true\)/);
 });
@@ -347,14 +527,19 @@ test("Novinky still uses the complete published reader and existing taxonomy", (
   assert.match(newsHub, /<PublicContentList/);
 });
 
-
 test("ARTICLE-CARDS-1 exposes purposeful featured, grid and compact variants without invented metadata", () => {
   assert.match(articleCard, /export type ArticleCardVariant = "featured" \| "grid" \| "compact"/);
   assert.match(articleCard, /variant \?\? \(large \? "featured" : "grid"\)/);
   assert.match(articleCard, /resolvedVariant === "compact"/);
   assert.match(articleCard, /const date = article\.date\?\.trim\(\)/);
-  assert.match(articleCard, /\{date \? \(dateIso \? <time dateTime=\{dateIso\}>\{date\}<\/time> : <span>\{date\}<\/span>\) : null\}/);
-  assert.match(articleCard, /\{excerpt \? <p className="article-card-excerpt">\{excerpt\}<\/p> : null\}/);
+  assert.match(
+    articleCard,
+    /\{date \? \(dateIso \? <time dateTime=\{dateIso\}>\{date\}<\/time> : <span>\{date\}<\/span>\) : null\}/,
+  );
+  assert.match(
+    articleCard,
+    /\{excerpt \? <p className="article-card-excerpt">\{excerpt\}<\/p> : null\}/,
+  );
   assert.match(articleListItem, /const date = article\.date\?\.trim\(\) \|\| undefined/);
   assert.match(publicVisual, /date\?: ReactNode/);
   assert.match(publicVisual, /date \? <span aria-hidden="true">·<\/span> : null/);
@@ -365,11 +550,16 @@ test("ARTICLE-CARDS-1 exposes purposeful featured, grid and compact variants wit
 });
 
 test("ARTICLE-CARDS-1 reserves media geometry and keeps long titles unclamped", () => {
-  const start = globalStyles.indexOf("/* ARTICLE-CARDS-1: shared editorial cards and responsive article grids */");
+  const start = globalStyles.indexOf(
+    "/* ARTICLE-CARDS-1: shared editorial cards and responsive article grids */",
+  );
   assert.ok(start >= 0, "ARTICLE-CARDS-1 global style contract is missing");
   const cardStyles = globalStyles.slice(start);
   assert.match(cardStyles, /\.article-card-media\s*\{[\s\S]*?aspect-ratio:\s*3 \/ 2/);
-  assert.match(cardStyles, /\.article-card--featured \.article-card-media\s*\{[\s\S]*?aspect-ratio:\s*16 \/ 9/);
+  assert.match(
+    cardStyles,
+    /\.article-card--featured \.article-card-media\s*\{[\s\S]*?aspect-ratio:\s*16 \/ 9/,
+  );
   assert.match(cardStyles, /\.article-card-media img[\s\S]*?object-fit:\s*cover/);
   assert.match(cardStyles, /overflow-wrap:\s*anywhere/);
   assert.doesNotMatch(cardStyles, /\.article-card-title[\s\S]{0,500}-webkit-line-clamp/);
@@ -379,70 +569,140 @@ test("ARTICLE-CARDS-1 reserves media geometry and keeps long titles unclamped", 
 });
 
 test("ARTICLE-CARDS-1 reuses shared article presentation on homepage and only adapts article rows inside unified search", () => {
-  assert.match(homeEditorial, /<ArticleCard article=\{lead\} variant="featured" headingLevel=\{3\} omitMissingImage \/>/);
-  assert.match(homeEditorial, /<ArticleCard article=\{article\} variant="compact" listItem=\{false\} \/>/);
+  assert.match(
+    homeEditorial,
+    /<ArticleCard article=\{lead\} variant="featured" headingLevel=\{3\} omitMissingImage \/>/,
+  );
+  assert.match(
+    homeEditorial,
+    /<ArticleCard article=\{article\} variant="compact" listItem=\{false\} \/>/,
+  );
   assert.doesNotMatch(homeEditorial, /home-latest-lead-link|home-latest-thumb|home-latest-copy/);
   assert.match(searchPage, /result\.items\.map\(\(item\) =>/);
   assert.match(searchPage, /item\.kind === "article" \? styles\.articleResult/);
   assert.match(searchPage, /\{item\.publishedAt \? \(/);
   assert.doesNotMatch(searchPage, /<PublicArticleListItem/);
-  assert.match(searchStyles, /\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*128px minmax\(0, 1fr\)/);
-  assert.match(searchStyles, /@media \(max-width: 620px\)[\s\S]*?\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*88px minmax\(0, 1fr\)/);
+  assert.match(
+    searchStyles,
+    /\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*128px minmax\(0, 1fr\)/,
+  );
+  assert.match(
+    searchStyles,
+    /@media \(max-width: 620px\)[\s\S]*?\.articleCopy\s*\{[\s\S]*?grid-template-columns:\s*88px minmax\(0, 1fr\)/,
+  );
 });
-
 
 test("ARTICLE-READING-WHITE-1 scopes a high-contrast reading surface to article pages", () => {
   assert.match(styles, /\.modernArticle\s*\{[^}]*background:\s*#fff;/s);
   assert.match(styles, /--article-reading-width:\s*800px/);
-  assert.match(styles, /\.readingShell :global\(\.article-prose\)\s*\{[^}]*color:\s*#242424;[^}]*font-size:\s*16px;[^}]*line-height:\s*1\.55;/s);
-  assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*color:\s*inherit;[^}]*font-size:\s*1em;/s);
-  assert.match(styles, /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.58rem;/s);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.43rem;/s);
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-prose\)\s*\{[^}]*color:\s*#242424;[^}]*font-size:\s*16px;[^}]*line-height:\s*1\.55;/s,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*color:\s*inherit;[^}]*font-size:\s*1em;/s,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.58rem;/s,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-blocks h2\)\s*\{[^}]*font-size:\s*1\.43rem;/s,
+  );
 });
-
 
 test("ARTICLE-READING-EDITORIAL-2 keeps original editor blocks and makes two-column mobile tables readable", () => {
   assert.match(blocks, /data-columns=\{block\.headers\.length\}/);
-  assert.match(styles, /article-block-table-wrap\[data-columns="2"\] table\)[^{]*\{[^}]*min-width:\s*0;[^}]*table-layout:\s*fixed;/s);
-  assert.match(styles, /article-block-table-wrap\[data-columns="2"\] td:first-child\)[^{]*\{[^}]*font-weight:\s*700;/s);
+  assert.match(
+    styles,
+    /article-block-table-wrap\[data-columns="2"\] table\)[^{]*\{[^}]*min-width:\s*0;[^}]*table-layout:\s*fixed;/s,
+  );
+  assert.match(
+    styles,
+    /article-block-table-wrap\[data-columns="2"\] td:first-child\)[^{]*\{[^}]*font-weight:\s*700;/s,
+  );
   assert.match(styles, /article-block-callout--warning\)[^{]*\{[^}]*background:\s*#fff6ed;/s);
-  assert.match(styles, /article-blocks h2\),[\s\S]*article-blocks h3\)[^{]*\{[^}]*font-family:\s*Arial/);
+  assert.match(
+    styles,
+    /article-blocks h2\),[\s\S]*article-blocks h3\)[^{]*\{[^}]*font-family:\s*Arial/,
+  );
   assert.doesNotMatch(detail, /autoGeneratedReadingCards|newArticleWidgets/);
 });
 
-
 test("ARTICLE-READING-COMPACT-3 reduces only prose and paragraph spacing without changing editorial blocks", () => {
-  assert.match(styles, /\.readingShell :global\(\.article-block-text\),\s*\.readingShell :global\(\.article-block-rich-content\)\s*\{\s*gap:\s*0\.7em;/);
-  assert.match(styles, /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*gap:\s*9px;[^}]*margin-bottom:\s*20px;[^}]*line-height:\s*1\.55;/s);
-  assert.match(styles, /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*margin-bottom:\s*14px;[^}]*line-height:\s*1\.55;/s);
-  assert.match(styles, /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s);
-  assert.match(styles, /\.readingShell :global\(\.article-block-table-wrap\[data-columns="2"\] table\)\s*\{[^}]*table-layout:\s*fixed;/s);
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-block-text\),\s*\.readingShell :global\(\.article-block-rich-content\)\s*\{\s*gap:\s*0\.7em;/,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*gap:\s*9px;[^}]*margin-bottom:\s*20px;[^}]*line-height:\s*1\.55;/s,
+  );
+  assert.match(
+    styles,
+    /@media \(max-width: 767px\)[\s\S]*\.readingShell :global\(\.article-prose \.article-intro\)\s*\{[^}]*margin-bottom:\s*14px;[^}]*line-height:\s*1\.55;/s,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-block-callout--warning\)\s*\{[^}]*background:\s*#fff6ed;/s,
+  );
+  assert.match(
+    styles,
+    /\.readingShell :global\(\.article-block-table-wrap\[data-columns="2"\] table\)\s*\{[^}]*table-layout:\s*fixed;/s,
+  );
 });
 
-
 test("ARTICLE-READING-PEREX-4 keeps perex typography with aligned mobile prose", () => {
-  const scopedText = styles.slice(styles.indexOf("/* Use the perex's calm typeface"), styles.indexOf(".readingShell :global(.takeaway-box)"));
+  const scopedText = styles.slice(
+    styles.indexOf("/* Use the perex's calm typeface"),
+    styles.indexOf(".readingShell :global(.takeaway-box)"),
+  );
   assert.match(scopedText, /\.article-intro > p\)/);
   assert.match(scopedText, /\.article-block-text > p\)/);
   assert.match(scopedText, /\.article-blocks > ul\)/);
   assert.match(scopedText, /color:\s*#343b37;/);
-  assert.match(scopedText, /font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;/);
-  assert.doesNotMatch(scopedText, /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
-  const mobile = styles.slice(styles.indexOf("@media (max-width: 767px)"), styles.indexOf("@media (max-width: 420px)"));
+  assert.match(
+    scopedText,
+    /font-family:\s*"Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;/,
+  );
+  assert.doesNotMatch(
+    scopedText,
+    /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/,
+  );
+  const mobile = styles.slice(
+    styles.indexOf("@media (max-width: 767px)"),
+    styles.indexOf("@media (max-width: 420px)"),
+  );
   assert.match(mobile, /\.article-block-text > p\)[\s\S]*margin-inline:\s*0;/);
-  assert.doesNotMatch(mobile.slice(mobile.indexOf("/* The canonical mobile shell"), mobile.indexOf("/* Editorial paragraphs remain")), /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/);
+  assert.doesNotMatch(
+    mobile.slice(
+      mobile.indexOf("/* The canonical mobile shell"),
+      mobile.indexOf("/* Editorial paragraphs remain"),
+    ),
+    /\.article-block-callout|\.article-block-table-wrap|\.article-blocks h2/,
+  );
 });
-
 
 test("PUBLIC-MOBILE-GUTTER-1 keeps titles and prose aligned with the homepage mobile axis", () => {
   const designSystem = readFileSync("app/design-system.css", "utf8");
-  const mobile = styles.slice(styles.indexOf("@media (max-width: 767px)"), styles.indexOf("@media (max-width: 420px)"));
-  assert.match(designSystem, /\.public-shell\s*\{[^}]*max\(12px, env\(safe-area-inset-left, 0px\)\)[^}]*max\(12px, env\(safe-area-inset-right, 0px\)\)/s);
+  const mobile = styles.slice(
+    styles.indexOf("@media (max-width: 767px)"),
+    styles.indexOf("@media (max-width: 420px)"),
+  );
+  assert.match(
+    designSystem,
+    /\.public-shell\s*\{[^}]*max\(12px, env\(safe-area-inset-left, 0px\)\)[^}]*max\(12px, env\(safe-area-inset-right, 0px\)\)/s,
+  );
   assert.match(mobile, /\.articleLayout\s*\{[^}]*padding-inline:\s*0;/s);
   assert.match(mobile, /\.article-intro > p\)[\s\S]*?margin-inline:\s*0;/);
   assert.match(mobile, /\.readingShell :global\(\.article-blocks\)\s*\{\s*gap:\s*10px;/);
   assert.match(mobile, /\.readingShell :global\(\.article-block-text\)\s*\{\s*gap:\s*0\.55em;/);
-  assert.match(mobile, /\.article-blocks h2\)\s*\{[^}]*margin-top:\s*0\.38em;[^}]*margin-bottom:\s*0;/s);
+  assert.match(
+    mobile,
+    /\.article-blocks h2\)\s*\{[^}]*margin-top:\s*0\.38em;[^}]*margin-bottom:\s*0;/s,
+  );
   assert.match(styles, /color:\s*#343b37;/);
   assert.doesNotMatch(mobile, /margin-inline:\s*-8px;/);
 });

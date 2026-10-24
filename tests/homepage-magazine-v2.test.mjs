@@ -9,10 +9,19 @@ test("news desk contains only image-backed articles explicitly marked as news", 
     source("lib/homepage-content.ts"),
     source("app/page.tsx"),
   ]);
-  assert.match(selection, /articles\.filter\(\(article\) => Boolean\(article\.image\?\.trim\(\)\)\)/);
-  assert.match(selection, /\.filter\(\(article\) => articlePortalSection\(article\) === "novinky"\)/);
+  assert.match(
+    selection,
+    /articles\.filter\(\(article\) => Boolean\(article\.image\?\.trim\(\)\)\)/,
+  );
+  assert.match(
+    selection,
+    /\.filter\(\(article\) => articlePortalSection\(article\) === "novinky"\)/,
+  );
   assert.match(selection, /articlePortalSection\(article\) === section/);
-  assert.match(articleStore, /selectHomepageArticles\(publishedArticles, \{ latestLimit: 5, sectionLimit: 5/);
+  assert.match(
+    articleStore,
+    /selectHomepageArticles\(publishedArticles,\s*\{\s*latestLimit: 5,\s*sectionLimit: 5/,
+  );
   assert.doesNotMatch(articleStore, /getHomepageArticles\(|getPublishedArticles\(/);
 });
 
@@ -25,8 +34,14 @@ test("editorial cards are one lead and a vertical secondary list, with a real ne
   assert.match(editorial, /variant="featured" headingLevel=\{3\} omitMissingImage/);
   assert.match(editorial, /variant="compact" listItem=\{false\}/);
   assert.match(editorial, /data-home-latest-empty/);
-  assert.match(css, /\.home-magazine-main \.home-latest-list\)\s*\{\s*display: grid;\s*grid-template-columns: minmax\(0, 1fr\);/s);
-  assert.match(css, /\.home-magazine-grid\)\s*\{\s*display: grid;\s*grid-template-columns: minmax\(0, 2\.45fr\) minmax\(260px, 1fr\);/s);
+  assert.match(
+    css,
+    /\.home-magazine-main \.home-latest-list\)\s*\{\s*display: grid;\s*grid-template-columns: minmax\(0, 1fr\);/s,
+  );
+  assert.match(
+    css,
+    /\.home-magazine-grid\)\s*\{\s*display: grid;\s*grid-template-columns: minmax\(0, 2\.45fr\) minmax\(260px, 1fr\);/s,
+  );
 });
 
 test("homepage reuses bounded parallel published reads, never invented sidebar items", async () => {
@@ -55,15 +70,15 @@ test("banners point to protected existing partner paths, hero stays high priorit
   assert.match(profiles, /requirePartnerPageIdentity\(\)/);
   assert.match(events, /requirePartnerPageIdentity\(\)/);
   assert.match(home, /fetchPriority="high"/);
-  assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.hero-section\.shell\)[\s\S]*width: 100vw;/);
+  assert.match(
+    css,
+    /@media \(max-width: 620px\)[\s\S]*\.hero-section\.shell\)[\s\S]*width: 100vw;/,
+  );
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.hero-card\)[\s\S]*border-radius: 0;/);
 });
 
 test("homepage alternates editorial topics, real directory categories and partner banners", async () => {
-  const [home, css] = await Promise.all([
-    source("app/page.tsx"),
-    source("app/home-v2.module.css"),
-  ]);
+  const [home, css] = await Promise.all([source("app/page.tsx"), source("app/home-v2.module.css")]);
   const render = home.slice(home.lastIndexOf('  return (\n    <main id="obsah"'));
   const order = [
     "<HomeLatestArticles",
@@ -74,12 +89,18 @@ test("homepage alternates editorial topics, real directory categories and partne
     'id="secondary"',
     'testId="aktivity"',
     'testId="podujatie"',
-    '<div data-home-help>',
+    "<div data-home-help>",
     'testId="plemena"',
   ];
   const positions = order.map((token) => render.indexOf(token));
-  assert.ok(positions.every((position) => position >= 0), "All homepage zones render");
-  assert.ok(positions.every((position, index) => index === 0 || position > positions[index - 1]), "Editorial and directory zones alternate");
+  assert.ok(
+    positions.every((position) => position >= 0),
+    "All homepage zones render",
+  );
+  assert.ok(
+    positions.every((position, index) => index === 0 || position > positions[index - 1]),
+    "Editorial and directory zones alternate",
+  );
   assert.ok(home.includes("directoryCategoryHref(category)"));
   assert.ok(home.includes("homeServiceCardImages[category.slug]"));
   assert.match(css, /HOMEPAGE-COMPACT-1/);

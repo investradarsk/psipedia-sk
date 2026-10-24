@@ -32,7 +32,10 @@ test("section editor keeps subsection name and address in separate fields", () =
   const editor = read("components/admin-section-editor.tsx");
   assert.match(editor, /<span>Názov<\/span>/);
   assert.match(editor, /value=\{subpage\.label\}/);
-  assert.match(editor, /updateSubpage\(section\.slug, subIndex, \{ label: event\.currentTarget\.value \}\)/);
+  assert.match(
+    editor,
+    /updateSubpage\(section\.slug, subIndex, \{ label: event\.currentTarget\.value \}\)/,
+  );
   assert.match(editor, /<span>Slug \/ adresa<\/span>/);
   assert.match(editor, /value=\{settingsSubpage\.slug\}/);
   assert.match(editor, /updateSubpage\(settingsSection\.slug, settingsTarget\.subIndex, \{/);
@@ -45,7 +48,10 @@ test("editorial hubs expose direct content before the area directory", () => {
   const directoryPosition = hub.indexOf("portal-directory");
   assert.ok(tabsPosition >= 0, "hub musí používať spoločné SectionTabs");
   assert.ok(contentPosition > tabsPosition, "obsah musí nasledovať po sekčnej navigácii");
-  assert.ok(directoryPosition > contentPosition, "články musia byť dostupné pred rozcestníkom oblastí");
+  assert.ok(
+    directoryPosition > contentPosition,
+    "články musia byť dostupné pred rozcestníkom oblastí",
+  );
   assert.match(hub, /featuredArticleSlugs/);
 });
 
@@ -80,7 +86,10 @@ test("portal hub callouts cannot pull back over section tabs", () => {
 
 test("structured topic landing pages keep the section system and active tab", () => {
   const topic = read("components/portal-topic.tsx");
-  assert.match(topic, /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/);
+  assert.match(
+    topic,
+    /isStructuredTopic && <PortalSectionTabs section=\{section\} activeSlug=\{subpage\.slug\}/,
+  );
   assert.match(topic, /subpage\.homeSteps/);
   assert.match(topic, /subpage\.warningSigns/);
   assert.match(topic, /subpage\.expertAdvice/);
@@ -97,7 +106,6 @@ test("section tabs remain compact and horizontally scrollable on small screens",
   assert.match(css, /\.section-tab\s*\{[\s\S]*?min-height:\s*44px/);
 });
 
-
 test("SECTION-PUBLIC uses the shared visual foundation without global CSS ownership", () => {
   const section = read("components/editorial-section.tsx");
   const css = read("components/editorial-section.module.css");
@@ -112,8 +120,8 @@ test("SECTION-PUBLIC uses the shared visual foundation without global CSS owners
   assert.match(section, /buildCollectionPageJsonLd/);
   assert.doesNotMatch(section, /<SectionHero\b/);
   // The primary guide is now an article card, while the rest remains a content list.
-  assert.match(section, /<ArticleCard article=\{pillar\}/);
-  assert.match(section, /<SectionContentList articles=\{remainingArticles\}/);
+  assert.match(section, /<ArticleCard\s+article=\{pillar\}/);
+  assert.match(section, /<SectionContentList\s+articles=\{remainingArticles\}/);
   assert.doesNotMatch(section, /[\u{1F300}-\u{1FAFF}]/u);
   assert.match(css, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
@@ -192,7 +200,10 @@ test("SECTION-PUBLIC keeps canonical training taxonomy and legacy redirect compa
   const redirect = read("app/aktivity/-vycvik-a-aktivity-trening/route.ts");
   assert.match(portal, /slug:\s*"trening",\s*label:\s*"Tréning"/);
   assert.doesNotMatch(portal, /slug:\s*"-vycvik-a-aktivity-trening"/);
-  assert.match(redirect, /NextResponse\.redirect\(new URL\("\/aktivity\/trening", request\.url\), 301\)/);
+  assert.match(
+    redirect,
+    /NextResponse\.redirect\(new URL\("\/aktivity\/trening", request\.url\), 301\)/,
+  );
 });
 
 test("SECTION-PUBLIC upgrades the repository-managed first-days puppy page", () => {
@@ -203,7 +214,6 @@ test("SECTION-PUBLIC upgrades the repository-managed first-days puppy page", () 
   assert.match(portal, /metaDescription:\s*"Praktický prehľad prvých dní so šteniatkom/);
   assert.match(portal, /Zdravie a starostlivosť", href:\s*"\/starostlivost"/);
 });
-
 
 test("ADMIN-CORE navigation validates hierarchy, internal paths and active duplicates", () => {
   const store = read("lib/navigation-store.ts");
