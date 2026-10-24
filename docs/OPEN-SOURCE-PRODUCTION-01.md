@@ -20,7 +20,9 @@ SEO SiteOne Crawler and Linkinator tools from #1033 remain available; no duplica
 
 ## Acceptance
 
-- `npm ci`, `node --experimental-strip-types --test tests/open-source-production-ui.test.mjs`, `npx tsc --noEmit`, `npm run build`.
+- `npm ci`, `node --experimental-strip-types --test tests/open-source-production-ui.test.mjs`, `npx eslint components/admin-photo-gallery.tsx components/admin-gemini-all-concepts.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts`, `npm run build`.
 - Existing `node tests/admin-photo-gallery.browser.mjs` browser regression and manual 320/390px gallery verification.
 - Review bundle-size impact from the four new production deps.
 - No automatic merge or deployment.
+
+Note: The existing repository-wide TypeScript check currently reports many unrelated baseline errors (including `TS5097` in legacy imports and old test fixtures). New PR checks use scoped ESLint, focused runtime tests and the actual production build; this PR does not purport to solve unrelated TS debt.
