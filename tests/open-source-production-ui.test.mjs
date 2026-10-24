@@ -54,18 +54,18 @@ test("real admin components import libraries (not just the isolated pilot)", () 
 
 test("TanStack Table/Virtual remove the silent 200-row service catalogue truncation", () => {
   const source = read("components/admin-service-catalog-workspace.tsx");
-  assert.match(source, /from "@tanstack\\/react-table"/);
-  assert.match(source, /from "@tanstack\\/react-virtual"/);
-  assert.match(source, /catalogTable\\.getRowModel\\(\\)\\.rows/);
-  assert.match(source, /virtualizer\\.getVirtualItems\\(\\)/);
-  assert.doesNotMatch(source, /visible\\.slice\\(0,200\\)/);
-  assert.match(source, /aria-pressed=\\{selected\\?\\.id===item\\.id\\}/);
+  assert.ok(source.includes('from "@tanstack/react-table"'));
+  assert.ok(source.includes('from "@tanstack/react-virtual"'));
+  assert.ok(source.includes("catalogTable.getRowModel().rows"));
+  assert.ok(source.includes("virtualizer.getVirtualItems()"));
+  assert.ok(!source.includes("visible.slice(0,200)"));
+  assert.ok(source.includes("aria-pressed={selected?.id===item.id}"));
 });
 test("React Dropzone preserves canonical gallery upload sequencing and E2E file input", () => {
   const source = read("components/admin-photo-gallery.tsx");
-  assert.match(source, /from "react-dropzone"/);
-  assert.match(source, /getInputProps\\(\\)/);
-  assert.match(source, /async function upload\\(files: File\\[\\]\\)/);
-  assert.match(source, /for \\(const file of files\\)/);
-  assert.match(source, /onBusyChange\\(false\\)/);
+  assert.ok(source.includes('from "react-dropzone"'));
+  assert.ok(source.includes("getInputProps()"));
+  assert.ok(source.includes("async function upload(files: File[])"));
+  assert.ok(source.includes("for (const file of files)"));
+  assert.ok(source.includes("onBusyChange(false)"));
 });

@@ -22,7 +22,7 @@ const transpiled=ts.transpileModule(source,{
 const actualRequire=createRequire(import.meta.url);
 const styles=new Proxy({}, {get:(_target,key)=>String(key)});
 const fakeRequire=(id)=>{
-  if(id==="react"||id==="react/jsx-runtime")return actualRequire(id);
+  if(id==="react"||id==="react/jsx-runtime"||id==="@tanstack/react-table"||id==="@tanstack/react-virtual")return actualRequire(id);
   if(id==="next/navigation")return {useRouter:()=>({refresh(){}})};
   // The real safety helper has dedicated runtime tests; SSR snapshot stubs only its import.
   if(id==="@/lib/service-catalog-admin-mirror-controls")return {

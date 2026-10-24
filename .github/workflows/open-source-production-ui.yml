@@ -13,6 +13,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "tests/open-source-production-ui.test.mjs"
+      - "tests/service-catalog-mobile-polish.test.mjs"
       - ".github/workflows/open-source-production-ui.yml"
   workflow_dispatch:
 
@@ -38,7 +39,7 @@ jobs:
       - name: Install exact dependencies from updated lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Validate Zod, Fuse, lockfile, and production integration
-        run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs
+        run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs tests/service-catalog-mobile-polish.test.mjs
       - name: Lint changed production modules
         run: npx eslint components/admin-photo-gallery.tsx components/admin-gemini-all-concepts.tsx components/admin-service-catalog-workspace.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts
       - name: Production build
