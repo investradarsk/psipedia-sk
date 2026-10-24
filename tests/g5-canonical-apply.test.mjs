@@ -67,7 +67,8 @@ test("G5 legacy mutation implementation retains stale guards but public POST is 
   assert.match(apply,/expectedEvidenceFingerprint/);
   assert.match(apply,/expectedCanonicalUpdatedAt/);
   assert.match(apply,/WHERE id=\? AND updated_at=\? AND archived_at IS NULL/);
-  assert.match(api,/status:410/);
+  assert.match(api,/legacyAutomationRetiredResponse/);
+  assert.match(fs.readFileSync("lib/legacy-automation-retired.ts","utf8"), /status: 410/);
   assert.doesNotMatch(api,/applyAutomationCanonicalReview/);
 });
 
@@ -86,14 +87,12 @@ test("G5 idempotency and immutable audit carry provenance and rollback snapshots
   assert.match(apply,/newValue/);
 });
 
-test("G5 preview stays read-only and legacy POST canonical apply is hard-disabled",()=>{
-  assert.match(api,/getAdminApiUser/);
-  assert.match(api,/requireAdminMutation/);
+test("G5 canonical apply endpoint no longer exposes preview or mutation paths",()=>{
   assert.match(api,/export async function GET/);
-  assert.match(api,/getAutomationCanonicalApplyPreview/);
   assert.match(api,/export async function POST/);
-  assert.match(api,/status:410/);
-  assert.doesNotMatch(api,/applyAutomationCanonicalReview/);
+  assert.match(api,/legacyAutomationRetiredResponse/);
+  assert.match(fs.readFileSync("lib/legacy-automation-retired.ts","utf8"), /status: 410/);
+  assert.doesNotMatch(api,/getAutomationCanonicalApplyPreview|applyAutomationCanonicalReview|\.prepare\(/);
   const previewBody=apply.slice(apply.indexOf("export async function getAutomationCanonicalApplyPreview"),apply.indexOf("function normalizedSelections"));
   assert.doesNotMatch(previewBody,/UPDATE directory_profiles|UPDATE help_organizations|INSERT INTO automation_canonical_apply_operations/i);
 });

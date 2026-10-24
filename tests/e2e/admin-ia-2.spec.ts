@@ -25,7 +25,10 @@ test("workspace dashboard is responsive, accessible and has canonical queue link
   await expect(page.getByRole("heading", { name: "Čo potrebuje pozornosť", exact: true })).toBeVisible();
 
   await expect(page.getByRole("link", { name: /Aktívne upozornenia/ })).toHaveAttribute("href", "/admin/operations");
-  await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveAttribute("href", "/admin/operations?source=AUTOMATION_ACTION");
+  // Old Tavily attention cards are retired: Gemini and Quality own active work.
+  await expect(page.getByRole("link", { name: /Automatizácie na kontrolu/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Automatizácie Gemini →", exact: true })).toHaveAttribute("href", "/admin/automatizacie-gemini");
+  await expect(page.getByRole("link", { name: "Kvalita údajov →", exact: true })).toHaveAttribute("href", "/admin/kvalita");
   await expect(page.getByRole("link", { name: /Partner claims/ })).toHaveAttribute("href", "/admin/operations?source=PARTNER_CLAIM_REVIEW");
   await expect(page.locator('a[href="/admin/kvalita"]').filter({ hasText: "návrhov na schválenie" })).toHaveAttribute("href", "/admin/kvalita");
 

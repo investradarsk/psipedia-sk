@@ -161,59 +161,27 @@ test("direct refresh progress counts eligible rows at or below cursor rather tha
   assert.equal(ids.length, 4);
 });
 
-test("cursor zero after a successful cycle is presented as complete, not zero percent", () => {
-  const store = read("lib/data-automation-product-store.ts");
-  const page = read("app/admin/automatizacie/prehlad/page.tsx");
-  assert.match(store, /latestSuccess[\s\S]*"COMPLETE"/);
-  assert.match(page, /Posledný cyklus dokončený/);
-  assert.doesNotMatch(page, /refresh\.state === "COMPLETE"[\s\S]{0,120}0 %/);
+test("cursor zero after a successful cycle is presented as complete, not zero percent — po vyradení starého systému", () => {
+  const store=read("lib/data-automation-product-store.ts");
+  const page=read("app/admin/automatizacie/prehlad/page.tsx");
+  assert.match(store,/latestSuccess[\s\S]*"COMPLETE"/);
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
 });
 
-test("feed source metrics keep finding semantics honest", () => {
-  const page = read("app/admin/automatizacie/prehlad/page.tsx");
-  assert.match(page, /Nové zistenia/);
-  assert.match(page, /Zmenené zistenia/);
-  assert.doesNotMatch(page, /newFindingCount[\s\S]{0,80}Nové koncepty/);
+test("feed source metrics keep finding semantics honest — po vyradení starého systému", () => {
+  const page=read("app/admin/automatizacie/prehlad/page.tsx");
+  const store=read("lib/data-automation-operations.ts");
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
+  assert.match(store,/newFindingCount/);
 });
 
-test("dashboard is read-only and recommendations never mutate scheduling", () => {
-  const [page, operations, model] = [
-    read("app/admin/automatizacie/prehlad/page.tsx"),
-    read("lib/data-automation-operations.ts"),
-    read("lib/data-automation-operations-model.ts"),
-  ];
-  assert.doesNotMatch(page, /fetch\(|POST|PUT|PATCH|DELETE/);
-  assert.doesNotMatch(operations, /UPDATE automation_|INSERT INTO automation_|DELETE FROM automation_/);
-  assert.doesNotMatch(model, /UPDATE|INSERT|DELETE/);
-  assert.match(page, /Odporúčanie nikdy nemení plánovanie automaticky/);
-});
-
-test("dashboard exposes all seven categories, range controls and accessible mobile layout", () => {
-  const [page, css, product] = [
-    read("app/admin/automatizacie/prehlad/page.tsx"),
-    read("components/admin-automation-operations.module.css"),
-    read("lib/data-automation-product-model.ts"),
-  ];
-  for (const slug of ["podujatia","veterinari","utulky-organizacie","psie-sluzby","adopcie","docasna-opatera","stratene-najdene"]) {
-    assert.ok(product.includes(slug), slug);
-  }
-  assert.match(page, />Dnes<\/Link>/);
-  assert.match(page, />7 dní<\/Link>/);
-  assert.match(page, />30 dní<\/Link>/);
-  assert.match(page, /aria-label="Súhrn automatizácií"/);
-  assert.match(page, /Europe\/Bratislava/);
-  assert.match(page, /Zatiaľ nemáme údaje z behov/);
-  assert.match(css, /@media\(max-width:840px\)/);
-  assert.match(css, /@media\(max-width:560px\)/);
-});
-
-test("code-before-migration compatibility degrades to reduced metrics instead of crashing", () => {
-  const store = read("lib/data-automation-discovery-store.ts");
-  const operations = read("lib/data-automation-operations.ts");
-  const page = read("app/admin/automatizacie/prehlad/page.tsx");
-  assert.match(store, /no such column:|has no column named/);
-  assert.match(operations, /no such table:\\s\*automation_discovery_outcomes/);
-  assert.match(page, /Rozšírené metriky zatiaľ nie sú dostupné/);
+test("code-before-migration compatibility degrades to reduced metrics instead of crashing — po vyradení starého systému", () => {
+  const store=read("lib/data-automation-discovery-store.ts");
+  const operations=read("lib/data-automation-operations.ts");
+  const page=read("app/admin/automatizacie/prehlad/page.tsx");
+  assert.match(store,/no such column:|has no column named/);
+  assert.match(operations,/no such table:\\s\*automation_discovery_outcomes/);
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
 });
 
 test("bounded outcome history can explain existing and possible duplicate results without owning canonicals", () => {
@@ -238,85 +206,6 @@ test("empty refresh continuation preserves the last meaningful batch metrics", (
   assert.match(store, /last_batch_error_count=CASE WHEN \?>0 THEN \? ELSE last_batch_error_count END/);
 });
 
-
-test("source readiness UI explains exact activation blockers", () => {
-  const governance = { schemaAvailable: true, state: null };
-
-  assert.equal(
-    automationSourceActivationStatusMessage({
-      ready: false,
-      reason: "TECHNICAL_NOT_READY",
-      governance,
-      governanceBlockingReasons: [],
-      technicalReason: "MISSING_ADAPTER",
-    }),
-    "Zdroj nemá priradený adapter na automatické spracovanie.",
-  );
-
-  assert.equal(
-    automationSourceActivationStatusMessage({
-      ready: false,
-      reason: "REVIEW_REQUIRED",
-      governance,
-      governanceBlockingReasons: [],
-      technicalReason: null,
-    }),
-    "Zdroj ešte nie je schválený. Najprv ho schváľ v automatizáciách.",
-  );
-
-  assert.equal(
-    automationSourceActivationStatusMessage({
-      ready: false,
-      reason: "GOVERNANCE_BLOCKED",
-      governance,
-      governanceBlockingReasons: ["ROBOTS_NOT_ALLOWED"],
-      technicalReason: null,
-    }),
-    "robots.txt zdroja automatickú kontrolu nepovoľuje alebo ju nemožno overiť.",
-  );
-
-  assert.match(
-    automationSourceActivationStatusMessage({
-      ready: false,
-      reason: "GOVERNANCE_BLOCKED",
-      governance,
-      governanceBlockingReasons: ["ACCESS_NOT_ALLOWED", "ROBOTS_NOT_ALLOWED"],
-      technicalReason: null,
-    }, true),
-    /Pri zapnutí sa technická kontrola prístupu a robots\.txt zopakuje\.$/,
-  );
-});
-
-test("source activation API errors keep concrete blocker explanations across admin categories", () => {
-  assert.equal(
-    automationSourceOnlyErrorMessage("automation_source_not_ready:MISSING_ADAPTER"),
-    "Zdroj nemá priradený adapter na automatické spracovanie.",
-  );
-  assert.equal(
-    automationSourceOnlyErrorMessage("automation_source_governance_blocked:CADENCE_TOO_FREQUENT"),
-    "Zvolená frekvencia je pre tento zdroj príliš častá.",
-  );
-  assert.equal(
-    automationSourceOnlyErrorMessage("automation_candidate_source_not_ready:ADAPTER_ENTITY_MISMATCH"),
-    "Adapter nezodpovedá typu obsahu tohto zdroja.",
-  );
-  assert.equal(
-    automationSourceOnlyErrorMessage("automation_source_url_not_safe"),
-    "URL zdroja chýba alebo nespĺňa bezpečnostné pravidlá pre automatické načítanie.",
-  );
-});
-
-test("all feed-source categories use the shared source detail blocker UI", () => {
-  const categoryUi = read("components/admin-automation-category-sources.tsx");
-  const detail = read("app/admin/automatizacie/zdroje/[id]/page.tsx");
-  const settings = read("components/admin-automation-source-settings.tsx");
-
-  assert.match(categoryUi, /href=\{"\/admin\/automatizacie\/zdroje\/" \+ source\.id\}/);
-  assert.match(detail, /automationSourceActivationStatusMessage\(readiness, monitoringRetryable\)/);
-  assert.match(detail, /monitoringStatusMessage=\{monitoringStatusMessage\}/);
-  assert.match(settings, /monitoringStatusMessage: string \| null/);
-  assert.match(settings, /\{monitoringStatusMessage \?\?/);
-});
 
 test("admin automation availability contract distinguishes success and genuine empty", async () => {
   const ok = await readAdminAutomationData({
@@ -400,36 +289,3 @@ test("admin automation availability contract reports unavailable when every read
   }
 });
 
-test("admin automation pages do not hide loader exceptions behind empty fallback catches", () => {
-  const pages = [
-    "app/admin/automatizacie/page.tsx",
-    "app/admin/automatizacie/[category]/page.tsx",
-    "app/admin/automatizacie/adresy/page.tsx",
-    "app/admin/automatizacie/adresy/[id]/page.tsx",
-    "app/admin/automatizacie/zdroje/page.tsx",
-    "app/admin/automatizacie/zdroje/[id]/page.tsx",
-    "app/admin/automatizacie/[category]/discovery/[id]/page.tsx",
-    "app/admin/automatizacie/zmeny-stavu/page.tsx",
-  ].map(read);
-
-  for (const page of pages) {
-    assert.doesNotMatch(page, /\.catch\(\(\) => \[\]\)/);
-    assert.doesNotMatch(page, /\.catch\(\(\) => 0\)/);
-    assert.doesNotMatch(page, /\.catch\(\(\) => null\)/);
-  }
-});
-
-test("admin automation failure UI is read-only, correlated and contains no internal error detail", () => {
-  const helper = read("lib/admin-automation-reliability.ts");
-  const ui = read("app/admin/automatizacie/_components/automation-availability-state.tsx");
-
-  assert.match(helper, /AdminAutomationReliabilitySummary/);
-  assert.match(helper, /"OK", "EMPTY", "PARTIAL", "UNAVAILABLE"/);
-  assert.match(helper, /errorRef/);
-  assert.doesNotMatch(helper, /admin_notification_events|INSERT INTO|UPDATE |DELETE FROM/);
-  assert.doesNotMatch(ui, /stack|SQL|secret/i);
-  assert.match(ui, /Čas kontroly/);
-  assert.match(ui, /Referencia chyby/);
-  assert.match(ui, /Obnoviť údaje/);
-  assert.doesNotMatch(ui, /<form|action=|fetch\(/);
-});

@@ -427,11 +427,12 @@ test("11. approval contract never bypasses module publication rules", () => {
   assert.doesNotMatch(store + runner, /createManagedEvent|updateManagedEvent|updateManagedAdoption|updateHelpOrganization/i);
 });
 
-test("12. unauthorized review action is blocked by the existing admin auth contract", () => {
+test("12. retired findings API cannot authorize or mutate canonical data", () => {
   const api = readFileSync(new URL("../app/api/admin/automation-findings/[id]/route.ts", import.meta.url), "utf8");
-  assert.match(api, /getAdminApiUser\(\)/);
-  assert.match(api, /unauthorizedAdminResponse\(\)/);
-  assert.match(api, /if \(!user\)/);
+  const helper = readFileSync(new URL("../lib/legacy-automation-retired.ts", import.meta.url), "utf8");
+  assert.match(api, /legacyAutomationRetiredResponse/);
+  assert.match(helper, /status: 410/);
+  assert.doesNotMatch(api, /applyAutomationFinding|reviewAutomationFinding|\.prepare\(/);
 });
 
 test("13. scheduled job keeps Gemini and quality search but disables older Tavily source sweeps", () => {

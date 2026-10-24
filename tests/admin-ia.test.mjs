@@ -50,7 +50,6 @@ test("admin navigation has at most seven task-oriented groups and keeps all cano
     "/admin/dopyty",
     "/admin/adresar/navrhy",
     "/admin/partners",
-    "/admin/automatizacie",
     "/admin/automatizacie-gemini",
     "/admin/facebook-obrazky",
     "/admin/kvalita",
@@ -79,7 +78,7 @@ test("active state uses the most specific top-level owner for detail and legacy 
     ["/admin/adresar/navrhy", "/admin/adresar/navrhy"],
     ["/admin/partners/claims/claim-1", "/admin/partners"],
     ["/admin/operations", "/admin/operations"],
-    ["/admin/operations/automation/42", "/admin/automatizacie"],
+    ["/admin/operations/automation/42", "/admin/automatizacie-gemini"],
     ["/admin/operations/outreach/42", "/admin/nastroje"],
     ["/admin/operations/possible-matches/1/2", "/admin/nastroje"],
     ["/admin/operations/geo", "/admin/mapy"],
@@ -184,7 +183,7 @@ test("dashboard uses bounded existing summaries and never treats unavailable dat
   const reliability = read("lib/admin-automation-reliability.ts");
 
   assert.match(landing, /loadExactAdminAttentionSummary/);
-  assert.match(landing, /countOpenAutomationLifecycleSuggestions/);
+  assert.doesNotMatch(landing, /countOpenAutomationLifecycleSuggestions/);
   assert.match(store, /SELECT COUNT\(\*\) AS count[\s\S]*FROM directory_profiles/);
   assert.match(store, /SELECT COUNT\(\*\) AS count FROM media_source_monitors/);
   assert.doesNotMatch(landing, /loadDataQualityDashboard/);
@@ -204,10 +203,9 @@ test("existing automation reliability contract distinguishes OK EMPTY PARTIAL an
   assert.equal(summarizeAdminAutomationReads([read("a", "UNAVAILABLE"), read("b", "UNAVAILABLE")]).status, "UNAVAILABLE");
 });
 
-test("dashboard count cards point to canonical filtered work queues", () => {
+test("dashboard count cards point to current canonical filtered work queues", () => {
   const dashboard = read("components/admin-workspace-dashboard.tsx");
   for (const pair of [
-    ["AUTOMATION_ACTION", "/admin/operations?source=AUTOMATION_ACTION"],
     ["PARTNER_CLAIM_REVIEW", "/admin/operations?source=PARTNER_CLAIM_REVIEW"],
     ["MODERATION_SUBMISSION", "MODERATION_SUBMISSION"],
     ["PROFILE_REVIEW_MODERATION", "PROFILE_REVIEW_MODERATION"],
@@ -219,7 +217,7 @@ test("dashboard count cards point to canonical filtered work queues", () => {
     assert.match(dashboard, new RegExp(pair[1].replace(/[?]/g, "\\?")));
   }
   assert.match(dashboard, /href="\/admin\/kvalita"/);
-  assert.match(dashboard, /href="\/admin\/automatizacie\/zmeny-stavu"/);
+  assert.match(dashboard, /href="\/admin\/automatizacie-gemini"/);
 });
 
 test("all previous admin agendas and technical deep-link owners still exist", () => {

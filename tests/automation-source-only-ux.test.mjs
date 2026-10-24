@@ -4,18 +4,12 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 
-test("category discovery OFF stays unscheduled while DIRECT_ENTITY save can retry immediately", async () => {
-  const [store, route] = await Promise.all([
-    read("lib/data-automation-discovery-store.ts"),
-    read("app/api/admin/automation-categories/[category]/route.ts"),
-  ]);
-  assert.match(store, /WHERE enabled=1 AND review_status='APPROVED'/);
-  assert.match(store, /root\.schedule\.mode === "CALENDAR"/);
-  assert.match(store, /: at;/);
-  assert.match(route, /schedule\.mode === "INTERVAL"[\s\S]*category\.mode === "DIRECT_ENTITY"/);
-  assert.match(route, /releaseFailedDirectDiscoveryCooldowns/);
-  assert.match(route, /runAutomationDiscoveryRootCanary/);
-  assert.match(route, /waitUntil\(task\)/);
+test("category discovery OFF stays unscheduled while DIRECT_ENTITY save can retry immediately — po vyradení starého systému", async () => {
+  const [store,route]=await Promise.all([read("lib/data-automation-discovery-store.ts"),read("app/api/admin/automation-categories/[category]/route.ts")]);
+  assert.match(store,/WHERE enabled=1 AND review_status='APPROVED'/);
+  assert.match(store,/root\.schedule\.mode === "CALENDAR"/);
+  assert.match(route,/legacyAutomationRetiredResponse/);
+  assert.doesNotMatch(route,/runAutomationDiscoveryRootCanary|waitUntil/);
 });
 
 test("discovery candidates render as new sources and expose approve or reject only", async () => {
@@ -26,14 +20,11 @@ test("discovery candidates render as new sources and expose approve or reject on
   assert.doesNotMatch(component, /suppress|adapter|readiness|governance|finding|cluster|receipt/i);
 });
 
-test("approve provisions an approved but disabled source", async () => {
-  const [candidateRoute, store] = await Promise.all([
-    read("app/api/admin/automation-source-candidates/[id]/route.ts"),
-    read("lib/data-automation-source-store.ts"),
-  ]);
-  assert.match(candidateRoute, /reviewAutomationSource/);
-  assert.doesNotMatch(candidateRoute, /setAutomationSourceEnabled|previewAutomationSource/);
-  assert.match(store, /VALUES \(\?,\?,\?,\?,\?,\?,0,1440/);
+test("approve provisions an approved but disabled source — po vyradení starého systému", async () => {
+  const [route,store,helper]=await Promise.all([read("app/api/admin/automation-source-candidates/[id]/route.ts"),read("lib/data-automation-source-store.ts"),read("lib/legacy-automation-retired.ts")]);
+  assert.match(store,/VALUES \(\?,\?,\?,\?,\?,\?,0,1440/);
+  assert.match(route,/legacyAutomationRetiredResponse/);
+  assert.match(helper,/status: 410/);
 });
 
 test("rejected URL identity is stable and cannot reappear as NEW", async () => {
@@ -43,16 +34,12 @@ test("rejected URL identity is stable and cannot reappear as NEW", async () => {
   assert.match(store, /input\.action === "reject" \? "REJECTED"/);
 });
 
-test("source monitoring OFF is unscheduled and interval ON starts immediately while calendar ON waits", async () => {
-  const [sourceStore, route] = await Promise.all([
-    read("lib/data-automation-source-store.ts"),
-    read("app/api/admin/automation-sources/[id]/route.ts"),
-  ]);
-  assert.match(sourceStore, /schedule\.mode === "CALENDAR"/);
-  assert.match(sourceStore, /else if \(!existing\.enabled\) \{\s*nextCheckAt = at;/);
-  assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
-  assert.match(route, /runAutomationSourceNow/);
-  assert.match(route, /waitUntil\(task\)/);
+test("source monitoring OFF is unscheduled and interval ON starts immediately while calendar ON waits — po vyradení starého systému", async () => {
+  const [store,route]=await Promise.all([read("lib/data-automation-source-store.ts"),read("app/api/admin/automation-sources/[id]/route.ts")]);
+  assert.match(store,/schedule\.mode === "CALENDAR"/);
+  assert.match(store,/else if \(!existing\.enabled\) \{\s*nextCheckAt = at;/);
+  assert.match(route,/legacyAutomationRetiredResponse/);
+  assert.doesNotMatch(route,/configureAutomationSource|runAutomationSourceNow/);
 });
 
 test("normal source UX contains monitoring, cadence and direct canonical content navigation", async () => {
@@ -66,66 +53,27 @@ test("normal source UX contains monitoring, cadence and direct canonical content
 });
 
 
-test("source-only UX maps readiness internals to one user-safe Slovak message", async () => {
-  const [presentation, settings, category, page] = await Promise.all([
+test("source-only UX maps readiness internals to one user-safe Slovak message — po vyradení starého systému", async () => {
+  const [presentation,settings,category,page]=await Promise.all([
     read("lib/admin-automation-presentation.ts"),
     read("components/admin-automation-source-settings.tsx"),
     read("components/admin-automation-category-sources.tsx"),
-    read("app/admin/automatizacie/zdroje/[id]/page.tsx"),
+    read("app/admin/automatizacie/zdroje/[id]/page.tsx")
   ]);
-
-  assert.match(presentation, /automation_source_not_ready/);
-  assert.match(presentation, /automation_source_governance_blocked/);
-  assert.match(presentation, /automation_source_activation_blocked/);
-  assert.match(presentation, /automation_candidate_source_not_ready:/);
-  assert.match(presentation, /automation_candidate_source_provisioning_conflict/);
-  assert.match(presentation, /Tento zdroj zatiaľ nemožno automaticky kontrolovať\./);
-
-  assert.match(settings, /automationSourceOnlyErrorMessage/);
-  assert.match(category, /automationSourceOnlyErrorMessage/);
-  assert.doesNotMatch(settings, /throw new Error\(payload\.error\s*\|\|/);
-  assert.doesNotMatch(category, /throw new Error\(payload\.error\s*\|\|/);
-
-  assert.match(page, /automationSourceActivationReadiness/);
-  assert.doesNotMatch(page, /automationSourceReadiness\(/);
-  assert.match(page, /monitoringReady/);
-  assert.match(page, /automationSourceTechnicalGovernanceRetryable/);
-  assert.match(page, /monitoringRetryable/);
-  assert.match(settings, /monitoringCanEnable = monitoringReady \|\| monitoringRetryable/);
-  assert.match(settings, /<option value="on" disabled=\{!monitoringCanEnable\}>/);
-  assert.match(settings, /disabled=\{busy \|\| \(enabled && !monitoringCanEnable\)\}/);
-  assert.match(settings, /Pri zapnutí sa bezpečnosť zdroja znova overí\./);
-  assert.doesNotMatch(settings, /MISSING_ADAPTER|UNSUPPORTED_ADAPTER|ADAPTER_ENTITY_MISMATCH|ADAPTER_SHAPE_MISMATCH|MISSING_PARSER|GOVERNANCE_MISSING|ACCESS_NOT_ALLOWED|ROBOTS_NOT_ALLOWED|TERMS_NOT_ALLOWED|RECURRING_USE_NOT_APPROVED|RETENTION_/);
-  assert.doesNotMatch(settings, /Pokročilé|adapter key|readiness/i);
+  assert.match(presentation,/automation_source_not_ready/);
+  assert.match(presentation,/Tento zdroj zatiaľ nemožno automaticky kontrolovať\./);
+  assert.match(settings,/automationSourceOnlyErrorMessage/);
+  assert.match(category,/automationSourceOnlyErrorMessage/);
+  assert.match(page,/redirect\("\/admin\/automatizacie-gemini"\)/);
 });
 
-
-test("source configure is validation-first and preserves immediate run only after successful OFF to ON", async () => {
-  const route = await read("app/api/admin/automation-sources/[id]/route.ts");
-  const store = await read("lib/data-automation-source-store.ts");
-  assert.match(route, /configureAutomationSource/);
-  assert.doesNotMatch(route, /setAutomationSourceCadence/);
-  assert.match(route, /technicalGovernanceRefresh: enabled \? \{/);
-  assert.match(route, /actor: auth\.user\.email/);
-  assert.match(route, /tavilyCredentialConfigured: Boolean\(bindings\.TAVILY_API_KEY\?\.trim\(\)\)/);
-  assert.match(route, /immediateRun = enabled && !before\.enabled && schedule\.mode === "INTERVAL"/);
-  assert.match(route, /if \(immediateRun\)[\s\S]*runAutomationSourceNow/);
-  assert.match(store, /sourceActivationReadinessForEnable/);
-  assert.match(store, /const internetTransport = input\.technicalGovernanceRefresh\?\.internetTransport/);
-  assert.match(store, /internetTransport,/);
-  assert.match(store, /internetTransport !== "TAVILY_ONLY"/);
-  assert.match(store, /automationSourceTechnicalGovernanceRefreshNeeded/);
-  assert.match(store, /refreshAutomationSourceTechnicalGovernance/);
-  assert.match(route, /internetTransport: "TAVILY_ONLY"/);
-  assert.match(store, /cadence_minutes=\?,schedule_mode=\?,schedule_days_json=\?,schedule_local_time=\?,schedule_timezone=\?/);
-
-  const configureIndex = route.indexOf("const source = await configureAutomationSource");
-  const immediateRunIndex = route.indexOf("const immediateRun = enabled");
-  const runIndex = route.indexOf("runAutomationSourceNow(id");
-  assert.ok(configureIndex >= 0 && configureIndex < immediateRunIndex);
-  assert.ok(immediateRunIndex < runIndex, "source run is only scheduled after successful configure");
+test("source configure is validation-first and preserves immediate run only after successful OFF to ON — po vyradení starého systému", async () => {
+  const [route,store]=await Promise.all([read("app/api/admin/automation-sources/[id]/route.ts"),read("lib/data-automation-source-store.ts")]);
+  assert.match(store,/sourceActivationReadinessForEnable/);
+  assert.match(store,/automationSourceTechnicalGovernanceRefreshNeeded/);
+  assert.match(route,/legacyAutomationRetiredResponse/);
+  assert.doesNotMatch(route,/configureAutomationSource|runAutomationSourceNow|waitUntil/);
 });
-
 
 test("technical governance retry error remains source-only and user-safe", async () => {
   const presentation = await read("lib/admin-automation-presentation.ts");
