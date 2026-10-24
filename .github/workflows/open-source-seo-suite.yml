@@ -1,0 +1,112 @@
+name: Open-source adoption and SEO checks
+
+on:
+  pull_request:
+    paths:
+      - 'examples/open-source-lab/**'
+      - 'tests/open-source-lab-contract.test.mjs'
+      - 'docs/OPEN-SOURCE-ADOPTION.md'
+      - '.github/workflows/open-source-seo-suite.yml'
+  workflow_dispatch:
+    inputs:
+      live_seo:
+        description: 'Run bounded read-only production SEO checks (never on PR)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: open-source-adoption-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Verify isolated pilot and production lockfile boundary
+        run: node --test tests/open-source-lab-contract.test.mjs
+      - name: Install isolated upstream packages, without altering root lockfile
+        run: npm install --prefix examples/open-source-lab --no-package-lock --no-audit --no-fund --ignore-scripts
+      - name: Build real ten-library React 19 integration pilot
+        run: npm run --prefix examples/open-source-lab build
+
+  live-seo:
+    if: github.event_name == 'workflow_dispatch' && inputs.live_seo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+      - name: Create bounded public sample list
+        run: |
+          mkdir -p reports/seo bin
+          printf '%s\n' \
+            'https://psipedia.sk/' \
+            'https://psipedia.sk/plemena' \
+            'https://psipedia.sk/adresar' \
+            'https://psipedia.sk/clanky' \
+            'https://psipedia.sk/podujatia' \
+            'https://psipedia.sk/pomoc-psom' > reports/seo/urls.txt
+      - name: Install checksum-pinned SiteOne Crawler (MIT)
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://github.com/janreges/siteone-crawler/releases/download/v2.5.1/siteone-crawler-v2.5.1-linux-x64.tar.gz'
+          curl -fLsS --retry 2 --max-time 90 "$URL" -o bin/siteone.tar.gz
+          echo '09278d958d4a087fa46093805cd33b085b96618001dd31d45c448ad724c9024e  bin/siteone.tar.gz' | sha256sum -c -
+          mkdir -p bin/siteone
+          tar -xzf bin/siteone.tar.gz -C bin/siteone
+          find bin/siteone -maxdepth 3 -type f -name siteone-crawler -exec chmod +x {} +
+      - name: Run bounded six-page SiteOne SEO/technical report
+        shell: bash
+        run: |
+          set -euo pipefail
+          CRAWLER="$(find bin/siteone -type f -name siteone-crawler | head -n 1)"
+          test -n "$CRAWLER"
+          "$CRAWLER" --url-list=reports/seo/urls.txt --single-page \
+            --workers=1 --max-reqs-per-sec=1 --timeout=10 --disable-all-assets \
+            --output=text --output-html-report=reports/seo/siteone.html \
+            --output-json-file=reports/seo/siteone.json \
+            --output-text-file=reports/seo/siteone.txt
+      - name: Install checksum-pinned Linkinator (MIT)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 2 --max-time 120 \
+            'https://github.com/JustinBeckwith/linkinator/releases/download/linkinator-v8.1.0/linkinator-linux' \
+            -o bin/linkinator
+          echo '324650c72664cf7b3e511858179ceecd2b4432c54e20edf45fc59c3fa08b81c6  bin/linkinator' | sha256sum -c -
+          chmod +x bin/linkinator
+      - name: Read-only homepage link check, no recursive site crawl
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./bin/linkinator https://psipedia.sk --concurrency 1 --timeout 10000 \
+            --format json --skip '^(?!https?://psipedia[.]sk)' > reports/seo/linkinator.json
+      - name: Check bounded live sitemap and internal links with existing Psipedia auditor
+        shell: bash
+        run: |
+          node scripts/audit-production-site.mjs --max-pages 12 --concurrency 1 \
+            --timeout-ms 8000 --retries 1 --skip-images \
+            > reports/seo/psipedia-audit.txt
+      - name: Upload all available diagnostic artifacts even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-open-source-${{ github.run_id }}
+          path: reports/seo/
+          retention-days: 14
+          if-no-files-found: warn
