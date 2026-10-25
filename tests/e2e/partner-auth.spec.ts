@@ -852,12 +852,23 @@ test("internal admin Partner overview and account detail are protected admin pag
   await expect(createEventRow).toContainText("CREATE");
   await createEventRow.getByRole("link",{name:"Detail →"}).click();
   await expect(page.getByRole("heading",{name:"Údaje na vytvorenie"})).toBeVisible();
+  // The shared in-page admin dialog replaces the former native browser confirm.
+  // Closing it must never create an event or change the moderation state.
+  await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  const createEventDialog=page.getByRole("dialog",{name:"Potvrdiť partnerské rozhodnutie"});
+  await expect(createEventDialog).toBeVisible();
+  await createEventDialog.getByRole("button",{name:"Zrušiť"}).click();
+  await expect(createEventDialog).not.toBeVisible();
+  await expect(page.getByText("CREATED_NEW")).not.toBeVisible();
+
   const createEventResponse=page.waitForResponse(response=>
     response.url().includes("/api/admin/partners/events/") &&
     response.request().method()==="PATCH" && response.ok(),
   );
-  page.once("dialog",dialog=>void dialog.accept());
   await page.getByRole("button",{name:"CREATE EVENT (DRAFT)"}).click();
+  await expect(createEventDialog).toBeVisible();
+  await expect(createEventDialog).toContainText("vytvoriť canonical podujatie ako DRAFT");
+  await createEventDialog.getByRole("button",{name:"Potvrdiť"}).click();
   await createEventResponse;
   await expect(page.getByText("CREATED_NEW")).toBeVisible();
 
@@ -876,8 +887,11 @@ test("internal admin Partner overview and account detail are protected admin pag
     response.url().includes("/api/admin/partners/events/") &&
     response.request().method()==="PATCH" && response.ok(),
   );
-  page.once("dialog",dialog=>void dialog.accept());
   await page.getByRole("button",{name:"Schváliť zmeny"}).click();
+  const approveEventDialog=page.getByRole("dialog",{name:"Potvrdiť partnerské rozhodnutie"});
+  await expect(approveEventDialog).toBeVisible();
+  await expect(approveEventDialog).toContainText("aplikovať presný Partner patch");
+  await approveEventDialog.getByRole("button",{name:"Potvrdiť"}).click();
   await approveEventResponse;
   await expect(page.getByText("UPDATED")).toBeVisible();
 
