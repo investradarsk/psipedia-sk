@@ -410,7 +410,7 @@ const worker = {
         },
         summarize: (r) => ({
           enabled: r.enabled, checked: r.scanned, created: r.created,
-          updated: r.updated, errors: r.failed,
+          updated: r.updated, errors: r.failed + r.publication.failed,
           publicationChecked: r.publication.checked,
           publicationUpdated: r.publication.updated,
           publicationUnchanged: r.publication.unchanged,
@@ -520,7 +520,7 @@ const worker = {
           system: "notion", automationId: "events-help", label: "Notion — podujatia a pomoc",
           active: notionEventsHelpEnabled,
           execute: () => runNotionEventsHelpSyncSweep({ database: env.DB, bindings: env }),
-          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.totals.scanned, created: r.totals.createdFromNotion + r.totals.createdInNotion, updated: r.totals.pulledFromNotion + r.totals.pushedToNotion, skipped: r.totals.unchanged, errors: r.totals.failed + r.totals.conflicts }),
+          summarize: (r) => ({ enabled: r.enabled, schemaReady: r.schemaReady, checked: r.totals.scanned, created: r.totals.createdFromNotion + r.totals.createdInNotion, updated: r.totals.pulledFromNotion + r.totals.pushedToNotion, skipped: r.totals.unchanged, errors: r.totals.failed, conflicts: r.totals.conflicts }),
         }).catch((error) => {
         console.error(JSON.stringify({
           event: "notion_events_help_sync_sweep",

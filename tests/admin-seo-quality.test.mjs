@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 import { articleEntity, eventEntity } from "../lib/admin-seo-quality-entities.ts";
 import { auditSeoQualityEntity } from "../lib/admin-seo-quality-rules.ts";
+import { selectAdminSeoQualityPage } from "../lib/admin-seo-quality-page.ts";
 
 function entity(overrides = {}) {
   return {
@@ -145,6 +146,18 @@ test("ADMIN-SEO-QUALITY-1 reports explicit noindex and only non-self custom cano
   assert.equal(crossCanonical.some((item) => item.code === "canonical-nonstandard"), true);
 });
 
+test("ADMIN-SEO-QUALITY performance: keep global counts and filter only the paged items", () => {
+  const store = fs.readFileSync(new URL("../lib/admin-seo-quality-store.ts", import.meta.url), "utf8");
+  const page = fs.readFileSync(new URL("../lib/admin-seo-quality-page.ts", import.meta.url), "utf8");
+  assert.match(store, /selectAdminSeoQualityPage\(filtered, filters, filters\.page, PAGE_SIZE\)/);
+  assert.match(page, /const visible = filtered\.filter\(\(item\) => item\.findings\.some\(matchesVisibleFinding\)\)/);
+  assert.match(page, /visible\.slice\(offset, offset \+ pageSize\)\.map\(\(item\)/);
+  assert.match(store, /resultCount: selected\.total/);
+  assert.match(store, /itemsWithAnyFinding: inbox\.length/);
+  assert.match(store, /agendaCounts,/);
+  assert.doesNotMatch(store, /filtered\.map\(\(item\)/);
+});
+
 test("ADMIN-SEO-QUALITY-1 stays read-only and exposes management links", () => {
   const entities = fs.readFileSync(new URL("../lib/admin-seo-quality-entities.ts", import.meta.url), "utf8");
   const store = fs.readFileSync(new URL("../lib/admin-seo-quality-store.ts", import.meta.url), "utf8");
@@ -171,4 +184,39 @@ test("ADMIN-SEO-QUALITY-1 covers every requested canonical agenda", () => {
     'agenda: "breeds"',
     'agenda: "articles"',
   ]) assert.ok(entities.includes(marker), marker);
+});
+
+test("SEO page selection exactly matches original complete projection on 134 mixed findings", () => {
+  const makeItem = (id) => {
+    const findings = [
+      ...(id % 2 === 0 ? [{ code: "result-title-weak", scope: "quality" }] : []),
+      ...(id % 3 === 0 ? [{ code: "custom-title-missing", scope: "custom" }] : []),
+      ...(id % 5 === 0 ? [{ code: "noindex-explicit", scope: "quality" }] : []),
+    ];
+    return { entity: { id, agenda: "directory", title: "Profil " + id }, findings, customGapCount: 0, qualityFindingCount: 0 };
+  };
+  const source = Array.from({ length: 134 }, (_, id) => makeItem(id + 1));
+  for (const scope of ["all", "quality", "custom"]) {
+    for (const issue of ["all", "result-title-weak", "custom-title-missing", "noindex-explicit"]) {
+      for (const requestedPage of [1, 2, 3, 99]) {
+        const match = (finding) =>
+          (scope === "all" || (scope === "custom" ? finding.scope === "custom" : finding.scope !== "custom"))
+          && (issue === "all" || finding.code === issue);
+        const expected = source.map((item) => ({
+          ...item, findings: item.findings.filter(match),
+        })).filter((item) => item.findings.length > 0);
+        const totalPages = Math.max(1, Math.ceil(expected.length / 50));
+        const page = Math.min(requestedPage, totalPages);
+        const got = selectAdminSeoQualityPage(source, { scope, issue }, requestedPage, 50);
+        assert.equal(got.total, expected.length, scope + "/" + issue);
+        assert.equal(got.totalPages, totalPages);
+        assert.equal(got.page, page);
+        assert.deepEqual(got.items, expected.slice((page - 1) * 50, page * 50));
+      }
+    }
+  }
+  const empty = selectAdminSeoQualityPage([], { scope: "all", issue: "all" }, 900, 50);
+  assert.equal(empty.total, 0);
+  assert.equal(empty.page, 1);
+  assert.deepEqual(empty.items, []);
 });

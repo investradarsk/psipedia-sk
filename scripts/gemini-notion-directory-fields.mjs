@@ -351,6 +351,13 @@ export function buildGeminiNotionDraft({ args, properties: schema, rows, target 
     }
     put(property, value);
   }
+  // Keep evidence distinct from the CTA link for generic Help cases. An
+  // unsourced candidate is rejected individually; the workflow can continue.
+  if (target.section === "help" && !restricted) {
+    if (schema["Zdroj dát"]?.type !== "url") throw Error("NOTION_HELP_SOURCE_SCHEMA_MISSING");
+    if (!result["Zdroj dát"] && args.source_url) put("Zdroj dát", args.source_url);
+    if (!result["Zdroj dát"]?.url) throw Error("GEMINI_DRAFT_SOURCE_REQUIRED");
+  }
   const categoryField = lost || shelter ? "Typ" : target.section === "events" ? "Typ podujatia" : "Kategória";
   const category = shelter ? "SHELTER" : lost
     ? ({ STRATENÝ: "LOST", NÁJDENÝ: "FOUND", LOST: "LOST", FOUND: "FOUND" })[args.report_type]

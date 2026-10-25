@@ -25,6 +25,7 @@ export type AutomationEventInput = {
   updated?: number;
   skipped?: number;
   errors?: number;
+  conflicts?: number;
   targetUrl?: string;
 };
 
@@ -38,6 +39,7 @@ export async function recordAdminAutomationRunEvent(input: AutomationEventInput)
     input.updated !== undefined ? `aktualizovaných: ${input.updated}` : null,
     input.skipped !== undefined ? `preskočených: ${input.skipped}` : null,
     input.errors !== undefined ? `chýb: ${input.errors}` : null,
+    input.conflicts !== undefined ? `konfliktov na kontrolu: ${input.conflicts}` : null,
   ].filter(Boolean).join(", ");
   const intro: Record<AutomationRunStatus, string> = {
     STARTED: "Automatická kontrola sa začala.",

@@ -1,0 +1,411 @@
+/** Snapshot of the active Psipedia↔Notion field contracts (25 Oct 2026).
+ * Tracks integration and safety columns, not unrelated optional view columns.
+ * Review changes in Git; this manifest never mutates Notion or D1.
+ */
+export const NOTION_SCHEMA_CONTRACTS = [
+  {
+    "name": "Články",
+    "id": "ae042534-c878-427e-bc76-ef587a8c61cf",
+    "properties": {
+      "Názov": "title",
+      "Kategória": "select",
+      "Podsekcia": "select",
+      "Typ obsahu": "select",
+      "Stav": "select",
+      "Sync stav": "select",
+      "Odoslať na Psipedia": "checkbox",
+      "Slug": "rich_text",
+      "SEO title": "rich_text",
+      "Meta description": "rich_text",
+      "Hlavné kľúčové slovo": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync chyba": "rich_text",
+      "Alt text obrázka": "rich_text",
+      "Hlavný obrázok URL": "url",
+      "Zdroj obrázka": "url",
+      "URL Psipedia": "url",
+      "Dátum publikácie": "date",
+      "Posledný sync": "date"
+    },
+    "options": {
+      "Stav": [
+        "Ready",
+        "Publikované"
+      ]
+    }
+  },
+  {
+    "name": "Plemená",
+    "id": "2054d277-2e1b-45b5-aeb6-b1a5dcdf2db2",
+    "properties": {
+      "Názov": "title",
+      "Stav": "select",
+      "Sync stav": "select",
+      "Editorial complete": "checkbox",
+      "Slug": "rich_text",
+      "FCI sekcia": "rich_text",
+      "FCI sekcia číslo": "rich_text",
+      "Oficiálny FCI názov": "rich_text",
+      "Pracovná skúška": "rich_text",
+      "Import kľúč": "rich_text",
+      "Krajina pôvodu": "rich_text",
+      "Skupina": "rich_text",
+      "Veľkosť": "rich_text",
+      "Hmotnosť": "rich_text",
+      "Výška": "rich_text",
+      "Dĺžka života": "rich_text",
+      "Srsť": "rich_text",
+      "Intro": "rich_text",
+      "Charakter": "rich_text",
+      "Potreby": "rich_text",
+      "História": "rich_text",
+      "Pohyb": "rich_text",
+      "Výcvik": "rich_text",
+      "Zdravie": "rich_text",
+      "Zdravotné riziká": "rich_text",
+      "Vhodné pre": "rich_text",
+      "Zvážiť": "rich_text",
+      "Zdroje": "rich_text",
+      "Psipedia ID": "rich_text",
+      "SEO title": "rich_text",
+      "Meta description": "rich_text",
+      "Sync chyba": "rich_text",
+      "FCI číslo": "number",
+      "FCI skupina": "number",
+      "Energia": "number",
+      "Trénovateľnosť": "number",
+      "Rodina": "number",
+      "Deti": "number",
+      "Iné psy": "number",
+      "Byt": "number",
+      "Starostlivosť o srsť": "number",
+      "Pĺznutie": "number",
+      "Lovecký pud": "number",
+      "Platnosť FCI štandardu": "date",
+      "Posledný sync": "date",
+      "Hlavný obrázok URL": "url",
+      "Zdroj obrázka": "url",
+      "URL Psipedia": "url"
+    },
+    "options": {
+      "Stav": [
+        "Ready",
+        "Publikované"
+      ]
+    }
+  },
+  {
+    "name": "Podujatia",
+    "id": "76d9ccde-5816-422c-bcfe-863ab69db080",
+    "properties": {
+      "Názov": "title",
+      "Stav": "select",
+      "Sync stav": "select",
+      "Typ podujatia": "rich_text",
+      "Čas začiatku": "rich_text",
+      "Čas konca": "rich_text",
+      "Mesto": "rich_text",
+      "Miesto": "rich_text",
+      "Kraj": "rich_text",
+      "Adresa": "rich_text",
+      "Organizátor": "rich_text",
+      "Perex": "rich_text",
+      "Popis": "rich_text",
+      "Praktické info": "rich_text",
+      "Gemini poznámka": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Slug": "rich_text",
+      "Sync chyba": "rich_text",
+      "Začiatok": "date",
+      "Koniec": "date",
+      "Posledný sync": "date",
+      "Web": "url",
+      "Registrácia": "url",
+      "Zdroj dát": "url",
+      "Hlavný obrázok URL": "url",
+      "URL Psipedia": "url",
+      "Zrušené": "checkbox"
+    },
+    "options": {
+      "Stav": [
+        "Nápad",
+        "Ready",
+        "Publikované"
+      ]
+    }
+  },
+  {
+    "name": "Adresár",
+    "id": "84e0664c-ca47-405f-9d54-31b20287bc8c",
+    "properties": {
+      "Názov": "title",
+      "Psipedia stav": "select",
+      "Stav": "select",
+      "Formát adresy": "select",
+      "Sync stav": "select",
+      "Slug": "rich_text",
+      "Kategória": "rich_text",
+      "Perex": "rich_text",
+      "Popis": "rich_text",
+      "Služby": "rich_text",
+      "Kvalifikácie": "rich_text",
+      "Kraj": "rich_text",
+      "Okres": "rich_text",
+      "Mesto": "rich_text",
+      "Adresa": "rich_text",
+      "PSČ": "rich_text",
+      "Ulica": "rich_text",
+      "Číslo domu": "rich_text",
+      "Cena / poznámka": "rich_text",
+      "SEO title": "rich_text",
+      "SEO popis": "rich_text",
+      "Gemini poznámka": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync chyba": "rich_text",
+      "Sync hash": "rich_text",
+      "Web": "url",
+      "Facebook": "url",
+      "Instagram": "url",
+      "Hlavný obrázok URL": "url",
+      "Obrázok Psipedia": "url",
+      "Zdroj dát": "url",
+      "URL Psipedia": "url",
+      "E-mail": "email",
+      "Interný e-mail": "email",
+      "Telefón": "phone_number",
+      "Potvrdená prevádzka": "checkbox",
+      "Overené": "checkbox",
+      "Odporúčané": "checkbox",
+      "Noindex": "checkbox",
+      "Latitude": "number",
+      "Longitude": "number",
+      "Posledný sync": "date",
+      "Služby z katalógu": "relation"
+    },
+    "options": {
+      "Stav": [
+        "Na kontrolu"
+      ],
+      "Psipedia stav": [
+        "Koncept"
+      ]
+    }
+  },
+  {
+    "name": "E-shopy",
+    "id": "24837932-2867-4809-9adb-f3f33ba47339",
+    "properties": {
+      "Názov": "title",
+      "Psipedia stav": "select",
+      "Sync stav": "select",
+      "Slug": "rich_text",
+      "Popis": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync hash": "rich_text",
+      "Sync chyba": "rich_text",
+      "Web": "url",
+      "Zdroj": "url",
+      "Logo URL": "url",
+      "Logo Psipedia": "url",
+      "URL Psipedia": "url",
+      "Počet hodnotení": "number",
+      "Celkové hodnotenie": "number",
+      "Doručenie": "number",
+      "Komunikácia": "number",
+      "Sortiment": "number",
+      "Ceny": "number",
+      "Zameranie": "multi_select",
+      "Posledný sync": "date"
+    }
+  },
+  {
+    "name": "Facebook obrázky",
+    "id": "2d945afe-0c79-467e-b9e6-6b0f62a27a49",
+    "properties": {
+      "Názov": "title",
+      "Stav": "status",
+      "Text na Facebook": "rich_text",
+      "Poznámka": "rich_text",
+      "Chyba publikovania": "rich_text",
+      "Facebook Post ID": "rich_text",
+      "Obrázok": "files",
+      "Povoliť publikovanie": "checkbox",
+      "Súhlas majiteľa – priame publikovanie": "checkbox",
+      "Dátum a čas publikovania": "date",
+      "Publikované o": "date",
+      "Facebook URL": "url"
+    }
+  },
+  {
+    "name": "Organizácie",
+    "id": "6fbf8eb2-2f72-4d0c-b825-c46f6f72f92e",
+    "properties": {
+      "Názov": "title",
+      "Stav": "select",
+      "Sync stav": "select",
+      "Slug": "rich_text",
+      "Typ": "rich_text",
+      "Právny názov": "rich_text",
+      "IČO / registračné číslo": "rich_text",
+      "Krátky popis": "rich_text",
+      "Popis": "rich_text",
+      "Mesto": "rich_text",
+      "Okres": "rich_text",
+      "Kraj": "rich_text",
+      "Adresa": "rich_text",
+      "Gemini poznámka": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync chyba": "rich_text",
+      "Web": "url",
+      "Facebook": "url",
+      "Instagram": "url",
+      "Hlavný obrázok URL": "url",
+      "Zdroj dát": "url",
+      "URL Psipedia": "url",
+      "Posledný sync": "date"
+    },
+    "options": {
+      "Stav": [
+        "Nápad"
+      ]
+    }
+  },
+  {
+    "name": "Adopcie",
+    "id": "ca3c57e7-1342-42cd-939e-967b63d3027c",
+    "properties": {
+      "Meno": "title",
+      "Stav": "select",
+      "Sync stav": "select",
+      "Slug": "rich_text",
+      "Pohlavie": "rich_text",
+      "Veľkosť": "rich_text",
+      "Plemeno": "rich_text",
+      "Farba": "rich_text",
+      "Mesto": "rich_text",
+      "Okres": "rich_text",
+      "Kraj": "rich_text",
+      "Organizácia": "rich_text",
+      "Krátky popis": "rich_text",
+      "Popis": "rich_text",
+      "Povaha": "rich_text",
+      "Aktivita": "rich_text",
+      "Zdravotné poznámky": "rich_text",
+      "Špeciálne potreby": "rich_text",
+      "Gemini poznámka": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync chyba": "rich_text",
+      "Hlavný obrázok URL": "url",
+      "Zdroj dát": "url",
+      "URL Psipedia": "url",
+      "Dátum narodenia": "date",
+      "Posledný sync": "date",
+      "Vek mesiace": "number",
+      "Hmotnosť": "number",
+      "Kríženec": "checkbox"
+    },
+    "options": {
+      "Stav": [
+        "Nápad"
+      ]
+    }
+  },
+  {
+    "name": "Pomoc psom",
+    "id": "3ed793fc-1d18-819c-bb39-000b753d0002",
+    "properties": {
+      "Názov": "title",
+      "Gemini kontrola": "select",
+      "Sync stav": "select",
+      "Slug": "rich_text",
+      "Kategória": "rich_text",
+      "Psipedia stav": "rich_text",
+      "Perex": "rich_text",
+      "Popis": "rich_text",
+      "Organizácia": "rich_text",
+      "Pes": "rich_text",
+      "Plemeno": "rich_text",
+      "Vek": "rich_text",
+      "Mesto": "rich_text",
+      "Kraj": "rich_text",
+      "Miesto": "rich_text",
+      "CTA text": "rich_text",
+      "Kontakt": "rich_text",
+      "Gemini poznámka": "rich_text",
+      "Dôvod odmietnutia": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync chyba": "rich_text",
+      "CTA URL": "url",
+      "Zdroj dát": "url",
+      "Obrázok": "url",
+      "URL Psipedia": "url",
+      "Dátum hlásenia": "date",
+      "Deadline": "date",
+      "Posledný sync": "date",
+      "Cieľ": "number",
+      "Vyzbierané": "number",
+      "Urgentné": "checkbox",
+      "Vyriešené": "checkbox"
+    },
+    "options": {
+      "Gemini kontrola": [
+        "Na kontrolu",
+        "Schválené",
+        "Odmietnuté"
+      ]
+    }
+  },
+  {
+    "name": "Stratené a nájdené",
+    "id": "3ed793fc-1d18-8122-95b9-000b05c3c6bd",
+    "properties": {
+      "Názov": "title",
+      "Slug": "rich_text",
+      "Typ": "rich_text",
+      "Psipedia stav": "rich_text",
+      "Meno psa": "rich_text",
+      "Pohlavie": "rich_text",
+      "Plemeno": "rich_text",
+      "Farba": "rich_text",
+      "Vek": "rich_text",
+      "Veľkosť": "rich_text",
+      "Popis": "rich_text",
+      "Rozlišovacie znaky": "rich_text",
+      "Obojok": "rich_text",
+      "Čip": "rich_text",
+      "Mesto": "rich_text",
+      "Okres": "rich_text",
+      "Kraj": "rich_text",
+      "Miesto": "rich_text",
+      "Verejný kontakt": "rich_text",
+      "Zdroj": "rich_text",
+      "Gemini poznámka": "rich_text",
+      "Psipedia ID": "rich_text",
+      "Sync chyba": "rich_text",
+      "Zdroj URL": "url",
+      "Hlavný obrázok": "url",
+      "URL Psipedia": "url",
+      "Latitude": "number",
+      "Longitude": "number",
+      "Dátum udalosti": "date",
+      "Naposledy videný": "date",
+      "Posledný sync": "date",
+      "Sync stav": "select"
+    }
+  },
+  {
+    "name": "Katalóg služieb V3",
+    "id": "8785fd64-36c3-4acf-aade-ad99c30ad45d",
+    "properties": {
+      "Názov": "title",
+      "Option ID": "rich_text",
+      "Skupina": "rich_text",
+      "Význam": "rich_text",
+      "Verzia": "number",
+      "Typ": "select",
+      "Hlavná kategória": "select",
+      "Druh hodnoty": "select",
+      "Kategórie": "multi_select"
+    }
+  }
+];

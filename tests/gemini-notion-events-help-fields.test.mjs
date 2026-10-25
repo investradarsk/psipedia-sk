@@ -226,3 +226,27 @@ test('public URL fields allow numeric domain labels but reject IP encodings and 
   for (const url of ['https://127.0.0.1', 'https://2130706433', 'https://0x7f000001', 'https://[::1]', 'https://user:password@example.org'])
     assert.equal(notionDraftProperty(field('url'), url), null, url);
 });
+
+test("active worker stores an independent Help evidence URL, not the CTA URL",()=>{
+ const schema={
+   "Názov":field("title"),"Kategória":field("rich_text"),
+   "Psipedia stav":field("rich_text"),"Zdroj dát":field("url"),
+   "CTA URL":field("url"),"Mesto":field("rich_text"),
+ };
+ const target={section:"help",categoryValue:"docasna-opatera"};
+ const source="https://example.org/pomoc/overena-vyzva";
+ const draft=buildGeminiNotionDraft({
+   args:{fields:{"Názov":"Podpora psov","Zdroj dát":source,"CTA URL":"https://donate.example.org/prispevok"}},
+   properties:schema,rows:[],target,
+ });
+ assert.equal(draft.properties["Zdroj dát"].url,source);
+ assert.equal(draft.properties["CTA URL"].url,"https://donate.example.org/prispevok");
+ assert.equal(draft.properties["Psipedia stav"].rich_text[0].text.content,"draft");
+ assert.equal(draft.properties.Slug,undefined);
+ for(const fields of [
+   {"Názov":"Podpora psov","CTA URL":"https://donate.example.org/prispevok"},
+   {"Názov":"Podpora psov","Zdroj dát":"http://localhost/private"},
+ ])assert.throws(()=>buildGeminiNotionDraft({args:{fields},properties:schema,rows:[],target}),/GEMINI_DRAFT_SOURCE_REQUIRED/);
+ assert.throws(()=>buildGeminiNotionDraft({args:{fields:{"Názov":"Podpora psov","Zdroj dát":source}},
+   properties:{...schema,"Zdroj dát":undefined},rows:[],target}),/NOTION_HELP_SOURCE_SCHEMA_MISSING/);
+});

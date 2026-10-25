@@ -4,13 +4,13 @@
 
 .row {
   display: grid;
-  grid-template-columns: auto 4.75rem minmax(0, 6rem) minmax(0, 1fr) auto;
+  grid-template-columns: auto 4.1rem minmax(0, 5rem) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.55rem;
 }
 
 .thumbnail {
-  width: 6rem;
+  width: 5rem;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border: 1px solid #d8e2dc;
@@ -113,7 +113,7 @@
 }
 
 .bulkEditPanel {
-  margin: 0.9rem 0 1rem;
+  margin: 0.6rem 0 0.7rem;
 }
 
 .bulkField {
@@ -138,7 +138,7 @@
 
 .quickForm {
   display: grid;
-  gap: 1rem;
+  gap: 0.65rem;
 }
 
 .quickForm label {
@@ -192,7 +192,7 @@
 
 @media (max-width: 860px) {
   .row {
-    grid-template-columns: auto 4.5rem minmax(0, 1fr);
+    grid-template-columns: auto 4.1rem minmax(0, 1fr);
   }
 
   .thumbnail {

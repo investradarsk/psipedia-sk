@@ -22,6 +22,17 @@ const GROUPS = [
   {id:"other",label:"Ostatné"},
 ];
 function plural(n:number) { return n===1?"nález":n>1&&n<5?"nálezy":"nálezov"; }
+const ERROR_LABELS: Record<string, string> = {
+  AUTH_FAILED: "Neplatné oprávnenie Tavily",
+  RATE_LIMITED: "Priveľa požiadaviek Tavily",
+  CREDITS_EXHAUSTED: "Vyčerpané kredity alebo limit Tavily",
+  INVALID_REQUEST: "Nesprávne parametre vyhľadávania",
+  TIMEOUT: "Vypršal časový limit",
+  PROVIDER_ERROR: "Chyba externej služby",
+  INVALID_RESPONSE: "Neplatná odpoveď",
+  CONFIG_MISSING: "Chýbajúca konfigurácia",
+  INTERNAL_ERROR: "Chyba pri spracovaní",
+};
 
 export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboard}) {
   const router=useRouter();
@@ -79,7 +90,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
   }
   if(!data.schemaReady)return (
     <div className={styles.state} role="status">
-      Kvalita údajov sa pripravuje. Pred aktiváciou treba spustiť databázovú migráciu 0140.
+      Kvalita údajov čaká na databázovú migráciu 0142. Vyhľadávanie je do jej vykonania bezpečne pozastavené.
     </div>
   );
   return <div className={styles.root}>
@@ -90,9 +101,22 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
         <p className={styles.subtle}>Po schválení alebo zamietnutí sa počet automaticky zníži.</p>
       </div>
       <div className={styles.month}>
-        <h2>Tento mesiac spustené</h2>
+        <h2>Tento mesiac – pokusy o kontrolu</h2>
         <div className={styles.monthGrid}>
-          {AREAS.map(a=><div key={a.id}><strong>{data.monthly[a.id]}</strong><small>{a.label}</small></div>)}
+          {AREAS.map(a=>{
+            const stats=data.outcomes[a.id];
+            const recent=data.last[a.id];
+            return <div key={a.id}>
+              <strong>{stats.total}</strong>
+              <small>{a.label}</small>
+              <span className={styles.outcome}>Úspešné: {stats.successful} · Zlyhané: {stats.failed}</span>
+              {stats.unknown>0?<span className={styles.outcome}>Staršie/neznáme: {stats.unknown}</span>:null}
+              {stats.running>0?<span className={styles.outcome}>Rozpracované: {stats.running}</span>:null}
+              {recent?.status==="FAILED"?<span className={styles.lastError}>
+                Posledná chyba: {ERROR_LABELS[recent.errorCode??""]??"Neznáma chyba"}
+              </span>:null}
+            </div>;
+          })}
         </div>
       </div>
     </section>

@@ -1,7 +1,7 @@
 .filters {
   display: grid;
   grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(9rem, 1fr));
-  gap: 0.75rem;
+  gap: 0.55rem;
   align-items: end;
   width: 100%;
   min-width: 0;
@@ -72,16 +72,16 @@
 
 .list {
   display: grid;
-  gap: 0.8rem;
-  margin-top: 0.9rem;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 44px 76px minmax(0, 1fr) minmax(0, 320px);
-  gap: 1rem;
+  grid-template-columns: 44px 64px minmax(0, 1fr) minmax(0, 320px);
+  gap: 0.65rem;
   align-items: start;
-  padding: 1rem;
+  padding: 0.7rem;
   border: 1px solid #dfe6e2;
   border-radius: 14px;
   background: #fff;
@@ -125,7 +125,7 @@
 .thumb {
   display: grid;
   place-items: center;
-  width: 76px;
+  width: 64px;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 12px;
@@ -225,11 +225,11 @@
   }
 
   .row {
-    grid-template-columns: 44px 70px minmax(0, 1fr);
+    grid-template-columns: 44px 60px minmax(0, 1fr);
   }
 
   .thumb {
-    width: 70px;
+    width: 60px;
   }
 
   .actions {
@@ -287,13 +287,13 @@
   }
 
   .row {
-    grid-template-columns: 44px 62px minmax(0, 1fr);
-    gap: 0.75rem;
-    padding: 0.8rem;
+    grid-template-columns: 44px 54px minmax(0, 1fr);
+    gap: 0.55rem;
+    padding: 0.65rem;
   }
 
   .thumb {
-    width: 62px;
+    width: 54px;
   }
 
   .actions {
