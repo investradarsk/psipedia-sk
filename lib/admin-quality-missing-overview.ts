@@ -33,8 +33,8 @@ const helpCategoryOptions=[
   {value:"organization",label:"Útulky a organizácie"},
   {value:"adoption",label:"Adopcie"},
   {value:"foster",label:"Dočasná opatera"},
-  ...allHelpCategories.filter(c=>!["adopcia","utulky","docasna-opatera","stratene-a-najdene"].includes(c.slug))
-    .map(c=>({value:"case:"+c.slug,label:c.label})),
+  ...allHelpCategories.filter(c=>c.slug!=="docasna-opatera")
+    .map(c=>({value:"case:"+c.slug,label:"Prípady: "+c.label})),
   {value:"lost:LOST",label:"Stratené psy"},
   {value:"lost:FOUND",label:"Nájdené psy"},
 ];
