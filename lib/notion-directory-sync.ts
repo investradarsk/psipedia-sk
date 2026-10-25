@@ -1,3 +1,4 @@
+import { selectiveNotionProperties } from "@/lib/notion-selective-property-patch";
 import {importNotionServiceChoices} from "./service-profile-notion-bridge.ts";
 import {loadNotionCatalogRelationLookup,syncProfileCatalogRelation,type CatalogRelationLookup}
   from "./service-catalog-notion-relations";
@@ -650,9 +651,16 @@ async function writeProfileToNotion(input: {
   const geo = await loadGeoMirror(input.database, input.profile.id);
   const properties = notionProfileProperties(input.profile, geo ?? null, hash, syncedAt, sourceImageUrl);
   if (input.pageId) delete (properties as Partial<typeof properties>)["Vytvoril"];
-  const page = input.pageId
-    ? await patchNotionPage(input.bindings, input.pageId, properties)
-    : await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
+  let page: NotionPage;
+  if (input.pageId) {
+    const current = await fetchNotionPage(input.bindings, input.pageId);
+    if (current.id !== input.pageId || !notionDirectoryPageBelongsToSource(current, input.dataSourceId))
+      throw new NotionDirectoryUnsafeTargetError("NOTION_DIRECTORY_TARGET_MOVED");
+    const patch = selectiveNotionProperties(current.properties ?? {}, properties);
+    page = patch ? await patchNotionPage(input.bindings, input.pageId, patch) : current;
+  } else {
+    page = await createNotionPage(input.bindings, input.dataSourceId, properties, input.singleAttemptCreate === true);
+  }
 
   // A partial or stale Notion response is not evidence of a successful
   // editorial write. Check page identity and the complete reflected snapshot
