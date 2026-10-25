@@ -43,3 +43,6 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 - `adminSelectedImage` mení file-picker alebo Dropzone File na ten istý vstup; pri starom HTML inpute vymaže výber pred asynchrónnym nahrávaním.
 - `AdminSingleImageUpload` nikdy nezapisuje údaje do profilu a nikdy nespúšťa publikovanie. Rovnaký komponent možno vizuálne vylepšiť pre všetky editory centrálne.
 - Nový `tests/admin-single-image-unification.test.mjs` pokrýva parity a používateľské rozhranie; produkčné testy doplnené do CI.
+
+## Vylepšenie radenia (dnd-kit)
+- Rovnaký generátor identít pre URL galérie (adopcie / lost-found) a štruktúrované galérie (plemená / články). Stabilita identít po presune obrázka znižuje stratu focusu pri klávesnicovom ovládaní. Duplicitné historické URL sú rozlíšené poradím výskytu; metadáta ostávajú v originálnych entitách.

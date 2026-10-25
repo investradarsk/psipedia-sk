@@ -18,6 +18,8 @@ on:
       - "components/admin-gallery-dropzone.tsx"
       - "components/admin-gallery-dropzone.module.css"
       - "components/admin-sortable-gallery.tsx"
+      - "lib/admin-gallery-sortable-ids.ts"
+      - "tests/admin-gallery-sortable-ids.test.mjs"
       - "components/admin-adoption-editor-profile.tsx"
       - "components/admin-single-image-upload.tsx"
       - "lib/admin-selected-image.ts"
@@ -64,8 +66,8 @@ jobs:
       - name: Install exact dependencies from updated lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Validate Zod, Fuse, lockfile, and production integration
-        run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs tests/open-source-final-adoption.test.mjs tests/service-catalog-mobile-polish.test.mjs tests/admin-open-source-unification.test.mjs tests/article-gallery-shared-upload.test.mjs tests/admin-single-image-unification.test.mjs
+        run: node --experimental-strip-types --test tests/open-source-production-ui.test.mjs tests/open-source-final-adoption.test.mjs tests/service-catalog-mobile-polish.test.mjs tests/admin-open-source-unification.test.mjs tests/article-gallery-shared-upload.test.mjs tests/admin-single-image-unification.test.mjs tests/admin-gallery-sortable-ids.test.mjs
       - name: Lint changed production modules
-        run: npx eslint components/admin-photo-gallery.tsx components/admin-gallery-dropzone.tsx components/admin-single-image-upload.tsx lib/admin-selected-image.ts components/admin-sortable-gallery.tsx components/admin-lexical-append-button.tsx components/admin-adoption-editor-profile.tsx components/admin-article-block-editor.tsx components/admin-breed-editor.tsx components/admin-gemini-all-concepts.tsx components/admin-service-catalog-workspace.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts
+        run: npx eslint components/admin-photo-gallery.tsx components/admin-gallery-dropzone.tsx components/admin-single-image-upload.tsx lib/admin-selected-image.ts lib/admin-gallery-sortable-ids.ts components/admin-sortable-gallery.tsx components/admin-lexical-append-button.tsx components/admin-adoption-editor-profile.tsx components/admin-article-block-editor.tsx components/admin-breed-editor.tsx components/admin-gemini-all-concepts.tsx components/admin-service-catalog-workspace.tsx lib/admin-photo-gallery-url.ts lib/gemini-concept-fuzzy-search.ts
       - name: Production build
         run: npm run build

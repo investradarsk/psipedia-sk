@@ -79,3 +79,9 @@ test("shared Dropzone meets axe: file input labeled and not nested in interactiv
   const fileInput=source.indexOf("<input {...getInputProps");
   assert.ok(rootEnd > -1 && fileInput > rootEnd,"file input must be a sibling of role=button");
 });
+
+test("sortable IDs do not change on reordering a unique image URL",()=>{
+  assert.match(read("components/admin-photo-gallery.tsx"),/gallerySortableIds\(value\)/);
+  assert.match(read("components/admin-sortable-gallery.tsx"),/gallerySortableIds\(urls\)/);
+  assert.doesNotMatch(read("components/admin-sortable-gallery.tsx"),/index\+":"\+url/);
+});
