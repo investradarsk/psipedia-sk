@@ -86,7 +86,9 @@ export class TavilyAutomationSearchProvider implements AutomationSearchProvider 
   constructor(options: { apiKey?: string; fetchImpl?: TavilyFetch }) {
     this.apiKey = options.apiKey?.trim() ?? "";
     this.credentialConfigured = Boolean(this.apiKey);
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // Cloudflare's native fetch requires its original receiver. Calling a stored
+    // fetch as this.fetchImpl(...) otherwise throws TypeError: Illegal invocation.
+    this.fetchImpl = options.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
   }
 
   async search(request: AutomationSearchRequest): Promise<AutomationSearchResult[]> {
