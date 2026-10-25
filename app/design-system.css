@@ -638,11 +638,6 @@
   --ps-ds5-card-hover-shadow: var(--ps-shadow-surface);
   --ps-ds5-card-focus-outline: 3px solid var(--forest);
   --ps-ds5-card-focus-offset: 2px;
-  /* PUBLIC-DETAIL-2: one typography/fact/media contract for visitor-facing details. */
-  --ps-detail-heading-size: clamp(1.55rem, 2.4vw, 2rem);
-  --ps-detail-fact-label-size: .75rem;
-  --ps-detail-fact-value-size: .875rem;
-  --ps-detail-photo-radius: var(--ps-radius-media);
   /* Organization cards retain their separately approved geometry. */
   --ps-card-organization-grid-gap: 1.25rem;
   --ps-card-organization-radius: 1.25rem;
@@ -949,4 +944,13 @@
   [data-public-card][data-public-card]:is(:focus-visible, :has(a:focus-visible)) {
     outline-color: Highlight;
   }
+}
+
+/* PUBLIC-DETAIL-2: scope-bound public detail presentation tokens.
+   Keep DS-1A and DS-5 blocks immutable; no change to image rendering mode. */
+:root {
+  --ps-detail-heading-size: clamp(1.55rem, 2.4vw, 2rem);
+  --ps-detail-fact-label-size: .75rem;
+  --ps-detail-fact-value-size: .875rem;
+  --ps-detail-photo-radius: var(--ps-radius-media);
 }
