@@ -93,8 +93,8 @@ jobs:
             import { randomBytes } from "node:crypto";
             import { writeFileSync } from "node:fs";
             writeFileSync(".dev.vars",
-              "PII_ENCRYPTION_KEY=" + randomBytes(32).toString("base64url") + "\\n" +
-              "PII_HASH_KEY=" + randomBytes(32).toString("base64url") + "\\n",
+              "PII_ENCRYPTION_KEY=" + randomBytes(32).toString("base64url") + "\n" +
+              "PII_HASH_KEY=" + randomBytes(32).toString("base64url") + "\n",
               { mode: 0o600 });
           '
 
