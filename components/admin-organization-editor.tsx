@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { EditorUnsavedChangesGuard } from "@/components/admin-editor-workspace";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -226,7 +228,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
       <AdminEditorSection id="organization-content" className="admin-form-card">
         <div className="admin-card-heading"><div><span>02</span><div><h2>Verejný obsah</h2><p>Aktuálny organization contract ukladá popis ako plain text, preto sa tu zámerne nepoužíva druhý rich-text editor.</p></div></div></div>
         <div className="admin-field"><label htmlFor="organization-short-description">Krátky popis</label><textarea id="organization-short-description" rows={3} value={draft.shortDescription} disabled={editingDisabled} onChange={(event) => patch({ shortDescription: event.target.value })} /></div>
-        <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><textarea id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(event) => patch({ description: event.target.value })} /></div>
+        <div className="admin-field"><label htmlFor="organization-description">Verejný popis</label><textarea id="organization-description" rows={10} value={draft.description} disabled={editingDisabled} onChange={(event) => patch({ description: event.target.value })} /><AdminLexicalAppendButton disabled={editingDisabled} onAppend={text=>patch({description:appendLexicalPlainText(draft.description,text)})}/></div>
         <AdminHelpText term="Storage contract">Plain text zostáva zachovaný. Rich-text AST je samostatný follow-up, nie schema zmena v tomto workstreame.</AdminHelpText>
       </AdminEditorSection>
 

@@ -1,4 +1,6 @@
 "use client";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
@@ -216,7 +218,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.heading}><div><h2>Prehľad</h2><p>Úvod a redakčný kontext verejného profilu.</p></div></div>
         <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><textarea required rows={4} value={form.intro} onChange={(e)=>change("intro",e.target.value)}/></label>
         <label className="admin-field"><span>Prehľad plemena</span><textarea rows={6} value={form.editorial.overview??""} onChange={(e)=>updateEditorial("overview",e.target.value)}/></label>
-        <label className="admin-field"><span>História</span><textarea rows={6} value={form.history} onChange={(e)=>change("history",e.target.value)}/></label>
+        <label className="admin-field"><span>História</span><textarea rows={6} value={form.history} onChange={(e)=>change("history",e.target.value)}/></label><AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
         <h3>Tri hlavné vlastnosti v hero</h3>
         <AdminHelpText>Prázdne vlastnosti sa verejne nezobrazia.</AdminHelpText>
         <div className="admin-field-grid">{Array.from({length:3},(_,index)=>{const trait=form.editorial.heroTraits?.[index];return <div className="admin-field-grid" key={index}><label className="admin-field"><span>Vlastnosť {index+1}</span><input value={trait?.label??""} onChange={(e)=>updateHeroTrait(index,{label:e.target.value})}/></label><label className="admin-field"><span>Hodnotenie 1–5</span><input type="number" min="1" max="5" value={trait?.rating??3} onChange={(e)=>updateHeroTrait(index,{rating:Number(e.target.value)})}/></label></div>})}</div>
