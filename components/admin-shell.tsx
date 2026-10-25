@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { chatGPTSignOutPath, type ChatGPTUser } from "@/app/chatgpt-auth";
 import { loadExactAdminAttentionSummary } from "@/lib/admin-attention-queue-store";
 import { AdminBreadcrumbs, AdminNavigation } from "./admin-navigation";
@@ -12,6 +12,21 @@ function BellIcon() {
     <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true" focusable="false">
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function AdminNotificationBellPending() {
+  // Keep the bell actionable while the current (never cached) D1 count streams in.
+  return (
+    <Link
+      href="/admin/operations"
+      className={styles.notificationLink}
+      aria-label="Upozornenia: načítava sa počet aktívnych položiek"
+      title="Otvoriť upozornenia"
+      data-testid="admin-notification-bell"
+    >
+      <BellIcon />
+    </Link>
   );
 }
 
@@ -92,7 +107,9 @@ export function AdminShell({
               <span className={styles.topbarCaption}>Psipedia · Administrácia</span>
               <div className={styles.topbarActions}>
                 <Link href="/" className={styles.backToWeb} aria-label="Návrat na Psipedia.sk">↗ <span>Späť na web</span></Link>
-                <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
+                <Suspense fallback={<AdminNotificationBellPending />}>
+                  <AdminNotificationBell count={attentionCount} partial={attentionCountPartial} />
+                </Suspense>
                 <div className={`admin-account ${styles.account}`}>
                   <span><small>Prihlásený používateľ</small><strong>{user.displayName}</strong></span>
                   <a href={chatGPTSignOutPath("/", user.authProvider)} aria-label="Odhlásiť">
