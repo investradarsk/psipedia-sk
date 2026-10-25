@@ -140,3 +140,15 @@ test("pending Admin breed edits block stale Notion sync and false success", () =
   assert.match(breedRouteSource, /notionEditorialWriteback/);
   assert.match(breedRouteSource, /REMOTE_WRITEBACK_FAILED/);
 });
+
+test("hourly breed sweep replays unacknowledged Admin-only text changes safely", () => {
+  const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
+    syncSource.indexOf("export async function runNotionBreedSyncSweep("));
+  const replay = mapped.indexOf("const lastCommonText = { ...existing }");
+  const acknowledged = mapped.indexOf("if (mapping.content_hash === contentHash) {");
+  assert.ok(replay >= 0 && acknowledged > replay);
+  assert.match(mapped, /mapping.content_hash === contentHash && canonicalTextDiffers/);
+  assert.match(mapped, /await writeBackDraftBreedEditorialToNotion\(/);
+  assert.match(mapped, /if \(!result.updated\) throw new Error\("BREED_ADMIN_WRITEBACK_NOT_ACKNOWLEDGED"\)/);
+  assert.match(mapped, /lastCommonText\[key\] = notionBreedTextValue\(page, property\)/);
+});
