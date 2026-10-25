@@ -7,7 +7,6 @@ import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 import { geminiReviewLabels } from "@/lib/gemini-notion-review-state";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   AdminActionButton,
@@ -208,7 +207,8 @@ export function AdminDirectoryEditor({
   const [error, setError] = useState("");
   const [formDirty, setFormDirty] = useState(false);
   const [confirmDirectoryExit, setConfirmDirectoryExit] = useState(false);
-  const router = useRouter();
+  const directoryBackLinkRef = useRef<HTMLAnchorElement>(null);
+  const allowDirectoryExitRef = useRef(false);
 
   useEffect(() => {
     if (formRef.current) formRef.current.dataset.hydrated = "true";
@@ -738,9 +738,9 @@ export function AdminDirectoryEditor({
       </NotionDraftFields>
       <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
       <div className="admin-editor-actions">
-        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" onClick={event => {
+        <div>{notionDraft ? <span>Koncept Gemini · {reviewState ? geminiReviewLabels[reviewState] : "Notion"}</span> : <Link href="/admin/adresar" ref={directoryBackLinkRef} onClick={event => {
           // Preserve native behavior for modified clicks and background tabs.
-          if (formDirty && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+          if (formDirty && !allowDirectoryExitRef.current && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
             event.preventDefault();
             setConfirmDirectoryExit(true);
           }
@@ -773,9 +773,11 @@ export function AdminDirectoryEditor({
         open={confirmDirectoryExit}
         onStay={() => setConfirmDirectoryExit(false)}
         onDiscard={() => {
+          allowDirectoryExitRef.current = true;
           setConfirmDirectoryExit(false);
           setFormDirty(false);
-          router.push("/admin/adresar");
+          // Reuse the existing Next Link, keeping Gemini/Notion modal free of router context.
+          directoryBackLinkRef.current?.click();
         }}
       />
     </form>

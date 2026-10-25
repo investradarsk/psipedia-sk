@@ -111,3 +111,6 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 ### E2E overenie ochrany Adresára
 - Playwright scenár v `admin-directory-filters.spec.ts` upraví neuložený telefón bez požiadavky na server, otvorí dialóg, overí bezpečný fokus na Zostať, Escape bez straty textu a následné explicitné Zahodiť s návratom do zoznamu.
 - Scenár nemení údaje na lokálnej fixture; zostáva súčasťou existujúcej sady Adresára.
+
+### Stabilizácia Gemini/Notion samostatného editora
+- Modul Adresára je súčasne používaný v izolovanom Gemini/Notion modáli bez `NextRouter` kontextu. Preto ochrana návratu v kanonickom Adresári nevolá `useRouter()` v spoločnej komponentovej funkcii. Po výslovnom potvrdení použije existujúci Next Link cez bezpečne označený `ref`, čím zachová SPA navigáciu a nevyvolá nové sieťové zápisy. Modál Gemini/Notion sa vie znova zobraziť aj v izolovaných browser testoch.

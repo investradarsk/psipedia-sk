@@ -33,7 +33,9 @@ test("Directory back navigation uses shared guard and keeps existing canonical o
   assert.match(source, /setConfirmDirectoryExit\(true\)/);
   assert.match(source, /<EditorUnsavedChangesGuard\s+active=\{formDirty\}\s+open=\{confirmDirectoryExit\}/);
   assert.match(source, /onStay=\{\(\) => setConfirmDirectoryExit\(false\)\}/);
-  assert.match(source, /setFormDirty\(false\);\s+router\.push\("\/admin\/adresar"\)/);
+  assert.match(source, /allowDirectoryExitRef\.current = true/);
+  assert.match(source, /directoryBackLinkRef\.current\?\.click\(\)/);
+  assert.doesNotMatch(source, /useRouter\(\)/);
   assert.doesNotMatch(source, /window\.confirm\("Zahodiť neuložené zmeny profilu/);
   assert.match(source, /setFilterSourceData\(savedProfile\.importData/);
   assert.match(source, /onNotionSaved\?/);
