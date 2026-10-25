@@ -1,3 +1,8 @@
+"use client";
+
+import {useState} from "react";
+import {AdminLexicalAppendButton} from "@/components/admin-lexical-append-button";
+import {appendLexicalPlainText} from "@/lib/editorial-lexical-append";
 import {
   adoptionActivityLevels,
   adoptionCompatibilityValues,
@@ -15,7 +20,8 @@ const labels = {
   compatibility: { YES: "Áno", NO: "Nie", CONDITIONAL: "S podmienkami", UNKNOWN: "Neoverené" },
 } as const;
 
-export function AdminAdoptionEditorProfile({ item, breeds, publishing }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; publishing: boolean }) {
+export function AdminAdoptionEditorProfile({ item, breeds, publishing, onProgrammaticChange }: { item?: AdoptionDog; breeds: AdoptionAdminBreedOptionsResult; publishing: boolean; onProgrammaticChange?: () => void }) {
+  const [description,setDescription]=useState(item?.description??"");
   return <>
     <section className="admin-form-card">
       <div className="admin-card-heading"><div><span>02</span><div><h2>Plemeno a profil</h2><p>Vek, pohlavie, veľkosť a fyzické údaje.</p></div></div></div>
@@ -45,7 +51,7 @@ export function AdminAdoptionEditorProfile({ item, breeds, publishing }: { item?
     <section className="admin-form-card">
       <div className="admin-card-heading"><div><span>04</span><div><h2>Povaha a kompatibilita</h2><p>Opis psa a overené vzťahy k domácnosti.</p></div></div></div>
       <div className="admin-field"><label htmlFor="adoption-short">Krátky popis{publishing ? " *" : ""}</label><textarea id="adoption-short" name="shortDescription" rows={3} defaultValue={item?.shortDescription ?? ""} required={publishing}/></div>
-      <div className="admin-field"><label htmlFor="adoption-description">Príbeh a podrobný popis{publishing ? " *" : ""}</label><textarea id="adoption-description" name="description" rows={8} defaultValue={item?.description ?? ""} required={publishing}/></div>
+      <div className="admin-field"><label htmlFor="adoption-description">Príbeh a podrobný popis{publishing ? " *" : ""}</label><textarea id="adoption-description" name="description" rows={8} value={description} onChange={event=>setDescription(event.target.value)} required={publishing}/><AdminLexicalAppendButton onAppend={text=>{ onProgrammaticChange?.(); setDescription(current=>appendLexicalPlainText(current,text)); }}/></div>
       <div className="admin-field"><label htmlFor="adoption-temperament">Povaha</label><textarea id="adoption-temperament" name="temperament" rows={4} defaultValue={item?.temperament ?? ""}/></div>
       <div className="admin-field-grid">
         {[["suitableForChildren","Deti",item?.suitableForChildren],["suitableForDogs","Psy",item?.suitableForDogs],["suitableForCats","Mačky",item?.suitableForCats],["suitableForOtherAnimals","Iné zvieratá",item?.suitableForOtherAnimals]].map(([key,label,value]) => <div className="admin-field" key={String(key)}><label htmlFor={`adoption-${key}`}>{label}</label><select id={`adoption-${key}`} name={String(key)} defaultValue={String(value ?? "UNKNOWN")}>{adoptionCompatibilityValues.map((option) => <option key={option} value={option}>{labels.compatibility[option]}</option>)}</select></div>)}

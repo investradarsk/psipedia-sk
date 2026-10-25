@@ -1,10 +1,15 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
+import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
+import { appendLexicalPlainText } from "@/lib/editorial-lexical-append";
 
 import { useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import type { BreedEditorOptions, BreedHeroTrait, BreedSport, ManagedBreed } from "@/lib/breed-store";
 import type { BreedImage, BreedSource } from "@/lib/content";
 import { adminImageUploadMessage, uploadAdminImage } from "@/lib/admin-image-upload";
 import { AdminSeoFields } from "@/components/admin-seo-fields";
+import { AdminFieldFeedback, AdminFormFeedback } from "@/components/admin-form-feedback";
 import { breedSeoFallback } from "@/lib/content-seo";
 import { inspectBreedMeasurement, type BreedMeasurementKind, type FciStandard, type FciStandardTextKey } from "@/lib/breed-fci";
 import {
@@ -14,6 +19,9 @@ import {
   AdminHelpText,
 } from "@/components/admin-interaction-system";
 import styles from "./admin-breed-editor.module.css";
+import {AdminGalleryDropzone} from "@/components/admin-gallery-dropzone";
+import {AdminSortableGallery} from "@/components/admin-sortable-gallery";
+import {arrayMove} from "@dnd-kit/sortable";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);}
@@ -72,10 +80,10 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
   function updateHeroTrait(index:number,patch:Partial<BreedHeroTrait>){setForm((current)=>{const traits=[...(current.editorial.heroTraits??[])];while(traits.length<=index)traits.push({label:"",rating:3});traits[index]={...traits[index],...patch};return {...current,editorial:{...current.editorial,heroTraits:traits}};});}
   function toggleId(key:"relatedBreedIds"|"relatedArticleIds"|"directoryProfileIds",id:number){setForm((current)=>({...current,[key]:current[key].includes(id)?current[key].filter((item)=>item!==id):[...current[key],id]}));}
 
-  async function uploadCover(event:ChangeEvent<HTMLInputElement>){const file=event.target.files?.[0];if(!file||uploadPending.current||saving)return;uploadPending.current=true;setUploading(true);setError("");try{const result=await uploadAdminImage(file,"breeds");setForm((current)=>({...current,image:result.imageUrl,imageKey:result.imageKey}));setMessage(adminImageUploadMessage(result,"Ulož plemeno, aby sa titulná fotografia priradila."));}catch(e){setError(e instanceof Error?e.message:"Obrázok sa nepodarilo nahrať.");}finally{uploadPending.current=false;setUploading(false);event.target.value="";}}
-  async function uploadGallery(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
+  async function uploadCover(event:File|ChangeEvent<HTMLInputElement>){const file=adminSelectedImage(event);if(!file||uploadPending.current||saving)return;uploadPending.current=true;setUploading(true);setError("");try{const result=await uploadAdminImage(file,"breeds");setForm((current)=>({...current,image:result.imageUrl,imageKey:result.imageKey}));setMessage(adminImageUploadMessage(result,"Ulož plemeno, aby sa titulná fotografia priradila."));}catch(e){setError(e instanceof Error?e.message:"Obrázok sa nepodarilo nahrať.");}finally{uploadPending.current=false;setUploading(false);}}
+  async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[]) {
+    const files = Array.isArray(event) ? event : Array.from(event.target.files ?? []);
+    if (!Array.isArray(event)) event.target.value = "";
     if (!files.length || uploadPending.current || saving) return;
     const remaining = Math.max(0, 30 - form.gallery.length);
     if (files.length > remaining) { setError(`Vyber najviac ${remaining} ďalších fotografií. Galéria plemena má limit 30.`); return; }
@@ -203,9 +211,9 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
           <label className="admin-field"><span>Číslo FCI sekcie</span><input value={form.fciSectionNumber} onChange={(e)=>change("fciSectionNumber",e.target.value)}/></label>
           <label className="admin-field"><span>Skupina / pôvodné využitie</span><input value={form.group} onChange={(e)=>change("group",e.target.value)}/></label>
           <label className="admin-field"><span>Veľkosť</span><input value={form.size} onChange={(e)=>change("size",e.target.value)}/></label>
-          <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/>{measurementMessage(form.weight,"weight")&&<small className="admin-field-warning">{measurementMessage(form.weight,"weight")}</small>}</label>
-          <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} value={form.height} onChange={(e)=>change("height",e.target.value)}/>{measurementMessage(form.height,"height")&&<small className="admin-field-warning">{measurementMessage(form.height,"height")}</small>}</label>
-          <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/>{measurementMessage(form.lifespan,"lifespan")&&<small className="admin-field-warning">{measurementMessage(form.lifespan,"lifespan")}</small>}</label>
+          <label className="admin-field"><span>Hmotnosť</span><input aria-invalid={measurementHasError(form.weight,"weight")} aria-describedby={measurementMessage(form.weight,"weight") ? "breed-weight-feedback" : undefined} value={form.weight} onChange={(e)=>change("weight",e.target.value)}/><AdminFieldFeedback id="breed-weight-feedback" message={measurementMessage(form.weight,"weight")} invalid={measurementHasError(form.weight,"weight")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Výška v kohútiku</span><input aria-invalid={measurementHasError(form.height,"height")} aria-describedby={measurementMessage(form.height,"height") ? "breed-height-feedback" : undefined} value={form.height} onChange={(e)=>change("height",e.target.value)}/><AdminFieldFeedback id="breed-height-feedback" message={measurementMessage(form.height,"height")} invalid={measurementHasError(form.height,"height")} className="admin-field-warning" /></label>
+          <label className="admin-field"><span>Dĺžka života</span><input aria-invalid={measurementHasError(form.lifespan,"lifespan")} aria-describedby={measurementMessage(form.lifespan,"lifespan") ? "breed-lifespan-feedback" : undefined} value={form.lifespan} onChange={(e)=>change("lifespan",e.target.value)}/><AdminFieldFeedback id="breed-lifespan-feedback" message={measurementMessage(form.lifespan,"lifespan")} invalid={measurementHasError(form.lifespan,"lifespan")} className="admin-field-warning" /></label>
           <label className="admin-field"><span>Srsť</span><input value={form.coat} onChange={(e)=>change("coat",e.target.value)}/></label>
         </div>
       </div>
@@ -216,7 +224,7 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.heading}><div><h2>Prehľad</h2><p>Úvod a redakčný kontext verejného profilu.</p></div></div>
         <label className="admin-field"><span>Krátky úvod v hero (2–4 vety)</span><textarea required rows={4} value={form.intro} onChange={(e)=>change("intro",e.target.value)}/></label>
         <label className="admin-field"><span>Prehľad plemena</span><textarea rows={6} value={form.editorial.overview??""} onChange={(e)=>updateEditorial("overview",e.target.value)}/></label>
-        <label className="admin-field"><span>História</span><textarea rows={6} value={form.history} onChange={(e)=>change("history",e.target.value)}/></label>
+        <label className="admin-field"><span>História</span><textarea rows={6} value={form.history} onChange={(e)=>change("history",e.target.value)}/></label><AdminLexicalAppendButton disabled={saving} onAppend={text=>change("history",appendLexicalPlainText(form.history,text))}/>
         <h3>Tri hlavné vlastnosti v hero</h3>
         <AdminHelpText>Prázdne vlastnosti sa verejne nezobrazia.</AdminHelpText>
         <div className="admin-field-grid">{Array.from({length:3},(_,index)=>{const trait=form.editorial.heroTraits?.[index];return <div className="admin-field-grid" key={index}><label className="admin-field"><span>Vlastnosť {index+1}</span><input value={trait?.label??""} onChange={(e)=>updateHeroTrait(index,{label:e.target.value})}/></label><label className="admin-field"><span>Hodnotenie 1–5</span><input type="number" min="1" max="5" value={trait?.rating??3} onChange={(e)=>updateHeroTrait(index,{rating:Number(e.target.value)})}/></label></div>})}</div>
@@ -298,17 +306,20 @@ export function AdminBreedEditor({ breed,options }: { breed?: ManagedBreed;optio
         <div className={styles.mediaGrid}>
           <div className={styles.coverPreview}>{form.image?<img src={form.image} alt={`Náhľad: ${form.name||"plemeno"}`}/>:<span>Bez fotografie<br/>verejne sa použije fallback</span>}</div>
           <div className={styles.mediaActions}>
-            <label className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e)=>void uploadCover(e)} disabled={uploading||saving}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></label>
+            <div className="admin-field"><span>Titulná fotografia (JPG, PNG, WebP alebo AVIF do 8 MB)</span><AdminSingleImageUpload label={form.image?"Vybrať inú titulnú fotografiu":"Nahrať titulnú fotografiu"} onFile={uploadCover} disabled={saving} busy={uploading} onRejected={setError}/><small>{uploading?"Nahrávam…":form.image||"Zatiaľ bez fotografie"}</small></div>
             {form.image&&<AdminActionButton variant="destructive" onClick={()=>setForm((current)=>({...current,image:"",imageKey:""}))}>Odstrániť titulnú fotografiu</AdminActionButton>}
             <AdminHelpText>Vyber zdrojovú fotografiu s rezervou okolo psa; focal-point schema zatiaľ neexistuje, preto tesný crop nie je možné v admine bezpečne korigovať.</AdminHelpText>
-            <label className="admin-field"><span>Ďalšie fotografie</span><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e)=>void uploadGallery(e)} disabled={uploading||saving}/></label>
+            <div className="admin-field"><span>Ďalšie fotografie</span><AdminGalleryDropzone label="Nahrať fotografie plemena" disabled={uploading||saving||form.gallery.length>=30} busy={uploading} onFiles={uploadGallery} onRejected={setError}/></div>
           </div>
         </div>
-        <div className={styles.galleryList}>{form.gallery.map((item,index)=><article key={`${item.imageUrl}-${index}`} className={styles.galleryRow}><img src={item.imageUrl} alt={item.alt||"Náhľad"}/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></article>)}</div>
+        <AdminSortableGallery urls={form.gallery.map(item=>item.imageUrl)} as="article"
+          className={styles.galleryList} rowClassName={styles.galleryRow} disabled={uploading||saving}
+          onReorder={(from,to)=>setForm(current=>({...current,gallery:arrayMove(current.gallery,from,to)}))}
+          renderRow={(index,handle)=>{const item=form.gallery[index];return <><img src={item.imageUrl} alt={item.alt||"Náhľad"}/><div><label className="admin-field"><span>Alt text</span><input value={item.alt} onChange={(e)=>updateGallery(index,{alt:e.target.value})}/></label><label className="admin-field"><span>Popis</span><input value={item.caption} onChange={(e)=>updateGallery(index,{caption:e.target.value})}/></label><label className="admin-field"><span>Kredit / zdroj</span><input value={item.credit} onChange={(e)=>updateGallery(index,{credit:e.target.value})}/></label></div><div className={styles.galleryActions}>{handle}<AdminActionButton variant="neutral" onClick={()=>moveGallery(index,-1)} disabled={index===0}>↑</AdminActionButton><AdminActionButton variant="neutral" onClick={()=>moveGallery(index,1)} disabled={index===form.gallery.length-1}>↓</AdminActionButton><AdminActionButton variant="destructive" onClick={()=>change("gallery",form.gallery.filter((_,i)=>i!==index))}>Odstrániť</AdminActionButton></div></>;}}/>
       </div>
     </AdminEditorSection>
 
-    {error&&<p className="admin-form-error" role="alert">{error}</p>}{message&&<p className="admin-flash" role="status">{message}</p>}
+    <AdminFormFeedback message={message} error={error} pending={saving} errorClassName="admin-form-error" successClassName="admin-flash" />
     <AdminDrawer
       open={settingsOpen}
       title="Nastavenia plemena"

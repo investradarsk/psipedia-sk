@@ -11,3 +11,10 @@ export function appendLexicalPlainTextToMarkdown(existing: string, fresh: string
     .join("\n");
   return existing ? existing.replace(/\s*$/, "") + "\n\n" + escaped : escaped;
 }
+
+/** Plain-text profile fields are not Markdown. Preserve exactly the old value. */
+export function appendLexicalPlainText(existing: string, fresh: string): string {
+  const text=fresh.replace(/\r\n?/g,"\n").trim();
+  if(!text)return existing;
+  return existing ? existing.replace(/\s*$/, "")+"\n\n"+text : text;
+}

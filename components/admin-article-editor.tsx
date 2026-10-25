@@ -1,4 +1,7 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import { AdminFormFeedback } from "@/components/admin-form-feedback";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { AdminArticleBlockEditor, RichTextInput } from "@/components/admin-article-block-editor";
@@ -6,7 +9,7 @@ import { ArticleEditorCalendar } from "@/components/article-editor-calendar";
 import { AdminArticleTopicPicker } from "@/components/admin-article-topic-picker";
 import { preservedEditorArticleMetadata } from "@/components/admin-article-editor-preserve";
 import { AdminEditorialAuthorField } from "@/components/admin-editorial-author-field";
-import { AdminActionButton, AdminHelpText } from "@/components/admin-interaction-system";
+import { AdminActionButton, AdminDestructiveConfirmDialog, AdminHelpText } from "@/components/admin-interaction-system";
 import { EditorActionBar, EditorStatus, EditorWorkspace } from "@/components/admin-editor-workspace";
 import editorStyles from "./admin-content-editor-v3.module.css";
 import { ArticleBlocks } from "@/components/article-blocks";
@@ -169,6 +172,7 @@ export function AdminArticleEditor({
   const [error, setError] = useState("");
   const [qaIssues, setQaIssues] = useState<ArticleQaIssue[]>([]);
   const [previewOpen, setPreviewOpen] = useState(true);
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
   const lastSavedUpdatedAtRef = useRef(article?.updatedAt ?? null);
@@ -216,8 +220,8 @@ export function AdminArticleEditor({
     if (value === "novinky" && category === "Výcvik") setCategory("Život so psom");
   }
 
-  async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true);
     setError("");
@@ -235,12 +239,11 @@ export function AdminArticleEditor({
       setError(uploadError instanceof Error ? uploadError.message : "Obrázok sa nepodarilo nahrať.");
     } finally {
       setUploading(false);
-      event.target.value = "";
     }
   }
 
-  async function uploadOgImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function uploadOgImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
@@ -250,7 +253,7 @@ export function AdminArticleEditor({
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Open Graph obrázok sa nepodarilo nahrať.");
     } finally {
-      setUploading(false); event.target.value = "";
+      setUploading(false);
     }
   }
 
@@ -386,9 +389,7 @@ export function AdminArticleEditor({
   }
 
   function unpublish() {
-    if (window.confirm("Stiahnuť tento článok z verejného webu a ponechať ho ako koncept?")) {
-      void save("draft");
-    }
+    if (!saving && !uploading) setConfirmUnpublish(true);
   }
 
   return (
@@ -498,7 +499,7 @@ export function AdminArticleEditor({
           </div>
           <div className="admin-upload-row admin-og-upload">
             <div className={`admin-upload-preview admin-upload-preview--${accent}`}>{ogImageUrl ? <img src={ogImageUrl} alt="Náhľad Open Graph obrázka" /> : <span>OG</span>}</div>
-            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadOgImage} disabled={uploading} />{ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
+            <div className="admin-upload-actions"><strong>Open Graph obrázok</strong><AdminSingleImageUpload label={ogImageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"} onFile={uploadOgImage} busy={uploading} onRejected={setError}/>{ogImageUrl && <button type="button" onClick={() => { setOgImageUrl(""); setOgImageKey(""); setEditorDirty(true); }}>Odstrániť obrázok</button>}<small>Odporúčaný pomer 1,91 : 1, napríklad 1200 × 630 px.</small></div>
           </div>
           <label className="admin-check"><input type="checkbox" checked={noindex} onChange={(event) => setNoindex(event.target.checked)} /><span><strong>Neindexovať článok (noindex)</strong><small>Článok zostane dostupný cez URL, ale vyhľadávače ho nemajú zaradiť.</small></span></label>
         </section>
@@ -594,10 +595,7 @@ export function AdminArticleEditor({
               {imageUrl ? <img src={imageUrl} alt="Náhľad titulnej fotografie" /> : <span>🐕</span>}
             </div>
             <div className="admin-upload-actions">
-              <label className="admin-upload-button">
-                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={uploading} />
-                {uploading ? "Nahrávam…" : imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"}
-              </label>
+              <AdminSingleImageUpload label={imageUrl ? "Vybrať inú fotku" : "Nahrať fotku"} onFile={uploadImage} busy={uploading} onRejected={setError}/>
               {imageUrl && <button type="button" onClick={() => {
                 setImageUrl("");
                 setImageKey("");
@@ -669,12 +667,26 @@ export function AdminArticleEditor({
           />
         </section>
 
-        {(message || error) && <div ref={resultRef} tabIndex={-1} className={`admin-editor-message ${error ? "is-error" : "is-success"}`} role={error ? "alert" : "status"}>{error || message}</div>}
+        {(message || error || saving) && <div ref={resultRef} tabIndex={-1}>
+          <AdminFormFeedback message={message} error={error} pending={saving} className="admin-editor-message" errorClassName="is-error" successClassName="is-success" />
+        </div>}
 
       </form>
       </EditorWorkspace>
       </div>
 
+      <AdminDestructiveConfirmDialog
+        open={confirmUnpublish}
+        title="Stiahnuť článok z webu?"
+        description="Článok sa zmení na koncept a nebude verejne publikovaný."
+        affectedCount={1}
+        affectedLabel="článok"
+        confirmLabel="Potvrdiť stiahnutie"
+        cancelLabel="Ponechať publikované"
+        pending={saving || uploading}
+        onCancel={() => setConfirmUnpublish(false)}
+        onConfirm={() => { setConfirmUnpublish(false); void save("draft"); }}
+      />
       {imageEditorOpen && imageUrl && <ImageDisplayEditor
         src={imageUrl} alt={imageAlt || title} title={title} excerpt={excerpt}
         thumbnail={thumbnailImageDisplay} detail={detailImageDisplay}
