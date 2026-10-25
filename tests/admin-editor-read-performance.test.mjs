@@ -28,7 +28,7 @@ test("five canonical editors await independent reads in parallel, after authoriz
     assert.ok(authorizedAt >= 0 && parallelAt > authorizedAt, name + " must not read protected data before auth");
     const parallelEnd = file.indexOf("]);", parallelAt);
     const batch = file.slice(parallelAt, parallelEnd);
-    for (const expected of [entityRead, independentA, independentB]) {
+    for (const expected of [entityRead, independentA, independentB].filter(Boolean)) {
       assert.ok(batch.includes(expected), name + " parallel group missing " + expected);
     }
     assert.match(file.slice(parallelEnd), /if \(!(?:profile|event|organization|item)\) notFound\(\)/,
@@ -76,7 +76,7 @@ test("article editor's breed picker transfers only the scalar values its checkbo
     insert.run(11,"Burgoský stavač",null,7,"{".repeat(12000));
     insert.run(12,"Beagle",161,6,"{".repeat(12000));
     const rows = db.prepare("SELECT id,name,fci_number AS fciNumber FROM managed_breeds ORDER BY fci_group,name LIMIT ?").all(500);
-    assert.deepEqual(rows, [
+    assert.deepEqual(rows.map(row => ({...row})), [
       {id:10,name:"Biely švajčiarsky ovčiak",fciNumber:347},
       {id:12,name:"Beagle",fciNumber:161},
       {id:11,name:"Burgoský stavač",fciNumber:null},
