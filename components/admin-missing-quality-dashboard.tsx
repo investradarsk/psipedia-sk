@@ -29,10 +29,16 @@ const ERROR_LABELS: Record<string, string> = {
   INVALID_REQUEST: "Nesprávne parametre vyhľadávania",
   TIMEOUT: "Vypršal časový limit",
   PROVIDER_ERROR: "Chyba externej služby",
+  NETWORK_ERROR: "Chyba spojenia medzi Cloudflare a Tavily",
   INVALID_RESPONSE: "Neplatná odpoveď",
   CONFIG_MISSING: "Chýbajúca konfigurácia",
   INTERNAL_ERROR: "Chyba pri spracovaní",
 };
+
+function qualityErrorLabel(code: string | null): string {
+  if (code && /^HTTP_5\d{2}$/.test(code)) return `Tavily HTTP ${code.slice(5)} – chyba servera`;
+  return ERROR_LABELS[code ?? ""] ?? "Neznáma chyba";
+}
 
 export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboard}) {
   const router=useRouter();
@@ -113,7 +119,7 @@ export function AdminMissingQualityDashboard({data}:{data:MissingQualityDashboar
               {stats.unknown>0?<span className={styles.outcome}>Staršie/neznáme: {stats.unknown}</span>:null}
               {stats.running>0?<span className={styles.outcome}>Rozpracované: {stats.running}</span>:null}
               {recent?.status==="FAILED"?<span className={styles.lastError}>
-                Posledná chyba: {ERROR_LABELS[recent.errorCode??""]??"Neznáma chyba"}
+                Posledná chyba: {qualityErrorLabel(recent.errorCode)}
               </span>:null}
             </div>;
           })}
