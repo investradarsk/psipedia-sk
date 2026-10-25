@@ -185,7 +185,7 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       <div className={styles.bulk} aria-busy={bulkBusy}>
         <BulkSelectionCheckbox checked={pageSelected} indeterminate={pageSomeSelected}
           disabled={bulkBusy || !items.length} label="Označiť všetky na tejto strane"
-          className="admin-help-page-select" onChange={togglePage} />
+          onChange={togglePage} />
         <span role="status">Označené: {selectedCount}</span>
       </div>
       {selectedCount > 0 && <AdminBulkActionToolbar
