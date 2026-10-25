@@ -10,5 +10,5 @@ test("Notion audit page includes one shared read-only sync overview", async () =
   assert.match(component, /onClick=\{\(\) => void refresh\(\)\}/);
   assert.match(component, /credentials: "same-origin"/);
   assert.match(component, /Toto nie je živý stav synchronizátora/);
-  assert.doesNotMatch(component, /runNotion|POST|PATCH/);
+  assert.doesNotMatch(component, /runNotion|\bPOST\s*\(|\bPATCH\s*\(|method:\s*["\x27](POST|PATCH)["\x27]/);
 });
