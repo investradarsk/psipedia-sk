@@ -61,3 +61,24 @@ test("compact QA captures genuine routes at 1440/768/390/320 with overflow check
   assert.match(e2e, /document\.documentElement\.scrollWidth/);
   assert.match(e2e, /page\.screenshot\(/);
 });
+
+test("compact dashboard and Operations use all available columns without serif headings", () => {
+  const dashboard = read("components/admin-workspace-dashboard.module.css");
+  const operations = read("components/admin-operations-ux.module.css");
+  const activity = read("components/admin-workspace-activity.module.css");
+  const quality = read("components/admin-missing-quality-dashboard.module.css");
+
+  // auto-fit avoids an empty fourth KPI column when only three dashboard
+  // metrics are rendered. Operations similarly expands two cards across width.
+  assert.match(dashboard, /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 245px\), 1fr\)\)/);
+  assert.match(operations, /grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 290px\), 1fr\)\)/);
+  assert.match(dashboard, /\.sectionHeading h2, \.panelHeading h2 \{ font-family: inherit; font-weight: 800;/);
+  assert.match(activity, /\.titleRow h2\{[^\n]*font-family:inherit;font-weight:800;/);
+  assert.match(quality, /\.heading h2 \{font-family:inherit;font-weight:800;/);
+
+  // Tablet/mobile overrides and keyboard/touch controls remain present.
+  assert.match(dashboard, /@media \(max-width: 1100px\)/);
+  assert.match(dashboard, /@media \(max-width: 760px\)/);
+  assert.match(operations, /@media \(max-width: 640px\)/);
+  assert.match(dashboard, /\.actionRow a, \.quickLinks a \{ min-height: 44px; \}/);
+});
