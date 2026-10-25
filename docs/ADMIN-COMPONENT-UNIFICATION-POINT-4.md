@@ -8,7 +8,7 @@
 | Kde | Pôvodná duplicita | Spoločný kontrakt | Zachované správanie |
 | --- | --- | --- | --- |
 | Adopcie + Stratené/nájdené | Rovnaký algoritmus sedemstranového numerického pagination okna a vlastné JSX | `AdminNumberedPagination` v existujúcom `components/admin-pagination.tsx`, čisté `adminNumberedPageWindow` v `lib/admin-list-query.ts` | Rovnaké čísla strán, šípky, `styles.pagination`, linky cez pôvodné `adminHref` / `href` |
-| Adopcie + Stratené/nájdené | Opakované skladače `URLSearchParams` s prevádzkovou redundanciou | `adminFilteredListHref` — serializácia neprázdnych hodnôt, stránka `page>1` | Rovnaký poriadok a názvy `q, status, freshness, breed, region, locality, sort, type`, rovnaké kódovanie URL a vynechanie defaultných hodnôt. Agendy naďalej určujú vlastné pravidlá |
+| Adopcie + Stratené/nájdené + Pomoc psom (Help) | Opakované skladače `URLSearchParams` s prevádzkovou redundanciou | `adminFilteredListHref` — serializácia neprázdnych hodnôt, stránka `page>1` | Rovnaký poriadok a názvy `q, status, freshness, breed, region, locality, sort, type`, rovnaké kódovanie URL a vynechanie defaultných hodnôt. Agendy naďalej určujú vlastné pravidlá |
 | Adopcie + Stratené/nájdené | Opakované `<div className=... role="region" aria-label=... tabIndex={0}>` | `AdminDataTableRegion` | Rovnaké CSS, presne rovnaký výsledný HTML wrapper, klávesnicový scroll; stĺpce a práva editorov sa nemenia |
 | Podujatia + Pomoc psom | Vlastný checkbox celej stránky vrátane opakovanej indeterminate/checked logiky | Existujúci `BulkSelectionCheckbox` z `admin-bulk-selection.tsx` | Rovnaké označené ID, povolenie/zakázanie, výber iba načítaných položiek, reset pri zmenách a presná serverová preflight kontrola |
 
