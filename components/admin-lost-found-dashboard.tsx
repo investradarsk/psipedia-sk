@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
 import { AdminNumberedPagination } from "@/components/admin-pagination";
+import { adminFilteredListHref } from "@/lib/admin-list-query";
 import { dogReportStatusLabel, dogReportTypeShortLabel, type AdminDogReport } from "@/lib/lost-found-dogs";
 import type { LostFoundStatus } from "@/lib/lost-found-lifecycle.js";
 import styles from "./admin-lost-found.module.css";
@@ -14,7 +15,15 @@ const tabs: Array<{ key: string; label: string; count: (counts: Counts) => numbe
   { key: "EXPIRED", label: "Expirované", count: (c) => c.EXPIRED }, { key: "REJECTED", label: "Zamietnuté", count: (c) => c.REJECTED },
   { key: "DRAFT", label: "Koncepty", count: (c) => c.DRAFT }, { key: "ARCHIVED", label: "Archív", count: (c) => c.ARCHIVED },
 ];
-function href(filters: Filters, page = 1, status = filters.status) { const p = new URLSearchParams(); for (const [k,v] of Object.entries({ q:filters.q,type:filters.type,status,region:filters.region,locality:filters.locality })) if(v) p.set(k,v); if(page>1)p.set("page",String(page)); return `/admin/stratene-najdene${p.toString()?`?${p}`:""}`; }
+function href(filters: Filters, page = 1, status = filters.status) {
+  return adminFilteredListHref("/admin/stratene-najdene", [
+    ["q", filters.q],
+    ["type", filters.type],
+    ["status", status],
+    ["region", filters.region],
+    ["locality", filters.locality],
+  ], page);
+}
 export function AdminLostFoundDashboard({ result, counts, filters, reviewedIds = [] }: { result: Result; counts: Counts; filters: Filters; reviewedIds?: number[] }) {
   const reviewed = new Set(reviewedIds);
   return <>
