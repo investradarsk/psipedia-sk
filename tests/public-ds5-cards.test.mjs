@@ -149,3 +149,6 @@ import "./public-details-phase2.test.mjs";
 
 // Phase 2, fixed item 2: banner and notice consistency.
 import "./public-banners-phase2.test.mjs";
+
+// Phase 2, fixed item 3: URL-backed filter reset and mobile control contracts.
+import "./public-filters-phase2.test.mjs";

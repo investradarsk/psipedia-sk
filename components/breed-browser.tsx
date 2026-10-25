@@ -1,6 +1,6 @@
 "use client";
 
-import { PublicEmptyState } from "@/components/public-visual-system/public-result-states";
+import { PublicEmptyState, PublicFilterTag } from "@/components/public-visual-system/public-result-states";
 import { PublicActionButton } from "@/components/public-visual-system";
 import { PublicSelect, PublicTextInput } from "@/components/public-visual-system/public-form-controls";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -81,6 +81,24 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
     });
   }, [breeds, query, selectedGroup, selectedSection, selectedOrigin]);
 
+  const currentFilters: BreedAtlasFilters = {
+    query,
+    fciGroup: selectedGroup === "all" ? "" : selectedGroup,
+    fciSection: selectedSection,
+    origin: selectedOrigin === "all" ? "" : selectedOrigin,
+  };
+  const activeSelections: Array<{ key: keyof BreedAtlasFilters; label: string; value: string }> = [
+    { key: "query", label: "Hľadanie", value: currentFilters.query },
+    { key: "origin", label: "Pôvod", value: currentFilters.origin },
+    { key: "fciGroup", label: "FCI skupina", value: currentFilters.fciGroup },
+    { key: "fciSection", label: "FCI sekcia", value: currentFilters.fciSection },
+  ].filter((entry) => Boolean(entry.value));
+  const clearOneHref = (key: keyof BreedAtlasFilters) => breedAtlasHref({
+    ...currentFilters,
+    [key]: "",
+    ...(key === "fciGroup" ? { fciSection: "" } : {}),
+  });
+
   const displayed=useMemo(()=>visible.slice(0,shown),[visible,shown]);
   const groupedBreeds = useMemo(() => groups
     .map((group) => ({
@@ -102,6 +120,17 @@ export function BreedBrowser({ breeds, groups, initialFilters, actions, hidePrim
         <label className="breed-origin-filter"><span className="sr-only">Krajina pôvodu</span><PublicSelect appearance="context" value={selectedOrigin} onChange={(event)=>{setSelectedOrigin(event.target.value);setShown(60);}}><option value="all">Všetky krajiny pôvodu</option>{origins.map((origin)=><option value={origin} key={origin}>{origin}</option>)}</PublicSelect></label>
       </div>
       {actions}
+      {activeSelections.length > 0 && (
+        <div aria-label="Aktívne filtre plemien" data-public-active-filters>
+          <span data-public-active-filter-label>Aktívne filtre</span>
+          {activeSelections.map(({ key, label, value }) => (
+            <PublicFilterTag key={key} href={clearOneHref(key)} removeLabel={`Odstrániť filter ${label}: ${value}`}>
+              <span>{label}: {value}</span><span aria-hidden="true">×</span>
+            </PublicFilterTag>
+          ))}
+          <a href="/plemena" data-public-filter-reset>Vymazať všetko</a>
+        </div>
+      )}
       <div className="fci-filter-panel" aria-label="FCI skupiny">
         <div className="fci-filter-row" role="group" aria-label="Filtrovať podľa skupiny FCI">
           <button type="button" className={selectedGroup === "all" ? "is-active" : ""} aria-pressed={selectedGroup === "all"} onClick={() => {setSelectedGroup("all");setSelectedSection("");setShown(60);}}>Všetky</button>

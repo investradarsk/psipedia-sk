@@ -957,3 +957,41 @@
   --ps-banner-radius: var(--ps-radius-filter);
   --ps-banner-border: var(--ps-border-soft);
 }
+
+/* PUBLIC-FILTER-3: visible active-filter rhythm shared by directory, events,
+   help and breeds. This does not change GET parameters or page routing. */
+[data-public-active-filters] {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block: 12px;
+}
+[data-public-active-filters] > [data-public-active-filter-label] {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 800;
+}
+[data-public-active-filters] [data-public-filter-reset] {
+  display: inline-flex;
+  min-height: var(--ps-control-min-height, 44px);
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--ps-radius-control);
+  color: var(--forest-dark);
+  font-size: .82rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+[data-public-active-filters] [data-public-filter-reset]:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
+@media (forced-colors: active) {
+  [data-public-active-filters] [data-public-filter-reset]:focus-visible {
+    outline-color: Highlight;
+  }
+}

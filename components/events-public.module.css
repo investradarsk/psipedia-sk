@@ -1505,12 +1505,9 @@
   font-size: 0.78rem;
 }
 
-.filterSummary span {
-  padding: 5px 9px;
-  border: 1px solid var(--ps-border-soft);
-  border-radius: 999px;
-  background: var(--ps-surface);
-  overflow-wrap: anywhere;
+.filterSummary > [data-public-active-filter-label] {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .monthCalendar,
@@ -2133,9 +2130,18 @@
   }
   .mobileFilters > summary {
     display: list-item;
-    min-height: 44px;
+    min-height: var(--ps-control-min-height, 44px);
+    padding: 10px 12px;
+    border: 1px solid var(--ps-border-strong);
+    border-radius: var(--ps-radius-control);
+    color: var(--forest-dark);
+    background: var(--sage-light);
     cursor: pointer;
-    font-weight: 700;
+    font-weight: 800;
+  }
+  .mobileFilters > summary:focus-visible {
+    outline: 3px solid var(--forest);
+    outline-offset: 3px;
   }
   .mobileFilters:not([open]) + .sidebarContent {
     display: none;
