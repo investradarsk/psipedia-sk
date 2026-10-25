@@ -24,6 +24,7 @@ on:
       - "lib/admin-navigation.ts"
       - "lib/admin-dashboard-store.ts"
       - "tests/admin-ia.test.mjs"
+      - "tests/admin-v3-compact-finish-02.test.mjs"
       - "tests/e2e/admin-ia-2.spec.ts"
       - "tests/e2e/admin-ux-unification.spec.ts"
       - "tests/e2e/admin-operations.spec.ts"
@@ -64,7 +65,7 @@ jobs:
       - run: npm ci
 
       - name: ADMIN-IA-2 contract tests
-        run: node --experimental-strip-types --test tests/admin-ia.test.mjs
+        run: node --experimental-strip-types --test tests/admin-ia.test.mjs tests/admin-v3-compact-finish-02.test.mjs
 
       - name: Lint
         run: npm run lint
