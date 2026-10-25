@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, Fragment, useEffect, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useRef, useState } from "react";
 import { ArticleBlocks } from "@/components/article-blocks";
 import navStyles from "@/components/admin-article-preview-nav.module.css";
 import { ArticlePromo } from "@/components/article-promo";
@@ -127,6 +127,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const galleryUploadPending=useRef(false);
 
   useEffect(() => {
     fetch("/api/admin/articles?limit=100")
@@ -203,21 +204,44 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
 
   async function uploadGallery(event: ChangeEvent<HTMLInputElement> | File[], blockId: string) {
     const files = Array.isArray(event) ? event : [...(event.target.files ?? [])];
-    if (!files.length) return;
+    if (!Array.isArray(event)) event.target.value = "";
+    if (!files.length || galleryUploadPending.current) return;
+    const current = blocks.find(block => block.id === blockId);
+    if (current?.type !== "gallery") return;
+    const remaining = Math.max(0, 24 - current.images.length);
+    if (files.length > remaining || files.length > 12) {
+      onError(`Vyber najviac ${Math.min(remaining,12)} ďalších fotografií. Galéria článku má limit 24.`);
+      return;
+    }
+
+    galleryUploadPending.current = true;
     onUploadingChange(true);
     onError("");
+    const uploaded: ArticleBlockImage[] = [];
+    const failures: string[] = [];
     try {
-      const uploaded = await Promise.all(files.slice(0, 12).map(async (file): Promise<ArticleBlockImage> => {
-        const data = await uploadAdminImage(file, "articles");
-        return { url: data.imageUrl, imageKey: data.imageKey, alt: file.name.replace(/\.[^.]+$/, ""), caption: "", credit: "", size: "normal" };
-      }));
-      update(blockId, (block) => block.type === "gallery" ? { ...block, images: [...block.images, ...uploaded].slice(0, 24) } : block);
-      onMessage(`Do galérie bolo nahraných ${uploaded.length} obrázkov. Ulož článok, aby sa zmena zachovala.`);
-    } catch (error) {
-      onError(error instanceof Error ? error.message : "Galériu sa nepodarilo nahrať.");
+      // Keep every successful upload even when another file fails.
+      for (const file of files) {
+        try {
+          const data = await uploadAdminImage(file, "articles");
+          uploaded.push({
+            url: data.imageUrl, imageKey: data.imageKey,
+            alt: file.name.replace(/\.[^.]+$/, ""), caption: "", credit: "", size: "normal",
+          });
+        } catch (error) {
+          failures.push(`${file.name}: ${error instanceof Error ? error.message : "Nahratie zlyhalo."}`);
+        }
+      }
+      if (uploaded.length) {
+        update(blockId, block => block.type === "gallery"
+          ? { ...block, images: [...block.images, ...uploaded] }
+          : block);
+        onMessage(`Do galérie bolo nahraných ${uploaded.length} obrázkov. Ulož článok, aby sa zmena zachovala.`);
+      }
+      if (failures.length) onError(failures.join(" "));
     } finally {
+      galleryUploadPending.current = false;
       onUploadingChange(false);
-      if (!Array.isArray(event)) event.target.value = "";
     }
   }
 
