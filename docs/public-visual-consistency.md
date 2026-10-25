@@ -17,7 +17,8 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **Filtre — 2. etapa:** sedem existujúcich variantov polí (Adresár, Pomoc psom, Podujatia, katalóg, kluby, pôvod a FCI plemien) berie rovnaké zaoblenie z jedného tokenu. Funkčná sémantika a GET/URL zostáva bezo zmeny.
 - [x] **Vyhľadávanie — etapa 3:** tlačidlo sekčného hero vyhľadávania využíva spoločnú farbu, výšku a zaoblenie CTA, vrátane focus tokenu. GET kontrakty ostávajú.
 - [x] **Vyhľadávanie — etapa 7:** SectionHeroSearch submit používa spoločný PublicActionButton, odstránené druhé lokálne farebné/dotykové/focus pravidlo. Form GET, hidden parametre, komponent vstupu a responzívna plná šírka tlačidla ostávajú.
-- [ ] **Vyhľadávanie a filtre — zvyšok:** porovnať aktívne filtre, reset a mobilné dialógy na všetkých routach.
+- [x] **Aktívne filtre — etapa 8:** odstrániteľné čipy filtrov majú rovnakú dotykovú výšku 44px, control radius a viditeľný focus vrátane forced-colors. Statické informačné štítky ostávajú menšie.
+- [ ] **Vyhľadávanie a filtre — zvyšok:** porovnať reset a mobilné dialógy na zostávajúcich routach.
 - [x] **Karty — druhá etapa:** bočné CTA Adresára a karty podujatí používajú rám a zaoblenie z existujúcich tokenov. Obsah a obrázky ostávajú pôvodné.
 - [x] **Karty — etapa 3:** články, plemená, adresár, podujatia (grid aj riadky) a Pomoc psom dostali spoločný verejný kontrakt `data-public-card`. Centrálny CSS blok riadi rám, zaoblenie, tieň, hover, focus a farbu nadpisov/metadát. Špecifické rozmery obrázkov a urgentné zvýraznenie pomoci ostávajú.
 - [ ] **Karty a detaily — zvyšok:** karty ďalších sekcií, detailové hlavičky a layout faktov.

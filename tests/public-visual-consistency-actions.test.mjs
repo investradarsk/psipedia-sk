@@ -74,3 +74,14 @@ test("all managed section hero actions use shared CTA variants, keeping only acc
   assert.doesNotMatch(css, /\.managedCta\[data-variant="secondary"\]/);
   assert.doesNotMatch(css, /\.managedCta:focus-visible/);
 });
+
+test("removable active filter chips retain shared touch and focus geometry", () => {
+  const css = read("components/public-visual-system/public-result-states.module.css");
+  const chip = css.slice(css.indexOf(".removableFilterTag {"), css.indexOf(".removableFilterTag > span:first-child"));
+  assert.match(chip, /min-height: var\(--ps-control-min-height, 44px\)/);
+  assert.match(chip, /border-radius: var\(--ps-radius-control, 12px\)/);
+  assert.match(css, /\.removableFilterTag:focus-visible\s*\{[^}]*outline: 3px solid var\(--forest-dark\)/);
+  assert.match(css, /@media \(forced-colors: active\)[\s\S]*\.removableFilterTag:focus-visible/);
+  const source = read("components/public-visual-system/public-result-states.tsx");
+  assert.match(source, /<a[\s\S]*?data-public-filter-tag/);
+});
