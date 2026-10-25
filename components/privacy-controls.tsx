@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import { useState } from "react";
 
@@ -15,8 +16,14 @@ export function PrivacyControls() {
 
   return (
     <div className="privacy-controls">
-      <button className="button button--dark" type="button" onClick={clearDeviceData}>Vymazať obľúbené z tohto zariadenia</button>
-      {message && <p role="status">{message}</p>}
+      <button className="button button--dark" type="button" onClick={clearDeviceData}>
+        Vymazať obľúbené z tohto zariadenia
+      </button>
+      {message && (
+        <PublicNotice appearance="context" tone="info" role="status">
+          {message}
+        </PublicNotice>
+      )}
     </div>
   );
 }

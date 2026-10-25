@@ -18,7 +18,10 @@
   border-radius: 18px;
   background: white;
   box-shadow: var(--shadow-sm);
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .result:hover {
@@ -117,37 +120,6 @@
   text-align: center;
 }
 
-.pagination {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 14px;
-  align-items: center;
-  margin-top: 30px;
-  padding-top: 22px;
-  border-top: 1px solid var(--line);
-}
-
-.pagination > span {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 750;
-  text-align: center;
-}
-
-.pagination > a {
-  width: fit-content;
-  max-width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.pagination > a:last-child {
-  justify-self: end;
-}
-
 @media (max-width: 620px) {
   .result {
     gap: 12px;
@@ -163,25 +135,7 @@
   .articleCopyNoImage {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .pagination {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .pagination > span {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  .pagination > a:first-of-type {
-    grid-column: 1;
-  }
-
-  .pagination > a:last-child {
-    grid-column: 2;
-  }
 }
-
 
 .discovery {
   display: grid;
@@ -311,13 +265,6 @@
   cursor: pointer;
 }
 
-.filterNotice {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
-}
-
 .meta {
   display: flex;
   min-width: 0;
@@ -374,4 +321,12 @@
   .filterForm button {
     width: 100%;
   }
+}
+
+.pagination {
+  composes: searchPagination from "../../components/public-visual-system/public-result-variants.module.css";
+}
+
+.filterNotice {
+  composes: searchFilterNotice from "../../components/public-visual-system/public-result-variants.module.css";
 }

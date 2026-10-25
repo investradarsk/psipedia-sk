@@ -1,3 +1,4 @@
+import { PublicPagination } from "@/components/public-visual-system/public-result-states";
 import Link from "next/link";
 import {
   roundPublicRating,
@@ -12,7 +13,9 @@ function formatRating(value: number | null) {
   const rounded = roundPublicRating(value);
   return rounded === null
     ? null
-    : new Intl.NumberFormat("sk-SK", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(rounded);
+    : new Intl.NumberFormat("sk-SK", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
+        rounded,
+      );
 }
 
 function reviewCountLabel(value: number) {
@@ -51,7 +54,9 @@ function RatingStars({ rating }: { rating: number }) {
   const label = formatRating(rating) ?? String(rating);
   return (
     <span className={styles.rating} data-review-rating>
-      <span className={styles.stars} aria-hidden="true">★</span>
+      <span className={styles.stars} aria-hidden="true">
+        ★
+      </span>
       <span>{label} z 5</span>
     </span>
   );
@@ -121,7 +126,7 @@ function ProfileReviewCard({ review }: { review: PublicProfileReview }) {
         <RatingStars rating={review.overallRating} />
       </header>
 
-      {(serviceMonth || review.serviceTypeLabel) ? (
+      {serviceMonth || review.serviceTypeLabel ? (
         <p className={styles.serviceContext}>
           {review.serviceTypeLabel ? <span>{review.serviceTypeLabel}</span> : null}
           {serviceMonth ? <span>Služba: {serviceMonth}</span> : null}
@@ -152,7 +157,9 @@ function ProfileReviewList({ data }: { data: PublicProfileReviewData }) {
   return (
     <ol className={styles.reviewList}>
       {data.reviews.map((review) => (
-        <li key={review.id}><ProfileReviewCard review={review} /></li>
+        <li key={review.id}>
+          <ProfileReviewCard review={review} />
+        </li>
       ))}
     </ol>
   );
@@ -163,7 +170,9 @@ function ReviewSubmissionCta({ resourceId }: { resourceId: string }) {
   if (!href) return null;
   return (
     <div className={styles.ctaRow}>
-      <Link className={styles.reviewCta} href={href}>Napísať recenziu</Link>
+      <Link className={styles.reviewCta} href={href}>
+        Napísať recenziu
+      </Link>
       <span>Recenziu pred zverejnením skontrolujeme.</span>
     </div>
   );
@@ -227,15 +236,25 @@ export function ProfileReviewSection({
       <ProfileReviewList data={data} />
 
       {data.pagination.totalPages > 1 ? (
-        <nav className={styles.pagination} aria-label="Stránkovanie recenzií">
-          {data.pagination.page > 1 ? (
-            <Link rel="prev" href={reviewPageHref(baseHref, data.pagination.page - 1)}>← Predchádzajúce</Link>
-          ) : <span aria-disabled="true">← Predchádzajúce</span>}
-          <strong>Strana {data.pagination.page} z {data.pagination.totalPages}</strong>
-          {data.pagination.page < data.pagination.totalPages ? (
-            <Link rel="next" href={reviewPageHref(baseHref, data.pagination.page + 1)}>Ďalšie →</Link>
-          ) : <span aria-disabled="true">Ďalšie →</span>}
-        </nav>
+        <PublicPagination
+          variant="context"
+          className={styles.pagination}
+          label="Stránkovanie recenzií"
+          currentPage={data.pagination.page}
+          totalPages={data.pagination.totalPages}
+          previousHref={
+            data.pagination.page > 1
+              ? reviewPageHref(baseHref, data.pagination.page - 1)
+              : undefined
+          }
+          nextHref={
+            data.pagination.page < data.pagination.totalPages
+              ? reviewPageHref(baseHref, data.pagination.page + 1)
+              : undefined
+          }
+          previousLabel="← Predchádzajúce"
+          nextLabel="Ďalšie →"
+        />
       ) : null}
     </section>
   );

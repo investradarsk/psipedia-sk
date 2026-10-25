@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Fragment, type HTMLAttributes, type ReactNode } from "react";
+import { Fragment, type ComponentPropsWithRef, type HTMLAttributes, type ReactNode } from "react";
 import styles from "./public-result-states.module.css";
 
 function classes(...values: Array<string | undefined | false>) {
@@ -64,6 +64,8 @@ export function PublicPagination({
   currentPageAsText = false,
   previousAriaLabel,
   nextAriaLabel,
+  summaryAs: Summary = "strong",
+  emptyDisabledControls = false,
 }: {
   currentPage: number;
   totalPages: number;
@@ -76,16 +78,23 @@ export function PublicPagination({
   numberedPages?: number[];
   pageHref?: (page: number) => string;
   showDisabledControls?: boolean;
-  variant?: "default" | "reports";
+  variant?: "default" | "reports" | "context";
   currentPageAsText?: boolean;
   previousAriaLabel?: string;
   nextAriaLabel?: string;
+  /** Retain the existing search layout without changing its summary typography. */
+  summaryAs?: "strong" | "span";
+  emptyDisabledControls?: boolean;
 }) {
   if (totalPages <= 1) return null;
   return (
     <nav
       className={classes(
-        variant === "reports" ? styles.reportPagination : styles.pagination,
+        variant === "reports"
+          ? styles.reportPagination
+          : variant === "default"
+            ? styles.pagination
+            : undefined,
         className,
       )}
       aria-label={label}
@@ -96,7 +105,11 @@ export function PublicPagination({
           {previousLabel}
         </Link>
       ) : showDisabledControls ? (
-        <span aria-disabled="true">{previousLabel}</span>
+        emptyDisabledControls ? (
+          <span />
+        ) : (
+          <span aria-disabled="true">{previousLabel}</span>
+        )
       ) : null}
       {numberedPages && pageHref ? (
         numberedPages.map((page, index) => (
@@ -114,16 +127,20 @@ export function PublicPagination({
           </Fragment>
         ))
       ) : (
-        <strong aria-current="page">
+        <Summary aria-current="page">
           Strana {currentPage} z {totalPages}
-        </strong>
+        </Summary>
       )}
       {nextHref ? (
         <Link href={nextHref} rel="next" aria-label={nextAriaLabel}>
           {nextLabel}
         </Link>
       ) : showDisabledControls ? (
-        <span aria-disabled="true">{nextLabel}</span>
+        emptyDisabledControls ? (
+          <span />
+        ) : (
+          <span aria-disabled="true">{nextLabel}</span>
+        )
       ) : null}
     </nav>
   );
@@ -136,20 +153,32 @@ export function PublicNotice({
   tone = "info",
   className,
   role = tone === "error" ? "alert" : "status",
+  appearance = "default",
+  as: Tag = "p",
+  ...props
 }: {
   children: ReactNode;
   tone?: PublicNoticeTone;
   className?: string;
-  role?: "alert" | "status";
-}) {
+  role?: "alert" | "status" | null;
+  appearance?: "default" | "context";
+} & (
+  | ({ as?: "p" } & Omit<ComponentPropsWithRef<"p">, "role">)
+  | ({ as: "div" } & Omit<ComponentPropsWithRef<"div">, "role">)
+)) {
   return (
-    <p
-      className={classes(styles.notice, styles[tone], className)}
-      role={role}
+    <Tag
+      {...props}
+      className={classes(
+        appearance === "default" && styles.notice,
+        appearance === "default" && styles[tone],
+        className,
+      )}
+      role={role ?? undefined}
       data-public-notice={tone}
     >
       {children}
-    </p>
+    </Tag>
   );
 }
 
@@ -187,19 +216,32 @@ export function PublicFilterTag({
 export function PublicLoadingState({
   label = "Načítavam…",
   className,
+  appearance = "default",
+  as: Tag = "div",
+  children,
+  ...props
 }: {
   label?: string;
   className?: string;
-}) {
+  appearance?: "default" | "context";
+  as?: "div" | "span";
+} & HTMLAttributes<HTMLElement>) {
   return (
-    <div
-      className={classes(styles.loading, className)}
+    <Tag
       role="status"
-      aria-live="polite"
+      aria-live={appearance === "default" ? "polite" : undefined}
+      {...props}
+      className={classes(appearance === "default" && styles.loading, className)}
       data-public-loading
     >
-      <span className={styles.spinner} aria-hidden="true" />
-      <span>{label}</span>
-    </div>
+      {appearance === "context" ? (
+        children
+      ) : (
+        <>
+          <span className={styles.spinner} aria-hidden="true" />
+          <span>{label}</span>
+        </>
+      )}
+    </Tag>
   );
 }

@@ -3,16 +3,28 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync(new URL("../app/mapa/page.tsx", import.meta.url), "utf8");
-const experience = readFileSync(new URL("../components/map/map-experience.tsx", import.meta.url), "utf8");
-const renderer = readFileSync(new URL("../components/map/google-map-renderer.tsx", import.meta.url), "utf8");
-const css = readFileSync(new URL("../components/map/map-public.module.css", import.meta.url), "utf8");
+const experience = readFileSync(
+  new URL("../components/map/map-experience.tsx", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const renderer = readFileSync(
+  new URL("../components/map/google-map-renderer.tsx", import.meta.url),
+  "utf8",
+);
+const css = readFileSync(
+  new URL("../components/map/map-public.module.css", import.meta.url),
+  "utf8",
+);
 const navigation = readFileSync(new URL("../lib/navigation.ts", import.meta.url), "utf8");
 const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const homePage = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const worker = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const env = readFileSync(new URL("../config/runtime-env.ts", import.meta.url), "utf8");
 const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
-const liveAudit = readFileSync(new URL("./e2e/map-production-live.spec.ts", import.meta.url), "utf8");
+const liveAudit = readFileSync(
+  new URL("./e2e/map-production-live.spec.ts", import.meta.url),
+  "utf8",
+);
 
 test("canonical /mapa route exists with SSR copy, shared listing metadata and no public-nav launch", () => {
   assert.equal(existsSync(new URL("../app/mapa/page.tsx", import.meta.url)), true);
@@ -48,7 +60,7 @@ test("one map instance survives filters and the renderer reconciles markers", ()
   assert.match(experience, /mapFiltersFromSearchParams/);
   assert.match(page, /generateMetadata\(\{ searchParams \}/);
   assert.match(page, /searchParams:\s*await searchParams/);
-  assert.doesNotMatch(experience, /key=\{.*filters/i);
+  assert.doesNotMatch(experience, /key=\{[^}]*filters/i);
 });
 
 test("client lifecycle is debounce + AbortController based and canonical href stays server-owned", () => {
@@ -131,8 +143,6 @@ test("live production audit preserves Google Maps consent and uses the interacti
   assert.doesNotMatch(liveAudit, /getByTestId\("map-sheet-handle"\)/);
 });
 
-
-
 test("MAP-UX-1 map type control is presentation-only and switches the existing map instance", () => {
   assert.match(experience, /useState<PublicMapType>\("roadmap"\)/);
   assert.match(experience, /aria-label="Typ mapového podkladu"/);
@@ -146,11 +156,20 @@ test("MAP-UX-1 map type control is presentation-only and switches the existing m
 });
 
 test("MAP-UX-1 external actions use coordinate helpers and keep approximate navigation safe", () => {
-  assert.match(experience, /buildGoogleMapsPlaceUrl\(item\.latitude, item\.longitude, item\.googlePlaceId\)/);
-  assert.match(experience, /approximate \? null : buildGoogleMapsDirectionsUrl\(item\.latitude, item\.longitude, item\.googlePlaceId\)/);
+  assert.match(
+    experience,
+    /buildGoogleMapsPlaceUrl\(item\.latitude, item\.longitude, item\.googlePlaceId,?\s*\)/,
+  );
+  assert.match(
+    experience,
+    /approximate \? null : buildGoogleMapsDirectionsUrl\(item\.latitude, item\.longitude, item\.googlePlaceId,?\s*\)/,
+  );
   assert.match(experience, /Otvoriť približnú polohu v Google Maps/);
   assert.match(experience, />\s*Navigovať\s*</);
-  assert.doesNotMatch(experience, /buildGoogleMaps(?:Place|Directions)Url\([^)]*(?:displayLocation|address|city|region)/);
+  assert.doesNotMatch(
+    experience,
+    /buildGoogleMaps(?:Place|Directions)Url\([^)]*(?:displayLocation|address|city|region)/,
+  );
   assert.doesNotMatch(experience, /navigator\.geolocation|geo:\/\//i);
   assert.match(experience, /target="_blank"/);
   assert.match(experience, /rel="noreferrer"/);
@@ -159,7 +178,10 @@ test("MAP-UX-1 external actions use coordinate helpers and keep approximate navi
 test("MAP-UX-1 controls keep mobile touch targets and Google attribution unobstructed", () => {
   assert.match(css, /\.mapTypeControl\s*\{/);
   assert.match(css, /\.mapTypeControl button[\s\S]*min-height:\s*36px/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.mapTypeControl button[\s\S]*min-height:\s*44px/);
+  assert.match(
+    css,
+    /@media \(max-width: 760px\)[\s\S]*\.mapTypeControl button[\s\S]*min-height:\s*44px/,
+  );
   assert.match(css, /\.cardFooter[\s\S]*flex-wrap:\s*wrap/);
   assert.doesNotMatch(css, /\.mapTypeControl[\s\S]{0,240}bottom:/);
 });

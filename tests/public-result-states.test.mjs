@@ -23,7 +23,7 @@ test("shared public feedback stays semantic and public-scoped", () => {
     'rel="prev"',
     'rel="next"',
     'aria-disabled="true"',
-    'aria-live="polite"',
+    'aria-live={appearance === "default" ? "polite" : undefined}',
   ]) {
     assert.ok(src.includes(contract), "missing accessibility contract " + contract);
   }

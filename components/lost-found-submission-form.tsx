@@ -1,4 +1,5 @@
 "use client";
+import { PublicNotice } from "@/components/public-visual-system/public-result-states";
 
 import {
   PublicSelect,
@@ -150,16 +151,23 @@ export function LostFoundSubmissionForm({ siteKey }: { siteKey: string }) {
       </header>
 
       {result?.type === "error" ? (
-        <p ref={setResultNode} tabIndex={-1} className={styles.error} role="alert">
+        <PublicNotice
+          appearance="context"
+          tone="error"
+          ref={setResultNode}
+          tabIndex={-1}
+          className={styles.error}
+          role="alert"
+        >
           {result.text}
-        </p>
+        </PublicNotice>
       ) : null}
 
       <noscript>
-        <p className={styles.error} role="alert">
+        <PublicNotice appearance="context" tone="error" className={styles.error} role="alert">
           Na bezpečné odoslanie hlásenia je potrebný JavaScript. Údaje neboli odoslané. Zapnite
           JavaScript a stránku obnovte.
-        </p>
+        </PublicNotice>
       </noscript>
 
       <fieldset className={styles.card}>
