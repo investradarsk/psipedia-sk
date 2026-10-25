@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AdminReviewCheckbox } from "@/components/admin-review-checkbox";
+import { BulkSelectionCheckbox } from "@/components/admin-bulk-selection";
 import {
   AdminActionButton,
   AdminBulkActionToolbar,
@@ -183,7 +184,9 @@ export function AdminHelpDashboard({ data, filters, reviewedIds = [] }: { data: 
       </form>
 
       <div className={styles.bulk} aria-busy={bulkBusy}>
-        <label><input type="checkbox" aria-label="Označiť všetky na tejto strane" checked={pageSelected} ref={(node) => { if (node) node.indeterminate = pageSomeSelected; }} disabled={bulkBusy || !items.length} onChange={(event) => togglePage(event.target.checked)} /> Označiť všetky na tejto strane</label>
+        <BulkSelectionCheckbox checked={pageSelected} indeterminate={pageSomeSelected}
+          disabled={bulkBusy || !items.length} label="Označiť všetky na tejto strane"
+          className="admin-help-page-select" onChange={togglePage} />
         <span role="status">Označené: {selectedCount}</span>
       </div>
       {selectedCount > 0 && <AdminBulkActionToolbar
