@@ -235,7 +235,7 @@ test("canonical service options share the facet request's latency budget; disabl
   assert.match(fn, /if \(!canonicalServicesEnabled \|\| !category\) return \[\]/);
   assert.match(fn, /Promise\.all\(\[\s*database\.batch\(\[locationStatement, serviceStatement, sourceStatement\]\),\s*loadCanonicalServices\(\),\s*\]\)/);
   assert.match(fn, /readNonemptyD1Page\(total, \(\) => listStatement\.all<DirectoryProfileRow>\(\)\)/);
-  assert.match(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
+  assert.doesNotMatch(fn, /await listStatement\.all<DirectoryProfileRow>\(\)/);
 });
 
 test("actual SQLite reads: no page SQL for verified empty count, full rows otherwise", async () => {
