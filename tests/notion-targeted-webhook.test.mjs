@@ -39,6 +39,8 @@ test("metadata only echoes are ignored even for Notion opaque property IDs", () 
     type: "page.properties_updated", data: { updated_properties: ["unknown"] },
   }, page), false);
   assert.equal(metadataOnlyChange({ type: "page.content_updated" }, page), false);
+  assert.equal(metadataOnlyChange({ type: "page.properties_updated",
+    data: { updated_properties: ["Dátum publikácie"] } }, page), false);
   assert.equal(sameSource("ABCD-1234", "abcd1234"), true);
   assert.equal(sameSource(undefined, "abcd1234"), false);
 });
@@ -79,6 +81,9 @@ test("explicit empty value is a real change, omitted API property is not deletio
     () => selectiveNotionProperties({}, { "Intro": text("") }),
     /NOTION_PROPERTY_MISSING_IN_RESPONSE/,
   );
+  assert.throws(() => selectiveNotionProperties({
+    "Intro": { rich_text: Array.from({ length: 25 }, () => ({ plain_text: "x" })) },
+  }, { "Intro": text("new") }), /NOTION_LONG_PROPERTY_REQUIRES_COMPLETE_READ/);
   assert.equal(sameNotionProperty({ multi_select: [{ name: "B" }, { name: "A" }] }, {
     multi_select: [{ name: "A" }, { name: "B" }],
   }), true);
