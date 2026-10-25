@@ -360,3 +360,42 @@ test("DISCOVERY-2C-B Tavily maps provider errors and never exposes the secret", 
       && !error.message.includes("test-tavily-key"),
   );
 });
+
+test("Tavily default fetch keeps Cloudflare native receiver for plain and image searches", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  // Mimic workerd: native fetch throws if invoked as a method on a provider instance.
+  globalThis.fetch = function receiverSensitiveFetch(url, init) {
+    if (this !== undefined) throw new TypeError("Illegal invocation");
+    calls.push({ url: String(url), body: JSON.parse(init.body) });
+    return Promise.resolve(tavilyMockResponse(200, {
+      results: [{ title: "Clinic", url: "https://example.sk/clinic", content: "Nitra" }],
+      images: [{ url: "https://example.sk/clinic.jpg" }],
+    }));
+  };
+  try {
+    const provider = new TavilyAutomationSearchProvider({ apiKey: "fake-key" });
+    const ordinary = await provider.search({ query: "veterinar", maxResults: 1 });
+    const withImages = await provider.searchWithImages({ query: "veterinar", maxResults: 1 });
+    assert.equal(ordinary.length, 1);
+    assert.equal(withImages.results.length, 1);
+    assert.deepEqual(withImages.images, ["https://example.sk/clinic.jpg"]);
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every((call) => call.url === "https://api.tavily.com/search"));
+    assert.equal("include_images" in calls[0].body, false);
+    assert.equal(calls[1].body.include_images, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const injectedCalls = [];
+  const customProvider = new TavilyAutomationSearchProvider({
+    apiKey: "fake-key",
+    async fetchImpl(url) {
+      injectedCalls.push(String(url));
+      return tavilyMockResponse(200, { results: [] });
+    },
+  });
+  await customProvider.search({ query: "veterinar", maxResults: 1 });
+  assert.deepEqual(injectedCalls, ["https://api.tavily.com/search"]);
+});
