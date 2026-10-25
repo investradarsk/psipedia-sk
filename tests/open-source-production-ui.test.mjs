@@ -66,7 +66,7 @@ test("React Dropzone preserves canonical gallery upload sequencing and E2E file 
   assert.ok(read("components/admin-gallery-dropzone.tsx").includes('from "react-dropzone"'));
   const common=read("components/admin-gallery-dropzone.tsx");
   assert.ok(source.includes("<AdminGalleryDropzone"));
-  assert.ok(common.includes("getInputProps()"));
+  assert.ok(common.includes("getInputProps({"), "the named file input is exposed by the shared Dropzone");
   assert.ok(source.includes("async function upload(files: File[])"));
   assert.ok(source.includes("for (const file of files)"));
   assert.ok(source.includes("onBusyChange(false)"));
