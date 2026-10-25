@@ -572,7 +572,7 @@
 .detailFacts dt {
   margin-bottom: 5px;
   color: var(--ink-2);
-  font-size: 0.7rem;
+  font-size: var(--ps-detail-fact-label-size);
   font-weight: 850;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -581,6 +581,7 @@
 .detailFacts dd {
   margin: 0;
   color: var(--ink);
+  font-size: var(--ps-detail-fact-value-size);
   font-weight: 750;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -636,6 +637,8 @@
 
 .detailCopy section > h2 {
   margin: 8px 0 18px;
+  font-size: var(--ps-detail-heading-size);
+  line-height: 1.15;
 }
 
 .detailCopy section + section {

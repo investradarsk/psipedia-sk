@@ -143,3 +143,6 @@ import "./public-listing-card-consistency.test.mjs";
 import "./public-visual-consistency-actions.test.mjs";
 import "./public-detail-visual-consistency.test.mjs";
 import "./public-editorial-detail-consistency.test.mjs";
+
+// Phase 2, fixed item 1: public detail appearance regressions.
+import "./public-details-phase2.test.mjs";

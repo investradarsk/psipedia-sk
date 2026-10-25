@@ -14,6 +14,11 @@
   --ps-space-section: 92px;
   --ps-space-block: 32px;
   --ps-space-stack: 20px;
+  /* PUBLIC-DETAIL-2: one typography/fact/media contract for visitor-facing details. */
+  --ps-detail-heading-size: clamp(1.55rem, 2.4vw, 2rem);
+  --ps-detail-fact-label-size: .75rem;
+  --ps-detail-fact-value-size: .875rem;
+  --ps-detail-photo-radius: var(--ps-radius-media);
   /* DS-1A SEMANTIC ALIASES START */
   --ps-color-text-primary: var(--ink);
   --ps-color-text-muted: var(--muted);
