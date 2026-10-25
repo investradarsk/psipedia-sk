@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 export const VIEWPORTS = Object.freeze([
   { name: "desktop-1440", width: 1440, height: 900 },
   { name: "mobile-390", width: 390, height: 844 },
+  { name: "mobile-320", width: 320, height: 720 },
 ]);
 
 /** Paths, never external URLs. The PR description names exactly the pages the author changed. */
@@ -22,6 +23,12 @@ export function parseVisualReviewRoutes(prBody) {
     }
   }
   return routes;
+}
+
+/** Optional extra routes use exactly the same guarded URL/path contract. */
+export function parseVisualAcceptanceRoutes(prBody) {
+  if (!/^VISUAL_ACCEPTANCE_ROUTES:/m.test(String(prBody ?? ""))) return [];
+  return parseVisualReviewRoutes(String(prBody).replace(/^VISUAL_ACCEPTANCE_ROUTES:/m, "VISUAL_REVIEW_ROUTES:"));
 }
 
 export function validatePreviewBase(value) {
@@ -44,12 +51,14 @@ function markdownSummary(manifest) {
     "Source: " + manifest.baseUrl + " · isolated local D1/R2, no production credentials.",
     "Images and content backed by production-only data may be missing; inspect the screenshot before merging.",
     "",
-    "| Route | Viewport | HTTP | PNG | Full page | Result |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| Route | Viewport | HTTP | PNG | Full page | Horizontal overflow | Result |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
   ];
   for (const item of manifest.captures) {
     rows.push("| " + [item.route, item.viewport, item.httpStatus ?? "—",
-      item.viewportFile ?? "—", item.fullFile ?? "—", item.error ? "FAIL: " + item.error.replace(/[|\r\n]/g, " ").slice(0, 180) : "OK"
+      item.viewportFile ?? "—", item.fullFile ?? "—",
+      item.horizontalOverflow === null ? "—" : item.horizontalOverflow + "px",
+      item.error ? "FAIL: " + item.error.replace(/[|\r\n]/g, " ").slice(0, 180) : "OK"
     ].join(" | ") + " |");
   }
   rows.push("", "Screenshots show the unmerged PR revision. They do not authorize production merge.", "");
@@ -58,7 +67,8 @@ function markdownSummary(manifest) {
 
 async function run() {
   const body = process.env.PR_BODY ?? "";
-  const routes = parseVisualReviewRoutes(body);
+  const routes = [...parseVisualReviewRoutes(body), ...parseVisualAcceptanceRoutes(body)];
+  if (new Set(routes).size !== routes.length) throw new Error("A route cannot be captured twice across review and acceptance groups.");
   const baseUrl = validatePreviewBase(process.env.VISUAL_BASE_URL ?? "http://localhost:5173");
   const output = resolve(process.env.VISUAL_OUTPUT_DIR ?? ".e2e-artifacts/pr-visual");
   const manifest = {
@@ -75,7 +85,7 @@ async function run() {
     browser = await chromium.launch({ headless: true });
     for (const route of routes) {
       for (const viewport of VIEWPORTS) {
-        const item = { route, viewport: viewport.name, httpStatus: null, viewportFile: null, fullFile: null, error: null };
+        const item = { route, viewport: viewport.name, httpStatus: null, viewportFile: null, fullFile: null, horizontalOverflow: null, error: null };
         manifest.captures.push(item);
         const context = await browser.newContext({
           viewport: { width: viewport.width, height: viewport.height },
@@ -102,6 +112,12 @@ async function run() {
           await page.locator("body").waitFor({ state: "visible", timeout: 15_000 });
           await page.evaluate(() => document.fonts?.ready);
           await page.waitForTimeout(600);
+          // Refuse optional analytics so a sticky cookie consent dialog does not obscure
+          // the page being accepted. Nothing is persisted outside this local browser context.
+          const rejectAnalytics = page.getByRole("button", { name: "Odmietnuť analytiku" });
+          if (await rejectAnalytics.count()) {
+            await rejectAnalytics.click({ timeout: 5_000 });
+          }
           const folder = join(output, screenshotFolder(route));
           await mkdir(folder, { recursive: true });
           item.viewportFile = screenshotFolder(route) + "/" + viewport.name + "-viewport.png";
@@ -115,6 +131,13 @@ async function run() {
             path: join(folder, viewport.name + "-full.png"), fullPage: true,
             animations: "disabled", timeout: 60_000,
           });
+          // A page wider than the device causes invisible controls on 320/390px.
+          // Compare document width rather than scrollable inner carousels or map canvases.
+          const width = await page.evaluate(() => document.documentElement.scrollWidth);
+          item.horizontalOverflow = Math.max(0, width - viewport.width);
+          if (item.horizontalOverflow > 1) {
+            throw new Error("Horizontal document overflow: " + item.horizontalOverflow + "px");
+          }
         } catch (error) {
           item.error = error instanceof Error ? error.message : String(error);
           console.error(route + " " + viewport.name + ": " + item.error);
