@@ -1,4 +1,5 @@
 import { acquireGeminiNotionLock } from "./gemini-notion-review-lock.ts";
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
 import { geminiImportAgenda } from "./gemini-notion-provenance.ts";
 import { resolveGeminiPublicSlug, type GeminiSlugAgenda } from "./gemini-public-slug.ts";
 import { notionCategoryValue } from "../scripts/gemini-notion-category.mjs";
@@ -665,8 +666,22 @@ async function syncAgenda(input: {
   let sources = await input.definition.load(input.database);
   const pages = await listAllPages(input.bindings, target.dataSourceId);
   summary.scanned = pages.length;
-  const identities = pages.map(identityPage);
-  const pagesById = new Map(pages.map((page) => [page.id, page]));
+  // Never infer authority from a Notion query result alone. Cross-check the
+  // actual parent and trash/archive metadata before identity matching,
+  // canonical imports, or ANY PATCH (including Sync chyba metadata).
+  const writablePages = pages.filter((page) =>
+    notionPageBelongsToDataSource(page, target.dataSourceId!));
+  for (const page of pages) {
+    if (notionPageBelongsToDataSource(page, target.dataSourceId)) continue;
+    summary.conflicts += 1;
+    appendNotionReview(summary.reviewQueue, {
+      entityId: null, notionPageId: page.id, reason: "IDENTITY_CONFLICT",
+      fields: ["Notion data source"], baselineAvailable: false,
+      notionChanged: null, psipediaChanged: null,
+    });
+  }
+  const identities = writablePages.map(identityPage);
+  const pagesById = new Map(writablePages.map((page) => [page.id, page]));
   // Targeted admin save still reads full source for identity conflicts, but
   // must never mutate a different Notion page or canonical profile.
   if (input.targetPageId && !pagesById.has(input.targetPageId))
@@ -1440,7 +1455,7 @@ async function syncAgenda(input: {
   mappings = input.mode === "dry-run" ? mappings : await loadMappings(input.database, input.definition.key);
   const mappedPageIds = new Set(mappings.map((mapping) => mapping.notion_page_id));
 
-  for (const page of pages) {
+  for (const page of writablePages) {
     if (input.targetPageId && page.id !== input.targetPageId) continue;
     if (mappedPageIds.has(page.id)) continue;
     // The generic Help editor does not own these categories, even when an
@@ -1856,7 +1871,8 @@ export async function ensureManagedEventInNotion(input: {
   const schema=dataSource.properties ?? {};
   if(!["Názov","Psipedia ID","URL Psipedia"].every(name=>Boolean(schema[name])))
     throw new Error("GEMINI_EVENT_NOTION_SCHEMA_INVALID");
-  const pages=await listAllPages(input.bindings,target.dataSourceId);
+  const pages=(await listAllPages(input.bindings,target.dataSourceId))
+    .filter(page => notionPageBelongsToDataSource(page,target.dataSourceId!));
   const mappings=await loadMappings(input.database,"events");
   const existing=mappings.find(m=>Number(m.entity_id)===input.eventId);
   const canonicalHash=await snapshotHash("events",editableSnapshot("events",source.properties,schema));

@@ -24,7 +24,8 @@
 - [x] **3B-1:** identická chyba Adresára sa znovu nepatchuje (rovnaký záznam konfliktu zostáva viditeľný); D1-vetva znovu využíva už načítanú Notion stránku, bez ďalších HTTP GET.
 - [ ] **3B-2:** manuálne rozlíšenie skutočne rozdielnych historických obsahových konfliktov po read-only preflight, bez hádania víťaza a bez hromadného prepísania.
 - [x] **4A:** zjednotená idempotentná konfliktná diagnostika v Events/Help: už zapísaná identická chyba sa znovu nepatchuje, takže sa nemení `last_edited_time`; existujúce doménové hranice zostávajú zachované.
-- [ ] **4B:** zostávajúce zjednotenie a regresné overenie všetkých Podujatia/Pomoc psom agend vrátane identity, súbehu a schvaľovania.
+- [x] **4B-1:** spoločná kontrola vlastníctva Notion stránky v Adresári aj Events/Help. Žiadny obsahový ani diagnostický PATCH alebo Notion→D1 import presunutej, archivovanej alebo trashed stránky. Platí pre všetkých päť Events/Help agend a cielené ensure Podujatia, bez migrácie.
+- [ ] **4B-2:** zostávajúce regresné a integračné overenie všetkých Events/Help agend (konflikty, súbeh, súkromné údaje, schvaľovanie).
 - [ ] **5:** zjednotiť reportovanie „Posledný sync / Čaká / Chyba / Konflikt“ a dočasné zlyhania bez hádania o stave publikovania.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
 - [ ] **7:** read-only produkčné preverenie schém, prepojení, povolení a nasadených flagov; následný rollout len po explicitnom schválení používateľa.
@@ -71,3 +72,9 @@ Opakovanie tej istej detegovanej chyby `BASELINE_UNAVAILABLE` alebo identity kon
 ## Fáza 3B-1 — stabilné stavy chýb Adresára
 
 Pri identickom `Sync stav=Chyba` a `Sync chyba` sa nevykoná opakovaný diagnostický PATCH. Nemení sa posledná Notion revízia, takže následná hodinová synchronizácia nedostáva umelé zmeny iba kvôli vlastnému chybovému hláseniu. Kontrola funguje v smere nedávno editovaných stránok aj v smere D1 zmien; druhá vetva odovzdáva už načítaný snapshot namiesto ďalšieho GET. Ak sa chyba zmení, PATCH sa vykoná. Historické konflikty s **odlišnými** hodnotami zostávajú blokované na manuálne overenie; systém nevyberá víťaza podľa času úpravy.
+
+## Fáza 4B-1 — spoločná ochrana vlastníctva Notion stránok
+
+Čistý a bezdatabázový helper `lib/notion-sync-page-ownership.ts` vyhodnocuje `parent.type`, `parent.data_source_id`, `archived` a `in_trash`; chýbajúci kontext je neplatný. Adresár zachováva svoju existujúcu API funkciu ako kompatibilný wrapper nad tým istým helperom. Events/Help filtruje výsledky kanonického datasource pred vytvorením `identities` a `pagesById`, pred mapovaním, Notion→D1 importom a všetkými page PATCH (vrátane konfliktnej diagnostiky). Nepriradené stránky sa vykážu iba v read-only review queue. Rovnaký guard používa cielené `ensureManagedEventInNotion`.
+
+Tento krok nikdy nemigruje, nemaže, nepresúva ani neprepája Notion záznamy, neinterpretuje textový názov ako identitu a nemení Gemini schvaľovanie. Nové regresie používajú reálne Notion parent shape a sú súčasťou existujúceho `tests/notion-events-help-bidirectional.test.mjs`.

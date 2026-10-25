@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
+import { notionPageBelongsToDataSource } from "../lib/notion-sync-page-ownership.ts";
 
 import {
   decideBidirectionalChange,
@@ -941,4 +942,34 @@ test("Help sweep fail-closed integration contracts preserve Gemini private revie
   assert.match(adapter, /if \(domain === "OUT_OF_DOMAIN"\) throw new Error\("OUT_OF_DOMAIN"\)/);
   assert.match(adapter, /isHelpSyncCategoryOutOfDomain\(s\(values\["Kategória"\]\)\)/);
   assert.match(adapter, /if \(domain === "MISSING_CANONICAL"\) throw new Error\("MISSING_CANONICAL"\)/);
+});
+
+test("all Events and Help agendas share the verified Notion page ownership guard", async () => {
+  const page = {
+    id: "11111111-1111-4111-8111-111111111111",
+    parent: { type: "data_source_id", data_source_id: "76d9ccde-5816-422c-bcfe-863ab69db080" },
+  };
+  const ds = "76d9ccde-5816-422c-bcfe-863ab69db080";
+  assert.equal(notionPageBelongsToDataSource(page, ds), true);
+  assert.equal(notionPageBelongsToDataSource({
+    ...page, parent: { ...page.parent, data_source_id: ds.replaceAll("-", "") },
+  }, ds), true);
+  assert.equal(notionPageBelongsToDataSource(page, "3ed793fc-1d18-819c-bb39-000b753d0002"), false);
+  assert.equal(notionPageBelongsToDataSource({ ...page, archived: true }, ds), false);
+  assert.equal(notionPageBelongsToDataSource({ ...page, in_trash: true }, ds), false);
+  assert.equal(notionPageBelongsToDataSource({
+    ...page, parent: { type: "database_id", data_source_id: ds },
+  }, ds), false);
+  assert.equal(notionPageBelongsToDataSource({ id: page.id }, ds), false);
+  assert.equal(notionPageBelongsToDataSource(page, "invalid-id"), false);
+
+  const source = await readFile(new URL("../lib/notion-events-help-sync.ts", import.meta.url), "utf8");
+  assert.match(source, /const writablePages = pages\.filter\(\(page\) =>[\s\S]*?notionPageBelongsToDataSource\(page, target\.dataSourceId!\)/);
+  assert.match(source, /const identities = writablePages\.map\(identityPage\)/);
+  assert.match(source, /const pagesById = new Map\(writablePages\.map/);
+  assert.match(source, /for \(const page of writablePages\) \{/);
+  assert.match(source, /notionPageBelongsToDataSource\(page,target\.dataSourceId!\)/);
+  for (const agenda of ["events", "organizations", "adoptions", "help-cases", "lost-found"]) {
+    assert.ok(agendaEditableFields[agenda], agenda);
+  }
 });

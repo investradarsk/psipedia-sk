@@ -1,3 +1,5 @@
+import { notionPageBelongsToDataSource } from "./notion-sync-page-ownership.ts";
+
 /**
  * Conservative policy for a Notion-to-canonical DIRECTORY update.
  *
@@ -57,13 +59,10 @@ export function notionDirectoryPageBelongsToSource(
   },
   expectedDataSourceId: string,
 ): boolean {
-  const valid = /^[0-9a-f]{32}$/i;
-  const normalized = (value: string) => value.replaceAll("-", "").toLowerCase();
-  const expected = normalized(expectedDataSourceId);
-  const actual = normalized(page.parent?.data_source_id ?? "");
-  return !page.archived && !page.in_trash
-    && page.parent?.type === "data_source_id"
-    && valid.test(expected) && actual === expected;
+  return notionPageBelongsToDataSource(
+    { id: "directory-page", ...page },
+    expectedDataSourceId,
+  );
 }
 
 /** Skip an unchanged failure marker to avoid Notion revision churn.
