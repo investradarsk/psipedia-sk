@@ -3,6 +3,7 @@ import { TavilyAutomationSearchProvider } from "./data-automation-search-tavily.
 import { AutomationSearchProviderError } from "./data-automation-discovery.ts";
 import { isSafeAutomationSourceUrl, normalizeAutomationIdentity } from "./data-automation.ts";
 import { mergeDirectoryPublicContactData, readDirectoryPublicContacts, type DirectoryImportData } from "./directory-profile-metadata.ts";
+import { buildQualityTavilyQuery, qualityMayResearch, qualityTodayInSlovakia } from "./data-quality-tavily-query.ts";
 
 export type QualityArea = "services" | "events" | "help";
 type Kind = "DIRECTORY" | "EVENT" | "ORGANIZATION" | "ADOPTION" | "FOSTER" | "HELP_ITEM" | "LOST_FOUND";
@@ -80,7 +81,8 @@ function title(kind:Kind,row:Row) {
   const label=String(row[SPECS[kind].label]??"").trim();
   return label || (kind==="LOST_FOUND" ? `Hlásenie #${row.id}` : "");
 }
-function eligible(area:QualityArea,kind:Kind,index:number,row:Row):Profile|null {
+function eligible(area:QualityArea,kind:Kind,index:number,row:Row,today:string):Profile|null {
+  if(!qualityMayResearch(kind,row,today)) return null;
   const label=title(kind,row);
   if(!label) return null;
   const pending=SPECS[kind].fields.filter(f=>missing(fieldValue(kind,row,f)));
@@ -136,7 +138,7 @@ function discover(profile:Profile,results:Array<{url:string;title:string;snippet
   }
   return found;
 }
-async function nextProfile(db:Database,area:QualityArea) {
+async function nextProfile(db:Database,area:QualityArea,today:string) {
   const state=await db.prepare("SELECT type_index,entity_id FROM quality_missing_cursors WHERE area=?").bind(area).first<{type_index:number;entity_id:number}>();
   const kinds=AREA_KINDS[area];
   const start=Math.max(0,Math.min(kinds.length-1,Number(state?.type_index??0)));
@@ -150,7 +152,7 @@ async function nextProfile(db:Database,area:QualityArea) {
       const rows=await db.prepare(`SELECT * FROM ${spec.table} WHERE id>?${scope} ORDER BY id ASC LIMIT 250`).bind(after).all<Row>();
       if(!rows.results.length) break;
       for(const row of rows.results) {
-        const profile=eligible(area,kind,i,row);
+        const profile=eligible(area,kind,i,row,today);
         if(!profile) continue;
         // An existing open proposal means the same missing field already awaits the user.
         const opened=await db.prepare("SELECT field_key FROM quality_missing_proposals WHERE entity_type=? AND entity_id=? AND status='OPEN'")
@@ -224,6 +226,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
   }
 
   const provider = new TavilyAutomationSearchProvider({ apiKey: input.tavilyApiKey });
+  const today = qualityTodayInSlovakia(now);
   let scanned = 0;
   let found = 0;
   let failed = 0;
@@ -238,7 +241,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
     ).bind(area, hour, at).run();
     if (!claimed.meta.changes) continue;
 
-    const profile = await nextProfile(db, area);
+    const profile = await nextProfile(db, area, today);
     if (profile && "skipped" in profile) {
       await db.prepare("UPDATE quality_missing_cursors SET type_index=?,entity_id=?,updated_at=? WHERE area=?")
         .bind(profile.index, profile.id, at, area).run();
@@ -258,11 +261,7 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
       .bind(profile.kind, profile.id, area, hour).run();
     scanned++;
 
-    const terms = area === "events" ? "registrácia dátum čas miesto plagát"
-      : area === "help" ? "kontakt email telefón web facebook fotografia"
-      : "kontakt telefón email web facebook instagram fotografia";
-    const city = String(profile.row.city ?? "").trim();
-    const query = [profile.label, city, terms].filter(Boolean).join(" ").slice(0, 500);
+    const query = buildQualityTavilyQuery(profile);
     const beforeFound = found;
 
     try {
@@ -326,12 +325,176 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
   return { enabled: true, schemaReady: true, scanned, found, failed };
 }
 
+
+export type ManualQualityGroup = "address" | "image" | "web" | "phone" | "email" | "social" | "registration" | "date" | "other" | "all";
+export type ManualQualityMode = "profiles" | "free" | "alternative";
+export type ManualQualityCursor = { index: number; id: number };
+export type ManualQualityInput = {
+  area: QualityArea; group: ManualQualityGroup; mode: ManualQualityMode;
+  query?: string; cursor?: ManualQualityCursor;
+  entityType?: Kind; entityId?: number;
+};
+export type ManualQualityHistory = {
+  id:string; area:QualityArea; search_group:string; mode:string; profile_label:string|null;
+  created_at:string; status:string; found:number; error_code:string|null;
+};
+export type ManualQualityResponse = {
+  inspected:number; found:number; cursor:ManualQualityCursor|null; finished:boolean;
+  profileLabel:string|null; estimatedCredits:number;
+  results?:Array<{title:string;url:string;snippet:string|null}>;
+  images?:string[];
+};
+
+const MANUAL_GROUPS:readonly ManualQualityGroup[]=["address","image","web","phone","email","social","registration","date","other","all"];
+const MANUAL_MODES:readonly ManualQualityMode[]=["profiles","free","alternative"];
+export function validManualQualityRequest(input:ManualQualityInput) {
+  if(!QUALITY_AREAS.includes(input.area)||!MANUAL_GROUPS.includes(input.group)||!MANUAL_MODES.includes(input.mode)) {
+    throw new Error("Neplatné nastavenie ručného vyhľadávania.");
+  }
+  if(input.cursor && (!Number.isSafeInteger(input.cursor.index)||input.cursor.index<0||
+    !Number.isSafeInteger(input.cursor.id)||input.cursor.id<0)) throw new Error("Neplatná pozícia vyhľadávania.");
+  if(input.mode==="free" && (typeof input.query!=="string"||input.query.trim().length<3||
+    input.query.length>250)) throw new Error("Zadaj hľadaný výraz (3 až 250 znakov).");
+  if(input.mode==="alternative" && (input.group!=="image"||
+    !input.entityType||!AREA_KINDS[input.area].includes(input.entityType)||
+    !Number.isSafeInteger(input.entityId)||Number(input.entityId)<1)) {
+    throw new Error("Neplatný profil pre hľadanie iného obrázka.");
+  }
+}
+
+export async function qualityManualSchemaReady(db:Database) {
+  const row=await db.prepare("SELECT 1 ok FROM sqlite_master WHERE type='table' AND name='quality_missing_manual_attempts'")
+    .first<{ok:number}>();
+  return Boolean(row?.ok);
+}
+
+export async function listManualQualityHistory(db:Database):Promise<ManualQualityHistory[]> {
+  if(!await qualityManualSchemaReady(db)) return [];
+  const rows=await db.prepare("SELECT id,area,search_group,mode,profile_label,created_at,status,found,error_code " +
+    "FROM quality_missing_manual_attempts ORDER BY created_at DESC LIMIT 20").all<ManualQualityHistory>();
+  return rows.results;
+}
+
+async function nextManualQualityProfile(db:Database, input:ManualQualityInput,today:string):Promise<Profile|null> {
+  const kinds=AREA_KINDS[input.area];
+  const exact=input.mode==="alternative";
+  const selectedKinds=exact?[input.entityType as Kind]:kinds;
+  const startIndex=exact?0:Math.min(kinds.length-1,input.cursor?.index??0);
+  for(let local=0;local<selectedKinds.length;local++) {
+    const kind=selectedKinds[local];
+    const index=kinds.indexOf(kind);
+    if(!exact && index<startIndex) continue;
+    const spec=SPECS[kind];
+    let after=exact?Number(input.entityId)-1:index===startIndex?(input.cursor?.id??0):0;
+    for(let page=0;page<(exact?1:10);page++) {
+      const scope=kind==="FOSTER"?" AND category='docasna-opatera'"
+        :kind==="HELP_ITEM"?" AND category<>'docasna-opatera'":"";
+      const query=exact?"SELECT * FROM "+spec.table+" WHERE id=?"+scope+" LIMIT 1":
+        "SELECT * FROM "+spec.table+" WHERE id>?"+scope+" ORDER BY id ASC LIMIT 250";
+      const rows=await db.prepare(query).bind(exact?input.entityId:after).all<Row>();
+      for(const row of rows.results) {
+        const profile=eligible(input.area,kind,index,row,today);
+        if(!profile) continue;
+        profile.missing=profile.missing.filter(f=>input.group==="all"||f.group===input.group);
+        if(!profile.missing.length) continue;
+        if(!exact) {
+          const pending=await db.prepare("SELECT field_key FROM quality_missing_proposals "+
+            "WHERE entity_type=? AND entity_id=? AND status='OPEN'").bind(kind,profile.id).all<{field_key:string}>();
+          const opened=new Set(pending.results.map(x=>x.field_key));
+          profile.missing=profile.missing.filter(f=>!opened.has(f.key));
+        }
+        if(profile.missing.length) return profile;
+      }
+      if(exact||rows.results.length<250) break;
+      after=Number(rows.results[rows.results.length-1].id);
+    }
+  }
+  return null;
+}
+
+export async function runManualQualitySearch(
+  db:Database, input:ManualQualityInput, actor:string, apiKey?:string
+):Promise<ManualQualityResponse> {
+  validManualQualityRequest(input);
+  if(!await qualityManualSchemaReady(db)) throw new Error(
+    "Ručné vyhľadávanie vyžaduje databázovú migráciu 0143. Automatická kontrola zostáva zapnutá."
+  );
+  if(!apiKey?.trim()) throw new Error("Tavily nie je nakonfigurované.");
+  const profile=input.mode==="free"?null:await nextManualQualityProfile(db,input,qualityTodayInSlovakia());
+  if(input.mode!=="free"&&!profile) return {
+    inspected:0,found:0,cursor:null,finished:true,profileLabel:null,estimatedCredits:0,
+  };
+  const now=new Date().toISOString();
+  const id=crypto.randomUUID();
+  const cursor=profile?{index:profile.index,id:profile.id}:null;
+  const query=input.mode==="free"?input.query!.trim():buildQualityTavilyQuery(profile!);
+  const claimed=await db.prepare(
+    "INSERT INTO quality_missing_manual_attempts"+
+    "(id,area,search_group,mode,entity_type,entity_id,profile_label,created_at,status,actor)"+
+    " VALUES(?,?,?,?,?,?,?,?,?,?)"
+  ).bind(id,input.area,input.group,input.mode,profile?.kind??null,profile?.id??null,
+    profile?.label??null,now,"RUNNING",actor.slice(0,200)).run();
+  if(claimed.meta.changes!==1) throw new Error("Kontrolu sa nepodarilo zapísať.");
+  let found=0;
+  try {
+    const provider=new TavilyAutomationSearchProvider({apiKey});
+    const search=await provider.searchWithImages({query,maxResults:5,locale:"sk-SK",country:"SK"},
+      input.group==="all"||input.group==="image");
+    if(profile) {
+      const previous=await db.prepare("SELECT field_key,value FROM quality_missing_proposals WHERE "+
+        "entity_type=? AND entity_id=?").bind(profile.kind,profile.id)
+        .all<{field_key:string;value:string}>();
+      const previousImages=new Set(previous.results.filter(x=>x.field_key==="imageUrl").map(x=>x.value));
+      let images=search.images.filter(x=>!previousImages.has(x));
+      if(profile.missing.some(field=>field.group==="image")) {
+        const {downloadRemoteImage}=await import("./notion-sync-shared.ts");
+        // A Tavily image URL is only a candidate: verify actual image bytes before queueing.
+        // Probe at most three alternatives to avoid long or costly manual requests.
+        const viable:string[]=[];
+        for(const image of images.slice(0,3)) {
+          try { await downloadRemoteImage(image); viable.push(image); break; }
+          catch { /* Broken candidate, try a different returned URL. */ }
+        }
+        images=viable;
+      }
+      const discovered=discover(profile,search.results,images)
+        .filter(x=>input.group==="all"||x.field.group===input.group);
+      for(const item of discovered) {
+        const r=await db.prepare("INSERT OR IGNORE INTO quality_missing_proposals"+
+          "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at)"+
+          " VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .bind(input.area,profile.kind,profile.id,profile.label,item.field.key,item.field.label,
+            item.field.group,item.value,item.source,now).run();
+        found+=Number(r.meta.changes??0);
+      }
+    }
+    await db.prepare("UPDATE quality_missing_manual_attempts SET status='SUCCESS',found=?,finished_at=? WHERE id=?")
+      .bind(found,new Date().toISOString(),id).run();
+    return {
+      inspected:profile?1:0,found,cursor,finished:input.mode!=="free"&&!profile,
+      profileLabel:profile?.label??null,estimatedCredits:1,
+      ...(input.mode==="free"?{
+        results:search.results.map(r=>({title:r.title,url:r.url,snippet:r.snippet??null})),
+        images:search.images,
+      }:{}),
+    };
+  } catch(error) {
+    const code=qualityFailureCode(error);
+    await db.prepare("UPDATE quality_missing_manual_attempts SET status='FAILED',error_code=?,finished_at=? WHERE id=?")
+      .bind(code,new Date().toISOString(),id).run();
+    console.error(JSON.stringify({event:"quality_missing_manual_failed",area:input.area,reason:code}));
+    throw new Error("Ručné vyhľadávanie zlyhalo: "+qualityFailureLabel(code));
+  }
+}
+
 export type MissingQualityProposal = {
   id:number;area:QualityArea;entity_type:Kind;entity_id:number;profile_label:string;
   field_key:string;field_label:string;field_group:string;value:string;source_url:string|null;found_at:string;
 };
 export type MissingQualityDashboard = {
   pending: MissingQualityProposal[];
+  manualHistory: ManualQualityHistory[];
+  manualReady: boolean;
   total: number;
   monthly: Record<QualityArea, number>;
   outcomes: Record<QualityArea, QualityScanCount>;
@@ -346,8 +509,10 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
   };
   const last: Record<QualityArea, QualityScanLast> = { services: null, events: null, help: null };
   if (!(await hasScanStatusColumns(db))) {
-    return { pending: [], total: 0, monthly, outcomes, last, truncated: false, schemaReady: false };
+    return { pending: [], manualHistory: [], manualReady: false, total: 0, monthly, outcomes, last, truncated: false, schemaReady: false };
   }
+  const manualReady=await qualityManualSchemaReady(db);
+  const manualHistory=manualReady?await listManualQualityHistory(db):[];
   const since = new Date().toISOString().slice(0, 7) + "-01";
   const [rows, counts, runCounts, latest] = await Promise.all([
     db.prepare("SELECT id,area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at FROM quality_missing_proposals WHERE status='OPEN' ORDER BY id DESC LIMIT 1000").all<MissingQualityProposal>(),
@@ -374,7 +539,7 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
     if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code };
   }
   const total = Number(counts?.n ?? 0);
-  return { pending: rows.results, total, monthly, outcomes, last,
+  return { pending: rows.results, manualHistory, manualReady, total, monthly, outcomes, last,
     truncated: total > rows.results.length, schemaReady: true };
 }
 
@@ -396,6 +561,22 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
   const row=await db.prepare(`SELECT * FROM ${config.table} WHERE id=?`).bind(p.entity_id).first<Row>();
   if(!row||!missing(fieldValue(p.entity_type,row,f)))throw new Error("Údaj už bol medzičasom vyplnený.");
   const updatedAt=String(row.updated_at??"");
+  let reviewedImage:{key:string;url:string}|null=null;
+  if(f.group==="image") {
+    const bindings=env as unknown as {BUCKET?:R2Bucket;IMAGES?:import("@/lib/private-media").ImagesBindingLike};
+    if(!bindings.BUCKET) throw new Error("Cloudflare R2 nie je dostupné. Obrázok nebol schválený.");
+    const {downloadRemoteImage,optimizeRemoteImageForStorage}=await import("./notion-sync-shared.ts");
+    const remote=await downloadRemoteImage(p.value);
+    const stored=await optimizeRemoteImageForStorage(bindings,remote);
+    const folder=p.entity_type==="DIRECTORY"?"directory":p.entity_type==="EVENT"?"events":
+      p.entity_type==="ADOPTION"?"adoptions":p.entity_type==="LOST_FOUND"?"lost-found":"help";
+    const key=folder+"/"+new Date().getUTCFullYear()+"/"+crypto.randomUUID()+"."+stored.extension;
+    await bindings.BUCKET.put(key,stored.bytes,{
+      httpMetadata:{contentType:stored.contentType,cacheControl:"public, max-age=31536000, immutable"},
+      customMetadata:{source:"quality-missing-approved",sourceUrl:remote.finalUrl},
+    });
+    reviewedImage={key,url:"/media/"+key};
+  }
   let update:D1PreparedStatement;
   if(p.entity_type==="DIRECTORY"&&f.contact){
     const patch:Parameters<typeof mergeDirectoryPublicContactData>[1]={};
@@ -411,18 +592,34 @@ export async function reviewMissingQualityProposal(db:Database,id:number,action:
     if(!f.column)throw new Error("Chýba mapovanie poľa.");
     // Field column is always from the static allowlist above, never from user input.
     const by=p.entity_type==="LOST_FOUND"?"":",updated_by=?";
-    update=db.prepare(`UPDATE ${config.table} SET ${f.column}=?,updated_at=?${by}
-      WHERE id=? AND updated_at=? AND (${f.column} IS NULL OR TRIM(${f.column})='')
-      AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')`)
-      .bind(...(p.entity_type==="LOST_FOUND"?[p.value,at,p.entity_id,updatedAt,p.id]:[p.value,at,actor,p.entity_id,updatedAt,p.id]));
+    const imageKeyColumn=reviewedImage?
+      ("image_key" in row?"image_key":"main_image_key" in row?"main_image_key":null):null;
+    const value=reviewedImage?.url??p.value;
+    const keyClause=imageKeyColumn?", "+imageKeyColumn+"=?":"";
+    const sql="UPDATE "+config.table+" SET "+f.column+"=?,updated_at=?"+by+keyClause+
+      " WHERE id=? AND updated_at=? AND ("+f.column+" IS NULL OR TRIM("+f.column+")='')"+
+      " AND EXISTS (SELECT 1 FROM quality_missing_proposals WHERE id=? AND status='OPEN')";
+    const values:(string|number)[]=p.entity_type==="LOST_FOUND"?[value,at]:[value,at,actor];
+    if(imageKeyColumn) values.push(reviewedImage!.key);
+    update=db.prepare(sql).bind(...values,p.entity_id,updatedAt,p.id);
   }
   const decision=db.prepare(`UPDATE quality_missing_proposals
     SET status='ACCEPTED',decided_by=?,decided_at=?
     WHERE id=? AND status='OPEN'
       AND EXISTS (SELECT 1 FROM ${config.table} WHERE id=? AND updated_at=?)`)
     .bind(actor,at,p.id,p.entity_id,at);
-  const [result,decisionResult]=await db.batch([update,decision]);
-  if(!result.meta.changes || !decisionResult.meta.changes)throw new Error("Záznam sa medzičasom zmenil. Obnov stránku.");
+  let canonicalUpdated=false;
+  try{
+    const [result,decisionResult]=await db.batch([update,decision]);
+    canonicalUpdated=Boolean(result.meta.changes);
+    if(!canonicalUpdated || !decisionResult.meta.changes)
+      throw new Error("Záznam sa medzičasom zmenil. Obnov stránku.");
+  }catch(error){
+    // Do not delete an image already referenced by a canonical record.
+    if(reviewedImage&&!canonicalUpdated)
+      await (env as unknown as {BUCKET?:R2Bucket}).BUCKET?.delete(reviewedImage.key).catch(()=>{});
+    throw error;
+  }
 }
 export function getQualityMissingDatabase(){
   const db=(env as unknown as {DB?:D1Database}).DB;

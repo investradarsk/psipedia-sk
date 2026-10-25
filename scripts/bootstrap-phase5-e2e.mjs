@@ -73,7 +73,9 @@ async function request(baseUrl, pathname, init = {}) {
     ...init,
     headers: {
       accept: "application/json, text/html;q=0.9",
-      ...(init.body ? { "content-type": "application/json" } : {}),
+      // Mutating admin routes verify Origin. The bootstrap has already enforced
+      // local-only http://localhost:5173; never relax the API's CSRF contract.
+      ...(init.body ? { "content-type": "application/json", origin: baseUrl } : {}),
       ...init.headers,
     },
   });

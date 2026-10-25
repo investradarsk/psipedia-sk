@@ -12,7 +12,7 @@
 }
 
 .archive {
-  padding-block: 26px 54px;
+  padding-block: var(--ps-list-section-top) 54px;
 }
 
 .archiveHeader {
@@ -23,8 +23,8 @@
 
 .archiveHeader h2 {
   margin: 4px 0 0;
-  font-size: clamp(1.5rem, 2.6vw, 2rem);
-  line-height: 1.12;
+  font-size: var(--ps-list-heading-size);
+  line-height: var(--ps-list-heading-leading);
 }
 
 .filters {

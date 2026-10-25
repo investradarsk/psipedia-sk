@@ -4,6 +4,7 @@ import { getAdminApiUser, unauthorizedAdminResponse, requireAdminMutation } from
 import { archiveManagedDirectoryProfile, getManagedDirectoryProfileById, isDirectoryProfileConflict, restoreManagedDirectoryProfile, setManagedDirectoryProfileReviewed, updateManagedDirectoryProfile, type ManagedDirectoryProfileInput } from "@/lib/directory-store";
 import { verifyDirectoryAddressSelection, verifyDirectoryNumberlessAddressSelection, verifyDirectoryNumberlessLocality } from "@/lib/directory-address-provider";
 import { autoAssignGooglePlaceForDirectoryProfile } from "@/lib/google-place-canary";
+import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import {
   applyVerifiedDirectoryAddressGeo,
   directoryPhysicalAddressChanged,
@@ -135,7 +136,29 @@ export async function PUT(request: Request, { params }: Props) {
       await applyVerifiedDirectoryAddressGeo({ profileId: id, verified, actorRef: user.email });
     }
     await autoAssignGooglePlaceForDirectoryProfile({ targetId: id });
-    return Response.json({ profile });
+    // Only the just-saved linked profile is reconciled. This does not run an
+    // entire directory scan, trigger Services V3 or affect Facebook images.
+    // The canonical Admin save is not rolled back if Notion is unavailable;
+    // the established hourly sweep will retry unacknowledged field changes.
+    let notionFieldSync: "synced" | "unchanged" | "pending" | "disabled" = "disabled";
+    const notionEnv = env as unknown as {
+      DB?: D1Database;
+      NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED?: string;
+    };
+    if (notionEnv.DB && notionEnv.NOTION_TARGETED_ADMIN_WRITEBACK_ENABLED === "true") {
+      try {
+        const result = await runNotionDirectorySyncSweep({
+          database: notionEnv.DB,
+          bindings: env as Parameters<typeof runNotionDirectorySyncSweep>[0]["bindings"],
+          targetProfileId: id,
+        });
+        notionFieldSync = result.failed ? "pending"
+          : result.pushedToNotion || result.pulledFromNotion ? "synced" : "unchanged";
+      } catch {
+        notionFieldSync = "pending";
+      }
+    }
+    return Response.json({ profile, notionFieldSync });
   } catch (error) { return errorResponse(error); }
 }
 

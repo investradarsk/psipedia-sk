@@ -90,6 +90,7 @@ on:
           - 0140_directory_service_notion_relations.sql
           - 0141_quality_missing_hourly.sql
           - 0142_quality_missing_scan_outcomes.sql
+          - 0143_quality_missing_manual_attempts.sql
       confirmation:
         description: Type APPLY-<migration index>-psipedia-sk-db exactly (for example APPLY-0064-psipedia-sk-db)
         required: true
@@ -200,6 +201,7 @@ jobs:
             0140_directory_service_notion_relations.sql) expected_confirmation="APPLY-0140-psipedia-sk-db" ;;
             0141_quality_missing_hourly.sql) expected_confirmation="APPLY-0141-psipedia-sk-db" ;;
             0142_quality_missing_scan_outcomes.sql) expected_confirmation="APPLY-0142-psipedia-sk-db" ;;
+            0143_quality_missing_manual_attempts.sql) expected_confirmation="APPLY-0143-psipedia-sk-db" ;;
             *) echo "Unsupported production migration target: $TARGET_MIGRATION" >&2; exit 1 ;;
           esac
           test "$confirmation" = "$expected_confirmation"

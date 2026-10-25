@@ -24,18 +24,34 @@
 }
 .pagination [aria-disabled="true"] { opacity: .52; }
 .pagination strong { font-size: .875rem; }
+/* Public notices share the banner frame but keep semantic color distinctions.
+   Do not flatten warning into error or override explicit role=alert. */
 .notice {
+  min-width: 0;
   margin: 0;
   padding: 12px 14px;
-  border: 1px solid var(--ps-border-soft, var(--line));
+  overflow-wrap: anywhere;
+  border: 1px solid var(--ps-banner-border, var(--ps-border-soft));
   border-left: 4px solid var(--forest);
-  border-radius: var(--ps-radius-control, 12px);
+  border-radius: var(--ps-banner-radius, var(--ps-radius-filter, 18px));
   color: var(--ink);
   background: var(--paper);
   line-height: 1.5;
 }
-.success { border-left-color: var(--forest); }
-.warning, .error { border-left-color: var(--brand-accent-strong, #b94732); }
+.success {
+  border-left-color: var(--forest);
+  background: var(--sage-light, #edf3e9);
+}
+.warning {
+  border-left-color: var(--gold, #e8b64c);
+  background: #fff7e4;
+  color: #67501e;
+}
+.error {
+  border-left-color: var(--brand-accent-strong, #b94732);
+  background: #fff0ea;
+  color: #92341e;
+}
 .filterTag {
   display: inline-flex;
   align-items: center;

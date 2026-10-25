@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { HelpCard } from "@/components/help-card";
 import { PageContainer } from "@/components/page-system";
-import { PublicActionButton, PublicActionLink, PublicContentShell } from "@/components/public-visual-system";
+import { PublicActionButton, PublicActionLink, PublicContentShell, PublicFilterTag } from "@/components/public-visual-system";
 import { PublicFilterDisclosure } from "@/components/public-filter-disclosure";
 import { slovakRegions, type SlovakRegion } from "@/lib/events";
 import type { PublicHelpCard, HelpCategorySlug } from "@/lib/help";
@@ -61,6 +61,18 @@ export function HelpBrowser({
     );
   });
   const activeSecondaryCount = Number(region !== "all") + Number(!activeOnly);
+  const activeSelections = [
+    { key: "q", label: "Hľadanie", value: query },
+    { key: "region", label: "Kraj", value: region === "all" ? "" : region },
+    { key: "stav", label: "Stav", value: activeOnly ? "" : "Aj ukončené" },
+  ].filter((entry) => Boolean(entry.value));
+  const clearOneHref = (key: string) => {
+    const next = new URLSearchParams();
+    if (query && key !== "q") next.set("q", query);
+    if (region !== "all" && key !== "region") next.set("region", region);
+    if (!activeOnly && key !== "stav") next.set("stav", "vsetky");
+    return basePath + (next.size ? `?${next.toString()}` : "");
+  };
 
   return (
     <section className={styles.browserShell} aria-labelledby="help-results-heading">
@@ -111,6 +123,17 @@ export function HelpBrowser({
             <PublicActionLink className={styles.resetFilters} variant="tertiary" href={basePath}>Zrušiť filtre</PublicActionLink>
           </PublicFilterDisclosure>
         </form>
+        {activeSelections.length > 0 && (
+          <div aria-label="Aktívne filtre Pomoci psom" data-public-active-filters>
+            <span data-public-active-filter-label>Aktívne filtre</span>
+            {activeSelections.map(({ key, label, value }) => (
+              <PublicFilterTag key={key} href={clearOneHref(key)} removeLabel={`Odstrániť filter ${label}: ${value}`}>
+                <span>{label}: {value}</span><span aria-hidden="true">×</span>
+              </PublicFilterTag>
+            ))}
+            <Link href={basePath} data-public-filter-reset>Vymazať všetko</Link>
+          </div>
+        )}
 
         {children}
       </PublicContentShell>
