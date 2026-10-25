@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ManagedBreedSummary } from "@/lib/breed-store";
 import {
   adminBreedCounts,
@@ -33,11 +33,19 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
   const [filters, setFilters] = useState<AdminBreedFilters>(defaultAdminBreedFilters);
   const [requestedPage, setRequestedPage] = useState(1);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManagedBreedSummary | null>(null);
   const [bulkStatus, setBulkStatus] = useState<BulkStatus | null>(null);
+
+  // E2E and assistive integrations can wait for interactive readiness before
+  // changing controlled filters; SSR markup alone does not attach handlers.
+  useEffect(() => {
+    panelRef.current?.setAttribute("data-admin-breed-hydrated", "true");
+    return () => panelRef.current?.removeAttribute("data-admin-breed-hydrated");
+  }, []);
 
   const visible = useMemo(() => filterAdminBreeds(breeds, filters), [breeds, filters]);
   const counts = useMemo(() => adminBreedCounts(breeds), [breeds]);
@@ -155,7 +163,7 @@ export function AdminBreedDashboard({ initialBreeds }: { initialBreeds: ManagedB
       <div><span>Obsahovo neúplné</span><strong>{counts.incomplete}</strong></div>
     </section>
 
-    <section className="admin-panel">
+    <section ref={panelRef} className="admin-panel">
       <div className={styles.filters} aria-label="Filtre plemien">
         <label className="admin-search">
           <span>Hľadať</span>
