@@ -1,4 +1,3 @@
-import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 import {
   createManagedArticle,
   deleteManagedArticle,
@@ -1780,7 +1779,9 @@ export async function runNotionArticleSyncSweep(args: {
       throw new Error("NOTION_ARTICLE_TARGET_INVALID");
     const page = await notionRequest<NotionPage>(args.bindings, "/pages/" + encodeURIComponent(args.targetPageId));
     const dataSourceId = args.bindings.NOTION_ARTICLES_DATA_SOURCE_ID?.trim() ?? "";
-    if (page.id !== args.targetPageId || !notionPageBelongsToDataSource(page, dataSourceId))
+    if (page.id !== args.targetPageId || page.archived || page.in_trash
+      || page.parent?.type !== "data_source_id" || !dataSourceId
+      || page.parent.data_source_id?.replaceAll("-", "").toLowerCase() !== dataSourceId.replaceAll("-", "").toLowerCase())
       throw new Error("NOTION_ARTICLE_TARGET_UNSAFE");
     pages = selectProperty(page, "Stav") === "Ready" && checkboxProperty(page, "Odoslať na Psipedia") ? [page] : [];
   } else {
