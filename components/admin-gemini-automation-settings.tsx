@@ -526,9 +526,20 @@ export function AdminGeminiAutomationSettings({
         inFlight = false;
       }
     };
-    void refresh();
+    // Server props already contain a freshly fetched D1 snapshot. Avoid an
+    // identical full 22-category settings/history/queue GET at hydration.
+    // Keep the established 10-second cadence and refresh promptly when an
+    // inactive tab becomes visible again.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     const id = window.setInterval(() => void refresh(), 10000);
-    return () => { cancelled = true; window.clearInterval(id); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [available, settings, initialJobs, recentRuns, control]);
 
   const selected = liveSettings.find((item) => item.stableKey === selectedKey) ?? liveSettings[0];
