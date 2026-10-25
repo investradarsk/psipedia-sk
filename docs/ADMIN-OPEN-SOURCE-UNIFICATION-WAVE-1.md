@@ -67,3 +67,9 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 ## Vlna 5 — neuložené zmeny
 - Gemini prompty a e-shop späť: odstránené pôvodné prehliadačové `window.confirm`, nahradené spoločným dostupným potvrdením `AdminUnsavedNavigationDialog`. Bez D1 migrácií, automatického publikovania a bez spustenia platených Gemini operácií.
 - Zostať je predvolená bezpečná akcia, potvrdzovanie nevykonáva zápis ani neprepisuje text.
+
+## Vlna 6 — partnerské rozhodnutia a bezpečné potvrdenia (25.10.2026)
+- **Prevzatie profilu (claim)** aj **overenie správcu** namiesto natívneho `window.confirm` používajú existujúci `AdminDestructiveConfirmDialog`. Schválenie / overenie má primárnu akciu, zamietnutie deštruktívnu.
+- Spoločné potvrdenie vždy zaostrí **Zrušiť**; pri prebiehajúcej operácii blokuje tlačidlá aj zavretie Escape. Žiadny PATCH nie je spustený samotným otvorením dialógu.
+- Existujúce PATCH endpointy, parametre `decisionNote` / `reviewNote`, OWNER a verification pravidlá, `router.refresh` a chybové hlásenia zostávajú nezmenené.
+- `tests/admin-unified-partner-confirmations.test.mjs` kontroluje bezpečnú modalitu a zachovanie pôvodných kontraktov; produkčný workflow spúšťa test aj lint všetkých troch dotknutých komponentov.
