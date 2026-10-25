@@ -9,7 +9,7 @@
 .highlight div{display:grid;gap:4px}.highlight strong{font-size:1.03rem}.highlight time{font-size:.85rem;color:var(--admin-muted,#5e6a64)}
 .highlight a,.actions a{font-size:.84rem;text-decoration:underline;text-underline-offset:2px}
 .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.metrics>div,.metrics>a{display:flex;justify-content:space-between;align-items:center;gap:7px;min-height:44px;padding:9px 10px;border:1px solid var(--admin-border,#d9e0dc);border-radius:10px;font-size:.82rem;text-decoration:none}
+.metrics>div,.metrics>a{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;min-width:0;gap:7px;min-height:44px;padding:9px 10px;border:1px solid var(--admin-border,#d9e0dc);border-radius:10px;font-size:.82rem;text-decoration:none}
 .metrics strong{font-size:1.05rem;white-space:nowrap}
 .toolbar{display:flex;flex-wrap:wrap;gap:7px}
 .events{display:grid;gap:0}
@@ -19,3 +19,5 @@
 .actions{display:flex;flex-wrap:wrap;justify-content:end;gap:7px;flex-shrink:0}.actions button{padding:6px 8px}.empty{text-align:center;padding:14px;color:var(--admin-muted,#69746e)}
 .error{color:#a3262c}.note{margin:0;font-size:.77rem;color:var(--admin-muted,#68736d)}
 @media(max-width:650px){.root{padding:10px;gap:10px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.event{align-items:start;flex-direction:column;gap:9px}.actions{width:100%;justify-content:start}.highlight{align-items:start;flex-direction:column}}
+
+@media(max-width:375px){.metrics{grid-template-columns:minmax(0,1fr)}}
