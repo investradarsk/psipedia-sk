@@ -46,3 +46,12 @@ Scope je vlna 1: funkčné zjednotenie kompatibilných editorov, nie tvrdenie, �
 
 ## Vylepšenie radenia (dnd-kit)
 - Rovnaký generátor identít pre URL galérie (adopcie / lost-found) a štruktúrované galérie (plemená / články). Stabilita identít po presune obrázka znižuje stratu focusu pri klávesnicovom ovládaní. Duplicitné historické URL sú rozlíšené poradím výskytu; metadáta ostávajú v originálnych entitách.
+
+## Vlna 4 — modálne potvrdenia a ďalšie editory
+
+- Stiahnutie **článku** už používa spoločný prístupný `AdminDestructiveConfirmDialog`, nie systémové `window.confirm`. Pri Escape/zrušení sa žiadny zápis nevykoná; potvrdenie zavolá existujúci `save("draft")`.
+- Stiahnutie **podujatia** používa rovnaký komponent, ale zachováva pôvodné názvy tlačidiel, akcie a PUT správanie. Staré E2E zostávajú relevantné.
+- Spoločné potvrdzovacie okno má voliteľné `cancelLabel` na zachovanie kontextovo správneho textu bez vytvárania ďalšieho modálu.
+- **E-shopy**: Lexical/Radix doplnený k plain-text popisu a spoločný picker loga (`eshops` R2 priečinok). Ani `focusTags`, ani dátový kontrakt sa nemení.
+- **Šteniatka / oblasti**: spoločný picker fotografie (`articles` priečinok) a opt-in Lexical textový návrh pre plain-text `intro`; pôvodné poradie, kanonické `PUT /api/admin/sections` a obsah iných sekcií zostávajú nezmenené.
+- E2E scenár pri publikovanom článku skúša **zrušenie** aj **potvrdenie** stiahnutia; kontraktový test potvrdzuje používanie shared komponentov.

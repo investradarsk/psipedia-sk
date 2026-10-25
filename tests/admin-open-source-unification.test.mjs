@@ -85,3 +85,32 @@ test("sortable IDs do not change on reordering a unique image URL",()=>{
   assert.match(read("components/admin-sortable-gallery.tsx"),/gallerySortableIds\(urls\)/);
   assert.doesNotMatch(read("components/admin-sortable-gallery.tsx"),/index\+":"\+url/);
 });
+
+test("all unpublish editors share accessible destructive confirmation instead of browser window.confirm",()=>{
+  const shared=read("components/admin-interaction-system.tsx");
+  assert.match(shared,/export function AdminDestructiveConfirmDialog/);
+  assert.match(shared,/cancelLabel = "Zrušiť"/);
+  const article=read("components/admin-article-editor.tsx");
+  const event=read("components/admin-event-editor.tsx");
+  for(const s of [article,event]){
+    assert.match(s,/<AdminDestructiveConfirmDialog/);
+    assert.match(s,/confirmLabel="Potvrdiť stiahnutie"/);
+    assert.match(s,/cancelLabel="Ponechať publikované"/);
+    assert.match(s,/void save\("draft"\)/);
+  }
+  assert.doesNotMatch(article,/window\.confirm\("Stiahnuť tento článok/);
+});
+
+test("e-shop and puppy area reuse one safe content drafting and single-image picker",()=>{
+  const eshop=read("components/admin-eshop-editor.tsx");
+  const puppy=read("components/admin-puppy-area-editor.tsx");
+  for(const src of [eshop,puppy]){
+    assert.match(src,/AdminLexicalAppendButton/);
+    assert.match(src,/appendLexicalPlainText/);
+    assert.match(src,/AdminSingleImageUpload/);
+    assert.match(src,/adminSelectedImage/);
+  }
+  assert.match(eshop,/uploadAdminImage\(file, "eshops"\)/);
+  assert.match(puppy,/uploadAdminImage\(file, "articles"\)/);
+  assert.match(puppy,/update\(index, \{ intro: appendLexicalPlainText/);
+});
