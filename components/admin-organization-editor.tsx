@@ -1,4 +1,6 @@
 "use client";
+import {AdminSingleImageUpload} from "@/components/admin-single-image-upload";
+import {adminSelectedImage} from "@/lib/admin-selected-image";
 
 import Link from "next/link";
 import { AdminLexicalAppendButton } from "@/components/admin-lexical-append-button";
@@ -154,9 +156,8 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
     setDraft((current) => ({ ...current, ...values }));
   }
 
-  async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = "";
+  async function uploadImage(event: File | ChangeEvent<HTMLInputElement>) {
+    const file = adminSelectedImage(event);
     if (!file) return;
     setUploading(true); setError(""); setMessage("");
     try {
@@ -248,7 +249,7 @@ export function AdminOrganizationEditor({ organization, automationSuggestions = 
         <div className="admin-upload-row">
           <div className="admin-upload-preview admin-upload-preview--forest">{draft.imageUrl ? <ImageDisplay roleHint="generic" context="thumbnail" config={draft.thumbnailImageDisplay} src={draft.imageUrl} alt="Náhľad obrázka organizácie" /> : <span aria-hidden="true">🐾</span>}</div>
           <div className="admin-upload-actions">
-            <label className="admin-upload-button"><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={uploadImage} disabled={editingDisabled || uploading} />{uploading ? "Nahrávam…" : draft.imageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"}</label>
+            <AdminSingleImageUpload label={draft.imageUrl ? "Vybrať iný obrázok" : "Nahrať obrázok"} onFile={uploadImage} disabled={editingDisabled} busy={uploading} onRejected={setError}/>
             {draft.imageUrl && <AdminActionButton variant="neutral" disabled={editingDisabled || uploading} onClick={() => patch({ imageUrl: null, imageKey: null, thumbnailImageDisplay: null, detailImageDisplay: null })}>Odstrániť obrázok</AdminActionButton>}
             <small>JPG, PNG, WebP alebo AVIF, najviac 8 MB.</small>
             {draft.imageUrl && <button type="button" className="admin-upload-button" disabled={editingDisabled} onClick={() => setImageEditorOpen(true)}>Upraviť zobrazenie</button>}

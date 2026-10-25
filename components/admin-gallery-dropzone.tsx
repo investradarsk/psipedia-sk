@@ -3,19 +3,20 @@ import {useDropzone} from "react-dropzone";
 import styles from "./admin-gallery-dropzone.module.css";
 
 /** Shared dropzone for canonical galleries, independent of their media metadata format. */
-export function AdminGalleryDropzone({label,onFiles,disabled=false,busy=false,maxFiles,onRejected}:{
+export function AdminGalleryDropzone({label,onFiles,disabled=false,busy=false,maxFiles,multiple=true,onRejected}:{
   label:string;
   onFiles:(files:File[])=>void|Promise<void>;
   disabled?:boolean;
   busy?:boolean;
   maxFiles?:number;
+  multiple?:boolean;
   onRejected?:(message:string)=>void;
 }) {
   const {getRootProps,getInputProps,isDragActive,open}=useDropzone({
     noClick:true,
     noKeyboard:true,
     accept:{"image/jpeg":[],"image/png":[],"image/webp":[],"image/avif":[]},
-    multiple:true,
+    multiple,
     disabled:disabled||busy,
     maxFiles,
     noDragEventsBubbling:true,
@@ -23,7 +24,7 @@ export function AdminGalleryDropzone({label,onFiles,disabled=false,busy=false,ma
       if(rejections.length){
         onRejected?.("Nepodporovaný súbor alebo príliš veľa fotografií. Použi JPG, PNG, WebP alebo AVIF.");
       }
-      if(files.length)void onFiles(files);
+      if(files.length)void onFiles(multiple?files:files.slice(0,1));
     },
   });
   // The visually hidden file input is a sibling, not a nested interactive
@@ -45,7 +46,7 @@ export function AdminGalleryDropzone({label,onFiles,disabled=false,busy=false,ma
         }
       },
     })}>
-      {busy?"Nahrávam fotografie…":isDragActive?"Pusti fotografie do galérie":label+" — vybrať alebo pretiahnuť fotografie"}
+      {busy?"Nahrávam…":isDragActive?"Pusti fotografiu sem":label}
     </div>
     <input {...getInputProps({"aria-label":label+" – súborový vstup"})}/>
   </>;
