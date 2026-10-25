@@ -4,6 +4,7 @@ import { runNotionDirectorySyncSweep } from "@/lib/notion-directory-sync";
 import { runNotionBreedSyncSweep } from "@/lib/notion-breed-sync";
 import { runNotionArticleSyncSweep } from "@/lib/notion-article-sync";
 import { runNotionEshopSyncSweep } from "@/lib/notion-eshop-sync";
+import { runNotionEventsHelpSyncSweep } from "@/lib/notion-events-help-sync";
 import { notionRequest, type NotionPage, type NotionSyncBindings } from "@/lib/notion-sync-shared";
 import { notionPageBelongsToDataSource } from "@/lib/notion-sync-page-ownership";
 
@@ -31,6 +32,8 @@ type WebhookBindings = NotionSyncBindings & {
   NOTION_ARTICLES_DATA_SOURCE_ID?: string;
   NOTION_ESHOP_SYNC_ENABLED?: string;
   NOTION_ESHOPS_DATA_SOURCE_ID?: string;
+  NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED?: string;
+  NOTION_EVENTS_DATA_SOURCE_ID?: string;
 };
 
 type OwnedPage = NotionPage & {
@@ -77,9 +80,28 @@ export async function dispatchNotionPageChange(event: WebhookEvent, bindings: We
     summary = await runNotionEshopSyncSweep({
       database: bindings.DB, bindings, targetPageId: id,
     });
+  } else if (bindings.NOTION_EVENTS_HELP_BIDIRECTIONAL_SYNC_ENABLED === "true"
+      && event.type !== "page.content_updated") {
+    // Dynamic event/help targets are resolved only from existing verified D1
+    // mappings, never from a title or a user-controlled Notion property.
+    const table = await bindings.DB.prepare(
+      "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='notion_agenda_targets' LIMIT 1",
+    ).first<{ ok: number }>();
+    if (!table) return "out-of-scope";
+    const agenda = await bindings.DB.prepare(
+      "SELECT agenda FROM notion_agenda_targets " +
+      "WHERE replace(lower(data_source_id),'-','') = replace(lower(?),'-','') LIMIT 1",
+    ).bind(sourceId ?? "").first<{ agenda: string }>();
+    const allowed = ["events", "organizations", "adoptions", "help-cases", "lost-found"] as const;
+    if (!agenda || !allowed.some(value => value === agenda.agenda)) return "out-of-scope";
+    const result = await runNotionEventsHelpSyncSweep({
+      database: bindings.DB, bindings, mode: "sync",
+      agendas: [agenda.agenda as (typeof allowed)[number]],
+      targetPageId: id, webhookMappedOnly: true,
+    });
+    summary = { failed: result.totals.failed };
   } else {
-    // Includes the unrelated Facebook image database, Services V3 and
-    // dynamic Events/Help sources; these retain their established sync paths.
+    // Includes Facebook image source, Services V3 and unsupported pages.
     return "out-of-scope";
   }
   if (summary.failed > 0) throw new Error("NOTION_TARGETED_RECONCILIATION_FAILED");
