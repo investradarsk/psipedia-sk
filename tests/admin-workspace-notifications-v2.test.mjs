@@ -53,16 +53,22 @@ test("push switch stored with version marker; both queue and retry obey it",()=>
  assert.match(push,/category_disabled/);
 });
 
-test("admin home streams shell and shares the exact attention read across dashboard/bell", () => {
+test("admin home streams attention, quality and activity in independent suspense sections", () => {
   const page = read("app/admin/page.tsx");
+  const dashboard = read("components/admin-workspace-dashboard.tsx");
   const shell = read("components/admin-shell.tsx");
-  const start = page.indexOf("export default async function AdminPage");
-  const home = page.slice(start);
-  assert.match(page, /async function AdminDashboardContent/);
+  const home = page.slice(page.indexOf("export default async function AdminPage"));
   assert.match(home, /const attentionPromise = loadExactAdminAttentionSummary\(\)/);
   assert.match(home, /attentionSummaryPromise=\{attentionPromise\}/);
-  assert.match(home, /<Suspense fallback=\{<p role="status"/);
-  assert.match(home, /<AdminDashboardContent[\s\S]*?attentionPromise=\{attentionPromise\}/);
+  assert.match(home, /<AdminWorkspaceDashboard[\s\S]*?attentionPromise=\{attentionPromise\}/);
+  assert.match(home, /qualityPromise=\{qualityPromise\}/);
+  assert.match(home, /activityPromise=\{workspaceFeedPromise\}/);
+  assert.match(dashboard, /async function WorkspaceActivityPanel/);
+  assert.match(dashboard, /async function WorkspaceAttentionMetrics/);
+  assert.match(dashboard, /async function WorkspaceQualityMetric/);
+  assert.match(dashboard, /async function WorkspaceCommunity/);
+  assert.match(dashboard, /<Suspense fallback=\{<PendingMetric label="Kvalita údajov" \/>\}>/);
+  assert.match(dashboard, /<WorkspaceCommunity promise=\{attentionPromise\} \/>/);
   assert.match(shell, /summaryPromise \?\? loadExactAdminAttentionSummary\(\)/);
   assert.doesNotMatch(home, /await Promise\.all\(/);
   assert.doesNotMatch(home, /attentionCount=\{attention\.active\}/);
