@@ -302,8 +302,8 @@
   padding: 9px 16px;
   border: 0;
   border-radius: var(--ps-radius-control, 12px);
-  color: var(--ps-color-action-primary-text, #fff);
-  background: var(--ps-color-action-primary, #174b38);
+  color: var(--white, #fff);
+  background: var(--forest, #174b38);
   font: inherit;
   font-weight: 800;
   cursor: pointer;

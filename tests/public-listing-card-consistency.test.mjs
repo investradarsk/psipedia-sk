@@ -42,7 +42,8 @@ test("section search uses the approved common CTA palette without changing GET b
   const search = read("components/section-hero-search.tsx");
   const snippet = hero.slice(hero.indexOf(".hero :global([data-section-hero-search] button) {"));
   assert.match(snippet, /border-radius: var\(--ps-radius-control, 12px\)/);
-  assert.match(snippet, /background: var\(--ps-color-action-primary, #174b38\)/);
+  assert.match(snippet, /background: var\(--forest, #174b38\)/);
+  assert.doesNotMatch(snippet, /var\(--ps-color-action-primary/);
   assert.match(search, /<form action=\{action\} method="get"/);
   assert.match(search, /<button type="submit">\{buttonLabel\}<\/button>/);
 });

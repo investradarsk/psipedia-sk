@@ -19,7 +19,9 @@ Používame existujúce `PageContainer` / `.shell.public-shell`, `app/design-sys
 - [x] **Karty — etapa 3:** články, plemená, adresár, podujatia (grid aj riadky) a Pomoc psom dostali spoločný verejný kontrakt `data-public-card`. Centrálny CSS blok riadi rám, zaoblenie, tieň, hover, focus a farbu nadpisov/metadát. Špecifické rozmery obrázkov a urgentné zvýraznenie pomoci ostávajú.
 - [ ] **Karty a detaily — zvyšok:** karty ďalších sekcií, detailové hlavičky a layout faktov.
 - [ ] **Bannery, farby, písmo a hlášky:** zosúladiť existujúce kanonické varianty bez zásahov do obsahu.
-- [ ] **Všetky šírky a rozostupy:** skontrolovať nepravidelné lokálne max-width, sidebary a zarovnanie s hero na ostatných verejných routach.
+- [x] **Šírky — detailový základ:** detaily Adresár, Podujatia a Pomoc psom používajú kanonickú šírku 1180px/odstupy 48px na desktope a rovnaký shell na mobile; kontaktný panel Adresára sa zarovnáva s hlavným obsahom.
+- [x] **Vizuál detailov — základ:** spoločné detaily používajú verejné farby, rádius kariet/hero, jednotné CTA a focus; pri Pomoci psom má informačný panel jednotné zaoblenie bez zásahu do upozornení.
+- [ ] **Všetky šírky a rozostupy — zvyšok:** články, plemená, ďalšie routy a audit nepravidelných lokálnych max-width.
 - [ ] **Vizuálna akceptácia:** porovnať desktop 1440 px a mobily 390/320 px na reprezentatívnych routach, vrátane filtrov, kariet a detailov.
 
 ### Bezpečnosť a prijatie
