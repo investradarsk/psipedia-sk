@@ -34,7 +34,8 @@ export function assert0139NotAlreadyApplied(targetMigration,targetApplied){
   if(targetMigration===PROPOSED_SERVICES_V3_SQL)
     invariant(!targetApplied,"0139 already applied; refusing repeated production APPLY");
 }
-export const PREPARED_PRODUCTION_TARGETS = Object.freeze([]);
+// Schema 0142 is prepared only. Owner-controlled production activation requires a separate approved rollout.
+export const PREPARED_PRODUCTION_TARGETS = Object.freeze(["0142_quality_missing_scan_outcomes.sql"]);
 export const APPROVED_0138_SHA256 = PINNED_SHA256_0138;
 export function assertApproved0138Target(databaseName, sha256) {
   invariant(databaseName === "psipedia-sk-db", "0138 requires canonical psipedia-sk-db");
