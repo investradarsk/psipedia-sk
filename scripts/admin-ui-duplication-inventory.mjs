@@ -53,7 +53,8 @@ export async function collectAdminUiDuplicationInventory(
 ) {
   const components = (await listTsxFiles(join(root, "components")))
     .filter(path => /^admin-.*\.tsx$/.test(path.split(/[\\/]/).at(-1)));
-  const pages = await listTsxFiles(join(root, "app", "admin"));
+  const pages = (await listTsxFiles(join(root, "app", "admin")))
+    .filter(path => path.split(/[\\/]/).at(-1) === "page.tsx");
   const paths = [...components, ...pages].sort();
   const scanned = await Promise.all(paths.map(async path => {
     const source = await readFile(path, "utf8");

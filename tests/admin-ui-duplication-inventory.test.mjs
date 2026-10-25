@@ -31,6 +31,6 @@ test("inventory covers all admin-*.tsx components and all app/admin TSX files wi
   assert.ok(report.files.every(item => item.path.startsWith("components/admin-") || item.path.startsWith("app/admin/")));
   assert.ok(report.occurrences.rawActionButton > 0);
   assert.ok(report.occurrences.nativeConfirm > 0);
-  assert.ok(report.files.some(item => item.path === "components/admin-pagination.tsx") === false ||
-    report.files.some(item => item.path === "components/admin-pagination.tsx" && typeof item.signals === "object"));
+  assert.ok(report.files.some(item => item.path === "components/admin-directory-editor.tsx"));
+  assert.ok(report.files.every(item => !item.path.startsWith("app/admin/") || item.path.endsWith("/page.tsx")));
 });

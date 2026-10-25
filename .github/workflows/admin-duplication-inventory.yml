@@ -1,0 +1,24 @@
+name: ADMIN-DUP-01 read-only inventory
+
+on:
+  pull_request:
+    paths:
+      - "scripts/admin-ui-duplication-inventory.mjs"
+      - "tests/admin-ui-duplication-inventory.test.mjs"
+      - "docs/admin-component-duplication-audit-2026-10-25.md"
+      - ".github/workflows/admin-duplication-inventory.yml"
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate scanner and repository scope
+        run: node --test tests/admin-ui-duplication-inventory.test.mjs
+      - name: Print read-only signals and counts
+        run: node scripts/admin-ui-duplication-inventory.mjs
