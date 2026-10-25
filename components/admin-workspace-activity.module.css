@@ -1,6 +1,6 @@
 .root{display:grid;gap:var(--admin-v3-compact-gap,10px);padding:var(--admin-v3-card-padding,12px) 14px;border:1px solid var(--admin-border,#d9e0dc);border-radius:14px;background:var(--admin-surface,#fff);min-width:0}
 .titleRow{display:flex;justify-content:space-between;align-items:start;gap:12px}
-.titleRow h2{margin:2px 0 0;font-size:1.18rem}
+.titleRow h2{margin:2px 0 0;font-family:inherit;font-weight:800;font-size:1.05rem}
 .titleRow small,.highlight small{display:block;color:var(--admin-muted,#67736d);font-size:.78rem}
 .secondary,.active,.actions button{min-height:44px;border:1px solid var(--admin-border,#cbd5d0);border-radius:9px;background:transparent;color:inherit;padding:8px 10px;cursor:pointer;font:inherit;font-size:.85rem}
 .active{background:var(--admin-accent-soft,#e9f2ee);border-color:var(--admin-accent,#557d68);font-weight:700}
