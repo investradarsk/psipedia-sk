@@ -47,6 +47,7 @@ import {
   appendNotionReview,
   canClearResolvedNotionConflict,
   emptyNotionReviewQueue,
+  notionConflictMetadataNeedsWrite,
   type NotionReviewQueue,
 } from "./notion-data-quality-recovery.ts";
 import {
@@ -227,6 +228,7 @@ function pageProperty(page: NotionPage, name: string): ReconciliationValue {
   if (typeof record.checkbox === "boolean") return record.checkbox;
   if (typeof record.number === "number") return record.number;
   if (record.select && typeof record.select === "object") return clean((record.select as Record<string, unknown>).name);
+  if (record.status && typeof record.status === "object") return clean((record.status as Record<string, unknown>).name);
   if (record.date && typeof record.date === "object") return clean((record.date as Record<string, unknown>).start);
   return "";
 }
@@ -550,7 +552,13 @@ async function markConflict(input: {
   pageId: string;
   schema: Record<string, DataSourceProperty>;
   message: string;
+  page?: NotionPage;
 }) {
+  if (input.page?.id === input.pageId && !notionConflictMetadataNeedsWrite({
+    syncStatus: clean(pageProperty(input.page, "Sync stav")),
+    syncError: clean(pageProperty(input.page, "Sync chyba")),
+    message: input.message,
+  })) return;
   const properties = encodeProperties({
     "Sync stav": "Chyba",
     "Sync chyba": `CONFLICT: ${input.message}`.slice(0, 1800),
@@ -718,6 +726,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId,
               schema,
+              page: pagesById.get(pageId),
               message: identity.reason,
             }).catch(() => undefined);
           }
@@ -739,6 +748,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId: identity.page.id,
               schema,
+              page: pagesById.get(identity.page.id),
               message: "Notion stránka je už namapovaná na iný Psipedia záznam.",
             }).catch(() => undefined);
           }
@@ -773,6 +783,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId: page.id,
               schema,
+              page,
               message: `Existujúci backfill záznam sa obsahovo líši od canonical Psipedia a nemá bezpečný baseline. Rozdielne polia: ${fields.join(", ") || "neznáme"}.`,
             }).catch(() => undefined);
           }
@@ -874,6 +885,7 @@ async function syncAgenda(input: {
             bindings: input.bindings,
             pageId: page.id,
             schema,
+            page,
             message: "Namapovaná stránka má iné Psipedia ID.",
           });
         }
@@ -890,6 +902,7 @@ async function syncAgenda(input: {
             bindings: input.bindings,
             pageId: page.id,
             schema,
+            page,
             message: "Namapovaná stránka má inú URL Psipedia.",
           });
         }
@@ -962,6 +975,7 @@ async function syncAgenda(input: {
               bindings: input.bindings,
               pageId: page.id,
               schema,
+              page,
               message: "Legacy mapping nemá bidirectional baseline a obe strany sa obsahovo líšia.",
             });
           }
@@ -1052,7 +1066,7 @@ async function syncAgenda(input: {
           });
           if (input.mode === "sync") {
             await markConflict({
-              bindings: input.bindings, pageId: page.id, schema,
+              bindings: input.bindings, pageId: page.id, schema, page,
               message: "LOSSLESS_FIELD_REVIEW_REQUIRED: " +
                 resolution.conflicts.map((c) => c.field + ":" + c.reason).join(", ").slice(0, 1300),
             });
@@ -1260,6 +1274,7 @@ async function syncAgenda(input: {
             bindings: input.bindings,
             pageId: page.id,
             schema,
+            page,
             message: conflictMessage.slice("CONFLICT: ".length),
           });
         }
@@ -1541,6 +1556,7 @@ async function syncAgenda(input: {
           bindings: input.bindings,
           pageId: page.id,
           schema,
+          page,
           message: `Canonical záznam už existuje pre slug/URL (Psipedia ID: ${duplicate}).`,
         }).catch(() => undefined);
       }

@@ -22,7 +22,8 @@
 - [ ] **2C:** pokračovať zjednotením per-agenda diagnostiky a administrátorského prehľadu, bez zmeny doménovej publikačnej logiky.
 - [x] **3A:** každé prepojené ID Adresára sa v jednom hodinovom behu reconciliuje najviac raz; fast-path bez zosúladenia naďalej povoľuje export zmenených kanonických údajov D1. Moved/archived/trashed Notion stránka nie je platný cieľ PATCH.
 - [ ] **3B:** ďalšie bezpečné rekonciliácie obsahových zmien a starších konfliktov cez existujúce prepojenia, bez hromadného prepísania.
-- [ ] **4:** Podujatia a Pomoc psom: spoločné vykonávanie pre agendy `events`, `organizations`, `adoptions`, `help-cases`, `lost-found` s oddelenými doménovými hranicami.
+- [x] **4A:** zjednotená idempotentná konfliktná diagnostika v Events/Help: už zapísaná identická chyba sa znovu nepatchuje, takže sa nemení `last_edited_time`; existujúce doménové hranice zostávajú zachované.
+- [ ] **4B:** zostávajúce zjednotenie a regresné overenie všetkých Podujatia/Pomoc psom agend vrátane identity, súbehu a schvaľovania.
 - [ ] **5:** zjednotiť reportovanie „Posledný sync / Čaká / Chyba / Konflikt“ a dočasné zlyhania bez hádania o stave publikovania.
 - [ ] **6:** integračné testy Admin → D1 → Notion a povolených Notion → D1 zmien pre každú agendu, vrátane opakovania, súbehu, chybných ID a nedostupného Notion API.
 - [ ] **7:** read-only produkčné preverenie schém, prepojení, povolení a nasadených flagov; následný rollout len po explicitnom schválení používateľa.
@@ -61,3 +62,7 @@ Pri nesúhlase identity Notion stránky alebo pri presune z kanonického data so
 ## CI regresná oprava — izolované VM integračné testy
 
 Doplnený reálny `notionDirectoryPageBelongsToSource` a `NotionDirectoryUnsafeTargetError` do existujúcich VM fixture kontextov `tests/notion-directory-apply-sql-r2-integration.test.mjs` a `tests/gemini-canonical-publish-handoff.test.mjs`. Skúšobné Notion stránky majú validné `parent.type` a `parent.data_source_id`; produkčná ochrana sa teda testuje, neobchádza. Regresie v predchádzajúcom SHA boli spôsobené tým, že výňatok funkcie bol spustený bez jeho importov.
+
+## Fáza 4A — idempotentná diagnostika konfliktov Events/Help
+
+Opakovanie tej istej detegovanej chyby `BASELINE_UNAVAILABLE` alebo identity konfliktu už nezapisuje nezmenené `Sync chyba`/`Sync stav`/`Posledný sync` do Notionu pri každom hodinovom behu. `markConflict` používa údaje o stránke už získané v danej dávke, nezavádza nové API čítania. Ak sa chyba zmení alebo stav prestane byť `Chyba`, aktualizácia sa vykoná ako doteraz. Konflikt sa stále počíta a posiela na kontrolu; oba obsahové systémy zostávajú nedotknuté a nedochádza k automatickému výberu víťaza. Nové testy sú v existujúcom `notion-data-quality-recovery.test.mjs`.
