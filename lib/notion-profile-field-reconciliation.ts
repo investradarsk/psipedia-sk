@@ -108,12 +108,12 @@ export function reconcileProfileFields(input: {
     if (p) psipediaFields.push(path);
     if (!n && !p) continue;
     if (protectedPath(path, input.protectedFields)) {
-      if (input.canonicalFieldsWin) {
-        // Preserve Psipedia's canonical field and schedule any divergent
-        // Notion value for write-back. Never advance the verified baseline here.
-        if (n) notionFields.push(path);
-        if (p) psipediaFields.push(path);
-      } else if (n) conflicts.push({ field: path, reason: "PROTECTED_FIELD" });
+      // Changed-field evidence was already recorded above. When the caller
+      // explicitly owns this field, retain its canonical value and request a
+      // Notion write-back; do not report a duplicate change or a conflict.
+      if (!input.canonicalFieldsWin && n) {
+        conflicts.push({ field: path, reason: "PROTECTED_FIELD" });
+      }
       continue;
     }
     if ((n && !blank(base[path]) && blank(remote[path]) && !input.verifiedDeletes?.has(`notion:${path}`))
