@@ -326,12 +326,180 @@ export async function runQualityMissingHourly(input: { database: Database; tavil
   return { enabled: true, schemaReady: true, scanned, found, failed };
 }
 
+
+export type ManualQualityGroup = "image" | "web" | "phone" | "email" | "social" | "all";
+export type ManualQualityMode = "profiles" | "free" | "alternative";
+export type ManualQualityCursor = { index: number; id: number };
+export type ManualQualityInput = {
+  area: QualityArea; group: ManualQualityGroup; mode: ManualQualityMode;
+  query?: string; cursor?: ManualQualityCursor;
+  entityType?: Kind; entityId?: number;
+};
+export type ManualQualityHistory = {
+  id:string; area:QualityArea; search_group:string; mode:string; profile_label:string|null;
+  created_at:string; status:string; found:number; error_code:string|null;
+};
+export type ManualQualityResponse = {
+  inspected:number; found:number; cursor:ManualQualityCursor|null; finished:boolean;
+  profileLabel:string|null; estimatedCredits:number;
+  results?:Array<{title:string;url:string;snippet:string|null}>;
+  images?:string[];
+};
+
+const MANUAL_GROUPS:readonly ManualQualityGroup[]=["image","web","phone","email","social","all"];
+const MANUAL_MODES:readonly ManualQualityMode[]=["profiles","free","alternative"];
+export function validManualQualityRequest(input:ManualQualityInput) {
+  if(!QUALITY_AREAS.includes(input.area)||!MANUAL_GROUPS.includes(input.group)||!MANUAL_MODES.includes(input.mode)) {
+    throw new Error("Neplatné nastavenie ručného vyhľadávania.");
+  }
+  if(input.cursor && (!Number.isSafeInteger(input.cursor.index)||input.cursor.index<0||
+    !Number.isSafeInteger(input.cursor.id)||input.cursor.id<0)) throw new Error("Neplatná pozícia vyhľadávania.");
+  if(input.mode==="free" && (typeof input.query!=="string"||input.query.trim().length<3||
+    input.query.length>250)) throw new Error("Zadaj hľadaný výraz (3 až 250 znakov).");
+  if(input.mode==="alternative" && (input.group!=="image"||
+    !input.entityType||!AREA_KINDS[input.area].includes(input.entityType)||
+    !Number.isSafeInteger(input.entityId)||Number(input.entityId)<1)) {
+    throw new Error("Neplatný profil pre hľadanie iného obrázka.");
+  }
+}
+
+export async function qualityManualSchemaReady(db:Database) {
+  const row=await db.prepare("SELECT 1 ok FROM sqlite_master WHERE type='table' AND name='quality_missing_manual_attempts'")
+    .first<{ok:number}>();
+  return Boolean(row?.ok);
+}
+
+export async function listManualQualityHistory(db:Database):Promise<ManualQualityHistory[]> {
+  if(!await qualityManualSchemaReady(db)) return [];
+  const rows=await db.prepare("SELECT id,area,search_group,mode,profile_label,created_at,status,found,error_code " +
+    "FROM quality_missing_manual_attempts ORDER BY created_at DESC LIMIT 20").all<ManualQualityHistory>();
+  return rows.results;
+}
+
+async function nextManualQualityProfile(db:Database, input:ManualQualityInput):Promise<Profile|null> {
+  const kinds=AREA_KINDS[input.area];
+  const exact=input.mode==="alternative";
+  const selectedKinds=exact?[input.entityType as Kind]:kinds;
+  const startIndex=exact?0:Math.min(kinds.length-1,input.cursor?.index??0);
+  for(let local=0;local<selectedKinds.length;local++) {
+    const kind=selectedKinds[local];
+    const index=kinds.indexOf(kind);
+    if(!exact && index<startIndex) continue;
+    const spec=SPECS[kind];
+    let after=exact?Number(input.entityId)-1:index===startIndex?(input.cursor?.id??0):0;
+    for(let page=0;page<(exact?1:10);page++) {
+      const scope=kind==="FOSTER"?" AND category='docasna-opatera'"
+        :kind==="HELP_ITEM"?" AND category<>'docasna-opatera'":"";
+      const query=exact?"SELECT * FROM "+spec.table+" WHERE id=?"+scope+" LIMIT 1":
+        "SELECT * FROM "+spec.table+" WHERE id>?"+scope+" ORDER BY id ASC LIMIT 250";
+      const rows=await db.prepare(query).bind(exact?input.entityId:after).all<Row>();
+      for(const row of rows.results) {
+        const profile=eligible(input.area,kind,index,row);
+        if(!profile) continue;
+        profile.missing=profile.missing.filter(f=>input.group==="all"||f.group===input.group);
+        if(!profile.missing.length) continue;
+        if(!exact) {
+          const pending=await db.prepare("SELECT field_key FROM quality_missing_proposals "+
+            "WHERE entity_type=? AND entity_id=? AND status='OPEN'").bind(kind,profile.id).all<{field_key:string}>();
+          const opened=new Set(pending.results.map(x=>x.field_key));
+          profile.missing=profile.missing.filter(f=>!opened.has(f.key));
+        }
+        if(profile.missing.length) return profile;
+      }
+      if(exact||rows.results.length<250) break;
+      after=Number(rows.results[rows.results.length-1].id);
+    }
+  }
+  return null;
+}
+
+export async function runManualQualitySearch(
+  db:Database, input:ManualQualityInput, actor:string, apiKey?:string
+):Promise<ManualQualityResponse> {
+  validManualQualityRequest(input);
+  if(!await qualityManualSchemaReady(db)) throw new Error(
+    "Ručné vyhľadávanie vyžaduje databázovú migráciu 0143. Automatická kontrola zostáva zapnutá."
+  );
+  if(!apiKey?.trim()) throw new Error("Tavily nie je nakonfigurované.");
+  const profile=input.mode==="free"?null:await nextManualQualityProfile(db,input);
+  if(input.mode!=="free"&&!profile) return {
+    inspected:0,found:0,cursor:null,finished:true,profileLabel:null,estimatedCredits:0,
+  };
+  const now=new Date().toISOString();
+  const id=crypto.randomUUID();
+  const cursor=profile?{index:profile.index,id:profile.id}:null;
+  const terms=input.area==="events"?"registrácia miesto podujatie"
+    :input.area==="help"?"kontakt pomoc psom organizácia":"kontakt veterinár psi služby";
+  const query=input.mode==="free"?input.query!.trim():
+    [profile!.label, String(profile!.row.city??"").trim(),input.group==="image"?"fotografia obrázok":terms]
+      .filter(Boolean).join(" ").slice(0,500);
+  const claimed=await db.prepare(
+    "INSERT INTO quality_missing_manual_attempts"+
+    "(id,area,search_group,mode,entity_type,entity_id,profile_label,created_at,status,actor)"+
+    " VALUES(?,?,?,?,?,?,?,?,?,?)"
+  ).bind(id,input.area,input.group,input.mode,profile?.kind??null,profile?.id??null,
+    profile?.label??null,now,"RUNNING",actor.slice(0,200)).run();
+  if(claimed.meta.changes!==1) throw new Error("Kontrolu sa nepodarilo zapísať.");
+  let found=0;
+  try {
+    const provider=new TavilyAutomationSearchProvider({apiKey});
+    const search=await provider.searchWithImages({query,maxResults:5,locale:"sk-SK",country:"SK"},
+      input.group==="all"||input.group==="image");
+    if(profile) {
+      const previous=await db.prepare("SELECT field_key,value FROM quality_missing_proposals WHERE "+
+        "entity_type=? AND entity_id=?").bind(profile.kind,profile.id)
+        .all<{field_key:string;value:string}>();
+      const previousImages=new Set(previous.results.filter(x=>x.field_key==="imageUrl").map(x=>x.value));
+      const images=search.images.filter(x=>!previousImages.has(x));
+      let discovered=discover(profile,search.results,images)
+        .filter(x=>input.group==="all"||x.field.group===input.group);
+      // Reject inaccessible candidates before queueing. Canonical image still requires manual approval.
+      if(discovered.some(x=>x.field.group==="image")) {
+        const {downloadRemoteImage}=await import("./notion-sync-shared.ts");
+        const validated:typeof discovered=[];
+        for(const candidate of discovered) {
+          if(candidate.field.group!=="image"){validated.push(candidate);continue;}
+          try { await downloadRemoteImage(candidate.value); validated.push(candidate); }
+          catch { /* Broken or unsafe image is not a reviewable candidate. */ }
+        }
+        discovered=validated;
+      }
+      for(const item of discovered) {
+        const r=await db.prepare("INSERT OR IGNORE INTO quality_missing_proposals"+
+          "(area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at)"+
+          " VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .bind(input.area,profile.kind,profile.id,profile.label,item.field.key,item.field.label,
+            item.field.group,item.value,item.source,now).run();
+        found+=Number(r.meta.changes??0);
+      }
+    }
+    await db.prepare("UPDATE quality_missing_manual_attempts SET status='SUCCESS',found=?,finished_at=? WHERE id=?")
+      .bind(found,new Date().toISOString(),id).run();
+    return {
+      inspected:profile?1:0,found,cursor,finished:input.mode!=="free"&&!profile,
+      profileLabel:profile?.label??null,estimatedCredits:1,
+      ...(input.mode==="free"?{
+        results:search.results.map(r=>({title:r.title,url:r.url,snippet:r.snippet??null})),
+        images:search.images,
+      }:{}),
+    };
+  } catch(error) {
+    const code=qualityFailureCode(error);
+    await db.prepare("UPDATE quality_missing_manual_attempts SET status='FAILED',error_code=?,finished_at=? WHERE id=?")
+      .bind(code,new Date().toISOString(),id).run();
+    console.error(JSON.stringify({event:"quality_missing_manual_failed",area:input.area,reason:code}));
+    throw new Error("Ručné vyhľadávanie zlyhalo: "+qualityFailureLabel(code));
+  }
+}
+
 export type MissingQualityProposal = {
   id:number;area:QualityArea;entity_type:Kind;entity_id:number;profile_label:string;
   field_key:string;field_label:string;field_group:string;value:string;source_url:string|null;found_at:string;
 };
 export type MissingQualityDashboard = {
   pending: MissingQualityProposal[];
+  manualHistory: ManualQualityHistory[];
+  manualReady: boolean;
   total: number;
   monthly: Record<QualityArea, number>;
   outcomes: Record<QualityArea, QualityScanCount>;
@@ -346,8 +514,10 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
   };
   const last: Record<QualityArea, QualityScanLast> = { services: null, events: null, help: null };
   if (!(await hasScanStatusColumns(db))) {
-    return { pending: [], total: 0, monthly, outcomes, last, truncated: false, schemaReady: false };
+    return { pending: [], manualHistory: [], manualReady: false, total: 0, monthly, outcomes, last, truncated: false, schemaReady: false };
   }
+  const manualReady=await qualityManualSchemaReady(db);
+  const manualHistory=manualReady?await listManualQualityHistory(db):[];
   const since = new Date().toISOString().slice(0, 7) + "-01";
   const [rows, counts, runCounts, latest] = await Promise.all([
     db.prepare("SELECT id,area,entity_type,entity_id,profile_label,field_key,field_label,field_group,value,source_url,found_at FROM quality_missing_proposals WHERE status='OPEN' ORDER BY id DESC LIMIT 1000").all<MissingQualityProposal>(),
@@ -374,7 +544,7 @@ export async function loadMissingQualityDashboard(db: Database): Promise<Missing
     if (QUALITY_AREAS.includes(row.area)) last[row.area] = { status: row.status, errorCode: row.error_code };
   }
   const total = Number(counts?.n ?? 0);
-  return { pending: rows.results, total, monthly, outcomes, last,
+  return { pending: rows.results, manualHistory, manualReady, total, monthly, outcomes, last,
     truncated: total > rows.results.length, schemaReady: true };
 }
 
