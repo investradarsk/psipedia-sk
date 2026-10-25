@@ -130,6 +130,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
   const [articles, setArticles] = useState<ManagedArticleSummary[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const galleryUploadPending=useRef(false);
+  const [galleryUploading,setGalleryUploading]=useState(false);
   const singleUploadPending=useRef(false);
   const [uploadingSingleId,setUploadingSingleId]=useState<string|null>(null);
 
@@ -222,6 +223,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
     }
 
     galleryUploadPending.current = true;
+    setGalleryUploading(true);
     onUploadingChange(true);
     onError("");
     const uploaded: ArticleBlockImage[] = [];
@@ -248,6 +250,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
       if (failures.length) onError(failures.join(" "));
     } finally {
       galleryUploadPending.current = false;
+      setGalleryUploading(false);
       onUploadingChange(false);
     }
   }
@@ -302,7 +305,7 @@ export function AdminArticleBlockEditor({ blocks, onChange, currentArticleId, pr
               {block.url ? <img src={block.url} alt={block.alt} /> : <div className="admin-block-image-placeholder">Obrázok ešte nie je vybraný</div>}
               <AdminSingleImageUpload label={block.url ? "Vymeniť obrázok" : "Nahrať obrázok"}
                  onFile={file=>uploadSingle(file, block.id)} busy={uploadingSingleId===block.id}
-                 disabled={uploadingSingleId!==null || galleryUploadPending.current} onRejected={onError} />
+                 disabled={uploadingSingleId!==null || galleryUploading} onRejected={onError} />
               <div className="admin-field-grid">
                 <div className="admin-field"><label>Alt text</label><input value={block.alt} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, alt: event.target.value } : item)} placeholder="Stručne opíš, čo je na obrázku" /></div>
                 <div className="admin-field"><label>Popis pod obrázkom</label><input value={block.caption ?? ""} onChange={(event) => update(block.id, (item) => item.type === "image" ? { ...item, caption: event.target.value } : item)} /></div>
