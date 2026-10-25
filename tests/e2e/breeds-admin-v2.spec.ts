@@ -77,6 +77,7 @@ test.describe("BREEDS-ADMIN Plemená Admin 2.0", () => {
     await page.goto("/admin/plemena", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Plemená" })).toBeVisible();
     await expect(page.getByText("Obsahovo neúplné")).toBeVisible();
+    await expect(page.locator('[data-admin-breed-hydrated="true"]')).toBeVisible();
 
     const search = page.getByPlaceholder("Názov, slug, pôvod, FCI…");
     await search.fill("burgosky");
