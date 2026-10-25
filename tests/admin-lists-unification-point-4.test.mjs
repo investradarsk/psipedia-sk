@@ -47,6 +47,11 @@ test("adoptions and lost/found share URL, numeric pagination and table shell wit
   assert.match(adoption, /\["freshness", next\.freshness && next\.freshness !== "all" \? next\.freshness : ""\]/);
   assert.match(lost, /hrefForPage=\{\(page\)=>href\(filters,page\)\}/);
   assert.match(lost, /\["status", status\]/);
+  const help = read("components/admin-help-dashboard.tsx");
+  assert.match(help, /adminFilteredListHref\("/);
+  assert.match(help, /\["category", filters\.category !== "all" \? filters\.category : ""\]/);
+  assert.match(help, /\["status", filters\.status !== "all" \? filters\.status : ""\]/);
+  assert.match(help, /\["q", filters\.q\]/);
   assert.match(pagination, /aria-current="page"/);
   assert.match(pagination, /adminNumberedPageWindow\(page, totalPages\)/);
   assert.match(table, /role="region" aria-label=\{label\} tabIndex=\{0\}/);
