@@ -60,12 +60,6 @@
   white-space: nowrap;
 }
 
-/* Keep the CTA clearly visible to keyboard users across banner variants. */
-.cta:focus-visible {
-  outline: 3px solid var(--brand-accent, #f47757);
-  outline-offset: 3px;
-}
-
 .compact {
   grid-template-columns: 1fr;
   gap: 12px;
