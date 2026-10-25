@@ -97,3 +97,42 @@ test("Notion resync merges sparse updates before full D1 upsert and preserves OG
   assert.match(syncSource, /ogImage: basePayload\.seo\?\.ogImage\?\.trim\(\) \|\| prepared\.imageUrl \|\| ""/);
   assert.match(syncSource, /notionPropertyRecord\(page, "Editorial complete"\) \? checkboxProperty/);
 });
+
+test("draft breed Admin saves mirror only explicitly edited Notion text fields", () => {
+  assert.match(syncSource, /export async function writeBackDraftBreedEditorialToNotion/);
+  assert.match(syncSource, /breedDraftTextChanges\(args.before, args.breed\)/);
+  assert.match(syncSource, /"Intro", "rich_text"/);
+  assert.match(syncSource, /"Charakter", "rich_text"/);
+  assert.match(syncSource, /"Výcvik", "rich_text"/);
+  assert.match(syncSource, /"Zdravie", "rich_text"/);
+  assert.match(syncSource, /"Názov", "title"/);
+  const draft = syncSource.slice(syncSource.indexOf("export async function writeBackDraftBreedEditorialToNotion("),
+    syncSource.indexOf("async function syncOneBreed("));
+  assert.doesNotMatch(draft, /"Stav":|slug: args.breed.slug|status: args.breed.status/);
+  assert.match(breedRouteSource, /writeBackDraftBreedEditorialToNotion\(/);
+  assert.match(breedRouteSource, /before.status === "draft" && breed.status === "draft"/);
+});
+
+test("breed draft write-back checks Notion identity, source and unchanged remote revision", () => {
+  const draft = syncSource.slice(syncSource.indexOf("export async function writeBackDraftBreedEditorialToNotion("),
+    syncSource.indexOf("async function syncOneBreed("));
+  assert.match(draft, /notionPageBelongsToDataSource\(page, dataSourceId\)/);
+  assert.match(draft, /notionRichTextProperty\(page, "Psipedia ID"\)/);
+  assert.match(draft, /BREED_NOTION_REMOTE_EDITORIAL_CHANGED/);
+  assert.match(draft, /BREED_NOTION_FIELD_REVIEW_REQUIRED/);
+  assert.match(draft, /BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED/);
+  const evidence = draft.indexOf("BREED_NOTION_WRITEBACK_ECHO_UNVERIFIED");
+  const mapping = draft.indexOf("UPDATE breed_notion_sync SET content_hash");
+  assert.ok(evidence >= 0 && mapping > evidence, "Mapping must follow verified Notion echo");
+  assert.match(draft, /WHERE notion_page_id=\? AND breed_id=\? AND content_hash=\?/);
+  assert.match(draft, /committed.meta.changes !== 1/);
+});
+
+test("pending Admin breed edits block stale Notion sync and false success", () => {
+  const mapped = syncSource.slice(syncSource.indexOf("async function syncOneBreed("),
+    syncSource.indexOf("export async function runNotionBreedSyncSweep("));
+  const guard = mapped.indexOf("BREED_ADMIN_REVISION_NOT_SYNCED");
+  const original = mapped.indexOf("if (mapping.content_hash === contentHash)");
+  assert.ok(guard >= 0 && original > guard);
+  assert.match(breedRouteSource, /notion_breed_draft_writeback_failed/);
+});
