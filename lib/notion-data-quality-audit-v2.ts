@@ -101,26 +101,39 @@ export async function loadAuditD1Evidence(
   const ids = [...new Set(pages.map((p) => entityId(propertyText(p, "Psipedia ID"))).filter((id): id is number => id !== null))];
   if (pageIds.length === 0) return { coverage: "VERIFIED", mappings: [], canonicalIds: [] };
   try {
-    const clauses = ["notion_page_id IN " + placeholders(pageIds.length)];
-    const params: Array<string | number> = [...pageIds];
-    if (ids.length) {
-      clauses.push(cfg.key + " IN " + placeholders(ids.length));
-      params.push(...ids);
+    // 100 Notion IDs plus 100 canonical IDs exceed Cloudflare D1's small
+    // statement variable budget. Query bounded slices and deduplicate identity
+    // evidence without changing the live synchronization or writing to D1.
+    const mappings = new Map<string, AuditMapping>();
+    const BATCH = 40;
+    for (let offset = 0; offset < Math.max(pageIds.length, ids.length); offset += BATCH) {
+      const scopedPages = pageIds.slice(offset, offset + BATCH);
+      const scopedIds = ids.slice(offset, offset + BATCH);
+      const clauses: string[] = [];
+      const params: Array<string | number> = [];
+      if (scopedPages.length) {
+        clauses.push("notion_page_id IN " + placeholders(scopedPages.length));
+        params.push(...scopedPages);
+      }
+      if (scopedIds.length) {
+        clauses.push(cfg.key + " IN " + placeholders(scopedIds.length));
+        params.push(...scopedIds);
+      }
+      const sql = "SELECT notion_page_id, " + cfg.key + " AS entity_id, content_hash, notion_last_edited_time, psipedia_updated_at FROM "
+        + cfg.mapping + " WHERE " + (cfg.agenda ? "agenda = ? AND " : "") + "(" + clauses.join(" OR ") + ")"
+        + " ORDER BY notion_page_id ASC LIMIT 201";
+      const rows = await database.prepare(sql).bind(...(cfg.agenda ? [cfg.agenda, ...params] : params)).all<AuditMapping>();
+      if ((rows.results ?? []).length > 200) return { coverage: "UNKNOWN", mappings: [], canonicalIds: [] };
+      for (const row of rows.results ?? []) mappings.set(row.notion_page_id + ":" + row.entity_id, row);
+      if (mappings.size > 200) return { coverage: "UNKNOWN", mappings: [], canonicalIds: [] };
     }
-    const where = "(" + clauses.join(" OR ") + ")";
-    const sql = "SELECT notion_page_id, " + cfg.key + " AS entity_id, content_hash, notion_last_edited_time, psipedia_updated_at FROM "
-      + cfg.mapping + " WHERE " + (cfg.agenda ? "agenda = ? AND " : "") + where
-      + " ORDER BY notion_page_id ASC LIMIT 201";
-    const rows = await database.prepare(sql).bind(...(cfg.agenda ? [cfg.agenda, ...params] : params)).all<AuditMapping>();
-    // A 201st row means the 100-row bounded mapping evidence is not exhaustive.
-    if ((rows.results ?? []).length > 200) return { coverage: "UNKNOWN", mappings: [], canonicalIds: [] };
     const canonical = ids.length
       ? await database.prepare("SELECT id FROM " + cfg.table + " WHERE id IN " + placeholders(ids.length) + " ORDER BY id ASC LIMIT 100")
         .bind(...ids).all<{ id: number }>()
       : { results: [] as { id: number }[] };
     return {
       coverage: "VERIFIED",
-      mappings: rows.results ?? [],
+      mappings: [...mappings.values()],
       canonicalIds: (canonical.results ?? []).map((row) => Number(row.id)),
     };
   } catch {

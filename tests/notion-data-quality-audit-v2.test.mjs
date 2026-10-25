@@ -214,3 +214,44 @@ test("Audit 02 SELECT statements execute against actual migration-defined SQLite
     sqlite.close();
   }
 });
+
+test("100-page audit keeps every D1 statement below 100 bind variables", async () => {
+  const pages = Array.from({length:100}, (_,i) => page("notion-page-" + i, i+1));
+  let calls = 0;
+  const db = { prepare(sql) {
+    return { bind(...args) {
+      assert.ok(args.length <= 100, "Too many D1 bound values");
+      return { async all() {
+        calls++;
+        if (sql.includes("SELECT id FROM")) {
+          return { results: Array.from({length:100},(_,i)=>({id:i+1})) };
+        }
+        return { results: [] };
+      } };
+    } };
+  } };
+  const data = await loadAuditD1Evidence(db,"directory",pages);
+  assert.equal(data.coverage,"VERIFIED");
+  assert.equal(data.canonicalIds.length,100);
+  assert.ok(calls>=4,"expected bounded mapping queries plus canonical lookup");
+});
+
+test("paged audit merges duplicate mapping evidence without changing canonical identity", async () => {
+  const pages = Array.from({length:81},(_,i)=>page("page-"+i,i+1));
+  const row = {
+    notion_page_id:"page-0",entity_id:1,content_hash:"a".repeat(64),
+    notion_last_edited_time:null,psipedia_updated_at:null,
+  };
+  let count=0;
+  const db={ prepare(sql) { return {bind(...args) {
+    return { async all() {
+      if(sql.includes("SELECT id FROM")) return {results:[{id:1}]};
+      count++;
+      return {results:[row]};
+    }};
+  }};}};
+  const result=await loadAuditD1Evidence(db,"directory",pages);
+  assert.equal(result.coverage,"VERIFIED");
+  assert.equal(result.mappings.length,1);
+  assert.ok(count>1);
+});
